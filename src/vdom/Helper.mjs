@@ -294,7 +294,12 @@ class Helper extends Base {
         me.compareAttributes({deltas, oldVnode, vnode, vnodeMap});
 
         if (childNodes.length === 0 && oldChildNodes.length > 1) {
-            deltas.remove.push({action: 'removeAll', parentId: vnodeId});
+            // Setting textContent or innerHTML natively replaces every child node, and the remove
+            // bucket applies after it: a removeAll here would erase the content just written.
+            if (vnode.textContent === undefined && vnode.innerHTML === undefined) {
+                deltas.remove.push({action: 'removeAll', parentId: vnodeId})
+            }
+
             return deltas
         }
 

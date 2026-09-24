@@ -409,4 +409,42 @@ test.describe('Neo.vdom.Helper', () => {
         expect(updatedVnode.childNodes[1].id).toBe('new-node');
         expect(deltas.length).toBe(4);
     });
+
+    // A dock tab label that loses its stack handle: [text, handle] becomes a plain string. The
+    // remove bucket applies after the textContent update, so a removeAll would erase the new label.
+    test('Children collapsing to text keep the text: no removeAll follows the textContent update', () => {
+        let vdom = {id: 'label', tag: 'span', cn: [
+            {vtype: 'text', id: 'label-text', text: 'Metrics'},
+            {tag: 'span', id: 'label-handle', text: '⠿'}
+        ]};
+        let { vnode } = VdomHelper.create({vdom});
+
+        vdom = {id: 'label', tag: 'span', text: 'Metrics'};
+
+        let { deltas } = VdomHelper.update({vdom, vnode});
+
+        expect(deltas).toEqual([{id: 'label', textContent: 'Metrics'}]);
+    });
+
+    test('Children collapsing to markup keep the markup: no removeAll follows the innerHTML update', () => {
+        let vdom = {id: 'label', tag: 'span', cn: [{id: 'label-a'}, {id: 'label-b'}]};
+        let { vnode } = VdomHelper.create({vdom});
+
+        vdom = {id: 'label', tag: 'span', html: '<b>Metrics</b>'};
+
+        let { deltas } = VdomHelper.update({vdom, vnode});
+
+        expect(deltas).toEqual([{id: 'label', innerHTML: '<b>Metrics</b>'}]);
+    });
+
+    test('Children collapsing to nothing still clear the node', () => {
+        let vdom = {id: 'list', cn: [{id: 'item-1'}, {id: 'item-2'}]};
+        let { vnode } = VdomHelper.create({vdom});
+
+        vdom = {id: 'list', cn: []};
+
+        let { deltas } = VdomHelper.update({vdom, vnode});
+
+        expect(deltas).toEqual([{action: 'removeAll', parentId: 'list'}]);
+    });
 });
