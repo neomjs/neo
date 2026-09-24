@@ -75,7 +75,9 @@ test.describe('Neo.canvas.Base — context acquisition', () => {
     const errors    = [],
           renderers = [];
 
-    let consoleError;
+    // The worker outlives this file: `Neo.currentWorker` is shared by every spec in the process, so the suite
+    // draws on its own map and hands the previous one back — including the case where there was none.
+    let consoleError, hadCanvasWindowMap, previousCanvasWindowMap;
 
     /**
      * Places the stand-in in the worker's map and runs the remote entry point, which finds it synchronously.
@@ -95,7 +97,10 @@ test.describe('Neo.canvas.Base — context acquisition', () => {
     };
 
     test.beforeAll(() => {
-        Neo.currentWorker.canvasWindowMap ??= {};
+        hadCanvasWindowMap      = Object.hasOwn(Neo.currentWorker, 'canvasWindowMap');
+        previousCanvasWindowMap = Neo.currentWorker.canvasWindowMap;
+
+        Neo.currentWorker.canvasWindowMap = {};
 
         consoleError  = console.error;
         console.error = (...args) => errors.push(args.join(' '))
@@ -103,7 +108,17 @@ test.describe('Neo.canvas.Base — context acquisition', () => {
 
     test.afterAll(() => {
         console.error = consoleError;
-        renderers.forEach(renderer => renderer.destroy())
+        renderers.forEach(renderer => renderer.destroy());
+
+        if (hadCanvasWindowMap) {
+            Neo.currentWorker.canvasWindowMap = previousCanvasWindowMap
+        } else {
+            delete Neo.currentWorker.canvasWindowMap
+        }
+
+        // The restore is part of the contract this file makes with the files after it.
+        expect(Object.hasOwn(Neo.currentWorker, 'canvasWindowMap')).toBe(hadCanvasWindowMap);
+        expect(Neo.currentWorker.canvasWindowMap).toBe(previousCanvasWindowMap)
     });
 
     test.beforeEach(() => {
