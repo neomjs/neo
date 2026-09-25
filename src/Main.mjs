@@ -368,6 +368,25 @@ class Main extends core.Base {
     static consoleMethods = ['log', 'warn', 'error', 'info']
 
     /**
+     * @summary Reads the content size a `window.open()` feature string asks for.
+     * @param {String} windowFeatures e.g. `height=240,left=10,top=10,width=320`
+     * @returns {{height: Number, width: Number}|null} Both finite and positive, otherwise null
+     * @static
+     */
+    static parseWindowFeatureSize(windowFeatures) {
+        const size = {};
+
+        String(windowFeatures ?? '').split(',').forEach(feature => {
+            const [key, value] = feature.split('=').map(part => part.trim().toLowerCase());
+
+            (key === 'width'  || key === 'innerwidth')  && (size.width  = Number(value));
+            (key === 'height' || key === 'innerheight') && (size.height = Number(value))
+        });
+
+        return size.width > 0 && size.height > 0 && Number.isFinite(size.width + size.height) ? size : null
+    }
+
+    /**
      * @summary Writes the identity the App Worker bound this window to, so the next page load presents it again
      * (the worker manager reads it into every worker registration). `Neo.manager.Transaction` asks for
      * this after it minted, cold-created or forked a Group for the window; a plain bind or rebind writes
@@ -1324,7 +1343,12 @@ class Main extends core.Base {
             } catch {/* Cross-origin or unavailable storage: the child boots as a fresh root. */}
 
             if (useTotalHeight) {
-                openedWindow.resizeTo(openedWindow.outerWidth, openedWindow.innerHeight)
+                // The request is the authority for the total extent. A newborn popup has no frame to
+                // read yet: an unemulated Chrome answers outerWidth and outerHeight 0 until the popup is
+                // laid out, and a resize built from that reading lands on the platform's minimum width.
+                const size = Main.parseWindowFeatureSize(windowFeatures);
+
+                size && openedWindow.resizeTo(size.width, size.height)
             }
 
             if (stagedUrl) {
