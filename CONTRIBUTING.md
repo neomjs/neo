@@ -112,9 +112,9 @@ holds the open work. The <a href="README.md#the-repository-map">repository map</
 independently: this one as the `neo.mjs` npm package, the Brain as container images, the shared agent skills as
 `neo-agent-skills` on npm. A fix you land here ships with the next engine release.
 
-1. **Looking for somewhere to start?** For a first PR, take an issue labelled <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">good first issue</a>:
+1. **Looking for somewhere to start?** For a first PR, take an issue labelled <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+no%3Aassignee">good first issue</a>:
    comment on one to claim it (see 3). No approval round needed; they are already approved.
-   **After your first merged PR**, move on to <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22">help wanted</a>
+   **After your first merged PR**, move on to <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+no%3Aassignee">help wanted</a>
    or an unassigned issue in the v13.2 milestone, the same way. Good first issues stay reserved for first-time
    contributors, so there is always a way in for the next person.
 2. For anything else, please ***always*** create a new issue inside our <a href="../../issues">Issues Tracker</a> first and wait for approval.
