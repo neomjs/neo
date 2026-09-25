@@ -1452,9 +1452,15 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * Resolves one dragged vessel's exact live inner rect for conversion sampling — the metric
-     * speaks published inner-window geometry, and only the runtime window identity may select
-     * the manager-owned rect (the logical drag proxy is intentionally ignored).
+     * Resolves one dragged vessel's exact live FRAME rect for conversion sampling. The metric compares
+     * the source's outer extent with the target's inner extent — the same two planes the park's
+     * target-cover admission reads — because the frame is what the user drags by its corner and what
+     * will cover the target's content once parked. Sampling the source's inner rect instead put the
+     * title bar's height between the pointer and the sampled rect on a real window: the overlap a
+     * person can reach by hand fell to the target's top few pixels, while viewport emulation, where a
+     * popup carries no chrome, never showed it. Only the runtime window identity may select the
+     * manager-owned rect (the logical drag proxy is intentionally ignored); a child that publishes no
+     * outer rect samples its inner one, as the park admission does.
      * @param {Object} data
      * @param {String|null} data.itemId
      * @returns {Object|null}
@@ -1462,7 +1468,8 @@ class VesselWorkspace extends DockWorkspace {
      */
     resolveVesselConversionSourceRect({itemId}) {
         let windowId = this.resolveTearOutVessel(itemId)?.windowId,
-            rect     = windowId && Neo.manager?.Window?.get(windowId)?.innerRect;
+            record   = windowId && Neo.manager?.Window?.get(windowId),
+            rect     = record?.outerRect ?? record?.innerRect;
 
         return rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
     }
