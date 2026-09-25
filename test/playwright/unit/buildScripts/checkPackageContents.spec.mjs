@@ -274,58 +274,6 @@ test('the marked producer cannot substitute for the shipped runtime bundle', asy
 });
 
 /**
- * @summary What a release run would delete from `.npmignore`, which `npm pack` cannot see.
- *
- * `prepare.mjs` rebuilds the file as `authoritative header + a copy of .gitignore minus every rule the
- * header owns`, through the shared `composeNpmIgnore`. A rule written below the marker survives only
- * until the next release, so today's pack is green and the first release after it publishes a
- * different package. The arms use a miniature fixture rather than the real files: the defect is in the
- * COMPOSITION, and a fixture states which shape is asserted instead of inheriting whatever the
- * repository happens to hold.
- */
-test.describe('findRulesLostOnRelease', () => {
-    const HEAD = '# Original content of the .gitignore file',
-          GIT  = ['/node_modules', '/dist'].join('\n');
-
-    test('rules below the marker are reported, naming the negations a release would drop', async () => {
-        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
-
-        const npmIgnore = ['resources/content/', HEAD, '/node_modules', '/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs'].join('\n');
-
-        expect(findRulesLostOnRelease(npmIgnore, GIT)).toEqual(['/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs'])
-    });
-
-    test('the same rules in the header survive, and the copy cannot contradict them', async () => {
-        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
-
-        const npmIgnore = ['/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs', HEAD, '/node_modules', '/dist'].join('\n');
-
-        expect(findRulesLostOnRelease(npmIgnore, GIT)).toEqual([])
-    });
-
-    test('rules the copy ADDS are not findings — the sync is the point', async () => {
-        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
-
-        expect(findRulesLostOnRelease(['resources/content/', HEAD].join('\n'), GIT)).toEqual([])
-    });
-
-    test('a rule the header OWNS is subsumed rather than lost, however specific the copy was', async () => {
-        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
-
-        const npmIgnore = ['resources/content/', HEAD, '/node_modules', 'resources/content/handoff.md'].join('\n'),
-              git       = ['/node_modules', 'resources/content/handoff.md'].join('\n');
-
-        expect(findRulesLostOnRelease(npmIgnore, git)).toEqual([])
-    });
-
-    test('a file with no marker is left alone rather than reported wholesale', async () => {
-        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
-
-        expect(findRulesLostOnRelease(['/node_modules', '/dist/*'].join('\n'), GIT)).toEqual([])
-    })
-});
-
-/**
  * @summary The composition itself, and the spelling axis that made a guard built on it lie.
  *
  * `/dist`, `dist`, `dist/` and `/dist/` all name one directory to an ignore file. The first version of
@@ -370,15 +318,43 @@ test.describe('composeNpmIgnore — ownership is spelling-independent', () => {
 });
 
 /**
- * @summary The committed file against what a release writes.
+ * @summary The committed `.npmignore` against what a release writes, in both directions.
  *
- * `findRulesLostOnRelease` guards one direction, a header rule a release would delete, and treats what the copy
- * ADDS as the sync doing its job. Every pack before a release reads the committed file, though: this gate's own
- * pack, an engine pinned by git commit, a site dry run. A copy lagging `.gitignore` makes them all ship something
- * the release will not. The copy had lagged by 16 rules, the Workstation's three re-includes among them.
+ * `prepare.mjs` rebuilds the file as `authoritative header + a copy of .gitignore minus every rule the header
+ * owns`, through the shared `composeNpmIgnore`. Every pack before a release reads the committed file instead:
+ * this gate's own pack, an engine pinned by git commit, a site dry run. So a rule written below the marker
+ * lasts only until the next release, and a copy that lags `.gitignore` ships something the release will not.
+ * The arms use a miniature fixture rather than the real files, except the one that pins the repository: the
+ * defect is in the COMPOSITION, and a fixture states which shape is asserted.
  */
 test.describe('findReleaseDrift', () => {
-    const HEAD = '# Original content of the .gitignore file';
+    const HEAD = '# Original content of the .gitignore file',
+          GIT  = ['/node_modules', '/dist'].join('\n');
+
+    test('FIRES: rules below the marker, naming the bundle negations a release would drop', async () => {
+        const {findReleaseDrift} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        const npmIgnore = ['resources/content/', HEAD, '/node_modules', '/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs'].join('\n');
+
+        expect(findReleaseDrift(npmIgnore, GIT).removed).toEqual(['/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs'])
+    });
+
+    test('PASSES: the same rules in the header, which the copy cannot contradict', async () => {
+        const {findReleaseDrift} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        const npmIgnore = ['/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs', HEAD, '/node_modules'].join('\n');
+
+        expect(findReleaseDrift(npmIgnore, GIT)).toBeNull()
+    });
+
+    test('FIRES: a committed copy still carrying a rule the header owns, which the release drops', async () => {
+        const {findReleaseDrift} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        const npmIgnore = ['resources/content/', HEAD, '/node_modules', 'resources/content/handoff.md'].join('\n'),
+              git       = ['/node_modules', 'resources/content/handoff.md'].join('\n');
+
+        expect(findReleaseDrift(npmIgnore, git)).toEqual({added: [], removed: ['resources/content/handoff.md']})
+    });
 
     test('FIRES: a .gitignore rule the committed copy lacks', async () => {
         const {findReleaseDrift} = await import('../../../../buildScripts/util/check-package-contents.mjs');
