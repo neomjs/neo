@@ -136,6 +136,26 @@ export function headerOf(npmIgnore) {
     return lines.slice(0, markerIndexOf(lines) + 1).join(eol) + eol
 }
 
+/**
+ * @summary Runs `fn` with `.npmignore` composed, then puts the file back as it was. For a pack that passes
+ * `--ignore-scripts`, which runs neither `prepack` nor `postpack`.
+ * @param {String} root The package root.
+ * @param {Function} fn Runs synchronously: the file is put back as soon as it returns.
+ * @returns {*} What `fn` returns.
+ */
+export function withComposedNpmIgnore(root, fn) {
+    const npmIgnorePath = path.join(root, '.npmignore'),
+          npmIgnore     = readFileSync(npmIgnorePath, 'utf8');
+
+    writeFileSync(npmIgnorePath, composeNpmIgnore(npmIgnore, readFileSync(path.join(root, '.gitignore'), 'utf8')).content);
+
+    try {
+        return fn()
+    } finally {
+        writeFileSync(npmIgnorePath, npmIgnore)
+    }
+}
+
 if (isEntryModule(import.meta.url)) {
     // npm runs lifecycle scripts from the package root, so the working directory is the tree being packed.
     const npmIgnorePath = path.resolve('.npmignore'),

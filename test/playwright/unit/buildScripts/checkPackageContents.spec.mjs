@@ -1,12 +1,12 @@
-import {execFileSync}     from 'node:child_process';
-import fs                 from 'node:fs';
-import os                 from 'node:os';
-import path               from 'node:path';
-import process            from 'node:process';
-import {fileURLToPath}    from 'node:url';
-import {test, expect}     from '@playwright/test';
-import {BROWSER_BUNDLES}  from '../../../../buildScripts/util/browserBundles.mjs';
-import {REQUIRED_ENTRIES} from '../../../../buildScripts/util/check-package-contents.mjs';
+import {execFileSync}                      from 'node:child_process';
+import fs                                  from 'node:fs';
+import os                                  from 'node:os';
+import path                                from 'node:path';
+import process                             from 'node:process';
+import {fileURLToPath}                     from 'node:url';
+import {test, expect}                      from '@playwright/test';
+import {BROWSER_BUNDLES}                   from '../../../../buildScripts/util/browserBundles.mjs';
+import {parsePackOutput, REQUIRED_ENTRIES} from '../../../../buildScripts/util/check-package-contents.mjs';
 
 /**
  * The check's value is entirely in WHICH packed paths it fires on, so the assertions are the two
@@ -366,36 +366,58 @@ test.describe('.npmignore is composed at pack time', () => {
         expect(scripts.postpack).toBe('node ./buildScripts/util/npmIgnoreComposition.mjs restore')
     });
 
-    test('npm pack reads what prepack composed, and postpack restores the committed file', async () => {
-        const {parsePackOutput} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+    // A package holding one path only the header excludes (notes.txt) and one only the copy excludes (local-state.txt)
+    const HEADER = ['/notes.txt', HEAD, ''].join('\n'),
+          ENTRY  = path.join(ROOT, 'buildScripts/util/npmIgnoreComposition.mjs');
 
-        const entry  = path.join(ROOT, 'buildScripts/util/npmIgnoreComposition.mjs'),
-              dir    = fs.mkdtempSync(path.join(os.tmpdir(), 'npmignore-')),
-              header = ['/notes.txt', HEAD, ''].join('\n'),
-              write  = (file, content) => fs.writeFileSync(path.join(dir, file), content);
+    function withFixture(scripts, fn) {
+        const dir   = fs.mkdtempSync(path.join(os.tmpdir(), 'npmignore-')),
+              write = (file, content) => fs.writeFileSync(path.join(dir, file), content);
 
-        write('package.json', JSON.stringify({
-            name   : 'npmignore-fixture',
-            version: '1.0.0',
-            scripts: {prepack: `node "${entry}" compose`, postpack: `node "${entry}" restore`}
-        }));
-        write('.npmignore',      header);
+        write('package.json', JSON.stringify({name: 'npmignore-fixture', version: '1.0.0', scripts}));
+        write('.npmignore',      HEADER);
         write('.gitignore',      'local-state.txt\n');
         write('index.js',        '');
         write('notes.txt',       '');
         write('local-state.txt', '');
 
         try {
-            const raw   = execFileSync('npm', ['pack', '--dry-run', '--json'], {cwd: dir, encoding: 'utf8', stdio: 'pipe', env: {...process.env, npm_config_update_notifier: 'false'}}),
-                  files = parsePackOutput(raw)[0].files.map(file => file.path);
+            fn(dir)
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true})
+        }
+    }
+
+    function packedFiles(dir, ...flags) {
+        const raw = execFileSync('npm', ['pack', '--dry-run', '--json', ...flags], {cwd: dir, encoding: 'utf8', stdio: 'pipe', env: {...process.env, npm_config_update_notifier: 'false'}});
+
+        return parsePackOutput(raw)[0].files.map(file => file.path)
+    }
+
+    test('npm pack reads what prepack composed, and postpack restores the committed file', () => {
+        withFixture({prepack: `node "${ENTRY}" compose`, postpack: `node "${ENTRY}" restore`}, dir => {
+            const files = packedFiles(dir);
 
             expect(files).toContain('index.js');
             expect(files, 'the header applies').not.toContain('notes.txt');
             expect(files, 'the copy applies, so prepack ran before npm listed the files').not.toContain('local-state.txt');
-            expect(fs.readFileSync(path.join(dir, '.npmignore'), 'utf8'), 'postpack restored the header').toBe(header)
-        } finally {
-            fs.rmSync(dir, {recursive: true, force: true})
-        }
+            expect(fs.readFileSync(path.join(dir, '.npmignore'), 'utf8'), 'postpack restored the header').toBe(HEADER)
+        })
+    });
+
+    test('a pack that skips the lifecycle composes through withComposedNpmIgnore', async () => {
+        const {withComposedNpmIgnore} = await import('../../../../buildScripts/util/npmIgnoreComposition.mjs');
+
+        withFixture({}, dir => {
+            expect(packedFiles(dir, '--ignore-scripts'), 'control: the header alone ships the local state').toContain('local-state.txt');
+
+            const files = withComposedNpmIgnore(dir, () => packedFiles(dir, '--ignore-scripts'));
+
+            expect(files).toContain('index.js');
+            expect(files).not.toContain('notes.txt');
+            expect(files).not.toContain('local-state.txt');
+            expect(fs.readFileSync(path.join(dir, '.npmignore'), 'utf8'), 'the file is put back as it was').toBe(HEADER)
+        })
     });
 
     test('.gitignore matches no tracked file, so a clean checkout packs the same files without the copy', () => {
