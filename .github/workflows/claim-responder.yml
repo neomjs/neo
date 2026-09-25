@@ -1,0 +1,84 @@
+# Answers a claim on a curated issue (`good first issue`, `help wanted`) within a minute, because no maintainer is
+# online around the clock. The reply says either "first in line, start now" or who holds the issue, plus claimable
+# alternatives. It never assigns: a maintainer confirms the assignment, and that step is also what screens out
+# accounts that spray claims. The rules live in buildScripts/util/claimResponse.mjs and its spec; this file only
+# fetches and posts.
+#
+# The comment is untrusted input. github-script reads it from the event payload, it is never interpolated into a shell
+# step, and the job checks out nothing but that module, from the default branch an `issue_comment` run uses.
+name: Claim responder
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read       # the sparse checkout of the reply module
+  issues: write        # the reply comment
+  pull-requests: read  # the issue's open linked pull requests
+
+concurrency:
+  group: claim-responder-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  respond:
+    if: >-
+      !github.event.issue.pull_request &&
+      github.event.issue.state == 'open' &&
+      github.event.comment.user.type != 'Bot' &&
+      !contains(fromJSON('["COLLABORATOR","MEMBER","OWNER"]'), github.event.comment.author_association) &&
+      (contains(github.event.issue.labels.*.name, 'good first issue') || contains(github.event.issue.labels.*.name, 'help wanted'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the reply module
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: buildScripts/util/claimResponse.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Answer the claim
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const {curatedLabel, decideReply} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
+            const {owner, repo}                = context.repo;
+            const {comment, issue}             = context.payload;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issue.number, per_page: 100});
+
+            const linked = await github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
+              repository(owner: $owner, name: $repo) {
+                issue(number: $number) {
+                  closedByPullRequestsReferences(first: 20, includeClosedPrs: false) { nodes { number state author { login } } }
+                }
+              }
+            }`, {owner, repo, number: issue.number});
+
+            const openPullRequests = linked.repository.issue.closedByPullRequestsReferences.nodes
+              .filter(pullRequest => pullRequest.state === 'OPEN')
+              .map(pullRequest => ({number: pullRequest.number, author: pullRequest.author?.login}));
+
+            const search = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${owner}/${repo} is:issue is:open label:"${curatedLabel(issue)}" no:assignee -linked:pr`,
+              per_page: 50
+            });
+
+            const body = decideReply({
+              candidates: search.data.items.map(item => item.number),
+              comment,
+              comments,
+              issue,
+              openPullRequests,
+              repoUrl   : `https://github.com/${owner}/${repo}`
+            });
+
+            if (!body) {
+              core.info('No reply: not a claim, the assignee, or a claimant already answered here.');
+              return
+            }
+
+            await github.rest.issues.createComment({owner, repo, issue_number: issue.number, body});
+            core.info(`Replied to ${comment.user.login}.`)
