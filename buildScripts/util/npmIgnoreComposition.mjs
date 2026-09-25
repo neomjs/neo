@@ -1,22 +1,28 @@
+import {readFileSync, writeFileSync} from 'node:fs';
+import path                          from 'node:path';
+import process                       from 'node:process';
+import isEntryModule                 from './isEntryModule.mjs';
+
 /**
  * @module buildScripts/util/npmIgnoreComposition
- * @summary The single definition of how a release rebuilds `.npmignore`, so the step that writes it
- * and the guard that checks it cannot disagree.
+ * @summary Composes `.npmignore` where it is consumed. `npm pack` and `npm publish` run this as `prepack`,
+ * and `postpack` takes the generated part out again, so only the header is committed.
  *
- * `buildScripts/release/prepare.mjs` regenerates `.npmignore` on every release, and
- * `buildScripts/util/check-package-contents.mjs` has to predict what that produces in order to fail
- * BEFORE a release rather than after one. Two implementations of the same composition means the guard
- * certifies its own copy: it can be green against a release step that behaves differently, which is
- * the one failure mode a pre-release guard must not have. Both import this.
+ * The composed file is `authoritative header + a copy of .gitignore`. The copy excludes what a working tree
+ * holds and git does not track, such as plane data, secrets and test results, so every pack of a working tree
+ * needs it. A clean checkout needs nothing from it: `.gitignore` matches no tracked file (a package spec arm
+ * pins that), so an engine installed from a git commit, where npm runs `prepare` and never `prepack`, packs
+ * the same files from the header alone. A committed copy had to be kept in step with `.gitignore` by hand,
+ * and it lagged: between releases, every pack shipped a different package than the release would.
+ * `--ignore-scripts` skips both hooks, so a pack run with it reads the header alone.
  *
  * ## Why the header owns paths, rather than winning by order
  *
- * The file is `authoritative header + a copy of .gitignore`. Ignore files resolve last-match-wins, so
- * an appended copy outranks the header: `.gitignore`'s `/dist` re-excludes everything the header's
- * `/dist/*` + `!/dist/parse5.mjs` re-included, and `npm pack` then drops bundles the engine imports at
- * module scope. Ordering the header last also fixes that, and leaves both statements in the file with
- * correctness resting on position — which nothing in the file states. Dropping the copy's rule for a
- * path the header names leaves ONE statement per path instead.
+ * Ignore files resolve last-match-wins, so an appended copy outranks the header: `.gitignore`'s `/dist`
+ * re-excludes everything the header's `/dist/*` + `!/dist/parse5.mjs` re-included, and `npm pack` then drops
+ * bundles the engine imports at module scope. Ordering the header last also fixes that, and leaves both
+ * statements in the file with correctness resting on position — which nothing in the file states. Dropping
+ * the copy's rule for a path the header names leaves ONE statement per path instead.
  *
  * ## Normalization is symmetric, and that is the whole correctness argument
  *
@@ -59,26 +65,46 @@ export function normalizePattern(pattern) {
 }
 
 /**
- * @summary Rebuilds `.npmignore` the way a release does: the header verbatim, then the copy minus
- * anything the header already governs.
- *
- * @param {String} npmIgnore Current `.npmignore` contents.
- * @param {String} gitIgnore Current `.gitignore` contents.
- * @param {String} [eol='\n'] Line separator to compose with.
- * @returns {{content: String, headerLines: String[], dropped: Array<{line: String, owner: String}>}}
- *     `dropped` names each copied rule left out and the header path that owns it — the release step
- *     prints it, because a filter nobody can see is no better than the ordering rule it replaced.
+ * @param {String} text
+ * @returns {String} The line separator `text` uses.
  */
-export function composeNpmIgnore(npmIgnore, gitIgnore, eol = '\n') {
+function eolOf(text) {
+    return text.includes('\r\n') ? '\r\n' : '\n'
+}
+
+/**
+ * @param {String[]} lines `.npmignore`, split into lines.
+ * @returns {Number} The marker's index.
+ * @throws {Error} When the marker is missing: nothing then says where the header ends, and a guess would
+ * drop header rules from every pack.
+ */
+function markerIndexOf(lines) {
+    const index = lines.indexOf(HEADER_MARKER);
+
+    if (index === -1) {
+        throw new Error(`.npmignore has no '${HEADER_MARKER}' line, so nothing marks where its header ends`)
+    }
+
+    return index
+}
+
+/**
+ * @summary Composes `.npmignore`: the header verbatim, then the copy minus anything the header already governs.
+ *
+ * @param {String} npmIgnore Current `.npmignore` contents, composed or not. Its line separator is kept.
+ * @param {String} gitIgnore Current `.gitignore` contents.
+ * @returns {{content: String, dropped: Array<{line: String, owner: String}>}}
+ *     `dropped` names each copied rule left out and the header path that owns it — `prepack` prints it,
+ *     because a filter nobody can see is no better than the ordering rule it replaced.
+ */
+export function composeNpmIgnore(npmIgnore, gitIgnore) {
     const
+        eol         = eolOf(npmIgnore),
         lines       = npmIgnore.split(eol),
-        markerIndex = lines.indexOf(HEADER_MARKER),
-        // No marker means no generated region to reason about: hand the file back untouched rather
-        // than guessing where the boundary was.
-        headerLines = markerIndex === -1 ? lines.slice(0, 7) : lines.slice(0, markerIndex + 1),
+        headerLines = lines.slice(0, markerIndexOf(lines) + 1),
         ownedPaths  = headerLines.filter(isRule).map(normalizePattern).filter(Boolean),
         dropped     = [],
-        copyLines   = gitIgnore.split(eol).filter(line => {
+        copyLines   = gitIgnore.split(/\r?\n/).filter(line => {
             if (!isRule(line)) {
                 return true
             }
@@ -94,7 +120,38 @@ export function composeNpmIgnore(npmIgnore, gitIgnore, eol = '\n') {
 
     return {
         content: headerLines.join(eol) + eol + copyLines.join(eol),
-        dropped,
-        headerLines
+        dropped
+    }
+}
+
+/**
+ * @summary The committed form of `.npmignore`: everything through the marker. `postpack` writes it back.
+ * @param {String} npmIgnore `.npmignore` contents, composed or not.
+ * @returns {String}
+ */
+export function headerOf(npmIgnore) {
+    const eol   = eolOf(npmIgnore),
+          lines = npmIgnore.split(eol);
+
+    return lines.slice(0, markerIndexOf(lines) + 1).join(eol) + eol
+}
+
+if (isEntryModule(import.meta.url)) {
+    // npm runs lifecycle scripts from the package root, so the working directory is the tree being packed.
+    const npmIgnorePath = path.resolve('.npmignore'),
+          npmIgnore     = readFileSync(npmIgnorePath, 'utf8'),
+          mode          = process.argv[2];
+
+    if (mode === 'compose') {
+        const {content, dropped} = composeNpmIgnore(npmIgnore, readFileSync(path.resolve('.gitignore'), 'utf8'));
+
+        writeFileSync(npmIgnorePath, content);
+
+        // stderr, because `npm pack --json` prints its report on stdout
+        dropped.forEach(({line, owner}) => console.error(`.npmignore: dropped from the copy: ${line}  (the header owns ${owner})`))
+    } else if (mode === 'restore') {
+        writeFileSync(npmIgnorePath, headerOf(npmIgnore))
+    } else {
+        throw new Error(`npmIgnoreComposition: expected 'compose' or 'restore', got '${mode}'`)
     }
 }

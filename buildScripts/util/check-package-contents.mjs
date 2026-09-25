@@ -1,11 +1,8 @@
 import {execFileSync}                                              from 'node:child_process';
-import {readFileSync}                                              from 'node:fs';
-import {EOL}                                                       from 'node:os';
 import path                                                        from 'node:path';
 import process                                                     from 'node:process';
 import {fileURLToPath}                                             from 'node:url';
 import isEntryModule                                               from './isEntryModule.mjs';
-import {composeNpmIgnore, HEADER_MARKER, isRule}                   from './npmIgnoreComposition.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -133,44 +130,6 @@ export function findMissingEntries(packedPaths, rules = REQUIRED_ENTRIES) {
 }
 
 /**
- * @summary Pure predicate: does the committed `.npmignore` differ from what a release writes?
- *
- * `buildScripts/release/prepare.mjs` rebuilds the region below the header marker from `.gitignore` through the
- * SHARED {@link composeNpmIgnore}, and this compares against that same composition. A guard that restates the
- * logic it checks can be green against a release step that behaves differently.
- *
- * Both directions are defects. Between releases every pack reads the committed file: this gate's own
- * `npm pack`, an engine pinned by git commit, a site dry run. A copy that lags `.gitignore` makes all of them
- * judge a tarball the release will not produce. Measured 2026-09-25, the copy lagged by 16 rules, the
- * Workstation's three re-includes among them. And a rule written below the marker lasts only until the next
- * release: `/dist/*` with its bundle negations once sat there, and the first release would have published an
- * engine that cannot boot.
- *
- * Rules are compared literally and in order. An ignore file resolves last-match-wins, and `/dist/*` and `/dist`
- * are not one rule: a negation can re-include a file under the first and never under the second. Comments and
- * blank lines are not rules.
- *
- * @param {String} npmIgnore Current `.npmignore` contents.
- * @param {String} gitIgnore Current `.gitignore` contents.
- * @param {String} [eol='\n'] Line separator the release step composes with.
- * @returns {{added: String[], removed: String[]}|null} The rules a release run adds and removes, or null in sync.
- */
-export function findReleaseDrift(npmIgnore, gitIgnore, eol = '\n') {
-    const rules    = text => text.split(/\r?\n/).filter(isRule).map(line => line.trim()),
-          current  = rules(npmIgnore),
-          released = rules(composeNpmIgnore(npmIgnore, gitIgnore, eol).content);
-
-    if (current.join('\n') === released.join('\n')) {
-        return null
-    }
-
-    return {
-        added  : released.filter(rule => !current.includes(rule)),
-        removed: current.filter(rule => !released.includes(rule))
-    }
-}
-
-/**
  * @summary Pure predicate: which packed paths violate the forbidden-prefix rules?
  *
  * Split out from the `npm pack` invocation so the rule logic is unit-testable without spawning a
@@ -230,31 +189,7 @@ export function parsePackOutput(raw) {
 }
 
 if (isEntryModule(import.meta.url)) {
-    const npmIgnore = readFileSync(path.join(ROOT, '.npmignore'), 'utf8'),
-          gitIgnore = readFileSync(path.join(ROOT, '.gitignore'), 'utf8'),
-          drift     = findReleaseDrift(npmIgnore, gitIgnore, EOL);
-
-    if (drift) {
-        console.error(`\x1b[31mcheck-package-contents: the committed .npmignore differs from what a release writes:\x1b[0m\n`);
-
-        drift.added.forEach(rule => console.error(`  + ${rule}`));
-        drift.removed.forEach(rule => console.error(`  - ${rule}`));
-        drift.added.length || drift.removed.length || console.error('  (same rules, different order)');
-
-        console.error(`
-The region below '${HEADER_MARKER}' is generated from .gitignore, and
-buildScripts/release/prepare.mjs rewrites it on every release. Every pack before that reads the committed file
-instead: this check, an engine pinned by git commit, a site dry run. So commit what the release writes:
-
-  node --input-type=module -e "import fs from 'node:fs'; import {composeNpmIgnore} from './buildScripts/util/npmIgnoreComposition.mjs'; fs.writeFileSync('.npmignore', composeNpmIgnore(fs.readFileSync('.npmignore', 'utf8'), fs.readFileSync('.gitignore', 'utf8')).content)"
-
-A '-' rule you meant to keep sits below the marker, where the release replaces it. Move it into the header
-first. The header is authoritative: the composition drops any copied rule naming a path the header names,
-so the copy cannot override a header rule, however .gitignore spells the path.`);
-
-        process.exit(1)
-    }
-
+    // `prepack` composes .npmignore first, so this judges the file set `npm publish` would ship
     const raw     = execFileSync('npm', ['pack', '--dry-run', '--json'], {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}),
           report  = parsePackOutput(raw)[0],
           files   = report.files.map(file => file.path),

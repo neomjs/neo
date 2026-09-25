@@ -10,11 +10,9 @@ on:
     branches: [dev]
     paths:
       - '.npmignore'
-      # The release composition's other two inputs. The guard now predicts the .npmignore a release
-      # WRITES, so a change to either of these changes what it would find, and omitting them left the
-      # prediction unverified on exactly the commits that alter it.
+      # The composition's other inputs: `prepack` builds the .npmignore this pack reads from them, so
+      # a change to either changes what it would find.
       - '.gitignore'
-      - 'buildScripts/release/prepare.mjs'
       - 'buildScripts/util/npmIgnoreComposition.mjs'
       - 'package.json'
       - 'buildScripts/util/check-package-contents.mjs'
@@ -26,11 +24,9 @@ on:
     branches: [dev]
     paths:
       - '.npmignore'
-      # The release composition's other two inputs. The guard now predicts the .npmignore a release
-      # WRITES, so a change to either of these changes what it would find, and omitting them left the
-      # prediction unverified on exactly the commits that alter it.
+      # The composition's other inputs: `prepack` builds the .npmignore this pack reads from them, so
+      # a change to either changes what it would find.
       - '.gitignore'
-      - 'buildScripts/release/prepare.mjs'
       - 'buildScripts/util/npmIgnoreComposition.mjs'
       - 'package.json'
       - 'buildScripts/util/check-package-contents.mjs'
