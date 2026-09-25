@@ -65,7 +65,7 @@ permissions:
 # theirs. It lives in the Brain and is read at the Brain's `dev`, never from the pull request under review.
 jobs:
   baseline:
-    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v0.1.17
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v0.1.19
     with:
       required_base: dev
       team_roster_repository: neomjs/neo-agent-brain
