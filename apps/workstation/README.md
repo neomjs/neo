@@ -48,20 +48,38 @@ exposes `sequence`, `batchCount`, `batchSize` and `intervalMs`. `appendBatch()` 
 Neural Link readers can address `stateProvider.stores.feed.sequence` on the workspace. There is no
 second counter on the view.
 
-## Activate the optional tour
+## Activate the optional tours
 
-Press **Start dense tour**. The screenplay opens the real overflow menu, scrolls the 100k grid,
-promotes a live pane through `splitNode`, returns it through `addTab`, and flips both themes.
+Two screenplays share one player.
+
+**Start dense tour** opens the real overflow menu, scrolls the 100k grid, promotes a live pane
+through `splitNode`, returns it through `addTab`, and flips both themes — no windows are opened.
 Pane, store, component, and relevant DOM identities remain stable while the layout changes.
 
-The data-only screenplay lives in `apps/workstation/tour/denseWorkstation.mjs`; the mounted
-whitebox journey is the runtime and visual falsifier.
+**Start film tour** plays the flagship film's eight scenes, and it opens on the tear-outs: a
+breath of the living room, then a pane leaves the window into a real vessel mid-gesture and
+changes its mind before the pointer lifts; the same pane is torn out for good; a second pane
+becomes a window while dragged and docks into the first; the merged stack is dragged home as one;
+the drop-zone showcase puts the travelled pane wherever the viewer likes; a perspective is
+captured, torn apart and restored, one dock mutation undone and redone; and the closing readout
+scrolls the hundred-thousand-row grid through its midpoint while the feed keeps ticking. Before
+every beat that opens a window the tour stops at a gate and shows **Continue**: that click is the
+user activation the browser demands for `window.open`, so the window is born inside your gesture
+rather than blocked as a popup. Two measured preconditions shape the screenplay: a tab folded
+into a tab bar's overflow menu is not a drag handle, and a torn-out pane's stored home must
+survive its departure for the stack to return to it — which is why the hook tears Metrics out of
+a two-tab group.
+
+Both data-only screenplays live in `apps/workstation/tour/` (`denseWorkstation.mjs`,
+`fiveBeatFilm.mjs`); the mounted whitebox journeys are the runtime and visual falsifiers. A
+recorded take of the same runnable script is the flagship-film epic's next step, not wired here.
+A cue that fails stops the tour at that beat, with the failed cue's receipt in the tour receipt.
 
 For programmatic playback from outside the view, resolve the optional owner with
 `await workspace.getController().getTourController()`, then call its `startTour()`,
-`runTourSpec()` or `getTourReceipt()`. `cancelTour()` retires that playback controller and waits
-for its started cue work; a later Start creates a fresh controller. The workspace and its stores
-remain owned by the ordinary application.
+`startFilmTour({autoGates})`, `continueTour()`, `runTourSpec()` or `getTourReceipt()`.
+`cancelTour()` retires that playback controller and waits for its started cue work; a later Start
+creates a fresh controller. The workspace and its stores remain owned by the ordinary application.
 
 ## Layout controls and persistence
 

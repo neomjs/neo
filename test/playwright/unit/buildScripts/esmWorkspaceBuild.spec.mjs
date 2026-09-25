@@ -227,6 +227,31 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
     });
 
     /**
+     * The identity arm's counterpart, run the way `neomjs/pages` deploys: the engine package builds
+     * itself with its own `node_modules/neo.mjs` directory as the root. Every absolute path in that tree
+     * contains the segment identity looks for, so a guard reading absolute paths failed every import.
+     */
+    test('an engine built inside node_modules/neo.mjs builds its own tree', () => {
+        workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-esm-inplace-'));
+
+        const engine = path.join(workspace, 'node_modules/neo.mjs');
+
+        fs.outputJsonSync(path.join(engine, 'package.json'), {name: 'neo.mjs', version: '0.0.0'});
+        fs.outputFileSync(path.join(engine, 'src/core/Base.mjs'), 'export default class Base {}\n');
+        fs.outputFileSync(path.join(engine, 'apps/myapp/view/Viewport.mjs'),
+            "import Base from '../../../src/core/Base.mjs';\nexport default class Viewport extends Base {}\n");
+
+        const {status, output} = runBuild(engine);
+
+        expect(status, `build failed:\n${output}`).toBe(0);
+
+        // Non-vacuity: the emitted module still carries the sibling import the guard had to judge.
+        expect(fs.readFileSync(path.join(engine, 'dist/esm/apps/myapp/view/Viewport.mjs'), 'utf8'))
+            .toContain('../../../src/core/Base.mjs');
+        expect(fs.existsSync(path.join(engine, 'dist/esm/src/core/Base.mjs'))).toBe(true)
+    });
+
+    /**
      * The declared root decides where the build WRITES, so an unvalidated one is an overwrite
      * primitive rather than a copy list. `path.resolve` discards every earlier segment once it meets
      * an absolute one, which collapses the build's input and output onto the same external directory:

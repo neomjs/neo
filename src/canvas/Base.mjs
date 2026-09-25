@@ -10,7 +10,8 @@ import NeoBase from '../core/Base.mjs';
  * architecture for:
  * - **Lifecycle Management:** Initialization (`initGraph`), destruction (`clearGraph`), and resource cleanup.
  * - **Render Loop Control:** Unified `render` loop with pause/resume capabilities and frame scheduling.
- * - **Context Management:** Robust handling of `OffscreenCanvas` transfer and context acquisition via `waitForCanvas`.
+ * - **Context Management:** Robust handling of `OffscreenCanvas` transfer and context acquisition via `waitForCanvas`,
+ *   for the context a subclass declares with `contextType` and `contextAttributes`.
  * - **Shared State:** Common state management for mouse interaction, time, and theming.
  *
  * These renderers operate off the main thread to ensure high-performance, 60fps animations without
@@ -26,6 +27,20 @@ class Base extends NeoBase {
          * @protected
          */
         className: 'Neo.canvas.Base',
+        /**
+         * The second `getContext()` argument: `WebGLContextAttributes` for the WebGL types (`alpha`, `antialias`,
+         * `powerPreference`, `preserveDrawingBuffer`, …) or `CanvasRenderingContext2DSettings` for `'2d'`.
+         * Read once, together with `contextType`, when the canvas arrives; `null` passes no second argument.
+         * @member {Object|null} contextAttributes=null
+         */
+        contextAttributes: null,
+        /**
+         * The `OffscreenCanvas#getContext()` type this renderer draws with: `'2d'`, `'webgl'`, `'webgl2'` or
+         * `'bitmaprenderer'`. Read once when the canvas arrives: an `OffscreenCanvas` stays bound to its first
+         * context, so the config is not reactive and a later change cannot re-acquire.
+         * @member {String} contextType='2d'
+         */
+        contextType: '2d',
         /**
          * Remote method access
          * @member {Object} remote
@@ -51,6 +66,16 @@ class Base extends NeoBase {
     }
 
     /**
+     * The pointer state of a renderer nobody is pointing at: off-canvas, no button held, no movement, no modifier.
+     * The position starts off-screen so a first frame never reacts to a cursor at (0, 0). A subclass that tracks
+     * more per pointer extends the shape here.
+     * @returns {Object}
+     */
+    static idleMouseState() {
+        return {x: -1000, y: -1000, dx: 0, dy: 0, buttons: 0, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false}
+    }
+
+    /**
      * @member {Number|null} animationId=null
      */
     animationId = null
@@ -63,7 +88,9 @@ class Base extends NeoBase {
      */
     canvasSize = null
     /**
-     * @member {OffscreenCanvasRenderingContext2D|null} context=null
+     * The context `waitForCanvas` acquired for `contextType`, or `null` before the canvas arrives and after a
+     * `getContext()` that returned nothing.
+     * @member {OffscreenCanvasRenderingContext2D|WebGLRenderingContext|WebGL2RenderingContext|ImageBitmapRenderingContext|null} context=null
      */
     context = null
     /**
@@ -77,11 +104,12 @@ class Base extends NeoBase {
      */
     isPaused = false
     /**
-     * Tracked mouse position for interactive physics.
-     * Initialize off-screen to prevent startup jitters.
-     * @member {Object} mouse={x: -1000, y: -1000}
+     * The pointer as the host last reported it: the canvas-relative position, the movement since the previous
+     * report (`dx`, `dy`, both 0 on the first report after a leave), the held buttons (`MouseEvent.buttons`) and the
+     * four modifier keys. Off-screen with nothing held until the first report, and again after a leave.
+     * @member {Object} mouse={x: -1000, y: -1000, dx: 0, dy: 0, buttons: 0, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false}
      */
-    mouse = {x: -1000, y: -1000}
+    mouse = this.constructor.idleMouseState()
     /**
      * Global simulation time.
      * @member {Number} time=0
@@ -128,7 +156,7 @@ class Base extends NeoBase {
         me.animationId = null;
         me.isPaused    = false;
         me.gradients   = {};
-        me.mouse       = {x: -1000, y: -1000};
+        me.mouse       = me.constructor.idleMouseState();
         me.time        = 0
     }
 
@@ -154,6 +182,28 @@ class Base extends NeoBase {
      * @param {Object} data
      */
     onMouseClick(data) {}
+
+    /**
+     * Hook for subclasses: a button went down on the canvas. `mouse.buttons` already holds the new state, so a
+     * drag gesture starts here and reads `mouse.dx` / `mouse.dy` on the moves that follow.
+     * @param {Object} data The forwarded payload (`x`, `y`, `button`, `buttons`, the modifiers)
+     */
+    onMouseDown(data) {}
+
+    /**
+     * Hook for subclasses: a button was released on the canvas. A pointer that leaves the canvas with a button held
+     * reaches no hook — the leave resets `mouse` to idle, so a drag ends when `mouse.buttons` reads 0 on the next
+     * frame, not through this hook.
+     * @param {Object} data The forwarded payload (`x`, `y`, `button`, `buttons`, the modifiers)
+     */
+    onMouseUp(data) {}
+
+    /**
+     * Hook for subclasses: a wheel event over the canvas. `data.wheel` carries `deltaX`, `deltaY`, `deltaZ` and
+     * `deltaMode`; the modifiers ride beside it (`ctrlKey` marks a trackpad pinch on macOS).
+     * @param {Object} data The forwarded payload (`x`, `y`, `wheel`, the modifiers)
+     */
+    onWheel(data) {}
 
     /**
      * Pauses the simulation.
@@ -183,36 +233,71 @@ class Base extends NeoBase {
     }
 
     /**
-     * Exposed method for Remote Access to trigger the reactive config setter.
-     * @param {String} value
+     * Exposed method for Remote Access to trigger the reactive config setter. The object form carries the calling
+     * window's `windowId`, which routes the call to that window's canvas group; the 13.1 scalar form still works
+     * while only one group is known, and is refused as ambiguous across several.
+     * @param {Object|String} data `{theme, windowId}`, or the theme itself
+     * @param {String} [data.theme]
+     * @param {String} [data.windowId]
      */
-    setTheme(value) {
-        this.theme = value
+    setTheme(data) {
+        this.theme = Neo.isObject(data) ? data.theme : data
     }
 
     /**
-     * Updates the local mouse state from main thread events.
-     * Delegates click events to `onMouseClick`.
+     * The one remote entry for pointer input. Every report updates `mouse` first (position, movement, held buttons,
+     * modifiers), then reaches the matching hook: `click` → `onMouseClick`, `down` → `onMouseDown`, `up` → `onMouseUp`,
+     * `wheel` → `onWheel`. A leave resets `mouse` to idle and reaches no hook.
      * @param {Object} data
+     * @param {Boolean} [data.altKey]
+     * @param {Number} [data.button]
+     * @param {Number} [data.buttons]
      * @param {Boolean} [data.click]
+     * @param {Boolean} [data.ctrlKey]
+     * @param {Boolean} [data.down]
      * @param {Boolean} [data.leave]
+     * @param {Boolean} [data.metaKey]
+     * @param {Boolean} [data.shiftKey]
+     * @param {Boolean} [data.up]
+     * @param {Object} [data.wheel] `{deltaX, deltaY, deltaZ, deltaMode}`
      * @param {Number} [data.x]
      * @param {Number} [data.y]
      */
     updateMouseState(data) {
-        let me = this;
+        let me      = this,
+            {mouse} = me;
 
         if (data.leave) {
-            me.mouse.x = -1000;
-            me.mouse.y = -1000
-        } else {
-            if (data.x !== undefined) me.mouse.x = data.x;
-            if (data.y !== undefined) me.mouse.y = data.y;
+            me.mouse = me.constructor.idleMouseState();
+            return
+        }
 
-            if (data.click) {
-                me.onMouseClick(data)
+        // Each axis updates on its own, as it always has; the first report after a leave (or ever) has no
+        // previous position to move from, and an axis a report leaves out keeps its position and moves by nothing.
+        if (data.x !== undefined) {
+            mouse.dx = mouse.x === -1000 ? 0 : data.x - mouse.x;
+            mouse.x  = data.x
+        } else {
+            mouse.dx = 0
+        }
+
+        if (data.y !== undefined) {
+            mouse.dy = mouse.y === -1000 ? 0 : data.y - mouse.y;
+            mouse.y  = data.y
+        } else {
+            mouse.dy = 0
+        }
+
+        for (const key of ['buttons', 'altKey', 'ctrlKey', 'metaKey', 'shiftKey']) {
+            if (data[key] !== undefined) {
+                mouse[key] = data[key]
             }
         }
+
+        data.down  && me.onMouseDown(data);
+        data.up    && me.onMouseUp(data);
+        data.wheel && me.onWheel(data);
+        data.click && me.onMouseClick(data)
     }
 
     /**
@@ -237,18 +322,26 @@ class Base extends NeoBase {
 
     /**
      * Polls for the OffscreenCanvas until it is available in the Worker's `canvasWindowMap`.
-     * Once found, it initializes the context and starts the render loop.
+     * Once found, it acquires the `contextType` context with `contextAttributes` and starts the render loop.
+     * A `null` context (the type is unsupported on this host) is reported once and leaves the renderer idle:
+     * no size update, no mounted hook, no loop.
      * @param {String} canvasId
      * @param {String} windowId
      * @param {Boolean} hasChange
      * @protected
      */
     waitForCanvas(canvasId, windowId, hasChange) {
-        let me     = this,
-            canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
+        let me                               = this,
+            canvas                           = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId],
+            {contextAttributes, contextType} = me;
 
         if (canvas) {
-            me.context = canvas.getContext('2d');
+            me.context = contextAttributes ? canvas.getContext(contextType, contextAttributes) : canvas.getContext(contextType);
+
+            if (!me.context) {
+                console.error(`${me.className}: getContext('${contextType}') returned null for canvas ${canvasId}`);
+                return
+            }
 
             // Standardize size update
             me.updateSize({width: canvas.width, height: canvas.height});

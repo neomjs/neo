@@ -7,7 +7,11 @@ import Canvas from '../component/Canvas.mjs';
  * SharedWorker canvas renderer. It handles:
  * 1.  **Lifecycle**: Initializing the graph when offscreen canvas is ready.
  * 2.  **Sizing**: Syncing DOM size to the worker via ResizeObserver.
- * 3.  **Interaction**: Bridging mouse events (move, click, leave) to the worker.
+ * 3.  **Interaction**: Bridging pointer input (move, click, leave, down, up, wheel) to the worker through one
+ *     `updateMouseState` payload. The owner of the DOM listeners calls the forwarders: a container's `domListeners`
+ *     delegating to its canvas item, or the host's own `addDomListeners`. Subscribe `wheel` as a local listener
+ *     (`wheel: {fn, local: true, passive: false}`), which is how a node outside the main thread's global wheel
+ *     target list receives deltas.
  * 4.  **Theming**: Syncing the component's theme to the worker.
  *
  * Subclasses must define:
@@ -60,7 +64,7 @@ class SharedCanvas extends Canvas {
      */
     afterSetIsCanvasReady(value, oldValue) {
         if (value) {
-            this.renderer?.setTheme(this.resolveColorScheme());
+            this.renderer?.setTheme({theme: this.resolveColorScheme(), windowId: this.windowId});
             this.fire('canvasReady')
         }
     }
@@ -77,7 +81,7 @@ class SharedCanvas extends Canvas {
         if (value) {
             await me.ready()
         } else if (me.offscreenRegistered) {
-            me.renderer?.clearGraph()
+            me.renderer?.clearGraph({windowId: me.windowId})
         }
 
         super.afterSetMounted(value, oldValue)
@@ -108,7 +112,7 @@ class SharedCanvas extends Canvas {
             await me.updateSize()
         } else if (oldValue) {
             me.isCanvasReady = false;
-            await me.renderer.clearGraph()
+            await me.renderer.clearGraph({windowId: me.windowId})
         }
     }
 
@@ -120,7 +124,7 @@ class SharedCanvas extends Canvas {
         super.afterSetTheme(value, oldValue);
 
         if (this.isCanvasReady) {
-            this.renderer.setTheme(this.resolveColorScheme())
+            this.renderer.setTheme({theme: this.resolveColorScheme(), windowId: this.windowId})
         }
     }
 
@@ -149,7 +153,7 @@ class SharedCanvas extends Canvas {
      * @param {...*} args
      */
     destroy(...args) {
-        this.renderer?.clearGraph();
+        this.offscreenRegistered && this.renderer?.clearGraph({windowId: this.windowId});
         super.destroy(...args)
     }
 
@@ -162,39 +166,64 @@ class SharedCanvas extends Canvas {
         let me = this;
 
         if (me.rendererImportPath) {
-             // Ensure Canvas Worker is running
-            await Neo.worker.Manager.startWorker({
-                name    : 'canvas',
-                windowId: me.windowId
-            });
+            let {windowId} = me;
 
-            // Wait for the Canvas Worker remote to be available.
-            let i = 0;
+            // Starts this window's canvas worker, in this window's own main thread
+            await Neo.worker.Manager.startWorker({name: 'canvas', windowId});
 
-            while (!Neo.ns('Neo.worker.Canvas.loadModule') && i < 40) {
+            try {
+                await Neo.currentWorker.whenCanvasReady(windowId)
+            } catch (error) {
+                // A window leaving mid-boot is expected; any other failure is this group's worker not starting
+                Neo.currentWorker.isDeparture(error, windowId) || console.error('Neo.app.SharedCanvas: canvas worker unavailable', error);
+                return
+            }
+
+            // Load the specific renderer module for this component
+            await Neo.worker.Canvas.loadModule({path: me.rendererImportPath, windowId});
+
+            // Wait for the remote stub to be created
+            let j = 0;
+            while (!me.renderer && j < 40) {
                 await me.timeout(50);
-                i++
+                j++
             }
 
-            if (Neo.ns('Neo.worker.Canvas.loadModule')) {
-                // Load the specific renderer module for this component
-                await Neo.worker.Canvas.loadModule({
-                    path: me.rendererImportPath
-                });
-
-                // Wait for the remote stub to be created
-                let j = 0;
-                while (!me.renderer && j < 40) {
-                    await me.timeout(50);
-                    j++
-                }
-
-                if (!me.renderer) {
-                     console.error('Renderer Remote Stub not found:', me.rendererClassName)
-                }
-            } else {
-                console.error('Neo.component.CanvasShared: Canvas Worker failed to register remote methods.')
+            if (!me.renderer) {
+                 console.error('Renderer Remote Stub not found:', me.rendererClassName)
             }
+        }
+    }
+
+    /**
+     * Forwards one pointer report to the renderer: the canvas-relative position, then the button and modifier facts
+     * the DOM event carries (`button`, `buttons`, `altKey`, `ctrlKey`, `metaKey`, `shiftKey`), then what the caller
+     * adds (`click`, `down`, `up`, `wheel`). Nothing leaves before the canvas is ready and measured.
+     * @param {Object} data The DOM event data
+     * @param {Object} [extra]
+     * @protected
+     */
+    forwardPointer(data, extra) {
+        let me           = this,
+            {canvasRect} = me;
+
+        if (me.isCanvasReady && canvasRect) {
+            let facts = {};
+
+            // Only facts the event carries: a report without a position leaves the worker's position alone, and
+            // one without modifiers must not reset them.
+            if (typeof data.clientX === 'number' && typeof data.clientY === 'number') {
+                facts.x = data.clientX - canvasRect.left;
+                facts.y = data.clientY - canvasRect.top
+            }
+
+            for (const key of ['altKey', 'button', 'buttons', 'ctrlKey', 'metaKey', 'shiftKey']) {
+                if (data[key] !== undefined) {
+                    facts[key] = data[key]
+                }
+            }
+
+            me.renderer.updateMouseState({...facts, ...extra, windowId: me.windowId})
         }
     }
 
@@ -203,15 +232,15 @@ class SharedCanvas extends Canvas {
      * @param {Object} data
      */
     onClick(data) {
-        let me = this;
+        this.forwardPointer(data, {click: true})
+    }
 
-        if (me.isCanvasReady && me.canvasRect) {
-            me.renderer.updateMouseState({
-                click: true,
-                x    : data.clientX - me.canvasRect.left,
-                y    : data.clientY - me.canvasRect.top
-            })
-        }
+    /**
+     * Forwards a pressed button to the Shared Worker; the renderer's `onMouseDown` hook starts a drag from it.
+     * @param {Object} data
+     */
+    onMouseDown(data) {
+        this.forwardPointer(data, {down: true})
     }
 
     /**
@@ -219,7 +248,7 @@ class SharedCanvas extends Canvas {
      */
     pause() {
         if (this.isCanvasReady) {
-            this.renderer.pause()
+            this.renderer.pause({windowId: this.windowId})
         }
     }
 
@@ -229,25 +258,35 @@ class SharedCanvas extends Canvas {
      */
     onMouseLeave(data) {
         if (this.isCanvasReady) {
-            this.renderer.updateMouseState({leave: true})
+            this.renderer.updateMouseState({leave: true, windowId: this.windowId})
         }
     }
 
     /**
-     * Forwards mouse coordinates to the Shared Worker.
+     * Forwards mouse coordinates to the Shared Worker, with the held buttons and modifiers of the move.
      * @param {Object} data
      */
     onMouseMove(data) {
-        let me = this;
+        this.forwardPointer(data)
+    }
 
-        if (me.isCanvasReady) {
-            if (me.canvasRect) {
-                me.renderer.updateMouseState({
-                    x: data.clientX - me.canvasRect.left,
-                    y: data.clientY - me.canvasRect.top
-                })
-            }
-        }
+    /**
+     * Forwards a released button to the Shared Worker; the renderer's `onMouseUp` hook ends a drag on it.
+     * @param {Object} data
+     */
+    onMouseUp(data) {
+        this.forwardPointer(data, {up: true})
+    }
+
+    /**
+     * Forwards a wheel event to the Shared Worker: the deltas beside the position and modifiers, so a renderer can
+     * zoom (`ctrlKey` marks a trackpad pinch on macOS).
+     * @param {Object} data
+     */
+    onWheel(data) {
+        let {deltaMode, deltaX, deltaY, deltaZ} = data;
+
+        this.forwardPointer(data, {wheel: {deltaMode, deltaX, deltaY, deltaZ}})
     }
 
     /**
@@ -264,12 +303,14 @@ class SharedCanvas extends Canvas {
      */
     resume() {
         if (this.isCanvasReady) {
-            this.renderer.resume()
+            this.renderer.resume({windowId: this.windowId})
         }
     }
 
     /**
-     * Pushes the new dimensions to the Shared Worker and caches the bounding rect.
+     * Caches the bounding rect, and pushes the new dimensions to the renderer once this window's canvas worker
+     * adopted the canvas: the app worker's renderer proxy exists as soon as ANY window's group registered it, even
+     * while this window's group boots or failed.
      * @param {Object|null} [rect]
      */
     async updateSize(rect) {
@@ -283,7 +324,7 @@ class SharedCanvas extends Canvas {
 
         if (rect) {
             me.canvasRect = rect;
-            await me.renderer?.updateSize({width: rect.width, height: rect.height})
+            me.offscreenRegistered && await me.renderer?.updateSize({height: rect.height, width: rect.width, windowId: me.windowId})
         }
     }
 }

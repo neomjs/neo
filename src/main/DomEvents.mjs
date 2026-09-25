@@ -817,10 +817,25 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Event} event
+     * A wheel listener a component mounted on its own node (`wheel: {local: true}`) fires with that node as the
+     * `currentTarget`. The global target list does not know such a node, so the node itself is the target; the body
+     * listener has no local target.
+     * @param {WheelEvent} event
+     * @returns {Object|Boolean} `{cls: null, node}` for a local listener, otherwise false
+     */
+    getLocalWheelTarget(event) {
+        let node = event.currentTarget;
+
+        return node && node !== document.body ? {cls: null, node} : false
+    }
+
+    /**
+     * Wheel events reach the app worker for the global target list, and for any node a component listens on
+     * locally (`getLocalWheelTarget`); everything else stays on the main thread.
+     * @param {WheelEvent} event
      */
     onWheel(event) {
-        let target        = this.testPathInclusion(event, globalWheelTargets),
+        let target        = this.testPathInclusion(event, globalWheelTargets) || this.getLocalWheelTarget(event),
             preventUpdate = false,
             targetCls;
 
@@ -841,12 +856,17 @@ class DomEvents extends Base {
             }
 
             if (!preventUpdate) {
-                let {deltaX, deltaY, deltaZ} = event;
+                // A wheel event is a mouse event: the mouse serializer carries the pointer position, the held
+                // buttons and the modifiers (a zooming consumer zooms towards the pointer, tells the trackpad
+                // pinch — ctrl + wheel on macOS — from a scroll, and keeps a drag's buttons through a wheel tick);
+                // the deltas and the target's scroll geometry ride beside them.
+                let {deltaMode, deltaX, deltaY, deltaZ} = event;
 
                 this.sendMessageToApp({
-                    ...this.getEventData(event),
+                    ...this.getMouseEventData(event),
                     clientHeight: target.node.clientHeight,
                     clientWidth : target.node.clientWidth,
+                    deltaMode,
                     deltaX,
                     deltaY,
                     deltaZ,

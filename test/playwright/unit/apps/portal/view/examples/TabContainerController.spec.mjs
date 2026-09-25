@@ -146,23 +146,19 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
     test('release-gates DockDemo while retaining the visible DevIndex flagship card', () => {
         const registries = [{
             file       : 'examples_devmode.json',
-            devIndexUrl: 'apps/devindex/index.html',
             dockDemoUrl: 'examples/dashboard/choreography/index.html'
         }, {
             file       : 'examples_dist_dev.json',
-            devIndexUrl: 'dist/development/apps/devindex/index.html',
             dockDemoUrl: 'dist/development/examples/dashboard/choreography/index.html'
         }, {
             file       : 'examples_dist_esm.json',
-            devIndexUrl: 'dist/esm/apps/devindex/index.html',
             dockDemoUrl: 'dist/esm/examples/dashboard/choreography/index.html'
         }, {
             file       : 'examples_dist_prod.json',
-            devIndexUrl: 'dist/production/apps/devindex/index.html',
             dockDemoUrl: 'dist/production/examples/dashboard/choreography/index.html'
         }];
 
-        registries.forEach(({file, devIndexUrl, dockDemoUrl}) => {
+        registries.forEach(({file, dockDemoUrl}) => {
             const
                 records   = JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8')),
                 dockDemo  = records.find(record => record.name === 'Dock Layouts'),
@@ -178,9 +174,10 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
                 url          : dockDemoUrl
             });
             expect(firstSeen, `${file}: DevIndex remains the first live flagship`).toBe(devIndex);
+            // DevIndex left the engine's build: every environment links out to its own deployed site
             expect(devIndex).toMatchObject({
                 sourceUrl: 'https://github.com/neomjs/devindex',
-                url      : devIndexUrl
+                url      : 'https://neomjs.com/devindex/'
             });
             expect(devIndex.hidden ?? false).toBe(false)
         })

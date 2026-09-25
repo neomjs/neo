@@ -41,7 +41,7 @@ class CrossWindowGestureSnapshot extends Base {
 
     /**
      * @summary Reads the semantic, rendered, arbitration, and physical-park truth for one
-     * cross-window pointer frame.
+     * cross-window pointer or native-window frame.
      *
      * The film executors use this as their pre-release gate: mouseup is withheld until the
      * coordinator has exactly one stable claim, its winning target is engaged, and the target's
@@ -50,6 +50,7 @@ class CrossWindowGestureSnapshot extends Base {
      * Visuals are read from the current participant's supplied or already-created controller;
      * observing readiness never creates the popup's lazy preview tier.
      * @param {Object} context
+     * @param {String|null} [context.nativeWindowId=null] Moving native window; reads its own claim/hover state.
      * @param {String|null} [context.parkedItemId=null]
      * @param {Neo.dashboard.dock.interaction.TabSortZone|null} [context.sourceZone=null]
      * @param {String|null} [context.sourceZoneId=null] Clone-safe Neural Link alternative.
@@ -57,7 +58,7 @@ class CrossWindowGestureSnapshot extends Base {
      * @returns {Object}
      * @protected
      */
-    readCrossWindowGestureSnapshot({parkedItemId=null, sourceZone=null, sourceZoneId=null, targetWorkspaceId}={}) {
+    readCrossWindowGestureSnapshot({nativeWindowId=null, parkedItemId=null, sourceZone=null, sourceZoneId=null, targetWorkspaceId}={}) {
         sourceZone ??= sourceZoneId ? Neo.get(sourceZoneId) : null;
 
         let me = this,
@@ -68,8 +69,8 @@ class CrossWindowGestureSnapshot extends Base {
             participation = isMain ? me.crossWindowParticipations.get(targetWorkspaceId) : state?.host?.participation,
             affordances   = participation?.affordances ?? participation?.ownedAffordances,
             target        = participation?.target,
-            coordinator   = sourceZone?.dragCoordinator,
-            arbiter       = coordinator?.pointerClaimArbiter,
+            coordinator   = nativeWindowId ? target?.dragCoordinator : sourceZone?.dragCoordinator,
+            arbiter       = nativeWindowId ? coordinator?.nativeClaimArbiters.get(nativeWindowId) : coordinator?.pointerClaimArbiter,
             winner        = arbiter?.resolve?.() ?? null,
             semantic      = target?.currentPreview ?? null,
             rendered      = affordances?.preview?.dockPreview ?? null,
@@ -82,7 +83,7 @@ class CrossWindowGestureSnapshot extends Base {
             snapshot      = {
                 claimCount: arbiter?.claimCount ?? 0,
                 converted : sensor?.converted === true && sensor?.transitioning !== true,
-                engaged   : coordinator?.activeTargetZone === target,
+                engaged   : nativeWindowId ? coordinator?.nativeHoverTargets.get(nativeWindowId) === target : coordinator?.activeTargetZone === target,
                 indicators: indicatorSet ? {
                     activePreviewId: indicatorMenu.activeCandidate?.preview?.previewId ?? null,
                     candidateCount : (indicatorSet.cross?.length ?? 0) + (indicatorSet.root?.chips?.length ?? 0),

@@ -1,5 +1,6 @@
-import Neo  from '../Neo.mjs';
-import Base from './Base.mjs';
+import Neo          from '../Neo.mjs';
+import Base         from './Base.mjs';
+import CanvasGroups from './CanvasGroups.mjs';
 
 /**
  * The Canvas worker is responsible for dynamically manipulating offscreen canvas.
@@ -52,27 +53,33 @@ class Canvas extends Base {
     workerId = 'canvas'
 
     /**
-     *
+     * @summary Opens a direct channel to the app worker and registers it under this worker's canvas group, which
+     * the worker's own name carries, so the app worker routes each group's traffic to its own canvas worker.
      */
     afterConnect() {
         let me             = this,
             channel        = new MessageChannel(),
-            {port1, port2} = channel;
+            {port1, port2} = channel,
+            group          = CanvasGroups.groupFromWorkerName(globalThis.name);
 
         port1.onmessage = me.onMessage.bind(me);
 
-        me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
+        me.sendMessage('app', {action: 'registerPort', group, transfer: port2}, [port2]);
 
         me.channelPorts.app = port1
     }
 
     /**
      * @summary Remotely loads an ES module into the Canvas Worker.
-     * This method uses a scoped dynamic import to ensure Webpack only bundles
+     * This method uses scoped dynamic imports to ensure Webpack only bundles
      * relevant modules (inside 'canvas/' directories) for this worker.
      *
+     * The engine's own renderers (`src/canvas/…`) import through a root beside this worker, which stays
+     * inside the package wherever it is installed. Every other path is app space, whose root a consumer
+     * build rebases to its workspace, so a root shared with the engine renderers would lose them.
+     *
      * @param {Object} data
-     * @param {String} data.path The path to the module to load (e.g., 'apps/MyApp/canvas/MyShape.mjs').
+     * @param {String} data.path The path to the module to load (e.g., 'src/canvas/Header.mjs' or 'apps/MyApp/canvas/MyShape.mjs').
      * @returns {Promise<Object>} {success: true, path} or {success: false, path, error}
      */
     async loadModule({path}) {
@@ -81,12 +88,20 @@ class Canvas extends Base {
         }
 
         try {
-            await import(
-                /* webpackInclude: /(?:apps|examples|src)\/.*canvas\/.*\.mjs$/ */
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
-                /* webpackMode: "lazy" */
-                `../../${path}.mjs`
-            );
+            if (path.startsWith('src/canvas/')) {
+                await import(
+                    /* webpackMode: "lazy" */
+                    `../canvas/${path.slice(11)}.mjs`
+                )
+            } else {
+                await import(
+                    /* webpackInclude: /(?:apps|examples|src)\/.*canvas\/.*\.mjs$/ */
+                    /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                    /* webpackMode: "lazy" */
+                    `../../${path}.mjs`
+                )
+            }
+
             return {success: true, path}
         } catch (e) {
             console.error(`Canvas Worker: Failed to load module ${path}`, e);
@@ -170,6 +185,7 @@ class Canvas extends Base {
     }
 
     /**
+     * @deprecated No caller left: `registerCanvas` already maps a canvas the moment main transfers it.
      * @param {Object} data
      * @param {String} data.nodeId
      * @param {String} data.origin

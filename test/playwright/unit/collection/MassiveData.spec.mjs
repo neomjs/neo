@@ -119,4 +119,57 @@ test.describe('Massive Data Store', () => {
         // allItems should now have 3 items (including the hidden new one)
         expect(collection.allItems.count).toBe(3);
     });
+
+    // The `items` getter returns a fresh copy on every read, so a loop that reads it per item is quadratic
+    test('findBy and forEach do not copy the items per iteration', () => {
+        const
+            data       = Array.from({length: 100}, (v, i) => ({id: i + 1, value: i})),
+            collection = Neo.create(Collection, {items: Neo.clone(data, true)}),
+            store      = Neo.create(Store, {
+                model: {fields: [{name: 'id', type: 'Integer'}, {name: 'value', type: 'Integer'}]},
+                data : Neo.clone(data, true)
+            });
+
+        /**
+         * Shadows the inherited `items` accessor on one instance to count reads through the real getter.
+         * @param {Neo.collection.Base} instance
+         * @returns {Function} reads the count
+         */
+        function countItemsReads(instance) {
+            let proto = instance,
+                descriptor, reads = 0;
+
+            while (proto && !(descriptor = Object.getOwnPropertyDescriptor(proto, 'items'))) {
+                proto = Object.getPrototypeOf(proto)
+            }
+
+            Object.defineProperty(instance, 'items', {
+                configurable: true,
+                get() {reads++; return descriptor.get.call(this)},
+                set(value) {descriptor.set.call(this, value)}
+            });
+
+            return () => reads
+        }
+
+        const
+            collectionReads = countItemsReads(collection),
+            storeReads      = countItemsReads(store);
+
+        expect(collection.findBy(item => item.value % 10 === 0)).toHaveLength(10);
+        expect(collectionReads()).toBe(0);
+
+        let calls = 0;
+
+        store.forEach((record, index, items) => {
+            calls++;
+            expect(items).toHaveLength(100)
+        });
+
+        expect(calls).toBe(100);
+        expect(storeReads()).toBe(1);
+
+        collection.destroy();
+        store.destroy()
+    });
 });

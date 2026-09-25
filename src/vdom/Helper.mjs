@@ -712,10 +712,11 @@ class Helper extends Base {
         oldVnodeMap.get(parentId).vnode.childNodes.splice(index, 0, vnode);
 
         for (let details of movedNodes.values()) {
-            let {id}     = details,
-                parentId = details.parentNode.id;
+            let {id, parentNode} = details,
+                parentId         = parentNode.id;
 
-            deltas.default.push({action: 'moveNode', id, index: details.index, parentId});
+            // The move applies to the DOM, where a text child spans three nodes
+            deltas.default.push({action: 'moveNode', id, index: me.getPhysicalIndex(parentNode, details.index), parentId});
 
             me.createDeltas({deltas, oldVnode: oldVnodeMap.get(id).vnode, oldVnodeMap, vnode: details.vnode, vnodeMap})
         }

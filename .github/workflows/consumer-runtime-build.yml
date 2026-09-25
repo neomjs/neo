@@ -51,5 +51,5 @@ jobs:
       - name: Bundle browser dependencies for the package
         run: npm run bundle-browser-deps
 
-      - name: Build Data worker, App worker and Main from an installed copy, under an `apps/` ancestor
+      - name: Build Data, Canvas and App workers and Main from an installed copy, under an `apps/` ancestor
         run: node buildScripts/util/check-consumer-runtime-build.mjs

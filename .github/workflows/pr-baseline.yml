@@ -2,9 +2,8 @@ name: PR Baseline
 
 # This repository's caller for the shared non-product PR baseline. The reusable workflow owns the
 # executable jobs, so adopting the baseline copies no job logic. What a caller does own is four
-# load-bearing things, every one of them present below and none assertable from upstream: the event
-# trigger, the permission ceiling, the consumer input (`required_base`), and an immutable `uses:`
-# coordinate. The upstream header still describes caller ownership as trigger + coordinate only; the
+# load-bearing things, every one of them present below: the event trigger, the permission ceiling,
+# the consumer input (`required_base`), and the release tag in `uses:`. The upstream header still describes caller ownership as trigger + coordinate only; the
 # permission ceiling was established empirically here and the correction belongs to that corpus'
 # governance rather than to this file.
 #
@@ -48,14 +47,10 @@ name: PR Baseline
 # no logs and no annotations — the least diagnosable result GitHub emits. A called job cannot request
 # more than its caller grants, and the baseline's `pr-body` job declares `pull-requests: read` because
 # it fetches the pull request itself. A caller granting only `contents: read` is rejected outright,
-# before any job starts. `neomjs/devindex`'s caller gets away with `contents: read` alone only because
-# it pins an older baseline that has no `pr-body` job at all — so it is a precedent for the `uses:`
-# coordinate, not for the permission set.
+# before any job starts.
 #
-# PIN: an exact commit, per the reusable workflow's own "immutable coordinate" instruction. The
-# upstream repository publishes no tags today, so a SHA is the only immutable ref available. How this
-# coordinate should be maintained is an open upstream question; when it is answered, this line is the
-# single place that changes.
+# PIN: a published release tag, never a commit SHA. The tag names the npm version the called workflow
+# installs, and dependabot's `github-actions` updates move it on each release.
 
 on:
   pull_request:
@@ -70,7 +65,7 @@ permissions:
 # theirs. It lives in the Brain and is read at the Brain's `dev`, never from the pull request under review.
 jobs:
   baseline:
-    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@10b7add57f11a38500f57f550319c71df05d43b8
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v0.1.17
     with:
       required_base: dev
       team_roster_repository: neomjs/neo-agent-brain

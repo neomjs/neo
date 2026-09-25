@@ -1,0 +1,172 @@
+[
+    {
+        "file": "buildScripts/dataSyncPipeline.mjs",
+        "literal": "resources/content",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/dataSyncPipeline.mjs",
+        "literal": "resources/content/",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/dataSyncWatchdog.mjs",
+        "literal": " Data Sync corpus stale: last `resources/content/**` commit ",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/dataSyncWatchdog.mjs",
+        "literal": "**Corpus axis:** last `resources/content/**` commit on `",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/dataSyncWatchdog.mjs",
+        "literal": "last `resources/content/**` commit is ",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/dataSyncWatchdog.mjs",
+        "literal": "no `resources/content/**` commit visible on the default branch",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/dataSyncWatchdog.mjs",
+        "literal": "resources/content",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/index/discussions.mjs",
+        "literal": "resources/content/archive/discussions",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/index/discussions.mjs",
+        "literal": "resources/content/discussions",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/index/pulls.mjs",
+        "literal": "resources/content/archive/pulls",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/index/pulls.mjs",
+        "literal": "resources/content/pulls",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/index/release.mjs",
+        "literal": "resources/content/release-notes",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/index/tickets.mjs",
+        "literal": "resources/content/archive/issues",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/index/tickets.mjs",
+        "literal": "resources/content/issues",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/seo/generate.mjs",
+        "literal": "resources/content/archive/discussions/**/discussion-*.md",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/seo/generate.mjs",
+        "literal": "resources/content/archive/issues/**/issue-*.md",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/seo/generate.mjs",
+        "literal": "resources/content/archive/pulls/**/pr-*.md",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/seo/generate.mjs",
+        "literal": "resources/content/discussions/**/discussion-*.md",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/seo/generate.mjs",
+        "literal": "resources/content/issues/**/*.md",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/seo/generate.mjs",
+        "literal": "resources/content/pulls/**/pr-*.md",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/docs/seo/generate.mjs",
+        "literal": "resources/content/release-notes/**/*.md",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/release/analyzeClosedSinceRelease.mjs",
+        "literal": "- Issue source: `resources/content/issues/**/*.md` with `state: CLOSED` and `closedAt >= cutoff`.",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/release/analyzeClosedSinceRelease.mjs",
+        "literal": "- PR source: `resources/content/pulls/**/*.md` with `state: MERGED` and `mergedAt >= cutoff`.",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/release/analyzeClosedSinceRelease.mjs",
+        "literal": "resources/content/issues",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/release/analyzeClosedSinceRelease.mjs",
+        "literal": "resources/content/pulls",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/release/publish.mjs",
+        "literal": "Please create 'resources/content/release-notes/v",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/release/publish.mjs",
+        "literal": "resources/content/archive",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/release/publish.mjs",
+        "literal": "resources/content/release-notes/v",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/util/check-chore-sync.mjs",
+        "literal": "resources/content/",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/util/check-chore-sync.mjs",
+        "literal": "resources/content/_index.json",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/util/check-chore-sync.mjs",
+        "literal": "resources/content/.sync-metadata.json",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/util/check-chore-sync.mjs",
+        "literal": "resources/content/archive/",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/util/check-content-logical-identity.mjs",
+        "literal": "resources/content/archive",
+        "count": 1
+    },
+    {
+        "file": "buildScripts/util/check-package-contents.mjs",
+        "literal": "resources/content/",
+        "count": 1
+    }
+]

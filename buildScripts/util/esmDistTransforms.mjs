@@ -14,6 +14,7 @@
  */
 
 import * as acorn from 'acorn';
+import path       from 'node:path';
 
 /**
  * The output tree this build writes, relative to the workspace root.
@@ -426,10 +427,12 @@ export function computedSpecifierRoot(specifier) {
  *                           {@link relativeSpecifiers} entries — `{specifier, computed}`, not strings
  * @param {Function} exists  predicate over an absolute path, injected so specs need no fixture tree
  * @param {Function} resolve `(from, specifier) => absolutePath`
+ * @param {String}   root    the build root. Identity is judged on each resolved path below it, since an engine
+ *                           built inside a consumer's `node_modules/neo.mjs` carries that segment in its root
  * @returns {Object[]} `{outputPath, specifier, resolved, reason}`; reason is `missing`, `computed-root`
  *                    or `engine-identity`
  */
-export function findUnresolvableImports(modules, exists, resolve) {
+export function findUnresolvableImports(modules, exists, resolve, root) {
     const failures = [];
 
     modules.forEach(({outputPath, specifiers}) => {
@@ -447,7 +450,7 @@ export function findUnresolvableImports(modules, exists, resolve) {
             // Identity is checked first and on the specifier as written, so a computed family
             // reaching `node_modules/neo.mjs` is still the two-graph defect rather than a missing
             // directory. Truncating to the prefix must not launder that.
-            if (addressesSourceEngine(resolved) || addressesSourceEngine(specifier)) {
+            if (addressesSourceEngine(path.relative(root, resolved)) || addressesSourceEngine(specifier)) {
                 reason = 'engine-identity'
             } else if (!exists(resolved)) {
                 reason = computed ? 'computed-root' : 'missing'

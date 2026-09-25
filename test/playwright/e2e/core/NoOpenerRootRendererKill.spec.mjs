@@ -1,26 +1,21 @@
 import {expect, test} from '../../fixtures.mjs';
 
 /**
- * @summary A second root of a canvas-drawing SharedWorker app, opened with no opener, terminates the
- * FIRST root's renderer — and the variable is the opener, not the second root.
+ * @summary A second root of a canvas-drawing SharedWorker app, opened with no opener, must not terminate
+ * the FIRST root's renderer — the variable is the opener, not the second root.
  *
  * A window opened through `window.open` joins its opener's renderer process, while an unrelated
- * same-origin tab gets its own. Every `Neo.component.Canvas` hands its DOM canvas to the shared canvas
- * worker, so a second process's canvas is painted by a worker hosted in the FIRST process. That fails
- * Chromium's frame-sink client check and terminates the host — root A, not the tab that owns the
- * foreign canvas.
+ * same-origin tab gets its own. When every root handed its DOM canvas to one shared canvas worker, a
+ * second process's canvas was painted by a worker hosted in the FIRST process. That fails Chromium's
+ * frame-sink client check and terminates the host — root A, not the tab that owns the foreign canvas.
+ * A root without a live opener now gets its own canvas group, and with it its own canvas worker.
  *
  * The subject is `apps/portal` rather than the workstation app: it declares `useCanvasWorker` and
  * `useSharedWorkers` and draws canvases, which is the affected configuration, and it inherits no
  * animated offscreen work, so unlike the workstation app it runs on a hosted runner.
  *
- * The two controls are load-bearing, and the honest limit is why. `test.fail()` is satisfied by ANY
- * failure — including a boot that quietly stopped working — so the red arm alone would keep reporting
- * success long after it measured anything. What rules out an unrelated cause is that the controls boot
- * identically and MUST pass. Read the three arms as one instrument.
- *
- * When the kill is fixed, the red arm passes unexpectedly and this file reds. That is the signal to
- * delete its `test.fail()` line, not a regression.
+ * Survival is necessary, not sufficient: `CanvasGroupPainting.spec.mjs` holds that both roots keep
+ * painting. The controls boot identically, so a failure here names the second root, not the boot.
  */
 const
     APP      = '/apps/portal/index.html',
@@ -80,10 +75,10 @@ const bootRootA = async (page, arm) => {
     return booted
 };
 
-test.describe('A second root of a canvas SharedWorker app kills the first root only without an opener', () => {
+test.describe('A second root of a canvas SharedWorker app never kills the first root', () => {
     test.setTimeout(180000);
 
-    test('control: root A alone survives the window the red arm dies in', async ({page}) => {
+    test('control: root A alone survives the window the no-opener arm measures', async ({page}) => {
         const died = watchCrash(page);
 
         await bootRootA(page, 'control');
@@ -111,9 +106,7 @@ test.describe('A second root of a canvas SharedWorker app kills the first root o
         expect(await readConfig(page), 'root A must still answer').not.toBeNull()
     });
 
-    test('a root with no opener kills root A', async ({page, context}) => {
-        test.fail(); // Delete this line when the kill is fixed: the arm passing is the fix landing.
-
+    test('a root with no opener leaves root A alive', async ({page, context}) => {
         const died = watchCrash(page);
 
         await bootRootA(page, 'no-opener');

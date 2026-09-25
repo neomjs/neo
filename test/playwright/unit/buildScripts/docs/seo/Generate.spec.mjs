@@ -1,11 +1,13 @@
 import {test, expect} from '@playwright/test';
 import fs             from 'fs-extra';
+import os             from 'os';
 import path           from 'path';
 import fg             from 'fast-glob';
 
 import {
     assertStableReleaseNoteGithubLinks,
     getDisallowedReleaseNoteGithubLinks,
+    getExistingSitemapLastmodMap,
     getReleaseNotePriority
 } from '../../../../../../buildScripts/docs/seo/generate.mjs';
 
@@ -81,5 +83,56 @@ test.describe('docs SEO generator release-note recency priority (#12753)', () =>
         expect(getReleaseNotePriority('14.0.0', 14)).toBe(0.9);
         expect(getReleaseNotePriority('13.0.0', 14)).toBe(0.9);
         expect(getReleaseNotePriority('12.0.0', 14)).toBe(0.7);
+    });
+});
+
+test.describe('docs SEO generator existing-sitemap lastmod map (#19155)', () => {
+    let dir;
+
+    const url     = (loc, lastmod) => `<url><loc>${loc}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</url>`,
+          sitemap = entries => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset>\n${entries.join('\n')}\n</urlset>\n`,
+          write   = async content => {
+              const file = path.join(dir, 'sitemap.xml');
+              await fs.writeFile(file, content);
+              return file
+          };
+
+    test.beforeEach(async () => {
+        dir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-sitemap-lastmod-'))
+    });
+
+    test.afterEach(async () => {
+        await fs.remove(dir)
+    });
+
+    test('an entry without lastmod neither takes the next entry\'s date nor swallows that entry', async () => {
+        const map = await getExistingSitemapLastmodMap(await write(sitemap([
+            url('https://neomjs.com/a'),
+            url('https://neomjs.com/b', '2026-09-01')
+        ])));
+
+        expect(Object.fromEntries(map)).toEqual({'https://neomjs.com/b': '2026-09-01'})
+    });
+
+    test('dated entries map loc to lastmod, whichever tag comes first', async () => {
+        const map = await getExistingSitemapLastmodMap(await write(sitemap([
+            url('https://neomjs.com/a', '2026-08-01'),
+            '<url><lastmod>2026-08-02</lastmod><loc>https://neomjs.com/b</loc></url>'
+        ])));
+
+        expect(Object.fromEntries(map)).toEqual({
+            'https://neomjs.com/a': '2026-08-01',
+            'https://neomjs.com/b': '2026-08-02'
+        })
+    });
+
+    test('a sitemap without any lastmod maps nothing', async () => {
+        const entries = Array.from({length: 2000}, (_, i) => url(`https://neomjs.com/news/tickets/${i}`));
+
+        expect((await getExistingSitemapLastmodMap(await write(sitemap(entries)))).size).toBe(0)
+    });
+
+    test('a missing sitemap maps nothing', async () => {
+        expect((await getExistingSitemapLastmodMap(path.join(dir, 'absent.xml'))).size).toBe(0)
     });
 });

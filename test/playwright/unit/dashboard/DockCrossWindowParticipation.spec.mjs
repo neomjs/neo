@@ -1218,16 +1218,58 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             participation.destroy()
         });
 
+        test('a registered singleton keeps resolving through the legacy WorkspaceSet seams', () => {
+            const
+                pane           = {id: 'pane-terminal', isDestroyed: false},
+                sourceDocument = {
+                    schema: WorkspaceDocument.SCHEMA,
+                    root  : 'popup-tabs',
+                    items : {terminal: {reference: 'terminal', title: 'Terminal'}},
+                    nodes : {'popup-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}}
+                },
+                workspace = createWorkspaceStub({
+                    nativeWindows: {ownerEntries: () => [['terminal', {windowId: 'popup-singleton', workspaceKey: 'popup-document'}]]},
+                    resolvePane  : itemId => itemId === 'terminal' ? pane : null
+                });
+            workspace.id = 'native-singleton-source';
+
+            const participation = createParticipation({
+                sortGroup   : 'dock-engine',
+                workspace,
+                workspaceId : 'main',
+                workspaceSet: {
+                    has        : workspaceId => workspaceId === 'popup-document',
+                    getDocument: workspaceId => workspaceId === 'popup-document' ? sourceDocument : null
+                }
+            });
+
+            try {
+                const source = participation.target.getNativeWindowDrag('popup-singleton');
+
+                expect(source?.draggedItem).toBe(pane);
+                expect(source.draggedItem.dockItemId).toBe('terminal');
+                expect(source.draggedItem.dockSourceWorkspaceId).toBe('popup-document');
+                expect(source.draggedItem.dockSourceOwnershipId).toBe('group-1');
+                expect(source.draggedItem.dockGroupNodeId).toBeUndefined()
+            } finally {
+                participation.destroy()
+            }
+        });
+
         test('a registered native popup supplies its own document and refuses empty or multi-item single-pane drags', async () => {
             const {default: manager}      = await import('../../../../src/manager/Transaction.mjs');
             const {default: WorkspaceSet} = await import('../../../../src/dashboard/dock/window/WorkspaceSet.mjs');
             const groupId                 = manager.bind({windowId: 'native-popup-owner-root', workspaceKey: 'main'}).groupId;
-            const pane                    = {id: 'pane-terminal', isDestroyed: false,
-                dockGroupNodeId: 'stale-stack', dockSourceNodeId: 'stale-tabs'};
+            const panes                   = {
+                strategy: {id: 'pane-strategy', isDestroyed: false,
+                    dockGroupNodeId: 'stale-stack', dockSourceNodeId: 'stale-tabs'},
+                terminal: {id: 'pane-terminal', isDestroyed: false,
+                    dockGroupNodeId: 'stale-stack', dockSourceNodeId: 'stale-tabs'}
+            };
             const workspace = createWorkspaceStub({
                 dockModel    : targetDoc(), topologyGroupId: groupId,
                 nativeWindows: manager.getNativeLifecycle(groupId),
-                resolvePane  : itemId => itemId === 'terminal' ? pane : null
+                resolvePane  : itemId => panes[itemId] ?? null
             });
             workspace.id = 'native-popup-source';
             let popup = sourceDoc(), participation;
@@ -1244,25 +1286,142 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             workspace.nativeWindows.recordOwner(workspace.id, 'terminal', {
                 windowId: 'native-popup-live', workspaceKey: 'popup-document'
             });
+            workspace.nativeWindows.recordOwner(workspace.id, 'strategy', {
+                windowId: 'native-popup-center-owner', workspaceKey: 'popup-document'
+            });
 
             try {
                 participation = createParticipation({sortGroup: 'dock-engine', workspace, workspaceId: 'A', workspaceSet});
                 const source = participation.target.getNativeWindowDrag('native-popup-live');
 
-                expect(source).toMatchObject({draggedItem: pane, sourceWindowId: 'native-popup-live', widgetName: 'terminal'});
-                expect(pane.dockSourceWorkspaceId).toBe('popup-document');
-                expect(pane.dockSourceOwnershipId).toBe(groupId);
-                expect(pane.dockGroupNodeId).toBeUndefined();
-                expect(pane.dockSourceNodeId).toBeUndefined();
+                expect(source).toMatchObject({draggedItem: panes.terminal, sourceWindowId: 'native-popup-live', widgetName: 'terminal'});
+                expect(panes.terminal.dockSourceWorkspaceId).toBe('popup-document');
+                expect(panes.terminal.dockSourceOwnershipId).toBe(groupId);
+                expect(panes.terminal.dockGroupNodeId).toBeUndefined();
+                expect(panes.terminal.dockSourceNodeId).toBeUndefined();
                 expect(participation.target.getNativeWindowDrag('native-popup-unknown')).toBeNull();
 
                 popup = sourceDoc();
-                expect(participation.target.getNativeWindowDrag('native-popup-live'), 'a whole popup cannot lose its other pane').toBeNull();
+                expect(participation.target.getNativeWindowDrag('native-popup-live'), 'a registered mixed workspace cannot be misread as a complete stack').toBeNull();
+                expect(participation.target.getNativeWindowDrag('native-popup-center-owner'), 'a center-stack owner cannot hide a catalog item outside its stack').toBeNull();
 
                 workspace.dockModel = sourceDoc();
                 popup = {schema: 'neo.dock.zone.v1', root: null, nodes: {}, items: {}};
                 expect(participation.target.getNativeWindowDrag('native-popup-live'), 'an empty registered owner cannot borrow the main document').toBeNull()
             } finally {
+                participation?.destroy();
+                workspaceSet.destroy();
+                manager.retireGroup(groupId)
+            }
+        });
+
+        test('a registered native popup returns its complete center stack through its Group and keeps both pane instances', async () => {
+            const {default: manager}      = await import('../../../../src/manager/Transaction.mjs');
+            const {default: WorkspaceSet} = await import('../../../../src/dashboard/dock/window/WorkspaceSet.mjs');
+            const groupId                 = manager.bind({windowId: 'native-stack-owner-root', workspaceKey: 'main'}).groupId;
+            const panes                   = {
+                metrics: {id: 'pane-metrics', isDestroyed: false},
+                commits: {id: 'pane-commits', isDestroyed: false}
+            };
+            const vesselDocument = () => ({
+                schema: WorkspaceDocument.SCHEMA,
+                root  : 'vessel-root',
+                items : {
+                    metrics: {reference: 'metrics', title: 'Metrics'},
+                    commits: {reference: 'commits', title: 'Commits'}
+                },
+                nodes: {
+                    'vessel-root' : {type: 'edge-zone', zones: {center: {nodeId: 'vessel-stack'}}},
+                    'vessel-stack': {type: 'tabs', items: ['metrics', 'commits'], activeItemId: 'metrics'}
+                }
+            });
+            let   popup     = vesselDocument();
+            const workspace = createWorkspaceStub({
+                dockModel      : targetDoc(),
+                nativeWindows  : manager.getNativeLifecycle(groupId),
+                resolvePane    : itemId => panes[itemId] ?? null,
+                topologyGroupId: groupId
+            });
+            workspace.id = 'native-stack-source';
+
+            const workspaceSet = Neo.create(WorkspaceSet, {manager, getGroupId: () => groupId, documentModel: WorkspaceDocument});
+
+            workspaceSet.register('main', {
+                getDocument: () => workspace.dockModel,
+                setDocument: document => { workspace.dockModel = document }
+            });
+            workspaceSet.register('popup-document', {
+                getDocument: () => popup,
+                setDocument: document => { popup = document }
+            });
+            workspace.nativeWindows.registerSource(workspace.id, {
+                keyFor: () => 'popup-document', open: async () => null, close: async () => true
+            });
+            workspace.nativeWindows.recordOwner(workspace.id, 'metrics', {
+                windowId: 'native-stack-live', workspaceKey: 'popup-document'
+            });
+
+            let participation, otherGroupId, otherSet;
+
+            try {
+                participation = createParticipation({sortGroup: 'dock-engine', workspace, workspaceId: 'main', workspaceSet});
+
+                for (const invalidRoot of [
+                    {type: 'edge-zone', zones: {}},
+                    {type: 'edge-zone', zones: {center: {nodeId: 'missing-stack'}}},
+                    {type: 'edge-zone', zones: {center: {nodeId: 'vessel-root'}}},
+                    {type: 'tabs', items: ['metrics', 'commits'], activeItemId: 'metrics'}
+                ]) {
+                    popup = vesselDocument();
+                    popup.nodes[popup.root] = invalidRoot;
+                    expect(participation.target.getNativeWindowDrag('native-stack-live'),
+                        'a native source must resolve a transferable non-root stack').toBeNull()
+                }
+                popup = vesselDocument();
+                const source = participation.target.getNativeWindowDrag('native-stack-live');
+
+                expect(source).not.toBeNull();
+                expect(source.draggedItem).toBe(panes.metrics);
+                expect(source.draggedItem.dockItemId).toBe('metrics');
+                expect(source.draggedItem.dockSourceWorkspaceId).toBe('popup-document');
+                expect(source.draggedItem.dockSourceOwnershipId).toBe(groupId);
+                expect(source.draggedItem.dockGroupNodeId).toBe('vessel-stack');
+                expect(source.draggedItem.dockGroupNodeId).not.toBe(popup.root);
+
+                const transfer = await participation.commitDrop({
+                    operation: 'transferNode',
+                    nodeId   : source.draggedItem.dockGroupNodeId,
+                    target   : {targetNodeId: 'main-tabs', placement: {kind: 'tab-into'}}
+                }, source.draggedItem);
+
+                expect(transfer).not.toBeNull();
+                expect(popup.items).toEqual({});
+                expect(workspace.dockModel.nodes['main-tabs'].items).toEqual(['alpha', 'metrics', 'commits']);
+                expect(workspace.resolvePane('metrics')).toBe(panes.metrics);
+                expect(workspace.resolvePane('commits')).toBe(panes.commits);
+
+                // A native registry from one Group cannot borrow a WorkspaceSet from another, even
+                // when that Group happens to have a document under the same workspace key.
+                otherGroupId = manager.bind({windowId: 'native-stack-other-root', workspaceKey: 'main'}).groupId;
+                otherSet     = Neo.create(WorkspaceSet, {manager, getGroupId: () => otherGroupId, documentModel: WorkspaceDocument});
+
+                otherSet.register('main', {
+                    getDocument: () => workspace.dockModel,
+                    setDocument: document => { workspace.dockModel = document }
+                });
+                otherSet.register('popup-document', {
+                    getDocument: () => popup,
+                    setDocument: document => { popup = document }
+                });
+                workspace.dockModel = vesselDocument();
+                popup = vesselDocument();
+                participation.workspaceSet = otherSet;
+
+                expect(participation.target.getNativeWindowDrag('native-stack-live'), 'cross-Group ownership must refuse instead of falling back to a same-id document').toBeNull();
+
+            } finally {
+                otherSet?.destroy();
+                if (otherGroupId) manager.retireGroup(otherGroupId);
                 participation?.destroy();
                 workspaceSet.destroy();
                 manager.retireGroup(groupId)

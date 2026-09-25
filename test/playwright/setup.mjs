@@ -56,6 +56,7 @@ Neo.currentWorker ??= {
         unregister: () => {}
     }),
     insertThemeFiles: () => {},
+    isDeparture     : () => false,
     isSharedWorker  : false,
     on              : () => {},
     un              : () => {},
@@ -76,7 +77,9 @@ Neo.currentWorker ??= {
         }
         return {};
     },
-    sendMessage     : () => {}
+    sendMessage     : () => {},
+    // One healthy canvas group: the canvas worker is ready at once
+    whenCanvasReady : async () => {}
 };
 
 export function setup(options = {}) {
@@ -201,12 +204,8 @@ export function setup(options = {}) {
         localStorage.updateLocalStorageItem  ??= async () => {};
     }
 
-    Neo.worker ??= {
-        App: {
-            promiseMessage: async () => {}
-        },
-        Manager: {
-            startWorker: async () => {}
-        }
-    };
+    // Per member: a `Neo.worker.*` class a spec imports statically registers the namespace before this runs
+    Neo.worker         ??= {};
+    Neo.worker.App     ??= {promiseMessage: async () => {}};
+    Neo.worker.Manager ??= {startWorker: async () => {}};
 }

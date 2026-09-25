@@ -69,7 +69,7 @@ class Canvas extends SharedCanvas {
         let me = this;
 
         if (value && me.activeId) {
-            me.renderer.updateActiveId({id: me.activeId})
+            me.renderer.updateActiveId({id: me.activeId, windowId: me.windowId})
         }
     }
 
@@ -107,7 +107,7 @@ class Canvas extends SharedCanvas {
      */
     async afterSetActiveId(value, oldValue) {
         if (this.isCanvasReady) {
-            await this.renderer.updateActiveId({id: value})
+            await this.renderer.updateActiveId({id: value, windowId: this.windowId})
         }
     }
 
@@ -117,7 +117,7 @@ class Canvas extends SharedCanvas {
      */
     async afterSetHoverId(value, oldValue) {
         if (this.isCanvasReady) {
-            await this.renderer.updateHoverId({id: value})
+            await this.renderer.updateHoverId({id: value, windowId: this.windowId})
         }
     }
 
@@ -212,9 +212,10 @@ class Canvas extends SharedCanvas {
                     }).filter(Boolean);
 
                     me.renderer.updateNavRects({
-                        height: canvasRect.height,
-                        rects : me.navRects,
-                        width : canvasRect.width
+                        height  : canvasRect.height,
+                        rects   : me.navRects,
+                        width   : canvasRect.width,
+                        windowId: me.windowId
                     })
                 }
             }
