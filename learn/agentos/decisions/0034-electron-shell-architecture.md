@@ -197,21 +197,23 @@ adoption.
    the lifecycle owner's transition drives the rendered banner; hand-assigned consumer state
    witnesses a pass-through and is not wiring evidence.
 8. **Plane attach is a named broker pair** *(amended 2026-09-25, #19228 — for
-   neomjs/neo-agent-institution#211)*: a packaged shell that a Finder double-click starts has no
-   environment, so it needs its own record of the plane it attaches to, and the cockpit needs a
-   way to create one. The preload exposes two capabilities, both answered by main-process handlers
+   neomjs/neo-agent-institution#211; #19233 — for neomjs/neo-agent-institution#223)*: a
+   packaged shell that a Finder double-click starts has no environment, so it needs its own
+   record of the plane it attaches to, and the cockpit needs a way to create one. The preload exposes two capabilities, both answered by main-process handlers
    that validate the sender per §2.3.4:
    - `planeStatus()` → `ipcRenderer.invoke('shell-plane-status')`, pull-shaped like §2.3.7:
      `{packaged, configured, planeBase, attached}` — plain data, no credential bytes.
    - `attachPlane({planeBase})` → `ipcRenderer.invoke('shell-plane-attach', {planeBase})`: main
      validates the base (https, or plain http on loopback only, never credentials in the URL),
      collects the PAT in the main-custody credential window (the page receives no key or paste
-     data), checks it with one authenticated request against the plane, stores it, and relaunches
-     the shell. The reply is `{ok, reason, relaunching}` and never carries the PAT.
+     data), checks it against the plane — an authenticated `initialize`, then `list_permissions`
+     in that session for the identity the plane names for it — stores both, and relaunches the
+     shell. The reply is `{ok, reason, relaunching}` and never carries the PAT.
 
    **Custody is ADR 0038's, not new:** the record is the client connection profile of
    [ADR 0038 §2.1](0038-fm-client-topology.md) — endpoint plus the client's credential, encrypted
-   at rest by Electron `safeStorage` (the OS keychain) or not stored at all — and the pair is the
+   at rest by Electron `safeStorage` (the OS keychain) or not stored at all, and the identity the
+   plane named for that credential, which is plain data — and the pair is the
    row-2 connection broker of its §2.5.1 ledger: typed requests, zero credential-read capability.
    **Which PAT:** the viewer's own plane credential, under the custody and persistence of §2.5.1
    row 1 — not item 6's seat PATs, which stay Brain-side. Until #17 it reaches the plane only as
@@ -220,7 +222,10 @@ adoption.
    child, main hands the stored record to that child as `NEO_FLEET_PLANE_BASE` +
    `NEO_FLEET_PLANE_BEARER` in its environment — never an argument, never a log line — and a value
    already set in the process env wins, so the stored bearer never follows a plane base set
-   elsewhere. After #17 the same record feeds the pure-client wire.
+   elsewhere. The stored bearer brings its identity as `NEO_AGENT_IDENTITY`, over an inherited
+   value: the child claims that identity, and the plane admits the child only when the claim is the
+   bearer's subject, which an identity left by whatever launched the shell is not. An env-supplied
+   bearer keeps the env's identity. After #17 the same record feeds the pure-client wire.
    **Ownership boundary:** plane configuration never routes through `FleetControlBridge` /
    `FLEET_WIRE_METHODS`; it is the shell's boot input, not a fleet verb.
 
