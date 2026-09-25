@@ -552,7 +552,8 @@ class DragDrop extends Base {
                 let movement;
 
                 try {
-                    movement = Neo.Main.windowMoveTo({windowName: me.popupName, x, y})
+                    // the offset was measured inside the dragged element, so it names the CONTENT origin
+                    movement = Neo.Main.windowMoveTo({contentOrigin: true, windowName: me.popupName, x, y})
                 } catch {
                     movement = false
                 }

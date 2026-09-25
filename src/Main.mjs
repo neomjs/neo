@@ -1077,13 +1077,33 @@ class Main extends core.Base {
     /**
      * Move a popup window
      * @param {Object} data
+     * @param {Boolean} [data.contentOrigin=false] `x` / `y` name where the popup's CONTENT (its viewport)
+     *     must land; the frame is placed one title bar and one border above and left of it. A drag that
+     *     follows a pointer names the content, because the grab offset was measured inside the dragged
+     *     element: placing the frame there instead leaves the pointer in the title bar and the content
+     *     one chrome height lower, which is invisible under viewport emulation (no chrome) and real on a
+     *     real window.
      * @param {String} data.windowName
      * @param {Number|String} data.x
      * @param {Number|String} data.y
      * @returns {Promise<Boolean>} True when the popup reaches the requested screen coordinates.
      */
     async windowMoveTo(data) {
-        return this.#moveWindow(this.openWindows[data.windowName]?.win, data.x, data.y)
+        const win = this.openWindows[data.windowName]?.win;
+
+        let x = Number(data.x),
+            y = Number(data.y);
+
+        if (data.contentOrigin === true && win) {
+            try {
+                x -= win.outerWidth  - win.innerWidth;
+                y -= win.outerHeight - win.innerHeight
+            } catch {
+                // A realm whose metrics cannot be read keeps the frame semantics.
+            }
+        }
+
+        return this.#moveWindow(win, x, y)
     }
 
     /**
