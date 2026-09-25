@@ -120,7 +120,7 @@
         "js-yaml"                      : "^5.4.2",
         "jsdoc-api"                    : "^9.3.6",
         "lint-staged"                  : "^17.5.1",
-        "marked"                       : "^18.0.13",
+        "marked"                       : "^18.0.14",
         "mermaid"                      : "^12.0.0",
         "monaco-editor"                : "0.56.0",
         "neo-agent-skills"             : "0.1.16",
