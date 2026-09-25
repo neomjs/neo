@@ -97,7 +97,7 @@ class Clear extends Base {
                 value = '0'
             }
 
-            return !field.value || value.toString().length < 1
+            return !value || value.toString().length < 1
         }
     }
 
