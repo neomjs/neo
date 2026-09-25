@@ -2166,6 +2166,37 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    // Replacing a chrome that lost its viewport runs through the same guard as every other retirement:
+    // the pane it still holds is handed over detached, never destroyed with the container.
+    test('a chrome that lost its viewport is replaced through the retire guard, and the pane it held survives', async () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const viewport  = Neo.create(Container, {appName: workspace.appName, layout: {ntype: 'vbox', align: 'stretch'}, windowId: 'vessel-window'});
+        const other     = Neo.create(Container, {appName: workspace.appName, windowId: 'vessel-window'});
+        Neo.apps['vessel-window'] = {mainView: viewport, name: workspace.appName};
+        try {
+            const first = workspace.resolveVesselStageTarget('vessel-window');
+            expect(await workspace.tearOutEmbodiment.stage({itemId: 'alerts', windowId: 'vessel-window'})).toBe(true);
+            const paneId = workspace.paneCache.alerts.id;
+
+            // another container adopts the chrome while it still holds the pane; the next resolve replaces it
+            other.add(first);
+            expect(first.parent).toBe(other);
+            const second = workspace.resolveVesselStageTarget('vessel-window');
+
+            expect(second).not.toBe(first);
+            expect(second.parent).toBe(viewport);
+            expect(Boolean(first.isDestroyed), 'the old chrome retired').toBe(true);
+            expect(Neo.getComponent(paneId), 'the pane it held survived, detached').toBeTruthy();
+            expect(workspace.tearOutEmbodiment.isStaged('alerts'), 'the stage record still owns the pane').toBe(true);
+            expect(workspace.tearOutEmbodiment.restore({itemId: 'alerts', windowId: 'vessel-window'}), 'the zero-mutation restore still finds its pane').toBe(true)
+        } finally {
+            delete Neo.apps['vessel-window'];
+            other.isDestroyed || other.destroy();
+            viewport.isDestroyed || viewport.destroy();
+            workspace.destroy()
+        }
+    });
+
     test('mounting the committed projection retires the window\'s provisional chrome', async () => {
         const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace);
