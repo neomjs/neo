@@ -20,8 +20,10 @@ documentRef.documentElement = {};
 documentRef.getElementById  = () => null;
 documentRef.querySelector   = () => null;
 
+const windowRef = new EventTarget();
+
 globalThis.document = documentRef;
-globalThis.window   = new EventTarget();
+globalThis.window   = windowRef;
 
 Neo.worker.Manager.on ??= () => {};
 
@@ -62,12 +64,21 @@ class WheelRenderer extends CanvasBase {
 Neo.setupClass(WheelRenderer);
 
 test.describe('Neo.main.DomEvents', () => {
+    // module-level stubs are per-worker state: the tests run in one worker, in order
+    test.describe.configure({mode: 'serial'});
+
     let originalGetElement, originalGetEventData, originalSend;
 
     test.beforeAll(() => {
         originalGetElement   = DomAccess.getElement;
         originalGetEventData = DomEvents.getEventData;
         originalSend         = DomEvents.sendMessageToApp
+    });
+
+    // The same objects the module-level install created: the singletons registered their listeners on them.
+    test.beforeEach(() => {
+        globalThis.document = documentRef;
+        globalThis.window   = windowRef
     });
 
     test.afterAll(() => {
@@ -81,6 +92,16 @@ test.describe('Neo.main.DomEvents', () => {
         Object.entries(replacedRemotes).forEach(([key, value]) => {
             value === undefined ? delete Neo.main[key] : Neo.main[key] = value
         })
+    });
+
+    // A worker imports many spec files; a neighbour that captured `globalThis.document` before this file installed
+    // its stub restores that undefined in its own teardown, mid-file. The stub is re-installed per test, so this
+    // deletion — the same act — must not reach the next test.
+    test('a neighbour\'s teardown deleting the globals between two tests strips nothing from the next one', () => {
+        delete globalThis.document;
+        delete globalThis.window;
+
+        expect(globalThis.document).toBeUndefined()
     });
 
     test('a focusout fired inside removeNode names the removed node, and one fired elsewhere does not', () => {
