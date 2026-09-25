@@ -375,7 +375,7 @@ test.describe('composeNpmIgnore — ownership is spelling-independent', () => {
  * `findRulesLostOnRelease` guards one direction, a header rule a release would delete, and treats what the copy
  * ADDS as the sync doing its job. Every pack before a release reads the committed file, though: this gate's own
  * pack, an engine pinned by git commit, a site dry run. A copy lagging `.gitignore` makes them all ship something
- * the release will not. The copy had lagged by 16 rules, the Workstation's three re-includes among them (#19222).
+ * the release will not. The copy had lagged by 16 rules, the Workstation's three re-includes among them.
  */
 test.describe('findReleaseDrift', () => {
     const HEAD = '# Original content of the .gitignore file';
