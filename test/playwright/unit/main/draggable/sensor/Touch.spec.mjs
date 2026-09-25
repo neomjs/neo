@@ -44,8 +44,10 @@ function installDocument() {
     return documentRef
 }
 
+const windowRef = Object.assign(new EventTarget(), {scrollX: 0, scrollY: 0});
+
 installDocument();
-globalThis.window = Object.assign(new EventTarget(), {scrollX: 0, scrollY: 0});
+globalThis.window = windowRef;
 
 const {default: Touch} = await import('../../../../../../src/main/draggable/sensor/Touch.mjs');
 
@@ -93,8 +95,22 @@ function touchEvent(type, point) {
  * not the touch ever crossed the delay + distance threshold into a drag.
  */
 test.describe('Neo.main.draggable.sensor.Touch — release contract', () => {
+    // module-level stubs are per-worker state: the tests run in one worker, in order
+    test.describe.configure({mode: 'serial'});
+
     test.beforeEach(() => {
-        installDocument()
+        installDocument();
+        // the window the sensor registered its module-level listener on
+        globalThis.window = windowRef
+    });
+
+    // A neighbour that captured `globalThis.window` before this file installed its stub restores that undefined in
+    // its own teardown, mid-file. The stubs are re-installed per test, so this deletion must not reach the next test.
+    test('a neighbour\'s teardown deleting the globals between two tests strips nothing from the next one', () => {
+        delete globalThis.document;
+        delete globalThis.window;
+
+        expect(globalThis.window).toBeUndefined()
     });
 
     test.afterAll(() => {
