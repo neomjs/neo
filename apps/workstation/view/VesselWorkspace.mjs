@@ -741,6 +741,8 @@ class VesselWorkspace extends DockWorkspace {
     async commitCrossWindowTransfer({descriptor, sourceWorkspaceId, targetWorkspaceId} = {}) {
         const me = this;
         if (!descriptor || !me.workspaceSet.has(sourceWorkspaceId) || !me.workspaceSet.has(targetWorkspaceId)) return false;
+        // Read before the transfer: afterwards an emptied vessel no longer says which items it held.
+        const departing = Object.keys(me.getPopupState(sourceWorkspaceId)?.document?.items ?? {});
         try {
             const committed = await me.workspaceSet.transfer(descriptor, {provenance: {origin: 'human'}});
             const receipt   = me.lastCrossWindowTransfer = {
@@ -757,7 +759,20 @@ class VesselWorkspace extends DockWorkspace {
             await Promise.all([me.refreshPromise, source?.host?.refreshPromise, target?.host?.refreshPromise]);
             receipt.reconciled = true;
             receipt.phases.push('projections-settled');
-            if (source && !Object.keys(source.document.items).length) await me.retireReturnedVessel(sourceWorkspaceId);
+            if (source && !Object.keys(source.document.items).length) {
+                const closed = await me.retireReturnedVessel(sourceWorkspaceId);
+
+                // Home again means main's catalog owns the returned items, so their vessel ownership retires
+                // with the vessel. The registry keeps an owner through a release this host retains (the emptied
+                // popup Workspace stays registered for a warm reload), and a record left behind receives the
+                // NEXT tear-out of the same item as a late binding of THIS adoption: the new vessel opens
+                // owned, skips the connect-first stage, and shows nothing.
+                if (closed && targetWorkspaceId === VesselWorkspace.MAIN_WORKSPACE_ID) {
+                    departing
+                        .filter(itemId => !Object.hasOwn(source.document.items, itemId))
+                        .forEach(itemId => me.nativeWindows?.recordOwner(me.id, itemId, null))
+                }
+            }
             return true
         } catch (error) {
             me.lastCrossWindowTransfer = {applied: false, errors: [error.message]};

@@ -2466,6 +2466,55 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(pageErrors).toEqual([])
     });
 
+    // The whole-stack return home retires the vessel and, with it, the returned items' vessel
+    // ownership: the next tear-out of a returned item starts clean and stages its pane on connect.
+    // A record left behind receives that tear-out as a late binding of the earlier adoption, and the
+    // born vessel opens owned, unstaged and empty for the whole hold.
+    test('scene 2 (morph) after a whole-stack return in the same session: the born vessel mounts its pane', async ({page, neuralLink}) => {
+        const {app, pageErrors, wsId} = await boot({page, neuralLink});
+        const {targetPopup}           = await stageMergedVessel({app, page, wsId});
+
+        const returnResult = await callWorkstationGesture(app, wsId, 'executeStackReturnStep', [
+            {ownerItemId: 'metrics'},
+            {
+                attempts  : filmPace.birthAttempts ?? 180,
+                moveDelay : filmPace.moveDelay ?? 16,
+                showCursor: filmPace.showCursor ?? false
+            }
+        ]);
+
+        expect(returnResult.errors, JSON.stringify(returnResult.proof?.transfer ?? null)).toEqual([]);
+        expect(returnResult.applied, 'the stack must come home before the morph').toBe(true);
+        await expect.poll(() => targetPopup.isClosed(), {
+            message: 'the emptied vessel must close after the return',
+            timeout: 15000
+        }).toBe(true);
+
+        // The morph: born mid-gesture, held 1.5 s, retired by the walk back. The pane must be in the
+        // vessel well inside the hold — the isolated morph stages it within about 150 ms of birth.
+        const popupPromise = page.waitForEvent('popup', {timeout: 90000}),
+              morphPromise = callWorkstationGesture(app, wsId, 'executeTearOutStep', [
+                  {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
+                  {...filmPace, birthDwellMs: 1500, reenter: true}
+              ]);
+
+        const popup = await popupPromise;
+
+        await expect(popup.getByText('System Metrics'), 'the morph vessel must stage its pane on connect')
+            .toBeVisible({timeout: 1200});
+
+        const result = await morphPromise;
+
+        expect(result.errors).toEqual([]);
+        expect(result.reentered, 'the vessel must retire on re-entry while the pointer is down').toBe(true);
+        expect(result.proof.documentsUnchanged, 'a re-entered gesture is zero-mutation by guard').toBe(true);
+        await expect.poll(() => popup.isClosed(), {
+            message: 'the retired vessel window must close',
+            timeout: 15000
+        }).toBe(true);
+        expect(pageErrors).toEqual([])
+    });
+
     test('an early cross-window refusal reports its cause and releases the popup observer', async ({page, neuralLink}) => {
         const {app, wsId}    = await boot({page, neuralLink});
         const popupListeners = page.listenerCount('popup');

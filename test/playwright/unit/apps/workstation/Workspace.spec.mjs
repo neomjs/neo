@@ -2098,6 +2098,65 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    // The registry keeps an item's vessel ownership through a release this host retains, so the
+    // emptied vessel's records would otherwise outlive the return and receive the item's next
+    // tear-out as a late binding of the old adoption — a vessel that opens owned, unstaged, empty.
+    test('a whole-stack return home retires the returned items\' vessel ownership with the vessel', async () => {
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const {state, workspaceId} = stageCommittedVessel(workspace);
+        const groupId              = workspace.topologyGroupId, manager = TransactionManager;
+        manager.setHistoryDepth({groupId, depth: 5});
+        manager.getParticipant(groupId, Workspace.MAIN_WORKSPACE_ID).project = async () => {};
+        manager.getParticipant(groupId, workspaceId).project                 = async () => {};
+        workspace.retireReturnedVessel = async () => true;
+        try {
+            for (const itemId of ['alerts', 'security']) {
+                workspace.nativeWindows.recordOwner(workspace.id, itemId, {
+                    windowId: state.windowId, windowName: `tearout-${itemId}`, workspaceKey: workspaceId
+                })
+            }
+            expect(await workspace.commitCrossWindowTransfer({
+                descriptor: {operation: 'transferNode', nodeId: WorkspaceDocument.resolveStackRoot(state.document),
+                    sourceWorkspaceId: workspaceId, targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                    target           : {targetNodeId: 'heavy-tabs', placement: {kind: 'tab-into'}}},
+                sourceWorkspaceId: workspaceId, targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID
+            })).toBe(true);
+            expect(Object.keys(state.document.items)).toHaveLength(0);
+            expect(workspace.dockModel.items.alerts).toEqual(initialDocument.items.alerts);
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'alerts'), 'main owns the returned item').toBeNull();
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'security'), 'main owns the rider too').toBeNull();
+            expect(workspace.workspaceSet.has(workspaceId), 'the emptied vessel stays registered for a warm reload').toBe(true)
+        } finally {
+            state.host.destroy();
+            workspace.destroy()
+        }
+    });
+
+    test('a return whose vessel refuses to close keeps the vessel ownership it still needs', async () => {
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const {state, workspaceId} = stageCommittedVessel(workspace);
+        const groupId              = workspace.topologyGroupId, manager = TransactionManager;
+        manager.setHistoryDepth({groupId, depth: 5});
+        manager.getParticipant(groupId, Workspace.MAIN_WORKSPACE_ID).project = async () => {};
+        manager.getParticipant(groupId, workspaceId).project                 = async () => {};
+        workspace.retireReturnedVessel = async () => false;
+        try {
+            workspace.nativeWindows.recordOwner(workspace.id, 'alerts', {
+                windowId: state.windowId, windowName: 'tearout-alerts', workspaceKey: workspaceId
+            });
+            expect(await workspace.commitCrossWindowTransfer({
+                descriptor: {operation: 'transferNode', nodeId: WorkspaceDocument.resolveStackRoot(state.document),
+                    sourceWorkspaceId: workspaceId, targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                    target           : {targetNodeId: 'heavy-tabs', placement: {kind: 'tab-into'}}},
+                sourceWorkspaceId: workspaceId, targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID
+            })).toBe(true);
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'alerts')).toMatchObject({windowName: 'tearout-alerts'})
+        } finally {
+            state.host.destroy();
+            workspace.destroy()
+        }
+    });
+
     test('Group membership alone determines whether a popup document can be resolved', () => {
         const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace);
