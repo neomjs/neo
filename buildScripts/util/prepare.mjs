@@ -1,9 +1,9 @@
-import {spawnSync}                from 'node:child_process';
-import {existsSync, readFileSync} from 'node:fs';
-import path                       from 'node:path';
-import process                    from 'node:process';
-import {fileURLToPath}            from 'node:url';
-import isEntryModule              from './isEntryModule.mjs';
+import {spawnSync}                              from 'node:child_process';
+import {existsSync, readFileSync, realpathSync} from 'node:fs';
+import path                                     from 'node:path';
+import process                                  from 'node:process';
+import {fileURLToPath}                          from 'node:url';
+import isEntryModule                            from './isEntryModule.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
@@ -27,7 +27,12 @@ const
  *
  * The skills materializer runs here too, never from `postinstall`: npm runs a dependency's
  * `postinstall` inside every consumer's install, where this package's devDependencies do not
- * exist, while a registry or tarball install never runs `prepare`.
+ * exist, while a registry or tarball install never runs `prepare`. A GIT-dependency install does
+ * run it — npm clones the pinned commit into its cache and runs `prepare` there, with `INIT_CWD`
+ * naming the consumer's root — so both stages are guarded to this checkout ({@link isDependencyBuild}):
+ * husky provisions this repository's hooks and the materializer projects the skills façade into
+ * `INIT_CWD`; inside someone else's install that is a cache clone's hooks and a foreign root's
+ * façade — the Fleet Manager's pack stage died on exactly that symlink race.
  */
 
 /**
@@ -81,9 +86,34 @@ export function resolvePackageBin(packageName, binName, root=repoRoot) {
 }
 
 /**
- * @summary Runs the prepare lifecycle: the lock-only guard, then each stage in order, stopping at
- * the first failure. Seams are injected so the contract is testable without mutating hooks or
- * writing links.
+ * @summary Is this `prepare` running inside a consumer's install rather than this checkout's own?
+ * npm hands every lifecycle script `INIT_CWD`, the directory the top-level command was invoked
+ * from: this checkout under its own `npm install` / `npm ci` / `npm run prepare`, a foreign
+ * directory when npm builds this repository as a git dependency in a cache clone. Paths compare by
+ * identity (realpath), so a symlinked checkout is still its own root.
+ * @param {Object} options
+ * @param {Object} options.env
+ * @param {String} options.root
+ * @returns {Boolean}
+ */
+export function isDependencyBuild({env, root}) {
+    const identity = dir => {
+        const resolved = path.resolve(dir);
+
+        try {
+            return realpathSync(resolved)
+        } catch {
+            return resolved
+        }
+    };
+
+    return Boolean(env.INIT_CWD) && identity(env.INIT_CWD) !== identity(root)
+}
+
+/**
+ * @summary Runs the prepare lifecycle: the lock-only guard, the dependency-build guard, then each
+ * stage in order, stopping at the first failure. Seams are injected so the contract is testable
+ * without mutating hooks or writing links.
  * @param {Object} [options]
  * @param {String} [options.root=repoRoot]
  * @param {Object} [options.env=process.env]
@@ -93,6 +123,10 @@ export function resolvePackageBin(packageName, binName, root=repoRoot) {
 export function runPrepare({root=repoRoot, env=process.env, spawnFn=spawnSync}={}) {
     if (env.npm_config_package_lock_only === 'true') {
         return {skipped: 'package-lock-only', stage: 'guard', status: 0}
+    }
+
+    if (isDependencyBuild({env, root})) {
+        return {skipped: 'dependency-build', stage: 'guard', status: 0}
     }
 
     // A failure-to-LAUNCH is not a status: spawnSync signals it through `result.error` with
