@@ -19,15 +19,14 @@ import Paging          from '../../../../src/toolbar/Paging.mjs';
 
 /**
  * @summary `Neo.toolbar.Paging` is arithmetic plus enablement, and both have edges that only
- * appear at the boundaries. `getMaxPages()` is a single `Math.ceil`, and every disabled flag is
- * strict equality against one of its two ends, so an empty store drives `maxPages` to 0 while
- * `currentPage` stays 1 and only the first/prev pair matches.
+ * appear at the boundaries. `getMaxPages()` is `Math.max(1, Math.ceil(...))`, and every disabled flag is
+ * strict equality against one of its two ends, so an empty store is one empty page: `maxPages` is 1 while
+ * `currentPage` stays 1 and all four buttons match.
  *
  * Expectations here were read off the running instance rather than derived from the source, and
  * the two places where reading the source would have produced a wrong test are noted inline.
  * Where a result looks unintended it is asserted as-is with a note, so the disagreement is
- * recorded rather than silently blessed. No `src/` file backs these assertions; a fix would be
- * its own ticket.
+ * recorded rather than silently blessed.
  *
  * `store.totalCount` is set directly throughout: it is populated from a server response
  * (`Store.mjs:1016`) and never from local `data`, so a store built from an array reports
@@ -79,10 +78,10 @@ test.describe('Neo.toolbar.Paging - page maths and navigation enablement', () =>
             expect(t.getMaxPages()).toBe(1)
         });
 
-        test('an empty store is 0 pages, since Math.ceil(0 / pageSize) is 0', () => {
+        test('an empty store is 1 page, since Math.max(1, Math.ceil(0 / pageSize)) is 1', () => {
             const t = toolbar(0, {pageSize: 30});
 
-            expect(t.getMaxPages()).toBe(0)
+            expect(t.getMaxPages()).toBe(1)
         })
     });
 
@@ -107,27 +106,22 @@ test.describe('Neo.toolbar.Paging - page maths and navigation enablement', () =>
         });
 
         /**
-         * The empty store is the case the strict comparisons cannot express: `maxPages` is 0 and
-         * `currentPage` is 1, so `currentPage === maxPages` is `1 === 0` and the next/last pair
-         * stays ENABLED, while first/prev are disabled by the unchanged `=== 1`. Pressing last in
-         * that state assigns `currentPage = 0`, one below the lowest page the first button
-         * returns to.
-         *
-         * Recorded as-is. This is the measurement the ticket asked for, not a claim about what
-         * the behaviour should be.
+         * An empty store is one empty page: `maxPages` is clamped to 1 and `currentPage` is 1,
+         * so `currentPage === maxPages` is `1 === 1` and all four buttons disable. Pressing last in
+         * that state assigns `currentPage = 1`, keeping the page inside the range.
          */
-        test('an empty store leaves next and last enabled, and last lands on page 0', () => {
+        test('an empty store disables all four buttons, and last keeps page 1', () => {
             const t = toolbar(0, {pageSize: 30});
 
             t.updateNavigationButtons();
 
-            expect(t.getMaxPages()).toBe(0);
+            expect(t.getMaxPages()).toBe(1);
             expect(t.currentPage).toBe(1);
-            expect(nav(t)).toEqual({first: true, prev: true, next: false, last: false});
+            expect(nav(t)).toEqual({first: true, prev: true, next: true, last: true});
 
             t.onLastPageButtonClick();
 
-            expect(t.currentPage, 'last assigns maxPages, which is 0 here').toBe(0)
+            expect(t.currentPage, 'last assigns maxPages, which is 1 here').toBe(1)
         })
     });
 
@@ -137,8 +131,8 @@ test.describe('Neo.toolbar.Paging - page maths and navigation enablement', () =>
      * and prev on the first, so a click can never arrive in either state. They are pinned at
      * the handler because the handler is what a future caller (a keyboard shortcut, a
      * programmatic page step) reaches for, and the check is what stops it walking past the
-     * end. The empty-store case above is the one an operator does reach with the mouse: next
-     * and last stay enabled there, so clicking last assigns a page below the first.
+     * end. The empty-store case above is now the same: all four buttons disable there, so
+     * clicking last keeps the page at 1.
      */
     test.describe('handler bounds', () => {
         test('next refuses to cross the last page', () => {
