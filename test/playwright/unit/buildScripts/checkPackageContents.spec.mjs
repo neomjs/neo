@@ -368,3 +368,49 @@ test.describe('composeNpmIgnore — ownership is spelling-independent', () => {
         expect(dropped.map(entry => entry.line)).toEqual(['!/dist/other.mjs'])
     })
 });
+
+/**
+ * @summary The committed file against what a release writes.
+ *
+ * `findRulesLostOnRelease` guards one direction, a header rule a release would delete, and treats what the copy
+ * ADDS as the sync doing its job. Every pack before a release reads the committed file, though: this gate's own
+ * pack, an engine pinned by git commit, a site dry run. A copy lagging `.gitignore` makes them all ship something
+ * the release will not. The copy had lagged by 16 rules, the Workstation's three re-includes among them (#19222).
+ */
+test.describe('findReleaseDrift', () => {
+    const HEAD = '# Original content of the .gitignore file';
+
+    test('FIRES: a .gitignore rule the committed copy lacks', async () => {
+        const {findReleaseDrift} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        const npmIgnore = ['resources/content/', HEAD, '/apps/**/*.html', '!/apps/colors/index.html'].join('\n'),
+              git       = ['/apps/**/*.html', '!/apps/colors/index.html', '!/apps/workstation/index.html'].join('\n');
+
+        expect(findReleaseDrift(npmIgnore, git)).toEqual({added: ['!/apps/workstation/index.html'], removed: []})
+    });
+
+    test('PASSES: a committed copy equal to the composition', async () => {
+        const {findReleaseDrift} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        const git = ['/apps/**/*.html', '!/apps/colors/index.html'].join('\n');
+
+        expect(findReleaseDrift(['resources/content/', HEAD, git].join('\n'), git)).toBeNull()
+    });
+
+    test('FIRES on order alone, because an ignore file resolves last-match-wins', async () => {
+        const {findReleaseDrift} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        const npmIgnore = ['resources/content/', HEAD, '!/apps/colors/index.html', '/apps/**/*.html'].join('\n'),
+              git       = ['/apps/**/*.html', '!/apps/colors/index.html'].join('\n');
+
+        expect(findReleaseDrift(npmIgnore, git)).toEqual({added: [], removed: []})
+    });
+
+    test('the committed .npmignore is what a release writes', async () => {
+        const {findReleaseDrift} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        const read = file => fs.readFileSync(new URL(`../../../../${file}`, import.meta.url), 'utf8');
+
+        expect(findReleaseDrift(read('.npmignore'), read('.gitignore'))).toBeNull()
+    })
+});

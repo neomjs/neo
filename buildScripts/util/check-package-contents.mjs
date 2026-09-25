@@ -133,6 +133,38 @@ export function findMissingEntries(packedPaths, rules = REQUIRED_ENTRIES) {
 }
 
 /**
+ * @summary Pure predicate: does the committed `.npmignore` differ from what a release writes?
+ *
+ * The region below the header marker is generated: the release step rebuilds it from `.gitignore`. Between
+ * releases every pack reads the committed file instead: this gate's own `npm pack`, an engine pinned by git
+ * commit, a site dry run. A copy that lags `.gitignore` makes all of them judge a tarball the release will not
+ * produce. Measured 2026-09-25, the copy lagged by 16 rules, the Workstation's three re-includes among them,
+ * so every pre-release pack shipped `apps/workstation/` as a lone README while the release would ship the app.
+ *
+ * Rules are compared in order, because an ignore file resolves last-match-wins; comments and blank lines are
+ * not rules.
+ *
+ * @param {String} npmIgnore Current `.npmignore` contents.
+ * @param {String} gitIgnore Current `.gitignore` contents.
+ * @param {String} [eol='\n'] Line separator the release step composes with.
+ * @returns {{added: String[], removed: String[]}|null} The rules a release run adds and removes, or null in sync.
+ */
+export function findReleaseDrift(npmIgnore, gitIgnore, eol = '\n') {
+    const rules    = text => text.split(/\r?\n/).filter(isRule).map(line => line.trim()),
+          current  = rules(npmIgnore),
+          released = rules(composeNpmIgnore(npmIgnore, gitIgnore, eol).content);
+
+    if (current.join('\n') === released.join('\n')) {
+        return null
+    }
+
+    return {
+        added  : released.filter(rule => !current.includes(rule)),
+        removed: current.filter(rule => !released.includes(rule))
+    }
+}
+
+/**
  * @summary Pure predicate: which ignore rules would a release run delete?
  *
  * `buildScripts/release/prepare.mjs` rebuilds `.npmignore` on every release, and this composes the
@@ -242,11 +274,9 @@ export function parsePackOutput(raw) {
 }
 
 if (isEntryModule(import.meta.url)) {
-    const lost = findRulesLostOnRelease(
-        readFileSync(path.join(ROOT, '.npmignore'), 'utf8'),
-        readFileSync(path.join(ROOT, '.gitignore'), 'utf8'),
-        EOL
-    );
+    const npmIgnore = readFileSync(path.join(ROOT, '.npmignore'), 'utf8'),
+          gitIgnore = readFileSync(path.join(ROOT, '.gitignore'), 'utf8'),
+          lost      = findRulesLostOnRelease(npmIgnore, gitIgnore, EOL);
 
     if (lost.length) {
         console.error(`\x1b[31mcheck-package-contents: a release run would delete ${lost.length} .npmignore rule(s):\x1b[0m\n`);
@@ -263,6 +293,25 @@ today's file rather than the one a release writes.
 Move them into the header, above the marker. The header is authoritative: the composition drops any
 copied rule naming a path the header names, so a header rule cannot be overridden by the copy no
 matter how .gitignore spells the path.`);
+
+        process.exit(1)
+    }
+
+    const drift = findReleaseDrift(npmIgnore, gitIgnore, EOL);
+
+    if (drift) {
+        console.error(`\x1b[31mcheck-package-contents: the committed .npmignore differs from what a release writes:\x1b[0m\n`);
+
+        drift.added.forEach(rule => console.error(`  + ${rule}`));
+        drift.removed.forEach(rule => console.error(`  - ${rule}`));
+        drift.added.length || drift.removed.length || console.error('  (same rules, different order)');
+
+        console.error(`
+The region below '${HEADER_MARKER}' is generated from .gitignore, and
+buildScripts/release/prepare.mjs rewrites it on every release. Every pack before that reads the committed file
+instead: this check, an engine pinned by git commit, a site dry run. So commit what the release writes:
+
+  node --input-type=module -e "import fs from 'node:fs'; import {composeNpmIgnore} from './buildScripts/util/npmIgnoreComposition.mjs'; fs.writeFileSync('.npmignore', composeNpmIgnore(fs.readFileSync('.npmignore', 'utf8'), fs.readFileSync('.gitignore', 'utf8')).content)"`);
 
         process.exit(1)
     }
