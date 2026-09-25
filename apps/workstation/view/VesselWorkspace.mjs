@@ -830,7 +830,8 @@ class VesselWorkspace extends DockWorkspace {
         if (!viewport || viewport.isDestroyed) return null;
 
         if (!chrome || chrome.isDestroyed || chrome.parent !== viewport) {
-            chrome?.isDestroyed || chrome?.destroy();
+            // a chrome that lost its viewport is replaced through the one retire path, pane hand-over included
+            chrome && me.retireProvisionalVesselChrome(windowId, {releasePanes: true});
 
             chrome = me.provisionalVesselChromes[windowId] = viewport.add({
                 module : DockTabContainer,
@@ -861,11 +862,11 @@ class VesselWorkspace extends DockWorkspace {
         let me     = this,
             chrome = windowId && me.provisionalVesselChromes[windowId],
             // a tab container's own items are its bar and its body; the staged pane lives in the body
-            body   = chrome && !chrome.isDestroyed ? chrome.getCardContainer?.() : null;
+            body   = chrome && !chrome.isDestroyed ? chrome.getCardContainer() : null;
 
         if (!chrome) return false;
 
-        if (body?.items?.length) {
+        if (body?.items.length) {
             if (!releasePanes) return false;
 
             [...body.items].forEach(pane => body.remove(pane, false, true))
