@@ -22,10 +22,10 @@ class Helix extends FeatureSection {
          */
         headline: 'Extreme Speed',
         /**
-         * @member {String} learnMoreRoute='#/learn/WhyNeo-Speed'
+         * @member {String} learnMoreRoute='#/learn/benefits/body/Speed'
          * @reactive
          */
-        learnMoreRoute: '#/learn/WhyNeo-Speed',
+        learnMoreRoute: '#/learn/benefits/body/Speed',
         /**
          * @member {String} livePreviewCode
          */

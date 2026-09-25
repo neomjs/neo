@@ -35,10 +35,10 @@ class How extends FeatureSection {
          */
         headline: 'How?',
         /**
-         * @member {String} learnMoreRoute='#/learn/benefits.OffTheMainThread'
+         * @member {String} learnMoreRoute='#/learn/benefits/body/OffTheMainThread'
          * @reactive
          */
-        learnMoreRoute: '#/learn/benefits.OffTheMainThread',
+        learnMoreRoute: '#/learn/benefits/body/OffTheMainThread',
         /**
          * @member {String} paragraph
          */
