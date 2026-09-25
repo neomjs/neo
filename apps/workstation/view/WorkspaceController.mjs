@@ -92,6 +92,12 @@ class WorkspaceController extends Controller {
             return false
         }
 
+        // A retained vessel whose stack went home holds an empty document: nothing to remount. A vessel window
+        // arriving under its key is the item's NEXT tear-out, born pre-terminal — the tear-out lifecycle
+        // stages the pane now and mounts this host at the terminal, once the transfer has filled it. Mounting
+        // it here would seat an empty dock host beside the staged pane, each at half the window.
+        if (intent.mode === 'popout' && !Object.keys(state.document?.items ?? {}).length) return false;
+
         return me.mountTopologyWorkspace(binding.workspaceKey, target)
     }
 

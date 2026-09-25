@@ -2132,6 +2132,61 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    // A pane staged into the bare popout viewport sits at its own height with no chrome: the vbox
+    // imposes width alone, and the vessel's document holds no item before the terminal. The host
+    // gives the stage a provisional tab chrome instead, retired once the pane has left it.
+    test('a vessel\'s stage target is a provisional tab chrome that fills its window and carries the pane\'s header', async () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const viewport  = Neo.create(Container, {appName: workspace.appName, layout: {ntype: 'vbox', align: 'stretch'}, windowId: 'vessel-window'});
+        Neo.apps['vessel-window'] = {mainView: viewport, name: workspace.appName};
+        try {
+            const target = workspace.resolveVesselStageTarget('vessel-window');
+            expect(target?.parent, 'the chrome sits in the vessel\'s viewport').toBe(viewport);
+            expect(target.flex, 'the chrome fills the window').toBe(1);
+            expect(target.ntype).toBe('tab-container');
+            expect(workspace.resolveVesselStageTarget('vessel-window'), 'one chrome per window').toBe(target);
+
+            expect(await workspace.tearOutEmbodiment.stage({itemId: 'alerts', windowId: 'vessel-window'})).toBe(true);
+            const pane = workspace.paneCache.alerts;
+            expect(target.getCardContainer().items[0]?.id, 'the pane lives in the chrome\'s body').toBe(pane.id);
+            expect(target.getTabButtons()[0]?.text, 'the pane\'s header becomes the tab').toBe(pane.header.text);
+
+            // the chrome outlives a stage that still holds the pane, and retires once the pane has left
+            expect(workspace.retireProvisionalVesselChrome('vessel-window')).toBe(false);
+            expect(Boolean(target.isDestroyed)).toBe(false);
+            expect(workspace.tearOutEmbodiment.restore({itemId: 'alerts', windowId: 'vessel-window'})).toBe(true);
+            expect(workspace.retireProvisionalVesselChrome('vessel-window')).toBe(true);
+            expect(target.isDestroyed).toBe(true);
+            expect(viewport.items).toHaveLength(0);
+            expect(workspace.resolveVesselStageTarget('missing-window')).toBeNull()
+        } finally {
+            delete Neo.apps['vessel-window'];
+            viewport.isDestroyed || viewport.destroy();
+            workspace.destroy()
+        }
+    });
+
+    test('mounting the committed projection retires the window\'s provisional chrome', async () => {
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const {state, workspaceId} = stageCommittedVessel(workspace);
+        const viewport             = Neo.create(Container, {appName: workspace.appName, layout: {ntype: 'vbox', align: 'stretch'}, windowId: state.windowId});
+        Neo.apps[state.windowId]   = {mainView: viewport, name: workspace.appName};
+        try {
+            const chrome = workspace.resolveVesselStageTarget(state.windowId);
+            expect(chrome.parent).toBe(viewport);
+            state.renderTarget = viewport;
+            expect(await workspace.mountVesselWorkspace(workspaceId)).toBe(true);
+            expect(state.host.parent, 'the projection owns the viewport').toBe(viewport);
+            expect(chrome.isDestroyed, 'the provisional chrome is gone').toBe(true);
+            expect(viewport.items).toEqual([state.host])
+        } finally {
+            delete Neo.apps[state.windowId];
+            state.host.destroy();
+            viewport.isDestroyed || viewport.destroy();
+            workspace.destroy()
+        }
+    });
+
     test('a return whose vessel refuses to close keeps the vessel ownership it still needs', async () => {
         const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace);
