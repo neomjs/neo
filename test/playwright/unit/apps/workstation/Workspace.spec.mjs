@@ -1193,7 +1193,7 @@ test.describe('Workstation.view.Workspace', () => {
         try {
             // a real window: the frame, one title bar above the content — the extent the user drags by its corner
             expect(workspace.resolveVesselConversionSourceRect({itemId: 'audit'})).toEqual({height: 240, width: 320, x: 40, y: 60});
-            // a child that publishes no outer rect samples its inner one, as the park admission does
+            // a child that publishes no outer rect samples its inner one — deliberately unlike the park admission, which refuses on its single declared plane
             expect(workspace.resolveVesselConversionSourceRect({itemId: 'bare'})).toEqual({height: 240, width: 320, x: 400, y: 60});
             expect(workspace.resolveVesselConversionSourceRect({itemId: 'missing'})).toBeFalsy()
         } finally {
