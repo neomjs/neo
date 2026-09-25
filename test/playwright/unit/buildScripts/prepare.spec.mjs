@@ -5,6 +5,7 @@ import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 import {
+    isDependencyBuild,
     resolvePackageBin,
     runPrepare
 } from '../../../../buildScripts/util/prepare.mjs';
@@ -36,6 +37,48 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
 
         expect(result).toEqual({skipped: 'package-lock-only', stage: 'guard', status: 0});
         expect(calls).toEqual([]);
+    });
+
+    test('a git-dependency build skips both stages: INIT_CWD names the consumer, not this checkout', () => {
+        // npm builds a `github:` dependency in a cache clone and runs its `prepare` there, with
+        // INIT_CWD pointing at the directory the consumer's install was invoked from. Husky and
+        // the materializer provision THIS checkout; inside someone else's install they would write
+        // hooks into a cache clone and a skills façade into the consumer's root.
+        const {calls, spawnFn} = recordingSpawn([]),
+              result           = runPrepare({env: {INIT_CWD: os.tmpdir()}, spawnFn});
+
+        expect(result).toEqual({skipped: 'dependency-build', stage: 'guard', status: 0});
+        expect(calls).toEqual([]);
+    });
+
+    test('the lock-only guard keeps precedence over the dependency-build guard', () => {
+        const {calls, spawnFn} = recordingSpawn([]),
+              result           = runPrepare({env: {INIT_CWD: os.tmpdir(), npm_config_package_lock_only: 'true'}, spawnFn});
+
+        expect(result).toEqual({skipped: 'package-lock-only', stage: 'guard', status: 0});
+        expect(calls).toEqual([]);
+    });
+
+    test('a checkout install runs both stages: INIT_CWD is this repo, literally or through a symlink', () => {
+        const link = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-')), 'checkout');
+
+        fs.symlinkSync(repoRoot, link);
+
+        try {
+            for (const initCwd of [repoRoot, link]) {
+                const {calls, spawnFn} = recordingSpawn([0, 0]),
+                      result           = runPrepare({env: {INIT_CWD: initCwd}, spawnFn});
+
+                expect(result).toEqual({skipped: null, stage: 'materialize', status: 0});
+                expect(calls.length).toBe(2);
+            }
+
+            expect(isDependencyBuild({env: {}, root: repoRoot})).toBe(false);
+            expect(isDependencyBuild({env: {INIT_CWD: link}, root: repoRoot})).toBe(false);
+            expect(isDependencyBuild({env: {INIT_CWD: path.dirname(link)}, root: repoRoot})).toBe(true);
+        } finally {
+            fs.rmSync(path.dirname(link), {force: true, recursive: true})
+        }
     });
 
     test('husky runs, then the skills materializer', () => {
