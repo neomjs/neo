@@ -213,6 +213,9 @@ adoption.
    [ADR 0038 §2.1](0038-fm-client-topology.md) — endpoint plus the client's credential, encrypted
    at rest by Electron `safeStorage` (the OS keychain) or not stored at all — and the pair is the
    row-2 connection broker of its §2.5.1 ledger: typed requests, zero credential-read capability.
+   **Which PAT:** the viewer's own plane credential, under the custody and persistence of §2.5.1
+   row 1 — not item 6's seat PATs, which stay Brain-side. Until #17 it reaches the plane only as
+   the fleet child's `planeBearer`, never as the fleet-surface admission mint.
    **Transitional seam:** until neomjs/neo-agent-institution#17 retires the shell's own fleet
    child, main hands the stored record to that child as `NEO_FLEET_PLANE_BASE` +
    `NEO_FLEET_PLANE_BEARER` in its environment — never an argument, never a log line — and a value
