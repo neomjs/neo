@@ -196,6 +196,33 @@ adoption.
    **Witness obligation:** the consuming leaf's evidence is a shell-transition-driven witness —
    the lifecycle owner's transition drives the rendered banner; hand-assigned consumer state
    witnesses a pass-through and is not wiring evidence.
+8. **Plane attach is a named broker pair** *(amended 2026-09-25, #19228 — for
+   neomjs/neo-agent-institution#211)*: a packaged shell that a Finder double-click starts has no
+   environment, so it needs its own record of the plane it attaches to, and the cockpit needs a
+   way to create one. The preload exposes two capabilities, both answered by main-process handlers
+   that validate the sender per §2.3.4:
+   - `planeStatus()` → `ipcRenderer.invoke('shell-plane-status')`, pull-shaped like §2.3.7:
+     `{packaged, configured, planeBase, attached}` — plain data, no credential bytes.
+   - `attachPlane({planeBase})` → `ipcRenderer.invoke('shell-plane-attach', {planeBase})`: main
+     validates the base (https, or plain http on loopback only, never credentials in the URL),
+     collects the PAT in the main-custody credential window (the page receives no key or paste
+     data), checks it with one authenticated request against the plane, stores it, and relaunches
+     the shell. The reply is `{ok, reason, relaunching}` and never carries the PAT.
+
+   **Custody is ADR 0038's, not new:** the record is the client connection profile of
+   [ADR 0038 §2.1](0038-fm-client-topology.md) — endpoint plus the client's credential, encrypted
+   at rest by Electron `safeStorage` (the OS keychain) or not stored at all — and the pair is the
+   row-2 connection broker of its §2.5.1 ledger: typed requests, zero credential-read capability.
+   **Which PAT:** the viewer's own plane credential, under the custody and persistence of §2.5.1
+   row 1 — not item 6's seat PATs, which stay Brain-side. Until #17 it reaches the plane only as
+   the fleet child's `planeBearer`, never as the fleet-surface admission mint.
+   **Transitional seam:** until neomjs/neo-agent-institution#17 retires the shell's own fleet
+   child, main hands the stored record to that child as `NEO_FLEET_PLANE_BASE` +
+   `NEO_FLEET_PLANE_BEARER` in its environment — never an argument, never a log line — and a value
+   already set in the process env wins, so the stored bearer never follows a plane base set
+   elsewhere. After #17 the same record feeds the pure-client wire.
+   **Ownership boundary:** plane configuration never routes through `FleetControlBridge` /
+   `FLEET_WIRE_METHODS`; it is the shell's boot input, not a fleet verb.
 
 **Falsifier:** any leaf needing a renderer capability the preload cannot express through a named,
 allowlisted intent amends THIS section first (ADR-0005 lifecycle) — it never flips a window to
