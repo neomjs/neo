@@ -2503,6 +2503,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         await expect(popup.getByText('System Metrics'), 'the morph vessel must stage its pane on connect')
             .toBeVisible({timeout: 1200});
 
+        // The pre-terminal stage lands in a provisional tab chrome, so the born vessel reads as a
+        // window from its first frame: the pane's header as a real tab, the body filled.
+        await expect(popup.locator('.neo-tab-header-button').first(), 'the born vessel carries its tab header')
+            .toContainText('Metrics', {timeout: 1200});
+
         const result = await morphPromise;
 
         expect(result.errors).toEqual([]);

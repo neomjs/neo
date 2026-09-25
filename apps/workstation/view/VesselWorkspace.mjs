@@ -2,6 +2,7 @@ import DockWorkspace              from '../../../src/dashboard/dock/Workspace.mj
 import NativeVesselTransaction    from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
 import PopupWorkspace             from './PopupWorkspace.mjs';
 import DockDragAffordances        from '../../../src/dashboard/dock/interaction/DragAffordances.mjs';
+import DockTabContainer           from '../../../src/dashboard/dock/interaction/TabContainer.mjs';
 import Placement                  from '../../../src/dashboard/dock/window/Placement.mjs';
 import CrossWindowGestureSnapshot from './CrossWindowGestureSnapshot.mjs';
 import WorkspaceDocument          from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
@@ -228,6 +229,15 @@ class VesselWorkspace extends DockWorkspace {
     lastVesselRestoreReceipt = null
 
     /**
+     * The provisional chrome each admitted vessel window shows before its document projection, keyed by
+     * window id: one dock tab container created by the stage target seam and retired once the pane has
+     * left it — when the committed projection mounts its own chrome, or when the window retires.
+     * @member {Object} provisionalVesselChromes={}
+     * @protected
+     */
+    provisionalVesselChromes = {}
+
+    /**
      * @summary Registers the root and saved popup documents before the first pane projection.
      * The root calls this once after supplying its initial document and topology library.
      * @protected
@@ -265,7 +275,7 @@ class VesselWorkspace extends DockWorkspace {
         me.tearOutEmbodiment = createDockVesselEmbodiment({
             resolvePane: itemId => me.paneCache[itemId]
                 ?? (me.dockModel?.items?.[itemId] && me.resolvePane(itemId, me.dockModel.items[itemId])),
-            resolveTarget: windowId => Neo.apps[windowId]?.mainView ?? null
+            resolveTarget: windowId => me.resolveVesselStageTarget(windowId)
         });
 
         me.vesselProxyEmbodiment = createDockVesselProxyEmbodiment({
@@ -630,6 +640,7 @@ class VesselWorkspace extends DockWorkspace {
         me.crossWindowParticipations.delete(workspaceId);
         state.host?.parent?.remove(state.host, false, true);
         if (state.host) state.host.windowId = null;
+        me.retireProvisionalVesselChrome(state.windowId);
         state.windowId = state.app = state.renderTarget = null;
         state.disconnected = true;
         state.closeRequested = false;
@@ -790,9 +801,82 @@ class VesselWorkspace extends DockWorkspace {
         const state  = this.getPopupState(workspaceId), host = state?.host;
         const target = state?.renderTarget ?? state?.app?.mainView;
         if (!host || host.isDestroyed || !target || target.isDestroyed) return false;
+        // The committed projection owns the viewport from here. A provisional chrome still holding the
+        // staged pane hands it over detached — the projection re-parents it by identity — and retires
+        // before the host mounts, so the vessel never lays out two chromes side by side.
+        this.retireProvisionalVesselChrome(state.windowId, {releasePanes: true});
         host.parent?.remove(host, false, true);
         target.add(host);
         await host.promiseUpdate();
+        return true
+    }
+
+    /**
+     * @summary Resolves the container a staged pane embodies into before its vessel's terminal.
+     * @description The popout host boots an empty viewport whose vbox imposes width alone, so a pane added
+     * to it sits at its own height with no chrome — a born vessel that reads as a dark window with a card
+     * in it for as long as the gesture holds it. The pane's box belongs to a dock tab container: the
+     * provisional one created here carries the pane's header as a real tab and fills the window, and it
+     * retires the moment the committed projection mounts its own chrome into the same viewport.
+     * @param {String} windowId
+     * @returns {Neo.dashboard.dock.interaction.TabContainer|null}
+     * @protected
+     */
+    resolveVesselStageTarget(windowId) {
+        let me       = this,
+            viewport = Neo.apps[windowId]?.mainView,
+            chrome   = me.provisionalVesselChromes[windowId];
+
+        if (!viewport || viewport.isDestroyed) return null;
+
+        if (!chrome || chrome.isDestroyed || chrome.parent !== viewport) {
+            chrome?.isDestroyed || chrome?.destroy();
+
+            chrome = me.provisionalVesselChromes[windowId] = viewport.add({
+                module : DockTabContainer,
+                appName: viewport.appName,
+                cls    : ['workstation-vessel-provisional-chrome'],
+                flex   : 1,
+                windowId
+            })
+        }
+
+        return chrome
+    }
+
+    /**
+     * @summary Retires a window's provisional vessel chrome once the pane has left it.
+     * @description A chrome that still holds the staged pane stays unless the caller takes the pane
+     * over: the embodiment owns that pane's return, and destroying the container would take the live
+     * pane with it. The committed projection's mount is the one caller that does take over — it
+     * releases the pane detached and re-parents it by identity. The window's own end retires any
+     * chrome left behind with everything else it rendered.
+     * @param {String|null} windowId
+     * @param {Object} [options]
+     * @param {Boolean} [options.releasePanes=false] Detach the panes the chrome still holds, keeping them alive
+     * @returns {Boolean} true when the chrome was retired
+     * @protected
+     */
+    retireProvisionalVesselChrome(windowId, {releasePanes=false}={}) {
+        let me     = this,
+            chrome = windowId && me.provisionalVesselChromes[windowId],
+            // a tab container's own items are its bar and its body; the staged pane lives in the body
+            body   = chrome && !chrome.isDestroyed ? chrome.getCardContainer?.() : null;
+
+        if (!chrome) return false;
+
+        if (body?.items?.length) {
+            if (!releasePanes) return false;
+
+            [...body.items].forEach(pane => body.remove(pane, false, true))
+        }
+
+        delete me.provisionalVesselChromes[windowId];
+
+        if (!chrome.isDestroyed) {
+            chrome.parent ? chrome.parent.remove(chrome, true) : chrome.destroy()
+        }
+
         return true
     }
 
@@ -1602,6 +1686,7 @@ class VesselWorkspace extends DockWorkspace {
         me.nativeVesselParkHandlers?.destroy();
         me.vesselProxyEmbodiment?.destroy();
         me.tearOutEmbodiment?.destroy();
+        Object.keys(me.provisionalVesselChromes).forEach(windowId => me.retireProvisionalVesselChrome(windowId));
 
         me.destroyWorkspaceContent();
         super.destroy(...args)

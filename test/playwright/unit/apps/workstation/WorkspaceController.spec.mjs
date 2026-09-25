@@ -310,6 +310,30 @@ test.describe('Workstation topology adoption on window connect', () => {
         }
     });
 
+    // After a whole-stack return the retained vessel holds an empty document. The next tear-out of the
+    // same item arrives under the same key, pre-terminal: the tear-out lifecycle stages its pane and
+    // mounts this host once the terminal has filled it. Remounting the empty host here seats it beside
+    // the staged pane, each at half the window.
+    test('a vessel window arriving under an emptied retained vessel\'s key is the next tear-out, not a reload: nothing is remounted', async () => {
+        const fixture = createAdoptionFixture(), {root} = fixture, key = root.tearOutWorkspaceKey('alerts');
+
+        try {
+            const state = fixture.registerPopup(key);
+
+            expect(Object.keys(state.document.items), 'the retained vessel is empty').toHaveLength(0);
+            Transaction.bind({...Transaction.reserve({groupId: root.topologyGroupId, workspaceKey: key}), windowId: `${root.windowId}-w1`});
+
+            const {windowId, target} = fixture.connectWindow('?popout=alerts');
+
+            expect(await root.controller.onWindowConnect({windowId}), 'an emptied vessel is not remounted into its item\'s next vessel').toBe(false);
+            expect(state.host.parent, 'the arriving window holds no dock host').not.toBe(target);
+            expect(target.items).toHaveLength(0);
+            expect(state).toMatchObject({disconnected: true, windowId: null})
+        } finally {
+            fixture.destroy()
+        }
+    });
+
     test('an arrival whose URL declares a different key than its binding is ignored, not adopted', async () => {
         const fixture = createAdoptionFixture(), {root} = fixture, key = 'details';
 
