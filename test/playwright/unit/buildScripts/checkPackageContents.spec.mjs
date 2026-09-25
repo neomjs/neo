@@ -1,7 +1,12 @@
-import fs                 from 'node:fs';
-import {test, expect}     from '@playwright/test';
-import {BROWSER_BUNDLES}  from '../../../../buildScripts/util/browserBundles.mjs';
-import {REQUIRED_ENTRIES} from '../../../../buildScripts/util/check-package-contents.mjs';
+import {execFileSync}                      from 'node:child_process';
+import fs                                  from 'node:fs';
+import os                                  from 'node:os';
+import path                                from 'node:path';
+import process                             from 'node:process';
+import {fileURLToPath}                     from 'node:url';
+import {test, expect}                      from '@playwright/test';
+import {BROWSER_BUNDLES}                   from '../../../../buildScripts/util/browserBundles.mjs';
+import {parsePackOutput, REQUIRED_ENTRIES} from '../../../../buildScripts/util/check-package-contents.mjs';
 
 /**
  * The check's value is entirely in WHICH packed paths it fires on, so the assertions are the two
@@ -274,58 +279,6 @@ test('the marked producer cannot substitute for the shipped runtime bundle', asy
 });
 
 /**
- * @summary What a release run would delete from `.npmignore`, which `npm pack` cannot see.
- *
- * `prepare.mjs` rebuilds the file as `authoritative header + a copy of .gitignore minus every rule the
- * header owns`, through the shared `composeNpmIgnore`. A rule written below the marker survives only
- * until the next release, so today's pack is green and the first release after it publishes a
- * different package. The arms use a miniature fixture rather than the real files: the defect is in the
- * COMPOSITION, and a fixture states which shape is asserted instead of inheriting whatever the
- * repository happens to hold.
- */
-test.describe('findRulesLostOnRelease', () => {
-    const HEAD = '# Original content of the .gitignore file',
-          GIT  = ['/node_modules', '/dist'].join('\n');
-
-    test('rules below the marker are reported, naming the negations a release would drop', async () => {
-        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
-
-        const npmIgnore = ['resources/content/', HEAD, '/node_modules', '/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs'].join('\n');
-
-        expect(findRulesLostOnRelease(npmIgnore, GIT)).toEqual(['/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs'])
-    });
-
-    test('the same rules in the header survive, and the copy cannot contradict them', async () => {
-        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
-
-        const npmIgnore = ['/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs', HEAD, '/node_modules', '/dist'].join('\n');
-
-        expect(findRulesLostOnRelease(npmIgnore, GIT)).toEqual([])
-    });
-
-    test('rules the copy ADDS are not findings — the sync is the point', async () => {
-        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
-
-        expect(findRulesLostOnRelease(['resources/content/', HEAD].join('\n'), GIT)).toEqual([])
-    });
-
-    test('a rule the header OWNS is subsumed rather than lost, however specific the copy was', async () => {
-        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
-
-        const npmIgnore = ['resources/content/', HEAD, '/node_modules', 'resources/content/handoff.md'].join('\n'),
-              git       = ['/node_modules', 'resources/content/handoff.md'].join('\n');
-
-        expect(findRulesLostOnRelease(npmIgnore, git)).toEqual([])
-    });
-
-    test('a file with no marker is left alone rather than reported wholesale', async () => {
-        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
-
-        expect(findRulesLostOnRelease(['/node_modules', '/dist/*'].join('\n'), GIT)).toEqual([])
-    })
-});
-
-/**
  * @summary The composition itself, and the spelling axis that made a guard built on it lie.
  *
  * `/dist`, `dist`, `dist/` and `/dist/` all name one directory to an ignore file. The first version of
@@ -366,5 +319,110 @@ test.describe('composeNpmIgnore — ownership is spelling-independent', () => {
         const {dropped} = composeNpmIgnore(npmIgnore, ['/node_modules', '!/dist/other.mjs'].join('\n'));
 
         expect(dropped.map(entry => entry.line)).toEqual(['!/dist/other.mjs'])
+    })
+});
+
+/**
+ * @summary `.npmignore` is composed where it is consumed: `npm pack` and `npm publish` run the composition as
+ * `prepack` and take the copy out again as `postpack`, so the committed file is the header alone.
+ *
+ * An engine installed from a git commit runs `prepare`, never `prepack`, so it packs the header alone. That is
+ * the package a publish ships only while `.gitignore` matches no tracked file, so that is an arm too.
+ */
+test.describe('.npmignore is composed at pack time', () => {
+    const HEAD = '# Original content of the .gitignore file',
+          ROOT = fileURLToPath(new URL('../../../../', import.meta.url)),
+          read = file => fs.readFileSync(path.join(ROOT, file), 'utf8');
+
+    test('the committed .npmignore is its header alone', async () => {
+        const {headerOf} = await import('../../../../buildScripts/util/npmIgnoreComposition.mjs');
+
+        expect(headerOf(read('.npmignore')), 'every pack rewrites what sits below the marker: move a rule above it').toBe(read('.npmignore'))
+    });
+
+    for (const eol of ['\n', '\r\n']) {
+        test(`restoring a composed file gives back the committed one (${JSON.stringify(eol)})`, async () => {
+            const {composeNpmIgnore, headerOf} = await import('../../../../buildScripts/util/npmIgnoreComposition.mjs');
+
+            const header    = ['/dist/*', '!/dist/parse5.mjs', HEAD, ''].join(eol),
+                  {content} = composeNpmIgnore(header, ['/node_modules', '/coverage', ''].join(eol));
+
+            expect(content).toBe(['/dist/*', '!/dist/parse5.mjs', HEAD, '/node_modules', '/coverage', ''].join(eol));
+            expect(headerOf(content)).toBe(header)
+        })
+    }
+
+    test('a .npmignore without the marker throws instead of guessing where the header ends', async () => {
+        const {composeNpmIgnore, headerOf} = await import('../../../../buildScripts/util/npmIgnoreComposition.mjs');
+
+        expect(() => composeNpmIgnore('/dist/*\n', '/node_modules\n')).toThrow(HEAD);
+        expect(() => headerOf('/dist/*\n')).toThrow(HEAD)
+    });
+
+    test('package.json runs the composition as prepack and removes it as postpack', () => {
+        const {scripts} = JSON.parse(read('package.json'));
+
+        expect(scripts.prepack).toBe('node ./buildScripts/util/npmIgnoreComposition.mjs compose');
+        expect(scripts.postpack).toBe('node ./buildScripts/util/npmIgnoreComposition.mjs restore')
+    });
+
+    // A package holding one path only the header excludes (notes.txt) and one only the copy excludes (local-state.txt)
+    const HEADER = ['/notes.txt', HEAD, ''].join('\n'),
+          ENTRY  = path.join(ROOT, 'buildScripts/util/npmIgnoreComposition.mjs');
+
+    function withFixture(scripts, fn) {
+        const dir   = fs.mkdtempSync(path.join(os.tmpdir(), 'npmignore-')),
+              write = (file, content) => fs.writeFileSync(path.join(dir, file), content);
+
+        write('package.json', JSON.stringify({name: 'npmignore-fixture', version: '1.0.0', scripts}));
+        write('.npmignore',      HEADER);
+        write('.gitignore',      'local-state.txt\n');
+        write('index.js',        '');
+        write('notes.txt',       '');
+        write('local-state.txt', '');
+
+        try {
+            fn(dir)
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true})
+        }
+    }
+
+    function packedFiles(dir, ...flags) {
+        const raw = execFileSync('npm', ['pack', '--dry-run', '--json', ...flags], {cwd: dir, encoding: 'utf8', stdio: 'pipe', env: {...process.env, npm_config_update_notifier: 'false'}});
+
+        return parsePackOutput(raw)[0].files.map(file => file.path)
+    }
+
+    test('npm pack reads what prepack composed, and postpack restores the committed file', () => {
+        withFixture({prepack: `node "${ENTRY}" compose`, postpack: `node "${ENTRY}" restore`}, dir => {
+            const files = packedFiles(dir);
+
+            expect(files).toContain('index.js');
+            expect(files, 'the header applies').not.toContain('notes.txt');
+            expect(files, 'the copy applies, so prepack ran before npm listed the files').not.toContain('local-state.txt');
+            expect(fs.readFileSync(path.join(dir, '.npmignore'), 'utf8'), 'postpack restored the header').toBe(HEADER)
+        })
+    });
+
+    test('a pack that skips the lifecycle composes through withComposedNpmIgnore', async () => {
+        const {withComposedNpmIgnore} = await import('../../../../buildScripts/util/npmIgnoreComposition.mjs');
+
+        withFixture({}, dir => {
+            expect(packedFiles(dir, '--ignore-scripts'), 'control: the header alone ships the local state').toContain('local-state.txt');
+
+            const files = withComposedNpmIgnore(dir, () => packedFiles(dir, '--ignore-scripts'));
+
+            expect(files).toContain('index.js');
+            expect(files).not.toContain('notes.txt');
+            expect(files).not.toContain('local-state.txt');
+            expect(fs.readFileSync(path.join(dir, '.npmignore'), 'utf8'), 'the file is put back as it was').toBe(HEADER)
+        })
+    });
+
+    test('.gitignore matches no tracked file, so a clean checkout packs the same files without the copy', () => {
+        const tracked = execFileSync('git', ['ls-files', '--cached', '--ignored', '--exclude-from=.gitignore'], {cwd: ROOT, encoding: 'utf8'});
+
+        expect(tracked, 'a git-pinned install ships these and a publish does not: re-include them in .gitignore, or untrack them').toBe('')
     })
 });

@@ -7,6 +7,7 @@ import process                        from 'node:process';
 import {createRequire}                from 'node:module';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import isEntryModule                  from './isEntryModule.mjs';
+import {withComposedNpmIgnore}        from './npmIgnoreComposition.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       ROOT      = path.resolve(__dirname, '../..');
@@ -337,9 +338,10 @@ async function main() {
         createFixture(workspace);
 
         console.log('check-consumer-runtime-build: packing…');
-        // The caller builds the artifacts; hook-install lifecycle output must not become a filename.
-        const packed = JSON.parse(execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--loglevel=error', '--pack-destination', workspace],
-            {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}))[0].filename;
+        // The caller builds the artifacts; hook-install lifecycle output must not become a filename. Skipping the
+        // lifecycle skips `prepack` too, so the .npmignore composition is applied here.
+        const packed = withComposedNpmIgnore(ROOT, () => JSON.parse(execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--loglevel=error', '--pack-destination', workspace],
+            {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}))[0].filename);
 
         console.log(`check-consumer-runtime-build: installing ${packed} into the fixture…`);
         // The published package declares no runtime dependencies, so a consumer that builds neo's

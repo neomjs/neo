@@ -42,6 +42,8 @@
         "create-class"                         : "node ./buildScripts/create/class.mjs",
         "create-component"                     : "node ./buildScripts/create/component.mjs",
         "generate-docs-json"                   : "node ./buildScripts/docs/generateDocsJson.mjs",
+        "postpack"                             : "node ./buildScripts/util/npmIgnoreComposition.mjs restore",
+        "prepack"                              : "node ./buildScripts/util/npmIgnoreComposition.mjs compose",
         "prepare"                              : "node ./buildScripts/util/prepare.mjs",
         "server-start"                         : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test"                                 : "playwright test -c test/playwright/playwright.config.mjs",

@@ -1,11 +1,8 @@
 import {execFileSync}                                              from 'node:child_process';
-import {readFileSync}                                              from 'node:fs';
-import {EOL}                                                       from 'node:os';
 import path                                                        from 'node:path';
 import process                                                     from 'node:process';
 import {fileURLToPath}                                             from 'node:url';
 import isEntryModule                                               from './isEntryModule.mjs';
-import {composeNpmIgnore, HEADER_MARKER, isRule, normalizePattern} from './npmIgnoreComposition.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -133,56 +130,6 @@ export function findMissingEntries(packedPaths, rules = REQUIRED_ENTRIES) {
 }
 
 /**
- * @summary Pure predicate: which ignore rules would a release run delete?
- *
- * `buildScripts/release/prepare.mjs` rebuilds `.npmignore` on every release, and this composes the
- * same thing through the SHARED {@link composeNpmIgnore} — not a second implementation of it. A guard
- * that restates the logic it checks can be green against a release step that behaves differently,
- * which is the one failure a pre-release guard must not have.
- *
- * The defect it exists for was live and latent: `/dist/*` plus its `!/dist/parse5.mjs` and
- * `!/dist/marked.mjs` negations sat in the replaced region, and both bundles are imported at module
- * scope — so the first release after they were added would have published an engine that cannot boot,
- * with every check green beforehand.
- *
- * Rules are compared normalized, not literally: comments and blank lines move freely, the copy
- * legitimately ADDS rules (the sync doing its job), and a rule the header OWNS is subsumed rather than
- * lost — `resources/content/handoff.md` under a header `resources/content/` changes nothing that
- * ships, and reporting it would fire on every run with no available repair.
- *
- * @param {String} npmIgnore Current `.npmignore` contents.
- * @param {String} gitIgnore Current `.gitignore` contents.
- * @param {String} [eol='\n'] Line separator the release step composes with.
- * @returns {String[]} Rules present today that a release run would drop, in file order.
- */
-export function findRulesLostOnRelease(npmIgnore, gitIgnore, eol = '\n') {
-    const lines = npmIgnore.split(eol);
-
-    if (lines.indexOf(HEADER_MARKER) === -1) {
-        return []
-    }
-
-    const
-        {content, headerLines} = composeNpmIgnore(npmIgnore, gitIgnore, eol),
-        // Presence is compared LITERALLY, ownership normalized, and the asymmetry is deliberate.
-        // `/dist/*` and `/dist` name one path but are not one rule: a negation can re-include a file
-        // under the first and never under the second. Normalizing the presence test would call `/dist/*`
-        // "still there" because the copy contributed `/dist`, which is the exact substitution that
-        // silently strips the bundles.
-        kept       = new Set(content.split(eol).filter(isRule).map(line => line.trim())),
-        ownedPaths = headerLines.filter(isRule).map(normalizePattern).filter(Boolean),
-        owned      = pattern => ownedPaths.some(path => pattern === path || pattern.startsWith(`${path}/`));
-
-    return lines.filter(line => {
-        if (!isRule(line)) {
-            return false
-        }
-
-        return !kept.has(line.trim()) && !owned(normalizePattern(line))
-    })
-}
-
-/**
  * @summary Pure predicate: which packed paths violate the forbidden-prefix rules?
  *
  * Split out from the `npm pack` invocation so the rule logic is unit-testable without spawning a
@@ -242,31 +189,7 @@ export function parsePackOutput(raw) {
 }
 
 if (isEntryModule(import.meta.url)) {
-    const lost = findRulesLostOnRelease(
-        readFileSync(path.join(ROOT, '.npmignore'), 'utf8'),
-        readFileSync(path.join(ROOT, '.gitignore'), 'utf8'),
-        EOL
-    );
-
-    if (lost.length) {
-        console.error(`\x1b[31mcheck-package-contents: a release run would delete ${lost.length} .npmignore rule(s):\x1b[0m\n`);
-
-        lost.forEach(rule => console.error(`  ${rule}`));
-
-        console.error(`
-buildScripts/release/prepare.mjs rebuilds .npmignore as the header above the
-'${HEADER_MARKER}' marker, followed by a copy of .gitignore with every rule
-the header already owns removed. These rules sit BELOW the marker, in the region the copy replaces,
-so the next release drops them — and this pack stays green until it does, because npm pack reads
-today's file rather than the one a release writes.
-
-Move them into the header, above the marker. The header is authoritative: the composition drops any
-copied rule naming a path the header names, so a header rule cannot be overridden by the copy no
-matter how .gitignore spells the path.`);
-
-        process.exit(1)
-    }
-
+    // `prepack` composes .npmignore first, so this judges the file set `npm publish` would ship
     const raw     = execFileSync('npm', ['pack', '--dry-run', '--json'], {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}),
           report  = parsePackOutput(raw)[0],
           files   = report.files.map(file => file.path),

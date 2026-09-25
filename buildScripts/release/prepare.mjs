@@ -11,7 +11,6 @@ import fs                          from 'fs-extra';
 import os                          from 'os';
 import path                        from 'path';
 import rebuildContentIndexesAndSeo from '../docs/rebuildContentIndexesAndSeo.mjs';
-import {composeNpmIgnore}          from '../util/npmIgnoreComposition.mjs';
 
 const
     root        = path.resolve(),
@@ -101,34 +100,6 @@ if (insideNeo) {
 
         fs.writeFileSync(neuralLinkPath, neuralLinkContent);
         console.log('Updated learn/agentos/NeuralLink.md version');
-    }
-
-    // Sync .npmignore with .gitignore
-    // This ensures that we don't accidentally publish files that should be ignored,
-    // while maintaining the specific npm-only rules.
-    const npmIgnorePath = path.join(root, '.npmignore');
-    const gitIgnorePath = path.join(root, '.gitignore');
-
-    if (fs.existsSync(npmIgnorePath) && fs.existsSync(gitIgnorePath)) {
-        // The composition lives in buildScripts/util/npmIgnoreComposition.mjs, shared with the guard
-        // that predicts it. A guard verifying its own restatement of this logic can be green against a
-        // release step that behaves differently, which is the one failure a pre-release guard must not
-        // have — so there is exactly one implementation and both sides import it.
-        const {content, dropped, headerLines} = composeNpmIgnore(
-            fs.readFileSync(npmIgnorePath, 'utf-8'),
-            fs.readFileSync(gitIgnorePath, 'utf-8'),
-            os.EOL
-        );
-
-        fs.writeFileSync(npmIgnorePath, content);
-
-        console.log(`Synced .npmignore with .gitignore (${headerLines.length} header lines kept)`);
-
-        // Named individually rather than counted: a dropped line is a `.gitignore` rule that does not
-        // reach the package, so anyone adding one under an owned path has to see it disappear.
-        dropped.forEach(({line, owner}) => {
-            console.log(`  dropped from the copy: ${line}  (the header owns ${owner})`)
-        })
     }
 }
 
