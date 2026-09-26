@@ -1032,6 +1032,7 @@ class DragCoordinator extends Manager {
             };
 
         let
+            previewOnly         = false,
             transitionOwned     = false,
             transitionProxyRect = null;
 
@@ -1092,7 +1093,10 @@ class DragCoordinator extends Manager {
                 }
 
                 if (transition.engage !== true || transition.commitEligible !== true || !claimed?.zone) {
-                    targetSortZone = null
+                    // Zones before the park: a standing claim the source has not converted yet may still
+                    // preview, without an embodiment and never commit-eligible.
+                    previewOnly    = transition.preview === true && targetSortZone != null && targetSortZone === claimed?.zone;
+                    targetSortZone = previewOnly ? targetSortZone : null
                 }
             }
         }
@@ -1126,13 +1130,13 @@ class DragCoordinator extends Manager {
                 me.activeTargetZone = targetSortZone
             }
 
-            me.activeTargetCommitEligible = true;
+            me.activeTargetCommitEligible = !previewOnly;
             me.activeTransitionOwned      = transitionOwned;
 
             targetSortZone.onRemoteDragMove({
                 draggedItem,
                 embodyHeader: Boolean(header),
-                embodyProxy : transitionOwned,
+                embodyProxy : transitionOwned && !previewOnly,
                 localX,
                 localY,
                 offsetX,
