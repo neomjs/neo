@@ -62,12 +62,7 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
 
         await expect(page.getByRole('button', {name: 'next tab', exact: true})).toHaveCount(1);
         await expect(page.getByRole('button', {name: 'previous tab', exact: true})).toHaveCount(0);
-        await expect(previousAction).toHaveCSS('visibility', 'hidden');
-        expect(await previousAction.evaluate(node => ({
-            ariaHidden: node.getAttribute('aria-hidden'),
-            inert     : node.inert,
-            tabIndex  : node.tabIndex
-        }))).toEqual({ariaHidden: 'true', inert: true, tabIndex: -1});
+        await expect(previousAction, 'a withdrawn action has no node').toHaveCount(0);
 
         const bodyTree = await app.getComponentTree(bodyId, 2, true),
               cardId   = bodyTree.tree.items[0].id,
@@ -97,7 +92,7 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
 
         const outsideField = page.locator('#activeIndexField__input');
         await outsideField.click();
-        await expect(previousAction).toHaveCSS('visibility', 'hidden');
+        await expect(previousAction).toHaveCount(0);
         await expect(page.getByRole('button', {name: 'previous tab', exact: true})).toHaveCount(0);
 
         // The gate subject is the TabContainer, not its body: entering through ANY descendant --
@@ -217,7 +212,7 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
         await expect.poll(() => page.evaluate(() => document.activeElement?.id),
             {message: 'the outside field really took focus, so the next assertion covers a genuine exit'}
         ).toBe('activeIndexField__input');
-        await expect(previousAction).toHaveCSS('visibility', 'hidden');
+        await expect(previousAction).toHaveCount(0);
 
         // Start from an all-fit header. Mid-gesture action growth would overflow, but the SortZone's
         // stable snapshot owns the gesture, so Overflow must queue until the terminal.
@@ -295,9 +290,10 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
 
         // Runtime host replacement enters Toolbar#syncActions rather than the construction path.
         // Contextual defaults are applied after the structural insert there, so pin their physical
-        // DOM/a11y state rather than accepting the worker VDOM as proof that the insert flush carried it.
+        // DOM state rather than accepting the worker VDOM as proof that the insert flush carried it:
+        // a withdrawn action has no node, and a revealed one carries its a11y state.
         await outsideField.click();
-        await expect(previousAction).toHaveCSS('visibility', 'hidden');
+        await expect(previousAction).toHaveCount(0);
         await app.setProperties(tabId, {
             headerActions: [{action: 'runtime-contextual', iconCls: 'fa fa-bolt'}]
         });
@@ -307,15 +303,9 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
               runtimeAction       = page.locator(`#${runtimeActionId}`);
 
         expect(runtimeActionId, 'runtime replacement materialises the new semantic action').toBeTruthy();
-        await expect(runtimeAction).toHaveCount(1);
         await expect(runtimeAction,
-            'syncActions commits contextual inactivity to the rendered root').toHaveCSS('visibility', 'hidden');
+            'syncActions commits contextual inactivity: the withdrawn action has no node').toHaveCount(0);
         await expect(page.getByRole('button', {name: 'runtime contextual', exact: true})).toHaveCount(0);
-        expect(await runtimeAction.evaluate(node => ({
-            ariaHidden: node.getAttribute('aria-hidden'),
-            inert     : node.inert,
-            tabIndex  : node.tabIndex
-        }))).toEqual({ariaHidden: 'true', inert: true, tabIndex: -1});
 
         await card.click();
         await expect(runtimeAction).toHaveCSS('visibility', 'visible');
