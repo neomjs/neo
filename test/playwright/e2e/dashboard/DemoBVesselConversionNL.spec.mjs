@@ -19,10 +19,8 @@ async function findOne(app, selector, properties) {
 
 async function browserRect(page) {
     return page.evaluate(() => ({
-        height: globalThis.innerHeight,
-        width : globalThis.innerWidth,
-        x     : globalThis.screenX,
-        y     : globalThis.screenY
+        frame   : {height: globalThis.outerHeight, width: globalThis.outerWidth, x: globalThis.screenX, y: globalThis.screenY},
+        viewport: {height: globalThis.innerHeight, width: globalThis.innerWidth}
     }))
 }
 
@@ -44,11 +42,11 @@ async function setBounds(handle, bounds) {
     // resize path must publish that settled full snapshot rather than the earlier CDP ordering quirk.
     if (Number.isFinite(bounds.left) && Number.isFinite(bounds.top)) {
         await expect.poll(async () => {
-            const observed = await browserRect(handle.page);
+            const {frame} = await browserRect(handle.page);
 
             return Math.max(
-                Math.abs(observed.x - bounds.left),
-                Math.abs(observed.y - bounds.top)
+                Math.abs(frame.x - bounds.left),
+                Math.abs(frame.y - bounds.top)
             )
         }, {
             message  : `window ${handle.windowId} must reach its requested physical position`,
@@ -74,32 +72,37 @@ async function setBounds(handle, bounds) {
     }
 }
 
-async function managerRect(app, managerId, windowId) {
+async function managerRects(app, managerId, windowId) {
     const state = await app.callMethod(managerId, 'toJSON'),
           win   = state.windows.find(candidate => candidate.id === windowId);
 
-    return pickRect(win?.innerRect)
+    return win && {inner: pickRect(win.innerRect), outer: pickRect(win.outerRect)}
 }
 
+/**
+ * Waits until manager.Window holds the window's live geometry, then returns its `innerRect`: the
+ * viewport's screen rect, which the conversion samples. Chromium reports no viewport origin, so the
+ * frame's origin and extent are compared with `outerRect` and the viewport's extent with `innerRect`.
+ */
 async function awaitParity(app, managerId, page, windowId) {
-    let receipt;
+    let managed;
 
     await expect.poll(async () => {
-        const observed = await browserRect(page),
-              managed  = await managerRect(app, managerId, windowId),
-              deltas   = managed && ['x', 'y', 'width', 'height']
-                  .map(key => Math.abs(observed[key] - managed[key]));
+        const browser = await browserRect(page);
 
-        receipt = {managed, observed};
+        managed = await managerRects(app, managerId, windowId);
 
-        return deltas ? Math.max(...deltas) : Infinity
+        return managed ? Math.max(
+            ...['x', 'y', 'width', 'height'].map(key => Math.abs(browser.frame[key] - managed.outer[key])),
+            ...['width', 'height'].map(key => Math.abs(browser.viewport[key] - managed.inner[key]))
+        ) : Infinity
     }, {
         message  : `window ${windowId} must publish its live browser geometry to manager.Window`,
         timeout  : 5000,
         intervals: [50, 100, 250]
     }).toBeLessThanOrEqual(2);
 
-    return receipt
+    return managed.inner
 }
 
 function sampleMetric(source, target) {
@@ -167,8 +170,11 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
             waitUntil: 'domcontentloaded'
         });
 
-        const vesselPopupWait = page.waitForEvent('popup', {timeout: 30000}),
-              vesselOpenWait  = app.callMethod(wsId, 'openTearOutVessel', [{
+        // The vessel comes from the Group's admission, as a gesture's `openVessel` does: the effect
+        // alone refuses a request without the identity `acquire` mints.
+        const {vesselSourceId} = await app.getComponent(wsId, ['vesselSourceId']),
+              vesselPopupWait  = page.waitForEvent('popup', {timeout: 30000}),
+              vesselOpenWait   = app.callMethod(wsId, 'nativeWindows.acquire', [vesselSourceId, {
                   itemId   : 'workbench',
                   proxyRect: {height: 280, width: 360, x: 40, y: 40}
               }]),
@@ -236,16 +242,16 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
 
             const target = await awaitParity(app, windowManager.id, targetPage, ids.target),
                   source = await awaitParity(app, windowManager.id, vesselPage, ids.source),
-                  metric = sampleMetric(source.observed, target.observed);
+                  metric = sampleMetric(source, target);
 
             expect(metric.rx, `${cell.name} horizontal reachability`).toBeGreaterThan(.97);
             expect(metric.ry, `${cell.name} vertical reachability`).toBeGreaterThan(.97);
             receipts.push({name: cell.name, source, target, metric})
         }
 
-        expect(receipts.at(-1).target.observed.width,
+        expect(receipts.at(-1).target.width,
             'post-resize must publish a different live target extent')
-            .not.toBe(receipts.at(-2).target.observed.width);
+            .not.toBe(receipts.at(-2).target.width);
 
         await setBounds(targetHandle, {height: 560, left, top, width: 760});
         await setBounds(sourceHandle, {height: 320, left, top, width: 400});
@@ -253,18 +259,18 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
         let target   = await awaitParity(app, windowManager.id, targetPage, ids.target),
             source   = await awaitParity(app, windowManager.id, vesselPage, ids.source),
             {bounds} = await sourceHandle.cdp.send('Browser.getWindowBounds', {windowId: sourceHandle.windowId}),
-            desiredX = target.observed.x + target.observed.width  - .8 * source.observed.width,
-            desiredY = target.observed.y + target.observed.height - .6 * source.observed.height;
+            desiredX = target.x + target.width  - .8 * source.width,
+            desiredY = target.y + target.height - .6 * source.height;
 
         await setBounds(sourceHandle, {
             ...bounds,
             height: bounds.height + 1,
-            left  : Math.round(bounds.left + desiredX - source.observed.x),
-            top   : Math.round(bounds.top  + desiredY - source.observed.y)
+            left  : Math.round(bounds.left + desiredX - source.x),
+            top   : Math.round(bounds.top  + desiredY - source.y)
         });
         source = await awaitParity(app, windowManager.id, vesselPage, ids.source);
 
-        const diagonal = sampleMetric(source.observed, target.observed);
+        const diagonal = sampleMetric(source, target);
 
         expect(diagonal.rx, 'the requested diagonal landing publishes through the geometry parity').toBeGreaterThan(.75);
         expect(diagonal.rx).toBeLessThan(.85);
@@ -272,8 +278,8 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
         expect(diagonal.ry).toBeLessThan(.65);
 
         await app.callMethod(sourceZone.id, 'startWindowDrag', [{
-            popupHeight: source.observed.height,
-            popupWidth : source.observed.width,
+            popupHeight: source.height,
+            popupWidth : source.width,
             windowName : 'tearout-workbench'
         }]);
 
@@ -291,15 +297,15 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
                   {bounds: sourceBounds} = await sourceHandle.cdp.send('Browser.getWindowBounds', {
                       windowId: sourceHandle.windowId
                   }),
-                  desiredX = target.observed.x + target.observed.width
-                      - requestedRatio * Math.min(source.observed.width, target.observed.width),
-                  desiredY = target.observed.y;
+                  desiredX = target.x + target.width
+                      - requestedRatio * Math.min(source.width, target.width),
+                  desiredY = target.y;
 
             if (!beforeState.converted && !beforeState.transitioning) {
                 await setBounds(sourceHandle, {
                     ...sourceBounds,
-                    left: Math.round(sourceBounds.left + desiredX - source.observed.x),
-                    top : Math.round(sourceBounds.top  + desiredY - source.observed.y)
+                    left: Math.round(sourceBounds.left + desiredX - source.x),
+                    top : Math.round(sourceBounds.top  + desiredY - source.y)
                 });
 
                 source = await awaitParity(app, windowManager.id, vesselPage, ids.source)
@@ -311,7 +317,7 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
                       logicalSourceRect,
                       pointerInTarget: true,
                       targetId       : 'demo-b-popup',
-                      targetRect     : target.observed
+                      targetRect     : target
                   };
 
             await app.callMethod(sourceZone.id, 'resolveRemoteDragTransition', [frame]);
@@ -332,15 +338,15 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
                       'vesselConversionSourceRect'
                   ]),
                   park     = await app.getComponent(wsId, ['lastVesselParkReceipt']),
-                  metric = sampleMetric(binding.vesselConversionSourceRect, target.observed),
+                  metric = sampleMetric(binding.vesselConversionSourceRect, target),
                   expectedSourceRect = beforeState.converted
                       ? {
-                          height: source.observed.height,
-                          width : source.observed.width,
+                          height: source.height,
+                          width : source.width,
                           x     : logicalSourceRect.x,
                           y     : logicalSourceRect.y
                       }
-                      : source.observed;
+                      : source;
 
             expect(binding.vesselConversionSourceRect,
                 'pre-park uses exact live geometry; parked frames preserve exact extents at logical origin')
@@ -358,7 +364,7 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
 
         const pointerOutDecision = await app.callMethod(sourceZone.id, 'resolveRemoteDragTransition', [{
             draggedItem      : {dockItemId: 'workbench', id: 'calibration-probe'},
-            logicalSourceRect: source.observed,
+            logicalSourceRect: source,
             pointerInTarget  : false,
             targetId         : null,
             targetRect       : null
