@@ -1169,6 +1169,39 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    // The conversion metric compares the source's outer extent with the target's inner extent — the planes the
+    // park's target-cover admission reads. Sampling the source's inner rect put a real window's title bar between
+    // the pointer and the sampled rect, so the overlap a person can reach by hand fell to the target's top few
+    // pixels; viewport emulation, where a popup carries no chrome, never showed it.
+    test('the conversion samples the dragged vessel\'s frame, not its content', () => {
+        const
+            workspace   = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+            originalGet = Neo.manager.Window.get,
+            connections = workspace.nativeWindows.sources.get(workspace.id).connections,
+            records     = new Map([
+                ['source-window', {
+                    innerRect: {height: 173, width: 320, x: 40, y: 127},
+                    outerRect: {height: 240, width: 320, x: 40, y: 60}
+                }],
+                ['bare-window', {innerRect: {height: 240, width: 320, x: 400, y: 60}}]
+            ]);
+
+        connections.set('audit', {windowId: 'source-window', windowName: 'tearout-audit'});
+        connections.set('bare',  {windowId: 'bare-window',   windowName: 'tearout-bare'});
+        Neo.manager.Window.get = id => records.get(id) ?? null;
+
+        try {
+            // a real window: the frame, one title bar above the content — the extent the user drags by its corner
+            expect(workspace.resolveVesselConversionSourceRect({itemId: 'audit'})).toEqual({height: 240, width: 320, x: 40, y: 60});
+            // a child that publishes no outer rect samples its inner one — deliberately unlike the park admission, which refuses on its single declared plane
+            expect(workspace.resolveVesselConversionSourceRect({itemId: 'bare'})).toEqual({height: 240, width: 320, x: 400, y: 60});
+            expect(workspace.resolveVesselConversionSourceRect({itemId: 'missing'})).toBeFalsy()
+        } finally {
+            Neo.manager.Window.get = originalGet;
+            workspace.destroy()
+        }
+    });
+
     test('target refocus refusal never admits conversion, regardless of source-restore outcome', async () => {
         const
             workspace          = Neo.create(Workspace, {windowId: Neo.config.windowId}),
