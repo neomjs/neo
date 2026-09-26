@@ -174,11 +174,16 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
                     }
                 }])).toBe(true)
             }
+            await expect(popup.locator(`#${identities.at(-1)}`), 'the final transferred pane is rendered before opener reload').toBeVisible();
+            expect(await Promise.all(items.map(id => app.callMethod(workspaceId, 'getPaneIdentity', [id]))),
+                'the three transfers retain every original instance').toEqual(identities);
             await app.callMethod(workspaceId, 'commitLocalWorkspaceOperation', ['workstation-main', {
                 operation: 'setActiveItem', tabsNodeId: 'heavy-tabs', itemId: 'activity'
             }]);
             await page.reload();
             await expect(page.locator('.workstation-dock-host')).toBeVisible({timeout: 30000});
+            expect(await Promise.all(items.map(id => app.callMethod(workspaceId, 'getPaneIdentity', [id]))),
+                'opener reload retains every popup instance before close').toEqual(identities);
             await app.callMethod(workspaceId, 'transactionManager.set', [{reconnectLeaseMs: 3000}]);
             const beforeClose = await app.callMethod(workspaceId, 'controller.getTopologyState');
             await popup.close({runBeforeUnload: true});
