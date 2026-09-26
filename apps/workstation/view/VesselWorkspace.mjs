@@ -1262,17 +1262,22 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * Parks one converted vessel behind its conversion target — the cover geometry that keeps
-     * the REAL OS window alive while the proxy embodies over the target. Close-and-reopen is a
-     * one-way door (mid-gesture popup acquisition reads as unsolicited), so conversion parks
-     * instead: the same exact generation re-shows on out-conversion or restore. The focus /
-     * resize / move / refocus chain is the platform-law choreography (z-order hides the parked
-     * vessel). A source whose outer frame cannot fit behind the target first shrinks through its
-     * exact native route; a refocus refusal compensates to the original extent and source rect.
-     * On the native-titlebar path to the MAIN window nothing is parked at all — the hold is the
-     * gesture: the transfer lands when the dwell completes and the popup retires right after, so the
-     * park answers satisfied with no platform effect (the platform never grants a popup an opener
-     * focus without a user activation, and an OS titlebar drag carries none).
+     * Parks one converted vessel out of its conversion target's way, which keeps the REAL OS window
+     * alive while the target embodies the drag. Close-and-reopen is a one-way door (mid-gesture popup
+     * acquisition reads as unsolicited), so conversion parks instead: the same exact generation
+     * re-shows on out-conversion or restore.
+     *
+     * The pointer path parks CLEAR of the target: a source whose outer frame exceeds the
+     * target first shrinks through its exact native route, then moves to the corner of the target
+     * display's work area that covers the target least ({@link NativeVesselTransaction.resolveClearPark}).
+     * Nothing is focused: under a real OS mouse drag `focus()` raises nothing, which left the vessel on
+     * top of the target's zones. The native-titlebar path parks only after the OS released the drag,
+     * where focus is granted, so it keeps the focus / move / refocus chain that hides the vessel
+     * behind the target; a refocus refusal compensates to the source rect. On that path to the MAIN
+     * window nothing is parked at all — the hold is the gesture: the transfer lands when the dwell
+     * completes and the popup retires right after, so the park answers satisfied with no platform
+     * effect (the platform never grants a popup an opener focus without a user activation, and an OS
+     * titlebar drag carries none).
      * @param {Object} vessel
      * @param {String} vessel.itemId
      * @param {Boolean} [vessel.nativeTitlebar=false] The park follows an OS titlebar drag terminal
@@ -1290,8 +1295,8 @@ class VesselWorkspace extends DockWorkspace {
             targetIsMain = me.vesselConversionTargetWindowId === me.windowId,
             // The size check and the authority check speak published inner-window geometry (a child
             // omitting outerRect never rejects an authorized live vessel); the park POSITION is a
-            // frame: `moveTo` places the source frame on the target's frame origin, so the parked
-            // window lies behind the target's chrome and content alike.
+            // frame origin: `moveTo` places the source frame, clear of the target on the pointer path,
+            // on the target's frame origin behind it on the native-titlebar path.
             sourceRect   = sourceWindow?.innerRect,
             sourceOuter  = sourceWindow?.outerRect ?? sourceRect,
             targetRect   = targetWindow?.innerRect,
@@ -1308,10 +1313,6 @@ class VesselWorkspace extends DockWorkspace {
                 width : sourceOuter.width,
                 x     : sourceOuter.x,
                 y     : sourceOuter.y
-            } : null,
-            parkGeometry  = needsResize ? {
-                park   : {...parkSize, x: targetOuter?.x, y: targetOuter?.y},
-                restore: restoreRect
             } : null;
 
         const
@@ -1347,13 +1348,13 @@ class VesselWorkspace extends DockWorkspace {
 
         if (
             !sourcePos.granted || (needsResize && !sourceResize.granted) ||
-            (!targetIsMain && !targetFocus.granted) ||
+            (nativeTitlebar && !targetIsMain && !targetFocus.granted) ||
             entry.windowName !== windowName || !sourceRect || !sourceOuter || !targetRect ||
             (nativeTitlebar && (
                 sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
             ))
         ) {
-            me.lastVesselParkReceipt.reason = 'native route or live cover geometry refused';
+            me.lastVesselParkReceipt.reason = 'native route or live park geometry refused';
             return false
         }
 
@@ -1373,32 +1374,40 @@ class VesselWorkspace extends DockWorkspace {
             return true
         }
 
-        // The root window has no opener-minted nativeRoute, so a main target is focused through the
-        // popup's own Main actor (`opener.focus()`, granted under the user activation a keyboard
-        // command carries — the pointer conversion path); a popup target is focused by its owner
-        // through the handle it minted.
-        //
-        // A main-window target under a native titlebar never arrives here: it returns satisfied
-        // above, having nothing to park. So the main branch below serves the pointer conversion
-        // path alone — there is no native-titlebar main case to find.
-        const focusTarget = () => targetIsMain
-            ? Neo.Main.windowFocus({windowId: entry.windowId})
-            : Neo.Main.windowNativeFocus({
-                nativeHandleKey: targetRoute.nativeHandleKey,
-                targetWindowId : targetRoute.targetWindowId,
-                windowId       : me.windowId
-            });
+        // Only the native-titlebar path to a popup focuses, by its owner through the handle it minted;
+        // a main-window target on that path returned satisfied above.
+        const focusTarget = () => Neo.Main.windowNativeFocus({
+            nativeHandleKey: targetRoute.nativeHandleKey,
+            targetWindowId : targetRoute.targetWindowId,
+            windowId       : me.windowId
+        });
 
         try {
-            let focused = await focusTarget() === true;
+            let origin = {x: targetOuter.x, y: targetOuter.y};
 
-            me.lastVesselParkReceipt.focused = focused;
+            if (nativeTitlebar) {
+                let focused = await focusTarget() === true;
 
-            if (!focused) {
-                // A popup target: the owner focuses a window it opened, which the platform grants
-                // once the OS releases the dragged source. The coordinator retries the park.
-                me.lastVesselParkReceipt.refusedAt = 'focus';
-                return false
+                me.lastVesselParkReceipt.focused = focused;
+
+                if (!focused) {
+                    // The owner focuses a window it opened, which the platform grants once the OS
+                    // releases the dragged source. The coordinator retries the park.
+                    me.lastVesselParkReceipt.refusedAt = 'focus';
+                    return false
+                }
+            } else {
+                const
+                    {screen} = await Neo.Main.getWindowData({windowId: me.vesselConversionTargetWindowId}),
+                    clear    = NativeVesselTransaction.resolveClearPark({frame: parkSize ?? sourceOuter, screen, target: targetRect});
+
+                if (!clear) {
+                    me.lastVesselParkReceipt.refusedAt = 'screen';
+                    return false
+                }
+
+                me.lastVesselParkReceipt.cleared = clear.cleared;
+                origin = {x: clear.x, y: clear.y}
             }
 
             const moveData = {
@@ -1406,8 +1415,7 @@ class VesselWorkspace extends DockWorkspace {
                 targetWindowId : route.targetWindowId,
                 windowId       : me.windowId,
                 windowName,
-                x              : targetOuter.x,
-                y              : targetOuter.y
+                ...origin
             };
 
             if (!nativeTitlebar) {
@@ -1426,11 +1434,11 @@ class VesselWorkspace extends DockWorkspace {
                 return false
             }
 
-            parkGeometry && (me.tearOutParkGeometries[itemId] = parkGeometry);
+            parkSize && (me.tearOutParkGeometries[itemId] = {park: {...parkSize, ...origin}, restore: restoreRect});
 
-            let refocused = await focusTarget() === true;
+            let refocused = !nativeTitlebar || await focusTarget() === true;
 
-            me.lastVesselParkReceipt.refocused = refocused;
+            nativeTitlebar && (me.lastVesselParkReceipt.refocused = refocused);
 
             if (!refocused) {
                 const restoreData = {
@@ -1441,14 +1449,11 @@ class VesselWorkspace extends DockWorkspace {
                     x              : sourceOuter.x,
                     y              : sourceOuter.y
                 };
-                let compensated = await (nativeTitlebar
-                    ? Neo.Main.windowNativeMoveTo(restoreData)
-                    : Neo.main.addon.DragDrop.resumeWindowDrag(restoreData)) === true;
+                let compensated = await Neo.Main.windowNativeMoveTo(restoreData) === true;
 
                 me.lastVesselParkReceipt.compensated = compensated;
                 me.lastVesselParkReceipt.parked      = !compensated;
                 me.lastVesselParkReceipt.refusedAt   = 'refocus';
-                compensated && delete me.tearOutParkGeometries[itemId];
 
                 // Recovery ownership and visual admission are separate: if target refocus failed,
                 // the real source may still cover the target. Never publish conversion-ready on

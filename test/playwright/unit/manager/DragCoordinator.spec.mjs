@@ -2582,6 +2582,41 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         expect(DragCoordinator.activeTargetCommitEligible).toBe(false)
     });
 
+    test('zones before the park: a claim the park has not admitted previews without an embodiment and commits nothing (#19278)', () => {
+        let   record = {commitEligible: false, engage: false, retain: false};
+        const frames = [];
+        const source = createSource();
+        const target = createZone('workspace-a', 'win-a');
+
+        source.isWindowDragging = true;
+        source.resolveRemoteDragTransition = () => record;
+        target.onRemoteDragMove = payload => frames.push(payload.embodyProxy);
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-a', 0, 0, 800, 600);
+        DragCoordinator.register(target);
+
+        move(source, 300, 300);
+        expect(frames, 'without the source\'s preview mark a pending claim reaches no target').toEqual([]);
+
+        record = {commitEligible: false, engage: false, preview: true, retain: false};
+        move(source, 310, 300);
+        expect(frames, 'the target renders its zones from the claim, embodying nothing').toEqual([false]);
+        expect(DragCoordinator.activeTargetCommitEligible).toBe(false);
+
+        record = {commitEligible: true, engage: true, preview: true, retain: false};
+        move(source, 320, 300);
+        expect(frames, 'the admitted park embodies on the next frame').toEqual([false, true]);
+        expect(DragCoordinator.activeTargetCommitEligible).toBe(true);
+
+        record = {commitEligible: false, engage: false, preview: true, retain: false};
+        move(source, 330, 300);
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => ['drop', 'dropOut', 'leave'].includes(name)), 'a drop on a preview-only frame leaves')
+            .toEqual([['leave', 'workspace-a']])
+    });
+
     test('visual claim grace can retain hover, but release after raw loss cannot commit', () => {
         let   rawClaim = true;
         const source   = createSource();

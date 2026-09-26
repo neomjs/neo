@@ -579,7 +579,7 @@ handles by the semantic `windowName` passed to `Main.windowOpen()`. Those identi
 This is the generic multi-window Possession Interface consumed by inspection tooling. Product code still decides what a
 window *means* and which semantic transaction precedes a physical effect.
 
-#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396; amended 2026-07-29, #16117)
+#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396; amended 2026-07-29, #16117; amended 2026-09-26, #19278)
 
 Popup-to-proxy conversion is an admitted transition inside the existing outcome machine, not a new
 terminal state. A source may enter `HOVERING_CLAIM` only after its physical park effect returns strict
@@ -587,28 +587,35 @@ terminal state. A source may enter `HOVERING_CLAIM` only after its physical park
 dispatch is provisional authority: conversion and park owners retain their prior state until settlement,
 and a stale generation cannot mutate a successor gesture.
 
-The Workstation browser-runtime park binding is **target-cover**, behind generic exact-handle capabilities. Its
-admission reads the source's live **outer** extent and the target's live **inner** extent; creation-time dimensions
-and equal-size assumptions are not authority:
+The pointer-conversion park binding is **target-clear**, behind generic exact-handle capabilities, in the Workstation
+and in the engine's default transaction alike. Its admission reads the source's live **outer** extent and the target's
+live **inner** extent; creation-time dimensions and equal-size assumptions are not authority:
 
 1. resolve both connected generations from `manager.Window` and require opener-minted routes;
-2. require exact target focus and exact source position authority; require exact source resize authority only when the
-   source outer frame exceeds the target inner frame on either axis;
-3. focus the exact target route first;
-4. only after focus admission, pause pointer-follow, drain already-issued physical moves, preserve the source's exact
-   outer extent and origin, and — when needed — request a best-effort target-origin pre-position before resizing the
-   same exact source handle to
+2. require exact source position authority; require exact source resize authority only when the source outer frame
+   exceeds the target inner frame on either axis;
+3. read the target display's visible work area (`availLeft`, `availTop`, `availWidth`, `availHeight`) and pick the
+   **park position**: the corner of that work area whose parked frame overlaps the target's inner rect least, the
+   farthest one among equals, clamped so the whole frame stays inside the work area;
+4. pause pointer-follow, drain already-issued physical moves, preserve the source's exact outer extent and origin, and —
+   when needed — resize the same exact source handle to
    `{width: min(sourceOuter.width, targetInner.width), height: min(sourceOuter.height, targetInner.height)}`;
-5. verify the target realm's observed `outerWidth` / `outerHeight`, move the exact source route to the target origin,
-   then refocus the exact target route.
+5. verify the resized realm's observed `outerWidth` / `outerHeight` and move the exact source route to the park
+   position. The receipt records `cleared`, whether the parked frame misses the target's inner rect.
 
-The order is load-bearing. A focus refusal leaves the source untouched and moving. The full-size pre-position is
-deliberately non-admitting: Chrome may clamp a frame that cannot yet fit at the requested target origin, so only the
-post-resize exact move can admit cover. A resize refusal restores the original extent before pointer-follow resumes. A
-final move refusal restores the original origin and extent. A final-refocus refusal re-shows the same source generation;
-if that compensation is itself refused, the still-parked generation remains the sole retry authority. Browser
-minimum-size clamping therefore fails closed: requested dimensions are never projected into topology truth, and a
-non-matching observed extent cannot admit conversion. No effectful half-park needs semantic-name recovery.
+No step focuses the target and no step polls `document.hasFocus()`. *(Amended 2026-09-26, #19278: the target-cover
+binding hid the vessel BEHIND the target by z-order, and under a real OS mouse drag `window.focus()` raises nothing,
+so the vessel stayed in front with every affordance of the conversion under it — the operator's recording, #19186.)*
+The order is load-bearing. A resize refusal restores the original extent before pointer-follow resumes; a move refusal
+restores the original origin and extent. Browser minimum-size clamping fails closed: requested dimensions are never
+projected into topology truth, and a non-matching observed extent cannot admit conversion. No effectful half-park needs
+semantic-name recovery. When the target's inner rect spans the work area so that no corner is clear (`cleared: false`),
+the park is still admitted, and the zones before the park (below) show the hand where to drop.
+
+The native title-bar park runs only after the OS released the drag, when focus is granted, and keeps the target-cover
+binding: focus the exact target route, move the source to the target origin, then refocus; a final-refocus refusal
+re-shows the same source generation, and if that compensation is itself refused, the still-parked generation remains
+the sole retry authority.
 
 Offscreen coordinates are not the browser-runtime default: the macOS/Chrome headed falsifier clamped a requested
 far-negative position back onto the visible desktop. The #16117 macOS/Chrome probe instead kept one script-opened popup
@@ -616,7 +623,7 @@ alive, shrank its outer `640×546` frame to `360×260`, and restored the exact o
 `window.open` calls. Other platform mechanics remain host seams and require their own #15243 matrix receipts; the exact
 observation gate lets an admitting platform use the same state machine and makes a refusing or clamping platform remain
 `DETACHED_MOVING`. Conversion is proposed by the pointer claim on the target's content — the same authority §2.8.1
-gives every target — and admitted by the park; target-cover changes only the reversible physical embodiment needed
+gives every target — and admitted by the park; the park changes only the reversible physical embodiment needed
 after the claim proposes. *(Amended 2026-09-26, #19241: the size-neutral min-axis overlap metric that once proposed
 conversion is retired — on real window chrome it left the target's far edges unreachable by hand, while the native
 title-bar path admits by a single point.)* Over the target, a converted tab drag shows the tab-header proxy of the
@@ -632,6 +639,11 @@ Park and re-show settlement re-enter the dock-blind `DragCoordinator` with the s
 geometry frame. This continuation is source-owned and latest-frame-only: one successful platform settlement must be
 enough to materialize or retire the target proxy even when the hand stops moving; a refusal, reset epoch, or stale
 generation emits no replay and never auto-retries an effect.
+
+**Zones before the park.** While the park is pending or refused, a transition-owned frame whose pointer claim stands
+still reaches `onRemoteDragMove`, with `embodyProxy: false` and never commit-eligible, so the target renders its drop
+zones from the claim, as the native title-bar path does from its hover. The source marks such a frame with
+`preview: true`; the target-side proxy embodies only after the park admits. *(Amended 2026-09-26, #19278.)*
 
 Convert-out re-shows the **same** connected window through the same opaque handle generation and resumes
 physical pointer-follow at the live logical drag origin after restoring the exact pre-conversion outer extent. If no

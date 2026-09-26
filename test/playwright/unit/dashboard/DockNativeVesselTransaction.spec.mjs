@@ -28,19 +28,21 @@ import WindowManager           from '../../../../src/manager/Window.mjs';
 
 const
     ROUTE        = {nativeHandleKey: 'handle-1', targetWindowId: 'win-source'},
+    SCREEN       = {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1600},
     TARGET_ROUTE = {nativeHandleKey: 'handle-target', targetWindowId: 'win-target'};
 
 /**
  * @summary Registers the two windows the choreography measures, and doubles every platform call.
  *
- * The park effect DISPATCHES — focus, optional resize, park-move, refocus, compensate — so a
- * descriptor alone cannot exercise it. `calls` records the order, which is the contract that
- * matters: a transaction that moved before it focused would leave the source visibly over the
- * target for a frame, and only an ordered witness can see that.
+ * The park effect DISPATCHES — optional resize, then the park-move — so a descriptor alone cannot
+ * exercise it. `calls` records the order, and whether a call happened at all: a park that still
+ * focused would be asking for the z-order a real drag never grants.
  * @param {Object} [outcomes={}] Per-call boolean results; anything omitted succeeds.
+ * @param {Object} [options={}]
+ * @param {Object|null} [options.screen=SCREEN] The target display's work area `getWindowData` answers.
  * @returns {{calls:String[],restore:Function}}
  */
-const installPlatform = (outcomes={}) => {
+const installPlatform = (outcomes={}, {screen=SCREEN}={}) => {
     Neo.Main       ??= {};
     Neo.main       ??= {};
     Neo.main.addon ??= {};
@@ -48,10 +50,11 @@ const installPlatform = (outcomes={}) => {
     const
         calls    = [],
         previous = {
-            focus   : Neo.Main.windowNativeFocus,
-            moveTo  : Neo.Main.windowNativeMoveTo,
-            resizeTo: Neo.Main.windowNativeResizeTo,
-            addon   : Neo.main?.addon?.DragDrop
+            focus        : Neo.Main.windowNativeFocus,
+            getWindowData: Neo.Main.getWindowData,
+            moveTo       : Neo.Main.windowNativeMoveTo,
+            resizeTo     : Neo.Main.windowNativeResizeTo,
+            addon        : Neo.main?.addon?.DragDrop
         },
         answer   = (name, payload) => {
             calls.push(name);
@@ -62,6 +65,7 @@ const installPlatform = (outcomes={}) => {
     WindowManager.register({id: 'win-source', innerRect: new Rectangle(40, 60, 480, 320), outerRect: new Rectangle(40, 60, 480, 320), nativeRoute: ROUTE});
     WindowManager.register({id: 'win-target', innerRect: new Rectangle(0, 0, 800, 600),   outerRect: new Rectangle(0, 0, 800, 600),   nativeRoute: TARGET_ROUTE});
 
+    Neo.Main.getWindowData        = () => Promise.resolve({screen});
     Neo.Main.windowNativeFocus    = () => answer('focus');
     Neo.Main.windowNativeMoveTo   = data => answer('moveTo', data);
     Neo.Main.windowNativeResizeTo = () => answer('resize');
@@ -74,6 +78,7 @@ const installPlatform = (outcomes={}) => {
     return {
         calls,
         restore() {
+            Neo.Main.getWindowData        = previous.getWindowData;
             Neo.Main.windowNativeFocus    = previous.focus;
             Neo.Main.windowNativeMoveTo   = previous.moveTo;
             Neo.Main.windowNativeResizeTo = previous.resizeTo;
@@ -214,7 +219,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         expect(receipts.restore.frame).toBeNull()
     });
 
-    test('the park focuses BEFORE it moves, and refocuses after', async () => {
+    test('the park moves the vessel clear of the target and focuses nothing (#19278)', async () => {
         const receipts = {};
 
         restore  = stubRoutes({focus: true, position: true, resize: true});
@@ -225,15 +230,28 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
             .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
 
         expect(parked).toBe(true);
-        // Order is the contract: a move before the focus leaves the source visibly over the target
-        // for a frame, and no settled-state assertion can see that.
-        expect(platform.calls.filter(call => !call.includes(':')))
-            .toEqual(['focus', 'park', 'focus']);
-        expect(receipts.park.parked).toBe(true);
-        expect(receipts.park.requested, 'parks at the target origin').toEqual({x: 0, y: 0})
+        expect(platform.calls.filter(call => !call.includes(':')), 'one move, no focus step').toEqual(['park']);
+        expect(receipts.park).toMatchObject({cleared: true, parked: true});
+        // the 480x320 frame's work-area corner farthest from the 800x600 target at the origin
+        expect(receipts.park.requested).toEqual({x: 1120, y: 680});
+        expect(receipts.park).not.toHaveProperty('refocused')
     });
 
-    test('a geometry-restoring park resizes between the focus and the move', async () => {
+    test('a target focus route the park no longer uses does not refuse it', async () => {
+        const receipts = {};
+
+        restore  = stubRoutes({focus: false, position: true, resize: true});
+        platform = installPlatform();
+
+        const parked = await NativeVesselTransaction
+            .effectsFor(descriptorFor({receipts}))
+            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+        expect(parked).toBe(true);
+        expect(receipts.park.authority.targetFocusCapable, 'still reported').toBe(false)
+    });
+
+    test('a geometry-restoring park resizes before the move, and places the shrunk frame', async () => {
         const receipts = {};
 
         restore  = stubRoutes({focus: true, position: true, resize: true});
@@ -243,35 +261,37 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
             .effectsFor(descriptorFor({geometry: {height: 320, width: 480}, receipts}))
             .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
 
-        expect(platform.calls.filter(call => !call.includes(':')))
-            .toEqual(['focus', 'resize', 'park', 'focus']);
+        expect(platform.calls.filter(call => !call.includes(':'))).toEqual(['resize', 'park']);
         expect(receipts.park.resized).toBe(true)
     });
 
-    test('a refused refocus compensates the move and REFUSES the park', async () => {
+    test('a target spanning the work area still parks, and the receipt says it is not cleared', async () => {
         const receipts = {};
 
         restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-
-        // The first focus succeeds and the refocus does not: one call, two answers, so the double
-        // flips after the move rather than refusing focus outright.
-        let focusCalls = 0;
-        Neo.Main.windowNativeFocus = () => {
-            platform.calls.push('focus');
-            return Promise.resolve(++focusCalls === 1)
-        };
+        platform = installPlatform({}, {screen: {availHeight: 600, availLeft: 0, availTop: 0, availWidth: 800}});
 
         const parked = await NativeVesselTransaction
             .effectsFor(descriptorFor({receipts}))
             .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
 
-        expect(parked, 'a compensated move is a refusal — nothing is parked').toBe(false);
-        expect(receipts.park.compensated).toBe(true);
-        expect(receipts.park.parked).toBe(false);
-        expect(receipts.park.refusedAt).toBe('refocus');
-        // Compensation returns the source to where it started, not to the park origin.
-        expect(platform.calls).toContain('resume:40,60')
+        expect(parked, 'no corner is clear: the zones before the park are the belt').toBe(true);
+        expect(receipts.park.cleared).toBe(false)
+    });
+
+    test('a target display without a measurable work area refuses before any move', async () => {
+        const receipts = {};
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform({}, {screen: null});
+
+        const parked = await NativeVesselTransaction
+            .effectsFor(descriptorFor({receipts}))
+            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+        expect(parked).toBe(false);
+        expect(receipts.park.refusedAt).toBe('screen');
+        expect(platform.calls).toEqual([])
     });
 
     test('a source too large to hide behind the target refuses when nothing may shrink it', async () => {
@@ -316,8 +336,9 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
 
         expect(admitted, 'the promise to restore the extent is what licences the shrink').toBe(true);
         expect(receipts.park.fits).toBe(false);
-        expect(platform.calls.filter(call => !call.includes(':')))
-            .toEqual(['focus', 'resize', 'park', 'focus'])
+        expect(platform.calls.filter(call => !call.includes(':'))).toEqual(['resize', 'park']);
+        // the frame shrinks to the 800x600 target; beside it, the corner farthest from it is clear
+        expect(receipts.park).toMatchObject({cleared: true, requested: {x: 800, y: 400}})
     });
 
     test('a terminal restore ending a DRAG asks its owner before the route', async () => {
@@ -366,6 +387,58 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
             .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'a-different-vessel'});
 
         expect(admitted).toBe(false)
+    });
+});
+
+/**
+ * Where the park puts the vessel so it covers none of the target. Every arm is a real frame on a
+ * real work area: the corner's frame must stay whole inside the work area, and "farthest" only decides
+ * between corners that overlap the target equally.
+ */
+test.describe('Neo.dashboard.dock.window.NativeVesselTransaction.resolveClearPark', () => {
+    const park = (frame, screen, target) => NativeVesselTransaction.resolveClearPark({frame, screen, target});
+
+    test('the frame takes the clear corner farthest from the target, whole inside the work area', () => {
+        const screen = {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1600};
+
+        expect(park({height: 320, width: 480}, screen, {height: 600, width: 800, x: 0, y: 0}))
+            .toEqual({cleared: true, x: 1120, y: 680});
+        // three corners clear an off-centre target; the farthest of them wins, not the first
+        expect(park({height: 300, width: 400}, screen, {height: 400, width: 600, x: 200, y: 100}))
+            .toEqual({cleared: true, x: 1200, y: 700})
+    });
+
+    test('a second display keeps the frame on its own work area', () => {
+        const screen = {availHeight: 900, availLeft: 1920, availTop: 0, availWidth: 1440};
+
+        expect(park({height: 300, width: 400}, screen, {height: 600, width: 800, x: 2000, y: 100}))
+            .toEqual({cleared: true, x: 2960, y: 600})
+    });
+
+    test('a frame wider than the work area is clamped to its left edge, and can still clear the target', () => {
+        const screen = {availHeight: 800, availLeft: 0, availTop: 0, availWidth: 1000};
+
+        expect(park({height: 300, width: 1200}, screen, {height: 300, width: 400, x: 0, y: 0}))
+            .toEqual({cleared: true, x: 0, y: 500})
+    });
+
+    test('a target spanning the work area answers the least-overlapping corner, not cleared', () => {
+        const screen = {availHeight: 600, availLeft: 0, availTop: 0, availWidth: 800};
+
+        expect(park({height: 300, width: 400}, screen, {height: 600, width: 800, x: 0, y: 0}))
+            .toEqual({cleared: false, x: 0, y: 0})
+    });
+
+    test('an unmeasurable frame, work area or target answers null', () => {
+        const
+            frame  = {height: 300, width: 400},
+            screen = {availHeight: 900, availLeft: 0, availTop: 0, availWidth: 1440},
+            target = {height: 600, width: 800, x: 0, y: 0};
+
+        expect(park(frame, null, target)).toBeNull();
+        expect(park(frame, {...screen, availWidth: 0}, target)).toBeNull();
+        expect(park({...frame, height: NaN}, screen, target)).toBeNull();
+        expect(park(frame, screen, {...target, x: undefined})).toBeNull()
     });
 });
 
