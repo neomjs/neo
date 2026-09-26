@@ -1097,6 +1097,32 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                     !participation.isDestroyed && participation.destroy();
                     workspace.destroy()
                 }
+            });
+
+            test('a re-driven preview that throws releases the frame and reports the error', async () => {
+                const {participation, settle, workspace} = createColdTarget(),
+                      {target}                           = participation,
+                      originalError                      = console.error,
+                      reported                           = [];
+
+                try {
+                    expect(target.onRemoteDragMove(frame)).toBeNull();
+
+                    target.previewFor = () => {throw new Error('preview exploded')};
+                    console.error = (...args) => reported.push(args);
+
+                    await settle();
+
+                    expect(target.currentPreview).toBeNull();
+                    expect(target.currentDragPayload).toBeNull();
+                    expect(reported.map(([message, error]) => [message, error?.message])).toEqual([
+                        ['DragTarget: the re-driven preview failed', 'preview exploded']
+                    ])
+                } finally {
+                    console.error = originalError;
+                    !participation.isDestroyed && participation.destroy();
+                    workspace.destroy()
+                }
             })
         });
 

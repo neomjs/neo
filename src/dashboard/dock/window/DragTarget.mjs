@@ -309,8 +309,10 @@ class DragTarget extends Base {
 
             try {
                 me.currentPreview = me.previewFor?.(payload) ?? null
-            } catch {
-                me.releasePreviewFailure(payload)
+            } catch (error) {
+                // no caller to rethrow to on this path, so the failure reports itself
+                me.releasePreviewFailure(payload);
+                console.error('DragTarget: the re-driven preview failed', error)
             }
         }, () => {})
     }
