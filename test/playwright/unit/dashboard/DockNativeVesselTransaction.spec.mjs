@@ -415,11 +415,19 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction.resolveClearPar
             .toEqual({cleared: true, x: 2960, y: 600})
     });
 
-    test('a frame wider than the work area is clamped to its left edge, and can still clear the target', () => {
-        const screen = {availHeight: 800, availLeft: 0, availTop: 0, availWidth: 1000};
+    test('a frame larger than the work area is refused before placement: no corner holds it whole', () => {
+        const screen = {availHeight: 800, availLeft: 0, availTop: 0, availWidth: 1000}, target = {height: 300, width: 400, x: 0, y: 0};
 
-        expect(park({height: 300, width: 1200}, screen, {height: 300, width: 400, x: 0, y: 0}))
-            .toEqual({cleared: true, x: 0, y: 500})
+        expect(park({height: 300, width: 1200}, screen, target), 'wider').toBeNull();
+        expect(park({height: 900, width: 400},  screen, target), 'taller').toBeNull();
+        expect(park({height: 800, width: 1000}, screen, target), 'exactly the work area still fits').toEqual({cleared: false, x: 0, y: 0})
+    });
+
+    test('a target without extent is refused: nothing can be cleared of it', () => {
+        const screen = {availHeight: 900, availLeft: 0, availTop: 0, availWidth: 1440}, frame = {height: 300, width: 400};
+
+        expect(park(frame, screen, {height: 0, width: 800, x: 0, y: 0})).toBeNull();
+        expect(park(frame, screen, {height: 600, width: -1, x: 0, y: 0})).toBeNull()
     });
 
     test('a target spanning the work area answers the least-overlapping corner, not cleared', () => {

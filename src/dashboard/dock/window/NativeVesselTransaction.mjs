@@ -137,22 +137,24 @@ class NativeVesselTransaction extends Base {
      * @param {Object} data.screen The target display's `availLeft`, `availTop`, `availWidth` and `availHeight`
      * @param {{height:Number,width:Number,x:Number,y:Number}} data.target The target's content rect
      * @returns {{cleared:Boolean,x:Number,y:Number}|null} The frame origin, and whether the frame misses the
-     * target's content; `null` when an input is not measurable
+     * target's content; `null` when an input is not measurable, the target has no extent, or the frame is
+     * larger than the work area and cannot be placed whole
      */
     static resolveClearPark({frame, screen, target} = {}) {
         const {availHeight, availLeft, availTop, availWidth} = screen ?? {};
 
         if (
             ![availHeight, availLeft, availTop, availWidth, frame?.height, frame?.width, target?.height, target?.width, target?.x, target?.y].every(Number.isFinite) ||
-            availHeight <= 0 || availWidth <= 0 || frame.height <= 0 || frame.width <= 0
+            availHeight <= 0 || availWidth <= 0 || frame.height <= 0 || frame.width <= 0 || target.height <= 0 || target.width <= 0 ||
+            frame.height > availHeight || frame.width > availWidth
         ) {
             return null
         }
 
         const
             content = new Rectangle(target.x, target.y, target.width, target.height),
-            right   = availLeft + Math.max(0, availWidth  - frame.width),
-            bottom  = availTop  + Math.max(0, availHeight - frame.height);
+            right   = availLeft + availWidth  - frame.width,
+            bottom  = availTop  + availHeight - frame.height;
 
         let best = null;
 

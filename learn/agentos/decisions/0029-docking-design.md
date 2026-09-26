@@ -596,7 +596,8 @@ live **inner** extent; creation-time dimensions and equal-size assumptions are n
    exceeds the target inner frame on either axis;
 3. read the target display's visible work area (`availLeft`, `availTop`, `availWidth`, `availHeight`) and pick the
    **park position**: the corner of that work area whose parked frame overlaps the target's inner rect least, the
-   farthest one among equals, clamped so the whole frame stays inside the work area;
+   farthest one among equals, the whole frame inside the work area. A frame larger than the work area, or a target
+   inner rect without extent, refuses the park here, before any resize or move: no corner holds that frame whole;
 4. pause pointer-follow, drain already-issued physical moves, preserve the source's exact outer extent and origin, and —
    when needed — resize the same exact source handle to
    `{width: min(sourceOuter.width, targetInner.width), height: min(sourceOuter.height, targetInner.height)}`;
