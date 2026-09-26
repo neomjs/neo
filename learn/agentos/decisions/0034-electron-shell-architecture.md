@@ -103,7 +103,7 @@ smoke (`cd harness && npm run smoke` → `sharedHeapEvidence: true`); the findin
 |---|---|
 | **C1 — Real origin required, with the full privilege set.** The harness MUST be served from a standard-scheme origin: a custom privileged scheme (`app://` via `protocol.registerSchemesAsPrivileged([{scheme, privileges: {standard: true, secure: true, supportFetchAPI: true}}])` + `protocol.handle`) or localhost HTTP. **`supportFetchAPI: true` is normative** — `data.Store` `url` seeds and every fetch-consuming surface depend on it (the harness smoke's working privilege set includes it; the fetch smoke consumes it). **`file://` loading silently isolates every window's workers** — the app renders, boots, and shares nothing. | `file2win`/`filepopup` = ISOLATED; `app2win`/`http2win` = SHARED; `fetchsmoke` = `fetchOk: true` |
 | **C2 — One session partition, positively verified.** SharedWorker scope is partition-bound: with origin, page URL, and preload held constant and ONLY the partition varied, the second window reports a FRESH worker (count 1) — on both sharing origins. Every harness window lives in the default (or one named) partition. | `partitionapp` + `partitionhttp` = both windows report (1, 1) |
-| **C3 — The popup path is preserved.** `window.open()` — issued on the main thread by `Neo.Main.windowOpen()` — joins the same workers when the shell allows it via `setWindowOpenHandler({action: 'allow', overrideBrowserWindowOptions})`. The popup materializes as an Electron-managed `BrowserWindow`; the same-origin `window.opener` relationship survives. | `apppopup`/`httppopup` = SHARED |
+| **C3 — The popup path is preserved.** `window.open()` — issued on the main thread by `Neo.Main.windowOpen()`, which opens the `about:blank` staging realm and then replaces it with the document (§2.3.2) — joins the same workers when the shell allows it via `setWindowOpenHandler({action: 'allow', overrideBrowserWindowOptions})`. The popup materializes as an Electron-managed `BrowserWindow`; the same-origin `window.opener` relationship survives. | `apppopup`/`httppopup` = SHARED |
 | **C4 — Secure defaults cost nothing.** All of the above holds under `contextIsolation: true`, sandbox on, `nodeIntegration: false` — worker topology and the §2.3 security posture are decoupled. | entire matrix ran on default secure flags |
 | **C5 — Worker identity is `(origin, URL)` per worker.** The packaged origin must be *stable* across windows and app restarts (one canonical `app://` host + path scheme), or windows resolve different identities for the SAME worker role. | phase-scoped worker URLs isolate by construction |
 | **C6 — Protocol handlers are session-specific.** `protocol.handle` on the default session does not serve other partitions; a window in a `persist:` partition cannot even LOAD `app://` without its own registration. Operationally this reinforces C2: one partition, one registration. | the `partitionapp` control required `session.fromPartition(...).protocol.handle` before window B loaded at all |
@@ -136,6 +136,16 @@ adoption.
    explicit origin/path allowlist) and DENIES everything else; `will-navigate` denies any
    off-origin navigation in every window. The allow path IS the C3 popup contract; everything else
    fails closed.
+   **The staging realm** *(amended 2026-09-26, #19237 — for
+   neomjs/neo-agent-institution#229)*: the one non-document the window policy admits is
+   `about:blank`. `Neo.Main.windowOpen` opens every same-origin popup there first, writes the
+   child's one-time route into that realm's `sessionStorage`, then replaces its location with the
+   document, so the child's `getWindowData()` handshake never races the write. The realm is bounded
+   three ways: it holds no content; the preload's capabilities refuse it, because §2.3.4 validates
+   the sender document; and `will-navigate` still admits only harness documents, so its one exit is
+   one. The shell's popup admission follows the engine's staging contract, and a change to either
+   re-reads the other. A handler that admits documents alone refuses every product popup, and does
+   so silently (`windowOpen` resolves `false`).
 3. **Permissions and content:** a `setPermissionRequestHandler` that denies by default with a
    named, minimal allowlist (empty until a leaf needs one — additions amend this section); a
    restrictive CSP served by the `app://` handler for every document; no remote documents,
@@ -369,7 +379,9 @@ reopen its ledger.
 
 - **Empirical:** the harness's own smoke — `cd harness && npm run smoke` — boots two windows on
   the `app://` origin and proves the popup joins the SAME shared workers (`sharedHeapEvidence: true`,
-  `popupMaterialized: true`), pinned Electron 43.1.0 / Chromium 150.0.7871.47 / darwin 25.5.0. The
+  `popupMaterialized: true`), pinned Electron 43.1.0 / Chromium 150.0.7871.47 / darwin 25.5.0.
+  Its popup opens through `Neo.Main.windowOpen`, so every run crosses the §2.3.2 staging realm the
+  product's popups take. The
   negative cases that fixed the architecture (`file://` kills sharing; per-window partitions) are
   recorded in §2.2 — one-time discovery, not a standing runnable.
   Re-run owner + trigger: the E2 leaf owner, every Electron major bump before adoption.
