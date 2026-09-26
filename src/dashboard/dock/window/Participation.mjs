@@ -188,6 +188,12 @@ class Participation extends Base {
          */
         awaitDragEmbodiment: null,
         /**
+         * Owner seam forwarded to the target: resolves once a frame the preview seam could not
+         * answer yet can be answered. Defaults to the affordance geometry settling.
+         * @member {Function|null} awaitPreviewable=null
+         */
+        awaitPreviewable: null,
+        /**
          * Optional product-owned native-popup park/relegation seam forwarded to the stable
          * participation.
          * @member {Function|null} suspendNativeWindowDrag=null
@@ -278,6 +284,7 @@ class Participation extends Base {
             sortGroup              : me.sortGroup ?? me.defaultSortGroup(),
             stageDragEmbodiment    : me.stageDragEmbodiment ?? me.defaultStageDragEmbodiment.bind(me),
             awaitDragEmbodiment    : me.awaitDragEmbodiment ?? me.defaultAwaitDragEmbodiment.bind(me),
+            awaitPreviewable       : me.awaitPreviewable    ?? me.defaultAwaitPreviewable.bind(me),
             suspendNativeWindowDrag: me.suspendNativeWindowDrag,
             // the workspace id IS the §2.8.1 stable claim identity: it survives re-registration
             // and never encodes windowId or registration order
@@ -381,6 +388,20 @@ class Participation extends Base {
     }
 
     /**
+     * @summary Resolves `true` once a cold affordance geometry settles measurable, so the target can
+     * answer a frame {@link #defaultPreviewFor} met before the measurement landed.
+     * @returns {Promise<Boolean>|null} `null` when the geometry is already warm or there is none to await
+     * @protected
+     */
+    defaultAwaitPreviewable() {
+        const affordances = this.resolveAffordances();
+
+        if (!affordances || affordances.geometry) return null;
+
+        return affordances.ensureGeometry().then(geometry => Boolean(geometry))
+    }
+
+    /**
      * Engine default for {@link #commitLocal}: the workspace's own reducer pair — the identical
      * path an in-window drop rides, so a cross-window local drop never becomes a parallel commit.
      * @param {Object} operation
@@ -466,8 +487,9 @@ class Participation extends Base {
      * @summary Resolves and renders the remote hover frame through the gesture owner.
      * The engine default for {@link #previewFor} uses the gesture
      * controller's synchronous geometry mirror. The warm-up is deliberately not awaited — the seam
-     * must answer on the frame it arrives, and the first frames of a gesture resolving to `null`
-     * while geometry settles is the documented behaviour of that mirror.
+     * must answer on the frame it arrives, so a frame that meets a cold mirror answers `null`; the
+     * target answers it again once {@link #defaultAwaitPreviewable} resolves, so a pointer that
+     * stops on that frame still gets its preview.
      * @param {Object} payload
      * @returns {Object|null}
      * @protected

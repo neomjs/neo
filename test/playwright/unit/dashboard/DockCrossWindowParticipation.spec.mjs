@@ -980,6 +980,126 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             }
         });
 
+        test.describe('a frame met by cold geometry', () => {
+            const frame = {draggedItem: {dockItemId: 'terminal'}, localX: 500, localY: 380};
+
+            /**
+             * A default target whose geometry measurement settles only when the arm says so — the
+             * state a settled park leaves: during the park the source withheld the target, and the
+             * leave before it cleared the affordance geometry.
+             * @returns {{participation: Object, settle: Function, workspace: Object}}
+             */
+            const createColdTarget = () => {
+                let resolveRects;
+
+                const workspace = Neo.create(Container, {
+                    items: [{module: Container, dockNodeId: 'main-tabs'}]
+                });
+                workspace.dockModel = targetDoc();
+                workspace.getDockHost = () => workspace;
+                workspace.getDockProjectionOptions = () => ({});
+                workspace.resolveDockableRoot = DockWorkspace.prototype.resolveDockableRoot;
+                workspace.getDomRect = () => new Promise(resolve => resolveRects = resolve);
+
+                const participation = createParticipation({sortGroup: 'dock-engine', workspace});
+
+                return {
+                    participation,
+                    workspace,
+                    async settle() {
+                        const measured = participation.ownedAffordances.dragGeometry;
+
+                        resolveRects([
+                            {x: 100, y: 80, width: 800, height: 600},
+                            {x: 100, y: 80, width: 800, height: 600}
+                        ]);
+                        await measured;
+                        await new Promise(resolve => setTimeout(resolve, 0))
+                    }
+                }
+            };
+
+            test('one frame is enough: the preview renders once geometry settles, with no second frame', async () => {
+                const {participation, settle, workspace} = createColdTarget(),
+                      {target}                           = participation;
+
+                try {
+                    // a settled park replays exactly one frame (ADR 0029 §2.8.6)
+                    expect(target.onRemoteDragMove(frame)).toBeNull();
+
+                    await settle();
+
+                    // the hand has stopped: no second onRemoteDragMove arrives
+                    expect(target.currentPreview?.feedback.state, 'the drop path holds a preview to commit').toBe('accepted');
+                    expect(target.currentPreview.placement.kind).toBe('tab-into');
+                    expect(participation.ownedPreview.dockPreview, 'the drop zones render').toEqual(target.currentPreview)
+                } finally {
+                    !participation.isDestroyed && participation.destroy();
+                    workspace.destroy()
+                }
+            });
+
+            test('a newer frame wins: the settled answer is for the pointer where it is now', async () => {
+                const {participation, settle, workspace} = createColdTarget(),
+                      {target}                           = participation;
+
+                try {
+                    expect(target.onRemoteDragMove(frame)).toBeNull();
+                    expect(target.onRemoteDragMove({...frame, localY: 342})).toBeNull();
+
+                    await settle();
+
+                    expect(target.currentPreview?.placement.kind).toBe('edge-top');
+                    expect(participation.ownedPreview.dockPreview).toEqual(target.currentPreview)
+                } finally {
+                    !participation.isDestroyed && participation.destroy();
+                    workspace.destroy()
+                }
+            });
+
+            test('a leave before geometry settles leaves no preview behind', async () => {
+                const {participation, settle, workspace} = createColdTarget(),
+                      {target}                           = participation;
+
+                try {
+                    expect(target.onRemoteDragMove(frame)).toBeNull();
+                    target.onRemoteDragLeave();
+
+                    await settle();
+
+                    expect(target.currentPreview).toBeNull();
+                    expect(target.currentDragPayload).toBeNull();
+                    expect(participation.ownedPreview?.dockPreview ?? null).toBeNull()
+                } finally {
+                    !participation.isDestroyed && participation.destroy();
+                    workspace.destroy()
+                }
+            });
+
+            test('a target destroyed before geometry settles answers nothing', async () => {
+                const {participation, settle, workspace} = createColdTarget(),
+                      {target}                           = participation;
+
+                let settledPreviews = 0;
+
+                try {
+                    expect(target.onRemoteDragMove(frame)).toBeNull();
+
+                    const previewFor = target.previewFor;
+
+                    target.previewFor = payload => (settledPreviews++, previewFor(payload));
+                    target.destroy();
+
+                    await settle();
+
+                    expect(settledPreviews).toBe(0)
+                } finally {
+                    !participation.isDestroyed && participation.destroy();
+                    workspace.destroy()
+                }
+            })
+        });
+
         test('a custom preview seam leaves overlay ownership with its caller', () => {
             const workspace     = createWorkspaceStub(),
                   payload       = {draggedItem: {dockItemId: 'terminal'}},
