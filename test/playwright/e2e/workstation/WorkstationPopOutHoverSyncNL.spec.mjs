@@ -129,6 +129,8 @@ test.describe('Workstation pop-out — hover sync follows the grid into the popu
               box  = await view.boundingBox();
 
         expect(box, 'the popup renders the grid view').toBeTruthy();
+        expect(await view.evaluate(node => node.clientHeight <= window.innerHeight),
+            'the popped-out grid view fits its window, so a wheel can scroll it').toBe(true);
 
         // A main-thread addon is imported into a window the first time the App Worker resolves it
         // for that window (`worker.App#getAddon` → `Main.importAddon`), so the popup's hover-sync
