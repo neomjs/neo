@@ -483,17 +483,8 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             intervals: [25, 50]
         }).toBeLessThanOrEqual(2);
 
-        const targetParkState = await targetPopup.evaluate(() => ({
-            focused: document.hasFocus(),
-            x      : globalThis.screenX,
-            y      : globalThis.screenY
-        }));
-
-        expect(targetParkState.focused, 'moving the source must not raise it above the focused cover target').toBe(true);
-        // Chrome automation can report document.hasFocus() true in multiple top-level pages at
-        // once. The post-move TARGET receipt is the exclusive admission oracle; requiring the
-        // source to report false would encode a browser-harness quirk as product semantics.
-        expect(parkReceipt.refocused).toBe(true);
+        // The vessel parks clear of the target instead of behind it, so no z-order is asked for (#19278).
+        expect(parkReceipt.cleared, 'the parked source covers none of the target').toBe(true);
 
         const result         = await resultPromise,
               restoreReceipt = result.proof?.restoreReceipt;
