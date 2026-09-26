@@ -2253,6 +2253,54 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    test('a committed popup adopts its staged pane before retiring provisional chrome', async () => {
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const {state, workspaceId} = stageCommittedVessel(workspace);
+        const viewport             = Neo.create(Container, {appName: workspace.appName,
+            layout: {ntype: 'vbox', align: 'stretch'}, windowId: state.windowId});
+        Neo.apps[state.windowId] = {mainView: viewport, name: workspace.appName};
+        try {
+            const chrome = workspace.resolveVesselStageTarget(state.windowId);
+            expect(await workspace.tearOutEmbodiment.stage({itemId: 'alerts', windowId: state.windowId})).toBe(true);
+            const pane = workspace.paneCache.alerts,
+                  body = chrome.getCardContainer(),
+                  remove = body.remove.bind(body), moves = [];
+            body.remove = (...args) => {
+                moves.push(args);
+                return remove(...args)
+            };
+            pane.mounted = true;
+            state.renderTarget = viewport;
+            const add = viewport.add.bind(viewport);
+            viewport.add = item => {
+                if (item === state.host) {
+                    expect(viewport.cls, 'the staged chrome overlays the full-width host').toContain('workstation-vessel-handover');
+                    expect(pane.parent, 'the pane stays in its source until the host can adopt it')
+                        .toBe(chrome.getCardContainer())
+                }
+                return add(item)
+            };
+
+            const projection = state.host.projectDockZoneDocument(state.document);
+            expect(await workspace.mountVesselWorkspace(workspaceId)).toBe(true);
+            await projection;
+
+            expect(chrome.isDestroyed).toBe(true);
+            expect(moves, 'the reconciler removes the source with mounted state preserved')
+                .toContainEqual([pane, false, true, true]);
+            expect(pane.mounted, 'the same mounted pane survives its atomic parent move').toBe(true);
+            expect(pane.parent.getParents(), 'the committed card body owns the staged pane')
+                .toContain(state.host);
+            expect(viewport.cls).not.toContain('workstation-vessel-handover');
+            expect(viewport.items).toEqual([state.host])
+        } finally {
+            delete Neo.apps[state.windowId];
+            state.host.isDestroyed || state.host.destroy();
+            viewport.isDestroyed || viewport.destroy();
+            workspace.destroy()
+        }
+    });
+
     test('a return whose vessel refuses to close keeps the vessel ownership it still needs', async () => {
         const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace);
