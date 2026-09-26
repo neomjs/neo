@@ -19,6 +19,7 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
     const APP_VIEW         = './node_modules/neo.mjs/apps/portal/view/news/tickets/Component.mjs',
           APP_MARKED       = './node_modules/neo.mjs/dist/marked.mjs',
           ENGINE_RENDERER  = './node_modules/neo.mjs/src/canvas/Header.mjs',
+          GRAPH_SCENE      = './node_modules/neo.mjs/src/canvas/GraphScene.mjs',
           PROBE_RENDERER   = './apps/probe/canvas/ProbeRenderer.mjs',
           CONSUMER         = './apps/probe/data/ConsumerOnly.mjs',
           ROOT_ONLY        = './RootOnly.mjs',
@@ -129,20 +130,31 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         expect(failures[1]).toContain('dist/marked.mjs is absent, expected present')
     });
 
-    test('a Canvas compile reaching the engine renderer and the consumer renderer passes, concatenated or not', () => {
+    test('a Canvas compile reaching the engine renderers and the consumer renderer passes, concatenated or not', () => {
         expect(collectConsumerBuildFailures(
-            {mode: 'production/canvas', moduleNames: [`${ENGINE_RENDERER} + 1 modules`, PROBE_RENDERER], errors: []},
+            {mode: 'production/canvas', moduleNames: [`${ENGINE_RENDERER} + 1 modules`, GRAPH_SCENE, PROBE_RENDERER], errors: []},
             CANVAS_EXPECTATIONS
         )).toEqual([])
     });
 
-    test('a Canvas compile whose renderer root left the package fails on the engine renderer (#19163)', () => {
+    test('a Canvas compile whose renderer root left the package fails on the engine renderers (#19163)', () => {
         const failures = collectConsumerBuildFailures(
             {mode: 'production/canvas', moduleNames: [PROBE_RENDERER], errors: []},
             CANVAS_EXPECTATIONS
         );
 
+        expect(failures).toHaveLength(2);
+        expect(failures[0]).toContain('src/canvas/Header.mjs is absent, expected present');
+        expect(failures[1]).toContain('src/canvas/GraphScene.mjs is absent, expected present')
+    });
+
+    test('a Canvas compile without the graph-scene renderer fails on it alone', () => {
+        const failures = collectConsumerBuildFailures(
+            {mode: 'production/canvas', moduleNames: [ENGINE_RENDERER, PROBE_RENDERER], errors: []},
+            CANVAS_EXPECTATIONS
+        );
+
         expect(failures).toHaveLength(1);
-        expect(failures[0]).toContain('src/canvas/Header.mjs is absent, expected present')
+        expect(failures[0]).toContain('src/canvas/GraphScene.mjs is absent, expected present')
     })
 });

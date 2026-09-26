@@ -306,6 +306,8 @@ class Base extends NeoBase {
      * @param {Object} size
      * @param {Number} size.height
      * @param {Number} size.width
+     * @param {Number} [size.devicePixelRatio] Kept on `canvasSize` for renderers that draw at device
+     * resolution; this base sizes the buffer in CSS pixels
      */
     updateSize(size) {
         let me = this;
