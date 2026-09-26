@@ -418,11 +418,12 @@ class GraphScene extends Base {
     }
 
     /**
-     * @summary Remote entry for tests and diagnostics: the camera, the drawing buffer, the counts, the frames.
+     * @summary Remote entry for tests and diagnostics: the camera, the drawing buffer, the scene's counts,
+     * what is uploaded to the GPU (`null` while nothing is), the frames and the context state.
      * @returns {Object}
      */
     getStats() {
-        const me = this, {camera, gl, scene} = me;
+        const me = this, {camera, gl, scene, surfaces} = me;
 
         return {
             camera     : {...camera, target: [...camera.target]},
@@ -431,7 +432,8 @@ class GraphScene extends Base {
             counts     : scene ? {nodes: scene.count, edges: scene.edges.length / 2, paths: scene.paths.length} : null,
             frames     : me.frames,
             gpu        : me.gpu,
-            restores   : me.restores
+            restores   : me.restores,
+            uploaded   : surfaces ? {beads: surfaces.beads.count, edges: surfaces.edges.count / 2, nodes: surfaces.nodes.count, paths: surfaces.paths.length} : null
         }
     }
 
