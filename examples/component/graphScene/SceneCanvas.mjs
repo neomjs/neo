@@ -1,5 +1,5 @@
-import SharedCanvas      from '../../../src/app/SharedCanvas.mjs';
-import {createDemoScene} from './demoScene.mjs';
+import SharedCanvas                            from '../../../src/app/SharedCanvas.mjs';
+import {createClusteredScene, createDemoScene} from './demoScene.mjs';
 
 /**
  * @summary The App Worker half of the example: a `Neo.app.SharedCanvas` whose renderer is the example's
@@ -99,11 +99,29 @@ class SceneCanvas extends SharedCanvas {
     }
 
     /**
+     * @summary Sends the clustered scene: 100k nodes, a million edges, 64 clusters, drawn through the level of
+     * detail. The arrays are typed, so the message copies memory instead of walking values.
+     * @returns {Promise<void>}
+     */
+    sendClusteredScene() {
+        return this.renderer.setScene({...createClusteredScene(), windowId: this.windowId})
+    }
+
+    /**
      * @summary Sends the demo scene for the current `nodeCount`.
      * @returns {Promise<void>}
      */
     sendScene() {
         return this.renderer.setScene({...createDemoScene(this.nodeCount), windowId: this.windowId})
+    }
+
+    /**
+     * @summary Starts the renderer's level-of-detail lap.
+     * @param {Number} [seconds=5] Per level
+     * @returns {Promise<void>}
+     */
+    startLodLap(seconds = 5) {
+        return this.renderer.startLodLap({seconds, windowId: this.windowId})
     }
 }
 

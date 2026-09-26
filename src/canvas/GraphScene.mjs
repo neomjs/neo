@@ -57,6 +57,12 @@ void main() {
  * drawing buffer follows the size message's `devicePixelRatio`. A lost context keeps the scene and draws it
  * again once the context is restored.
  *
+ * A scene that carries `clusters` draws through a foveated level of detail (`lod`): far away, one centroid per
+ * cluster and one bundle line per connected cluster pair; closer, every node with the bundles; near, also the
+ * own edges of the clusters nearest the camera. The edges are uploaded once, grouped by cluster, so a level
+ * only chooses draw ranges. A graph of 100k nodes and a million edges stays interactive this way, where drawing
+ * every edge is bound by the pixels it fills.
+ *
  * Extend it with `singleton: true` and a `className` of your own. The camera math is static, so a test
  * reaches it without a GL context and a subclass can replace it; `normalizeScene` is the seam for a
  * subclass that accepts a scene of its own shape.
@@ -90,6 +96,22 @@ class GraphScene extends Base {
          * @member {Number} fov=0.9
          */
         fov: 0.9,
+        /**
+         * The foveated level of detail of a scene that carries `clusters`, by the camera distance as a multiple
+         * of the fitted distance. At `far` and beyond: the cluster centroids and one bundle line per connected
+         * cluster pair. Below `near`: every node, the bundles, and the own edges of the `nearClusters` clusters
+         * nearest the camera. Between the two: every node and the bundles. A scene without `clusters` draws every
+         * edge at every distance.
+         * @member {Object} lod={far: 0.8, near: 0.55, nearClusters: 6}
+         */
+        lod: {far: 0.8, near: 0.55, nearClusters: 6},
+        /**
+         * A level that overrides the camera's for a clustered scene: `'full'` draws every edge, `'far'`, `'mid'`
+         * and `'near'` as `lod` describes them. `null` follows the camera.
+         * @member {String|null} lodLevel_=null
+         * @reactive
+         */
+        lodLevel_: null,
         /**
          * Radians the camera turns per CSS pixel of a primary-button drag.
          * @member {Number} orbitSpeed=0.006
@@ -165,6 +187,150 @@ class GraphScene extends Base {
         }
 
         return {center, radius: radius || 1}
+    }
+
+    /**
+     * @summary The level-of-detail geometry of a clustered scene, derived once per scene. Clusters are indexed
+     * densely in first-seen order. Each cluster gets one centroid: the mean position and colour of its
+     * members, and a size that grows slowly with their number. The edges are re-ordered so each cluster's own
+     * edges form one contiguous range, followed by the edges between clusters, which also collapse into one
+     * bundle per connected cluster pair.
+     * @param {Object} scene
+     * @param {Uint32Array} scene.clusters One cluster id per node
+     * @param {Float32Array} scene.colors `r, g, b` per node
+     * @param {Uint32Array} scene.edges Node index pairs
+     * @param {Float32Array} scene.positions `x, y, z` per node
+     * @param {Float32Array} scene.sizes One per node
+     * @returns {Object} `{bundles, centroids, colors, count, edges, ids, ranges, sizes, weights}`: `ids` maps a
+     * dense index back to its cluster id, `ranges` holds a `start, count` pair of edge indices per cluster,
+     * `bundles` holds centroid index pairs and `weights` the number of edges each bundle stands for
+     */
+    static clusterScene({clusters, colors, edges, positions, sizes}) {
+        const
+            nodes     = clusters.length,
+            dense     = new Map(),
+            clusterOf = new Uint32Array(nodes);
+
+        for (let i = 0; i < nodes; i++) {
+            let index = dense.get(clusters[i]);
+
+            if (index === undefined) {
+                index = dense.size;
+                dense.set(clusters[i], index)
+            }
+
+            clusterOf[i] = index
+        }
+
+        const
+            count     = dense.size,
+            members   = new Uint32Array(count),
+            centroids = new Float32Array(count * 3),
+            tones     = new Float32Array(count * 3),
+            sizeSums  = new Float32Array(count),
+            spans     = new Float32Array(count),
+            own       = new Uint32Array(count),
+            bundleOf  = new Map(),
+            pairs     = edges.length / 2;
+
+        for (let i = 0; i < nodes; i++) {
+            const cluster = clusterOf[i];
+
+            members[cluster]++;
+            sizeSums[cluster] += sizes[i];
+
+            for (let axis = 0; axis < 3; axis++) {
+                centroids[cluster * 3 + axis] += positions[i * 3 + axis];
+                tones[cluster * 3 + axis]     += colors[i * 3 + axis]
+            }
+        }
+
+        for (let cluster = 0; cluster < count; cluster++) {
+            for (let axis = 0; axis < 3; axis++) {
+                centroids[cluster * 3 + axis] /= members[cluster];
+                tones[cluster * 3 + axis]     /= members[cluster]
+            }
+
+            spans[cluster] = sizeSums[cluster] / members[cluster] * Math.sqrt(1 + Math.log2(members[cluster]))
+        }
+
+        for (let pair = 0; pair < pairs; pair++) {
+            const a = clusterOf[edges[pair * 2]], b = clusterOf[edges[pair * 2 + 1]];
+
+            if (a === b) {
+                own[a]++
+            } else {
+                const key = a < b ? a * count + b : b * count + a;
+
+                bundleOf.set(key, (bundleOf.get(key) || 0) + 1)
+            }
+        }
+
+        const
+            ranges  = new Uint32Array(count * 2),
+            cursors = new Uint32Array(count),
+            ordered = new Uint32Array(edges.length),
+            bundles = new Uint32Array(bundleOf.size * 2),
+            weights = new Uint32Array(bundleOf.size);
+        let start = 0, bundle = 0;
+
+        for (let cluster = 0; cluster < count; cluster++) {
+            ranges[cluster * 2]     = cursors[cluster] = start;
+            ranges[cluster * 2 + 1] = own[cluster] * 2;
+            start                  += own[cluster] * 2
+        }
+
+        for (let pair = 0; pair < pairs; pair++) {
+            const u = edges[pair * 2], v = edges[pair * 2 + 1], a = clusterOf[u], b = clusterOf[v];
+
+            if (a === b) {
+                ordered[cursors[a]++] = u;
+                ordered[cursors[a]++] = v
+            } else {
+                ordered[start++] = u;
+                ordered[start++] = v
+            }
+        }
+
+        for (const [key, weight] of bundleOf) {
+            bundles[bundle * 2]     = Math.floor(key / count);
+            bundles[bundle * 2 + 1] = key % count;
+            weights[bundle++]       = weight
+        }
+
+        return {bundles, centroids, colors: tones, count, edges: ordered, ids: [...dense.keys()], ranges, sizes: spans, weights}
+    }
+
+    /**
+     * @summary Where an orbit camera stands: its target, moved back along the view axis by its distance.
+     * @param {Object}   camera
+     * @param {Number}   camera.dist
+     * @param {Number}   camera.pitch
+     * @param {Number[]} camera.target
+     * @param {Number}   camera.yaw
+     * @returns {Number[]} `[x, y, z]`
+     */
+    static eyePosition({dist, pitch, target, yaw}) {
+        const cp = Math.cos(pitch);
+
+        return [target[0] - Math.sin(yaw) * cp * dist, target[1] + Math.sin(pitch) * dist, target[2] + Math.cos(yaw) * cp * dist]
+    }
+
+    /**
+     * @summary The clusters whose centroids lie nearest a point, nearest first.
+     * @param {Float32Array} centroids `x, y, z` per cluster
+     * @param {Number[]} point `[x, y, z]`
+     * @param {Number} limit The most clusters to answer
+     * @returns {Number[]} Dense cluster indices
+     */
+    static nearestClusters(centroids, [x, y, z], limit) {
+        const count = centroids.length / 3, distances = new Float32Array(count);
+
+        for (let cluster = 0; cluster < count; cluster++) {
+            distances[cluster] = (centroids[cluster * 3] - x) ** 2 + (centroids[cluster * 3 + 1] - y) ** 2 + (centroids[cluster * 3 + 2] - z) ** 2
+        }
+
+        return Array.from({length: count}, (item, cluster) => cluster).sort((a, b) => distances[a] - distances[b]).slice(0, limit)
     }
 
     /**
@@ -323,8 +489,8 @@ class GraphScene extends Base {
      */
     sphere = {center: [0, 0, 0], radius: 1}
     /**
-     * The uploaded scene: vertex arrays over the nodes and the beads, the edge buffer and one buffer per
-     * path, or `null` when there is nothing to draw.
+     * The uploaded scene: vertex arrays over the nodes, the beads and a clustered scene's centroids, the edge
+     * and bundle buffers and one buffer per path, or `null` when there is nothing to draw.
      * @member {Object|null} surfaces=null
      */
     surfaces = null
@@ -359,6 +525,16 @@ class GraphScene extends Base {
     }
 
     /**
+     * Triggered after the lodLevel config got changed: the next frame draws the new level.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLodLevel(value, oldValue) {
+        this.requestFrame()
+    }
+
+    /**
      * @summary Forgets the scene, every GL object and the context listeners with the canvas.
      */
     clearGraph() {
@@ -379,11 +555,12 @@ class GraphScene extends Base {
 
     /**
      * @summary Remote entry for tests and diagnostics: the camera, the drawing buffer, the scene's counts,
-     * what is uploaded to the GPU (`null` while nothing is), the frames and the context state.
+     * the level of detail of a clustered scene (`null` otherwise), what is uploaded to the GPU (`null` while
+     * nothing is), the frames and the context state.
      * @returns {Object}
      */
     getStats() {
-        const me = this, {camera, gl, scene, surfaces} = me;
+        const me = this, {camera, gl, scene, surfaces} = me, lod = scene?.lod;
 
         return {
             camera     : {...camera, target: [...camera.target]},
@@ -392,9 +569,61 @@ class GraphScene extends Base {
             counts     : scene ? {nodes: scene.count, edges: scene.edges.length / 2, paths: scene.paths.length} : null,
             frames     : me.frames,
             gpu        : me.gpu,
+            lod        : lod ? {bundles: lod.bundles.length / 2, clusters: lod.count, ...me.getLodPlan()} : null,
             restores   : me.restores,
-            uploaded   : surfaces ? {beads: surfaces.beads.count, edges: surfaces.edges.count / 2, nodes: surfaces.nodes.count, paths: surfaces.paths.length} : null
+            uploaded   : surfaces ? {
+                beads: surfaces.beads.count,
+                edges: surfaces.edges.count / 2,
+                nodes: surfaces.nodes.count,
+                paths: surfaces.paths.length,
+                ...surfaces.clusters && {bundles: surfaces.bundles.count / 2, clusters: surfaces.clusters.count}
+            } : null
         }
+    }
+
+    /**
+     * @summary The level the next frame draws: `'full'` for a scene without clusters, else the forced
+     * `lodLevel`, else the camera distance against the fitted distance, as `lod` sets the thresholds.
+     * @returns {String} `'full'`, `'far'`, `'mid'` or `'near'`
+     */
+    getLodLevel() {
+        const {camera, fittedDistance, lod, lodLevel, scene} = this;
+
+        if (!scene?.lod) {
+            return 'full'
+        }
+
+        if (lodLevel) {
+            return lodLevel
+        }
+
+        const ratio = camera.dist / fittedDistance;
+
+        return ratio >= lod.far ? 'far' : ratio < lod.near ? 'near' : 'mid'
+    }
+
+    /**
+     * @summary What a frame draws at a level: the clusters whose own edges it draws, and the edge lines in
+     * total, a bundle counting as one line.
+     * @param {String} [level=this.getLodLevel()]
+     * @returns {{edgesDrawn: Number, level: String, near: Number[]}} `near` holds dense cluster indices
+     */
+    getLodPlan(level = this.getLodLevel()) {
+        const me = this, {camera, lod, scene} = me;
+
+        if (!scene) {
+            return {edgesDrawn: 0, level, near: []}
+        }
+
+        if (level === 'full') {
+            return {edgesDrawn: scene.edges.length / 2, level, near: []}
+        }
+
+        const
+            {bundles, centroids, ranges} = scene.lod,
+            near = level === 'near' ? me.constructor.nearestClusters(centroids, me.constructor.eyePosition(camera), lod.nearClusters) : [];
+
+        return {edgesDrawn: near.reduce((sum, cluster) => sum + ranges[cluster * 2 + 1] / 2, bundles.length / 2), level, near}
     }
 
     /**
@@ -422,7 +651,10 @@ class GraphScene extends Base {
      * @param {Float32Array|Number[]} [scene.sizes] One per node
      * @param {Uint32Array|Number[]}  [scene.edges] Node index pairs
      * @param {Array<Uint32Array|Number[]>} [scene.paths] Node index sequences, drawn as line strips
-     * @returns {Object|null} `{colors, count, edges, paths, positions, sizes}`
+     * @param {Uint32Array|Number[]}  [scene.clusters] One cluster id per node: the scene draws through the
+     * level of detail `lod` describes
+     * @returns {Object|null} `{colors, count, edges, lod, paths, positions, sizes}`, `lod` being the
+     * {@link Neo.canvas.GraphScene.clusterScene clustered geometry} or `null`
      * @throws {Error} when the scene has no `positions`, naming the keys it has, or when an array's length or
      * an index does not fit the nodes
      */
@@ -438,8 +670,9 @@ class GraphScene extends Base {
         const
             positions = Float32Array.from(scene.positions),
             count     = positions.length / 3,
-            colors    = scene.colors ? Float32Array.from(scene.colors) : new Float32Array(count * 3).fill(1),
-            sizes     = scene.sizes  ? Float32Array.from(scene.sizes)  : new Float32Array(count).fill(16),
+            colors    = scene.colors   ? Float32Array.from(scene.colors)   : new Float32Array(count * 3).fill(1),
+            sizes     = scene.sizes    ? Float32Array.from(scene.sizes)    : new Float32Array(count).fill(16),
+            clusters  = scene.clusters ? Uint32Array.from(scene.clusters)  : null,
             edges     = Uint32Array.from(scene.edges ?? []),
             paths     = (scene.paths ?? []).map(path => Uint32Array.from(path)),
             fits      = indices => indices.every(index => index < count);
@@ -452,11 +685,17 @@ class GraphScene extends Base {
             throw new Error(`${this.className}: ${count} nodes need ${count * 3} colour and ${count} size values, got ${colors.length} and ${sizes.length}`)
         }
 
+        if (clusters && clusters.length !== count) {
+            throw new Error(`${this.className}: ${count} nodes need ${count} cluster ids, got ${clusters.length}`)
+        }
+
         if (edges.length % 2 !== 0 || !fits(edges) || !paths.every(fits)) {
             throw new Error(`${this.className}: edges are index pairs, and every edge and path index names a node`)
         }
 
-        return {colors, count, edges, paths, positions, sizes}
+        const lod = clusters && count ? this.constructor.clusterScene({clusters, colors, edges, positions, sizes}) : null;
+
+        return {colors, count, edges: lod?.edges ?? edges, lod, paths, positions, sizes}
     }
 
     /**
@@ -521,7 +760,8 @@ class GraphScene extends Base {
 
     /**
      * @summary The node under a canvas position: the nearest whose projected centre lies within
-     * `pickRadius`, against the current camera, so a hover answers right after an orbit.
+     * `pickRadius`, against the current camera, so a hover answers right after an orbit. At the far level
+     * no node is drawn, so none answers.
      * @param {Object} data
      * @param {Number} data.x Canvas-relative, CSS pixels
      * @param {Number} data.y
@@ -530,7 +770,7 @@ class GraphScene extends Base {
     pick({x, y}) {
         const me = this, {canvasSize, scene} = me;
 
-        if (!scene || !canvasSize) {
+        if (!scene || !canvasSize || me.getLodLevel() === 'far') {
             return -1
         }
 
@@ -546,11 +786,12 @@ class GraphScene extends Base {
     }
 
     /**
-     * @summary One frame: clear to the transparent ground, then edges, path lines, their beads and the
-     * nodes. No frame is scheduled from here; the next one is owed by the next change.
+     * @summary One frame: clear to the transparent ground, then the edges the level of detail admits, path
+     * lines, their beads and the nodes, or the cluster centroids at the far level. A level only chooses draw
+     * ranges; no buffer changes. No frame is scheduled from here; the next one is owed by the next change.
      */
     render() {
-        const me = this, {camera, gl, program, sceneStyle, surfaces} = me;
+        const me = this, {camera, gl, program, scene, sceneStyle, surfaces} = me;
 
         me.animationId = null;
 
@@ -562,16 +803,34 @@ class GraphScene extends Base {
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         if (program && surfaces) {
+            const {level, near} = me.getLodPlan();
+
             gl.useProgram(program.id);
             gl.uniformMatrix4fv(program.uMvp, false, me.matrix());
             gl.uniform1f(program.uDist, camera.dist);
             gl.uniform1f(program.uScale, Math.min(gl.canvas.width, gl.canvas.height) / 400);
-
-            gl.bindVertexArray(surfaces.nodes.vao);
             gl.uniform1f(program.uRound, 0);
             gl.uniform1f(program.uAlpha, sceneStyle.edgeAlpha);
+
+            if (level !== 'full') {
+                gl.bindVertexArray(surfaces.clusters.vao);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, surfaces.bundles.buffer);
+                gl.drawElements(gl.LINES, surfaces.bundles.count, gl.UNSIGNED_INT, 0)
+            }
+
+            gl.bindVertexArray(surfaces.nodes.vao);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, surfaces.edges.buffer);
-            gl.drawElements(gl.LINES, surfaces.edges.count, gl.UNSIGNED_INT, 0);
+
+            if (level === 'full') {
+                gl.drawElements(gl.LINES, surfaces.edges.count, gl.UNSIGNED_INT, 0)
+            } else {
+                near.forEach(cluster => {
+                    const {ranges} = scene.lod, count = ranges[cluster * 2 + 1];
+
+                    // the byte offset of the cluster's first index; four bytes per UNSIGNED_INT
+                    count && gl.drawElements(gl.LINES, count, gl.UNSIGNED_INT, ranges[cluster * 2] * 4)
+                })
+            }
 
             gl.uniform1f(program.uAlpha, sceneStyle.pathAlpha);
             surfaces.paths.forEach(path => {
@@ -587,9 +846,11 @@ class GraphScene extends Base {
                 gl.drawArrays(gl.POINTS, 0, surfaces.beads.count)
             }
 
-            gl.bindVertexArray(surfaces.nodes.vao);
+            const points = level === 'far' ? surfaces.clusters : surfaces.nodes;
+
+            gl.bindVertexArray(points.vao);
             gl.uniform1f(program.uAlpha, sceneStyle.nodeAlpha);
-            gl.drawArrays(gl.POINTS, 0, surfaces.nodes.count);
+            gl.drawArrays(gl.POINTS, 0, points.count);
             gl.bindVertexArray(null)
         }
 
@@ -722,13 +983,12 @@ class GraphScene extends Base {
         const {contextLost, gl, surfaces} = this;
 
         if (gl && surfaces && !contextLost) {
-            ['beads', 'nodes'].forEach(key => {
-                surfaces[key].buffers.forEach(buffer => gl.deleteBuffer(buffer));
-                gl.deleteVertexArray(surfaces[key].vao)
+            ['beads', 'clusters', 'nodes'].forEach(key => {
+                surfaces[key]?.buffers.forEach(buffer => gl.deleteBuffer(buffer));
+                surfaces[key] && gl.deleteVertexArray(surfaces[key].vao)
             });
 
-            gl.deleteBuffer(surfaces.edges.buffer);
-            surfaces.paths.forEach(path => gl.deleteBuffer(path.buffer))
+            [surfaces.bundles, surfaces.edges, ...surfaces.paths].forEach(index => index && gl.deleteBuffer(index.buffer))
         }
 
         this.surfaces = null
@@ -818,10 +1078,12 @@ class GraphScene extends Base {
         });
 
         me.surfaces = {
-            beads: me.vertexArray(beadPositions, beadColors, beadSizes),
-            nodes: me.vertexArray(positions, colors, scene.sizes),
-            edges: me.indexBuffer(scene.edges),
-            paths: paths.map(path => me.indexBuffer(path))
+            beads   : me.vertexArray(beadPositions, beadColors, beadSizes),
+            bundles : scene.lod ? me.indexBuffer(scene.lod.bundles) : null,
+            clusters: scene.lod ? me.vertexArray(scene.lod.centroids, scene.lod.colors, scene.lod.sizes) : null,
+            nodes   : me.vertexArray(positions, colors, scene.sizes),
+            edges   : me.indexBuffer(scene.edges),
+            paths   : paths.map(path => me.indexBuffer(path))
         };
 
         gl.bindVertexArray(null)
