@@ -127,6 +127,34 @@ test.describe('Neo.ai.client.ComponentService.diffChildSurfaces', () => {
         expect(result.mismatches).toEqual([{type: 'dom-root-missing'}]);
         expect(result.counts.dom).toBe(null)
     });
+
+    test('a vdom node withheld from the DOM is consistent when absent, and listed as withheld (#19282)', () => {
+        const result = ComponentService.diffChildSurfaces({
+            componentId: 'container-1',
+            domIds     : ['a', 'c'],
+            itemIds    : ['a', 'b', 'c'],
+            vdomIds    : ['a', 'b', 'c'],
+            withheldIds: ['b']
+        });
+
+        expect(result.consistent).toBe(true);
+        expect(result.mismatches).toEqual([]);
+        expect(result.withheldIds).toEqual(['b']);
+        expect(result.counts).toEqual({dom: 2, items: 3, vdom: 3})
+    });
+
+    test('a withheld vdom node that is still rendered is its own mismatch, reported once (#19282)', () => {
+        const result = ComponentService.diffChildSurfaces({
+            componentId: 'container-1',
+            domIds     : ['a', 'b', 'c'],
+            itemIds    : ['a', 'b', 'c'],
+            vdomIds    : ['a', 'b', 'c'],
+            withheldIds: ['b']
+        });
+
+        expect(result.consistent).toBe(false);
+        expect(result.mismatches).toEqual([{type: 'withheld-node-rendered', ids: ['b']}])
+    });
 });
 
 test.describe('Neo.ai.client.ComponentService.observeMotion', () => {

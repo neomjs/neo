@@ -158,6 +158,8 @@ class ComponentService extends Service {
      * Compares a container's three child-order surfaces — logical items, vdom child nodes,
      * and the rendered DOM — and reports mismatches (count, order, membership, duplicates).
      * The duplication detector: a column/item existing twice is a surface disagreement.
+     * A vdom node stamped `removeDom` is withheld from the DOM by contract (a withdrawn
+     * focus-gated action, a `removeDom`-hidden child), so the DOM is expected to lack it.
      * @param {Object} params
      * @param {String} params.componentId
      * @returns {Object}
@@ -170,14 +172,18 @@ class ComponentService extends Service {
         }
 
         const
-            itemIds = (component.items || []).map(item => item?.id).filter(Boolean),
-            vdomIds = (component.getVdomItemsRoot?.()?.cn || component.vdom?.cn || [])
-                .map(node => node?.componentId || node?.id).filter(Boolean),
-            rootId  = component.getVdomItemsRoot?.()?.id || componentId;
+            itemIds    = (component.items || []).map(item => item?.id).filter(Boolean),
+            childNodes = component.getVdomItemsRoot?.()?.cn || component.vdom?.cn || [],
+            vdomIds    = childNodes.map(node => node?.componentId || node?.id).filter(Boolean),
+            // A child component sits in `cn` as a `{componentId}` placeholder; the marker is stamped on its own vdom root
+            withheldIds = childNodes
+                .filter(node => node?.removeDom === true || (node?.componentId && Neo.getComponent(node.componentId)?.vdom?.removeDom === true))
+                .map(node => node.componentId || node.id).filter(Boolean),
+            rootId      = component.getVdomItemsRoot?.()?.id || componentId;
 
         const domIds = await Neo.main.DomAccess.getChildNodeIds({id: rootId, windowId: component.windowId});
 
-        return ComponentService.diffChildSurfaces({componentId, domIds, itemIds, vdomIds})
+        return ComponentService.diffChildSurfaces({componentId, domIds, itemIds, vdomIds, withheldIds})
     }
 
     /**
@@ -187,12 +193,16 @@ class ComponentService extends Service {
      * @param {String[]|null} data.domIds null when the root node was not found in the DOM
      * @param {String[]}      data.itemIds
      * @param {String[]}      data.vdomIds
+     * @param {String[]}      [data.withheldIds=[]] vdom ids whose DOM node is withheld by contract: expected absent
      * @returns {Object}
      */
-    static diffChildSurfaces({componentId, domIds, itemIds, vdomIds}) {
+    static diffChildSurfaces({componentId, domIds, itemIds, vdomIds, withheldIds = []}) {
         const
-            mismatches = [],
-            dupes      = ids => ids.filter((id, index) => id && ids.indexOf(id) !== index);
+            mismatches  = [],
+            dupes       = ids => ids.filter((id, index) => id && ids.indexOf(id) !== index),
+            withheld    = new Set(withheldIds),
+            rendered    = withheldIds.filter(id => domIds?.includes(id)),
+            expectedDom = vdomIds.filter(id => !withheld.has(id));
 
         if (domIds === null) {
             mismatches.push({type: 'dom-root-missing'})
@@ -210,8 +220,13 @@ class ComponentService extends Service {
             mismatches.push({type: 'order-or-membership', surfaces: ['items', 'vdom'], a: itemIds, b: vdomIds})
         }
 
-        if (domIds !== null && vdomIds.join() !== domIds.join()) {
-            mismatches.push({type: 'order-or-membership', surfaces: ['vdom', 'dom'], a: vdomIds, b: domIds})
+        if (rendered.length > 0) {
+            mismatches.push({type: 'withheld-node-rendered', ids: rendered})
+        }
+
+        // A rendered withheld node is reported above once; the order comparison runs on the DOM without it
+        if (domIds !== null && expectedDom.join() !== domIds.filter(id => !rendered.includes(id)).join()) {
+            mismatches.push({type: 'order-or-membership', surfaces: ['vdom', 'dom'], a: expectedDom, b: domIds})
         }
 
         return {
@@ -221,7 +236,8 @@ class ComponentService extends Service {
             domIds,
             itemIds,
             mismatches,
-            vdomIds
+            vdomIds,
+            withheldIds
         }
     }
 
