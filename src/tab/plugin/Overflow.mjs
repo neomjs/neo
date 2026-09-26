@@ -67,7 +67,7 @@ class Overflow extends Plugin {
 
     /**
      * The pure overflow decision — active-never-hidden packing with overflow-only control-width reservation.
-     * Headless + deterministic (unit-covered): given header widths, the strip extent, the active id and the
+     * Headless + deterministic (unit-covered): given header widths, the strip extent, the protected ids and the
      * reserved control width, it returns the visible/hidden id partition. It lives here as the plugin's own
      * static so the runtime half owns its decision — no adapter namespace-reach, no adapter chain in the test
      * path (the smell that marked the old dashboard home).
@@ -75,10 +75,11 @@ class Overflow extends Plugin {
      * @param {Object[]} config.items            `{id, headerWidth}` per tab, in header order.
      * @param {Number}   config.extent           The always-measurable strip extent.
      * @param {String}   [config.activeItemId]   The active tab id — never hidden.
+     * @param {String}   [config.focusedItemId]  The tab holding focus — never hidden.
      * @param {Number}   [config.controlWidth=0] Width reserved for the overflow control (only when overflowing).
      * @returns {{visible: String[], hidden: String[]}}
      */
-    static computeOverflow({items, extent, activeItemId, controlWidth = 0}) {
+    static computeOverflow({items, extent, activeItemId, focusedItemId, controlWidth = 0}) {
         const list  = Array.isArray(items) ? items : [],
               width = entry => {
                   const value = Number(entry?.headerWidth);
@@ -104,29 +105,58 @@ class Overflow extends Plugin {
             }
         }
 
-        // the active item never hides: swap it in, overflow the last-fitting non-active item
-        const activeIndex = hidden.indexOf(activeItemId);
+        // Neither protected tab hides: the ACTIVE one (the selection) and the FOCUSED one both swap
+        // in, and the last-fitting non-protected items overflow.
+        //
+        // The focused id is protected for the same reason, not as a preference: withholding a tab removes its
+        // node, the browser moves focus to the body, and the tab container's `containsFocus` drops — which
+        // withdraws the header's gated contextual actions (`toolbar.Base#applyContextualActionState`). Handing
+        // focus to the `More tabs` control instead cannot repair it: the control mounts through a promise
+        // (`autoInitVnode` + `autoMount`), so the hand-off always lands after the removal and the withdrawal
+        // is causal rather than a race. Keeping the node is the only shape that holds, and it is the trade
+        // this function already makes for the active tab.
+        const protectedIds = [...new Set([activeItemId, focusedItemId].filter(id => id != null))],
+              protectedSet = new Set(protectedIds),
+              withheld     = protectedIds.filter(id => hidden.includes(id));
 
-        if (activeIndex !== -1) {
-            hidden.splice(activeIndex, 1);
+        if (withheld.length > 0) {
+            const order     = list.map(entry => entry.id),
+                  needed    = withheld.reduce((sum, id) => sum + width(list.find(entry => entry.id === id)), 0),
+                  displaced = [];
 
-            const activeWidth = width(list.find(entry => entry.id === activeItemId)),
-                  order       = list.map(entry => entry.id),
-                  displaced   = [];
+            withheld.forEach(id => hidden.splice(hidden.indexOf(id), 1));
 
-            // Displace as many TRAILING visible items as it takes to fit the (possibly wider) active item.
-            // Popping exactly one under-displaces when the active tab is wider than that single displaced tab
-            // — the visible strip would then still exceed `usable` and the active spills. Loop until it fits,
-            // or until nothing is left (the degenerate "active alone is wider than the strip" case, where it
-            // stays visible regardless). Popping none is also correct when the active already fits (it was
-            // hidden only because an earlier item overflowed the `hidden.length === 0` gate above).
-            while (visible.length > 0 && used + activeWidth > usable) {
-                const displacedId = visible.pop();
+            // Displace as many visible items as it takes to fit the protected width — now possibly a PAIR.
+            // Popping exactly one under-displaces when a protected tab is wider than that single displaced tab,
+            // and popping per-protected-tab under-displaces when the pair is wider than one pop, so the sum is
+            // fitted once. Popping none is also correct when a protected tab already fits (it was hidden only
+            // because an earlier item overflowed the `hidden.length === 0` gate above). The loop runs out of
+            // DISPLACEABLE items in the degenerate case — protected tabs wider than the whole extent stay
+            // visible regardless, and the caller caps their boxes, so two of them can jointly overhang.
+            //
+            // The scan SKIPS protected ids, and that is load-bearing rather than defensive: a protected id that
+            // was already visible is not in `withheld`, so a blind trailing pop can evict the active tab to make
+            // room for the focused one — measured on a middle-active, trailing-focused strip (a/b/c at 110,
+            // usable 240), which returned `hidden: ['b']` with `b` ACTIVE. A protected id is never a candidate,
+            // so the scan walks right-to-left for the last displaceable one and stops when none remains.
+            while (visible.length > 0 && used + needed > usable) {
+                let index = -1;
+
+                for (let i = visible.length - 1; i >= 0; i--) {
+                    if (!protectedSet.has(visible[i])) {
+                        index = i;
+                        break
+                    }
+                }
+
+                if (index === -1) break;
+
+                const displacedId = visible.splice(index, 1)[0];
                 used -= width(list.find(entry => entry.id === displacedId));
                 displaced.push(displacedId)
             }
 
-            visible.push(activeItemId);
+            visible.push(...withheld);
 
             if (displaced.length > 0) {
                 // re-insert the displaced items in list order so the overflow menu stays predictable
@@ -814,6 +844,11 @@ class Overflow extends Plugin {
                     : sizeExtent === null ? coordinateExtent : Math.min(coordinateExtent, sizeExtent),
                 tabContainer  = me.getTabContainer(),
                 activeButton  = buttons[tabContainer?.activeIndex] || null,
+                // The tab holding focus, if any. `containsFocus` is the reactive config
+                // `manager.Focus#setComponentFocus` maintains across the whole focus path — the signal
+                // SortZone already reads for exactly this question — and it is read here, not acted on:
+                // the partition keeps the node so the browser never has to drop focus to the body.
+                focusedButton = buttons.find(button => button.containsFocus === true) || null,
                 items         = buttons.map(button => ({id: button.id, headerWidth: me.naturalWidths[button.id]}));
 
             if (controlRect?.[geometry.dimension] > 0) {
@@ -826,9 +861,10 @@ class Overflow extends Plugin {
                     ? me.measuredControlWidth || 0
                     : Math.max(me.controlWidth, me.measuredControlWidth || 0),
                 {hidden}     = Overflow.computeOverflow({
-                    activeItemId: activeButton?.id,
+                    activeItemId : activeButton?.id,
                     controlWidth,
                     extent,
+                    focusedItemId: focusedButton?.id,
                     items
                 });
 
@@ -838,9 +874,10 @@ class Overflow extends Plugin {
             if (!me.queueSortDragProjection(recapture, false) && !me.queueOpenMenuProjection(recapture)) {
                 me.applySplit(hidden, buttons, tabContainer, {
                     activeButton,
+                    focusedButton,
                     maxSize: geometry.maxSize,
-                    // The degenerate branch keeps an over-wide active visible past `usable` — cap its box so
-                    // every geometry derived from the button (the persistent per-button indicator, the strip's
+                    // The degenerate branch keeps an over-wide PROTECTED button visible past `usable` — cap its
+                    // box so every geometry derived from it (the persistent per-button indicator, the strip's
                     // crossfade indicator, the label itself) ends where the control begins.
                     usable: hidden.length > 0
                         ? Math.max(0, extent - controlWidth)
@@ -888,28 +925,34 @@ class Overflow extends Plugin {
     }
 
     /**
-     * Applies the computed hidden set: hides the overflowing header buttons, bounds the degenerate
-     * over-wide active button to the usable extent, and reflects the remainder through the overflow
+     * Applies the computed hidden set: hides the overflowing header buttons, bounds a degenerate
+     * over-wide PROTECTED button to the usable extent, and reflects the remainder through the overflow
      * control.
      *
-     * Packing and active-button capping follow the toolbar's main axis: width for top/bottom and
+     * Packing and button capping follow the toolbar's main axis: width for top/bottom and
      * height for left/right.
      * @param {String[]} hidden  Overflowing button ids, in header order.
      * @param {Neo.tab.header.Button[]} buttons
      * @param {Neo.tab.Container} tabContainer
      * @param {Object}  activeCap
      * @param {Neo.tab.header.Button|null} activeCap.activeButton
+     * @param {Neo.tab.header.Button|null} [activeCap.focusedButton] The tab holding focus; capped
+     * on the same terms as the active button, because the partition surfaces it on the same grounds.
      * @param {String} [activeCap.maxSize='maxWidth'] Main-axis max-size config.
-     * @param {Number|null} activeCap.usable  Cap for the active button while overflowing; `null` clears.
+     * @param {Number|null} activeCap.usable  Cap for a protected button while overflowing; `null` clears.
      */
-    applySplit(hidden, buttons, tabContainer, {activeButton, maxSize='maxWidth', usable} = {}) {
+    applySplit(hidden, buttons, tabContainer, {activeButton, focusedButton, maxSize='maxWidth', usable} = {}) {
         let me         = this,
             hiddenSet  = new Set(hidden),
             hiddenMeta = [];
 
         buttons.forEach((button, index) => {
             let isHidden = hiddenSet.has(button.id),
-                needsCap = button === activeButton && usable !== null && usable !== undefined
+                // Either protected id can surface a button the strip cannot fit, so the cap gate cannot
+                // name the active button alone: an over-wide FOCUSED tab would run beneath the
+                // control and take every geometry derived from its box with it.
+                isProtected = button === activeButton || button === focusedButton,
+                needsCap   = isProtected && usable !== null && usable !== undefined
                     && me.naturalWidths?.[button.id] > usable;
 
             // Dock orientation can change while an active tab is capped. Retire ownership on the
