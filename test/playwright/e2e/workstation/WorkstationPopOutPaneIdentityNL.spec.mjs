@@ -38,6 +38,22 @@ const
     TAB        = '.neo-tab-header-button';
 
 /**
+ * @summary Asserts that every descendant of `before` is still the same instance in `after`.
+ *
+ * The grid body pools its row components by the height it paints in, so a taller window adds rows:
+ * the rest of the subtree must match exactly, and every pooled row that existed before must survive.
+ * @param {String[]} after
+ * @param {String[]} before
+ * @param {String} message
+ */
+const expectSameInstances = (after, before, message) => {
+    const isPooledRow = id => /__row-\d+$/.test(id);
+
+    expect(after.filter(id => !isPooledRow(id)), message).toEqual(before.filter(id => !isPooledRow(id)));
+    expect(after, `${message}, pooled rows included`).toEqual(expect.arrayContaining(before))
+};
+
+/**
  * @summary The identity triple plus the descendant census, read from the App Worker instance graph.
  * @param {Object} app Neural Link app wrapper.
  * @param {String} paneId
@@ -185,7 +201,7 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
             expect(detached.componentId, 'the SAME component made the hop').toBe(before.componentId);
             expect(detached.providerId, 'and it resolves the SAME provider from inside the popup').toBe(before.providerId);
             expect(detached.storeId, 'and its store was not re-created').toBe(before.storeId);
-            expect(detached.descendants, 'and every descendant travelled as the same instance').toEqual(before.descendants);
+            expectSameInstances(detached.descendants, before.descendants, 'and every descendant travelled as the same instance');
 
             // The return leg, through the production retirement seam rather than a synthetic close.
             expect(await app.callMethod(workspaceId, 'closeTearOutVessel', [{
@@ -216,13 +232,13 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
             expect(returned.componentId, 'the SAME component came home').toBe(before.componentId);
             expect(returned.providerId, 'resolving the SAME provider again').toBe(before.providerId);
             expect(returned.storeId, 'with its store intact — not re-created on the way back').toBe(before.storeId);
-            expect(returned.descendants, 'and the whole subtree returned as the same instances').toEqual(before.descendants);
+            expectSameInstances(returned.descendants, before.descendants, 'and the whole subtree returned as the same instances');
 
             // The receipt carries its own magnitudes, so a reader never has to take "passed" as the
             // measurement. A census of one would satisfy every assertion above and mean nothing.
             testInfo.annotations.push({
                 type       : 'ac-4-identity-receipt',
-                description: `component ${before.componentId} · provider ${before.providerId} · store ${before.storeId} · ${before.descendants.length} descendants, identical across pop-out and return`
+                description: `component ${before.componentId} · provider ${before.providerId} · store ${before.storeId} · ${before.descendants.length} descendants, each the same instance after pop-out (${detached.descendants.length} there) and return (${returned.descendants.length})`
             })
         } finally {
             vessel && !vessel.isClosed() && await vessel.close()
