@@ -1391,6 +1391,8 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
             getEventData          : () => ({}),
             isWindowDragging      : false,
             resolveDragZoneId     : () => 'splitter-zone',
+            resolvePressedElement : DragDrop.prototype.resolvePressedElement,
+            resolveSensorPath     : DragDrop.prototype.resolveSensorPath,
             scrollContainerElement: null
         };
 
@@ -1458,9 +1460,11 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
                     starts = [],
                     target = {getBoundingClientRect: () => ({height: 6, left: 0, top: 0, width: 6})},
                     addon  = {
-                        dragResize       : {start: (...args) => starts.push(args)},
-                        getEventData     : () => ({}),
-                        resolveDragZoneId: () => 'splitter-zone'
+                        dragResize           : {start: (...args) => starts.push(args)},
+                        getEventData         : () => ({}),
+                        resolveDragZoneId    : () => 'splitter-zone',
+                        resolvePressedElement: DragDrop.prototype.resolvePressedElement,
+                        resolveSensorPath    : DragDrop.prototype.resolveSensorPath
                     };
 
                 dockFlip === undefined
@@ -1909,5 +1913,101 @@ test.describe('Neo.main.addon.DragDrop — Escape across windows', () => {
         expect(owner.dragCancelled).toBe(true);
         expect(resizeCancels).toBe(1);
         expect(idle.dragCancelled).toBe(false)
+    })
+});
+
+/**
+ * @summary A re-render can replace the pressed node inside the sensor's start delay; the sensor then
+ * dispatches `drag:start` on `document`, and the addon must read the press from `detail`.
+ */
+test.describe('Neo.main.addon.DragDrop — a drag start whose pressed node a re-render replaced', () => {
+    const
+        rectOf  = (left, top, width, height) => () => ({height, left, top, width}),
+        toolbar = {id: 'neo-tab-header-toolbar-4'},
+        createAddon = () => ({
+            dragResize           : null,
+            getEventData         : DragDrop.prototype.getEventData,
+            resolveDragZoneId    : DragDrop.prototype.resolveDragZoneId,
+            resolvePressedElement: DragDrop.prototype.resolvePressedElement,
+            resolveSensorPath    : DragDrop.prototype.resolveSensorPath,
+            zoneRegistrations    : {'neo-tab-header-toolbar-4': 'neo-dock-tab-sortzone-4'}
+        }),
+        start = (addon, event) => {
+            const
+                sent         = [],
+                activeDoc    = globalThis.document,
+                originalSend = DomEvents.sendMessageToApp;
+
+            globalThis.document        = documentRef;
+            DomEvents.sendMessageToApp = data => sent.push(data);
+
+            try {
+                DragDrop.prototype.onDragStart.call(addon, event)
+            } finally {
+                globalThis.document        = activeDoc;
+                DomEvents.sendMessageToApp = originalSend
+            }
+
+            return sent
+        };
+
+    test('dispatched from document, it measures the replacement node and resolves the zone from the press path', () => {
+        const
+            pressed     = {getBoundingClientRect: rectOf(0, 0, 0, 0), id: 'neo-tab-header-button-17', isConnected: false},
+            replacement = {getBoundingClientRect: rectOf(1100, 121, 48, 32), id: 'neo-tab-header-button-17', isConnected: true},
+            addon       = createAddon();
+
+        documentRef.getElementById = id => id === replacement.id ? replacement : null;
+
+        let sent;
+
+        try {
+            sent = start(addon, {
+                composedPath: () => [documentRef, windowRef],
+                detail      : {
+                    clientX      : 1112,
+                    clientY      : 131,
+                    element      : pressed,
+                    originalEvent: {composedPath: () => [pressed, toolbar], target: pressed, timeStamp: 0, type: 'mousedown'},
+                    path         : [pressed, toolbar]
+                },
+                target: documentRef
+            })
+        } finally {
+            delete documentRef.getElementById
+        }
+
+        expect(addon.dragZoneId).toBe('neo-dock-tab-sortzone-4');
+        expect(addon.dragProxyRect).toEqual({height: 32, left: 1100, top: 121, width: 48});
+        expect([addon.offsetX, addon.offsetY]).toEqual([12, 10]);
+        expect(sent).toHaveLength(1);
+        expect(sent[0]).toMatchObject({dragZoneId: 'neo-dock-tab-sortzone-4', type: 'drag:start'});
+        expect(sent[0].path.map(node => node.id), 'the App routes drag:start by this path').toEqual(['neo-tab-header-button-17', 'neo-tab-header-toolbar-4']);
+        expect(sent[0].path[0].isConnected, 'the App sizes its proxy from the live replacement').toBe(true)
     });
+
+    test('dispatched on the connected node, it keeps the dispatch target and path', () => {
+        const
+            pressed = {getBoundingClientRect: rectOf(40, 8, 60, 30), id: 'neo-tab-header-button-3', isConnected: true},
+            moved   = {id: 'neo-tab-header-toolbar-9'},
+            addon   = createAddon();
+
+        addon.zoneRegistrations = {'neo-tab-header-toolbar-9': 'neo-dock-tab-sortzone-9'};
+
+        const sent = start(addon, {
+            detail: {
+                clientX      : 50,
+                clientY      : 20,
+                element      : pressed,
+                originalEvent: {composedPath: () => [pressed, toolbar], target: pressed, timeStamp: 0, type: 'mousedown'},
+                path         : [pressed, toolbar]
+            },
+            path  : [pressed, moved],
+            target: pressed
+        });
+
+        expect(addon.dragZoneId, 'the live ancestors, not the press path, own a connected node').toBe('neo-dock-tab-sortzone-9');
+        expect([addon.offsetX, addon.offsetY]).toEqual([10, 12]);
+        expect(sent[0].path.map(node => node.id)).toEqual(['neo-tab-header-button-3', 'neo-tab-header-toolbar-9'])
+    })
 });

@@ -314,7 +314,7 @@ class DragDrop extends Base {
      * @returns {Object}
      */
     getEventData(event) {
-        let path   = event.path || event.composedPath(),
+        let path   = this.resolveSensorPath(event),
             detail = event.detail,
 
         e = {
@@ -674,8 +674,8 @@ class DragDrop extends Base {
      */
     onDragStart(event) {
         let me   = this,
-            path = event.path || event.composedPath(),
-            rect = event.target.getBoundingClientRect();
+            path = me.resolveSensorPath(event),
+            rect = me.resolvePressedElement(event).getBoundingClientRect();
 
         // Resolve the owning zone synchronously from the event path against the zone registry.
         // Zones register eagerly at construction (registerZone) and re-register on every
@@ -885,6 +885,50 @@ class DragDrop extends Base {
         }
 
         return null
+    }
+
+    /**
+     * @summary The element a sensor gesture pressed, for measuring it.
+     *
+     * `sensor.Base#trigger` dispatches on `document` once the pressed node is no longer connected,
+     * so `document` as the target means a re-render replaced that node. The connected node with its
+     * id is the replacement; without one, the detached node still answers (a zero rect).
+     * @param {Event} event A sensor event.
+     * @returns {HTMLElement}
+     * @protected
+     */
+    resolvePressedElement(event) {
+        const
+            {detail, target} = event,
+            doc              = globalThis.document;
+
+        if (target !== doc || !detail?.element) {
+            return target
+        }
+
+        return (detail.element.id && doc.getElementById(detail.element.id)) || detail.element
+    }
+
+    /**
+     * @summary The DOM path a sensor event describes: the dispatch path, or, when the dispatch fell
+     * back to `document` because the pressed node was replaced, the press's own path from `detail`.
+     * A `document` dispatch path names no element, so the zone and the App's listeners could not
+     * resolve from it. In the press's path, a node a re-render replaced answers through the
+     * connected node with its id, so the App measures live geometry, not a detached node's zeros.
+     * @param {Event} event A sensor event.
+     * @returns {Array<EventTarget>}
+     * @protected
+     */
+    resolveSensorPath(event) {
+        const
+            doc  = globalThis.document,
+            path = event.path || event.composedPath();
+
+        if (path[0] !== doc || !event.detail?.path) {
+            return path
+        }
+
+        return event.detail.path.map(node => (node?.isConnected === false && node.id && doc.getElementById(node.id)) || node)
     }
 
     /**
