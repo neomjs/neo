@@ -788,6 +788,116 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             .toEqual({edgeAlign: 'b0-t0', target: action.id})
     });
 
+    // ---- the projection must not remove the node that holds focus ----
+
+    /**
+     * A tab button fixture with the DOM seams `applySplit` writes through.
+     * @param {String} id
+     * @returns {Object}
+     */
+    const focusableTab = id => ({
+        addedCls: [],
+        hidden  : false,
+        id,
+        addCls(cls) { this.addedCls.push(cls) },
+        removeCls(cls) { this.addedCls = this.addedCls.filter(entry => entry !== cls) },
+        show() { this.hidden = false }
+    });
+
+    const threeTabPlugin = async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
+            ? [{height: 300, left: 0, top: 0, width: 300, x: 0, y: 0}]
+            : ids.slice(1).map(() => ({height: 20, width: 110})));
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // 3 x 110 against a 300 extent with the historic 40px control reservation → usable 260, so a and
+        // b pack (220) and c is the first non-fit. activeIndex 0 → b1 is active, so the tab under test is
+        // never the active one.
+        plugin.owner.items = [focusableTab('b1'), focusableTab('b2'), focusableTab('b3')];
+
+        // The control itself is not what these arms are about, and instantiating the real floating Button
+        // leaks async theme/vdom work that reaches `Neo.get` — a namespace seam this spec never loads (every
+        // arm that runs a real projection here stubs applySplit for the same reason). The partition, the hide
+        // pass and the cap ledger all stay real; only the embodiment is stubbed.
+        plugin.syncControl = () => {};
+
+        return plugin
+    };
+
+    test('a FOCUSED non-active tab keeps its DOM node through the projection', async () => {
+        const plugin = await threeTabPlugin();
+
+        plugin.naturalWidths = {b1: 110, b2: 110, b3: 110};
+
+        // The defect: withholding b3 sets hidden → removeDom, the browser moves focus to the body, and
+        // the tab container's containsFocus drops — which withdraws the header's gated actions.
+        plugin.owner.items[2].containsFocus = true;
+
+        await plugin.project(false);
+
+        expect(plugin.owner.items[2].hidden, 'the node that holds focus must survive the projection')
+            .toBeFalsy();
+        expect(plugin.owner.items[1].hidden, 'and the protection is real: a tab is withheld to make room')
+            .toBe(true)
+    });
+
+    test('the same projection WITHOUT focus still withholds the trailing tab', async () => {
+        const plugin = await threeTabPlugin();
+
+        plugin.naturalWidths = {b1: 110, b2: 110, b3: 110};
+
+        await plugin.project(false);
+
+        // The control: nothing is focused, so the partition must be the ordinary one. Without this the
+        // arm above could pass for a projection that simply stopped withholding anything.
+        expect(plugin.owner.items[2].hidden, 'an unfocused trailing tab is withheld as before').toBe(true);
+        expect(plugin.owner.items[1].hidden).toBeFalsy()
+    });
+
+    test('a protected FOCUSED tab wider than the usable extent is capped, not underlapped', async () => {
+        const plugin = await threeTabPlugin();
+
+        // b3 is surfaced by the focus protection and is wider than the whole strip. The degenerate cap
+        // exists so every geometry derived from a surfaced button (the per-button indicator, the strip's
+        // crossfade indicator, the label) ends where the control begins — it used to gate on the ACTIVE
+        // button alone, so a protected focused tab would have underlapped the control.
+        plugin.naturalWidths = {b1: 110, b2: 110, b3: 300};
+        plugin.owner.items[2].containsFocus = true;
+
+        await plugin.project(false);
+
+        const capped = plugin.owner.items[2];
+
+        expect(capped.hidden, 'the over-wide focused tab is surfaced, not withheld').toBeFalsy();
+        expect(capped.addedCls, 'a protected button takes the cap ownership class').toContain('neo-tab-overflow-capped');
+        expect(capped.maxWidth, 'and its box is bounded by the usable extent').toBeGreaterThan(0);
+        expect(capped.maxWidth).toBeLessThan(300)
+    });
+
+    test('the cap is RETIRED when the focused tab is no longer protected', async () => {
+        const plugin = await threeTabPlugin();
+
+        plugin.naturalWidths = {b1: 110, b2: 110, b3: 300};
+        plugin.owner.items[2].containsFocus = true;
+
+        await plugin.project(false);
+
+        const capped = plugin.owner.items[2];
+
+        expect(capped.addedCls).toContain('neo-tab-overflow-capped');
+
+        // Focus moves to the active tab: b3 is no longer protected, so the cap ownership must be handed
+        // back — a ledger entry left behind would authorize a maxWidth write nothing can restore.
+        plugin.owner.items[2].containsFocus = false;
+        plugin.owner.items[0].containsFocus = true;
+        plugin.naturalWidths                        = {b1: 110, b2: 110, b3: 60};
+
+        await plugin.project(false);
+
+        expect(plugin.owner.items[2].addedCls, 'the cap ownership is retired, not leaked').not.toContain('neo-tab-overflow-capped')
+    });
+
     test('a dock-axis change defers recapture to the post-render owner resize', async () => {
         const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
             ? [{height: 300, left: 0, top: 0, width: 1000, x: 0, y: 0}]
@@ -1520,6 +1630,103 @@ test.describe('Neo.tab.plugin.Overflow.computeOverflow — the pure overflow cor
         // measurement pass corrects); d (80) is the first real non-fit and overflows
         expect(result.visible).toEqual(['a', 'b', 'c']);
         expect(result.hidden).toEqual(['d'])
+    });
+
+    // ---- the FOCUSED tab is protected beside the active one ----
+    //
+    // Withholding a tab removes its node, and the browser moves focus to the body — which drops the
+    // tab container's `containsFocus`, which withdraws the header's gated contextual actions. Moving
+    // focus to the `More tabs` control instead cannot fix it: the control mounts through a promise
+    // (`autoInitVnode` + `autoMount`), so the hand-off always lands after the removal and the
+    // withdrawal is CAUSAL, not a race. The only shape that satisfies the AC is to keep the focused
+    // tab visible — the same trade this function already makes for the active tab.
+
+    test('a FOCUSED non-active tab is never hidden: it swaps in like the active one', () => {
+        const result = Overflow.computeOverflow({
+            activeItemId : 'a',
+            controlWidth : 0,
+            extent       : 240,
+            focusedItemId: 'c',
+            items        : items({a: 110, b: 110, c: 110})
+        });
+
+        // Without the protection c is the first non-fit and overflows. Protecting it costs b its slot:
+        // the displacement is the same trade the active tab already makes.
+        expect(result.visible, 'the focused tab holds focus, so it must not leave the DOM')
+            .toEqual(['a', 'c']);
+        expect(result.hidden).toEqual(['b'])
+    });
+
+    test('both protected: the active AND the focused tab stay, and the displacement fits BOTH widths', () => {
+        const result = Overflow.computeOverflow({
+            activeItemId : 'a',
+            controlWidth : 0,
+            extent       : 240,
+            focusedItemId: 'd',
+            items        : items({a: 100, b: 100, c: 100, d: 100})
+        });
+
+        // a packs, then b and c pack (used 300 > 240 is never reached because the loop stops at the
+        // first non-fit): visible [a, b]. Surfacing d needs 100, so b AND c both overflow — fitting d
+        // alone would leave a+b+d = 300 > 240 and spill the strip.
+        expect(result.visible).toEqual(['a', 'd']);
+        expect(result.hidden, 'hidden preserves items order so the menu lists predictably')
+            .toEqual(['b', 'c'])
+    });
+
+    test('a focused tab that is ALREADY visible changes nothing — protection never reflows a fitting strip', () => {
+        const withFocus = Overflow.computeOverflow({
+            activeItemId : 'a',
+            controlWidth : 0,
+            extent       : 400,
+            focusedItemId: 'b',
+            items        : items({a: 110, b: 110, c: 110})
+        }),
+              withoutFocus = Overflow.computeOverflow({
+                  activeItemId: 'a',
+                  controlWidth: 0,
+                  extent      : 400,
+                  items       : items({a: 110, b: 110, c: 110})
+              });
+
+        expect(withFocus).toEqual(withoutFocus)
+    });
+
+    test('no focused id: the partition is byte-identical to the active-only rule', () => {
+        const baseline = Overflow.computeOverflow({
+                activeItemId: 'd',
+                controlWidth: 40,
+                extent      : 300,
+                items       : items({a: 100, b: 100, c: 100, d: 100})
+            }),
+              withAbsentId = Overflow.computeOverflow({
+                  activeItemId : 'd',
+                  controlWidth : 40,
+                  extent       : 300,
+                  focusedItemId: null,
+                  items        : items({a: 100, b: 100, c: 100, d: 100})
+              });
+
+        expect(withAbsentId).toEqual(baseline)
+    });
+
+    test('degenerate: both protected together wider than the extent — both stay, the rest overflows in order', () => {
+        const result = Overflow.computeOverflow({
+            activeItemId : 'b',
+            controlWidth : 0,
+            extent       : 100,
+            focusedItemId: 'c',
+            items        : items({a: 90, b: 90, c: 90})
+        });
+
+        // a packs; b and c are protected, and their joint 180 exceeds the extent even with nothing else
+        // visible — so the displacement empties the strip and a overflows, exactly as the single-active
+        // degenerate arm does. BOUND, and named rather than papered over: two protected tabs can jointly
+        // exceed the extent, which the per-button cap bounds individually but cannot make fit. The caller
+        // caps each protected box to `usable`; the strip still overhangs by their excess. This is the
+        // doubled form of the degenerate case computeOverflow has always had for one protected tab.
+        expect(result.visible).toEqual(['b', 'c']);
+        expect(result.hidden).toEqual(['a'])
     });
 });
 
