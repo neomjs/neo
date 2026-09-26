@@ -850,6 +850,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 expect(decision).toEqual({
                     commitEligible: true,
                     engage        : true,
+                    preview       : true,
                     retain        : false,
                     proxyRect     : header
                 });
@@ -868,6 +869,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             })).toEqual({
                 commitEligible: true,
                 engage        : true,
+                preview       : true,
                 retain        : false,
                 proxyRect     : header
             });
@@ -881,6 +883,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             expect(resolve(zone, {draggedItem: {dockItemId: 'workbench'}})).toEqual({
                 commitEligible: true,
                 engage        : true,
+                preview       : true,
                 retain        : false,
                 proxyRect     : header
             });
@@ -897,13 +900,14 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                       liveSourceRect    : () => physical
                   });
 
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+            // the park is pending on the claimed target: its zones may show, nothing embodies or commits
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, preview: true, retain: false});
             expect(zone.vesselConversionSensor.transitioning).toBe(true);
 
             // Product park output is host-authored physical placement. That observation must not
             // become the next user-trajectory sample.
             physical = {x: -10000, y: -10000, width: 200, height: 120};
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, preview: true, retain: false});
 
             resolvePark(true);
             await zone.vesselConversionSensor.transitionPromise;
@@ -911,6 +915,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             expect(resolve(zone)).toEqual({
                 commitEligible: true,
                 engage        : true,
+                preview       : true,
                 retain        : false,
                 proxyRect     : header
             });
@@ -950,7 +955,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 sourceSortZone: zone
             };
 
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, preview: true, retain: false});
 
             const replay = zone.vesselConversionReplayPromise;
 
@@ -987,7 +992,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                     }
                 });
 
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, preview: true, retain: false});
 
             const replay = zone.vesselConversionReplayPromise;
 
@@ -1037,7 +1042,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             const admission     = new Promise(resolve => resolvePark = resolve),
                   {calls, zone} = createZone({convertInAdmission: admission});
 
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, preview: true, retain: false});
 
             // The pointer leaves the target while the host effect is pending, then stops. No third
             // browser frame may be required.
@@ -1065,6 +1070,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             expect(resolve(zone)).toEqual({
                 commitEligible: true,
                 engage        : true,
+                preview       : true,
                 retain        : false,
                 proxyRect     : header
             });
@@ -1097,6 +1103,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             expect(resolve(zone)).toEqual({
                 commitEligible: true,
                 engage        : true,
+                preview       : true,
                 retain        : false,
                 proxyRect     : header
             });
@@ -1127,6 +1134,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             })).toEqual({
                 commitEligible: true,
                 engage        : true,
+                preview       : true,
                 retain        : false,
                 proxyRect     : header
             });
