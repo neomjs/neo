@@ -807,28 +807,37 @@ class VesselWorkspace extends DockWorkspace {
 
         // Keep both parents mounted for the reconciler's same-window DOM move. The source overlays
         // the new flex host instead of taking half the viewport while its pane is still staged.
-        if (moving) {
-            target.addCls('workstation-vessel-handover');
-            await target.promiseUpdate()
-        } else {
-            this.retireProvisionalVesselChrome(state.windowId, {releasePanes: true})
-        }
+        moving && target.addCls('workstation-vessel-handover');
 
-        host.parent?.remove(host, false, true);
-        target.add(host);
-        await host.promiseUpdate();
-
-        if (moving) {
-            if (!host.refreshPromise) throw new Error(`Popup Workspace ${workspaceId} has no committed projection`);
-            await host.refreshPromise;
-            if (!this.retireProvisionalVesselChrome(state.windowId)) {
-                throw new Error(`Popup Workspace ${workspaceId} left its pane in provisional chrome`)
+        try {
+            if (moving) {
+                await target.promiseUpdate()
+            } else {
+                this.retireProvisionalVesselChrome(state.windowId, {releasePanes: true})
             }
-            target.removeCls('workstation-vessel-handover');
-            await target.promiseUpdate()
-        }
 
-        return true
+            host.parent?.remove(host, false, true);
+            target.add(host);
+            await host.promiseUpdate();
+
+            if (moving) {
+                if (!host.refreshPromise) throw new Error(`Popup Workspace ${workspaceId} has no committed projection`);
+                await host.refreshPromise;
+                if (!this.retireProvisionalVesselChrome(state.windowId)) {
+                    throw new Error(`Popup Workspace ${workspaceId} left its pane in provisional chrome`)
+                }
+            }
+
+            return true
+        } catch (error) {
+            moving && this.retireProvisionalVesselChrome(state.windowId, {releasePanes: true});
+            throw error
+        } finally {
+            if (moving && !target.isDestroyed) {
+                target.removeCls('workstation-vessel-handover');
+                await target.promiseUpdate()
+            }
+        }
     }
 
     /**

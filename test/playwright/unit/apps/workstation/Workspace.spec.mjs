@@ -2301,6 +2301,39 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    test('a rejected popup projection releases its staged pane and removes the handover overlay', async () => {
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const {state, workspaceId} = stageCommittedVessel(workspace);
+        const viewport             = Neo.create(Container, {appName: workspace.appName,
+            layout: {ntype: 'vbox', align: 'stretch'}, windowId: state.windowId});
+        const projection           = Promise.withResolvers();
+        Neo.apps[state.windowId] = {mainView: viewport, name: workspace.appName};
+        state.renderTarget = viewport;
+        state.host.refreshPromise = projection.promise;
+        const chrome = workspace.resolveVesselStageTarget(state.windowId);
+        let mounting;
+        try {
+            expect(await workspace.tearOutEmbodiment.stage({itemId: 'alerts', windowId: state.windowId})).toBe(true);
+            const pane = workspace.paneCache.alerts;
+            mounting = workspace.mountVesselWorkspace(workspaceId);
+            const rejection = expect(mounting).rejects.toThrow('projection refused');
+            await expect.poll(() => viewport.items.includes(state.host)).toBe(true);
+            projection.reject(new Error('projection refused'));
+            await rejection;
+
+            expect(chrome.isDestroyed).toBe(true);
+            expect(Neo.getComponent(pane.id), 'the staged pane survives compensation').toBe(pane);
+            expect(viewport.cls).not.toContain('workstation-vessel-handover')
+        } finally {
+            projection.resolve();
+            await mounting?.catch(() => {});
+            delete Neo.apps[state.windowId];
+            state.host.isDestroyed || state.host.destroy();
+            viewport.isDestroyed || viewport.destroy();
+            workspace.destroy()
+        }
+    });
+
     test('a return whose vessel refuses to close keeps the vessel ownership it still needs', async () => {
         const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace);
