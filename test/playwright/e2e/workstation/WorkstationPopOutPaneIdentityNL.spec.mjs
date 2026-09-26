@@ -18,8 +18,8 @@ import {expect, test} from '../../fixtures.mjs';
  * target document, so a DOM-identity claim would be false by construction and a DOM-count claim
  * proves only that something rendered.
  *
- * Native close leaves the popup Workspace headless without changing Group truth. Group undo
- * returns its pane; both hops must preserve the same live subtree.
+ * Native close returns the popup's panes in one Group transaction; reload keeps the popup.
+ * The return and its undo/redo must preserve the same live subtree.
  *
  * Requires a Neural Link runtime root:
  *
@@ -143,6 +143,60 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
         }
     });
 
+    test('closing a multi-pane popup after opener reload returns every pane in one Group row', async ({page, context, neuralLink}) => {
+        await page.goto('/apps/workstation/index.html');
+        const header = page.locator(HEADER).filter({has: page.locator(TAB, {hasText: FEED_TITLE})}).first();
+        await expect(header).toBeVisible({timeout: 60000});
+        await header.locator(TAB, {hasText: FEED_TITLE}).click();
+        const app          = await neuralLink.connectToApp('Workstation'),
+              roots        = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
+              workspaceId  = roots[0].id,
+              items        = [FEED_ITEM, 'metrics', 'audit'],
+              identities   = await Promise.all(items.map(id => app.callMethod(workspaceId, 'getPaneIdentity', [id]))),
+              popupPromise = context.waitForEvent('page');
+        await header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).click();
+        const popup = await popupPromise;
+
+        try {
+            await expect(popup.locator(`#${identities[0]}`)).toBeVisible({timeout: 30000});
+            const topology      = await app.callMethod(workspaceId, 'controller.getTopologyState'),
+                  popupKey      = Object.keys(topology.workspaceHosts)[0],
+                  popupDocument = topology.snapshot.participants[popupKey],
+                  tabsNodeId    = Object.entries(popupDocument.nodes).find(([, node]) => node.type === 'tabs')[0];
+
+            for (const itemId of items.slice(1)) {
+                expect(await app.callMethod(workspaceId, 'commitCrossWindowTransfer', [{
+                    sourceWorkspaceId: 'workstation-main', targetWorkspaceId: popupKey,
+                    descriptor       : {
+                        operation        : 'transferItem', itemId,
+                        sourceWorkspaceId: 'workstation-main', targetWorkspaceId: popupKey,
+                        target           : {operation: 'addTab', tabsNodeId}
+                    }
+                }])).toBe(true)
+            }
+            await app.callMethod(workspaceId, 'commitLocalWorkspaceOperation', ['workstation-main', {
+                operation: 'setActiveItem', tabsNodeId: 'heavy-tabs', itemId: 'activity'
+            }]);
+            await page.reload();
+            await expect(page.locator('.workstation-dock-host')).toBeVisible({timeout: 30000});
+            await app.callMethod(workspaceId, 'transactionManager.set', [{reconnectLeaseMs: 3000}]);
+            const beforeClose = await app.callMethod(workspaceId, 'controller.getTopologyState');
+            await popup.close({runBeforeUnload: true});
+            await expect.poll(async () => {
+                const state = await app.callMethod(workspaceId, 'controller.getTopologyState');
+                return items.filter(id => state.snapshot.participants['workstation-main'].items[id])
+            }, {timeout: 15000, message: 'the expired reconnect lease recovers every pane after opener handle loss'}).toEqual(items);
+
+            const returned = await app.callMethod(workspaceId, 'controller.getTopologyState');
+            expect(returned.historyCount).toBe(beforeClose.historyCount + 1);
+            expect(returned.snapshot.participants[popupKey].items).toEqual({});
+            expect(returned.snapshot.participants['workstation-main'].nodes['heavy-tabs'].activeItemId).toBe('activity');
+            expect(await Promise.all(items.map(id => app.callMethod(workspaceId, 'getPaneIdentity', [id])))).toEqual(identities)
+        } finally {
+            !popup.isClosed() && await popup.close({runBeforeUnload: true})
+        }
+    });
+
     test('component, provider, store and descendant identities survive pop-out AND return', async ({page, context, neuralLink}, testInfo) => {
         const pageErrors = [];
 
@@ -183,7 +237,7 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
         // Subscribed before the click: the vessel can open faster than the next await.
         const vesselPromise = context.waitForEvent('page', {timeout: 45000});
 
-        let vessel;
+        let vessel, reopened;
 
         try {
             await popOut.click();
@@ -207,6 +261,10 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
             const detachedGroup = await app.callMethod(workspaceId, 'controller.getTopologyState');
 
             expect(Object.keys(detachedGroup.workspaceHosts), 'one popup Workspace holds the pane').toHaveLength(1);
+            await vessel.reload();
+            await expect(vessel.locator(`#${paneId}`), 'reload retains the same pane in its popup').toBeVisible({timeout: 30000});
+            expect((await app.callMethod(workspaceId, 'controller.getTopologyState')).snapshot,
+                'reload is not a close-return transaction').toEqual(detachedGroup.snapshot);
             await vessel.close({runBeforeUnload: true});
 
             await expect.poll(() => vessel.isClosed(), {
@@ -215,24 +273,21 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
             }).toBe(true);
 
             await expect.poll(async () => {
-                const state = await app.callMethod(workspaceId, 'controller.getTopologyState');
+                const state = await app.getComponent(workspaceId, ['dockModel']);
 
-                return Object.values(state.workspaceHosts).map(({disconnected, windowId}) => ({disconnected, windowId}))
+                return Object.values(state.dockModel.nodes)
+                    .some(node => node.type === 'tabs' && node.items?.includes(FEED_ITEM))
             }, {
                 intervals: [50, 100, 250],
-                message  : 'native close leaves the popup Workspace alive without a render target',
+                message  : 'native close returns the pane to main without an undo command',
                 timeout  : 15000
-            }).toEqual([{disconnected: true, windowId: null}]);
+            }).toBe(true);
 
-            const headlessGroup = await app.callMethod(workspaceId, 'controller.getTopologyState');
+            const returnedGroup = await app.callMethod(workspaceId, 'controller.getTopologyState');
 
-            expect(headlessGroup.snapshot, 'native close preserves the committed topology').toEqual(detachedGroup.snapshot);
-            expect(headlessGroup.historyCount, 'native close adds no history row').toBe(detachedGroup.historyCount);
-            expect(headlessGroup.historyCursor, 'native close does not move the Group cursor').toBe(detachedGroup.historyCursor);
-
-            await app.callMethod(workspaceId, 'transactionManager.undo', [{groupId: detachedGroup.groupId}]);
+            expect(returnedGroup.historyCount, 'native close adds one Group row').toBe(detachedGroup.historyCount + 1);
             expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel,
-                'Group undo returns the pane to its exact prior document').toEqual(beforeModel);
+                'native close restores the surviving home').toEqual(beforeModel);
 
             await expect(page.locator(`#${paneId}`), 'the exact live pane returns to the main window').toBeVisible({timeout: 30000});
 
@@ -243,6 +298,18 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
             expect(returned.storeId, 'with its store intact — not re-created on the way back').toBe(before.storeId);
             expectSameInstances(returned.descendants, before.descendants, 'and the whole subtree returned as the same instances');
 
+            const reopenedPromise = context.waitForEvent('page', {timeout: 30000});
+            await app.callMethod(workspaceId, 'transactionManager.undo', [{groupId: detachedGroup.groupId}]);
+            reopened = await reopenedPromise;
+            await expect(reopened.locator(`#${paneId}`), 'undo reopens the popup with the same pane').toBeVisible({timeout: 30000});
+            expect((await app.callMethod(workspaceId, 'controller.getTopologyState')).snapshot.participants)
+                .toEqual(detachedGroup.snapshot.participants);
+            await app.callMethod(workspaceId, 'transactionManager.redo', [{groupId: detachedGroup.groupId}]);
+            await expect.poll(() => reopened.isClosed(), {timeout: 15000}).toBe(true);
+            await expect(page.locator(`#${paneId}`), 'redo returns the same pane again').toBeVisible();
+            expect((await app.callMethod(workspaceId, 'controller.getTopologyState')).historyCount)
+                .toBe(returnedGroup.historyCount);
+
             // The receipt carries its own magnitudes, so a reader never has to take "passed" as the
             // measurement. A census of one would satisfy every assertion above and mean nothing.
             testInfo.annotations.push({
@@ -250,6 +317,7 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
                 description: `component ${before.componentId} · provider ${before.providerId} · store ${before.storeId} · ${before.descendants.length} descendants, each the same instance after pop-out (${detached.descendants.length} there) and return (${returned.descendants.length})`
             })
         } finally {
+            reopened && !reopened.isClosed() && await reopened.close({runBeforeUnload: true});
             vessel && !vessel.isClosed() && await vessel.close()
         }
 

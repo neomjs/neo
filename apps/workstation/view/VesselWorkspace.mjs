@@ -615,6 +615,8 @@ class VesselWorkspace extends DockWorkspace {
         }
         state.app = app;
         state.windowId = windowId;
+        state.awaitingClosure = false;
+        state.nativeRoute = WindowManager.get(windowId)?.nativeRoute ?? state.nativeRoute ?? null;
         state.renderTarget = app.mainView;
         state.mountPromise = this.mountVesselWorkspace(state.workspaceId);
         await state.mountPromise;
@@ -1666,7 +1668,7 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Unbinds a full Workspace without discarding its document, panes or Group history.
+     * @summary Unbinds a render target and returns its panes only after physical closure is confirmed.
      * @param {Object} data Group and retiring window generation.
      * @returns {Promise<void>}
      */
@@ -1678,16 +1680,102 @@ class VesselWorkspace extends DockWorkspace {
         me.vesselProxyEmbodiment.restoreByWindow(windowId);
         const state = me.getPopupState(data.workspaceKey);
         if (state?.host) {
+            if (windowId && state.windowId !== windowId) return false;
+            const route   = state.nativeRoute,
+                  binding = TransactionManager.get(me.topologyGroupId)?.bindings.get(data.workspaceKey);
             state.disconnected = true;
+            state.awaitingClosure = Boolean(windowId && Object.keys(state.document.items).length);
             state.host.parent?.remove(state.host, false, true);
             state.host.windowId = null;
             state.windowId = state.app = state.renderTarget = null;
             if (me.lastCrossWindowTransfer?.sourceWorkspaceId === data.workspaceKey) {
                 me.lastCrossWindowTransfer.topologyExited = true
             }
+            if (windowId && route && Object.keys(state.document.items).length) {
+                const closed = await Neo.Main.windowNativeIsClosed({
+                    nativeHandleKey: route.nativeHandleKey, windowId: route.ownerWindowId
+                }).catch(() => null);
+                if (closed === true && !me.isDestroyed && me.getPopupState(data.workspaceKey) === state
+                    && TransactionManager.get(me.topologyGroupId)?.bindings.get(data.workspaceKey) === binding
+                    && state.disconnected && !state.windowId) {
+                    await me.returnClosedPopupWorkspace(data.workspaceKey)
+                }
+            }
             return false
         }
         await super.onNativeWindowRelease(data)
+    }
+
+    /**
+     * @summary Returns every pane of a closed popup in one undoable Group write.
+     * Surviving recorded homes retain their index; other panes append to a live main stack. An
+     * empty main receives a center stack. A queued intervening write causes a fresh preparation,
+     * and any reducer refusal leaves both documents and every live pane intact.
+     * @param {String} workspaceId
+     * @param {String} [cause='popup-close'] Confirmed close or exhausted reconnect lease.
+     * @returns {Promise<Boolean>}
+     */
+    async returnClosedPopupWorkspace(workspaceId, cause='popup-close') {
+        const me      = this, state = me.getPopupState(workspaceId),
+              binding = TransactionManager.get(me.topologyGroupId)?.bindings.get(workspaceId);
+        if (!state?.host || !state.disconnected || state.windowId) return false;
+
+        while (!me.isDestroyed && state.disconnected && !state.windowId) {
+            const group = TransactionManager.get(me.topologyGroupId);
+            if (!group || me.getPopupState(workspaceId) !== state || group.bindings.get(workspaceId) !== binding) return false;
+            const
+                  version    = group.snapshot?.version ?? 0,
+                  placements = me.tearOutHandlers.placements,
+                  itemIds    = Object.keys(state.document.items).sort((a, b) =>
+                      (placements[a]?.index ?? Number.MAX_SAFE_INTEGER) - (placements[b]?.index ?? Number.MAX_SAFE_INTEGER)),
+                  retry = new Error('popup return must prepare against current Group truth');
+            if (!itemIds.length) return true;
+            let source = state.document, target = me.dockModel;
+
+            try {
+                for (const itemId of itemIds) {
+                    const placement   = me.tearOutHandlers.peekPlacement(itemId),
+                          destination = me.resolveDockReturnDescriptor(target, itemId, placement) ?? {
+                              operation: 'restoreTab', tabsNodeId: placement?.tabsNodeId ?? `returned:${itemId}`,
+                              home     : {parentId: target.root, slot: 'center'}
+                          },
+                          result = Operations.transferItem(source, target, {
+                              itemId, sourceWorkspaceId: workspaceId,
+                              targetWorkspaceId: VesselWorkspace.MAIN_WORKSPACE_ID, target: destination
+                          });
+                    if (result.errors.length) throw new Error(result.errors.join('; '));
+                    source = result.sourceDocument;
+                    target = result.targetDocument
+                }
+                const result = await TransactionManager.write({
+                    groupId          : me.topologyGroupId, cause, provenance: {origin: 'human'},
+                    descriptor       : {operation: 'returnPopupWorkspace', workspaceId, itemIds},
+                    prepareDescriptor: ({descriptor, snapshot}) => {
+                        if ((snapshot?.version ?? 0) !== version) throw retry;
+                        if (me.getPopupState(workspaceId) !== state || group.bindings.get(workspaceId) !== binding
+                            || !state.disconnected || state.windowId) throw new Error('popup rebound before return');
+                        return descriptor
+                    },
+                    changes: [
+                        {workspaceKey: workspaceId, input: source},
+                        {workspaceKey: VesselWorkspace.MAIN_WORKSPACE_ID, input: target}
+                    ]
+                });
+                itemIds.forEach(itemId => {
+                    me.tearOutHandlers.releasePane(itemId);
+                    me.nativeWindows?.recordOwner(me.id, itemId, null)
+                });
+                await me.refreshPromise;
+                state.awaitingClosure = false;
+                me.lastVesselRestoreReceipt = {returned: true, itemIds, workspaceId, transactionId: result.transactionId};
+                return true
+            } catch (error) {
+                if (error === retry) continue;
+                me.lastVesselRestoreReceipt = {returned: false, itemIds, workspaceId, errors: [error.message]};
+                return false
+            }
+        }
+        return false
     }
 
     /**
