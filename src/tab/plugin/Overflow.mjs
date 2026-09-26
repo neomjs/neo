@@ -110,11 +110,9 @@ class Overflow extends Plugin {
         //
         // The focused id is protected for the same reason, not as a preference: withholding a tab removes its
         // node, the browser moves focus to the body, and the tab container's `containsFocus` drops — which
-        // withdraws the header's gated contextual actions (`toolbar.Base#applyContextualActionState`). Handing
-        // focus to the `More tabs` control instead cannot repair it: the control mounts through a promise
-        // (`autoInitVnode` + `autoMount`), so the hand-off always lands after the removal and the withdrawal
-        // is causal rather than a race. Keeping the node is the only shape that holds, and it is the trade
-        // this function already makes for the active tab.
+        // withdraws the header's gated contextual actions (`toolbar.Base#applyContextualActionState`). Moving
+        // focus elsewhere cannot repair that after the fact, so keeping the node is the only shape that holds,
+        // and it is the trade this function already makes for the active tab.
         const protectedIds = [...new Set([activeItemId, focusedItemId].filter(id => id != null))],
               protectedSet = new Set(protectedIds),
               withheld     = protectedIds.filter(id => hidden.includes(id));
@@ -136,9 +134,8 @@ class Overflow extends Plugin {
             //
             // The scan SKIPS protected ids, and that is load-bearing rather than defensive: a protected id that
             // was already visible is not in `withheld`, so a blind trailing pop can evict the active tab to make
-            // room for the focused one — measured on a middle-active, trailing-focused strip (a/b/c at 110,
-            // usable 240), which returned `hidden: ['b']` with `b` ACTIVE. A protected id is never a candidate,
-            // so the scan walks right-to-left for the last displaceable one and stops when none remains.
+            // room for the focused one. A protected id is never a candidate, so the scan walks right-to-left
+            // for the last displaceable one and stops when none remains.
             while (visible.length > 0 && used + needed > usable) {
                 let index = -1;
 
