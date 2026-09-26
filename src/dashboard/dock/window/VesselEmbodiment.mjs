@@ -319,10 +319,11 @@ export function createDockVesselProxyEmbodiment({
         /**
          * @summary Moves or updates one admitted target-local proxy.
          *
-         * The move is synchronously fail-closed: by return time either the proxy renders (a header
-         * proxy, or the pane with a recorded exact source slot and the proxy as its parent), or no
-         * proxy is admitted. Renderer settlement continues behind the generation fence and is exposed
-         * through {@link #snapshot} for release gating.
+         * The move is synchronously fail-closed: by return time either a proxy is admitted (a header
+         * proxy whose mount is under way, or the pane with a recorded exact source slot and the proxy
+         * as its parent), or none is. Renderer settlement continues behind the generation fence and is
+         * exposed through {@link #snapshot} for release gating; a header proxy whose mount is refused
+         * retires, and {@link #isStaged} stops answering for it.
          * @param {Object} data
          * @param {Neo.component.Base} data.draggedItem
          * @param {Boolean} [data.embodyHeader=false] Render the source's tab-header drag proxy; the
@@ -405,7 +406,8 @@ export function createDockVesselProxyEmbodiment({
                 try {
                     record.proxy = createProxy({
                         ...proxyConfig,
-                        ...(header ? {module: DragProxyComponent, vdom} : {module: DragProxyContainer, items: []}),
+                        // a header proxy is mounted by the settlement below, whose promise carries the render outcome
+                        ...(header ? {autoInitVnode: false, autoMount: false, module: DragProxyComponent, vdom} : {module: DragProxyContainer, items: []}),
                         height          : `${proxyRect.height}px`,
                         moveInMainThread: false,
                         style           : {
@@ -425,10 +427,22 @@ export function createDockVesselProxyEmbodiment({
                 active = record;
 
                 if (header) {
-                    // settles on mount; a retirement that comes first settles it false
+                    let attempt;
+
+                    try {
+                        attempt = Promise.resolve(record.proxy.initVnode(true))
+                    } catch (error) {
+                        attempt = Promise.reject(error)
+                    }
+
+                    // settles with the render attempt; a refused mount retires this generation, and a
+                    // retirement that comes first settles it false
                     record.settlement = new Promise(resolve => {
                         record.settle = resolve;
-                        record.proxy.mountedPromise.then(() => resolve(active === record))
+                        attempt.then(() => resolve(active === record), () => {
+                            retireProxy(record);
+                            resolve(false)
+                        })
                     }).then(settled => record.settled = settled === true)
                 } else {
                     let settlement;

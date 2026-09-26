@@ -68,7 +68,8 @@ class Participation extends Base {
          */
         affordances: null,
         /**
-         * Existing target-proxy owner exposing move, restore, promote and whenSettled.
+         * Existing target-proxy owner exposing move, restore, promote and whenSettled, and optionally
+         * isStaged, which the drop consults to refuse an embodiment that no longer renders.
          * Its creator retains teardown ownership; explicit handler configs override these defaults.
          * @member {Object|null} dragEmbodiment=null
          */
@@ -188,6 +189,12 @@ class Participation extends Base {
          */
         awaitDragEmbodiment: null,
         /**
+         * Owner seam forwarded to the target: whether the staged embodiment still renders. Defaults
+         * to the embodiment owner's own staging, so a proxy that failed to render refuses the drop.
+         * @member {Function|null} isDragEmbodimentLive=null
+         */
+        isDragEmbodimentLive: null,
+        /**
          * Owner seam forwarded to the target: resolves once a frame the preview seam could not
          * answer yet can be answered. Defaults to the affordance geometry settling.
          * @member {Function|null} awaitPreviewable=null
@@ -285,6 +292,7 @@ class Participation extends Base {
             stageDragEmbodiment    : me.stageDragEmbodiment ?? me.defaultStageDragEmbodiment.bind(me),
             awaitDragEmbodiment    : me.awaitDragEmbodiment ?? me.defaultAwaitDragEmbodiment.bind(me),
             awaitPreviewable       : me.awaitPreviewable    ?? me.defaultAwaitPreviewable.bind(me),
+            isDragEmbodimentLive   : me.isDragEmbodimentLive ?? me.defaultIsDragEmbodimentLive.bind(me),
             suspendNativeWindowDrag: me.suspendNativeWindowDrag,
             // the workspace id IS the §2.8.1 stable claim identity: it survives re-registration
             // and never encodes windowId or registration order
@@ -369,6 +377,22 @@ class Participation extends Base {
      */
     defaultPromoteDragEmbodiment(payload) {
         return this.dragEmbodiment?.promote(this.getDragEmbodimentIdentity(payload)) === true
+    }
+
+    /**
+     * @summary Whether the licensed embodiment still renders: the embodiment owner's staging for the
+     * dragged item. An owner without `isStaged` cannot answer, so the answer is `null` and the drop
+     * proceeds as before.
+     * @param {Object} payload
+     * @returns {Boolean|null}
+     * @protected
+     */
+    defaultIsDragEmbodimentLive(payload) {
+        const {dragEmbodiment} = this;
+
+        return typeof dragEmbodiment?.isStaged === 'function'
+            ? dragEmbodiment.isStaged(payload?.draggedItem?.dockItemId) === true
+            : null
     }
 
     /**

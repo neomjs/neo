@@ -155,6 +155,13 @@ class DragTarget extends Base {
          */
         awaitDragEmbodiment: null,
         /**
+         * Optional owner seam: whether the staged embodiment still renders. Strict `false` (its
+         * proxy failed to render and retired) makes the drop commit nothing, so no drop lands
+         * behind a proxy nobody sees. Unset admits the drop, as before.
+         * @member {Function|null} isDragEmbodimentLive=null
+         */
+        isDragEmbodimentLive: null,
+        /**
          * Optional owner seam: for a frame {@link #previewFor} could not answer yet, returns a
          * Promise that resolves `true` once the owner can answer it (e.g. its geometry settled), or
          * a non-thenable when nothing is pending. Lets one frame be enough when the hand stops.
@@ -391,9 +398,9 @@ class DragTarget extends Base {
     /**
      * §2.3 mandatory hook: commit the drop on the target side. Converts the final preview via
      * the owner's `previewToOperation` seam and hands the descriptor plus the coordinator's
-     * `draggedItem` to `commitOperation`. No accepted preview, or a preview the converter
-     * rejects, commits nothing and returns null — the fail-closed executor discipline extended
-     * to the drop path.
+     * `draggedItem` to `commitOperation`. No accepted preview, a preview the converter rejects,
+     * or an embodiment that no longer renders ({@link #isDragEmbodimentLive}) commits nothing and
+     * returns null — the fail-closed executor discipline extended to the drop path.
      * @param {Object} draggedItem The coordinator's cross-window drag payload item
      * @returns {*} the owner commit result, or null when nothing committed
      */
@@ -402,6 +409,12 @@ class DragTarget extends Base {
             payload = me.currentDragPayload,
             preview = me.currentPreview,
             result  = null;
+
+        if (payload?.embodyProxy === true && me.isDragEmbodimentLive?.(payload) === false) {
+            me.restoreDragEmbodiment?.(payload);
+            me.clearRemoteState(payload);
+            return null
+        }
 
         try {
             const operation = preview ? me.previewToOperation?.(preview) : null;

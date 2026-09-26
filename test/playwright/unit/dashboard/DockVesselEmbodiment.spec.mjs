@@ -472,14 +472,17 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
         const headerVdom = {cn: [{tag: 'button', cls: ['neo-tab-header-button'], text: 'Live'}]};
 
         /**
-         * @summary A header-mode fixture: the proxy factory records each config and answers mounted.
+         * @summary A header-mode fixture: the proxy factory records each config, and each proxy's mount
+         * answers with `mount()` — resolved by default, a rejection to model a refused render.
          * @param {Object} [options={}]
+         * @param {Function} [options.mount] Answers one proxy's `initVnode(true)` call.
          * @param {Object|null} [options.vdom=headerVdom] The source zone's drag-proxy vdom.
          * @returns {Object}
          */
-        function createHeaderFixture({vdom=headerVdom}={}) {
+        function createHeaderFixture({mount=() => Promise.resolve(), vdom=headerVdom}={}) {
             const
                 configs        = [],
+                mounts         = [],
                 proxies        = [],
                 sourceSortZone = {
                     getDragProxyConfig: () => ({cls: ['neo-tab-header-toolbar', 'neo-dock-dragproxy']}),
@@ -491,7 +494,10 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
                 createProxy: config => {
                     const proxy = Neo.create(Component, {cls: config.cls, style: config.style});
 
-                    Object.defineProperty(proxy, 'mountedPromise', {value: Promise.resolve(proxy)});
+                    proxy.initVnode = (...args) => {
+                        mounts.push(args);
+                        return mount()
+                    };
                     configs.push(config);
                     proxies.push(proxy);
 
@@ -503,6 +509,7 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
 
             return {
                 configs,
+                mounts,
                 move: (x=20) => proxyEmbodiment.move({
                     draggedItem   : pane,
                     embodyHeader  : true,
@@ -522,6 +529,8 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
             expect(fixture.proxies).toHaveLength(1);
 
             expect(fixture.configs[0]).toMatchObject({
+                autoInitVnode   : false,
+                autoMount       : false,
                 height          : '32px',
                 module          : DragProxyComponent,
                 moveInMainThread: false,
@@ -529,6 +538,7 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
                 width           : '90px',
                 windowId        : 'target-window'
             });
+            expect(fixture.mounts, 'the settlement mounts the proxy itself, once').toEqual([[true]]);
             expect(fixture.proxies[0].style).toMatchObject({left: '75px', top: '30px'});
 
             expect(source.items[1], 'no stand-in: the pane keeps its own slot').toBe(pane);
@@ -562,6 +572,18 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
             expect(fixture.move()).toBe(false);
             expect(fixture.proxies).toHaveLength(0);
             expect(proxyEmbodiment.snapshot('live')).toBeNull()
+        });
+
+        test('a header proxy whose render is refused retires its generation and settles false', async () => {
+            const fixture = createHeaderFixture({mount: () => Promise.reject(new Error('renderer refused'))});
+
+            expect(fixture.move(), 'the admission is synchronous, before the render answers').toBe(true);
+            await expect(proxyEmbodiment.whenSettled({itemId: 'live'})).resolves.toBe(false);
+
+            expect(proxyEmbodiment.isStaged('live'), 'a refused proxy no longer stands in the target').toBe(false);
+            expect(proxyEmbodiment.snapshot('live')).toBeNull();
+            expect(fixture.proxies[0].isDestroyed).toBe(true);
+            expect(source.items[1], 'the pane never left its slot').toBe(pane)
         })
     })
 });
