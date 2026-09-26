@@ -801,14 +801,43 @@ class VesselWorkspace extends DockWorkspace {
         const state  = this.getPopupState(workspaceId), host = state?.host;
         const target = state?.renderTarget ?? state?.app?.mainView;
         if (!host || host.isDestroyed || !target || target.isDestroyed) return false;
-        // The committed projection owns the viewport from here. A provisional chrome still holding the
-        // staged pane hands it over detached — the projection re-parents it by identity — and retires
-        // before the host mounts, so the vessel never lays out two chromes side by side.
-        this.retireProvisionalVesselChrome(state.windowId, {releasePanes: true});
-        host.parent?.remove(host, false, true);
-        target.add(host);
-        await host.promiseUpdate();
-        return true
+        const chrome = this.provisionalVesselChromes[state.windowId],
+              body   = chrome && !chrome.isDestroyed ? chrome.getCardContainer() : null,
+              moving = chrome?.parent === target && Boolean(body?.items.length);
+
+        // Keep both parents mounted for the reconciler's same-window DOM move. The source overlays
+        // the new flex host instead of taking half the viewport while its pane is still staged.
+        moving && target.addCls('workstation-vessel-handover');
+
+        try {
+            if (moving) {
+                await target.promiseUpdate()
+            } else {
+                this.retireProvisionalVesselChrome(state.windowId, {releasePanes: true})
+            }
+
+            host.parent?.remove(host, false, true);
+            target.add(host);
+            await host.promiseUpdate();
+
+            if (moving) {
+                if (!host.refreshPromise) throw new Error(`Popup Workspace ${workspaceId} has no committed projection`);
+                await host.refreshPromise;
+                if (!this.retireProvisionalVesselChrome(state.windowId)) {
+                    throw new Error(`Popup Workspace ${workspaceId} left its pane in provisional chrome`)
+                }
+            }
+
+            return true
+        } catch (error) {
+            moving && this.retireProvisionalVesselChrome(state.windowId, {releasePanes: true});
+            throw error
+        } finally {
+            if (moving && !target.isDestroyed) {
+                target.removeCls('workstation-vessel-handover');
+                await target.promiseUpdate()
+            }
+        }
     }
 
     /**

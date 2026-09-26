@@ -85,6 +85,18 @@
     background: var(--workstation-ground);
 }
 
+// A staged pane and its committed host share a viewport during the node move. Overlay the staged
+// chrome so the host can mount at full width; the owner removes this class after projection settles.
+.workstation-viewport.workstation-vessel-handover {
+    position: relative;
+
+    > .workstation-vessel-provisional-chrome {
+        inset   : 0;
+        position: absolute;
+        z-index : 1;
+    }
+}
+
 // A committed bare-pane vessel becomes a remote dock TARGET without changing its scene-2 surface:
 // the preview is an absolute sibling and therefore contributes zero layout. Only the first
 // accepted dock-INTO swaps the pane for `.workstation-vessel-dock-host`; that host keeps the same

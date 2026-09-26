@@ -666,6 +666,8 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
 
             const liveElement = await popup.locator(`[id="${paneId}"]`).elementHandle();
             expect(liveElement).toBeTruthy();
+            await expect(popup.locator('.workstation-vessel-provisional-chrome .neo-tab-header-button'),
+                'the staged popup shows its pane header before the terminal').toContainText('Metrics');
             await expect(page.locator('.neo-dashboard-dock-vessel-placeholder'),
                 'one stand-in reserves the held source slot').toHaveCount(1);
             await expect(popup.locator('.neo-dashboard-dock-vessel-placeholder'),
@@ -674,16 +676,24 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
             expect(await awaitVesselWindowId(app, workspace.id, TARGET_ITEM_ID, true)).toBe(windowId);
             await awaitPointerSessionIdle(page);
 
-            const
-                target = await findOne(app, {
-                    className   : 'Workstation.view.PopupWorkspace',
-                    workspaceKey: TARGET_WORKSPACE_ID
-                }, ['id', 'windowId']),
-                tabs = await findOne(app, {
+            const target = await findOne(app, {
+                className   : 'Workstation.view.PopupWorkspace',
+                workspaceKey: TARGET_WORKSPACE_ID
+            }, ['id', 'windowId']);
+
+            await expect.poll(async () => {
+                const found = await app.findInstances({
                     className      : 'Neo.dashboard.dock.interaction.TabContainer',
                     dockWorkspaceId: target.id
-                }, ['id']),
-                body = await app.callMethod(tabs.id, 'getCardContainer');
+                }, ['id']);
+                return Array.isArray(found) ? found.length : Number(Boolean(found))
+            }, {message: 'the committed popup projects its tab container', timeout: 10000}).toBe(1);
+
+            const tabs = await findOne(app, {
+                className      : 'Neo.dashboard.dock.interaction.TabContainer',
+                dockWorkspaceId: target.id
+            }, ['id']);
+            const body = await app.callMethod(tabs.id, 'getCardContainer');
 
             expect(body.id, 'the committed popup owns a live card body').toBeTruthy();
             expect(target.properties.windowId).toBe(windowId);
@@ -712,6 +722,8 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
             });
             expect(await liveElement.evaluate(element => element.isConnected &&
                 element === document.getElementById(element.id)), 'the same DOM node moves with its pane').toBe(true);
+            await expect(popup.locator('.workstation-vessel-handover'),
+                'the temporary overlapping layout retires with the provisional chrome').toHaveCount(0);
             for (const window of [page, popup]) {
                 await expect(window.locator('.neo-dashboard-dock-vessel-placeholder'),
                     'a committed tear-out leaves no stand-in in either window').toHaveCount(0);
