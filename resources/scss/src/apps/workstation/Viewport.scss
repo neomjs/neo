@@ -97,34 +97,14 @@
     }
 }
 
-// A committed bare-pane vessel becomes a remote dock TARGET without changing its scene-2 surface:
-// the preview is an absolute sibling and therefore contributes zero layout. Only the first
-// accepted dock-INTO swaps the pane for `.workstation-vessel-dock-host`; that host keeps the same
-// overlay contract while real tab chrome owns the two live pane instances.
-.workstation-popout-host.workstation-vessel-target {
-    position: relative;
-
-    > .neo-dock-preview {
-        inset         : 0;
-        pointer-events: none;
-        position      : absolute;
-        z-index       : 25;
-    }
-
-    > .workstation-vessel-dock-host {
-        background: var(--workstation-ground);
-        min-height: 0;
-        min-width : 0;
-        padding   : 8px;
-        position  : relative;
-
-        > .neo-dock-preview {
-            inset         : 0;
-            pointer-events: none;
-            position      : absolute;
-            z-index       : 25;
-        }
-    }
+// A committed vessel mounts its PopupWorkspace directly in the popup viewport, a column flex box sized to
+// the window. Without `min-height: 0` the host keeps its automatic minimum, grows to its content and
+// never scrolls: a popped-out grid neither scrolls nor virtualizes. The host positions the preview, which
+// the engine's sheet makes absolute.
+.workstation-popout-host > .workstation-vessel-dock-host {
+    min-height: 0;
+    min-width : 0;
+    position  : relative;
 }
 
 // Keep target affordances legible beneath the SAME live pane while it is transiently embodied in
