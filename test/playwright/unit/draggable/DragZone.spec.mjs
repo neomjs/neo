@@ -321,4 +321,27 @@ test.describe('Neo.draggable.DragZone', () => {
             !bare.isDestroyed && bare.destroy()
         }
     });
+
+    test('a later proxy copies the drag element as the first proxy showed it, not as the sort zone hid it after', async () => {
+        const
+            dragElement = {id: 'snapshot-tab', cls: ['neo-tab-header-button'], cn: [{id: 'snapshot-text', tag: 'span', text: 'Audit'}]},
+            owner       = {cls: [], getTheme: () => 'neo-theme-neo-light'},
+            zone        = Neo.create(DragZone, {appName: 'DraggableDragZoneTest', dragElement, owner, windowId: 'test-window-1'});
+
+        try {
+            await zone.createDragProxy({height: 32, width: 48, x: 0, y: 0}, false);
+
+            // what SortZone#onDragStart does to the dragged item once its proxy exists
+            dragElement.style = {visibility: 'hidden'};
+
+            expect(zone.getDragProxyVdom(), 'the cross-window proxy shows the tab the drag showed')
+                .toEqual({cn: [{cls: ['neo-tab-header-button'], cn: [{tag: 'span', text: 'Audit'}]}]});
+
+            zone.dragEnd({});
+
+            expect(zone.getDragProxyVdom().cn[0].style, 'after the gesture, the live element again').toEqual({visibility: 'hidden'})
+        } finally {
+            !zone.isDestroyed && zone.destroy()
+        }
+    });
 });
