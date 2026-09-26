@@ -82,6 +82,14 @@ class DragZone extends Base {
          */
         dragElement: null,
         /**
+         * A copy of the drag element as the drag proxy first showed it, kept for the gesture: a sort zone
+         * hides the element in place once its proxy exists, and a later proxy (a cross-window target's)
+         * must still show what the drag showed.
+         * @member {Object|null} dragElementSnapshot=null
+         * @protected
+         */
+        dragElementSnapshot: null,
+        /**
          * The bounding client rect of the dragElement
          * Will get set inside dragStart()
          * @member {Object|null} dragElementRect=null
@@ -305,12 +313,13 @@ class DragZone extends Base {
     /**
      * @summary The drag proxy's content: a fresh clone of the drag element (or of the configured proxy
      * vdom), wrapped unless `useProxyWrapper` is off. A cross-window target proxy renders the same
-     * content as the local one.
+     * content as the local one: during a gesture the clone comes from the `dragElementSnapshot` the local
+     * proxy was built from, not from the element the sort zone has hidden since.
      * @returns {Object|null} `null` while no drag element is known
      */
     getDragProxyVdom() {
         let me     = this,
-            source = me.dragProxyConfig?.vdom || me.dragElement,
+            source = me.dragProxyConfig?.vdom || me.dragElementSnapshot || me.dragElement,
             clone  = source && VDomUtil.clone(source);
 
         return !clone ? null : me.useProxyWrapper ? {cn: [clone]} : clone
@@ -349,7 +358,8 @@ class DragZone extends Base {
             config.cls = config.cls || [];
             config.cls.push('neo-draggable');
         } else {
-            config.vdom = me.getDragProxyVdom();
+            me.dragElementSnapshot = me.dragElement && VDomUtil.clone(me.dragElement);
+            config.vdom            = me.getDragProxyVdom();
 
             if (config.vdom.cls && !me.useProxyWrapper) {
                 config.cls = config.cls || [];
@@ -482,11 +492,12 @@ class DragZone extends Base {
         }
 
         Object.assign(me, {
-            dragElementRect  : null,
-            dragStartIndex   : null,
-            offsetX          : 0,
-            offsetY          : 0,
-            scrollContainerId: null
+            dragElementRect    : null,
+            dragElementSnapshot: null,
+            dragStartIndex     : null,
+            offsetX            : 0,
+            offsetY            : 0,
+            scrollContainerId  : null
         });
 
         me.fire('dragEnd', data);
