@@ -187,6 +187,19 @@ class DragCoordinator extends Manager {
     claimTraceLimit = 40
 
     /**
+     * @summary Escape reached a window that owns no gesture: during a cross-window drag the vessel or the
+     * target holds the keyboard focus. Every other window of the app is asked to cancel the drag it owns;
+     * only the gesture's owner has one, and its cancel takes the ordinary path, `onDragCancel` included.
+     * @param {Object} data
+     * @param {String} data.windowId The window that heard Escape
+     */
+    cancelCrossWindowGesture({windowId}) {
+        Object.keys(Neo.apps || {}).forEach(id => {
+            id !== windowId && Neo.main.addon.DragDrop.cancelDrag({windowId: id})?.catch?.(Neo.emptyFn)
+        })
+    }
+
+    /**
      * @summary Clears a pending geometry-only native window-drop candidate.
      *
      * Clears a pending geometry-only native window-drop candidate.

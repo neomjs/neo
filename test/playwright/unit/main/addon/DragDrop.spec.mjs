@@ -1844,3 +1844,70 @@ test.describe('Neo.main.addon.DragDrop — dock sort-first boundary motion (#179
         }
     })
 });
+
+/**
+ * @summary Escape reaches a drag wherever the keyboard focus is. The gesture owner cancels its own drag as
+ * before; a window without a gesture of its own (the vessel or the target of a cross-window drag) asks the
+ * App Worker, which asks the owner through `cancelDrag`.
+ */
+test.describe('Neo.main.addon.DragDrop — Escape across windows', () => {
+    let originalKeyData, originalSend, sent;
+
+    test.beforeEach(() => {
+        originalKeyData = DomEvents.getKeyboardEventData;
+        originalSend    = DomEvents.sendMessageToApp;
+        sent            = [];
+
+        DomEvents.getKeyboardEventData = event => ({key: event.key});
+        DomEvents.sendMessageToApp     = data  => sent.push(data)
+    });
+
+    test.afterEach(() => {
+        DomEvents.getKeyboardEventData = originalKeyData;
+        DomEvents.sendMessageToApp     = originalSend
+    });
+
+    test('Escape in a window without its own gesture asks the App Worker once to cancel a cross-window one', () => {
+        let prevented = false;
+
+        const addon = {dragCancelled: false, dragZoneId: null};
+
+        DragDrop.prototype.onKeyDown.call(addon, {key: 'Escape', preventDefault: () => {prevented = true}});
+        DragDrop.prototype.onKeyDown.call(addon, {key: 'Enter',  preventDefault: () => {prevented = true}});
+
+        expect(sent).toEqual([{crossWindow: true, key: 'Escape', type: 'drag:cancel'}]);
+        expect(prevented, 'a window that owns no gesture leaves Escape to its own UI').toBe(false)
+    });
+
+    test('the gesture owner still cancels its own drag on Escape, once', () => {
+        let prevented = 0;
+
+        const
+            addon = {cancelDrag: DragDrop.prototype.cancelDrag, dragCancelled: false, dragZoneId: 'zone-a'},
+            event = {key: 'Escape', preventDefault: () => prevented++};
+
+        DragDrop.prototype.onKeyDown.call(addon, event);
+        DragDrop.prototype.onKeyDown.call(addon, event);
+
+        expect(sent).toEqual([{dragZoneId: 'zone-a', key: 'Escape', type: 'drag:cancel'}]);
+        expect(addon.dragCancelled).toBe(true);
+        expect(prevented, 'only the Escape that cancelled keeps its default from the page').toBe(1)
+    });
+
+    test('cancelDrag cancels the gesture this window owns, once; without one it sends nothing', () => {
+        let resizeCancels = 0;
+
+        const
+            owner = {dragCancelled: false, dragResize: {cancel: () => resizeCancels++}, dragZoneId: 'zone-a'},
+            idle  = {dragCancelled: false, dragZoneId: null};
+
+        DragDrop.prototype.cancelDrag.call(owner);
+        DragDrop.prototype.cancelDrag.call(owner);
+        DragDrop.prototype.cancelDrag.call(idle);
+
+        expect(sent).toEqual([{dragZoneId: 'zone-a', type: 'drag:cancel'}]);
+        expect(owner.dragCancelled).toBe(true);
+        expect(resizeCancels).toBe(1);
+        expect(idle.dragCancelled).toBe(false)
+    });
+});

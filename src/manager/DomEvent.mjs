@@ -271,6 +271,9 @@ class DomEvent extends Base {
                         'drop:leave': 'onDropLeave',
                     }[eventName]].call(dragZone, data)
                 }
+            } else if (eventName === 'drag:cancel' && data.crossWindow) {
+                // Escape in a window that owns no gesture: a cross-window drag may belong to another one
+                Neo.manager.DragCoordinator?.cancelCrossWindowGesture({windowId: event.windowId})
             }
         }
     }
