@@ -129,9 +129,9 @@ class NativeVesselTransaction extends Base {
      * corner of the target display's work area whose frame overlaps the target's content least, the
      * farthest one among equals, with the whole frame kept inside the work area.
      *
-     * The park used to hide the vessel BEHIND the target and raise the target with `focus()`, which a
-     * real OS mouse drag does not honour, so the vessel stayed on top of every affordance the
-     * conversion produced (#19278). Clear of the target, it needs no z-order at all.
+     * A real OS mouse drag does not honour a `focus()` raise, so a vessel parked behind the target
+     * would stay on top of every affordance the conversion produced. Clear of the target, it needs no
+     * z-order at all.
      * @param {Object} data
      * @param {{height:Number,width:Number}} data.frame The parked frame's outer extent
      * @param {Object} data.screen The target display's `availLeft`, `availTop`, `availWidth` and `availHeight`
@@ -443,8 +443,8 @@ class NativeVesselTransaction extends Base {
                 }
 
                 try {
-                    // The vessel parks clear of the target instead of behind it, so no step focuses
-                    // anything (#19278); the parked frame is the shrunk extent, or the source's own.
+                    // The vessel parks clear of the target, so no step focuses anything; the parked
+                    // frame is the shrunk extent, or the source's own.
                     const
                         extent = owesResize ? {
                             height: Math.min(sourceRect.height, targetRect.height),

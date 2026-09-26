@@ -483,7 +483,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             intervals: [25, 50]
         }).toBeLessThanOrEqual(2);
 
-        // The vessel parks clear of the target instead of behind it, so no z-order is asked for (#19278).
+        // The vessel parks clear of the target instead of behind it, so no z-order is asked for.
         expect(parkReceipt.cleared, 'the parked source covers none of the target').toBe(true);
 
         const result         = await resultPromise,
