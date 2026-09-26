@@ -607,6 +607,20 @@ class TabSortZone extends TabHeaderSortZone {
     }
 
     /**
+     * @summary The target proxy's extent: the dragged tab header's size and the grab offset inside it,
+     * so a converted drag enters the target as the same tab-header proxy it showed in its own window.
+     * @returns {{height: Number, offsetX: Number, offsetY: Number, width: Number}|null} `null` before
+     * the drag element was measured
+     * @protected
+     */
+    getVesselConversionProxyRect() {
+        let me   = this,
+            rect = me.dragElementRect;
+
+        return rect ? {height: rect.height, offsetX: me.offsetX, offsetY: me.offsetY, width: rect.width} : null
+    }
+
+    /**
      * @summary Resolves one stable-claim frame into remote-preview and commit eligibility.
      *
      * This is the production binding for {@link Neo.dashboard.dock.window.VesselConversion}. The manager
@@ -626,8 +640,8 @@ class TabSortZone extends TabHeaderSortZone {
      * @param {String|null} frame.targetId
      * @param {Object|null} frame.targetRect
      * @returns {{commitEligible: Boolean, engage: Boolean, retain: Boolean,
-     *     sourceRect: (Object|undefined)}|null}
-     *     An engaged record carries the exact live source extent for target-proxy embodiment;
+     *     proxyRect: (Object|undefined)}|null}
+     *     An engaged record carries the target proxy's extent ({@link #getVesselConversionProxyRect});
      *     `null` keeps the legacy coordinator path when conversion is disabled or the source is not
      *     in a window drag.
      */
@@ -760,8 +774,8 @@ class TabSortZone extends TabHeaderSortZone {
                 commitEligible: record.converted && !record.transitioning,
                 engage        : record.converted && !record.transitioning,
                 retain        : false,
-                sourceRect    : record.converted && !record.transitioning
-                    ? {...me.vesselConversionSourceRect}
+                proxyRect     : record.converted && !record.transitioning
+                    ? me.getVesselConversionProxyRect()
                     : undefined
             }
         }
@@ -784,7 +798,7 @@ class TabSortZone extends TabHeaderSortZone {
                 commitEligible: false,
                 engage        : record.converted,
                 retain        : record.converted,
-                sourceRect    : record.converted ? {...me.vesselConversionSourceRect} : undefined
+                proxyRect     : record.converted ? me.getVesselConversionProxyRect() : undefined
             }
         }
 

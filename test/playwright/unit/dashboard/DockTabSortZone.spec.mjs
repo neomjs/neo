@@ -763,20 +763,26 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
         const zones      = [];
         const sourceRect = {x: 20, y: 20, width: 200, height: 120};
         const targetRect = {x: 0, y: 0, width: 800, height: 600};
+        // the target proxy is the dragged tab header: its measured extent + the grab offset inside it
+        const header = {height: 32, offsetX: 12, offsetY: 9, width: 90};
 
         test.afterEach(() => zones.splice(0).forEach(zone => zone.vesselConversionSensor?.destroy()));
 
         function createZone(overrides = {}) {
             const calls = [];
             const zone  = {
-                dockItemIds              : ['graph'],
-                dockSourceNodeId         : 'tabs-main',
-                dragComponent            : {id: 'graph-button', reference: 'graph'},
-                dragCoordinator          : null,
-                enableVesselConversion   : true,
-                getVesselConversionSensor: DockTabSortZone.prototype.getVesselConversionSensor,
-                isWindowDragging         : true,
-                owner                    : {up: () => ({fire(name, data) {
+                dockItemIds                 : ['graph'],
+                dockSourceNodeId            : 'tabs-main',
+                dragComponent               : {id: 'graph-button', reference: 'graph'},
+                dragCoordinator             : null,
+                dragElementRect             : {x: 40, y: 4, width: header.width, height: header.height},
+                enableVesselConversion      : true,
+                getVesselConversionProxyRect: DockTabSortZone.prototype.getVesselConversionProxyRect,
+                getVesselConversionSensor   : DockTabSortZone.prototype.getVesselConversionSensor,
+                isWindowDragging            : true,
+                offsetX                     : header.offsetX,
+                offsetY                     : header.offsetY,
+                owner                       : {up: () => ({fire(name, data) {
                     if (name === 'dockVesselConversionSourceRectRequest') {
                         data.sourceRect = typeof overrides.liveSourceRect === 'function'
                             ? overrides.liveSourceRect(data)
@@ -845,7 +851,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                     commitEligible: true,
                     engage        : true,
                     retain        : false,
-                    sourceRect    : source
+                    proxyRect     : header
                 });
                 expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
                 expect(calls[0][1]).toMatchObject({sourceNodeId: 'tabs-main', targetId: 'workspace-a'})
@@ -863,7 +869,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 commitEligible: true,
                 engage        : true,
                 retain        : false,
-                sourceRect    : liveSourceRect
+                proxyRect     : header
             });
             expect(zone.vesselConversionSourceRect).toEqual(liveSourceRect);
             expect(zone.vesselConversionLogicalRect).toEqual({x: 20, y: 20, width: 40, height: 20})
@@ -876,7 +882,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 commitEligible: true,
                 engage        : true,
                 retain        : false,
-                sourceRect    : {height: 120, width: 200, x: 20, y: 20}
+                proxyRect     : header
             });
             expect(calls[0][1].itemId).toBe('workbench')
         });
@@ -906,7 +912,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 commitEligible: true,
                 engage        : true,
                 retain        : false,
-                sourceRect
+                proxyRect     : header
             });
             expect(zone.vesselConversionSourceRect).toEqual(sourceRect);
             expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn'])
@@ -1060,7 +1066,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 commitEligible: true,
                 engage        : true,
                 retain        : false,
-                sourceRect    : {height: 120, width: 200, x: 20, y: 20}
+                proxyRect     : header
             });
             expect(resolve(zone, {pointerInTarget: false, targetId: null, targetRect: null}))
                 .toEqual({commitEligible: false, engage: false, retain: false});
@@ -1092,7 +1098,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 commitEligible: true,
                 engage        : true,
                 retain        : false,
-                sourceRect    : {height: 120, width: 200, x: 20, y: 20}
+                proxyRect     : header
             });
             physical = {x: 0, y: 0, width: 200, height: 120};
 
@@ -1115,15 +1121,16 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             ]);
 
             // The parked binding rides the pointer's logical origin with the last exact extents —
-            // the manager's parked rect at (0, 0) never reaches the target proxy.
+            // the manager's parked rect at (0, 0) never reaches the sensor.
             expect(resolve(zone, {
                 logicalSourceRect: {x: 760, y: 20, width: 200, height: 120}
             })).toEqual({
                 commitEligible: true,
                 engage        : true,
                 retain        : false,
-                sourceRect    : {height: 120, width: 200, x: 760, y: 20}
-            })
+                proxyRect     : header
+            });
+            expect(zone.vesselConversionSourceRect).toEqual({height: 120, width: 200, x: 760, y: 20})
         });
 
         test('raw claim loss drops commit immediately while a bounded visual grace emits no flip', () => {
@@ -1135,14 +1142,14 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                     commitEligible: false,
                     engage        : true,
                     retain        : true,
-                    sourceRect    : {height: 120, width: 200, x: 20, y: 20}
+                    proxyRect     : header
                 });
             expect(resolve(zone, {now: 159, pointerInTarget: false, targetId: null, targetRect: null}))
                 .toEqual({
                     commitEligible: false,
                     engage        : true,
                     retain        : true,
-                    sourceRect    : {height: 120, width: 200, x: 20, y: 20}
+                    proxyRect     : header
                 });
 
             expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);

@@ -107,8 +107,8 @@
     position  : relative;
 }
 
-// Keep target affordances legible beneath the SAME live pane while it is transiently embodied in
-// the target window. The class is Workstation-owned so generic drag proxies keep their own skin.
+// Keep target affordances legible beneath the drag proxy a converted vessel shows in the target window
+// (the dragged tab's header). The class is Workstation-owned so generic drag proxies keep their own skin.
 .workstation-vessel-dragproxy {
     opacity: .7;
 }

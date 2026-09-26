@@ -1078,7 +1078,7 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                                 snapshotA.indicators.candidateCount >= 5 &&
                                 snapshotA.indicators.visible &&
                                 snapshotA.targetProxy?.itemId === cell.itemId &&
-                                snapshotA.targetProxy.ownsPane &&
+                                snapshotA.targetProxy.header &&
                                 snapshotA.targetProxy.settled &&
                                 snapshotA.targetProxy.sourceWindowId === snapshotA.sourceVesselWindowId &&
                                 snapshotA.targetProxy.targetWindowId === targetWindowId &&

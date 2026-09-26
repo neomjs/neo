@@ -1032,8 +1032,8 @@ class DragCoordinator extends Manager {
             };
 
         let
-            transitionOwned      = false,
-            transitionSourceRect = null;
+            transitionOwned     = false,
+            transitionProxyRect = null;
 
         if (resolver) {
             let transition;
@@ -1080,16 +1080,14 @@ class DragCoordinator extends Manager {
             } else {
                 transitionOwned = true;
 
-                if (transition.sourceRect != null) {
-                    if (
-                        !Number.isFinite(transition.sourceRect.width) ||
-                        !Number.isFinite(transition.sourceRect.height) ||
-                        transition.sourceRect.width <= 0 || transition.sourceRect.height <= 0
-                    ) {
+                if (transition.proxyRect != null) {
+                    const {height, offsetX: grabX, offsetY: grabY, width} = transition.proxyRect;
+
+                    if (![grabX, grabY, height, width].every(Number.isFinite) || width <= 0 || height <= 0) {
                         targetSortZone = null;
                         sourceSortZone.cancelVesselConversion?.()
                     } else {
-                        transitionSourceRect = transition.sourceRect
+                        transitionProxyRect = transition.proxyRect
                     }
                 }
 
@@ -1100,20 +1098,17 @@ class DragCoordinator extends Manager {
         }
 
         if (targetSortZone) {
-            let targetWindow     = Window.get(targetSortZone.windowId),
-                localX           = screenX - targetWindow.innerRect.x,
-                localY           = screenY - targetWindow.innerRect.y,
-                targetProxyWidth = transitionOwned && transitionSourceRect
-                    ? transitionSourceRect.width
-                    : proxyRect.width,
-                targetProxyHeight = transitionOwned && transitionSourceRect
-                    ? transitionSourceRect.height
-                    : proxyRect.height,
-                targetProxyRect   = new Rectangle(
-                    localX - offsetX,
-                    localY - offsetY,
-                    targetProxyWidth,
-                    targetProxyHeight
+            // A converted drag enters the target as the source's own drag proxy: its extent, placed by
+            // the grab offset inside it. Every other remote drag keeps the ordinary proxy rect.
+            let header          = transitionOwned ? transitionProxyRect : null,
+                targetWindow    = Window.get(targetSortZone.windowId),
+                localX          = screenX - targetWindow.innerRect.x,
+                localY          = screenY - targetWindow.innerRect.y,
+                targetProxyRect = new Rectangle(
+                    localX - (header ? header.offsetX : offsetX),
+                    localY - (header ? header.offsetY : offsetY),
+                    header ? header.width  : proxyRect.width,
+                    header ? header.height : proxyRect.height
                 );
 
             // Entering a new target zone
@@ -1136,12 +1131,13 @@ class DragCoordinator extends Manager {
 
             targetSortZone.onRemoteDragMove({
                 draggedItem,
-                embodyProxy: transitionOwned,
+                embodyHeader: Boolean(header),
+                embodyProxy : transitionOwned,
                 localX,
                 localY,
                 offsetX,
                 offsetY,
-                proxyRect  : targetProxyRect,
+                proxyRect   : targetProxyRect,
                 sourceSortZone
             });
 

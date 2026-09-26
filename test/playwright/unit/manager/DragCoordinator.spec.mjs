@@ -2451,7 +2451,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
                 commitEligible: true,
                 engage        : true,
                 retain        : false,
-                sourceRect    : {height: 520, width: 740, x: frame.logicalSourceRect.x, y: frame.logicalSourceRect.y}
+                proxyRect     : {height: 32, offsetX: 12, offsetY: 9, width: 90}
             }
         };
 
@@ -2473,9 +2473,12 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         });
         expect(calls.filter(([name]) => name === 'suspend')).toEqual([]);
         expect(calls.filter(([name]) => name === 'move')).toHaveLength(1);
+        // the target proxy is the dragged tab header: its extent, under the grab offset inside it —
+        // never the window drag's popup-origin offsets (10, 10) nor the popup's extent (100×60)
         expect(movePayloads[0]).toMatchObject({
+            embodyHeader  : true,
             embodyProxy   : true,
-            proxyRect     : {height: 520, width: 740, x: 90, y: 70},
+            proxyRect     : {height: 32, width: 90, x: 88, y: 71},
             sourceSortZone: source
         });
         expect(DragCoordinator.activeSourceZone).toBe(source);
@@ -2518,6 +2521,36 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             expect(calls.filter(([name]) => name === 'move')).toEqual([]);
             expect(calls.filter(([name]) => name === 'suspend')).toEqual([]);
             expect(DragCoordinator.activeTargetZone).toBeNull()
+        }
+    });
+
+    test('an engaged record whose header extent or grab offset is not finite cancels the conversion before preview (#19248)', () => {
+        const variants = [
+            {height: 32, offsetX: NaN, offsetY: 9, width: 90},
+            {height: 0,  offsetX: 12,  offsetY: 9, width: 90},
+            {height: 32, offsetX: 12,  offsetY: 9}
+        ];
+
+        for (const proxyRect of variants) {
+            resetCoordinator();
+            clearWindows();
+            calls = [];
+
+            const source = createSource();
+            const target = createZone('workspace-a', 'win-a');
+
+            source.isWindowDragging = true;
+            source.resolveRemoteDragTransition = () => ({commitEligible: true, engage: true, retain: false, proxyRect});
+            source.cancelVesselConversion = () => calls.push(['cancel-conversion']);
+
+            registerWindow('win-source', 2000, 0, 400, 400);
+            registerWindow('win-a', 0, 0, 800, 600);
+            DragCoordinator.register(target);
+
+            move(source, 300, 300);
+
+            expect(calls.filter(([name]) => name === 'move'), JSON.stringify(proxyRect)).toEqual([]);
+            expect(calls.filter(([name]) => name === 'cancel-conversion')).toHaveLength(1)
         }
     });
 

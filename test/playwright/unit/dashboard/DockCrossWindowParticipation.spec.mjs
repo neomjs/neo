@@ -9,6 +9,7 @@ setup({
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
+import Component       from '../../../../src/component/Base.mjs';
 import Container       from '../../../../src/container/Base.mjs';
 import DockWorkspace   from '../../../../src/dashboard/dock/Workspace.mjs';
 import PreviewContract from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
@@ -52,7 +53,7 @@ function targetDoc() {
 }
 
 test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — workspace wiring)', () => {
-    let DockCrossWindowParticipation, DockTabSortZone, WorkspaceDocument, DragCoordinator, Persistence, Rectangle, WindowManager;
+    let createDockVesselProxyEmbodiment, DockCrossWindowParticipation, DockTabSortZone, WorkspaceDocument, DragCoordinator, Persistence, Rectangle, WindowManager;
 
     const createCoordinatorStub = calls => ({
         register  : zone => calls.push(['register', zone]),
@@ -66,7 +67,9 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         Persistence                  = (await import('../../../../src/dashboard/dock/model/Persistence.mjs')).default;
         DragCoordinator              = (await import('../../../../src/manager/DragCoordinator.mjs')).default;
         Rectangle                    = (await import('../../../../src/util/Rectangle.mjs')).default;
-        WindowManager                = (await import('../../../../src/manager/Window.mjs')).default
+        WindowManager                = (await import('../../../../src/manager/Window.mjs')).default;
+
+        ({createDockVesselProxyEmbodiment} = await import('../../../../src/dashboard/dock/window/VesselEmbodiment.mjs'))
     });
 
     test('registration lifecycle: mount registers ONE identity-complete target, unmount unregisters the same instance', () => {
@@ -286,6 +289,88 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         expect(seen.commits).toEqual([{operation: 'addTab', itemId: 'alpha', tabsNodeId: 'main-tabs'}]);
 
         participation.destroy()
+    });
+
+    /**
+     * A header proxy mounts after the hover admitted it, so the drop has to consult the render outcome.
+     * Drives the REAL proxy embodiment through the participation's default seams; the proxy that
+     * rendered is the control that the same gesture commits. `landsFirst` drops while the mount is
+     * still in flight and only then answers it.
+     */
+    test('a header proxy that has not rendered commits no drop, refused or still mounting; over a rendered one the same drop commits', async () => {
+        const dropBehindHeaderProxy = async (mount, landsFirst=null) => {
+            const
+                commits     = [],
+                draggedItem = {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'},
+                embodiment  = createDockVesselProxyEmbodiment({
+                    createProxy: config => {
+                        const proxy = Neo.create(Component, {cls: config.cls, style: config.style});
+
+                        proxy.initVnode = mount;
+                        return proxy
+                    },
+                    resolvePane       : () => null,
+                    resolveProxyConfig: () => ({cls: ['neo-dock-dragproxy']})
+                });
+
+            const participation = Neo.create(DockCrossWindowParticipation, {
+                commitLocal       : operation => { commits.push(operation); return {document: targetDoc(), errors: []} },
+                dragCoordinator   : createCoordinatorStub([]),
+                dragEmbodiment    : embodiment,
+                getDocument       : () => targetDoc(),
+                hitTest           : () => true,
+                previewFor        : payload => ({itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}}),
+                previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+                resolveOwnershipId: () => 'group-1',
+                sortGroup         : 'dock-demo',
+                windowId          : 'window-b',
+                workspaceId       : 'B'
+            });
+
+            const payload = {
+                draggedItem, embodyHeader: true, embodyProxy: true, localX: 10, localY: 10, offsetX: 0, offsetY: 0,
+                proxyRect     : {height: 32, width: 90, x: 10, y: 10},
+                sourceSortZone: {getDragProxyVdom: () => ({cn: [{tag: 'button', text: 'Alpha'}]})},
+                sourceWindowId: 'window-a'
+            };
+
+            const admitted = participation.target.onRemoteDragMove(payload) !== null,
+                  settled  = landsFirst ? null : await embodiment.whenSettled({itemId: 'alpha'}),
+                  result   = participation.target.onRemoteDrop(draggedItem),
+                  preview  = participation.target.currentPreview;
+
+            landsFirst?.();
+            await Promise.resolve();
+
+            participation.destroy();
+            embodiment.destroy();
+
+            return {admitted, commits, preview, result, settled}
+        };
+
+        let refuseLate;
+
+        const rendered = await dropBehindHeaderProxy(() => Promise.resolve()),
+              refused  = await dropBehindHeaderProxy(() => Promise.reject(new Error('renderer refused'))),
+              mounting = await dropBehindHeaderProxy(
+                  () => new Promise((resolve, reject) => {refuseLate = reject}),
+                  () => refuseLate(new Error('renderer refused after the drop'))
+              );
+
+        expect(rendered.admitted).toBe(true);
+        expect(rendered.settled).toBe(true);
+        expect(rendered.commits).toEqual([{operation: 'addTab', itemId: 'alpha', tabsNodeId: 'main-tabs'}]);
+
+        expect(refused.admitted, 'the hover admits the proxy before its render answers').toBe(true);
+        expect(refused.settled).toBe(false);
+        expect(refused.commits, 'no drop lands behind a proxy nobody sees').toEqual([]);
+        expect(refused.result).toBeNull();
+        expect(refused.preview).toBeNull();
+
+        expect(mounting.admitted).toBe(true);
+        expect(mounting.commits, 'a drop while the proxy is still mounting lands behind nothing either').toEqual([]);
+        expect(mounting.result).toBeNull();
+        expect(mounting.preview).toBeNull()
     });
 
     test('foreign drop: composes ONE transferItem through the real executor — source loses the item, target gains it, commitTransfer publishes the pair', () => {

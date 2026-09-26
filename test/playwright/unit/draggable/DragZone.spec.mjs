@@ -295,4 +295,30 @@ test.describe('Neo.draggable.DragZone', () => {
             zone && !zone.isDestroyed && zone.destroy()
         }
     });
+
+    test('getDragProxyVdom answers an id-free copy of the drag element, wrapped unless useProxyWrapper is off (#19248)', () => {
+        const dragElement = {id: 'proxy-vdom-tab', cls: ['neo-tab-header-button'], cn: [{id: 'proxy-vdom-text', tag: 'span', text: 'Live'}]},
+              copy        = {cls: ['neo-tab-header-button'], cn: [{tag: 'span', text: 'Live'}]},
+              zone        = Neo.create(DragZone, {appName: 'DraggableDragZoneTest', dragElement, windowId: 'test-window-1'}),
+              bare        = Neo.create(DragZone, {appName: 'DraggableDragZoneTest', windowId: 'test-window-1'});
+
+        try {
+            const vdom = zone.getDragProxyVdom();
+
+            expect(vdom).toEqual({cn: [copy]});
+            vdom.cn[0].cn[0].text = 'changed';
+            expect(dragElement.cn[0].text, 'each call answers a copy the proxy owns').toBe('Live');
+
+            zone.useProxyWrapper = false;
+            expect(zone.getDragProxyVdom()).toEqual(copy);
+
+            zone.dragProxyConfig = {vdom: {cls: ['configured-proxy']}};
+            expect(zone.getDragProxyVdom(), 'a configured proxy vdom wins over the drag element').toEqual({cls: ['configured-proxy']});
+
+            expect(bare.getDragProxyVdom(), 'no drag element, no proxy vdom').toBeNull()
+        } finally {
+            !zone.isDestroyed && zone.destroy();
+            !bare.isDestroyed && bare.destroy()
+        }
+    });
 });

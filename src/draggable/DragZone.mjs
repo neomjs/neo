@@ -303,6 +303,20 @@ class DragZone extends Base {
     }
 
     /**
+     * @summary The drag proxy's content: a fresh clone of the drag element (or of the configured proxy
+     * vdom), wrapped unless `useProxyWrapper` is off. A cross-window target proxy renders the same
+     * content as the local one.
+     * @returns {Object|null} `null` while no drag element is known
+     */
+    getDragProxyVdom() {
+        let me     = this,
+            source = me.dragProxyConfig?.vdom || me.dragElement,
+            clone  = source && VDomUtil.clone(source);
+
+        return !clone ? null : me.useProxyWrapper ? {cn: [clone]} : clone
+    }
+
+    /**
      * @param {Object}  data
      * @param {Boolean} createComponent=true
      * @returns {Object|Neo.draggable.DragProxyComponent}
@@ -313,8 +327,6 @@ class DragZone extends Base {
             rect        = me.dragElementRect,
             proxyConfig = me.dragProxyConfig || {},
             isContainer = proxyConfig.module === DragProxyContainer,
-            vdom        = proxyConfig.vdom,
-            clone       = !isContainer && VDomUtil.clone(vdom ? vdom : me.dragElement),
             config, proxy;
 
         config = {
@@ -337,11 +349,11 @@ class DragZone extends Base {
             config.cls = config.cls || [];
             config.cls.push('neo-draggable');
         } else {
-            config.vdom = me.useProxyWrapper ? {cn: [clone]} : clone;
+            config.vdom = me.getDragProxyVdom();
 
-            if (clone.cls && !me.useProxyWrapper) {
+            if (config.vdom.cls && !me.useProxyWrapper) {
                 config.cls = config.cls || [];
-                config.cls.push(...clone.cls)
+                config.cls.push(...config.vdom.cls)
             }
         }
 

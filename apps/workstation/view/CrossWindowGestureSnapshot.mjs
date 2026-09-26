@@ -121,7 +121,7 @@ class CrossWindowGestureSnapshot extends Base {
                 snapshot.indicators.candidateCount >= 5 &&
                 snapshot.indicators.visible &&
                 targetProxy?.itemId === parkedItemId &&
-                targetProxy.ownsPane &&
+                targetProxy.header &&
                 targetProxy.settled &&
                 targetProxy.sourceWindowId === snapshot.sourceVesselWindowId &&
                 targetProxy.targetWindowId === target?.windowId &&
