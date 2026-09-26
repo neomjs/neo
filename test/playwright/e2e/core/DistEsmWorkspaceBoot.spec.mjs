@@ -4,6 +4,7 @@ import http                      from 'node:http';
 import os                        from 'node:os';
 import path                      from 'node:path';
 import {test, expect}            from '@playwright/test';
+import {withComposedNpmIgnore}   from '../../../../buildScripts/util/npmIgnoreComposition.mjs';
 
 /**
  * @summary A consumer's `dist/esm` build, made by the engine exactly as npm packs it, booted headlessly.
@@ -136,9 +137,11 @@ test.describe('dist/esm: the packed engine builds a greenfield workspace, and bo
         root      = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'neo-esm-boot-')));
         workspace = path.join(root, 'workspace');
 
+        // Skipping the lifecycle skips `prepack` too, so the .npmignore composition is applied here: without it
+        // the pack takes everything the working tree holds and git ignores.
         const engine = path.join(workspace, 'node_modules/neo.mjs'),
-              packed = execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--loglevel=error', '--pack-destination', root],
-                  {cwd: engineRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024});
+              packed = withComposedNpmIgnore(engineRoot, () => execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--loglevel=error', '--pack-destination', root],
+                  {cwd: engineRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}));
 
         fs.mkdirSync(engine, {recursive: true});
         execFileSync('tar', ['-xzf', path.join(root, JSON.parse(packed)[0].filename), '-C', engine, '--strip-components=1']);
