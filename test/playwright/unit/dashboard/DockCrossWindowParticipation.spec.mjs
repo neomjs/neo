@@ -1024,7 +1024,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                       {target}                           = participation;
 
                 try {
-                    // a settled park replays exactly one frame (ADR 0029 §2.8.6)
+                    // a settled park replays exactly one frame (docking design record §2.8.6)
                     expect(target.onRemoteDragMove(frame)).toBeNull();
 
                     await settle();
