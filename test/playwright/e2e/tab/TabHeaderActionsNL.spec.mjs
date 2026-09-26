@@ -290,9 +290,10 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
 
         // Runtime host replacement enters Toolbar#syncActions rather than the construction path.
         // Contextual defaults are applied after the structural insert there, so pin their physical
-        // DOM/a11y state rather than accepting the worker VDOM as proof that the insert flush carried it.
+        // DOM state rather than accepting the worker VDOM as proof that the insert flush carried it:
+        // a withdrawn action has no node, and a revealed one carries its a11y state.
         await outsideField.click();
-        await expect(previousAction).toHaveCSS('visibility', 'hidden');
+        await expect(previousAction).toHaveCount(0);
         await app.setProperties(tabId, {
             headerActions: [{action: 'runtime-contextual', iconCls: 'fa fa-bolt'}]
         });
@@ -302,15 +303,9 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
               runtimeAction       = page.locator(`#${runtimeActionId}`);
 
         expect(runtimeActionId, 'runtime replacement materialises the new semantic action').toBeTruthy();
-        await expect(runtimeAction).toHaveCount(1);
         await expect(runtimeAction,
-            'syncActions commits contextual inactivity to the rendered root').toHaveCSS('visibility', 'hidden');
+            'syncActions commits contextual inactivity: the withdrawn action has no node').toHaveCount(0);
         await expect(page.getByRole('button', {name: 'runtime contextual', exact: true})).toHaveCount(0);
-        expect(await runtimeAction.evaluate(node => ({
-            ariaHidden: node.getAttribute('aria-hidden'),
-            inert     : node.inert,
-            tabIndex  : node.tabIndex
-        }))).toEqual({ariaHidden: 'true', inert: true, tabIndex: -1});
 
         await card.click();
         await expect(runtimeAction).toHaveCSS('visibility', 'visible');
