@@ -18,8 +18,8 @@ import {expect, test} from '../../fixtures.mjs';
  * target document, so a DOM-identity claim would be false by construction and a DOM-count claim
  * proves only that something rendered.
  *
- * The return leg is not decoration. Adoption and reintegration are different code paths with
- * different owners, and a pane can survive the outbound hop and come home rebuilt.
+ * Native close leaves the popup Workspace headless without changing Group truth. Group undo
+ * returns its pane; both hops must preserve the same live subtree.
  *
  * Requires a Neural Link runtime root:
  *
@@ -167,7 +167,8 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
 
         expect(paneId, 'the Feed pane owns a live instance before the gesture').toBeTruthy();
 
-        const before = await readIdentity(app, paneId);
+        const before      = await readIdentity(app, paneId),
+              beforeModel = (await app.getComponent(workspaceId, ['dockModel'])).dockModel;
 
         // The arm is only meaningful over a real subtree; a leaf would make every claim below
         // trivially true. This is the census the identity assertions are measured against.
@@ -203,27 +204,35 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
             expect(detached.storeId, 'and its store was not re-created').toBe(before.storeId);
             expectSameInstances(detached.descendants, before.descendants, 'and every descendant travelled as the same instance');
 
-            // The return leg, through the production retirement seam rather than a synthetic close.
-            expect(await app.callMethod(workspaceId, 'closeTearOutVessel', [{
-                itemId    : FEED_ITEM,
-                windowName: `tearout-${FEED_ITEM}`
-            }]), 'the production retirement seam closes the adopted vessel').toBe(true);
+            const detachedGroup = await app.callMethod(workspaceId, 'controller.getTopologyState');
+
+            expect(Object.keys(detachedGroup.workspaceHosts), 'one popup Workspace holds the pane').toHaveLength(1);
+            await vessel.close({runBeforeUnload: true});
 
             await expect.poll(() => vessel.isClosed(), {
-                message: 'the physical popup closes after the native acknowledgement',
+                message: 'the native popup closes',
                 timeout: 15000
             }).toBe(true);
 
             await expect.poll(async () => {
-                const state = await app.getComponent(workspaceId, ['dockModel']);
+                const state = await app.callMethod(workspaceId, 'controller.getTopologyState');
 
-                return Object.values(state.dockModel.nodes)
-                    .some(node => node.type === 'tabs' && node.items?.includes(FEED_ITEM))
+                return Object.values(state.workspaceHosts).map(({disconnected, windowId}) => ({disconnected, windowId}))
             }, {
                 intervals: [50, 100, 250],
-                message  : 'vessel death reintegrates the Feed pane into a tab flow',
-                timeout  : 30000
-            }).toBe(true);
+                message  : 'native close leaves the popup Workspace alive without a render target',
+                timeout  : 15000
+            }).toEqual([{disconnected: true, windowId: null}]);
+
+            const headlessGroup = await app.callMethod(workspaceId, 'controller.getTopologyState');
+
+            expect(headlessGroup.snapshot, 'native close preserves the committed topology').toEqual(detachedGroup.snapshot);
+            expect(headlessGroup.historyCount, 'native close adds no history row').toBe(detachedGroup.historyCount);
+            expect(headlessGroup.historyCursor, 'native close does not move the Group cursor').toBe(detachedGroup.historyCursor);
+
+            await app.callMethod(workspaceId, 'transactionManager.undo', [{groupId: detachedGroup.groupId}]);
+            expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel,
+                'Group undo returns the pane to its exact prior document').toEqual(beforeModel);
 
             await expect(page.locator(`#${paneId}`), 'the exact live pane returns to the main window').toBeVisible({timeout: 30000});
 
