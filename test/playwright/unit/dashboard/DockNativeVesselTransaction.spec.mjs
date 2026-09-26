@@ -36,7 +36,7 @@ const
  *
  * The park effect DISPATCHES — optional resize, then the park-move — so a descriptor alone cannot
  * exercise it. `calls` records the order, and whether a call happened at all: a park that still
- * focused would be asking for the z-order a real drag never grants (#19278).
+ * focused would be asking for the z-order a real drag never grants.
  * @param {Object} [outcomes={}] Per-call boolean results; anything omitted succeeds.
  * @param {Object} [options={}]
  * @param {Object|null} [options.screen=SCREEN] The target display's work area `getWindowData` answers.
@@ -391,7 +391,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
 });
 
 /**
- * Where the park puts the vessel so it covers none of the target (#19278). Every arm is a real frame on a
+ * Where the park puts the vessel so it covers none of the target. Every arm is a real frame on a
  * real work area: the corner's frame must stay whole inside the work area, and "farthest" only decides
  * between corners that overlap the target equally.
  */

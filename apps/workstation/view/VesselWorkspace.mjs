@@ -1267,7 +1267,7 @@ class VesselWorkspace extends DockWorkspace {
      * acquisition reads as unsolicited), so conversion parks instead: the same exact generation
      * re-shows on out-conversion or restore.
      *
-     * The pointer path parks CLEAR of the target (#19278): a source whose outer frame exceeds the
+     * The pointer path parks CLEAR of the target: a source whose outer frame exceeds the
      * target first shrinks through its exact native route, then moves to the corner of the target
      * display's work area that covers the target least ({@link NativeVesselTransaction.resolveClearPark}).
      * Nothing is focused: under a real OS mouse drag `focus()` raises nothing, which left the vessel on
