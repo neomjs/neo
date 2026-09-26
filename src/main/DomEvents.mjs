@@ -478,6 +478,7 @@ class DomEvents extends Base {
     onClick(event) {
         let me = this;
 
+        me.flushPendingMouseMove();
         me.sendMessageToApp(me.getMouseEventData(event));
 
         me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
@@ -489,6 +490,7 @@ class DomEvents extends Base {
     onContextMenu(event) {
         let me = this;
 
+        me.flushPendingMouseMove();
         me.sendMessageToApp(me.getMouseEventData(event));
 
         if (event.ctrlKey || me.testPathInclusion(event, preventContextmenuTargets)) {
@@ -510,6 +512,7 @@ class DomEvents extends Base {
     onDoubleClick(event) {
         let me = this;
 
+        me.flushPendingMouseMove();
         me.sendMessageToApp(me.getMouseEventData(event));
 
         me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
@@ -675,6 +678,7 @@ class DomEvents extends Base {
      * @param {MouseEvent} event
      */
     onMouseDown(event) {
+        this.flushPendingMouseMove();
         this.sendMessageToApp(this.getMouseEventData(event))
     }
 
@@ -685,6 +689,7 @@ class DomEvents extends Base {
         let me       = this,
             appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement?.id || null, toElementId: event.toElement?.id || null};
 
+        me.flushPendingMouseMove();
         me.sendMessageToApp(appEvent);
         me.fire('mouseEnter', appEvent)
     }
@@ -696,6 +701,7 @@ class DomEvents extends Base {
         let me       = this,
             appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement?.id || null, toElementId: event.toElement?.id || null};
 
+        me.flushPendingMouseMove();
         me.sendMessageToApp(appEvent);
         me.fire('mouseLeave', appEvent)
     }
@@ -728,9 +734,24 @@ class DomEvents extends Base {
     }
 
     /**
+     * Sends a coalesced move that is still waiting for its frame, ahead of the mouse event that calls this. Without
+     * it a press overtakes the move and reaches the app worker as press-then-move, so a consumer deriving movement
+     * from the last reported position (a canvas's mouse state) reads the whole jump as a held button's movement.
+     */
+    flushPendingMouseMove() {
+        let me = this;
+
+        if (me.mouseMoveReqId) {
+            cancelAnimationFrame(me.mouseMoveReqId);
+            me.flushMouseMove()
+        }
+    }
+
+    /**
      * @param {MouseEvent} event
      */
     onMouseUp(event) {
+        this.flushPendingMouseMove();
         this.sendMessageToApp(this.getMouseEventData(event))
     }
 
@@ -838,6 +859,8 @@ class DomEvents extends Base {
         let target        = this.testPathInclusion(event, globalWheelTargets) || this.getLocalWheelTarget(event),
             preventUpdate = false,
             targetCls;
+
+        this.flushPendingMouseMove();
 
         if (target) {
             targetCls = target.cls;
