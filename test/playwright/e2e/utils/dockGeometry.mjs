@@ -79,7 +79,7 @@ export function intersectsRect(first, second) {
  *
  * Asserts adjacency from the tour bar through the controls row into the dock host (±1px),
  * and the dock host reaches the window's bottom edge. The status and topology bars share the
- * controls row, side by side or wrapped, so the row's band is their union and they must not overlap.
+ * controls row, side by side or wrapped, so the row's band is their union; wrapped, they tile too.
  *
  * @param {Object} app the connected neuralLink app wrapper
  * @param {Object} ids {tourBarId, statusBarId, topologyBarId, dockHostId} component ids (the tour bar needs
@@ -103,8 +103,11 @@ export async function assertBootContainmentChain(app, {tourBarId, statusBarId, t
 
     expect(Math.abs(tour.bottom - row.top),
         'tour bar and controls row must tile without gap or overlap').toBeLessThanOrEqual(1);
-    expect(status.right <= topology.left + 1 || status.bottom <= topology.top + 1,
-        'status bar and topology bar must not overlap').toBe(true);
+    // Side by side, the bars share the row; wrapped, the topology bar's line starts where the status bar's ends
+    if (status.right > topology.left + 1) {
+        expect(Math.abs(status.bottom - topology.top),
+            'wrapped, the status bar and topology bar must tile without gap or overlap').toBeLessThanOrEqual(1)
+    }
     expect(Math.abs(row.bottom - host.top),
         'controls row and dock host must tile without gap or overlap').toBeLessThanOrEqual(1);
 
