@@ -22,7 +22,8 @@ class WorkspaceController extends Controller {
     construct(config) {
         super.construct(config);
 
-        Neo.currentWorker.on({connect: this.onWindowConnect, scope: this})
+        Neo.currentWorker.on({connect: this.onWindowConnect, scope: this});
+        TransactionManager.on({leaseExpired: this.onPopupLeaseExpired, scope: this})
     }
 
     /**
@@ -30,6 +31,7 @@ class WorkspaceController extends Controller {
      */
     destroy(...args) {
         Neo.currentWorker.un({connect: this.onWindowConnect, scope: this});
+        TransactionManager.un({leaseExpired: this.onPopupLeaseExpired, scope: this});
 
         super.destroy(...args)
     }
@@ -102,6 +104,22 @@ class WorkspaceController extends Controller {
     }
 
     /**
+     * @summary Recovers a formerly bound popup after its reconnect lease expires.
+     * An opener reload may lose physical-handle observation. Lease expiry is a separate semantic
+     * recovery boundary; never-bound admissions keep their existing recovery policy.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @returns {Promise<Boolean>|undefined}
+     */
+    onPopupLeaseExpired({groupId, workspaceKey}) {
+        const root = this.component, state = root.getPopupState(workspaceKey);
+        if (groupId === root.topologyGroupId && Neo.apps[root.windowId] && state?.awaitingClosure && state.disconnected) {
+            return root.returnClosedPopupWorkspace(workspaceKey, 'popup-reconnect-expired')
+        }
+    }
+
+    /**
      * @summary Installs the optional playback controller on its real toolbar at first activation.
      * @returns {Promise<Workstation.view.TourController>}
      */
@@ -158,8 +176,10 @@ class WorkspaceController extends Controller {
 
         state.renderTarget = target;
         state.windowId = target.windowId;
+        state.awaitingClosure = false;
         state.app = Neo.apps[target.windowId];
         await this.component.observeWindowGeometry(target.windowId);
+        state.nativeRoute = Neo.manager.Window.get(target.windowId)?.nativeRoute ?? state.nativeRoute ?? null;
         if (TransactionManager.getBinding(this.component.topologyGroupId, workspaceKey)?.windowId === target.windowId) {
             await this.component.dockPlacement.restoreBinding(workspaceKey)
         }

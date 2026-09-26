@@ -150,6 +150,30 @@ class PopupWorkspace extends DockWorkspace {
     }
 
     /**
+     * @summary Replays the native effect of a close-return after the Group restores its documents.
+     * Undo reopens the retained popup; redo closes that render target after returning its panes.
+     * Native refusal remains separate from the committed semantic result.
+     * @param {Object} context Group projection context.
+     * @returns {Promise<void>}
+     */
+    async projectDockCommit(context) {
+        const row    = context.replayRow, state = this.runtimeState;
+        const replay = row?.operation === 'returnPopupWorkspace' && row.workspaceId === this.workspaceKey;
+
+        if (replay && context.cursorAction === 'undo' && state.disconnected && Object.keys(this.dockModel.items).length) {
+            state.returnEffect = await this.rootWorkspace.controller.openTopologyWorkspace(this.workspaceKey)
+        }
+        const projection = super.projectDockCommit(context);
+        if (!this.windowId) return projection;
+        await projection;
+        if (replay && context.cursorAction === 'redo' && state.windowId && !Object.keys(this.dockModel.items).length) {
+            const windowId = state.windowId;
+            state.returnEffect = await Neo.Main.clearTopologyIdentity({groupId: this.topologyGroupId, windowId}) === true
+                && state.windowId === windowId && await Neo.Main.closeTopologyWindow({windowId})
+        }
+    }
+
+    /**
      * @summary Retires this popup's Group membership and interaction registration.
      */
     destroy() {

@@ -2685,22 +2685,26 @@ test.describe('Workstation — dense living-data composition', () => {
             await expect(popup.locator(`#${paneId}`), 'Group redo reuses the same popup and pane').toBeVisible();
             await expect(page.locator(`#${paneId}`)).toHaveCount(0);
 
-            expect(await app.callMethod(workspaceId, 'closeTearOutVessel', [{
-                itemId   : 'commits',
-                windowName: 'tearout-commits'
-            }]), 'the production retirement seam closes the adopted vessel').toBe(true);
+            await popup.close({runBeforeUnload: true});
             await expect.poll(() => popup.isClosed(), {
                 message: 'the physical popup closes after the native acknowledgement',
                 timeout: 10000
             }).toBe(true);
 
-            expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel,
-                'native close unbinds the window without rewriting Group documents').toEqual(detached);
+            await expect.poll(async () => Boolean((await app.getComponent(workspaceId, ['dockModel'])).dockModel.items.commits),
+                {message: 'native close returns the pane to main', timeout: 15000}).toBe(true);
+            const returnedDocument = (await app.getComponent(workspaceId, ['dockModel'])).dockModel;
             expect((await app.callMethod(workspaceId, 'controller.getTopologyState')).historyCount)
-                .toBe(detachedGroup.historyCount);
+                .toBe(detachedGroup.historyCount + 1);
+            const reopened = page.waitForEvent('popup', {timeout: 30000});
             await app.callMethod(workspaceId, 'transactionManager.undo', [{groupId}]);
+            popup = await reopened;
             expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel,
-                'Group undo also returns a headless popup document').toEqual(beforeModel);
+                'undo restores the popup-owned document').toEqual(detached);
+            await expect(popup.locator(`#${paneId}`), 'undo reopens the pane').toBeVisible();
+            await app.callMethod(workspaceId, 'transactionManager.redo', [{groupId}]);
+            await expect.poll(() => popup.isClosed(), {timeout: 15000}).toBe(true);
+            expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel).toEqual(returnedDocument);
 
             expect(await app.callMethod(workspaceId, 'getPaneIdentity', ['commits']),
                 'reintegration retains the same pane identity').toBe(paneId);

@@ -344,6 +344,41 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
         })
     }
 
+    for (const successor of [false, true]) {
+        test(`popup close return ${successor ? 'refuses a successor binding' : 'preserves an earlier queued main edit'}`, async () => {
+            const key   = WorkstationWorkspace.MAIN_WORKSPACE_ID,
+                  main  = holder(key), popup = holder('popup'),
+                  state = {host: {}, disconnected: true, windowId: null, get document() { return popup.document }},
+                  home  = {tabsNodeId: 'root', index: 1},
+                  root  = {
+                      id: 'return-owner', topologyGroupId: groupId,
+                      get dockModel() { return main.document },
+                      getPopupState              : name => name === 'popup' ? state : null,
+                      resolveDockReturnDescriptor: Operations.appendingReturnDescriptor,
+                      tearOutHandlers            : {placements: {popup: home}, peekPlacement: () => home, releasePane() {}},
+                      nativeWindows              : {recordOwner() {}}, refreshPromise: Promise.resolve()
+                  };
+            popup.document = {
+                schema: WorkspaceDocument.SCHEMA, root: 'shell', items: {popup: {title: 'Popup'}},
+                nodes : {shell: {type: 'edge-zone', zones: {center: {nodeId: 'tabs'}}},
+                    tabs: {type: 'tabs', items: ['popup'], activeItemId: 'popup'}}
+            };
+            TransactionManager.release('workspace-set-transaction-popup');
+            const queued    = set.commit(key, [{operation: 'setItemLocked', itemId: key, locked: true}]),
+                  returning = WorkstationWorkspace.prototype.returnClosedPopupWorkspace.call(root, 'popup');
+            if (successor) {
+                const reservation = TransactionManager.reserve({groupId, workspaceKey: 'popup'});
+                TransactionManager.bind({...reservation, windowId: 'successor-popup'})
+            }
+            await queued;
+            expect(await returning).toBe(!successor);
+            expect(main.document.items[key].locked, 'a queued edit must not be overwritten by a stale return candidate').toBe(true);
+            expect(Boolean(main.document.items.popup)).toBe(!successor);
+            expect(Boolean(popup.document.items.popup)).toBe(successor);
+            expect(TransactionManager.get(groupId).history.count).toBe(successor ? 1 : 2)
+        })
+    }
+
     test('a full popup Workspace commits a human tab activation to its Group document', async () => {
         const initial = document('popup');
         initial.items.second = {reference: 'second', title: 'Second'};
