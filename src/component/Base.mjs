@@ -381,6 +381,15 @@ class Component extends Abstract {
     domWithheld = false
 
     /**
+     * The mount attempt a `document.body`-rooted {@link #show} started, from the call until its
+     * `initVnode(true)` promise settles: theme deferral and the main-thread insert included, which
+     * `isVnodeInitializing` does not span. `null` while none is in the air.
+     * @member {Promise|null} mountFlight=null
+     * @protected
+     */
+    mountFlight = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -1650,8 +1659,8 @@ class Component extends Abstract {
                     me.vdom.removeDom = true;
                     me.parent.updateDepth = 2;
                     me.parent.update()
-                } else if (!me.isVnodeInitializing) {
-                    // A node still in its mount flight does not exist yet: show() unmounts it when it lands
+                } else if (!me.mountFlight) {
+                    // A node still in its mount flight does not exist yet: the flight unmounts it when it lands
                     me.unmount()
                 }
             }
@@ -1937,10 +1946,13 @@ class Component extends Abstract {
             } else if (me.parentId !== 'document.body') {
                 me.parent.updateDepth = -1;
                 me.parent.update()
-            } else if (!me.mounted && !me.isVnodeInitializing) {
+            } else if (!me.mounted && !me.mountFlight) {
                 // One mount flight at a time: a second one would insert a second node with this id,
-                // and a hide() while it flies is read when it lands
-                me.initVnode(true).then(() => !me.isDestroyed && me._hidden && me.unmount())
+                // and a hide() while it flies is read when it lands. The latch clears first, so a
+                // show() or hide() arriving at the landing takes the ordinary path.
+                me.mountFlight = me.initVnode(true)
+                    .finally(() => {me.mountFlight = null})
+                    .then(() => !me.isDestroyed && me.mounted && me._hidden && me.unmount())
             }
         } else {
             let style = me.style;
