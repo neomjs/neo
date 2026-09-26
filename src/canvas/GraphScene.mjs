@@ -46,190 +46,6 @@ void main() {
 };
 
 /**
- * @summary The column-major model-view-projection of an orbit camera: yaw and pitch around a target at a
- * distance, over a perspective with the given vertical field of view.
- * @param {Object}   camera
- * @param {Number}   camera.dist  The distance from the target
- * @param {Number}   camera.pitch Radians, positive looks down on the target
- * @param {Number[]} camera.target `[x, y, z]`, the point the camera orbits
- * @param {Number}   camera.yaw   Radians around the vertical axis
- * @param {Number}   aspect The surface's width over its height
- * @param {Number}   fov The vertical field of view in radians
- * @returns {Float32Array}
- */
-export function orbitMatrix({dist, pitch, target, yaw}, aspect, fov) {
-    const
-        f    = 1 / Math.tan(fov / 2),
-        near = dist / 100,
-        far  = dist * 100,
-        r    = 1 / (near - far),
-        P    = [f / aspect, 0, 0, 0,  0, f, 0, 0,  0, 0, (near + far) * r, -1,  0, 0, 2 * near * far * r, 0],
-        cy   = Math.cos(yaw),
-        sy   = Math.sin(yaw),
-        cp   = Math.cos(pitch),
-        sp   = Math.sin(pitch),
-        [tx, ty, tz] = target,
-        // column-major, one column per line: the rotation, then a translation that moves the target to the
-        // view's centre and the camera back by its distance
-        V    = [
-            cy,      sy * sp,  -sy * cp, 0,
-            0,       cp,       sp,       0,
-            sy,      -cy * sp, cy * cp,  0,
-            -(cy * tx + sy * tz), -(sy * sp * tx + cp * ty - cy * sp * tz), -(-sy * cp * tx + sp * ty + cy * cp * tz) - dist, 1
-        ],
-        M    = new Float32Array(16);
-
-    for (let i = 0; i < 4; i++) {
-        for (let j = 0; j < 4; j++) {
-            M[j * 4 + i] = P[i] * V[j * 4] + P[4 + i] * V[j * 4 + 1] + P[8 + i] * V[j * 4 + 2] + P[12 + i] * V[j * 4 + 3]
-        }
-    }
-
-    return M
-}
-
-/**
- * @summary A point's position on the surface, or `null` behind the camera.
- * @param {Float32Array} M The model-view-projection
- * @param {Number} x
- * @param {Number} y
- * @param {Number} z
- * @param {Number} width The surface width, in the unit the result should carry
- * @param {Number} height
- * @returns {Number[]|null} `[x, y]` from the surface's top left
- */
-export function project(M, x, y, z, width, height) {
-    const
-        cx = M[0] * x + M[4] * y + M[8]  * z + M[12],
-        cy = M[1] * x + M[5] * y + M[9]  * z + M[13],
-        cw = M[3] * x + M[7] * y + M[11] * z + M[15];
-
-    return cw <= 0 ? null : [(cx / cw * 0.5 + 0.5) * width, (0.5 - cy / cw * 0.5) * height]
-}
-
-/**
- * @summary The sphere around the positions' bounding box: its centre and the largest distance from it.
- * An empty or single-point scene gets a unit radius, so a camera still has a distance to fit.
- * @param {Float32Array} positions `x, y, z` per node
- * @returns {{center: Number[], radius: Number}}
- */
-export function boundingSphere(positions) {
-    const count = positions.length / 3;
-
-    if (count === 0) {
-        return {center: [0, 0, 0], radius: 1}
-    }
-
-    const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-
-    for (let i = 0; i < count; i++) {
-        for (let axis = 0; axis < 3; axis++) {
-            const value = positions[i * 3 + axis];
-
-            min[axis] = Math.min(min[axis], value);
-            max[axis] = Math.max(max[axis], value)
-        }
-    }
-
-    const center = [0, 1, 2].map(axis => (min[axis] + max[axis]) / 2);
-    let radius = 0;
-
-    for (let i = 0; i < count; i++) {
-        radius = Math.max(radius, Math.hypot(positions[i * 3] - center[0], positions[i * 3 + 1] - center[1], positions[i * 3 + 2] - center[2]))
-    }
-
-    return {center, radius: radius || 1}
-}
-
-/**
- * @summary The camera distance at which a sphere fills its share of the surface's tighter axis.
- * @param {Object} options
- * @param {Number} options.aspect The surface's width over its height
- * @param {Number} options.fill The share of the tighter axis, `0..1`
- * @param {Number} options.fov The vertical field of view in radians
- * @param {Number} options.radius The sphere's radius
- * @returns {Number}
- */
-export function fitDistance({aspect, fill, fov, radius}) {
-    const tan = Math.tan(fov / 2);
-
-    // the horizontal half-angle's tangent is the vertical one's times the aspect
-    return radius / (Math.min(tan, tan * aspect) * fill)
-}
-
-/**
- * @summary The node nearest a surface position whose projected centre lies within the radius.
- * @param {Object} options
- * @param {Float32Array} options.M The model-view-projection
- * @param {Number} options.height The surface height, in the unit of `x`, `y` and `radius`
- * @param {Float32Array} options.positions `x, y, z` per node
- * @param {Number} options.radius
- * @param {Number} options.width
- * @param {Number} options.x
- * @param {Number} options.y
- * @returns {Number} The node's index, or `-1`
- */
-export function pickNearest({M, height, positions, radius, width, x, y}) {
-    let best = -1, bestDistance = radius;
-
-    for (let i = 0; i < positions.length / 3; i++) {
-        const point = project(M, positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2], width, height);
-
-        if (point) {
-            const distance = Math.hypot(point[0] - x, point[1] - y);
-
-            if (distance <= bestDistance) {
-                bestDistance = distance;
-                best         = i
-            }
-        }
-    }
-
-    return best
-}
-
-/**
- * @summary Checks a scene the App Worker sends and settles its arrays into the typed forms the renderer
- * uploads. Colours and sizes are optional: white and 16 pixels.
- * @param {Object|null} scene
- * @param {Float32Array|Number[]} scene.positions `x, y, z` per node
- * @param {Float32Array|Number[]} [scene.colors] `r, g, b` per node, `0..1`
- * @param {Float32Array|Number[]} [scene.sizes] One per node
- * @param {Uint32Array|Number[]}  [scene.edges] Node index pairs
- * @param {Array<Uint32Array|Number[]>} [scene.paths] Node index sequences, drawn as line strips
- * @returns {Object|null} `{colors, count, edges, paths, positions, sizes}`
- * @throws {Error} when an array's length or an index does not fit the nodes
- */
-export function normalizeScene(scene) {
-    if (!scene) {
-        return null
-    }
-
-    const
-        positions = Float32Array.from(scene.positions ?? []),
-        count     = positions.length / 3,
-        colors    = scene.colors ? Float32Array.from(scene.colors) : new Float32Array(count * 3).fill(1),
-        sizes     = scene.sizes  ? Float32Array.from(scene.sizes)  : new Float32Array(count).fill(16),
-        edges     = Uint32Array.from(scene.edges ?? []),
-        paths     = (scene.paths ?? []).map(path => Uint32Array.from(path)),
-        fits      = indices => indices.every(index => index < count);
-
-    if (!Number.isInteger(count)) {
-        throw new Error(`GraphScene: positions hold ${positions.length} values, not three per node`)
-    }
-
-    if (colors.length !== count * 3 || sizes.length !== count) {
-        throw new Error(`GraphScene: ${count} nodes need ${count * 3} colour and ${count} size values, got ${colors.length} and ${sizes.length}`)
-    }
-
-    if (edges.length % 2 !== 0 || !fits(edges) || !paths.every(fits)) {
-        throw new Error('GraphScene: edges are index pairs, and every edge and path index names a node')
-    }
-
-    return {colors, count, edges, paths, positions, sizes}
-}
-
-/**
  * @summary A WebGL2 graph scene on the canvas worker: nodes as round points, edges as lines, and paths as
  * line strips beaded into ribbons (WebGL draws a line one pixel wide). The App Worker sends typed arrays
  * with the colours and sizes already chosen, so the renderer holds no colours of its own; a subclass that
@@ -241,8 +57,9 @@ export function normalizeScene(scene) {
  * drawing buffer follows the size message's `devicePixelRatio`. A lost context keeps the scene and draws it
  * again once the context is restored.
  *
- * Extend it with `singleton: true` and a `className` of your own; the pure math it draws with is exported
- * for tests and for App Worker code that needs the same projection.
+ * Extend it with `singleton: true` and a `className` of your own. The camera math is static, so a test
+ * reaches it without a GL context and a subclass can replace it; `normalizeScene` is the seam for a
+ * subclass that accepts a scene of its own shape.
  *
  * @class Neo.canvas.GraphScene
  * @extends Neo.canvas.Base
@@ -314,6 +131,149 @@ class GraphScene extends Base {
          * @member {Object} zoom={max: 3.75, min: 0.5, speed: 0.0015}
          */
         zoom: {max: 3.75, min: 0.5, speed: 0.0015}
+    }
+
+    /**
+     * @summary The sphere around the positions' bounding box: its centre and the largest distance from it.
+     * An empty scene gets a unit radius, so a camera still has a distance to fit.
+     * @param {Float32Array} positions `x, y, z` per node
+     * @returns {{center: Number[], radius: Number}}
+     */
+    static boundingSphere(positions) {
+        const count = positions.length / 3;
+
+        if (count === 0) {
+            return {center: [0, 0, 0], radius: 1}
+        }
+
+        const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+
+        for (let i = 0; i < count; i++) {
+            for (let axis = 0; axis < 3; axis++) {
+                const value = positions[i * 3 + axis];
+
+                min[axis] = Math.min(min[axis], value);
+                max[axis] = Math.max(max[axis], value)
+            }
+        }
+
+        const center = [0, 1, 2].map(axis => (min[axis] + max[axis]) / 2);
+        let radius = 0;
+
+        for (let i = 0; i < count; i++) {
+            radius = Math.max(radius, Math.hypot(positions[i * 3] - center[0], positions[i * 3 + 1] - center[1], positions[i * 3 + 2] - center[2]))
+        }
+
+        return {center, radius: radius || 1}
+    }
+
+    /**
+     * @summary The camera distance at which a sphere fills its share of the surface's tighter axis.
+     * @param {Object} options
+     * @param {Number} options.aspect The surface's width over its height
+     * @param {Number} options.fill The share of the tighter axis, `0..1`
+     * @param {Number} options.fov The vertical field of view in radians
+     * @param {Number} options.radius The sphere's radius
+     * @returns {Number}
+     */
+    static fitDistance({aspect, fill, fov, radius}) {
+        const tan = Math.tan(fov / 2);
+
+        // the horizontal half-angle's tangent is the vertical one's times the aspect
+        return radius / (Math.min(tan, tan * aspect) * fill)
+    }
+
+    /**
+     * @summary The column-major model-view-projection of an orbit camera: yaw and pitch around a target at
+     * a distance, over a perspective with the given vertical field of view.
+     * @param {Object}   camera
+     * @param {Number}   camera.dist  The distance from the target
+     * @param {Number}   camera.pitch Radians, positive looks down on the target
+     * @param {Number[]} camera.target `[x, y, z]`, the point the camera orbits
+     * @param {Number}   camera.yaw   Radians around the vertical axis
+     * @param {Number}   aspect The surface's width over its height
+     * @param {Number}   fov The vertical field of view in radians
+     * @returns {Float32Array}
+     */
+    static orbitMatrix({dist, pitch, target, yaw}, aspect, fov) {
+        const
+            f    = 1 / Math.tan(fov / 2),
+            near = dist / 100,
+            far  = dist * 100,
+            r    = 1 / (near - far),
+            P    = [f / aspect, 0, 0, 0,  0, f, 0, 0,  0, 0, (near + far) * r, -1,  0, 0, 2 * near * far * r, 0],
+            cy   = Math.cos(yaw),
+            sy   = Math.sin(yaw),
+            cp   = Math.cos(pitch),
+            sp   = Math.sin(pitch),
+            [tx, ty, tz] = target,
+            // column-major, one column per line: the rotation, then a translation that moves the target to
+            // the view's centre and the camera back by its distance
+            V    = [
+                cy,      sy * sp,  -sy * cp, 0,
+                0,       cp,       sp,       0,
+                sy,      -cy * sp, cy * cp,  0,
+                -(cy * tx + sy * tz), -(sy * sp * tx + cp * ty - cy * sp * tz), -(-sy * cp * tx + sp * ty + cy * cp * tz) - dist, 1
+            ],
+            M    = new Float32Array(16);
+
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                M[j * 4 + i] = P[i] * V[j * 4] + P[4 + i] * V[j * 4 + 1] + P[8 + i] * V[j * 4 + 2] + P[12 + i] * V[j * 4 + 3]
+            }
+        }
+
+        return M
+    }
+
+    /**
+     * @summary The node nearest a surface position whose projected centre lies within the radius.
+     * @param {Object} options
+     * @param {Float32Array} options.M The model-view-projection
+     * @param {Number} options.height The surface height, in the unit of `x`, `y` and `radius`
+     * @param {Float32Array} options.positions `x, y, z` per node
+     * @param {Number} options.radius
+     * @param {Number} options.width
+     * @param {Number} options.x
+     * @param {Number} options.y
+     * @returns {Number} The node's index, or `-1`
+     */
+    static pickNearest({M, height, positions, radius, width, x, y}) {
+        let best = -1, bestDistance = radius;
+
+        for (let i = 0; i < positions.length / 3; i++) {
+            const point = this.project(M, positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2], width, height);
+
+            if (point) {
+                const distance = Math.hypot(point[0] - x, point[1] - y);
+
+                if (distance <= bestDistance) {
+                    bestDistance = distance;
+                    best         = i
+                }
+            }
+        }
+
+        return best
+    }
+
+    /**
+     * @summary A point's position on the surface, or `null` behind the camera.
+     * @param {Float32Array} M The model-view-projection
+     * @param {Number} x
+     * @param {Number} y
+     * @param {Number} z
+     * @param {Number} width The surface width, in the unit the result should carry
+     * @param {Number} height
+     * @returns {Number[]|null} `[x, y]` from the surface's top left
+     */
+    static project(M, x, y, z, width, height) {
+        const
+            cx = M[0] * x + M[4] * y + M[8]  * z + M[12],
+            cy = M[1] * x + M[5] * y + M[9]  * z + M[13],
+            cw = M[3] * x + M[7] * y + M[11] * z + M[15];
+
+        return cw <= 0 ? null : [(cx / cw * 0.5 + 0.5) * width, (0.5 - cy / cw * 0.5) * height]
     }
 
     /**
@@ -453,6 +413,48 @@ class GraphScene extends Base {
     }
 
     /**
+     * @summary Checks a scene the App Worker sends and settles its arrays into the typed forms the renderer
+     * uploads. Colours and sizes are optional: white and 16 pixels. The seam for a subclass that accepts a
+     * scene of its own shape: convert it here and hand the arrays on.
+     * @param {Object|null} scene
+     * @param {Float32Array|Number[]} scene.positions `x, y, z` per node
+     * @param {Float32Array|Number[]} [scene.colors] `r, g, b` per node, `0..1`
+     * @param {Float32Array|Number[]} [scene.sizes] One per node
+     * @param {Uint32Array|Number[]}  [scene.edges] Node index pairs
+     * @param {Array<Uint32Array|Number[]>} [scene.paths] Node index sequences, drawn as line strips
+     * @returns {Object|null} `{colors, count, edges, paths, positions, sizes}`
+     * @throws {Error} when an array's length or an index does not fit the nodes
+     */
+    normalizeScene(scene) {
+        if (!scene) {
+            return null
+        }
+
+        const
+            positions = Float32Array.from(scene.positions ?? []),
+            count     = positions.length / 3,
+            colors    = scene.colors ? Float32Array.from(scene.colors) : new Float32Array(count * 3).fill(1),
+            sizes     = scene.sizes  ? Float32Array.from(scene.sizes)  : new Float32Array(count).fill(16),
+            edges     = Uint32Array.from(scene.edges ?? []),
+            paths     = (scene.paths ?? []).map(path => Uint32Array.from(path)),
+            fits      = indices => indices.every(index => index < count);
+
+        if (!Number.isInteger(count)) {
+            throw new Error(`${this.className}: positions hold ${positions.length} values, not three per node`)
+        }
+
+        if (colors.length !== count * 3 || sizes.length !== count) {
+            throw new Error(`${this.className}: ${count} nodes need ${count * 3} colour and ${count} size values, got ${colors.length} and ${sizes.length}`)
+        }
+
+        if (edges.length % 2 !== 0 || !fits(edges) || !paths.every(fits)) {
+            throw new Error(`${this.className}: edges are index pairs, and every edge and path index names a node`)
+        }
+
+        return {colors, count, edges, paths, positions, sizes}
+    }
+
+    /**
      * @summary The context is gone: its GL objects died with it, so they are dropped, not deleted. The
      * default prevented keeps the context restorable; the scene stays for the restore.
      * @param {Event} event
@@ -527,7 +529,7 @@ class GraphScene extends Base {
             return -1
         }
 
-        return pickNearest({
+        return me.constructor.pickNearest({
             M        : me.matrix(),
             height   : canvasSize.height,
             positions: scene.positions,
@@ -609,8 +611,8 @@ class GraphScene extends Base {
     setScene(scene) {
         const me = this;
 
-        me.scene  = normalizeScene(scene?.positions ? scene : null);
-        me.sphere = boundingSphere(me.scene?.positions ?? new Float32Array(0));
+        me.scene  = me.normalizeScene(scene?.positions ? scene : null);
+        me.sphere = me.constructor.boundingSphere(me.scene?.positions ?? new Float32Array(0));
 
         me.upload();
         me.fit();
@@ -734,7 +736,7 @@ class GraphScene extends Base {
         const me = this, {camera, gl, sphere} = me;
 
         if (gl && gl.canvas.height) {
-            me.fittedDistance = fitDistance({aspect: gl.canvas.width / gl.canvas.height, fill: me.fill, fov: me.fov, radius: sphere.radius});
+            me.fittedDistance = me.constructor.fitDistance({aspect: gl.canvas.width / gl.canvas.height, fill: me.fill, fov: me.fov, radius: sphere.radius});
 
             if (!camera.touched) {
                 camera.dist   = me.fittedDistance;
@@ -766,7 +768,7 @@ class GraphScene extends Base {
     matrix() {
         const {camera, fov, gl} = this;
 
-        return orbitMatrix(camera, gl ? gl.canvas.width / gl.canvas.height : 1, fov)
+        return this.constructor.orbitMatrix(camera, gl ? gl.canvas.width / gl.canvas.height : 1, fov)
     }
 
     /**

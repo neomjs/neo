@@ -155,6 +155,7 @@
  "Neo.calendar.view.week.plugin.DragDrop": "Neo.plugin.Base",
  "Neo.calendar.view.week.plugin.EventResizable": "Neo.plugin.Resizable",
  "Neo.canvas.Base": "Neo.core.Base",
+ "Neo.canvas.GraphScene": "Neo.canvas.Base",
  "Neo.canvas.Header": "Neo.canvas.Base",
  "Neo.canvas.Sparkline": "Neo.core.Base",
  "Neo.code.LivePreview": "Neo.container.Base",

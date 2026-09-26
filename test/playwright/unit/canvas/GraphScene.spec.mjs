@@ -12,7 +12,7 @@ setup({appConfig: {name: 'CanvasGraphSceneTest'}});
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
-import GraphScene, {boundingSphere, fitDistance, normalizeScene, orbitMatrix, pickNearest, project} from '../../../../src/canvas/GraphScene.mjs';
+import GraphScene     from '../../../../src/canvas/GraphScene.mjs';
 import SharedCanvas   from '../../../../src/app/SharedCanvas.mjs';
 
 const FOV = 0.9;
@@ -34,17 +34,17 @@ const createContext = (width = 300, height = 150) => {
 test.describe('Neo.canvas.GraphScene — the math', () => {
     test('the orbit target projects to the surface centre, wherever the target is', () => {
         for (const target of [[0, 0, 0], [5, -3, 12]]) {
-            const M = orbitMatrix({dist: 4, pitch: 0.4, target, yaw: 1.1}, 2, FOV);
+            const M = GraphScene.orbitMatrix({dist: 4, pitch: 0.4, target, yaw: 1.1}, 2, FOV);
 
-            expect(project(M, ...target, 800, 400).map(value => Math.round(value * 1000) / 1000)).toEqual([400, 200])
+            expect(GraphScene.project(M, ...target, 800, 400).map(value => Math.round(value * 1000) / 1000)).toEqual([400, 200])
         }
     });
 
     test('up is up on the surface, and a point behind the camera does not project', () => {
-        const M = orbitMatrix({dist: 4, pitch: 0, target: [0, 0, 0], yaw: 0}, 1, FOV);
+        const M = GraphScene.orbitMatrix({dist: 4, pitch: 0, target: [0, 0, 0], yaw: 0}, 1, FOV);
 
-        expect(project(M, 0, 1, 0, 400, 400)[1]).toBeLessThan(200);
-        expect(project(M, 0, 0, 8, 400, 400)).toBeNull()
+        expect(GraphScene.project(M, 0, 1, 0, 400, 400)[1]).toBeLessThan(200);
+        expect(GraphScene.project(M, 0, 0, 8, 400, 400)).toBeNull()
     });
 
     test('at the fitted distance the sphere fills its share of the tighter axis', () => {
@@ -52,38 +52,50 @@ test.describe('Neo.canvas.GraphScene — the math', () => {
             radius = 2.5,
             fill   = 0.86,
             // a wide surface: the vertical axis is the tighter one
-            dist   = fitDistance({aspect: 2, fill, fov: FOV, radius}),
-            M      = orbitMatrix({dist, pitch: 0, target: [0, 0, 0], yaw: 0}, 2, FOV);
+            dist   = GraphScene.fitDistance({aspect: 2, fill, fov: FOV, radius}),
+            M      = GraphScene.orbitMatrix({dist, pitch: 0, target: [0, 0, 0], yaw: 0}, 2, FOV);
 
         // the matrix is a Float32Array, so the last digits are single-precision noise
-        expect(project(M, 0, radius, 0, 800, 400)[1]).toBeCloseTo((0.5 - fill / 2) * 400, 3);
+        expect(GraphScene.project(M, 0, radius, 0, 800, 400)[1]).toBeCloseTo((0.5 - fill / 2) * 400, 3);
 
         // a tall surface: the horizontal axis is
-        const tallDist = fitDistance({aspect: 0.5, fill, fov: FOV, radius});
+        const tallDist = GraphScene.fitDistance({aspect: 0.5, fill, fov: FOV, radius});
 
         expect(tallDist).toBeGreaterThan(dist)
     });
 
     test('the bounding sphere is centred on the box and reaches the farthest node; an empty scene gets a unit radius', () => {
-        const sphere = boundingSphere(new Float32Array([0, 0, 0,  4, 0, 0,  2, 2, 0]));
+        const sphere = GraphScene.boundingSphere(new Float32Array([0, 0, 0,  4, 0, 0,  2, 2, 0]));
 
         expect(sphere.center).toEqual([2, 1, 0]);
         expect(sphere.radius).toBeCloseTo(Math.hypot(2, 1), 6);
-        expect(boundingSphere(new Float32Array(0))).toEqual({center: [0, 0, 0], radius: 1})
+        expect(GraphScene.boundingSphere(new Float32Array(0))).toEqual({center: [0, 0, 0], radius: 1})
     });
 
     test('pick answers the nearest node within the radius, and -1 beyond it', () => {
         const
-            M         = orbitMatrix({dist: 5, pitch: 0, target: [0, 0, 0], yaw: 0}, 1, FOV),
+            M         = GraphScene.orbitMatrix({dist: 5, pitch: 0, target: [0, 0, 0], yaw: 0}, 1, FOV),
             positions = new Float32Array([0, 0, 0,  0.1, 0, 0,  2, 2, 0]),
-            centre    = project(M, 0.1, 0, 0, 400, 400);
+            centre    = GraphScene.project(M, 0.1, 0, 0, 400, 400);
 
-        expect(pickNearest({M, height: 400, positions, radius: 14, width: 400, x: centre[0], y: centre[1]})).toBe(1);
-        expect(pickNearest({M, height: 400, positions, radius: 14, width: 400, x: 5, y: 5})).toBe(-1)
+        expect(GraphScene.pickNearest({M, height: 400, positions, radius: 14, width: 400, x: centre[0], y: centre[1]})).toBe(1);
+        expect(GraphScene.pickNearest({M, height: 400, positions, radius: 14, width: 400, x: 5, y: 5})).toBe(-1)
     });
 });
 
 test.describe('Neo.canvas.GraphScene — the scene checks', () => {
+    let renderer;
+
+    test.beforeEach(() => {
+        renderer = Neo.create(GraphScene)
+    });
+
+    test.afterEach(() => {
+        renderer.destroy()
+    });
+
+    const normalizeScene = scene => renderer.normalizeScene(scene);
+
     test('colours and sizes default, and every array settles into its typed form', () => {
         const scene = normalizeScene({positions: [0, 0, 0, 1, 1, 1], edges: [0, 1], paths: [[0, 1]]});
 

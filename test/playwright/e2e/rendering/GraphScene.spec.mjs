@@ -74,6 +74,7 @@ test.describe('Neo.canvas.GraphScene — a WebGL2 scene on the canvas worker', (
 
         expect(drawn.canvas, 'the drawing buffer is the CSS size at a pixel ratio of 2').toEqual([Math.floor(box.width * 2), Math.floor(box.height * 2)]);
 
+        // wall-clock-under-test: frames are owed to changes, never to a clock, so a second passes with none
         await page.waitForTimeout(1000);
 
         const idle = await readStats(page);
