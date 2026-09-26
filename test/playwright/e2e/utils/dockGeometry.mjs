@@ -77,8 +77,9 @@ export function intersectsRect(first, second) {
  * displacement broke: when the indicator layer rooted at the viewport instead of the host,
  * the header bands were the first surface it bled into.
  *
- * Asserts adjacency through tour, status and topology bars into the dock host (±1px),
- * and the dock host reaches the window's bottom edge.
+ * Asserts adjacency from the tour bar through the controls row into the dock host (±1px),
+ * and the dock host reaches the window's bottom edge. The status and topology bars share the
+ * controls row, side by side or wrapped, so the row's band is their union; wrapped, they tile too.
  *
  * @param {Object} app the connected neuralLink app wrapper
  * @param {Object} ids {tourBarId, statusBarId, topologyBarId, dockHostId} component ids (the tour bar needs
@@ -98,12 +99,17 @@ export async function assertBootContainmentChain(app, {tourBarId, statusBarId, t
     expect(topology?.height, 'topology bar must render with height').toBeGreaterThan(0);
     expect(host?.height,   'dock host must render with height').toBeGreaterThan(0);
 
-    expect(Math.abs(tour.bottom - status.top),
-        'tour bar and status bar must tile without gap or overlap').toBeLessThanOrEqual(1);
-    expect(Math.abs(status.bottom - topology.top),
-        'status bar and topology bar must tile without gap or overlap').toBeLessThanOrEqual(1);
-    expect(Math.abs(topology.bottom - host.top),
-        'topology bar and dock host must tile without gap or overlap').toBeLessThanOrEqual(1);
+    const row = {bottom: Math.max(status.bottom, topology.bottom), top: Math.min(status.top, topology.top)};
+
+    expect(Math.abs(tour.bottom - row.top),
+        'tour bar and controls row must tile without gap or overlap').toBeLessThanOrEqual(1);
+    // Side by side, the bars share the row; wrapped, the topology bar's line starts where the status bar's ends
+    if (status.right > topology.left + 1) {
+        expect(Math.abs(status.bottom - topology.top),
+            'wrapped, the status bar and topology bar must tile without gap or overlap').toBeLessThanOrEqual(1)
+    }
+    expect(Math.abs(row.bottom - host.top),
+        'controls row and dock host must tile without gap or overlap').toBeLessThanOrEqual(1);
 
     if (viewportHeight !== undefined) {
         expect(Math.abs(host.bottom - viewportHeight),
