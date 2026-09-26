@@ -2751,3 +2751,33 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         expect(DragCoordinator.claimTrace.length).toBe(DragCoordinator.claimTraceLimit)
     })
 });
+
+test.describe('Neo.manager.DragCoordinator — Escape from another window', () => {
+    let DomEvent;
+
+    test.beforeAll(async () => {
+        await import('../../../../src/manager/DragCoordinator.mjs');
+        DomEvent = (await import('../../../../src/manager/DomEvent.mjs')).default
+    });
+
+    test('a cross-window cancel from one window asks every other window of the app to cancel the drag it owns', () => {
+        const
+            asked    = [],
+            apps     = Neo.apps,
+            dragDrop = Neo.ns('Neo.main.addon.DragDrop', true),
+            original = dragDrop.cancelDrag;
+
+        Neo.apps            = {'window-1': {}, 'window-2': {}, 'window-3': {}};
+        dragDrop.cancelDrag = ({windowId}) => {asked.push(windowId)};
+
+        try {
+            // The shape worker.Manager#sendMessage posts: the window id rides on the message, not in its data
+            DomEvent.fire({eventName: 'drag:cancel', windowId: 'window-2', data: {crossWindow: true, key: 'Escape', type: 'drag:cancel'}});
+
+            expect(asked, 'the window that heard Escape owns no gesture, so it is not asked').toEqual(['window-1', 'window-3'])
+        } finally {
+            Neo.apps            = apps;
+            dragDrop.cancelDrag = original
+        }
+    })
+});

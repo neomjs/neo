@@ -184,6 +184,7 @@ class DragDrop extends Base {
             app: [
                 'requestWindowManagementPermission',
                 'acknowledgeWindowDragOrphanRecovery',
+                'cancelDrag',
                 'hasWindowDragOrphanRecovery',
                 'parkWindowDrag',
                 'registerZone',
@@ -381,15 +382,46 @@ class DragDrop extends Base {
     }
 
     /**
-     * Captures Escape at the gesture owner, independent of which dragged node still owns focus.
-     * A single `drag:cancel` is routed directly to the active worker drag zone; subsequent native
-     * move/end events are ignored until the sensor releases and resets the main-thread session.
+     * @summary Cancels the gesture this window owns, as Escape at the owner does.
+     * One `drag:cancel` goes to the active worker drag zone, after which native move/end events are
+     * ignored until the sensor releases. Without a gesture, or once it is cancelled, nothing happens.
+     * The App Worker calls it when Escape reached another window of a cross-window drag.
+     * @param {Object} [data]
+     * @param {String} [data.windowId] Routing only
+     */
+    cancelDrag(data) {
+        let me = this;
+
+        if (me.dragZoneId && !me.dragCancelled) {
+            me.dragCancelled = true;
+            me.dragResize?.cancel();
+
+            DomEvents.sendMessageToApp({dragZoneId: me.dragZoneId, type: 'drag:cancel'})
+        }
+    }
+
+    /**
+     * @summary Captures Escape wherever it lands, independent of which dragged node still owns focus.
+     * The gesture owner cancels its drag once, routed directly to the active worker drag zone; subsequent
+     * native move/end events are ignored until the sensor releases and resets the main-thread session.
+     * A window without a gesture of its own (a cross-window drag's vessel or target holds the focus
+     * there) asks the App Worker to cancel one elsewhere, and leaves the key's default to its own UI.
      * @param {KeyboardEvent} event
      */
     onKeyDown(event) {
         let me = this;
 
-        if (event.key === 'Escape' && me.dragZoneId && !me.dragCancelled) {
+        if (event.key !== 'Escape') {
+            return
+        }
+
+        if (!me.dragZoneId) {
+            DomEvents.sendMessageToApp({
+                ...DomEvents.getKeyboardEventData(event),
+                crossWindow: true,
+                type       : 'drag:cancel'
+            })
+        } else if (!me.dragCancelled) {
             me.dragCancelled = true;
             event.preventDefault();
             me.dragResize?.cancel();

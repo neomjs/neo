@@ -529,6 +529,34 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             expect(fired[1][1]).toMatchObject({itemId: 'graph', retirement})
         });
 
+        test('a cancel while the conversion is still pending retires the vessel as a converted one does', async () => {
+            const fired      = [];
+            const retirement = Promise.resolve(true);
+            const zone       = zoneFor(fired, {
+                dragComponent   : {dockItemId: 'graph', id: 'graph-button'},
+                fire            : (name, data) => fired.push([name, data]),
+                isWindowDragging: true,
+                owner           : {up: () => ({fire(name, data) {
+                    name === 'dockTearOutCancel' && (data.settlement = retirement);
+                    fired.push([name, data])
+                }})},
+                // Escape from another window can land here before the coordinator ever admitted a target
+                vesselConversionSensor: {converted: false, transitioning: true}
+            });
+
+            zone.onDragEnd = data => runDragEnd(zone, data);
+
+            await DockTabSortZone.prototype.onDragCancel.call(zone, {key: 'Escape'});
+
+            expect(fired.map(([name]) => name)).toEqual([
+                'dockTearOutCancel',
+                'dockVesselConversionRetired',
+                'dragCancel',
+                'dockCrossZoneDragCancel'
+            ]);
+            expect(fired[1][1]).toMatchObject({itemId: 'graph', retirement})
+        });
+
         test('an in-window cancel never emits a tear-out terminal', async () => {
             const fired = [];
             const zone  = zoneFor(fired, {
