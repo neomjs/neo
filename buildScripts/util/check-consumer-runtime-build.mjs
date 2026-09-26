@@ -115,9 +115,9 @@ export const APP_EXPECTATIONS = [{
 }];
 
 /**
- * @summary What the Canvas worker's compile must reach: an engine renderer from the package and a
- * consumer renderer from app space. Matched without an end anchor, because production concatenation
- * names a renderer module `… + N modules`.
+ * @summary What the Canvas worker's compile must reach: the engine renderers from the package (one a
+ * consumer renderer extends) and a consumer renderer from app space. Matched without an end anchor,
+ * because production concatenation names a renderer module `… + N modules`.
  * @type {Object[]}
  */
 export const CANVAS_EXPECTATIONS = [{
@@ -125,6 +125,11 @@ export const CANVAS_EXPECTATIONS = [{
     match  : /neo\.mjs[/\\]src[/\\]canvas[/\\]Header\.mjs\b/,
     present: true,
     because: 'an engine renderer ships in the package, so the Canvas worker must load it from there'
+}, {
+    file   : 'node_modules/neo.mjs/src/canvas/GraphScene.mjs',
+    match  : /neo\.mjs[/\\]src[/\\]canvas[/\\]GraphScene\.mjs\b/,
+    present: true,
+    because: 'the graph-scene renderer ships in the package for consumer renderers to extend, so the Canvas worker must reach it there'
 }, {
     file   : 'apps/probe/canvas/ProbeRenderer.mjs',
     match  : /apps[/\\]probe[/\\]canvas[/\\]ProbeRenderer\.mjs\b/,

@@ -310,7 +310,8 @@ class SharedCanvas extends Canvas {
     /**
      * Caches the bounding rect, and pushes the new dimensions to the renderer once this window's canvas worker
      * adopted the canvas: the app worker's renderer proxy exists as soon as ANY window's group registered it, even
-     * while this window's group boots or failed.
+     * while this window's group boots or failed. The message carries the host's `devicePixelRatio`, which a
+     * renderer drawing at device resolution sizes its buffer by.
      * @param {Object|null} [rect]
      */
     async updateSize(rect) {
@@ -324,7 +325,12 @@ class SharedCanvas extends Canvas {
 
         if (rect) {
             me.canvasRect = rect;
-            me.offscreenRegistered && await me.renderer?.updateSize({height: rect.height, width: rect.width, windowId: me.windowId})
+            me.offscreenRegistered && await me.renderer?.updateSize({
+                devicePixelRatio: Neo.config.devicePixelRatio || 1,
+                height          : rect.height,
+                width           : rect.width,
+                windowId        : me.windowId
+            })
         }
     }
 }
