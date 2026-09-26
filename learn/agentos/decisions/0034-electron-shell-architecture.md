@@ -20,7 +20,7 @@
 | **Connects to** | #13033 (build-root leaf, owner @neo-opus-ada — its live Contract Ledger is consumed AS-IS; §5 maps the refinement leaves that follow it) · #13025 / #13028 (landed window-manager leaves, consumed as boundaries) · #13446 (NL window ops — gains an Electron backend per §2.4) · #14793 (native-shell UX spec — consumes §2.1's lifecycle decisions) · #14230 (fork-path onboarding — stays the contributor door per §2.5). |
 | **Empirical anchor** | Carried as a **live regression in the real native app** — `cd harness && npm run smoke` (the harness IS the runnable Electron vessel; its own `package.json` pins Electron 43.1.0) emits a JSON verdict with `sharedHeapEvidence: true` + `popupMaterialized: true` at Chromium 150.0.7871.47 · darwin 25.5.0: SharedWorker sharing proven in the shipped app, not a throwaway. The negative-case findings that fixed the architecture (`file://` kills sharing; per-window partitions) are recorded in §2.2 + §6. Re-run trigger: every Electron major bump BEFORE adoption (`harness/ npm run smoke`); owner: the §5 E2 leaf owner. (The redundant one-off spike — a duplicate Electron project — was removed from the tree; #15043 — the superseded `spike/14786-electron-sharedworker` branch is being retired separately, operator-gated.) |
 | **Implemented by** | the §5 decomposition — one Contract-Ledgered leaf per row, mapped on the #13377 epic; each cites its section here as upstream contract. |
-| **Anti-anchor for** | **file:// harness loading** (falsified: kills worker sharing, §2.2); **a second window manager** (Electron materializes, the Neo window substrate owns semantics); **serialize-and-recreate across BrowserWindows** (components exist once in the shared App-Worker heap — ADR 0029); **a Brain-daemon fork** (one lifecycle owner, §2.1); **per-window session partitions** (§2.2); **credential or token bytes in renderer-readable state** (§2.3); **auto-spawning OS windows on perspective restore** (ADR 0029's rule, re-bound §2.4). |
+| **Anti-anchor for** | **file:// harness loading** (falsified: kills worker sharing, §2.2); **a second window manager** (Electron materializes, the Neo window substrate owns semantics); **serialize-and-recreate across BrowserWindows** (components exist once in the shared App-Worker heap — ADR 0029); **a Brain-daemon fork** (one lifecycle owner, §2.1); **per-window session partitions** (§2.2); **credential or token bytes in renderer-readable state** outside the credential window (§2.3, item 9); **auto-spawning OS windows on perspective restore** (ADR 0029's rule, re-bound §2.4). |
 
 ---
 
@@ -127,7 +127,7 @@ window state of its own.
 — the harness smoke is the re-run gate (§6); the E2 leaf owner runs it on every major bump before
 adoption.
 
-### §2.3 Security posture — fail-closed everywhere, credentials never renderer-readable (Q3)
+### §2.3 Security posture — fail-closed everywhere, credentials never renderer-readable outside the credential window (Q3)
 
 1. **Renderer flags:** `contextIsolation: true`, sandbox **on**, `nodeIntegration: false` for every
    window — including popups (enforced centrally in the `setWindowOpenHandler` override). §2.2 C4
@@ -205,10 +205,10 @@ adoption.
      `{packaged, configured, planeBase, attached}` — plain data, no credential bytes.
    - `attachPlane({planeBase})` → `ipcRenderer.invoke('shell-plane-attach', {planeBase})`: main
      validates the base (https, or plain http on loopback only, never credentials in the URL),
-     collects the PAT in the main-custody credential window (the page receives no key or paste
-     data), checks it against the plane — an authenticated `initialize`, then `list_permissions`
-     in that session for the identity the plane names for it — stores both, and relaunches the
-     shell. The reply is `{ok, reason, relaunching}` and never carries the PAT.
+     collects the PAT in the credential window (item 9), checks it against the plane — an
+     authenticated `initialize`, then `list_permissions` in that session for the identity the
+     plane names for it — stores both, and relaunches the shell. The reply is
+     `{ok, reason, relaunching}` and never carries the PAT.
 
    **Custody is ADR 0038's, not new:** the record is the client connection profile of
    [ADR 0038 §2.1](0038-fm-client-topology.md) — endpoint plus the client's credential, encrypted
@@ -228,6 +228,19 @@ adoption.
    bearer keeps the env's identity. After #17 the same record feeds the pure-client wire.
    **Ownership boundary:** plane configuration never routes through `FleetControlBridge` /
    `FLEET_WIRE_METHODS`; it is the shell's boot input, not a fleet verb.
+9. **The credential window is the one renderer that holds a credential** *(amended 2026-09-26,
+   #19238 — for neomjs/neo-agent-institution#227)*: every credential the packaged shell
+   collects — plane attach (item 8) and the credential-bearing Fleet verbs — is typed or pasted
+   into a native password field, in a sandboxed, context-isolated window of its own. Its document
+   carries no script (`default-src 'none'`); a preload that belongs to that window alone hands the
+   value to main once, on submit, over the window's own `webContents.ipc`, and main destroys the
+   window on every settle path (submit, cancel, close, renderer gone). After submit only main
+   holds it; the cockpit's renderer and the App Worker never do (items 5–6 are unchanged).
+   **Why a native field:** the platform gives it what an emulated one lacks. On macOS, Chromium
+   holds Secure Event Input only while a native password field has focus, so typed keys stay
+   invisible to processes with Input Monitoring — measured on Electron 43.1.0: `ioreg` names the
+   window's own main process as the secure-input holder while the field has focus, and no holder
+   once the window settles. The caret, selection, undo and ⌘V through the Edit menu come with it.
 
 **Falsifier:** any leaf needing a renderer capability the preload cannot express through a named,
 allowlisted intent amends THIS section first (ADR-0005 lifecycle) — it never flips a window to
