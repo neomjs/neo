@@ -36,10 +36,17 @@ const EDITORS = {
         original: '2024-12-10',
         draft   : '2024-12-15',
         open    : async page => {
-            await page.locator(`${EDITOR} .neo-field-trigger`).click();
+            const trigger = page.locator(`${EDITOR} .neo-field-trigger`);
+
+            await trigger.click();
             await page.locator(`${PICKER} [id$="__2024-12-15"]`).click();
             await expect(page.locator(FIELD_INPUT)).toHaveValue('2024-12-15');
-            await page.locator(`${EDITOR} .neo-field-trigger`).click()
+            // A pick leaves the picker open (`hidePickerOnSelect` is false) and the trigger toggles, so the
+            // reopen starts from a closed picker, never from a close still in flight
+            await expect(page.locator(PICKER)).toBeVisible();
+            await trigger.click();
+            await expect(page.locator(PICKER)).toHaveCount(0);
+            await trigger.click()
         }
     },
     combo: {
