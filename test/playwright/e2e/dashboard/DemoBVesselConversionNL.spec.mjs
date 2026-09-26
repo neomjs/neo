@@ -108,20 +108,20 @@ function sampleMetric(source, target) {
           overlapHeight = Math.max(0,
               Math.min(source.y + source.height, target.y + target.height) - Math.max(source.y, target.y)),
           rx      = overlapWidth / Math.min(source.width, target.width),
-          ry      = overlapHeight / Math.min(source.height, target.height),
-          product = rx * ry;
+          ry      = overlapHeight / Math.min(source.height, target.height);
 
-    return {min: Math.min(rx, ry), product, rx, ry}
+    return {rx, ry}
 }
 
 /**
  * @summary Headed calibration witness for dual-window conversion composition.
  *
  * Demo B composes strict physical park/re-show. This row proves exact target/vessel identities, live
- * post-resize browser-to-worker geometry, reachability for each asymmetric size pair, a physical
- * diagonal that distinguishes `min(rx, ry)` from `rx * ry`, and the .55/.35 dead band over a slow
- * crossing. Before park, worker truth comes from the exact live vessel; while parked, the source
- * binding deliberately switches to logical pointer position with the last exact physical extents.
+ * post-resize browser-to-worker geometry parity for each asymmetric size pair, and the claim-owned
+ * decision over a slow physical crossing: the first in-target frame converts and parks the real
+ * vessel, the standing claim never flips whatever the overlap does, and losing the claim re-shows
+ * it. Before park, worker truth comes from the exact live vessel; while parked, the source binding
+ * deliberately switches to logical pointer position with the last exact physical extents.
  *
  * Run: NEO_E2E_PORT=8120 npx playwright test dashboard/DemoBVesselConversionNL \
  *   -c test/playwright/playwright.config.matrix.mjs --workers=1
@@ -132,7 +132,7 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
     // load-bearing for drag portability rows, but would intentionally mask OS-window resizes here.
     test.use({viewport: null});
 
-    test('publishes live size-pair rects and calibrates the source-owned .55/.35 binding', async ({page, neuralLink}) => {
+    test('publishes live size-pair rects and converts on the source-owned pointer claim', async ({page, neuralLink}) => {
         await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.locator('.agentos-dockdemo-counter-pane').waitFor({timeout: 30000});
 
@@ -147,19 +147,15 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
                   dockWorkspaceId : 'demo-b-main'
               }, [
                   'enableVesselConversion',
-                  'vesselConversionConvertThreshold',
-                  'vesselConversionRevertThreshold',
                   'vesselConversionSensor',
                   'vesselConversionTargetId'
               ]),
               windowManager = await findOne(app, {className: 'Neo.manager.Window'}, ['id']);
 
         expect(sourceZone.properties).toMatchObject({
-            enableVesselConversion          : true,
-            vesselConversionConvertThreshold: .55,
-            vesselConversionRevertThreshold : .35,
-            vesselConversionSensor          : null,
-            vesselConversionTargetId        : null
+            enableVesselConversion  : true,
+            vesselConversionSensor  : null,
+            vesselConversionTargetId: null
         });
 
         const targetPopupWait           = page.waitForEvent('popup', {timeout: 30000}),
@@ -270,12 +266,10 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
 
         const diagonal = sampleMetric(source.observed, target.observed);
 
-        expect(diagonal.rx).toBeGreaterThan(.75);
+        expect(diagonal.rx, 'the requested diagonal landing publishes through the geometry parity').toBeGreaterThan(.75);
         expect(diagonal.rx).toBeLessThan(.85);
         expect(diagonal.ry).toBeGreaterThan(.55);
         expect(diagonal.ry).toBeLessThan(.65);
-        expect(Math.abs(diagonal.min - diagonal.product), 'headed sample distinguishes min from product')
-            .toBeGreaterThan(.08);
 
         await app.callMethod(sourceZone.id, 'startWindowDrag', [{
             popupHeight: source.observed.height,
@@ -283,8 +277,10 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
             windowName : 'tearout-workbench'
         }]);
 
+        // A slow physical crossing under a standing claim: the first in-target frame converts and
+        // parks the real vessel at a fifth of its width inside; every later overlap holds it.
         const requestedRatios = [.2, .5, .58, .5, .38, .32],
-              expectedStates  = [false, false, true, true, true, false],
+              expectedStates  = [true, true, true, true, true, true],
               calibration     = [];
 
         for (const requestedRatio of requestedRatios) {
@@ -358,8 +354,7 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
         const flips = expectedStates.slice(1)
             .filter((state, index) => state !== expectedStates[index]).length;
 
-        expect(flips, 'one slow in/out crossing must produce exactly one convert-in + one convert-out')
-            .toBe(2);
+        expect(flips, 'a standing claim never flips, whatever the overlap does').toBe(0);
 
         const pointerOutDecision = await app.callMethod(sourceZone.id, 'resolveRemoteDragTransition', [{
             draggedItem      : {dockItemId: 'workbench', id: 'calibration-probe'},
@@ -371,6 +366,12 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
 
         expect(pointerOutDecision, 'rect overlap without target-owned pointer intent stays inert')
             .toEqual({commitEligible: false, engage: false, retain: false});
+
+        await expect.poll(async () => app.callMethod(sourceZone.id, 'getVesselConversionState'), {
+            message  : 'losing the claim re-shows the parked vessel',
+            timeout  : 5000,
+            intervals: [25, 50, 100]
+        }).toMatchObject({converted: false, transitioning: false});
 
         await app.callMethod(sourceZone.id, 'resetVesselConversion');
         await app.callMethod(sourceZone.id, 'endWindowDrag');

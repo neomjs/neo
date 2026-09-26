@@ -17,13 +17,13 @@ import VesselConversion from '../../../../src/dashboard/dock/window/VesselConver
 /**
  * @summary The dual-window conversion sensor, driven end-to-end through its injected seams.
  *
- * Every witness is a contract pin from the ticket's AC set: the min-axis metric is REACHABLE for
- * any size pair in both directions (the single-denominator formula it replaces provably is not),
- * the dead band fires each decision exactly once across a slow crossing (zero flicker), the
- * pointer gate holds in BOTH directions (rect overlap alone neither converts nor holds a
- * conversion), live rects renormalize per sample, terminals reset silently, and garbage geometry
- * fails CLOSED — a converted sensor fed NaN reverts instead of freezing. The seams are the
- * decision surface; the returned sample record is the geometry surface.
+ * Every witness pins the claim-owned contract: a live pointer claim over measurable rects converts
+ * on its first sample whatever the overlap (the native title-bar path admits by a single point, and
+ * a hand aiming at a target's far edge must see the same), the decision fires exactly once per
+ * crossing (zero flicker while the claim stands), losing the claim reverts at any overlap,
+ * observed exit evidence outranks a lapsed claim, terminals reset silently, and unmeasurable
+ * geometry fails CLOSED — it never converts and it reverts an admitted conversion. The seams are
+ * the decision surface; the returned sample record is the geometry surface.
  */
 test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
     const sensors      = [];
@@ -55,18 +55,19 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
 
     const rect = (x, y, width, height) => ({x, y, width, height});
 
-    // Slides a 100×100 source across a 100×100 target at (0,0) along x: composed = (100 - bx) / 100
-    // (ry stays 1), so each sample's ratio is chosen directly by the source's x offset.
+    // Slides a 100×100 source across a 100×100 target at (0,0) along x: the overlap is 100 - bx, so
+    // bx = 100 is a measurable pair with no overlap at all. Only the claim decides.
     const slideSample = (sensor, bx, pointerInTarget = true) => sensor.sample({
         pointerInTarget,
         sourceRect: rect(bx, 0, 100, 100),
         targetRect: rect(0, 0, 100, 100)
     });
 
-    test('a policy override changes measurement without copying transition ownership', () => {
+    test('a policy override changes the decision without copying transition ownership', () => {
         const {sensor} = harness();
-        sensor.axisRatio = () => 1;
-        expect(slideSample(sensor, 99).converted).toBe(true)
+        sensor.resolveConversion = () => true;
+        expect(slideSample(sensor, 99, false).converted, 'the injected policy converts without a claim').toBe(true);
+        expect(sensor.transitioning).toBe(false)
     });
 
     test('the registered class and a subclass share lifecycle while specializing the decision', () => {
@@ -81,19 +82,18 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
         expect(sensor.transitioning).toBe(false)
     });
 
-    test('Neo.overwrites changes inherited policy methods and defaults before registration', () => {
+    test('Neo.overwrites changes inherited policy methods before registration', () => {
         const previous = Neo.overwrites;
         class OverwrittenPolicy extends VesselConversion {
             static config = {className: 'Test.Unit.Dashboard.VesselConversion.OverwrittenPolicy'}
         }
         try {
             Neo.overwrites = {Test: {Unit: {Dashboard: {VesselConversion: {OverwrittenPolicy: {
-                convertThreshold: 0.9,
-                resolveConversion(record) { return record.pointerInTarget }
+                resolveConversion(record) { return record.measurable && !record.pointerInTarget }
             }}}}}};
             const sensor = createSensor({onConvertIn: () => true, onConvertOut: () => true}, Neo.setupClass(OverwrittenPolicy));
-            expect(sensor.convertThreshold).toBe(0.9);
-            expect(slideSample(sensor, 99).converted).toBe(true)
+            expect(slideSample(sensor, 0).converted, 'the overwritten policy refuses a claim').toBe(false);
+            expect(slideSample(sensor, 0, false).converted, 'and converts without one').toBe(true)
         } finally {
             Neo.overwrites = previous
         }
@@ -119,66 +119,54 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
 
     test('invalid policy is rejected before an instance id is registered', () => {
         const id = 'invalid-vessel-policy-18388';
-        expect(() => createSensor({id, convertThreshold: 0})).toThrow(/finite number/);
+        expect(() => createSensor({id, onConvertIn: 'admit', onConvertOut: () => true})).toThrow(/required function seams/);
         expect(Neo.manager?.Instance?.get(id) ?? Neo.idMap?.[id]).toBeFalsy()
     });
 
-    test('reachability: composed attains 1.0 and converts for EVERY size-pair direction — small over large, large over small, near-equal, extreme aspect', () => {
+    test('a live claim converts on its first sample at ANY overlap — small over large, large over small, near-equal, extreme aspect, and none at all', () => {
         const pairs = [
             {name: 'small source fully over a large target', source: rect(100, 100, 200, 150), target: rect(0, 0, 1200, 800)},
             {name: 'large source fully covering a small target', source: rect(0, 0, 1200, 800), target: rect(300, 200, 200, 150)},
             {name: 'near-equal windows aligned', source: rect(0, 0, 640, 480), target: rect(0, 0, 600, 500)},
-            {name: 'extreme aspect ratios crossing', source: rect(0, 300, 1600, 200), target: rect(100, 0, 300, 900)}
+            {name: 'extreme aspect ratios crossing', source: rect(0, 300, 1600, 200), target: rect(100, 0, 300, 900)},
+            // the far-edge case a hand reaches: the pointer is inside, the frame barely is
+            {name: 'a corner touch at the target\'s far edge', source: rect(690, 420, 320, 240), target: rect(0, 0, 700, 433)},
+            // a frame the geometry publisher has not caught up with yet: no overlap, still a claim
+            {name: 'a lagging frame with no overlap', source: rect(900, 900, 320, 240), target: rect(0, 0, 700, 433)}
         ];
 
         for (const {name, source, target} of pairs) {
             const {calls, sensor} = harness();
             const record          = sensor.sample({pointerInTarget: true, sourceRect: source, targetRect: target});
 
-            expect(record.composed, `${name}: the min-axis metric must reach 1.0`).toBe(1);
-            expect(record.rx).toBe(1);
-            expect(record.ry).toBe(1);
-            expect(calls.converted, `${name}: full min-extent coverage converts`).toHaveLength(1);
+            expect(record.measurable, `${name}: both rects are measurable`).toBe(true);
+            expect(record, `${name}: the record carries no overlap ratio`).not.toHaveProperty('composed');
+            expect(calls.converted, `${name}: the claim converts`).toHaveLength(1);
             expect(sensor.converted).toBe(true)
         }
     });
 
-    test('single-fire hysteresis: one convert-in on the crossing, silence inside the dead band, one convert-out on the retreat', () => {
+    test('single-fire: one convert-in on the claim, silence while it stands whatever the overlap does, one convert-out on its loss', () => {
         const {calls, sensor} = harness();
 
-        // approach below the convert threshold: nothing fires
-        [100, 80, 50].forEach(bx => slideSample(sensor, bx));
-        expect(calls.converted).toHaveLength(0);
-
-        // crossing at 0.60 ≥ 0.55 fires exactly once
-        slideSample(sensor, 40);
+        // the claim arrives with the frame still mostly outside: converts exactly once
+        slideSample(sensor, 90);
         expect(calls.converted).toHaveLength(1);
         expect(sensor.converted).toBe(true);
 
-        // jitter INSIDE the dead band (0.50, 0.40 — both between 0.35 and 0.55): zero events
-        [50, 60].forEach(bx => slideSample(sensor, bx));
+        // the frame slides in, out, and fully out of overlap under a standing claim: zero events
+        [50, 0, 60, 100].forEach(bx => slideSample(sensor, bx));
         expect(calls.converted).toHaveLength(1);
         expect(calls.reverted).toHaveLength(0);
 
-        // dropping below the revert threshold (0.34 < 0.35) fires convert-out exactly once
-        slideSample(sensor, 66);
+        // the claim is lost at full overlap: convert-out exactly once
+        slideSample(sensor, 0, false);
         expect(calls.reverted).toHaveLength(1);
         expect(sensor.converted).toBe(false);
 
-        // continued retreat stays silent
-        slideSample(sensor, 80);
+        // still no claim: silent
+        slideSample(sensor, 0, false);
         expect(calls.reverted).toHaveLength(1)
-    });
-
-    test('threshold boundary semantics: composed exactly AT convertThreshold converts; exactly AT revertThreshold holds', () => {
-        const {calls, sensor} = harness();
-
-        slideSample(sensor, 45); // (100 - 45) / 100 = 0.55 — at-threshold converts (>=)
-        expect(calls.converted).toHaveLength(1);
-
-        slideSample(sensor, 65); // 0.35 — at-threshold is still inside the band: holds (< reverts)
-        expect(calls.reverted).toHaveLength(0);
-        expect(sensor.converted).toBe(true)
     });
 
     test('pointer gate, both directions: overlap alone never converts, and overlap alone never HOLDS a conversion', () => {
@@ -189,7 +177,7 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
         // full overlap, pointer outside: no conversion, ever
         for (let i = 0; i < 3; i++) {
             const record = sensor.sample({pointerInTarget: false, sourceRect: source, targetRect: target});
-            expect(record.composed).toBe(1);
+            expect(record.measurable).toBe(true);
             expect(record.converted).toBe(false)
         }
         expect(calls.converted).toHaveLength(0);
@@ -201,27 +189,29 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
         // pointer leaves at UNCHANGED full overlap: reverts — the gate holds the conversion, not the rects
         sensor.sample({pointerInTarget: false, sourceRect: source, targetRect: target});
         expect(calls.reverted).toHaveLength(1);
-        expect(calls.reverted[0].composed, 'reversion happened at full rect overlap').toBe(1);
+        expect(calls.reverted[0].measurable, 'reversion happened at full rect overlap').toBe(true);
         expect(calls.reverted[0].sourceRect, 'the out record anchors the resume rect').toBe(source);
 
-        // pointer re-enters above threshold: re-converts
+        // pointer re-enters: re-converts
         sensor.sample({pointerInTarget: true, sourceRect: source, targetRect: target});
         expect(calls.converted).toHaveLength(2)
     });
 
-    test('live-rect renormalization: a mid-sequence target resize re-derives the ratios per sample', () => {
+    test('live geometry is re-read per sample: a target that collapses mid-gesture reverts, and one that returns re-converts on the standing claim', () => {
         const {calls, sensor} = harness();
         const source          = rect(60, 0, 100, 100);
 
-        // 40px x-overlap against a 100-wide target: rx = 40 / min(100, 100) = 0.4
-        const before = sensor.sample({pointerInTarget: true, sourceRect: source, targetRect: rect(0, 0, 100, 100)});
-        expect(before.composed).toBe(0.4);
+        sensor.sample({pointerInTarget: true, sourceRect: source, targetRect: rect(0, 0, 100, 100)});
+        expect(calls.converted).toHaveLength(1);
 
-        // the target resizes to 80 wide: overlap 20px, min extent 80 → rx = 0.25 — same source, new truth
-        const after = sensor.sample({pointerInTarget: true, sourceRect: source, targetRect: rect(0, 0, 80, 100)});
-        expect(after.composed).toBe(0.25);
+        // the target's live rect degenerates (a window mid-resize publishes a zero width): revert
+        expect(sensor.sample({pointerInTarget: true, sourceRect: source, targetRect: rect(0, 0, 0, 100)}).measurable).toBe(false);
+        expect(calls.reverted).toHaveLength(1);
+        expect(sensor.converted).toBe(false);
 
-        expect(calls.converted).toHaveLength(0)
+        // the next sample carries a real rect again: the claim converts once more
+        sensor.sample({pointerInTarget: true, sourceRect: source, targetRect: rect(0, 0, 80, 100)});
+        expect(calls.converted).toHaveLength(2)
     });
 
     test('reset is SILENT and idempotent: no seam emission, and the next gesture decides fresh', () => {
@@ -243,84 +233,26 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
         expect(calls.converted).toHaveLength(2)
     });
 
-    test('garbage geometry fails CLOSED: degenerate and non-finite rects compose to 0, and a converted sensor REVERTS on them', () => {
+    test('garbage geometry fails CLOSED: degenerate and non-finite rects are unmeasurable, never convert, and REVERT a converted sensor', () => {
         const {calls, sensor} = harness();
 
-        // zero-extent target: composed 0, no division artifact
-        expect(sensor.sample({pointerInTarget: true, sourceRect: rect(0, 0, 100, 100), targetRect: rect(0, 0, 0, 100)}).composed).toBe(0);
+        // zero-extent target: unmeasurable, no conversion
+        expect(sensor.sample({pointerInTarget: true, sourceRect: rect(0, 0, 100, 100), targetRect: rect(0, 0, 0, 100)}).measurable).toBe(false);
 
-        // missing rects: composed 0, no throw
-        expect(sensor.sample({pointerInTarget: true, sourceRect: rect(0, 0, 100, 100)}).composed).toBe(0);
-        expect(sensor.sample().composed).toBe(0);
+        // missing rects: unmeasurable, no throw
+        expect(sensor.sample({pointerInTarget: true, sourceRect: rect(0, 0, 100, 100)}).measurable).toBe(false);
+        expect(sensor.sample().measurable).toBe(false);
         expect(calls.converted).toHaveLength(0);
 
         // convert legitimately, then feed NaN: NaN comparisons would freeze the conversion — the
-        // fail-closed clamp reads garbage as "no overlap" and reverts instead
+        // fail-closed measurability gate reads garbage as "no geometry" and reverts instead
         sensor.sample({pointerInTarget: true, sourceRect: rect(0, 0, 100, 100), targetRect: rect(0, 0, 100, 100)});
         expect(sensor.converted).toBe(true);
 
         sensor.sample({pointerInTarget: true, sourceRect: rect(NaN, 0, 100, 100), targetRect: rect(0, 0, 100, 100)});
         expect(sensor.converted).toBe(false);
         expect(calls.reverted).toHaveLength(1);
-        expect(calls.reverted[0].composed).toBe(0)
-    });
-
-    test('the composition seam owns the decision: an injected composer changes the verdict, and a garbage composer fails closed', () => {
-        // rx = 0.8, ry = 0.6: min composes to 0.6 (converts at 0.55) — product composes to 0.48 (does not)
-        const sample = sensor => sensor.sample({
-            pointerInTarget: true,
-            sourceRect     : rect(20, 0, 100, 100),
-            targetRect     : rect(0, 40, 100, 100)
-        });
-
-        const minSensor = harness();
-        const record    = sample(minSensor.sensor);
-        expect(record.rx).toBe(0.8);
-        expect(record.ry).toBe(0.6);
-        expect(minSensor.calls.converted).toHaveLength(1);
-
-        const productSensor = harness({composeRatios: ({rx, ry}) => rx * ry});
-        expect(sample(productSensor.sensor).composed).toBeCloseTo(0.48, 10);
-        expect(productSensor.calls.converted).toHaveLength(0);
-
-        // a composer returning non-finite output must read as 0, even at full overlap + pointer
-        const garbageSensor = harness({composeRatios: () => NaN});
-        const garbageRecord = garbageSensor.sensor.sample({
-            pointerInTarget: true,
-            sourceRect     : rect(0, 0, 100, 100),
-            targetRect     : rect(0, 0, 100, 100)
-        });
-        expect(garbageRecord.composed).toBe(0);
-        expect(garbageSensor.calls.converted).toHaveLength(0)
-    });
-
-    test('invalid geometry DOMINATES the composition seam: a finite non-min composer can never elevate a degenerate rect', () => {
-        // the escape: width 0 yields rx = 0 but ry = 1 — an AVERAGING composer would read 0.5
-        // and clear a 0.45 threshold. The validity gate must force 0 BEFORE composition.
-        const averaging = harness({
-            composeRatios   : ({rx, ry}) => (rx + ry) / 2,
-            convertThreshold: 0.45,
-            revertThreshold : 0.25
-        });
-
-        const degenerate = averaging.sensor.sample({
-            pointerInTarget: true,
-            sourceRect     : rect(0, 0, 100, 100),
-            targetRect     : rect(0, 0, 0, 100)     // zero width, full-height overlap
-        });
-
-        expect(degenerate.composed, 'the composer was never consulted — invalid geometry is 0').toBe(0);
-        expect(degenerate.rx).toBe(0);
-        expect(degenerate.ry).toBe(0);
-        expect(averaging.calls.converted).toHaveLength(0);
-
-        // convert legitimately under the same composer, then feed the degenerate rect: REVERT
-        averaging.sensor.sample({pointerInTarget: true, sourceRect: rect(0, 0, 100, 100), targetRect: rect(0, 0, 100, 100)});
-        expect(averaging.sensor.converted).toBe(true);
-
-        averaging.sensor.sample({pointerInTarget: true, sourceRect: rect(0, 0, 100, 100), targetRect: rect(0, 0, 0, 100)});
-        expect(averaging.sensor.converted, 'a converted sensor fed degenerate geometry reverts').toBe(false);
-        expect(averaging.calls.reverted).toHaveLength(1)
+        expect(calls.reverted[0].measurable).toBe(false)
     });
 
     test('the convert-in record carries the full geometry + gate truth for the actuator', () => {
@@ -331,11 +263,9 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
         sensor.sample({pointerInTarget: true, sourceRect: source, targetRect: target});
 
         expect(calls.converted[0]).toEqual({
-            composed       : 1,
             converted      : true,
+            measurable     : true,
             pointerInTarget: true,
-            rx             : 1,
-            ry             : 1,
             sourceRect     : source,
             targetRect     : target
         })
@@ -369,11 +299,11 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
         slideSample(sensor, 0);
         expect(sensor.converted).toBe(true);
 
-        expect(slideSample(sensor, 100)).toMatchObject({converted: true, transitioning: true});
+        expect(slideSample(sensor, 0, false)).toMatchObject({converted: true, transitioning: true});
         await sensor.transitionPromise;
         expect(sensor.converted, 'a refused re-show cannot clear conversion ownership').toBe(true);
 
-        slideSample(sensor, 100);
+        slideSample(sensor, 0, false);
         await sensor.transitionPromise;
 
         expect(sensor.converted).toBe(false);
@@ -396,21 +326,13 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
         expect(sensor.transitioning).toBe(false)
     });
 
-    test('config validation fails LOUD: inverted or degenerate bands, out-of-range thresholds, missing or non-function seams', () => {
-        const seams = {onConvertIn: () => {}, onConvertOut: () => {}};
-
-        expect(() => createSensor({...seams, convertThreshold: 0.3, revertThreshold: 0.5}))
-            .toThrow(/strictly above/);
-        expect(() => createSensor({...seams, convertThreshold: 0.4, revertThreshold: 0.4}))
-            .toThrow(/strictly above/);
-        expect(() => createSensor({...seams, convertThreshold: 1.2}))
-            .toThrow(/finite number in \(0, 1\]/);
-        expect(() => createSensor({...seams, revertThreshold: 0}))
-            .toThrow(/finite number in \(0, 1\]/);
+    test('config validation fails LOUD: missing or non-function seams', () => {
         expect(() => createSensor({onConvertIn: () => {}}))
             .toThrow(/required function seams/);
-        expect(() => createSensor({...seams, composeRatios: 'min'}))
-            .toThrow(/composeRatios must be a function seam/)
+        expect(() => createSensor({onConvertIn: () => {}, onConvertOut: 'restore'}))
+            .toThrow(/required function seams/);
+        expect(() => createSensor({onConvertOut: () => {}}))
+            .toThrow(/required function seams/)
     });
 
     // `pointerInTarget` is the claim arbiter's LIVE resolution and a claim expires 300ms after its
@@ -434,7 +356,7 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
 
             // The pause: the claim has lapsed (pointerInTarget false) but the host observed that
             // the pointer never left. Measured behaviour before the fix: converted flips
-            // true→false→true per pause at composed 1.000, a visible flicker on every hover.
+            // true→false→true per pause, a visible flicker on every hover.
             for (let i = 0; i < 5; i++) {
                 const record = sensor.sample({
                     pointerExitedTarget: false,
@@ -442,7 +364,7 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
                     sourceRect         : source,
                     targetRect         : target
                 });
-                expect(record.composed).toBe(1);
+                expect(record.measurable).toBe(true);
                 expect(record.converted).toBe(true)
             }
 
@@ -460,7 +382,7 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
             });
 
             expect(calls.reverted).toHaveLength(1);
-            expect(calls.reverted[0].composed, 'reversion happened at full rect overlap').toBe(1)
+            expect(calls.reverted[0].measurable, 'reversion happened at full rect overlap').toBe(true)
         });
 
         test('an ABSENT signal falls back to the landed contract — losing the claim reverts', () => {
@@ -482,18 +404,18 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
             }
         });
 
-        test('an observed still-inside still yields to a GEOMETRIC retreat', () => {
-            // Holding through a lapsed claim must not become "rect overlap can never revert it".
+        test('an observed still-inside still yields to UNMEASURABLE geometry', () => {
+            // Holding through a lapsed claim must not become "a vessel with no geometry stays parked".
             const {calls, sensor} = converted();
 
             sensor.sample({
                 pointerExitedTarget: false,
                 pointerInTarget    : false,
-                sourceRect         : rect(90, 0, 100, 100), // rx = 10/100 = 0.1, below revertThreshold
+                sourceRect         : rect(NaN, 0, 100, 100),
                 targetRect         : target
             });
 
-            expect(calls.reverted, 'geometry below revertThreshold reverts regardless of the exit signal').toHaveLength(1)
+            expect(calls.reverted, 'garbage geometry reverts regardless of the exit signal').toHaveLength(1)
         });
 
         test('convert-IN is unchanged: an observed still-inside never converts without a live claim', () => {

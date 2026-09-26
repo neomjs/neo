@@ -2,10 +2,13 @@ import Base from '../../../core/Base.mjs';
 
 /**
  * @summary Owns one vessel's transient conversion decision and asynchronous admission.
- * Geometry and decision methods are overridable independently of transition ownership. The default
- * uses overlap divided by the smaller extent on each axis, with a live pointer claim for entry and
- * an observed exit or geometric retreat for reversion. Reset and destruction invalidate pending
- * admission without firing either actuator; no conversion state enters the dock document.
+ * The decision is claim-owned: a live pointer claim on the target proposes conversion as soon as
+ * both live rects are measurable, and an admitted conversion holds until the pointer's departure
+ * is observed or, absent that evidence, the claim is lost. No geometric threshold gates either
+ * direction — the target's content is the accepting region, exactly as it is for a native
+ * title-bar drag's anchor point. Unmeasurable geometry still fails closed: it never converts and
+ * it reverts an admitted conversion. Reset and destruction invalidate pending admission without
+ * firing either actuator; no conversion state enters the dock document.
  * @class Neo.dashboard.dock.window.VesselConversion
  * @extends Neo.core.Base
  */
@@ -17,11 +20,6 @@ class VesselConversion extends Base {
          */
         className: 'Neo.dashboard.dock.window.VesselConversion',
         /**
-         * Inclusive entry threshold; strictly greater than revertThreshold.
-         * @member {Number} convertThreshold=0.55
-         */
-        convertThreshold: 0.55,
-        /**
          * Strict entry admission: only true or Promise<true> accepts the proposal.
          * @member {Function|null} onConvertIn=null
          */
@@ -30,12 +28,7 @@ class VesselConversion extends Base {
          * Strict reversion admission; refusal retains conversion for retry.
          * @member {Function|null} onConvertOut=null
          */
-        onConvertOut: null,
-        /**
-         * A converted vessel reverts below this threshold, leaving a dead band.
-         * @member {Number} revertThreshold=0.35
-         */
-        revertThreshold: 0.35
+        onConvertOut: null
     }
 
     /**
@@ -87,58 +80,12 @@ class VesselConversion extends Base {
     }
 
     /**
-     * @summary Validates effective policy before allocating a registered instance.
+     * @summary Validates the required seams before allocating a registered instance.
      * @param {Object} [config={}]
      */
     construct(config={}) {
-        this.validateConfig({...this.constructor.config, composeRatios: this.composeRatios, ...config});
+        this.validateConfig({...this.constructor.config, ...config});
         super.construct(config)
-    }
-
-    /**
-     * @summary Requires a finite threshold in (0, 1].
-     * @param {String} name
-     * @param {Number} value
-     * @protected
-     */
-    assertThreshold(name, value) {
-        if (!Number.isFinite(value) || value <= 0 || value > 1) {
-            throw new Error(`${this.className}: ${name} must be a finite number in (0, 1] — got ${value}`)
-        }
-    }
-
-    /**
-     * @summary Measures one axis against the smaller live extent.
-     * @param {Object} a
-     * @param {Object} b
-     * @param {String} axis
-     * @param {String} extent
-     * @returns {Number}
-     */
-    axisRatio(a, b, axis, extent) {
-        const overlap = Math.min(a[axis] + a[extent], b[axis] + b[extent]) - Math.max(a[axis], b[axis]),
-              minimum = Math.min(a[extent], b[extent]);
-        return minimum > 0 ? this.clampRatio(Math.max(0, overlap) / minimum) : 0
-    }
-
-    /**
-     * @summary Bounds a ratio, treating non-finite geometry as no overlap.
-     * @param {Number} value
-     * @returns {Number}
-     */
-    clampRatio(value) {
-        return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0
-    }
-
-    /**
-     * @summary Requires both axes to cover the smaller footprint by default.
-     * @param {Object} ratios
-     * @param {Number} ratios.rx
-     * @param {Number} ratios.ry
-     * @returns {Number}
-     */
-    composeRatios({rx, ry}) {
-        return Math.min(rx, ry)
     }
 
     /**
@@ -150,7 +97,7 @@ class VesselConversion extends Base {
     }
 
     /**
-     * @summary Admits finite rectangles with positive extents before composition.
+     * @summary Admits finite rectangles with positive extents as measurable geometry.
      * @param {Object|null} rect
      * @returns {Boolean}
      */
@@ -171,38 +118,40 @@ class VesselConversion extends Base {
 
     /**
      * @summary Selects a state without owning actuator admission or its lifecycle.
-     * A false observed exit holds through a lapsed claim; absent exit evidence keeps strict
-     * claim-loss behavior. Entry always requires a current pointer claim.
+     * Entry requires a current pointer claim over measurable geometry. A false observed exit holds
+     * through a lapsed claim; absent exit evidence keeps strict claim-loss behavior; unmeasurable
+     * geometry reverts whatever the pointer says.
      * @param {Object} record Measured sample and admitted state.
      * @param {Boolean|null} pointerExitedTarget Tri-state observed departure.
      * @returns {Boolean}
      */
     resolveConversion(record, pointerExitedTarget) {
-        const {composed, converted, pointerInTarget} = record;
-        if (!converted) return pointerInTarget && composed >= this.convertThreshold;
-        const exited = pointerExitedTarget === true || (pointerExitedTarget == null && !pointerInTarget);
-        return !exited && composed >= this.revertThreshold
+        const {converted, measurable, pointerInTarget} = record;
+        if (!measurable) return false;
+        if (!converted) return pointerInTarget;
+        return !(pointerExitedTarget === true || (pointerExitedTarget == null && !pointerInTarget))
     }
 
     /**
      * @summary Measures a live frame and submits at most one strict proposal.
-     * Invalid geometry dominates composition. Pending admission preserves the previously admitted
-     * state; reset or destruction makes a late completion inert.
+     * Pending admission preserves the previously admitted state; reset or destruction makes a late
+     * completion inert.
      * @param {Object} [data={}]
      * @param {Boolean} data.pointerInTarget Current claim on the accepting region.
      * @param {Boolean|null} [data.pointerExitedTarget] Observed exit/still-inside evidence.
      * @param {Object} data.sourceRect Live {x, y, width, height}.
      * @param {Object} data.targetRect Live {x, y, width, height}.
-     * @returns {Object} Sample with rx, ry, composed, converted and optional transitioning.
+     * @returns {Object} Sample with measurable, pointerInTarget, converted and optional transitioning.
      */
     sample({pointerExitedTarget, pointerInTarget, sourceRect, targetRect} = {}) {
-        const me         = this,
-              measurable = me.isMeasurableRect(sourceRect) && me.isMeasurableRect(targetRect),
-              rx         = measurable ? me.axisRatio(sourceRect, targetRect, 'x', 'width') : 0,
-              ry         = measurable ? me.axisRatio(sourceRect, targetRect, 'y', 'height') : 0,
-              composed   = measurable ? me.clampRatio(me.composeRatios({rx, ry})) : 0,
-              record     = {composed, converted: me.conversionAccepted,
-                  pointerInTarget: pointerInTarget === true, rx, ry, sourceRect, targetRect};
+        const me     = this,
+              record = {
+                  converted      : me.conversionAccepted,
+                  measurable     : me.isMeasurableRect(sourceRect) && me.isMeasurableRect(targetRect),
+                  pointerInTarget: pointerInTarget === true,
+                  sourceRect,
+                  targetRect
+              };
 
         if (me.transition) return {...record, transitioning: true};
 
@@ -240,19 +189,11 @@ class VesselConversion extends Base {
     }
 
     /**
-     * @summary Checks the default policy's band and required callbacks.
+     * @summary Requires both actuator seams.
      * @param {Object} config Effective class defaults plus instance overrides.
      * @protected
      */
-    validateConfig({composeRatios, convertThreshold, revertThreshold, onConvertIn, onConvertOut}) {
-        this.assertThreshold('convertThreshold', convertThreshold);
-        this.assertThreshold('revertThreshold', revertThreshold);
-        if (convertThreshold <= revertThreshold) {
-            throw new Error(`${this.className}: convertThreshold must sit strictly above revertThreshold`)
-        }
-        if (typeof composeRatios !== 'function') {
-            throw new Error(`${this.className}: composeRatios must be a function seam`)
-        }
+    validateConfig({onConvertIn, onConvertOut}) {
         if (typeof onConvertIn !== 'function' || typeof onConvertOut !== 'function') {
             throw new Error(`${this.className}: onConvertIn and onConvertOut are required function seams`)
         }

@@ -795,7 +795,6 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 resetVesselConversion                : DockTabSortZone.prototype.resetVesselConversion,
                 scheduleVesselConversionReplay       : DockTabSortZone.prototype.scheduleVesselConversionReplay,
                 startIndex                           : 0,
-                vesselConversionConvertThreshold     : 0.55,
                 vesselConversionCancelPromise        : null,
                 vesselConversionCoordinatorFrame     : null,
                 vesselConversionEpoch                : 0,
@@ -804,7 +803,6 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 vesselConversionPointerMissedAt      : null,
                 vesselConversionReplayFrame          : null,
                 vesselConversionReplayPromise        : null,
-                vesselConversionRevertThreshold      : 0.35,
                 vesselConversionSensor               : null,
                 vesselConversionLogicalRect          : null,
                 vesselConversionSourceRect           : null,
@@ -1027,7 +1025,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             expect(zone.vesselConversionSensor.converted).toBe(false)
         });
 
-        test('the latest low-overlap frame replays after async park so stale admission cannot convert', async () => {
+        test('the latest claim-free frame replays after async park so a stale admission cannot pin a vessel the pointer has left', async () => {
             let resolvePark;
 
             const admission     = new Promise(resolve => resolvePark = resolve),
@@ -1035,11 +1033,10 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
 
             expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
 
-            // The pointer remains inside the target but retreats below convertThreshold while the
-            // host effect is pending, then stops. No third browser frame may be required.
-            expect(resolve(zone, {
-                logicalSourceRect: {x: 760, y: 20, width: 200, height: 120}
-            })).toEqual({commitEligible: false, engage: false, retain: false});
+            // The pointer leaves the target while the host effect is pending, then stops. No third
+            // browser frame may be required.
+            expect(resolve(zone, {pointerInTarget: false, targetId: null, targetRect: null}))
+                .toEqual({commitEligible: false, engage: false, retain: false});
 
             const replay = zone.vesselConversionReplayPromise;
 
@@ -1081,7 +1078,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             ])
         });
 
-        test('re-show replay ignores a stale parked manager rect after the pointer remains below threshold', async () => {
+        test('re-show replay re-converts on the returning claim from the LOGICAL origin, never from a stale parked manager rect', async () => {
             let resolveRestore,
                 physical = sourceRect;
 
@@ -1101,6 +1098,8 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
 
             expect(resolve(zone, {pointerInTarget: false, targetId: null, targetRect: null}))
                 .toEqual({commitEligible: false, engage: false, retain: false});
+
+            // The pointer returns while the re-show is pending: the latest frame waits behind it.
             expect(resolve(zone, {
                 logicalSourceRect: {x: 760, y: 20, width: 200, height: 120}
             })).toEqual({commitEligible: false, engage: false, retain: false});
@@ -1110,10 +1109,21 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             resolveRestore(true);
             await replay;
 
-            expect(zone.vesselConversionSensor.converted).toBe(false);
+            expect(zone.vesselConversionSensor.converted, 'the returning claim re-converts after the re-show').toBe(true);
             expect(calls.map(([name]) => name)).toEqual([
-                'dockVesselConversionIn', 'dockVesselConversionOut'
-            ])
+                'dockVesselConversionIn', 'dockVesselConversionOut', 'dockVesselConversionIn'
+            ]);
+
+            // The parked binding rides the pointer's logical origin with the last exact extents —
+            // the manager's parked rect at (0, 0) never reaches the target proxy.
+            expect(resolve(zone, {
+                logicalSourceRect: {x: 760, y: 20, width: 200, height: 120}
+            })).toEqual({
+                commitEligible: true,
+                engage        : true,
+                retain        : false,
+                sourceRect    : {height: 120, width: 200, x: 760, y: 20}
+            })
         });
 
         test('raw claim loss drops commit immediately while a bounded visual grace emits no flip', () => {

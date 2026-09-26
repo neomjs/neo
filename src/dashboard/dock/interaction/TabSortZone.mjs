@@ -127,19 +127,6 @@ class TabSortZone extends TabHeaderSortZone {
          */
         enableVesselConversion: false,
         /**
-         * Provisional min-axis overlap required to enter the existing HOVERING_CLAIM transition.
-         * Production opt-in remains off until the physical park/re-show lifecycle is ready and
-         * headed calibration replaces this placeholder.
-         * @member {Number} vesselConversionConvertThreshold=0.55
-         */
-        vesselConversionConvertThreshold: 0.55,
-        /**
-         * Provisional min-axis overlap below which the conversion reverts. See the convert
-         * threshold's calibration gate above.
-         * @member {Number} vesselConversionRevertThreshold=0.35
-         */
-        vesselConversionRevertThreshold: 0.35,
-        /**
          * Binding-owned raw-claim miss grace. During this interval the visual preview is retained,
          * but commit eligibility drops immediately; a release can never land on a stale claim.
          * @member {Number} vesselConversionPointerExitGraceMs=0
@@ -462,8 +449,6 @@ class TabSortZone extends TabHeaderSortZone {
         let me = this;
 
         return me.vesselConversionSensor ??= Neo.create(VesselConversion, {
-            convertThreshold: me.vesselConversionConvertThreshold,
-            revertThreshold : me.vesselConversionRevertThreshold,
             onConvertIn(record) {
                 let itemId = me.vesselConversionItemId ?? me.dragComponent?.dockItemId
                     ?? me.dockItemIds?.[me.startIndex] ?? null;
