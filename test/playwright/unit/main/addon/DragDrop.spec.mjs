@@ -1880,15 +1880,18 @@ test.describe('Neo.main.addon.DragDrop — Escape across windows', () => {
     });
 
     test('the gesture owner still cancels its own drag on Escape, once', () => {
+        let prevented = 0;
+
         const
-            addon = {dragCancelled: false, dragZoneId: 'zone-a'},
-            event = {key: 'Escape', preventDefault: () => {}};
+            addon = {cancelDrag: DragDrop.prototype.cancelDrag, dragCancelled: false, dragZoneId: 'zone-a'},
+            event = {key: 'Escape', preventDefault: () => prevented++};
 
         DragDrop.prototype.onKeyDown.call(addon, event);
         DragDrop.prototype.onKeyDown.call(addon, event);
 
         expect(sent).toEqual([{dragZoneId: 'zone-a', key: 'Escape', type: 'drag:cancel'}]);
-        expect(addon.dragCancelled).toBe(true)
+        expect(addon.dragCancelled).toBe(true);
+        expect(prevented, 'only the Escape that cancelled keeps its default from the page').toBe(1)
     });
 
     test('cancelDrag cancels the gesture this window owns, once; without one it sends nothing', () => {

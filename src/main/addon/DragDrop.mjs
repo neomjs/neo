@@ -386,8 +386,9 @@ class DragDrop extends Base {
      * One `drag:cancel` goes to the active worker drag zone, after which native move/end events are
      * ignored until the sensor releases. Without a gesture, or once it is cancelled, nothing happens.
      * The App Worker calls it when Escape reached another window of a cross-window drag.
-     * @param {Object} [data]
-     * @param {String} [data.windowId] Routing only
+     * @param {Object} [data] Fields the `drag:cancel` carries: Escape's keyboard data at the owner, or
+     * the App Worker's routing `windowId`
+     * @returns {Boolean} true when this call cancelled the gesture
      */
     cancelDrag(data) {
         let me = this;
@@ -396,8 +397,11 @@ class DragDrop extends Base {
             me.dragCancelled = true;
             me.dragResize?.cancel();
 
-            DomEvents.sendMessageToApp({dragZoneId: me.dragZoneId, type: 'drag:cancel'})
+            DomEvents.sendMessageToApp({...data, dragZoneId: me.dragZoneId, type: 'drag:cancel'});
+            return true
         }
+
+        return false
     }
 
     /**
@@ -411,26 +415,14 @@ class DragDrop extends Base {
     onKeyDown(event) {
         let me = this;
 
-        if (event.key !== 'Escape') {
-            return
-        }
+        if (event.key === 'Escape') {
+            let data = DomEvents.getKeyboardEventData(event);
 
-        if (!me.dragZoneId) {
-            DomEvents.sendMessageToApp({
-                ...DomEvents.getKeyboardEventData(event),
-                crossWindow: true,
-                type       : 'drag:cancel'
-            })
-        } else if (!me.dragCancelled) {
-            me.dragCancelled = true;
-            event.preventDefault();
-            me.dragResize?.cancel();
-
-            DomEvents.sendMessageToApp({
-                ...DomEvents.getKeyboardEventData(event),
-                dragZoneId: me.dragZoneId,
-                type      : 'drag:cancel'
-            })
+            if (!me.dragZoneId) {
+                DomEvents.sendMessageToApp({...data, crossWindow: true, type: 'drag:cancel'})
+            } else if (me.cancelDrag(data)) {
+                event.preventDefault()
+            }
         }
     }
 
