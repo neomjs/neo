@@ -718,23 +718,35 @@ class Provider extends Base {
     }
 
     /**
-     * Returns the top-level data keys for a given path within this provider's data.
+     * Returns the top-level data keys for a given path across the parent chain: the keys a read
+     * through the hierarchical data proxy resolves, so an enumeration (`Object.keys`, spread,
+     * `JSON.stringify`) sees the same object a named read sees. A key declared on several levels
+     * appears once; its value still resolves to the closest provider (see `getOwnerOfDataProperty`).
      * @param {String} path The path to get keys for (e.g., 'user.address').
      * @returns {String[]}
      */
     getTopLevelDataKeys(path) {
-        const
-            keys       = new Set(),
-            pathPrefix = path ? `${path}.` : '';
+        const keys = new Set();
 
-        // An enumeration depends on this provider's key set
+        this.#collectTopLevelDataKeys(path ? `${path}.` : '', keys);
+
+        return Array.from(keys)
+    }
+
+    /**
+     * Adds this provider's top-level keys below a path prefix, then its parent's. An enumeration
+     * depends on the key set of every provider it reads, so it re-runs when any of them gains a key
+     * (see `#createDataConfig`).
+     * @param {String}      pathPrefix `''` for the root, otherwise the path with a trailing dot
+     * @param {Set<String>} keys
+     * @private
+     */
+    #collectTopLevelDataKeys(pathPrefix, keys) {
         this.#dataKeyVersion.get();
 
         for (const fullPath in this.#dataConfigs) {
             if (fullPath.startsWith(pathPrefix)) {
-                const
-                    relativePath = fullPath.substring(pathPrefix.length),
-                    topLevelKey  = relativePath.split('.')[0];
+                const topLevelKey = fullPath.substring(pathPrefix.length).split('.')[0];
 
                 if (topLevelKey) {
                     keys.add(topLevelKey)
@@ -742,7 +754,7 @@ class Provider extends Base {
             }
         }
 
-        return Array.from(keys)
+        this.getParent()?.#collectTopLevelDataKeys(pathPrefix, keys)
     }
 
     /**
