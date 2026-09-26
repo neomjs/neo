@@ -615,8 +615,11 @@ far-negative position back onto the visible desktop. The #16117 macOS/Chrome pro
 alive, shrank its outer `640×546` frame to `360×260`, and restored the exact original frame with zero additional
 `window.open` calls. Other platform mechanics remain host seams and require their own #15243 matrix receipts; the exact
 observation gate lets an admitting platform use the same state machine and makes a refusing or clamping platform remain
-`DETACHED_MOVING`. The §2.8.4 min-axis metric stays size-neutral; target-cover changes only the reversible physical
-embodiment needed after that metric proposes conversion.
+`DETACHED_MOVING`. Conversion is proposed by the pointer claim on the target's content — the same authority §2.8.1
+gives every target — and admitted by the park; target-cover changes only the reversible physical embodiment needed
+after the claim proposes. *(Amended 2026-09-26, #19241: the size-neutral min-axis overlap metric that once proposed
+conversion is retired — on real window chrome it left the target's far edges unreachable by hand, while the native
+title-bar path admits by a single point.)*
 
 This amendment does not silently broaden every popup owner. Resize remains least-authority by default and the
 Workstation vessel opener grants it explicitly. Demo B keeps its existing source-larger-than-target refusal until its

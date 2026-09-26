@@ -487,11 +487,8 @@ class LayoutAdapter extends Base {
      *     rail reveal pane: `(pane, itemId) => void`, binding the pane to the item's committed lock.
      * @param {Object|null} [options.tabInsertDescriptor] Runtime-only normalized `addTab`
      * correlation consumed by this projection; never part of `model`.
-     * @param {Number} [options.vesselConversionConvertThreshold] Provisional convert-in threshold;
-     *     omitted values leave the SortZone default intact.
      * @param {Number} [options.vesselConversionPointerExitGraceMs] Binding-owned visual-only grace;
      *     commit eligibility still drops on the first raw claim miss.
-     * @param {Number} [options.vesselConversionRevertThreshold] Provisional convert-out threshold.
      * @returns {Object}
      * @static
      */
@@ -578,9 +575,7 @@ class LayoutAdapter extends Base {
             syncDockLockPane                  : options.syncDockLockPane,
             retainRevealPane                  : options.retainRevealPane,
             tabInsertDescriptor               : options.tabInsertDescriptor ?? null,
-            vesselConversionConvertThreshold  : options.vesselConversionConvertThreshold,
             vesselConversionPointerExitGraceMs: options.vesselConversionPointerExitGraceMs,
-            vesselConversionRevertThreshold   : options.vesselConversionRevertThreshold,
             workspaceId                       : options.workspaceId ?? null
         });
 
@@ -1334,14 +1329,8 @@ class LayoutAdapter extends Base {
                     enableVesselConversion: context.enableVesselConversion === true,
                     enableProxyToPopup    : context.enableDockTearOut === true,
                     sortGroup             : context.crossWindowSortGroup,
-                    ...(Number.isFinite(context.vesselConversionConvertThreshold)
-                        ? {vesselConversionConvertThreshold: context.vesselConversionConvertThreshold}
-                        : null),
                     ...(Number.isFinite(context.vesselConversionPointerExitGraceMs)
                         ? {vesselConversionPointerExitGraceMs: context.vesselConversionPointerExitGraceMs}
-                        : null),
-                    ...(Number.isFinite(context.vesselConversionRevertThreshold)
-                        ? {vesselConversionRevertThreshold: context.vesselConversionRevertThreshold}
                         : null)
                 }
             },

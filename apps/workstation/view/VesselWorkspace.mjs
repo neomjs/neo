@@ -1452,14 +1452,12 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * Resolves one dragged vessel's exact live FRAME rect for conversion sampling. The metric compares
-     * the source's outer extent with the target's inner extent — the two planes the docking design
-     * record names for the park's target-cover admission — because the frame is what the user drags
-     * by its corner and what will cover the target's content once parked. Sampling the source's inner
-     * rect instead put the title bar's height between the pointer and the sampled rect on a real
-     * window: the overlap a person can reach by hand fell to the target's top few pixels, while
-     * viewport emulation, where a popup carries no chrome, never showed it. Only the runtime window
-     * identity may select the manager-owned rect (the logical drag proxy is intentionally ignored).
+     * Resolves one dragged vessel's exact live FRAME rect for conversion sampling. The sensor reads it
+     * only as measurable geometry — a live claim over a live frame converts — and the park records it
+     * as the pre-conversion rect, on the plane the docking design record names for the park's
+     * target-cover admission: the frame is what the user drags by its corner and what will cover the
+     * target's content once parked. Only the runtime window identity may select the manager-owned
+     * rect (the logical drag proxy is intentionally ignored).
      * A child that publishes no outer rect samples its inner one — this diverges from the park
      * admission, which is fail-closed on its single declared plane; failing open is deliberate, since
      * refusing an otherwise-authorized live vessel over a missing frame is what that admission's own

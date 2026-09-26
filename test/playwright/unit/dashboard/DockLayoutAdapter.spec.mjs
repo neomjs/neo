@@ -1461,23 +1461,19 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     });
 
     test.describe('vessel-conversion projection threading — policy stays source-owned', () => {
-        test('the explicit opt-in and finite calibration scalars reach every projected dock sort zone', () => {
+        test('the explicit opt-in and the finite exit grace reach every projected dock sort zone', () => {
             const liveRect = {height: 240, width: 320, x: 40, y: 60};
             const result   = DockLayoutAdapter.project(createModel(), {
                 enableVesselConversion            : true,
                 resolveComponentRef               : reference => ({ntype: 'dashboard-panel', reference}),
                 resolveVesselConversionSourceRect : () => liveRect,
-                vesselConversionConvertThreshold  : 0.62,
-                vesselConversionPointerExitGraceMs: 40,
-                vesselConversionRevertThreshold   : 0.38
+                vesselConversionPointerExitGraceMs: 40
             });
             const config = result.items[0].headerToolbar.sortZoneConfig;
 
             expect(config).toMatchObject({
                 enableVesselConversion            : true,
-                vesselConversionConvertThreshold  : 0.62,
-                vesselConversionPointerExitGraceMs: 40,
-                vesselConversionRevertThreshold   : 0.38
+                vesselConversionPointerExitGraceMs: 40
             });
             expect(config).not.toHaveProperty('resolveVesselConversionSourceRect');
 
@@ -1531,16 +1527,14 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             ])
         });
 
-        test('the default is fail-closed and does not mint placeholder calibration into the projection', () => {
+        test('the default is fail-closed and does not mint an exit grace into the projection', () => {
             const result = DockLayoutAdapter.project(createModel(), {
                 resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             });
             const config = result.items[0].headerToolbar.sortZoneConfig;
 
             expect(config.enableVesselConversion).toBe(false);
-            expect(config).not.toHaveProperty('vesselConversionConvertThreshold');
             expect(config).not.toHaveProperty('vesselConversionPointerExitGraceMs');
-            expect(config).not.toHaveProperty('vesselConversionRevertThreshold');
 
             const request = {sourceRect: {height: 1, width: 1, x: 0, y: 0}};
 
