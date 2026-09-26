@@ -159,7 +159,7 @@
 {"source":"worker-isolation","target":"file:src/worker/Data.mjs","type":"IMPLEMENTED_BY"}
 {"source":"worker-isolation","target":"file:src/worker/Canvas.mjs","type":"IMPLEMENTED_BY"}
 {"source":"canvas-architecture","target":"file:src/canvas/Base.mjs","type":"IMPLEMENTED_BY"}
-{"source":"dream-pipeline","target":"file:ai/daemons/orchestrator/services/DreamService.mjs","type":"IMPLEMENTED_BY"}
+{"source":"dream-pipeline","target":"file:src/evolution/RemDigestion.mjs","type":"IMPLEMENTED_BY"}
 {"source":"golden-path","target":"file:ai/services/graph/GoldenPathSynthesizer.mjs","type":"IMPLEMENTED_BY"}
 {"source":"neural-link","target":"file:ai/mcp/server/neural-link/Server.mjs","type":"IMPLEMENTED_BY"}
 {"source":"knowledge-base","target":"file:ai/mcp/server/knowledge-base/Server.mjs","type":"IMPLEMENTED_BY"}
