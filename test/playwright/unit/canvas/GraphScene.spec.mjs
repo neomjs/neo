@@ -113,6 +113,10 @@ test.describe('Neo.canvas.GraphScene — the scene checks', () => {
         expect(() => normalizeScene({positions: [0, 0, 0], edges: [0]})).toThrow(/index pairs/);
         expect(() => normalizeScene({positions: [0, 0, 0], paths: [[0, 3]]})).toThrow(/names a node/)
     });
+
+    test('a scene without positions is refused, naming the keys it carries', () => {
+        expect(() => normalizeScene({nodes: [{id: 'a'}], links: []})).toThrow(/needs positions, got nodes, links/)
+    });
 });
 
 test.describe('Neo.canvas.GraphScene — the renderer without a GL context', () => {
@@ -156,7 +160,49 @@ test.describe('Neo.canvas.GraphScene — the renderer without a GL context', () 
 
         renderer.setScene({windowId: 'window-1'});
 
-        expect(renderer.getStats().counts, 'a call without positions clears the surface').toBeNull()
+        expect(renderer.getStats().counts, 'a call carrying only its routing key clears the surface').toBeNull()
+    });
+
+    test('a scene the checks refuse throws and leaves the drawn scene; null clears', () => {
+        renderer.context = createContext(400, 200);
+        renderer.setScene({positions: [0, 0, 0,  1, 0, 0], edges: [0, 1], windowId: 'window-1'});
+
+        expect(() => renderer.setScene({nodes: [{id: 'a'}, {id: 'b'}], edges: [0, 1], windowId: 'window-1'}))
+            .toThrow(/needs positions, got nodes, edges/);
+        expect(renderer.getStats().counts, 'the refused scene leaves the drawn one').toEqual({nodes: 2, edges: 1, paths: 0});
+
+        renderer.setScene(null);
+
+        expect(renderer.getStats().counts).toBeNull()
+    });
+
+    test('a subclass normalizeScene receives a scene of its own shape, without the routing key', () => {
+        let received;
+
+        class NodeScene extends GraphScene {
+            static config = {
+                className: 'Test.Unit.Canvas.GraphScene.NodeScene'
+            }
+
+            normalizeScene(scene) {
+                received = scene;
+                return super.normalizeScene(scene && {positions: scene.nodes.flatMap(node => node.xyz)})
+            }
+        }
+
+        NodeScene = Neo.setupClass(NodeScene);
+
+        const nodeScene = Neo.create(NodeScene);
+
+        nodeScene.isPaused = true;
+        nodeScene.context  = createContext(400, 200);
+        nodeScene.setScene({nodes: [{xyz: [0, 0, 0]}, {xyz: [2, 0, 0]}], windowId: 'window-1'});
+
+        expect(received).toEqual({nodes: [{xyz: [0, 0, 0]}, {xyz: [2, 0, 0]}]});
+        expect(nodeScene.getStats().counts).toEqual({nodes: 2, edges: 0, paths: 0});
+        expect(nodeScene.camera.target).toEqual([1, 0, 0]);
+
+        nodeScene.destroy()
     });
 
     test('a lost context keeps the scene, drops its GL objects and leaves the buffer alone until the restore', () => {
