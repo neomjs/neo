@@ -2177,6 +2177,8 @@ test.describe('Workstation.view.Workspace', () => {
             expect(target?.parent, 'the chrome sits in the vessel\'s viewport').toBe(viewport);
             expect(target.flex, 'the chrome fills the window').toBe(1);
             expect(target.ntype).toBe('tab-container');
+            expect(target.ui, 'the chrome is the projection\'s compact inline variant').toBe('inline');
+            expect(target.cls, 'the chrome carries the projection\'s dock-tabs class').toContain('neo-dashboard-dock-tabs');
             expect(workspace.resolveVesselStageTarget('vessel-window'), 'one chrome per window').toBe(target);
 
             expect(await workspace.tearOutEmbodiment.stage({itemId: 'alerts', windowId: 'vessel-window'})).toBe(true);

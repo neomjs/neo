@@ -833,11 +833,15 @@ class VesselWorkspace extends DockWorkspace {
             // a chrome that lost its viewport is replaced through the one retire path, pane hand-over included
             chrome && me.retireProvisionalVesselChrome(windowId, {releasePanes: true});
 
+            // The projection's own pair: the dock-tabs class and the inline variant are what make a
+            // dock tab strip compact, so the chrome a vessel shows before its terminal measures the
+            // same as the chrome the committed projection mounts in its place.
             chrome = me.provisionalVesselChromes[windowId] = viewport.add({
                 module : DockTabContainer,
                 appName: viewport.appName,
-                cls    : ['workstation-vessel-provisional-chrome'],
+                cls    : ['neo-dashboard-dock-tabs', 'workstation-vessel-provisional-chrome'],
                 flex   : 1,
+                ui     : 'inline',
                 windowId
             })
         }
