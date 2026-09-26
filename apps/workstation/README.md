@@ -93,9 +93,12 @@ explicitly selects another record in that collection. An unusable selection offe
 workspace**, which preserves the saved collection and creates a new root.
 
 Use a pane's pop-out action or tear-out gesture to open its native window, and the browser's
-close control to close it. A closed or cold-restored popup remains a retained participant.
-**Reset to default** brings the shipped panes back to their default arrangement; **Undo** can reverse
-a preceding tear-out while that history still exists. Cold boot starts with empty history.
+close control to close it. Closing a popup returns its panes to main in one Group transaction:
+surviving original tab homes keep their positions, and other panes join an existing main stack.
+**Undo** reopens the popup with its panes; **Redo** returns them and closes it again. Reloading a
+popup does not return its panes. If an opener reload lost the native handle, recovery waits for
+the popup's reconnect lease to expire. Cold-restored popups remain retained participants until
+opened or restored. **Reset to default** restores the shipped arrangement. Cold boot starts with empty history.
 Reloading a root or a restored popup while its SharedWorker survives reuses the live Workspace,
 host and pane instances without replaying history or writing a new topology.
 

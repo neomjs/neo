@@ -12,7 +12,7 @@ import {test, expect} from '../../fixtures.mjs';
  * workspace's own `getPaneIdentity`, which returns the live instance id: a rebuilt pane would carry a
  * new id, so identity equality IS the "no createPane" claim.
  *
- * Two lifecycle routes end with the same parked pane and the same empty slot, so the lease arm reads
+ * The two lifecycle routes retain the same instance but have distinct return policies, so the lease arm reads
  * the Group's slot as well. A reservation reads generation 0 with no window and leaves the manager
  * when the lease that started at `reserve()` ends: `leaseExpired` → `NativeLifecycle.onLeaseExpired`
  * → the host's `expired` effect, the one route that asks `onNativeWindowRelease` with no window. A
@@ -315,7 +315,7 @@ test.describe('Workstation reclaim route (Neural Link)', () => {
         expect(pageErrors).toEqual([])
     });
 
-    test('control: a vessel that connected and then closed takes the release route — the never-bound witness refuses it, and the same pane parks', async ({page, neuralLink}) => {
+    test('control: a vessel that connected and then closed takes the release route and returns the same pane to main', async ({page, neuralLink}) => {
         test.setTimeout(180000);
 
         const pageErrors = [];
@@ -367,13 +367,11 @@ test.describe('Workstation reclaim route (Neural Link)', () => {
             expect(await leaveReservation({app, workspaceId, groupId, workspaceKey: vesselKey}),
                 'the never-bound witness refuses a slot that was bound once').toEqual({left: {generation: 1, windowId: null}, reservedReads: 0});
 
-            // The outcome is the parked pane of the never-bound route — which is why that arm reads
-            // the slot, not the pane, to know which route it exercised.
-            await expect.poll(() => embodimentOf(app, paneId), {...POLL, message: 'the released vessel\'s pane parks'})
-                .toEqual({windowId: expect.anything(), mounted: false, isDestroyed: false});
+            await expect.poll(() => embodimentOf(app, paneId), {...POLL, message: 'the closed vessel returns its live pane to main'})
+                .toEqual({windowId: rootWindowId, mounted: true, isDestroyed: false});
             expect(await app.callMethod(workspaceId, 'getPaneIdentity', [ITEM]),
                 'the workspace still resolves the same live instance').toBe(paneId);
-            expect(await holdersOf(app, workspaceId), 'the vessel document still lists the pane').toEqual([vesselKey]);
+            expect(await holdersOf(app, workspaceId), 'main owns the returned pane').toEqual([MAIN]);
 
             // …and the released slot ends in the same `null`, one lease after the release, not the click.
             await expect.poll(slot, {...POLL, message: 'the released slot leaves the manager when its own lease ends'}).toBe(null);

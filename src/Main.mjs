@@ -162,6 +162,7 @@ class Main extends core.Base {
                 'windowNativeClose',
                 'windowNativeFocus',
                 'windowNativeGetGeometry',
+                'windowNativeIsClosed',
                 'windowNativeMoveTo',
                 'windowNativeResizeTo',
                 'windowOpen',
@@ -1169,6 +1170,31 @@ class Main extends core.Base {
         return value && Object.values(value).every(Number.isFinite) && value.height > 0 && value.width > 0
             ? value
             : null
+    }
+
+    /**
+     * @summary Observes an exact physical handle after its document's control route was released.
+     * Reload invalidates control authority but leaves the WindowProxy open. A missing or replaced
+     * handle is unknown, never evidence of closure; this read grants no native control capability.
+     * @param {Object} data
+     * @param {String} data.nativeHandleKey
+     * @returns {Promise<Boolean|null>} true closed, false still open, null unknown generation.
+     */
+    async windowNativeIsClosed({nativeHandleKey}) {
+        if (typeof nativeHandleKey !== 'string' || !nativeHandleKey) return null;
+        const entry = Object.values(this.openWindows).find(value => value.nativeHandleKey === nativeHandleKey);
+        if (!entry) return null;
+
+        try {
+            for (let attempt = 0; attempt < 6; attempt++) {
+                if (this.openWindows[entry.windowName] !== entry) return null;
+                if (entry.win.closed) return true;
+                await new Promise(resolve => setTimeout(resolve, 50))
+            }
+            return this.openWindows[entry.windowName] === entry ? entry.win.closed : null
+        } catch {
+            return null
+        }
     }
 
     /**

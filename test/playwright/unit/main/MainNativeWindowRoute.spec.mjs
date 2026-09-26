@@ -419,6 +419,7 @@ async function runNativeWindowRouteProbe(scenario) {
 
             const popup = {
                 get closed() {
+                    if (state.throwClosed) throw new Error('unreachable handle');
                     return state.closed
                 },
                 get outerHeight() {
@@ -526,10 +527,26 @@ async function runNativeWindowRouteProbe(scenario) {
                 : null;
             let
                 exactCompletion = null,
+                closure = null,
                 geometry = null,
                 resize   = null;
 
-            if (scenario === 'native-move-effect') {
+            if (scenario === 'native-close-observation') {
+                globalThis.setTimeout = callback => { callback(); return 1 };
+                Main.releaseNativeWindowRoute({...route, win: popup});
+                closure = {
+                    open: await Main.windowNativeIsClosed({nativeHandleKey: route.nativeHandleKey}),
+                    unknown: await Main.windowNativeIsClosed({nativeHandleKey: 'unknown'}),
+                    missing: await Main.windowNativeIsClosed({})
+                };
+                state.throwClosed = true;
+                closure.unreachable = await Main.windowNativeIsClosed({nativeHandleKey: route.nativeHandleKey});
+                state.throwClosed = false;
+                state.closed = true;
+                closure.closed = await Main.windowNativeIsClosed({nativeHandleKey: route.nativeHandleKey});
+                Main.windowOpen({url, useTotalHeight: false, windowName: 'tear-out'});
+                closure.superseded = await Main.windowNativeIsClosed({nativeHandleKey: route.nativeHandleKey})
+            } else if (scenario === 'native-move-effect') {
                 popup.moveTo = (x, y) => { state.x = x; state.y = y };
                 exactCompletion = await Main.windowNativeMoveTo({
                     ...route, x: 420, y: 320,
@@ -611,6 +628,7 @@ async function runNativeWindowRouteProbe(scenario) {
 
             console.log(JSON.stringify({
                 closed   : state.closed,
+                closure,
                 events,
                 effects: state.effects,
                 exactCompletion,
@@ -824,6 +842,12 @@ test.describe('Neo.Main native window routes (#15396)', () => {
         expect(result.closed).toBe(true);
         expect(result.hasEntry).toBe(false);
         expect(result.route).toBeNull()
+    });
+
+    test('physical closure remains observable after control-route release without confusing reload or a successor', async () => {
+        const result = await runNativeWindowRouteProbe('native-close-observation');
+
+        expect(result.closure).toEqual({open: false, unknown: null, missing: null, unreachable: null, closed: true, superseded: null})
     });
 
     test('a native close is the VERIFIED outcome: a deferred close answers false and keeps the route, a done close retires the entry', async () => {
