@@ -155,6 +155,13 @@ class DragTarget extends Base {
          */
         awaitDragEmbodiment: null,
         /**
+         * Optional owner seam: for a frame {@link #previewFor} could not answer yet, returns a
+         * Promise that resolves `true` once the owner can answer it (e.g. its geometry settled), or
+         * a non-thenable when nothing is pending. Lets one frame be enough when the hand stops.
+         * @member {Function|null} awaitPreviewable=null
+         */
+        awaitPreviewable: null,
+        /**
          * Optional owner seam: parks/relegates the physical source popup before target-local
          * embodiment. Strict `true` admits the native handoff.
          * @member {Function|null} suspendNativeWindowDrag=null
@@ -266,14 +273,62 @@ class DragTarget extends Base {
         me.currentDragPayload = payload;
 
         try {
-            return me.currentPreview = me.previewFor?.(payload) ?? null
+            me.currentPreview = me.previewFor?.(payload) ?? null
         } catch (error) {
-            payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload);
-            me.currentDragPayload = null;
-            me.currentPreview     = null;
-            me.clearPreview?.();
+            me.releasePreviewFailure(payload);
             throw error
         }
+
+        me.currentPreview === null && me.answerWhenPreviewable(payload);
+
+        return me.currentPreview
+    }
+
+    /**
+     * @summary Answers a frame again once the owner can preview it.
+     *
+     * A settled park replays exactly one frame (docking design record §2.8.6), and a hand that
+     * stops sends no other. When the owner could not answer that frame yet, this asks it once
+     * more after {@link #awaitPreviewable} resolves — only while the frame is still this target's
+     * current payload, so a later frame, a leave, or a terminal always wins.
+     * @param {Object} payload The frame that answered no preview.
+     * @protected
+     */
+    answerWhenPreviewable(payload) {
+        let me = this,
+            ready;
+
+        try {
+            ready = me.awaitPreviewable?.(payload)
+        } catch {
+            return
+        }
+
+        typeof ready?.then === 'function' && ready.then(previewable => {
+            if (previewable !== true || me.isDestroyed || me.currentDragPayload !== payload || me.currentPreview) return;
+
+            try {
+                me.currentPreview = me.previewFor?.(payload) ?? null
+            } catch (error) {
+                // no caller to rethrow to on this path, so the failure reports itself
+                me.releasePreviewFailure(payload);
+                console.error('DragTarget: the re-driven preview failed', error)
+            }
+        }, () => {})
+    }
+
+    /**
+     * @summary Releases the target-local state of a frame whose preview threw.
+     * @param {Object} payload
+     * @protected
+     */
+    releasePreviewFailure(payload) {
+        let me = this;
+
+        payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload);
+        me.currentDragPayload = null;
+        me.currentPreview     = null;
+        me.clearPreview?.()
     }
 
     /**
