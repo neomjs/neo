@@ -232,8 +232,8 @@ export function normalizeScene(scene) {
 /**
  * @summary A WebGL2 graph scene on the canvas worker: nodes as round points, edges as lines, and paths as
  * line strips beaded into ribbons (WebGL draws a line one pixel wide). The App Worker sends typed arrays
- * with the colours and sizes already chosen, so no palette lives here; a subclass that derives its scene
- * from product state converts it and calls `setScene`.
+ * with the colours and sizes already chosen, so the renderer holds no colours of its own; a subclass that
+ * derives its scene from product state converts it and calls `setScene`.
  *
  * A frame is owed only to a change — a scene, the surface, the theme, the camera — never to a clock: idle,
  * the worker draws nothing. The orbit camera frames the scene's bounding sphere until the pointer takes it:
