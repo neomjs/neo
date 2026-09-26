@@ -67,6 +67,13 @@ class SortZone extends DragZone {
          */
         dragHandleSelector: null,
         /**
+         * The dragged item while the gesture holds its focus: a mouse-down on a focusable item focuses it, and
+         * hiding the original at drag start moves the browser's focus to the body. The terminal hands it back.
+         * @member {Neo.component.Base|null} dragFocusOwner=null
+         * @protected
+         */
+        dragFocusOwner: null,
+        /**
          * @member {Boolean} enableProxyToPopup=false
          */
         enableProxyToPopup: false,
@@ -646,6 +653,12 @@ class SortZone extends DragZone {
 
             await me.timeout(30);
 
+            // The item is visible again: give focus back where a click on it would have left it, without a ring
+            if (me.dragFocusOwner) {
+                me.dragFocusOwner.isDestroyed || me.dragFocusOwner.focus(me.dragFocusOwner.id, false, true, 'pointer');
+                me.dragFocusOwner = null
+            }
+
             me.dragEnd(data) // we do not want to trigger the super class call here
         }
     }
@@ -878,7 +891,8 @@ class SortZone extends DragZone {
                 startIndex             : index
             });
 
-            me.dragComponent = draggedItem;
+            me.dragComponent  = draggedItem;
+            me.dragFocusOwner = draggedItem.containsFocus ? draggedItem : null;
 
             sortableItems.forEach((item, i) => {
                 indexMap[i] = owner.items.indexOf(item);

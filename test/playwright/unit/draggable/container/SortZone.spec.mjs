@@ -181,6 +181,44 @@ test.describe('Neo.draggable.container.SortZone', () => {
         expect(sortZone.dragProxy).toBeNull()
     });
 
+    test('a drag whose item owned focus hands it back at the terminal as a pointer focus, committed or cancelled; an item without focus gets none (#19281)', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const
+            realFocus    = Neo.main.DomAccess.focus,
+            calls        = [],
+            [btnA, btnB] = container.items,
+            start        = id => sortZone.onDragStart({path: [{id, cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]});
+
+        Neo.main.DomAccess.focus = data => calls.push(data);
+
+        try {
+            btnA.containsFocus = true;
+            await start('btnA');
+            expect(sortZone.dragFocusOwner, 'the gesture took focus with the item').toBe(btnA);
+            await sortZone.onDragEnd({});
+            expect(calls).toEqual([{children: false, id: 'btnA', modality: 'pointer', preventScroll: true, windowId: btnA.windowId}]);
+            expect(sortZone.dragFocusOwner).toBeNull();
+
+            calls.length = 0;
+            btnB.containsFocus = true;
+            await start('btnB');
+            await sortZone.onDragCancel({key: 'Escape'});
+            expect(calls.map(call => call.id), 'a cancelled drag restores the same way').toEqual(['btnB']);
+
+            calls.length = 0;
+            btnA.containsFocus = false;
+            btnB.containsFocus = false;
+            await start('btnA');
+            expect(sortZone.dragFocusOwner).toBeNull();
+            await sortZone.onDragEnd({});
+            expect(calls, 'an item that never had focus is not focused').toEqual([])
+        } finally {
+            Neo.main.DomAccess.focus = realFocus
+        }
+    });
+
      test('Correctly handles placeholder in index calculation', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         sortZone = container.sortZone;
