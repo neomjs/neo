@@ -62,7 +62,11 @@ function installWindowVessel({
             events    : [], focusCalls: [], openCalls: [], openCount: 0, parkCalls: [], resumeCalls: []
         };
 
-    Neo.Main.getWindowData = async () => ({screenLeft: 10, screenTop: 20});
+    Neo.Main.getWindowData = async () => ({
+        screen    : {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1600},
+        screenLeft: 10,
+        screenTop : 20
+    });
     Neo.Main.windowOpen    = async data => {
         state.openCalls.push(data);
         state.openCount++;
@@ -159,6 +163,7 @@ function installWindowConnectHarness(workspace) {
     Neo.Main.getWindowData = async () => ({
         innerHeight: 700,
         outerHeight: 740,
+        screen     : {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1600},
         screenLeft : 10,
         screenTop  : 20
     });
@@ -981,23 +986,15 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
             await expect(workspace.parkTearOutVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
             })).resolves.toBe(true);
-            expect(vessel.events).toEqual(['focus', 'park', 'focus']);
-            expect(vessel.focusCalls).toEqual([{
-                nativeHandleKey: 'handle-target-child',
-                targetWindowId : 'target-child',
-                windowId       : workspace.windowId
-            }, {
-                nativeHandleKey: 'handle-target-child',
-                targetWindowId : 'target-child',
-                windowId       : workspace.windowId
-            }]);
+            expect(vessel.events, 'the park focuses nothing (#19278)').toEqual(['park']);
+            // the 480x360 frame takes the work-area corner clear of, and farthest from, the target
             expect(vessel.parkCalls).toEqual([{
                 nativeHandleKey: 'handle-tear-child',
                 targetWindowId : 'tear-child',
                 windowId       : workspace.windowId,
                 windowName     : 'tearout-timeline',
-                x              : 874,
-                y              : 55
+                x              : 0,
+                y              : 640
             }]);
 
             const liveRect = {height: 320, width: 480, x: 420, y: 240};
@@ -1132,7 +1129,7 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
         }
     });
 
-    test('a target-focus refusal leaves the source vessel moving and never dispatches a park effect', async () => {
+    test('a target that refuses focus no longer holds the park: the vessel parks clear of it (#19278)', async () => {
         const vessel  = installWindowVessel({nativeFocusResult: false}),
               harness = installWindowConnectHarness(workspace);
 
@@ -1146,19 +1143,17 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
 
             await expect(workspace.parkTearOutVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
-            })).resolves.toBe(false);
-            expect(vessel.events).toEqual(['focus']);
-            expect(vessel.parkCalls).toEqual([])
+            })).resolves.toBe(true);
+            expect(vessel.events).toEqual(['park']);
+            expect(workspace.lastVesselParkReceipt).toMatchObject({cleared: true, parked: true})
         } finally {
             harness.restore();
             vessel.restore()
         }
     });
 
-    test('a post-move cover-focus refusal restores the source rect before refusing park ownership', async () => {
-        let focusCalls = 0;
-
-        const vessel  = installWindowVessel({nativeFocusResult: () => ++focusCalls === 1}),
+    test('a refused park move admits nothing', async () => {
+        const vessel  = installWindowVessel({parkResult: false}),
               harness = installWindowConnectHarness(workspace);
 
         try {
@@ -1172,21 +1167,9 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
             await expect(workspace.parkTearOutVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
             })).resolves.toBe(false);
-            expect(vessel.events).toEqual(['focus', 'park', 'focus']);
-            expect(vessel.resumeCalls).toEqual([{
-                nativeHandleKey: 'handle-tear-child',
-                targetWindowId : 'tear-child',
-                windowId       : workspace.windowId,
-                windowName     : 'tearout-timeline',
-                x              : 40,
-                y              : 60
-            }]);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({
-                compensated: true,
-                moved      : true,
-                parked     : false,
-                refocused  : false
-            })
+            expect(vessel.events).toEqual(['park']);
+            expect(workspace.lastVesselParkReceipt).toMatchObject({moved: false, refusedAt: 'move'});
+            expect(workspace.lastVesselParkReceipt).not.toHaveProperty('parked')
         } finally {
             harness.restore();
             vessel.restore()
