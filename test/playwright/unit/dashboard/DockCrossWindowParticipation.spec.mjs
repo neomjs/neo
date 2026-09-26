@@ -294,10 +294,11 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
     /**
      * A header proxy mounts after the hover admitted it, so the drop has to consult the render outcome.
      * Drives the REAL proxy embodiment through the participation's default seams; the proxy that
-     * rendered is the control that the same gesture commits.
+     * rendered is the control that the same gesture commits. `landsFirst` drops while the mount is
+     * still in flight and only then answers it.
      */
-    test('a header proxy whose render is refused commits no drop; over a rendered one the same drop commits', async () => {
-        const dropBehindHeaderProxy = async mount => {
+    test('a header proxy that has not rendered commits no drop, refused or still mounting; over a rendered one the same drop commits', async () => {
+        const dropBehindHeaderProxy = async (mount, landsFirst=null) => {
             const
                 commits     = [],
                 draggedItem = {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'},
@@ -334,9 +335,12 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             };
 
             const admitted = participation.target.onRemoteDragMove(payload) !== null,
-                  settled  = await embodiment.whenSettled({itemId: 'alpha'}),
+                  settled  = landsFirst ? null : await embodiment.whenSettled({itemId: 'alpha'}),
                   result   = participation.target.onRemoteDrop(draggedItem),
                   preview  = participation.target.currentPreview;
+
+            landsFirst?.();
+            await Promise.resolve();
 
             participation.destroy();
             embodiment.destroy();
@@ -344,8 +348,14 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             return {admitted, commits, preview, result, settled}
         };
 
+        let refuseLate;
+
         const rendered = await dropBehindHeaderProxy(() => Promise.resolve()),
-              refused  = await dropBehindHeaderProxy(() => Promise.reject(new Error('renderer refused')));
+              refused  = await dropBehindHeaderProxy(() => Promise.reject(new Error('renderer refused'))),
+              mounting = await dropBehindHeaderProxy(
+                  () => new Promise((resolve, reject) => {refuseLate = reject}),
+                  () => refuseLate(new Error('renderer refused after the drop'))
+              );
 
         expect(rendered.admitted).toBe(true);
         expect(rendered.settled).toBe(true);
@@ -355,7 +365,12 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         expect(refused.settled).toBe(false);
         expect(refused.commits, 'no drop lands behind a proxy nobody sees').toEqual([]);
         expect(refused.result).toBeNull();
-        expect(refused.preview).toBeNull()
+        expect(refused.preview).toBeNull();
+
+        expect(mounting.admitted).toBe(true);
+        expect(mounting.commits, 'a drop while the proxy is still mounting lands behind nothing either').toEqual([]);
+        expect(mounting.result).toBeNull();
+        expect(mounting.preview).toBeNull()
     });
 
     test('foreign drop: composes ONE transferItem through the real executor — source loses the item, target gains it, commitTransfer publishes the pair', () => {

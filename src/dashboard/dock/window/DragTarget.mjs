@@ -155,9 +155,9 @@ class DragTarget extends Base {
          */
         awaitDragEmbodiment: null,
         /**
-         * Optional owner seam: whether the staged embodiment still renders. Strict `false` (its
-         * proxy failed to render and retired) makes the drop commit nothing, so no drop lands
-         * behind a proxy nobody sees. Unset admits the drop, as before.
+         * Optional owner seam: whether the staged embodiment renders. Strict `false` (its proxy is
+         * still mounting, or its render was refused and it retired) makes the drop commit nothing,
+         * so no drop lands behind a proxy nobody sees. Unset admits the drop, as before.
          * @member {Function|null} isDragEmbodimentLive=null
          */
         isDragEmbodimentLive: null,
