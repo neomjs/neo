@@ -9,13 +9,27 @@ import {setup} from '../../setup.mjs';
 
 setup({appConfig: {name: 'CanvasGraphSceneTest'}});
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import GraphScene     from '../../../../src/canvas/GraphScene.mjs';
-import SharedCanvas   from '../../../../src/app/SharedCanvas.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import InstanceManager    from '../../../../src/manager/Instance.mjs';
+import GraphScene         from '../../../../src/canvas/GraphScene.mjs';
+import RemoteMethodAccess from '../../../../src/worker/mixin/RemoteMethodAccess.mjs';
+import SharedCanvas       from '../../../../src/app/SharedCanvas.mjs';
 
 const FOV = 0.9;
+
+/**
+ * The canvas worker's reply seam without a worker: the real mixin, with the replies counted.
+ */
+class ReplyWorker extends Neo.core.Base {
+    static config = {
+        className: 'Test.Unit.Canvas.GraphScene.ReplyWorker',
+        mixins   : [RemoteMethodAccess]
+    }
+}
+
+ReplyWorker = Neo.setupClass(ReplyWorker);
 
 /**
  * A WebGL2 stand-in for the sizing path: a canvas with a size, and the viewport calls recorded.
@@ -174,6 +188,32 @@ test.describe('Neo.canvas.GraphScene — the renderer without a GL context', () 
         renderer.setScene(null);
 
         expect(renderer.getStats().counts).toBeNull()
+    });
+
+    test('through the reply seam, a refused scene answers the App Worker with one rejection', () => {
+        const
+            worker   = Neo.create(ReplyWorker),
+            replies  = {rejected: [], resolved: 0},
+            logError = console.error,
+            call     = data => worker.onRemoteMethod({remoteClassName: 'Neo.canvas.GraphScene', remoteMethod: 'setScene', remoteId: renderer.id, data});
+
+        worker.resolve   = () => {replies.resolved++};
+        worker.reject    = (msg, err) => {replies.rejected.push(err)};
+        renderer.context = createContext(400, 200);
+
+        call({positions: [0, 0, 0,  1, 0, 0], edges: [0, 1], windowId: 'window-1'});
+        console.error = () => {};
+
+        try {
+            call({nodes: [{id: 'a'}, {id: 'b'}], edges: [0, 1], windowId: 'window-1'})
+        } finally {
+            console.error = logError;
+            worker.destroy()
+        }
+
+        expect(replies.resolved, 'only the drawn scene resolved').toBe(1);
+        expect(replies.rejected.map(err => err.message)).toEqual([expect.stringMatching(/needs positions, got nodes, edges/)]);
+        expect(renderer.getStats().counts, 'the refused scene leaves the drawn one').toEqual({nodes: 2, edges: 1, paths: 0})
     });
 
     test('a subclass normalizeScene receives a scene of its own shape, without the routing key', () => {
