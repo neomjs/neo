@@ -10,9 +10,10 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs';
-import Component     from '../../../../src/component/Base.mjs';
-import Container     from '../../../../src/container/Base.mjs';
-import DockWorkspace from '../../../../src/dashboard/dock/Workspace.mjs';
+import Component          from '../../../../src/component/Base.mjs';
+import Container          from '../../../../src/container/Base.mjs';
+import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
+import DragProxyComponent from '../../../../src/draggable/DragProxyComponent.mjs';
 
 import {
     createDockVesselEmbodiment,
@@ -465,5 +466,102 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
         expect(proxyEmbodiment.restoreByWindow('source-window')).toBe(true);
         expect(proxyEmbodiment.restoreByWindow('target-window')).toBe(false);
         expect(source.items[1]).toBe(pane)
+    });
+
+    test.describe('a converted tab drag enters the target as its tab-header proxy (#19248)', () => {
+        const headerVdom = {cn: [{tag: 'button', cls: ['neo-tab-header-button'], text: 'Live'}]};
+
+        /**
+         * @summary A header-mode fixture: the proxy factory records each config and answers mounted.
+         * @param {Object} [options={}]
+         * @param {Object|null} [options.vdom=headerVdom] The source zone's drag-proxy vdom.
+         * @returns {Object}
+         */
+        function createHeaderFixture({vdom=headerVdom}={}) {
+            const
+                configs        = [],
+                proxies        = [],
+                sourceSortZone = {
+                    getDragProxyConfig: () => ({cls: ['neo-tab-header-toolbar', 'neo-dock-dragproxy']}),
+                    getDragProxyVdom  : () => vdom && Neo.clone(vdom, true),
+                    windowId          : 'source-window'
+                };
+
+            proxyEmbodiment = createDockVesselProxyEmbodiment({
+                createProxy: config => {
+                    const proxy = Neo.create(Component, {cls: config.cls, style: config.style});
+
+                    Object.defineProperty(proxy, 'mountedPromise', {value: Promise.resolve(proxy)});
+                    configs.push(config);
+                    proxies.push(proxy);
+
+                    return proxy
+                },
+                resolvePane       : itemId => itemId === 'live' ? pane : null,
+                resolveProxyConfig: ({sourceSortZone: zone}) => ({cls: zone.getDragProxyConfig().cls})
+            });
+
+            return {
+                configs,
+                move: (x=20) => proxyEmbodiment.move({
+                    draggedItem   : pane,
+                    embodyHeader  : true,
+                    proxyRect     : {height: 32, width: 90, x, y: 30},
+                    sourceSortZone,
+                    targetWindowId: 'target-window'
+                }),
+                proxies
+            }
+        }
+
+        test('the proxy is a DragProxyComponent over the source zone\'s proxy vdom; the pane never leaves its slot', async () => {
+            const fixture = createHeaderFixture();
+
+            expect(fixture.move()).toBe(true);
+            expect(fixture.move(75)).toBe(true);
+            expect(fixture.proxies).toHaveLength(1);
+
+            expect(fixture.configs[0]).toMatchObject({
+                height          : '32px',
+                module          : DragProxyComponent,
+                moveInMainThread: false,
+                vdom            : headerVdom,
+                width           : '90px',
+                windowId        : 'target-window'
+            });
+            expect(fixture.proxies[0].style).toMatchObject({left: '75px', top: '30px'});
+
+            expect(source.items[1], 'no stand-in: the pane keeps its own slot').toBe(pane);
+            expect(source.items.some(item => item.cls?.includes('neo-dashboard-dock-vessel-placeholder'))).toBe(false);
+            expect(proxyEmbodiment.isStaged('live')).toBe(true);
+
+            await expect.poll(() => proxyEmbodiment.snapshot('live')?.settled).toBe(true);
+            expect(proxyEmbodiment.snapshot('live')).toMatchObject({header: true, ownsPane: false, visible: true});
+            await expect(proxyEmbodiment.whenSettled({itemId: 'live'})).resolves.toBe(true)
+        });
+
+        test('restore and promote retire the header proxy exact-once and leave the pane where it was', () => {
+            for (const verb of ['restore', 'promote']) {
+                const fixture = createHeaderFixture();
+
+                fixture.move();
+
+                expect(proxyEmbodiment[verb]({itemId: 'live'}), verb).toBe(true);
+                expect(proxyEmbodiment[verb]({itemId: 'live'}), `${verb} twice`).toBe(false);
+                expect(fixture.proxies[0].isDestroyed).toBe(true);
+                expect(proxyEmbodiment.isStaged('live')).toBe(false);
+                expect(source.items[1]).toBe(pane);
+
+                proxyEmbodiment.destroy()
+            }
+        });
+
+        test('a source zone without a proxy vdom admits no header proxy', () => {
+            const fixture = createHeaderFixture({vdom: null});
+
+            expect(fixture.move()).toBe(false);
+            expect(fixture.proxies).toHaveLength(0);
+            expect(proxyEmbodiment.snapshot('live')).toBeNull()
+        })
     })
 });

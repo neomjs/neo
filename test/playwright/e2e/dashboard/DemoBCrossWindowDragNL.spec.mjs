@@ -454,12 +454,15 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                 + `\nround-trip result: ${JSON.stringify(result)}`)
         }
 
-        await expect(targetPopup.locator('.agentos-dockdemo-counter-pane'),
-            'the same live pane renders in the target proxy while its native source is parked')
+        await expect(targetPopup.locator('.neo-dock-dragproxy'),
+            'the target shows the dragged tab header as its proxy while the native source is parked')
             .toBeVisible({timeout: 5000});
+        await expect(tearOutPopup.locator('.agentos-dockdemo-counter-pane'),
+            'the live pane stays in its parked source until restore or commit')
+            .toHaveCount(1);
         await expect(tearOutPopup.locator('.neo-dashboard-dock-vessel-placeholder'),
-            'the parked source reserves the pane slot until restore or commit')
-            .toBeVisible({timeout: 5000});
+            'a header proxy leaves no stand-in behind')
+            .toHaveCount(0);
 
         let sourceParkState;
 

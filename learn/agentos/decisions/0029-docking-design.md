@@ -619,7 +619,10 @@ observation gate lets an admitting platform use the same state machine and makes
 gives every target — and admitted by the park; target-cover changes only the reversible physical embodiment needed
 after the claim proposes. *(Amended 2026-09-26, #19241: the size-neutral min-axis overlap metric that once proposed
 conversion is retired — on real window chrome it left the target's far edges unreachable by hand, while the native
-title-bar path admits by a single point.)*
+title-bar path admits by a single point.)* Over the target, a converted tab drag shows the tab-header proxy of the
+in-window drag, placed by the grab offset inside the tab, while the live pane stays in the parked vessel until the
+drop; a popup dragged by its native title bar is a real window and keeps its own embodiment. *(Amended 2026-09-26,
+#19248: a window-sized content proxy was a third proxy type that covered the dock layout the hand aims at.)*
 
 This amendment does not silently broaden every popup owner. Resize remains least-authority by default and the
 Workstation vessel opener grants it explicitly. Demo B keeps its existing source-larger-than-target refusal until its

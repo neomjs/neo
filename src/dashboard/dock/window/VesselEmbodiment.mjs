@@ -1,3 +1,4 @@
+import DragProxyComponent from '../../../draggable/DragProxyComponent.mjs';
 import DragProxyContainer from '../../../draggable/DragProxyContainer.mjs';
 import VesselPlaceholder  from './VesselPlaceholder.mjs';
 
@@ -208,10 +209,13 @@ function isMeasurableProxyRect(rect) {
 /**
  * Creates one host-local target-proxy embodiment over {@link createDockVesselEmbodiment}.
  *
- * The nested registry preserves the pane's exact slot in the parked source popup while the SAME
- * live pane renders inside one target-window {@link Neo.draggable.DragProxyContainer}. Its
- * generation fence makes a late renderer settlement from a restored predecessor unable to retire
- * a successor proxy. The host remains the lifecycle authority: pointer movement calls
+ * A converted tab drag (`embodyHeader`) enters the target as the tab-header proxy it showed in its
+ * own window — a {@link Neo.draggable.DragProxyComponent} over the source zone's drag-proxy vdom —
+ * while the live pane stays in the parked vessel until the drop. Every other embodiment (the native
+ * title-bar handoff) moves the SAME live pane into one target-window
+ * {@link Neo.draggable.DragProxyContainer}, the nested registry preserving its exact slot in the parked
+ * source popup. The generation fence makes a late renderer settlement from a restored predecessor
+ * unable to retire a successor proxy. The host remains the lifecycle authority: pointer movement calls
  * {@link #move}, convert-out/cancel calls {@link #restore}, and a committed transfer calls
  * {@link #promote}. No document or native-window state enters this helper.
  *
@@ -256,6 +260,7 @@ export function createDockVesselProxyEmbodiment({
         if (!record || active !== record) return false;
 
         active = null;
+        record.settle?.(false);
 
         if (!record.proxy?.isDestroyed) {
             record.proxy.hidden = true;
@@ -290,7 +295,7 @@ export function createDockVesselProxyEmbodiment({
         destroy() {
             let record = active;
 
-            if (record && !record.promoted) {
+            if (record && !record.promoted && !record.header) {
                 embodiment.restore({
                     itemId  : record.itemId,
                     windowId: record.targetWindowId
@@ -302,23 +307,26 @@ export function createDockVesselProxyEmbodiment({
         },
 
         /**
-         * @summary Reports whether one pane still has an exact source-slot reservation.
+         * @summary Reports whether one item renders through a target proxy: a header proxy, or the pane
+         * itself with its exact source-slot reservation.
          * @param {String} itemId
          * @returns {Boolean}
          */
         isStaged(itemId) {
-            return embodiment.isStaged(itemId)
+            return (active?.header === true && active.itemId === itemId) || embodiment.isStaged(itemId)
         },
 
         /**
-         * @summary Moves or updates one admitted target-local live proxy.
+         * @summary Moves or updates one admitted target-local proxy.
          *
-         * The move is synchronously fail-closed: by return time the pane either has a recorded
-         * exact source slot and a target proxy parent, or no proxy is admitted. Renderer
-         * settlement continues behind the generation fence and is exposed through
-         * {@link #snapshot} for release gating.
+         * The move is synchronously fail-closed: by return time either the proxy renders (a header
+         * proxy, or the pane with a recorded exact source slot and the proxy as its parent), or no
+         * proxy is admitted. Renderer settlement continues behind the generation fence and is exposed
+         * through {@link #snapshot} for release gating.
          * @param {Object} data
          * @param {Neo.component.Base} data.draggedItem
+         * @param {Boolean} [data.embodyHeader=false] Render the source's tab-header drag proxy; the
+         *     live pane stays where it is.
          * @param {Object} data.proxyRect Target-window-local `{x,y,width,height}`
          * @param {Neo.draggable.container.SortZone} data.sourceSortZone
          * @param {String|Number} [data.sourceWindowId] Exact physical source vessel identity.
@@ -327,8 +335,10 @@ export function createDockVesselProxyEmbodiment({
          * @param {String|Number} data.targetWindowId
          * @returns {Boolean}
          */
-        move({draggedItem, proxyRect, sourceSortZone, sourceWindowId, targetWindowId} = {}) {
-            const itemId = draggedItem?.dockItemId;
+        move({draggedItem, embodyHeader=false, proxyRect, sourceSortZone, sourceWindowId, targetWindowId} = {}) {
+            const
+                header = embodyHeader === true,
+                itemId = draggedItem?.dockItemId;
 
             if (!itemId) return false;
 
@@ -344,6 +354,7 @@ export function createDockVesselProxyEmbodiment({
             }
 
             if (active && (
+                active.header !== header ||
                 active.itemId !== itemId ||
                 active.sourceWindowId !== sourceWindowId ||
                 active.targetWindowId !== targetWindowId
@@ -352,7 +363,7 @@ export function createDockVesselProxyEmbodiment({
             }
 
             if (!active) {
-                let proxyConfig;
+                let proxyConfig, vdom;
 
                 try {
                     proxyConfig = resolveProxyConfig({
@@ -368,11 +379,23 @@ export function createDockVesselProxyEmbodiment({
 
                 if (!proxyConfig || typeof proxyConfig !== 'object') return false;
 
+                if (header) {
+                    try {
+                        vdom = sourceSortZone?.getDragProxyVdom?.()
+                    } catch {
+                        return false
+                    }
+
+                    if (!vdom) return false
+                }
+
                 const record = {
                     generation: ++generation,
+                    header,
                     itemId,
                     promoted  : false,
                     proxy     : null,
+                    settle    : null,
                     settlement: null,
                     settled   : false,
                     sourceWindowId,
@@ -382,9 +405,8 @@ export function createDockVesselProxyEmbodiment({
                 try {
                     record.proxy = createProxy({
                         ...proxyConfig,
-                        module          : DragProxyContainer,
+                        ...(header ? {module: DragProxyComponent, vdom} : {module: DragProxyContainer, items: []}),
                         height          : `${proxyRect.height}px`,
-                        items           : [],
                         moveInMainThread: false,
                         style           : {
                             ...(proxyConfig.style || {}),
@@ -402,34 +424,42 @@ export function createDockVesselProxyEmbodiment({
 
                 active = record;
 
-                let settlement;
+                if (header) {
+                    // settles on mount; a retirement that comes first settles it false
+                    record.settlement = new Promise(resolve => {
+                        record.settle = resolve;
+                        record.proxy.mountedPromise.then(() => resolve(active === record))
+                    }).then(settled => record.settled = settled === true)
+                } else {
+                    let settlement;
 
-                try {
-                    settlement = embodiment.stage({itemId, windowId: targetWindowId})
-                } catch {
-                    retireProxy(record);
-                    return false
-                }
-
-                if (!embodiment.isStaged(itemId)) {
-                    retireProxy(record);
-                    return false
-                }
-
-                record.settlement = Promise.resolve(settlement).then(admitted => {
-                    if (active !== record) return false;
-
-                    record.settled = admitted === true;
-
-                    if (!record.settled) {
-                        retireProxy(record)
+                    try {
+                        settlement = embodiment.stage({itemId, windowId: targetWindowId})
+                    } catch {
+                        retireProxy(record);
+                        return false
                     }
 
-                    return record.settled
-                }, () => {
-                    active === record && retireProxy(record);
-                    return false
-                })
+                    if (!embodiment.isStaged(itemId)) {
+                        retireProxy(record);
+                        return false
+                    }
+
+                    record.settlement = Promise.resolve(settlement).then(admitted => {
+                        if (active !== record) return false;
+
+                        record.settled = admitted === true;
+
+                        if (!record.settled) {
+                            retireProxy(record)
+                        }
+
+                        return record.settled
+                    }, () => {
+                        active === record && retireProxy(record);
+                        return false
+                    })
+                }
             }
 
             active.proxy.hidden = false;
@@ -441,13 +471,14 @@ export function createDockVesselProxyEmbodiment({
                 top : `${proxyRect.y}px`
             };
 
-            return embodiment.isStaged(itemId) && resolvePane(itemId)?.parent === active.proxy
+            return header || (embodiment.isStaged(itemId) && resolvePane(itemId)?.parent === active.proxy)
         },
 
         /**
          * @summary Promotes one committed pane out of transient source-slot ownership.
          * @description The proxy is retired without destroying the pane; the queued committed
-         * projection reparents that same cached instance into its document-owned target.
+         * projection reparents that same cached instance into its document-owned target, from the
+         * proxy or, behind a header proxy, from the parked vessel.
          * @param {Object} identity
          * @param {String} identity.itemId
          * @param {String|Number} [identity.sourceWindowId]
@@ -457,10 +488,10 @@ export function createDockVesselProxyEmbodiment({
         promote(identity = {}) {
             const record = resolveRecord(identity);
 
-            if (!record || !embodiment.promote({
+            if (!record || (!record.header && !embodiment.promote({
                 itemId  : record.itemId,
                 windowId: record.targetWindowId
-            })) {
+            }))) {
                 return false
             }
 
@@ -471,7 +502,8 @@ export function createDockVesselProxyEmbodiment({
         },
 
         /**
-         * @summary Restores one zero-mutation proxy through the parked popup's live placeholder.
+         * @summary Restores one zero-mutation proxy: retires it, and a pane proxy returns the pane
+         * through the parked popup's live placeholder.
          * @param {Object} identity
          * @param {String} identity.itemId
          * @param {String|Number} [identity.sourceWindowId]
@@ -481,10 +513,10 @@ export function createDockVesselProxyEmbodiment({
         restore(identity = {}) {
             const record = resolveRecord(identity);
 
-            if (!record || record.promoted || !embodiment.restore({
+            if (!record || record.promoted || (!record.header && !embodiment.restore({
                 itemId  : record.itemId,
                 windowId: record.targetWindowId
-            })) {
+            }))) {
                 return false
             }
 
@@ -530,8 +562,7 @@ export function createDockVesselProxyEmbodiment({
             return admitted === true &&
                 active === record &&
                 resolveRecord(identity) === record &&
-                embodiment.isStaged(record.itemId) &&
-                resolvePane(record.itemId)?.parent === record.proxy
+                (record.header || (embodiment.isStaged(record.itemId) && resolvePane(record.itemId)?.parent === record.proxy))
         },
 
         /**
@@ -550,6 +581,7 @@ export function createDockVesselProxyEmbodiment({
             return {
                 cls           : Array.isArray(proxy?.cls) ? [...proxy.cls] : [],
                 generation    : record.generation,
+                header        : record.header,
                 itemId        : record.itemId,
                 ownsPane      : pane?.parent === proxy,
                 proxyId       : proxy?.id ?? null,

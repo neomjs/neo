@@ -2561,8 +2561,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                     'neo-theme-neo-dark'
                 ]),
                 computedOpacity: .7,
+                header         : true,
                 itemId         : 'commits',
-                ownsPane       : true,
+                ownsPane       : false,
                 settled        : true,
                 visible        : true
             },
@@ -2971,8 +2972,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                         'neo-theme-neo-dark'
                     ]),
                     computedOpacity: .7,
+                    header         : true,
                     itemId         : 'commits',
-                    ownsPane       : true,
+                    ownsPane       : false,
                     settled        : true,
                     visible        : true
                 },

@@ -248,7 +248,7 @@ class DragTarget extends Base {
      * compute+render to the owner's preview machinery and keeps the latest payload for the
      * drop path.
      * @param {Object} payload `{draggedItem, localX, localY, offsetX, offsetY, proxyRect,
-     *     embodyProxy, sourceSortZone}`
+     *     embodyProxy, embodyHeader, sourceSortZone}`
      * @returns {Object|null} the owner-computed `dockPreview` (null outside affordances)
      */
     onRemoteDragMove(payload) {
