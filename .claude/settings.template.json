@@ -19,14 +19,18 @@
       "Bash(git rev-parse*)",
       "Bash(git merge-base*)",
       "Bash(git show *)",
+      "Bash(git checkout -- *)",
+      "Bash(git restore *)",
+      "Bash(git rebase *)",
+      "Bash(git push --force-with-lease origin *)",
+      "Bash(git push --force origin *)",
       "Bash(gh pr create *)",
       "Bash(gh pr view *)",
       "Bash(gh pr edit *)",
       "Bash(gh pr checks *)",
       "Bash(gh pr list *)",
       "Bash(gh issue view *)",
-      "Bash(gh issue list *)",
-      "Bash(git push --force-with-lease origin agent/*)"
+      "Bash(gh issue list *)"
     ],
     "deny": [
       "Bash(gh pr merge *)",
