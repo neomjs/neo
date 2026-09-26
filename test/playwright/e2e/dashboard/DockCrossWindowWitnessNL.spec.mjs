@@ -19,7 +19,11 @@ import { test, expect } from '../../fixtures.mjs';
 test.describe('#15065 cross-window drag safety witness (L3, cold first gesture)', () => {
     test.setTimeout(120000);
 
-    test('cross-window transfer commits ONCE and the source local drop is suppressed ONCE', async ({ page, neuralLink }) => {
+    test('cross-window transfer commits ONCE and the source local drop is suppressed ONCE', async ({ page, neuralLink, workerErrors }) => {
+        // The harness's windows are synthetic: the source zone's window-drag calls for 'cw-win-a' have no
+        // window to reach, so the main thread's forward rejects them by construction
+        workerErrors.expect(/Target worker 'cw-win-a' does not exist\./);
+
         await page.goto('/examples/dashboard/crossWindowWitness/');
         page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
 
