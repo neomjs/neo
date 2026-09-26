@@ -325,15 +325,16 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
                     return {
                         inTree: Object.values(state.dockModel.nodes)
                             .some(node => node.type === 'tabs' && node.items?.includes('commits')),
-                        ownerWindowId: lifecycle.owners.commits.windowId,
-                        connected    : Boolean(lifecycle.connections.commits),
-                        retirements  : lifecycle.retirements.length
+                        // a return home retires the item's vessel ownership: no record, not an unbound one
+                        owned      : Boolean(lifecycle.owners.commits),
+                        connected  : Boolean(lifecycle.connections.commits),
+                        retirements: lifecycle.retirements.length
                     }
                 }, {
                     message  : 'dwelling over the main window reintegrates Commit Stream without a close',
                     timeout  : 15000,
                     intervals: [50, 100, 250]
-                }).toEqual({inTree: true, ownerWindowId: null, connected: false, retirements: 0})
+                }).toEqual({inTree: true, owned: false, connected: false, retirements: 0})
             } catch (error) {
                 // Bounded triage receipt: which phase the native terminal died in, and whether the
                 // target registration survived the hover.
@@ -577,14 +578,14 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
                     catalog     : Object.keys(state.dockModel.items ?? {}),
                     home        : state.dockModel.nodes['right-top-tabs']?.items ?? [],
                     history     : group.history?.rows?.[group.history.cursor] ?? null,
-                    metricsOwner: lifecycle.owners.metrics?.windowId ?? null,
+                    metricsOwned: Boolean(lifecycle.owners.metrics),
                     retirements : lifecycle.retirements.length,
                     transfer    : state.lastCrossWindowTransfer ?? null
                 };
 
                 return {
                     home        : terminal.home,
-                    metricsOwner: terminal.metricsOwner,
+                    metricsOwned: terminal.metricsOwned,
                     retirements : terminal.retirements,
                     transfer    : {
                         closeRequested: terminal.transfer?.closeRequested ?? false,
@@ -599,7 +600,7 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
                 intervals: [50, 100, 250]
             }).toEqual({
                 home        : ['audit', 'metrics', 'commits'],
-                metricsOwner: null,
+                metricsOwned: false,
                 retirements : 0,
                 transfer    : {closeRequested: true, operation: 'transferNode', source: sourceWorkspaceId, topologyExited: true}
             });
