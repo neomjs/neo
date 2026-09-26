@@ -23,8 +23,11 @@ import {mainParticipationId, participations, popOut} from '../utils/workstationP
  *    then off the emulated screen and the app's `window.moveTo` cannot park it. `viewport: null`
  *    uses the real display.
  * 2. Chrome will not shrink the main window below roughly 500px wide or 375px tall. On an 800×600
- *    display the vessels therefore sit to the RIGHT of a 500px-wide main window: the 300px beside it
- *    hold a 146px vessel with room to spare, while nothing fits below a 375px-tall one.
+ *    display the vessels therefore sit to the RIGHT of a 500px-wide main window, while nothing fits
+ *    below a 375px-tall one. A vessel is born at its requested 320px, more than the 280px beside the
+ *    main window after the gap, so the rig sizes both vessels to 146px as it moves them: the target
+ *    fits, the enlarge arm still has room to grow it, and the source still fits behind the target,
+ *    which a native-titlebar park requires (`VesselWorkspace` refuses a source wider than its target).
  * 3. The Workstation collapses its tab headers into the overflow menu when the main window is small,
  *    so both pop-outs happen while the main window is full-size; it is narrowed afterwards.
  * 4. The claim arbiter keeps hover seniority across moves: a source that first claims the main window
@@ -43,6 +46,7 @@ import {mainParticipationId, participations, popOut} from '../utils/workstationP
 test.use({viewport: null});
 
 const
+    SMALL_STAGE_WIDTH   = 146,
     SOURCE_ITEM         = 'commits',
     TARGET_ITEM         = 'metrics',
     TARGET_WORKSPACE_ID = `workstation-vessel:${TARGET_ITEM}`,
@@ -222,7 +226,7 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                 globalThis.addEventListener('mouseout', () => globalThis.__nativeTitlebarMouseouts++)
             });
 
-            // Rig fact 2: a vessel (146 px) and its gap must fit beside the main window. A wide display
+            // Rig fact 2: a vessel and its gap must fit beside the main window. A wide display
             // holds them beside the full-size 760 px main; a small one (the 800×600 headless screen)
             // needs the main narrowed to 500 px first — done now that nothing needs clicking in it,
             // waiting for manager.Window to publish the new extents (observeResize on the render target).
@@ -257,9 +261,13 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                 sourceHandle = await acquireNativeWindow(source.popup),
                 mainScreen   = await readScreen(page),
                 mainRight    = mainScreen.screenX + mainScreen.innerWidth,
+                roomBeside   = mainScreen.availLeft + mainScreen.availWidth - mainRight - 20,
+                // Rig fact 2: vessels born wider than the room beside the main window move at the small-stage width
+                vesselSize   = (await readScreen(target.popup)).innerWidth > roomBeside ? {width: SMALL_STAGE_WIDTH} : {},
                 targetScreen = await setBounds(targetHandle, {
                     left: Math.round(mainRight + 20),
-                    top : Math.round(Math.max(mainScreen.screenY, mainScreen.availTop) + 40)
+                    top : Math.round(Math.max(mainScreen.screenY, mainScreen.availTop) + 40),
+                    ...vesselSize
                 }),
                 placement    = JSON.stringify({mainScreen, targetScreen});
 
@@ -279,7 +287,7 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                       {nativeWindowDropAnchorInset: inset} = await app.getComponent(coordId, ['nativeWindowDropAnchorInset']);
 
                 for (const delta of [0, 3]) {
-                    await setBounds(sourceHandle, {left: oldRect.x + 24 + delta - inset, top: oldRect.y + 24 - inset});
+                    await setBounds(sourceHandle, {left: oldRect.x + 24 + delta - inset, top: oldRect.y + 24 - inset, ...vesselSize});
                     await source.popup.waitForTimeout(120)
                 }
 
@@ -354,7 +362,7 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             let measuredTarget;
 
             for (const [dx, dy] of [[0, 0], [3, 2], [6, 4]]) {
-                const moved = await setBounds(sourceHandle, {left: goalLeft + dx, top: goalTop + dy});
+                const moved = await setBounds(sourceHandle, {left: goalLeft + dx, top: goalTop + dy, ...vesselSize});
 
                 await awaitOriginParity(app, managerId, source.windowId, moved, 'manager.Window follows the source popup through the poll alone');
                 await source.popup.waitForTimeout(120);
