@@ -228,8 +228,10 @@ class RemoteMethodAccess extends Base {
      * 1. Resolves the target class and method from the namespace.
      * 2. Checks if the call should be intercepted (e.g., if the target singleton is not ready).
      * 3. Executes the method (handling both sync and async results).
-     * 4. Catches errors and sends a rejection reply.
+     * 4. Catches errors, thrown or rejected, and sends a rejection reply.
      * 5. Resolves success and sends a reply with the result.
+     *
+     * Every executed call answers its caller exactly once: a rejection never follows with a resolve.
      *
      * @param {Object} msg The message payload containing remoteClassName, remoteMethod, and data.
      */
@@ -251,34 +253,37 @@ class RemoteMethodAccess extends Base {
             throw new Error(`Invalid remote method name "${msg.remoteMethod}" in ${msg.remoteId ? 'instance "'+msg.remoteId+'"' : 'namespace "'+msg.remoteClassName+'"'}`)
         }
 
-        // Check for interception
-        if (!pkg.isReady && pkg.interceptRemotes?.includes(msg.remoteMethod)) {
-            out = pkg.onInterceptRemotes(msg);
-        } else if (Array.isArray(msg.data)) {
-            out = method.call(pkg, ...msg.data)
-        } else {
-            out = method.call(pkg, msg.data)
+        /*
+         * A failing remote method would not show its error inside the console, so it is logged here for
+         * debugging, and the rejection gives the caller the chance to recover.
+         *
+         * Example:
+         * Neo.vdom.Helper.update(opts).catch(err => {
+         *     me.isVdomUpdating = false;
+         *     reject?.()
+         * }).then(data => {...})
+         */
+        const fail = err => {
+            console.error(err);
+            me.reject(msg, err)
+        };
+
+        try {
+            // Check for interception
+            if (!pkg.isReady && pkg.interceptRemotes?.includes(msg.remoteMethod)) {
+                out = pkg.onInterceptRemotes(msg);
+            } else if (Array.isArray(msg.data)) {
+                out = method.call(pkg, ...msg.data)
+            } else {
+                out = method.call(pkg, msg.data)
+            }
+        } catch (err) {
+            fail(err);
+            return
         }
 
         if (Neo.isPromise(out)) {
-            out
-                /*
-                 * Intended logic:
-                 * If the code of a remote method fails, it would not show any errors inside the console,
-                 * so we want to manually log the error for debugging.
-                 * Rejecting the Promise gives us the chance to recover.
-                 *
-                 * Example:
-                 * Neo.vdom.Helper.update(opts).catch(err => {
-                 *     me.isVdomUpdating = false;
-                 *     reject?.()
-                 * }).then(data => {...})
-                 */
-                .catch(err => {
-                    console.error(err);
-                    me.reject(msg, err)
-                })
-                .then(data => {me.resolve(msg, data)})
+            out.then(data => {me.resolve(msg, data)}, fail)
         } else {
             me.resolve(msg, out)
         }

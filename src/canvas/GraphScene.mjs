@@ -423,15 +423,20 @@ class GraphScene extends Base {
      * @param {Uint32Array|Number[]}  [scene.edges] Node index pairs
      * @param {Array<Uint32Array|Number[]>} [scene.paths] Node index sequences, drawn as line strips
      * @returns {Object|null} `{colors, count, edges, paths, positions, sizes}`
-     * @throws {Error} when an array's length or an index does not fit the nodes
+     * @throws {Error} when the scene has no `positions`, naming the keys it has, or when an array's length or
+     * an index does not fit the nodes
      */
     normalizeScene(scene) {
         if (!scene) {
             return null
         }
 
+        if (!scene.positions) {
+            throw new Error(`${this.className}: a scene needs positions, got ${Object.keys(scene).join(', ') || 'no keys'}`)
+        }
+
         const
-            positions = Float32Array.from(scene.positions ?? []),
+            positions = Float32Array.from(scene.positions),
             count     = positions.length / 3,
             colors    = scene.colors ? Float32Array.from(scene.colors) : new Float32Array(count * 3).fill(1),
             sizes     = scene.sizes  ? Float32Array.from(scene.sizes)  : new Float32Array(count).fill(16),
@@ -604,14 +609,16 @@ class GraphScene extends Base {
 
     /**
      * @summary Remote entry: the App Worker hands over a scene (see `normalizeScene`), or `null` to clear
-     * the surface. It uploads, frames an untouched camera and owes a frame.
+     * the surface. It uploads, frames an untouched camera and owes a frame. A call carrying only its routing
+     * key clears too.
      * @param {Object|null} scene
      * @param {String} [scene.windowId] Routing only
+     * @throws {Error} when `normalizeScene` refuses the scene: the call rejects and the drawn scene stays
      */
     setScene(scene) {
-        const me = this;
+        const me = this, {windowId, ...content} = scene ?? {};
 
-        me.scene  = me.normalizeScene(scene?.positions ? scene : null);
+        me.scene  = Object.keys(content).length ? me.normalizeScene(content) : null;
         me.sphere = me.constructor.boundingSphere(me.scene?.positions ?? new Float32Array(0));
 
         me.upload();
