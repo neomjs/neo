@@ -116,6 +116,7 @@ class Overflow extends Plugin {
         // is causal rather than a race. Keeping the node is the only shape that holds, and it is the trade
         // this function already makes for the active tab.
         const protectedIds = [...new Set([activeItemId, focusedItemId].filter(id => id != null))],
+              protectedSet = new Set(protectedIds),
               withheld     = protectedIds.filter(id => hidden.includes(id));
 
         if (withheld.length > 0) {
@@ -125,15 +126,32 @@ class Overflow extends Plugin {
 
             withheld.forEach(id => hidden.splice(hidden.indexOf(id), 1));
 
-            // Displace as many TRAILING visible items as it takes to fit the protected width — now possibly a
-            // PAIR. Popping exactly one under-displaces when a protected tab is wider than that single displaced
-            // tab, and popping per-protected-tab under-displaces when the pair is wider than one pop, so the sum
-            // is fitted once. Popping none is also correct when a protected tab already fits (it was hidden only
+            // Displace as many visible items as it takes to fit the protected width — now possibly a PAIR.
+            // Popping exactly one under-displaces when a protected tab is wider than that single displaced tab,
+            // and popping per-protected-tab under-displaces when the pair is wider than one pop, so the sum is
+            // fitted once. Popping none is also correct when a protected tab already fits (it was hidden only
             // because an earlier item overflowed the `hidden.length === 0` gate above). The loop runs out of
-            // visible items in the degenerate case — protected tabs wider than the whole extent stay visible
-            // regardless, and the caller caps their boxes, so two of them can jointly overhang the extent.
+            // DISPLACEABLE items in the degenerate case — protected tabs wider than the whole extent stay
+            // visible regardless, and the caller caps their boxes, so two of them can jointly overhang.
+            //
+            // The scan SKIPS protected ids, and that is load-bearing rather than defensive: a protected id that
+            // was already visible is not in `withheld`, so a blind trailing pop can evict the active tab to make
+            // room for the focused one — measured on a middle-active, trailing-focused strip (a/b/c at 110,
+            // usable 240), which returned `hidden: ['b']` with `b` ACTIVE. A protected id is never a candidate,
+            // so the scan walks right-to-left for the last displaceable one and stops when none remains.
             while (visible.length > 0 && used + needed > usable) {
-                const displacedId = visible.pop();
+                let index = -1;
+
+                for (let i = visible.length - 1; i >= 0; i--) {
+                    if (!protectedSet.has(visible[i])) {
+                        index = i;
+                        break
+                    }
+                }
+
+                if (index === -1) break;
+
+                const displacedId = visible.splice(index, 1)[0];
                 used -= width(list.find(entry => entry.id === displacedId));
                 displaced.push(displacedId)
             }

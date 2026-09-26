@@ -1710,6 +1710,50 @@ test.describe('Neo.tab.plugin.Overflow.computeOverflow — the pure overflow cor
         expect(withAbsentId).toEqual(baseline)
     });
 
+    test('a MIDDLE active tab is never displaced to make room for a trailing focused one', () => {
+        // The falsifier that a leading-active arm cannot see. With the active FIRST it is never the trailing
+        // candidate, so a blind trailing pop passes every other arm in this block while evicting the active tab
+        // the moment it sits behind the withheld one. Measured on a middle-active, trailing-focused strip:
+        // items a/b/c at 110 against usable 240 pack a+b and withhold c, and surfacing c must cost `a`, never `b`.
+        const result = Overflow.computeOverflow({
+            activeItemId : 'b',
+            controlWidth : 0,
+            extent       : 240,
+            focusedItemId: 'c',
+            items        : items({a: 110, b: 110, c: 110})
+        });
+
+        expect(result.hidden, 'the ACTIVE tab must never be the one displaced to seat the focused tab')
+            .toEqual(['a']);
+        expect(result.visible).toEqual(['b', 'c']);
+        // The leading-active arm's own shape, kept as the positive control for the same input family.
+        expect(Overflow.computeOverflow({
+            activeItemId : 'a',
+            controlWidth : 0,
+            extent       : 240,
+            focusedItemId: 'c',
+            items        : items({a: 110, b: 110, c: 110})
+        })).toEqual({hidden: ['b'], visible: ['a', 'c']})
+    });
+
+    test('a protected id already visible is never a displacement candidate', () => {
+        // The mirror of the arm above, and the case where the scan has to reach PAST a protected trailing item:
+        // a and b pack, c is the protected ACTIVE so it is withheld and swapped back in, and b — protected as
+        // the focused id and sitting trailing — must not be the one evicted to make room.
+        const result = Overflow.computeOverflow({
+            activeItemId : 'c',
+            controlWidth : 0,
+            extent       : 240,
+            focusedItemId: 'b',
+            items        : items({a: 110, b: 110, c: 110})
+        });
+
+        // Displacing `a` (not the trailing protected `b`) is what leaves both protected tabs seated. A blind
+        // trailing pop takes `b` here and returns `hidden: ['b']` — the FOCUSED tab withheld.
+        expect(result.visible).toEqual(['b', 'c']);
+        expect(result.hidden).toEqual(['a'])
+    });
+
     test('degenerate: both protected together wider than the extent — both stay, the rest overflows in order', () => {
         const result = Overflow.computeOverflow({
             activeItemId : 'b',
