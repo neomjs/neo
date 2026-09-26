@@ -1650,7 +1650,8 @@ class Component extends Abstract {
                     me.vdom.removeDom = true;
                     me.parent.updateDepth = 2;
                     me.parent.update()
-                } else {
+                } else if (!me.isVnodeInitializing) {
+                    // A node still in its mount flight does not exist yet: show() unmounts it when it lands
                     me.unmount()
                 }
             }
@@ -1921,6 +1922,7 @@ class Component extends Abstract {
      * hideMode: 'visibility' uses css visibility.
      * While {@link #domWithheld} is set, the `removeDom` marker stays: the owner holding the DOM back
      * decides presence, and this call only records the consumer's `hidden: false`.
+     * A component rooted at `document.body` mounts in one flight at a time, which lands on the latest `hidden`.
      */
     show() {
         let me = this;
@@ -1935,8 +1937,10 @@ class Component extends Abstract {
             } else if (me.parentId !== 'document.body') {
                 me.parent.updateDepth = -1;
                 me.parent.update()
-            } else {
-                !me.mounted && me.initVnode(true)
+            } else if (!me.mounted && !me.isVnodeInitializing) {
+                // One mount flight at a time: a second one would insert a second node with this id,
+                // and a hide() while it flies is read when it lands
+                me.initVnode(true).then(() => !me.isDestroyed && me._hidden && me.unmount())
             }
         } else {
             let style = me.style;
