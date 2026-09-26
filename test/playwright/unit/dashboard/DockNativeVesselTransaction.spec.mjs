@@ -294,6 +294,53 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         expect(platform.calls).toEqual([])
     });
 
+    test('a vessel without an outer frame that owes no resize is refused, not cleared against its inner rect', async () => {
+        const receipts = {};
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+
+        WindowManager.unregister('win-source');
+        WindowManager.register({id: 'win-source', innerRect: new Rectangle(40, 60, 480, 320), nativeRoute: ROUTE});
+
+        const parked = await NativeVesselTransaction
+            .effectsFor(descriptorFor({receipts}))
+            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+        expect(parked).toBe(false);
+        expect(receipts.park.refusedAt).toBe('screen');
+        expect(platform.calls, 'nothing moves').toEqual([])
+    });
+
+    test('an inner-plane park that owes a resize clears the frame the outer-plane resize applies', async () => {
+        const
+            receipts = {},
+            resizes  = [];
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+
+        // Real chrome: each window's content sits 68 px below its frame
+        WindowManager.unregister('win-source');
+        WindowManager.unregister('win-target');
+        WindowManager.register({id: 'win-source', innerRect: new Rectangle(40, 128, 480, 252), outerRect: new Rectangle(40, 60, 480, 320), nativeRoute: ROUTE});
+        WindowManager.register({id: 'win-target', innerRect: new Rectangle(0, 68, 800, 532),   outerRect: new Rectangle(0, 0, 800, 600),   nativeRoute: TARGET_ROUTE});
+
+        Neo.Main.windowNativeResizeTo = ({height, width}) => {
+            resizes.push({height, width});
+            return Promise.resolve(true)
+        };
+
+        await NativeVesselTransaction
+            .effectsFor(descriptorFor({geometry: {height: 320, width: 480}, receipts}))
+            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+        expect(resizes, 'the inner-plane shrink, applied as the outer size').toEqual([{height: 252, width: 480}]);
+        // the corner farthest from the target that holds a 480x252 frame, the one the resize produces
+        expect(receipts.park.requested).toEqual({x: 1120, y: 748});
+        expect(receipts.park.cleared).toBe(true)
+    });
+
     test('a source too large to hide behind the target refuses when nothing may shrink it', async () => {
         const receipts = {};
 

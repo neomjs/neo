@@ -362,7 +362,9 @@ class NativeVesselTransaction extends Base {
      * @param {String} [descriptor.rectPlane='inner'] Which published rect the size metric and the
      * shrink extent speak — `'inner'` or `'outer'`. A child window may legitimately omit `outerRect`,
      * so a consumer whose admission does not depend on the frame stays on the inner plane rather
-     * than refusing an otherwise-authorized live vessel.
+     * than refusing an otherwise-authorized live vessel. The park's clearance reads the outer frame
+     * on either plane: a vessel that owes no resize and publishes no `outerRect` is refused at
+     * `'screen'`.
      * @returns {{disposeVessel:Function,parkVessel:Function,reshowVessel:Function}}
      */
     static effectsFor(descriptor) {
@@ -445,14 +447,16 @@ class NativeVesselTransaction extends Base {
                 }
 
                 try {
-                    // The vessel parks clear of the target, so no step focuses anything; the parked
-                    // frame is the shrunk extent, or the source's own.
+                    // The vessel parks clear of the target, so no step focuses anything. The clearance
+                    // reads an OUTER frame: the shrunk extent is one, since `windowNativeResizeTo`
+                    // sets outer dimensions; otherwise only the published `outerRect` is, and without
+                    // it the park is refused rather than cleared against a smaller inner rect.
                     const
                         extent = owesResize ? {
                             height: Math.min(sourceRect.height, targetRect.height),
                             width : Math.min(sourceRect.width, targetRect.width)
                         } : null,
-                        frame  = extent ?? sourceWindow.outerRect ?? sourceRect,
+                        frame  = extent ?? sourceWindow.outerRect,
                         {screen} = await Neo.Main.getWindowData({windowId: targetWindowId}),
                         park   = NativeVesselTransaction.resolveClearPark({frame, screen, target: targetWindow.innerRect ?? targetRect});
 
