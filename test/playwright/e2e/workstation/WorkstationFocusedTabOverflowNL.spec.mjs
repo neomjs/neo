@@ -4,8 +4,8 @@ import {test, expect} from '../../fixtures.mjs';
  * @summary A focused non-active tab and its contextual actions survive a real overflow projection.
  *
  * The stage adds a third tab to a two-tab Workstation header through the dock model, then changes
- * the viewport width. This witnesses the browser focus and DOM action nodes that the pure partition
- * tests for #19285 cannot observe.
+ * the viewport width. This witnesses browser focus and DOM action nodes that pure partition tests
+ * cannot observe.
  *
  * Run with NEO_AGENTOS_RUNTIME_ROOT set to a Brain checkout:
  * npx playwright test workstation/WorkstationFocusedTabOverflowNL -c test/playwright/playwright.config.e2e.mjs --workers=1
