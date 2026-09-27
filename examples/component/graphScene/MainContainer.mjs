@@ -7,7 +7,9 @@ import Viewport    from '../../../src/container/Viewport.mjs';
 /**
  * @summary A `Neo.canvas.GraphScene` on the canvas worker. Drag to orbit, scroll to zoom. The toolbar sends
  * a bigger or smaller scene, loses and restores the WebGL context, and reads the renderer's stats: the
- * frame count stays still while nothing changes, and the scene comes back after a restore.
+ * frame count stays still while nothing changes, and the scene comes back after a restore. "100k clustered"
+ * sends a clustered graph of 100k nodes and a million edges, drawn through the level of detail, and "LOD lap"
+ * measures the frame rate of every edge against the far, mid and near levels.
  *
  * @class Neo.examples.component.graphScene.MainContainer
  * @extends Neo.container.Viewport
@@ -41,6 +43,16 @@ class MainContainer extends Viewport {
                 module : Button,
                 handler: 'up.onNodeCountButton',
                 text   : '2400 nodes'
+            }, {
+                module   : Button,
+                handler  : 'up.onClusteredButton',
+                reference: 'clustered',
+                text     : '100k clustered'
+            }, {
+                module   : Button,
+                handler  : 'up.onLodLapButton',
+                reference: 'lod-lap',
+                text     : 'LOD lap'
             }, '->', {
                 module   : Button,
                 handler  : 'up.onLoseContextButton',
@@ -79,6 +91,21 @@ class MainContainer extends Viewport {
     }
 
     /**
+     * @summary Sends the 100k-node clustered scene, drawn through the level of detail.
+     */
+    async onClusteredButton() {
+        await this.getReference('canvas').sendClusteredScene()
+    }
+
+    /**
+     * @summary Starts the level-of-detail lap: every edge, far, mid and near, five seconds each; Read stats
+     * shows the frame rates as they arrive.
+     */
+    async onLodLapButton() {
+        await this.getReference('canvas').startLodLap(5)
+    }
+
+    /**
      * @summary Sends a scene with the node count the button names.
      * @param {Object} data
      */
@@ -108,15 +135,17 @@ class MainContainer extends Viewport {
             me    = this,
             stats = {...await me.getReference('canvas').getStats(), read: ++me.statsReads},
             line  = me.getReference('stats'),
-            {camera, canvas, contextLost, counts, frames, restores} = stats;
+            {camera, canvas, contextLost, counts, frames, lod, lodLap, restores} = stats;
 
         line.text = [
             `frames ${frames}`,
             counts ? `nodes ${counts.nodes} · edges ${counts.edges} · paths ${counts.paths}` : 'no scene',
+            lod && `lod ${lod.level} · ${lod.edgesDrawn} lines drawn · ${lod.clusters} clusters`,
+            lodLap && `lap ${lodLap.done ? 'done' : lodLap.level}${lodLap.restarts ? `, ${lodLap.restarts} restarts` : ''}: ${Object.entries(lodLap.results).map(([level, {fps, maxGapMs}]) => `${level} ${fps} fps (max gap ${maxGapMs} ms)`).join(', ') || 'measuring'}`,
             `buffer ${canvas[0]}×${canvas[1]}`,
             `camera ${camera.touched ? 'taken' : 'fitted'}`,
             `context ${contextLost ? 'lost' : 'live'} · restores ${restores}`
-        ].join(' · ');
+        ].filter(Boolean).join(' · ');
 
         line.vdom['data-stats'] = JSON.stringify(stats);
         line.update()
