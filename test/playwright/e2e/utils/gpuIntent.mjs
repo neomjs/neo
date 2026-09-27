@@ -52,7 +52,7 @@ export const GPU_INTENT_ARGS = [
  * window manager clamps a script-moved popup into the screen, so on the default a 480 px popup's
  * `moveTo(900, 20)` lands at x = 320 and the product's own placement cannot follow a target the
  * test staged beyond it. `contextOptions.screen` changes only what `window.screen` reports, and
- * `--window-size` does not move the clamp.
+ * measured with this configuration's `chrome` channel, `--window-size` left the screen at 800 px.
  * @type {String[]}
  */
 export const BASE_LAUNCH_ARGS = [
