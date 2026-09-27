@@ -737,6 +737,8 @@ class DomEvents extends Base {
      * Sends a coalesced move that is still waiting for its frame, ahead of the mouse event that calls this. Without
      * it a press overtakes the move and reaches the app worker as press-then-move, so a consumer deriving movement
      * from the last reported position (a canvas's mouse state) reads the whole jump as a held button's movement.
+     * Call it only on the path that sends: an event the main thread keeps has no order to restore, and flushing for
+     * it would spend the frame's one move.
      */
     flushPendingMouseMove() {
         let me = this;
@@ -860,8 +862,6 @@ class DomEvents extends Base {
             preventUpdate = false,
             targetCls;
 
-        this.flushPendingMouseMove();
-
         if (target) {
             targetCls = target.cls;
 
@@ -885,6 +885,7 @@ class DomEvents extends Base {
                 // the deltas and the target's scroll geometry ride beside them.
                 let {deltaMode, deltaX, deltaY, deltaZ} = event;
 
+                this.flushPendingMouseMove();
                 this.sendMessageToApp({
                     ...this.getMouseEventData(event),
                     clientHeight: target.node.clientHeight,

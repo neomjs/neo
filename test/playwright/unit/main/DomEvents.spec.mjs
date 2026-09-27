@@ -200,6 +200,51 @@ test.describe('Neo.main.DomEvents', () => {
         }
     });
 
+    // A wheel the main thread keeps never reaches the app, so there is no order to restore: the waiting move keeps
+    // its frame, and the next move in that frame replaces it.
+    test('a wheel the main thread keeps leaves a waiting move to its frame', () => {
+        const
+            sent          = [],
+            frames        = [],
+            rafWas        = globalThis.requestAnimationFrame,
+            cafWas        = globalThis.cancelAnimationFrame,
+            dateSelector  = {...node, classList: {contains: cls => cls === 'neo-dateselector'}},
+            bufferedWheel = () => DomEvents.onWheel(wheelOn(dateSelector, {composedPath: () => [dateSelector, documentRef.body]})),
+            move          = clientX => DomEvents.onMouseMove({
+                altKey: false, button: 0, buttons: 0, clientX, clientY: 70, composedPath: () => [node, documentRef.body],
+                ctrlKey: false, metaKey: false, preventDefault: () => {}, shiftKey: false, stopPropagation: () => {}, type: 'mousemove'
+            }),
+            runFrames     = () => frames.splice(0).forEach(frame => frame?.());
+
+        globalThis.requestAnimationFrame = fn => frames.push(fn);
+        globalThis.cancelAnimationFrame  = id => { frames[id - 1] = null };
+
+        try {
+            DomEvents.getEventData     = ({type}) => ({type});
+            DomEvents.sendMessageToApp = data => sent.push(`${data.type} ${data.clientX}`);
+
+            move(10);
+            DomEvents.onWheel(wheelOn(documentRef.body));
+            move(20);
+            runFrames();
+
+            expect(sent, 'a wheel without a target').toEqual(['mousemove 20']);
+
+            sent.length = 0;
+            bufferedWheel();
+            move(30);
+            bufferedWheel();
+            move(40);
+            runFrames();
+
+            // the buffer is module state, so a repeated run may keep the first wheel as well
+            expect(sent.filter(entry => entry.startsWith('mousemove')), 'a wheel inside its target\'s buffer').toEqual(['mousemove 40'])
+        } finally {
+            globalThis.requestAnimationFrame = rafWas;
+            globalThis.cancelAnimationFrame  = cafWas
+        }
+    });
+
     test('a wheel event reaches the app for a node a component listens on locally, and not for the body', () => {
         const sent = [];
 
