@@ -90,6 +90,16 @@ test.describe('Neo.dashboard.dock.persistence.PerspectiveLibrary (B6 — the nam
         ])
     });
 
+    test('activate: false never moves an existing pointer, and the first record of an empty library is active whatever it says', () => {
+        const first = store.savePerspective(makeLayout('l-1', 'Coding'), {activate: false});
+
+        expect(first, 'the only record is the only valid active one').toMatchObject({errors: [], saved: true, layoutId: 'l-1'});
+        expect(store.collection.activeLayoutId).toBe('l-1');
+
+        expect(store.savePerspective(makeLayout('l-2', 'Review', ['beta']), {activate: false})).toMatchObject({saved: true});
+        expect(store.collection.activeLayoutId, 'a pointer already there stays put').toBe('l-1')
+    });
+
     test('name collision returns the structured choice and saves NOTHING unless the caller decides', () => {
         store.savePerspective(makeLayout('l-1', 'Coding'));
 

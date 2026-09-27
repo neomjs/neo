@@ -524,7 +524,9 @@ class PerspectiveLibrary extends Base {
      * @param {Object} layout A `neo.dock.layout.v1` saved-layout record.
      * @param {Object} [options={}]
      * @param {Boolean} [options.replace=false] The caller's explicit collision decision.
-     * @param {Boolean} [options.activate=true] Point `activeLayoutId` at the saved record.
+     * @param {Boolean} [options.activate=true] Point `activeLayoutId` at the saved record. `false` leaves an
+     * existing pointer where it is; the first record of an empty library is active either way, being the
+     * only record the pointer may name.
      * @returns {{saved: Boolean, layoutId: String|null, collision: Object|null, errors: String[]}}
      */
     savePerspective(layout, {replace = false, activate = true} = {}) {
@@ -597,7 +599,8 @@ class PerspectiveLibrary extends Base {
             candidate.activeLayoutId = record.layoutId
         }
 
-        activate && (candidate.activeLayoutId = record.layoutId);
+        // an empty library's null pointer is dangling the moment it holds a record, whatever `activate` says
+        (activate || candidate.activeLayoutId === null) && (candidate.activeLayoutId = record.layoutId);
 
         return me.commit(candidate, 'perspectiveSaved', {layoutId: record.layoutId, name}) ?
             {collision: null, errors: [], layoutId: record.layoutId, saved: true} :
