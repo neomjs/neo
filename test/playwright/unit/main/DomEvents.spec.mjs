@@ -149,6 +149,102 @@ test.describe('Neo.main.DomEvents', () => {
               ...extra
           });
 
+    // A move waits for the next frame; a press is sent at once. A press that overtakes the move reaches the app as
+    // press-then-move, and the canvas mouse state reads the whole jump as movement of a held button.
+    test('every other mouse event sends a move still waiting for its frame first; moves alone still send once per frame', () => {
+        const
+            sent     = [],
+            frames   = [],
+            rafWas   = globalThis.requestAnimationFrame,
+            cafWas   = globalThis.cancelAnimationFrame,
+            mouse    = (type, clientX, extra) => ({
+                altKey: false, button: 0, buttons: 0, clientX, clientY: 70, composedPath: () => [node, documentRef.body],
+                ctrlKey: false, metaKey: false, preventDefault: () => {}, shiftKey: false, stopPropagation: () => {}, type, ...extra
+            }),
+            // one move to 200 still waiting for its frame, then the other event
+            overtake = (send, type) => {
+                DomEvents.onMouseMove(mouse('mousemove', 200));
+                send(mouse(type, 200, {buttons: type === 'mousedown' ? 1 : 0}))
+            };
+
+        globalThis.requestAnimationFrame = fn => frames.push(fn);
+        globalThis.cancelAnimationFrame  = id => { frames[id - 1] = null };
+
+        try {
+            DomEvents.getEventData     = ({type}) => ({type});
+            DomEvents.sendMessageToApp = data => sent.push(data.type);
+
+            overtake(event => DomEvents.onMouseDown(event),   'mousedown');
+            overtake(event => DomEvents.onMouseUp(event),     'mouseup');
+            overtake(event => DomEvents.onClick(event),       'click');
+            overtake(event => DomEvents.onDoubleClick(event), 'dblclick');
+            overtake(event => DomEvents.onContextMenu(event), 'contextmenu');
+            overtake(event => DomEvents.onMouseEnter(event),  'mouseenter');
+            overtake(event => DomEvents.onMouseLeave(event),  'mouseleave');
+            overtake(event => DomEvents.onWheel(wheelOn(node, {clientX: 200})), 'wheel');
+
+            expect(sent).toEqual(['mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu', 'mouseenter', 'mouseleave', 'wheel'].flatMap(type => ['mousemove', type]));
+            frames.forEach(frame => frame?.());
+            expect(sent, 'a flushed move leaves nothing for its frame').toHaveLength(16);
+
+            sent.length = 0;
+            DomEvents.onMouseMove(mouse('mousemove', 10));
+            DomEvents.onMouseMove(mouse('mousemove', 20));
+            frames.at(-1)();
+
+            expect(sent, 'two moves in one frame send once').toEqual(['mousemove']);
+            expect(DomEvents.mouseMoveReqId).toBeNull()
+        } finally {
+            globalThis.requestAnimationFrame = rafWas;
+            globalThis.cancelAnimationFrame  = cafWas
+        }
+    });
+
+    // A wheel the main thread keeps never reaches the app, so there is no order to restore: the waiting move keeps
+    // its frame, and the next move in that frame replaces it.
+    test('a wheel the main thread keeps leaves a waiting move to its frame', () => {
+        const
+            sent          = [],
+            frames        = [],
+            rafWas        = globalThis.requestAnimationFrame,
+            cafWas        = globalThis.cancelAnimationFrame,
+            dateSelector  = {...node, classList: {contains: cls => cls === 'neo-dateselector'}},
+            bufferedWheel = () => DomEvents.onWheel(wheelOn(dateSelector, {composedPath: () => [dateSelector, documentRef.body]})),
+            move          = clientX => DomEvents.onMouseMove({
+                altKey: false, button: 0, buttons: 0, clientX, clientY: 70, composedPath: () => [node, documentRef.body],
+                ctrlKey: false, metaKey: false, preventDefault: () => {}, shiftKey: false, stopPropagation: () => {}, type: 'mousemove'
+            }),
+            runFrames     = () => frames.splice(0).forEach(frame => frame?.());
+
+        globalThis.requestAnimationFrame = fn => frames.push(fn);
+        globalThis.cancelAnimationFrame  = id => { frames[id - 1] = null };
+
+        try {
+            DomEvents.getEventData     = ({type}) => ({type});
+            DomEvents.sendMessageToApp = data => sent.push(`${data.type} ${data.clientX}`);
+
+            move(10);
+            DomEvents.onWheel(wheelOn(documentRef.body));
+            move(20);
+            runFrames();
+
+            expect(sent, 'a wheel without a target').toEqual(['mousemove 20']);
+
+            sent.length = 0;
+            bufferedWheel();
+            move(30);
+            bufferedWheel();
+            move(40);
+            runFrames();
+
+            // the buffer is module state, so a repeated run may keep the first wheel as well
+            expect(sent.filter(entry => entry.startsWith('mousemove')), 'a wheel inside its target\'s buffer').toEqual(['mousemove 40'])
+        } finally {
+            globalThis.requestAnimationFrame = rafWas;
+            globalThis.cancelAnimationFrame  = cafWas
+        }
+    });
+
     test('a wheel event reaches the app for a node a component listens on locally, and not for the body', () => {
         const sent = [];
 
