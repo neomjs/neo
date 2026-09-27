@@ -141,7 +141,7 @@ class MainContainer extends Viewport {
             `frames ${frames}`,
             counts ? `nodes ${counts.nodes} · edges ${counts.edges} · paths ${counts.paths}` : 'no scene',
             lod && `lod ${lod.level} · ${lod.edgesDrawn} lines drawn · ${lod.clusters} clusters`,
-            lodLap && `lap ${lodLap.done ? 'done' : lodLap.level}: ${Object.entries(lodLap.results).map(([level, fps]) => `${level} ${fps} fps`).join(', ') || 'measuring'}`,
+            lodLap && `lap ${lodLap.done ? 'done' : lodLap.level}${lodLap.restarts ? `, ${lodLap.restarts} restarts` : ''}: ${Object.entries(lodLap.results).map(([level, {fps, maxGapMs}]) => `${level} ${fps} fps (max gap ${maxGapMs} ms)`).join(', ') || 'measuring'}`,
             `buffer ${canvas[0]}×${canvas[1]}`,
             `camera ${camera.touched ? 'taken' : 'fitted'}`,
             `context ${contextLost ? 'lost' : 'live'} · restores ${restores}`

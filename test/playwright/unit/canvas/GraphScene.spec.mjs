@@ -326,17 +326,28 @@ test.describe('Neo.canvas.GraphScene — the level of detail', () => {
         expect(renderer.getStats().lod).toBeNull()
     });
 
-    test('near draws the own edges of the clusters nearest the camera, and the stats count what is drawn', () => {
+    test('near draws the own edges of the clusters nearest the camera target, and the stats count what is drawn', () => {
         renderer.setScene(clusteredScene());
         renderer.lod    = {...renderer.lod, nearClusters: 1};
-        // the eye on the positive x axis, beside cluster 9
-        renderer.camera = {...renderer.camera, dist: renderer.fittedDistance * 0.5, pitch: 0, target: [0, 0, 0], touched: true, yaw: -Math.PI / 2};
+        // the target on cluster 9's centroid
+        renderer.camera = {...renderer.camera, dist: renderer.fittedDistance * 0.5, pitch: 0, target: [2, 0, 0], touched: true, yaw: 0};
 
-        expect(GraphScene.eyePosition(renderer.camera)[0]).toBeGreaterThan(0);
         expect(renderer.getStats().lod).toEqual({bundles: 2, clusters: 3, edgesDrawn: 3, level: 'near', near: [2]});
 
         renderer.camera.dist = renderer.fittedDistance;
         expect(renderer.getStats().lod, 'far draws the bundles only').toEqual({bundles: 2, clusters: 3, edgesDrawn: 2, level: 'far', near: []})
+    });
+
+    test('an orbit around an unmoved target keeps the near clusters, wherever the eye passes', () => {
+        renderer.setScene(clusteredScene());
+        renderer.lod    = {...renderer.lod, nearClusters: 1};
+        // the target on cluster 3; yaw -π/2 puts the eye beside cluster 9 (+x), yaw π/2 beside cluster 7 (-x)
+        renderer.camera = {...renderer.camera, dist: renderer.fittedDistance * 0.5, pitch: 0, target: [0, 0, 0], touched: true, yaw: -Math.PI / 2};
+
+        expect(renderer.getLodPlan().near, 'the eye beside cluster 9').toEqual([1]);
+
+        renderer.camera.yaw = Math.PI / 2;
+        expect(renderer.getLodPlan().near, 'the eye beside cluster 7').toEqual([1])
     });
 
     test('a level change uploads nothing, and at the far level no node answers a pick', () => {

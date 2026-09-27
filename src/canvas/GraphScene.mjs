@@ -59,7 +59,7 @@ void main() {
  *
  * A scene that carries `clusters` draws through a foveated level of detail (`lod`): far away, one centroid per
  * cluster and one bundle line per connected cluster pair; closer, every node with the bundles; near, also the
- * own edges of the clusters nearest the camera. The edges are uploaded once, grouped by cluster, so a level
+ * own edges of the clusters nearest the camera's target. The edges are uploaded once, grouped by cluster, so a level
  * only chooses draw ranges. A graph of 100k nodes and a million edges stays interactive this way, where drawing
  * every edge is bound by the pixels it fills.
  *
@@ -100,7 +100,7 @@ class GraphScene extends Base {
          * The foveated level of detail of a scene that carries `clusters`, by the camera distance as a multiple
          * of the fitted distance. At `far` and beyond: the cluster centroids and one bundle line per connected
          * cluster pair. Below `near`: every node, the bundles, and the own edges of the `nearClusters` clusters
-         * nearest the camera. Between the two: every node and the bundles. A scene without `clusters` draws every
+         * nearest the camera's target. Between the two: every node and the bundles. A scene without `clusters` draws every
          * edge at every distance.
          * @member {Object} lod={far: 0.8, near: 0.55, nearClusters: 6}
          */
@@ -299,21 +299,6 @@ class GraphScene extends Base {
         }
 
         return {bundles, centroids, colors: tones, count, edges: ordered, ids: [...dense.keys()], ranges, sizes: spans, weights}
-    }
-
-    /**
-     * @summary Where an orbit camera stands: its target, moved back along the view axis by its distance.
-     * @param {Object}   camera
-     * @param {Number}   camera.dist
-     * @param {Number}   camera.pitch
-     * @param {Number[]} camera.target
-     * @param {Number}   camera.yaw
-     * @returns {Number[]} `[x, y, z]`
-     */
-    static eyePosition({dist, pitch, target, yaw}) {
-        const cp = Math.cos(pitch);
-
-        return [target[0] - Math.sin(yaw) * cp * dist, target[1] + Math.sin(pitch) * dist, target[2] + Math.cos(yaw) * cp * dist]
     }
 
     /**
@@ -621,7 +606,8 @@ class GraphScene extends Base {
 
         const
             {bundles, centroids, ranges} = scene.lod,
-            near = level === 'near' ? me.constructor.nearestClusters(centroids, me.constructor.eyePosition(camera), lod.nearClusters) : [];
+            // the fovea is the orbit target, so an orbit around it keeps the same clusters in detail
+            near = level === 'near' ? me.constructor.nearestClusters(centroids, camera.target, lod.nearClusters) : [];
 
         return {edgesDrawn: near.reduce((sum, cluster) => sum + ranges[cluster * 2 + 1] / 2, bundles.length / 2), level, near}
     }

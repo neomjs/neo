@@ -45,8 +45,8 @@ class Renderer extends GraphScene {
     }
 
     /**
-     * The level-of-detail lap in progress or finished: the level measured now, the frames and the time
-     * counted for it, and the frame rates measured so far; `null` before the first lap.
+     * The level-of-detail lap in progress or finished: the level measured now, its frames, time and longest
+     * gap so far, the levels' results, and how often a pause restarted a level; `null` before the first lap.
      * @member {Object|null} lodLap=null
      */
     lodLap = null
@@ -57,14 +57,52 @@ class Renderer extends GraphScene {
     loseExtension = null
 
     /**
-     * @summary The base's stats plus the lap: `{done, level, results}`, `results` holding frames per second by
-     * level.
+     * @summary One frame of a lap. Every gap since the level's previous frame counts as the level's time, so a
+     * stall lowers the rate and shows as the level's `maxGapMs`. A level whose time is up records its result
+     * and hands over to the next.
+     * @param {Object} lap The lap, changed in place
+     * @param {Number} now The frame's timestamp in milliseconds
+     */
+    static stepLap(lap, now) {
+        if (lap.last !== null) {
+            const gap = now - lap.last;
+
+            lap.frames++;
+            lap.maxGap = Math.max(lap.maxGap, gap);
+            lap.time  += gap
+        }
+
+        lap.last = now;
+
+        if (lap.time >= lap.seconds * 1000) {
+            const next = lap.levels[lap.levels.indexOf(lap.level) + 1];
+
+            lap.results[lap.level] = {
+                fps     : Math.round(lap.frames / lap.time * 10000) / 10,
+                frames  : lap.frames,
+                maxGapMs: Math.round(lap.maxGap),
+                ms      : Math.round(lap.time)
+            };
+
+            Object.assign(lap, {frames: 0, last: null, maxGap: 0, time: 0});
+
+            if (next) {
+                lap.level = next
+            } else {
+                lap.done = true
+            }
+        }
+    }
+
+    /**
+     * @summary The base's stats plus the lap: `{done, level, restarts, results}`, `results` holding
+     * `{fps, frames, maxGapMs, ms}` by level.
      * @returns {Object}
      */
     getStats() {
         const {lodLap} = this;
 
-        return {...super.getStats(), lodLap: lodLap && {done: lodLap.done, level: lodLap.level, results: {...lodLap.results}}}
+        return {...super.getStats(), lodLap: lodLap && {done: lodLap.done, level: lodLap.level, restarts: lodLap.restarts, results: {...lodLap.results}}}
     }
 
     /**
@@ -78,9 +116,23 @@ class Renderer extends GraphScene {
     }
 
     /**
-     * @summary A frame, and while a lap runs, its measurement: the camera turns a little every frame so every
-     * frame draws, and each level is timed for the lap's `seconds`. A gap over a quarter second (a hidden
-     * surface draws nothing) does not count as time.
+     * @summary Pauses drawing. A lap in progress starts its level over on resume, because hidden time is no
+     * frame time, and counts the restart.
+     */
+    pause() {
+        const {lodLap: lap} = this;
+
+        super.pause();
+
+        if (lap && !lap.done) {
+            Object.assign(lap, {frames: 0, last: null, maxGap: 0, time: 0});
+            lap.restarts++
+        }
+    }
+
+    /**
+     * @summary A frame, and while a lap runs, its measurement ({@link #stepLap}): the camera turns a little
+     * every frame so every frame draws, and each level is timed for the lap's `seconds`.
      */
     render() {
         const me = this, {lodLap: lap} = me;
@@ -91,33 +143,13 @@ class Renderer extends GraphScene {
             return
         }
 
-        const now = performance.now(), gap = lap.last === null ? null : now - lap.last;
+        me.constructor.stepLap(lap, performance.now());
+        me.lodLevel = lap.done ? null : lap.level;
 
-        if (gap !== null && gap < 250) {
-            lap.frames++;
-            lap.time += gap
+        if (!lap.done) {
+            me.camera.yaw += 0.004;
+            me.requestFrame()
         }
-
-        lap.last = now;
-
-        if (lap.time >= lap.seconds * 1000) {
-            const next = lap.levels[lap.levels.indexOf(lap.level) + 1];
-
-            lap.results[lap.level] = Math.round(lap.frames / lap.time * 10000) / 10;
-            Object.assign(lap, {frames: 0, last: null, time: 0});
-
-            if (!next) {
-                lap.done    = true;
-                me.lodLevel = null;
-                return
-            }
-
-            lap.level   = next;
-            me.lodLevel = next
-        }
-
-        me.camera.yaw += 0.004;
-        me.requestFrame()
     }
 
     /**
@@ -136,7 +168,7 @@ class Renderer extends GraphScene {
     startLodLap({seconds = 5} = {}) {
         const me = this;
 
-        me.lodLap         = {done: false, frames: 0, last: null, level: 'full', levels: ['full', 'far', 'mid', 'near'], results: {}, seconds, time: 0};
+        me.lodLap         = {done: false, frames: 0, last: null, level: 'full', levels: ['full', 'far', 'mid', 'near'], maxGap: 0, restarts: 0, results: {}, seconds, time: 0};
         me.camera.touched = true;
         me.lodLevel       = 'full';
         me.requestFrame()
