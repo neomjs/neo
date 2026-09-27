@@ -159,6 +159,8 @@ test.describe('e2e/utils/glState', () => {
             expect(requiresGlProbe()).toBe(true);
             expect(ENGINE_LAUNCH_ARGS).toContain('--disable-frame-rate-limit');
             expect(PRESENTING_LAUNCH_ARGS).not.toContain('--disable-frame-rate-limit');
+            expect(ENGINE_LAUNCH_ARGS).toContain('--screen-info={1920x1080}');
+            expect(PRESENTING_LAUNCH_ARGS).toContain('--screen-info={1920x1080}');
 
             process.env.NEO_FILM_TAKE = '1';
             expect(() => activeLaunchArgs()).toThrow(

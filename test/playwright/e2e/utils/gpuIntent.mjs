@@ -43,13 +43,20 @@ export const GPU_INTENT_ARGS = [
 ];
 
 /**
- * @summary Shared browser isolation, memory, throttling, and sandbox arguments.
+ * @summary Shared browser isolation, memory, throttling, screen, and sandbox arguments.
  *
  * The explicit engine profile uses this list unchanged. The presenting profile removes the
  * frame-rate override which suppresses compositor frames on headed Retina hosts.
+ *
+ * `--screen-info` gives headless Chrome a 1920×1080 screen instead of its 800×600 default. The
+ * window manager clamps a script-moved popup into the screen, so on the default a 480 px popup's
+ * `moveTo(900, 20)` lands at x = 320 and the product's own placement cannot follow a target the
+ * test staged beyond it. `contextOptions.screen` changes only what `window.screen` reports, and
+ * measured with this configuration's `chrome` channel, `--window-size` left the screen at 800 px.
  * @type {String[]}
  */
 export const BASE_LAUNCH_ARGS = [
+    '--screen-info={1920x1080}',
     '--disable-frame-rate-limit',
     '--no-sandbox',
     '--disable-setuid-sandbox',
