@@ -82,15 +82,14 @@ class Tooltip extends Container {
     }
 
     /**
-     * @param {String} id
+     * Arms one of the named delays, replacing a pending timer of the same name.
+     * @param {String} id valid values: dismiss, hide, show
      * @param {Function} callback
      * @param {Number} delay
      */
     addTimeout(id, callback, delay) {
-        id += 'DelayTaskId';
-
-        this.clearTimeout(this[id]);
-        this[id] = setTimeout(callback, delay)
+        this.clearTimeout(id);
+        this[id + 'DelayTaskId'] = setTimeout(callback, delay)
     }
 
     /**
@@ -343,6 +342,8 @@ class Tooltip extends Container {
             });
 
             me.activeTarget = null;
+            // a show still pending would fire after the leave and cancel the hide
+            me.clearTimeout('show');
             me.hideDelayed(data)
         }
     }
