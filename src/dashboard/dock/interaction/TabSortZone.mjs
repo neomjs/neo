@@ -639,9 +639,12 @@ class TabSortZone extends TabHeaderSortZone {
      * @param {Object} frame.logicalSourceRect
      * @param {String|null} frame.targetId
      * @param {Object|null} frame.targetRect
-     * @returns {{commitEligible: Boolean, engage: Boolean, retain: Boolean,
+     * @returns {{commitEligible: Boolean, engage: Boolean, preview: (true|undefined), retain: Boolean,
      *     proxyRect: (Object|undefined)}|null}
      *     An engaged record carries the target proxy's extent ({@link #getVesselConversionProxyRect});
+     *     `preview: true` marks a pointer claim on this target that the park has not admitted yet
+     *     (pending or refused), whose frames may render the target's drop zones without an embodiment
+     *     or a commit;
      *     `null` keeps the legacy coordinator path when conversion is disabled or the source is not
      *     in a window drag.
      */
@@ -720,7 +723,10 @@ class TabSortZone extends TabHeaderSortZone {
                 targetRect
             });
 
-            return {commitEligible: false, engage: false, retain: false}
+            // a park still pending for the target the pointer claims: its zones may show before it admits
+            return pointerInTarget === true && sensor.targetConverted === true && targetId != null && targetId === me.vesselConversionTargetId
+                ? {commitEligible: false, engage: false, preview: true, retain: false}
+                : {commitEligible: false, engage: false, retain: false}
         }
 
         if (pointerInTarget === true && targetId != null && targetRect) {
@@ -773,6 +779,7 @@ class TabSortZone extends TabHeaderSortZone {
             return {
                 commitEligible: record.converted && !record.transitioning,
                 engage        : record.converted && !record.transitioning,
+                preview       : true,
                 retain        : false,
                 proxyRect     : record.converted && !record.transitioning
                     ? me.getVesselConversionProxyRect()
