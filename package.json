@@ -124,7 +124,7 @@
         "lint-staged"                  : "^17.5.1",
         "marked"                       : "^18.0.14",
         "mermaid"                      : "^12.0.0",
-        "monaco-editor"                : "0.56.0",
+        "monaco-editor"                : "0.57.0",
         "neo-agent-skills"             : "0.1.18",
         "parse5"                       : "^8.0.1",
         "postcss"                      : "^8.5.28",
