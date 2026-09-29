@@ -3,8 +3,8 @@ import Base from '../../../core/Base.mjs';
 /**
  * @summary Owns one vessel's transient conversion decision and asynchronous admission.
  * The decision is claim-owned: a live pointer claim on the target proposes conversion as soon as
- * both live rects are measurable, and an admitted conversion holds until the pointer's departure
- * is observed or, absent that evidence, the claim is lost. No geometric threshold gates either
+ * both live rects are measurable, and a claim-free sample proposes strict reversion. The binding
+ * owns any raw-claim miss grace before sampling. No geometric threshold gates either
  * direction — the target's content is the accepting region, exactly as it is for a native
  * title-bar drag's anchor point. Unmeasurable geometry still fails closed: it never converts and
  * it reverts an admitted conversion. Reset and destruction invalidate pending admission without
@@ -117,19 +117,14 @@ class VesselConversion extends Base {
     }
 
     /**
-     * @summary Selects a state without owning actuator admission or its lifecycle.
-     * Entry requires a current pointer claim over measurable geometry. A false observed exit holds
-     * through a lapsed claim; absent exit evidence keeps strict claim-loss behavior; unmeasurable
-     * geometry reverts whatever the pointer says.
+     * @summary Follows the binding's claim flag over measurable live geometry.
+     * A claim-free or unmeasurable frame proposes strict reversion; actuator admission remains
+     * owned by the sampling lifecycle.
      * @param {Object} record Measured sample and admitted state.
-     * @param {Boolean|null} pointerExitedTarget Tri-state observed departure.
      * @returns {Boolean}
      */
-    resolveConversion(record, pointerExitedTarget) {
-        const {converted, measurable, pointerInTarget} = record;
-        if (!measurable) return false;
-        if (!converted) return pointerInTarget;
-        return !(pointerExitedTarget === true || (pointerExitedTarget == null && !pointerInTarget))
+    resolveConversion({measurable, pointerInTarget}) {
+        return measurable && pointerInTarget
     }
 
     /**
@@ -138,12 +133,11 @@ class VesselConversion extends Base {
      * completion inert.
      * @param {Object} [data={}]
      * @param {Boolean} data.pointerInTarget Current claim on the accepting region.
-     * @param {Boolean|null} [data.pointerExitedTarget] Observed exit/still-inside evidence.
      * @param {Object} data.sourceRect Live {x, y, width, height}.
      * @param {Object} data.targetRect Live {x, y, width, height}.
      * @returns {Object} Sample with measurable, pointerInTarget, converted and optional transitioning.
      */
-    sample({pointerExitedTarget, pointerInTarget, sourceRect, targetRect} = {}) {
+    sample({pointerInTarget, sourceRect, targetRect} = {}) {
         const me     = this,
               record = {
                   converted      : me.conversionAccepted,
@@ -155,7 +149,7 @@ class VesselConversion extends Base {
 
         if (me.transition) return {...record, transitioning: true};
 
-        const next = me.resolveConversion(record, pointerExitedTarget);
+        const next = me.resolveConversion(record);
         if (typeof next !== 'boolean' || next === me.conversionAccepted) return record;
 
         const proposed = {...record, converted: next},

@@ -21,7 +21,7 @@ import VesselConversion from '../../../../src/dashboard/dock/window/VesselConver
  * on its first sample whatever the overlap (the native title-bar path admits by a single point, and
  * a hand aiming at a target's far edge must see the same), the decision fires exactly once per
  * crossing (zero flicker while the claim stands), losing the claim reverts at any overlap,
- * observed exit evidence outranks a lapsed claim, terminals reset silently, and unmeasurable
+ * terminals reset silently, and unmeasurable
  * geometry fails CLOSED — it never converts and it reverts an admitted conversion. The seams are
  * the decision surface; the returned sample record is the geometry surface.
  */
@@ -335,102 +335,4 @@ test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
             .toThrow(/required function seams/)
     });
 
-    // `pointerInTarget` is the claim arbiter's LIVE resolution and a claim expires 300ms after its
-    // last refresh, so it answers "is there a live claim?" — not "is the pointer inside?". A
-    // stationary pointer fires no move events, so an ordinary human pause lets the claim lapse
-    // while the vessel sits fully inside the target. `pointerExitedTarget` is the tri-state that
-    // separates the two, and its ABSENT state is the one that matters most.
-    test.describe('a lapsed claim is not a departure', () => {
-        const source = rect(0, 0, 100, 100),
-              target = rect(0, 0, 100, 100);
-
-        const converted = () => {
-            const h = harness();
-            h.sensor.sample({pointerInTarget: true, sourceRect: source, targetRect: target});
-            expect(h.calls.converted).toHaveLength(1);
-            return h
-        };
-
-        test('an observed still-inside HOLDS the conversion through a lapsed claim — the flicker fix', () => {
-            const {calls, sensor} = converted();
-
-            // The pause: the claim has lapsed (pointerInTarget false) but the host observed that
-            // the pointer never left. Measured behaviour before the fix: converted flips
-            // true→false→true per pause, a visible flicker on every hover.
-            for (let i = 0; i < 5; i++) {
-                const record = sensor.sample({
-                    pointerExitedTarget: false,
-                    pointerInTarget    : false,
-                    sourceRect         : source,
-                    targetRect         : target
-                });
-                expect(record.measurable).toBe(true);
-                expect(record.converted).toBe(true)
-            }
-
-            expect(calls.reverted, 'a lapsed claim must not revert a converted vessel').toHaveLength(0)
-        });
-
-        test('an observed exit reverts, even while the rects still fully overlap', () => {
-            const {calls, sensor} = converted();
-
-            sensor.sample({
-                pointerExitedTarget: true,
-                pointerInTarget    : false,
-                sourceRect         : source,
-                targetRect         : target
-            });
-
-            expect(calls.reverted).toHaveLength(1);
-            expect(calls.reverted[0].measurable, 'reversion happened at full rect overlap').toBe(true)
-        });
-
-        test('an ABSENT signal falls back to the landed contract — losing the claim reverts', () => {
-            // The fail-safe that keeps every caller not yet taught the new signal on the
-            // documented both-directions gate. Defaulting absence to "not exited" would let rect
-            // overlap alone HOLD a conversion, deleting that gate by omission rather than by
-            // decision. `null` is the same unknown as `undefined`.
-            for (const absent of [undefined, null]) {
-                const {calls, sensor} = converted();
-
-                sensor.sample({
-                    pointerExitedTarget: absent,
-                    pointerInTarget    : false,
-                    sourceRect         : source,
-                    targetRect         : target
-                });
-
-                expect(calls.reverted, `an unknown exit signal (${absent}) must fail SAFE`).toHaveLength(1)
-            }
-        });
-
-        test('an observed still-inside still yields to UNMEASURABLE geometry', () => {
-            // Holding through a lapsed claim must not become "a vessel with no geometry stays parked".
-            const {calls, sensor} = converted();
-
-            sensor.sample({
-                pointerExitedTarget: false,
-                pointerInTarget    : false,
-                sourceRect         : rect(NaN, 0, 100, 100),
-                targetRect         : target
-            });
-
-            expect(calls.reverted, 'garbage geometry reverts regardless of the exit signal').toHaveLength(1)
-        });
-
-        test('convert-IN is unchanged: an observed still-inside never converts without a live claim', () => {
-            // The asymmetry is deliberate. Holding a conversion through a lapsed claim is safe;
-            // STARTING one on a claim that is not currently valid is not.
-            const {calls, sensor} = harness();
-
-            sensor.sample({
-                pointerExitedTarget: false,
-                pointerInTarget    : false,
-                sourceRect         : source,
-                targetRect         : target
-            });
-
-            expect(calls.converted, 'a lapsed claim must never pin a vessel that was never converted').toHaveLength(0)
-        })
-    })
 });
