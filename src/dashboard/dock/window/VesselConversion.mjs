@@ -3,8 +3,9 @@ import Base from '../../../core/Base.mjs';
 /**
  * @summary Owns one vessel's transient conversion decision and asynchronous admission.
  * The decision is claim-owned: a live pointer claim on the target proposes conversion as soon as
- * both live rects are measurable, and a claim-free sample proposes strict reversion. The binding
- * owns any raw-claim miss grace before sampling. No geometric threshold gates either
+ * both live rects are measurable, and a claim-free sample proposes strict reversion.
+ * {@link Neo.dashboard.dock.interaction.TabSortZone#vesselConversionPointerExitGraceMs} controls
+ * optional raw-claim miss grace (default zero) before sampling. No geometric threshold gates either
  * direction — the target's content is the accepting region, exactly as it is for a native
  * title-bar drag's anchor point. Unmeasurable geometry still fails closed: it never converts and
  * it reverts an admitted conversion. Reset and destruction invalidate pending admission without
