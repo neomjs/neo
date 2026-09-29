@@ -81,8 +81,8 @@ flowchart TD
     Park["mid-gesture conversion: park the window, never close it<br/>re-show the same window, dispose once, on commit"]:::window
     Release["the window dies or is closed<br/>the binding is released, the lease starts running"]:::decision
     Retain["your host answers: retained<br/>the participant stays, the pane parks headless"]:::truth
-    Retire["your host answers: retired<br/>the item re-trees home, the vessel document goes"]:::truth
-    Return["three roads home — Undo, Reset, the stack dragged back<br/>the same instance embodies again, ~360 ms after the document"]:::window
+    Retire["your host chooses return on confirmed close<br/>all panes go home; the empty participant stays registered"]:::truth
+    Return["four roads home — Undo, Reset, stack return, physical close<br/>the same instance embodies again after projection settles"]:::window
     Reload["warm reload rebinds the same lineage — same objects, same history<br/>cold reload: a new heap restores the keyed documents headless — new instances, windows by gesture"]:::truth
 
     Home --> Terminal
@@ -189,16 +189,48 @@ window opened will have its slot released within about thirty milliseconds and i
 never having been bound at all. That timing was measured on the Workstation, and it matters, because the pane in
 question was already the vessel's: the tear-out had committed the moment the gesture ended.
 
-What happens at the lease's end is the one place the engine puts a question to your host. Unbinding "preserves
-committed ownership"; retirement is a separate, explicit act. So when a vessel's window is gone for good, the engine
-asks: is this workspace *retained* — kept registered as a headless participant, its document intact, its pane parked
-until a render target admits it — or *retired*, its item brought home and its document dropped? The Workstation
-answers *retained*: a headless vessel keeps its place in the Group, its pane sits parked with `mounted: false`, and the
-Reset can bring its shipped panes back to the default arrangement. Layout-preserving presentation of a retained
-participant remains available through the host's programmatic open and mount commands. Demo B, the example consumer,
-is built to show the other
-answer where its scenario wants it. Neither is right in the abstract; the design record insists only that "whether an
-emptied entry is retained or retired is decided and named separately from closing its OS window". Your product decides.
+Unbinding "preserves committed ownership"; retirement is a separate, explicit act. A window disappearing does not
+tell the engine which product experience you want. A trading desk may keep a detached workspace headless until the
+user opens it again. A notes window may send all its panes back to the desk when the user closes its frame. Both keep
+the semantic participant registered: even the returned workspace retains its empty zone shell, so undo can restore
+its document through the same Group protocol.
+
+The dock Workspace names that choice with `nativeWindowClosePolicy`. Choosing `'retain'` detaches the departed render
+target and keeps its document unchanged. Choosing `'return'` asks the shared native transaction to distinguish a
+physical close from a reload: an exact closed handle returns every source pane to the receiving workspace in one
+paired Group write. An unknown physical observation waits for the released binding's reconnect lease; an accepted
+warm rebind cancels that pending closure. A reservation that never bound remains a different case and does not
+trigger this all-pane return. The Workstation chooses return for a bound popup's physical close, while a
+never-connected vessel keeps its pane headless for later recovery.
+
+For your own nested-workspace host, the composition is small. Register the desk and popup through the Workspace's
+participant seams, and configure the receiving **binding key**, which can differ from its document key:
+
+```javascript
+root.workspaceSet = workspaceSet;
+workspaceSet.register('desk', root.getDockParticipantSeams('main'));
+
+const popup = Neo.create(NotesWorkspace, {
+    workspaceKey: 'notes', workspaceSet, windowId: null,
+    rootWorkspace: root,
+    topologyGroupId: root.topologyGroupId,
+    nativeWindowClosePolicy: 'return',
+    nativeWindowReturnTargetKey: 'main'
+});
+workspaceSet.register('notes', popup.getDockParticipantSeams('notes-window'));
+```
+
+`NotesWorkspace` still supplies the product URL and window features through `getNativeWindowOpenConfig`, resolves
+the live opener through `getNativeWindowOwnerWindowId`, retains its exact route through `getNativeWindowRoute`, and
+mounts the same registered owner when a popup binds. The opener hook matters after detachment: the popup owner's own
+`windowId` is then null, while the desk remains a live place from which to open its next render target.
+Its document uses a persistent edge-zone root, so transferring the final pane leaves a valid empty workspace.
+There is no close-return reducer or replay loop to write. The receiving Workspace's existing landing hook chooses
+where each pane goes, using its recorded home when available. Undo restores the same participant and asks the
+shared transaction to re-embody it; native opening can be refused while the semantic undo still holds. Native replay
+outcomes are published separately as effect receipts. The [minimal two-workspace host](../../../test/playwright/component/apps/dock-native-return/app.mjs)
+shows this consumption without any Workstation classes. Hosts leaving the policy unset keep their existing release
+behavior.
 
 There is a sharp edge here that the engine now guards, and it is worth telling as it happened, because it shows what
 the lease actually does. A never-connected vessel's slot is released at once — its window is gone — but the *effect*
@@ -239,15 +271,21 @@ engine and the products keep their policy. Platform behaviour across browsers an
 catalogued, with verdicts and receipts, in the [Tear-Out Portability Matrix](../specificfeatures/TearOutPortabilityMatrix.md);
 this guide explains the mechanism and does not repeat the rows.
 
-## Station five: three roads home, and the read that fooled two of us
+## Station five: four roads home, and the read that fooled two of us
 
-A pane comes home by one of three user actions, and they differ in what they do to the arrangement.
+A pane comes home by one of four user actions, and they differ in what they do to the arrangement.
 
 **Undo** is the Group's. A tear-out is one history row; undoing it returns the pane to the exact document state
 before the detach, through the same participant protocol, and the vessel's projection releases the instance the main
 projection adopts. Redo puts it back in the same window. History is per Group and off by default — a Group is born with
 depth zero and never loads the history module until a consumer asks for it — so a single-window application pays
 nothing for a feature it does not use.
+
+**Closing the native popup** follows the host's return policy. Every pane in that popup returns through one paired
+write, in the order its recorded homes prescribe; the popup's empty participant remains available to history.
+Undo restores both documents and reopens that same workspace identity when the platform allows it. Redo reapplies
+the existing row and closes its current render target after projection settles. A refused native effect does not
+turn a successful semantic return into a partial document transaction.
 
 **Reset** is a product command the Workstation ships: return every shipped pane to the arrangement the app was born
 with, in one Group write, while retaining every participant. A vessel that gave back its only pane keeps an empty

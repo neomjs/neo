@@ -242,6 +242,6 @@ test.describe('Dock relative placement participant', () => {
         Transaction.bind({groupId, workspaceKey: 'popup', generationToken: old.generationToken, windowId: 'placement-popup-reloaded'});
         release(true);
         expect((await pending).status).toBe('stale');
-        expect(placement.receipts).toEqual([])
+        expect(placement.receipts.filter(receipt => receipt.transactionId === 'retired-test')).toEqual([])
     })
 });

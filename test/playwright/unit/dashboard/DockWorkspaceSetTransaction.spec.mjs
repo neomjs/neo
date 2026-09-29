@@ -65,6 +65,18 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
         return state
     }
 
+    /** @summary Creates a return source whose edge root survives its last pane leaving. @param {String} key @param {String[]} itemIds @returns {Object} */
+    function returnHolder(key, itemIds = [key]) {
+        const state = holder(key);
+        state.document = {
+            schema: WorkspaceDocument.SCHEMA, root: 'shell',
+            items : Object.fromEntries(itemIds.map(itemId => [itemId, {reference: itemId, title: itemId}])),
+            nodes : {shell: {type: 'edge-zone', zones: itemIds.length ? {center: {nodeId: 'tabs'}} : {}},
+                ...(itemIds.length ? {tabs: {type: 'tabs', items: itemIds, activeItemId: itemIds[0]}} : {})}
+        };
+        return state
+    }
+
     const write = (workspaces, options = {}) => set.write(workspaces, {cause: 'replace-workspaces', provenance: {origin: 'unit'}, ...options});
 
     test('addItem creates and places through a registered Group, preserving a queued lock and history', async () => {
@@ -344,38 +356,225 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
         })
     }
 
+    test('native-window binding lookup requires one writable opted-in document owner', async () => {
+        const source       = returnHolder('foreign-catalog'), target = holder('root-catalog'),
+              nativeWindow = {runtimeOwner: 'foreign-owner'}, policy = Operations.appendingReturnDescriptor;
+        set.register('foreign-catalog', {...source.seams, bindingKey: 'popup', nativeWindow});
+        set.register('root-catalog', {...target.seams, bindingKey: 'main', resolveReturnDescriptor: policy});
+        const participant = TransactionManager.getParticipant(groupId, 'foreign-catalog');
+        expect(participant.bindingKey).toBe('popup');
+        expect(set.getParticipantForBinding('popup')).toEqual({workspaceId: 'foreign-catalog', participant});
+        expect(set.getParticipantForBinding('main')).toBeNull();
+        expect(set.getParticipantForBinding('absent')).toBeNull();
+        expect(participant.capture()).not.toHaveProperty('nativeWindow');
+        expect(participant.capture()).not.toHaveProperty('bindingKey');
+
+        const result = await set.returnWorkspace('foreign-catalog', 'root-catalog');
+        expect(JSON.stringify(result)).not.toContain('foreign-owner');
+        expect(JSON.stringify(result)).not.toContain('resolveReturnDescriptor');
+        const second = returnHolder('ambiguous-catalog');
+        set.register('ambiguous-catalog', {...second.seams, bindingKey: 'popup', nativeWindow: {}});
+        expect(set.getParticipantForBinding('popup')).toBeNull();
+        set.register('ambiguous-catalog', {getDocument: second.seams.getDocument, bindingKey: 'popup', nativeWindow: {}});
+        expect(set.getParticipantForBinding('popup')).toEqual({workspaceId: 'foreign-catalog', participant})
+    });
+
     for (const successor of [false, true]) {
-        test(`popup close return ${successor ? 'refuses a successor binding' : 'preserves an earlier queued main edit'}`, async () => {
-            const key   = WorkstationWorkspace.MAIN_WORKSPACE_ID,
-                  main  = holder(key), popup = holder('popup'),
-                  state = {host: {}, disconnected: true, windowId: null, get document() { return popup.document }},
-                  home  = {tabsNodeId: 'root', index: 1},
-                  root  = {
-                      id: 'return-owner', topologyGroupId: groupId,
-                      get dockModel() { return main.document },
-                      getPopupState              : name => name === 'popup' ? state : null,
-                      resolveDockReturnDescriptor: Operations.appendingReturnDescriptor,
-                      tearOutHandlers            : {placements: {popup: home}, peekPlacement: () => home, releasePane() {}},
-                      nativeWindows              : {recordOwner() {}}, refreshPromise: Promise.resolve()
-                  };
-            popup.document = {
-                schema: WorkspaceDocument.SCHEMA, root: 'shell', items: {popup: {title: 'Popup'}},
-                nodes : {shell: {type: 'edge-zone', zones: {center: {nodeId: 'tabs'}}},
-                    tabs: {type: 'tabs', items: ['popup'], activeItemId: 'popup'}}
-            };
+        test(`shared workspace return ${successor ? 'refuses a successor binding at admission' : 'preserves an earlier queued target edit'}`, async () => {
+            const target = holder('root-catalog'), source = returnHolder('foreign-catalog');
+            set.register('root-catalog', {...target.seams, bindingKey: 'main'});
+            set.register('foreign-catalog', {...source.seams, bindingKey: 'popup'});
             TransactionManager.release('workspace-set-transaction-popup');
-            const queued    = set.commit(key, [{operation: 'setItemLocked', itemId: key, locked: true}]),
-                  returning = WorkstationWorkspace.prototype.returnClosedPopupWorkspace.call(root, 'popup');
+            const released  = TransactionManager.get(groupId).bindings.get('popup'),
+                  queued    = set.commit('root-catalog', [{operation: 'setItemLocked', itemId: 'root-catalog', locked: true}]),
+                  returning = set.returnWorkspace('foreign-catalog', 'root-catalog', {
+                      placements: {'foreign-catalog': {tabsNodeId: 'root', index: 1}},
+                      guard     : () => TransactionManager.get(groupId).bindings.get('popup') === released && !released.windowId
+                  });
             if (successor) {
                 const reservation = TransactionManager.reserve({groupId, workspaceKey: 'popup'});
                 TransactionManager.bind({...reservation, windowId: 'successor-popup'})
             }
             await queued;
-            expect(await returning).toBe(!successor);
-            expect(main.document.items[key].locked, 'a queued edit must not be overwritten by a stale return candidate').toBe(true);
-            expect(Boolean(main.document.items.popup)).toBe(!successor);
-            expect(Boolean(popup.document.items.popup)).toBe(successor);
+            if (successor) await expect(returning).rejects.toThrow('refused by its guard');
+            else expect((await returning).row.operation).toBe('returnPopupWorkspace');
+            expect(target.document.items['root-catalog'].locked).toBe(true);
+            expect(Boolean(target.document.items['foreign-catalog'])).toBe(!successor);
+            expect(Boolean(source.document.items['foreign-catalog'])).toBe(successor);
             expect(TransactionManager.get(groupId).history.count).toBe(successor ? 1 : 2)
+        })
+    }
+
+    test('shared return orders multiple panes by serialized homes, commits once and replays both documents', async () => {
+        const source        = returnHolder('foreign-catalog', ['last', 'first', 'middle']), target = holder('root-catalog'),
+              initialSource = WorkspaceDocument.clone(source.document), initialTarget = WorkspaceDocument.clone(target.document),
+              calls         = [], placements = {last: {tabsNodeId: 'root', index: 2},
+                  first : {tabsNodeId: 'root', index: 0}, middle: {tabsNodeId: 'root', index: 1},
+                  absent: {tabsNodeId: 'root', index: -1}};
+        set.register('root-catalog', {...target.seams, resolveReturnDescriptor: (current, itemId, placement) => {
+            calls.push({itemId, items: [...current.nodes.root.items]});
+            return Operations.appendingReturnDescriptor(current, itemId, placement)
+        }});
+        const returning = set.returnWorkspace('foreign-catalog', 'root-catalog', {placements});
+        placements.first.index = 50;
+        const result = await returning;
+
+        expect(target.document.nodes.root.items).toEqual(['first', 'middle', 'last', 'root-catalog']);
+        expect(source.document.items).toEqual({});
+        expect(result.itemIds).toEqual(['first', 'middle', 'last']);
+        expect(result.row).toMatchObject({operation: 'returnPopupWorkspace', workspaceId: 'foreign-catalog',
+            targetWorkspaceId: 'root-catalog', itemIds: ['first', 'middle', 'last'], cause: 'popup-close', provenance: {origin: 'human'}});
+        expect(result.row.participants.map(entry => entry.workspaceKey)).toEqual(['foreign-catalog', 'root-catalog']);
+        expect(TransactionManager.get(groupId).history.count).toBe(1);
+        expect(calls.map(call => call.itemId)).toEqual(['first', 'middle', 'last', 'first', 'middle', 'last']);
+        expect(calls[1].items).toEqual(['first', 'root-catalog']);
+        expect(calls[4].items).toEqual(['first', 'root-catalog']);
+        await TransactionManager.undo({groupId});
+        expect(source.document).toEqual(initialSource);
+        expect(target.document).toEqual(initialTarget);
+        await TransactionManager.redo({groupId});
+        expect(source.document.items).toEqual({});
+        expect(target.document.nodes.root.items).toEqual(['first', 'middle', 'last', 'root-catalog'])
+    });
+
+    test('shared return creates a center stack in an empty target and duplicate closes add no history', async () => {
+        const source             = returnHolder('foreign-catalog', ['returning']), target = returnHolder('root-catalog', []),
+              options            = {placements: {returning: {tabsNodeId: 'remembered-tabs', index: 2}}},
+              [first, duplicate] = await Promise.all([
+                  set.returnWorkspace('foreign-catalog', 'root-catalog', options),
+                  set.returnWorkspace('foreign-catalog', 'root-catalog', options)
+              ]);
+        expect(first.row.itemIds).toEqual(['returning']);
+        expect(target.document.nodes.shell.zones.center.nodeId).toBe('remembered-tabs');
+        expect(target.document.nodes['remembered-tabs'].items).toEqual(['returning']);
+        expect(source.document.items).toEqual({});
+        expect(duplicate).toMatchObject({row: null, participants: [], itemIds: []});
+        expect(duplicate.snapshot).toEqual(first.snapshot);
+        expect((await set.returnWorkspace('foreign-catalog', 'root-catalog')).row).toBeNull();
+        await expect(set.returnWorkspace('foreign-catalog', 'root-catalog', {guard: () => false})).rejects.toThrow('refused by its guard');
+        expect(source.writes).toHaveLength(1);
+        expect(target.writes).toHaveLength(1);
+        expect(TransactionManager.get(groupId).history.count).toBe(1)
+    });
+
+    test('shared return reports its actual ordered item ids when Group history is disabled', async () => {
+        const source = returnHolder('foreign-catalog', ['last', 'first']), target = holder('root-catalog');
+        expect(TransactionManager.setHistoryDepth({groupId, depth: 0})).toBe(true);
+        const result = await set.returnWorkspace('foreign-catalog', 'root-catalog', {
+            placements: {last: {tabsNodeId: 'root', index: 1}, first: {tabsNodeId: 'root', index: 0}}
+        });
+        expect(result.row).toBeNull();
+        expect(result.itemIds).toEqual(['first', 'last']);
+        expect(result.participants).toHaveLength(2);
+        expect(source.document.items).toEqual({});
+        expect(target.document.nodes.root.items).toEqual(['first', 'last', 'root-catalog']);
+        expect(TransactionManager.get(groupId).history).toBeNull()
+    });
+
+    test('shared return refuses corrupt already-empty documents before reporting a no-op', async () => {
+        const source = returnHolder('foreign-catalog', []), target = holder('root-catalog');
+        source.document.root = 'missing';
+        await expect(set.returnWorkspace('foreign-catalog', 'root-catalog')).rejects.toThrow('is missing');
+        source.document.root = 'shell';
+        target.document.root = 'missing';
+        await expect(set.returnWorkspace('foreign-catalog', 'root-catalog')).rejects.toThrow('is missing');
+        expect(source.writes).toEqual([]);
+        expect(target.writes).toEqual([]);
+        expect(TransactionManager.get(groupId).history).toBeNull()
+    });
+
+    test('shared return admits source items created by earlier queued work', async () => {
+        const source = returnHolder('foreign-catalog', []), target = holder('root-catalog'),
+              added  = set.commit('foreign-catalog', [{operation: 'addItem', itemId: 'queued-pane', item: {title: 'Queued'}},
+                  {operation: 'restoreTab', itemId: 'queued-pane', tabsNodeId: 'created-tabs', home: {parentId: 'shell', slot: 'center'}}]),
+              returning = set.returnWorkspace('foreign-catalog', 'root-catalog');
+        await added;
+        expect((await returning).row.itemIds).toEqual(['queued-pane']);
+        expect(target.document.items['queued-pane'].title).toBe('Queued');
+        expect(source.document.items).toEqual({});
+        expect(TransactionManager.get(groupId).history.count).toBe(2)
+    });
+
+    test('shared return sees an earlier queued transfer empty its source and skips its row', async () => {
+        const source   = returnHolder('foreign-catalog', ['returning']), target = holder('root-catalog'),
+              transfer = set.transfer({operation: 'transferItem', itemId: 'returning', sourceWorkspaceId: 'foreign-catalog',
+                  targetWorkspaceId: 'root-catalog', target: {operation: 'addTab', tabsNodeId: 'root'}}),
+              returning = set.returnWorkspace('foreign-catalog', 'root-catalog');
+        await transfer;
+        expect((await returning).row).toBeNull();
+        expect(source.writes).toHaveLength(1);
+        expect(target.writes).toHaveLength(1);
+        expect(TransactionManager.get(groupId).history.count).toBe(1)
+    });
+
+    test('shared return refuses absent, identical and read-only participants before either adoption', async () => {
+        const source = returnHolder('foreign-catalog'), target = holder('root-catalog');
+        await expect(set.returnWorkspace('foreign-catalog', 'absent')).rejects.toThrow('registered writable');
+        await expect(set.returnWorkspace('foreign-catalog', 'foreign-catalog')).rejects.toThrow('distinct workspace');
+        set.register('root-catalog', {getDocument: target.seams.getDocument});
+        await expect(set.returnWorkspace('foreign-catalog', 'root-catalog')).rejects.toThrow('registered writable');
+        set.register('root-catalog', target.seams);
+        set.register('foreign-catalog', {getDocument: source.seams.getDocument});
+        await expect(set.returnWorkspace('foreign-catalog', 'root-catalog')).rejects.toThrow('registered writable');
+        expect(source.writes).toEqual([]);
+        expect(target.writes).toEqual([]);
+        expect(TransactionManager.get(groupId).history).toBeNull()
+    });
+
+    for (const refusal of ['placement', 'locked', 'invalid']) {
+        test(`shared return leaves both documents untouched on ${refusal} refusal`, async () => {
+            const source = returnHolder('foreign-catalog'), target = holder('root-catalog');
+            if (refusal === 'placement') set.register('root-catalog', {...target.seams,
+                resolveReturnDescriptor: () => ({operation: 'addTab', tabsNodeId: 'missing'})});
+            if (refusal === 'locked') source.document.items['foreign-catalog'].movable = false;
+            if (refusal === 'invalid') target.document.root = 'missing';
+            const sourceBefore = WorkspaceDocument.clone(source.document), targetBefore = WorkspaceDocument.clone(target.document);
+            await expect(set.returnWorkspace('foreign-catalog', 'root-catalog')).rejects.toThrow(
+                refusal === 'placement' ? 'not a tabs node' : refusal === 'locked' ? 'not movable' : 'is missing');
+            expect(source.document).toEqual(sourceBefore);
+            expect(target.document).toEqual(targetBefore);
+            expect(source.writes).toEqual([]);
+            expect(target.writes).toEqual([]);
+            expect(TransactionManager.get(groupId).history).toBeNull()
+        })
+    }
+
+    test('shared return compensates both documents when the second adopter mutates then throws', async () => {
+        const source       = returnHolder('foreign-catalog'),
+              target       = holder('root-catalog', {fail: value => Boolean(value.items['foreign-catalog'])}),
+              sourceBefore = WorkspaceDocument.clone(source.document), targetBefore = WorkspaceDocument.clone(target.document);
+        await expect(set.returnWorkspace('foreign-catalog', 'root-catalog')).rejects.toThrow('second setter refused');
+        expect(source.document).toEqual(sourceBefore);
+        expect(target.document).toEqual(targetBefore);
+        expect(source.writes).toHaveLength(2);
+        expect(target.writes).toHaveLength(2);
+        expect(TransactionManager.get(groupId).history?.count ?? 0).toBe(0);
+        expect(TransactionManager.get(groupId).snapshot ?? null).toBeNull()
+    });
+
+    for (const newReservation of [false, true]) {
+        test(`shared return retains its final capture fence for ${newReservation ? 'a new reservation with the same counter' : 'a same-lineage rebind'}`, async () => {
+            const source = returnHolder('foreign-catalog'), target = holder('root-catalog');
+            set.register('foreign-catalog', {...source.seams, bindingKey: 'popup'});
+            const participant = TransactionManager.getParticipant(groupId, 'foreign-catalog'), prepare = participant.prepare;
+            let entered, release;
+            const started = new Promise(resolve => entered = resolve), gate = new Promise(resolve => release = resolve);
+            participant.prepare = async (...args) => { const candidate = prepare(...args); entered(); await gate; return candidate };
+            const returning = set.returnWorkspace('foreign-catalog', 'root-catalog', {guard: () => true});
+            await started;
+            const identity = TransactionManager.describe(TransactionManager.get(groupId),
+                TransactionManager.get(groupId).bindings.get('popup'), 'bound'),
+                  before = participant.capture().generation;
+            TransactionManager.release('workspace-set-transaction-popup');
+            const successor = newReservation ? TransactionManager.reserve({groupId, workspaceKey: 'popup'}) : identity;
+            TransactionManager.bind({...successor, windowId: 'successor-popup'});
+            expect(participant.capture().generation).toBe(`${successor.generationToken}:${newReservation ? 1 : 2}`);
+            expect(participant.capture().generation).not.toBe(before);
+            release();
+            await expect(returning).rejects.toThrow('changed during preparation');
+            expect(source.writes).toEqual([]);
+            expect(target.writes).toEqual([]);
+            expect(TransactionManager.get(groupId).history?.count ?? 0).toBe(0)
         })
     }
 
@@ -534,7 +733,7 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
 
         await expect(pending).rejects.toThrow(/changed/);
         expect(main.writes).toEqual([]);
-        expect(participant.capture().generation).toBe(2);
+        expect(participant.capture().generation).toBe(`${binding.generationToken}:2`);
         expect(participant.componentId).toBe('live-workspace');
         expect(participant.capture()).not.toHaveProperty('componentId');
         participant.prepare = prepare;

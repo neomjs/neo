@@ -301,10 +301,8 @@ const stageCommittedVessel = (workspace, ownerItemId='alerts', incomingItemId='s
 
     host.runtimeState = state;
     workspace.workspaceSet.register(workspaceId, {
-        componentId: host.id,
-        dispose    : () => { if (!host.isDestroyed) host.destroy() },
-        getDocument: () => state.document,
-        setDocument: document => state.document = document
+        ...host.getDockParticipantSeams(workspaceId),
+        dispose: () => { if (!host.isDestroyed) host.destroy() }
     });
 
     if (!workspace.workspaceSet.adoptTransfer({
@@ -341,9 +339,22 @@ const bindHost = async workspace => {
  * @returns {Promise<void>}
  */
 const releaseVessel = async (workspace, windowId, itemId='alerts') => {
-    const groupId = workspace.topologyGroupId ?? await bindHost(workspace);
-
-    await workspace.nativeWindows.onRelease({generation: 1, groupId, windowId, workspaceKey: workspace.tearOutWorkspaceKey(itemId)})
+    const groupId      = workspace.topologyGroupId ?? await bindHost(workspace),
+          workspaceKey = workspace.tearOutWorkspaceKey(itemId), native = workspace.nativeWindows;
+    let data;
+    const listener = {release: event => { if (event.windowId === windowId) data = event }, scope: {id: `workstation-release-${windowId}`}};
+    if (!TransactionManager.findByWindow(windowId)) {
+        TransactionManager.bind({...TransactionManager.reserve({groupId, workspaceKey}), windowId})
+    }
+    const state = workspace.getPopupState(workspaceKey);
+    if (state?.windowId === windowId && state.host) state.host.windowId = windowId;
+    TransactionManager.un({release: native.onRelease, scope: native});
+    TransactionManager.on(listener);
+    try { TransactionManager.release(windowId) } finally {
+        TransactionManager.un(listener);
+        TransactionManager.on({release: native.onRelease, scope: native})
+    }
+    await native.onRelease(data)
 };
 
 /**
@@ -2500,6 +2511,59 @@ test.describe('Workstation.view.Workspace', () => {
             expect(WorkspaceDocument.resolveStackRoot(popup.dockModel), 'no shell to resolve').toBe(null);
             expect(popup.resolveDockableRoot()).toEqual({component: popup, nodeId: 'plain-tabs'})
         } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('popup native seams supply root context and detach presentation while retaining the document', () => {
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+              {state, workspaceId} = stageCommittedVessel(workspace), document = state.document,
+              participant          = workspace.workspaceSet.getParticipant(workspaceId), native = participant.nativeWindow,
+              route                = {nativeHandleKey: 'popup-handle', ownerWindowId: workspace.windowId},
+              reservation          = {groupId: workspace.topologyGroupId, workspaceKey: workspaceId, generationToken: 'lineage'};
+        try {
+            state.nativeRoute = route;
+            workspace.lastCrossWindowTransfer = {sourceWorkspaceId: workspaceId, topologyExited: false};
+            expect(native.policy()).toBe('return');
+            expect(native.returnTarget()).toBe('main');
+            expect(native.ownerWindowId()).toBe(workspace.windowId);
+            expect(native.route()).toBe(route);
+            workspace.tearOutHandlers.recordPlacement('alerts', {tabsNodeId: 'heavy-tabs', index: 2});
+            expect(native.placements()).toEqual(workspace.tearOutHandlers.placements);
+            expect(native.placements().alerts).toMatchObject({tabsNodeId: 'heavy-tabs', index: 2});
+            expect(native.openConfig(reservation)).toMatchObject({topologyIdentity: reservation,
+                windowId: workspace.windowId, windowFeatures: 'width=700,height=600'});
+            native.detach({windowId: state.windowId});
+            expect(state).toMatchObject({disconnected: true, windowId: null, app: null, renderTarget: null});
+            expect(state.host.windowId).toBeNull();
+            expect(state.document).toBe(document);
+            expect(workspace.workspaceSet.getParticipant(workspaceId)).toBe(participant);
+            expect(workspace.lastCrossWindowTransfer.topologyExited).toBe(true)
+        } finally { workspace.destroy() }
+    });
+
+    test('popup return receipts preserve generic cleanup and record the Workstation outcome', () => {
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+              {state, workspaceId} = stageCommittedVessel(workspace), released = [], cleared = [],
+              releasePane          = workspace.tearOutHandlers.releasePane, recordOwner = workspace.nativeWindows.recordOwner,
+              failure              = {returned: false, workspaceId, itemIds: ['alerts'], errors: ['return refused']},
+              success              = {returned: true, workspaceId, itemIds: ['alerts', 'security'], transactionId: 'shared-return'};
+        workspace.tearOutHandlers.releasePane = itemId => released.push(itemId);
+        workspace.nativeWindows.recordOwner = (...args) => cleared.push(args);
+        try {
+            workspace.lastCrossWindowTransfer = {sourceWorkspaceId: workspaceId, topologyExited: false};
+            state.host.onDockWorkspaceReturn(failure);
+            expect(workspace.lastVesselRestoreReceipt).toBe(failure);
+            expect(workspace.lastCrossWindowTransfer.topologyExited).toBe(false);
+            expect(released).toEqual([]);
+            state.host.onDockWorkspaceReturn(success);
+            expect(workspace.lastVesselRestoreReceipt).toBe(success);
+            expect(workspace.lastCrossWindowTransfer.topologyExited).toBe(true);
+            expect(released).toEqual(['alerts', 'security']);
+            expect(cleared).toEqual([[workspace.id, 'alerts', null], [workspace.id, 'security', null]])
+        } finally {
+            workspace.tearOutHandlers.releasePane = releasePane;
+            workspace.nativeWindows.recordOwner = recordOwner;
             workspace.destroy()
         }
     });

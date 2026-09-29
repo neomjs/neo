@@ -12,7 +12,11 @@ import {test, expect}          from '@playwright/test';
 import Neo                     from "../../../../src/Neo.mjs";
 import * as core               from "../../../../src/core/_export.mjs";
 import NativeVesselTransaction from '../../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
+import Operations              from '../../../../src/dashboard/dock/model/Operations.mjs';
+import WorkspaceDocument       from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import WorkspaceSet            from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 import Rectangle               from '../../../../src/util/Rectangle.mjs';
+import TransactionManager      from '../../../../src/manager/Transaction.mjs';
 import WindowManager           from '../../../../src/manager/Window.mjs';
 
 /**
@@ -715,5 +719,332 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction#closeVessel', (
         expect(resolve('live', 'another-source'), 'an entry belongs to its own registration').toBeNull();
         expect(resolve('owned')).toMatchObject({itemId: 'owned', windowId: 'win-owned', windowName: 'owned-name'});
         expect(resolve('pending'), 'no window, no vessel').toBeNull()
+    });
+});
+
+/** @summary Exercises all-pane native release and replay with an independent document host. */
+test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace returns', () => {
+    const SOURCE = 'catalog-detached', TARGET = 'catalog-landing', FLOATING = 'surface-floating', LANDING = 'surface-landing';
+    let host, previousMain, previousLease, previousLogError;
+
+    test.beforeEach(() => {
+        Neo.Main ??= {};
+        previousMain = Object.fromEntries(['windowNativeIsClosed', 'windowOpen', 'clearTopologyIdentity', 'closeTopologyWindow']
+            .map(key => [key, Neo.Main[key]]));
+        previousLease = TransactionManager.reconnectLeaseMs;
+        previousLogError = Neo.logError
+    });
+
+    test.afterEach(() => {
+        if (host) {
+            TransactionManager.un({...host.listeners, scope: host});
+            TransactionManager.retireGroup(host.groupId);
+            host.set.destroy()
+        }
+        Object.assign(Neo.Main, previousMain);
+        TransactionManager.reconnectLeaseMs = previousLease;
+        Neo.logError = previousLogError;
+        host = null
+    });
+
+    /** @summary Creates a valid document with a structural root that survives all panes leaving. @param {String[]} itemIds @returns {Object} */
+    const dockDocument = itemIds => ({
+        schema: WorkspaceDocument.SCHEMA, root: 'shell',
+        items : Object.fromEntries(itemIds.map(itemId => [itemId, {reference: itemId, title: itemId}])),
+        nodes : {shell: {type: 'edge-zone', zones: itemIds.length ? {center: {nodeId: 'tabs'}} : {}},
+            ...(itemIds.length ? {tabs: {type: 'tabs', items: [...itemIds], activeItemId: itemIds[0]}} : {})}
+    });
+
+    /**
+     * @summary Registers ordinary Dock document owners and runtime native seams in a real Group.
+     * @param {Object} [options={}] Close policy, native binding and real lease duration.
+     * @returns {Object} The independent host and its controlled platform answers.
+     */
+    const createHost = ({policy = 'return', bound = true, leaseMs} = {}) => {
+        if (leaseMs !== undefined) TransactionManager.reconnectLeaseMs = leaseMs;
+        const identity = TransactionManager.bind({workspaceKey: LANDING, windowId: 'native-return-landing'}),
+              groupId  = identity.groupId;
+        TransactionManager.setHistoryDepth({groupId, depth: 8});
+        const set            = Neo.create(WorkspaceSet, {manager: TransactionManager, documentModel: WorkspaceDocument, getGroupId: () => groupId}),
+              reservation    = TransactionManager.reserve({groupId, workspaceKey: FLOATING}),
+              sourceIdentity = bound ? TransactionManager.bind({...reservation, windowId: 'native-return-floating'}) : reservation;
+        host = {
+            id     : 'independent-dock-document-owner', groupId, set, sourceIdentity, policy,
+            calls  : [], returned: [], effects: [], logs: [],
+            answers: {observe: true, open: false, clear: true, close: true},
+            source : {document: dockDocument(['pane-last', 'pane-first']), windowId: bound ? 'native-return-floating' : null},
+            target : {document: dockDocument(['anchor']), windowId: 'native-return-landing'}
+        };
+        const dispatch = async (name, data) => {
+            host.calls.push({name, data});
+            const answer = host.answers[name];
+            return typeof answer === 'function' ? answer(data) : answer
+        };
+        Neo.Main.windowNativeIsClosed = data => dispatch('observe', data);
+        Neo.Main.windowOpen = data => dispatch('open', data);
+        Neo.Main.clearTopologyIdentity = data => dispatch('clear', data);
+        Neo.Main.closeTopologyWindow = data => dispatch('close', data);
+        Neo.logError = error => host.logs.push(error.message);
+
+        host.listeners = {
+            release      : data => { if (data.groupId === groupId && data.workspaceKey === FLOATING) host.releaseData = data },
+            leaseExpired : data => { if (data.groupId === groupId && data.workspaceKey === FLOATING) host.expiryData = data },
+            effectReceipt: data => { if (data.groupId === groupId) host.effects.push(data.receipt) }
+        };
+        TransactionManager.on({...host.listeners, scope: host});
+        const nativeWindows = TransactionManager.getNativeLifecycle(groupId), descriptor = {workspaceSet: set, nativeWindows};
+        host.nativeWindows = nativeWindows;
+        host.descriptor = descriptor;
+        nativeWindows.registerSource('independent-dock-owner', {
+            keyFor        : () => FLOATING, open: async () => null, close: async () => true,
+            unbind        : data => NativeVesselTransaction.releaseWorkspace(descriptor, data),
+            bindingExpired: data => NativeVesselTransaction.releaseWorkspace(descriptor, {...data, expired: true})
+        });
+        const nativeSeams = state => ({
+            policy       : () => state === host.source ? host.policy : null,
+            returnTarget : () => LANDING,
+            windowId     : () => state.windowId,
+            ownerWindowId: () => host.target.windowId,
+            route        : () => ({nativeHandleKey: 'independent-native-handle', ownerWindowId: host.target.windowId}),
+            placements   : () => ({'pane-first': {tabsNodeId: 'tabs', index: 1}, 'pane-last': {tabsNodeId: 'tabs', index: 2}}),
+            openConfig   : () => ({url: '/independent-dock', name: 'independent-floating'}),
+            detach       : () => { host.calls.push({name: 'detach'}); state.windowId = null },
+            returned     : receipt => {
+                host.returned.push(receipt);
+                if (host.throwReturned) throw new Error('return projection refused')
+            }
+        });
+        for (const [key, state, bindingKey] of [[SOURCE, host.source, FLOATING], [TARGET, host.target, LANDING]]) {
+            state.seams = {
+                bindingKey, getDocument: () => state.document, setDocument: document => state.document = document,
+                resolveReturnDescriptor: Operations.appendingReturnDescriptor,
+                nativeWindow           : nativeSeams(state),
+                project                : context => NativeVesselTransaction.replayWorkspaceReturn(set, key, context, () => {
+                    host.calls.push({name: 'project', key, cursorAction: context.cursorAction});
+                    return true
+                })
+            };
+            expect(set.register(key, state.seams)).toBe(true)
+        }
+        host.release = () => {
+            const binding = TransactionManager.get(groupId).bindings.get(FLOATING);
+            expect(TransactionManager.release(host.source.windowId)).toBe(true);
+            return binding.releaseWork ?? NativeVesselTransaction.releaseWorkspace(descriptor, host.releaseData)
+        };
+        host.rebind = (identity = host.sourceIdentity, windowId = 'native-return-successor') => {
+            const result = TransactionManager.bind({...identity, windowId});
+            host.source.windowId = result.windowId;
+            return result
+        };
+        return host
+    };
+
+    test('a confirmed close returns every pane in one ordered undoable row', async () => {
+        const owner  = createHost(), sourceBefore = WorkspaceDocument.clone(owner.source.document);
+        const result = await owner.release();
+        expect(result).toMatchObject({retained: true, awaitingClosure: false,
+            receipt: {returned: true, workspaceId: SOURCE, itemIds: ['pane-first', 'pane-last']}});
+        expect(owner.source.document.items).toEqual({});
+        expect(owner.target.document.nodes.tabs.items).toEqual(['anchor', 'pane-first', 'pane-last']);
+        const history = TransactionManager.get(owner.groupId).history;
+        expect(history.count).toBe(1);
+        expect(history.current).toMatchObject({operation: 'returnPopupWorkspace', workspaceId: SOURCE,
+            targetWorkspaceId: TARGET, cause: 'popup-close'});
+        expect(history.current.participants.find(entry => entry.workspaceKey === SOURCE).before).toEqual(sourceBefore);
+        expect(owner.calls.filter(call => call.name === 'observe')).toEqual([{name: 'observe',
+            data: {nativeHandleKey: 'independent-native-handle', windowId: 'native-return-landing'}}]);
+        expect(owner.returned).toHaveLength(1)
+    });
+
+    test('retain detaches the render target while preserving both documents and history', async () => {
+        const owner        = createHost({policy: 'retain'}), sourceBefore = WorkspaceDocument.clone(owner.source.document),
+              targetBefore = WorkspaceDocument.clone(owner.target.document);
+        expect(await owner.release()).toEqual({retained: true, awaitingClosure: false});
+        expect(owner.source.windowId).toBeNull();
+        expect(owner.source.document).toEqual(sourceBefore);
+        expect(owner.target.document).toEqual(targetBefore);
+        expect(owner.calls.filter(call => call.name === 'observe')).toEqual([]);
+        expect(TransactionManager.get(owner.groupId).history).toBeNull()
+    });
+
+    test('unknown native closure waits for its exact formerly-bound lease expiry', async () => {
+        const owner = createHost({leaseMs: 0});
+        owner.answers.observe = null;
+        expect(await owner.release()).toEqual({retained: true, awaitingClosure: true});
+        expect(TransactionManager.get(owner.groupId).history).toBeNull();
+        expect(Object.keys(owner.source.document.items)).toHaveLength(2);
+        const stale = {...owner.releaseData, generationToken: 'foreign-lineage', expired: true};
+        expect(await NativeVesselTransaction.releaseWorkspace(owner.descriptor, stale)).toBe(false);
+        await expect.poll(() => owner.returned.length).toBe(1);
+        expect(owner.expiryData.releasedBinding).toBe(owner.releaseData.releasedBinding);
+        expect(owner.source.document.items).toEqual({});
+        expect(TransactionManager.get(owner.groupId).history.current.cause).toBe('popup-reconnect-expired');
+        expect(owner.calls.filter(call => call.name === 'observe')).toHaveLength(1)
+    });
+
+    test('expiry during deferred closure observation recovers once through the original pending latch', async () => {
+        const owner = createHost({leaseMs: 0});
+        let resolveObservation;
+        owner.answers.observe = new Promise(resolve => resolveObservation = resolve);
+        const pending = owner.release();
+        await expect.poll(() => Boolean(owner.expiryData)).toBe(true);
+        expect(owner.expiryData.releasedBinding.releaseWork).toBe(pending);
+        expect(TransactionManager.get(owner.groupId).history).toBeNull();
+        resolveObservation(null);
+        expect((await pending).receipt.returned).toBe(true);
+        expect(owner.returned).toHaveLength(1);
+        expect(owner.source.document.items).toEqual({});
+        expect(TransactionManager.get(owner.groupId).history.current.cause).toBe('popup-reconnect-expired')
+    });
+
+    test('a warm rebind during deferred closure observation preserves its semantic owner', async () => {
+        const owner = createHost();
+        let resolveObservation;
+        owner.answers.observe = new Promise(resolve => resolveObservation = resolve);
+        const pending = owner.release();
+        await expect.poll(() => owner.calls.some(call => call.name === 'observe')).toBe(true);
+        owner.rebind();
+        resolveObservation(true);
+        expect(await pending).toBe(false);
+        expect(owner.source.windowId).toBe('native-return-successor');
+        expect(Object.keys(owner.source.document.items)).toHaveLength(2);
+        expect(owner.target.document.nodes.tabs.items).toEqual(['anchor']);
+        expect(owner.returned).toEqual([]);
+        expect(TransactionManager.get(owner.groupId).history).toBeNull()
+    });
+
+    test('duplicate release shares observation and the entire queued semantic write', async () => {
+        const owner = createHost(), target = owner.set.getParticipant(TARGET), prepare = target.prepare;
+        let enterQueue, releaseQueue, resolveObservation;
+        const queueStarted = new Promise(resolve => enterQueue = resolve), queueGate = new Promise(resolve => releaseQueue = resolve);
+        target.prepare = async (...args) => { const value = prepare(...args); enterQueue(); await queueGate; return value };
+        const queued = owner.set.commit(TARGET, [{operation: 'setItemLocked', itemId: 'anchor', locked: true}]);
+        await queueStarted;
+        owner.answers.observe = new Promise(resolve => resolveObservation = resolve);
+        const pending = owner.release(), duplicate = NativeVesselTransaction.releaseWorkspace(owner.descriptor, owner.releaseData);
+        expect(duplicate).toBe(pending);
+        await expect.poll(() => owner.calls.some(call => call.name === 'observe')).toBe(true);
+        const originalReturn = owner.set.returnWorkspace;
+        let   returnQueued   = false;
+        owner.set.returnWorkspace = (...args) => { returnQueued = true; return originalReturn.apply(owner.set, args) };
+        resolveObservation(true);
+        await expect.poll(() => returnQueued).toBe(true);
+        expect(owner.releaseData.releasedBinding.releaseWork).toBe(pending);
+        expect(NativeVesselTransaction.releaseWorkspace(owner.descriptor, owner.releaseData)).toBe(pending);
+        expect(owner.calls.filter(call => call.name === 'observe')).toHaveLength(1);
+        expect(owner.calls.filter(call => call.name === 'detach')).toHaveLength(1);
+        expect(TransactionManager.get(owner.groupId).history).toBeNull();
+        releaseQueue();
+        await queued;
+        expect((await pending).receipt.returned).toBe(true);
+        expect(owner.source.document.items).toEqual({});
+        expect(owner.target.document.items.anchor.locked).toBe(true);
+        expect(TransactionManager.get(owner.groupId).history.count).toBe(2);
+        expect(TransactionManager.get(owner.groupId).history.rows.filter(row => row.operation === 'returnPopupWorkspace')).toHaveLength(1);
+        expect(owner.returned).toHaveLength(1)
+    });
+
+    test('a never-bound reservation expiry cannot return its registered documents', async () => {
+        const owner = createHost({bound: false, leaseMs: 0});
+        await expect.poll(() => Boolean(owner.expiryData)).toBe(true);
+        expect(owner.expiryData.generation).toBe(0);
+        expect(await NativeVesselTransaction.releaseWorkspace(owner.descriptor, {...owner.expiryData, expired: true}))
+            .toEqual({retained: true, awaitingClosure: false});
+        expect(Object.keys(owner.source.document.items)).toHaveLength(2);
+        expect(owner.target.document.nodes.tabs.items).toEqual(['anchor']);
+        expect(owner.returned).toEqual([]);
+        expect(owner.calls.filter(call => call.name === 'observe')).toEqual([]);
+        expect(TransactionManager.get(owner.groupId).history).toBeNull()
+    });
+
+    for (const refusal of ['target', 'reducer']) {
+        test(`a confirmed close with ${refusal} refusal preserves both documents`, async () => {
+            const owner        = createHost(), sourceBefore = WorkspaceDocument.clone(owner.source.document),
+                  targetBefore = WorkspaceDocument.clone(owner.target.document);
+            if (refusal === 'target') owner.set.unregister(TARGET);
+            else owner.set.register(TARGET, {...owner.target.seams,
+                resolveReturnDescriptor: () => ({operation: 'addTab', tabsNodeId: 'missing'})});
+            expect(await owner.release()).toMatchObject({retained: true, awaitingClosure: true});
+            expect(owner.returned[0]).toMatchObject({returned: false, workspaceId: SOURCE});
+            expect(owner.source.document).toEqual(sourceBefore);
+            expect(owner.target.document).toEqual(targetBefore);
+            expect(TransactionManager.get(owner.groupId).history).toBeNull()
+        })
+    }
+
+    test('a throwing return projection cannot rewrite a committed semantic success', async () => {
+        const owner = createHost();
+        owner.throwReturned = true;
+        expect((await owner.release()).receipt.returned).toBe(true);
+        expect(owner.source.document.items).toEqual({});
+        expect(owner.returned.map(receipt => receipt.returned)).toEqual([true]);
+        expect(owner.logs).toEqual(['return projection refused']);
+        expect(TransactionManager.get(owner.groupId).history.count).toBe(1)
+    });
+
+    test('undo native-open refusal remains separate from restored documents and the Group cursor', async () => {
+        const owner        = createHost(), sourceBefore = WorkspaceDocument.clone(owner.source.document),
+              targetBefore = WorkspaceDocument.clone(owner.target.document);
+        await owner.release();
+        owner.calls.length = 0;
+        const result = await TransactionManager.undo({groupId: owner.groupId});
+        await expect.poll(() => owner.effects.length).toBe(1);
+        expect(owner.source.document).toEqual(sourceBefore);
+        expect(owner.target.document).toEqual(targetBefore);
+        expect(TransactionManager.get(owner.groupId).history.cursor).toBe(-1);
+        expect(TransactionManager.get(owner.groupId).history.count).toBe(1);
+        expect(owner.effects[0]).toMatchObject({kind: 'native', id: SOURCE, transactionId: result.transactionId,
+            observation: {opened: false}, error: null});
+        expect(owner.calls.filter(call => call.name === 'open')).toHaveLength(1);
+        expect(owner.calls.findIndex(call => call.name === 'open')).toBeLessThan(
+            owner.calls.findIndex(call => call.name === 'project' && call.key === SOURCE));
+        expect(TransactionManager.getBinding(owner.groupId, FLOATING)).toBeNull()
+    });
+
+    for (const refusal of [null, 'clear', 'close']) {
+        test(`redo ${refusal ? `${refusal} refusal` : 'acknowledged close'} leaves returned documents and its committed cursor intact`, async () => {
+            const owner = createHost();
+            await owner.release();
+            owner.answers.open = data => { owner.rebind(data.topologyIdentity, 'native-return-reopened'); return true };
+            await TransactionManager.undo({groupId: owner.groupId});
+            await expect.poll(() => owner.effects.length).toBe(1);
+            expect(owner.effects[0].observation.opened).toBe(true);
+            if (refusal) owner.answers[refusal] = false;
+            owner.calls.length = 0;
+            const result = await TransactionManager.redo({groupId: owner.groupId});
+            await expect.poll(() => owner.effects.length).toBe(2);
+            expect(owner.source.document.items).toEqual({});
+            expect(owner.target.document.nodes.tabs.items).toEqual(['anchor', 'pane-first', 'pane-last']);
+            expect(TransactionManager.get(owner.groupId).history.cursor).toBe(0);
+            expect(TransactionManager.get(owner.groupId).history.count).toBe(1);
+            expect(owner.effects[1]).toMatchObject({kind: 'native', id: SOURCE, transactionId: result.transactionId,
+                observation: {closed: !refusal}, error: null});
+            expect(owner.calls.filter(call => call.name === 'clear')).toHaveLength(1);
+            expect(owner.calls.filter(call => call.name === 'close')).toHaveLength(refusal === 'clear' ? 0 : 1);
+            expect(owner.calls.findIndex(call => call.name === 'project' && call.key === SOURCE)).toBeLessThan(
+                owner.calls.findIndex(call => call.name === 'clear'))
+        })
+    }
+
+    test('redo revalidates a successor that binds while identity clearing is deferred', async () => {
+        const owner = createHost();
+        await owner.release();
+        owner.answers.open = data => { owner.rebind(data.topologyIdentity, 'native-return-reopened'); return true };
+        await TransactionManager.undo({groupId: owner.groupId});
+        await expect.poll(() => owner.effects.length).toBe(1);
+        let resolveClear;
+        owner.answers.clear = new Promise(resolve => resolveClear = resolve);
+        const result = await TransactionManager.redo({groupId: owner.groupId});
+        await expect.poll(() => owner.calls.some(call => call.name === 'clear')).toBe(true);
+        expect(TransactionManager.release(owner.source.windowId)).toBe(true);
+        const successor = TransactionManager.reserve({groupId: owner.groupId, workspaceKey: FLOATING});
+        owner.rebind(successor, 'native-return-new-lineage');
+        resolveClear(true);
+        await expect.poll(() => owner.effects.length).toBe(2);
+        expect(owner.calls.filter(call => call.name === 'close')).toEqual([]);
+        expect(owner.effects[1]).toMatchObject({transactionId: result.transactionId, observation: {closed: false}});
+        expect(owner.source.windowId).toBe('native-return-new-lineage');
+        expect(owner.source.document.items).toEqual({});
+        expect(TransactionManager.get(owner.groupId).history.cursor).toBe(0)
     });
 });

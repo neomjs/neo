@@ -49,7 +49,7 @@ test.describe('Neo.manager.Transaction — Groups and token-matched window bindi
         expect(b.outcome).toBe('minted');
         expect(a.groupId).not.toBe(b.groupId);
         expect(Transaction.items).toHaveLength(2);
-        expect(Transaction.getBinding(a.groupId, 'main')).toEqual({generation: 1, windowId: 'a1', workspaceKey: 'main'});
+        expect(Transaction.getBinding(a.groupId, 'main')).toEqual({generation: 1, generationToken: a.generationToken, windowId: 'a1', workspaceKey: 'main'});
         expect(Transaction.findByWindow('b1')).toEqual({generation: 1, groupId: b.groupId, workspaceKey: 'main'})
     });
 
@@ -79,12 +79,12 @@ test.describe('Neo.manager.Transaction — Groups and token-matched window bindi
         expect(Transaction.items, 'A and B, nothing else').toHaveLength(2);
 
         // B and A's popup are untouched.
-        expect(Transaction.getBinding(b.groupId, 'main')).toEqual({generation: 1, windowId: 'b1', workspaceKey: 'main'});
+        expect(Transaction.getBinding(b.groupId, 'main')).toEqual({generation: 1, generationToken: b.generationToken, windowId: 'b1', workspaceKey: 'main'});
         expect(Transaction.findByWindow('a2').groupId).toBe(a.groupId);
 
         // The superseded generation reports its disconnect late.
         expect(Transaction.release('a1'), 'no binding carries a1 any more').toBe(false);
-        expect(Transaction.getBinding(a.groupId, 'main')).toEqual({generation: 2, windowId: 'a3', workspaceKey: 'main'})
+        expect(Transaction.getBinding(a.groupId, 'main')).toEqual({generation: 2, generationToken: a.generationToken, windowId: 'a3', workspaceKey: 'main'})
     });
 
     test('a copied identity presented while its binder is live forks a new Group', () => {
@@ -149,7 +149,60 @@ test.describe('Neo.manager.Transaction — Groups and token-matched window bindi
         await new Promise(resolve => setTimeout(resolve, 60));
 
         expect(Transaction.getBinding(a.groupId, 'popup:documents'), 'the popup slot is free').toBeNull();
-        expect(Transaction.getBinding(a.groupId, 'main'), 'the root still binds').toEqual({generation: 1, windowId: 'a1', workspaceKey: 'main'})
+        expect(Transaction.getBinding(a.groupId, 'main'), 'the root still binds').toEqual({generation: 1, generationToken: a.generationToken, windowId: 'a1', workspaceKey: 'main'})
+    });
+
+    test('release publishes the opaque binding and a warm rebind clears its pending closure state', () => {
+        const root        = Transaction.bind({windowId: 'root'}), group = Transaction.get(root.groupId),
+              reservation = Transaction.reserve({groupId: root.groupId, workspaceKey: 'popup'}),
+              popup       = Transaction.bind({...reservation, windowId: 'popup-old'}),
+              binding     = group.bindings.get('popup'), releases = [],
+              listener    = {release: data => releases.push(data), scope: {id: 'transaction-release-record'}};
+        Transaction.on(listener);
+        try {
+            Transaction.release('popup-old');
+            expect(releases[0]).toMatchObject({generation: popup.generation, generationToken: popup.generationToken,
+                groupId: root.groupId, releasedWindowId: 'popup-old', windowId: 'popup-old', workspaceKey: 'popup'});
+            expect(releases[0].releasedBinding).toBe(binding);
+            binding.awaitingClosure = true;
+            binding.releaseWork = Promise.resolve();
+            Transaction.bind({...reservation, windowId: 'popup-new'});
+            expect(group.bindings.get('popup')).toBe(binding);
+            expect(binding).toMatchObject({awaitingClosure: false, releasedWindowId: null, releaseWork: null,
+                generation: popup.generation + 1, windowId: 'popup-new'})
+        } finally { Transaction.un(listener) }
+    });
+
+    test('expiry distinguishes a released generation from a never-bound replacement reservation', async () => {
+        const root = Transaction.bind({windowId: 'root'}), group = Transaction.get(root.groupId), expired = [];
+        let done;
+        const complete = new Promise(resolve => { done = resolve }),
+              listener = {leaseExpired: data => {
+                  if (data.groupId === root.groupId) {
+                      expired.push(data);
+                      expect(data.releasedBinding.leaseExpired).toBe(true);
+                      expect(group.bindings.has(data.workspaceKey)).toBe(false);
+                      expired.length === 2 && done()
+                  }
+              }, scope: {id: 'transaction-expiry-record'}};
+        Transaction.on(listener);
+        Transaction.reconnectLeaseMs = 0;
+        try {
+            const formerly = Transaction.reserve({groupId: root.groupId, workspaceKey: 'formerly'});
+            Transaction.bind({...formerly, windowId: 'formerly-bound'});
+            Transaction.release('formerly-bound');
+            const old = Transaction.reserve({groupId: root.groupId, workspaceKey: 'never'});
+            Transaction.bind({...old, windowId: 'replaced'});
+            Transaction.release('replaced');
+            const never = Transaction.reserve({groupId: root.groupId, workspaceKey: 'never'});
+            expect(never.generationToken).not.toBe(old.generationToken);
+            expect(group.bindings.get('never').generation).toBe(0);
+            await complete;
+            expect(expired.find(data => data.workspaceKey === 'formerly')).toMatchObject({generation: 1,
+                generationToken: formerly.generationToken, releasedWindowId: 'formerly-bound'});
+            expect(expired.find(data => data.workspaceKey === 'never')).toMatchObject({generation: 0,
+                generationToken: never.generationToken, releasedWindowId: null})
+        } finally { Transaction.un(listener) }
     });
 
     test('retained references require an existing Group and release only the exact owner token', () => {
@@ -289,7 +342,7 @@ test.describe('Neo.manager.Transaction — Groups and token-matched window bindi
 
         // The older open fails late and cleans up after itself — naming a token the slot no longer carries.
         expect(Transaction.revoke(s1), 'a superseded reservation revokes nothing').toBe(false);
-        expect(Transaction.getBinding(a.groupId, 'popup:x'), 'the replacement is untouched').toEqual({generation: 0, windowId: null, workspaceKey: 'popup:x'});
+        expect(Transaction.getBinding(a.groupId, 'popup:x'), 'the replacement is untouched').toEqual({generation: 0, generationToken: s2.generationToken, windowId: null, workspaceKey: 'popup:x'});
         expect(Transaction.revoke({groupId: a.groupId, workspaceKey: 'popup:x'}), 'no token, no revocation').toBe(false);
 
         expect(Transaction.revoke(s2), 'the holder gives its slot back').toBe(true);

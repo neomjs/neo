@@ -98,29 +98,30 @@ test.describe('Workstation topology save and close coordination', () => {
         // A webpack build turns `new URL('../index.html', import.meta.url)` into a bundled copy of the
         // source page, whose neo-config.json does not exist beside it, so nothing boots. The opener's
         // own document is the app page in source, dist/esm, dist/development and dist/production alike.
-        const root     = Transaction.bind({windowId: 'controller-open-root'}),
-              main     = Neo.ns('Neo.Main', true),
-              opened   = [],
-              original = main.windowOpen;
+        const root      = Transaction.bind({windowId: 'controller-open-root'}),
+              workspace = Neo.create(Workspace, {windowId: root.windowId, theme: 'neo-theme-neo-dark'}),
+              main      = Neo.ns('Neo.Main', true),
+              opened    = [],
+              original  = main.windowOpen;
 
         main.windowOpen = data => {opened.push(data); return Promise.resolve(true)};
 
         try {
-            const result = await WorkspaceController.prototype.openTopologyWorkspace.call({
-                component: {
-                    getPopupState  : key => key === 'details' ? {} : null,
-                    theme          : 'neo-theme-neo-dark',
-                    topologyGroupId: root.groupId,
-                    windowId       : root.windowId
-                }
-            }, 'details');
+            workspace.createPopupWorkspace('details', workspace.createVesselWorkspaceDocument('alerts'),
+                {committed: true, windowId: null});
+            const result = await workspace.controller.openTopologyWorkspace('details');
 
             expect(result.opened).toBe(true);
+            expect(opened[0]).toMatchObject({windowFeatures: 'width=700,height=600', windowId: root.windowId,
+                windowName: expect.stringMatching(/^workstation-restored-/), topologyIdentity: {
+                    generationToken: expect.any(String), groupId: root.groupId, workspaceKey: 'details'
+                }});
             expect(new URL(opened[0].url, 'https://host/dist/production/apps/workstation/index.html?workspace=main').href)
                 .toBe('https://host/dist/production/apps/workstation/index.html?workspace=details&theme=neo-theme-neo-dark')
         } finally {
             if (original === undefined) delete main.windowOpen;
             else main.windowOpen = original;
+            workspace.destroy();
             Transaction.retireGroup(root.groupId)
         }
     });

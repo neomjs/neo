@@ -268,6 +268,9 @@ class Transaction extends Manager {
             }
 
             me.clearLease(binding);
+            binding.awaitingClosure = false;
+            binding.releasedWindowId = null;
+            binding.releaseWork = null;
             binding.windowId = windowId;
             binding.generation++
         } else {
@@ -472,15 +475,17 @@ class Transaction extends Manager {
     }
 
     /**
+     * @summary Copies one binding's lineage and replaceable runtime generation.
      * @param {String} groupId
      * @param {String} workspaceKey
-     * @returns {{windowId: String|null, generation: Number, workspaceKey: String}|null} A copy of the binding
-     *   without its token; `windowId` is `null` while the slot is released or reserved.
+     * @returns {{windowId: String|null, generation: Number, generationToken: String, workspaceKey: String}|null}
+     *   `windowId` is `null` while the slot is released or reserved.
      */
     getBinding(groupId, workspaceKey) {
         const binding = this.get(groupId)?.bindings.get(workspaceKey);
 
-        return binding ? {generation: binding.generation, windowId: binding.windowId, workspaceKey} : null
+        return binding ? {generation: binding.generation, generationToken: binding.generationToken,
+            windowId: binding.windowId, workspaceKey} : null
     }
 
     /**
@@ -786,6 +791,7 @@ class Transaction extends Manager {
     }
 
     /**
+     * @summary Releases an exact binding record and starts its reconnect lease.
      * Releases the binding a window holds and starts its lease. A window still waiting for its carrier's
      * answer holds no binding yet; its admission is cancelled instead, so the answer binds nothing.
      * @param {String} windowId
@@ -800,9 +806,13 @@ class Transaction extends Manager {
         for (const group of me.items) {
             for (const binding of group.bindings.values()) {
                 if (binding.windowId === windowId) {
+                    binding.awaitingClosure = false;
+                    binding.releasedWindowId = windowId;
                     binding.windowId = null;
                     me.startLease(group, binding);
-                    me.fire('release', {generation: binding.generation, groupId: group.id, windowId, workspaceKey: binding.workspaceKey});
+                    me.fire('release', {generation: binding.generation, generationToken: binding.generationToken,
+                        groupId: group.id, releasedBinding: binding, releasedWindowId: windowId,
+                        windowId, workspaceKey: binding.workspaceKey});
                     return true
                 }
             }
@@ -844,7 +854,7 @@ class Transaction extends Manager {
         binding && me.clearLease(binding);
 
         binding = {
-            generation     : binding ? binding.generation : 0,
+            generation     : 0,
             generationToken: crypto.randomUUID(),
             windowId       : null,
             workspaceKey
@@ -956,10 +966,13 @@ class Transaction extends Manager {
         me.leaseTimers.set(binding, setTimeout(() => {
             me.leaseTimers.delete(binding);
 
-            // Only the binding this lease was started for; a rebind replaced it with a live one.
+            // A rebind made this record live, or a new reservation replaced it.
             if (group.bindings.get(binding.workspaceKey) === binding && binding.windowId === null) {
+                binding.leaseExpired = true;
                 group.bindings.delete(binding.workspaceKey);
-                me.fire('leaseExpired', {groupId: group.id, workspaceKey: binding.workspaceKey});
+                me.fire('leaseExpired', {generation: binding.generation, generationToken: binding.generationToken,
+                    groupId     : group.id, releasedBinding: binding, releasedWindowId: binding.releasedWindowId ?? null,
+                    workspaceKey: binding.workspaceKey});
 
                 // Only empty, unreferenced Groups may expire automatically. Owners decide when a
                 // Group retaining participants, history or external references can be retired.
