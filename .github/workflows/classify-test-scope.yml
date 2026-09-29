@@ -232,18 +232,15 @@ jobs:
             // workflow-level paths-ignore. Missing checks can block protected branches.
             const isDocsOnlyPath = file =>
               file.endsWith('.md') ||
-              file.startsWith('learn/') ||
-              file.startsWith('resources/content/');
+              file.startsWith('learn/');
 
             // Unit has committed content guards, notably the release-note mutable
-            // GitHub-link scan, discussion markdown fixture reads, and generated
-            // portal index fixtures.
+            // GitHub-link scan and generated portal index fixtures.
             // `learn/` is docs-only by path but not by consequence: its links are checked against
             // learn/tree.json, so a guide-only edit can introduce a route that resolves to no record.
             // Without this the corpus gate is skipped exactly on the PRs it exists to catch.
             const requiresUnitForContent = file =>
-              file.startsWith('resources/content/release-notes/') ||
-              file.startsWith('resources/content/discussions/') ||
+              file.startsWith('.github/RELEASE_NOTES/') ||
               file.startsWith('apps/portal/resources/data/') ||
               file.startsWith('learn/');
 

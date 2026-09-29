@@ -32,16 +32,15 @@ test.describe('docs SEO generator release-note link guard', () => {
 
     test('assertStableReleaseNoteGithubLinks fails with the release-note path and disallowed Neo source link', () => {
         expect(() => assertStableReleaseNoteGithubLinks({
-            filePath: path.join(process.cwd(), 'resources/content/release-notes/v0.0.0.md'),
+            filePath: path.join(process.cwd(), '.github/RELEASE_NOTES/v0.0.0.md'),
             content : 'See https://github.com/neomjs/neo/blob/main/buildScripts/enhanceSeo.mjs'
-        })).toThrow(/resources\/content\/release-notes\/v0\.0\.0\.md[\s\S]*blob\/main\/buildScripts\/enhanceSeo\.mjs/);
+        })).toThrow(/\.github\/RELEASE_NOTES\/v0\.0\.0\.md[\s\S]*blob\/main\/buildScripts\/enhanceSeo\.mjs/);
     });
 
     test('active release notes use dev or immutable commit refs for Neo source links', async () => {
-        const files = await fg('resources/content/release-notes/**/*.md', {
-            cwd   : process.cwd(),
-            ignore: ['resources/content/archive/**']
-        });
+        const files = await fg('.github/RELEASE_NOTES/*.md', {cwd: process.cwd()});
+
+        expect(files.length).toBeGreaterThan(0);
 
         const violations = [];
 

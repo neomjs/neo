@@ -384,29 +384,11 @@ The content in `/learn` is the source material for the AI Knowledge Base. Query 
 
 ---
 
-### Agent Knowledge Base (`/resources/content/` - 4,441 files, ~302,491 lines, May 1 2026)
+### Conversation Corpus (`neomjs/github-content-sync`)
 
-The entire historical footprint and live contextual state of the Neo.mjs project is synchronized locally for the Agent OS within `resources/content/`:
+The project's GitHub history (issues, pull requests, discussions and release notes for every `neomjs` repository) publishes to [neomjs/github-content-sync](https://github.com/neomjs/github-content-sync), and the Agent OS Knowledge Base ingests it from there. The engine itself carries only its authored release notes, in `.github/RELEASE_NOTES/`.
 
-**Release Notes** (`resources/content/release-notes/`):
-- Version-by-version changelog
-- Feature additions with rationale
-- Bug fixes and their context
-- Breaking changes and migration guides
-
-**Ticket Archive & Active Issues** (`resources/content/issue-archive/`, `resources/content/issues/`):
-- Full contextual history: problem, discussion, solution, implementation
-- Searchable history of architectural decisions via Native Graph ingestion
-
-**Pull Requests** (`resources/content/pulls/`):
-- Complete PR conversations, diff summaries, and Agent-generated "Fat Ticket" reviews
-- Links directly to closing commits for deep execution context
-
-**Discussions** (`resources/content/discussions/`):
-- The Ideation Sandbox
-- Proposed architectural features, "Unknown Unknowns", and early-stage brainstorming
-
-Query these when you need to understand *why* something works a certain way, track the evolution of an architectural design, or find open tasks.
+Query the Knowledge Base when you need to understand *why* something works a certain way, track the evolution of an architectural design, or find open tasks.
 
 ---
 
