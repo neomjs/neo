@@ -474,8 +474,7 @@ test.describe('Tests scope classifier — unit admission on docs and content pat
         // Each of these is docs-only by path and would be skipped without its own exception.
         // Asserted per-family rather than as one union so a dropped family names itself.
         const families = [
-            'resources/content/release-notes/v13.0.0.md',
-            'resources/content/discussions/17846.md',
+            '.github/RELEASE_NOTES/v13.0.0.md',
             'apps/portal/resources/data/index.json'
         ];
 
@@ -489,10 +488,10 @@ test.describe('Tests scope classifier — unit admission on docs and content pat
     });
 
     test('a content path outside the guarded families stays docs-only', async () => {
-        // The discriminator for the arm above: `resources/content/` is docs-only, and only the
-        // named subtrees lift it. Without this, a `requiresUnitForContent` that returned true for
-        // everything under resources/content/ would pass the family arm and be wrong.
-        const runtime = createRuntime({ files: ['resources/content/tickets/17922.md'] });
+        // The discriminator for the arm above: `.github/` markdown is docs-only, and only the
+        // release notes lift it. Without this, a `requiresUnitForContent` that returned true for
+        // every `.github/` markdown file would pass the family arm and be wrong.
+        const runtime = createRuntime({ files: ['.github/ISSUE_TEMPLATE/bug_report.md'] });
 
         await executeScript(scopeScript(), runtime);
 

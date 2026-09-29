@@ -138,10 +138,8 @@ test/playwright/test-results/
 # Single-file Playwright runs via npx
 test-results/
 
-# Autonomous AI Output files
-resources/content/sandman_handoff.md
-resources/content/sandman_concept_slice.md
-resources/content/computed-route.json
+# The retired content mirror: the corpus publishes from neomjs/github-content-sync
+resources/content/
 
 # Agent Harness Scratch Artifacts (Issue #11563)
 .gemini/*

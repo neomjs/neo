@@ -15,61 +15,23 @@
  * 4. **Documentation**: Finalizes release notes with the production commit hash.
  * 5. **Distribution**: Triggers the GitHub Release (which cascades to npm).
  *
- * The content half of the release — Knowledge Base upload, the full GitHub sync that archives the
- * release's tickets and chunks the release note, and the archive commit — is Brain-side lifecycle
- * work and lives in the `neo-agent-brain` repository, whose release runbook is the next step after
- * this script finishes. The boundary is deliberate: this script imports and spawns nothing from
- * the Brain, so the Engine can be released from an Engine-only checkout.
+ * The release note is authored at `.github/RELEASE_NOTES/v<version>.md` and stays there as the
+ * archive. The conversation corpus publishes from `neomjs/github-content-sync`, so the engine
+ * carries no synced content. The Knowledge Base upload is Brain-side lifecycle work in the
+ * `neo-agent-brain` repository, whose release runbook is the next step after this script
+ * finishes. The boundary is deliberate: this script imports and spawns nothing from the Brain, so
+ * the Engine can be released from an Engine-only checkout.
  *
  * @keywords Release Automation, Git Plumbing, Local-First, CI/CD, Engine-Brain Boundary
  */
 
-import {execSync}                      from 'child_process';
-import fs                              from 'fs-extra';
-import path                            from 'path';
-import {findLogicalIdentityCollisions} from '../util/check-content-logical-identity.mjs';
+import {execSync} from 'child_process';
+import fs         from 'fs-extra';
+import path       from 'path';
 
 const root = path.resolve();
 
 // --- Helper Functions ---
-
-/**
- * @summary Refuses a release commit that would make two archived artifacts claim one logical name.
- *
- * Every commit in this script uses `--no-verify`, deliberately: a latent whitespace hit in a
- * prepare-touched doc killed the v13 cut. So no git hook runs here, and the `lint-staged` copy of
- * this guard is blind to the release path — the assertion has to be in-process, like the one in
- * `SyncService.commitRebaseAndPushGeneratedContent`.
- *
- * This matters most at the archive commit, because that one runs inside a `catch` that deliberately
- * continues after `runFullSync()` throws. `runFullSync` throws precisely when its integrity verdict
- * measured the corpus as unclean — so "commit what we have" is, in exactly that case, a decision to
- * publish the state the verdict rejected. A collision there stalls Knowledge Base ingestion for the
- * whole corpus, not just the colliding artifacts, so it is the one failure a release must not carry
- * forward. Everything else the broad `git add .` picks up is still committed as before.
- *
- * @param {String} stage Human-readable commit site, for the failure message.
- * @returns {void}
- * @throws {Error} When any archived logical name is claimed by more than one artifact.
- */
-function assertNoArchiveLogicalIdentityCollisions(stage) {
-    const collisions = findLogicalIdentityCollisions({
-        archiveRoot: path.join(root, 'resources/content/archive')
-    });
-
-    if (collisions.length > 0) {
-        const detail = collisions
-            .map(item => `${item.key} (${item.paths.length} copies)`)
-            .join('; ');
-
-        throw new Error(
-            `Release aborted at "${stage}": ${collisions.length} archived logical name(s) claimed by ` +
-            `more than one artifact — ${detail}. Embedding refuses this state, so releasing it stalls ` +
-            `Knowledge Base ingestion for the entire corpus. Repair with ` +
-            `PullRequestSyncer.repairDuplicateArtifacts from the neo-agent-brain checkout, then re-run.`
-        );
-    }
-}
 
 function runCommand(command, errorMessage) {
     try {
@@ -123,11 +85,11 @@ async function main() {
     // Verify Release Notes
     // The user is expected to have manually bumped the version in package.json before running this script.
     const newVersion      = getPackageVersion();
-    const releaseNotePath = path.join(root, `resources/content/release-notes/v${newVersion}.md`);
+    const releaseNotePath = path.join(root, `.github/RELEASE_NOTES/v${newVersion}.md`);
 
     if (!fs.existsSync(releaseNotePath)) {
         console.error(`❌ Error: Release note file not found: ${releaseNotePath}`);
-        console.error(`Please create 'resources/content/release-notes/v${newVersion}.md' before proceeding.`);
+        console.error(`Please create '.github/RELEASE_NOTES/v${newVersion}.md' before proceeding.`);
         process.exit(1);
     }
 
@@ -151,7 +113,6 @@ async function main() {
     // hooks gate human-authored changes (which already passed them at PR time). A latent
     // whitespace hit in a prepare-touched doc killed the v13 cut at this exact line.
     console.log('💾 Committing changes to dev...');
-    assertNoArchiveLogicalIdentityCollisions('commit changes to dev');
     runCommand('git add .', 'Failed to stage changes');
     try {
         runCommand(`git commit --no-verify -m "Release v${newVersion}"`, 'Failed to commit to dev');
@@ -260,19 +221,9 @@ async function main() {
 
     console.log('✅ Release created! GitHub Actions will now publish to npm.');
 
-    // The release note is now the GitHub release body. The Brain-side post-release sync
-    // re-materializes it under resources/content/release-notes/chunk-N/ (with frontmatter) via the
-    // ordinal-100 bucketing. Remove the top-level staging copy here so it does not linger as a
-    // duplicate of the chunked record — the post-release sync's broad `git add .` stages this
-    // removal alongside the archive moves it produces.
-    if (fs.existsSync(releaseNotePath)) {
-        fs.removeSync(releaseNotePath);
-        console.log(`🧹 Removed top-level staging release note: ${path.relative(root, releaseNotePath)}`);
-    }
-
     console.log('\n✨ Engine Release Complete! ✨');
-    console.log('\nNext runbook step — run the Brain-side content lifecycle (Knowledge Base upload,');
-    console.log('ticket archive sync, archive commit) from the neo-agent-brain checkout.\n');
+    console.log('\nNext runbook step — run the Brain-side content lifecycle (Knowledge Base upload)');
+    console.log('from the neo-agent-brain checkout.\n');
 }
 
 main().catch(error => {

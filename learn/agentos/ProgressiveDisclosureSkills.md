@@ -95,7 +95,7 @@ Invoked when evaluating a PR (either peer-reviewing another agent or guiding a h
 
 ### 4. `ticket-create` (The Creation Gate)
 Invoked before filing any new GitHub Issue via the `create_issue` MCP tool. Creation-side dual of `ticket-intake` — they address opposite triggers (produce new vs. consume existing).
-- **Duplicate Sweep:** Mandates a pre-creation scan of `resources/content/issues/`, `issue-archive/`, and `discussions/` to prevent Knowledge Base pollution.
+- **Duplicate Sweep:** Mandates a pre-creation scan of open and closed issues and discussions to prevent Knowledge Base pollution.
 - **Six-Stage Challenge Chain:** Applies Premise / Prescription / Substrate / Consumer / Service-Boundary / Decision Record impact before drafting a ticket.
 - **Fat Ticket Body Structure:** Enforces Context / Problem / Architectural Reality / Fix / AC / Out of Scope / Related / Origin Session ID as the A2A memory shape.
 - **Title Hygiene & Label Rules:** Rejects `[enhancement]` / `[bug]` / `[epic]` title prefixes (category lives in labels); mandates `ai` label on every agent-authored ticket.

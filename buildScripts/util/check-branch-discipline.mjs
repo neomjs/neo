@@ -56,8 +56,6 @@ import {assessMergedPullRequestPush}                    from './mergedPullReques
  * @see #11133 [not-ticket-ref: the ticket this script implements]
  * @see buildScripts/util/branchFreshness.mjs — the branch-freshness / revert-trap predicate,
  *      the sister pre-push pattern wired into the check below
- * @see buildScripts/util/check-chore-sync.mjs — pre-commit sibling that enforces the
- *      generated-content path list at commit time (complementary surface)
  */
 
 const __filename = fileURLToPath(import.meta.url);

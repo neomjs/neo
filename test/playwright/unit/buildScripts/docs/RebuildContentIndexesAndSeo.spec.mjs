@@ -121,38 +121,4 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
 
         expect(writes).toEqual([]);
     });
-
-    test('data-sync pipeline delegates to the shared helper instead of duplicating the seven derive commands', async () => {
-        const [workflow, publisher] = await Promise.all([
-            fs.readFile(path.resolve(process.cwd(), '.github/workflows/data-sync-pipeline.yml'), 'utf8'),
-            fs.readFile(path.resolve(process.cwd(), 'buildScripts/dataSyncPipeline.mjs'), 'utf8')
-        ]);
-        const delegatedPipeline = workflow + publisher;
-
-        expect(workflow).toContain('node ./buildScripts/dataSyncPipeline.mjs');
-        expect(publisher).toContain('./buildScripts/docs/rebuildContentIndexesAndSeo.mjs');
-        expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/labels.mjs');
-        expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/release.mjs');
-        expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/pulls.mjs');
-        expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/discussions.mjs');
-        expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/tickets.mjs');
-        // The pipeline step receives SCOPED credentials and no ambient repository token. This
-        // previously pinned `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` — one token for the publish
-        // push AND for cross-repository intake reads, two different authorization contracts that the
-        // default token satisfies neither of.
-        //
-        // The intake half went with the DevIndex stages, so one scoped credential
-        // remains here. The property under test is unchanged: the step names what it is entitled to.
-        expect(workflow).not.toContain('DATA_SYNC_INTAKE_TOKEN');
-        expect(workflow).toContain('DATA_SYNC_PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}');
-
-        // The assertion that matters: the ambient repository token is gone from the run step, so a
-        // future edit reinstating it would fail here rather than silently restoring the shared
-        // credential this split exists to remove.
-        expect(workflow).not.toContain('GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}');
-
-        // The publish push runs through the checkout credential, so it must be the publisher —
-        // the only identity permitted to bypass the ruleset.
-        expect(workflow).toContain('token: ${{ steps.publisher-token.outputs.token }}');
-    });
 });

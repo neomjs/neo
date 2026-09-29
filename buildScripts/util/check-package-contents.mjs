@@ -61,20 +61,6 @@ export const FORBIDDEN_PREFIXES = [
         prefix: '.neo-ai-data/',
         allow : ['.neo-ai-data/concepts/'],
         why   : 'Agent OS plane state — server logs, wake-daemon files, deployment snapshots, and the Memory Core SQLite graph (agent memories, session records, A2A edges). The tracked concept ontology is the sole intended export.'
-    },
-    {
-        // Anchored on the tree, not on a path-plus-extension, and that is the whole point — it is
-        // the first defect in the module docblock arrived at. Pin a rule to `resources/content/
-        // *.md` and a corpus that grows a second extension or a nested directory walks straight out
-        // of the rule's reach while the rule still reads as if it covers it. A prefix has no such
-        // axis to slip on: a subtree that does not exist yet is excluded by default, and widening is
-        // a decision someone makes rather than one a rename makes for them.
-        //
-        // The `allow: []` is therefore deliberate rather than unfilled. Nothing under this tree is
-        // intended for the package, so there is no carve-out to keep honest.
-        prefix: 'resources/content/',
-        allow : [],
-        why   : 'The synced issue/PR/discussion corpus — agent substrate, not framework code.'
     }
 ];
 
