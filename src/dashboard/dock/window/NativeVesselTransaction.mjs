@@ -44,7 +44,7 @@ class NativeVesselTransaction extends Base {
      * for that binding's reconnect lease. Never-bound admissions do not return semantic documents.
      * @param {Object} descriptor WorkspaceSet and the Group's nativeWindows lifecycle.
      * @param {Object} data The manager's release or formerly-bound expiry envelope.
-     * @returns {Promise<Object|Boolean>} Retention disposition, independent of native presentation.
+     * @returns {Boolean|Promise<Object|Boolean>} Retention disposition, independent of native presentation.
      */
     static releaseWorkspace({workspaceSet, nativeWindows}, data) {
         const source = workspaceSet?.getParticipantForBinding(data.workspaceKey),
