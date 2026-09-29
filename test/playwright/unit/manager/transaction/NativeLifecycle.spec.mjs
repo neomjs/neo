@@ -327,7 +327,11 @@ test.describe('Group native lifecycle (#18314)', () => {
         const windows = owner('root'), expiredBinding = deferred(), expiredAdmission = deferred(), closed = [], bindingsExpired = [];
         windows.registerSource('view', effects({
             unbind        : () => ({retained: true, awaitingClosure: true}),
-            bindingExpired: data => { bindingsExpired.push(data); expiredBinding.resolve(data) },
+            bindingExpired: data => {
+                bindingsExpired.push(data);
+                expiredBinding.resolve(data);
+                return {retained: true, awaitingClosure: false}
+            },
             close         : vessel => { closed.push(vessel); return true },
             expired       : data => expiredAdmission.resolve(data)
         }));
@@ -340,6 +344,8 @@ test.describe('Group native lifecycle (#18314)', () => {
         expect(expired.releasedBinding).toBe(data.releasedBinding);
         expect(expired).toMatchObject({generation: 1, generationToken: vessel.generationToken, releasedWindowId: 'bound'});
         expect(windows.isCurrentRelease(expired), 'its own expiry remains valid after the map entry is removed').toBe(true);
+        expect(windows.isLeaseExpired(expired)).toBe(true);
+        await expect.poll(() => data.releasedBinding.awaitingClosure).toBe(false);
         expect(closed).toEqual([]);
         await windows.acquire('view', {itemId: 'never'});
         const provisional = await expiredAdmission.promise;
@@ -348,6 +354,7 @@ test.describe('Group native lifecycle (#18314)', () => {
         expect(closed.map(entry => entry.itemId)).toEqual(['never']);
         expect(windows.getOwner('view', 'bound').windowId).toBeNull();
         manager.reserve({groupId: windows.groupId, workspaceKey: vessel.workspaceKey});
-        expect(windows.isCurrentRelease(expired), 'a new lineage refuses the formerly expired record').toBe(false)
+        expect(windows.isCurrentRelease(expired), 'a new lineage refuses the formerly expired record').toBe(false);
+        expect(windows.isLeaseExpired(expired), 'expiry authority cannot survive a successor lineage').toBe(false)
     });
 });

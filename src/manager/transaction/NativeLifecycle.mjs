@@ -328,6 +328,15 @@ class NativeLifecycle extends Base {
     }
 
     /**
+     * @summary Observes reconnect-lease expiry only for the exact current release scope.
+     * @param {Object} data The manager's release or lease-expiry envelope.
+     * @returns {Boolean} False for a foreign, rebound or superseded scope.
+     */
+    isLeaseExpired(data) {
+        return this.isCurrentRelease(data) && data.releasedBinding.leaseExpired === true
+    }
+
+    /**
      * @summary Releases native binding state while preserving the Group's committed resource ownership.
      * @param {Object} data The generation that actually disconnected.
      * @returns {Promise<void>}
@@ -375,7 +384,10 @@ class NativeLifecycle extends Base {
         if (data.groupId !== this.groupId) return;
         for (const [sourceId, source] of this.sources) {
             if (source.active && data.generation > 0 && data.releasedBinding?.awaitingClosure && this.isCurrentRelease(data)) {
-                await source.effects.bindingExpired?.(data)
+                const result = await source.effects.bindingExpired?.(data);
+                if (this.isCurrentRelease(data) && typeof result?.awaitingClosure === 'boolean') {
+                    data.releasedBinding.awaitingClosure = result.awaitingClosure
+                }
             }
             if (data.releasedBinding && !this.isCurrentRelease(data)) continue;
             const match = [...source.admissions].find(([, entry]) => entry.workspaceKey === data.workspaceKey && !entry.connected);

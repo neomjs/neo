@@ -889,6 +889,8 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         const pending = owner.release();
         await expect.poll(() => Boolean(owner.expiryData)).toBe(true);
         expect(owner.expiryData.releasedBinding.releaseWork).toBe(pending);
+        expect(owner.releaseData.releasedBinding.awaitingClosure,
+            'the Dock does not mark the manager record during pending observation').toBe(false);
         expect(TransactionManager.get(owner.groupId).history).toBeNull();
         resolveObservation(null);
         expect((await pending).receipt.returned).toBe(true);

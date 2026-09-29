@@ -57,37 +57,36 @@ class NativeVesselTransaction extends Base {
         return nativeWindows.withReleasedBinding(data, async () => {
             const current = () => nativeWindows.isCurrentRelease(data) &&
                 workspaceSet.getParticipant(source.workspaceId) === source.participant,
-                  windowId = native.windowId(), route = native.route(), binding = data.releasedBinding;
+                  windowId = native.windowId(), route = native.route();
             if (!current() || windowId && windowId !== data.releasedWindowId) return false;
-            binding.awaitingClosure = policy === 'return' && data.generation > 0 &&
+            const awaitingClosure = policy === 'return' && data.generation > 0 &&
                 Object.keys(source.participant.getDocument().items).length > 0;
             native.detach(data);
-            if (!binding.awaitingClosure) return {retained: true, awaitingClosure: false};
+            if (!awaitingClosure) return {retained: true, awaitingClosure: false};
 
-            const observed = data.expired === true && binding.leaseExpired === true ? true
+            const observed = data.expired === true && nativeWindows.isLeaseExpired(data) ? true
                 : route ? await Neo.Main.windowNativeIsClosed({nativeHandleKey: route.nativeHandleKey,
                     windowId: route.ownerWindowId}).catch(() => null) : null;
             if (!current()) return false;
-            if (observed !== true && binding.leaseExpired !== true) return {retained: true, awaitingClosure: true};
+            if (observed !== true && !nativeWindows.isLeaseExpired(data)) return {retained: true, awaitingClosure: true};
 
             const target = workspaceSet.getParticipantForBinding(native.returnTarget());
             let result;
             try {
                 if (!target) throw new Error('native workspace return target is unavailable');
                 result = await workspaceSet.returnWorkspace(source.workspaceId, target.workspaceId, {
-                    cause     : binding.leaseExpired ? 'popup-reconnect-expired' : 'popup-close',
+                    cause     : nativeWindows.isLeaseExpired(data) ? 'popup-reconnect-expired' : 'popup-close',
                     placements: native.placements(),
                     guard     : () => current() && !native.windowId()
                 });
             } catch (error) {
                 if (current()) native.returned({returned: false, workspaceId: source.workspaceId,
                     itemIds: Object.keys(source.participant.getDocument().items), errors: [error.message]});
-                return {retained: true, awaitingClosure: current() && binding.awaitingClosure}
+                return {retained: true, awaitingClosure: current() && awaitingClosure}
             }
             const receipt = {returned: true, itemIds: result.itemIds, workspaceId: source.workspaceId,
                 transactionId: result.transactionId};
             if (current()) {
-                binding.awaitingClosure = false;
                 try { native.returned(receipt) } catch (error) { Neo.logError(error) }
             }
             return {retained: true, awaitingClosure: false, receipt}

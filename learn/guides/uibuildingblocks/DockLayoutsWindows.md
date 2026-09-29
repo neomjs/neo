@@ -195,7 +195,8 @@ user opens it again. A notes window may send all its panes back to the desk when
 the semantic participant registered: even the returned workspace retains its empty zone shell, so undo can restore
 its document through the same Group protocol.
 
-The dock Workspace names that choice with `nativeWindowClosePolicy`. Choosing `'retain'` detaches the departed render
+The dock Workspace names that construction-time choice with `nativeWindowClosePolicy`. Supply it when creating the
+host, together with its `workspaceSet`; changing it later does not attach a native source. Choosing `'retain'` detaches the departed render
 target and keeps its document unchanged. Choosing `'return'` asks the shared native transaction to distinguish a
 physical close from a reload: an exact closed handle returns every source pane to the receiving workspace in one
 paired Group write. An unknown physical observation waits for the released binding's reconnect lease; an accepted

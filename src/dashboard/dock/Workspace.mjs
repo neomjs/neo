@@ -381,7 +381,7 @@ class Workspace extends Container {
          */
         topologyGroupId_: null,
 
-        /** @member {String|null} nativeWindowClosePolicy=null Opt-in: 'return' or 'retain'; null preserves the existing release flow. */
+        /** @member {String|null} nativeWindowClosePolicy=null Construction-time opt-in: 'return' or 'retain'; null preserves the existing release flow. */
         nativeWindowClosePolicy: null,
         /** @member {String|null} nativeWindowReturnTargetKey=null Physical binding key of the receiving workspace. */
         nativeWindowReturnTargetKey: null,

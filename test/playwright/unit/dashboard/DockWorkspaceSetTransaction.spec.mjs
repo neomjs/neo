@@ -437,6 +437,21 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
         expect(target.document.nodes.root.items).toEqual(['first', 'middle', 'last', 'root-catalog'])
     });
 
+    test('shared return passes null to the target policy for an unrecorded home', async () => {
+        const source = returnHolder('foreign-catalog', ['returning']), target = holder('root-catalog'), calls = [];
+        set.register('root-catalog', {...target.seams, resolveReturnDescriptor: (current, itemId, placement) => {
+            calls.push({itemId, placement});
+            return Operations.appendingReturnDescriptor(current, itemId, placement)
+        }});
+
+        const result = await set.returnWorkspace('foreign-catalog', 'root-catalog');
+
+        expect(calls).toEqual([{itemId: 'returning', placement: null}, {itemId: 'returning', placement: null}]);
+        expect(result.itemIds).toEqual(['returning']);
+        expect(source.document.items).toEqual({});
+        expect(target.document.nodes.root.items).toEqual(['root-catalog', 'returning'])
+    });
+
     test('shared return creates a center stack in an empty target and duplicate closes add no history', async () => {
         const source             = returnHolder('foreign-catalog', ['returning']), target = returnHolder('root-catalog', []),
               options            = {placements: {returning: {tabsNodeId: 'remembered-tabs', index: 2}}},

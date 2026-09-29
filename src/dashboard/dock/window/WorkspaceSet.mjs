@@ -325,7 +325,7 @@ class WorkspaceSet extends Base {
                         targetDocument = context.valuesBefore[targetWorkspaceId];
 
                     for (const itemId of WorkspaceSet.getReturnItemIds(sourceDocument, placements)) {
-                        const placement = placements[itemId],
+                        const placement = placements[itemId] ?? null,
                               target    = resolve(targetDocument, itemId, placement) ?? {
                                   operation : 'restoreTab',
                                   tabsNodeId: placement?.tabsNodeId ?? `returned:${itemId}`,
