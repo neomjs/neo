@@ -20,6 +20,10 @@ class PopupWorkspace extends DockWorkspace {
          * @member {String[]} cls=['workstation-vessel-dock-host','neo-dashboard']
          */
         cls: ['workstation-vessel-dock-host', 'neo-dashboard'],
+        /** @member {String} nativeWindowClosePolicy='return' */
+        nativeWindowClosePolicy: 'return',
+        /** @member {String} nativeWindowReturnTargetKey='main' */
+        nativeWindowReturnTargetKey: 'main',
         /**
          * @member {Workstation.view.Workspace|null} rootWorkspace=null
          */
@@ -57,11 +61,8 @@ class PopupWorkspace extends DockWorkspace {
         super.construct(config);
         const me = this;
         me.workspaceSet.register(me.workspaceKey, {
-            componentId: me.id,
-            dispose    : () => { if (!me.isDestroyed) me.destroy() },
-            getDocument: () => me.dockModel,
-            setDocument: value => me.dockModel = value,
-            project    : context => me.projectDockCommit(context)
+            ...me.getDockParticipantSeams(me.workspaceKey),
+            dispose: () => { if (!me.isDestroyed) me.destroy() }
         });
         me.syncParticipation()
     }
@@ -150,28 +151,39 @@ class PopupWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Replays the native effect of a close-return after the Group restores its documents.
-     * Undo reopens the retained popup; redo closes that render target after returning its panes.
-     * Native refusal remains separate from the committed semantic result.
-     * @param {Object} context Group projection context.
-     * @returns {Promise<void>}
+     * @summary Supplies this popup's current physical route to the shared native lifecycle.
+     * @returns {Object|null}
      */
-    async projectDockCommit(context) {
-        const row    = context.replayRow, state = this.runtimeState;
-        const replay = row?.operation === 'returnPopupWorkspace' && row.workspaceId === this.workspaceKey;
+    getNativeWindowRoute() { return this.runtimeState?.nativeRoute ?? null }
 
-        if (replay && context.cursorAction === 'undo' && state.disconnected && Object.keys(this.dockModel.items).length) {
-            state.returnEffect = await this.rootWorkspace.controller.openTopologyWorkspace(this.workspaceKey)
+    /** @summary Identifies the root which opened this render target. @returns {String|null} */
+    getNativeWindowOwnerWindowId() { return this.rootWorkspace.windowId }
+
+    /** @summary Uses the root's product URL and window presentation. @param {Object} reservation @returns {Object} */
+    getNativeWindowOpenConfig(reservation) { return this.rootWorkspace.getNativeWindowOpenConfig(reservation) }
+
+    /** @summary Supplies the recorded pane homes without owning the return algorithm. @returns {Object} */
+    getNativeWindowReturnPlacements() { return this.rootWorkspace.tearOutHandlers.placements }
+
+    /**
+     * @summary Detaches only this popup's presentation; its document and membership stay retained.
+     * @param {Object} data The released native generation.
+     */
+    onNativeWindowDetached(data) {
+        this.parent?.remove(this, false, true);
+        this.windowId = null;
+        const state = this.runtimeState;
+        if (state) {
+            state.disconnected = true;
+            state.windowId = state.app = state.renderTarget = null
         }
-        const projection = super.projectDockCommit(context);
-        if (!this.windowId) return projection;
-        await projection;
-        if (replay && context.cursorAction === 'redo' && state.windowId && !Object.keys(this.dockModel.items).length) {
-            const windowId = state.windowId;
-            state.returnEffect = await Neo.Main.clearTopologyIdentity({groupId: this.topologyGroupId, windowId}) === true
-                && state.windowId === windowId && await Neo.Main.closeTopologyWindow({windowId})
+        if (this.rootWorkspace.lastCrossWindowTransfer?.sourceWorkspaceId === this.workspaceKey) {
+            this.rootWorkspace.lastCrossWindowTransfer.topologyExited = true
         }
     }
+
+    /** @summary Forwards the shared return receipt to the product's root. @param {Object} receipt @returns {void} */
+    onDockWorkspaceReturn(receipt) { return this.rootWorkspace.onDockWorkspaceReturn(receipt) }
 
     /**
      * @summary Retires this popup's Group membership and interaction registration.

@@ -77,6 +77,36 @@ class WorkspaceSet extends Base {
     }
 
     /**
+     * @summary Resolves one writable native-window document owner for a physical binding.
+     * @param {String} bindingKey
+     * @returns {{workspaceId:String, participant:Object}|null} Null for missing or ambiguous owners.
+     */
+    getParticipantForBinding(bindingKey) {
+        if (typeof bindingKey !== 'string' || !bindingKey) return null;
+        const entries = this.ids().map(workspaceId => ({workspaceId, participant: this.getParticipant(workspaceId)}))
+            .filter(({participant}) => participant.bindingKey === bindingKey &&
+                participant.nativeWindow !== null && typeof participant.nativeWindow === 'object' &&
+                typeof participant.adopt === 'function' && typeof participant.compensate === 'function');
+
+        return entries.length === 1 ? entries[0] : null
+    }
+
+    /**
+     * @summary Orders a source's actual item ids by their serialized home indices.
+     * @param {Object} document
+     * @param {Object} placements
+     * @returns {String[]}
+     * @protected
+     */
+    static getReturnItemIds(document, placements) {
+        if (!document?.items || typeof document.items !== 'object' || Array.isArray(document.items)) {
+            throw new TypeError('a workspace return requires a document item catalog')
+        }
+        return Object.keys(document.items).sort((left, right) =>
+            (placements[left]?.index ?? Infinity) - (placements[right]?.index ?? Infinity))
+    }
+
+    /**
      * @summary Adopts an atomically-committed document pair into both owning participants — or neither.
      * Fail-closed preconditions, all checked BEFORE the first write: distinct source and
      * target ids, both participants registered, both writable.
@@ -237,16 +267,21 @@ class WorkspaceSet extends Base {
      * @param {Function} [seams.getRevision] Owner-supplied revision stamp; otherwise reference changes are counted.
      * @param {Function} [seams.project] Post-commit context includes `preserveItemIds` owned by sibling documents.
      * @param {Function} [seams.dispose] Releases this owner when its Group explicitly retires.
-     * @param {String} [seams.bindingKey=workspaceId] Window slot whose generation fences this document.
+     * @param {String} [seams.bindingKey=workspaceId] Window slot whose lineage and generation fence this document.
      * @param {String} [seams.componentId] Opaque live owner lookup; excluded from captured document truth.
+     * @param {Object} [seams.nativeWindow] Runtime native-window ownership; excluded from captures and history.
+     * @param {Function} [seams.resolveReturnDescriptor] Pure synchronous `(document, itemId, placement)` policy.
+     *     A return prepares both participants independently and may invoke this callback twice per item.
      * @returns {Boolean} true when registered
      */
-    register(workspaceId, {getDocument, setDocument, getRevision, project, dispose, bindingKey = workspaceId, componentId} = {}) {
+    register(workspaceId, {getDocument, setDocument, getRevision, project, dispose, bindingKey = workspaceId,
+        componentId, nativeWindow, resolveReturnDescriptor} = {}) {
         const id                       = this.resolveGroupId(),
               {documentModel, manager} = this;
 
         if (!id || !workspaceId || typeof workspaceId !== 'string' || typeof getDocument !== 'function' ||
-            (getRevision !== undefined && typeof getRevision !== 'function')) {
+            (getRevision !== undefined && typeof getRevision !== 'function') ||
+            (resolveReturnDescriptor !== undefined && typeof resolveReturnDescriptor !== 'function')) {
             return false
         }
 
@@ -269,16 +304,41 @@ class WorkspaceSet extends Base {
         };
         const entry = {
             domain     : 'dock',
+            bindingKey,
             getDocument,
             setDocument: typeof setDocument === 'function' ? setDocument : null,
-            capture    : () => ({
-                value     : observeDocument(),
-                generation: manager.getBinding(id, bindingKey)?.generation || 0,
-                revision  : getRevision ? getRevision() : revision
-            }),
+            capture    : () => {
+                const binding = manager.getBinding(id, bindingKey);
+                return {
+                    value     : observeDocument(),
+                    generation: binding ? `${binding.generationToken}:${binding.generation}` : 0,
+                    revision  : getRevision ? getRevision() : revision
+                }
+            },
             prepare: (input, captured, context) => {
                 let candidate = input;
-                if (input.transfer) {
+                if (input.kind === 'returnWorkspace') {
+                    const {placements, sourceWorkspaceId, targetWorkspaceId} = input,
+                          targetOwner                                        = manager.getParticipant(id, targetWorkspaceId),
+                          resolve                                            = targetOwner?.resolveReturnDescriptor || Operations.appendingReturnDescriptor;
+                    let sourceDocument = context.valuesBefore[sourceWorkspaceId],
+                        targetDocument = context.valuesBefore[targetWorkspaceId];
+
+                    for (const itemId of WorkspaceSet.getReturnItemIds(sourceDocument, placements)) {
+                        const placement = placements[itemId] ?? null,
+                              target    = resolve(targetDocument, itemId, placement) ?? {
+                                  operation : 'restoreTab',
+                                  tabsNodeId: placement?.tabsNodeId ?? `returned:${itemId}`,
+                                  home      : {parentId: targetDocument.root, slot: 'center'}
+                              },
+                              result    = Operations.transferItem(sourceDocument, targetDocument,
+                                  {itemId, sourceWorkspaceId, targetWorkspaceId, target});
+                        if (result.errors.length) throw new TypeError(result.errors.join('; '));
+                        sourceDocument = result.sourceDocument;
+                        targetDocument = result.targetDocument
+                    }
+                    candidate = workspaceId === sourceWorkspaceId ? sourceDocument : targetDocument
+                } else if (input.transfer) {
                     const descriptor = input.transfer;
                     const result     = Operations[descriptor.operation](context.valuesBefore[descriptor.sourceWorkspaceId],
                         context.valuesBefore[descriptor.targetWorkspaceId], descriptor);
@@ -323,6 +383,8 @@ class WorkspaceSet extends Base {
                 .flatMap(key => Object.keys(context.snapshot.participants[key]?.items ?? {}))
         });
         if (componentId !== undefined) entry.componentId = componentId;
+        if (nativeWindow !== undefined) entry.nativeWindow = nativeWindow;
+        if (typeof resolveReturnDescriptor === 'function') entry.resolveReturnDescriptor = resolveReturnDescriptor;
         if (typeof dispose === 'function') entry.dispose = dispose;
 
         const registered = manager.registerParticipant({
@@ -386,6 +448,75 @@ class WorkspaceSet extends Base {
         return this.write({[descriptor.sourceWorkspaceId]: {transfer: descriptor},
             [descriptor.targetWorkspaceId]: {transfer: descriptor}},
             {cause: 'dock-transfer', descriptor, ...options})
+    }
+
+    /**
+     * @summary Returns every source item through one paired Group write against queue-head captures.
+     * @param {String} sourceWorkspaceId
+     * @param {String} targetWorkspaceId
+     * @param {Object} [options={}]
+     * @param {Object} [options.placements={}] Serialized recorded homes keyed by item id.
+     * @param {Function} [options.guard] Synchronous queue-head admission; strict false refuses the return.
+     * @param {String} [options.cause='popup-close']
+     * @param {Object} [options.provenance={origin:'human'}]
+     * @returns {Promise<Object>} The Group result plus ordered runtime `itemIds`; an empty source returns a null row.
+     */
+    async returnWorkspace(sourceWorkspaceId, targetWorkspaceId,
+        {placements = {}, guard, cause = 'popup-close', provenance = {origin: 'human'}} = {}) {
+        const id = this.resolveGroupId();
+        if (!id || typeof sourceWorkspaceId !== 'string' || !sourceWorkspaceId ||
+            typeof targetWorkspaceId !== 'string' || !targetWorkspaceId || sourceWorkspaceId === targetWorkspaceId) {
+            throw new TypeError('a workspace return needs a Group and distinct workspace keys')
+        }
+        if ([sourceWorkspaceId, targetWorkspaceId].some(key => !this.getParticipant(key)?.adopt)) {
+            throw new TypeError('a workspace return needs registered writable source and target participants')
+        }
+        if (guard !== undefined && typeof guard !== 'function') throw new TypeError('a workspace return guard must be a function');
+        const {documentModel, manager} = this;
+        const serializedPlacements     = structuredClone(placements),
+              input                = {kind: 'returnWorkspace', sourceWorkspaceId, targetWorkspaceId, placements: serializedPlacements},
+              empty                = new Error('workspace return has no source items');
+        let emptyResult, returnedItemIds;
+
+        try {
+            const result = await manager.write({
+                groupId          : id, cause, provenance,
+                changes          : [sourceWorkspaceId, targetWorkspaceId].map(workspaceKey => ({workspaceKey, input})),
+                descriptor       : {operation: 'returnPopupWorkspace', workspaceId: sourceWorkspaceId, targetWorkspaceId},
+                prepareDescriptor: ({descriptor, snapshot}) => {
+                    const allowed = guard?.();
+                    if (allowed === false) throw new Error('workspace return refused by its guard');
+                    if (allowed?.then) {
+                        Promise.resolve(allowed).catch(() => {});
+                        throw new TypeError('a workspace return guard must be synchronous')
+                    }
+                    if ([sourceWorkspaceId, targetWorkspaceId].some(key => {
+                        const entry = manager.getParticipant(id, key);
+                        return typeof entry?.getDocument !== 'function' || typeof entry?.adopt !== 'function' ||
+                            typeof entry?.compensate !== 'function'
+                    })) throw new TypeError('a workspace return needs registered writable source and target participants');
+                    const sourceDocument = manager.getParticipant(id, sourceWorkspaceId).getDocument(),
+                          itemIds        = WorkspaceSet.getReturnItemIds(sourceDocument, serializedPlacements);
+                    returnedItemIds = itemIds;
+                    if (!itemIds.length) {
+                        if (typeof documentModel?.validate !== 'function') {
+                            throw new TypeError('WorkspaceSet transactions require an injected documentModel')
+                        }
+                        const errors = [...documentModel.validate(sourceDocument),
+                            ...documentModel.validate(manager.getParticipant(id, targetWorkspaceId).getDocument())];
+                        if (errors.length) throw new TypeError(`invalid dock document: ${errors.join('; ')}`);
+                        emptyResult = {row: null, snapshot: snapshot ?? null, participants: [],
+                            transactionId: null, notificationErrors: [], itemIds: []};
+                        throw empty
+                    }
+                    return {...descriptor, itemIds}
+                }
+            });
+            return {...result, itemIds: returnedItemIds}
+        } catch (error) {
+            if (error === empty) return emptyResult;
+            throw error
+        }
     }
 
     /**

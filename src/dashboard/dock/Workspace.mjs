@@ -8,6 +8,7 @@ import HeaderActionPolicy          from './projection/HeaderActionPolicy.mjs';
 import LayoutAdapter               from './projection/LayoutAdapter.mjs';
 import Maximize                    from './plugin/Maximize.mjs';
 import MotionSignal                from './projection/MotionSignal.mjs';
+import NativeVesselTransaction     from './window/NativeVesselTransaction.mjs';
 import PreviewProducer             from './interaction/PreviewProducer.mjs';
 import PerspectiveSelection        from './interaction/PerspectiveSelection.mjs';
 import PerspectiveState            from './projection/PerspectiveState.mjs';
@@ -380,6 +381,11 @@ class Workspace extends Container {
          */
         topologyGroupId_: null,
 
+        /** @member {String|null} nativeWindowClosePolicy=null Construction-time opt-in: 'return' or 'retain'; null preserves the existing release flow. */
+        nativeWindowClosePolicy: null,
+        /** @member {String|null} nativeWindowReturnTargetKey=null Physical binding key of the receiving workspace. */
+        nativeWindowReturnTargetKey: null,
+
         /**
          * Initial component configs keyed by pane ID. Captured after `onConstructed`, before
          * mounting; later assignments or mutations do not change the consumed declarations.
@@ -649,6 +655,9 @@ class Workspace extends Container {
             // observes its own Group: slots it reserved bind, release, or run out their lease.
             this.loadTransactionManager()
         }
+        if (this.nativeWindowClosePolicy !== null && !this.enableDockTearOutLifecycle) {
+            this.loadTransactionManager()
+        }
 
         // A host that imported the manager was admitted at app registration, before this instance
         // constructed: its Group is readable now. One still awaiting its carrier learns it on bind.
@@ -807,7 +816,8 @@ class Workspace extends Container {
      */
     bindNativeWindowSource(manager=this.transactionManager ?? Neo.manager?.Transaction) {
         const me = this;
-        if (!manager || !me.topologyGroupId || !me.tearOutHandlers || me.nativeWindows) return;
+        if (!manager || !me.topologyGroupId || me.nativeWindows ||
+            !me.tearOutHandlers && (!me.workspaceSet || me.nativeWindowClosePolicy === null)) return;
         me.nativeWindows = manager.getNativeLifecycle(me.topologyGroupId);
         me.nativeWindows.registerSource(me.id, {
             keyFor : itemId => me.tearOutWorkspaceKey(itemId),
@@ -827,9 +837,10 @@ class Workspace extends Container {
                 }
                 await me.afterTearOutWindowConnect(context)
             },
-            ownerChanged: ({itemId, entry, connection, merge}) => me.afterNativeOwnerChange(itemId, entry, connection, merge),
-            unbind      : data => me.onNativeWindowRelease(data),
-            released    : async context => {
+            ownerChanged  : ({itemId, entry, connection, merge}) => me.afterNativeOwnerChange(itemId, entry, connection, merge),
+            unbind        : data => me.onNativeWindowRelease(data),
+            bindingExpired: data => me.onNativeWindowRelease({...data, expired: true}),
+            released      : async context => {
                 const pane = await me.tearOutHandlers.onBindingReleased(context);
                 me.afterTearOutWindowDisconnect({...context, pane})
             },
@@ -841,7 +852,8 @@ class Workspace extends Container {
                 // `unbind` routes to — with the slot the lease freed and no window, since none ever
                 // bound — before handing the pane back to the return flow, which for a host that
                 // moved the item into the vessel's own document would settle a live pane.
-                if (await me.onNativeWindowRelease({...context.data, windowId: null, expired: true}) === false) {
+                const disposition = await me.onNativeWindowRelease({...context.data, windowId: null, expired: true});
+                if (disposition === false || disposition?.retained === true) {
                     me.afterTearOutWindowDisconnect({...context, committed, expired: true, pane: null, recovered: false});
                     return
                 }
@@ -873,9 +885,79 @@ class Workspace extends Container {
      * @param {String} data.workspaceKey
      * @param {String|null} data.windowId `null` when no window ever bound the slot.
      * @param {Boolean} [data.expired] `true` on the lease-end route.
-     * @returns {Boolean|Promise<Boolean>} False when the host retained the semantic Workspace.
+     * @returns {Boolean|Object|Promise<Boolean|Object>} Retention disposition for the native lifecycle.
      */
-    onNativeWindowRelease(data) { return true }
+    onNativeWindowRelease(data) {
+        return NativeVesselTransaction.releaseWorkspace({workspaceSet: this.workspaceSet,
+            nativeWindows: this.nativeWindows}, data)
+    }
+
+    /**
+     * @summary Builds a participant's document, landing and runtime native-window seams.
+     * The runtime functions never enter a transaction input, snapshot or history row. An explicit
+     * close policy enables semantic return; registration alone preserves the existing release flow.
+     * Inject workspaceSet before construction so the policy can attach its Group native source.
+     * @param {String} bindingKey The physical slot, which may differ from the semantic participant id.
+     * @returns {Object} Seams for WorkspaceSet.register.
+     */
+    getDockParticipantSeams(bindingKey) {
+        const me = this;
+        return {
+            bindingKey, componentId: me.id,
+            getDocument            : () => me.dockModel,
+            setDocument            : value => me.dockModel = value,
+            project                : context => me.projectDockCommit(context),
+            resolveReturnDescriptor: (document, itemId, placement) => me.resolveDockReturnDescriptor(document, itemId, placement),
+            nativeWindow           : {
+                policy       : () => me.nativeWindowClosePolicy,
+                returnTarget : () => me.nativeWindowReturnTargetKey,
+                windowId     : () => me.windowId,
+                ownerWindowId: () => me.getNativeWindowOwnerWindowId(),
+                route        : () => me.getNativeWindowRoute(),
+                placements   : () => me.getNativeWindowReturnPlacements(),
+                openConfig   : reservation => me.getNativeWindowOpenConfig(reservation),
+                detach       : data => me.onNativeWindowDetached(data),
+                returned     : receipt => me.onDockWorkspaceReturn(receipt)
+            }
+        }
+    }
+
+    /** @summary Resolves this render target's opener-minted native route. @returns {Object|null} */
+    getNativeWindowRoute() { return Neo.manager.Window.get(this.windowId)?.nativeRoute ?? null }
+
+    /** @summary Resolves the live opener that may embody a retained workspace. @returns {String|null} */
+    getNativeWindowOwnerWindowId() { return this.windowId }
+
+    /**
+     * @summary Supplies product URL, window name and features for an explicit re-embodiment.
+     * @param {Object} reservation The Group's topology identity for the same semantic slot.
+     * @returns {Object|null} Null refuses native opening without discarding the document.
+     */
+    getNativeWindowOpenConfig(reservation) { return null }
+
+    /** @summary Supplies serialized homes used by the receiving workspace's landing policy. @returns {Object} */
+    getNativeWindowReturnPlacements() { return this.tearOutHandlers?.placements ?? {} }
+
+    /**
+     * @summary Retains the semantic projection owner while detaching its departed render target.
+     * @param {Object} data The exact released binding envelope.
+     */
+    onNativeWindowDetached(data) {
+        this.parent?.remove(this, false, true);
+        this.windowId = null
+    }
+
+    /**
+     * @summary Releases tear-out presentation records after a committed all-pane return.
+     * @param {Object} receipt Semantic outcome with ordered itemIds and transactionId.
+     */
+    onDockWorkspaceReturn(receipt) {
+        if (!receipt.returned) return;
+        receipt.itemIds.forEach(itemId => {
+            this.tearOutHandlers?.releasePane(itemId);
+            this.nativeWindows?.recordOwner(this.id, itemId, null)
+        })
+    }
 
     /**
      * Hook: this workspace learned its Group. A host whose participants could not register at
@@ -2521,12 +2603,14 @@ class Workspace extends Container {
      * @returns {Promise} This projection's outcome.
      */
     projectDockCommit(context) {
-        return this.projectDockZoneDocument(context.snapshot.participants[context.workspaceKey], context.descriptor, this, {
+        const project = () => this.projectDockZoneDocument(context.snapshot.participants[context.workspaceKey], context.descriptor, this, {
             perspectiveContext: context,
             preserveItemIds   : context.preserveItemIds,
             previousDocument  : context.captured.value,
             workspaceKey      : context.workspaceKey
-        })
+        });
+        return context.replayRow ? NativeVesselTransaction.replayWorkspaceReturn(this.workspaceSet,
+            context.workspaceKey, context, project) : project()
     }
 
     /**

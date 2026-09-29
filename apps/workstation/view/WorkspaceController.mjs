@@ -1,6 +1,7 @@
-import Controller          from '../../../src/controller/Component.mjs';
-import TransactionManager  from '../../../src/manager/Transaction.mjs';
-import {resolveBootIntent} from '../BootIntent.mjs';
+import Controller              from '../../../src/controller/Component.mjs';
+import TransactionManager      from '../../../src/manager/Transaction.mjs';
+import NativeVesselTransaction from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
+import {resolveBootIntent}     from '../BootIntent.mjs';
 
 /**
  * @summary Workstation actions, durable topology, window adoption and optional tour-controller activation.
@@ -22,8 +23,7 @@ class WorkspaceController extends Controller {
     construct(config) {
         super.construct(config);
 
-        Neo.currentWorker.on({connect: this.onWindowConnect, scope: this});
-        TransactionManager.on({leaseExpired: this.onPopupLeaseExpired, scope: this})
+        Neo.currentWorker.on({connect: this.onWindowConnect, scope: this})
     }
 
     /**
@@ -31,7 +31,6 @@ class WorkspaceController extends Controller {
      */
     destroy(...args) {
         Neo.currentWorker.un({connect: this.onWindowConnect, scope: this});
-        TransactionManager.un({leaseExpired: this.onPopupLeaseExpired, scope: this});
 
         super.destroy(...args)
     }
@@ -104,22 +103,6 @@ class WorkspaceController extends Controller {
     }
 
     /**
-     * @summary Recovers a formerly bound popup after its reconnect lease expires.
-     * An opener reload may lose physical-handle observation. Lease expiry is a separate semantic
-     * recovery boundary; never-bound admissions keep their existing recovery policy.
-     * @param {Object} data
-     * @param {String} data.groupId
-     * @param {String} data.workspaceKey
-     * @returns {Promise<Boolean>|undefined}
-     */
-    onPopupLeaseExpired({groupId, workspaceKey}) {
-        const root = this.component, state = root.getPopupState(workspaceKey);
-        if (groupId === root.topologyGroupId && Neo.apps[root.windowId] && state?.awaitingClosure && state.disconnected) {
-            return root.returnClosedPopupWorkspace(workspaceKey, 'popup-reconnect-expired')
-        }
-    }
-
-    /**
      * @summary Installs the optional playback controller on its real toolbar at first activation.
      * @returns {Promise<Workstation.view.TourController>}
      */
@@ -176,7 +159,6 @@ class WorkspaceController extends Controller {
 
         state.renderTarget = target;
         state.windowId = target.windowId;
-        state.awaitingClosure = false;
         state.app = Neo.apps[target.windowId];
         await this.component.observeWindowGeometry(target.windowId);
         state.nativeRoute = Neo.manager.Window.get(target.windowId)?.nativeRoute ?? state.nativeRoute ?? null;
@@ -200,29 +182,7 @@ class WorkspaceController extends Controller {
      * @returns {Promise<Object>} A separate native-effect receipt, never semantic restore success.
      */
     async openTopologyWorkspace(workspaceKey) {
-        const state = this.component.getPopupState(workspaceKey);
-        if (!state) return {opened: false, errors: ['unknown workspace']};
-        const reservation = TransactionManager.reserve({groupId: this.component.topologyGroupId, workspaceKey});
-        if (!reservation) return {opened: false, errors: ['workspace already has a window']};
-
-        // Relative, as in VesselWorkspace: `windowOpen` resolves it against the opener's page. Under
-        // webpack, `new URL(…, import.meta.url)` becomes a copy of the source page that cannot boot.
-        const params = new URLSearchParams({workspace: workspaceKey, theme: this.component.theme});
-
-        let opened = false;
-        try {
-            opened = await Neo.Main.windowOpen({
-                topologyIdentity: reservation,
-                url             : `./index.html?${params}`,
-                windowFeatures  : 'width=700,height=600',
-                windowId        : this.component.windowId,
-                windowName      : `workstation-restored-${crypto.randomUUID()}`
-            }) === true
-        } catch {
-            opened = false
-        }
-        if (!opened) TransactionManager.revoke(reservation);
-        return {opened, errors: opened ? [] : ['window was refused; the workspace remains available here']}
+        return NativeVesselTransaction.embodyWorkspace(this.component.workspaceSet, workspaceKey)
     }
 
     /**

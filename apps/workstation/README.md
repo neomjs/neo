@@ -31,7 +31,7 @@ the existing Feed store. No tour driver is needed for that boot.
 
 | Owner | Responsibility |
 |---|---|
-| `view/VesselWorkspace.mjs` | App-specific Group, popup and native-vessel policy using the engine's existing owners; projection ordering and window-resource teardown. |
+| `view/VesselWorkspace.mjs` | App-specific Group and native-vessel policy, window presentation and receipts; consumes the engine's shared popup return and replay. |
 | `view/TopologyToolbar.mjs` | Topology controls and live Group history bindings; borrows the workspace's commands and provider. |
 | `view/TourToolbar.mjs`, `view/StatusComponent.mjs` | Lightweight playback chrome and a readout bound directly to the existing stores. |
 | `view/FeedPane.mjs`, `view/ScalePane.mjs`, `view/ResidentComponent.mjs` | The data views and resident presentation, with the same pane identities across docking. |
@@ -99,6 +99,10 @@ surviving original tab homes keep their positions, and other panes join an exist
 popup does not return its panes. If an opener reload lost the native handle, recovery waits for
 the popup's reconnect lease to expire. Cold-restored popups remain retained participants until
 opened or restored. **Reset to default** restores the shipped arrangement. Cold boot starts with empty history.
+Popup hosts select the engine's `nativeWindowClosePolicy: 'return'` and the `main` binding as their
+destination. `WorkspaceSet.returnWorkspace` owns the paired document write, while
+`NativeVesselTransaction` observes closure and replays native effects. Workstation supplies its
+landing policy, window URL and presentation; see [Dock window composition](../../learn/guides/uibuildingblocks/DockLayoutsWindows.md).
 Reloading a root or a restored popup while its SharedWorker survives reuses the live Workspace,
 host and pane instances without replaying history or writing a new topology.
 

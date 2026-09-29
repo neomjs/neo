@@ -59,8 +59,9 @@ class NativeLifecycle extends Base {
      * @param {Function} [effects.prepare] Asynchronous admission; false refuses the connection.
      * @param {Function} [effects.bound] Embodies the accepted connection after state publication.
      * @param {Function} [effects.ownerChanged] Observes the ownership write, never owns its registry.
-     * @param {Function} [effects.unbind] Unbinds projection; false retains semantic ownership.
+     * @param {Function} [effects.unbind] Unbinds projection; false or {retained: true} retains semantic ownership.
      * @param {Function} [effects.released] Handles a released resource which was not retained.
+     * @param {Function} [effects.bindingExpired] Observes a formerly bound release awaiting native closure.
      * @param {Function} [effects.expired] Handles acknowledged cleanup of a provisional resource.
      * @returns {void}
      */
@@ -295,15 +296,65 @@ class NativeLifecycle extends Base {
     }
 
     /**
+     * @summary Checks the exact released Group binding, including its own expired reconnect lease.
+     * @param {Object} data The manager's release or lease-expiry event.
+     * @returns {Boolean}
+     */
+    isCurrentRelease(data) {
+        const binding = data?.releasedBinding, group = this.manager.get(data?.groupId),
+              current = group?.bindings.get(data?.workspaceKey);
+        return !this.isDestroyed && data?.groupId === this.groupId && group?.nativeLifecycle === this && !!binding &&
+            binding.workspaceKey === data.workspaceKey && binding.generation === data.generation &&
+            binding.generationToken === data.generationToken && binding.windowId === null &&
+            (binding.releasedWindowId ?? null) === (data.releasedWindowId ?? null) &&
+            (current === binding || !current && binding.leaseExpired === true)
+    }
+
+    /**
+     * @summary Latches the full asynchronous release operation on its binding until it settles.
+     * @param {Object} data The exact release scope; stale scopes are refused before work starts.
+     * @param {Function} work The caller revalidates after observations and in its queued write guard.
+     * @returns {Promise<*>|false} Duplicate pending calls share the promise and its committed result.
+     */
+    withReleasedBinding(data, work) {
+        if (!this.isCurrentRelease(data)) return false;
+        const binding = data.releasedBinding;
+        if (binding.releaseWork) return binding.releaseWork;
+        const pending = Promise.resolve().then(() => this.isCurrentRelease(data) ? work() : false).finally(() => {
+            if (binding.releaseWork === pending) binding.releaseWork = null
+        });
+        binding.releaseWork = pending;
+        return pending
+    }
+
+    /**
+     * @summary Observes reconnect-lease expiry only for the exact current release scope.
+     * @param {Object} data The manager's release or lease-expiry envelope.
+     * @returns {Boolean} False for a foreign, rebound or superseded scope.
+     */
+    isLeaseExpired(data) {
+        return this.isCurrentRelease(data) && data.releasedBinding.leaseExpired === true
+    }
+
+    /**
      * @summary Releases native binding state while preserving the Group's committed resource ownership.
      * @param {Object} data The generation that actually disconnected.
      * @returns {Promise<void>}
      */
     async onRelease(data) {
         if (data.groupId !== this.groupId) return;
+        if (data.releasedBinding) {
+            data = {...data, releasedWindowId: data.releasedWindowId ?? data.windowId};
+            if (!this.isCurrentRelease(data)) return
+        }
         for (const [sourceId, source] of this.sources) {
-            const retained = source.active && await source.effects.unbind?.(data) === false;
+            const result   = source.active && await source.effects.unbind?.(data),
+                  retained = result === false || result?.retained === true;
             if (this.isDestroyed) return;
+            if (data.releasedBinding && !this.isCurrentRelease(data)) return;
+            if (this.isCurrentRelease(data) && typeof result?.awaitingClosure === 'boolean') {
+                data.releasedBinding.awaitingClosure = result.awaitingClosure
+            }
             const owned = [...source.owners].find(([, entry]) => entry.windowId === data.windowId);
             const match = owned || [...source.connections].find(([, entry]) => entry.windowId === data.windowId)
                 || [...source.admissions].find(([, entry]) => entry.connectingWindowId === data.windowId || entry.windowId === data.windowId);
@@ -325,13 +376,20 @@ class NativeLifecycle extends Base {
     }
 
     /**
-     * @summary Cleans up an unbound provisional window when its reservation expires.
+     * @summary Observes awaiting closure on bound expiry and cleans up expired provisional admissions.
      * @param {Object} data The expired Group slot.
      * @returns {Promise<void>}
      */
     async onLeaseExpired(data) {
         if (data.groupId !== this.groupId) return;
         for (const [sourceId, source] of this.sources) {
+            if (source.active && data.generation > 0 && data.releasedBinding?.awaitingClosure && this.isCurrentRelease(data)) {
+                const result = await source.effects.bindingExpired?.(data);
+                if (this.isCurrentRelease(data) && typeof result?.awaitingClosure === 'boolean') {
+                    data.releasedBinding.awaitingClosure = result.awaitingClosure
+                }
+            }
+            if (data.releasedBinding && !this.isCurrentRelease(data)) continue;
             const match = [...source.admissions].find(([, entry]) => entry.workspaceKey === data.workspaceKey && !entry.connected);
             if (!match) continue;
             const [itemId, admission] = match, entry = source.owners.get(itemId);

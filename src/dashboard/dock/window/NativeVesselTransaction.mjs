@@ -4,7 +4,7 @@ import WindowManager from '../../../manager/Window.mjs';
 
 /**
  * @summary The default park / re-show / dispose transaction behind {@link Neo.dashboard.dock.window.VesselPark}'s
- * three required seams, and the tear-out close every host used to write for itself.
+ * three required seams, tear-out close, and shared Workspace close-return / native replay.
  *
  * `VesselPark` owns gesture-local admission, one-in-flight settlement and disposal ordering, and
  * requires three strict effects it deliberately does not implement — native window ownership stays
@@ -35,6 +35,139 @@ class NativeVesselTransaction extends Base {
          * @protected
          */
         className: 'Neo.dashboard.dock.window.NativeVesselTransaction'
+    }
+
+    /**
+     * @summary Detaches an opted-in workspace and returns its documents only on confirmed closure.
+     * The Group's exact released binding owns the whole pending operation, including observation
+     * and queued insertion. A warm rebind invalidates admission; an unknown physical state waits
+     * for that binding's reconnect lease. Never-bound admissions do not return semantic documents.
+     * @param {Object} descriptor WorkspaceSet and the Group's nativeWindows lifecycle.
+     * @param {Object} data The manager's release or formerly-bound expiry envelope.
+     * @returns {Boolean|Promise<Object|Boolean>} Retention disposition, independent of native presentation.
+     */
+    static releaseWorkspace({workspaceSet, nativeWindows}, data) {
+        const source = workspaceSet?.getParticipantForBinding(data.workspaceKey),
+              native = source?.participant.nativeWindow,
+              policy = native?.policy();
+        if (policy == null) return true;
+        if (!['return', 'retain'].includes(policy)) throw new TypeError('unknown native workspace close policy');
+        if (!nativeWindows?.isCurrentRelease(data)) return false;
+
+        return nativeWindows.withReleasedBinding(data, async () => {
+            const current = () => nativeWindows.isCurrentRelease(data) &&
+                workspaceSet.getParticipant(source.workspaceId) === source.participant,
+                  windowId = native.windowId(), route = native.route();
+            if (!current() || windowId && windowId !== data.releasedWindowId) return false;
+            const awaitingClosure = policy === 'return' && data.generation > 0 &&
+                Object.keys(source.participant.getDocument().items).length > 0;
+            native.detach(data);
+            if (!awaitingClosure) return {retained: true, awaitingClosure: false};
+
+            const observed = data.expired === true && nativeWindows.isLeaseExpired(data) ? true
+                : route ? await Neo.Main.windowNativeIsClosed({nativeHandleKey: route.nativeHandleKey,
+                    windowId: route.ownerWindowId}).catch(() => null) : null;
+            if (!current()) return false;
+            if (observed !== true && !nativeWindows.isLeaseExpired(data)) return {retained: true, awaitingClosure: true};
+
+            const target = workspaceSet.getParticipantForBinding(native.returnTarget());
+            let result;
+            try {
+                if (!target) throw new Error('native workspace return target is unavailable');
+                result = await workspaceSet.returnWorkspace(source.workspaceId, target.workspaceId, {
+                    cause     : nativeWindows.isLeaseExpired(data) ? 'popup-reconnect-expired' : 'popup-close',
+                    placements: native.placements(),
+                    guard     : () => current() && !native.windowId()
+                });
+            } catch (error) {
+                if (current()) native.returned({returned: false, workspaceId: source.workspaceId,
+                    itemIds: Object.keys(source.participant.getDocument().items), errors: [error.message]});
+                return {retained: true, awaitingClosure: current() && awaitingClosure}
+            }
+            const receipt = {returned: true, itemIds: result.itemIds, workspaceId: source.workspaceId,
+                transactionId: result.transactionId};
+            if (current()) {
+                try { native.returned(receipt) } catch (error) { Neo.logError(error) }
+            }
+            return {retained: true, awaitingClosure: false, receipt}
+        })
+    }
+
+    /**
+     * @summary Opens a native render target for an existing semantic workspace identity.
+     * Refusal revokes only this reservation and leaves its participant and history intact.
+     * @param {Neo.dashboard.dock.window.WorkspaceSet} workspaceSet
+     * @param {String} workspaceId
+     * @returns {Promise<{opened:Boolean,errors:String[]}>}
+     */
+    static async embodyWorkspace(workspaceSet, workspaceId) {
+        const participant = workspaceSet?.getParticipant(workspaceId), native = participant?.nativeWindow,
+              groupId     = workspaceSet?.resolveGroupId(), manager = workspaceSet?.manager;
+        if (!native || !groupId) return {opened: false, errors: ['unknown native workspace']};
+        const reservation = manager.reserve({groupId, workspaceKey: participant.bindingKey});
+        if (!reservation) return {opened: false, errors: ['workspace already has a window']};
+        let opened = false;
+        try {
+            const config = native.openConfig(reservation);
+            if (config && workspaceSet.getParticipant(workspaceId) === participant) {
+                opened = await Neo.Main.windowOpen({...config, topologyIdentity: reservation,
+                    windowId: native.ownerWindowId()}) === true
+            }
+        } catch {}
+        if (!opened) manager.revoke(reservation);
+        return {opened, errors: opened ? [] : ['window was refused; the workspace remains available']}
+    }
+
+    /**
+     * @summary Publishes native replay evidence separately from committed semantic history.
+     * @param {Neo.dashboard.dock.window.WorkspaceSet} workspaceSet
+     * @param {String} workspaceId
+     * @param {Object} context
+     * @param {Object} observation
+     * @protected
+     */
+    static publishWorkspaceEffect(workspaceSet, workspaceId, context, observation) {
+        const receipt = {kind: 'native', id: workspaceId, transactionId: context.transactionId,
+            observation, error: null};
+        try { workspaceSet.manager.fire('effectReceipt', {groupId: workspaceSet.resolveGroupId(), receipt}) }
+        catch (error) { Neo.logError(error) }
+    }
+
+    /**
+     * @summary Re-embodies undo before projection and closes redo after projection settles.
+     * Each native refusal is an effectReceipt, never a semantic rollback. Redo fences both sides
+     * of identity clearing against the exact binding, generation and semantic snapshot.
+     * @param {Neo.dashboard.dock.window.WorkspaceSet} workspaceSet
+     * @param {String} workspaceId
+     * @param {Object} context Group projection context.
+     * @param {Function} project The ordinary document projection.
+     * @returns {Promise<*>} The ordinary projection's result.
+     */
+    static async replayWorkspaceReturn(workspaceSet, workspaceId, context, project) {
+        const row    = context.replayRow, source = workspaceSet?.getParticipant(workspaceId),
+              native = source?.nativeWindow;
+        if (!native || row?.operation !== 'returnPopupWorkspace' || row.workspaceId !== workspaceId) return project();
+        if (context.cursorAction === 'undo' && !native.windowId() && Object.keys(source.getDocument().items).length) {
+            this.publishWorkspaceEffect(workspaceSet, workspaceId, context, await this.embodyWorkspace(workspaceSet, workspaceId))
+        }
+        const result = await project();
+        if (context.cursorAction === 'redo' && native.windowId() && !Object.keys(source.getDocument().items).length) {
+            const manager  = workspaceSet.manager, group = manager.get(workspaceSet.resolveGroupId()),
+                  binding  = group?.bindings.get(source.bindingKey), generation = binding?.generation,
+                  windowId = native.windowId(), current = () => manager.get(group?.id) === group &&
+                      group?.snapshot === context.snapshot && workspaceSet.getParticipant(workspaceId) === source &&
+                      group?.bindings.get(source.bindingKey) === binding && binding?.generation === generation &&
+                      binding?.windowId === windowId && native.windowId() === windowId;
+            let closed = false;
+            try {
+                if (current() && await Neo.Main.clearTopologyIdentity({groupId: group.id, windowId}) === true && current()) {
+                    closed = await Neo.Main.closeTopologyWindow({windowId}) === true
+                }
+            } catch {}
+            this.publishWorkspaceEffect(workspaceSet, workspaceId, context,
+                {closed, errors: closed ? [] : ['native replay close was refused']})
+        }
+        return result
     }
 
     /**
