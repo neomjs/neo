@@ -197,6 +197,39 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay', () => {
         expect(focused).toEqual([[overlay.id, false, true, 'pointer']])
     });
 
+    test('inside mousedown on a target that takes focus itself leaves that focus alone', () => {
+        const focused = [];
+
+        overlay = Neo.create(DockRevealOverlay, {
+            edge        : 'right',
+            id          : 'dock-reveal-inside-focusable',
+            revealState : 'revealed-focused',
+            revealedItem: createItem()
+        });
+
+        overlay.focus = (...args) => focused.push(args);
+
+        // a text field as the target, a textarea further up the path, a contenteditable, an
+        // explicit tab stop — the browser focuses each on its own mousedown
+        overlay.onMouseDown({target: {tagName: 'input'}});
+        overlay.onMouseDown({target: {tagName: 'span'}, path: [{tagName: 'span'}, {tagName: 'textarea'}]});
+        overlay.onMouseDown({target: {tagName: 'div', isContentEditable: true}});
+        overlay.onMouseDown({target: {tagName: 'li', tabIndex: 0}});
+
+        expect(focused).toEqual([]);
+
+        // prose, a button, and the root's own tabindex -1 still hand focus to the root
+        overlay.onMouseDown({target: {tagName: 'div'}, path: [{tagName: 'div'}, {tagName: 'p'}]});
+        overlay.onMouseDown({target: {tagName: 'button'}});
+        overlay.onMouseDown({target: {tagName: 'div', tabIndex: -1}});
+
+        expect(focused).toEqual([
+            [overlay.id, false, true, 'pointer'],
+            [overlay.id, false, true, 'pointer'],
+            [overlay.id, false, true, 'pointer']
+        ])
+    });
+
     test('the reveal-slide routes the motion signal: enter on hidden→visible, filtered leave on animationend', () => {
         overlay = Neo.create(DockRevealOverlay, {
             edge: 'left',
