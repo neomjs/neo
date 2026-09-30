@@ -520,11 +520,44 @@ class RevealOverlay extends Container {
      * so this programmatic pointer focus creates no sequential tab stop; `preventScroll` preserves
      * the reading position. This handler rides the global mousedown path, which leaves native text
      * selection untouched.
+     *
+     * A target that takes focus on its own — a text field inside the revealed pane — keeps it: the
+     * programmatic root focus would land after the browser's default action and take the field's
+     * focus away on the very click that gave it. Focus stays inside the subtree either way, so the
+     * focus-hold contract holds without the refocus.
      * @param {Object} data
+     * @param {Object} [data.target] The `DomEvents#getTargetData` shape of the event target
+     * @param {Object[]} [data.path] The same shape for every node on the event path
      * @protected
      */
-    onMouseDown(data) {
+    onMouseDown(data = {}) {
+        if ([data.target, ...(data.path || [])].some(RevealOverlay.canTakeFocus)) {
+            return
+        }
+
         this.focus(this.id, false, true, 'pointer')
+    }
+
+    /**
+     * Tag names whose elements take focus on their own mousedown default. Buttons are absent on
+     * purpose: not every browser focuses a clicked button, and a button never needs typing focus.
+     * @member {Set<String>} FOCUSABLE_TAGS
+     * @static
+     */
+    static FOCUSABLE_TAGS = new Set(['input', 'select', 'textarea'])
+
+    /**
+     * Whether a serialized DOM node (the `DomEvents#getTargetData` shape) receives focus by itself:
+     * a form control, a contenteditable, or an explicit non-negative `tabindex`.
+     * @param {Object} node
+     * @returns {Boolean}
+     */
+    static canTakeFocus(node) {
+        return !!node && (
+            RevealOverlay.FOCUSABLE_TAGS.has(node.tagName)
+            || node.isContentEditable === true
+            || (typeof node.tabIndex === 'number' && node.tabIndex >= 0)
+        )
     }
 
     /**
