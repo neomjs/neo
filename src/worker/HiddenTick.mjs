@@ -39,6 +39,16 @@ class HiddenTick extends Base {
     }
 
     /**
+     * @summary Whether a window's last visibility report said hidden. The connect handshake reads `document.hidden`,
+     * so a window that connects hidden and never changes still answers `true`.
+     * @param {String} windowId
+     * @returns {Boolean}
+     */
+    isHidden(windowId) {
+        return this.timers.has(windowId)
+    }
+
+    /**
      * @param {String} windowId
      */
     stop(windowId) {

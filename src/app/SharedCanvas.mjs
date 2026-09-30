@@ -147,8 +147,8 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * Triggered after the windowId config got changed: a host that moves into another window listens to that
-     * window's visibility from then on.
+     * Triggered after the windowId config got changed: a host that moves into another window takes that window's
+     * current visibility and listens to it from then on.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -160,8 +160,7 @@ class SharedCanvas extends Canvas {
 
         if (oldValue) {
             Neo.apps[oldValue]?.un('visibilitychange', me.onWindowVisibility, me);
-            me.windowHidden = false;
-            me.app?.on('visibilitychange', me.onWindowVisibility, me)
+            me.listenToWindow()
         }
     }
 
@@ -170,10 +169,7 @@ class SharedCanvas extends Canvas {
      */
     construct(config) {
         super.construct(config);
-
-        let me = this;
-
-        me.app?.on('visibilitychange', me.onWindowVisibility, me)
+        this.listenToWindow()
     }
 
     /**
@@ -244,6 +240,18 @@ class SharedCanvas extends Canvas {
                  console.error('Renderer Remote Stub not found:', me.rendererClassName)
             }
         }
+    }
+
+    /**
+     * @summary Takes the current visibility of the window this host lives in, then listens to its later reports: a
+     * window that is already hidden never reports, so waiting for a `visibilitychange` would leave the loop running.
+     * @protected
+     */
+    listenToWindow() {
+        let me = this;
+
+        me.windowHidden = Neo.currentWorker.hiddenTick.isHidden(me.windowId);
+        me.app?.on('visibilitychange', me.onWindowVisibility, me)
     }
 
     /**

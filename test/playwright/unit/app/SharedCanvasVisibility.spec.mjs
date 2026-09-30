@@ -130,5 +130,43 @@ test.describe('Neo.app.SharedCanvas — a hidden window pauses the render loop, 
         host.destroy();
 
         expect(windowB.listeners).toHaveLength(0)
+    });
+
+    test.describe('a window that is already hidden never reports, so the host reads its current visibility', () => {
+        let original;
+
+        test.beforeEach(() => {
+            original = Neo.currentWorker.hiddenTick.isHidden;
+            Neo.currentWorker.hiddenTick.isHidden = windowId => windowId === 'visibility-window-b'
+        });
+
+        test.afterEach(() => {
+            Neo.currentWorker.hiddenTick.isHidden = original
+        });
+
+        test('a canvas created in a hidden window starts paused; one in a visible window does not', () => {
+            const hidden = Neo.create(VisibilityHost, {windowId: 'visibility-window-b'});
+
+            hidden.isCanvasReady = true;
+            expect(renderer.calls, 'hidden from the start').toEqual(['pause']);
+
+            renderer.calls.length = 0;
+            host.isCanvasReady = true;
+            expect(renderer.calls, 'the visible-window control').toEqual([]);
+
+            hidden.destroy()
+        });
+
+        test('a host moved into a hidden window pauses there; one moved back into a visible window does not', () => {
+            host.windowId      = 'visibility-window-b';
+            host.isCanvasReady = true;
+            expect(renderer.calls, 'the destination was hidden before the move').toEqual(['pause']);
+
+            renderer.calls.length = 0;
+            host.isCanvasReady = false;
+            host.windowId      = 'visibility-window-a';
+            host.isCanvasReady = true;
+            expect(renderer.calls, 'the visible-window control').toEqual([])
+        })
     })
 });

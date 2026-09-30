@@ -55,6 +55,8 @@ Neo.currentWorker ??= {
         register  : () => {},
         unregister: () => {}
     }),
+    // Every window is visible until a spec says otherwise
+    hiddenTick      : {isHidden: () => false},
     insertThemeFiles: () => {},
     isDeparture     : () => false,
     isSharedWorker  : false,
