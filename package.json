@@ -107,7 +107,7 @@
         "acorn"                        : "^8.17.0",
         "astring"                      : "^1.9.0",
         "autoprefixer"                 : "^10.6.1",
-        "chalk"                        : "^6.0.0",
+        "chalk"                        : "^6.0.1",
         "commander"                    : "^15.0.0",
         "cssnano"                      : "^9.0.5",
         "envinfo"                      : "^7.21.0",
@@ -136,7 +136,7 @@
         "webpack-cli"                  : "^7.2.3",
         "webpack-dev-server"           : "^6.0.0",
         "webpack-hook-plugin"          : "^1.0.7",
-        "ws"                           : "^8.21.3"
+        "ws"                           : "^8.22.0"
     },
     "overrides": {
         "gray-matter": {
