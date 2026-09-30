@@ -36,7 +36,7 @@ program
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
-        console.log(chalk.cyan(packageJson.bugs.url));
+        console.log(chalk.cyan(requireJson(path.resolve(neoPath, 'package.json')).bugs.url));
     })
     .parse(process.argv);
 
