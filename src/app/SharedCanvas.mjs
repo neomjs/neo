@@ -168,8 +168,11 @@ class SharedCanvas extends Canvas {
      * @param {Object} config
      */
     construct(config) {
+        let me = this;
+
         super.construct(config);
-        this.listenToWindow()
+        me.listenToWindow();
+        Neo.currentWorker.on('connect', me.onWindowConnect, me)
     }
 
     /**
@@ -200,6 +203,7 @@ class SharedCanvas extends Canvas {
         let me = this;
 
         me.app?.un('visibilitychange', me.onWindowVisibility, me);
+        Neo.currentWorker.un('connect', me.onWindowConnect, me);
         me.offscreenRegistered && me.renderer?.clearGraph({windowId: me.windowId});
         super.destroy(...args)
     }
@@ -346,6 +350,22 @@ class SharedCanvas extends Canvas {
         let {deltaMode, deltaX, deltaY, deltaZ} = data;
 
         this.forwardPointer(data, {wheel: {deltaMode, deltaX, deltaY, deltaZ}})
+    }
+
+    /**
+     * A window finished connecting, and its visibility snapshot has landed: the host re-reads it, since the snapshot
+     * can arrive after the view was built and never reaches the app as a `visibilitychange`.
+     * @param {Object} data
+     * @param {String} data.windowId
+     * @protected
+     */
+    onWindowConnect({windowId}) {
+        let me = this;
+
+        if (windowId === me.windowId) {
+            me.windowHidden = Neo.currentWorker.hiddenTick.isHidden(windowId);
+            me.syncRenderLoop()
+        }
     }
 
     /**

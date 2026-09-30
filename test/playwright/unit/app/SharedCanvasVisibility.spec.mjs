@@ -167,6 +167,32 @@ test.describe('Neo.app.SharedCanvas — a hidden window pauses the render loop, 
             host.windowId      = 'visibility-window-a';
             host.isCanvasReady = true;
             expect(renderer.calls, 'the visible-window control').toEqual([])
+        });
+
+        test('a view built while its window\'s snapshot is pending pauses once the snapshot lands hidden', () => {
+            const worker = Neo.currentWorker, {on, un} = worker, connect = [];
+
+            worker.on = (name, fn, scope) => name === 'connect' && connect.push({fn, scope});
+            worker.un = () => {};
+
+            try {
+                const early = Neo.create(VisibilityHost, {windowId: 'visibility-window-a'});
+
+                early.isCanvasReady = true;
+                expect(renderer.calls, 'the snapshot is still pending, so the window reads visible').toEqual([]);
+
+                Neo.currentWorker.hiddenTick.isHidden = windowId => windowId === 'visibility-window-a';
+                connect.forEach(({fn, scope}) => fn.call(scope, {windowId: 'visibility-window-c'}));
+                expect(renderer.calls, 'another window\'s connect changes nothing').toEqual([]);
+
+                connect.forEach(({fn, scope}) => fn.call(scope, {windowId: 'visibility-window-a'}));
+                expect(renderer.calls, 'its own window connected hidden').toEqual(['pause']);
+
+                early.destroy()
+            } finally {
+                worker.on = on;
+                worker.un = un
+            }
         })
     })
 });
