@@ -119,9 +119,12 @@ export function setup(options = {}) {
     Object.assign(Neo.config, defaultNeoConfig);
     Object.assign(Neo.config, neoConfig);
 
+    // An app is observable: components subscribe to its events, like `visibilitychange`
     const defaultAppConfig = {
         fire             : () => {},
         isMounted        : () => true,
+        on               : () => {},
+        un               : () => {},
         vnodeInitialising: false
     };
 
