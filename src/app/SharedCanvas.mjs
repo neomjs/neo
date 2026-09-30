@@ -13,6 +13,8 @@ import Canvas from '../component/Canvas.mjs';
  *     (`wheel: {fn, local: true, passive: false}`), which is how a node outside the main thread's global wheel
  *     target list receives deltas.
  * 4.  **Theming**: Syncing the component's theme to the worker.
+ * 5.  **Visibility**: Pausing the render loop while the host's window is hidden. A hidden window and the host's own
+ *     `pause()` are separate reasons, and the loop runs only while neither holds.
  *
  * Subclasses must define:
  * - `rendererClassName`: String name of the SharedWorker singleton (e.g. 'Neo.canvas.Header')
@@ -57,15 +59,31 @@ class SharedCanvas extends Canvas {
      * @member {Object|null} canvasRect=null
      */
     canvasRect = null
+    /**
+     * Whether the host paused its renderer for its own reason, like a part scrolled out of view. Only the host's
+     * own `resume()` lifts it; the window becoming visible does not.
+     * @member {Boolean} hostPaused=false
+     * @protected
+     */
+    hostPaused = false
+    /**
+     * Whether the window this host lives in is hidden, as its app's `visibilitychange` reports it.
+     * @member {Boolean} windowHidden=false
+     * @protected
+     */
+    windowHidden = false
 
     /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
     afterSetIsCanvasReady(value, oldValue) {
+        let me = this;
+
         if (value) {
-            this.renderer?.setTheme({theme: this.resolveColorScheme(), windowId: this.windowId});
-            this.fire('canvasReady')
+            me.renderer?.setTheme({theme: me.resolveColorScheme(), windowId: me.windowId});
+            (me.hostPaused || me.windowHidden) && me.renderer?.pause({windowId: me.windowId});
+            me.fire('canvasReady')
         }
     }
 
@@ -129,6 +147,35 @@ class SharedCanvas extends Canvas {
     }
 
     /**
+     * Triggered after the windowId config got changed: a host that moves into another window takes that window's
+     * current visibility and listens to it from then on.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        let me = this;
+
+        super.afterSetWindowId(value, oldValue);
+
+        if (oldValue) {
+            Neo.apps[oldValue]?.un('visibilitychange', me.onWindowVisibility, me);
+            me.listenToWindow()
+        }
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        let me = this;
+
+        super.construct(config);
+        me.listenToWindow();
+        Neo.currentWorker.on('connect', me.onWindowConnect, me)
+    }
+
+    /**
      * @returns {String}
      */
     getCanvasId() {
@@ -153,7 +200,11 @@ class SharedCanvas extends Canvas {
      * @param {...*} args
      */
     destroy(...args) {
-        this.offscreenRegistered && this.renderer?.clearGraph({windowId: this.windowId});
+        let me = this;
+
+        me.app?.un('visibilitychange', me.onWindowVisibility, me);
+        Neo.currentWorker.un('connect', me.onWindowConnect, me);
+        me.offscreenRegistered && me.renderer?.clearGraph({windowId: me.windowId});
         super.destroy(...args)
     }
 
@@ -193,6 +244,18 @@ class SharedCanvas extends Canvas {
                  console.error('Renderer Remote Stub not found:', me.rendererClassName)
             }
         }
+    }
+
+    /**
+     * @summary Takes the current visibility of the window this host lives in, then listens to its later reports: a
+     * window that is already hidden never reports, so waiting for a `visibilitychange` would leave the loop running.
+     * @protected
+     */
+    listenToWindow() {
+        let me = this;
+
+        me.windowHidden = Neo.currentWorker.hiddenTick.isHidden(me.windowId);
+        me.app?.on('visibilitychange', me.onWindowVisibility, me)
     }
 
     /**
@@ -244,12 +307,12 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * Pauses the Shared Worker render loop.
+     * Pauses the Shared Worker render loop until this host's own `resume()`. A canvas that becomes ready later starts
+     * paused.
      */
     pause() {
-        if (this.isCanvasReady) {
-            this.renderer.pause({windowId: this.windowId})
-        }
+        this.hostPaused = true;
+        this.syncRenderLoop()
     }
 
     /**
@@ -290,6 +353,34 @@ class SharedCanvas extends Canvas {
     }
 
     /**
+     * A window finished connecting, and its visibility snapshot has landed: the host re-reads it, since the snapshot
+     * can arrive after the view was built and never reaches the app as a `visibilitychange`.
+     * @param {Object} data
+     * @param {String} data.windowId
+     * @protected
+     */
+    onWindowConnect({windowId}) {
+        let me = this;
+
+        if (windowId === me.windowId) {
+            me.windowHidden = Neo.currentWorker.hiddenTick.isHidden(windowId);
+            me.syncRenderLoop()
+        }
+    }
+
+    /**
+     * The window's app reported its visibility: a hidden window pauses the render loop, and a visible one resumes it
+     * unless the host holds its own pause.
+     * @param {Object}  data
+     * @param {Boolean} data.hidden
+     * @protected
+     */
+    onWindowVisibility({hidden}) {
+        this.windowHidden = hidden;
+        this.syncRenderLoop()
+    }
+
+    /**
      * Updates the canvas size in the Shared Worker when the DOM element resizes.
      * @param {Object} data
      */
@@ -299,11 +390,22 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * Resumes the Shared Worker render loop.
+     * Lifts the host's own pause. The render loop resumes unless the window is hidden.
      */
     resume() {
-        if (this.isCanvasReady) {
-            this.renderer.resume({windowId: this.windowId})
+        this.hostPaused = false;
+        this.syncRenderLoop()
+    }
+
+    /**
+     * @summary Runs the renderer's loop exactly while neither the host nor a hidden window holds it paused.
+     * @protected
+     */
+    syncRenderLoop() {
+        let me = this;
+
+        if (me.isCanvasReady) {
+            me.renderer[me.hostPaused || me.windowHidden ? 'pause' : 'resume']({windowId: me.windowId})
         }
     }
 
