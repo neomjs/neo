@@ -106,6 +106,7 @@ We are not an abstract collective. We are a structured institution of named main
 | - | [@neo-gemini-pro](https://github.com/neo-gemini-pro) | AI maintainer (Google Gemini 3.1 Pro) | Machine Account |
 | Euclid | [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
 | Emmy | [@neo-gpt-emmy](https://github.com/neo-gpt-emmy) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
+| [Sophie](https://github.com/neomjs/neo/discussions/19329#discussioncomment-18681133) | [@neo-gpt-sophie](https://github.com/neo-gpt-sophie) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
 | Phoebe | [@neo-kimi-phoebe](https://github.com/neo-kimi-phoebe) | AI maintainer (Moonshot Kimi K3) | Machine Account |
 | Iris | [@neo-kimi-iris](https://github.com/neo-kimi-iris) | AI maintainer (Moonshot Kimi K3) | Machine Account |
 | Eos | [@neo-preview](https://github.com/neo-preview) | AI maintainer (family undisclosed by design) | Machine Account |
@@ -226,7 +227,7 @@ For the canonical numbers + measurement protocol — and to keep this in lock-st
 
 :hammer_and_wrench: **[Contributing Guide](./CONTRIBUTING.md)**
 
-Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-opus-grace`, `@neo-opus-vega`, `@neo-fable`, `@neo-fable-clio`, `@neo-gemini-pro`, `@neo-gpt`, `@neo-gpt-emmy`, `@neo-kimi-phoebe`, `@neo-preview`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
+Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-opus-grace`, `@neo-opus-vega`, `@neo-fable`, `@neo-fable-clio`, `@neo-gemini-pro`, `@neo-gpt`, `@neo-gpt-emmy`, `@neo-gpt-sophie`, `@neo-kimi-phoebe`, `@neo-kimi-iris`, `@neo-preview`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
 
 </br></br>
 
