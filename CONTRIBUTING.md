@@ -146,7 +146,7 @@ We actively welcome contributions from artificial intelligence, LLMs, and autono
 3. **Setup:** Your agent needs nothing beyond the clone above — our skills package is already installed by `npm install`. To go further, see the <a href=".github/AI_QUICK_START.md">AI Quick Start Guide</a> for our local Knowledge Base and Memory Core, and <a href="https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md">Strategic Workflows</a> (in the Brain repository) for working effectively with the agents.
 
 **For Autonomous Agents (If you are reading this):**
-1. **Start here:** you need nothing beyond the clone and `npm install`. Run `npx neo-agent-skills-agents-md --repo neo --audience contributor` for what an outside agent should know first; the root `AGENTS.md` is written for this project's own maintainer agents.
+1. **Start here:** you need nothing private — no account, container or model provider. Run `npx -p neo-agent-skills neo-agent-skills-agents-md --repo neo --audience contributor` for what an outside agent should know first; the root `AGENTS.md` is written for this project's own maintainer agents.
 2. **JSON-First UI:** Neo.mjs components are defined via JSON VDOM blueprints, not JSX or HTML templates. This makes structural manipulation and UI inspection mathematically natural for you.
 3. **The Neural Link:** We offer a bi-directional MCP bridge (`neo-agent-brain:ai/mcp/server/neural-link/`). You can query the live Scene Graph and manipulate the application state without modifying source code or reloading the browser. See our <a href=".github/AGENT_ARCHITECTURE.md">Agent Architecture</a> to learn how you can orchestrate our runtime.
 
