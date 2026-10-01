@@ -235,7 +235,7 @@ class VesselWorkspace extends DockWorkspace {
     /**
      * Most recent dispose receipt of a committed conversion — the engine transaction publishes it
      * before the first retire call and amends it in place: `attempts` (at most two), `admitted`,
-     * the refusal class (`no-vessel` · `identity-mismatch` · `host-close-refused`) and whether the
+     * the refusal class (`no-vessel` · `identity-mismatch` · `host-close-refused` · `vessel-replaced`) and whether the
      * vessel's window was still alive when the close was refused. A hand run that leaves a parked
      * vessel on screen reads here what the dispose said about it.
      * @member {Object|null} lastVesselDisposeReceipt=null

@@ -1164,6 +1164,84 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
                 expect(calls, label).toHaveLength(1);
                 expect(receipts.dispose, label).toMatchObject({admitted: false, attempts: 1, entry: Boolean(entry), refusal, stage: 'refused'})
             }
+        });
+
+        test('every call carries the lineage the registry named at the first call', async () => {
+            const receipts = {}, calls = [];
+
+            registerSource();
+
+            const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
+                entry       : {...entryFor('vessel-1'), generationToken: 'gen-1'},
+                receipts,
+                retireVessel: async identity => {
+                    calls.push(identity);
+                    return calls.length > 1
+                }
+            })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+            expect(disposed).toBe(true);
+            expect(calls).toEqual([
+                {generationToken: 'gen-1', itemId: 'item-1', windowName: 'vessel-1'},
+                {generationToken: 'gen-1', itemId: 'item-1', windowName: 'vessel-1'}
+            ])
+        });
+
+        test('a vessel retired externally between the attempts is never closed by the retry: one call, no-vessel', async () => {
+            const receipts = {}, calls = [];
+            let   entry    = {...entryFor('vessel-1'), generationToken: 'gen-1'};
+
+            registerSource();
+
+            const disposed = await NativeVesselTransaction.effectsFor({
+                ...descriptorFor({
+                    receipts,
+                    retireVessel: async identity => {
+                        calls.push(identity);
+                        // The external owner observed the retirement while this close was refused.
+                        entry = null;
+                        return false
+                    }
+                }),
+                resolveVessel: () => entry
+            }).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+            expect(disposed).toBe(false);
+            expect(calls).toHaveLength(1);
+            expect(receipts.dispose).toMatchObject({admitted: false, attempts: 1, entry: true, refusal: 'no-vessel', stage: 'refused'})
+        });
+
+        test('a successor admitted under the same name between the attempts is never closed by the retry: one call, vessel-replaced', async () => {
+            const receipts = {}, calls = [];
+            let   entry    = {...entryFor('vessel-1'), generationToken: 'gen-1'};
+
+            registerSource();
+            WindowManager.register({
+                id: 'win-dispose-successor', innerRect: new Rectangle(0, 0, 300, 200), outerRect: new Rectangle(0, 0, 300, 200)
+            });
+
+            try {
+                const disposed = await NativeVesselTransaction.effectsFor({
+                    ...descriptorFor({
+                        receipts,
+                        retireVessel: async identity => {
+                            calls.push(identity);
+                            // A successor admission shares the name and takes a new window and token.
+                            entry = {...entryFor('vessel-1'), generationToken: 'gen-2', windowId: 'win-dispose-successor'};
+                            return false
+                        }
+                    }),
+                    resolveVessel: () => entry
+                }).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+                expect(disposed).toBe(false);
+                expect(calls).toEqual([{generationToken: 'gen-1', itemId: 'item-1', windowName: 'vessel-1'}]);
+                expect(receipts.dispose).toMatchObject({
+                    admitted: false, attempts: 1, entry: true, refusal: 'vessel-replaced', stage: 'refused', windowAlive: true
+                })
+            } finally {
+                WindowManager.unregister('win-dispose-successor')
+            }
         })
     })
 
