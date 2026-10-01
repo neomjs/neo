@@ -348,9 +348,11 @@ dock semantics. Changing that boundary amends this ADR before implementation.
 
 **Binding constraint (Discussion #13370 OQ2):** the reusable shape is this **contract**, not a lift of `Neo.draggable.dashboard.SortZone` out of the dashboard layer. Dock workspaces implement the contract; they do not inherit the dashboard sort zone.
 
-#### Dock participation: remote drag → preview → operation
+#### Dock participation: remote drag → preview → operation (amended 2026-10-01 — #19350)
 
 A dock workspace participates by registering a `CrossWindowDragTarget` whose hover path produces `dockPreview` payloads (runtime-only, unchanged contract) and whose drop path converts the final preview through the landed `previewToOperation()` → `applyOperation()` pipeline — the same path in-window drags ride. **No parallel drag system** (inherited guardrail): cross-window dock drags add a target implementation, not a pipeline.
+
+**Composition ownership (amendment 2026-10-01, #19350).** A dock Workspace that publishes a `crossWindowSortGroup` composes its default `window.Participation` — a declinable collaborator in the maximize affordance's shape: `dockParticipation: true` (the default) composes the engine class, imported on first use so a single-window host never loads the coordinator chain; a `{module, …seams}` config composes a host subclass synchronously; an instance is adopted and stays its creator's to destroy; `null` declines. The opt-in is the published sort group — the registry identity above — and not the tear-out flag: a vessel workspace that returns through its close policy participates without the lifecycle, and a tear-out workspace that publishes no sort group (the Fleet Manager cockpit) composes nothing. The façade owns the registration lifecycle its own seams already drive: composed once the workspace has a window and the sort group, re-composed when a binding changes (window, set, published identity, sort group) or when a host asks for a recompose after its seams changed, destroyed with the workspace. Hosts contribute seams through `getDockParticipationConfig()` and keep no registration bookkeeping of their own; a holder that is not the façade (Demo B's per-host stage) composes as before.
 
 #### Cross-workspace item transfer — `transferItem`
 

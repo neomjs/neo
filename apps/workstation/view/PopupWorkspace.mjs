@@ -20,6 +20,13 @@ class PopupWorkspace extends DockWorkspace {
          * @member {String[]} cls=['workstation-vessel-dock-host','neo-dashboard']
          */
         cls: ['workstation-vessel-dock-host', 'neo-dashboard'],
+        /**
+         * The engine participation, declared as a module so the façade composes it synchronously
+         * (the class is already in this app's closure); {@link #getDockParticipationConfig} adds
+         * the popup's two seams.
+         * @member {Object} dockParticipation={module: Participation}
+         */
+        dockParticipation: {module: Participation},
         /** @member {String} nativeWindowClosePolicy='return' */
         nativeWindowClosePolicy: 'return',
         /** @member {String} nativeWindowReturnTargetKey='main' */
@@ -41,11 +48,6 @@ class PopupWorkspace extends DockWorkspace {
     workspaceSet = null
 
     /**
-     * @member {Neo.dashboard.dock.window.Participation|null} participation=null
-     */
-    participation = null
-
-    /**
      * Presentation and connection references owned by this popup; membership lives in its Group.
      * Supplied at creation by the root's `createPopupWorkspace`, so the Group registration in
      * {@link #construct} already finds it — a reader reacting to that membership must resolve it.
@@ -63,35 +65,22 @@ class PopupWorkspace extends DockWorkspace {
         me.workspaceSet.register(me.workspaceKey, {
             ...me.getDockParticipantSeams(me.workspaceKey),
             dispose: () => { if (!me.isDestroyed) me.destroy() }
-        });
-        me.syncParticipation()
+        })
     }
 
     /**
-     * @summary Rebinds the document's interaction owner to its current window.
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @summary The popup's two seams over the engine participation the façade composes: the root's
+     * proxy embodiment, and a hit-test that admits drops only while populated — an empty retained
+     * vessel cannot target its own next tear-out.
+     * @returns {Object}
      */
-    afterSetWindowId(value, oldValue) {
-        super.afterSetWindowId(value, oldValue);
-        this.configsApplied && this.syncParticipation()
-    }
-
-    /**
-     * @summary Owns one interaction participant per live popup, admitting drops only while populated.
-     * Empty retained vessels cannot target their own next tear-out. The visual owner survives
-     * document changes so in-flight projection never references an overlay destroyed mid-commit.
-     */
-    syncParticipation() {
+    getDockParticipationConfig() {
         const me = this;
-        me.participation?.destroy();
-        const participation = me.windowId && me.workspaceSet ? Neo.create(Participation, {
+
+        return {
             dragEmbodiment: me.rootWorkspace.vesselProxyEmbodiment,
-            hitTest       : (x, y) => Object.keys(me.dockModel.items).length > 0 && participation.defaultHitTest(x, y),
-            sortGroup     : me.rootWorkspace.constructor.CROSS_WINDOW_SORT_GROUP,
-            windowId      : me.windowId, workspace: me, workspaceId: me.workspaceKey, workspaceSet: me.workspaceSet
-        }) : null;
-        me.participation = participation
+            hitTest       : (x, y) => Object.keys(me.dockModel.items).length > 0 && me.participation?.defaultHitTest(x, y) === true
+        }
     }
 
     /**
@@ -189,7 +178,6 @@ class PopupWorkspace extends DockWorkspace {
      * @summary Retires this popup's Group membership and interaction registration.
      */
     destroy() {
-        this.participation?.destroy();
         if (Neo.manager.Transaction.getParticipant(this.topologyGroupId, this.workspaceKey)?.componentId === this.id) {
             this.workspaceSet.unregister(this.workspaceKey)
         }

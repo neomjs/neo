@@ -56,6 +56,13 @@ import TopologySeams               from './window/TopologySeams.mjs';
  * The default is inert, so existing Workstation/Demo hosts keep their application lifecycle until
  * their own explicit migration leaves.
  *
+ * A workspace that publishes a `crossWindowSortGroup` composes its default cross-window
+ * {@link Neo.dashboard.dock.window.Participation} — declinable through {@link #dockParticipation},
+ * bound and re-bound by this façade's own window, set and projection seams; a host adds seams through
+ * {@link #getDockParticipationConfig} and re-derives no registration lifecycle of its own. The
+ * opt-in is the published sort group, not the tear-out flag: a vessel workspace that returns through
+ * its close policy participates without the lifecycle.
+ *
  * The class satisfies the dock-holder contract Neural Link tooling resolves against
  * (`getDockZoneDocument()` / `applyDockZoneOperation()` / `onDockZoneDocumentChange()`, see
  * `src/ai/client/DockService.mjs`) and the `owner` duck-type of
@@ -345,6 +352,22 @@ class Workspace extends Container {
          */
         enableDockTearOutLifecycle: false,
         /**
+         * The cross-window participation this workspace composes once it publishes a
+         * `crossWindowSortGroup` through {@link #getDockProjectionOptions} — the §2.3 registry identity
+         * is the opt-in, exactly as {@link Neo.dashboard.dock.window.Participation} states it, so a
+         * workspace that publishes none composes nothing. A declinable collaborator in the maximize
+         * affordance's shape (docking design record §2.3): `true` composes the engine class, imported
+         * on first use so a single-window host never loads the coordinator chain; a config
+         * `{module, ...seams}` composes that class with those seams, synchronously; an instance is
+         * adopted as supplied and stays its creator's to destroy; `null` or `false` declines — a host
+         * keeping its own composition. The live instance is {@link #participation}; its lifecycle —
+         * composed once this workspace has a window and the sort group, re-composed when a binding
+         * (window, set, identity, sort group) changes, destroyed with this workspace — is this
+         * façade's. Host seams ride {@link #getDockParticipationConfig}.
+         * @member {Boolean|Object|Neo.dashboard.dock.window.Participation|null} dockParticipation=true
+         */
+        dockParticipation: true,
+        /**
          * Index of the projected shell inside the dock host — `1` when one toolbar precedes it.
          * @member {Number} dockShellIndex=0
          */
@@ -481,6 +504,28 @@ class Workspace extends Container {
      * @protected
      */
     nativeWindows = null
+
+    /**
+     * The composed cross-window participation (see {@link #dockParticipation}), or `null` while this
+     * workspace has no window, publishes no sort group, or declined.
+     * @member {Neo.dashboard.dock.window.Participation|null} participation=null
+     */
+    participation = null
+
+    /**
+     * Settles to {@link #participation} after the latest {@link #syncDockParticipation}: the engine
+     * default imports its module on first use, so a host that must observe the registered target
+     * awaits this rather than reading the member.
+     * @member {Promise<Neo.dashboard.dock.window.Participation|null>|null} participationPromise=null
+     */
+    participationPromise = null
+
+    /**
+     * Whether {@link #participation} is this façade's to destroy — `false` for an adopted instance.
+     * @member {Boolean} participationOwned=false
+     * @protected
+     */
+    participationOwned = false
 
     /**
      * `Neo.manager.Transaction`, once the tear-out lifecycle loaded it — `null` until then, and for a
@@ -670,7 +715,9 @@ class Workspace extends Container {
         // opens on connect. A moved or resized main window therefore never claims with a stale frame.
         // Not gated on the engine lifecycle flag: a host may run its own admission (the Workstation
         // does) and still dock across windows; the app's opt-in is loading the addon at all.
-        this.observeBoundWindowGeometry(this.windowId)
+        this.observeBoundWindowGeometry(this.windowId);
+
+        this.syncDockParticipation()
     }
 
     /**
@@ -1509,6 +1556,7 @@ class Workspace extends Container {
      */
     destroy(...args) {
         const me = this;
+        me.retireDockParticipation();
         me.perspectiveSelection?.destroy();
         me.perspectiveSelection = null;
         me.releaseDeclaredPanes(null);
@@ -1603,6 +1651,109 @@ class Workspace extends Container {
         return this.enableDockTearOutLifecycle
             ? {enableDockTearOut: true, ...this.tearOutHandlers}
             : {}
+    }
+
+    /**
+     * Hook: the seams a host contributes to the participation this façade composes — a drag
+     * embodiment, a hit-test policy, native-window suspend / resume / retire, commit seams. The
+     * façade's own bindings (`workspace`, `windowId`, `workspaceId`, `workspaceSet`, `sortGroup`)
+     * merge over them: a host adds seams, it does not unbind the workspace.
+     * @returns {Object}
+     */
+    getDockParticipationConfig() {
+        return {}
+    }
+
+    /**
+     * @summary Composes, keeps, re-composes or retires {@link #participation} against the current
+     * bindings — idempotent, so every lifecycle seam calls it without bookkeeping.
+     *
+     * The target registers with the coordinator inside the participation's construct, keyed by the
+     * window and the published sort group, so a changed binding means a fresh instance rather than a
+     * mutated one, and unchanged bindings keep the registered instance — ordinary commits never churn
+     * the registry. A configured instance is adopted once and never duplicated.
+     * @param {Object} [options]
+     * @param {Boolean} [options.recompose=false] Compose a fresh instance even under unchanged
+     *     bindings — a host whose seams changed (a controller it created after construction) says so
+     *     here, because seam identity is not a binding this façade compares.
+     * @returns {Promise<Neo.dashboard.dock.window.Participation|null>}
+     */
+    syncDockParticipation({recompose=false}={}) {
+        let me          = this,
+            declaration = me.dockParticipation,
+            options     = declaration ? me.getDockProjectionOptions() : null,
+            sortGroup   = options?.crossWindowSortGroup ?? null,
+            windowId    = me.windowId,
+            current     = me.participation,
+            bindings, promise;
+
+        if (!sortGroup || windowId == null || me.isDestroyed) {
+            me.retireDockParticipation();
+            return me.participationPromise = Promise.resolve(null)
+        }
+
+        if (declaration instanceof Neo.core.Base) {
+            if (current !== declaration) {
+                me.retireDockParticipation();
+                me.participation = declaration
+            }
+
+            return me.participationPromise = Promise.resolve(declaration)
+        }
+
+        bindings = {
+            sortGroup,
+            windowId,
+            workspace   : me,
+            workspaceId : options.workspaceId ?? me.workspaceKey ?? me.id,
+            workspaceSet: me.workspaceSet ?? null
+        };
+
+        if (!recompose && current && !current.isDestroyed && me.participationOwned &&
+            ['sortGroup', 'windowId', 'workspaceId', 'workspaceSet'].every(key => current[key] === bindings[key])
+        ) {
+            return me.participationPromise ??= Promise.resolve(current)
+        }
+
+        me.retireDockParticipation();
+
+        const adopt = instance => {
+            me.participation      = instance;
+            me.participationOwned = true;
+
+            return instance
+        };
+
+        if (declaration === true) {
+            promise = me.participationPromise = import('./window/Participation.mjs').then(({default: Participation}) =>
+                me.isDestroyed || me.participationPromise !== promise
+                    ? null
+                    : adopt(Neo.create(Participation, {...me.getDockParticipationConfig(), ...bindings}))
+            );
+
+            return promise
+        }
+
+        const {module, ...declared} = declaration;
+
+        return me.participationPromise = Promise.resolve(
+            adopt(Neo.create(module, {...declared, ...me.getDockParticipationConfig(), ...bindings}))
+        )
+    }
+
+    /**
+     * @summary Destroys an owned {@link #participation}, releases an adopted one, and clears the
+     * settled promise so a stale lazy composition resolves to nothing.
+     * @protected
+     */
+    retireDockParticipation() {
+        let me = this;
+
+        me.participationOwned && me.participation?.destroy();
+
+        me.participation        = null;
+        me.participationOwned   = false;
+        me.participationPromise = null
     }
 
     /**
@@ -1806,6 +1957,9 @@ class Workspace extends Container {
 
         // A headless instance receiving its first window may find that window already bound.
         this.resolveTopologyGroup();
+
+        // The registered target is keyed by the window: a rebound workspace composes a fresh one.
+        this.configsApplied && this.syncDockParticipation();
 
         return this.observeBoundWindowGeometry(value)
     }
@@ -2963,7 +3117,11 @@ class Workspace extends Container {
         }
 
         if (!me.isDestroyed) {
-            await me.afterRefreshDockWorkspace({document, refreshOptions, result, played})
+            await me.afterRefreshDockWorkspace({document, refreshOptions, result, played});
+
+            // A binding the host supplied after construction (its workspace set, its published identity)
+            // reaches the participation here; unchanged bindings keep the registered instance.
+            me.isDestroyed || me.syncDockParticipation()
         }
     }
 

@@ -66,7 +66,7 @@ class CrossWindowGestureSnapshot extends Base {
             // importing the host to read one static would make the pair circular.
             isMain        = targetWorkspaceId === me.constructor.MAIN_WORKSPACE_ID,
             state         = isMain ? null : me.getPopupState(targetWorkspaceId),
-            participation = isMain ? me.crossWindowParticipations.get(targetWorkspaceId) : state?.host?.participation,
+            participation = isMain ? me.participation : state?.host?.participation,
             affordances   = participation?.affordances ?? participation?.ownedAffordances,
             target        = participation?.target,
             coordinator   = nativeWindowId ? target?.dragCoordinator : sourceZone?.dragCoordinator,

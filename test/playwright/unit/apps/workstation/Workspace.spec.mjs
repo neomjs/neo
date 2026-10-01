@@ -36,10 +36,10 @@ import {initialDocument} from '../../../../../apps/workstation/tour/denseWorksta
 test('binding a restored vessel supplies its native item identity', async () => {
     const state     = {host: {}, document: {items: {}}}, calls = [],
           workspace = {
-              getPopupState            : () => state, mountVesselWorkspace: async () => true,
-              resolveTearOutVessel     : itemId => itemId === 'metrics' ? {itemId} : null,
-              nativeWindows            : {retire: async (_sourceId, vessel) => {calls.push(vessel.itemId); return true}},
-              crossWindowParticipations: new Map()
+              getPopupState       : () => state, mountVesselWorkspace: async () => true,
+              resolveTearOutVessel: itemId => itemId === 'metrics' ? {itemId} : null,
+              nativeWindows       : {retire: async (_sourceId, vessel) => {calls.push(vessel.itemId); return true}},
+              participation       : null
           };
 
     await Workspace.prototype.registerVesselWorkspaceTarget.call(workspace, {
@@ -168,9 +168,9 @@ test('pointer readiness reads current popup and supplied main visual owners', ()
                   resolveAffordances() { throw new Error('a readiness read must not construct visuals') }
               },
               workspace = {
-                  crossWindowParticipations: new Map(isMain ? [[workspaceId, participation]] : []),
-                  dragAffordances          : visuals,
-                  getPopupState            : () => ({host: {participation}})
+                  participation  : isMain ? participation : null,
+                  dragAffordances: visuals,
+                  getPopupState  : () => ({host: {participation}})
               },
               sourceZone = {dragCoordinator: {
                   activeTargetZone   : target,
@@ -202,7 +202,7 @@ test('native-window readiness reads its own claim and hover instead of the point
           participation = {target, dragCoordinator: null, affordances: {
               preview: {dockPreview: preview}, indicators: {activeCandidate: {preview}, candidateSet: {}, cls: []}
           }},
-          workspace = {constructor: Workspace, crossWindowParticipations: new Map([[workspaceId, participation]])},
+          workspace = {constructor: Workspace, participation},
           read = id => Workspace.prototype.readCrossWindowGestureSnapshot.call(workspace,
               {nativeWindowId: id, targetWorkspaceId: workspaceId});
 
@@ -1409,8 +1409,8 @@ test.describe('Workstation.view.Workspace', () => {
         let defaultCalls = 0;
 
         try {
-            await workspace.crossWindowParticipationPromise;
-            const first       = workspace.crossWindowParticipations.get(Workspace.MAIN_WORKSPACE_ID),
+            await workspace.participationPromise;
+            const first       = workspace.participation,
                   affordances = workspace.dragAffordances;
 
             WindowManager.get = () => ({innerRect: {x: 0, y: 0, width: 1280, height: 720}});
@@ -1426,7 +1426,7 @@ test.describe('Workstation.view.Workspace', () => {
             expect(defaultCalls).toBe(1);
             await affordances.ensureGeometry();
 
-            const replacement = await workspace.refreshCrossWindowParticipation();
+            const replacement = await workspace.syncDockParticipation({recompose: true});
             expect(first.isDestroyed).toBe(true);
             expect(replacement).not.toBe(first);
             expect(replacement.affordances).toBe(affordances);
@@ -1446,7 +1446,7 @@ test.describe('Workstation.view.Workspace', () => {
         const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
 
         try {
-            await workspace.crossWindowParticipationPromise;
+            await workspace.participationPromise;
             const {state, workspaceId} = stageCommittedVessel(workspace),
                   host                 = state.host;
 
@@ -1459,9 +1459,9 @@ test.describe('Workstation.view.Workspace', () => {
             expect(first.constructor).toBe(DockParticipation);
             expect(first.previewFor).toBeNull();
             expect(first.clearPreview).toBeNull();
-            expect(workspace.crossWindowParticipations.has(workspaceId)).toBe(false);
+            expect(workspace.participation, 'the root keeps its own participation apart from the popup\'s').not.toBe(first);
 
-            host.syncParticipation();
+            host.syncDockParticipation({recompose: true});
             expect(first.isDestroyed).toBe(true);
             expect(affordances.isDestroyed).toBe(true);
             expect(preview.isDestroyed).toBe(true);
@@ -1490,7 +1490,7 @@ test.describe('Workstation.view.Workspace', () => {
             measuredIds       = [];
 
         try {
-            await workspace.crossWindowParticipationPromise;
+            await workspace.participationPromise;
 
             const
                 host        = workspace.getReference('dock-host'),
@@ -1502,8 +1502,7 @@ test.describe('Workstation.view.Workspace', () => {
                     .map(([nodeId]) => zoneId(nodeId)),
                 rects                   = {[host.id]: hostRect, [zoneId('left-tabs')]: leftRect, [zoneId('heavy-tabs')]: heavyRect},
                 local                   = rect => ({x: rect.x - hostRect.x, y: rect.y - hostRect.y, width: rect.width, height: rect.height}),
-                render                  = (point, sourceWorkspace = sourceWorkspaceId) => workspace.crossWindowParticipations
-                    .get(Workspace.MAIN_WORKSPACE_ID).target.previewFor(
+                render                  = (point, sourceWorkspace = sourceWorkspaceId) => workspace.participation.target.previewFor(
                     {
                         draggedItem : {dockItemId: 'queues', dockSourceWorkspaceId: sourceWorkspace},
                         localX      : point.x,
@@ -1528,7 +1527,7 @@ test.describe('Workstation.view.Workspace', () => {
                     return ids.map(id => rects[id] ?? farRect)
                 };
                 renderer.applyTargetGeometry = rect => paintedRects.push(rect);
-                await workspace.refreshCrossWindowParticipation();
+                await workspace.syncDockParticipation({recompose: true});
 
                 // The first frame warms the SAME once-per-gesture measurement the indicator tier
                 // uses — the host plus EVERY projected tabs zone — and hides until it settles.
@@ -1635,15 +1634,15 @@ test.describe('Workstation.view.Workspace', () => {
             targetRect        = {x: 120, y: 120, width: 260, height: 260};
 
         try {
-            await workspace.crossWindowParticipationPromise;
+            await workspace.participationPromise;
 
             workspace.windowId = 'window-main';
             registerPopupState(workspace, sourceWorkspaceId, {itemId: 'queues'});
             workspace.tearOutHandlers.recordPlacement('queues', {index: 0, tabsNodeId: 'left-tabs'});
 
-            // The construct-time participation resolves before windowId exists in this
-            // harness — refresh it now that the window identity is set.
-            const participation = await workspace.refreshCrossWindowParticipation();
+            // The façade re-binds its participation on the window identity; a recompose here reads
+            // the instance that carries the resources created after construction.
+            const participation = await workspace.syncDockParticipation({recompose: true});
 
             const
                 host               = workspace.getReference('dock-host'),
@@ -1744,9 +1743,7 @@ test.describe('Workstation.view.Workspace', () => {
             workspace.nativeWindows.recordOwner(workspace.id, itemId, {
                 ...reservation, windowId: 'window-alerts', windowName: 'tearout-alerts'
             });
-            participation = await workspace.createCrossWindowParticipation({
-                windowId: workspace.windowId, workspaceId: Workspace.MAIN_WORKSPACE_ID
-            });
+            participation = await workspace.syncDockParticipation({recompose: true});
 
             expect(workspace.dockModel.items[itemId]).toBeUndefined();
             expect(workspace.workspaceSet.getDocument(workspaceId).items[itemId]).toEqual(initialDocument.items[itemId]);
@@ -1770,7 +1767,6 @@ test.describe('Workstation.view.Workspace', () => {
             expect(workspace.workspaceSet.getDocument(workspaceId).items[itemId]).toBeUndefined();
             expect(participation.target.getNativeWindowDrag('window-alerts')).toBeNull()
         } finally {
-            participation?.destroy();
             popup.destroy();
             workspace.destroy()
         }
@@ -2612,12 +2608,11 @@ test.describe('Workstation.view.Workspace', () => {
 
     test('close acknowledgement and unbind retain the semantic owner for history', async () => {
         const
-            workspace              = Neo.create(Workspace, {windowId: Neo.config.windowId}),
-            {state, workspaceId}   = stageCommittedVessel(workspace),
-            originalClose          = workspace.closeTearOutVessel,
-            originalTearOut        = workspace.tearOutHandlers,
-            originalPark           = workspace.vesselParkHandlers,
-            participantRetirements = [];
+            workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+            {state, workspaceId} = stageCommittedVessel(workspace),
+            originalClose        = workspace.closeTearOutVessel,
+            originalTearOut      = workspace.tearOutHandlers,
+            originalPark         = workspace.vesselParkHandlers;
         let closedVessel;
 
         try {
@@ -2642,8 +2637,6 @@ test.describe('Workstation.view.Workspace', () => {
                 targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID
             })).toBe(true);
 
-            state.participation = {destroy: () => participantRetirements.push('destroy')};
-            workspace.crossWindowParticipations.set(workspaceId, state.participation);
             workspace.tearOutHandlers.recordPlacement('alerts', {index: 0, tabsNodeId: 'heavy-tabs'});
             workspace.nativeWindows.recordOwner(workspace.id, "alerts", {
                 generationToken: 'lineage-3',
@@ -2676,7 +2669,6 @@ test.describe('Workstation.view.Workspace', () => {
                 closeRequested: true,
                 topologyExited: false
             });
-            expect(participantRetirements).toEqual(['destroy']);
 
             // Only the RETIREMENT is stubbed out — the arm is about recovery, not about the vessel
             // machinery. The pane-handoff half delegates to the real bundle, which is where
@@ -2695,8 +2687,7 @@ test.describe('Workstation.view.Workspace', () => {
             expect(workspace.getPopupState(workspaceId)).toBe(state);
             expect(workspace.workspaceSet.has(workspaceId)).toBe(true);
             expect(state.disconnected).toBe(true);
-            expect(workspace.lastCrossWindowTransfer.topologyExited).toBe(true);
-            expect(participantRetirements).toEqual(['destroy'])
+            expect(workspace.lastCrossWindowTransfer.topologyExited).toBe(true)
         } finally {
             workspace.nativeWindows.sources.get(workspace.id).effects.close = originalClose.bind(workspace);
             workspace.tearOutHandlers    = originalTearOut;
@@ -2730,7 +2721,7 @@ test.describe('Workstation.view.Workspace', () => {
             workspaceId = Workspace.vesselWorkspaceId('alerts');
 
         try {
-            await workspace.crossWindowParticipationPromise;
+            await workspace.participationPromise;
             workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: 'window-alerts'});
             const state = registerPopupState(workspace, workspaceId, {
                 document: {
