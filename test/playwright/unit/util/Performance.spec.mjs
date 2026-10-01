@@ -112,9 +112,14 @@ test.describe('Neo.util.Performance', () => {
 
         try {
             Performance.markStart('perf:sma');
-            now = 80;
+            now += 10;
             Performance.markEnd('perf:sma');
 
+            Performance.markStart('perf:sma');
+            now += 30;
+            Performance.markEnd('perf:sma');
+
+            expect(Performance.getSma('perf:sma')).toBe(20);
             expect(Performance.getSma('perf:sma')).toBe(Performance.getAverage('perf:sma'))
         } finally {
             globalThis.performance.now = originalNow
