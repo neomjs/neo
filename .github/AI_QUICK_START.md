@@ -331,7 +331,6 @@ node ai/scripts/migrations/bootstrapWorktree.mjs --link-data \
 **What NOT to symlink**: source-code paths (`src/core/Base.mjs`, `ai/mcp/server/*/config.mjs`) or the `.neo-ai-data/` parent. Node's ESM resolver can turn source symlinks into duplicate namespace registrations, while sharing process-control directories can make one clone control another clone's daemons. The bootstrap script copies config files and links only its approved data members and handoff files.
 
 ### Agent Guidelines (Repository root)
-- **`AGENTS_STARTUP.md`**: Step-by-step session initialization instructions
 - **`AGENTS.md`**: Canonical per-turn operational mandates, loaded through each harness's supported instruction mechanism
 
 ### Developer Guide
@@ -345,22 +344,7 @@ node ai/scripts/migrations/bootstrapWorktree.mjs --link-data \
    * **For Antigravity:** Follow the Antigravity launch procedure.
    * **For enterprise/API-key Gemini CLI:** Run the configured CLI profile from the repository root.
 
-2. **Follow the initialization instructions in AGENTS_STARTUP.md**:
-
-   The agent **will not** automatically initialize itself on startup. You must explicitly instruct it to do so:
-
-   > "Read and follow all instructions in @AGENTS_STARTUP.md"
-
-   The agent will then:
-    - Read the AGENTS_STARTUP.md file
-    - Load core Neo.mjs files (Neo.mjs, Base.mjs, CodebaseOverview.md)
-    - Check the Memory Core status
-    - Confirm it's ready for work
-
-   **Important:** This initialization step is required at the start of every new session. Without it, the agent will not
-   have proper context about the codebase structure and operational guidelines.
-
-3. **Give your actual prompt**, for example:
+2. **Give your actual prompt**, for example:
    > "Explain the Neo.mjs two-tier reactivity model with a code example."
 
    The agent will now autonomously:
@@ -383,7 +367,6 @@ and understand your codebase.
 - **"Invalid API key" errors**: Check `.env` file has correct format: `GEMINI_API_KEY="your-key-here"`
 
 ### Agent Behavior Issues
-- **Agent doesn't initialize**: Check that `AGENTS_STARTUP.md` exists
 - **Agent doesn't save memories**: Memory Core may not be running. Ask the agent to perform a healthcheck on the `neo.mjs-memory-core` MCP server. If it's unhealthy, you can ask the agent to start the database or use other memory-core tools.
 - **Agent makes incorrect assumptions**: It may be hallucinating - remind it to query the knowledge base
 
