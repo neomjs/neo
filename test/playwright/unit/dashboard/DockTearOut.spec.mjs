@@ -284,6 +284,27 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
         expect(handlers.activeVessel).toBeNull()
     });
 
+    test('a close request presenting a superseded lineage token closes nothing; the exact lineage closes it', async () => {
+        // The dispose retry of a conversion carries the lineage its first call addressed. A successor
+        // admitted under the same name while that retry waited must not be the one it closes.
+        const {calls, handlers, sortZone} = harness({
+            openResult: () => ({generationToken: 'lineage-2', popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph', workspaceKey: 'popup:graph'})
+        });
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(handlers.retireActiveVessel({generationToken: 'lineage-1', itemId: 'graph', windowName: 'vessel-graph'}),
+            'a close bound to the old generation names no vessel this machine holds').toBe(false);
+        expect(handlers.activeVessel, 'the successor survives the stale close').toMatchObject({generationToken: 'lineage-2'});
+        expect(calls.closed).toHaveLength(0);
+
+        expect(handlers.retireActiveVessel({generationToken: 'lineage-2', itemId: 'graph', windowName: 'vessel-graph'}),
+            'the exact lineage closes it').toBe(true);
+        expect(calls.closed).toHaveLength(1);
+        expect(calls.closed[0]).toMatchObject({generationToken: 'lineage-2', itemId: 'graph', windowName: 'vessel-graph'});
+        expect(handlers.activeVessel).toBeNull()
+    });
+
     test('an explicit close refusal retains the active vessel and coalesces one in-flight retirement', async () => {
         let resolveClose,
             attempt = 0;

@@ -1344,6 +1344,13 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                             intervals: [25, 50, 100]
                         }).toEqual(committed);
                         await expect.poll(() => sourcePage.isClosed()).toBe(true);
+                        // The dispose receipt a hand run reads over the same seam: the pointer-path commit
+                        // retired the parked vessel at its first attempt.
+                        await expect.poll(async () => (await app.getComponent(wsId, ['lastVesselDisposeReceipt'])).lastVesselDisposeReceipt, {
+                            message  : 'the committed conversion publishes its dispose receipt',
+                            timeout  : 5000,
+                            intervals: [25, 50, 100]
+                        }).toMatchObject({admitted: true, attempts: 1, refusal: null, stage: 'retired'});
                         expect(targetPage.isClosed()).toBe(false);
                         const retired = await awaitVesselRetirement(app, managerId, wsId, cell.itemId, sourceWindowId);
                         expect(await app.callMethod(wsId, 'getPaneIdentity', [cell.itemId])).toBe(paneId);

@@ -619,15 +619,19 @@ export function createDockTearOutHandlers({
          * terminal below. The conversion lifecycle therefore needs one exact, item-guarded close
          * path. Strict refusal retains this private slot; every stale or other-item request is inert.
          * @param {Object} identity
+         * @param {String} [identity.generationToken] The slot's lineage token; a superseded one closes nothing.
          * @param {String} identity.itemId
          * @param {String} identity.windowName
          * @returns {Boolean|Promise<Boolean>}
          */
-        retireActiveVessel({itemId, windowName} = {}) {
+        retireActiveVessel({generationToken, itemId, windowName} = {}) {
             let vessel = activeVessel;
 
+            // A successor admission for the same item shares the name, never the token: a request
+            // bound to a superseded lineage names a vessel this machine no longer holds.
             if (
-                !vessel || vessel.itemId !== itemId || vessel.windowName !== windowName
+                !vessel || vessel.itemId !== itemId || vessel.windowName !== windowName ||
+                (generationToken && vessel.generationToken && vessel.generationToken !== generationToken)
             ) return false;
 
             return retireVessel(vessel)

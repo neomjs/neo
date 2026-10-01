@@ -482,9 +482,10 @@ class NativeVesselTransaction extends Base {
      * vessel resolves, and where receipts land. Everything else is shared and lives here.
      * @param {Object} descriptor
      * @param {Function} descriptor.ownerWindowId Returns the host's current `windowId`.
-     * @param {Function} descriptor.publishReceipt `(key, receipt) => void`; `key` is `'park'` or `'restore'`.
+     * @param {Function} descriptor.publishReceipt `(key, receipt) => void`; `key` is `'dispose'`, `'park'` or `'restore'`.
      * @param {Function} descriptor.resolveVessel `itemId => entry|null`.
-     * @param {Function} descriptor.retireVessel `({itemId, windowName}) => Promise<Boolean>`.
+     * @param {Function} descriptor.retireVessel `({generationToken, itemId, windowName}) => Promise<Boolean>`;
+     * `generationToken` is present when the registry entry carries one and names the exact lineage a retry may close.
      * @param {Function} descriptor.targetWindowId Returns the conversion target's `windowId`.
      * @param {Function} [descriptor.restoreGeometry] `itemId => geometry|null`. Absent or returning
      * `null` declares a position-only transaction, which is NOT gated on `resize`.
@@ -514,9 +515,73 @@ class NativeVesselTransaction extends Base {
         return {
             disposeVessel: async ({itemId, windowName}) => {
                 const
-                    entry    = descriptor.resolveVessel(itemId),
-                    route    = entry?.nativeRoute ?? null,
-                    disposed = await descriptor.retireVessel({itemId, windowName});
+                    entry = descriptor.resolveVessel(itemId),
+                    route = entry?.nativeRoute ?? null,
+                    // The exact vessel the first call addresses. A successor admission for the same
+                    // item shares the name, never the token or the window, so every call carries
+                    // the lineage the registry named at the start.
+                    identity = {itemId, windowName},
+                    receipt  = {
+                        admitted   : false,
+                        attempts   : 0,
+                        entry      : Boolean(entry),
+                        itemId     : itemId ?? null,
+                        nameMatches: !entry || entry.windowName === windowName,
+                        refusal    : null,
+                        stage      : 'retiring',
+                        windowAlive: null,
+                        windowName : windowName ?? null
+                    };
+
+                entry?.generationToken != null && (identity.generationToken = entry.generationToken);
+
+                // Published before the first call and amended in place, like the park and restore
+                // receipts: a reader after a refusal sees how far the dispose got and why.
+                descriptor.publishReceipt?.('dispose', receipt);
+
+                let disposed = false;
+
+                // Bounded, exactly-once admitted: the host's retire refuses WITHOUT closing (the tear-out
+                // keeps its slot on refusal), so one more attempt is made only while the vessel's window
+                // still exists and the refusal was the host's close — a window already gone is never
+                // closed twice, a missing or mismatched identity cannot change by waiting, and a second
+                // refusal ends it. The classes say what the host's registry can say.
+                while (!disposed && receipt.attempts < 2) {
+                    receipt.attempts++;
+                    disposed = Boolean(await descriptor.retireVessel({...identity}));
+
+                    if (disposed) break;
+
+                    receipt.refusal     = !entry ? 'no-vessel' : !receipt.nameMatches ? 'identity-mismatch' : 'host-close-refused';
+                    receipt.windowAlive = entry?.windowId != null && Boolean(WindowManager.get(entry.windowId));
+
+                    if (!receipt.windowAlive || receipt.refusal !== 'host-close-refused') break;
+
+                    // One macrotask: whatever refused the close (a settle still in flight) gets to land.
+                    await new Promise(resolve => setTimeout(resolve, 0));
+
+                    // That macrotask may also have retired the vessel externally and admitted a successor
+                    // under the same name: the retry re-reads the registry and closes nothing the first
+                    // call did not address.
+                    const live = descriptor.resolveVessel(itemId);
+
+                    if (!live) {
+                        receipt.refusal = 'no-vessel';
+                        break
+                    }
+
+                    if (live.windowId !== entry.windowId || (live.generationToken ?? null) !== (entry.generationToken ?? null)) {
+                        receipt.refusal = 'vessel-replaced';
+                        break
+                    }
+
+                    receipt.windowAlive = Boolean(WindowManager.get(entry.windowId));
+
+                    if (!receipt.windowAlive) break
+                }
+
+                receipt.admitted = disposed;
+                receipt.stage    = disposed ? 'retired' : 'refused';
 
                 // Retiring the vessel without retiring its orphan recovery leaves a matching
                 // predecessor effect owning a window that no longer exists, which then competes

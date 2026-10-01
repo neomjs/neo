@@ -46,6 +46,17 @@ class VesselWorkspace extends DockWorkspace {
     static CROSS_WINDOW_SORT_GROUP = 'workstation-cross-window'
 
     /**
+     * The member each engine-published vessel receipt lands in, keyed by the transaction's receipt kind.
+     * @member {Object} VESSEL_RECEIPT_MEMBERS
+     * @static
+     */
+    static VESSEL_RECEIPT_MEMBERS = {
+        dispose: 'lastVesselDisposeReceipt',
+        park   : 'lastVesselParkReceipt',
+        restore: 'lastVesselRestoreReceipt'
+    }
+
+    /**
      * @member {String} VESSEL_WORKSPACE_PREFIX='workstation-vessel:'
      * @static
      */
@@ -213,6 +224,17 @@ class VesselWorkspace extends DockWorkspace {
     lastVesselParkReceipt = null
 
     /**
+     * Most recent dispose receipt of a committed conversion — the engine transaction publishes it
+     * before the first retire call and amends it in place: `attempts` (at most two), `admitted`,
+     * the refusal class (`no-vessel` · `identity-mismatch` · `host-close-refused` · `vessel-replaced`) and whether the
+     * vessel's window was still alive when the close was refused. A hand run that leaves a parked
+     * vessel on screen reads here what the dispose said about it.
+     * @member {Object|null} lastVesselDisposeReceipt=null
+     * @protected
+     */
+    lastVesselDisposeReceipt = null
+
+    /**
      * Most recent exact-handle restore admission receipt.
      * @member {Object|null} lastVesselRestoreReceipt=null
      * @protected
@@ -309,7 +331,7 @@ class VesselWorkspace extends DockWorkspace {
         me.vesselTransaction = NativeVesselTransaction.effectsFor({
             ownerWindowId : () => me.windowId,
             publishReceipt: (key, receipt) => {
-                key === 'park' ? (me.lastVesselParkReceipt = receipt) : (me.lastVesselRestoreReceipt = receipt)
+                me[VesselWorkspace.VESSEL_RECEIPT_MEMBERS[key]] = receipt
             },
             rectPlane      : 'outer',
             resolveVessel  : itemId => me.resolveTearOutVessel(itemId),
