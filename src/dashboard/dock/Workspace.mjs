@@ -1,24 +1,25 @@
-import Component                   from '../../component/Base.mjs';
-import Authoring                   from './model/Authoring.mjs';
-import Container                   from '../../container/Base.mjs';
-import NeoArray                    from '../../util/Array.mjs';
-import {isDescriptor}              from '../../core/ConfigSymbols.mjs';
-import ClassSystemUtil             from '../../util/ClassSystem.mjs';
-import HeaderActionPolicy          from './projection/HeaderActionPolicy.mjs';
-import LayoutAdapter               from './projection/LayoutAdapter.mjs';
-import Maximize                    from './plugin/Maximize.mjs';
-import MotionSignal                from './projection/MotionSignal.mjs';
-import NativeVesselTransaction     from './window/NativeVesselTransaction.mjs';
-import PreviewProducer             from './interaction/PreviewProducer.mjs';
-import PerspectiveSelection        from './interaction/PerspectiveSelection.mjs';
-import PerspectiveState            from './projection/PerspectiveState.mjs';
-import Reconciler                  from './projection/Reconciler.mjs';
-import StateProvider               from '../../state/Provider.mjs';
-import {createDockTearOutHandlers} from './window/TearOut.mjs';
-import WorkspaceDocument           from './model/WorkspaceDocument.mjs';
-import Operations                  from './model/Operations.mjs';
-import PreviewContract             from './model/PreviewContract.mjs';
-import TopologySeams               from './window/TopologySeams.mjs';
+import Component                                from '../../component/Base.mjs';
+import Authoring                                from './model/Authoring.mjs';
+import Container                                from '../../container/Base.mjs';
+import NeoArray                                 from '../../util/Array.mjs';
+import {isDescriptor}                           from '../../core/ConfigSymbols.mjs';
+import ClassSystemUtil                          from '../../util/ClassSystem.mjs';
+import HeaderActionPolicy                       from './projection/HeaderActionPolicy.mjs';
+import LayoutAdapter                            from './projection/LayoutAdapter.mjs';
+import Maximize                                 from './plugin/Maximize.mjs';
+import MotionSignal                             from './projection/MotionSignal.mjs';
+import NativeVesselTransaction                  from './window/NativeVesselTransaction.mjs';
+import PreviewProducer                          from './interaction/PreviewProducer.mjs';
+import PerspectiveSelection                     from './interaction/PerspectiveSelection.mjs';
+import PerspectiveState                         from './projection/PerspectiveState.mjs';
+import Reconciler                               from './projection/Reconciler.mjs';
+import StateProvider                            from '../../state/Provider.mjs';
+import {createDockTearOutHandlers}              from './window/TearOut.mjs';
+import {retireParticipation, syncParticipation} from './window/ParticipationLifecycle.mjs';
+import WorkspaceDocument                        from './model/WorkspaceDocument.mjs';
+import Operations                               from './model/Operations.mjs';
+import PreviewContract                          from './model/PreviewContract.mjs';
+import TopologySeams                            from './window/TopologySeams.mjs';
 
 /**
  * @summary The engine-owned dock workspace host: the reducer-container that owns one committed
@@ -1666,94 +1667,24 @@ class Workspace extends Container {
 
     /**
      * @summary Composes, keeps, re-composes or retires {@link #participation} against the current
-     * bindings — idempotent, so every lifecycle seam calls it without bookkeeping.
-     *
-     * The target registers with the coordinator inside the participation's construct, keyed by the
-     * window and the published sort group, so a changed binding means a fresh instance rather than a
-     * mutated one, and unchanged bindings keep the registered instance — ordinary commits never churn
-     * the registry. A configured instance is adopted once and never duplicated.
+     * bindings — the lifecycle itself lives in {@link Neo.dashboard.dock.window.ParticipationLifecycle};
+     * this façade names the seams it reads and the moments it runs.
      * @param {Object} [options]
      * @param {Boolean} [options.recompose=false] Compose a fresh instance even under unchanged
      *     bindings — a host whose seams changed (a controller it created after construction) says so
-     *     here, because seam identity is not a binding this façade compares.
+     *     here, because seam identity is not a binding the lifecycle compares.
      * @returns {Promise<Neo.dashboard.dock.window.Participation|null>}
      */
-    syncDockParticipation({recompose=false}={}) {
-        let me          = this,
-            declaration = me.dockParticipation,
-            options     = declaration ? me.getDockProjectionOptions() : null,
-            sortGroup   = options?.crossWindowSortGroup ?? null,
-            windowId    = me.windowId,
-            current     = me.participation,
-            bindings, promise;
-
-        if (!sortGroup || windowId == null || me.isDestroyed) {
-            me.retireDockParticipation();
-            return me.participationPromise = Promise.resolve(null)
-        }
-
-        if (declaration instanceof Neo.core.Base) {
-            if (current !== declaration) {
-                me.retireDockParticipation();
-                me.participation = declaration
-            }
-
-            return me.participationPromise = Promise.resolve(declaration)
-        }
-
-        bindings = {
-            sortGroup,
-            windowId,
-            workspace   : me,
-            workspaceId : options.workspaceId ?? me.workspaceKey ?? me.id,
-            workspaceSet: me.workspaceSet ?? null
-        };
-
-        if (!recompose && current && !current.isDestroyed && me.participationOwned &&
-            ['sortGroup', 'windowId', 'workspaceId', 'workspaceSet'].every(key => current[key] === bindings[key])
-        ) {
-            return me.participationPromise ??= Promise.resolve(current)
-        }
-
-        me.retireDockParticipation();
-
-        const adopt = instance => {
-            me.participation      = instance;
-            me.participationOwned = true;
-
-            return instance
-        };
-
-        if (declaration === true) {
-            promise = me.participationPromise = import('./window/Participation.mjs').then(({default: Participation}) =>
-                me.isDestroyed || me.participationPromise !== promise
-                    ? null
-                    : adopt(Neo.create(Participation, {...me.getDockParticipationConfig(), ...bindings}))
-            );
-
-            return promise
-        }
-
-        const {module, ...declared} = declaration;
-
-        return me.participationPromise = Promise.resolve(
-            adopt(Neo.create(module, {...declared, ...me.getDockParticipationConfig(), ...bindings}))
-        )
+    syncDockParticipation(options) {
+        return syncParticipation(this, options)
     }
 
     /**
-     * @summary Destroys an owned {@link #participation}, releases an adopted one, and clears the
-     * settled promise so a stale lazy composition resolves to nothing.
+     * @summary Destroys an owned {@link #participation}, releases an adopted one.
      * @protected
      */
     retireDockParticipation() {
-        let me = this;
-
-        me.participationOwned && me.participation?.destroy();
-
-        me.participation        = null;
-        me.participationOwned   = false;
-        me.participationPromise = null
+        retireParticipation(this)
     }
 
     /**
