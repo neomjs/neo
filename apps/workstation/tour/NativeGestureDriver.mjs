@@ -126,7 +126,7 @@ class NativeGestureDriver extends GestureDriver {
 
             try {
                 await driver.trap(Promise.resolve(me.refreshPromise));
-                await driver.trap(Promise.resolve(me.crossWindowParticipationPromise));
+                await driver.trap(Promise.resolve(me.participationPromise));
                 const source = coordinator.getNativeWindowDragSource(sourceWindowId),
                       nodeId = WorkspaceDocument.resolveStackRoot(state.document);
                 if (!nodeId || source?.draggedItem?.dockGroupNodeId !== nodeId || source.widgetName !== ownerItemId) {
@@ -512,7 +512,7 @@ class NativeGestureDriver extends GestureDriver {
 
             try {
                 await driver.trap(Promise.resolve(me.refreshPromise));
-                await driver.trap(Promise.resolve(me.crossWindowParticipationPromise));
+                await driver.trap(Promise.resolve(me.participationPromise));
 
                 let nodeId        = WorkspaceDocument.resolveStackRoot(state.document),
                     tabsNodeId    = me.constructor.vesselTabsNodeId(ownerItemId),
@@ -534,7 +534,7 @@ class NativeGestureDriver extends GestureDriver {
 
                 if (
                     !nodeId || !button || !sortZone || !handleRect || !sourceWindow?.innerRect ||
-                    !targetWindow?.innerRect || !me.crossWindowParticipations.get(me.constructor.MAIN_WORKSPACE_ID)
+                    !targetWindow?.innerRect || !me.participation
                 ) {
                     return {applied: false, errors: ['whole-stack gesture surfaces are not ready']}
                 }

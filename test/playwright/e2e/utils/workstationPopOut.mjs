@@ -47,7 +47,8 @@ export async function participations(app) {
 }
 
 /**
- * @summary The main workspace participation's instance id — a projection refresh recreates it.
+ * @summary The main workspace participation's instance id — the engine façade composes it once and
+ * keeps it across projections, so a changed id means a window or binding change, never a refresh.
  * @param {Object} app
  * @returns {Promise<String|null>}
  */
@@ -66,9 +67,9 @@ export async function mainParticipationId(app) {
  * @param {Object}  data.page                    The main window's page.
  * @param {String}  data.workspaceId
  * @param {String}  data.itemId
- * @param {Boolean} [data.settleForClaim=false]  Wait for the detach projection to re-register the main
- *     participation before returning. Required ONLY by a caller that goes on to make a native claim:
- *     a claim raised against a stale zone dies, and the zone is recreated by that refresh. A caller
+ * @param {Boolean} [data.settleForClaim=false]  Assert the main participation survived the detach
+ *     projection before returning. Required ONLY by a caller that goes on to make a native claim: the
+ *     engine façade keeps the target across projections, so the claim's zone is the registered one. A caller
  *     that merely reads state does not need it and should not pay for it — it is a real wait. This is
  *     a parameter rather than an unconditional step so that omitting it stays a decision.
  * @returns {Promise<{popup: Object, windowId: String}>}
@@ -136,11 +137,11 @@ export async function popOut({app, page, workspaceId, itemId, settleForClaim=fal
         .toHaveCount(0, {timeout: 15000});
 
     if (settleForClaim) {
-        await expect.poll(() => mainParticipationId(app), {
-            message  : `the detach projection refresh re-registers the main target after ${itemId}`,
-            timeout  : 15000,
-            intervals: [50, 100, 250]
-        }).not.toBe(mainBefore)
+        // The detach projection landed (the stand-in retired above) and the main target is the SAME
+        // registered instance: the engine façade keeps its participation across projections, so a
+        // claim can never land on a target a refresh is about to destroy.
+        expect(await mainParticipationId(app), `the main target survives the detach projection after ${itemId}`)
+            .toBe(mainBefore)
     }
 
     return {popup, windowId}

@@ -133,9 +133,9 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
             expect(coordId, 'manager.DragCoordinator is live').toBeTruthy();
             expect(paneId, 'Commit Stream owns a live pane before pop-out').toBeTruthy();
 
-            // The main window's stable target is re-registered by every dock projection refresh
-            // (`afterRefreshDockWorkspace` → `refreshCrossWindowParticipation`). Capture its identity
-            // before the pop-out so the detach projection's refresh can be observed landing below.
+            // The main window's stable target is composed once by the engine façade and kept across
+            // projections. Capture its identity before the pop-out so the detach projection can be
+            // observed leaving it in place below.
             const mainParticipationBeforePopOut = await readMainParticipationId(app);
 
             expect(mainParticipationBeforePopOut, 'the main window registers a stable cross-window target').toBeTruthy();
@@ -197,11 +197,8 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
             // moving earlier would test the projection race rather than the reported gesture.
             await expect(page.locator(`#${paneId}`), 'the main window releases the live pane').toHaveCount(0);
             await expect(popup.locator(`#${paneId}`), 'the popup adopts the exact live pane').toBeVisible();
-            await expect.poll(() => readMainParticipationId(app), {
-                message  : 'the detach projection refresh re-registers the main cross-window target',
-                timeout  : 15000,
-                intervals: [50, 100, 250]
-            }).not.toBe(mainParticipationBeforePopOut);
+            expect(await readMainParticipationId(app), 'the detach projection leaves the main cross-window target registered and unchanged')
+                .toBe(mainParticipationBeforePopOut);
 
             const
                 mainHandle  = await acquireNativeWindow(page),
@@ -460,11 +457,8 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
 
             await expect(targetPopup.locator(`#${metricsId}`), 'the inactive Metrics pane retains one mounted DOM identity').toHaveCount(1);
             await expect(targetPopup.locator(`#${commitsId}`), 'the vessel retains the exact Commit Stream pane').toBeVisible();
-            await expect.poll(() => readMainParticipationId(app), {
-                message  : 'the first detach refresh has re-registered the main native target',
-                timeout  : 15000,
-                intervals: [50, 100, 250]
-            }).not.toBe(mainBefore);
+            expect(await readMainParticipationId(app), 'the first detach projection leaves the main native target registered and unchanged')
+                .toBe(mainBefore);
 
             await targetPopup.evaluate(() => {
                 globalThis.__nativeStackPointerEvents = 0;

@@ -457,8 +457,8 @@ class TourController extends Controller {
                 activeGestures: me.gestureDriver?.activeRuns?.size ?? 0,
                 mainRefresh   : await probe(workspace.refreshPromise),
                 mainTabs      : me.tabsMembership(),
-                participation : await probe(workspace.crossWindowParticipationPromise),
-                participants  : [...(workspace.crossWindowParticipations?.keys?.() ?? [])]
+                participation : await probe(workspace.participationPromise),
+                participants  : workspace.participation ? [workspace.constructor.MAIN_WORKSPACE_ID] : []
             },
             vessels
         }

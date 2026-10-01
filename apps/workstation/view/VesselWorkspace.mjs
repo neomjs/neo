@@ -1,6 +1,7 @@
 import DockWorkspace              from '../../../src/dashboard/dock/Workspace.mjs';
 import NativeVesselTransaction    from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
 import PopupWorkspace             from './PopupWorkspace.mjs';
+import WorkstationParticipation   from '../window/Participation.mjs';
 import DockDragAffordances        from '../../../src/dashboard/dock/interaction/DragAffordances.mjs';
 import DockTabContainer           from '../../../src/dashboard/dock/interaction/TabContainer.mjs';
 import Placement                  from '../../../src/dashboard/dock/window/Placement.mjs';
@@ -82,6 +83,12 @@ class VesselWorkspace extends DockWorkspace {
     static config = {
         /** @member {String} className='Workstation.view.VesselWorkspace' */
         className: 'Workstation.view.VesselWorkspace',
+        /**
+         * Workstation's saved-home participation, declared as the module the engine façade composes
+         * and re-binds; the main target's seams ride {@link #getDockParticipationConfig}.
+         * @member {Object} dockParticipation={module: WorkstationParticipation}
+         */
+        dockParticipation: {module: WorkstationParticipation},
         /** @member {Neo.core.Base[]} mixins=[CrossWindowGestureSnapshot] Window observation stays on the instance. */
         mixins: [CrossWindowGestureSnapshot],
         /** @member {Number} dockHistoryDepth=50 Bounded Group history retained across window releases. */
@@ -177,22 +184,6 @@ class VesselWorkspace extends DockWorkspace {
 
     /** @member {Neo.dashboard.dock.window.Placement|null} dockPlacement=null Group-owned relative hints. */
     dockPlacement = null
-
-    /**
-     * Target-side adapters keyed by stable workspace identity. The main workspace registers during
-     * construction; vessel targets register only after their exact child window joins.
-     * @member {Map<String,Neo.dashboard.dock.window.Participation>} crossWindowParticipations
-     * @protected
-     */
-    crossWindowParticipations = new Map()
-
-    /**
-     * Readiness of the main workspace's late-bound participation. The dynamic import keeps the
-     * manager.Window singleton behind the app/harness construction boundary.
-     * @member {Promise<Neo.dashboard.dock.window.Participation|null>} crossWindowParticipationPromise
-     * @protected
-     */
-    crossWindowParticipationPromise = null
 
     /**
      * Most recent cross-window transfer receipt for the film/spec boundary.
@@ -300,20 +291,10 @@ class VesselWorkspace extends DockWorkspace {
             }
         });
 
-        // The cross-window composition (docking design record §2.1/§2.3): the workspace set resolves
-        // documents by STABLE workspace identity — windowId, screen geometry, and projection state
-        // never enter it; a window is a render target, not a state owner. Its membership lives in
-        // this workspace's Group on `Neo.manager.Transaction`: the app imports the manager, so its
-        // window is admitted at registration, and a Group the carrier already held is known before
-        // this constructor runs. A first boot's minted identity arrives once the carrier accepted it,
-        // through `afterSetTopologyGroupId`, which registers the main participant then. The Group is
-        // kept for the instance's lifetime: releasing the window's slot never loses the documents.
-        // Vessel workspaces register lazily on first dock-INTO (Edit 2).
-        me.crossWindowParticipationPromise = me.refreshCrossWindowParticipation()
-            .catch(error => {
-                me.lastCrossWindowTransfer = {applied: false, errors: [error.message]};
-                return null
-            });
+        // The cross-window participation is the engine façade's (docking design record §2.3): it
+        // composed one at construction, before the controller and embodiment above existed, so the
+        // seams it borrows are re-bound now — the one moment this host's seams change.
+        me.syncDockParticipation({recompose: true});
 
         // Conversion never re-acquires a popup: close-and-reopen is a one-way door (mid-gesture
         // acquisition consumes transient activation and reads as unsolicited), so conversion
@@ -525,21 +506,15 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Creates the main target using engine affordances and Workstation's saved-home policy.
-     * Popup workspaces own their default Participation through their native window lifecycle.
-     * @param {Object} data
-     * @param {String|Number} data.windowId
-     * @returns {Promise<Workstation.window.Participation|null>}
-     * @protected
+     * @summary The main target's seams over the engine participation the façade composes: the root's
+     * own affordances and proxy embodiment, Workstation's commit paths, and the park handlers behind
+     * the native-window suspend / resume / retire hooks. Popup workspaces supply their own two seams.
+     * @returns {Object}
      */
-    async createCrossWindowParticipation({windowId}) {
-        const me            = this,
-              Participation = (await import('../window/Participation.mjs')).default,
-              workspaceId   = VesselWorkspace.MAIN_WORKSPACE_ID;
+    getDockParticipationConfig() {
+        const me = this, workspaceId = VesselWorkspace.MAIN_WORKSPACE_ID;
 
-        if (me.isDestroyed) return null;
-
-        return Neo.create(Participation, {
+        return {
             affordances           : me.dragAffordances,
             commitLocal           : operation => me.commitLocalWorkspaceOperation(workspaceId, operation),
             commitTransfer        : data => me.commitCrossWindowTransfer(data),
@@ -553,7 +528,6 @@ class VesselWorkspace extends DockWorkspace {
                 itemId : draggedItem?.dockItemId,
                 outcome: 'committed'
             }),
-            sortGroup              : VesselWorkspace.CROSS_WINDOW_SORT_GROUP,
             suspendNativeWindowDrag: (itemId, data) => {
                 me.vesselConversionTargetWindowId = data?.targetWindowId ?? null;
 
@@ -562,36 +536,8 @@ class VesselWorkspace extends DockWorkspace {
                     sourceRect: me.resolveVesselConversionSourceRect({itemId}),
                     windowName: me.resolveTearOutVessel(itemId)?.windowName
                 })
-            },
-            windowId,
-            workspace   : me,
-            workspaceId,
-            workspaceSet: me.workspaceSet
-        })
-    }
-
-    /**
-     * @summary Re-registers the main target after projection without taking ownership of its visuals.
-     * The stable target shares its coordinator slot with projected tab zones and registers last.
-     * @returns {Promise<Workstation.window.Participation|null>}
-     * @protected
-     */
-    async refreshCrossWindowParticipation() {
-        const me = this, windowId = me.windowId, workspaceId = VesselWorkspace.MAIN_WORKSPACE_ID;
-        if (windowId == null) return null;
-
-        me.crossWindowParticipations.get(workspaceId)?.destroy();
-        me.crossWindowParticipations.delete(workspaceId);
-
-        const participation = await me.createCrossWindowParticipation({windowId});
-
-        if (!participation || me.isDestroyed || me.windowId !== windowId) {
-            participation?.destroy();
-            return null
+            }
         }
-
-        me.crossWindowParticipations.set(workspaceId, participation);
-        return participation
     }
 
     /**
@@ -631,8 +577,6 @@ class VesselWorkspace extends DockWorkspace {
 
         if (!state) return false;
 
-        state.participation?.destroy();
-        me.crossWindowParticipations.delete(workspaceId);
         state.host?.parent?.remove(state.host, false, true);
         if (state.host) state.host.windowId = null;
         me.retireProvisionalVesselChrome(state.windowId);
@@ -938,9 +882,6 @@ class VesselWorkspace extends DockWorkspace {
 
         if (closed) {
             state.closeRequested = true;
-            state.participation?.destroy();
-            state.participation = null;
-            me.crossWindowParticipations.delete(workspaceId);
 
             if (
                 me.lastCrossWindowTransfer?.sourceWorkspaceId === workspaceId &&
@@ -1071,8 +1012,7 @@ class VesselWorkspace extends DockWorkspace {
 
         host.updateDepth = -1;
         host.update();
-        await host.promiseUpdate();
-        await me.refreshCrossWindowParticipation()
+        await host.promiseUpdate()
     }
 
     /**
@@ -1734,8 +1674,6 @@ class VesselWorkspace extends DockWorkspace {
     destroy(...args) {
         const me = this;
 
-        me.crossWindowParticipations.forEach(participation => participation?.destroy());
-        me.crossWindowParticipations.clear();
         me.getPopupStates().forEach(state => state.host?.destroy());
         me.workspaceSet?.destroy();
         me.dragAffordances?.destroy();
