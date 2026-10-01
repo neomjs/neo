@@ -514,9 +514,48 @@ class NativeVesselTransaction extends Base {
         return {
             disposeVessel: async ({itemId, windowName}) => {
                 const
-                    entry    = descriptor.resolveVessel(itemId),
-                    route    = entry?.nativeRoute ?? null,
-                    disposed = await descriptor.retireVessel({itemId, windowName});
+                    entry   = descriptor.resolveVessel(itemId),
+                    route   = entry?.nativeRoute ?? null,
+                    receipt = {
+                        admitted   : false,
+                        attempts   : 0,
+                        entry      : Boolean(entry),
+                        itemId     : itemId ?? null,
+                        nameMatches: !entry || entry.windowName === windowName,
+                        refusal    : null,
+                        stage      : 'retiring',
+                        windowAlive: null,
+                        windowName : windowName ?? null
+                    };
+
+                // Published before the first call and amended in place, like the park and restore
+                // receipts: a reader after a refusal sees how far the dispose got and why.
+                descriptor.publishReceipt?.('dispose', receipt);
+
+                let disposed = false;
+
+                // Bounded, exactly-once admitted: the host's retire refuses WITHOUT closing (the tear-out
+                // keeps its slot on refusal), so one more attempt is made only while the vessel's window
+                // still exists and the refusal was the host's close — a window already gone is never
+                // closed twice, a missing or mismatched identity cannot change by waiting, and a second
+                // refusal ends it. The classes say what the host's registry can say.
+                while (!disposed && receipt.attempts < 2) {
+                    receipt.attempts++;
+                    disposed = Boolean(await descriptor.retireVessel({itemId, windowName}));
+
+                    if (disposed) break;
+
+                    receipt.refusal     = !entry ? 'no-vessel' : !receipt.nameMatches ? 'identity-mismatch' : 'host-close-refused';
+                    receipt.windowAlive = entry?.windowId != null && Boolean(WindowManager.get(entry.windowId));
+
+                    if (!receipt.windowAlive || receipt.refusal !== 'host-close-refused') break;
+
+                    // One macrotask: whatever refused the close (a settle still in flight) gets to land.
+                    await new Promise(resolve => setTimeout(resolve, 0))
+                }
+
+                receipt.admitted = disposed;
+                receipt.stage    = disposed ? 'retired' : 'refused';
 
                 // Retiring the vessel without retiring its orphan recovery leaves a matching
                 // predecessor effect owning a window that no longer exists, which then competes

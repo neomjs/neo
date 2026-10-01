@@ -1049,4 +1049,122 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         expect(owner.source.document.items).toEqual({});
         expect(TransactionManager.get(owner.groupId).history.cursor).toBe(0)
     });
+    test.describe('the dispose effect: a receipt the host maps, and one bounded retry', () => {
+        const
+            entryFor      = windowName => ({nativeRoute: null, windowId: 'win-dispose-source', windowName}),
+            descriptorFor = ({receipts, retireVessel, entry=entryFor('vessel-1')}) => ({
+                ownerWindowId : () => 'win-owner',
+                publishReceipt: (key, receipt) => {receipts[key] = receipt},
+                resolveVessel : () => entry,
+                retireVessel,
+                targetWindowId: () => 'win-target'
+            }),
+            registerSource = () => WindowManager.register({
+                id: 'win-dispose-source', innerRect: new Rectangle(0, 0, 300, 200), outerRect: new Rectangle(0, 0, 300, 200)
+            });
+
+        test.afterEach(() => {
+            WindowManager.get('win-dispose-source') && WindowManager.unregister('win-dispose-source')
+        });
+
+        test('a first-call success reads one attempt, and the receipt is published before the retire runs', async () => {
+            const receipts     = {};
+            let   seenAtRetire = null;
+
+            const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
+                receipts,
+                retireVessel: async () => {
+                    seenAtRetire = {...receipts.dispose};
+                    return true
+                }
+            })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+            expect(disposed).toBe(true);
+            expect(seenAtRetire, 'published first, amended in place').toMatchObject({admitted: false, attempts: 1, stage: 'retiring'});
+            expect(receipts.dispose).toMatchObject({
+                admitted: true, attempts: 1, entry: true, itemId: 'item-1', nameMatches: true, refusal: null, stage: 'retired', windowName: 'vessel-1'
+            })
+        });
+
+        test('a refused close with the vessel window alive is retried exactly once, and the second attempt admits', async () => {
+            const receipts = {}, calls = [];
+
+            registerSource();
+
+            const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
+                receipts,
+                retireVessel: async identity => {
+                    calls.push(identity);
+                    return calls.length > 1
+                }
+            })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+            expect(disposed).toBe(true);
+            expect(calls).toEqual([{itemId: 'item-1', windowName: 'vessel-1'}, {itemId: 'item-1', windowName: 'vessel-1'}]);
+            expect(receipts.dispose).toMatchObject({
+                admitted: true, attempts: 2, refusal: 'host-close-refused', stage: 'retired', windowAlive: true
+            })
+        });
+
+        test('a refused close whose window is already gone is never retried: one call, refused, window dead', async () => {
+            const receipts = {}, calls = [];
+
+            const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
+                receipts,
+                retireVessel: async identity => {
+                    calls.push(identity);
+                    return false
+                }
+            })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+            expect(disposed).toBe(false);
+            expect(calls).toHaveLength(1);
+            expect(receipts.dispose).toMatchObject({
+                admitted: false, attempts: 1, refusal: 'host-close-refused', stage: 'refused', windowAlive: false
+            })
+        });
+
+        test('a second refusal ends it: two calls, still refused', async () => {
+            const receipts = {}, calls = [];
+
+            registerSource();
+
+            const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
+                receipts,
+                retireVessel: async identity => {
+                    calls.push(identity);
+                    return false
+                }
+            })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+            expect(disposed).toBe(false);
+            expect(calls).toHaveLength(2);
+            expect(receipts.dispose).toMatchObject({admitted: false, attempts: 2, refusal: 'host-close-refused', stage: 'refused', windowAlive: true})
+        });
+
+        test('no registry entry, or a name that is not the parked vessel\'s, refuses once with its class — alive or not', async () => {
+            registerSource();
+
+            for (const [label, entry, refusal] of [
+                ['no entry',        null,                     'no-vessel'],
+                ['mismatched name', entryFor('vessel-other'), 'identity-mismatch']
+            ]) {
+                const receipts = {}, calls = [];
+
+                const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
+                    entry,
+                    receipts,
+                    retireVessel: async identity => {
+                        calls.push(identity);
+                        return false
+                    }
+                })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+                expect(disposed, label).toBe(false);
+                expect(calls, label).toHaveLength(1);
+                expect(receipts.dispose, label).toMatchObject({admitted: false, attempts: 1, entry: Boolean(entry), refusal, stage: 'refused'})
+            }
+        })
+    })
+
 });

@@ -435,7 +435,7 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             try {
                 await expect.poll(async () => {
                     const [state, group, nativeLifecycle] = await Promise.all([
-                        app.getComponent(workspaceId, ['lastVesselParkReceipt']),
+                        app.getComponent(workspaceId, ['lastVesselParkReceipt', 'lastVesselDisposeReceipt']),
                         app.callMethod(workspaceId, 'controller.getTopologyState'),
                         readNativeLifecycle(app, workspaceId)
                     ]);
@@ -444,6 +444,9 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
 
                     return {
                         parked        : state.lastVesselParkReceipt?.parked === true,
+                        // the dispose receipt the hand run reads: the commit's close admitted, first try
+                        disposed      : state.lastVesselDisposeReceipt?.admitted === true,
+                        disposeTries  : state.lastVesselDisposeReceipt?.attempts ?? null,
                         sourceClosed  : source.popup.isClosed(),
                         sourceWindowId: nativeLifecycle.owners[SOURCE_ITEM].windowId,
                         sourceItems   : Object.keys(group.snapshot.participants[`workstation-vessel:${SOURCE_ITEM}`].items),
@@ -455,6 +458,8 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                     intervals: [50, 100, 250]
                 }).toEqual({
                     parked        : true,
+                    disposed      : true,
+                    disposeTries  : 1,
                     sourceClosed  : true,
                     sourceWindowId: null,
                     sourceItems   : [],

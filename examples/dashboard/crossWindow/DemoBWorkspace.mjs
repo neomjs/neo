@@ -662,7 +662,7 @@ class DemoBWorkspace extends Container {
         me.vesselTransaction = NativeVesselTransaction.effectsFor({
             ownerWindowId : () => me.windowId,
             publishReceipt: (key, receipt) => {
-                key === 'park' ? (me.lastVesselParkReceipt = receipt) : (me.lastVesselRestoreReceipt = receipt)
+                me[{dispose: 'lastVesselDisposeReceipt', park: 'lastVesselParkReceipt', restore: 'lastVesselRestoreReceipt'}[key]] = receipt
             },
             resolveVessel : itemId => me.resolveTearOutVessel(itemId),
             retireVessel  : vessel => me.tearOutHandlers.retireActiveVessel(vessel),
