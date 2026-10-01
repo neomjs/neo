@@ -1228,14 +1228,22 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                             return {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
                         });
 
+                    // A converted tab drag enters the target as the tab header the hand grabbed, never as
+                    // its pane: the extent is the header button's, measured at the press
+                    await expect(proxy, `${cell.name}: target proxy carries the grabbed tab`).toContainText(cell.label);
                     expect(
-                        Math.abs(proxyRectA.width - sourceBefore.managed.width),
-                        `${cell.name}: target proxy width follows the live source viewport`
+                        Math.abs(proxyRectA.width - sourceGesture.hit.rendererBox.width),
+                        `${cell.name}: target proxy width is the grabbed tab header's`
                     ).toBeLessThanOrEqual(1);
                     expect(
-                        Math.abs(proxyRectA.height - sourceBefore.managed.height),
-                        `${cell.name}: target proxy height follows the live source viewport`
+                        Math.abs(proxyRectA.height - sourceGesture.hit.rendererBox.height),
+                        `${cell.name}: target proxy height is the grabbed tab header's`
                     ).toBeLessThanOrEqual(1);
+
+                    const {lastVesselParkReceipt} = await app.getComponent(wsId, ['lastVesselParkReceipt']);
+
+                    expect(lastVesselParkReceipt, `${cell.name}: the vessel parks clear of the target`)
+                        .toMatchObject({cleared: true, parked: true});
 
                     const proofHoldMs = Number(process.env.NEO_POPUP_PROOF_HOLD_MS || 0);
 
