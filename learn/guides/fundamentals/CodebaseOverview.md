@@ -458,7 +458,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 **Coordination:**
 - `lane-intent`: Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A).
 - `post-review-pickup`: Mandatory active lane selection at ANY PR-lifecycle event boundary (review post / author response / post-impl / post-PR-open-update / post-ticket-create / post-blocked-resolution). Requires explicit `lane-state: next-lane` declaration per AGENTS.md §15.6 self-select mandate.
-- `peer-naming`: The Social Name ritual's identity Layer 4 — peer-sketched → criterion-audited → bearer-assented → peer-unvetoed → operator-confirmed; codifies how a maintainer is *given* a name distinct from the `@handle` (name ≠ handle).
+- `peer-naming`: The Social Name ritual's identity Layer 4 — peer-sketched → criterion-audited → bearer-assented → peer-unvetoed; codifies how a maintainer is *given* a name distinct from the `@handle` (name ≠ handle).
 
 **Meta:**
 - `create-skill`: Architectural blueprinting for new operational abilities.
