@@ -262,6 +262,50 @@ adoption.
    invisible to processes with Input Monitoring — measured on Electron 43.1.0: `ioreg` names the
    window's own main process as the secure-input holder while the field has focus, and no holder
    once the window settles. The caret, selection, undo and ⌘V through the Edit menu come with it.
+10. **The first-run setup broker is a named broker** *(amended 2026-10-02, #19366 — for
+    neomjs/neo-agent-institution#384)*: the cockpit's setup card projects the first-run recipe
+    (ADR 0041) inline, and only the shell's main process has host authority to evaluate it, record
+    a consent, keep a credential and run a host effect. The preload exposes six capabilities, each
+    `ipcRenderer.invoke('shell-setup-<name>')`. Every handler validates the sender per §2.3.4 — an
+    untrusted sender rejects the invoke — and answers one envelope shape: `{ok: true, …}` with the
+    named result, or a named refusal `{ok: false, reason, …}`; a browser boot refuses
+    `not-packaged`, a boot without a Brain root `no-brain-root` — never a missing handler:
+    - `setupEvaluate({target})` → `{ok: true, evaluation}`, the recipe's live evaluation for the
+      run's target in the CLI's `--json` shape, nested as it comes:
+      `evaluation = {runId, recordPath, recipeVersion, target, binding, bindingReason, steps, terminal}`.
+    - `setupProbe()` → `{ok: true, probe}`, the placement probe's JSON; `setupPresets()` →
+      `{ok: true, presets}`, the preset table. Both are main's reads; what the renderer holds of
+      them is a projection of main's last answer, never a budget or a table of its own.
+    - `setupAnswer({stepId, answer})` → `{ok: true, evaluation}`: one consent for a CHOICE question
+      (the preset, the advanced fold), answered with the re-evaluated run. A credential question is
+      refused on this route, so no renderer-supplied path is ever admitted as a credential
+      reference.
+    - `setupCredential({stepId})` → `{ok: true, evaluation, path}`: the credential window of item 9
+      hands the value to main (item 9's private handoff is unchanged); main keeps it as an
+      owner-only file under the host setup root's `credentials/` and records the file's PATH as the
+      consent (ADR 0041: the record holds references, never secrets). The reply names the path. A
+      canceled window refuses `canceled`.
+    - `setupEffect({effectId})` → `{ok: true, evaluation}` once the shell runs the one consented
+      host effect through the Brain's shared effect orchestration (the CLI's own module), answered
+      with the re-evaluated run. **As recorded here, the handler refuses every call by name
+      (`unwired: …`):** the card's row becomes the operator's instruction (run the CLI on the host,
+      then re-check), and no second implementation of the effects exists in main. Wiring the
+      handler to the orchestration module is neomjs/neo-agent-institution#440's, after a Brain pin
+      carries the module; the pin alone enables nothing.
+
+    Across these six channels no credential value crosses the IPC in either direction; the window
+    of item 9 remains the one renderer that holds one.
+
+    **Custody:** the record is ADR 0041's one host record per run under the host state root
+    (`NEO_HOST_STATE_ROOT` / `NEO_HOST_SETUP_RECORD_ROOT`, the CLI's names). Within the shell the
+    broker is the run's writer and its record operations are serialized — a consent's file write and
+    its acceptance are one operation, so two answers or two windows landing together never lose a
+    consent or bind a path to another window's value. This is broker-local ordering, not a
+    cross-process exclusion: the CLI and the shell are not expected to drive one run at the same
+    time, and the record's digest-checked receipts make a crossed write visible as
+    `reconcile-required`, never as a replay. The renderer holds no credential value, no path it did
+    not receive from main, and no stored status: every row it shows is main's fresh evaluation, and
+    a read that fails turns every row `unknown` with the read's reason.
 
 **Falsifier:** any leaf needing a renderer capability the preload cannot express through a named,
 allowlisted intent amends THIS section first (ADR-0005 lifecycle) — it never flips a window to
