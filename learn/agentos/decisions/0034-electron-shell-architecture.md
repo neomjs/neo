@@ -235,8 +235,10 @@ adoption.
    plane named for that credential, which is plain data — and the broker is the
    row-2 connection broker of its §2.5.1 ledger: typed requests, zero credential-read capability.
    **Which PAT:** the viewer's own plane credential, under the custody and persistence of §2.5.1
-   row 1 — not item 6's seat PATs, which stay Brain-side. Until #17 it reaches the plane only as
-   the fleet child's `planeBearer`, never as the fleet-surface admission mint.
+   row 1 — not item 6's seat PATs, which stay Brain-side. Until #17 it reaches the plane on two
+   routes only: as the fleet child's `planeBearer`, and from main in this item's own probes
+   (`attachPlane`, `verifyPlane`), which present it to the plane's MCP route and hand it to no
+   renderer. It never reaches the plane as the fleet-surface admission mint.
    **Transitional seam:** until neomjs/neo-agent-institution#17 retires the shell's own fleet
    child, main hands the stored record to that child as `NEO_FLEET_PLANE_BASE` +
    `NEO_FLEET_PLANE_BEARER` in its environment — never an argument, never a log line — and a value
