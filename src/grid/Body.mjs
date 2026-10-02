@@ -298,6 +298,12 @@ class GridBody extends Component {
      */
     #lastMountedColumns = null
     /**
+     * The store count the `scrollEdge` event was last fired for; `null` while the visible window is
+     * away from the edge. See {@link #updateMountedAndVisibleRows}.
+     * @member {Number|null} #scrollEdgeAnnouncedFor=null
+     */
+    #scrollEdgeAnnouncedFor = null
+    /**
      * @member {Object[]} items=[]
      */
     items = []
@@ -1586,7 +1592,21 @@ class GridBody extends Component {
         }
 
         me.mountedRows[0] = mountedStart; // update the array inline
-        me.mountedRows[1] = mountedEnd
+        me.mountedRows[1] = mountedEnd;
+
+        // The scroll edge: the visible window reached the store's last `bufferRowRange` rows.
+        // Announced once per entry and re-armed only by a count change, so a viewport parked at
+        // the edge stays quiet on every further tick, an append that leaves it at the new edge
+        // announces again, and a store shorter than one window announces on its first layout.
+        // A consumer loading a remote corpus window by window requests the next one here.
+        if (countRecords > 0 && endIndex + bufferRowRange >= countRecords) {
+            if (me.#scrollEdgeAnnouncedFor !== countRecords) {
+                me.#scrollEdgeAnnouncedFor = countRecords;
+                me.fire('scrollEdge', {count: countRecords, endIndex, startIndex})
+            }
+        } else {
+            me.#scrollEdgeAnnouncedFor = null
+        }
     }
 
     /**
@@ -1620,5 +1640,18 @@ class GridBody extends Component {
         }
     }
 }
+
+/**
+ * Fires when the visible window reaches the store's last `bufferRowRange` rows — once per entry,
+ * re-armed only by a change of the store's count (see {@link Neo.grid.Body#updateMountedAndVisibleRows}).
+ * A consumer that loads a remote corpus window by window requests the next window here; a store
+ * shorter than one window announces on its first layout, an empty store never does.
+ * @event scrollEdge
+ * @param {Object} data
+ * @param {Number} data.count      The store's count the edge was announced for.
+ * @param {Number} data.endIndex   The visible window's end (exclusive).
+ * @param {Number} data.startIndex The visible window's start.
+ * @returns {Object}
+ */
 
 export default Neo.setupClass(GridBody);

@@ -750,6 +750,24 @@ const myGrid = Neo.create(GridContainer, {
 });
 ```
 
+### Loading a Corpus Window by Window
+
+A grid over a corpus too large to load at once appends windows as the reader scrolls. The body announces the moment
+for that: `scrollEdge` fires once each time the visible window reaches the store's last `bufferRowRange` rows, and
+again only after the store's count changes, so a viewport parked at the end stays quiet and an appended window that
+still touches the end announces once more. Listen on the body, request the next window, and append it to the store:
+
+```javascript readonly
+myGrid.body.on('scrollEdge', async ({count}) => {
+    const next = await loadWindow({offset: count}); // your own source; it says when nothing follows
+
+    next.rows.length > 0 && myGrid.store.add(next.rows)
+});
+```
+
+The event carries no promise of more rows; that is the source's to state. Dedupe requests in flight on your side
+if the source answers slowly.
+
 ### Row Height
 
 The `rowHeight` config on the `Neo.grid.Container` plays a crucial role in the grid's rendering calculations. Ensuring
