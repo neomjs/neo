@@ -130,14 +130,14 @@ test.describe('dock header action tooltips', () => {
 
         expect(tipText(action)).toBe('Lock pane');
 
-        expect(workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
+        expect(workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
 
         expect(main.getAction('lock'), 'the same instance').toBe(action);
         expect(action.iconCls).toBe(workspace.dockUnlockIconCls);
         expect(action.vdom['aria-label']).toBe('unlock');
         expect(tipText(action)).toBe('Unlock pane');
 
-        expect(workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
+        expect(workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
 
         expect(action.iconCls).toBe(workspace.dockLockIconCls);
         expect(action.vdom['aria-label']).toBe('lock');
@@ -152,12 +152,12 @@ test.describe('dock header action tooltips', () => {
               maximize = main.getAction('maximize');
 
         expect(tipText(lock)).toBe('Lock pane');
-        expect(workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
+        expect(workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
         expect(lock.iconCls, 'the icon follows the toggle').toBe(workspace.dockUnlockIconCls);
         expect(tipText(lock), 'the opted-out state has no tooltip — not the one the button just left').toBeNull();
         expect(lock.cls, 'and no longer joins the shared tooltip').not.toContain('neo-uses-shared-tooltip');
 
-        expect(workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
+        expect(workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
         expect(tipText(lock), 'the other half restores its text').toBe('Lock pane');
 
         const plugin = workspace.getPlugin('dock-maximize');

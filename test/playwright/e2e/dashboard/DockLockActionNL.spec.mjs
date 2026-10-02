@@ -65,7 +65,7 @@ test.describe('dock lock action — Whitebox gesture contract', () => {
         expect(tabsId).toBeTruthy();
 
         // Stale presentation falsifier: bypass hidden chrome through the real TabContainer event
-        // route. Workspace still reaches handleDockCloseAction, and the model remains the boundary.
+        // route. The header-actions plugin still reaches the close handler, and the model remains the boundary.
         await app.callMethod(tabsId, 'onHeaderAction', [{action: 'close'}]);
 
         expect(await readDocument()).toEqual(before);

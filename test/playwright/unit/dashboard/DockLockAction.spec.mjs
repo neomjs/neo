@@ -294,7 +294,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         expect(tabButton.wrapperCls).toContain('neo-draggable');
 
-        const locked = workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
+        const locked = workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
 
         expect(locked.errors).toEqual([]);
         expect(workspace.dockModel.items.alpha.locked).toBe(true);
@@ -308,7 +308,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(lockAction.vdom.inert).toBeUndefined();
         expect(closeAction.hidden).toBe(true);
 
-        const unlocked = workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
+        const unlocked = workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
 
         expect(unlocked.errors).toEqual([]);
         expect(workspace.dockModel.items.alpha.locked).toBe(false);
@@ -335,15 +335,15 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         const tabContainer = Reconciler.collectProjectedTabs(workspace.items[0]).get('main-tabs'),
               pane         = tabContainer.getActiveCard(),
-              refused      = workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
+              refused      = workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
 
         expect(refused.document).toBe(workspace.dockModel);
         expect(refused.errors.join(' ')).toContain('not lockable');
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
 
         workspace.dockModel.items.alpha.lockable = true;
-        workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
-        workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
+        workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
+        workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
 
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false)
     });
@@ -366,7 +366,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         tabButton.addWrapperCls('neo-draggable');
 
-        const locked = workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
+        const locked = workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
 
         expect(locked.errors).toEqual([]);
         expect(pane.lockCalls).toEqual([true]);
@@ -382,7 +382,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(pane.lockCalls, 'once per transition').toEqual([true]);
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
 
-        const unlocked = workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
+        const unlocked = workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
 
         expect(unlocked.errors).toEqual([]);
         expect(pane.lockCalls).toEqual([true, false]);
@@ -431,7 +431,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         beta.vdom.inert = false;
         tabButton.addWrapperCls('neo-draggable');
 
-        const locked = workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
+        const locked = workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
 
         expect(locked.errors).toEqual([]);
         expect(alpha.lockCalls, 'the delegated pane was locked by the first policy').toEqual([true]);
@@ -450,7 +450,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(after.workspace).toBe(workspace);
         expect(before.isDestroyed, 'the retired policy is gone').toBe(true);
 
-        const unlocked = workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
+        const unlocked = workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
 
         expect(unlocked.errors).toEqual([]);
         expect(alpha.lockCalls, 'the delegated pane gets its false from the policy that did not lock it').toEqual([true, false]);

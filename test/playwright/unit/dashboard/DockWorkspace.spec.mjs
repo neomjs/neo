@@ -16,6 +16,7 @@ import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService              from '../../../../src/ai/client/DockService.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
+import HeaderActions            from '../../../../src/dashboard/dock/plugin/HeaderActions.mjs';
 import TransactionManager       from '../../../../src/manager/Transaction.mjs';
 import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import WorkspaceSet             from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
@@ -835,7 +836,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 commits.push(result);
                 return result
             };
-            workspace.focusDockCloseTarget = data => focus.push({...data, projectionsSoFar: projected.count});
+            workspace.getPlugin('dock-header-actions').focusDockCloseTarget = data => focus.push({...data, projectionsSoFar: projected.count});
 
             set.register('main', {
                 getDocument: () => workspace.dockModel,
@@ -856,7 +857,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 expect(workspace.refreshPromise, 'the precondition the defect needs: no refresh yet').toBe(null);
 
                 const tabs    = tabsOf(workspace.items[0]).get('side-tabs'),
-                      outcome = workspace.handleDockCloseAction({dockNodeId: 'side-tabs', tabContainer: tabs});
+                      outcome = workspace.getPlugin('dock-header-actions').handleDockCloseAction({dockNodeId: 'side-tabs', tabContainer: tabs});
 
                 expect(outcome?.errors ?? [], 'the close commits').toEqual([]);
 
@@ -883,7 +884,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
                 expect(before, 'an earlier commit really projected').toBeGreaterThan(0);
 
-                workspace.handleDockCloseAction({
+                workspace.getPlugin('dock-header-actions').handleDockCloseAction({
                     dockNodeId  : 'side-tabs',
                     tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
                 });
@@ -961,7 +962,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 workspace.workspaceKey = 'not-registered';
 
                 const unhandled = await watchUnhandled(async () => {
-                    workspace.handleDockCloseAction({
+                    workspace.getPlugin('dock-header-actions').handleDockCloseAction({
                         dockNodeId  : 'side-tabs',
                         tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
                     });
@@ -991,7 +992,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 workspace.refreshDockWorkspace = () => Promise.reject(new Error('projection rejected'));
 
                 const unhandled = await watchUnhandled(async () => {
-                    workspace.handleDockCloseAction({
+                    workspace.getPlugin('dock-header-actions').handleDockCloseAction({
                         dockNodeId  : 'side-tabs',
                         tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
                     });
@@ -1020,10 +1021,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                   project   = workspace.projectDockZoneDocument.bind(workspace);
 
             workspace.projectDockZoneDocument = (...args) => {projected.count++; return project(...args)};
-            workspace.focusDockCloseTarget    = data => focus.push({...data, projectionsSoFar: projected.count});
+            workspace.getPlugin('dock-header-actions').focusDockCloseTarget    = data => focus.push({...data, projectionsSoFar: projected.count});
 
             try {
-                workspace.handleDockCloseAction({
+                workspace.getPlugin('dock-header-actions').handleDockCloseAction({
                     dockNodeId  : 'side-tabs',
                     tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
                 });
@@ -1077,7 +1078,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             };
 
             // No main thread in unit mode; the geometry delta is asserted separately from dispatch.
-            ws.measureDockPaneRect = async () => ({height: 200, width: 400, x: 10, y: 20});
+            ws.getPlugin('dock-header-actions').measureDockPaneRect = async () => ({height: 200, width: 400, x: 10, y: 20});
 
             return ws
         };
@@ -1127,7 +1128,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             workspace = armWorkspace(calls);
 
             const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1';
-            await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+            await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
 
             expect(calls.map(entry => entry[0])).toEqual(['exit', 'terminal']);
 
@@ -1148,7 +1149,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             workspace = armWorkspace(calls, {commits: false});
 
             const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
-                  result = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+                  result = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
 
             expect(calls.map(entry => entry[0])).toEqual(['exit', 'terminal']);
             expect(result.errors?.[0]).toMatch(/refused by the detach commit/)
@@ -1159,7 +1160,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // terminal, one retire path)". Behaviour cannot show this — a handler that duplicated
             // the vessel/commit/return sequence would pass every behavioural arm in this file and
             // be exactly what the ticket forbids. Only the source text can witness an ABSENCE.
-            const source = DockWorkspace.prototype.handleDockPopOutAction.toString();
+            const source = HeaderActions.prototype.handleDockPopOutAction.toString();
 
             expect(source).toContain('admitDockPopOut');
             expect(source).toContain('onDockTearOutTerminal');
@@ -1218,7 +1219,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             workspace = armWorkspace(calls, {exitResult: false});
 
             const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
-                  result = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+                  result = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
 
             expect(calls.map(entry => entry[0])).toEqual(['exit']);
             expect(result.errors?.[0]).toMatch(/refused by the host vessel seam/)
@@ -1229,7 +1230,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             workspace = armWorkspace(calls);
 
-            const noItem = await workspace.handleDockPopOutAction({
+            const noItem = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({
                 dockNodeId  : 'main-tabs',
                 tabContainer: {activeIndex: null, getTabBar: () => ({sortZoneConfig: {dockItemIds: []}}), id: 'live-tabs'}
             });
@@ -1243,7 +1244,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             workspace.tearOutHandlers = null;
 
             const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
-                  noPipe = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+                  noPipe = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
 
             expect(noPipe.errors?.[0]).toMatch(/requires a tear-out handler bundle/);
             expect(calls).toEqual([])
@@ -1765,7 +1766,7 @@ test('the holder contract: a config-assigned document is readable before any ope
             // `measureDockPaneRect` finds no `Neo.main.DomAccess` here and resolves null. That is the
             // documented degradation — the vessel opens at the host's default geometry rather than a
             // wrong one — so the commit path is exercised exactly as it is in production.
-            const result = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer});
+            const result = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer});
 
             expect(result, 'the terminal must return a result, not a refusal envelope').toBeTruthy();
             expect(result.errors ?? []).toEqual([]);
@@ -1830,7 +1831,7 @@ test('the holder contract: a config-assigned document is readable before any ope
                 id         : 'popout-tabs'
             };
 
-            const result = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer});
+            const result = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer});
 
             // The lie, witnessed: the retirement succeeded, so the terminal reports `true`.
             expect(terminalResult, 'a refusal whose cleanup succeeded still resolves true').toBe(true);
@@ -1889,12 +1890,12 @@ test('the holder contract: a config-assigned document is readable before any ope
             // Teardown lands inside the FIRST await. Nothing has been admitted yet, so the only
             // correct outcome is to refuse before the seam is ever called: opening a vessel for a
             // workspace that is already gone is the orphan this guard exists to prevent.
-            ws.measureDockPaneRect = async () => {
+            ws.getPlugin('dock-header-actions').measureDockPaneRect = async () => {
                 ws.destroy();
                 return null
             };
 
-            const result = await ws.handleDockPopOutAction({
+            const result = await ws.getPlugin('dock-header-actions').handleDockPopOutAction({
                 dockNodeId: 'main-tabs', tabContainer: popOutTabContainer()
             });
 
@@ -1952,7 +1953,7 @@ test('the holder contract: a config-assigned document is readable before any ope
                 return realTerminal(data)
             };
 
-            const pending = ws.handleDockPopOutAction({
+            const pending = ws.getPlugin('dock-header-actions').handleDockPopOutAction({
                 dockNodeId: 'main-tabs', tabContainer: popOutTabContainer()
             });
 
@@ -3264,7 +3265,7 @@ test('the holder contract: a config-assigned document is readable before any ope
         // live chrome still targets preview, while semantic successor policy already lives in the
         // reordered document.
         workspace.dockModel = modelAhead.document;
-        workspace.focusDockCloseTarget = data => focusTargets.push(data.itemId);
+        workspace.getPlugin('dock-header-actions').focusDockCloseTarget = data => focusTargets.push(data.itemId);
 
         const closed = workspace.onDockHeaderAction({
             action: 'close', dockNodeId: 'side-tabs', tabContainer: side
@@ -4193,7 +4194,7 @@ test('the holder contract: a config-assigned document is readable before any ope
 
             const side = tabsOf(workspace.items[0]).get('side-tabs');
 
-            workspace.focusDockCloseTarget = ({itemId}) => workspace.refreshLog.push(`focus ${itemId}`);
+            workspace.getPlugin('dock-header-actions').focusDockCloseTarget = ({itemId}) => workspace.refreshLog.push(`focus ${itemId}`);
 
             await side.set({activeIndex: 1});
             await workspace.refreshPromise;

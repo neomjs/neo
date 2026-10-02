@@ -316,7 +316,7 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          */
         alphaReloadResolveCount_: 0,
         /**
-         * Spec trigger: each bump dispatches `handleDockReloadAction` with NO resolvable active
+         * Spec trigger: each bump dispatches the `reload` header action with NO resolvable active
          * item (null tabContainer) — the no-active race arm: settlement must still reach the
          * `dockReloadSettled` channel, with `itemId: null`.
          * @member {Number} dispatchNoActiveReloadCount_=0
@@ -586,7 +586,9 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
             return
         }
 
-        this.handleDockReloadAction({dockNodeId: 'main-tabs', tabContainer: null})
+        // Through the façade's own dispatch: the reload handler lives on the header-actions
+        // plugin, and the public route is the one a header button takes.
+        this.onDockHeaderAction({action: 'reload', dockNodeId: 'main-tabs', tabContainer: null})
     }
 
     /**
