@@ -206,10 +206,11 @@ adoption.
    **Witness obligation:** the consuming leaf's evidence is a shell-transition-driven witness —
    the lifecycle owner's transition drives the rendered banner; hand-assigned consumer state
    witnesses a pass-through and is not wiring evidence.
-8. **Plane attach is a named broker pair** *(amended 2026-09-25, #19228 — for
-   neomjs/neo-agent-institution#211; #19233 — for neomjs/neo-agent-institution#223)*: a
+8. **Plane attach is a named broker** *(amended 2026-09-25, #19228 — for
+   neomjs/neo-agent-institution#211; #19233 — for neomjs/neo-agent-institution#223; 2026-10-02,
+   #19362 — for neomjs/neo-agent-institution#446)*: a
    packaged shell that a Finder double-click starts has no environment, so it needs its own
-   record of the plane it attaches to, and the cockpit needs a way to create one. The preload exposes two capabilities, both answered by main-process handlers
+   record of the plane it attaches to, and the cockpit needs a way to create one. The preload exposes three capabilities, all answered by main-process handlers
    that validate the sender per §2.3.4:
    - `planeStatus()` → `ipcRenderer.invoke('shell-plane-status')`, pull-shaped like §2.3.7:
      `{packaged, configured, planeBase, attached}` — plain data, no credential bytes.
@@ -219,15 +220,25 @@ adoption.
      authenticated `initialize`, then `list_permissions` in that session for the identity the
      plane names for it — stores both, and relaunches the shell. The reply is
      `{ok, reason, relaunching}` and never carries the PAT.
+   - `verifyPlane()` → `ipcRenderer.invoke('shell-plane-verify')`, pull-shaped like §2.3.7: main
+     probes the record this shell launched its fleet child with, by the exchange `attachPlane`
+     uses, and answers `{cause}` — `plane-credential-refused` when the plane refuses the stored
+     PAT, `plane-identity-changed` when it admits it as another account, else `null`. The reply
+     never carries the PAT, and a plane the environment supplied instead of the record is never
+     probed. The cockpit asks once per failed roster-read episode, so a PAT that expires
+     mid-session reads as the credential it is, not as a transport failure, and the banner offers
+     Connect instead of Reconnect.
 
    **Custody is ADR 0038's, not new:** the record is the client connection profile of
    [ADR 0038 §2.1](0038-fm-client-topology.md) — endpoint plus the client's credential, encrypted
    at rest by Electron `safeStorage` (the OS keychain) or not stored at all, and the identity the
-   plane named for that credential, which is plain data — and the pair is the
+   plane named for that credential, which is plain data — and the broker is the
    row-2 connection broker of its §2.5.1 ledger: typed requests, zero credential-read capability.
    **Which PAT:** the viewer's own plane credential, under the custody and persistence of §2.5.1
-   row 1 — not item 6's seat PATs, which stay Brain-side. Until #17 it reaches the plane only as
-   the fleet child's `planeBearer`, never as the fleet-surface admission mint.
+   row 1 — not item 6's seat PATs, which stay Brain-side. Until #17 it reaches the plane on two
+   routes only: as the fleet child's `planeBearer`, and from main in this item's own probes
+   (`attachPlane`, `verifyPlane`), which present it to the plane's MCP route and hand it to no
+   renderer. It never reaches the plane as the fleet-surface admission mint.
    **Transitional seam:** until neomjs/neo-agent-institution#17 retires the shell's own fleet
    child, main hands the stored record to that child as `NEO_FLEET_PLANE_BASE` +
    `NEO_FLEET_PLANE_BEARER` in its environment — never an argument, never a log line — and a value
