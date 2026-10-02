@@ -754,9 +754,11 @@ const myGrid = Neo.create(GridContainer, {
 
 A grid over a corpus too large to load at once appends windows as the reader scrolls. The body announces the moment
 for that: `scrollEdge` fires once each time the visible window reaches the store's last `bufferRowRange` rows, and
-again only after the store's size changes (its visible count, or its total behind a filter), so a viewport parked at
-the end stays quiet, an appended window that still touches the end announces once more, and a window a filter hides
-entirely still announces. Listen on the body, request the next window, and append it to the store:
+again only after the store's visible count changes, so a viewport parked at the end stays quiet, an appended window
+that still touches the end announces once more, and a window a filter hides entirely does not: the viewport saw nothing
+move, and a grid that re-requested on hidden data would walk a filtered corpus with no gesture. The event carries the
+store's `total` behind its filters for consumers that want to show it. Listen on the body, request the next window, and
+append it to the store:
 
 ```javascript readonly
 myGrid.body.on('scrollEdge', async ({count}) => {

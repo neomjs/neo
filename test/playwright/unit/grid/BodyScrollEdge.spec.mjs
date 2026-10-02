@@ -145,10 +145,11 @@ test.describe('Neo.grid.Body — scrollEdge fires once per entry into the store\
         empty.body.destroy()
     });
 
-    test('an append a filter hides entirely re-arms the edge: the visible count stays, the total moved (#19359)', () => {
-        // The first consumer's falsifier: fifty replies appended under one collapsed thread head
-        // change nothing the viewport can see, and a count-keyed latch would never announce again,
-        // so a one-row viewport could not reach the next window at all.
+    test('an append a filter hides entirely does not re-arm the edge: the viewport saw nothing move, and the total travels as information (#19359)', () => {
+        // The first consumer's two findings: a count-keyed latch leaves a one-row collapsed thread
+        // at the same edge after a hidden append (older rows wait for the operator to expand the
+        // thread), and a total-keyed latch walks the whole filtered corpus with no gesture. The
+        // engine keeps the viewport's truth and reports the total beside it.
         const {body, edges} = createBody(1);
 
         // the same filter shape the pooling specs use: only id 1 passes
@@ -166,11 +167,14 @@ test.describe('Neo.grid.Body — scrollEdge fires once per entry into the store\
         expect(body.store.allItems.getCount()).toBe(11);
 
         body.updateMountedAndVisibleRows();
-        expect(edges.at(-1), 're-armed by the total').toEqual({count: 1, endIndex: 1, startIndex: 0, total: 11});
-        expect(edges).toHaveLength(2);
-
         body.updateMountedAndVisibleRows();
-        expect(edges, 'no size change: quiet').toHaveLength(2);
+        expect(edges, 'nothing the viewport can reach moved: quiet').toHaveLength(1);
+
+        // the rows become visible (the consumer's thread expands): a visible change re-arms as usual
+        body.store.filters = [];
+        expect(body.store.count).toBe(11);
+        scrollTo(body, 1);
+        expect(edges.at(-1), 'the visible change announced, with the total beside the count').toEqual({count: 11, endIndex: 11, startIndex: 1, total: 11});
 
         body.destroy()
     });
