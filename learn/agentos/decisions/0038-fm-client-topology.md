@@ -7,7 +7,7 @@
 | Attribute | Value |
 |---|---|
 | **Status** | Accepted — 2026-08-08 (graduated at Discussion #16720; published by PR #16752, closing its #16747 gate) |
-| **Amended** | 2026-08-09 (#16740, the S6 leaf): §2.5.1 lands the canonical credential-class ledger — six classes × nine columns, the tunnel-delegated transport disposition, and the provider-secret boundary — completing §2.5's forward reference. Additive; no §2.2–§2.8 contract changed. |
+| **Amended** | 2026-08-09 (#16740, the S6 leaf): §2.5.1 lands the canonical credential-class ledger — six classes × nine columns, the tunnel-delegated transport disposition, and the provider-secret boundary — completing §2.5's forward reference. Additive; no §2.2–§2.8 contract changed. · 2026-10-02 (#19370, graduated at D#16764): §2.2 fact 2's `ownerPrincipal` is backed by a plane-governed forge connection, not the URL-derived tuple. §2.5.1's derivation authority moves to that connection registry, and §4 gains D#16764's rejected rows. |
 | **Author** | @neo-fable-clio (Clio, Claude Fable 5) drafting; architecture converged operator + four families via D#16720 (12 body versions, one evening, 2026-08-08) |
 | **Graduated from** | Discussion #16720 — *"FM as pure client: the fleet surface joins the composition (optional container) + PAT-grade auth for cross-hardware planes"* (family-keyed quorum: fable `AUTHOR_SIGNAL`+`APPROVED` · Opus `APPROVED` (re-stamped, blockers verified closed) · GPT `[GRADUATION_APPROVED]` at the filed state). #16720 is **archaeology** — never required reading |
 | **Resolves** | #16747 (the D1 Decision-Record carrier; parent Epic #16168) |
@@ -49,11 +49,11 @@ Kept separate **by construction** — each fact has its own carrier, and no fact
 | # | Fact | Carrier | What it is NOT |
 |---|---|---|---|
 | 1 | **Who authenticated** | The forge login (`AuthService` exposes mutable login + stable provider metadata separately) | Never ownership — a DISPLAY/projection fact only; Memory Core may project it onto an auto-provisioned `AgentIdentity` for attribution |
-| 2 | **Who owns Fleet state** | The opaque stable **`ownerPrincipal`**, backed by `(authProvider, normalizedProviderBaseUrl, providerUserId)` (D#16176-inherited) | Never the mutable provider login, never the `AgentIdentity` graph id — a login rename or a GitHub/GitLab namespace collision must never silently change ownership |
+| 2 | **Who owns Fleet state** | The opaque stable **`ownerPrincipal`** = `owner:<connectionId>:<providerUserId>`, compared by equality only. The connection is a plane-governed forge-authority record (`authProvider` and its operator-approved endpoints). Only the plane-local administrative path writes it, and its ids are never recycled (D#16764 amends D#16176's `(authProvider, normalizedProviderBaseUrl, providerUserId)` tuple). | Never the mutable provider login, never the `AgentIdentity` graph id — a login rename or a GitHub/GitLab namespace collision must never silently change ownership. An approved same-forge endpoint move keeps the principal; an endpoint no connection binds gets none, so no owner-scoped write precedes registration |
 | 3 | **Who may see the roster** | Fleet's own grant family: `CAN_OBSERVE_FLEET_OF(granteePrincipal, ownerPrincipal)` for owner-scoped read projections; `CAN_ADMINISTER_FLEET_OF` for curated lifecycle verbs. **DEFAULT-PRIVATE**, even inside a trusted team deployment | Never inferred from authentication, team membership, or content grants |
 | 4 | **Who may read agent content** | Memory Core's independent `CAN_READ_INBOX_OF` / `CAN_READ_MEMORIES_OF` / `CAN_READ_SESSIONS_OF` (fail-closed) | Never widened, synthesized, or aggregated from roster visibility |
 
-The operator↔agent association used for roster composition is a **derived relation keyed to the owner principal** (S4 #16738) — never a second ownership source.
+The operator↔agent association used for roster composition is a **derived relation keyed to the owner principal** (S4b, neomjs/neo-agent-brain#52) — never a second ownership source.
 
 **Binding negative ACs** (graduation criterion 6): read credentials cannot invoke lifecycle writes; lifecycle credentials cannot express arbitrary host operations; a host actuator cannot re-derive identity or policy; ownership never keys on a mutable login; roster grants never widen content visibility.
 
@@ -80,7 +80,7 @@ PAT-grade auth **adopts shipped substrate as the authentication SOURCE, not as a
 
 ### 2.5.1 The credential-class ledger (canonical — the S6 #16740 deliverable)
 
-One row per class. The **non-alias rule is load-bearing on every row**: two classes may be minted by the same issuer, but a credential admitted for one class NEVER silently serves another — five distinct secrets already coexist on one production seat (seat-witnessed, D#16720 cycle-2). Subject cells that name `ownerPrincipal` bind the TARGET contract: its derivation/normalization is S2 #16736 + S4 #16738 authority, and until those land, principal-bound surfaces fail closed (the S1 #16735 v3 discipline).
+One row per class. The **non-alias rule is load-bearing on every row**: two classes may be minted by the same issuer, but a credential admitted for one class NEVER silently serves another — five distinct secrets already coexist on one production seat (seat-witnessed, D#16720 cycle-2). Subject cells that name `ownerPrincipal` bind the TARGET contract: its derivation is the plane-governed forge-connection registry (neomjs/neo-agent-brain#783, from D#16764). Until it lands, principal-bound surfaces fail closed (the S1 #16735 v3 discipline).
 
 | # | Class | Issuer | Subject | Audience | Scopes | Custody | Persistence | Rotation / revocation | Transport requirement | Non-alias rule |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -138,6 +138,12 @@ ADR 0034 is the **accepted, shell-specific successor** of ADR 0020 §3 and still
 - **Login-keyed ownership.** Rejected: renames and forge-namespace collisions silently reassign state; ownership keys on the opaque `ownerPrincipal`.
 - **One aggregated grant surface.** Rejected: roster visibility and content access have different blast radii; aggregation forbids the coherence invariant's per-family enforcement.
 
+From D#16764 (`ownerPrincipal` continuity, 2026-10-02):
+
+- **A frozen URL-derived key.** Rejected: an approved same-forge endpoint move changes the principal, and any authenticated endpoint is minted one. The D#16764 witness ran this against the shipped derivation.
+- **A provider-asserted issuer.** Rejected: neither PAT verifier exposes a common authority identifier.
+- **Mint, then merge.** Rejected: there is no complete merge transaction over records, grants, the relation and stale writers. A principal registry keyed per coordinate is subsumed by the forge connection.
+
 ## 5. Consequences
 
 **Positive:** one client contract serves every plane placement (local compose, cloud, future multi-plane) — the cockpit stops being a topology-dependent fork; the v13.2 "FM with data" gate becomes reachable (a data-less FM cannot pass the roadmap's done-signal); identity/visibility bugs become contract violations with named falsifiers instead of UX surprises. **Negative / cost:** the local product profile now operates one more service; two grant families must be administered (C4 owns the UX that keeps that honest); the presence contract obliges every roster surface to carry band + tier provenance. **Boundary:** this ADR records client topology and cross-cutting identity/visibility contracts — per-leaf executable contracts (compose/Caddy/AiConfig rows, verb tables, projection shapes) live in the S/C sub bodies, and control-plane authority remains D#16176/#16168.
@@ -149,6 +155,7 @@ A future session picks this up in three steps: (1) read THIS ADR (~4 minutes); (
 ## 7. Related
 
 - **Discussion #16720** — graduation archaeology (12 body versions, divergence matrix, falsifier receipts).
+- **Discussion #16764**: `ownerPrincipal` continuity (D + Q), the design record behind the 2026-10-02 amendment. Its Contract Ledger is implemented by neomjs/neo-agent-brain#783.
 - **#16747** — the D1 carrier this ADR resolves; **Epic #16168** — control-plane parent; **D#16176** — the graduated control-plane authority.
 - Subs informed: S1 #16735 · S2 #16736 · S3 #16737 · S4 #16738 · S5 #16739 · S6 #16740 · S7 #16741 · C1 #16742 · C2 #16743 · C3 #16744 · C4 #16745 · C5 #16746.
 - **ADR 0020** (harness concept — §3 sentence rewritten, §4 re-scoped) · **ADR 0026** (recovery actuator — amended §2.7) · **ADR 0034** (Electron shell — amended §2.1 + §2.6.4) · **ADR 0019 §10.8** (credential taxonomy) · **ADR 0014** (deployment topology).
