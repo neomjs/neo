@@ -301,8 +301,10 @@ class GridBody extends Component {
      * The visible count the `scrollEdge` event was last fired for; `null` while the visible window is
      * away from the edge. The key is the visible count alone, never the total behind a filter: an
      * append a filter hides entirely moved nothing the viewport can reach, and re-arming on it would
-     * let a consumer walk hidden data window by window with no gesture. See
-     * {@link #updateMountedAndVisibleRows}.
+     * let a consumer walk hidden data window by window with no gesture. Cleared again when the body
+     * mounts: a store load reaching an unmounted body still runs the window calculator with the
+     * geometry it last measured, so an edge announced there was announced to no viewport. See
+     * {@link #updateMountedAndVisibleRows} and {@link #afterSetMounted}.
      * @member {Number|null} #scrollEdgeAnnouncedFor=null
      */
     #scrollEdgeAnnouncedFor = null
@@ -509,13 +511,18 @@ class GridBody extends Component {
     }
 
     /**
-     * Triggered after the mounted config got changed
+     * Triggered after the mounted config got changed. A body that mounts re-arms its scroll edge:
+     * whatever was announced while it was unmounted, its next layout at the edge announces again.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
+
+        if (value) {
+            this.#scrollEdgeAnnouncedFor = null
+        }
 
         if (oldValue !== undefined) {
             let i = 0, len = this.items.length, item;
@@ -1653,7 +1660,9 @@ class GridBody extends Component {
  * A consumer that loads a remote corpus window by window requests the next window here; a store
  * shorter than one window announces on its first layout, an empty store never does, and an appended
  * window a filter hides entirely does not announce again: nothing the viewport can reach moved, and
- * a consumer that wants hidden data to count must look at `total` itself.
+ * a consumer that wants hidden data to count must look at `total` itself. A body that mounts re-arms:
+ * if it is at its edge on its next layout, it announces again, whatever was announced while it was
+ * unmounted (a store load reaching a hidden body runs the calculator with its last geometry).
  * @event scrollEdge
  * @param {Object} data
  * @param {Number} data.count      The store's visible count the edge was announced for.

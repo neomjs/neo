@@ -191,4 +191,25 @@ test.describe('Neo.grid.Body — scrollEdge fires once per entry into the store\
 
         body.destroy()
     });
+
+    test('a body that mounts re-arms the edge: a count announced while it was unmounted announces again on the next layout (#19361)', () => {
+        const {body, edges} = createBody(5);
+
+        // a store load reaching an unmounted body runs the calculator with its last geometry: in the
+        // browser this is a window landing behind a hidden grid; here it is the first layout itself
+        scrollTo(body, 0);
+        expect(edges, 'announced into the unmounted body').toEqual([{count: 5, endIndex: 5, startIndex: 0, total: 5}]);
+        body.updateMountedAndVisibleRows();
+        expect(edges, 'control: while nothing mounts, the count stays latched').toHaveLength(1);
+
+        body.mounted = true;
+        body.updateMountedAndVisibleRows();
+        expect(edges, 'mounted: the edge is announced again to the viewport that can act on it').toHaveLength(2);
+        expect(edges[1]).toEqual({count: 5, endIndex: 5, startIndex: 0, total: 5});
+
+        body.updateMountedAndVisibleRows();
+        expect(edges, 'and latched again').toHaveLength(2);
+
+        body.destroy()
+    });
 });
