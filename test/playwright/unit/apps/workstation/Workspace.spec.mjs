@@ -911,6 +911,119 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    test('the park records the content rect, so a terminal restore re-shows the frame it was parked from', async () => {
+        const
+            workspace             = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+            originalDragDrop      = Neo.main.addon.DragDrop,
+            originalFocus         = Neo.Main.windowNativeFocus,
+            originalGetWindowData = Neo.Main.getWindowData,
+            originalManagerGet    = Neo.manager.Window.get,
+            originalMove          = Neo.Main.windowNativeMoveTo,
+            moveCalls             = [];
+
+        const
+            sourceRoute = {
+                capabilities   : {close: true, focus: true, position: true, resize: true},
+                nativeHandleKey: 'handle-source',
+                ownerWindowId  : workspace.windowId,
+                targetWindowId : 'source-window'
+            },
+            targetRoute = {
+                capabilities   : {close: true, focus: true, position: true, resize: true},
+                nativeHandleKey: 'handle-target',
+                ownerWindowId  : workspace.windowId,
+                targetWindowId : 'target-window'
+            },
+            // Real chrome: each window's content sits 67 px below its frame. The conversion samples the
+            // source's FRAME (the plane the pointer rides), but the park must record the CONTENT rect,
+            // because the re-show takes the window's own chrome off whatever rect it is handed.
+            sourceInner = {height: 240, width: 320, x: 796, y: 190},
+            sourceOuter = {height: 307, width: 320, x: 796, y: 123},
+            records     = new Map([
+                [workspace.windowId, {
+                    chrome   : {bottom: 0, left: 0, right: 0, top: 67},
+                    innerRect: {height: 933, width: 1600, x: 0, y: 67},
+                    outerRect: {height: 1000, width: 1600, x: 0, y: 0}
+                }],
+                ['source-window', {
+                    chrome     : {bottom: 0, left: 0, right: 0, top: 67},
+                    innerRect  : {...sourceInner},
+                    nativeRoute: sourceRoute,
+                    outerRect  : {...sourceOuter}
+                }],
+                ['target-window', {
+                    chrome     : {bottom: 0, left: 0, right: 0, top: 67},
+                    innerRect  : {height: 480, width: 640, x: 780, y: 107},
+                    nativeRoute: targetRoute,
+                    outerRect  : {height: 547, width: 640, x: 780, y: 40}
+                }]
+            ]);
+
+        workspace.nativeWindows.sources.get(workspace.id).connections.set('audit', {
+            nativeRoute: sourceRoute,
+            windowId   : 'source-window',
+            windowName : 'tearout-audit'
+        });
+        Neo.manager.Window.get      = id => records.get(id) ?? null;
+        Neo.Main.getWindowData      = async () => ({screen: {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1600}});
+        Neo.Main.windowNativeFocus  = async () => true;
+        Neo.Main.windowNativeMoveTo = async data => {
+            moveCalls.push(data);
+            return true
+        };
+        Neo.main.addon.DragDrop = {
+            acknowledgeWindowDragOrphanRecovery: async () => true,
+            hasWindowDragOrphanRecovery        : async () => false,
+            parkWindowDrag                     : async () => true,
+            resumeWindowDrag                   : async () => false
+        };
+
+        try {
+            const seams = workspace.getDockParticipationConfig();
+
+            // The native-titlebar path: the coordinator suspends the source over a popup target.
+            await expect(seams.suspendNativeWindowDrag('audit', {targetWindowId: 'target-window'})).resolves.toBe(true);
+            expect(workspace.lastVesselParkReceipt).toMatchObject({parked: true});
+            expect(workspace.nativeVesselParkHandlers.parkedVessel.preConversionRect, 'the native park records the content rect')
+                .toEqual(sourceInner);
+
+            // The refused handoff: the terminal restore hands moveTo the frame the park took the window from.
+            await expect(seams.resumeNativeWindowDrag('audit')).resolves.toBe(true);
+            expect(workspace.lastVesselRestoreReceipt).toMatchObject({
+                frame   : {x: sourceOuter.x, y: sourceOuter.y},
+                rect    : sourceInner,
+                terminal: true
+            });
+            // Two platform moves: the park put the source frame on the target's frame origin, the
+            // restore put it back on its own.
+            expect(moveCalls).toHaveLength(2);
+            expect(moveCalls[0]).toMatchObject({x: 780, y: 40});
+            expect(moveCalls[1]).toEqual({
+                nativeHandleKey: 'handle-source',
+                targetWindowId : 'source-window',
+                windowId       : workspace.windowId,
+                x              : sourceOuter.x,
+                y              : sourceOuter.y
+            });
+
+            // The pointer path records the same plane, whatever the sensor sampled.
+            await expect(workspace.getDockProjectionOptions().onDockVesselConversionIn({
+                itemId  : 'audit',
+                record  : {sourceRect: {...sourceOuter}},
+                targetId: Workspace.MAIN_WORKSPACE_ID
+            })).resolves.toBe(true);
+            expect(workspace.vesselParkHandlers.parkedVessel.preConversionRect, 'the pointer park records the content rect')
+                .toEqual(sourceInner)
+        } finally {
+            Neo.main.addon.DragDrop     = originalDragDrop;
+            Neo.Main.getWindowData      = originalGetWindowData;
+            Neo.Main.windowNativeFocus  = originalFocus;
+            Neo.Main.windowNativeMoveTo = originalMove;
+            Neo.manager.Window.get      = originalManagerGet;
+            workspace.destroy()
+        }
+    });
+
     test('a missing source or owner identity refuses reshow before any native dispatch', async () => {
         const
             originalDragDrop = Neo.main.addon.DragDrop,

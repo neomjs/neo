@@ -197,8 +197,10 @@ class VesselPark extends Base {
      * re-fire: ignored.
      * @param {Object} data
      * @param {String} data.itemId
-     * @param {Object} [data.sourceRect] The vessel's live rect at the conversion moment —
-     *     recorded as the restore/origin anchor
+     * @param {Object} [data.sourceRect] The vessel's live CONTENT rect at the conversion moment —
+     *     recorded as the restore/origin anchor. The re-show converts it into the frame origin it
+     *     moves, taking the window's own chrome off it; a frame rect handed in here re-shows the
+     *     window one chrome too high.
      * @param {String} data.windowName
      * @returns {Boolean|Promise<Boolean>}
      */
