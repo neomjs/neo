@@ -262,6 +262,36 @@ adoption.
    invisible to processes with Input Monitoring — measured on Electron 43.1.0: `ioreg` names the
    window's own main process as the secure-input holder while the field has focus, and no holder
    once the window settles. The caret, selection, undo and ⌘V through the Edit menu come with it.
+10. **The first-run setup broker is a named broker** *(amended 2026-10-02, #19366 — for
+    neomjs/neo-agent-institution#384)*: the cockpit's setup card projects the first-run recipe
+    (ADR 0041) inline, and only the shell's main process has host authority to evaluate it, record
+    a consent, keep a credential and run a host effect. The preload exposes six capabilities, each
+    `ipcRenderer.invoke('shell-setup-<name>')`, every handler validating the sender per §2.3.4 and
+    refusing by name a browser boot (`not-packaged`) and a boot without a Brain root
+    (`no-brain-root`) — never a missing handler:
+    - `setupEvaluate({target})` → the recipe's live evaluation for the run's target, the CLI's
+      `--json` shape (`{runId, recordPath, recipeVersion, target, binding, steps, terminal}`).
+    - `setupProbe()` → the placement probe's JSON; `setupPresets()` → the preset table. Both are
+      main's reads; the renderer keeps no copy of a budget or a table.
+    - `setupAnswer({stepId, answer})` → one consent for a CHOICE question (the preset, the advanced
+      fold), answered with the re-evaluated run. A credential question is refused on this route, so
+      no renderer-supplied path is ever admitted as a credential reference.
+    - `setupCredential({stepId})` → the credential window of item 9; main keeps the value as an
+      owner-only file under the host setup root's `credentials/` and records the file's PATH as the
+      consent (ADR 0041: the record holds references, never secrets). The reply is
+      `{evaluation, path}`; no value crosses in either direction.
+    - `setupEffect({effectId})` → one consented host effect through the Brain's shared effect
+      orchestration (the CLI's own module), answered with the re-evaluated run; while that module
+      is not pinned the reply is a named refusal (`unwired: …`) and the card's row becomes the
+      operator's instruction — never a second implementation of the effects in main.
+
+    **Custody:** the record is ADR 0041's one host record per run under the host state root
+    (`NEO_HOST_STATE_ROOT` / `NEO_HOST_SETUP_RECORD_ROOT`, the CLI's names). The broker is the
+    run's one writer while the shell holds it — its record operations are serialized, so two
+    answers landing together never lose a consent — and the CLI resumes the run when the shell is
+    gone. The renderer holds no value, no path it did not receive from main, and no stored status:
+    every row it shows is main's fresh evaluation, and a read that fails turns every row `unknown`
+    with the read's reason.
 
 **Falsifier:** any leaf needing a renderer capability the preload cannot express through a named,
 allowlisted intent amends THIS section first (ADR-0005 lifecycle) — it never flips a window to
