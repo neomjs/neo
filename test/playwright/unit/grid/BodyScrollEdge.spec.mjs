@@ -47,8 +47,11 @@ function createBody(count, config = {}) {
             availableRows : 10,
             bufferRowRange: 3,
             startIndex    : 0,
+            // a model, so the data's own ids and names are record fields a filter can read (a
+            // model-less store keys its records -1, -2, … and drops the rest)
             store         : Neo.create(Store, {
-                data: Array.from({length: count}, (_, i) => ({id: i + 1, name: 'row ' + (i + 1)}))
+                data : Array.from({length: count}, (_, i) => ({id: i + 1, name: 'row ' + (i + 1)})),
+                model: {fields: [{name: 'id', type: 'Int'}, {name: 'name', type: 'String'}]}
             }),
             ...config
         });
@@ -155,7 +158,10 @@ test.describe('Neo.grid.Body — scrollEdge fires once per entry into the store\
         scrollTo(body, 0);
         expect(edges, 'a one-row store is at its edge from the first layout').toEqual([{count: 1, endIndex: 1, startIndex: 0, total: 1}]);
 
+        // an append lands in the filtered view until the filter runs again; the consumer's
+        // projection re-filters on every landed window, so the arm does the same here
         body.store.add(Array.from({length: 10}, (_, i) => ({id: 100 + i, name: 'hidden ' + i})));
+        body.store.filter();
         expect(body.store.count, 'still one visible row').toBe(1);
         expect(body.store.allItems.getCount()).toBe(11);
 
