@@ -639,8 +639,6 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             expect(frameDelta(await readFrame(), homeOuter), `the OS and the manager agree on the home frame ${JSON.stringify({homeOuter, homeScreen})}`)
                 .toBeLessThanOrEqual(TOLERANCE);
 
-            let parkAttempts = 0;
-
             for (let cycle = 1; cycle <= CYCLES; cycle++) {
                 // Each cycle starts from home: the restore's reference is the frame the park took
                 // the window FROM, so a displacement cannot carry into the next cycle's placement.
@@ -661,25 +659,24 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
 
                 expect(parkedFrom, `cycle ${cycle}: manager.Window holds the source's outer rect before the park`).toBeTruthy();
 
-                let park;
+                // A park begins by clearing the previous restore receipt, so "parked, and no restore
+                // receipt" is this cycle's park rather than the last cycle's.
+                let park, restore;
 
                 await expect.poll(async () => {
-                    park = (await app.getComponent(workspaceId, ['lastVesselParkReceipt'])).lastVesselParkReceipt;
+                    ({lastVesselParkReceipt: park, lastVesselRestoreReceipt: restore} =
+                        await app.getComponent(workspaceId, ['lastVesselParkReceipt', 'lastVesselRestoreReceipt']));
 
-                    return park?.parked === true && (park.parkAttempts ?? 0) > parkAttempts
+                    return park?.parked === true && restore == null
                 }, {
-                    message  : `cycle ${cycle}: the native path parks the source behind the target (last receipt ${JSON.stringify(park)})`,
+                    message  : `cycle ${cycle}: the native path parks the source behind the target`,
                     timeout  : 4000,
                     intervals: [25, 50, 100]
                 }).toBe(true);
 
-                parkAttempts = park.parkAttempts ?? parkAttempts + 1;
-
                 // The refusal, inside the widened handoff: the coordinator drops its candidate, settles
                 // the source as rejected and the host restores it at its pre-conversion frame.
                 await app.callMethod(coordId, 'clearNativeWindowDropCandidate', [source.windowId]);
-
-                let restore;
 
                 await expect.poll(async () => {
                     restore = (await app.getComponent(workspaceId, ['lastVesselRestoreReceipt'])).lastVesselRestoreReceipt;
