@@ -89,7 +89,7 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
             .toContain('neo-dock-workspace-placeholder');
 
         // Not the live pane, so the identity guard passes and phase 1 admits it.
-        const result = workspace.prepareRecreateCandidate('editor', livePane);
+        const result = workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
 
         expect(result.ok).toBe(true);
         expect(result.reason).toBeNull();
@@ -127,7 +127,7 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
         // action stays visible so the refusal can be reported rather than hidden.
         workspace.resolveFreshPane = () => null;
 
-        const result = workspace.prepareRecreateCandidate('editor', livePane);
+        const result = workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
 
         expect(result.ok).toBe(false);
         expect(result.reason).toBe('declined');
@@ -140,7 +140,7 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
 
         workspace.resolveFreshPane = () => { throw boom };
 
-        const result = workspace.prepareRecreateCandidate('editor', livePane);
+        const result = workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
 
         expect(result.ok).toBe(false);
         expect(result.reason).toBe('threw');
@@ -152,7 +152,7 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
         // is already mounted; committing that "candidate" would destroy the only copy.
         workspace.resolveFreshPane = () => livePane;
 
-        const result = workspace.prepareRecreateCandidate('editor', livePane);
+        const result = workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
 
         expect(result.ok).toBe(false);
         expect(result.reason).toBe('live-instance');
@@ -173,7 +173,7 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
 
         workspace.resolveFreshPane = () => candidate;
 
-        const result = workspace.prepareRecreateCandidate('editor', livePane);
+        const result = workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
 
         expect(result.ok).toBe(true);
         expect(result.candidate, 'a config is accepted, never refused as the live instance')
@@ -194,7 +194,7 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
 
         for (const factory of factories) {
             workspace.resolveFreshPane = factory;
-            workspace.prepareRecreateCandidate('editor', livePane);
+            workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
 
             expect(livePane.isDestroyed, `factory ${factory} destroyed the live pane`).toBeFalsy()
         }
@@ -205,10 +205,10 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
 
         workspace.resolveFreshPane = (itemId, item) => { seenItem = item; return null };
 
-        workspace.prepareRecreateCandidate('editor', livePane);
+        workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
         expect(seenItem, 'a known id resolves its catalog record').toMatchObject({reference: 'editor'});
 
-        workspace.prepareRecreateCandidate('no-such-item', livePane);
+        workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('no-such-item', livePane);
         expect(seenItem, 'an unknown id resolves null rather than throwing').toBeNull()
     })
 });
@@ -255,14 +255,14 @@ test.describe('dock recreate — Phase 2 replaces the slot before releasing the 
             return realInsert(index, item, ...rest)
         };
 
-        workspace.commitRecreateCandidate(livePane, {module: Component, id: 'recreate-fresh'});
+        workspace.getPlugin('dock-header-actions').commitRecreateCandidate(livePane, {module: Component, id: 'recreate-fresh'});
 
         expect(aliveAtInsert, 'the old pane must outlive its own removal').toBe(true);
         expect(livePane.isDestroyed, 'and be released once the candidate is live').toBe(true)
     });
 
     test('the candidate lands in the SAME slot, leaving siblings in place', () => {
-        const result = workspace.commitRecreateCandidate(livePane, {module: Component, id: 'recreate-fresh'});
+        const result = workspace.getPlugin('dock-header-actions').commitRecreateCandidate(livePane, {module: Component, id: 'recreate-fresh'});
 
         expect(result.ok).toBe(true);
         expect(result.index, 'the replaced slot, not appended at the end').toBe(1);
@@ -287,7 +287,7 @@ test.describe('dock recreate — Phase 2 replaces the slot before releasing the 
         // Validated candidate in hand — the state a caller is in when teardown lands.
         workspace.resolveFreshPane = () => ({module: Component, id: 'recreate-fresh'});
 
-        const prepared = workspace.prepareRecreateCandidate('editor', livePane);
+        const prepared = workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
 
         expect(prepared.ok, 'the transaction must be mid-flight for this arm to mean anything').toBe(true);
 
@@ -295,7 +295,7 @@ test.describe('dock recreate — Phase 2 replaces the slot before releasing the 
 
         livePane.destroy();
 
-        const result = workspace.commitRecreateCandidate(livePane, prepared.candidate);
+        const result = workspace.getPlugin('dock-header-actions').commitRecreateCandidate(livePane, prepared.candidate);
 
         expect(result.ok).toBe(false);
         expect(result.reason).toBe('torn-down');
@@ -309,7 +309,7 @@ test.describe('dock recreate — Phase 2 replaces the slot before releasing the 
     test('a destroyed workspace refuses too — the transaction owner can vanish as well as the pane', () => {
         workspace.destroy();
 
-        const result = workspace.commitRecreateCandidate(livePane, {module: Component, id: 'recreate-fresh'});
+        const result = workspace.getPlugin('dock-header-actions').commitRecreateCandidate(livePane, {module: Component, id: 'recreate-fresh'});
 
         expect(result.ok).toBe(false);
         expect(result.reason).toBe('torn-down');
@@ -321,7 +321,7 @@ test.describe('dock recreate — Phase 2 replaces the slot before releasing the 
     test('a pane with no container, or one its container does not list, refuses without mutating', () => {
         const orphan = Neo.create(Component, {appName: 'DashboardDockRecreateCandidateTest'});
 
-        expect(workspace.commitRecreateCandidate(orphan, {module: Component}).reason).toBe('no-container');
+        expect(workspace.getPlugin('dock-header-actions').commitRecreateCandidate(orphan, {module: Component}).reason).toBe('no-container');
         expect(orphan.isDestroyed, 'a refusal never destroys').toBeFalsy();
 
         orphan.destroy()
@@ -497,7 +497,7 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
         workspace.getActiveDockItemId = () => 'editor';
         workspace.resolveFreshPane    = () => ({module: Component, id: 'fallback-fresh'});
 
-        await workspace.handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
+        await workspace.getPlugin('dock-header-actions').handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
 
         // One activation, one settlement — through the RELOAD channel, whichever path served it.
         expect(settlements.length, 'the activation settles exactly once').toBe(1);
@@ -522,7 +522,7 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
         workspace.getActiveDockItemId = () => 'editor';
         workspace.resolveFreshPane    = () => ({module: Component, id: 'fallback-fresh'});
 
-        await workspace.handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
+        await workspace.getPlugin('dock-header-actions').handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
 
         expect(settlements.length,         'dockReloadSettled fires once').toBe(1);
         expect(recreateSettlements.length, 'and the nested transaction does NOT settle again').toBe(0);
@@ -558,7 +558,7 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
         // Overridden — so the action is visible — but declining this item.
         workspace.resolveFreshPane = () => null;
 
-        await workspace.handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
+        await workspace.getPlugin('dock-header-actions').handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
 
         expect(settlements.length).toBe(1);
         expect(settlements[0].errors[0], 'the refusal reason travels').toContain('declined');
@@ -586,7 +586,7 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
         // would discard both its authority over what reload means and its identity.
         workspace.resolveFreshPane = () => ({module: Component, id: 'fallback-fresh'});
 
-        await workspace.handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
+        await workspace.getPlugin('dock-header-actions').handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
 
         expect(delegated, 'the pane\'s own contract ran').toBe(1);
         expect(tabContainer.getCard(0), 'and it was NOT replaced').toBe(livePane);
@@ -668,7 +668,7 @@ test.describe('dock recreate — a refresh after recreate resolves the candidate
             // assertion afterwards would be vacuous.
             expect(tab.getCardContainer().items[0], 'the harness must project the live pane').toBe(pane);
 
-            const commit = workspace.commitRecreateCandidate(pane, {
+            const commit = workspace.getPlugin('dock-header-actions').commitRecreateCandidate(pane, {
                 module: Component,
                 header: {text: 'Alpha (fresh)'},
                 id    : 'recreate-reconciled-fresh'
@@ -756,6 +756,16 @@ test.describe('Workstation cache adoption', () => {
         Object.defineProperty(workspace, 'stateProvider', {value: null});
         workspace.getStateProvider = () => null;
 
+        // The transaction lives on the header-actions plugin and the façade's `recreateDockPane`
+        // seam delegates to it through `getPlugin`, which reads a config this hand-built `this`
+        // never constructed. Hand-build the plugin the same way, owned by this workspace: the
+        // Workstation's decoration (cache adoption) is what this arm proves, not the plugin lookup.
+        const {default: HeaderActions} = await import('../../../../src/dashboard/dock/plugin/HeaderActions.mjs'),
+              headerActions            = Object.create(HeaderActions.prototype);
+
+        headerActions.owner = workspace;
+        workspace.getPlugin = () => headerActions;
+
         try {
             const
                 freshA = workspace.resolveFreshPane(itemId, item),
@@ -827,7 +837,7 @@ test.describe('dock recreate — a rebuilt pane keeps its FLIP identity', () => 
         // the exact seam that was wrong.
         workspace.resolvePane = () => ({ntype: 'component', cls: ['app-pane']});
 
-        const result = workspace.prepareRecreateCandidate('editor', livePane);
+        const result = workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
 
         expect(result.ok, 'phase 1 admits the candidate').toBe(true);
         expect(result.candidate.cls, 'and the candidate carries the FLIP marker').toContain(MARKER);
@@ -847,7 +857,7 @@ test.describe('dock recreate — a rebuilt pane keeps its FLIP identity', () => 
         // gap open for precisely the hosts most likely to hit it.
         workspace.resolveFreshPane = () => ({ntype: 'component', cls: ['from-consumer-factory']});
 
-        const result = workspace.prepareRecreateCandidate('editor', livePane);
+        const result = workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
 
         expect(result.ok).toBe(true);
         expect(result.candidate.cls, 'an overriding host still gets the engine rule').toContain(MARKER);
@@ -866,7 +876,7 @@ test.describe('dock recreate — a rebuilt pane keeps its FLIP identity', () => 
 
         workspace.resolveFreshPane = () => livePane;
 
-        const result = workspace.prepareRecreateCandidate('editor', livePane);
+        const result = workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
 
         expect(result.ok, 'so the cache-returns-the-live-instance refusal is intact').toBe(false);
         expect(result.reason).toBe('live-instance')
@@ -878,7 +888,7 @@ test.describe('dock recreate — a rebuilt pane keeps its FLIP identity', () => 
         // implementation detail a future refactor could drop.
         workspace.resolveFreshPane = () => ({ntype: 'component', cls: [MARKER, 'app-pane']});
 
-        const result = workspace.prepareRecreateCandidate('editor', livePane);
+        const result = workspace.getPlugin('dock-header-actions').prepareRecreateCandidate('editor', livePane);
 
         const occurrences = result.candidate.cls.filter(entry => entry === MARKER).length;
 

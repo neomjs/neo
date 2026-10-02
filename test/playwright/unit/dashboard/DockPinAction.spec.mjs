@@ -75,7 +75,7 @@ PinWorkspace = Neo.setupClass(PinWorkspace);
 function collapseInspector(workspace) {
     const tabContainer = Reconciler.collectProjectedTabs(workspace.items[0]).get('inspector-tabs');
 
-    return workspace.handleDockPinAction({dockNodeId: 'inspector-tabs', tabContainer})
+    return workspace.getPlugin('dock-header-actions').handleDockPinAction({dockNodeId: 'inspector-tabs', tabContainer})
 }
 
 test.describe('Dock pin action', () => {
@@ -240,7 +240,7 @@ test.describe('Dock pin action', () => {
 
         try {
             const tabContainer = Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs'),
-                  result       = await workspace.handleDockPinAction({dockNodeId: 'center-tabs', tabContainer});
+                  result       = await workspace.getPlugin('dock-header-actions').handleDockPinAction({dockNodeId: 'center-tabs', tabContainer});
 
             expect(result.errors).toEqual(['Dock pin action requires an item owned by an edge zone']);
             expect(workspace.dockModel).toEqual(before)

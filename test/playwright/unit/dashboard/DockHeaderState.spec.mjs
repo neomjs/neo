@@ -194,7 +194,7 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         evaluations.length = 0;
 
-        expect(workspace.handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: center}).errors).toEqual([]);
+        expect(workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: center}).errors).toEqual([]);
 
         expect(evaluationsOf(workspace), 'close reads locked, lock reads locked for pressed, the node re-derives its locked items; nothing else, nowhere else')
             .toEqual(['center-tabs:close.hidden', 'center-tabs:dockLockedItemIds', 'center-tabs:lock.pressed']);
@@ -210,7 +210,7 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         evaluations.length = 0;
 
-        expect(workspace.handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: center}).errors).toEqual([]);
+        expect(workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: center}).errors).toEqual([]);
         await workspace.refreshPromise;
 
         expect(lock.pressed).toBe(false);
@@ -253,7 +253,7 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         const otherCenter = Reconciler.collectProjectedTabs(other.items[0]).get('center-tabs');
 
-        expect(other.handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: otherCenter}).errors).toEqual([]);
+        expect(other.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: otherCenter}).errors).toEqual([]);
         await other.refreshPromise;
         await commit(other, {operation: 'setActiveItem', tabsNodeId: 'center-tabs', itemId: 'beta'});
 
@@ -508,7 +508,7 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         // The sort zone arms the drag token against a mounted DOM; the unit harness arms it by hand.
         button.addWrapperCls('neo-draggable');
 
-        expect(workspace.handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: center}).errors).toEqual([]);
+        expect(workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: center}).errors).toEqual([]);
 
         expect(lock.pressed).toBe(true);
         expect(close.hidden).toBe(true);
@@ -519,7 +519,7 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         await workspace.refreshPromise;
 
-        expect(workspace.handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: center}).errors).toEqual([]);
+        expect(workspace.getPlugin('dock-header-actions').handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: center}).errors).toEqual([]);
         await workspace.refreshPromise;
 
         expect(lock.pressed).toBe(false);
