@@ -73,6 +73,12 @@ const
  */
 class Store extends Collection {
     /**
+     * @member {Boolean} #appendNotification=false Synchronous load-commit continuation context.
+     * @private
+     */
+    #appendNotification = false;
+
+    /**
      * True automatically applies the core.Observable mixin
      * @member {Boolean} observable=true
      * @static
@@ -318,6 +324,26 @@ class Store extends Collection {
         me.isLoaded = true;
 
         return returnValue // Pass raw item directly
+    }
+
+    /**
+     * @summary Adds loaded items while marking their synchronous collection notification as a continuation.
+     * @param {Array|Object} items
+     * @param {Boolean} [append=false]
+     * @returns {Number|Object[]|Neo.data.Model[]}
+     * @private
+     */
+    addLoadedItems(items, append=false) {
+        let me                         = this,
+            previousAppendNotification = me.#appendNotification;
+
+        me.#appendNotification = append;
+
+        try {
+            return me.add(items)
+        } finally {
+            me.#appendNotification = previousAppendNotification
+        }
     }
 
     /**
@@ -940,11 +966,14 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Loads records through the configured Pipeline, API, or URL and optionally appends the result.
      * @param {Object} opts={}
+     * @param {Boolean} [opts.append=false] Append loaded items and preserve continuation position.
      * @param {Object} opts.data
      * @param {Object} opts.headers
      * @param {String} opts.method DELETE, GET, POST, PUT
      * @param {Object} opts.params
+     * @param {Number} [opts.params.page] Page to request; the caller owns page selection and Store does not advance it.
      * @param {String} opts.responseType
      * @param {Object} opts.scope
      * @param {String} opts.url
@@ -953,6 +982,7 @@ class Store extends Collection {
      */
     async load(opts={}) {
         let me     = this,
+            append = !!opts.append,
             params = {page: me.currentPage, pageSize: me.pageSize, ...opts.params};
 
         // Ensure the dummy pipeline is fully constructed before proceeding
@@ -969,14 +999,20 @@ class Store extends Collection {
         }
 
         if (me.pipeline) {
-            if (me.items.length > 0 && !opts.append) {
+            if (me.items.length > 0 && !append) {
                 me.clear();
             }
 
             me.isLoading = true;
 
+            let receivedData = false;
+
             const onData = (data) => {
-                me.add(data);
+                if (data != null && (!Array.isArray(data) || data.length > 0)) {
+                    receivedData = true
+                }
+
+                me.addLoadedItems(data, append);
 
                 // Progressive Rendering:
                 // As soon as we have data, we want the grid to render.
@@ -1023,9 +1059,10 @@ class Store extends Collection {
                         items = Neo.ns(me.responseRoot, false, items) || items;
                     }
 
-                    // If it was a bulk load and not progressive (where onData added them), add them now
-                    if (Array.isArray(items) && items.length > 0 && me.count === 0) {
-                         me.add(items);
+                    // Parser data events have already committed progressive rows. Empty data events do not
+                    // suppress the final bulk response, which can still carry the fetched rows.
+                    if (Array.isArray(items) && items.length > 0 && !receivedData) {
+                        me.addLoadedItems(items, append);
                     }
 
                     me.totalCount = response.totalCount || (response.json && !Array.isArray(response.json) ? response.json.totalCount : null) || me.count;
@@ -1034,7 +1071,7 @@ class Store extends Collection {
                     me.fire('load', {
                         isLoading    : false,
                         items        : me.items,
-                        postChunkLoad: me.pipeline.parser?.ntype === 'parser-stream',
+                        postChunkLoad: append || me.pipeline.parser?.ntype === 'parser-stream',
                         total        : me.totalCount
                     });
                     return me.items;
@@ -1069,10 +1106,17 @@ class Store extends Collection {
 
                 if (response.success) {
                     me.totalCount = response.totalCount;
-                    me.data       = Neo.ns(me.responseRoot, false, response); // fires the load event
+                    const items = Neo.ns(me.responseRoot, false, response);
+
+                    if (append) {
+                        items && me.addLoadedItems(items, true);
+                    } else {
+                        me.data = items; // fires the load event
+                    }
+
                     me.isLoaded   = true;
 
-                    return me.data
+                    return append ? me.items : me.data
                 }
 
                 return null
@@ -1121,7 +1165,7 @@ class Store extends Collection {
             me.fire('load', {
                 isLoading    : !!me.isStreaming,
                 items        : me.items,
-                postChunkLoad: !!me.isStreaming && !isFirstChunk,
+                postChunkLoad: me.#appendNotification || (!!me.isStreaming && !isFirstChunk),
                 total        : me.chunkingTotal
             });
         }
