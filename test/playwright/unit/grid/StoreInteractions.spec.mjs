@@ -309,6 +309,46 @@ test.describe('Grid & Store Interactions', () => {
         // Total deltas roughly 18-20.
         expect(deltas.length).toBeLessThanOrEqual(30);
     });
+
+    test('Store append preserves grid scroll while replacement still requests a reset', async () => {
+        const
+            originalScrollTo = Neo.main.DomAccess.scrollTo,
+            originalRead     = store.pipeline.read,
+            scrollCalls      = [];
+
+        Neo.main.DomAccess.scrollTo = data => scrollCalls.push(data);
+
+        try {
+            // Let any mount-time work settle before observing load-driven scroll requests.
+            await grid.timeout(70);
+
+            store.pipeline.read = async () => ({
+                data      : [{id: 20, name: 'Row 20', score: 200}],
+                totalCount: 21
+            });
+
+            await store.load({append: true, params: {page: 2}});
+            await grid.timeout(70);
+
+            expect(store.items.map(item => item.id)).toEqual(Array.from({length: 21}, (_, index) => index));
+            expect(scrollCalls, 'append is a continuation and must not request a top reset').toEqual([]);
+
+            store.pipeline.read = async () => ({
+                data      : [{id: 100, name: 'Replacement row', score: 1000}],
+                totalCount: 1
+            });
+
+            await store.load({params: {page: 1}});
+            await grid.timeout(70);
+
+            expect(store.items.map(item => item.id)).toEqual([100]);
+            expect(scrollCalls.length, 'ordinary replacement keeps its top-reset behavior').toBeGreaterThan(0);
+            expect(scrollCalls.every(({direction, value}) => direction === 'top' && value === 0)).toBe(true)
+        } finally {
+            store.pipeline.read          = originalRead;
+            Neo.main.DomAccess.scrollTo = originalScrollTo
+        }
+    });
 });
 
 test.describe('Grid & TreeStore Bulk Projection Interactions', () => {
