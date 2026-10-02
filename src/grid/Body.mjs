@@ -298,9 +298,10 @@ class GridBody extends Component {
      */
     #lastMountedColumns = null
     /**
-     * The store count the `scrollEdge` event was last fired for; `null` while the visible window is
-     * away from the edge. See {@link #updateMountedAndVisibleRows}.
-     * @member {Number|null} #scrollEdgeAnnouncedFor=null
+     * The store size the `scrollEdge` event was last fired for, as `visible/total`; `null` while the
+     * visible window is away from the edge. The total is in the key so an append a filter hides
+     * entirely still re-arms the edge. See {@link #updateMountedAndVisibleRows}.
+     * @member {String|null} #scrollEdgeAnnouncedFor=null
      */
     #scrollEdgeAnnouncedFor = null
     /**
@@ -1595,14 +1596,20 @@ class GridBody extends Component {
         me.mountedRows[1] = mountedEnd;
 
         // The scroll edge: the visible window reached the store's last `bufferRowRange` rows.
-        // Announced once per entry and re-armed only by a count change, so a viewport parked at
-        // the edge stays quiet on every further tick, an append that leaves it at the new edge
-        // announces again, and a store shorter than one window announces on its first layout.
-        // A consumer loading a remote corpus window by window requests the next one here.
+        // Announced once per entry and re-armed only by a change of the store's size — its visible
+        // count OR its total behind the filter — so a viewport parked at the edge stays quiet on
+        // every further tick, an append that leaves it at the new edge announces again, an append
+        // the filter hides entirely (the corpus moved, no row did) announces again, and a store
+        // shorter than one window announces on its first layout. A consumer loading a remote
+        // corpus window by window requests the next one here.
         if (countRecords > 0 && endIndex + bufferRowRange >= countRecords) {
-            if (me.#scrollEdgeAnnouncedFor !== countRecords) {
-                me.#scrollEdgeAnnouncedFor = countRecords;
-                me.fire('scrollEdge', {count: countRecords, endIndex, startIndex})
+            const
+                total = store.allItems?.getCount?.() ?? countRecords,
+                size  = `${countRecords}/${total}`;
+
+            if (me.#scrollEdgeAnnouncedFor !== size) {
+                me.#scrollEdgeAnnouncedFor = size;
+                me.fire('scrollEdge', {count: countRecords, endIndex, startIndex, total})
             }
         } else {
             me.#scrollEdgeAnnouncedFor = null
@@ -1643,14 +1650,17 @@ class GridBody extends Component {
 
 /**
  * Fires when the visible window reaches the store's last `bufferRowRange` rows — once per entry,
- * re-armed only by a change of the store's count (see {@link Neo.grid.Body#updateMountedAndVisibleRows}).
- * A consumer that loads a remote corpus window by window requests the next window here; a store
- * shorter than one window announces on its first layout, an empty store never does.
+ * re-armed only by a change of the store's size, its visible count or its total behind the filter
+ * (see {@link Neo.grid.Body#updateMountedAndVisibleRows}). A consumer that loads a remote corpus
+ * window by window requests the next window here; a store shorter than one window announces on
+ * its first layout, an empty store never does, and an appended window a filter hides entirely still
+ * announces, because the corpus moved.
  * @event scrollEdge
  * @param {Object} data
- * @param {Number} data.count      The store's count the edge was announced for.
+ * @param {Number} data.count      The store's visible count the edge was announced for.
  * @param {Number} data.endIndex   The visible window's end (exclusive).
  * @param {Number} data.startIndex The visible window's start.
+ * @param {Number} data.total      The store's total behind its filters.
  * @returns {Object}
  */
 

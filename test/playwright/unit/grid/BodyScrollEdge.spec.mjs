@@ -53,7 +53,7 @@ function createBody(count, config = {}) {
             ...config
         });
 
-    body.on('scrollEdge', ({count, endIndex, startIndex}) => edges.push({count, endIndex, startIndex}));
+    body.on('scrollEdge', ({count, endIndex, startIndex, total}) => edges.push({count, endIndex, startIndex, total}));
 
     return {body, edges}
 }
@@ -83,7 +83,7 @@ test.describe('Neo.grid.Body — scrollEdge fires once per entry into the store\
         expect(edges, 'visible end 46, buffer 3: not yet').toEqual([]);
 
         scrollTo(body, 37);
-        expect(edges, 'visible end 47 + buffer 3 reaches 50').toEqual([{count: 50, endIndex: 47, startIndex: 37}]);
+        expect(edges, 'visible end 47 + buffer 3 reaches 50').toEqual([{count: 50, endIndex: 47, startIndex: 37, total: 50}]);
 
         scrollTo(body, 38);
         scrollTo(body, 40);
@@ -114,7 +114,7 @@ test.describe('Neo.grid.Body — scrollEdge fires once per entry into the store\
         // the consumer appended a short window; the viewport (40..50) still touches the new end
         body.store.add(Array.from({length: 2}, (_, i) => ({id: 51 + i, name: 'row ' + (51 + i)})));
         body.updateMountedAndVisibleRows();
-        expect(edges.at(-1), 're-armed by the count change').toEqual({count: 52, endIndex: 50, startIndex: 40});
+        expect(edges.at(-1), 're-armed by the count change').toEqual({count: 52, endIndex: 50, startIndex: 40, total: 52});
         expect(edges).toHaveLength(2);
 
         // a long window moves the end away; reaching it announces for that count
@@ -122,7 +122,7 @@ test.describe('Neo.grid.Body — scrollEdge fires once per entry into the store\
         body.updateMountedAndVisibleRows();
         expect(edges, '50 + 3 < 100: away from the edge').toHaveLength(2);
         scrollTo(body, 90);
-        expect(edges.at(-1)).toEqual({count: 100, endIndex: 100, startIndex: 90});
+        expect(edges.at(-1)).toEqual({count: 100, endIndex: 100, startIndex: 90, total: 100});
 
         body.destroy()
     });
@@ -132,7 +132,7 @@ test.describe('Neo.grid.Body — scrollEdge fires once per entry into the store\
 
         short.body.updateMountedAndVisibleRows();
         short.body.updateMountedAndVisibleRows();
-        expect(short.edges, 'five rows under a ten-row window').toEqual([{count: 5, endIndex: 5, startIndex: 0}]);
+        expect(short.edges, 'five rows under a ten-row window').toEqual([{count: 5, endIndex: 5, startIndex: 0, total: 5}]);
         short.body.destroy();
 
         const empty = createBody(0);
@@ -140,6 +140,33 @@ test.describe('Neo.grid.Body — scrollEdge fires once per entry into the store\
         empty.body.updateMountedAndVisibleRows();
         expect(empty.edges, 'nothing loaded is not an edge').toEqual([]);
         empty.body.destroy()
+    });
+
+    test('an append a filter hides entirely re-arms the edge: the visible count stays, the total moved (#19359)', () => {
+        // The first consumer's falsifier: fifty replies appended under one collapsed thread head
+        // change nothing the viewport can see, and a count-keyed latch would never announce again,
+        // so a one-row viewport could not reach the next window at all.
+        const {body, edges} = createBody(1);
+
+        // the same filter shape the pooling specs use: only id 1 passes
+        body.store.filters = [{property: 'id', operator: '<', value: 2}];
+        expect(body.store.count, 'one visible row').toBe(1);
+
+        scrollTo(body, 0);
+        expect(edges, 'a one-row store is at its edge from the first layout').toEqual([{count: 1, endIndex: 1, startIndex: 0, total: 1}]);
+
+        body.store.add(Array.from({length: 10}, (_, i) => ({id: 100 + i, name: 'hidden ' + i})));
+        expect(body.store.count, 'still one visible row').toBe(1);
+        expect(body.store.allItems.getCount()).toBe(11);
+
+        body.updateMountedAndVisibleRows();
+        expect(edges.at(-1), 're-armed by the total').toEqual({count: 1, endIndex: 1, startIndex: 0, total: 11});
+        expect(edges).toHaveLength(2);
+
+        body.updateMountedAndVisibleRows();
+        expect(edges, 'no size change: quiet').toHaveLength(2);
+
+        body.destroy()
     });
 
     test('shrinking the store re-arms the edge for the smaller count', () => {
