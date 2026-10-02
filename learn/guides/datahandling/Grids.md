@@ -761,8 +761,10 @@ store's `total` behind its filters for consumers that want to show it. Listen on
 append it to the store:
 
 ```javascript readonly
-myGrid.body.on('scrollEdge', async ({count}) => {
-    const next = await loadWindow({offset: count}); // your own source; it says when nothing follows
+myGrid.body.on('scrollEdge', async ({total}) => {
+    // the next window starts after every row the store HOLDS, filtered ones included — `total`,
+    // never the visible `count` (with 11 held and 1 visible, `count` would re-request from 1)
+    const next = await loadWindow({offset: total}); // your own source; it says when nothing follows
 
     next.rows.length > 0 && myGrid.store.add(next.rows)
 });
