@@ -1471,7 +1471,7 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * Resolves the CONTENT rect the park records as its restore anchor. The conversion samples the
+     * @summary Resolves the CONTENT rect the park records as its restore anchor. The conversion samples the
      * frame ({@link #resolveVesselConversionSourceRect}: the plane the pointer rides and the park
      * admission reads), but the re-show converts the rect it is handed into a frame origin by
      * taking the window's own chrome off it — so the anchor must be the content rect, or the
