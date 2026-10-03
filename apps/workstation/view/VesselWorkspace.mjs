@@ -501,7 +501,7 @@ class VesselWorkspace extends DockWorkspace {
 
                 return me.vesselParkHandlers.onConversionIn({
                     itemId    : data.itemId,
-                    sourceRect: data.record?.sourceRect ?? null,
+                    sourceRect: me.resolveVesselRestoreAnchor(data.itemId),
                     windowName: me.resolveTearOutVessel(data.itemId)?.windowName
                 })
             },
@@ -555,7 +555,7 @@ class VesselWorkspace extends DockWorkspace {
 
                 return me.nativeVesselParkHandlers.onConversionIn({
                     itemId,
-                    sourceRect: me.resolveVesselConversionSourceRect({itemId}),
+                    sourceRect: me.resolveVesselRestoreAnchor(itemId),
                     windowName: me.resolveTearOutVessel(itemId)?.windowName
                 })
             }
@@ -1466,6 +1466,25 @@ class VesselWorkspace extends DockWorkspace {
         let windowId = this.resolveTearOutVessel(itemId)?.windowId,
             record   = windowId && Neo.manager?.Window?.get(windowId),
             rect     = record?.outerRect ?? record?.innerRect;
+
+        return rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
+    }
+
+    /**
+     * @summary Resolves the CONTENT rect the park records as its restore anchor. The conversion samples the
+     * frame ({@link #resolveVesselConversionSourceRect}: the plane the pointer rides and the park
+     * admission reads), but the re-show converts the rect it is handed into a frame origin by
+     * taking the window's own chrome off it — so the anchor must be the content rect, or the
+     * window re-shows one chrome too high. A child publishing no inner rect records its outer one:
+     * chrome-less, the two coincide.
+     * @param {String|null} itemId
+     * @returns {Object|null}
+     * @protected
+     */
+    resolveVesselRestoreAnchor(itemId) {
+        let windowId = this.resolveTearOutVessel(itemId)?.windowId,
+            record   = windowId && Neo.manager?.Window?.get(windowId),
+            rect     = record?.innerRect ?? record?.outerRect;
 
         return rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
     }
