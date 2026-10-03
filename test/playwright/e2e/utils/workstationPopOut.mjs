@@ -72,7 +72,10 @@ export async function mainParticipationId(app) {
  *     engine façade keeps the target across projections, so the claim's zone is the registered one. A caller
  *     that merely reads state does not need it and should not pay for it — it is a real wait. This is
  *     a parameter rather than an unconditional step so that omitting it stays a decision.
- * @returns {Promise<{popup: Object, windowId: String}>}
+ * @returns {Promise<{bodyRect: Object, nodeRect: Object, popup: Object, windowId: String}>} Both rects
+ *     are read in the main window right before the pop-out click, in its CSS pixels: `nodeRect` is the
+ *     tabs node the pane leaves (header strip + body — the footprint the engine sizes the vessel to,
+ *     `HeaderActions#measureDockPaneRect`), `bodyRect` the pane alone.
  */
 export async function popOut({app, page, workspaceId, itemId, settleForClaim=false}) {
     const
@@ -108,7 +111,16 @@ export async function popOut({app, page, workspaceId, itemId, settleForClaim=fal
         return Boolean(action?.id && await page.locator(`#${action.id}`).isVisible())
     }, {message: `pop-out is user-reachable for ${itemId}`, timeout: 10000}).toBe(true);
 
-    const popupPromise = page.waitForEvent('popup', {timeout: 30000});
+    // The engine sizes the vessel to the tabs node's rect (HeaderActions#measureDockPaneRect) in the
+    // same frame the action runs, so both rects are read here, before the click, as the caller's
+    // independent reading of the footprint the popup must come up with.
+    const
+        bodyRect     = await page.locator(`#${paneId}`).boundingBox(),
+        nodeRect     = await page.locator(`#${chrome.containerId}`).boundingBox(),
+        popupPromise = page.waitForEvent('popup', {timeout: 30000});
+
+    expect(bodyRect, `${itemId}'s pane has a bounding box before the pop-out`).toBeTruthy();
+    expect(nodeRect, `${itemId}'s tabs node has a bounding box before the pop-out`).toBeTruthy();
 
     await page.locator(`#${action.id}`).click();
 
@@ -144,5 +156,5 @@ export async function popOut({app, page, workspaceId, itemId, settleForClaim=fal
             .toBe(mainBefore)
     }
 
-    return {popup, windowId}
+    return {bodyRect, nodeRect, popup, windowId}
 }
