@@ -620,6 +620,14 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                 goalLeft                             = Math.round(targetInner.x + 24 - inset),
                 goalTop                              = Math.round(targetInner.y + 24 - inset),
                 readFrame                            = async () => {
+                    // A frame placed one chrome low can re-enter the target's drop zone and commit the
+                    // handoff the cycle refused: the vessel retires and the popup closes mid-poll. A
+                    // closed popup reads as no frame at all, so the footprint assertion fails on its
+                    // own message instead of on an evaluate against a closed page.
+                    if (source.popup.isClosed()) {
+                        return {closed: true, manager: null, os: null}
+                    }
+
                     const screen = await readScreen(source.popup), outer = await readManagerRect(app, managerId, source.windowId);
 
                     return {
@@ -674,6 +682,11 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                     intervals: [25, 50, 100]
                 }).toBe(true);
 
+                // A park that lands the frame one chrome low can push its corner into the main window
+                // and reintegrate the pane, which closes the popup: the witness names that before any
+                // read against the closed page would.
+                expect(source.popup.isClosed(), `cycle ${cycle}: the source vessel survives the park (receipt ${JSON.stringify(park)})`).toBe(false);
+
                 // The refusal, inside the widened handoff: the coordinator drops its candidate, settles
                 // the source as rejected and the host restores it at its pre-conversion frame.
                 await app.callMethod(coordId, 'clearNativeWindowDropCandidate', [source.windowId]);
@@ -695,13 +708,15 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                 let frame;
 
                 await expect.poll(async () => frameDelta(frame = await readFrame(), parkedFrom), {
-                    message  : `cycle ${cycle}: the source re-shows at the outer footprint it was parked from ${JSON.stringify({chrome, parkedFrom, restore})}`,
+                    message  : `cycle ${cycle}: the source re-shows at the outer footprint it was parked from, and stays open ${JSON.stringify({chrome, parkedFrom, restore})}`,
                     timeout  : 5000,
                     intervals: [25, 50, 100]
                 }).toBeLessThanOrEqual(TOLERANCE);
 
                 expect((await readNativeLifecycle(app, workspaceId)).owners[SOURCE_ITEM]?.windowId,
                     `cycle ${cycle}: the pane still lives in the source vessel`).toBe(source.windowId);
+
+                expect(frame.closed, `cycle ${cycle}: the source vessel is still open after the re-show`).toBeUndefined();
 
                 cycles.push({cycle, frame, parkedFrom, park: {parkAttempts: park.parkAttempts, requested: park.requested ?? null}, restore: {
                     addonRestored: restore.addonRestored ?? null, frame: restore.frame, moved: restore.moved ?? null, rect: restore.rect, terminal: restore.terminal
