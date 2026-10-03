@@ -263,16 +263,24 @@ adoption.
    window's own main process as the secure-input holder while the field has focus, and no holder
    once the window settles. The caret, selection, undo and ⌘V through the Edit menu come with it.
 10. **The first-run setup broker is a named broker** *(amended 2026-10-02, #19366 — for
-    neomjs/neo-agent-institution#384)*: the cockpit's setup card projects the first-run recipe
+    neomjs/neo-agent-institution#384; 2026-10-03, #19377 — the effect channel is wired,
+    neomjs/neo-agent-institution#440; 2026-10-03, #19382 — a fresh run can be requested,
+    neomjs/neo-agent-institution#475)*: the cockpit's setup card projects the first-run recipe
     (ADR 0041) inline, and only the shell's main process has host authority to evaluate it, record
     a consent, keep a credential and run a host effect. The preload exposes six capabilities, each
     `ipcRenderer.invoke('shell-setup-<name>')`. Every handler validates the sender per §2.3.4 — an
     untrusted sender rejects the invoke — and answers one envelope shape: `{ok: true, …}` with the
     named result, or a named refusal `{ok: false, reason, …}`; a browser boot refuses
     `not-packaged`, a boot without a Brain root `no-brain-root` — never a missing handler:
-    - `setupEvaluate({target})` → `{ok: true, evaluation}`, the recipe's live evaluation for the
-      run's target in the CLI's `--json` shape, nested as it comes:
+    - `setupEvaluate({target, fresh})` → `{ok: true, evaluation}`, the recipe's live evaluation for
+      the run's target in the CLI's `--json` shape, nested as it comes:
       `evaluation = {runId, recordPath, recipeVersion, target, binding, bindingReason, steps, terminal}`.
+      `fresh: true` starts a NEW run for the target, the shell's form of a CLI run that names no run
+      id: the broker binds a new record and answers `{ok: true, evaluation, retiredRunId}`. The run
+      it held stays on disk as history, unread and unchanged — nothing is deleted and no receipt is
+      replayed; what is already in place reads `ok` from the host's own observation. It is the one
+      request a broker still answers when the record it holds cannot be read. The request names no
+      run (the broker's binding is the run), so a fresh run cannot contradict a resume.
     - `setupProbe()` → `{ok: true, probe}`, the placement probe's JSON; `setupPresets()` →
       `{ok: true, presets}`, the preset table. Both are main's reads; what the renderer holds of
       them is a projection of main's last answer, never a budget or a table of its own.
@@ -285,13 +293,15 @@ adoption.
       owner-only file under the host setup root's `credentials/` and records the file's PATH as the
       consent (ADR 0041: the record holds references, never secrets). The reply names the path. A
       canceled window refuses `canceled`.
-    - `setupEffect({effectId})` → `{ok: true, evaluation}` once the shell runs the one consented
-      host effect through the Brain's shared effect orchestration (the CLI's own module), answered
-      with the re-evaluated run. **As recorded here, the handler refuses every call by name
-      (`unwired: …`):** the card's row becomes the operator's instruction (run the CLI on the host,
-      then re-check), and no second implementation of the effects exists in main. Wiring the
-      handler to the orchestration module is neomjs/neo-agent-institution#440's, after a Brain pin
-      carries the module; the pin alone enables nothing.
+    - `setupEffect({effectId})` → `{ok: true, evaluation}`: the shell runs the one consented host
+      effect through the Brain's shared effect orchestration (the CLI's own module) — its settle
+      pass first, then the named effect in the recipe's order rules, where an earlier effect that
+      is not `ok` halts it — and answers with the re-evaluated run. A refusal the orchestration
+      reports (the preset's env set, the credential composition) writes nothing and answers
+      `{ok: false, reason, effectId}` in the orchestration's words; the card shows it as the
+      shell's word on that effect. Only a shell that cannot run effects at all (`not-packaged`,
+      `no-brain-root`) turns the card's row into the operator's instruction: run the CLI on the
+      host, then re-check. No second implementation of the effects exists in main.
 
     Across these six channels no credential value crosses the IPC in either direction; the window
     of item 9 remains the one renderer that holds one.
@@ -300,9 +310,12 @@ adoption.
     (`NEO_HOST_STATE_ROOT` / `NEO_HOST_SETUP_RECORD_ROOT`, the CLI's names). Within the shell the
     broker is the run's writer and its record operations are serialized — a consent's file write and
     its acceptance are one operation, so two answers or two windows landing together never lose a
-    consent or bind a path to another window's value. This is broker-local ordering, not a
-    cross-process exclusion: the CLI and the shell are not expected to drive one run at the same
-    time, and the record's digest-checked receipts make a crossed write visible as
+    consent or bind a path to another window's value. Every operation starts from the record on
+    disk, never from a copy the broker kept: an effect whose acknowledgement write the host
+    rejected is found `pending` by the next request and settled by observation (ADR 0041), and a
+    record the broker cannot read refuses every operation but a fresh run. This is broker-local
+    ordering, not a cross-process exclusion: the CLI and the shell are not expected to drive one
+    run at the same time, and the record's digest-checked receipts make a crossed write visible as
     `reconcile-required`, never as a replay. The renderer holds no credential value, no path it did
     not receive from main, and no stored status: every row it shows is main's fresh evaluation, and
     a read that fails turns every row `unknown` with the read's reason.
