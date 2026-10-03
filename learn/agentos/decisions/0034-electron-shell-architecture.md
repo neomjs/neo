@@ -146,6 +146,15 @@ adoption.
    one. The shell's popup admission follows the engine's staging contract, and a change to either
    re-reads the other. A handler that admits documents alone refuses every product popup, and does
    so silently (`windowOpen` resolves `false`).
+   **The external hand-off** *(amended 2026-10-03, #19380 — for
+   neomjs/neo-agent-institution#493)*: a denied window-open whose URL is `https:` on an allowlisted
+   host and carries no credentials is handed to the system browser with `shell.openExternal`; the
+   in-app window stays denied. The allowlist is `github.com`, the one host the cockpit's citations
+   and merge-queue rows link to; an addition amends this paragraph. `will-navigate` is unchanged —
+   same-window off-origin navigation stays denied — so nothing foreign ever renders inside the
+   shell: the policy still decides what the shell SHOWS, and the hand-off decides only where an
+   operator's own click on a pull request lands. A URL the hand-off refuses opens nothing, as
+   before.
 3. **Permissions and content:** a `setPermissionRequestHandler` that denies by default with a
    named, minimal allowlist (empty until a leaf needs one — additions amend this section); a
    restrictive CSP served by the `app://` handler for every document; no remote documents,
@@ -432,7 +441,7 @@ violates this section on its face — shell awareness lives in the packaging roo
 |---|---|---|
 | E1 — build root (#13033, exists, owner @neo-opus-ada) | **as its live Contract Ledger stands:** packaging root + main entry, hosting-arm spike, Agent-OS boot, first harness window, popup windows joining the shared workers, and the window-management bridge enhancement points | §2.1, §2.6 (frame only — the leaf's ledger is consumed unchanged) |
 | E2 — origin + scheme hardening (post-E1) | `app://` privileged scheme with C1's FULL privilege set (`supportFetchAPI` normative), stable origin, CSP delivery, the fetch/JSON smoke, harness-smoke re-run ownership | §2.2 C1/C5/C6, §2.3.3, §2.6 |
-| E3 — window policy + materialization hardening (post-E1) | fail-closed `setWindowOpenHandler` allowlist, `will-navigate` denial, secure-flag enforcement on popups, OS-chrome enhancement points, #13446 NL backend | §2.2 C3, §2.3.1–.4, §2.4 |
+| E3 — window policy + materialization hardening (post-E1) | fail-closed `setWindowOpenHandler` allowlist + the allowlisted external hand-off to the system browser, `will-navigate` denial, secure-flag enforcement on popups, OS-chrome enhancement points, #13446 NL backend | §2.2 C3, §2.3.1–.4, §2.4 |
 | E4 — Brain lifecycle service | start/stop/restart with settle-or-reject, port management, data-root injection | §2.1.1–.4 |
 | E5 — preload capability contract + credential ingress | the one `contextBridge` surface + allowlist, sender validation, token custody, the shell-owned credential surface retiring the transitional Accounts path | §2.3.4–.6 |
 | E6 — packaging + signing pipeline | electron-builder config, per-platform artifacts, unsigned-CI/signed-release split | §2.5 |
