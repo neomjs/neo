@@ -1,6 +1,7 @@
 import {expect, test}           from '../../fixtures.mjs';
 import {readNativeLifecycle}    from '../utils/dockNativeLifecycle.mjs';
 import {callWorkstationGesture} from '../utils/workstationGesture.mjs';
+import {popOut}                 from '../utils/workstationPopOut.mjs';
 
 /**
  * @summary The native-titlebar popup drag: previews and reintegration with no pointer event at all.
@@ -109,6 +110,106 @@ async function readManagerRect(app, managerId, windowId) {
 
     return state.windows.find(win => win.id === windowId)?.outerRect ?? null
 }
+
+test.describe('Workstation — tear-out size (#19375)', () => {
+    // The real display, not Playwright's emulated viewport: under emulation a popup's outerWidth and
+    // outerHeight are not the frame the window server drew, and the default 1280x720 viewport leaves
+    // the Commit Stream body below the vessel's 320x240 floor.
+    test.use({viewport: null});
+
+    test('a pane popped out through the header action is born at the OUTER size of the tabs node it left', async ({page, neuralLink}) => {
+        // The engine's contract: the header action measures the tabs node (header strip + body),
+        // `windowOpen` passes that rect as the window features and then `resizeTo`s the OUTER frame
+        // to it (`useTotalHeight`), so the vessel covers exactly the footprint the pane left and
+        // overlaps no neighbour; the content is smaller by the chrome. A content-sized resize passes
+        // every unit test that supplies the numbers and comes up one chrome short on screen — so the
+        // node's rect is read here, from the live DOM, before the click, and the popup's frame is read
+        // from the OS and from manager.Window after adoption.
+        const
+            TOLERANCE  = 1,
+            pageErrors = [];
+        let popup;
+
+        page.on('pageerror', error => pageErrors.push(String(error.stack || error.message || error)));
+
+        try {
+            await page.goto('/apps/workstation/index.html');
+            await page.waitForSelector('.workstation-workspace', {timeout: 30000});
+
+            const
+                app         = await neuralLink.connectToApp('Workstation'),
+                workspaceId = asArray(await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']))[0]?.id,
+                managerId   = asArray(await app.findInstances({className: 'Neo.manager.Window'}, ['id']))[0]?.id;
+
+            expect(workspaceId, 'one live Workspace').toBeTruthy();
+            expect(managerId, 'manager.Window is live').toBeTruthy();
+
+            // The centre `scale-tabs` node's ACTIVE pane: its body clears the vessel's 320x240 floor on
+            // the real display, where the side columns (220–284 px wide) do not, and the active tab is
+            // the one whose header the overflow menu never hides.
+            const
+                {dockModel} = await app.getComponent(workspaceId, ['dockModel']),
+                itemId      = dockModel?.nodes?.['scale-tabs']?.activeItemId;
+
+            expect(itemId, 'scale-tabs has an active pane').toBeTruthy();
+
+            const born = await popOut({app, page, workspaceId, itemId});
+
+            popup = born.popup;
+
+            const
+                {bodyRect, nodeRect, windowId} = born,
+                expected                       = {height: Math.round(nodeRect.height), width: Math.round(nodeRect.width)},
+                readFrame                      = async () => {
+                    const
+                        screen = await popup.evaluate(() => ({
+                            innerHeight: globalThis.innerHeight, innerWidth: globalThis.innerWidth,
+                            outerHeight: globalThis.outerHeight, outerWidth: globalThis.outerWidth
+                        })),
+                        outer  = await readManagerRect(app, managerId, windowId);
+
+                    return {
+                        chrome : {side: (screen.outerWidth - screen.innerWidth) / 2, top: screen.outerHeight - screen.innerHeight},
+                        manager: outer && {height: outer.height, width: outer.width},
+                        os     : {height: screen.outerHeight, width: screen.outerWidth}
+                    }
+                },
+                sizeDelta            = frame => !frame.manager ? Infinity : Math.max(
+                    Math.abs(frame.os.width - expected.width),      Math.abs(frame.os.height - expected.height),
+                    Math.abs(frame.manager.width - expected.width), Math.abs(frame.manager.height - expected.height)
+                );
+
+            // The host clamps a vessel to 320x240; a node below that is enlarged by design and is not
+            // this arm's subject.
+            test.skip(expected.width < 320 || expected.height < 240, `the tabs node (${expected.width}x${expected.height}) sits below the vessel's 320x240 floor`);
+
+            // The engine's resizeTo lands asynchronously; the frame is read until it settles, and the
+            // LAST reading travels with the assertion so a failure names the frame, not a timeout.
+            let frame, settled = false;
+
+            for (const deadline = Date.now() + 5000; Date.now() < deadline && !settled;) {
+                settled = sizeDelta(frame = await readFrame()) <= TOLERANCE;
+                settled || await popup.waitForTimeout(50)
+            }
+
+            expect(sizeDelta(frame), `the popup's OUTER frame, as the OS and manager.Window read it, equals the tabs node it left ${JSON.stringify({expected, frame})}`)
+                .toBeLessThanOrEqual(TOLERANCE);
+
+            // Without window chrome, outer and inner coincide and a content-sized resize would pass
+            // this arm unseen: the receipt says so instead of claiming a witness it cannot be.
+            test.skip(frame.chrome.top === 0 && frame.chrome.side === 0, `the popup renders no window chrome (outer ${frame.os.width}x${frame.os.height} = inner): frame and content coincide, so a size witness cannot see the class here`);
+
+            const receipt = JSON.stringify({body: {height: Math.round(bodyRect.height), width: Math.round(bodyRect.width)}, frame, node: expected});
+
+            test.info().annotations.push({type: 'tear-out-outer-size', description: receipt});
+            console.log('[tear-out-outer-size]', receipt);
+
+            expect(pageErrors, 'no page errors during the pop-out').toEqual([])
+        } finally {
+            popup && !popup.isClosed() && await popup.close()
+        }
+    })
+});
 
 test.describe('Workstation — native titlebar popup drag (#18029)', () => {
     test('a popup moved by its OS titlebar previews the zone under its corner and reintegrates there under dwell', async ({page, neuralLink}) => {
