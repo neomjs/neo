@@ -264,16 +264,23 @@ adoption.
    once the window settles. The caret, selection, undo and ⌘V through the Edit menu come with it.
 10. **The first-run setup broker is a named broker** *(amended 2026-10-02, #19366 — for
     neomjs/neo-agent-institution#384; 2026-10-03, #19377 — the effect channel is wired,
-    neomjs/neo-agent-institution#440)*: the cockpit's setup card projects the first-run recipe
+    neomjs/neo-agent-institution#440; 2026-10-03, #19382 — a fresh run can be requested,
+    neomjs/neo-agent-institution#475)*: the cockpit's setup card projects the first-run recipe
     (ADR 0041) inline, and only the shell's main process has host authority to evaluate it, record
     a consent, keep a credential and run a host effect. The preload exposes six capabilities, each
     `ipcRenderer.invoke('shell-setup-<name>')`. Every handler validates the sender per §2.3.4 — an
     untrusted sender rejects the invoke — and answers one envelope shape: `{ok: true, …}` with the
     named result, or a named refusal `{ok: false, reason, …}`; a browser boot refuses
     `not-packaged`, a boot without a Brain root `no-brain-root` — never a missing handler:
-    - `setupEvaluate({target})` → `{ok: true, evaluation}`, the recipe's live evaluation for the
-      run's target in the CLI's `--json` shape, nested as it comes:
+    - `setupEvaluate({target, fresh})` → `{ok: true, evaluation}`, the recipe's live evaluation for
+      the run's target in the CLI's `--json` shape, nested as it comes:
       `evaluation = {runId, recordPath, recipeVersion, target, binding, bindingReason, steps, terminal}`.
+      `fresh: true` starts a NEW run for the target, the shell's form of a CLI run that names no run
+      id: the broker binds a new record and answers `{ok: true, evaluation, retiredRunId}`. The run
+      it held stays on disk as history, unread and unchanged — nothing is deleted and no receipt is
+      replayed; what is already in place reads `ok` from the host's own observation. It is the one
+      request a broker still answers when the record it holds cannot be read. The request names no
+      run (the broker's binding is the run), so a fresh run cannot contradict a resume.
     - `setupProbe()` → `{ok: true, probe}`, the placement probe's JSON; `setupPresets()` →
       `{ok: true, presets}`, the preset table. Both are main's reads; what the renderer holds of
       them is a projection of main's last answer, never a budget or a table of its own.
@@ -306,9 +313,9 @@ adoption.
     consent or bind a path to another window's value. Every operation starts from the record on
     disk, never from a copy the broker kept: an effect whose acknowledgement write the host
     rejected is found `pending` by the next request and settled by observation (ADR 0041), and a
-    record the broker cannot read refuses the operation. This is broker-local ordering, not a
-    cross-process exclusion: the CLI and the shell are not expected to drive one run at the same
-    time, and the record's digest-checked receipts make a crossed write visible as
+    record the broker cannot read refuses every operation but a fresh run. This is broker-local
+    ordering, not a cross-process exclusion: the CLI and the shell are not expected to drive one
+    run at the same time, and the record's digest-checked receipts make a crossed write visible as
     `reconcile-required`, never as a replay. The renderer holds no credential value, no path it did
     not receive from main, and no stored status: every row it shows is main's fresh evaluation, and
     a read that fails turns every row `unknown` with the read's reason.
