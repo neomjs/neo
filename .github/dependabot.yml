@@ -15,6 +15,13 @@ updates:
     directory: "/"
     schedule:
       interval: daily
+    # Unconfigured, Dependabot holds every version update for three days. Our own Skills release
+    # is exempt: it is reviewed where it is made and again at this repository's merge, and three
+    # days of hold is three days of agents here reading superseded rules. Everything else keeps
+    # the default, made explicit; security updates were never held.
+    cooldown:
+      default-days: 3
+      exclude: ["neo-agent-skills"]
     groups:
       all-deps:
         patterns: ["*"]
