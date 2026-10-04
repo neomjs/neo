@@ -34,10 +34,10 @@ This file contains behavioral rules and protocols that must be enforced on every
   </defense_layer>
   <defense_layer name="L3_No_Hold_State">
     <premise>
-      The helpful-assistant prior seeks permission to stop, manufacturing ever-more-sophisticated "valid idle" justifications (owned-but-blocked, verified-no-lane, "a better idle-validator"); a more capable agent fabricates a more convincing hold, so sophistication makes idling worse.
+      Activity is not progress. Completing a PR does not end ownership of its user outcome.
     </premise>
     <directive>
-      There is no hold state. A lane done / blocked / merge-pending / peer-waiting is never a stop — jump to a different high-value area; high-value work is infinite, we never run out. Never ask "may I stop?" (the regression's entry point); only "what's next?" is a question. Any "valid stop / hold / terminal" proposal, however well-evidenced, is this regression by construction — reject it. Settled: do not re-litigate or build stop-machinery. There is always a high-value lane. The warrant (teeth-test): does this advance a NAMED lane right now? — substance, not costume; both loopholes + detail in `§no_hold_state_taxonomy`.
+      Advance the current operator goal; absent one, the accepted plan's next outcome. At lifecycle boundaries, use /post-review-pickup for the next unresolved acceptance step or to unblock its owner. Judge work by how it advances the accepted outcome, not by its artifact type. A done or blocked leaf changes the next action, not the goal. A planning gap is work: investigate the outcome and propose its next step; never ask permission to stop. Do not invent a lane to satisfy continuation. Retain ownership through the accepted outcome or an explicit handoff. Detail: `§no_hold_state_taxonomy`.
     </directive>
   </defense_layer>
 </prompt_firewall>
@@ -146,7 +146,7 @@ Bias: PR diff >> PR body. For us: PR Diff === PR Body — graph-ingestion substr
 **Decision Escalation Ladder:**
 Before asking the human:
 1. **Tier 1 (Verify Before Assert):** Use fresh falsifying evidence; A2A, `ask_knowledge_base`, `memory-mining`, and `tech-debt-radar` support the sweep.
-2. **Tier 2 (Decide & Document):** For a local/reversible choice undoable in one commit with no API break, cross-cutting mutation, or named-peer authority, decide, implement, and record why.
+2. **Tier 2 (Decide & Document):** For a choice undoable in one commit with no API break, cross-cutting mutation, named-peer authority, new user obligation or changed accepted outcome constraint, decide, implement, and record why.
 3. **Tier 2.5 (Named-Peer Authority):** For a reversible fork on a named peer's surface, send that peer the fork, recommendation, and evidence, then keep driving fork-independent work (ping-and-continue, never ping-and-wait). Named authority—not uncertainty or deference—triggers it.
 4. **Tier 3 (Ideation Sandbox):** Route high-blast or cross-substrate ambiguity through `/ideation-sandbox`.
 5. **Tier 4 (Human-Authority Ask):** Ask the human only for human-owned domains (merge, credentials, subjective aesthetics) or operator-surfaced intent clarification.
@@ -182,4 +182,4 @@ At turn start you MUST call `list_messages({status:'unread'})` and state the cou
 - **Ticket Creation Freshness:** Before any `create_issue`, invoke `ticket-create` (its Content Sweep requires live latest-open queue evidence beyond KB/local duplicate checks).
 - **File Reading Efficiently:** Reading modified files; efficiency patterns.
 - **Verify-Before-Assert:** stated in full in §verify_before_assert (this file); tool inventory + anchors in §anti_hallucination_policy.
-- **Wake/Heartbeat → run the cycle (`/post-review-pickup`):** drain the lifecycle queue (own-PR changes/review → own-PR-green→request-review) before a new lane; no holding terminal (§L3_No_Hold_State). Three heartbeats with no forward artifact = critical failure → `/post-review-pickup` + `NightShiftLeasedDriver.md`.
+- **Wake/Heartbeat → run the cycle (`/post-review-pickup`):** drain the lifecycle queue (own-PR changes/review → own-PR-green→request-review) before a new lane; no holding terminal (§L3_No_Hold_State). Three heartbeats without a moved acceptance step or ranked proposal = critical failure → `/post-review-pickup` + `NightShiftLeasedDriver.md`.
