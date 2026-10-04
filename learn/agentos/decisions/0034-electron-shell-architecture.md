@@ -295,15 +295,22 @@ adoption.
       owner-only file under the host setup root's `credentials/` and records the file's PATH as the
       consent (ADR 0041: the record holds references, never secrets). The reply names the path. A
       canceled window refuses `canceled`.
-    - `setupEffect({effectId})` → `{ok: true, evaluation}`: the shell runs the one consented host
-      effect through the Brain's shared effect orchestration (the CLI's own module) — its settle
-      pass first, then the named effect in the recipe's order rules, where an earlier effect that
-      is not `ok` halts it — and answers with the re-evaluated run. A refusal the orchestration
-      reports (the preset's env set, the credential composition) writes nothing and answers
+    - `setupEffect({effectId, newAttempt})` → `{ok: true, evaluation}`: the shell runs the one
+      consented host effect through the Brain's shared effect orchestration (the CLI's own
+      module) — its settle pass first, then the named effect in the recipe's order rules, where an
+      earlier effect that is not `ok` halts it — and answers with the re-evaluated run. An effect
+      that ran answers the run whatever came of it: its receipt moved, and its row carries the
+      outcome and the reason (a witness written whose recall has not landed; a write the plane
+      refused). Only a report that moved nothing (the preset's env set, the credential
+      composition, a halt behind an unsettled effect) writes nothing and answers
       `{ok: false, reason, effectId}` in the orchestration's words; the card shows it as the
-      shell's word on that effect. Only a shell that cannot run effects at all (`not-packaged`,
-      `no-brain-root`) turns the card's row into the operator's instruction: run the CLI on the
-      host, then re-check. No second implementation of the effects exists in main.
+      shell's word on that effect. `newAttempt: true` is the operator's explicit consent to write
+      the first-run witness again: admitted only for `effectId: 'verify'`, and only when the
+      Brain's evaluated row names a new attempt as its exit; anywhere else it is refused by name
+      and nothing runs. Its stated cost is a possible second row on the plane. Neither main nor
+      the card reads a reason sentence to decide. Only a shell that cannot run effects at all
+      (`not-packaged`, `no-brain-root`) turns the card's row into the operator's instruction: run
+      the CLI on the host, then re-check. No second implementation of the effects exists in main.
 
     Across these six channels no credential value crosses the IPC in either direction; the window
     of item 9 remains the one renderer that holds one.
