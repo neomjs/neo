@@ -33,7 +33,7 @@ test.describe('Release-note lifecycle', () => {
 
         expect(stampIdx, 'publish.mjs must stamp the note').toBeGreaterThan(-1);
         expect(prepareIdx).toBeGreaterThan(stampIdx);
-        expect(src).toContain("noteContent.replace(/^---[\\s\\S]+?---\\s*/, '')");
+        expect(src).toContain('getReleaseNoteParts(fs.readFileSync(releaseNotePath');
     });
 
     test('every note sits flat in .github/RELEASE_NOTES, one file per version', () => {

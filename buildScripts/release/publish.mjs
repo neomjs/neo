@@ -26,10 +26,13 @@
  * @keywords Release Automation, Git Plumbing, Local-First, CI/CD, Engine-Brain Boundary
  */
 
-import {execSync}         from 'child_process';
-import fs                 from 'fs-extra';
-import path               from 'path';
-import {stampReleaseNote} from './releaseNoteFrontmatter.mjs';
+import {execSync} from 'child_process';
+import fs         from 'fs-extra';
+import path       from 'path';
+import {
+    getReleaseNoteParts,
+    stampReleaseNote
+} from './releaseNoteFrontmatter.mjs';
 
 const root = path.resolve();
 
@@ -194,21 +197,14 @@ async function main() {
     let   tempFileCreated = false;
 
     try {
-        let noteContent = fs.readFileSync(releaseNotePath, 'utf-8');
+        const {body, title} = getReleaseNoteParts(fs.readFileSync(releaseNotePath, 'utf-8'));
 
-        // 1. Remove Frontmatter
-        noteContent = noteContent.replace(/^---[\s\S]+?---\s*/, '');
-
-        // 2. Extract Title (first H1)
-        const titleMatch = noteContent.match(/^#\s+(.+)$/m);
-        if (titleMatch) {
-            releaseTitle = titleMatch[1].trim();
-            // 3. Remove Title from body
-            noteContent = noteContent.replace(/^#\s+.+$/m, '').trim();
+        if (title) {
+            releaseTitle = title
         }
 
         // Write cleaned body to temp file
-        fs.writeFileSync(tempBodyPath, noteContent);
+        fs.writeFileSync(tempBodyPath, body);
         releaseBodyPath = tempBodyPath;
         tempFileCreated = true;
 
