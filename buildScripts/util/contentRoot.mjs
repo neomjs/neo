@@ -14,8 +14,9 @@ import path from 'path';
 /**
  * @summary Returns the declared root as an absolute path, or throws naming the flag that supplies it.
  *
- * A root that does not exist throws too: globbing it finds nothing, and the generator would write an empty
- * index over the one it replaces.
+ * A root that does not exist, or is not a directory, throws too. Globbing a missing root finds nothing, so the
+ * generator would write an empty index over the one it replaces; a file passes a glob's `cwd` but fails the first
+ * reader that descends into it, after earlier builders have written their output.
  * @param {String|undefined} root   The root the caller declared
  * @param {String}           flag   The CLI flag that declares it, e.g. `--corpus-root`
  * @param {String}           caller The generator asking, for the message
@@ -26,10 +27,16 @@ export function requireContentRoot(root, flag, caller) {
         throw new Error(`${caller} needs ${flag} <dir>, the root it reads this content from`)
     }
 
-    const resolved = path.resolve(root);
+    const
+        resolved = path.resolve(root),
+        stat     = fs.statSync(resolved, {throwIfNoEntry: false});
 
-    if (!fs.existsSync(resolved)) {
+    if (!stat) {
         throw new Error(`${caller}: ${flag} ${resolved} does not exist`)
+    }
+
+    if (!stat.isDirectory()) {
+        throw new Error(`${caller}: ${flag} ${resolved} is not a directory`)
     }
 
     return resolved

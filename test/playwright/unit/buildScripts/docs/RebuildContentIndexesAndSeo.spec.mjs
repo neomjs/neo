@@ -132,6 +132,50 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
         expect(calls).toEqual([]);
     });
 
+    test('rejects a regular file as either root before any builder or write, and a directory passes (#19166)', async () => {
+        const file = path.join(tempDir, 'package.json');
+
+        await fs.writeFile(file, '{}');
+
+        const run = async roots => {
+            const calls = [];
+
+            const record = name => async () => {
+                calls.push(name);
+                return '';
+            };
+
+            const result = await rebuildContentIndexesAndSeo({
+                ...roots,
+                includeLabelIndex       : true,
+                createLabelIndexFn      : record('labels'),
+                createReleaseIndexFn    : record('releases'),
+                createPullRequestIndexFn: record('pulls'),
+                createDiscussionIndexFn : record('discussions'),
+                createTicketIndexFn     : record('tickets'),
+                getSitemapXmlFn         : record('sitemap'),
+                getLlmsTxtFn            : record('llms'),
+                writeFileSync           : () => calls.push('write'),
+                log                     : () => {}
+            }).then(() => null, error => error.message);
+
+            return {calls, result}
+        };
+
+        expect(await run({corpusRoot: file, releaseNotesRoot})).toEqual({
+            calls : [],
+            result: expect.stringMatching(/--corpus-root .*package\.json is not a directory/)
+        });
+        expect(await run({corpusRoot, releaseNotesRoot: file})).toEqual({
+            calls : [],
+            result: expect.stringMatching(/--release-notes .*package\.json is not a directory/)
+        });
+        expect(await run({corpusRoot, releaseNotesRoot})).toEqual({
+            calls : ['labels', 'releases', 'pulls', 'discussions', 'tickets', 'sitemap', 'write', 'llms', 'write'],
+            result: null
+        });
+    });
+
     test('reads the release notes from the engine\'s .github/RELEASE_NOTES unless a root is declared (#19166)', async () => {
         const
             engineNotes = path.join(tempDir, '.github', 'RELEASE_NOTES'),
