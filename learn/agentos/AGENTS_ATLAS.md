@@ -107,7 +107,7 @@ Raw contribution counts stay diagnostic, never rewarding. The Retrospective daem
 Per `AGENTS.md` §pr_diff_equals_pr_body: PR body + review templates are graph-ingestion substrate (Native Edge Graph + DreamService, memory-anchors for Discussion #11376) — skipping or truncating template STRUCTURE corrupts the graph. The Map entry keeps the L1 firewall shape (names the `PR diff >> PR body` training prior, states the override — same pattern as §neo_identity_anchor; anchored on PR #11534): byte-budget work must not collapse that shape. Since #16528 the same entry carries the equal-and-opposite bound: anchors complete, prose economical, each fact in exactly one artifact — the license was being read as permission to expand (operator flags 07-31/08-04/08-21; −59%/zero-loss specimen on PR #17506). Completeness of FACTS for the graph and economy of PROSE for the bounded reader are one contract, not a trade-off.
 
 ## §a2a_contextual_bridge_protocol [MACHINE-ENFORCEABLE-CANDIDATE]
-1. **The Sunset Protocol:** Execute `session-sunset` skill. PRE-DECISION SUNSET GATE: explicitly requires human confirmation (`/sunset` or chat directive) unless context > 75%.
+1. **The Sunset Protocol:** Execute `session-sunset` skill. PRE-DECISION SUNSET GATE: explicitly requires human confirmation (`/sunset` or chat directive) unless trigger 1 of the skill's workflow holds.
 2. **End-of-Session Horizon Scan.**
 3. **The Telemetry Payload:** Append `Origin Session ID: [ID]` to tickets.
 4. **The Ingestion Mandate:** Query the Memory Core for that context.
