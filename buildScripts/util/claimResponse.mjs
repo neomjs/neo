@@ -176,18 +176,21 @@ export function earlierClaim({claimant, comment, comments = []}) {
 }
 
 /**
- * What holds the issue for everyone except `claimant`: its assignee, an open pull request that resolves it, or a
- * live earlier claim. Each person is named once, and the claimant's own pull request holds nothing against them.
+ * What holds the issue for everyone except `claimant`: its assignee, an open pull request into `repository` that
+ * resolves it, or a live earlier claim. Each person is named once, and the claimant's own pull request holds nothing
+ * against them. A pull request inside a fork, whose base is the fork, holds nothing either: it only mentions the issue.
  * Empty when the claimant is first in line.
  * @param {Object} options
  * @param {String} options.claimant
  * @param {Object} options.comment The claim itself: `id`, `created_at`
  * @param {Object[]} options.comments Every comment on the issue, including the claim
  * @param {Object} options.issue `assignees[].login`
- * @param {Object[]} options.openPullRequests `number`, `author` of open pull requests that resolve the issue
+ * @param {Object[]} options.openPullRequests `number`, `author`, `repository` (its base) of open pull requests that
+ * resolve the issue
+ * @param {String} options.repository The repository the issue belongs to, `owner/name`
  * @returns {Object[]} Each `{kind: 'assignee'|'pull-request'|'earlier-claim', login?, number?}`
  */
-export function holders({claimant, comment, comments = [], issue, openPullRequests = []}) {
+export function holders({claimant, comment, comments = [], issue, openPullRequests = [], repository}) {
     const
         self    = String(claimant).toLowerCase(),
         named   = new Set(),
@@ -200,7 +203,8 @@ export function holders({claimant, comment, comments = [], issue, openPullReques
     }
 
     for (const pullRequest of openPullRequests) {
-        if (String(pullRequest.author).toLowerCase() !== self) {
+        if (String(pullRequest.repository).toLowerCase() === String(repository).toLowerCase() &&
+            String(pullRequest.author).toLowerCase() !== self) {
             named.add(String(pullRequest.author).toLowerCase());
             result.push({kind: 'pull-request', number: pullRequest.number, login: pullRequest.author})
         }
@@ -269,7 +273,8 @@ export function renderReply({claimant, holders: held = [], alternatives = [], la
  * @param {Object} options.comment The new comment (REST shape)
  * @param {Object} options.issue The issue (REST shape)
  * @param {Object[]} [options.comments=[]] Every comment on the issue, including `comment`
- * @param {Object[]} [options.openPullRequests=[]] `{number, author}` of open pull requests that resolve the issue
+ * @param {Object[]} [options.openPullRequests=[]] `{number, author, repository}` of open pull requests that resolve
+ * the issue, `repository` being each one's base
  * @param {Number[]} [options.candidates=[]] Claimable issue numbers with the issue's curated label
  * @param {String} options.repoUrl
  * @returns {String|null}
@@ -294,7 +299,7 @@ export function decideReply({comment, issue, comments = [], openPullRequests = [
         return null
     }
 
-    const held = holders({claimant, comment, comments, issue, openPullRequests});
+    const held = holders({claimant, comment, comments, issue, openPullRequests, repository: new URL(repoUrl).pathname.slice(1)});
 
     return renderReply({
         alternatives: held.length > 0 ? pickAlternatives({candidates, exclude: issue.number, seed: claimant}) : [],

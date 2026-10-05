@@ -52,14 +52,17 @@ jobs:
             const linked = await github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
               repository(owner: $owner, name: $repo) {
                 issue(number: $number) {
-                  closedByPullRequestsReferences(first: 20, includeClosedPrs: false) { nodes { number state author { login } } }
+                  closedByPullRequestsReferences(first: 20, includeClosedPrs: false) {
+                    nodes { number state author { login } repository { nameWithOwner } }
+                  }
                 }
               }
             }`, {owner, repo, number: issue.number});
 
+            // `repository` is each pull request's base: one inside a contributor's fork only mentions the issue
             const openPullRequests = linked.repository.issue.closedByPullRequestsReferences.nodes
               .filter(pullRequest => pullRequest.state === 'OPEN')
-              .map(pullRequest => ({number: pullRequest.number, author: pullRequest.author?.login}));
+              .map(pullRequest => ({number: pullRequest.number, author: pullRequest.author?.login, repository: pullRequest.repository?.nameWithOwner}));
 
             const search = await github.rest.search.issuesAndPullRequests({
               q: `repo:${owner}/${repo} is:issue is:open label:"${curatedLabel(issue)}" no:assignee -linked:pr`,
