@@ -25,6 +25,17 @@ test.describe('Release-note lifecycle', () => {
         expect(src).not.toMatch(/fs\.remove(Sync)?\(releaseNotePath\)/);
     });
 
+    test('publish.mjs stamps the note before prepare.mjs indexes it, and strips the stamp from the release body (#19409)', () => {
+        const
+            src        = publish(),
+            stampIdx   = src.indexOf('stampReleaseNote(fs.readFileSync(releaseNotePath'),
+            prepareIdx = src.indexOf('node buildScripts/release/prepare.mjs');
+
+        expect(stampIdx, 'publish.mjs must stamp the note').toBeGreaterThan(-1);
+        expect(prepareIdx).toBeGreaterThan(stampIdx);
+        expect(src).toContain("noteContent.replace(/^---[\\s\\S]+?---\\s*/, '')");
+    });
+
     test('every note sits flat in .github/RELEASE_NOTES, one file per version', () => {
         const entries = fs.readdirSync(notesDir, {withFileTypes: true});
 

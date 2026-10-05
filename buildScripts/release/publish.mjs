@@ -16,8 +16,9 @@
  * 5. **Distribution**: Triggers the GitHub Release (which cascades to npm).
  *
  * The release note is authored at `.github/RELEASE_NOTES/v<version>.md` and stays there as the
- * archive. The conversation corpus publishes from `neomjs/github-content-sync`, so the engine
- * carries no synced content. The Knowledge Base upload is Brain-side lifecycle work in the
+ * archive, stamped with its GitHub Release frontmatter in Step 2. The conversation corpus
+ * publishes from `neomjs/github-content-sync`, so the engine carries no synced content.
+ * The Knowledge Base upload is Brain-side lifecycle work in the
  * `neo-agent-brain` repository, whose release runbook is the next step after this script
  * finishes. The boundary is deliberate: this script imports and spawns nothing from the Brain, so
  * the Engine can be released from an Engine-only checkout.
@@ -25,9 +26,10 @@
  * @keywords Release Automation, Git Plumbing, Local-First, CI/CD, Engine-Brain Boundary
  */
 
-import {execSync} from 'child_process';
-import fs         from 'fs-extra';
-import path       from 'path';
+import {execSync}         from 'child_process';
+import fs                 from 'fs-extra';
+import path               from 'path';
+import {stampReleaseNote} from './releaseNoteFrontmatter.mjs';
 
 const root = path.resolve();
 
@@ -99,6 +101,9 @@ async function main() {
     // --- 2. Prepare (Dev) ---
 
     console.log('📦 Step 2: Preparing Release Artifacts...');
+
+    // The release index dates a release by its note's frontmatter, so the note is stamped before prepare rebuilds it
+    fs.writeFileSync(releaseNotePath, stampReleaseNote(fs.readFileSync(releaseNotePath, 'utf-8'), {publishedAt: new Date(), version: newVersion}));
 
     // Run prepare script
     runCommand('node buildScripts/release/prepare.mjs', 'Failed to run prepareRelease.mjs');
