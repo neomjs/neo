@@ -1658,6 +1658,8 @@ class Component extends Abstract {
                 if (me.parentId !== 'document.body') {
                     me.vdom.removeDom = true;
                     me.parent.updateDepth = 2;
+                    // This child changed silently, so a sibling's update merging into the cycle must not make it sparse
+                    me.parent.denseUpdate = true;
                     me.parent.update()
                 } else if (!me.mountFlight) {
                     // A node still in its mount flight does not exist yet: the flight unmounts it when it lands
