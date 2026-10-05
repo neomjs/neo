@@ -55,8 +55,9 @@ test.describe('Portal ticket index generator (#12217)', () => {
 
     test('emits the chunked path-free leaves, root index and manifest', async () => {
         const
-            issuesDir         = path.join(tempDir, 'resources/content/issues'),
-            archiveDir        = path.join(tempDir, 'resources/content/archive/issues'),
+            corpusRoot        = path.join(tempDir, 'corpus'),
+            issuesDir         = path.join(corpusRoot, 'issues'),
+            archiveDir        = path.join(corpusRoot, 'archive/issues'),
             dataDir           = path.join(tempDir, 'apps/portal/resources/data'),
             outputDir         = path.join(dataDir, 'tickets'),
             chunkedOutputFile = path.join(outputDir, 'index.json'),
@@ -90,7 +91,7 @@ test.describe('Portal ticket index generator (#12217)', () => {
             closedAt: '2025-11-05T00:00:00Z'
         }));
 
-        await createTicketIndex({archiveDir, chunkedOutputFile, dataDir, issuesDir, manifestFile, outputDir});
+        await createTicketIndex({chunkedOutputFile, corpusRoot, dataDir, manifestFile, outputDir});
 
         const root = await fs.readJson(chunkedOutputFile);
 
@@ -105,7 +106,7 @@ test.describe('Portal ticket index generator (#12217)', () => {
         expect(root.find(record => record.id === 'Backlog/active-chunk-2')).toMatchObject({
             childrenUrl: 'tickets/backlog/active-chunk-2.json',
             childCount : 1,
-            contentDir : path.relative(process.cwd(), path.join(issuesDir, 'chunk-2')),
+            contentDir : 'issues/chunk-2',
             filePrefix : 'issue-',
             isLeaf     : false,
             parentId   : 'Backlog',
@@ -147,8 +148,9 @@ test.describe('Portal ticket index generator (#12217)', () => {
 
     test('orders chunk folders by chunk-number (desc), not by sortDate, matching the positional labels (#12309)', async () => {
         const
-            issuesDir         = path.join(tempDir, 'resources/content/issues'),
-            archiveDir        = path.join(tempDir, 'resources/content/archive/issues'),
+            corpusRoot        = path.join(tempDir, 'corpus'),
+            issuesDir         = path.join(corpusRoot, 'issues'),
+            archiveDir        = path.join(corpusRoot, 'archive/issues'),
             dataDir           = path.join(tempDir, 'apps/portal/resources/data'),
             outputDir         = path.join(dataDir, 'tickets'),
             chunkedOutputFile = path.join(outputDir, 'index.json'),
@@ -176,7 +178,7 @@ test.describe('Portal ticket index generator (#12217)', () => {
             updatedAt: '2026-05-15T00:00:00Z'
         }));
 
-        await createTicketIndex({archiveDir, chunkedOutputFile, dataDir, issuesDir, manifestFile, outputDir});
+        await createTicketIndex({chunkedOutputFile, corpusRoot, dataDir, manifestFile, outputDir});
 
         // Chunk folders descend by chunk-number (newest/highest chunk first), regardless of sortDate.
         const root = await fs.readJson(chunkedOutputFile);
@@ -193,5 +195,22 @@ test.describe('Portal ticket index generator (#12217)', () => {
         const root = await fs.readJson(path.join(process.cwd(), 'apps/portal/resources/data/tickets/index.json'));
 
         expectChunkFoldersDescending(root, 'Backlog')
+    });
+
+    test('fails naming --corpus-root when no corpus root is declared, and writes nothing (#19166)', async () => {
+        const outputDir = path.join(tempDir, 'apps/portal/resources/data/tickets');
+
+        await expect(createTicketIndex({outputDir})).rejects.toThrow('--corpus-root');
+        await expect(createTicketIndex({corpusRoot: path.join(tempDir, 'absent'), outputDir})).rejects.toThrow('does not exist');
+
+        expect(await fs.pathExists(outputDir)).toBe(false)
+    });
+
+    test('committed ticket index carries content dirs relative to the corpus root (#19166)', async () => {
+        const root        = await fs.readJson(path.join(process.cwd(), 'apps/portal/resources/data/tickets/index.json'));
+        const contentDirs = root.map(record => record.contentDir).filter(Boolean);
+
+        expect(contentDirs.length).toBeGreaterThan(0);
+        expect(contentDirs.filter(dir => !/^(archive\/)?issues\//.test(dir))).toEqual([])
     })
 });

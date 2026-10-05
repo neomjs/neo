@@ -6,14 +6,18 @@ import matter          from 'gray-matter';
 import semver          from 'semver';
 import isEntryModule   from '../../util/isEntryModule.mjs';
 import {sanitizeInput} from '../../util/sanitizer.mjs';
+import {
+    contentPath,
+    requireContentRoot
+} from '../../util/contentRoot.mjs';
 
 /**
  * @module buildScripts.createPullRequestIndex
  * @summary Generates hierarchical Pull Request indexes for the Neo.mjs Portal application.
  *
  * Sibling to `tickets.mjs`: the PR content tree mirrors the issue content tree because the on-disk
- * markdown structure is identical — `resources/content/pulls/chunk-*` for unreleased PRs and
- * `resources/content/archive/pulls/<version>/chunk-*` for released ones. The script parses that
+ * markdown structure is identical — `pulls/chunk-*` for unreleased PRs and `archive/pulls/<version>/chunk-*`
+ * for released ones, under the declared corpus root (`--corpus-root`). The script parses that
  * structure into the chunked surface (`pulls/index.json` + per-chunk leaf files + `manifest.json`):
  * a lightweight root index whose chunk nodes carry reconstruction metadata (`contentDir`,
  * `filePrefix`) and point at lazy-loadable leaf files, so the portal tree loads PRs
@@ -27,9 +31,7 @@ import {sanitizeInput} from '../../util/sanitizer.mjs';
  * @keywords portal, pull-requests, seo, json-index, build-script, chunked-index
  */
 
-const ROOT_DIR    = process.cwd();
-const PULLS_DIR   = path.resolve(ROOT_DIR, 'resources/content/pulls');
-const ARCHIVE_DIR = path.resolve(ROOT_DIR, 'resources/content/archive/pulls');
+const ROOT_DIR            = process.cwd();
 const DATA_DIR            = path.resolve(ROOT_DIR, 'apps/portal/resources/data');
 const CHUNKED_OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/pulls/index.json');
 const OUTPUT_DIR          = path.resolve(ROOT_DIR, 'apps/portal/resources/data/pulls');
@@ -53,18 +55,19 @@ function slugify(value) {
  * @param {String} filePath
  * @param {Object} options
  * @param {String} options.archiveDir
+ * @param {String} options.corpusRoot
  * @param {String} options.inputDir
  * @param {Boolean} options.isActive
  * @returns {Object}
  */
-function getSourceBucket(filePath, {archiveDir, inputDir, isActive}) {
+function getSourceBucket(filePath, {archiveDir, corpusRoot, inputDir, isActive}) {
     const
         dir         = path.dirname(filePath),
         relativeDir = path.relative(isActive ? inputDir : archiveDir, dir),
         sourceKey   = `${isActive ? 'active' : 'archive'}-${slugify(relativeDir)}`;
 
     return {
-        contentDir: path.relative(ROOT_DIR, dir),
+        contentDir: contentPath(corpusRoot, dir),
         sourceKey,
         title     : isActive ? relativeDir : `archive/${relativeDir}`
     }
@@ -222,8 +225,7 @@ function sortGroups(keys) {
  * Core logic to scan and index pull-request markdown files into the chunked surface.
  *
  * @param {Object} options Configuration options
- * @param {String} [options.inputDir] Directory containing active (unreleased) PR markdown files.
- * @param {String} [options.archiveDir] Directory containing archived (released) PR markdown files.
+ * @param {String} options.corpusRoot The conversation corpus root holding `pulls/` and `archive/pulls/`; required, since the engine holds no corpus.
  * @param {String} [options.outputDir] Directory for chunked PR leaf JSON files.
  * @param {String} [options.dataDir] Portal data root the chunk `childrenUrl` values resolve against.
  * @param {String} [options.chunkedOutputFile] Path to the chunked root-index JSON file.
@@ -232,8 +234,9 @@ function sortGroups(keys) {
  */
 async function createPullRequestIndex(options = {}) {
     const
-        inputDir          = options.inputDir          || PULLS_DIR,
-        archiveDir        = options.archiveDir        || ARCHIVE_DIR,
+        corpusRoot        = requireContentRoot(options.corpusRoot, '--corpus-root', 'createPullRequestIndex'),
+        inputDir          = path.join(corpusRoot, 'pulls'),
+        archiveDir        = path.join(corpusRoot, 'archive', 'pulls'),
         outputDir         = options.outputDir         || OUTPUT_DIR,
         dataDir           = options.dataDir           || DATA_DIR,
         chunkedOutputFile = options.chunkedOutputFile || CHUNKED_OUTPUT_FILE,
@@ -282,7 +285,7 @@ async function createPullRequestIndex(options = {}) {
             groupName = path.relative(archiveDir, filePath).split(path.sep)[0]
         }
 
-        const bucket = getSourceBucket(filePath, {archiveDir, inputDir, isActive});
+        const bucket = getSourceBucket(filePath, {archiveDir, corpusRoot, inputDir, isActive});
 
         if (!pullsByGroup.has(groupName)) {
             pullsByGroup.set(groupName, [])
@@ -357,8 +360,7 @@ async function runCli() {
     program
         .name('create-pull-request-index')
         .description('Generates a hierarchical JSON index of pull requests.')
-        .option('-i, --input <path>',   'Active pull requests directory path', sanitizeInput)
-        .option('-a, --archive <path>', 'Archive pull requests directory path', sanitizeInput)
+        .requiredOption('-r, --corpus-root <path>', 'Conversation corpus root holding pulls/ and archive/pulls/', sanitizeInput)
         .option('-d, --output-dir <path>', 'Output chunk directory path', sanitizeInput)
         .option('-c, --chunked-output <path>', 'Chunked root-index output file path', sanitizeInput)
         .option('-m, --manifest <path>', 'Crawler manifest output file path', sanitizeInput);
@@ -368,8 +370,7 @@ async function runCli() {
     const opts = program.opts();
 
     await createPullRequestIndex({
-        inputDir         : opts.input         ? path.resolve(ROOT_DIR, opts.input)         : undefined,
-        archiveDir       : opts.archive       ? path.resolve(ROOT_DIR, opts.archive)       : undefined,
+        corpusRoot       : path.resolve(opts.corpusRoot),
         outputDir        : opts.outputDir     ? path.resolve(ROOT_DIR, opts.outputDir)     : undefined,
         chunkedOutputFile: opts.chunkedOutput ? path.resolve(ROOT_DIR, opts.chunkedOutput) : undefined,
         manifestFile     : opts.manifest      ? path.resolve(ROOT_DIR, opts.manifest)      : undefined

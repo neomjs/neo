@@ -6,6 +6,7 @@ import fg             from 'fast-glob';
 
 import {
     assertStableReleaseNoteGithubLinks,
+    getContentRoutes,
     getDisallowedReleaseNoteGithubLinks,
     getExistingSitemapLastmodMap,
     getReleaseNotePriority
@@ -134,4 +135,41 @@ test.describe('docs SEO generator existing-sitemap lastmod map (#19155)', () => 
     test('a missing sitemap maps nothing', async () => {
         expect((await getExistingSitemapLastmodMap(path.join(dir, 'absent.xml'))).size).toBe(0)
     });
+});
+
+test.describe('docs SEO generator content roots (#19166)', () => {
+    let corpusRoot, releaseNotesRoot, tempDir;
+
+    test.beforeEach(async () => {
+        tempDir          = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-roots-'));
+        corpusRoot       = path.join(tempDir, 'corpus');
+        releaseNotesRoot = path.join(tempDir, 'notes');
+
+        await fs.outputFile(path.join(corpusRoot, 'issues/chunk-1/issue-7.md'), '# Active');
+        await fs.outputFile(path.join(corpusRoot, 'archive/issues/v1.0.0/chunk-1/issue-3.md'), '# Archived');
+        await fs.outputFile(path.join(corpusRoot, 'pulls/chunk-1/pr-9.md'), '# Pull');
+        await fs.outputFile(path.join(corpusRoot, 'discussions/chunk-1/discussion-5.md'), '# Discussion');
+        await fs.outputFile(path.join(releaseNotesRoot, 'v1.2.3.md'), '# Release')
+    });
+
+    test.afterEach(async () => {
+        await fs.remove(tempDir)
+    });
+
+    test('routes come from the declared corpus and release-notes roots', async () => {
+        const routes = await getContentRoutes({corpusRoot, releaseNotesRoot});
+
+        expect(routes).toEqual(expect.arrayContaining([
+            '/#/news/discussions/5',
+            '/#/news/pulls/9',
+            '/#/news/releases/1.2.3',
+            '/#/news/tickets/3',
+            '/#/news/tickets/7'
+        ]))
+    });
+
+    test('a missing root fails naming its flag', async () => {
+        await expect(getContentRoutes({releaseNotesRoot})).rejects.toThrow('--corpus-root');
+        await expect(getContentRoutes({corpusRoot})).rejects.toThrow('--release-notes')
+    })
 });

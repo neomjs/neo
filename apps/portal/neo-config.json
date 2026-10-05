@@ -1,8 +1,10 @@
 {
     "appPath"                     : "apps/portal/app.mjs",
     "basePath"                    : "../../",
+    "corpusBasePath"              : "resources/content/",
     "environment"                 : "development",
     "mainPath"                    : "./Main.mjs",
+    "releaseNotesBasePath"        : ".github/RELEASE_NOTES/",
     "remotesApiUrl"               : "remotes-api.json",
     "themes"                      : ["neo-theme-neo-dark", "neo-theme-neo-light", "neo-theme-light", "neo-theme-dark"],
     "useAiClient"                 : true,

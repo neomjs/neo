@@ -1,22 +1,24 @@
-import fs              from 'fs/promises';
-import matter          from 'gray-matter';
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import fs                   from 'fs/promises';
+import matter               from 'gray-matter';
+import path                 from 'path';
+import {fileURLToPath}      from 'url';
+import {requireContentRoot} from '../util/contentRoot.mjs';
 
 /**
- * @summary Generates the release-window appendix report by scanning local GitHub content.
+ * @summary Generates the release-window appendix report by scanning a local corpus checkout.
  *
- * Ticket lifecycle: ticket files live in `resources/content/issues/` while open or recently
- * closed, then get swept into `resources/content/archive/issues/vN.M.K/{flat|chunk-N}/` at release cut.
- * This means anything in `issues/` with `state === 'CLOSED'` and `closedAt >= <cutoff>` has
- * been resolved since the last release and not yet archived - the authoritative set for
- * roadmap-authoring purposes. Pull-request files use the matching `resources/content/pulls/`
- * active mirror, where `state === 'MERGED'` and `mergedAt >= <cutoff>` captures unreleased PRs.
+ * Ticket lifecycle: ticket files live in the corpus's `issues/` while open or recently closed,
+ * then get swept into `archive/issues/vN.M.K/{flat|chunk-N}/` at release cut. This means
+ * anything in `issues/` with `state === 'CLOSED'` and `closedAt >= <cutoff>` has been resolved
+ * since the last release and not yet archived - the authoritative set for roadmap-authoring
+ * purposes. Pull-request files use the matching active `pulls/`, where `state === 'MERGED'` and
+ * `mergedAt >= <cutoff>` captures unreleased PRs. The corpus root is an input (`--corpus-root`):
+ * the engine holds no corpus.
  *
  * Usage:
- *   node buildScripts/release/analyzeClosedSinceRelease.mjs [cutoff-date-ISO]
+ *   node buildScripts/release/analyzeClosedSinceRelease.mjs [cutoff-date-ISO] --corpus-root <dir>
  *   # defaults to cutoff 2026-03-27; pass an explicit previous-release cutoff for later releases
- *   node buildScripts/release/analyzeClosedSinceRelease.mjs 2026-03-27 --format markdown --include-items --output /tmp/release-appendix.md
+ *   node buildScripts/release/analyzeClosedSinceRelease.mjs 2026-03-27 --corpus-root <dir> --format markdown --include-items --output /tmp/release-appendix.md
  *
  * Output:
  *   - Merged PR and closed issue counts
@@ -28,8 +30,6 @@ import {fileURLToPath} from 'url';
 const __filename    = fileURLToPath(import.meta.url);
 const __dirname     = path.dirname(__filename);
 const neoRoot       = path.resolve(__dirname, '../..');
-const issuesDir     = path.join(neoRoot, 'resources/content/issues');
-const pullsDir      = path.join(neoRoot, 'resources/content/pulls');
 const DEFAULT_LIMIT = 15;
 
 /**
@@ -38,6 +38,7 @@ const DEFAULT_LIMIT = 15;
  */
 function parseArgs(args) {
     const options = {
+        corpusRoot  : null,
         cutoff      : '2026-03-27',
         format      : 'text',
         includeItems: false,
@@ -49,7 +50,11 @@ function parseArgs(args) {
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
 
-        if (arg === '--format') {
+        if (arg === '--corpus-root') {
+            options.corpusRoot = args[++i] || null
+        } else if (arg.startsWith('--corpus-root=')) {
+            options.corpusRoot = arg.slice('--corpus-root='.length)
+        } else if (arg === '--format') {
             options.format = args[++i] || options.format
         } else if (arg.startsWith('--format=')) {
             options.format = arg.split('=')[1]
@@ -91,9 +96,10 @@ function parseArgs(args) {
 function helpText() {
     return [
         'Usage:',
-        '  node buildScripts/release/analyzeClosedSinceRelease.mjs [cutoff-date-ISO] [options]',
+        '  node buildScripts/release/analyzeClosedSinceRelease.mjs [cutoff-date-ISO] --corpus-root <dir> [options]',
         '',
         'Options:',
+        '  --corpus-root <dir>       The conversation corpus root holding issues/ and pulls/. Required.',
         '  --format text|markdown    Output format. Defaults to text.',
         '  --include-items           Include exhaustive PR and issue lists.',
         '  --item-limit <n>          Limit exhaustive lists for preview runs.',
@@ -137,14 +143,13 @@ async function readFrontmatterFiles(rootDir) {
 function collectClosedIssues(records, cutoff) {
     return records
         .filter(({data}) => data.state === 'CLOSED' && data.closedAt && data.closedAt >= cutoff)
-        .map(({data, filePath}) => ({
+        .map(({data}) => ({
             id         : String(data.id),
             title      : data.title,
             labels     : data.labels || [],
             closedAt   : data.closedAt,
             parentIssue: data.parentIssue ? String(data.parentIssue) : null,
-            url        : data.url || `https://github.com/neomjs/neo/issues/${data.id}`,
-            path       : path.relative(neoRoot, filePath)
+            url        : data.url || `https://github.com/neomjs/neo/issues/${data.id}`
         }))
         .sort((a, b) => b.closedAt.localeCompare(a.closedAt) || Number(b.id) - Number(a.id))
 }
@@ -157,13 +162,12 @@ function collectClosedIssues(records, cutoff) {
 function collectMergedPulls(records, cutoff) {
     return records
         .filter(({data}) => data.state === 'MERGED' && data.mergedAt && data.mergedAt >= cutoff)
-        .map(({data, filePath}) => ({
+        .map(({data}) => ({
             id      : String(data.number),
             title   : data.title,
             author  : data.author || 'unknown',
             mergedAt: data.mergedAt,
             url     : data.url || `https://github.com/neomjs/neo/pull/${data.number}`,
-            path    : path.relative(neoRoot, filePath),
             scope   : getPullScope(data.title)
         }))
         .sort((a, b) => b.mergedAt.localeCompare(a.mergedAt) || Number(b.id) - Number(a.id))
@@ -313,14 +317,14 @@ function renderMarkdown(report, options) {
     const lines                                                                                         = [
         '# Release Appendix Report',
         '',
-        `Generated from local recursive content mirrors on ${new Date().toISOString()}.`,
+        `Generated from a local corpus checkout on ${new Date().toISOString()}.`,
         '',
         '## Source Boundary',
         '',
         `- Cutoff: \`${options.cutoff}\` (explicit previous-release boundary).`,
-        '- PR source: `resources/content/pulls/**/*.md` with `state: MERGED` and `mergedAt >= cutoff`.',
-        '- Issue source: `resources/content/issues/**/*.md` with `state: CLOSED` and `closedAt >= cutoff`.',
-        '- Freshness: local mirror only. Refresh it from the `neo-agent-brain` checkout, or use live GitHub count checks immediately before release cut.',
+        '- PR source: `<corpus-root>/pulls/**/*.md` with `state: MERGED` and `mergedAt >= cutoff`.',
+        '- Issue source: `<corpus-root>/issues/**/*.md` with `state: CLOSED` and `closedAt >= cutoff`.',
+        '- Freshness: the corpus checkout only. Pull it before the run, or use live GitHub count checks immediately before release cut.',
         '',
         '## Summary',
         '',
@@ -387,7 +391,7 @@ function renderMarkdown(report, options) {
             'Run this command immediately before release cut to produce the full PR and issue tables:',
             '',
             '```bash',
-            `node buildScripts/release/analyzeClosedSinceRelease.mjs ${options.cutoff} --format markdown --include-items --output /tmp/release-appendix.md`,
+            `node buildScripts/release/analyzeClosedSinceRelease.mjs ${options.cutoff} --corpus-root <dir> --format markdown --include-items --output /tmp/release-appendix.md`,
             '```'
         )
     }
@@ -401,8 +405,8 @@ function renderMarkdown(report, options) {
  */
 async function buildReport(options) {
     const [issueRecords, pullRecords] = await Promise.all([
-        readFrontmatterFiles(issuesDir),
-        readFrontmatterFiles(pullsDir)
+        readFrontmatterFiles(path.join(options.corpusRoot, 'issues')),
+        readFrontmatterFiles(path.join(options.corpusRoot, 'pulls'))
     ]);
 
     const
@@ -427,6 +431,8 @@ async function main() {
         console.log(helpText());
         return
     }
+
+    options.corpusRoot = requireContentRoot(options.corpusRoot, '--corpus-root', 'analyzeClosedSinceRelease');
 
     const report = await buildReport(options);
     const output = options.format === 'markdown'
