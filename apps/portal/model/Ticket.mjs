@@ -42,7 +42,7 @@ class Ticket extends Model {
             type        : 'String',
             defaultValue: null
         }, {
-            name: 'path', // "resources/content/issues/chunk-N/issue-1234.md"
+            name: 'path', // "issues/chunk-N/issue-1234.md", relative to the corpus base
             type: 'String'
         }, {
             name: 'title', // "Fix elusive bug in Grid"

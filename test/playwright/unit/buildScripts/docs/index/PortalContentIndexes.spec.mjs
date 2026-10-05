@@ -60,8 +60,9 @@ test.describe('Portal content index generators (#12210)', () => {
 
     test('createPullRequestIndex emits a release-grouped chunked lazy surface (mirrors tickets)', async () => {
         const
-            inputDir          = path.join(tempDir, 'resources/content/pulls'),
-            archiveDir        = path.join(tempDir, 'resources/content/archive/pulls'),
+            corpusRoot        = path.join(tempDir, 'corpus'),
+            inputDir          = path.join(corpusRoot, 'pulls'),
+            archiveDir        = path.join(corpusRoot, 'archive/pulls'),
             dataDir           = path.join(tempDir, 'apps/portal/resources/data'),
             outputDir         = path.join(dataDir, 'pulls'),
             chunkedOutputFile = path.join(dataDir, 'pulls/index.json'),
@@ -97,7 +98,7 @@ test.describe('Portal content index generators (#12210)', () => {
             updatedAt: '2026-05-01T00:00:00Z'
         }));
 
-        await createPullRequestIndex({archiveDir, dataDir, inputDir, outputDir, chunkedOutputFile, manifestFile});
+        await createPullRequestIndex({chunkedOutputFile, corpusRoot, dataDir, manifestFile, outputDir});
 
         // 1. Chunked lazy surface: group roots (`Latest` first, then versions desc — grouping is by
         //    RELEASE, not PR state) + chunk nodes carrying reconstruction metadata
@@ -113,7 +114,7 @@ test.describe('Portal content index generators (#12210)', () => {
         expect(index.find(record => record.id === 'Latest/active-chunk-1')).toMatchObject({
             childCount : 3,
             childrenUrl: 'pulls/latest/active-chunk-1.json',
-            contentDir : path.relative(process.cwd(), path.join(inputDir, 'chunk-1')),
+            contentDir : 'pulls/chunk-1',
             filePrefix : 'pr-',
             isLeaf     : false,
             parentId   : 'Latest'
@@ -142,8 +143,9 @@ test.describe('Portal content index generators (#12210)', () => {
 
     test('createPullRequestIndex orders chunk folders by chunk-number (desc), not by sortDate, matching the positional labels (#12309)', async () => {
         const
-            inputDir          = path.join(tempDir, 'resources/content/pulls'),
-            archiveDir        = path.join(tempDir, 'resources/content/archive/pulls'),
+            corpusRoot        = path.join(tempDir, 'corpus'),
+            inputDir          = path.join(corpusRoot, 'pulls'),
+            archiveDir        = path.join(corpusRoot, 'archive/pulls'),
             dataDir           = path.join(tempDir, 'apps/portal/resources/data'),
             outputDir         = path.join(dataDir, 'pulls'),
             chunkedOutputFile = path.join(dataDir, 'pulls/index.json'),
@@ -170,7 +172,7 @@ test.describe('Portal content index generators (#12210)', () => {
             updatedAt: '2026-05-15T00:00:00Z'
         }));
 
-        await createPullRequestIndex({archiveDir, dataDir, inputDir, outputDir, chunkedOutputFile, manifestFile});
+        await createPullRequestIndex({chunkedOutputFile, corpusRoot, dataDir, manifestFile, outputDir});
 
         // Chunk folders descend by chunk-number (newest/highest chunk first), regardless of sortDate.
         const index = await fs.readJson(chunkedOutputFile);
@@ -191,8 +193,9 @@ test.describe('Portal content index generators (#12210)', () => {
 
     test('createDiscussionIndex groups by frontmatter category for active and archive files', async () => {
         const
-            inputDir   = path.join(tempDir, 'resources/content/discussions'),
-            archiveDir = path.join(tempDir, 'resources/content/archive/discussions'),
+            corpusRoot = path.join(tempDir, 'corpus'),
+            inputDir   = path.join(corpusRoot, 'discussions'),
+            archiveDir = path.join(corpusRoot, 'archive/discussions'),
             outputFile = path.join(tempDir, 'apps/portal/resources/data/discussions.json'),
             outputDir  = path.join(tempDir, 'apps/portal/resources/data/discussions');
 
@@ -217,7 +220,7 @@ test.describe('Portal content index generators (#12210)', () => {
             updatedAt: '2026-05-11T00:00:00Z'
         }));
 
-        await createDiscussionIndex({archiveDir, inputDir, outputDir, outputFile});
+        await createDiscussionIndex({corpusRoot, outputDir, outputFile});
 
         const root = await fs.readJson(outputFile);
 
@@ -233,7 +236,7 @@ test.describe('Portal content index generators (#12210)', () => {
         expect(root.find(record => record.id === 'Q&A/archive-v8-30-0-chunk-1')).toMatchObject({
             childrenUrl: 'discussions/q-a/archive-v8-30-0-chunk-1.json',
             childCount : 1,
-            contentDir : path.relative(process.cwd(), path.join(archiveDir, 'v8.30.0/chunk-1')),
+            contentDir : 'archive/discussions/v8.30.0/chunk-1',
             filePrefix : 'discussion-',
             isLeaf     : false,
             parentId   : 'Q&A'
@@ -252,5 +255,21 @@ test.describe('Portal content index generators (#12210)', () => {
             '11': 'Q&A/archive-v8-30-0-chunk-1',
             '12': 'General/active-chunk-1'
         })
+    });
+
+    test('both generators fail naming --corpus-root when no corpus root is declared (#19166)', async () => {
+        await expect(createPullRequestIndex({outputDir: tempDir})).rejects.toThrow('--corpus-root');
+        await expect(createDiscussionIndex({outputDir: tempDir})).rejects.toThrow('--corpus-root')
+    });
+
+    test('committed pull-request and discussion indexes carry content dirs relative to the corpus root (#19166)', async () => {
+        const data        = path.join(process.cwd(), 'apps/portal/resources/data');
+        const contentDirs = [
+            ...(await fs.readJson(path.join(data, 'pulls/index.json'))),
+            ...(await fs.readJson(path.join(data, 'discussions.json')))
+        ].map(record => record.contentDir).filter(Boolean);
+
+        expect(contentDirs.length).toBeGreaterThan(0);
+        expect(contentDirs.filter(dir => !/^(archive\/)?(pulls|discussions)\//.test(dir))).toEqual([])
     })
 });
