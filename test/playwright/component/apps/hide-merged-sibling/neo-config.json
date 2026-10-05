@@ -1,0 +1,10 @@
+{
+    "appPath": "test/playwright/component/apps/hide-merged-sibling/app.mjs",
+    "basePath": "../../../../../",
+    "environment": "development",
+    "mainPath": "./Main.mjs",
+    "mainThreadAddons": [
+        "Navigator",
+        "Stylesheet"
+    ]
+}
