@@ -328,6 +328,46 @@ adoption.
     `reconcile-required`, never as a replay. The renderer holds no credential value, no path it did
     not receive from main, and no stored status: every row it shows is main's fresh evaluation, and
     a read that fails turns every row `unknown` with the read's reason.
+11. **Moving the seat root is a named broker** *(amended 2026-10-06, #19428 — for
+    neomjs/neo-agent-institution#573 and neomjs/neo-agent-institution#582)*: a packaged shell
+    keeps its agents' seats under one recorded root (`seat-root.json` under Electron `userData`,
+    written by the first launch's choice), and only main has the host authority to move them: the
+    Brain's dry run, a consent that persists the move's inputs, a relaunch, and the transition the
+    next boot settles before the Fleet child (#573). The preload exposes three capabilities, each
+    `ipcRenderer.invoke('shell-seat-root-<name>')`. Every handler validates the sender per
+    §2.3.4 — an untrusted sender rejects the invoke. The answers are the transition's own DTOs,
+    unwrapped. A consent refusal is `{state: 'refused', code, reason}`: the view decides on `code`
+    and shows `reason`, the sentence, and never decides on it. A shell that cannot run the move
+    refuses the plan and the consent the same way, with code `not-packaged` or `no-brain-root`.
+    - `seatRootStatus()` → pull-shaped like §2.3.7: `{packaged, root, pending, outcome}`.
+      `root` is the record (`{root, origin, recordedAt}`), `null` when there is none, or
+      `{unreadable: reason}` when it exists and cannot be read. `pending` is a consented move's
+      inputs (`{from, to, archive, rows, outOfScope, consentedAt}`), `null`, or
+      `{unreadable: reason}` the same way; a committed move keeps them, since every later boot
+      resumes its retirement from them. `outcome` is this boot's settlement,
+      `{state: 'none' | 'committed' | 'refused' | 'held', reason?, retirement?}`, which main keeps
+      in memory, so an unreadable record never hides it. The status answers while the Fleet boot is
+      held, since a held move is when the operator needs it.
+    - `seatRootPlan()` → the Brain's dry run for moving the recorded root to the root the Brain
+      resolves without a recorded override:
+      `{state: 'planned' | 'refused', reason?, from, to, rows, fingerprint}`, each row
+      `{id, seatHome, destination, state, materialized, reason?}`. The Brain's refusal carries
+      `reason` alone. The shell refuses with a code before asking the Brain: `no-seat-root` when
+      no root is recorded, `nothing-to-move` when the recorded root already is that root.
+    - `seatRootConsent({fingerprint})` → main re-plans and consents only to the plan the operator
+      saw: the fingerprint is the one value the renderer supplies, and the roots, rows, archive and
+      move id stay main's. It persists the move's inputs and relaunches, answering
+      `{state: 'consented'}`. Otherwise it writes nothing and refuses with a code: `plan-changed`
+      (the seats changed since the plan was shown), `already-consented`, `no-seat-root`,
+      `plan-refused` or `nothing-to-move`.
+
+    **Custody:** the move's inputs are one owner-only file beside the root record
+    (`seat-root-move.json`), written only through the consent channel. The boot that settles the
+    move reads it, and deletes it when it refuses the move (#573); the root record changes only as
+    the transition's commit. No credential crosses these channels and no credential window is
+    involved. The renderer holds no root, row or fingerprint it did not receive from main and no
+    state of its own. It shows main's latest answer; an invoke that rejects or a read that fails
+    shows `unknown`, and the view offers no consent on an unknown status.
 
 **Falsifier:** any leaf needing a renderer capability the preload cannot express through a named,
 allowlisted intent amends THIS section first (ADR-0005 lifecycle) — it never flips a window to
