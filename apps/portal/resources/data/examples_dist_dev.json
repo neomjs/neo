@@ -12,7 +12,7 @@
     "image"       : "devmode/DevIndex.png",
     "name"        : "GitHub Meritocracy Index",
     "sourceUrl"   : "https://github.com/neomjs/devindex",
-    "url"         : "https://neomjs.com/devindex/"
+    "url"         : "https://neomjs.com/devindex/dist/development/apps/devindex/"
 }, {
     "id"          : 27,
     "environments": ["Desktop"],
