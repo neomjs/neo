@@ -5,6 +5,7 @@ import path                                from 'node:path';
 import process                             from 'node:process';
 import {fileURLToPath}                     from 'node:url';
 import {test, expect}                      from '@playwright/test';
+import * as yaml                           from 'js-yaml';
 import {BROWSER_BUNDLES}                   from '../../../../buildScripts/util/browserBundles.mjs';
 import {parsePackOutput, REQUIRED_ENTRIES} from '../../../../buildScripts/util/check-package-contents.mjs';
 
@@ -269,6 +270,26 @@ test.describe('check-package-contents — a required entry cannot be silently dr
             expect(rule.why.length).toBeGreaterThan(40)
         })
     })
+});
+
+/**
+ * @summary The publisher packs the tree the guard checks.
+ *
+ * Both PR-time workflows that pack build the bundles first. A publish job that skips that step keeps every
+ * arm above green while the release packs none of the required entries.
+ */
+test('npm-publish.yml bundles and runs the guard before npm publish, in the job that publishes', () => {
+    const workflow = yaml.load(fs.readFileSync(new URL('../../../../.github/workflows/npm-publish.yml', import.meta.url), 'utf8')),
+          jobs     = Object.values(workflow.jobs).filter(job => job.steps.some(step => step.run === 'npm publish'));
+
+    expect(jobs, 'exactly one job publishes').toHaveLength(1);
+
+    const runs = jobs[0].steps.map(step => step.run),
+          at   = command => runs.indexOf(command);
+
+    expect(at('npm run bundle-browser-deps'), 'bundles after install').toBeGreaterThan(at('npm ci'));
+    expect(at('npm run check-package-contents'), 'guards the bundled tree').toBeGreaterThan(at('npm run bundle-browser-deps'));
+    expect(at('npm publish'), 'publishes only a guarded tree').toBeGreaterThan(at('npm run check-package-contents'))
 });
 
 test('the marked producer cannot substitute for the shipped runtime bundle', async () => {

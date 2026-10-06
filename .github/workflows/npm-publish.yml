@@ -25,4 +25,8 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
+      # dist/ is gitignored, so this checkout holds none of the bundles .npmignore ships until they are
+      # built; the guard then fails the run before an incomplete package spends the version.
+      - run: npm run bundle-browser-deps
+      - run: npm run check-package-contents
       - run: npm publish
