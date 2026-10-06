@@ -32,6 +32,19 @@ async function marginBottomOf(page, id) {
     }, id)
 }
 
+// getComputedStyle() can run before a class's theme stylesheet has finished loading:
+// insertThemeFiles() only tells the main thread to add the <link>, it does not wait for the
+// browser to fetch it. A <link> only gets a non-null .sheet once its CSS has actually loaded, so
+// waiting on that (rather than just the element existing) keeps the two tests above honest about
+// stylesheet load order instead of racing it.
+async function stylesheetsLoaded(page, names) {
+    await page.waitForFunction(names => {
+        const links = [...document.querySelectorAll('link[rel="stylesheet"]')];
+
+        return names.every(name => links.some(link => link.href.includes(name))) && links.every(link => link.sheet !== null)
+    }, names)
+}
+
 test.describe('Neo.form.Container', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
@@ -70,6 +83,8 @@ test.describe('Neo.form.Container', () => {
 
         componentIds.push(result.id);
 
+        await stylesheetsLoaded(page, ['/form/Container.css', '/form/field/Text.css', '/form/field/FileUpload.css']);
+
         const expectedUploadMargin = await page.evaluate(() => {
             return `${parseFloat(getComputedStyle(document.documentElement).fontSize) * 2.5}px`
         });
@@ -106,6 +121,8 @@ test.describe('Neo.form.Container', () => {
         }
 
         componentIds.push(result.id);
+
+        await stylesheetsLoaded(page, ['/form/Container.css', '/form/field/Text.css', '/form/field/FileUpload.css']);
 
         const expectedUploadMargin = await page.evaluate(() => {
             return `${parseFloat(getComputedStyle(document.documentElement).fontSize) * 2.5}px`
