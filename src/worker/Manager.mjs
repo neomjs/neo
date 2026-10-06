@@ -289,7 +289,8 @@ class Manager extends Base {
      *
      * This method reads the `Neo.config` to determine which workers to create (App, Data, VDom, etc.)
      * and whether to use `Worker` or `SharedWorker`. It injects the initial configuration and environment
-     * data (like window ID) into each worker upon creation.
+     * data (like window ID) into each worker upon creation. The URL payload keeps the effective
+     * document base beside its location, so workspace connections honor the page's base element.
      */
     createWorkers() {
         let me                   = this,
@@ -311,7 +312,7 @@ class Manager extends Base {
             }
         }
 
-        config.url = {href, search};
+        config.url = {base: document.baseURI, href, search};
 
         for ([key, value] of Object.entries(me.workers)) {
             if (key === 'canvas' && !config.useCanvasWorker ||
@@ -794,7 +795,7 @@ class Manager extends Base {
     }
 
     /**
-     * Starts a worker in case it is not running yet
+     * @summary Starts a worker with the same effective document base as initial worker registration.
      * @param {Object} data
      * @param {String} data.name
      * @returns {Boolean} true in case the worker was started or is already running
@@ -829,7 +830,7 @@ class Manager extends Base {
             {windowId}           = me;
 
         delete config.cesiumJsToken;
-        config.url = {href, search};
+        config.url = {base: document.baseURI, href, search};
 
         if (hash) {
             config.hash = {

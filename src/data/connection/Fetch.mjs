@@ -98,6 +98,7 @@ class Fetch extends Base {
     }
 
     /**
+     * @summary Dispatches a request through the connection's scoped URL resolver.
      * @param {Object|String} url
      * @param {Object} config={}
      * @param {String} method
@@ -112,7 +113,7 @@ class Fetch extends Base {
             config.url = config
         }
 
-        return fetch(url, {
+        return fetch(this.resolveUrl(url), {
             body  : data,
             method: method || config.method
         }).then(resp => {
