@@ -110,7 +110,6 @@ class Fetch extends Base {
             config = url;
             url    = config.url
         } else {
-            // String-form request metadata self-references: out of scope, noted in defect-note dc90959d-0b4c-4ac2-82e9-3b3cffab7073.
             config.url = config
         }
 
