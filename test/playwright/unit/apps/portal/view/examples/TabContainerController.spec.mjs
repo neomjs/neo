@@ -143,7 +143,7 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
         productionStore.destroy()
     });
 
-    test('release-gates DockDemo while retaining the visible DevIndex flagship card', () => {
+    test('reveals DockDemo with 13.2 as the first live card, beside the visible DevIndex flagship', () => {
         const registries = [{
             file       : 'examples_devmode.json',
             dockDemoUrl: 'examples/dashboard/choreography/index.html'
@@ -165,15 +165,15 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
                 devIndex  = records.find(record => record.name === 'GitHub Meritocracy Index'),
                 firstSeen = records.find(record => !record.hidden);
 
-            expect(records[0], `${file}: DockDemo stays top-ranked for the v13.2 reveal`).toBe(dockDemo);
+            expect(records[0], `${file}: DockDemo stays top-ranked`).toBe(dockDemo);
             expect(dockDemo).toMatchObject({
-                hidden       : true,
                 id           : 28,
                 sharedWorkers: true,
                 sourceUrl    : 'examples/dashboard/choreography',
                 url          : dockDemoUrl
             });
-            expect(firstSeen, `${file}: DevIndex remains the first live flagship`).toBe(devIndex);
+            // Registries reach the site only inside a release package, so the reveal ships with the release that contains the app
+            expect(firstSeen, `${file}: DockDemo is the first live card`).toBe(dockDemo);
             // DevIndex left the engine's build: every environment links out to its own deployed site
             expect(devIndex).toMatchObject({
                 sourceUrl: 'https://github.com/neomjs/devindex',

@@ -1,5 +1,4 @@
 [{
-    "hidden"       : true,
     "id"           : 28,
     "environments" : ["Desktop"],
     "image"        : "devmode/dockDemo.png",
