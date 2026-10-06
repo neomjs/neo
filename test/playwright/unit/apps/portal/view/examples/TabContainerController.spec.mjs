@@ -146,19 +146,23 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
     test('reveals DockDemo with 13.2 as the first live card, beside the visible DevIndex flagship', () => {
         const registries = [{
             file       : 'examples_devmode.json',
+            devIndexUrl: 'https://neomjs.com/devindex/',
             dockDemoUrl: 'examples/dashboard/choreography/index.html'
         }, {
             file       : 'examples_dist_dev.json',
+            devIndexUrl: 'https://neomjs.com/devindex/dist/development/apps/devindex/',
             dockDemoUrl: 'dist/development/examples/dashboard/choreography/index.html'
         }, {
             file       : 'examples_dist_esm.json',
+            devIndexUrl: 'https://neomjs.com/devindex/',
             dockDemoUrl: 'dist/esm/examples/dashboard/choreography/index.html'
         }, {
             file       : 'examples_dist_prod.json',
+            devIndexUrl: 'https://neomjs.com/devindex/dist/production/apps/devindex/',
             dockDemoUrl: 'dist/production/examples/dashboard/choreography/index.html'
         }];
 
-        registries.forEach(({file, dockDemoUrl}) => {
+        registries.forEach(({file, devIndexUrl, dockDemoUrl}) => {
             const
                 records   = JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8')),
                 dockDemo  = records.find(record => record.name === 'Dock Layouts'),
@@ -174,10 +178,11 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
             });
             // Registries reach the site only inside a release package, so the reveal ships with the release that contains the app
             expect(firstSeen, `${file}: DockDemo is the first live card`).toBe(dockDemo);
-            // DevIndex left the engine's build: every environment links out to its own deployed site
-            expect(devIndex).toMatchObject({
+            // DevIndex left the engine's build: each row links out to its deployed site, at the entry that site serves
+            // for the row's environment, and at the site root while the site has none
+            expect(devIndex, `${file}: DevIndex entry`).toMatchObject({
                 sourceUrl: 'https://github.com/neomjs/devindex',
-                url      : 'https://neomjs.com/devindex/'
+                url      : devIndexUrl
             });
             expect(devIndex.hidden ?? false).toBe(false)
         })
