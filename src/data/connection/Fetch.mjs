@@ -98,6 +98,7 @@ class Fetch extends Base {
     }
 
     /**
+     * @summary Dispatches a request through the connection's scoped URL resolver.
      * @param {Object|String} url
      * @param {Object} config={}
      * @param {String} method
@@ -109,10 +110,11 @@ class Fetch extends Base {
             config = url;
             url    = config.url
         } else {
+            // String-form request metadata self-references: out of scope, noted in defect-note dc90959d-0b4c-4ac2-82e9-3b3cffab7073.
             config.url = config
         }
 
-        return fetch(url, {
+        return fetch(this.resolveUrl(url), {
             body  : data,
             method: method || config.method
         }).then(resp => {
