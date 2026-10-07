@@ -46,6 +46,21 @@ async function statsWhen(page, predicate, message) {
     return stats
 }
 
+/**
+ * @summary Waits for the demo scene drawn into a buffer of the canvas's CSS size at a pixel ratio of 2. Boot draws
+ * the scene before the first resize report lands, so an earlier read can show it in the canvas default 300×150.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Object>}
+ */
+async function sizedSceneDrawn(page) {
+    const
+        box  = await page.locator('canvas').boundingBox(),
+        size = [Math.floor(box.width * 2), Math.floor(box.height * 2)];
+
+    return statsWhen(page, stats => stats.frames > 0 && stats.counts?.nodes === SCENE.nodes &&
+        stats.canvas?.[0] === size[0] && stats.canvas?.[1] === size[1], 'the demo scene is drawn at the CSS size times the ratio')
+}
+
 test.describe('Neo.canvas.GraphScene — a WebGL2 scene on the canvas worker', () => {
     test.use({deviceScaleFactor: 2, viewport: {width: 1000, height: 700}});
 
@@ -56,7 +71,7 @@ test.describe('Neo.canvas.GraphScene — a WebGL2 scene on the canvas worker', (
     });
 
     test('a scene draws on arrival and nothing while idle; a drag orbits; the buffer is the size times the ratio', async ({page}) => {
-        let drawn = await statsWhen(page, stats => stats.frames > 0 && stats.counts?.nodes === SCENE.nodes, 'the demo scene is drawn');
+        let drawn = await sizedSceneDrawn(page);
 
         // boot may still owe a frame (the first resize report lands after the scene): the idle second is
         // timed from two reads that agree
@@ -93,7 +108,7 @@ test.describe('Neo.canvas.GraphScene — a WebGL2 scene on the canvas worker', (
     });
 
     test('a lost context comes back with its scene, and a resize keeps it', async ({page}) => {
-        const drawn = await statsWhen(page, stats => stats.frames > 0 && stats.counts?.nodes === SCENE.nodes, 'the demo scene is drawn');
+        const drawn = await sizedSceneDrawn(page);
 
         await page.getByRole('button', {name: 'Lose context'}).click();
 
