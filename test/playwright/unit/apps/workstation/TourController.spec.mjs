@@ -13,6 +13,9 @@ function deferred() {
     return {promise, resolve}
 }
 
+/** @summary The entry reset `Workspace#resetTopology` answers when it commits. @returns {Object} */
+const acceptedReset = () => ({errors: [], reset: true, transactionId: null});
+
 test('the configured runner cannot begin its next beat before the controller cue settles', async () => {
     const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
           controller = await workspace.getController().getTourController(),
@@ -140,7 +143,7 @@ test('startTour sets the gate mode only when asked: a gated screenplay then runs
           },
           continued  = receipt => receipt.cueReceipts.map(entry => entry.receipt.continued);
     controller.setPipProgress = async () => {};
-    workspace.refreshDockWorkspace = async () => {};
+    workspace.resetTopology = async () => acceptedReset();
     try {
         // viewer mode: the run holds at the gate until Continue
         const held = controller.startTour(script);
@@ -165,19 +168,19 @@ test('startTour sets the gate mode only when asked: a gated screenplay then runs
     } finally {workspace.destroy()}
 });
 
-test('repeated starts share the entry projection and cancellation does not start the runner afterward', async () => {
+test('repeated starts share the entry reset and cancellation does not start the runner afterward', async () => {
     const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
           controller = await workspace.getController().getTourController(),
           entry      = deferred(), entered = deferred(), runner = controller.getTourRunner();
-    let starts = 0, projections = 0;
+    let starts = 0, entries = 0;
     controller.setPipProgress = async () => {};
-    workspace.refreshDockWorkspace = () => {projections++; entered.resolve(); return entry.promise};
+    workspace.resetTopology = () => {entries++; entered.resolve(); return entry.promise.then(acceptedReset)};
     runner.start = async () => {starts++; return {completed: true, errors: [], log: []}};
     try {
         const first = controller.startTour();
         await entered.promise;
         expect(controller.startTour()).toBe(first);
-        expect(projections).toBe(1);
+        expect(entries).toBe(1);
         await controller.cancelTour();
         expect(await first).toMatchObject({completed: false, cancelled: true});
         entry.resolve();
@@ -221,7 +224,7 @@ test('cancellation during final settlement returns cancellation rather than read
           controller = await workspace.getController().getTourController(),
           refresh    = deferred(), started = deferred(), runner = controller.getTourRunner();
     controller.setPipProgress = async () => {};
-    workspace.refreshDockWorkspace = async () => {};
+    workspace.resetTopology = async () => acceptedReset();
     runner.start = async () => {
         workspace.refreshPromise = refresh.promise;
         started.resolve();
