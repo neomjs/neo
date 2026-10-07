@@ -110,7 +110,10 @@ class Fetch extends Base {
             config = url;
             url    = config.url
         } else {
-            config.url = config
+            // The metadata handed back through `response.request` is this same object, and the
+            // object form's url slot holds the original string. Assigning the config here would
+            // put the object inside itself, and serializing it then fails on the cycle.
+            config.url = url
         }
 
         return fetch(this.resolveUrl(url), {
