@@ -22,6 +22,9 @@ import Operations                               from './model/Operations.mjs';
 import PreviewContract                          from './model/PreviewContract.mjs';
 import TopologySeams                            from './window/TopologySeams.mjs';
 
+// The workspace classes already warned that a torn-out window has no way back (see projectDockModel)
+const unreachableReturnWarned = new Set();
+
 /**
  * @summary The engine-owned dock workspace host: the reducer-container that owns one committed
  * `dockZone.v1` document and turns it into a live projection through the single sanctioned
@@ -2370,6 +2373,14 @@ class Workspace extends Container {
 
                 if (lost.length) {
                     throw new Error(`Workspace ${me.id}: getDockProjectionOptions() dropped ${lost.join(', ')} while enableDockTearOutLifecycle is on — an override must spread super.getDockProjectionOptions()`)
+                }
+
+                // Only a published crossWindowSortGroup registers the zones and composes the
+                // cross-window participation, so without one a torn-out window can never return.
+                // Warned once per class, not thrown, so a host can upgrade before publishing one.
+                if (options.crossWindowSortGroup == null && !unreachableReturnWarned.has(me.className)) {
+                    unreachableReturnWarned.add(me.className);
+                    console.warn(`${me.className}: enableDockTearOutLifecycle is on, but getDockProjectionOptions() publishes no crossWindowSortGroup, so a window torn out of it can never be dragged back`)
                 }
             }
 
