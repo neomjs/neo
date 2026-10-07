@@ -350,6 +350,20 @@ class NoSortGroupWorkspace extends DockWorkspace {
 }
 
 /**
+ * A blank group registers nothing either: the coordinator and the participation lifecycle both test
+ * the group for truthiness.
+ */
+class BlankSortGroupWorkspace extends NoSortGroupWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.BlankSortGroupWorkspace'
+    }
+
+    getDockProjectionOptions() {
+        return {...super.getDockProjectionOptions(), crossWindowSortGroup: ''}
+    }
+}
+
+/**
  * A consumer with app chrome ahead of the shell and every hook overridden.
  */
 class ChromeWorkspace extends DockWorkspace {
@@ -590,6 +604,7 @@ Neo.setupClass(HandWrittenFlagWorkspace);
 Neo.setupClass(NoLifecycleWorkspace);
 Neo.setupClass(KeptOptInsWorkspace);
 Neo.setupClass(NoSortGroupWorkspace);
+Neo.setupClass(BlankSortGroupWorkspace);
 Neo.setupClass(PlainWorkspace);
 Neo.setupClass(StackWorkspace);
 Neo.setupClass(ChromeWorkspace);
@@ -1401,16 +1416,18 @@ test('the holder contract: a config-assigned document is readable before any ope
             Neo.create(NoSortGroupWorkspace, {dockModel: createDocument()}).destroy();
             Neo.create(NoSortGroupWorkspace, {dockModel: createDocument()}).destroy();
             Neo.create(KeptOptInsWorkspace,  {dockModel: createDocument()}).destroy();
-            Neo.create(NoLifecycleWorkspace, {dockModel: createDocument()}).destroy()
+            Neo.create(NoLifecycleWorkspace, {dockModel: createDocument()}).destroy();
+            Neo.create(BlankSortGroupWorkspace, {dockModel: createDocument()}).destroy()
         } finally {
             console.warn = warn
         }
 
         const reports = warnings.filter(text => text.includes('crossWindowSortGroup'));
 
-        expect(reports, 'two instances of the class, one report; a published group or no lifecycle, none').toHaveLength(1);
+        expect(reports, 'one report per class: the missing group and the blank one; a published group or no lifecycle, none').toHaveLength(2);
         expect(reports[0]).toContain('NoSortGroupWorkspace');
-        expect(reports[0]).toContain('can never be dragged back')
+        expect(reports[0]).toContain('can never be dragged back');
+        expect(reports[1]).toContain('BlankSortGroupWorkspace')
     });
 
     test('lock is in the default engine set, and explicit false is still the escape', () => {

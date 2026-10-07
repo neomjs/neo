@@ -2378,7 +2378,7 @@ class Workspace extends Container {
                 // Only a published crossWindowSortGroup registers the zones and composes the
                 // cross-window participation, so without one a torn-out window can never return.
                 // Warned once per class, not thrown, so a host can upgrade before publishing one.
-                if (options.crossWindowSortGroup == null && !unreachableReturnWarned.has(me.className)) {
+                if (!options.crossWindowSortGroup && !unreachableReturnWarned.has(me.className)) {
                     unreachableReturnWarned.add(me.className);
                     console.warn(`${me.className}: enableDockTearOutLifecycle is on, but getDockProjectionOptions() publishes no crossWindowSortGroup, so a window torn out of it can never be dragged back`)
                 }
