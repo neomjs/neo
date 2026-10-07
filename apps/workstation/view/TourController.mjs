@@ -756,7 +756,11 @@ class TourController extends Controller {
     }
 
     /**
-     * @summary Runs a screenplay from a fresh document on every replay.
+     * @summary Runs a screenplay from the shipped arrangement on every replay.
+     *
+     * The entry is {@link Workstation.view.Workspace#resetTopology}, the same write as "Reset to
+     * default": a pane the viewer tore into a window comes home in it, so no screenplay starts
+     * from a pane listed twice. A refused reset starts no runner and stops with its errors.
      * @param {Object} [script=workstationTourScript]
      * @param {Object} [options={}]
      * @param {Boolean} [options.autoGates] Sets the gate mode when given; omitted keeps it.
@@ -780,17 +784,18 @@ class TourController extends Controller {
         me.cueSettlements.clear();
         me.lastTourReceipt = null;
         me.progressPromise = Promise.resolve();
-        workspace.dockModel       = WorkspaceDocument.clone(initialDocument);
         await me.trap(me.setPipProgress(0));
 
-        await me.trap(workspace.refreshDockWorkspace(null, workspace.dockModel, {geometryOnly: true}));
+        const reset = await me.trap(workspace.resetTopology());
 
         const
             feedStore      = me.getStateProvider().getStore('feed'),
             feedStartCount = feedStore.count,
             feedStartBatch = feedStore.batchCount,
             startedAt      = Date.now(),
-            runnerResult   = await me.trap(me.tourRunner.start());
+            runnerResult   = reset.reset
+                ? await me.trap(me.tourRunner.start())
+                : {completed: false, errors: reset.errors.map(error => `tour entry reset refused: ${error}`), log: []};
 
         const
             // a cue failure that already stopped the runner is reported once, as the stop

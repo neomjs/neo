@@ -107,6 +107,59 @@ test('a second tear-out reuses an emptied vessel through one atomic transfer', a
     }
 });
 
+test('the visible tour enters through the product reset: a torn-out pane comes home and one undo returns it', async () => {
+    const binding     = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: Workspace.MAIN_WORKSPACE_ID}),
+          workspace   = Neo.create(Workspace, {topologyGroupId: binding.groupId, windowId: Neo.config.windowId}),
+          workspaceId = Workspace.vesselWorkspaceId('metrics'),
+          empty       = WorkspaceDocument.normalizeTree(workspace.createVesselWorkspaceDocument('metrics')),
+          state       = workspace.createPopupWorkspace(workspaceId, empty, {committed: true, itemId: 'metrics'}),
+          owners      = () => Object.entries(workspace.getDockTopologyWorkspaces())
+              .filter(([, document]) => Object.hasOwn(document?.items ?? {}, 'metrics')).map(([key]) => key),
+          host        = {
+              cueErrors       : [],
+              cuePromise      : Promise.resolve(),
+              cueReceipts     : [],
+              cueSettlements  : new Map(),
+              lastTourReceipt : null,
+              progressPromise : Promise.resolve(),
+              getStateProvider: () => ({getStore: () => ({batchCount: 0, batchSize: 5, count: 0, intervalMs: 500, maxRecords: 500})}),
+              setPipProgress  : async () => {},
+              setState        : () => {},
+              setTourCaption  : () => {},
+              trap            : promise => promise,
+              tourRunner      : {running: false, start: async () => ({completed: true, errors: [], log: []})},
+              workspace
+          };
+
+    host.getTourRunner = () => host.tourRunner;
+    workspace.projectDockZoneDocument = state.host.projectDockZoneDocument = async () => {};
+    workspace.tearOutHandlers.capturePane = () => true;
+    workspace.tearOutHandlers.adoptPane = () => {};
+
+    try {
+        await TransactionManager.setHistoryDepth({groupId: binding.groupId, depth: 5});
+        await workspace.onTearOutDocumentChange(null, {operation: 'detachItem', itemId: 'metrics'}, {workspaceKey: workspaceId});
+        expect(owners(), 'the pane lives in its vessel before Start').toEqual([workspaceId]);
+
+        const group = TransactionManager.get(binding.groupId), before = group.history.count;
+
+        expect((await TourController.prototype.runVisibleTour.call(host)).completed).toBe(true);
+        expect(owners(), 'the entry brings the torn-out pane home, not a second copy').toEqual([Workspace.MAIN_WORKSPACE_ID]);
+
+        const capture = workspace.captureTopology();
+
+        expect(capture.errors).toEqual([]);
+        expect(capture.topology).not.toBeNull();
+        expect(group.history.count, 'the entry is one history row').toBe(before + 1);
+
+        await TransactionManager.undo({groupId: binding.groupId});
+        expect(owners(), 'undo returns the pane to its vessel').toEqual([workspaceId])
+    } finally {
+        workspace.destroy();
+        TransactionManager.retireGroup(binding.groupId)
+    }
+});
+
 test('an empty vessel cannot target its own tear-out and joins after pane ownership arrives', async () => {
     const binding     = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: Workspace.MAIN_WORKSPACE_ID}),
           workspace   = Neo.create(Workspace, {topologyGroupId: binding.groupId, windowId: Neo.config.windowId}),
@@ -529,19 +582,19 @@ test.describe('Workstation.view.Workspace', () => {
         let host;
 
         host = {
-            cueErrors           : [],
-            cuePromise          : Promise.resolve(),
-            cueReceipts         : [],
-            cueSettlements      : new Map(),
-            dockModel           : null,
-            lastTourReceipt     : null,
-            progressPromise     : Promise.resolve(),
-            refreshPromise      : Promise.resolve(),
-            getStateProvider    : () => ({getStore: () => feedStore}),
-            refreshDockWorkspace: async () => {},
-            setPipProgress      : async () => {},
-            setTourCaption      : value => captions.push(value),
-            tourRunner          : {
+            cueErrors       : [],
+            cuePromise      : Promise.resolve(),
+            cueReceipts     : [],
+            cueSettlements  : new Map(),
+            dockModel       : null,
+            lastTourReceipt : null,
+            progressPromise : Promise.resolve(),
+            refreshPromise  : Promise.resolve(),
+            getStateProvider: () => ({getStore: () => feedStore}),
+            resetTopology   : async () => ({errors: [], reset: true, transactionId: null}),
+            setPipProgress  : async () => {},
+            setTourCaption  : value => captions.push(value),
+            tourRunner      : {
                 running: false,
                 async start() {
                     host.refreshPromise = Promise.reject(failure);
@@ -568,6 +621,43 @@ test.describe('Workstation.view.Workspace', () => {
             'scene[0] host step settlement failed: projection vanished'
         ]);
         expect(captions.at(-1)).toContain('Tour stopped')
+    });
+
+    test('a refused entry reset starts no runner and stops with the reset\'s errors', async () => {
+        const
+            feedStore = {batchCount: 0, batchSize: 5, count: 0, intervalMs: 500, maxRecords: 500},
+            refusal   = 'the main workspace is not registered',
+            captions  = [];
+
+        let starts = 0;
+
+        const host = {
+            cueErrors       : [],
+            cuePromise      : Promise.resolve(),
+            cueReceipts     : [],
+            cueSettlements  : new Map(),
+            dockModel       : null,
+            lastTourReceipt : null,
+            progressPromise : Promise.resolve(),
+            refreshPromise  : Promise.resolve(),
+            getStateProvider: () => ({getStore: () => feedStore}),
+            resetTopology   : async () => ({errors: [refusal], reset: false, transactionId: null}),
+            setPipProgress  : async () => {},
+            setState        : () => {},
+            setTourCaption  : value => captions.push(value),
+            trap            : promise => promise,
+            tourRunner      : {running: false, async start() {starts++; return {completed: true, errors: [], log: []}}}
+        };
+
+        host.workspace     = host;
+        host.getTourRunner = () => host.tourRunner;
+
+        const receipt = await TourController.prototype.runVisibleTour.call(host);
+
+        expect(starts, 'no screenplay starts from an unreset topology').toBe(0);
+        expect(receipt.completed).toBe(false);
+        expect(receipt.errors).toEqual([`tour entry reset refused: ${refusal}`]);
+        expect(captions.at(-1)).toBe(`Tour stopped — tour entry reset refused: ${refusal}`)
     });
 
     test('provider-owned stores and cached data panes survive split + return', async () => {
