@@ -1001,7 +1001,7 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
-    test('the park records the content rect, so a terminal restore re-shows the frame it was parked from', async () => {
+    test('terminal and pointer restores preserve the content anchor or live frame origin', async () => {
         const
             workspace             = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalDragDrop      = Neo.main.addon.DragDrop,
@@ -1103,7 +1103,40 @@ test.describe('Workstation.view.Workspace', () => {
                 targetId: Workspace.MAIN_WORKSPACE_ID
             })).resolves.toBe(true);
             expect(workspace.vesselParkHandlers.parkedVessel.preConversionRect, 'the pointer park records the content rect')
-                .toEqual(sourceInner)
+                .toEqual(sourceInner);
+
+            const resumeCalls = [];
+
+            Neo.main.addon.DragDrop.resumeWindowDrag = async data => {
+                resumeCalls.push(data);
+                return true
+            };
+            // The live window now describes its parking corner, not the origin saved by the park.
+            records.get('source-window').innerRect = {...sourceInner, x: 0, y: 760};
+            await expect(workspace.getDockProjectionOptions().onDockVesselConversionOut({
+                itemId: 'audit', record: {sourceRect: {...sourceOuter}}
+            })).resolves.toBe(true);
+            expect(resumeCalls[0], 'without a live pointer origin the saved content anchor restores the original frame')
+                .toMatchObject({x: sourceOuter.x, y: sourceOuter.y});
+            expect(workspace.lastVesselRestoreReceipt).toMatchObject({rect: sourceInner, terminal: false});
+
+            records.get('source-window').innerRect = {...sourceInner};
+            await expect(workspace.getDockProjectionOptions().onDockVesselConversionIn({
+                itemId: 'audit', targetId: Workspace.MAIN_WORKSPACE_ID
+            })).resolves.toBe(true);
+
+            const logicalRect = {height: 240, width: 320, x: 1000, y: 340};
+
+            await expect(workspace.getDockProjectionOptions().onDockVesselConversionOut({
+                itemId: 'audit', logicalRect, record: {sourceRect: {...sourceOuter}}
+            })).resolves.toBe(true);
+            expect(resumeCalls[1], 'the live frame origin survives the content-to-frame transaction')
+                .toMatchObject({x: logicalRect.x, y: logicalRect.y});
+            expect(workspace.lastVesselRestoreReceipt).toMatchObject({
+                rect    : {...logicalRect, y: logicalRect.y + 67},
+                terminal: false
+            });
+            expect(logicalRect.y, 'the coordinator-owned input is not mutated').toBe(340)
         } finally {
             Neo.main.addon.DragDrop     = originalDragDrop;
             Neo.Main.getWindowData      = originalGetWindowData;

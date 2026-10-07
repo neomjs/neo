@@ -1410,6 +1410,28 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                         return
                     }
 
+                    await page.evaluate(() => {
+                        const addon  = Neo.main.addon.DragDrop,
+                              resume = addon.resumeWindowDrag;
+
+                        globalThis.__neoResumeMeasurements = [];
+                        addEventListener('mousemove', event => {
+                            globalThis.__neoResumePointer = {x: event.screenX, y: event.screenY}
+                        }, {capture: true});
+                        addon.resumeWindowDrag = async function(data) {
+                            const measurement = {
+                                offset : {x: this.offsetX, y: this.offsetY},
+                                pointer: globalThis.__neoResumePointer,
+                                request: {x: data.x, y: data.y}
+                            };
+
+                            globalThis.__neoResumeMeasurements.push(measurement);
+                            measurement.admitted = await resume.call(this, data);
+                            measurement.offsetAfter = {x: this.offsetX, y: this.offsetY};
+                            return measurement.admitted
+                        }
+                    });
+
                     const targetFar = await targetHandle.cdp.send(
                         'Browser.getWindowBounds',
                         {windowId: targetHandle.windowId}
@@ -1446,16 +1468,10 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                     ).toBe(false);
                     await page.mouse.move(restorePointer.x, restorePointer.y);
 
-                    let
-                        restore,
-                        restoreMoveIndex = 0;
+                    let restore;
 
                     try {
                         await expect.poll(async () => {
-                            const delta = restoreMoveIndex++ % 2;
-
-                            await page.mouse.move(restorePointer.x + delta, restorePointer.y + delta);
-
                             const
                                 conversion = await app.callMethod(sourceZoneId, 'getVesselConversionState'),
                                 state      = await app.getComponent(wsId, ['lastVesselRestoreReceipt']);
@@ -1533,6 +1549,37 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                                 ? 17
                                 : -17
                         };
+
+                    const resumeMeasurement = {
+                        calls : await page.evaluate(() => globalThis.__neoResumeMeasurements),
+                        chrome: {
+                            x: sourceBefore.managed.x - sourceBefore.browser.frame.x,
+                            y: sourceBefore.managed.y - sourceBefore.browser.frame.y
+                        },
+                        pointer: restoreScreen,
+                        restore,
+                        sourceAfter
+                    };
+
+                    await testInfo.attach(`conversion-out-resume-${cell.name}`, {
+                        body       : Buffer.from(JSON.stringify(resumeMeasurement, null, 2)),
+                        contentType: 'application/json'
+                    });
+
+                    expect(resumeMeasurement.calls).toHaveLength(1);
+                    const resumeCall    = resumeMeasurement.calls[0],
+                          expectedFrame = {
+                              x: resumeCall.pointer.x - resumeCall.offset.x,
+                              y: resumeCall.pointer.y - resumeCall.offset.y
+                          };
+
+                    expect(resumeCall.request, 'resume uses the same frame origin as pointer-follow')
+                        .toEqual(expectedFrame);
+                    expect(Math.max(
+                        Math.abs(sourceAfter.frame.x - expectedFrame.x),
+                        Math.abs(sourceAfter.frame.y - expectedFrame.y)
+                    ), 'the stationary pointer resumes within the native movement rounding tolerance')
+                        .toBeLessThanOrEqual(1);
 
                     expect(sourceAfter.outer, `${cell.name}: exact outer extent returns on the identical Page`)
                         .toEqual(sourceBefore.browser.outer);

@@ -242,8 +242,7 @@ class VesselPark extends Base {
      * rect when the out-event carries one (the popup resumes under the pointer); at the
      * recorded pre-conversion rect otherwise (origin semantics). No slot = stale event = no-op.
      * @param {Object} [data]
-     * @param {Object} [data.rect] The live rect to resume at (the sensor's out-record
-     *     `sourceRect` is the natural feed)
+     * @param {Object} [data.rect] The live rect in the host's re-show coordinate space.
      * @returns {Boolean|Promise<Boolean>}
      */
     onConversionOut(data) {
