@@ -244,13 +244,17 @@ test.describe('standalone dock: heavy split content', () => {
 
             const source = 'const workspace = Neo.getComponent(' + JSON.stringify(workspaceId) + ');\n' +
                 'workspace.heavySplitReceipts = [];\n' +
+                'const ids = ' + JSON.stringify(ids) + ';\n' +
+                'const identities = ids.map(id => {const pane = Neo.getComponent(id); return {pane, store: pane.store}});\n' +
+                'Object.defineProperty(workspace, "heavyIdentityValid", {get: () => ids.every((id, index) =>\n' +
+                ' Neo.getComponent(id) === identities[index].pane && identities[index].pane.store === identities[index].store)});\n' +
                 'workspace.on("beforeDockZoneDocumentChange", ({descriptor}) => {\n' +
                 ' if (descriptor?.operation === "resizeSplit") workspace.heavySplitReceipts.push({...descriptor});\n' +
                 '});';
             await page.evaluate(path => Neo.worker.App.loadModule({path}),
                 'data:text/javascript;charset=utf-8,' + encodeURIComponent(source + '\n// heavy-split-' + axis));
 
-            const readState = () => app.getComponent(workspaceId, ['dockModel', 'heavySplitReceipts']),
+            const readState = () => app.getComponent(workspaceId, ['dockModel', 'heavySplitReceipts', 'heavyIdentityValid']),
                   readPair  = () => page.evaluate(({ids, dimension}) => ids.map(id =>
                       document.getElementById(id).getBoundingClientRect()[dimension]), {ids, dimension}),
                   splitter = page.locator('.neo-dashboard-dock-split-' + axis + ' > .neo-dashboard-dock-splitter-' + axis),
@@ -335,6 +339,7 @@ test.describe('standalone dock: heavy split content', () => {
                     expect((await readState()).heavySplitReceipts.length, 'settlement admits exactly one semantic commit').toBe(count + 1)
                 }
 
+                expect((await readState()).heavyIdentityValid, 'the original pane and store objects survive').toBe(true);
                 for (const pane of panes) {
                     expect((await app.getComponent(pane.id, ['body.id', 'store.id']))).toEqual({
                         'body.id': pane.bodyId, 'store.id': pane.storeId
@@ -369,6 +374,7 @@ test.describe('standalone dock: heavy split content', () => {
                 expect((await app.inspectStore(pane.storeId, 1, 0)).count).toBe(pane.columnCount === 19 ? 2001 : 2000)
             }
 
+            expect((await readState()).heavyIdentityValid, 'scrolling retains the original pane and store objects').toBe(true);
             expect(await app.getConsoleLogs('warn', 'Dock projection failed'), 'no handled projection failure').toEqual([]);
         })
     }
