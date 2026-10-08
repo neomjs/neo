@@ -63,6 +63,8 @@ class SortZone extends DragZone {
         /**
          * A CSS selector to identify the drag handle within a component.
          * If specified, the drag is initiated on this element, but the owning component is dragged.
+         * A distinct descendant handle must carry `neo-draggable` itself; the item root is not marked.
+         * Root handles and the legacy `.neo-draggable` selector keep the item root marked.
          * @member {String|null} dragHandleSelector=null
          */
         dragHandleSelector: null,
