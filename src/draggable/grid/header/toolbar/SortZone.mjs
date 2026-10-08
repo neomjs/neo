@@ -271,6 +271,38 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * @summary Preserves a scrolled header's content extent before the proxy or item lift can shrink it.
+     * The base has captured viewport-space item rects, but has not yet absolutised the headers.
+     * Pin their owner-content extent and wait for that node to reach the DOM before continuing.
+     * The existing drag-end path removes the reservation when normal layout takes over again.
+     * @param {Object} data The admitted drag-start event.
+     * @returns {Promise<void>}
+     */
+    async dragStart(data) {
+        let me = this;
+
+        if (me.dragStartScrollLeft > 0 && me.itemRects?.length) {
+            let extent = Math.max(...me.itemRects.map(rect => rect.x + rect.width))
+                - me.ownerRect.x + me.dragStartScrollLeft;
+
+            me.owner.vdom.cn.push({
+                cls  : ['neo-sortzone-extent-sentinel'],
+                style: {
+                    height  : '1px',
+                    left    : `${extent - 1}px`,
+                    position: 'absolute',
+                    top     : 0,
+                    width   : '1px'
+                }
+            });
+
+            await me.owner.promiseUpdate()
+        }
+
+        await super.dragStart(data)
+    }
+
+    /**
      * @param {Number} fromIndex
      * @param {Number} toIndex
      */
@@ -496,31 +528,6 @@ class SortZone extends BaseSortZone {
             // Force a deep update to propagate Row component VDOM changes (visibility) to the worker.
             body.updateDepth = -1;
             body.update()
-        }
-
-        // Scroll-extent sentinel: with the items absolutised, the toolbar's scrollable overflow
-        // is defined purely by their boxes — every switch reflow can shrink it, and the browser
-        // then clamps the element's native scrollLeft below the true scroll position. The owner
-        // must NOT be expanded to content size (it has to stay a real scroll container — see
-        // `expandOwnerOnDrag` in the base class), so instead a 1px absolute node pins the
-        // pre-drag content extent for the duration of the drag. The clamp becomes impossible:
-        // max scroll never shrinks, headers and cells stay on the same scroll truth through
-        // every switch and switch-back. processDragEnd removes it before the layout restore.
-        if (me.dragStartScrollLeft > 0 && me.itemRects?.length) {
-            let extent = Math.max(...me.itemRects.map(rect => rect.x + rect.width));
-
-            me.owner.vdom.cn.push({
-                cls  : ['neo-sortzone-extent-sentinel'],
-                style: {
-                    height  : '1px',
-                    left    : `${extent - 1}px`,
-                    position: 'absolute',
-                    top     : 0,
-                    width   : '1px'
-                }
-            });
-
-            me.owner.update()
         }
     }
 
