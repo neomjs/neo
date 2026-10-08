@@ -7,7 +7,9 @@ import process                        from 'node:process';
 import {createRequire}                from 'node:module';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import isEntryModule                  from './isEntryModule.mjs';
+import {BROWSER_BUNDLE_FILES}         from './browserBundles.mjs';
 import {withComposedNpmIgnore}        from './npmIgnoreComposition.mjs';
+import {findForbiddenEntries}         from './check-package-contents.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       ROOT      = path.resolve(__dirname, '../..');
@@ -111,7 +113,7 @@ export const APP_EXPECTATIONS = [{
     file   : 'node_modules/neo.mjs/dist/marked.mjs',
     match  : /neo\.mjs[/\\]dist[/\\]marked\.mjs$/,
     present: true,
-    because: 'marked resolves through the bundle the package ships, never through a node_modules layout'
+    because: 'marked resolves through the bundle generated inside the installed package, never through a node_modules layout'
 }];
 
 /**
@@ -136,6 +138,17 @@ export const CANVAS_EXPECTATIONS = [{
     present: true,
     because: 'a consumer-owned renderer must stay reachable through the rebased app-space root'
 }];
+
+/**
+ * @summary Returns runtime-addressed files missing from the installed dependency build.
+ * @param {String[]} files Regular files present beneath the installed Engine root, as relative paths.
+ * @returns {String[]} Missing paths in the canonical browser-artifact order.
+ */
+export function findMissingBrowserArtifacts(files) {
+    const present = new Set(files);
+
+    return BROWSER_BUNDLE_FILES.filter(file => !present.has(file))
+}
 
 /**
  * @summary Rule logic, split from the pack/install/build so it is unit-testable without spawning.
@@ -332,6 +345,7 @@ async function buildMain(workspace, mode, arm) {
     }
 }
 
+/** @summary Packs source, generates browser dependencies in an installed consumer, then verifies its runtime builds. */
 async function main() {
     const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-consumer-')),
           // Nested under `apps` on purpose: the ancestor-name match is half of what this guard covers.
@@ -343,17 +357,40 @@ async function main() {
         createFixture(workspace);
 
         console.log('check-consumer-runtime-build: packing…');
-        // The caller builds the artifacts; hook-install lifecycle output must not become a filename. Skipping the
-        // lifecycle skips `prepack` too, so the .npmignore composition is applied here.
-        const packed = withComposedNpmIgnore(ROOT, () => JSON.parse(execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--loglevel=error', '--pack-destination', workspace],
-            {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}))[0].filename);
+        // Skip hooks, but retain the same ignore composition that publish uses.
+        const report = withComposedNpmIgnore(ROOT, () => JSON.parse(execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--loglevel=error', '--pack-destination', workspace],
+            {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}))[0]),
+              forbidden = findForbiddenEntries(report.files.map(file => file.path));
 
-        console.log(`check-consumer-runtime-build: installing ${packed} into the fixture…`);
-        // The published package declares no runtime dependencies, so a consumer that builds neo's
-        // workers supplies the build toolchain itself; installing it here mirrors that reality. The App
-        // worker's template loader adds acorn and astring.
-        execFileSync('npm', ['install', '--no-audit', '--no-fund', '--ignore-scripts', `./${packed}`, 'acorn', 'astring', 'fs-extra', 'webpack', 'webpack-hook-plugin'],
+        if (forbidden.length) {
+            throw new Error(`the consumer tarball contains forbidden entries: ${forbidden.map(entry => entry.path).join(', ')}`)
+        }
+
+        console.log(`check-consumer-runtime-build: installing ${report.filename} into the fixture…`);
+        execFileSync('npm', ['install', '--no-audit', '--no-fund', '--ignore-scripts', `./${report.filename}`],
             {cwd: workspace, encoding: 'utf8', stdio: 'pipe'});
+
+        const installedRoot = path.join(workspace, 'node_modules/neo.mjs'),
+              installed     = JSON.parse(fs.readFileSync(path.join(installedRoot, 'package.json'), 'utf8')),
+              manifestPath  = path.join(workspace, 'package.json'),
+              manifest      = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+
+        // Keep the declared build toolchain hoisted: a nested install could hide dependency-resolution defects.
+        manifest.devDependencies = installed.devDependencies;
+        manifest.overrides       = installed.overrides;
+        fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4));
+        execFileSync('npm', ['install', '--include=dev', '--no-audit', '--no-fund', '--ignore-scripts'],
+            {cwd: workspace, encoding: 'utf8', stdio: 'pipe'});
+
+        console.log('check-consumer-runtime-build: generating browser dependencies inside the installed package…');
+        execFileSync('npm', ['run', 'bundle-browser-deps'], {cwd: installedRoot, stdio: 'inherit'});
+
+        const missing = findMissingBrowserArtifacts(BROWSER_BUNDLE_FILES.filter(file =>
+            fs.statSync(path.join(installedRoot, file), {throwIfNoEntry: false})?.isFile()));
+
+        if (missing.length) {
+            throw new Error(`the installed dependency build is missing runtime files: ${missing.join(', ')}`)
+        }
 
         const failures = [],
               origCwd  = process.cwd();

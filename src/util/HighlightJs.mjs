@@ -14,7 +14,7 @@ class HighlightJs extends Base {
          */
         className: 'Neo.util.HighlightJs',
         /**
-         * Selects the unminified bundle. The package ships both, so either value resolves for a consumer.
+         * Selects the unminified bundle. `build-highlightjs` generates both variants in the installed Engine.
          * @member {Boolean} debug=true
          */
         debug: true,
@@ -49,9 +49,8 @@ class HighlightJs extends Base {
     /**
      * @summary The `Neo.config.basePath`-relative bundle {@link #load} imports, chosen by `debug`.
      *
-     * The npm package is this choice's second consumer: `unit/util/HighlightJs.spec.mjs` packs the
-     * repository and runs the loader against the packed files, so a renamed bundle reds there rather
-     * than in an installed app.
+     * `unit/util/HighlightJs.spec.mjs` checks both loader paths with isolated module stand-ins.
+     * The consumer-build guard verifies both real files after generation in the installed Engine.
      * @returns {String}
      */
     getBundlePath() {
