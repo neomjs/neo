@@ -234,8 +234,26 @@ class VdomLifecycle extends Base {
      * @private
      */
     async executeVdomUpdate(resolve, reject) {
-        let me             = this,
-            inFlightScopes = new Map([[me.id, me]]);
+        let me                      = this,
+            inFlightScopes          = new Map([[me.id, me]]),
+            componentMergedChildren = new Map();
+
+        /** @summary Removes only retired flight participants and the exact merge entries this batch collected. */
+        const discardReplacedScopes = () => {
+            for (const [id, component] of inFlightScopes) {
+                if (Neo.getComponent(id) !== component) {
+                    inFlightScopes.delete(id);
+
+                    for (const [ownerId, collected] of componentMergedChildren) {
+                        const entry    = collected.get(id),
+                              children = VDomUpdate.mergedCallbackMap.get(ownerId)?.children;
+
+                        collected.delete(id);
+                        if (entry && children?.get(id) === entry) children.delete(id)
+                    }
+                }
+            }
+        };
 
         (resolve || reject) && VDomUpdate.addPromiseCallback(me.id, resolve, reject);
 
@@ -251,10 +269,9 @@ class VdomLifecycle extends Base {
             await new Promise(resolve => setTimeout(resolve, 1));
 
             const
-                updates                 = {},
-                depths                  = new Map(),
-                processed               = new Set(), // Prevent duplicates and cycles
-                componentMergedChildren = new Map(); // Snapshot of merged children processed in this batch
+                updates   = {},
+                depths    = new Map(),
+                processed = new Set(); // Prevent duplicates and cycles
 
             const collectPayloads = (componentId) => {
                 if (processed.has(componentId)) return;
@@ -289,7 +306,10 @@ class VdomLifecycle extends Base {
                 VDomUpdate.claimPromiseCallbacks(componentId);
 
                 if (mergedChildIds) {
-                    componentMergedChildren.set(componentId, mergedChildIds);
+                    const entries = VDomUpdate.mergedCallbackMap.get(componentId).children;
+                    componentMergedChildren.set(componentId, new Map(
+                        [...mergedChildIds].map(childId => [childId, entries.get(childId)])
+                    ));
                     VDomUpdate.markMergedCollected(componentId, mergedChildIds);
                     mergedChildIds.forEach(childId => VDomUpdate.claimPromiseCallbacks(childId))
                 }
@@ -377,8 +397,10 @@ class VdomLifecycle extends Base {
 
             if (me.isDestroyed) throw Neo.isDestroyed;
 
-            for (const [id, component] of inFlightScopes) {
-                if (!component.isDestroyed && !Object.hasOwn(response.vnodes, id)) {
+            discardReplacedScopes();
+
+            for (const id of Object.keys(updates)) {
+                if (inFlightScopes.has(id) && !Object.hasOwn(response.vnodes, id)) {
                     throw new Error('VDOM batch reply omitted an emitted root')
                 }
             }
@@ -396,7 +418,7 @@ class VdomLifecycle extends Base {
                 for (const id in response.vnodes) {
                     if (Object.hasOwn(response.vnodes, id)) {
                         const vnode     = response.vnodes[id];
-                        const component = Neo.getComponent(id);
+                        const component = inFlightScopes.get(id);
 
                         if (component && !component.isDestroyed) {
                             // Silent, since afterSetVnode() cannot pass the deltas the sync hands to every
@@ -409,15 +431,27 @@ class VdomLifecycle extends Base {
                     }
                 }
 
+                // Collection can skip the initiator after a handover cleared its vnode.
+                // Release that control flight; callbacks never claimed by a payload stay parked.
+                for (const [id, component] of inFlightScopes) {
+                    if (!Object.hasOwn(updates, id) && !component.isDestroyed) {
+                        completed.set(id, component)
+                    }
+                }
+
+                discardReplacedScopes();
                 for (const [id, component] of completed) {
+                    if (Neo.getComponent(id) !== component) discardReplacedScopes();
+                    if (!inFlightScopes.has(id)) continue;
                     inFlightScopes.delete(id);
                     component.resolveVdomUpdate({
                         deltas: response.deltas,
-                        vnode : response.vnodes[id]
-                    }, componentMergedChildren.get(id))
+                        vnode : Object.hasOwn(response.vnodes, id) ? response.vnodes[id] : component.vnode
+                    }, componentMergedChildren.has(id) ? new Set(componentMergedChildren.get(id).keys()) : null)
                 }
             }
         } catch (err) {
+            discardReplacedScopes();
             const failedScopes = [...inFlightScopes];
             inFlightScopes.clear();
 

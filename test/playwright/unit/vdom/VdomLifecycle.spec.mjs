@@ -297,6 +297,173 @@ test.describe('Incomplete disjoint VDOM flights', () => {
         owner.isDestroyed || owner.destroy()
     });
 
+    test('a non-emitted initiator releases its flight but waits for a real mount to settle its request', async () => {
+        let enterEmpty, requestState = 'pending';
+
+        const emptyReply = new Promise(resolve => enterEmpty = resolve);
+
+        VdomHelper.updateBatch = function(data) {
+            const response = originalUpdateBatch.call(this, data);
+            if (Object.keys(data.updates).length === 0) enterEmpty({data, response});
+            return response
+        };
+
+        const queuedRequest = new Promise((resolve, reject) =>
+            VDomUpdate.addPromiseCallback(owner.id, resolve, reject)).then(
+                value => ({status: 'fulfilled', value}),
+                reason => ({status: 'rejected', reason})
+            );
+        const request = root.promiseUpdate().then(
+            value => { requestState = 'fulfilled'; return {status: 'fulfilled', value} },
+            reason => { requestState = 'rejected'; return {status: 'rejected', reason} }
+        );
+
+        try {
+            // Existing handover clears mounted/VNode truth during the collector's macrotask yield.
+            root.vnode = null;
+            root.mounted = false;
+            root.vnodeInitialized = false;
+            owner.vdom.cls = ['queued-behind-empty-flight'];
+            VDomUpdate.registerPostUpdate(root.id, owner.id);
+
+            const {data, response} = await emptyReply;
+
+            expect(data.updates).toEqual({});
+            expect(response.vnodes).toEqual({});
+            expect(response.deltas).toEqual([]);
+            await expect.poll(() => !root.isVdomUpdating
+                && !VDomUpdate.inFlightUpdateMap.has(root.id)
+                && !VDomUpdate.postUpdateQueueMap.has(root.id),
+            {message: 'the empty reply releases borrowed flight ownership and queued work'}).toBe(true);
+            expect((await queuedRequest).status).toBe('fulfilled');
+            expect(owner.vnode.className).toContain('queued-behind-empty-flight');
+            expect(root.vnode, 'empty work fabricates no vnode adoption').toBeNull();
+            expect(requestState, 'no payload claimed this request').toBe('pending');
+            const callbacks = VDomUpdate.promiseCallbackMap.get(root.id);
+            expect(callbacks.length).toBeGreaterThan(0);
+            expect(callbacks.every(entry => !entry.claimed)).toBe(true);
+
+            await root.initVnode(true);
+            const outcome = await request;
+
+            expect(outcome.status).toBe('fulfilled');
+            expect(requestState).toBe('fulfilled');
+            expect(outcome.value.vnode.id).toBe(root.id);
+            expect(root.mounted).toBe(true);
+            await expect.poll(() => !root.isVdomUpdating
+                && !VDomUpdate.inFlightUpdateMap.has(root.id)
+                && !VDomUpdate.promiseCallbackMap.has(root.id)
+                && !VDomUpdate.postUpdateQueueMap.has(root.id)).toBe(true)
+        } finally {
+            VdomHelper.updateBatch = originalUpdateBatch;
+            root.isDestroyed || root.destroy();
+            owner.isDestroyed || owner.destroy();
+            await Promise.all([request, queuedRequest])
+        }
+    });
+
+    for (const rejectOld of [false, true]) {
+        test(`an old ${rejectOld ? 'rejected' : 'successful'} batch leaves a reused-ID replacement flight untouched`, async () => {
+            let enterOld, enterReplacement, releaseOld, rejectOldReply, releaseReplacement, replacement,
+                replacementState = 'pending';
+
+            const oldEntered         = new Promise(resolve => enterOld = resolve),
+                  replacementEntered = new Promise(resolve => enterReplacement = resolve),
+                  oldReply           = new Promise((resolve, reject) => {
+                      releaseOld     = resolve;
+                      rejectOldReply = reject
+                  }),
+                  replacementReply = new Promise(resolve => releaseReplacement = resolve),
+                  calls = [],
+                  flights = [],
+                  ownerId = owner.id,
+                  oldError = new Error('retired owner batch failed');
+
+            VdomHelper.updateBatch = async function(data) {
+                const index = calls.length;
+                calls.push(Object.keys(data.updates));
+                if (index === 0) {
+                    enterOld(data);
+                    await oldReply
+                } else if (index === 1) {
+                    enterReplacement(data);
+                    await replacementReply
+                }
+                return originalUpdateBatch.call(this, data)
+            };
+
+            /** @summary Observes each request while both generations have independently held replies. */
+            const track = promise => {
+                const outcome = promise.then(
+                    value => ({status: 'fulfilled', value}),
+                    reason => ({status: 'rejected', reason})
+                );
+                flights.push(outcome);
+                return outcome
+            };
+
+            try {
+                owner.vdom.cls = ['retired-owner-flight'];
+                const rootFlight = track(root.promiseUpdate());
+                VDomUpdate.registerMerged(root.id, ownerId, 3, 1);
+                const oldOwnerFlight = track(new Promise((resolve, reject) =>
+                    VDomUpdate.addPromiseCallback(ownerId, resolve, reject)));
+
+                expect(Object.keys((await oldEntered).updates).sort()).toEqual([root.id, ownerId].sort());
+
+                owner.destroy();
+                expect((await oldOwnerFlight).reason).toBe(Neo.isDestroyed);
+                replacement = Neo.create(Container, {
+                    appName,
+                    id   : ownerId,
+                    cls  : ['replacement-before-flight'],
+                    items: [{module: Component, vdom: {tag: 'div', text: 'replacement'}}]
+                });
+                await replacement.initVnode(true);
+                const replacementVnode = replacement.vnode;
+
+                replacement.vdom.cls = ['replacement-flight'];
+                const replacementFlight = track(replacement.promiseUpdate().then(
+                    value => { replacementState = 'fulfilled'; return value },
+                    error => { replacementState = 'rejected'; throw error }
+                ));
+
+                expect(Object.keys((await replacementEntered).updates)).toContain(ownerId);
+                expect(Neo.getComponent(ownerId)).toBe(replacement);
+                expect(VDomUpdate.promiseCallbackMap.get(ownerId).some(entry => entry.claimed),
+                    'the replacement callback belongs to its own collected flight').toBe(true);
+
+                rejectOld ? rejectOldReply(oldError) : releaseOld();
+
+                const oldOutcome = await rootFlight;
+                expect(oldOutcome.status).toBe(rejectOld ? 'rejected' : 'fulfilled');
+                rejectOld && expect(oldOutcome.reason).toBe(oldError);
+                expect(replacement.vnode, 'the old reply adopts nothing into the replacement').toBe(replacementVnode);
+                expect(replacement.isVdomUpdating, 'old cleanup does not release the replacement scope').toBe(true);
+                expect(VDomUpdate.getInFlightUpdateDepth(ownerId)).toBe(-1);
+                expect(replacementState, 'stale merged membership cannot settle or reject the replacement').toBe('pending');
+                expect(VDomUpdate.promiseCallbackMap.has(ownerId)).toBe(true);
+
+                releaseReplacement();
+                expect((await replacementFlight).status).toBe('fulfilled');
+                expect(replacementState).toBe('fulfilled');
+                expect(replacement.vnode.className).toContain('replacement-flight');
+                await expect.poll(() => !replacement.isVdomUpdating
+                    && !VDomUpdate.inFlightUpdateMap.has(ownerId)
+                    && !VDomUpdate.promiseCallbackMap.has(ownerId)
+                    && !VDomUpdate.postUpdateQueueMap.has(ownerId)).toBe(true)
+            } finally {
+                releaseOld();
+                releaseReplacement();
+                VdomHelper.updateBatch = originalUpdateBatch;
+                root.isDestroyed || root.destroy();
+                owner.isDestroyed || owner.destroy();
+                replacement && !replacement.isDestroyed && replacement.destroy();
+                await Promise.all(flights)
+            }
+        })
+    }
+
     for (const destroyInitiator of [false, true]) {
         test(destroyInitiator
             ? 'a surviving emitted root releases queued work when its initiator is destroyed'
