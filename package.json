@@ -118,7 +118,7 @@
         "highlightjs-line-numbers.js"  : "^2.9.1",
         "html-minifier-terser"         : "^7.2.0",
         "husky"                        : "^9.1.7",
-        "inquirer"                     : "^14.2.2",
+        "inquirer"                     : "^14.2.3",
         "js-yaml"                      : "^5.4.2",
         "jsdoc-api"                    : "^9.3.6",
         "lint-staged"                  : "^17.6.0",
