@@ -61,7 +61,7 @@ class DragZone extends BaseDragZone {
 
             wrapperCls = item.wrapperCls || [];
 
-            NeoArray.toggle(wrapperCls, 'neo-draggable', draggable && me.isDraggableItem(item));
+            NeoArray.toggle(wrapperCls, 'neo-draggable', draggable && me.isItemRootDragTarget(item));
             item.wrapperCls = wrapperCls;
         });
     }
@@ -83,6 +83,17 @@ class DragZone extends BaseDragZone {
      */
     isDraggableItem(item) {
         return Boolean(item) && typeof item !== 'string'
+    }
+
+    /**
+     * @summary Decides whether the item's wrapper should be a native drag target.
+     * Sortable membership can be broader than the region allowed to begin a gesture.
+     * @param {*} item
+     * @returns {Boolean}
+     * @protected
+     */
+    isItemRootDragTarget(item) {
+        return this.isDraggableItem(item)
     }
 
     /**
@@ -140,7 +151,7 @@ class DragZone extends BaseDragZone {
 
             let wrapperCls = item.wrapperCls || [];
 
-            NeoArray.toggle(wrapperCls, 'neo-draggable', this.isDraggableItem(item));
+            NeoArray.toggle(wrapperCls, 'neo-draggable', this.isItemRootDragTarget(item));
             item.wrapperCls = wrapperCls
         })
     }

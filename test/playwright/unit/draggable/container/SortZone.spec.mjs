@@ -17,6 +17,69 @@ import Container       from '../../../../../src/container/Base.mjs';
 import SortZone        from '../../../../../src/draggable/container/SortZone.mjs';
 
 /**
+ * @summary Handle membership keeps the owning item sortable without making its body a native
+ * gesture target. Creation and insertion share the same marker contract.
+ */
+test.describe('SortZone native handle markers', () => {
+    test('a descendant handle keeps its marker while the owner body remains unmarked', async () => {
+        const item = id => ({ntype: 'component', id, vdom: {cn: [
+            {tag: 'div', cls: ['neo-draggable', 'pane-handle'], text: 'Handle'},
+            {tag: 'div', text: 'Selectable body'}
+        ]}});
+        const owner = Neo.create(Container, {
+            appName, dragResortable: true,
+            sortZoneConfig: {module: SortZone, dragHandleSelector: '.pane-handle'},
+            items         : [item('handle-first')]
+        });
+
+        try {
+            await expect.poll(() => owner.sortZone).toBeTruthy();
+            const zone = owner.sortZone, first = owner.items[0];
+
+            expect(zone.getDraggableItems()).toEqual([first]);
+            expect(first.wrapperCls).not.toContain('neo-draggable');
+            expect(first.vdom.cn[0].cls).toContain('neo-draggable');
+
+            const inserted = Promise.withResolvers();
+            owner.on('insert', () => inserted.resolve(), owner, {once: true});
+            const second = owner.add(item('handle-second'));
+            await inserted.promise;
+            expect(zone.getDraggableItems()).toEqual([first, second]);
+            expect(second.wrapperCls).not.toContain('neo-draggable');
+
+            zone.dragHandleSelector = null;
+            zone.adjustItemCls(true);
+            expect(first.wrapperCls).toContain('neo-draggable');
+            zone.dragHandleSelector = '.pane-handle';
+            zone.adjustItemCls(true);
+            expect(first.wrapperCls, 'retire an outer marker from the earlier whole-item mode').not.toContain('neo-draggable');
+            zone.adjustItemCls(false);
+            expect(first.vdom.cn[0].cls, 'the consumer still owns its header marker').toContain('neo-draggable')
+        } finally {
+            owner.destroy()
+        }
+    });
+
+    for (const selector of [null, '.neo-draggable', '.neo-tab-header-button']) {
+        test(`whole-item or root handle ${selector} retains its automatic wrapper marker`, async () => {
+            const owner = Neo.create(Container, {
+                appName, dragResortable: true,
+                sortZoneConfig: {module: SortZone, dragHandleSelector: selector},
+                items         : [{ntype: 'component', cls: selector ? [selector.slice(1)] : []}]
+            });
+
+            try {
+                await expect.poll(() => owner.sortZone).toBeTruthy();
+                expect(owner.sortZone.getDraggableItems()).toEqual(owner.items);
+                expect(owner.items[0].wrapperCls).toContain('neo-draggable')
+            } finally {
+                owner.destroy()
+            }
+        })
+    }
+});
+
+/**
  * @summary Tests for Neo.draggable.container.SortZone
  */
 test.describe('Neo.draggable.container.SortZone', () => {
