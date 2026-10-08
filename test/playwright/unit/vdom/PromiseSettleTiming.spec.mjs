@@ -19,6 +19,7 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Component      from '../../../../src/component/Base.mjs';
 import Container      from '../../../../src/container/Base.mjs';
+import VDomUpdate     from '../../../../src/manager/VDomUpdate.mjs';
 import VdomHelper     from '../../../../src/vdom/Helper.mjs'; // side effect: registers Neo.vdom.Helper, which runs locally here
 
 class SettleChild extends Component {
@@ -304,5 +305,205 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         await child.promiseUpdate();
 
         expect(renderedText(child), 'nothing was in the air to settle against').toBe('only')
+    })
+});
+
+/** @summary Callback failures drain the collected work while reentrant requests keep their own membership. */
+test.describe('VDomUpdate callback settlement isolation', () => {
+    let counter = 0, ids = [];
+
+    /** @summary Allocates a callback owner whose manager state this suite cleans after each test. */
+    function ownerId() {
+        const id = `settlement-callback-owner-${Date.now()}-${counter++}`;
+        ids.push(id);
+        return id
+    }
+
+    test.afterEach(() => {
+        for (const id of ids) {
+            Neo.getComponent(id)?.destroy();
+            VDomUpdate.promiseCallbackMap.delete(id);
+            VDomUpdate.mergedCallbackMap.remove(id);
+            VDomUpdate.preUpdateMap.delete(id);
+            VDomUpdate.postUpdateQueueMap.remove(id)
+        }
+        ids = []
+    });
+
+    test('a captured pre-update hook and an explicit empty phase preserve the replacement hook', () => {
+        const id = ownerId(), events = [], old = () => events.push('old'), replacement = () => events.push('new');
+
+        VDomUpdate.registerPreUpdate(id, old);
+        const captured = VDomUpdate.preUpdateMap.get(id);
+        VDomUpdate.preUpdateMap.delete(id);
+        VDomUpdate.registerPreUpdate(id, replacement);
+
+        VDomUpdate.executePreUpdates(id, null);
+        VDomUpdate.executePreUpdates(id, undefined);
+        expect(events).toEqual([]);
+        expect(VDomUpdate.preUpdateMap.get(id)).toBe(replacement);
+
+        VDomUpdate.executePreUpdates(id, captured);
+        expect(events).toEqual(['old']);
+        expect(VDomUpdate.preUpdateMap.get(id)).toBe(replacement);
+
+        VDomUpdate.executePreUpdates(id);
+        expect(events).toEqual(['old', 'new']);
+        expect(VDomUpdate.preUpdateMap.has(id)).toBe(false)
+    });
+
+    test('a detached hook cannot consume the same function registered for a newer phase', () => {
+        const id = ownerId(), events = [], callback = () => events.push('called');
+
+        VDomUpdate.registerPreUpdate(id, callback);
+        const captured = VDomUpdate.preUpdateMap.get(id);
+        VDomUpdate.preUpdateMap.delete(id);
+        VDomUpdate.registerPreUpdate(id, callback);
+
+        VDomUpdate.executePreUpdates(id, captured);
+        expect(events).toEqual(['called']);
+        expect(VDomUpdate.preUpdateMap.get(id)).toBe(callback);
+
+        VDomUpdate.executePreUpdates(id);
+        expect(events).toEqual(['called', 'called']);
+        expect(VDomUpdate.preUpdateMap.has(id)).toBe(false)
+    });
+
+    test('a captured post-update queue and an explicit empty phase preserve the replacement queue', async () => {
+        const owner  = ownerId(), events = [],
+              first  = Neo.create(Component, {appName, id: ownerId()}),
+              second = Neo.create(Component, {appName, id: ownerId()});
+
+        await Promise.all([first.ready(), second.ready()]);
+        first.update = () => events.push('old');
+        second.update = () => events.push('new');
+
+        VDomUpdate.registerPostUpdate(owner, first.id);
+        const captured = VDomUpdate.postUpdateQueueMap.get(owner);
+        VDomUpdate.postUpdateQueueMap.remove(captured);
+        VDomUpdate.registerPostUpdate(owner, second.id);
+        const replacement = VDomUpdate.postUpdateQueueMap.get(owner);
+
+        VDomUpdate.triggerPostUpdates(owner, null);
+        VDomUpdate.triggerPostUpdates(owner, undefined);
+        expect(events).toEqual([]);
+        expect(VDomUpdate.postUpdateQueueMap.get(owner)).toBe(replacement);
+
+        VDomUpdate.triggerPostUpdates(owner, captured);
+        expect(events).toEqual(['old']);
+        expect(VDomUpdate.postUpdateQueueMap.get(owner)).toBe(replacement);
+
+        VDomUpdate.triggerPostUpdates(owner);
+        expect(events).toEqual(['old', 'new']);
+        expect(VDomUpdate.postUpdateQueueMap.has(owner)).toBe(false)
+    });
+
+    test('a throwing resolver rejects its entry and drains the claimed tail without taking a reentrant claim', () => {
+        const id = ownerId(), error = new Error('resolver failed'), secondary = new Error('reject failed'), events = [];
+        let rejected;
+
+        VDomUpdate.addPromiseCallback(id, () => {
+            VDomUpdate.addPromiseCallback(id, () => events.push('reentrant'));
+            VDomUpdate.claimPromiseCallbacks(id);
+            throw error
+        }, reason => {
+            rejected = reason;
+            throw secondary
+        });
+        VDomUpdate.addPromiseCallback(id, () => events.push('claimed tail'));
+        VDomUpdate.claimPromiseCallbacks(id);
+        VDomUpdate.addPromiseCallback(id, () => events.push('late'));
+
+        expect(() => VDomUpdate.executePromiseCallbacks(id)).toThrow(error);
+        expect(rejected).toBe(error);
+        expect(events).toEqual(['claimed tail']);
+        expect(VDomUpdate.promiseCallbackMap.get(id)).toHaveLength(2);
+
+        VDomUpdate.executePromiseCallbacks(id);
+
+        expect(events).toEqual(['claimed tail', 'late', 'reentrant']);
+        expect(VDomUpdate.promiseCallbackMap.has(id)).toBe(false)
+    });
+
+    test('a throwing merged child preserves new membership and still settles its sibling and owner', () => {
+        const owner = ownerId(), first = ownerId(), second = ownerId(), error = new Error('merged resolver failed'), events = [];
+
+        VDomUpdate.registerMerged(owner, first, 1, 1);
+        VDomUpdate.registerMerged(owner, second, 1, 1);
+        const collected = new Set([first, second]), oldMembership = VDomUpdate.mergedCallbackMap.get(owner);
+        VDomUpdate.markMergedCollected(owner, collected);
+
+        VDomUpdate.addPromiseCallback(first, () => {
+            VDomUpdate.registerMerged(owner, first, 1, 1);
+            VDomUpdate.addPromiseCallback(first, () => events.push('new child request'));
+            throw error
+        }, reason => events.push(reason));
+        VDomUpdate.addPromiseCallback(second, () => events.push('sibling'));
+        VDomUpdate.addPromiseCallback(owner, () => events.push('owner'));
+        [first, second, owner].forEach(id => VDomUpdate.claimPromiseCallbacks(id));
+
+        expect(() => VDomUpdate.executeCallbacks(owner, undefined, collected)).toThrow(error);
+        expect(events).toEqual([error, 'sibling', 'owner']);
+        const replacement = VDomUpdate.mergedCallbackMap.get(owner);
+        expect(replacement).not.toBe(oldMembership);
+        expect([...replacement.children.keys()]).toEqual([first]);
+        expect(replacement.children.get(first).collected).toBeUndefined();
+        expect(VDomUpdate.promiseCallbackMap.get(first)).toHaveLength(1);
+        expect(VDomUpdate.promiseCallbackMap.get(first)[0].claimed).toBeUndefined();
+        expect(VDomUpdate.promiseCallbackMap.has(second)).toBe(false);
+        expect(VDomUpdate.promiseCallbackMap.has(owner)).toBe(false);
+
+        VDomUpdate.markMergedCollected(owner, new Set([first]));
+        VDomUpdate.claimPromiseCallbacks(first);
+        VDomUpdate.executeCallbacks(owner, undefined, new Set([first]));
+
+        expect(events).toEqual([error, 'sibling', 'owner', 'new child request']);
+        expect(VDomUpdate.mergedCallbackMap.has(owner)).toBe(false);
+        expect(VDomUpdate.promiseCallbackMap.has(first)).toBe(false)
+    });
+
+    test('a merged callback cannot settle a newly claimed request belonging to another callback owner', () => {
+        const owner = ownerId(), child = ownerId(), error = new Error('child callback failed'), events = [];
+
+        VDomUpdate.registerMerged(owner, child, 1, 1);
+        VDomUpdate.markMergedCollected(owner, new Set([child]));
+        VDomUpdate.addPromiseCallback(child, () => {
+            VDomUpdate.addPromiseCallback(owner, () => events.push('new owner request'));
+            VDomUpdate.claimPromiseCallbacks(owner);
+            throw error
+        });
+        VDomUpdate.addPromiseCallback(owner, () => events.push('old owner request'));
+        VDomUpdate.claimPromiseCallbacks(child);
+        VDomUpdate.claimPromiseCallbacks(owner);
+
+        expect(() => VDomUpdate.executeCallbacks(owner, undefined, new Set([child]))).toThrow(error);
+        expect(events).toEqual(['old owner request']);
+        expect(VDomUpdate.promiseCallbackMap.get(owner)).toHaveLength(1);
+        expect(VDomUpdate.promiseCallbackMap.get(owner)[0].claimed).toBe(true);
+
+        VDomUpdate.executePromiseCallbacks(owner);
+
+        expect(events).toEqual(['old owner request', 'new owner request']);
+        expect(VDomUpdate.promiseCallbackMap.has(owner)).toBe(false)
+    });
+
+    test('a throwing rejection drains the old queue while a newly parked request survives', () => {
+        const id = ownerId(), cause = new Error('flight failed'), error = new Error('reject callback failed'), events = [];
+
+        VDomUpdate.addPromiseCallback(id, undefined, reason => {
+            events.push(reason);
+            VDomUpdate.addPromiseCallback(id, undefined, next => events.push(['new', next]));
+            throw error
+        });
+        VDomUpdate.addPromiseCallback(id, undefined, reason => events.push(['tail', reason]));
+
+        expect(() => VDomUpdate.rejectPromiseCallbacks(id, cause)).toThrow(error);
+        expect(events).toEqual([cause, ['tail', cause]]);
+        expect(VDomUpdate.promiseCallbackMap.get(id)).toHaveLength(1);
+
+        VDomUpdate.rejectPromiseCallbacks(id, cause);
+
+        expect(events).toEqual([cause, ['tail', cause], ['new', cause]]);
+        expect(VDomUpdate.promiseCallbackMap.has(id)).toBe(false)
     })
 });
