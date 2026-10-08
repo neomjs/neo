@@ -4,7 +4,8 @@ import {test, expect} from '../../fixtures.mjs';
  * @summary Real-window proof of the Group placement participant: native movement, main-frame
  * rebasing, correlated undo/redo effects, durable hints and popup generation replacement.
  * @description CDP supplies physical window movement only. The real WindowPosition publisher,
- * manager, placement participant and Group history carry every semantic observation.
+ * manager, placement participant and Group history carry every semantic observation. History policy
+ * is fixed before setup writes; the initial placement row remains the later gesture's baseline.
  */
 test.describe('observed dock popup placement', () => {
     test.setTimeout(180000);
@@ -19,6 +20,8 @@ test.describe('observed dock popup placement', () => {
         const wsId        = workspace.id, groupId = workspace.properties.topologyGroupId;
         const placementId = workspace.properties['dockPlacement.id'];
         expect(placementId).toBeTruthy();
+        expect(await app.callMethod(manager.id, 'setHistoryDepth', [{groupId, depth: 6}]),
+            'the Group history policy is set before its first placement write').toBe(true);
 
         const readHints    = () => app.callMethod(wsId, 'getPlacementHints');
         const readGroup    = () => app.callMethod(manager.id, 'get', [groupId]);
@@ -41,18 +44,22 @@ test.describe('observed dock popup placement', () => {
         expect(initial.left + initial.width + 150).toBeLessThanOrEqual(screen.left + screen.width);
         await popupCdp.send('Browser.setWindowBounds', {windowId: popupWindow.windowId, bounds: initial});
         await expect.poll(async () => (await readHints())['demo-b-popup']?.dx).toBe(initial.left - root.x);
-        expect(await app.callMethod(manager.id, 'setHistoryDepth', [{groupId, depth: 6}])).toBe(true);
-        const before = await readHints();
+        await expect.poll(async () => (await readGroup()).history?.rows?.at(-1)?.cause,
+            {message: 'initial popup positioning settles its own history row'}).toBe('native-popup-move');
+        const before         = await readHints(),
+              initialHistory = (await readGroup()).history,
+              initialCount   = initialHistory.count,
+              initialCursor  = initialHistory.cursor;
 
         await Promise.all([20, 40, 60].map(delta => popupCdp.send('Browser.setWindowBounds', {
             windowId: popupWindow.windowId, bounds: {left: initial.left + delta, top: initial.top + 20}
         })));
-        await expect.poll(async () => (await readGroup()).history?.count).toBe(1);
+        await expect.poll(async () => (await readGroup()).history?.count).toBe(initialCount + 1);
         const moved          = await readRect(popup), main = await readRect(page);
         const groupAfterMove = await readGroup();
         expect((await readHints())['demo-b-popup']).toMatchObject({dx: moved.x - main.x, dy: moved.y - main.y});
-        expect(groupAfterMove.history.rows[0].participants[0].before['demo-b-popup']).toEqual(before['demo-b-popup']);
-        expect(groupAfterMove.history.rows[0].cause).toBe('native-popup-move');
+        expect(groupAfterMove.history.rows[initialCount].participants[0].before['demo-b-popup']).toEqual(before['demo-b-popup']);
+        expect(groupAfterMove.history.rows[initialCount].cause).toBe('native-popup-move');
         const historyBeforeRebase = JSON.stringify(groupAfterMove.history);
 
         await rootCdp.send('Browser.setWindowBounds', {windowId: rootWindow.windowId, bounds: {left: root.x + 40, top: root.y + 20}});
@@ -85,17 +92,17 @@ test.describe('observed dock popup placement', () => {
         await expect.poll(async () => (await readReceipts()).find(row => row.transactionId === undo.transactionId)?.status).toBe('applied');
         await waitForEffectQuiet(undo.transactionId);
         const undone = await readGroup();
-        expect(undone.history.count).toBe(1);
-        expect(undone.history.cursor).toBe(-1);
+        expect(undone.history.count).toBe(initialCount + 1);
+        expect(undone.history.cursor).toBe(initialCursor);
         const redo = await app.callMethod(manager.id, 'redo', [{groupId}]);
         await expect.poll(async () => (await readReceipts()).find(row => row.transactionId === redo.transactionId)?.status).toBe('applied');
         await waitForEffectQuiet(redo.transactionId);
-        expect((await readGroup()).history.count).toBe(1);
-        expect((await readGroup()).history.cursor).toBe(0);
+        expect((await readGroup()).history.count).toBe(initialCount + 1);
+        expect((await readGroup()).history.cursor).toBe(initialCursor + 1);
 
         const afterRedo = await readRect(popup);
         await popupCdp.send('Browser.setWindowBounds', {windowId: popupWindow.windowId, bounds: {left: afterRedo.x + 20, top: afterRedo.y}});
-        await expect.poll(async () => (await readGroup()).history?.count).toBe(2);
+        await expect.poll(async () => (await readGroup()).history?.count).toBe(initialCount + 2);
         expect(await app.callMethod(wsId, 'capturePerspective', ['Placement', {scope: 'topology'}])).toMatchObject({saved: true, errors: []});
         const collection = (await app.getComponent(wsId, ['topologyCollection'])).topologyCollection;
         expect(collection.topologies['demo-b-placement'].placementHints).toEqual(await readHints());
