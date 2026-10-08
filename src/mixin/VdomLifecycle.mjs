@@ -971,31 +971,67 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Internal helper fn to resolve the Promise for updateVdom()
+     * @summary Settles an adopted root without letting callback failures strand work or retire a newer flight.
+     * Releases this flight before callbacks can start another one. Settlement errors belong to this root;
+     * other adopted roots still settle, and an already-started newer flight keeps its callbacks and registry.
+     * @see https://github.com/neomjs/neo/issues/19478 Earlier mount-callback failure cleanup is out of scope here.
      * @param {Object} [data] The return value of vdom.Helper.update()
      * @param {Set<String>|null} [mergedChildIds] IDs of children included in this update
      * @protected
      */
     resolveVdomUpdate(data, mergedChildIds) {
-        let me = this;
+        const me          = this,
+              id          = me.id,
+              postUpdates = VDomUpdate.postUpdateQueueMap.get(id) ?? null,
+              preUpdate   = VDomUpdate.preUpdateMap.get(id) ?? null;
+        let failure;
 
+        // Work registered by callbacks belongs to a subsequent flight, not these captured phases.
+        postUpdates && VDomUpdate.postUpdateQueueMap.remove(postUpdates);
+        preUpdate && VDomUpdate.preUpdateMap.delete(id);
+
+        // Retire the old registry entry before a callback can register a new flight under the same id.
+        VDomUpdate.unregisterInFlightUpdate(id);
         me.isVdomUpdating = false;
 
-        // Execute callbacks for merged updates
-        VDomUpdate.executeCallbacks(me.id, data, mergedChildIds);
+        try {
+            VDomUpdate.executeCallbacks(id, data, mergedChildIds)
+        } catch (error) {
+            failure = {error}
+        }
 
-        // The update is no longer in-flight
-        VDomUpdate.unregisterInFlightUpdate(me.id);
+        if (Neo.getComponent(id) === me && !me.isDestroyed) {
+            try {
+                VDomUpdate.triggerPostUpdates(id, postUpdates)
+            } catch (error) {
+                failure ||= {error}
+            }
+        }
 
-        // Trigger updates for components that were in-flight
-        VDomUpdate.triggerPostUpdates(me.id);
+        if (Neo.getComponent(id) === me && !me.isDestroyed) {
+            try {
+                VDomUpdate.executePreUpdates(id, preUpdate)
+            } catch (error) {
+                failure ||= {error}
+            }
+        }
 
-        // Execute callbacks which wanted to run before the next update cycle
-        VDomUpdate.executePreUpdates(me.id);
+        if (failure) {
+            let reported = false;
 
-        if (me.needsVdomUpdate) {
-            // This cycle settled what it claimed at payload collection. A promise registered after that point is
-            // still parked, describing a change only this next cycle carries — which is what settles it.
+            if (Neo.getComponent(id) === me && !me.isDestroyed && !me.isVdomUpdating) {
+                reported = VDomUpdate.promiseCallbackMap.get(id)?.some(entry => typeof entry.reject === 'function');
+                try {
+                    VDomUpdate.rejectPromiseCallbacks(id, failure.error)
+                } catch (error) {
+                    console.error('vdom callback rejection failed', id, error)
+                }
+            }
+
+            reported || console.error('vdom settlement failed', id, failure.error)
+        }
+
+        if (Neo.getComponent(id) === me && !me.isDestroyed && !me.isVdomUpdating && me.needsVdomUpdate) {
             me.update()
         }
     }

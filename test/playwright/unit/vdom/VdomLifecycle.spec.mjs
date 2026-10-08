@@ -109,6 +109,213 @@ test.describe('VdomLifecycle State', () => {
         comp.destroy();
     });
 });
+/** @summary Settlement failures release their own work while preserving acknowledged peers and newer flights. */
+test.describe('VDOM settlement exceptions', () => {
+    let root, peer, child, gates, flights, extra, logged, run = 0;
+    const updateBatch = VdomHelper.updateBatch, reportError = console.error;
+
+    /** @summary Records a promise outcome immediately, including negative-path cleanup. */
+    const track = promise => {
+        const result = {state: 'pending'};
+        result.promise = promise.then(
+            value => { result.state = 'fulfilled'; result.value = value },
+            error => { result.state = 'rejected'; result.error = error }
+        );
+        flights.push(result.promise);
+        return result
+    };
+
+    /** @summary Holds real Helper replies at explicit gates instead of relying on timing. */
+    const hold = count => {
+        gates = Array.from({length: count}, () => {
+            const gate = {};
+            gate.entered = new Promise(resolve => gate.enter = resolve);
+            gate.held = new Promise(resolve => gate.release = resolve);
+            return gate
+        });
+        let index = 0;
+        VdomHelper.updateBatch = async function(data) {
+            const gate = gates[index++];
+            if (gate) { gate.enter(data); await gate.held }
+            return updateBatch.call(this, data)
+        }
+    };
+
+    test.beforeEach(async () => {
+        const prefix = `settlement-error-${++run}`;
+        flights = []; gates = []; extra = []; logged = [];
+        root = Neo.create(Container, {appName, id: prefix, items: [{module: Component, id: `${prefix}-child`}]});
+        peer = Neo.create(Component, {appName, id: `${prefix}-peer`});
+        await root.initVnode(true); await peer.initVnode(true);
+        await root.promiseUpdate(); await peer.promiseUpdate();
+        child = root.items[0];
+        console.error = (...args) => logged.push(args)
+    });
+
+    test.afterEach(async () => {
+        gates.forEach(gate => gate.release());
+        VdomHelper.updateBatch = updateBatch;
+        for (const component of [root, peer, ...extra]) component.isDestroyed || component.destroy();
+        await Promise.all(flights);
+        console.error = reportError
+    });
+
+    test('a throwing pre-update rejects late work and still renders its queued state', async () => {
+        hold(1);
+        const error = new Error('pre-update failure'), first = track(root.promiseUpdate());
+        await gates[0].entered;
+        root.vdom.cls = ['late-state'];
+        const late = track(root.promiseUpdate());
+        VDomUpdate.registerPreUpdate(root.id, () => { throw error });
+        gates[0].release();
+        await first.promise;
+        expect(first.state).toBe('fulfilled');
+        await expect.poll(() => late.state, {timeout: 1000}).toBe('rejected');
+        expect(late.error).toBe(error);
+        await expect.poll(() => root.vnode.className.includes('late-state') && !root.isVdomUpdating).toBe(true);
+        expect(VDomUpdate.inFlightUpdateMap.has(root.id)).toBe(false);
+        expect(VDomUpdate.watchdogTimerMap.has(root.id)).toBe(false);
+        expect(VDomUpdate.promiseCallbackMap.has(root.id)).toBe(false)
+    });
+
+    test('a throwing resolver drains its claimed tail and leaves an adopted co-root successful', async () => {
+        hold(1);
+        const error = new Error('resolver failure');
+        VDomUpdate.addPromiseCallback(root.id, () => { throw error });
+        root.vdom.cls = ['root-first']; peer.vdom.cls = ['peer-first'];
+        const first = track(root.promiseUpdate());
+        VDomUpdate.registerMerged(root.id, peer.id, 1, 1);
+        const peerFlight = track(new Promise((resolve, reject) => VDomUpdate.addPromiseCallback(peer.id, resolve, reject)));
+        expect(Object.keys((await gates[0].entered).updates).sort()).toEqual([root.id, peer.id].sort());
+        root.vdom.cls = ['root-late'];
+        const late = track(root.promiseUpdate());
+        gates[0].release();
+        await expect.poll(() => [first.state, peerFlight.state, late.state], {timeout: 1000})
+            .toEqual(['fulfilled', 'fulfilled', 'rejected']);
+        expect(late.error).toBe(error);
+        expect(peer.vnode.className).toContain('peer-first');
+        await expect.poll(() => root.vnode.className.includes('root-late') && !root.isVdomUpdating).toBe(true);
+        expect([root.id, peer.id].every(id => !VDomUpdate.inFlightUpdateMap.has(id)
+            && !VDomUpdate.promiseCallbackMap.has(id))).toBe(true)
+    });
+
+    test('a resolve-only late callback cannot hide a settlement failure', async () => {
+        hold(1);
+        const error = new Error('unobserved settlement failure'), first = track(root.promiseUpdate());
+        await gates[0].entered;
+        VDomUpdate.addPromiseCallback(root.id, () => {});
+        VDomUpdate.registerPreUpdate(root.id, () => { throw error });
+        gates[0].release();
+        await first.promise;
+        await expect.poll(() => logged.some(args => args.includes(error))).toBe(true);
+        expect(VDomUpdate.promiseCallbackMap.has(root.id)).toBe(false)
+    });
+
+    for (const phase of ['resolver', 'pre-update']) {
+        test(`a throwing ${phase} preserves the newer flight it started`, async () => {
+            hold(2);
+            let newer;
+            const callback = () => {
+                root.updateDepth = 2;
+                root.vdom.cls = ['reentrant-flight'];
+                newer = track(root.promiseUpdate());
+                throw new Error(`reentrant ${phase}`)
+            };
+            if (phase === 'resolver') VDomUpdate.addPromiseCallback(root.id, callback);
+            root.updateDepth = 2;
+            const first = track(root.promiseUpdate());
+            await gates[0].entered;
+            let waitingChild;
+            if (phase === 'resolver') {
+                child.vdom.cls = ['deferred-child'];
+                waitingChild = track(child.promiseUpdate());
+                expect(VDomUpdate.postUpdateQueueMap.has(root.id)).toBe(true)
+            } else VDomUpdate.registerPreUpdate(root.id, callback);
+            gates[0].release();
+            await gates[1].entered;
+            await first.promise;
+            expect(first.state).toBe('fulfilled');
+            expect(newer.state).toBe('pending');
+            expect(root.isVdomUpdating).toBe(true);
+            expect(VDomUpdate.getInFlightUpdateDepth(root.id)).toBe(2);
+            expect(VDomUpdate.watchdogTimerMap.has(root.id)).toBe(true);
+            gates[1].release();
+            await newer.promise;
+            expect(newer.state).toBe('fulfilled');
+            expect(root.vnode.className).toContain('reentrant-flight');
+            if (waitingChild) {
+                await waitingChild.promise;
+                expect(waitingChild.state).toBe('fulfilled');
+                expect(child.vnode.className).toContain('deferred-child')
+            }
+            await expect.poll(() => !root.isVdomUpdating && !VDomUpdate.inFlightUpdateMap.has(root.id)).toBe(true);
+            expect(logged.some(args => args.some(value => value instanceof Error
+                && value.message === `reentrant ${phase}`))).toBe(true)
+        })
+    }
+
+    test('initial vnode settlement cannot clear a newer flight started by a throwing hook', async () => {
+        hold(1);
+        const fresh = Neo.create(Component, {appName, id: `settlement-initial-${run}`});
+        extra.push(fresh);
+        let newer;
+        VDomUpdate.registerPreUpdate(fresh.id, () => {
+            fresh.vdom.cls = ['after-mount'];
+            newer = track(fresh.promiseUpdate());
+            throw new Error('initial settlement hook')
+        });
+        const initial = track(fresh.initVnode(true));
+        await gates[0].entered;
+        await initial.promise;
+        expect(initial.state).toBe('fulfilled');
+        expect(newer.state).toBe('pending');
+        expect(fresh.isVdomUpdating).toBe(true);
+        expect(VDomUpdate.inFlightUpdateMap.has(fresh.id)).toBe(true);
+        gates[0].release();
+        await newer.promise;
+        expect(newer.state).toBe('fulfilled');
+        expect(fresh.vnode.className).toContain('after-mount')
+    });
+
+    for (const phase of ['pre-update', 'post-update']) {
+        test(`the old settlement leaves a newer flight's ${phase} work for its own reply`, async () => {
+            hold(2);
+            let newer, peerFlight, calls = 0;
+            VDomUpdate.addPromiseCallback(root.id, () => {
+                root.vdom.cls = ['new-phase-owner'];
+                newer = track(root.promiseUpdate());
+                if (phase === 'pre-update') {
+                    VDomUpdate.registerPreUpdate(root.id, () => calls++)
+                } else {
+                    peer.vdom.cls = ['after-new-owner'];
+                    peerFlight = track(new Promise((resolve, reject) =>
+                        VDomUpdate.addPromiseCallback(peer.id, resolve, reject)));
+                    VDomUpdate.registerPostUpdate(root.id, peer.id)
+                }
+            });
+            const first = track(root.promiseUpdate());
+            await gates[0].entered;
+            gates[0].release();
+            await gates[1].entered;
+            await first.promise;
+            expect(newer.state).toBe('pending');
+            if (phase === 'pre-update') expect(calls).toBe(0);
+            else {
+                expect(VDomUpdate.postUpdateQueueMap.has(root.id)).toBe(true);
+                expect(peer.isVdomUpdating).toBe(false)
+            }
+            gates[1].release();
+            await newer.promise;
+            expect(newer.state).toBe('fulfilled');
+            if (phase === 'pre-update') expect(calls).toBe(1);
+            else {
+                await peerFlight.promise;
+                expect(peerFlight.state).toBe('fulfilled');
+                expect(peer.vnode.className).toContain('after-new-owner')
+            }
+        })
+    }
+});
 /**
  * @summary Protects every disjoint payload root for the full Helper round trip, including the
  * deeper root a shallow initiator carries. Descendant writes wait for that root's own outcome.

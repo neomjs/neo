@@ -198,6 +198,7 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * @summary Detaches collected merge membership and drains each callback owner before surfacing a settlement error.
      * Executes all callbacks associated with a completed VDOM update for a given `ownerId`.
      * This method first processes callbacks for any children that were merged into this
      * update cycle, then executes the callbacks for the `ownerId` itself.
@@ -213,42 +214,48 @@ class VDomUpdate extends Collection {
      * @param {Set<String>|null} [processedChildIds] IDs of children actually included in this update.
      */
     executeCallbacks(ownerId, data, processedChildIds) {
-        let me           = this,
-            item         = me.mergedCallbackMap.get(ownerId),
-            callbackData = data ? [data] : [];
+        const me        = this,
+              item      = me.mergedCallbackMap.get(ownerId),
+              callbacks = [];
 
         if (item && processedChildIds) {
             for (const childId of processedChildIds) {
                 // Only the entry this flight collected: a child that merged again in the air holds a newer one
                 if (item.children.get(childId)?.collected) {
-                    me.executePromiseCallbacks(childId, ...callbackData);
-                    item.children.delete(childId)
+                    item.children.delete(childId);
+                    me.#detachClaimedCallbacks(childId, callbacks)
                 }
             }
 
+            // Callbacks may create a new merge entry for this owner or one of these children.
             if (item.children.size === 0) {
                 me.mergedCallbackMap.remove(ownerId)
             }
         }
 
-        me.executePromiseCallbacks(ownerId, ...callbackData)
+        me.#detachClaimedCallbacks(ownerId, callbacks);
+        me.#settlePromiseCallbacks(callbacks, data)
     }
 
     /**
+     * @summary Runs the captured pre-update hook without consuming a newer hook registered for the same component.
      * Retrieves and executes the registered Pre-Update callback for a component.
      * This is called by VdomLifecycle just before checking `needsVdomUpdate`.
      * @param {String} id The component ID.
+     * @param {Function|null} [callback] Already-detached phase hook. Omitted takes the live hook;
+     *     an explicit null or undefined runs none. Supplying this argument never changes the live hook map.
      */
-    executePreUpdates(id) {
-        let callback = this.preUpdateMap.get(id);
-
-        if (callback) {
-            this.preUpdateMap.delete(id);
-            callback()
+    executePreUpdates(id, callback) {
+        if (arguments.length === 1) {
+            callback = this.preUpdateMap.get(id);
+            callback && this.preUpdateMap.delete(id)
         }
+
+        callback && callback()
     }
 
     /**
+     * @summary Drains a detached claimed callback snapshot, preserving later requests and reporting its first error.
      * Resolves the promise callbacks a successful flight claimed at payload collection and clears them. A callback
      * parked after the claim stays parked: it describes a change this flight did not carry, and settles with the
      * flight that does.
@@ -256,22 +263,69 @@ class VDomUpdate extends Collection {
      * @param {Object} [data]  Optional data to pass to the callbacks.
      */
     executePromiseCallbacks(ownerId, data) {
-        let me        = this,
-            callbacks = me.promiseCallbackMap.get(ownerId);
+        this.#settlePromiseCallbacks(this.#detachClaimedCallbacks(ownerId), data)
+    }
+
+    /**
+     * @summary Detaches the collected callbacks, retaining later requests and optionally joining a batch's callback list.
+     * @param {String} ownerId
+     * @param {Object[]} [target] Combined child-before-owner settlement list.
+     * @returns {Object[]|undefined} The old queue, compacted in place to its claimed entries.
+     * @private
+     */
+    #detachClaimedCallbacks(ownerId, target) {
+        const callbacks = this.promiseCallbackMap.get(ownerId);
 
         if (callbacks) {
-            let unclaimed = callbacks.filter(entry => !entry.claimed);
+            const unclaimed     = [];
+            let   claimedLength = 0;
+
+            for (const entry of callbacks) {
+                if (entry.claimed) {
+                    callbacks[claimedLength++] = entry;
+                    target && target.push(entry)
+                } else {
+                    unclaimed.push(entry)
+                }
+            }
+            callbacks.length = claimedLength;
 
             // The map is updated before anything settles, so a request made while settling parks on the new list
-            unclaimed.length ? me.promiseCallbackMap.set(ownerId, unclaimed) : me.promiseCallbackMap.delete(ownerId);
+            unclaimed.length ? this.promiseCallbackMap.set(ownerId, unclaimed) : this.promiseCallbackMap.delete(ownerId)
+        }
 
-            for (let i = 0, len = callbacks.length; i < len; i++) {
-                callbacks[i].claimed && callbacks[i].resolve?.(data)
+        return callbacks
+    }
+
+    /**
+     * @summary Settles a detached callback list completely before surfacing its first resolver error.
+     * @param {Object[]|undefined} callbacks
+     * @param {Object} [data]
+     * @private
+     */
+    #settlePromiseCallbacks(callbacks, data) {
+        if (callbacks) {
+            let failure;
+
+            for (const entry of callbacks) {
+                try {
+                    entry.resolve?.(data)
+                } catch (error) {
+                    failure ||= {error};
+
+                    // A resolver may throw before settling its promise; a rejecting callback must not stop the tail either.
+                    try {
+                        entry.reject?.(error)
+                    } catch {}
+                }
             }
+
+            if (failure) throw failure.error
         }
     }
 
     /**
+     * @summary Detaches and drains rejected callbacks without erasing requests registered during their settlement.
      * Rejects all registered promise callbacks for a given `ownerId` — the error-path twin
      * of {@link #executePromiseCallbacks}. Fires each parked `reject` (resolve-only / legacy
      * entries are skipped via optional chaining) and clears the queue.
@@ -283,10 +337,19 @@ class VDomUpdate extends Collection {
             callbacks = me.promiseCallbackMap.get(ownerId);
 
         if (callbacks) {
+            let failure;
+
+            me.promiseCallbackMap.delete(ownerId);
+
             for (let i = 0, len = callbacks.length; i < len; i++) {
-                callbacks[i].reject?.(error)
+                try {
+                    callbacks[i].reject?.(error)
+                } catch (caught) {
+                    failure ||= {error: caught}
+                }
             }
-            me.promiseCallbackMap.delete(ownerId)
+
+            if (failure) throw failure.error
         }
     }
 
@@ -593,28 +656,41 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * @summary Detaches the finished flight's waiters before releasing them, retaining reentrant queues and draining failures.
      * Triggers all pending updates that were queued to run after the specified `ownerId`'s
      * update has settled — resolved or rejected. A waiter runs its own flight either way, so a
      * failure upstream never leaves it suspended on a completion that will not come.
      * @param {String} ownerId The `id` of the component whose update has just settled.
+     * @param {Object|null} [item] Already-detached phase queue. Omitted takes the live queue;
+     *     an explicit null or undefined releases none. Supplying this argument never changes the live queue collection.
      */
-    triggerPostUpdates(ownerId) {
-        let me   = this,
-            item = me.postUpdateQueueMap.get(ownerId),
+    triggerPostUpdates(ownerId, item) {
+        let me = this,
             component;
 
+        if (arguments.length === 1) {
+            item = me.postUpdateQueueMap.get(ownerId);
+            item && me.postUpdateQueueMap.remove(item)
+        }
+
         if (item) {
+            let failure;
+
             for (let i = 0, len = item.children.length; i < len; i++) {
                 let entry = item.children[i];
                 component = Neo.getComponent(entry.childId);
 
                 if (component) {
-                    (entry.resolve || entry.reject) && me.addPromiseCallback(component.id, entry.resolve, entry.reject);
-                    component.update()
+                    try {
+                        (entry.resolve || entry.reject) && me.addPromiseCallback(component.id, entry.resolve, entry.reject);
+                        component.update()
+                    } catch (error) {
+                        failure ||= {error}
+                    }
                 }
             }
 
-            me.postUpdateQueueMap.remove(item)
+            if (failure) throw failure.error
         }
     }
 
