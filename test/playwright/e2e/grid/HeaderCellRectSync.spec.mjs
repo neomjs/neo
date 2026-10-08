@@ -96,7 +96,7 @@ test.describe('Grid header↔cell rect sync through drag passes (#12955)', () =>
         });
     };
 
-    test('repeated back-and-forth drag keeps every header rect locked to its cell rect', async ({ page }) => {
+    test('repeated back-and-forth drag keeps every header rect locked to its cell rect', async ({ page }, testInfo) => {
         await page.goto('/examples/grid/lockedColumns/');
 
         await page.waitForSelector('[role="grid"]', { state: 'visible', timeout: 30000 });
@@ -111,7 +111,30 @@ test.describe('Grid header↔cell rect sync through drag passes (#12955)', () =>
         }
         await page.waitForTimeout(600);
 
-        assertAligned(await readPairs(page), 'baseline (scrolled right)');
+        const baseline = await readPairs(page);
+
+        expect(baseline.scrollCtx.toolbarScrollLeft, 'the clamp witness starts with native header scroll').toBeGreaterThan(0);
+        assertAligned(baseline, 'baseline (scrolled right)');
+
+        await page.evaluate(() => {
+            const toolbar = document.querySelectorAll('.neo-grid-header-toolbar')[1];
+            let   held    = false;
+
+            window.__headerCellScrollTrace = [];
+            addEventListener('mousedown', () => {held = true}, {capture: true});
+            addEventListener('mouseup', () => {held = false}, {capture: true});
+            toolbar.addEventListener('scroll', () => {
+                const body  = document.getElementById('neo-grid-body-1'),
+                      truth = getComputedStyle(body).getPropertyValue('--grid-scroll-left') ||
+                              getComputedStyle(body.parentElement).getPropertyValue('--grid-scroll-left');
+
+                window.__headerCellScrollTrace.push({
+                    gridScrollLeft   : Number.parseFloat(truth),
+                    held,
+                    toolbarScrollLeft: toolbar.scrollLeft
+                })
+            })
+        });
 
         const centerToolbar = page.locator('.neo-grid-header-toolbar').nth(1);
         const DRAG          = '2011'; // the LAST centre column — lifting at max-right scroll is the clamp class's precondition
@@ -129,6 +152,7 @@ test.describe('Grid header↔cell rect sync through drag passes (#12955)', () =>
             // slide LEFT across two neighbours
             await page.mouse.move(srcBox.x + srcBox.width / 2 - 2 * step, y, { steps: 50 });
             await page.waitForTimeout(750);
+            await expect(centerToolbar, 'the pointer gesture entered a header drag').toHaveClass(/neo-is-dragging/);
             assertAligned(await readPairs(page), `pass ${pass}: mid-drag after sliding left`, true);
 
             // slide back RIGHT within the same drag op
@@ -140,5 +164,16 @@ test.describe('Grid header↔cell rect sync through drag passes (#12955)', () =>
             await page.waitForTimeout(900);
             assertAligned(await readPairs(page), `pass ${pass}: after drop`);
         }
+
+        const scrollTrace = await page.evaluate(() => window.__headerCellScrollTrace);
+
+        await testInfo.attach('header-native-scroll-trace', {
+            body       : Buffer.from(JSON.stringify(scrollTrace)),
+            contentType: 'application/json'
+        });
+        expect(scrollTrace.filter(event => event.held && (
+            !Number.isFinite(event.gridScrollLeft) ||
+            Math.abs(event.toolbarScrollLeft - event.gridScrollLeft) > 1
+        )), 'the held drag never scrolls the toolbar away from the grid truth').toEqual([])
     });
 });

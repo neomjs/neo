@@ -22,6 +22,64 @@ import SortZone       from '../../../../../../../src/draggable/grid/header/toolb
  * read off the durable `gridContainer` back-reference.
  */
 test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
+    test('the extent sentinel reaches the DOM before inherited drag start can lift items', async () => {
+        const
+            parent     = Object.getPrototypeOf(SortZone.prototype),
+            descriptor = Object.getOwnPropertyDescriptor(parent, 'dragStart'),
+            rendered   = Promise.withResolvers(),
+            itemRects  = [{x: 50, y: 0, width: 110}, {x: 160, y: 0, width: 110}],
+            before     = itemRects.map(rect => ({...rect})),
+            owner      = {vdom: {cn: []}, promiseUpdate: () => rendered.promise},
+            zone       = {dragStartScrollLeft: 412, itemRects, owner, ownerRect: {x: 150}};
+
+        let inheritedStarted = false, starting;
+
+        Object.defineProperty(parent, 'dragStart', {
+            configurable: true,
+            value       : async () => {inheritedStarted = true}
+        });
+
+        try {
+            starting = SortZone.prototype.dragStart.call(zone, {});
+            await Promise.resolve();
+
+            expect(inheritedStarted, 'the proxy and item lift wait for the overflow-preserving node').toBe(false);
+            expect(owner.vdom.cn).toEqual([{
+                cls  : ['neo-sortzone-extent-sentinel'],
+                style: {height: '1px', left: '531px', position: 'absolute', top: 0, width: '1px'}
+            }]);
+            expect(itemRects, 'the base still owns conversion of the viewport snapshots').toEqual(before);
+
+            rendered.resolve();
+            await starting;
+            expect(inheritedStarted).toBe(true)
+        } finally {
+            rendered.resolve();
+            try {
+                await starting
+            } finally {
+                descriptor ? Object.defineProperty(parent, 'dragStart', descriptor) : delete parent.dragStart
+            }
+        }
+    });
+
+    test('an unscrolled drag start delegates without a sentinel render', async () => {
+        const parent     = Object.getPrototypeOf(SortZone.prototype),
+              descriptor = Object.getOwnPropertyDescriptor(parent, 'dragStart'),
+              owner      = {vdom: {cn: []}, promiseUpdate: () => {throw new Error('unexpected sentinel render')}};
+        let starts = 0;
+
+        Object.defineProperty(parent, 'dragStart', {configurable: true, value: async () => {starts++}});
+
+        try {
+            await SortZone.prototype.dragStart.call({dragStartScrollLeft: 0, owner}, {});
+            expect(starts).toBe(1);
+            expect(owner.vdom.cn).toEqual([])
+        } finally {
+            descriptor ? Object.defineProperty(parent, 'dragStart', descriptor) : delete parent.dragStart
+        }
+    });
+
     test('gridBody resolves the region body via owner.layoutLock off owner.gridContainer', () => {
         const getGridBody   = Object.getOwnPropertyDescriptor(SortZone.prototype, 'gridBody').get,
               gridContainer = {bodyStart: 'startBody', body: 'centerBody', bodyEnd: 'endBody'},
@@ -75,7 +133,8 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
                 items          : [dragComponent],
                 on             : () => {},
                 style          : {},
-                vdom           : {cn: []}
+                update         : () => {},
+                vdom           : {cn: [{cls: ['neo-sortzone-extent-sentinel']}]}
                 // Deliberately no gridContainer: reaching lock inference would throw.
             },
             zone = Neo.create(SortZone, {owner});
@@ -95,6 +154,7 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
 
         expect(zone.dragColumnField).toBeNull();
         expect(zone.currentIndex).toBe(-1);
+        expect(owner.vdom.cn, 'cancellation removes the extent reservation').toEqual([]);
 
         zone.destroy()
     })
