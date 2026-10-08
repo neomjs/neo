@@ -527,7 +527,17 @@ test.describe('Incomplete disjoint VDOM flights', () => {
                 expect(VDomUpdate.postUpdateQueueMap.get(owner.id)?.children.map(entry => entry.childId))
                     .toContain(leaf.id);
 
+                let lateOwnerFlight;
+
                 if (destroyInitiator) {
+                    owner.parentId = root.id;
+                    root.update();
+                    owner.vdom.cls.push('late-survivor-change');
+                    lateOwnerFlight = track(new Promise((resolve, reject) =>
+                        owner.updateVdom(resolve, reject)));
+                    expect(VDomUpdate.mergedCallbackMap.get(root.id)?.children.has(owner.id) ?? false,
+                        'a protected co-root keeps late requests out of its carrier callback cascade').toBe(false);
+                    owner.parentId = null;
                     root.destroy();
                     expect(owner.isDestroyed, 'the independent payload owner survives').toBeFalsy();
                     expect(owner.isVdomUpdating, 'its scope remains protected until the held reply settles').toBe(true);
@@ -543,7 +553,10 @@ test.describe('Incomplete disjoint VDOM flights', () => {
                     expect(outcomes[0].reason).toBe(Neo.isDestroyed);
                     expect(outcomes[1].reason).toBeInstanceOf(Error);
                     expect(outcomes[1].reason).not.toBe(Neo.isDestroyed);
-                    expect(outcomes[1].reason.message).toBe('VDOM batch canceled by a destroyed component')
+                    expect(outcomes[1].reason.message).toBe('VDOM batch canceled by a destroyed component');
+                    const late = await lateOwnerFlight;
+                    expect(late.status).toBe('rejected');
+                    expect(late.reason).toBe(outcomes[1].reason)
                 } else {
                     expect(outcomes[0].reason).toBeInstanceOf(Error);
                     expect(outcomes[1].reason).toBe(outcomes[0].reason);
@@ -555,7 +568,8 @@ test.describe('Incomplete disjoint VDOM flights', () => {
 
                 if (destroyInitiator) {
                     await owner.promiseUpdate();
-                    expect(owner.vnode.className).toContain('incomplete-owner-change')
+                    expect(owner.vnode.className).toContain('incomplete-owner-change');
+                    expect(owner.vnode.className).toContain('late-survivor-change')
                 }
 
                 const ids = [root.id, owner.id, leaf.id];

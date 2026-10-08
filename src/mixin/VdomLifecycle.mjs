@@ -1159,6 +1159,7 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * @summary Keeps late requests on an active root, otherwise merges or starts the component's next render.
      * Gets called after the vdom config gets changed in case the component is already mounted (delta updates).
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
@@ -1194,6 +1195,12 @@ class VdomLifecycle extends Base {
         // if that cycle fails, instead of stranding resolve-only.
         (resolve || reject) && VDomUpdate.addPromiseCallback(me.id, resolve, reject);
 
+        // An active root owns late callbacks until its flight settles, even when its carrier has another write.
+        if (me.isVdomUpdating) {
+            me.needsVdomUpdate = true;
+            return
+        }
+
         // Attempt to merge into a parent's update cycle.
         // We do this even if silent, to ensure we catch the bus if a parent is departing.
         if (me.mergeIntoParentUpdate(parentId)) {
@@ -1201,7 +1208,7 @@ class VdomLifecycle extends Base {
             return
         }
 
-        if (me.isVdomUpdating || !me.vnodeInitialized || me.silentVdomUpdate) {
+        if (!me.vnodeInitialized || me.silentVdomUpdate) {
             me.needsVdomUpdate = true
         } else {
             // If an update is triggered on an unmounted component, we must wait for it to be mounted.
