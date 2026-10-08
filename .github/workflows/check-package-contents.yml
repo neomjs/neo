@@ -16,9 +16,6 @@ on:
       - 'buildScripts/util/npmIgnoreComposition.mjs'
       - 'package.json'
       - 'buildScripts/util/check-package-contents.mjs'
-      - 'buildScripts/build/parse5.mjs'
-      - 'buildScripts/build/marked.mjs'
-      - 'buildScripts/build/monaco.mjs'
       - '.github/workflows/check-package-contents.yml'
   push:
     branches: [dev]
@@ -30,9 +27,6 @@ on:
       - 'buildScripts/util/npmIgnoreComposition.mjs'
       - 'package.json'
       - 'buildScripts/util/check-package-contents.mjs'
-      - 'buildScripts/build/parse5.mjs'
-      - 'buildScripts/build/marked.mjs'
-      - 'buildScripts/build/monaco.mjs'
       - '.github/workflows/check-package-contents.yml'
 
 concurrency:
@@ -53,10 +47,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      # Generate the required artifacts just as build-all does before release packaging.
-      - name: Bundle browser dependencies
-        run: npm run bundle-browser-deps
 
       # A CI checkout has no live `.neo-ai-data/logs`, `sqlite/` or `wake-daemon/`, so a green here
       # CANNOT prove the Agent OS rule — the files it guards do not exist on this runner. That half is covered by the unit spec over the
