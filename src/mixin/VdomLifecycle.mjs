@@ -213,7 +213,7 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Internal method to send update requests to the vdom worker.
+     * @summary Publishes a disjoint VDOM batch with per-root protection and all-root adoption before settlement.
      *
      * **Teleportation / Batched Disjoint Updates:**
      * This method implements the core logic for "Teleportation". Instead of merging child updates
@@ -222,18 +222,20 @@ class VdomLifecycle extends Base {
      *
      * 1. **Recursive Collection:** We recursively collect all `mergedChildIds` from the component
      *    and its descendants.
-     * 2. **Disjoint Payloads:** For each component in the batch, we generate a "self-only" VDOM
-     *    payload (`updateDepth: 1`). This allows the VDOM engine to update the child directly
-     *    without needing the parent to "bridge" to it.
+     * 2. **Disjoint Payloads:** Each component retains its configured update depth. The VDOM
+     *    engine updates additional roots directly without requiring the initiator to bridge to them.
      * 3. **Collision Filtering:** We filter out child updates that are already covered by a
      *    parent update in the same batch (e.g., if the parent is doing a full tree update).
+     * 4. **Flight Ownership:** Protect each emitted root at its captured depth until all returned
+     *    trees are adopted. Success or failure releases its callbacks and deferred updates.
      *
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
      * @private
      */
     async executeVdomUpdate(resolve, reject) {
-        let me = this;
+        let me             = this,
+            inFlightScopes = new Map([[me.id, me]]);
 
         (resolve || reject) && VDomUpdate.addPromiseCallback(me.id, resolve, reject);
 
@@ -335,6 +337,15 @@ class VdomLifecycle extends Base {
                 }
             }
 
+            // Payload creation resets updateDepth; protect only emitted roots at the captured scope.
+            for (const id of Object.keys(updates)) {
+                const component = Neo.getComponent(id);
+
+                component.isVdomUpdating = true;
+                VDomUpdate.registerInFlightUpdate(id, depths.get(id));
+                inFlightScopes.set(id, component)
+            }
+
             const batchData = {updates};
 
             // CRITICAL: SharedWorker Context Injection
@@ -364,6 +375,14 @@ class VdomLifecycle extends Base {
              */
             me.afterExecuteVdomUpdate?.();
 
+            if (me.isDestroyed) throw Neo.isDestroyed;
+
+            for (const [id, component] of inFlightScopes) {
+                if (!component.isDestroyed && !Object.hasOwn(response.vnodes, id)) {
+                    throw new Error('VDOM batch reply omitted an emitted root')
+                }
+            }
+
             // Component could be destroyed while the update is running: a stale success payload
             // from a destroyed flight must never apply deltas or distribute vnodes.
             if (me.id && !me.isDestroyed) {
@@ -372,7 +391,8 @@ class VdomLifecycle extends Base {
                     await Neo.applyDeltas(me.windowId, response.deltas)
                 }
 
-                // Distribute results back to ALL components in the batch
+                // Adopt every root before any callback or post-update can start another flight.
+                const completed = new Map();
                 for (const id in response.vnodes) {
                     if (Object.hasOwn(response.vnodes, id)) {
                         const vnode     = response.vnodes[id];
@@ -384,45 +404,43 @@ class VdomLifecycle extends Base {
                             component._vnode = vnode;
                             component.syncVnodeTree(vnode, response.deltas || []);
 
-                            // Resolve the update for this component and its merged children
-                            // Note: response.deltas contains the aggregated deltas for the whole batch
-                            component.resolveVdomUpdate({
-                                deltas: response.deltas,
-                                vnode
-                            }, componentMergedChildren.get(id));
+                            completed.set(id, component)
                         }
                     }
                 }
+
+                for (const [id, component] of completed) {
+                    inFlightScopes.delete(id);
+                    component.resolveVdomUpdate({
+                        deltas: response.deltas,
+                        vnode : response.vnodes[id]
+                    }, componentMergedChildren.get(id))
+                }
             }
         } catch (err) {
-            me.isVdomUpdating = false;
-            // Ensure state is cleaned up on error
-            VDomUpdate.unregisterInFlightUpdate(me.id);
+            const failedScopes = [...inFlightScopes];
+            inFlightScopes.clear();
 
-            // A failed flight must reject every promise parked on it — the initiator AND any
-            // children merged into the cycle (rejectCallbacks is the error-path twin of the
-            // resolveVdomUpdate -> executeCallbacks success path). Detect the fire-and-forget case
-            // first (no parked promise), so a genuinely silent failure still logs rather than
-            // vanishing — the symptom otherwise surfaces minutes later as "the DOM stopped
-            // following". Rejected updates do NOT adopt a vnode, so the next cycle re-diffs cleanly.
-            // A window that disconnected mid-flight settles the flight with `PortDisconnectedError`: teardown, not a failure.
-            err?.name === 'PortDisconnectedError' || VDomUpdate.hasPromiseCallbacks(me.id) || console.error('vdom update failed', me.id, err);
+            for (const [id, component] of failedScopes) {
+                component.isVdomUpdating = false;
+                VDomUpdate.unregisterInFlightUpdate(id)
+            }
 
-            VDomUpdate.rejectCallbacks(me.id, err);
+            // Rejection releases every root without acknowledging a vnode it did not receive.
+            err === Neo.isDestroyed || err?.name === 'PortDisconnectedError'
+                || failedScopes.some(([id]) => VDomUpdate.hasPromiseCallbacks(id))
+                || console.error('vdom update failed', me.id, err);
 
-            // Components that yielded to this flight (isChildUpdating / isParentUpdating) wait in the
-            // post-update queue keyed on it, exactly as on success — and only the success path drained
-            // it, so a caller awaiting one of them stayed suspended for good. Release them here too:
-            // each runs its own flight against the current truth and settles on its own outcome.
-            VDomUpdate.triggerPostUpdates(me.id);
+            for (const [id] of failedScopes) {
+                VDomUpdate.rejectCallbacks(id, err);
+                VDomUpdate.triggerPostUpdates(id)
+            }
 
-            // Mirror of resolveVdomUpdate(): updates queued onto this flight while it was running
-            // are only ever drained by a follow-up cycle — without this, their content (and any
-            // attached promise callbacks) strand until the next organic update. A deterministic
-            // failure cannot hot-loop here: the retry consumes needsVdomUpdate, and with no new
-            // mutations a failing retry terminates after one bounded re-throw.
-            if (me.needsVdomUpdate) {
-                me.update()
+            // A write queued during this flight still needs a fresh payload after either outcome.
+            for (const [, component] of failedScopes) {
+                if (!component.isDestroyed && component.needsVdomUpdate) {
+                    component.update()
+                }
             }
         }
     }
