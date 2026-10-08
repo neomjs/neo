@@ -468,7 +468,7 @@ test.describe('Incomplete disjoint VDOM flights', () => {
         test(destroyInitiator
             ? 'a surviving emitted root releases queued work when its initiator is destroyed'
             : 'an omitted reply root rejects the batch before any vnode is acknowledged', async () => {
-            let enterBatch, releaseBatch;
+            let enterBatch, releaseBatch, ownerState = 'pending';
 
             const entered  = new Promise(resolve => enterBatch = resolve),
                   held     = new Promise(resolve => releaseBatch = resolve),
@@ -513,7 +513,10 @@ test.describe('Incomplete disjoint VDOM flights', () => {
                 // Membership models a root reparented out of the initiator before collection.
                 VDomUpdate.registerMerged(root.id, owner.id, 3, 1);
                 const ownerFlight = track(new Promise((resolve, reject) =>
-                    VDomUpdate.addPromiseCallback(owner.id, resolve, reject)));
+                    VDomUpdate.addPromiseCallback(owner.id, resolve, reject)).then(
+                    value => { ownerState = 'fulfilled'; return value },
+                    error => { ownerState = 'rejected'; throw error }
+                ));
 
                 expect(Object.keys((await entered).updates).sort()).toEqual([root.id, owner.id].sort());
                 expect(owner.isVdomUpdating).toBe(true);
@@ -527,7 +530,9 @@ test.describe('Incomplete disjoint VDOM flights', () => {
                 if (destroyInitiator) {
                     root.destroy();
                     expect(owner.isDestroyed, 'the independent payload owner survives').toBeFalsy();
-                    expect(owner.isVdomUpdating, 'its scope remains protected until the held reply settles').toBe(true)
+                    expect(owner.isVdomUpdating, 'its scope remains protected until the held reply settles').toBe(true);
+                    await new Promise(resolve => setImmediate(resolve));
+                    expect(ownerState, 'carrier destruction cannot settle the surviving emitted root').toBe('pending')
                 }
 
                 releaseBatch();
@@ -535,7 +540,10 @@ test.describe('Incomplete disjoint VDOM flights', () => {
                 const outcomes = await Promise.all([rootFlight, ownerFlight]);
                 expect(outcomes.map(outcome => outcome.status)).toEqual(['rejected', 'rejected']);
                 if (destroyInitiator) {
-                    expect(outcomes.map(outcome => outcome.reason)).toEqual([Neo.isDestroyed, Neo.isDestroyed])
+                    expect(outcomes[0].reason).toBe(Neo.isDestroyed);
+                    expect(outcomes[1].reason).toBeInstanceOf(Error);
+                    expect(outcomes[1].reason).not.toBe(Neo.isDestroyed);
+                    expect(outcomes[1].reason.message).toBe('VDOM batch canceled by a destroyed component')
                 } else {
                     expect(outcomes[0].reason).toBeInstanceOf(Error);
                     expect(outcomes[1].reason).toBe(outcomes[0].reason);
@@ -544,6 +552,11 @@ test.describe('Incomplete disjoint VDOM flights', () => {
                 expect(owner.vnode, 'the aborted reply never acknowledges the surviving root').toBe(oldOwner);
                 expect((await leafFlight).status).toBe('fulfilled');
                 expect(leaf.vnode.textContent).toBe('released-after-incomplete-flight');
+
+                if (destroyInitiator) {
+                    await owner.promiseUpdate();
+                    expect(owner.vnode.className).toContain('incomplete-owner-change')
+                }
 
                 const ids = [root.id, owner.id, leaf.id];
 

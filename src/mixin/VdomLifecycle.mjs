@@ -227,7 +227,8 @@ class VdomLifecycle extends Base {
      * 3. **Collision Filtering:** We filter out child updates that are already covered by a
      *    parent update in the same batch (e.g., if the parent is doing a full tree update).
      * 4. **Flight Ownership:** Protect each emitted root at its captured depth until all returned
-     *    trees are adopted. Success or failure releases its callbacks and deferred updates.
+     *    trees are adopted. Each emitted root owns its settlement; a dead carrier cancels live
+     *    co-roots with an error, never their destroy sentinel. Outcomes release deferred updates.
      *
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
@@ -366,6 +367,18 @@ class VdomLifecycle extends Base {
                 inFlightScopes.set(id, component)
             }
 
+            // An emitted root owns its callbacks; carrier destruction must not settle it as a child.
+            for (const [ownerId, collected] of componentMergedChildren) {
+                const children = VDomUpdate.mergedCallbackMap.get(ownerId)?.children;
+
+                for (const [childId, entry] of collected) {
+                    if (childId !== ownerId && Object.hasOwn(updates, childId)) {
+                        collected.delete(childId);
+                        if (entry && children?.get(childId) === entry) children.delete(childId)
+                    }
+                }
+            }
+
             const batchData = {updates};
 
             // CRITICAL: SharedWorker Context Injection
@@ -460,13 +473,17 @@ class VdomLifecycle extends Base {
                 VDomUpdate.unregisterInFlightUpdate(id)
             }
 
+            // Only the destroyed instance receives its sentinel; live roots receive a batch cancellation.
+            const failureReason = err === Neo.isDestroyed
+                ? new Error('VDOM batch canceled by a destroyed component') : err;
+
             // Rejection releases every root without acknowledging a vnode it did not receive.
-            err === Neo.isDestroyed || err?.name === 'PortDisconnectedError'
+            (failedScopes.length === 0 && err === Neo.isDestroyed) || err?.name === 'PortDisconnectedError'
                 || failedScopes.some(([id]) => VDomUpdate.hasPromiseCallbacks(id))
-                || console.error('vdom update failed', me.id, err);
+                || console.error('vdom update failed', me.id, failureReason);
 
             for (const [id] of failedScopes) {
-                VDomUpdate.rejectCallbacks(id, err);
+                VDomUpdate.rejectCallbacks(id, failureReason);
                 VDomUpdate.triggerPostUpdates(id)
             }
 
