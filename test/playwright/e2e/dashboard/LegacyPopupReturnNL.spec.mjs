@@ -18,7 +18,9 @@ test.describe('Legacy dashboard popup return', () => {
         }), '**/examples/dashboard/base/neo-config.json*');
         await page.goto('/examples/dashboard/base/index.html');
 
-        const app         = await neuralLink.connectToApp('Neo.examples.dashboard.base');
+        const app = await neuralLink.connectToApp('Neo.examples.dashboard.base');
+        await expect.poll(async () => (await app.findInstances({className: 'Neo.dashboard.Container'}, ['id'])).length,
+            {message: 'the dashboard instance is available'}).toBe(1);
         const [dashboard] = await app.findInstances({className: 'Neo.dashboard.Container'},
             ['id', 'items.0.id', 'sortZone.id', 'windowId']);
         const dashboardId  = dashboard.id,
