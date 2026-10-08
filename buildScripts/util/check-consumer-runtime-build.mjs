@@ -7,6 +7,7 @@ import process                        from 'node:process';
 import {createRequire}                from 'node:module';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import isEntryModule                  from './isEntryModule.mjs';
+import {BROWSER_BUNDLE_FILES}         from './browserBundles.mjs';
 import {withComposedNpmIgnore}        from './npmIgnoreComposition.mjs';
 import {findForbiddenEntries}         from './check-package-contents.mjs';
 
@@ -137,6 +138,17 @@ export const CANVAS_EXPECTATIONS = [{
     present: true,
     because: 'a consumer-owned renderer must stay reachable through the rebased app-space root'
 }];
+
+/**
+ * @summary Returns runtime-addressed files missing from the installed dependency build.
+ * @param {String[]} files Regular files present beneath the installed Engine root, as relative paths.
+ * @returns {String[]} Missing paths in the canonical browser-artifact order.
+ */
+export function findMissingBrowserArtifacts(files) {
+    const present = new Set(files);
+
+    return BROWSER_BUNDLE_FILES.filter(file => !present.has(file))
+}
 
 /**
  * @summary Rule logic, split from the pack/install/build so it is unit-testable without spawning.
@@ -372,6 +384,13 @@ async function main() {
 
         console.log('check-consumer-runtime-build: generating browser dependencies inside the installed package…');
         execFileSync('npm', ['run', 'bundle-browser-deps'], {cwd: installedRoot, stdio: 'inherit'});
+
+        const missing = findMissingBrowserArtifacts(BROWSER_BUNDLE_FILES.filter(file =>
+            fs.statSync(path.join(installedRoot, file), {throwIfNoEntry: false})?.isFile()));
+
+        if (missing.length) {
+            throw new Error(`the installed dependency build is missing runtime files: ${missing.join(', ')}`)
+        }
 
         const failures = [],
               origCwd  = process.cwd();
