@@ -14,9 +14,9 @@ const HOSTED = 'the popup hosts the live workbench pane';
  * @summary Whitebox E2E for Demo B's full two-window perspective story.
  *
  * One native Tour click must open a durable target popup. During the paced run, worker truth must
- * additionally expose the competing pointer-follow tear-out vessel under a distinct
- * window identity while the same live CounterPane remains in the target. The tour then captures
- * the two worker-owned workspace documents, reattaches, and reconciles
+ * additionally retire the converted tear-out vessel after commit while the same live CounterPane
+ * remains in the target. The tour then captures
+ * the Group's worker-owned workspace documents, reattaches, and reconciles
  * that saved topology into one live window without opening another popup, render the exact
  * no-live-workspace remainder, and finish on Focus with the original counter still advancing.
  * The same page repeats the run without viewer pauses so the executable screenplay proves
@@ -144,14 +144,14 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
                 }).toBe(HOSTED);
 
                 await expect.poll(readCounter, {
-                    message  : 'worker truth must show the original instance mounted once into the popup',
+                    message  : 'worker truth must show the original instance mounted through the vessel and final target',
                     timeout  : 10000,
                     intervals: [100]
                 }).toMatchObject({
                     id        : baseline.id,
                     properties: {
                         frames    : expect.any(Number),
-                        mountCount: runBaseline.properties.mountCount + 1
+                        mountCount: runBaseline.properties.mountCount + 2
                     }
                 });
 
@@ -161,22 +161,23 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
                 expect(inPopup.properties.windowId).not.toBe(runBaseline.properties.windowId);
 
                 await expect.poll(async () => {
-                    const state           = await app.getComponent(wsId, ['crossWindowTargetWindowId']),
-                          native          = await readNativeLifecycle(app, wsId),
-                          counter         = await readCounter(),
-                          targetWindowId  = state.crossWindowTargetWindowId,
-                          tearOutWindowId = native.connections.workbench?.windowId
-                              ?? native.owners.workbench?.windowId;
+                    const state          = await app.getComponent(wsId, ['crossWindowTargetWindowId']),
+                          native         = await readNativeLifecycle(app, wsId),
+                          counter        = await readCounter(),
+                          targetWindowId = state.crossWindowTargetWindowId;
 
-                    return Boolean(targetWindowId
-                        && tearOutWindowId
-                        && counter?.properties?.windowId === targetWindowId
-                        && targetWindowId !== tearOutWindowId)
+                    return {
+                        counterInTarget: Boolean(targetWindowId && counter?.properties?.windowId === targetWindowId
+                            && targetWindowId !== runBaseline.properties.windowId),
+                        connections: Object.keys(native.connections),
+                        owners     : Object.keys(native.owners),
+                        retirements: native.retirements.length
+                    }
                 }, {
-                    message  : 'the pane must stay target-owned while the competing G1 vessel keeps a distinct identity',
+                    message  : 'the committed target owns the pane and the converted tear-out vessel is retired',
                     timeout  : 10000,
                     intervals: [100]
-                }).toBe(true)
+                }).toEqual({counterInTarget: true, connections: [], owners: [], retirements: 0})
             }
 
             await expect.poll(async () => {
@@ -204,14 +205,17 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
                 ),
                 sourceTab = Array.isArray(sourceTabs) ? sourceTabs[0] : sourceTabs,
                 sourceButtons = await app.findInstances(
-                    {parentId: sourceTab.properties.tabBarId},
+                    {ntype: 'tab-header-button', parentId: sourceTab.properties.tabBarId},
                     ['hidden', 'hideMode', 'id', 'mounted', 'pressed', 'text', 'vdom.removeDom', 'windowId']
                 ),
                 sourceButton = Array.isArray(sourceButtons) ? sourceButtons[0] : sourceButtons,
-                sourceBarConsistency = await app.verifyComponentConsistency(sourceTab.properties.tabBarId),
-                sourceBarMismatches = sourceBarConsistency?.mismatches
-                    || sourceBarConsistency?.result?.mismatches
-                    || [];
+                readSourceBarMismatches = async () => {
+                    const consistency = await app.verifyComponentConsistency(sourceTab.properties.tabBarId),
+                          mismatches  = consistency?.mismatches ?? consistency?.result?.mismatches;
+
+                    expect(Array.isArray(mismatches), 'header consistency must be observable').toBe(true);
+                    return mismatches
+                };
 
             expect(sourceButton?.properties,
                 `Focus header state before replay: ${JSON.stringify(sourceButton)}`).toMatchObject({
@@ -219,9 +223,14 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
                 mounted: true,
                 pressed: true
             });
-            expect(sourceBarMismatches,
-                'Focus restore must commit the re-created tab header into worker, VDOM, and DOM truth')
-                .toEqual([]);
+            await expect.poll(readSourceBarMismatches, {
+                message  : 'Focus restore must commit the re-created tab header into worker, VDOM, and DOM truth',
+                timeout  : 5000,
+                intervals: [100]
+            }).toEqual([]);
+            await app.setProperties(sourceTab.properties.tabBarId, {updateDepth: -1});
+            await app.callMethod(sourceTab.properties.tabBarId, 'promiseUpdate');
+            expect(await readSourceBarMismatches(), 'a subsequent toolbar write must remain coherent').toEqual([]);
 
             await expect.poll(() => popup.isClosed(), {
                 message  : 'the scripted reattach closes the popup before topology restore',
@@ -249,11 +258,9 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
 
             expect(state.restoreReport).not.toBeNull();
             expect(detached?.schema).toBe('neo.dock.topology.v1');
-            expect(Object.keys(detached.workspaces)).toEqual(['demo-b-main', 'demo-b-popup']);
-            expect(detached.workspaces['demo-b-popup'].items.workbench).toEqual({
-                reference: 'Workbench',
-                title    : 'Workbench'
-            });
+            expect(Object.keys(detached.workspaces).sort()).toEqual(['demo-b-main', 'demo-b-popup', 'demo-b-popup-2']);
+            expect(detached.workspaces['demo-b-popup-2'].items).toEqual({});
+            expect(detached.workspaces['demo-b-popup'].items.workbench).toEqual({title: 'Workbench'});
             expect(detached.workspaces['demo-b-popup'].nodes['popup-tabs'].items).toEqual(['workbench']);
             expect(state.restoreReport.noWindowSpawned).toBe(true);
             expect(state.restoreReport.unrestored).toEqual([

@@ -221,9 +221,9 @@ class DemoBWorkspace extends Container {
      */
     popupDocument = null
     /**
-     * The second popup render target's worker-owned dock-zone document. Registered through the
-     * same workspace-set seam as the first popup; topology capture stays main+popup-1 scoped,
-     * so this document never enters perspective records.
+     * The second popup render target's worker-owned dock-zone document. It participates in the
+     * Group's topology records alongside the primary and first popup documents, including while
+     * its native render target is unbound.
      * @member {Object|null} popup2Document=null
      */
     popup2Document = null
@@ -267,6 +267,11 @@ class DemoBWorkspace extends Container {
      * @member {Neo.ai.client.TourRunner|null} tourRunner=null
      */
     tourRunner = null
+    /**
+     * The current beat's surface cue, awaited by the runner before it admits the next beat.
+     * @member {Promise} tourCuePromise
+     */
+    tourCuePromise = Promise.resolve()
     /**
      * Pane instances by item id — created ONCE, handed across every re-projection and
      * parked for explicit window moves or an unrestored topology remainder, torn down only
@@ -699,11 +704,15 @@ class DemoBWorkspace extends Container {
             crossWindowExecutor: me,
             dockService        : me.dockService,
             mode               : 'demo',
-            script             : demoBTourScript
+            script             : demoBTourScript,
+            stepSettlement     : async () => {
+                await me.tourCuePromise;
+                await me.awaitProjectionIdle()
+            }
         });
 
         me.tourRunner.on({
-            beat    : me.onTourBeat,
+            beat    : data => me.tourCuePromise = Promise.resolve(me.onTourBeat(data)),
             complete: me.onTourComplete,
             error   : me.onTourError,
             scene   : me.onTourScene,
@@ -1199,7 +1208,7 @@ class DemoBWorkspace extends Container {
     /**
      * Captures the CURRENT committed workspace state as a named perspective through the real
      * §2.2 path. Window scope persists the primary document; topology scope persists the
-     * primary + popup documents with one composed fingerprint.
+     * Group's registered workspace documents with one composed fingerprint.
      * `replace: true` keeps tour reruns idempotent — re-capturing your own name is the
      * demo's update flow, not a collision dispute.
      * @param {String} name
@@ -1526,10 +1535,13 @@ class DemoBWorkspace extends Container {
     }
 
     /**
+     * @summary Publishes captions and starts the surface cue the runner awaits before its next beat.
      * Caption feed + pip progress + the surface cues that make narrated beats EXECUTABLE:
      * perspective saves/loads ride the store, pop-out/reattach ride the vessel — none of
      * them are dock-document ops, so none of them masquerade as descriptors.
+     * The runner's host callback awaits the returned cue outcome and its projection.
      * @param {Object} data The runner's beat payload.
+     * @returns {Object|Promise|Boolean|undefined} The initiated surface cue's outcome.
      */
     onTourBeat(data) {
         let me    = this,
@@ -1728,9 +1740,15 @@ class DemoBWorkspace extends Container {
                         ['worker component instance stayed identical', proof.sameInstance],
                         ['instance heartbeat did not reset', proof.framesNotReset],
                         ['live vessel added exactly one mount', proof.vesselMountDelta === 1],
-                        ['target proxy added exactly one mount', proof.proxyMountDelta === 1],
+                        ['target header proxy settled without taking the pane', proof.remoteSnapshot?.embodiment?.header === true
+                            && proof.remoteSnapshot.embodiment.itemId === itemId
+                            && proof.remoteSnapshot.embodiment.targetWindowId === targetWindowId
+                            && proof.remoteSnapshot.embodiment.ownsPane === false
+                            && proof.remoteSnapshot.embodiment.settled === true
+                            && proof.remoteSnapshot.embodiment.visible === true],
+                        ['target header proxy added no pane mount', proof.proxyMountDelta === 0],
                         ['target document added exactly one mount', proof.targetMountDelta === 1],
-                        ['vessel, proxy and final target each mounted once', proof.mountDelta === 3],
+                        ['vessel and final target each mounted once', proof.mountDelta === 2],
                         ['continuity witness is complete', typeof pane?.id === 'string'
                             && Number.isInteger(pane?.mountCount)]
                     ],

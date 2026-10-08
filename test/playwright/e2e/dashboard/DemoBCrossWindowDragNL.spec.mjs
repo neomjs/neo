@@ -138,7 +138,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         viewport      : {height: 720, width: 760}
     });
 
-    test('the cold gesture transfers Workbench once and preserves its live worker instance', async ({page, neuralLink}) => {
+    test('the cold gesture transfers Workbench once and preserves its live worker instance', async ({page, neuralLink, headless}) => {
         const pageErrors    = [],
               popupErrors   = [],
               popupPages    = [],
@@ -227,7 +227,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
 
         const tearOutPopup = await waitForTearOutPopup(popupPages);
 
-        await placeMovingVesselAtTarget(popup, tearOutPopup);
+        if (!headless) await placeMovingVesselAtTarget(popup, tearOutPopup);
 
         popup.on('pageerror', error => {
             let value = String(error?.stack || error?.message || error || '');
@@ -251,8 +251,8 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(result.proof).toMatchObject({
             framesNotReset           : true,
             localDropFires           : 0,
-            mountDelta               : 3,
-            proxyMountDelta          : 1,
+            mountDelta               : 2,
+            proxyMountDelta          : 0,
             remoteDropOutFires       : 1,
             sameInstance             : true,
             sourceSuppressionConsumed: true,
@@ -266,6 +266,14 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             targetNodeId: 'popup-tabs',
             preview     : {itemId: 'workbench', target: {nodeId: 'popup-tabs'}},
             rendered    : {itemId: 'workbench', target: {nodeId: 'popup-tabs'}}
+        });
+        expect(result.proof.remoteSnapshot.embodiment).toMatchObject({
+            header        : true,
+            itemId        : 'workbench',
+            ownsPane      : false,
+            settled       : true,
+            targetWindowId: (await app.getComponent(wsId, ['crossWindowTargetWindowId'])).crossWindowTargetWindowId,
+            visible       : true
         });
         expect(result.proof.remoteSnapshot.indicators.candidateCount,
             'the empty root tabs target must expose its five distinct cross candidates before release').toBe(5);
@@ -322,7 +330,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             transferCommits   : 1
         });
         expect(counter.id).toBe(baseline.id);
-        expect(counter.properties.mountCount).toBe(baseline.properties.mountCount + 3);
+        expect(counter.properties.mountCount).toBe(baseline.properties.mountCount + 2);
         expect(counter.properties.mounted).toBe(true);
         expect(counter.properties.windowId).not.toBe(baseline.properties.windowId);
 
@@ -354,7 +362,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(pageErrors).toEqual([])
     });
 
-    test('one gesture parks, re-shows, and detaches the same vessel without popup re-acquisition', async ({page, neuralLink}) => {
+    test('one gesture parks, re-shows, and detaches the same vessel without popup re-acquisition', async ({page, neuralLink, headless}) => {
         const pageErrors      = [],
               popupPages      = [],
               windowOpenCalls = [];
@@ -434,7 +442,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             throw new Error(`${error.message}\nround-trip result: ${JSON.stringify(result)}`)
         }
 
-        await placeMovingVesselAtTarget(targetPopup, tearOutPopup);
+        if (!headless) await placeMovingVesselAtTarget(targetPopup, tearOutPopup);
 
         let parkReceipt;
 
@@ -528,7 +536,11 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                 transferCommits   : 0
             }
         });
-        expect(result.proof.firstRemoteSnapshot).toMatchObject({engaged: true, ready: true});
+        expect(result.proof.firstRemoteSnapshot).toMatchObject({
+            embodiment: {header: true, ownsPane: false, settled: true, visible: true},
+            engaged   : true,
+            ready     : true
+        });
         expect(result.proof.outSnapshot).toMatchObject({engaged: false, ready: false});
         expect(result.proof.detached.entry.windowId).toBe(result.proof.firstIdentity.windowId);
         expect(result.proof.terminalIdentity).toEqual(result.proof.firstIdentity);
@@ -589,7 +601,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(native.owners.workbench.windowId).toBe(result.proof.firstIdentity.windowId);
         expect(after.crossWindowStats).toEqual(result.proof.stats);
         expect(finalCounter.id).toBe(baseline.id);
-        expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 3);
+        expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 1);
         expect(finalCounter.properties.windowId).toBe(result.proof.firstIdentity.windowId);
         expect(pageErrors).toEqual([]);
 
@@ -597,7 +609,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         await targetPopup.close()
     });
 
-    test('Escape after remote preview clears every gesture surface and mutates neither document', async ({page, neuralLink}) => {
+    test('Escape after remote preview clears every gesture surface and mutates neither document', async ({page, neuralLink, headless}) => {
         const pageErrors    = [],
               popupErrors   = [],
               popupPages    = [],
@@ -672,7 +684,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
 
         const tearOutPopup = await waitForTearOutPopup(popupPages);
 
-        await placeMovingVesselAtTarget(popup, tearOutPopup);
+        if (!headless) await placeMovingVesselAtTarget(popup, tearOutPopup);
 
         const result        = await resultPromise,
               after         = await app.getComponent(wsId, ['crossWindowStats', 'dockModel', 'popupDocument']),
@@ -689,7 +701,11 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(result.cancelled).toBe(true);
         expect(result.errors).toEqual(['cross-window gesture cancelled before commit']);
         expect(result.proof.documentsUnchanged).toBe(true);
-        expect(result.proof.remoteSnapshot).toMatchObject({engaged: true, ready: true});
+        expect(result.proof.remoteSnapshot).toMatchObject({
+            embodiment: {header: true, ownsPane: false, settled: true, visible: true},
+            engaged   : true,
+            ready     : true
+        });
         expect(result.proof.cancellation).toEqual({
             escapeDispatched : true,
             releaseDispatched: true,
@@ -722,7 +738,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(after.popupDocument).toEqual(before.popupDocument);
         expect(after.crossWindowStats).toEqual(result.proof.stats);
         expect(finalCounter.id).toBe(baseline.id);
-        expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 3);
+        expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 2);
         expect(finalCounter.properties.windowId).toBe(baseline.properties.windowId);
         expect(trace?.events.at(-1)?.t).toBe('cancel');
         expect(runtimeErrors).toEqual([]);

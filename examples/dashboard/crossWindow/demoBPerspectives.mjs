@@ -10,7 +10,7 @@
  *    FLIP layer glides every surviving pane to its new geometry; the counter keeps counting.
  * 3. **Pop-out** — the workbench pane detaches to a real OS window on the SAME SharedWorker
  *    heap and reattaches, its instance-bound counter unbroken: reparent, never recreate.
- * 4. **Changed topology** — the detached two-workspace record restores into a one-window
+ * 4. **Changed topology** — the detached Group topology restores into a one-window
  *    world through the real reconciler. Its no-live-workspace remainder is rendered, and no
  *    popup is auto-spawned.
  *
