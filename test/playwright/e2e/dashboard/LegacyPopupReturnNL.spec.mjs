@@ -46,7 +46,7 @@ test.describe('Legacy dashboard popup return', () => {
         await app.callMethod(sortZoneId, 'adjustItemCls', [true]);
         const handle = widget.locator('.legacy-return-handle');
         await expect(handle).toBeVisible();
-        await expect(widget).toHaveClass(/neo-draggable/);
+        await expect(handle).toHaveClass(/neo-draggable/);
 
         for (let cycle = 0; cycle < 3; cycle++) {
             const box        = await handle.boundingBox(),
