@@ -64,66 +64,69 @@ test.describe('Sparse VDOM Updates', () => {
         }
     });
 
-    test('Baseline: verify current wasteful expansion with updateDepth: 2', async () => {
-        container = Neo.create(SparseMockContainer, {
-            appName,
-            id: `parent-${uniquePrefix}-${testRun}`,
-            items: [
-                {module: SparseMockComponent, id: `dirty-child-${uniquePrefix}-${testRun}`, text: 'Dirty'},
-                {module: SparseMockComponent, id: `clean-child-${uniquePrefix}-${testRun}`, text: 'Clean'}
-            ]
+    for (const mode of ['sparse-excluded', 'sparse-included', 'dense', 'full']) {
+        test(`Collision filtering preserves a dirty sibling: ${mode}`, async () => {
+            container = Neo.create(SparseMockContainer, {
+                appName,
+                id   : `root-${uniquePrefix}-${testRun}`,
+                items: [{
+                    module: SparseMockContainer,
+                    items : [
+                        {module: SparseMockComponent, text: 'A old'},
+                        {module: SparseMockComponent, text: 'B old'},
+                        {module: SparseMockComponent, text: 'Clean'}
+                    ]
+                }]
+            });
+
+            await container.ready();
+            await container.initVnode(true);
+            container.mounted = true;
+
+            const parent        = container.items[0],
+                  [a, b, clean] = parent.items;
+
+            // Settle initial full-depth work before requesting a finite sparse update.
+            for (const component of [container, parent, a, b, clean]) {
+                await component.promiseUpdate()
+            }
+
+            const updateBatch = VdomHelper.updateBatch,
+                  batches     = [];
+
+            VdomHelper.updateBatch = function(data) {
+                batches.push({
+                    roots      : Object.keys(data.updates),
+                    prunedClean: data.updates[parent.id].vdom.cn.some(node =>
+                        node.componentId === clean.id && node.neoIgnore === true)
+                });
+                return updateBatch.call(this, data)
+            };
+
+            try {
+                container.setSilent({style: {color: 'green'}, updateDepth: 1});
+                if (mode !== 'sparse-included') b.setSilent({text: 'B new'});
+                parent.setSilent({style: {color: 'purple'}, updateDepth: mode === 'full' ? -1 : 2});
+                if (mode === 'sparse-included') b.setSilent({text: 'B new'});
+                a.setSilent({text: 'A new'});
+                if (mode === 'dense') parent.denseUpdate = true;
+
+                const result = await container.promiseUpdate();
+
+                expect(result.deltas.filter(delta => delta.textContent === 'B new')).toHaveLength(1);
+                expect(b.vnode.textContent).toBe('B new');
+                expect(a.vnode.textContent).toBe('A new');
+                expect(b.needsVdomUpdate).toBe(false);
+                expect(batches).toHaveLength(1);
+                expect(batches[0].roots.includes(b.id)).toBe(mode === 'sparse-excluded');
+                expect(batches[0].prunedClean).toBe(mode.startsWith('sparse'));
+            } finally {
+                VdomHelper.updateBatch = updateBatch
+            }
         });
+    }
 
-        await container.initVnode(true);
-        container.mounted = true;
-
-        dirtyChild = container.items[0];
-        cleanChild = container.items[1];
-
-        // 1. Prepare Parent with Depth 2
-        // This technically means "Expand everyone to depth 2"
-        container.updateDepth = 2;
-        container.setSilent({style: {color: 'blue'}});
-
-        // 2. Mark Dirty Child
-        // It merges because distance (1) <= updateDepth (2)
-        dirtyChild.setSilent({text: 'Dirty Updated'});
-
-        // 3. Clean Child is untouched
-
-        // 4. Capture the VDOM sent to Helper.update
-        // We can inspect the resulting vnode on the parent after update
-        await container.promiseUpdate();
-
-        // 5. Inspect the Parent's new VNode tree
-        // The VNode tree reflects what was processed.
-        // We look at the children of the parent's vnode.
-        const parentVnode = container.vnode;
-        const children = parentVnode.childNodes; // Container wrapper -> children
-
-        // Find the vnodes for our children
-        const dirtyVnode = children.find(n => n.id === dirtyChild.id);
-        const cleanVnode = children.find(n => n.id === cleanChild.id);
-
-        // EXPECTATION (Current Behavior):
-        // Both are fully expanded VNodes because updateDepth: 2 forces it.
-        // A placeholder would look like { componentId: '...', ... } but in the vnode tree
-        // it acts differently.
-        //
-        // Actually, let's look at the arguments passed to TreeBuilder.
-        // But checking the result is easier.
-        // If it was pruned, the `cleanVnode` in the parent's tree would be a placeholder object.
-        // However, `container.vnode` stores the *result* of the diff.
-        //
-        // Wait, if we prune it in the VDOM sent to worker, the Worker sees a placeholder.
-        // If the Worker sees a placeholder for an existing component, it knows "No Change".
-        // BUT, does it send back a placeholder in the `vnode` result?
-        //
-        // Let's verify what `TreeBuilder.getVdomTree` does.
-        // We can manually call TreeBuilder in the test to verify the logic directly.
-    });
-
-    test('TreeBuilder: Direct verification of wasteful expansion', async () => {
+    test('TreeBuilder prunes clean siblings at finite depth', async () => {
         container = Neo.create(SparseMockContainer, {
             appName,
             id: `parent-tb-${uniquePrefix}-${testRun}`,
@@ -156,7 +159,6 @@ test.describe('Sparse VDOM Updates', () => {
         // Verification
         // Dirty Item should be expanded
         expect(dirtyItem.tag).toBe('div');
-        // expect(dirtyItem.cls).toContain('child-component'); // cls might be managed differently in mock
 
         // Clean Item:
         // NEW BEHAVIOR (Sparse): It should be a placeholder { componentId: '...' } with NO tag

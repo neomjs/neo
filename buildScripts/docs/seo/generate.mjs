@@ -14,6 +14,7 @@ const PORTAL_DIR     = path.resolve(ROOT_DIR, 'apps/portal');
 const TREE_FILE_PATH = path.join(LEARN_DIR, 'tree.json');
 // Location of the JSON index we will generate in the next step
 const RELEASES_PATH                               = path.resolve(PORTAL_DIR, 'resources/data/releases.json');
+const BLOG_INDEX_PATH                             = path.resolve(PORTAL_DIR, 'resources/data/blog.json');
 const DEFAULT_BASE_PATH                           = '/learn';
 const GIT_LOG_CHUNK_SIZE                          = 200;
 const STATUS_RENAME_CODES                         = new Set(['R', 'C']);
@@ -68,16 +69,6 @@ const PRIORITIES = new Map([
     ['guides/fundamentals/CodebaseOverview'         , 1.0],
     ['guides/mcp/Introduction'                      , 1.0], // AI Priority
     ['guides/mcp/NeuralLink'                        , 1.0], // AI Priority
-
-    ['blog/context-engineering-done-right'          , 0.9],
-    ['blog/ai-native-platform-answers-questions'    , 0.9],
-    ['blog/v10-deep-dive-state-provider'            , 0.9],
-    ['blog/benchmarking-frontends-2025'             , 0.9],
-    ['blog/v10-deep-dive-vdom-revolution'           , 0.9],
-    ['blog/v10-deep-dive-functional-components'     , 0.9],
-    ['blog/v10-deep-dive-reactivity'                , 0.9],
-    ['blog/v10-post1-love-story'                    , 0.9],
-    ['blog/json-blueprints-and-shared-workers'      , 0.9],
 
     ['comparisons/NeoVsAngular'                     , 0.7],
     ['comparisons/NeoVsExtJs'                       , 0.7],
@@ -166,6 +157,10 @@ export function getReleaseNotePriority(version, maxMajor=maxReleaseMajor) {
 function getPriority(id) {
     if (id.startsWith('/news/releases/')) {
         return getReleaseNotePriority(id.slice('/news/releases/'.length));
+    }
+
+    if (id.startsWith('/news/blog/')) {
+        return 0.9;
     }
 
     if (id.startsWith('/news/tickets/')) {
@@ -629,6 +624,35 @@ async function collectReleaseRoutes(releaseNotesRoot) {
 }
 
 /**
+ * @summary Collects one route per blog post from the portal's blog index.
+ *
+ * The portal renders posts from `blog.json`, never from `learn/tree.json`, so the tree walk
+ * cannot see them. Each leaf becomes `/news/blog/<id>`, the route the portal itself answers, and
+ * its markdown file dates the sitemap entry. A leaf whose file is missing fails, naming the leaf.
+ * @param {String} [blogIndexPath] The portal's blog index
+ * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
+ */
+export async function collectBlogRoutes(blogIndexPath=BLOG_INDEX_PATH) {
+    const index = await fs.readJSON(blogIndexPath);
+    const posts = (Array.isArray(index?.data) ? index.data : []).filter(node => node.isLeaf && node.id);
+
+    return Promise.all(posts.map(async post => {
+        const filePath = post.path ? path.resolve(ROOT_DIR, post.path) : null;
+
+        if (!filePath || !await fs.pathExists(filePath)) {
+            throw new Error(`Blog post "${post.id}" has no markdown file at "${post.path}".`);
+        }
+
+        return {
+            category: 'blog',
+            filePath,
+            id      : `/news/blog/${post.id}`,
+            name    : post.name
+        };
+    }));
+}
+
+/**
  * Collects all github issues by scanning the corpus's active and archive markdown directories.
  * @param {String} corpusRoot
  * @returns {Promise<Array<{id: String, filePath: String}>>}
@@ -737,6 +761,7 @@ async function collectAllRoutes({corpusRoot, releaseNotesRoot}) {
         contentRoutes,
         exampleRoutes,
         releaseRoutes,
+        blogRoutes,
         issueRoutes,
         pullRoutes,
         discussionRoutes
@@ -745,6 +770,7 @@ async function collectAllRoutes({corpusRoot, releaseNotesRoot}) {
         collectRoutesFromTree(),
         collectExampleRoutes(),
         collectReleaseRoutes(releaseNotesRoot),
+        collectBlogRoutes(),
         collectIssueRoutes(corpusRoot),
         collectPullRoutes(corpusRoot),
         collectDiscussionRoutes(corpusRoot)
@@ -755,6 +781,7 @@ async function collectAllRoutes({corpusRoot, releaseNotesRoot}) {
         ...contentRoutes,
         ...exampleRoutes,
         ...releaseRoutes,
+        ...blogRoutes,
         ...issueRoutes,
         ...pullRoutes,
         ...discussionRoutes
@@ -1060,6 +1087,7 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
 
     const topLevelRoutes   = allRoutes.filter(route => route.category === 'top-level');
     const releaseRoutes    = allRoutes.filter(route => route.category === 'release-notes');
+    const blogRoutes       = allRoutes.filter(route => route.category === 'blog');
     const ticketRoutes     = allRoutes.filter(route => route.category === 'tickets');
     const pullRoutes       = allRoutes.filter(route => route.category === 'pull-requests');
     const discussionRoutes = allRoutes.filter(route => route.category === 'discussions');
@@ -1110,6 +1138,16 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
             const cleanPath = route.id.startsWith('/') ? route.id.substring(1) : route.id;
             const urlStr    = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
             return `- [${name}](${urlStr})`;
+        });
+        content += mappedUrls.join('\n') + '\n\n';
+    }
+
+    if (blogRoutes.length > 0) {
+        content += `## Blog\n\n`;
+        const mappedUrls = blogRoutes.map(route => {
+            const relativePath = path.relative(ROOT_DIR, route.filePath).split(path.sep).join('/');
+            const urlStr       = new URL(`raw/${relativePath}`, baseUrl).toString();
+            return `- [${route.name}](${urlStr})`;
         });
         content += mappedUrls.join('\n') + '\n\n';
     }

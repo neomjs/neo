@@ -226,8 +226,8 @@ class VdomLifecycle extends Base {
      *    and its descendants.
      * 2. **Disjoint Payloads:** Each component retains its configured update depth. The VDOM
      *    engine updates additional roots directly without requiring the initiator to bridge to them.
-     * 3. **Collision Filtering:** We filter out child updates that are already covered by a
-     *    parent update in the same batch (e.g., if the parent is doing a full tree update).
+     * 3. **Collision Filtering:** Remove a child root only when the parent's depth covers it
+     *    and the parent's sparse allowlist, when present, includes it.
      * 4. **Flight Ownership:** Protect each emitted root at its captured depth until all returned
      *    trees are adopted. Each emitted root owns its settlement; a dead carrier cancels live
      *    co-roots with an error, never their destroy sentinel. Outcomes release deferred updates.
@@ -275,6 +275,8 @@ class VdomLifecycle extends Base {
                 updates   = {},
                 depths    = new Map(),
                 processed = new Set(); // Prevent duplicates and cycles
+
+            let sparseScopes;
 
             const collectPayloads = (componentId) => {
                 if (processed.has(componentId)) return;
@@ -324,6 +326,11 @@ class VdomLifecycle extends Base {
                 // - `denseUpdate`: the owner changed descendants silently, so nothing within its depth is clean.
                 const ids = component.updateDepth !== 1 && !component.denseUpdate ? mergedChildIds : null;
 
+                // Capture the actual sparse scope before payload creation resets depth and denseUpdate.
+                if (ids && component.updateDepth !== -1) {
+                    (sparseScopes ||= new Map()).set(componentId, ids)
+                }
+
                 // We pass null as the second arg to respect the component's configured updateDepth.
                 updates[componentId] = component.getVdomUpdatePayload(ids, null);
 
@@ -347,9 +354,10 @@ class VdomLifecycle extends Base {
 
                     while (parent) {
                         if (updates[parent.id]) {
-                            const parentDepth = depths.get(parent.id);
-                            // If parent covers this child, remove the child from the disjoint batch
-                            if (parentDepth === -1 || parentDepth > distance) {
+                            const parentDepth = depths.get(parent.id),
+                                  parentIds   = sparseScopes?.get(parent.id);
+
+                            if ((parentDepth === -1 || parentDepth > distance) && (!parentIds || parentIds.has(id))) {
                                 delete updates[id];
                                 break; // exit the while loop
                             }
