@@ -185,7 +185,7 @@ test.describe('Sparse VDOM Updates', () => {
         }
     }
 
-    for (const [ancestor, distance] of [['sparse', 1], ['sparse', 2], ['dense', 2], ['full', 1], ['full', 2]]) {
+    for (const [ancestor, distance] of [['sparse', 1], ['sparse', 2], ['dense', 1], ['dense', 2], ['full', 1], ['full', 2]]) {
         for (const scope of ['finite', 'implicit', 'full']) {
             test(`${ancestor} ancestor preserves ${scope} hide at distance ${distance}`, async () => {
                 const prefix = `hide-${uniquePrefix}-${testRun}`;
