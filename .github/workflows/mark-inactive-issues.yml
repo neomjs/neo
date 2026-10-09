@@ -1,25 +1,24 @@
-name: Close inactive issues
+name: Mark inactive issues
 on:
   schedule:
     - cron: '30 1 * * *'
 
 
 jobs:
-  close-issues:
+  mark-issues:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-      pull-requests: write
     steps:
       - uses: actions/stale@v11
         with:
           operations-per-run: 500
           days-before-issue-stale: 90
-          days-before-issue-close: 14
+          # never closes: an issue closes on a triage verdict that cites what superseded it, not on age
+          days-before-issue-close: -1
           exempt-issue-labels: 'no auto close'
           stale-issue-label: 'stale'
-          stale-issue-message: 'This issue is stale because it has been open for 90 days with no activity.'
-          close-issue-message: 'This issue was closed because it has been inactive for 14 days since being marked as stale.'
+          stale-issue-message: 'This issue has had no activity for 90 days. It is marked `stale` for triage; it will not be closed automatically.'
           days-before-pr-stale: -1
           days-before-pr-close: -1
           repo-token: ${{ secrets.GITHUB_TOKEN }}
