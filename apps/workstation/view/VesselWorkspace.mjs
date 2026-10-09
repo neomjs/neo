@@ -480,9 +480,8 @@ class VesselWorkspace extends DockWorkspace {
             // window boundary. Exiting a source toolbar remains ordinary cross-zone motion; only
             // leaving this app/window root enters the vessel outcome machine.
             dockTearOutBoundaryContainerId: me.id,
-            // Vessel conversion (the multi-window amendment): popup-over-vessel converts to a
-            // proxy over the target while the park keeps the real vessel alive — the projection
-            // threads the opt-in; this host owns every platform effect.
+            // A window of the Group that claims the pointer carries the drag as the tab-header proxy,
+            // and the vessel riding the hand retires — the projection threads the opt-in.
             enableVesselConversion   : true,
             onDockCrossZoneDragCancel: data => me.dragAffordances.onDragCancel(data),
             onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),

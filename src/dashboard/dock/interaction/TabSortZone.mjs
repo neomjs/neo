@@ -119,10 +119,10 @@ class TabSortZone extends TabHeaderSortZone {
          */
         sortGroup: null,
         /**
-         * Opts this source into the dual-window conversion decision. The coordinator remains
-         * dock-blind: it offers stable-claim frames, while this zone owns the sensor and decides
-         * whether a remote preview may engage. Disabled is byte-identical to the pre-conversion
-         * coordinator path.
+         * Opts this source into handing a claimed frame to the claiming window
+         * ({@link #resolveRemoteDragTransition}): that window embodies the drag as this source's
+         * tab-header proxy, and a vessel riding the hand retires. The coordinator remains dock-blind:
+         * it offers stable-claim frames, this zone decides. Disabled keeps the generic coordinator path.
          * @member {Boolean} enableVesselConversion=false
          */
         enableVesselConversion: false,
@@ -348,13 +348,13 @@ class TabSortZone extends TabHeaderSortZone {
     }
 
     /**
-     * @summary Prevents popup-scale boundary overlap from impersonating a source-window re-entry
-     * after a remote target already won the current pointer frame.
+     * @summary A frame another window of the group claims is no boundary crossing of this source.
      *
-     * The coordinator resolves claims before the base boundary sampler runs. Once a remote claim
-     * exists, that frame belongs to the remote window even when the future-vessel-sized proxy
-     * geometrically overlaps the source boundary. The next claim-free frame delegates unchanged,
-     * preserving ordinary void motion and the real return-to-source transition.
+     * The coordinator resolves claims before the base boundary sampler runs, and a claimed frame
+     * belongs to that window ({@link #resolveRemoteDragTransition}): it neither re-enters this window
+     * nor exits it, so no vessel is born over a window. The sampler re-arms as if the drag were
+     * inside, which makes leaving that window for the desktop an ordinary exit; returning into this
+     * window stays an in-window drag.
      * @param {Object} data
      * @returns {Boolean}
      * @protected
@@ -363,7 +363,10 @@ class TabSortZone extends TabHeaderSortZone {
         let me          = this,
             remoteClaim = me.dragCoordinator?.pointerClaimArbiter?.resolve?.() ?? null;
 
-        if (me.isWindowDragging && remoteClaim) return true;
+        if (remoteClaim) {
+            me.isWindowDragging || (me.lastIntersectionRatio = 1);
+            return true
+        }
 
         return super.checkWindowBoundary(data)
     }
@@ -621,210 +624,39 @@ class TabSortZone extends TabHeaderSortZone {
     }
 
     /**
-     * @summary Resolves one stable-claim frame into remote-preview and commit eligibility.
+     * @summary Hands a frame whose pointer another window of the group claims to that window, which
+     * carries the drag as this source's own tab-header proxy.
      *
-     * This is the production binding for {@link Neo.dashboard.dock.window.VesselConversion}. The manager
-     * supplies the logical pointer-follow rect plus live target geometry after deterministic claim
-     * arbitration; this dock-owned source resolves its exact live vessel rect, samples the pure
-     * sensor, and returns a synchronous policy record. Raw pointer loss
-     * drops commit eligibility immediately. A bounded grace may retain the already-rendered hover
-     * without feeding `pointerInTarget=false` into the deliberately undamped sensor until expiry.
-     * Target identity is part of the binding (the sensor itself is intentionally identity-free):
-     * switching A→B first reverts A, then B must clear its own geometry threshold.
+     * A drag shows no window the user did not drag: a vessel riding the hand retires the moment
+     * another window takes the pointer, exactly as it does when the drag re-enters the source window
+     * (the tear-out re-entry contract: zero model mutation, the pane back home). Nothing is parked —
+     * a script can neither hide a window nor move it off the visible work area. Leaving that window
+     * for the desktop is a boundary exit again ({@link #checkWindowBoundary}), which acquires a vessel
+     * through the ordinary fail-closed admission.
      * @param {Object} frame
      * @param {Object} frame.draggedItem
-     * @param {Number} frame.now
      * @param {Boolean} frame.pointerInTarget
-     * @param {Boolean} [frame.replayAfterTransition=false] Internal transition continuation marker
-     * @param {Object} frame.logicalSourceRect
-     * @param {String|null} frame.targetId
-     * @param {Object|null} frame.targetRect
-     * @returns {{commitEligible: Boolean, engage: Boolean, preview: (true|undefined), retain: Boolean,
-     *     proxyRect: (Object|undefined)}|null}
+     * @returns {{commitEligible: Boolean, engage: Boolean, proxyRect: (Object|undefined), retain: Boolean}|null}
      *     An engaged record carries the target proxy's extent ({@link #getVesselConversionProxyRect});
-     *     `preview: true` marks a pointer claim on this target that the park has not admitted yet
-     *     (pending or refused), whose frames may render the target's drop zones without an embodiment
-     *     or a commit;
-     *     `null` keeps the legacy coordinator path when conversion is disabled or the source is not
-     *     in a window drag.
+     *     `null` leaves a claim-free frame to the source or the void, and keeps the generic coordinator
+     *     path for a source that did not opt in.
      */
-    resolveRemoteDragTransition({
-        draggedItem,
-        logicalSourceRect,
-        now=Date.now(),
-        pointerInTarget,
-        replayAfterTransition=false,
-        targetId,
-        targetRect
-    } = {}) {
+    resolveRemoteDragTransition({draggedItem, pointerInTarget} = {}) {
         let me = this;
 
-        if (!me.enableVesselConversion || !me.isWindowDragging) {
+        if (!me.enableVesselConversion || pointerInTarget !== true) {
             return null
         }
 
-        if (!draggedItem) {
+        let proxyRect = draggedItem && me.getVesselConversionProxyRect();
+
+        if (!proxyRect) {
             return {commitEligible: false, engage: false, retain: false}
         }
 
-        let sensor = me.getVesselConversionSensor(),
-            grace  = Number.isFinite(me.vesselConversionPointerExitGraceMs)
-                ? Math.max(0, me.vesselConversionPointerExitGraceMs)
-                : 0;
+        me.isWindowDragging && me.fire('dragBoundaryEntry', {draggedItem: me.dragComponent, proxyRect: null, sortZone: me});
 
-        me.vesselConversionItemId = draggedItem.dockItemId
-            ?? me.dragComponent?.dockItemId
-            ?? me.dockItemIds?.[me.startIndex]
-            ?? null;
-        me.vesselConversionLogicalRect = logicalSourceRect ? {...logicalSourceRect} : null;
-
-        let liveSourceRect;
-
-        // Once park is proposed or admitted, the physical rect is host-authored parked output, not
-        // user trajectory. Continue with the logical pointer-follow origin and the last exact live
-        // extents while strict platform admission settles.
-        if (
-            (sensor.converted || sensor.targetConverted || replayAfterTransition) &&
-            me.vesselConversionSourceRect && logicalSourceRect
-        ) {
-            liveSourceRect = {
-                height: me.vesselConversionSourceRect.height,
-                width : me.vesselConversionSourceRect.width,
-                x     : logicalSourceRect.x,
-                y     : logicalSourceRect.y
-            }
-        } else {
-            liveSourceRect = me.resolveVesselConversionSourceGeometry({draggedItem, logicalRect: logicalSourceRect})
-        }
-
-        if (!liveSourceRect) {
-            me.cancelVesselConversion();
-            return {commitEligible: false, engage: false, retain: false}
-        }
-
-        me.vesselConversionSourceRect = liveSourceRect;
-
-        // A platform effect is provisional authority. The coordinator receives a synchronous
-        // fail-closed policy while it settles; no Promise escapes this source-owned boundary. The
-        // latest frame is replayed automatically after settlement, closing the otherwise-stale
-        // "move below threshold, then stop" race in both conversion directions.
-        if (sensor.transitioning) {
-            sensor.sample({
-                pointerInTarget: pointerInTarget === true,
-                sourceRect     : me.vesselConversionSourceRect,
-                targetRect     : targetRect ?? me.vesselConversionTargetRect
-            });
-            me.scheduleVesselConversionReplay({
-                draggedItem,
-                logicalSourceRect,
-                now,
-                pointerInTarget,
-                targetId,
-                targetRect
-            });
-
-            // a park still pending for the target the pointer claims: its zones may show before it admits
-            return pointerInTarget === true && sensor.targetConverted === true && targetId != null && targetId === me.vesselConversionTargetId
-                ? {commitEligible: false, engage: false, preview: true, retain: false}
-                : {commitEligible: false, engage: false, retain: false}
-        }
-
-        if (pointerInTarget === true && targetId != null && targetRect) {
-            if (me.vesselConversionTargetId != null && me.vesselConversionTargetId !== targetId) {
-                if (sensor.converted) {
-                    const record = sensor.sample({
-                        pointerInTarget: false,
-                        sourceRect     : me.vesselConversionSourceRect,
-                        targetRect     : me.vesselConversionTargetRect
-                    });
-
-                    // A→B cannot mint B ownership while A's exact vessel is still parked. Wait
-                    // behind the synchronous fail-closed hook, then replay this B frame even when
-                    // the pointer stops before another browser event arrives.
-                    if (record.transitioning || record.converted) {
-                        record.transitioning && me.scheduleVesselConversionReplay({
-                            draggedItem,
-                            logicalSourceRect,
-                            now,
-                            pointerInTarget,
-                            targetId,
-                            targetRect
-                        });
-                        return {commitEligible: false, engage: false, retain: false}
-                    }
-                }
-
-                sensor.reset()
-            }
-
-            me.vesselConversionPointerMissedAt = null;
-            me.vesselConversionTargetId        = targetId;
-            me.vesselConversionTargetRect      = {...targetRect};
-
-            let record = sensor.sample({
-                pointerInTarget: true,
-                sourceRect     : me.vesselConversionSourceRect,
-                targetRect     : me.vesselConversionTargetRect
-            });
-
-            record.transitioning && me.scheduleVesselConversionReplay({
-                draggedItem,
-                logicalSourceRect,
-                now,
-                pointerInTarget,
-                targetId,
-                targetRect
-            });
-
-            return {
-                commitEligible: record.converted && !record.transitioning,
-                engage        : record.converted && !record.transitioning,
-                preview       : true,
-                retain        : false,
-                proxyRect     : record.converted && !record.transitioning
-                    ? me.getVesselConversionProxyRect()
-                    : undefined
-            }
-        }
-
-        if (!sensor.converted) {
-            me.vesselConversionPointerMissedAt = null;
-            return {commitEligible: false, engage: false, retain: false}
-        }
-
-        me.vesselConversionPointerMissedAt ??= now;
-
-        if (now - me.vesselConversionPointerMissedAt < grace) {
-            let record = sensor.sample({
-                pointerInTarget: true,
-                sourceRect     : me.vesselConversionSourceRect,
-                targetRect     : me.vesselConversionTargetRect
-            });
-
-            return {
-                commitEligible: false,
-                engage        : record.converted,
-                retain        : record.converted,
-                proxyRect     : record.converted ? me.getVesselConversionProxyRect() : undefined
-            }
-        }
-
-        const record = sensor.sample({
-            pointerInTarget: false,
-            sourceRect     : me.vesselConversionSourceRect,
-            targetRect     : me.vesselConversionTargetRect
-        });
-
-        record.transitioning && me.scheduleVesselConversionReplay({
-            draggedItem,
-            logicalSourceRect,
-            now,
-            pointerInTarget,
-            targetId,
-            targetRect
-        });
-
-        return {commitEligible: false, engage: false, retain: false}
+        return {commitEligible: true, engage: true, proxyRect, retain: false}
     }
 
     /**
