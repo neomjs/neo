@@ -2402,6 +2402,82 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    // Chrome can present a pane a transfer just landed in a vessel incomplete while its DOM is complete,
+    // so the vessel re-rasters exactly that pane on the first refresh that finds it seated in its window.
+    // A drop onto a vessel commits through the engine's default seam, and that projection can settle
+    // while the source window still renders the pane, as the film's compose does.
+    test('a transfer into a vessel re-rasters the pane it landed, once the pane is seated there', async () => {
+        const workspace                        = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const {state, workspaceId, tabsNodeId} = stageCommittedVessel(workspace);
+        const groupId                          = workspace.topologyGroupId, order = [], cached = workspace.paneCache.activity,
+              refresh = DockWorkspace.prototype.refreshDockWorkspace;
+        TransactionManager.setHistoryDepth({groupId, depth: 5});
+        TransactionManager.getParticipant(groupId, Workspace.MAIN_WORKSPACE_ID).project = async () => {};
+        DockWorkspace.prototype.refreshDockWorkspace = async function(...args) {
+            if (this !== state.host) return refresh.apply(this, args);
+            order.push('refreshed')
+        };
+        const pane = workspace.paneCache.activity = {
+            isDestroyed  : false,
+            windowId     : 'source-window',
+            addCls       : cls => order.push(`add ${cls}`),
+            promiseUpdate: async () => { order.push('rendered') },
+            removeCls    : cls => order.push(`remove ${cls}`)
+        };
+        try {
+            await workspace.workspaceSet.transfer({operation: 'transferItem', itemId: 'activity',
+                sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID, targetWorkspaceId: workspaceId,
+                target           : {operation: 'addTab', tabsNodeId}}, {provenance: {origin: 'human'}});
+            await state.host.refreshPromise;
+            expect(order, 'the source window still renders the pane').toEqual(['refreshed']);
+            pane.windowId = state.host.windowId;
+            await state.host.refreshDockWorkspace();
+            await expect.poll(() => order.at(-1)).toBe('remove workstation-pane-repaint');
+            expect(order, 'only the landed pane, not the vessel\'s residents').toEqual(['refreshed', 'refreshed',
+                'add workstation-pane-repaint', 'rendered', 'remove workstation-pane-repaint']);
+            await state.host.refreshDockWorkspace();
+            expect(order.at(-1), 'once per landing').toBe('refreshed')
+        } finally {
+            DockWorkspace.prototype.refreshDockWorkspace = refresh;
+            workspace.paneCache.activity = cached;
+            state.host.destroy();
+            workspace.destroy()
+        }
+    });
+
+    // A failed render rejects the repaint's promise just as a destruction does, but the pane survives it.
+    test('a landed pane leaves its repaint layer after a render or a failed render, never after its destruction', async () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const {state}   = stageCommittedVessel(workspace);
+        const errors    = [], report = console.error;
+        const stubPane  = render => {
+            const pane = {isDestroyed: false, order: []};
+            return Object.assign(pane, {
+                addCls       : cls => pane.order.push(`add ${cls}`),
+                promiseUpdate: () => { pane.order.push('render'); return render(pane) },
+                removeCls    : cls => pane.order.push(`remove ${cls}`)
+            })
+        };
+        console.error = message => errors.push(message);
+        try {
+            const rendered  = stubPane(async () => {}),
+                  failed    = stubPane(async () => { throw new Error('the flight failed') }),
+                  destroyed = stubPane(async pane => { pane.isDestroyed = true; throw new Error('destroyed') });
+            await state.host.repaintLandedPane(rendered);
+            await state.host.repaintLandedPane(failed);
+            await state.host.repaintLandedPane(destroyed);
+            expect(rendered.order).toEqual(['add workstation-pane-repaint', 'render', 'remove workstation-pane-repaint']);
+            expect(failed.order, 'a live pane takes the layer off after a failed render')
+                .toEqual(['add workstation-pane-repaint', 'render', 'remove workstation-pane-repaint']);
+            expect(destroyed.order, 'a destroyed pane is not touched again').toEqual(['add workstation-pane-repaint', 'render']);
+            expect(errors, 'only the live failure is reported').toEqual(['PopupWorkspace: the landed pane\'s repaint render failed'])
+        } finally {
+            console.error = report;
+            state.host.destroy();
+            workspace.destroy()
+        }
+    });
+
     // The registry keeps an item's vessel ownership through a release this host retains, so the
     // emptied vessel's records would otherwise outlive the return and receive the item's next
     // tear-out as a late binding of the old adoption — a vessel that opens owned, unstaged, empty.
