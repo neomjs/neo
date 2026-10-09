@@ -203,6 +203,38 @@ const expectColdTopology = async (root, record) => {
     return state
 };
 
+/**
+ * @summary Selects two native popup positions that fit the display and avoid every live target.
+ * @param {Object} origin Observed native popup bounds.
+ * @param {Object} screen Observed available display bounds.
+ * @param {Object[]} targets Live target window inner rectangles.
+ * @returns {Object|null} Initial placement and a distinct free move, or no available space.
+ */
+const freePopupPlacement = (origin, screen, targets) => {
+    const overlaps = (bounds, target) => bounds.left < target.x + target.width + 16 &&
+          bounds.left + bounds.width + 16 > target.x && bounds.top < target.y + target.height + 16 &&
+          bounds.top + bounds.height + 16 > target.y,
+          fits = bounds => bounds.left >= screen.left && bounds.top >= screen.top &&
+              bounds.left + bounds.width + 20 <= screen.left + screen.width &&
+              bounds.top + bounds.height + 20 <= screen.top + screen.height,
+          corners = [
+              [screen.left + 24, screen.top + 24],
+              [screen.left + screen.width - origin.width - 48, screen.top + 24],
+              [screen.left + 24, screen.top + screen.height - origin.height - 48],
+              [screen.left + screen.width - origin.width - 48, screen.top + screen.height - origin.height - 48]
+          ];
+
+    for (const [left, top] of corners) {
+        const initial = {left, top, width: origin.width, height: origin.height},
+              moved   = {...initial, left: left + 20, top: top + 20};
+        if ((left !== origin.left || top !== origin.top) && [initial, moved].every(bounds =>
+            fits(bounds) && targets.every(target => !overlaps(bounds, target)))) {
+            return {initial, moved}
+        }
+    }
+    return null
+};
+
 test.describe('Workstation topology Groups — two roots under one SharedWorker (Neural Link)', () => {
     test.setTimeout(180000);
     test.use({viewport: {width: 1600, height: 900}});
@@ -297,6 +329,7 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         }
     });
 
+    // Out of scope, noted in defect-note: the retained witness is hidden after F5 on unchanged dev.
     test('warm F5 preserves the Workspace and its live panes while the Group rebinds', async ({page, context, neuralLink}) => {
         const keeper = await context.newPage();
 
@@ -623,84 +656,130 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         await pageB.close()
     });
 
-    test('a human dock action then a popup move append ordered rows, and undo reverses them newest-first', async ({page, context, neuralLink}) => {
-        await bootRoot(page);
+    test.describe(() => {
+        test.use({viewport: null});
 
-        const app   = await neuralLink.connectToApp('Workstation'),
-              wsId  = await workspaceFor(app, await readWindowId(page)),
-              state = () => app.callMethod(wsId, 'controller.getTopologyState'),
-              items = async () => (await state()).snapshot.participants['workstation-main'].items;
+        test('a human dock action then a popup move append ordered rows, and undo reverses them newest-first', async ({page, context, neuralLink}) => {
+            await bootRoot(page);
 
-        // 1 — a human dock action. Recorded because every dock origin now writes through the Group;
-        //     before that, an ordinary gesture mutated the document and appended nothing at all.
-        expect(await app.callMethod(wsId, 'dockService.executeDockOperation',
-            [{componentId: wsId, descriptor: {itemId: 'alerts', locked: true, operation: 'setItemLocked'}}]
-        ), 'the human dock action committed').toMatchObject({applied: true});
+            const app   = await neuralLink.connectToApp('Workstation'),
+                  wsId  = await workspaceFor(app, await readWindowId(page)),
+                  state = () => app.callMethod(wsId, 'controller.getTopologyState'),
+                  items = async () => (await state()).snapshot.participants['workstation-main'].items;
 
-        await expect.poll(async () => (await state()).historyCount, {message: 'the dock action appended one row'}).toBe(1);
+            // 1 — the older human dock action must survive undoing the later native move.
+            expect(await app.callMethod(wsId, 'dockService.executeDockOperation',
+                [{componentId: wsId, descriptor: {itemId: 'alerts', locked: true, operation: 'setItemLocked'}}]
+            ), 'the human dock action committed').toMatchObject({applied: true});
+            await expect.poll(async () => (await state()).historyCount, {message: 'the dock action appended one row'}).toBe(1);
 
-        // 2 — a real popup, then a real native move of it. The move is observed geometry, so it is
-        //     the placement participant that appends, not this arm.
-        const header = await focusPane(page, FEED_TITLE),
-              popOut = header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first();
+            const header = await focusPane(page, FEED_TITLE),
+                  popOut = header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first();
+            await expect(popOut).toBeVisible({timeout: 10000});
 
-        await expect(popOut).toBeVisible({timeout: 10000});
+            const vesselPromise = context.waitForEvent('page', {timeout: 45000});
+            await popOut.click();
+            const vessel = await vesselPromise;
+            await expect(vessel.locator(TAB, {hasText: FEED_TITLE})).toBeVisible({timeout: 60000});
+            await vessel.waitForFunction(() => {
+                const observer = window.Neo?.main?.addon?.WindowPosition;
+                return Boolean(observer?.observeMovement && observer.intervalId && Neo.worker.Manager.windowId)
+            }, null, {timeout: 45000});
 
-        const vesselPromise = context.waitForEvent('page', {timeout: 45000});
-        await popOut.click();
-        const vessel = await vesselPromise;
+            const popupId       = await readWindowId(vessel),
+                  [manager]     = await app.findInstances({className: 'Neo.manager.Window'}, ['id']),
+                  [coordinator] = await app.findInstances({className: 'Neo.manager.DragCoordinator'}, ['id']),
+                  readBinding   = () => app.callMethod(wsId, 'transactionManager.findByWindow', [popupId]),
+                  rows          = async () => (await app.callMethod(wsId, 'transactionManager.get', [(await state()).groupId]))?.history?.rows ?? [];
+            expect(manager?.id, 'the native window manager is live').toBeTruthy();
+            expect(coordinator?.id, 'the native drop coordinator is live').toBeTruthy();
+            await expect.poll(readBinding, {message: 'the popup has a live Group binding'}).toBeTruthy();
 
-        await vessel.waitForLoadState('domcontentloaded');
-        await vessel.waitForFunction(() => Boolean(window.Neo?.worker?.Manager?.windowId), null, {timeout: 45000});
+            const binding    = await readBinding(),
+                  generation = await app.callMethod(wsId, 'dockPlacement.generation'),
+                  windowData = await app.callMethod(manager.id, 'toJSON'),
+                  targets    = windowData.windows.filter(window => window.id !== popupId && window.innerRect)
+                      .map(window => window.innerRect),
+                  screen     = await vessel.evaluate(() => ({
+                      left: screen.availLeft, top: screen.availTop, width: screen.availWidth, height: screen.availHeight
+                  })),
+                  cdp        = await context.newCDPSession(vessel),
+                  handle     = await cdp.send('Browser.getWindowForTarget'),
+                  origin     = (await cdp.send('Browser.getWindowBounds', {windowId: handle.windowId})).bounds;
 
-        // The pop-out ITSELF appends — birth and placement baseline are transactions too, so a
-        // count-based assertion passes without the move ever happening (measured: an earlier version
-        // of this arm did exactly that). Name the row instead of counting to it: the move is the only
-        // producer of `native-popup-move`, so its presence is the witness and a settle race cannot
-        // manufacture it.
-        const rows = async () => (await app.callMethod(wsId, 'transactionManager.get', [(await state()).groupId]))?.history?.rows ?? [];
+            const mainId = await readWindowId(page);
+            expect(windowData.windows.find(window => window.id === mainId)?.innerRect,
+                'the exact root must publish its native target hitbox').toBeTruthy();
+            expect(targets.length, 'empty-space selection must exclude live targets').toBeGreaterThan(0);
+            expect(binding.groupId).toBe((await state()).groupId);
 
-        const cdp    = await context.newCDPSession(vessel),
-              handle = await cdp.send('Browser.getWindowForTarget'),
-              origin = (await cdp.send('Browser.getWindowBounds', {windowId: handle.windowId})).bounds;
+            const placement = freePopupPlacement(origin, screen, targets);
+            expect(placement, `two free native positions must fit the display: ${JSON.stringify({origin, screen, targets})}`).toBeTruthy();
 
-        await cdp.send('Browser.setWindowBounds', {
-            windowId: handle.windowId, bounds: {left: origin.left + 120, top: origin.top + 90, windowState: 'normal'}
+            const beforeStage = await rows(),
+                  nativeMoves = beforeStage.filter(row => row.cause === 'native-popup-move').length;
+
+            let candidateSeen = false;
+
+            const waitForMove = async count => {
+                await expect.poll(async () => {
+                    candidateSeen = candidateSeen || await app.callMethod(coordinator.id, 'nativeWindowDropCandidates.has', [popupId]);
+                    return {candidateSeen, nativeMoves: (await rows()).filter(row => row.cause === 'native-popup-move').length}
+                }, {message: 'an observed free move appends without admitting native docking', timeout: 30000})
+                    .toEqual({candidateSeen: false, nativeMoves: count})
+            };
+
+            // Stage and move through CDP only; the product's movement poll owns publication.
+            await cdp.send('Browser.setWindowBounds', {windowId: handle.windowId, bounds: {...placement.initial, windowState: 'normal'}});
+            await waitForMove(nativeMoves + 1);
+            expect((await cdp.send('Browser.getWindowBounds', {windowId: handle.windowId})).bounds).toMatchObject(placement.initial);
+            const beforeMove = await rows();
+            expect(beforeMove).toHaveLength(beforeStage.length + 1);
+
+            await cdp.send('Browser.setWindowBounds', {windowId: handle.windowId, bounds: {...placement.moved, windowState: 'normal'}});
+            await waitForMove(nativeMoves + 2);
+            const observed  = (await cdp.send('Browser.getWindowBounds', {windowId: handle.windowId})).bounds,
+                  afterMove = await rows(),
+                  main      = await page.evaluate(() => ({x: screenX, y: screenY})),
+                  hints     = await app.callMethod(wsId, 'getPlacementHints');
+            expect(observed).toMatchObject(placement.moved);
+            expect(afterMove).toHaveLength(beforeMove.length + 1);
+            expect(afterMove.slice(0, -1)).toEqual(beforeMove);
+            expect(afterMove.at(-1).cause).toBe('native-popup-move');
+            expect(await readBinding()).toEqual(binding);
+            expect(await app.callMethod(wsId, 'dockPlacement.generation')).toBe(generation);
+            expect(hints[binding.workspaceKey]).toMatchObject({dx: observed.left - main.x, dy: observed.top - main.y});
+            await test.info().attach('native-free-move.json', {
+                body       : Buffer.from(JSON.stringify({screen, targets, placement, observed, binding, generation, hints}, null, 2)),
+                contentType: 'application/json'
+            });
+            await cdp.detach();
+
+            const causes = afterMove.map(row => row.cause);
+            expect(causes.indexOf('dock'), 'the human dock action is recorded').toBeGreaterThanOrEqual(0);
+            expect(causes.indexOf('dock')).toBeLessThan(causes.lastIndexOf('native-popup-move'));
+
+            const ordered = await state();
+            expect(ordered.historyCursor, 'the cursor sits on the newest row').toBe(ordered.historyCount - 1);
+
+            const undo = () => app.callMethod(wsId, 'transactionManager.undo', [{groupId: ordered.groupId}]),
+                  redo = () => app.callMethod(wsId, 'transactionManager.redo', [{groupId: ordered.groupId}]);
+
+            await undo();
+            expect((await state()).historyCursor, 'the cursor stepped back exactly one').toBe(ordered.historyCursor - 1);
+            expect((await items()).alerts.locked, 'the older dock action survives the first undo').toBe(true);
+
+            while ((await state()).historyCursor > -1) await undo();
+            expect((await items()).alerts.locked, 'emptying the cursor reverses the dock action too').not.toBe(true);
+
+            while ((await state()).historyCursor < ordered.historyCount - 1) await redo();
+
+            const restored = await state();
+            expect(restored.historyCount, 'redo reapplied rather than appended').toBe(ordered.historyCount);
+            expect((await items()).alerts.locked, 'the dock action is reapplied on the way forward').toBe(true);
+
+            await vessel.close({runBeforeUnload: true})
         });
-
-        await expect.poll(async () => (await rows()).some(row => row.cause === 'native-popup-move'), {
-            message: 'the popup MOVE appended a row of its own', timeout: 30000
-        }).toBe(true);
-
-        // Ordered: the dock action is older than the move, so it sits earlier in the same history.
-        const causes = (await rows()).map(row => row.cause);
-        expect(causes.indexOf('dock'), 'the human dock action is recorded').toBeGreaterThanOrEqual(0);
-        expect(causes.indexOf('dock')).toBeLessThan(causes.lastIndexOf('native-popup-move'));
-
-        const ordered = await state();
-        expect(ordered.historyCursor, 'the cursor sits on the newest row').toBe(ordered.historyCount - 1);
-
-        const undo = () => app.callMethod(wsId, 'transactionManager.undo', [{groupId: ordered.groupId}]),
-              redo = () => app.callMethod(wsId, 'transactionManager.redo', [{groupId: ordered.groupId}]);
-
-        // 3 — ONE undo reverses the newest row, which is the popup move. The dock action is older,
-        //     so it must still stand: newest-first, not "whatever the caller wrote last".
-        await undo();
-        expect((await state()).historyCursor, 'the cursor stepped back exactly one').toBe(ordered.historyCursor - 1);
-        expect((await items()).alerts.locked, 'the older dock action survives the first undo').toBe(true);
-
-        // 4 — walk the cursor to the start. The dock action is row 0, so it reverses last.
-        while ((await state()).historyCursor > -1) await undo();
-        expect((await items()).alerts.locked, 'emptying the cursor reverses the dock action too').not.toBe(true);
-
-        // 5 — redo walks forward again: the tail survived every undo rather than being dropped.
-        while ((await state()).historyCursor < ordered.historyCount - 1) await redo();
-
-        const restored = await state();
-        expect(restored.historyCount, 'redo reapplied rather than appended').toBe(ordered.historyCount);
-        expect((await items()).alerts.locked, 'the dock action is reapplied on the way forward').toBe(true);
-
-        await vessel.close({runBeforeUnload: true})
     });
 
     test('an agent dock command and a human dock action share ONE cursor, and undo reverses the human one first', async ({page, neuralLink}) => {
