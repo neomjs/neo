@@ -13,6 +13,8 @@ import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 // optional-chained per-process environment constants (e.g. `isSharedWorker`); anything mutable
 // (counters, event registration) must resolve `Neo.currentWorker` at call time.
 const {currentWorker} = Neo;
+/** @type {Symbol} Identity of the current initialization attempt on each component. */
+const initializationAttempt = Symbol('vnodeInitializationAttempt');
 
 /**
  * @class Neo.mixin.VdomLifecycle
@@ -676,15 +678,15 @@ class VdomLifecycle extends Base {
      *
      * Lifecycle contract for awaiting callers: the returned promise settles when the REAL
      * attempt settles. A theme-file deferral chains through the re-entered attempt instead of
-     * resolving early, and a rejected attempt releases `isVnodeInitializing` (component + app
-     * level) before rethrowing, so a caller-side retry on a later trigger is always possible.
+     * resolving early. Failure retires only this attempt, rejects its parked requests and retries
+     * dirty mounted work; a newer initialization or flight retains its state and callbacks.
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
      * @returns {Promise<any>} If getting there, we return the data from vdom.Helper: create(), containing the vnode.
      */
     async initVnode(mount) {
         let me                                                     = this,
             autoMount                                              = mount || me.autoMount,
-            {app}                                                  = me,
+            {app, id}                                              = me,
             {allowVdomUpdatesInTests, unitTestMode, useVdomWorker} = Neo.config;
 
         if (unitTestMode && !allowVdomUpdatesInTests) return;
@@ -710,6 +712,7 @@ class VdomLifecycle extends Base {
             })
         }
 
+        const attempt = me[initializationAttempt] = Symbol();
         me.isVnodeInitializing = true;
 
         if (!app.vnodeInitialized) {
@@ -768,26 +771,45 @@ class VdomLifecycle extends Base {
                 return data
             }
         } catch (err) {
-            // Mirror executeVdomUpdate()'s error contract: the in-flight state MUST be released on
-            // failure, or the component wedges permanently (isVdomUpdating never clears and the
-            // registry entry blocks every ancestor update via isChildUpdating). The initializing
-            // flags belong to the same contract: a rejection that left isVnodeInitializing=true
-            // silently blocked every future initVnode consumer gating on it — no retry could
-            // ever run for the component's lifetime.
-            me.isVdomUpdating       = false;
-            me.isVnodeInitializing  = false;
+            const isCurrent = () => Neo.getComponent(id) === me && !me.isDestroyed;
 
-            if (app && !app.vnodeInitialized) {
-                app.isVnodeInitializing = false
+            if (isCurrent() && me[initializationAttempt] === attempt) {
+                const postUpdates = VDomUpdate.postUpdateQueueMap.get(id) ?? null;
+                postUpdates && VDomUpdate.postUpdateQueueMap.remove(postUpdates);
+                me.isVdomUpdating      = false;
+                me.isVnodeInitializing = false;
+
+                if (app && !app.vnodeInitialized) {
+                    app.isVnodeInitializing = false
+                }
+
+                // Retire this attempt before rejection callbacks can start a newer flight.
+                VDomUpdate.unregisterInFlightUpdate(id);
+                try {
+                    VDomUpdate.rejectPromiseCallbacks(id, err)
+                } catch (error) {
+                    console.error('initVnode callback rejection failed', id, error)
+                }
+
+                if (isCurrent()) {
+                    try {
+                        VDomUpdate.triggerPostUpdates(id, postUpdates)
+                    } catch (error) {
+                        console.error('initVnode deferred update failed', id, error)
+                    }
+                }
+
+                if (isCurrent() && !me.isVdomUpdating && me.needsVdomUpdate) {
+                    me.update()
+                }
             }
 
-            VDomUpdate.unregisterInFlightUpdate(me.id);
-            // The render-path flavour of the release executeVdomUpdate()'s catch performs: whoever
-            // yielded to this flight runs its own now, instead of waiting on a completion that never comes.
-            VDomUpdate.triggerPostUpdates(me.id);
-
-            console.error('initVnode error', err, me.id);
+            console.error('initVnode error', err, id);
             throw err
+        } finally {
+            if (me[initializationAttempt] === attempt) {
+                delete me[initializationAttempt]
+            }
         }
     }
 
@@ -974,7 +996,7 @@ class VdomLifecycle extends Base {
      * @summary Settles an adopted root without letting callback failures strand work or retire a newer flight.
      * Releases this flight before callbacks can start another one. Settlement errors belong to this root;
      * other adopted roots still settle, and an already-started newer flight keeps its callbacks and registry.
-     * @see https://github.com/neomjs/neo/issues/19478 Earlier mount-callback failure cleanup is out of scope here.
+     * @see #initVnode Initial mount attempts own their earlier callback-failure cleanup.
      * @param {Object} [data] The return value of vdom.Helper.update()
      * @param {Set<String>|null} [mergedChildIds] IDs of children included in this update
      * @protected
