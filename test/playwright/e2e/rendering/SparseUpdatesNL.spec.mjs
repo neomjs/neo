@@ -145,11 +145,12 @@ test.describe('Sparse VDOM batch roundtrip', () => {
             });
         }
 
+        // Every arm also gives the host a header: the emitted host root must insert it exactly once.
         for (const [ancestor, distance, scope] of [
             ['sparse', 2, 'finite'], ['sparse', 1, 'finite'], ['sparse', 2, 'full'],
-            ['sparse', 2, 'implicit'], ['dense', 2, 'finite'], ['full', 2, 'full']
+            ['sparse', 2, 'implicit'], ['dense', 1, 'finite'], ['dense', 2, 'finite'], ['full', 2, 'full']
         ]) {
-            test(`${shared ? 'shared' : 'dedicated'} workers: ${ancestor} ancestor, ${scope} hide root at distance ${distance}`, async ({page, neuralLink}) => {
+            test(`${shared ? 'shared' : 'dedicated'} workers: ${ancestor} ancestor, ${scope} hide root and a new header at distance ${distance}`, async ({page, neuralLink}) => {
                 await neuralLink.routeConfig(page, config => ({...config, useDomApiRenderer: true, useSharedWorkers: shared, useVdomWorker: true}));
                 await page.goto('/examples/button/base/index.html');
                 const app = await neuralLink.connectToApp('Neo.examples.button.base');
@@ -180,12 +181,14 @@ test.describe('Sparse VDOM batch roundtrip', () => {
                               hidden = Neo.getComponent('dense-nl-hidden');
                         root.setSilent({style: {color: 'green'}, updateDepth: ${ancestor === 'full' ? -1 : 2}});
                         if (${ancestor === 'dense'}) root.denseUpdate = true;
+                        host.vdom.cn.unshift({id: 'dense-nl-header', tag: 'span', text: 'New header'});
                         hidden.hide();
                         if (${scope === 'implicit'}) host.denseUpdate = false;
                         if (${scope === 'full'}) host.updateDepth = -1;
                         await root.promiseUpdate();
                     `);
                     await expect(page.locator('#dense-nl-hidden')).toHaveCount(0);
+                    await expect(page.locator('#dense-nl-header')).toHaveCount(1);
                     await expect(page.locator('#dense-nl-kept')).toHaveText('Keep me');
                     expect(await app.getComponent('dense-nl-hidden', ['hidden', 'mounted', 'vnode']))
                         .toMatchObject({hidden: true, mounted: false, vnode: null});
