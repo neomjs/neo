@@ -61,6 +61,13 @@ class PreviewGeometryWorkspace extends DockWorkspace {
          */
         failProjections_: 0,
         /**
+         * Spec trigger: the next projection's second host flight waits this long, holding the
+         * projection open so a spec can act on the outgoing shell while it is pending.
+         * @member {Number} holdProjectionMs_=0
+         * @reactive
+         */
+        holdProjectionMs_: 0,
+        /**
          * @member {String} id='dock-preview-geometry-workspace'
          */
         id: 'dock-preview-geometry-workspace',
@@ -107,7 +114,8 @@ class PreviewGeometryWorkspace extends DockWorkspace {
     }
 
     /**
-     * Arms one of {@link #failProjections_} on the dock host for exactly this projection.
+     * Arms one of {@link #failProjections_}, or {@link #holdProjectionMs_}, on the dock host for exactly
+     * this projection.
      * @param {Object} document
      * @param {Object} refreshOptions
      */
@@ -116,6 +124,25 @@ class PreviewGeometryWorkspace extends DockWorkspace {
             host = me.getDockHost();
 
         super.beforeRefreshDockWorkspace(document, refreshOptions);
+
+        if (me.holdProjectionMs > 0 && host) {
+            let flights = 0,
+                hold    = me.holdProjectionMs;
+
+            me.holdProjectionMs = 0;
+
+            host.promiseUpdate = function(...args) {
+                const run = () => Object.getPrototypeOf(host).promiseUpdate.apply(host, args);
+
+                if (++flights < 2) {
+                    return run()
+                }
+
+                delete host.promiseUpdate;
+
+                return new Promise(resolve => setTimeout(resolve, hold)).then(run)
+            }
+        }
 
         if (me.failProjections > 0 && host) {
             let flights = 0;

@@ -90,6 +90,31 @@ class Reconciler extends Base {
     }
 
     /**
+     * @summary Collects the edge rails below one projected dock shell, keyed by their dock identity.
+     * @param {Neo.component.Base|null} root
+     * @returns {Map<String,Neo.dashboard.dock.interaction.Rail>}
+     * @static
+     */
+    static collectProjectedRails(root) {
+        const rails = new Map();
+
+        const visit = component => {
+            if (!component || component.isDestroyed || component.dockNodeType === 'tabs') return;
+
+            if (component.dockNodeType === 'edge-rail') {
+                rails.set(component.dockNodeId, component);
+                return
+            }
+
+            component.items?.forEach(visit)
+        };
+
+        visit(root);
+
+        return rails
+    }
+
+    /**
      * @summary Collects keyed tab-chrome owners below one projected dock shell.
      * @param {Neo.component.Base|null} root
      * @returns {Map<String,Neo.tab.Container>}
@@ -310,19 +335,23 @@ class Reconciler extends Base {
     }
 
     /**
-     * @summary Replaces retained projected tab configs with geometry-equivalent staging placeholders.
+     * @summary Replaces retained projected tab and rail configs with geometry-equivalent staging placeholders.
      *
      * Each plan captures active/item/drag metadata before construction consumes config fields.
      * The placeholder reserves the retained tab's destination; new nodes materialize normally.
+     * A rail holds its reveal state only as the same instance, so one whose dock identity, edge and
+     * membership are unchanged is retained too; any other rail is rebuilt.
      * @param {*} config
      * @param {Map<String,Neo.tab.Container>} currentTabs
      * @param {Map<String,Object>} plans
+     * @param {Map<String,Neo.dashboard.dock.interaction.Rail>|null} [currentRails=null]
+     * @param {Map<String,Object>|null} [railPlans=null] Output: `{config, placeholder, rail}` per retained rail
      * @returns {*}
      * @static
      */
-    static prepareTabChromeProjection(config, currentTabs, plans) {
+    static prepareTabChromeProjection(config, currentTabs, plans, currentRails=null, railPlans=null) {
         if (Array.isArray(config)) {
-            return config.map(item => this.prepareTabChromeProjection(item, currentTabs, plans))
+            return config.map(item => this.prepareTabChromeProjection(item, currentTabs, plans, currentRails, railPlans))
         }
 
         if (config?.constructor !== Object) return config;
@@ -344,14 +373,7 @@ class Reconciler extends Base {
             plans.set(nodeId, plan);
 
             if (currentTab) {
-                plan.placeholder = Neo.create({
-                    module  : Component,
-                    cls     : ['neo-dashboard-dock-projection-placeholder'],
-                    flex    : config.flex,
-                    hidden  : true,
-                    hideMode: 'visibility',
-                    style   : config.style
-                });
+                plan.placeholder = this.createStagingPlaceholder(config);
 
                 return plan.placeholder
             }
@@ -359,9 +381,42 @@ class Reconciler extends Base {
             return config
         }
 
+        if (config.dockNodeType === 'edge-rail') {
+            const
+                rail      = currentRails?.get(config.dockNodeId),
+                memberIds = items => (items || []).map(item => item.dockItemId).join('\0');
+
+            if (rail && railPlans && rail.edge === config.edge && memberIds(rail.railItems) === memberIds(config.railItems)) {
+                const placeholder = this.createStagingPlaceholder(config);
+
+                railPlans.set(config.dockNodeId, {config, placeholder, rail});
+
+                return placeholder
+            }
+
+            return config
+        }
+
         return Array.isArray(config.items)
-            ? {...config, items: this.prepareTabChromeProjection(config.items, currentTabs, plans)}
+            ? {...config, items: this.prepareTabChromeProjection(config.items, currentTabs, plans, currentRails, railPlans)}
             : config
+    }
+
+    /**
+     * @summary A hidden component that reserves a retained chrome node's slot in the staged shell.
+     * @param {Object} config The projected config of the retained node
+     * @returns {Neo.component.Base}
+     * @static
+     */
+    static createStagingPlaceholder(config) {
+        return Neo.create({
+            module  : Component,
+            cls     : ['neo-dashboard-dock-projection-placeholder'],
+            flex    : config.flex,
+            hidden  : true,
+            hideMode: 'visibility',
+            style   : config.style
+        })
     }
 
     /**
@@ -470,7 +525,8 @@ class Reconciler extends Base {
         const
             currentTabs    = this.collectProjectedTabs(oldShell),
             plans          = new Map(),
-            preparedConfig = this.prepareTabChromeProjection(nextConfig, currentTabs, plans);
+            railPlans      = new Map(),
+            preparedConfig = this.prepareTabChromeProjection(nextConfig, currentTabs, plans, this.collectProjectedRails(oldShell), railPlans);
 
         // Pane placeholders inside a discarded config for a retained tab node never enter a parent.
         // Retire them now; only genuinely new tab nodes need projected placeholders for pairing.
@@ -579,6 +635,7 @@ class Reconciler extends Base {
             await host.promiseUpdate();
 
             this.moveRetainedTabChrome(plans);
+            this.moveRetainedRails(railPlans);
 
             // A staged root that was a retained tab's placeholder has disappeared: that tab is the next
             // shell, and the old one too when the root stays the root. An old shell the projection nests
@@ -776,6 +833,34 @@ class Reconciler extends Base {
             console.warn('Dock projection recovery failed; the host may still hold two shells', host?.id, recoveryError);
             return 'unrecoverable'
         }
+    }
+
+    /**
+     * @summary Moves retained edge rails into their staged slots, carrying the committed document and rail items.
+     *
+     * Runs beside {@link #moveRetainedTabChrome}, so the swap flight lands the move. The rail keeps its
+     * reveal machine, overlay binding and pressed tab by identity; its document and items arrive through
+     * its own reactive setters, silently, because the host's full-depth flight renders them.
+     * @param {Map<String,Object>} railPlans `{config, placeholder, rail}` per retained rail
+     * @static
+     */
+    static moveRetainedRails(railPlans) {
+        railPlans.forEach(({config, placeholder, rail}, nodeId) => {
+            const
+                sourceParent = rail.parent,
+                targetParent = placeholder.parent,
+                sourceIndex  = sourceParent?.indexOf(rail) ?? -1,
+                targetIndex  = targetParent?.indexOf(placeholder) ?? -1;
+
+            if (!sourceParent || !targetParent || targetIndex < 0) {
+                throw new Error(`Dock projection could not stage surviving rail "${nodeId}"`)
+            }
+
+            targetParent.remove(placeholder, true, true);
+            sourceParent.remove(rail, false, true, true);
+            rail.setSilent({dockZoneDocument: config.dockZoneDocument, railItems: config.railItems});
+            targetParent.insert(sourceParent === targetParent && sourceIndex < targetIndex ? targetIndex - 1 : targetIndex, rail, true, false)
+        })
     }
 
     /**

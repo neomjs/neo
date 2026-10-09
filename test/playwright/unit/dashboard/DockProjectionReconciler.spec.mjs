@@ -82,7 +82,8 @@ const createThreeChildSplitModel = () => {
     return model
 };
 
-const reconcileModel = async (model, mutate, {geometryOnly=false, preserveItemIds=[], retainTopology=false}={}) => {
+// `beforeReconcile` runs on the live host after projection and before the transaction starts.
+const reconcileModel = async (model, mutate, {beforeReconcile=null, geometryOnly=false, preserveItemIds=[], retainTopology=false}={}) => {
     const
         panes = Object.fromEntries(Object.entries(model.items)
             .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
@@ -111,6 +112,8 @@ const reconcileModel = async (model, mutate, {geometryOnly=false, preserveItemId
     });
 
     let stagedCount = 0;
+
+    beforeReconcile?.({host, oldShell, panes});
 
     const result = await DockProjectionReconciler.reconcileProjection({
         geometryOnly,
@@ -900,6 +903,122 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
                 expect(findRails(newShell).map(rail => rail.edge), 'the fresh shell carries the rail on its new edge').toEqual(['right'])
             } finally {
                 receipt.host.destroy()
+            }
+        });
+
+        // The staged transaction keeps an unchanged rail as the same instance, so its runtime reveal
+        // machine, overlay and pressed tab survive a commit that never touched the rail.
+        const createSelectableRailedModel = () => {
+            const model = createRailedEdgeModel();
+
+            model.items.other = {reference: 'other', title: 'Other'};
+            model.nodes['center-tabs'].items.push('other');
+
+            return model
+        };
+
+        const readReveal = rail => ({
+            pressed : rail.items.find(item => item.dockItemId === 'left')?.pressed,
+            revealed: rail.revealMachine.revealedItemId,
+            state   : rail.revealMachine.state
+        });
+
+        for (const timing of ['already open', 'accepted while the projection is pending']) {
+            test(`a staged selection keeps an unchanged rail with a reveal ${timing}`, async () => {
+                let rail;
+
+                const receipt = await reconcileModel(createSelectableRailedModel(), nextModel => {
+                    nextModel.nodes['center-tabs'].activeItemId = 'other'
+                }, {beforeReconcile({host, oldShell}) {
+                    [rail] = findRails(oldShell);
+
+                    if (timing === 'already open') {
+                        rail.revealMachine.tabClick('left');
+                        return
+                    }
+
+                    // The click lands on the first host flight: the staged shell exists, the swap has not.
+                    const original = host.promiseUpdate.bind(host);
+
+                    host.promiseUpdate = () => {
+                        host.promiseUpdate = original;
+                        rail.revealMachine.tabClick('left');
+
+                        return original()
+                    }
+                }});
+
+                try {
+                    expect(receipt.stagedCount, 'the selection took the staged transaction').toBe(1);
+                    expect(receipt.host.items, 'one shell').toHaveLength(1);
+                    expect(receipt.host.items[0], 'the staged shell replaced the old one').not.toBe(receipt.oldShell);
+
+                    const rails = findRails(receipt.host.items[0]);
+
+                    expect(rails, 'the new shell carries one rail').toHaveLength(1);
+                    expect(rails[0], 'and it is the live rail, not a rebuilt one').toBe(rail);
+                    expect(readReveal(rail)).toEqual({pressed: true, revealed: 'left', state: 'revealed-focused'});
+                    expect(rail.dockZoneDocument, 'the retained rail reads the committed document').toEqual(receipt.nextModel)
+                } finally {
+                    receipt.host.destroy()
+                }
+            })
+        }
+
+        test('a staged commit that changes a rail\'s membership rebuilds it', async () => {
+            const model = createRailedEdgeModel();
+            let   rail;
+
+            model.items.leftTwo = {reference: 'leftTwo', title: 'Left two'};
+            model.nodes['left-tabs'].items.push('leftTwo');
+
+            const receipt = await reconcileModel(model, nextModel => {
+                nextModel.items.leftTwo.autoHidden = true
+            }, {beforeReconcile({oldShell}) {
+                [rail] = findRails(oldShell)
+            }});
+
+            try {
+                const [nextRail] = findRails(receipt.host.items[0]);
+
+                expect(nextRail, 'a rail with new members is a new instance').not.toBe(rail);
+                expect(rail.isDestroyed, 'the old rail retired with its shell').toBe(true);
+                expect(nextRail.railItems.map(item => item.dockItemId)).toEqual(['left', 'leftTwo'])
+            } finally {
+                receipt.host.destroy()
+            }
+        });
+
+        test('a staged projection whose swap fails never destroys the retained rail', async () => {
+            let dockHost, rail;
+
+            const receipt = await reconcileModel(createSelectableRailedModel(), nextModel => {
+                nextModel.nodes['center-tabs'].activeItemId = 'other'
+            }, {beforeReconcile({host, oldShell}) {
+                dockHost = host;
+                [rail]   = findRails(oldShell);
+                rail.revealMachine.tabClick('left');
+
+                const original = host.promiseUpdate.bind(host);
+
+                // The swap is the first host flight after the rail left the outgoing shell.
+                host.promiseUpdate = () => {
+                    if (findRails(oldShell).includes(rail)) return original();
+
+                    host.promiseUpdate = original;
+
+                    return Promise.reject(new Error('injected: the swap flight fails'))
+                }
+            }}).catch(error => ({error}));
+
+            try {
+                expect(receipt.error?.isDockProjectionFailure, 'the failure is typed').toBe(true);
+                expect(rail.isDestroyed, 'the live rail survives the recovery').toBeFalsy();
+                expect(readReveal(rail).revealed).toBe('left')
+            } finally {
+                // The recovery detaches the staged shell that holds the rail; it no longer hangs off the host.
+                dockHost.destroy();
+                rail.isDestroyed || rail.destroy()
             }
         });
 
