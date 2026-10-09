@@ -580,15 +580,20 @@ class Reconciler extends Base {
 
             this.moveRetainedTabChrome(plans);
 
-            // A tabs node may itself be the projected root. In that case its staging placeholder has
-            // disappeared and the retained tab is both old and new shell; never retire it as source chrome.
-            nextShell = nextShell.isDestroyed ? host.items[shellIndex] : nextShell;
+            // A staged root that was a retained tab's placeholder has disappeared: that tab is the next
+            // shell, and the old one too when the root stays the root. An old shell the projection nests
+            // moved into the staged shell above and lives on there, so nothing is outgoing.
+            nextShell = nextShell.isDestroyed
+                ? [...plans.values()].find(plan => plan.placeholder === nextShell)?.tab ?? host.items[shellIndex]
+                : nextShell;
 
             retainedRoot = oldShell === nextShell;
 
+            const outgoing = oldShell && !retainedRoot && host.indexOf(oldShell) > -1 ? oldShell : null;
+
             if (!retainedRoot) {
-                oldShell?.setSilent({
-                    cls     : oldShell.cls.includes(retiringShellCls) ? oldShell.cls : [...oldShell.cls, retiringShellCls],
+                outgoing?.setSilent({
+                    cls     : outgoing.cls.includes(retiringShellCls) ? outgoing.cls : [...outgoing.cls, retiringShellCls],
                     hideMode: 'visibility',
                     hidden  : true
                 });
@@ -603,8 +608,8 @@ class Reconciler extends Base {
 
             swapped = Boolean(oldShell && !retainedRoot);
 
-            if (oldShell && !retainedRoot) {
-                host.remove(oldShell, true, true);
+            if (outgoing) {
+                host.remove(outgoing, true, true);
                 host.updateDepth = -1;
                 host.update();
                 await host.promiseUpdate()
@@ -726,7 +731,8 @@ class Reconciler extends Base {
      * @param {Object}  data
      * @param {Neo.container.Base} data.host The dock host holding both shells.
      * @param {Neo.component.Base} data.nextShell The staged shell inserted at `shellIndex + 1`.
-     * @param {Neo.component.Base} data.oldShell The outgoing shell at `shellIndex`.
+     * @param {Neo.component.Base} data.oldShell The outgoing shell at `shellIndex`. A tab root the projection
+     * nested is no longer the host's child: the staged shell holds it and survives.
      * @param {Boolean} data.retainedRoot The projected root was the retained tab; nothing was staged.
      * @param {Number}  data.shellIndex Index the surviving shell must occupy.
      * @param {Boolean} data.swapped The visibility swap LANDED, so the staged shell is on screen.
@@ -737,8 +743,10 @@ class Reconciler extends Base {
         // A retained root never staged a second shell, so the host was never in the two-shell window.
         if (retainedRoot) return 'retained-root';
 
-        const survivor = swapped ? nextShell : oldShell,
-              casualty = swapped ? oldShell  : nextShell;
+        const nested   = Boolean(oldShell) && host.indexOf(oldShell) < 0,
+              staged   = swapped || nested,
+              survivor = staged ? nextShell : oldShell,
+              casualty = staged ? (nested ? null : oldShell) : nextShell;
 
         try {
             if (casualty && !casualty.isDestroyed && host.indexOf(casualty) > -1) {
@@ -763,7 +771,7 @@ class Reconciler extends Base {
 
             // Positional, not incidental: every later commit reconciles against `host.items[shellIndex]`,
             // so a survivor that settled anywhere else would send the next projection at the wrong node.
-            return host.items?.[shellIndex] === survivor ? (swapped ? 'completed-swap' : 'retired-staged') : 'unrecoverable'
+            return host.items?.[shellIndex] === survivor ? (staged ? 'completed-swap' : 'retired-staged') : 'unrecoverable'
         } catch (recoveryError) {
             console.warn('Dock projection recovery failed; the host may still hold two shells', host?.id, recoveryError);
             return 'unrecoverable'
