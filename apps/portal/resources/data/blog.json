@@ -10,6 +10,14 @@
         },
         {
             "date": "2026-10-09",
+            "id": "blog/a-workspace-that-can-leave-its-window",
+            "isLeaf": true,
+            "name": "A workspace that can leave its window: multi-window apps in Neo.mjs 13.2.",
+            "parentId": "2026",
+            "path": "learn/blog/a-workspace-that-can-leave-its-window.md"
+        },
+        {
+            "date": "2026-10-09",
             "id": "blog/one-repository-per-reader",
             "isLeaf": true,
             "name": "One repository per reader: why Neo.mjs split in 13.2, and the cockpit we build next.",
