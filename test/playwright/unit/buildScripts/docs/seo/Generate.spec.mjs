@@ -6,10 +6,13 @@ import fg             from 'fast-glob';
 
 import {
     assertStableReleaseNoteGithubLinks,
+    collectBlogRoutes,
     getContentRoutes,
     getDisallowedReleaseNoteGithubLinks,
     getExistingSitemapLastmodMap,
-    getReleaseNotePriority
+    getLlmsTxt,
+    getReleaseNotePriority,
+    getSitemapXml
 } from '../../../../../../buildScripts/docs/seo/generate.mjs';
 
 test.describe('docs SEO generator release-note link guard', () => {
@@ -171,5 +174,58 @@ test.describe('docs SEO generator content roots (#19166)', () => {
     test('a missing root fails naming its flag', async () => {
         await expect(getContentRoutes({releaseNotesRoot})).rejects.toThrow('--corpus-root');
         await expect(getContentRoutes({corpusRoot})).rejects.toThrow('--release-notes')
+    });
+
+    test('every post in the portal blog index gets a route, a sitemap entry and an llms.txt line (#19501)', async () => {
+        const index = await fs.readJSON(path.join(process.cwd(), 'apps/portal/resources/data/blog.json'));
+        const posts = index.data.filter(node => node.isLeaf);
+        const roots = {baseUrl: 'https://neomjs.com/', corpusRoot, includeLastmod: false, releaseNotesRoot};
+
+        expect(posts.length).toBeGreaterThan(0);
+
+        const [routes, sitemap, llmsTxt] = await Promise.all([getContentRoutes(roots), getSitemapXml(roots), getLlmsTxt(roots)]);
+
+        for (const post of posts) {
+            expect(routes).toContain(`/#/news/blog/${post.id}`);
+            expect(sitemap).toContain(`<loc>https://neomjs.com/news/blog/${post.id}</loc>\n    <priority>0.9</priority>`);
+            expect(llmsTxt).toContain(`- [${post.name}](https://neomjs.com/raw/${post.path})`)
+        }
+    })
+});
+
+test.describe('docs SEO generator blog routes (#19501)', () => {
+    let tempDir;
+
+    test.beforeEach(async () => {
+        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-blog-'))
+    });
+
+    test.afterEach(async () => {
+        await fs.remove(tempDir)
+    });
+
+    test('a post becomes a /news/blog route dated by its markdown file', async () => {
+        const postPath  = path.join(tempDir, 'a-post.md');
+        const indexPath = path.join(tempDir, 'blog.json');
+
+        await fs.outputFile(postPath, '# A post');
+        await fs.writeJSON(indexPath, {data: [
+            {id: '2026', isLeaf: false, path: null},
+            {id: 'blog/a-post', isLeaf: true, name: 'A post.', path: postPath}
+        ]});
+
+        expect(await collectBlogRoutes(indexPath)).toEqual([
+            {category: 'blog', filePath: postPath, id: '/news/blog/blog/a-post', name: 'A post.'}
+        ])
+    });
+
+    test('a post without its markdown file fails, naming the post', async () => {
+        const indexPath = path.join(tempDir, 'blog.json');
+
+        await fs.writeJSON(indexPath, {data: [
+            {id: 'blog/missing-post', isLeaf: true, name: 'Missing.', path: path.join(tempDir, 'missing-post.md')}
+        ]});
+
+        await expect(collectBlogRoutes(indexPath)).rejects.toThrow('blog/missing-post')
     })
 });
