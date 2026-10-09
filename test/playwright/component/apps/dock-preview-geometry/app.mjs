@@ -53,6 +53,14 @@ class PreviewGeometryWorkspace extends DockWorkspace {
          */
         dockHostReference: 'dock-host',
         /**
+         * Spec trigger: how many of the next projections fail. Each rejects its second host flight
+         * once, which the Reconciler types as a projection failure — the path on which
+         * `refreshDockWorkspace` returns early. Two fail a projection and the one retry it schedules.
+         * @member {Number} failProjections_=0
+         * @reactive
+         */
+        failProjections_: 0,
+        /**
          * @member {String} id='dock-preview-geometry-workspace'
          */
         id: 'dock-preview-geometry-workspace',
@@ -83,6 +91,12 @@ class PreviewGeometryWorkspace extends DockWorkspace {
      * @member {Boolean} dockProjectionBusy=false
      */
     dockProjectionBusy = false
+    /**
+     * How many projections failed, counted from the workspace's own `dockProjectionFailed` event: the
+     * signal that an armed failure fired, without which "the guard did not latch" proves nothing.
+     * @member {Number} dockProjectionFailures=0
+     */
+    dockProjectionFailures = 0
 
     /**
      * @param {Object} data
@@ -90,6 +104,34 @@ class PreviewGeometryWorkspace extends DockWorkspace {
     afterRefreshDockWorkspace(data) {
         super.afterRefreshDockWorkspace(data);
         this.dockProjectionSettles++
+    }
+
+    /**
+     * Arms one of {@link #failProjections_} on the dock host for exactly this projection.
+     * @param {Object} document
+     * @param {Object} refreshOptions
+     */
+    beforeRefreshDockWorkspace(document, refreshOptions) {
+        let me   = this,
+            host = me.getDockHost();
+
+        super.beforeRefreshDockWorkspace(document, refreshOptions);
+
+        if (me.failProjections > 0 && host) {
+            let flights = 0;
+
+            me.failProjections--;
+
+            host.promiseUpdate = function(...args) {
+                if (++flights < 2) {
+                    return Object.getPrototypeOf(host).promiseUpdate.apply(host, args)
+                }
+
+                delete host.promiseUpdate;
+
+                return Promise.reject(new Error('injected: the projection in flight fails'))
+            }
+        }
     }
 
     /**
@@ -149,6 +191,8 @@ class PreviewGeometryWorkspace extends DockWorkspace {
         super.onConstructed();
 
         let me = this;
+
+        me.on('dockProjectionFailed', () => me.dockProjectionFailures++);
 
         me.add({
             cls  : ['dock-preview-geometry-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],

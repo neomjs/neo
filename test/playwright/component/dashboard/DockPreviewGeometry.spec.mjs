@@ -36,12 +36,12 @@ const WORKSPACE_ID = 'dock-preview-geometry-workspace';
  */
 const readSettleState = async page => {
     const reply = await page.evaluate(data => Neo.worker.App.getConfigs(data),
-        {id: WORKSPACE_ID, keys: ['dockProjectionBusy', 'dockProjectionSettles']});
+        {id: WORKSPACE_ID, keys: ['dockProjectionBusy', 'dockProjectionSettles', 'dockProjectionFailures']});
 
     // `getConfigs` answers POSITIONALLY, in `keys` order — not as an object.
-    const [busy, settles] = reply?.data ?? reply ?? [];
+    const [busy, settles, failures] = reply?.data ?? reply ?? [];
 
-    return {busy, settles}
+    return {busy, failures, settles}
 };
 
 const readHostGeometry = page => page.evaluate(host => {
@@ -127,16 +127,20 @@ test.describe('the settle guard survives a FAILED projection', () => {
         await page.waitForSelector(`#${WORKSPACE_ID}`, {state: 'attached'});
         await expect.poll(async () => (await readSettleState(page)).busy, {timeout: 10000}).toBe(false);
 
-        // Arm one failing projection, then commit a real document change to trigger a refresh.
-        await page.evaluate(id => Neo.worker.App.setConfigs({id, failNextProjection: true}), WORKSPACE_ID);
+        const {settles} = await readSettleState(page);
+
+        // Fail a real commit's projection and the one retry it schedules: no completion follows, so
+        // only the `finally` can clear the guard.
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, failProjections: 2}), WORKSPACE_ID);
         await page.evaluate(id => Neo.worker.App.setConfigs({
             id, applyOperationJson: JSON.stringify({operation: 'setActiveItem', tabsNodeId: 'root', itemId: 'aside'})
         }), WORKSPACE_ID);
 
-        // The assertion is the ABSENCE of a latch, so it must be given time to latch if it can.
-        await page.waitForTimeout(1200);
-
-        expect((await readSettleState(page)).busy, 'a failed projection must not latch the guard').toBe(false)
+        // Both failures are witnessed, so the guard's state describes failed projections, not idle time.
+        await expect.poll(() => readSettleState(page), {
+            message: 'two failed projections must not latch the guard',
+            timeout: 10000
+        }).toEqual({busy: false, failures: 2, settles})
     })
 });
 
