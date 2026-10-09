@@ -18,7 +18,7 @@ An app can instead render the pane into a popup from the window that opened it. 
 
 ## Move the application, not the messages
 
-A [`SharedWorker`](https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker) is "a specific kind of worker that can be accessed from several browsing contexts, such as multiple windows or iframes", all of them on "the exact same origin". Neo.mjs already runs an application off the main thread: components, stores and state live in an App Worker, and the main thread applies the DOM changes it is sent. In June 2020 the engine learned to create those workers as SharedWorkers ([#667](https://github.com/neomjs/neo/issues/667), [#678](https://github.com/neomjs/neo/issues/678)). With that switch on, the app's windows connect to the same App Worker, and a window becomes what the windows guide calls it: a render target. No window owns the app. The design record makes every window, the first one included, "a render target, never a state owner" ([ADR 0029](https://github.com/neomjs/neo/blob/dev/learn/agentos/decisions/0029-docking-design.md#workspace-topology-across-windows)).
+A [`SharedWorker`](https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker) is "a specific kind of worker that can be accessed from several browsing contexts, such as multiple windows or iframes", all of them on "the exact same origin". Neo.mjs already runs an application off the main thread: components, stores and state live in an App Worker, and the main thread applies the DOM changes it is sent. In June 2020 the engine learned to create those workers as SharedWorkers ([#667](https://github.com/neomjs/neo/issues/667), [#678](https://github.com/neomjs/neo/issues/678)). With that switch on, every window that loads the app constructs its App Worker from the same script under the same name ([`Manager#createWorker`](https://github.com/neomjs/neo/blob/77e3df42728ac0388e2ecdc7389ed1fe1c439475/src/worker/Manager.mjs#L257-L270)), and the browser [reuses the running worker](https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker/SharedWorker#constructing_an_already_running_worker_will_reuse_the_existing_worker) instead of starting another. The app's windows share one App Worker, and a window becomes what the windows guide calls it: a render target. Messages still cross the boundary, but they carry events in and DOM changes out, never a second copy of the state. No window owns the app. The design record makes every window, the first one included, "a render target, never a state owner" ([ADR 0029](https://github.com/neomjs/neo/blob/dev/learn/agentos/decisions/0029-docking-design.md#workspace-topology-across-windows)).
 
 ```mermaid
 flowchart LR
@@ -54,7 +54,7 @@ Arrange the Workstation demo: drop panes into tabs, split a zone, fold a pane in
 
 That continuity holds because of where things live. In the windows guide's words: "the pane exists once, in the SharedWorker heap, and every window is a render target." The component that shows your chart in the popup is the same object that showed it in the main window, with the same store; the Workstation's tests assert that identity across the round trip ([#19292](https://github.com/neomjs/neo/pull/19292)).
 
-The arrangement lives in the App Worker too. Each workspace keeps it in one serialisable document, and in the Workstation a popup holds a workspace with a document of its own. A drag or a resize *proposes* an operation, and one Group transaction *commits* it: to both documents at once, or to neither, when a pane moves between windows. Each window then re-projects its own document, and Undo walks the Group's one history. Persistence receives the documents, never a DOM node or a window object (ADR 0029).
+The arrangement lives in the App Worker too. Each workspace keeps it in one serialisable document, and in the Workstation a popup holds a workspace with a document of its own. A drag or a resize *proposes* an operation, and one Group transaction *commits* it: to both documents at once, or to neither, when a pane moves between windows. Each workspace then projects its own document into its window, and Undo walks the Group's one history. Persistence receives the documents and the topology that relates them, never a DOM node or a window object (ADR 0029).
 
 ```mermaid
 flowchart TD
@@ -70,7 +70,7 @@ flowchart TD
     group -- "commits" --> popupDoc
     mainDoc --> mainView
     popupDoc --> popupView
-    group -- "documents, never a DOM node" --> store
+    group -- "documents + topology, never a DOM node" --> store
 ```
 
 Declaring a workspace takes two configs. `panes` is a catalog of ordinary component configs, and `zones` says where they go. This is the smallest example from the [first Dock Layout tutorial](https://github.com/neomjs/neo/blob/dev/learn/tutorials/DockLayoutsFirstLayout.md), whose examples run live, editable in place:
@@ -113,13 +113,13 @@ The tour ran under viewport emulation, where a popup has no window chrome; the h
 - **Plane.** The conversion measured the window's content while the pointer held its frame ([#19232](https://github.com/neomjs/neo/pull/19232)).
 - **Z-order.** The dragged window stayed on top of its target and covered the drop zones, because `focus()` raises nothing during a real OS drag ([#19289](https://github.com/neomjs/neo/pull/19289)).
 
-Each repair moved a measurement off the emulated plane. The conversion now [admits on the pointer's claim](https://github.com/neomjs/neo/pull/19242) and converted on 56 of 56 samples, with a scripted pointer over real Chrome windows. The emulated tour stayed green the whole time; the bug was in what it could not see.
+Each repair moved a measurement off the emulated plane. The conversion now [admits on the pointer's claim](https://github.com/neomjs/neo/pull/19242) and converted on 56 of 56 samples, with a scripted pointer over real Chrome windows. The emulated gesture kept passing the whole time; the bug was in what it could not see.
 
 <!-- Screenshot slot (a #14800 leaf): a pane dragged over another window with its drop zones showing. -->
 
 ## Where it stops
 
-- **It needs SharedWorkers.** With dedicated workers every window is its own heap, and there is nothing shared to embody; the windows guide is written for the shared case.
+- **It needs SharedWorkers.** With dedicated workers every window runs its own App Worker, and there is nothing shared to embody; the windows guide is written for the shared case.
 - **The cross-window receipts are Chrome's.** The 56-of-56 run and the defects above were measured on real Chrome windows; this post has no measured run in another browser.
 - **One heap is a shared fate.** App, Data and VDom workers remain origin-wide. Canvas workers now separate unrelated roots ([#19125](https://github.com/neomjs/neo/pull/19125)), and the wider worker boundary stays an open question ([D#18730](https://github.com/orgs/neomjs/discussions/18730)).
 
