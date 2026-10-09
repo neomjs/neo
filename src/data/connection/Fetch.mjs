@@ -99,6 +99,8 @@ class Fetch extends Base {
 
     /**
      * @summary Dispatches a request through the connection's scoped URL resolver.
+     * The response hands the request config back as `response.request`. In both URL forms its `url`
+     * is the caller's original string; the resolved or redirected address is `response.url`.
      * @param {Object|String} url
      * @param {Object} config={}
      * @param {String} method
@@ -110,9 +112,6 @@ class Fetch extends Base {
             config = url;
             url    = config.url
         } else {
-            // The metadata handed back through `response.request` is this same object, and the
-            // object form's url slot holds the original string. Assigning the config here would
-            // put the object inside itself, and serializing it then fails on the cycle.
             config.url = url
         }
 
