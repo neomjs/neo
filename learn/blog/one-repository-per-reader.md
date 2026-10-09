@@ -60,6 +60,14 @@ The arrows point one way: the Agent OS and the cockpit build on the Engine, and 
 
 The cockpit that left is the product the split made room for. [Agent Institution](https://github.com/neomjs/neo-agent-institution) is where an operator runs a standing team of AI agents. It shows a roster with each agent's provider and model family, health and lifecycle state; the team's activity, tasks, memories, messages and wake state; and the controls that start and stop its agents. It operates the Agent OS over its Fleet transport and copies none of the Brain's implementation.
 
+<img width="100%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/fm-1-fleet.png" alt="Agent Institution's fleet view: twelve agent cards and the team's live activity feed" class="blog-image">
+
+*Our own team in Agent Institution's fleet view: twelve agents with their state and lifecycle controls, and the team's live activity below.*
+
+<img width="100%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/fm-2-observatory.png" alt="The Observatory: the team's graph with the Golden Path lit and each member's node count listed" class="blog-image">
+
+*The Observatory in the same app: the team's graph with its Golden Path lit, and each member's share of the nodes at the right.*
+
 It is also an application on the Engine you install. Its cockpit is a Dock Layouts workspace with SharedWorkers on ([`neo-config.json`](https://github.com/neomjs/neo-agent-institution/blob/dev/apps/agentos/neo-config.json)), so its panes dock, pop out into their own windows and come home through the Engine's dock ([`cockpit/Container.mjs`](https://github.com/neomjs/neo-agent-institution/blob/dev/apps/agentos/view/fleet/cockpit/Container.mjs)). That is the multi-window story of [A workspace that can leave its window](https://github.com/neomjs/neo/blob/dev/learn/blog/a-workspace-that-can-leave-its-window.md), in an application we run.
 
 It is at version 0.1.0, and it says so plainly. The browser quickstart runs the cockpit from a clone without a Brain, and it ships no sample fleet: the cockpit reads "not answered yet" until a Fleet transport answers. Its roadmap names the next step in one line: [*an outside operator runs their own institution*](https://github.com/neomjs/neo-agent-institution/blob/dev/ROADMAP.md). That is the work in front of us now.
