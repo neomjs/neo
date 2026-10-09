@@ -226,10 +226,11 @@ class VdomLifecycle extends Base {
      *    and its descendants.
      * 2. **Disjoint Payloads:** Each component retains its configured update depth. The VDOM
      *    engine updates additional roots directly without requiring the initiator to bridge to them.
-     * 3. **Collision Filtering:** Remove a child root only when the parent's depth covers it
-     *    and the parent's sparse allowlist, when present, includes it.
-     * 4. **Flight Ownership:** Protect each emitted root at its captured depth until all returned
-     *    trees are adopted. Each emitted root owns its settlement; a dead carrier cancels live
+     * 3. **Collision Filtering:** A sparse ancestor can absorb allowlisted shallow or sparse roots
+     *    beyond nominal depth. Dense roots stay independent: their silent descendants are not covered
+     *    by that allowlist. Dense ancestors retain their depth-based coverage rule.
+     * 4. **Flight Ownership:** Protect emitted and sparse-absorbed roots at their captured depths until
+     *    all returned trees are adopted. Each protected root owns its settlement; a dead carrier cancels live
      *    co-roots with an error, never their destroy sentinel. Outcomes release deferred updates.
      *
      * @param {function} [resolve] used by promiseUpdate()
@@ -276,7 +277,7 @@ class VdomLifecycle extends Base {
                 depths    = new Map(),
                 processed = new Set(); // Prevent duplicates and cycles
 
-            let sparseScopes;
+            let sparseScopes, absorbedScopes;
 
             const collectPayloads = (componentId) => {
                 if (processed.has(componentId)) return;
@@ -355,9 +356,15 @@ class VdomLifecycle extends Base {
                     while (parent) {
                         if (updates[parent.id]) {
                             const parentDepth = depths.get(parent.id),
-                                  parentIds   = sparseScopes?.get(parent.id);
+                                  parentIds   = sparseScopes?.get(parent.id),
+                                  depthCovers = parentDepth === -1 || parentDepth > distance,
+                                  scopeCovers = parentIds
+                                      ? parentIds.has(id) && (depths.get(id) === 1 || sparseScopes.has(id))
+                                      : depthCovers;
 
-                            if ((parentDepth === -1 || parentDepth > distance) && (!parentIds || parentIds.has(id))) {
+                            if (scopeCovers) {
+                                // A leapfrogged root still needs its own protection beyond the ancestor's depth.
+                                if (!depthCovers) (absorbedScopes ||= []).push(id);
                                 delete updates[id];
                                 break; // exit the while loop
                             }
@@ -368,8 +375,13 @@ class VdomLifecycle extends Base {
                 }
             }
 
-            // Payload creation resets updateDepth; protect only emitted roots at the captured scope.
-            for (const id of Object.keys(updates)) {
+            // Absorbing a payload must not retire the scope that owns late writes and callbacks.
+            const protectedRoots = Object.keys(updates);
+            if (absorbedScopes) {
+                for (const id of absorbedScopes) protectedRoots.push(id)
+            }
+
+            for (const id of protectedRoots) {
                 const component = Neo.getComponent(id);
 
                 component.isVdomUpdating = true;
@@ -377,12 +389,12 @@ class VdomLifecycle extends Base {
                 inFlightScopes.set(id, component)
             }
 
-            // An emitted root owns its callbacks; carrier destruction must not settle it as a child.
+            // A protected root owns its callbacks; carrier destruction must not settle it as a child.
             for (const [ownerId, collected] of componentMergedChildren) {
                 const children = VDomUpdate.mergedCallbackMap.get(ownerId)?.children;
 
                 for (const [childId, entry] of collected) {
-                    if (childId !== ownerId && Object.hasOwn(updates, childId)) {
+                    if (childId !== ownerId && inFlightScopes.has(childId)) {
                         collected.delete(childId);
                         if (entry && children?.get(childId) === entry) children.delete(childId)
                     }
@@ -454,8 +466,8 @@ class VdomLifecycle extends Base {
                     }
                 }
 
-                // Collection can skip the initiator after a handover cleared its vnode.
-                // Release that control flight; callbacks never claimed by a payload stay parked.
+                // Absorbed scopes adopt through the covering root; they still own their settlement.
+                // A skipped initiator also retires here, leaving callbacks never claimed by a payload parked.
                 for (const [id, component] of inFlightScopes) {
                     if (!Object.hasOwn(updates, id) && !component.isDestroyed) {
                         completed.set(id, component)
