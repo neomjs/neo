@@ -2255,7 +2255,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
                     if (coexistence.firstBothAt && !semanticSnapshot) {
                         semanticSnapshot = await app.callMethod(wsId, 'readCrossWindowGestureSnapshot', [{
-                            parkedItemId     : 'metrics',
+                            draggedItemId    : 'metrics',
                             targetWorkspaceId: 'workstation-main'
                         }])
                     }
@@ -2359,7 +2359,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         await expect.poll(async () => {
             closeReceipt = (await app.getComponent(wsId, ['lastTearOutClose']))?.lastTearOutClose ?? null;
             nativeSnapshot = await app.callMethod(wsId, 'readCrossWindowGestureSnapshot', [{
-                parkedItemId     : 'metrics',
+                draggedItemId    : 'metrics',
                 targetWorkspaceId: 'workstation-main'
             }]);
 
@@ -2548,12 +2548,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         const snapshot = dockResult.proof.remoteSnapshot;
 
+        // The target carries the drag and no vessel is left: none parks, none rides over it.
         expect(snapshot).toMatchObject({
             claimCount           : 1,
-            converted            : true,
             engaged              : true,
-            parkedItemId         : 'commits',
-            sourceVesselConnected: true,
+            sourceVesselConnected: false,
             targetProxy          : {
                 cls: expect.arrayContaining([
                     'neo-dock-dragproxy',
@@ -2570,10 +2569,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             targetWorkspaceId: 'workstation-vessel:metrics',
             winnerStableId   : 'workstation-vessel:metrics'
         });
-        expect(snapshot.sourceVesselWindowId, 'the parked physical source vessel must still exist pre-mouseup')
-            .toBeTruthy();
-        expect(snapshot.targetProxy.sourceWindowId, 'the proxy must reserve that exact parked source popup')
-            .toBe(snapshot.sourceVesselWindowId);
+        expect(snapshot.sourceVesselWindowId, 'no vessel survives the target\'s claim pre-mouseup').toBeNull();
+        expect(snapshot.targetProxy.sourceWindowId, 'the proxy reserves the pane in the window it lives in, not a vessel')
+            .not.toBe(snapshot.targetProxy.targetWindowId);
         expect(snapshot.targetProxy.targetWindowId, 'the visible proxy must belong to the target popup')
             .toBeTruthy();
         expect(snapshot.preview.previewId, 'the target must publish one semantic preview').toBeTruthy();
@@ -2961,10 +2959,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(dockResult.applied, 'commits must join metrics through one remote target').toBe(true);
             expect(dockResult.proof.remoteSnapshot).toMatchObject({
                 claimCount           : 1,
-                converted            : true,
                 engaged              : true,
-                parkedItemId         : 'commits',
-                sourceVesselConnected: true,
+                sourceVesselConnected: false,
                 targetProxy          : {
                     cls: expect.arrayContaining([
                         'neo-dock-dragproxy',
@@ -2981,8 +2977,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 targetWorkspaceId: 'workstation-vessel:metrics',
                 winnerStableId   : 'workstation-vessel:metrics'
             });
+            expect(dockResult.proof.remoteSnapshot.sourceVesselWindowId, 'no vessel survives the target\'s claim').toBeNull();
             expect(dockResult.proof.remoteSnapshot.targetProxy.sourceWindowId)
-                .toBe(dockResult.proof.remoteSnapshot.sourceVesselWindowId);
+                .not.toBe(dockResult.proof.remoteSnapshot.targetProxy.targetWindowId);
             expect(dockResult.proof.remoteSnapshot.rendered.previewId)
                 .toBe(dockResult.proof.remoteSnapshot.preview.previewId);
             expect(dockResult.proof.remoteSnapshot.preview.target.nodeId)
