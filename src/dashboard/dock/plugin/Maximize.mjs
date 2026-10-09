@@ -338,8 +338,10 @@ class Maximize extends Plugin {
      * presentation. A maximized pane fills the DOCK AREA, not the app view: a workspace that
      * frames it with a tour bar or a status bar keeps them in sight. The area is measured
      * explicitly: a named dock host is the consumer's stated dock area; a workspace that is its own
-     * host measures the projected shell at `dockShellIndex` — the chrome it frames the shell with
-     * (a perspective toolbar at index 0) sits outside that rect; the workspace root stands in only
+     * host measures its live projected shell ({@link Neo.dashboard.dock.projection.Reconciler#liveShell})
+     * — the chrome it frames the shell with (a perspective toolbar at index 0) sits outside that
+     * rect, and a resize landing inside a projection's swap reads the incoming shell rather than the
+     * one leaving layout; the workspace root stands in only
      * while nothing is mounted. `inset: 0` would answer to the viewport or an incidental fixed
      * containing block instead. `null` is the fail-safe trigger (unmounted mid-gesture, zero-area
      * rect).
@@ -349,7 +351,7 @@ class Maximize extends Plugin {
     async measureRect() {
         let {owner} = this,
             host    = owner.getDockHost(),
-            area    = host === owner ? (owner.items?.[owner.dockShellIndex] || owner) : (host || owner),
+            area    = host === owner ? (Reconciler.liveShell(owner, owner.dockShellIndex) || owner) : (host || owner),
             rect    = null;
 
         try {

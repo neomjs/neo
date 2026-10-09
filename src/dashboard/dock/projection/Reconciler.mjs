@@ -38,6 +38,23 @@ class Reconciler extends Base {
     }
 
     /**
+     * @summary The shell that holds the dock area: the one at `shellIndex`, or, from a projection's
+     * visibility swap until its cleanup, the incoming shell beside it.
+     *
+     * The swap takes the outgoing shell out of layout before destroying it, so geometry read in that
+     * window must come from the incoming shell, which the staging inserted at `shellIndex + 1`.
+     * @param {Neo.container.Base} host The dock host holding the shells.
+     * @param {Number} shellIndex The index of the committed shell.
+     * @returns {Neo.component.Base|null}
+     * @static
+     */
+    static liveShell(host, shellIndex) {
+        const shell = host?.items?.[shellIndex] || null;
+
+        return shell?.cls?.includes(retiringShellCls) ? (host.items[shellIndex + 1] || shell) : shell
+    }
+
+    /**
      * @summary The classes a retained tab container derives from its OWN configs.
      *
      * A projected `cls` is the projection's own constant and knows nothing about these, so replacing
