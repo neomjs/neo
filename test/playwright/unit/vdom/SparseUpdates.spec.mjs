@@ -228,6 +228,99 @@ test.describe('Sparse VDOM Updates', () => {
         }
     }
 
+    // An emitted child root is a boundary of every other payload in its batch, whatever its order of adoption.
+    for (const [ancestor, reversed] of [['sparse', false], ['sparse', true], ['dense', false], ['dense', true], ['full', false]]) {
+        test(`${ancestor} ancestor and its dense child render overlapping structure once${reversed ? ', adopted in reverse' : ''}`, async () => {
+            const prefix = `overlap-${uniquePrefix}-${testRun}`;
+
+            container = Neo.create(SparseMockContainer, {appName, id: prefix, items: [{
+                module: SparseMockContainer, id: `${prefix}-host`,
+                items : [
+                    {module: SparseMockComponent, id: `${prefix}-hidden`, text: 'Hide me'},
+                    {module: SparseMockComponent, text: 'Keep me'}
+                ]
+            }]});
+            await container.ready();
+            await container.initVnode(true);
+            container.mounted = true;
+
+            const host           = container.items[0],
+                  [hidden, kept] = host.items,
+                  updateBatch    = VdomHelper.updateBatch;
+
+            for (const component of [container, host, hidden, kept]) {
+                await component.promiseUpdate()
+            }
+
+            VdomHelper.updateBatch = async function(data) {
+                const response = await updateBatch.call(this, data);
+
+                return reversed ? {...response, vnodes: Object.fromEntries(Object.entries(response.vnodes).reverse())} : response
+            };
+
+            try {
+                container.setSilent({style: {color: 'green'}, updateDepth: ancestor === 'full' ? -1 : 2});
+                if (ancestor === 'dense') container.denseUpdate = true;
+                container.vdom.cn.unshift({id: `${prefix}-root-header`, tag: 'span', text: 'Root header'});
+                host.vdom.cn.unshift({id: `${prefix}-host-header`, tag: 'span', text: 'Host header'});
+                kept.vdom.text = 'Kept new';
+                hidden.hide();
+
+                const {deltas} = await container.promiseUpdate(),
+                      inserted = id => deltas.filter(delta => delta.action === 'insertNode' && delta.vnode?.id === id);
+
+                expect(inserted(`${prefix}-root-header`)).toHaveLength(1);
+                expect(inserted(`${prefix}-host-header`)).toHaveLength(1);
+                expect(deltas.filter(delta => delta.action === 'removeNode' && delta.id === hidden.id)).toHaveLength(1);
+                expect(deltas.filter(delta => delta.textContent === 'Kept new')).toHaveLength(1);
+                expect(hidden.vnode).toBeNull();
+                expect(kept.vnode.textContent).toBe('Kept new');
+            } finally {
+                VdomHelper.updateBatch = updateBatch
+            }
+
+            // Coherent vnodes diff clean: a stale tree would re-insert a header here.
+            expect((await container.promiseUpdate()).deltas).toEqual([]);
+            expect((await host.promiseUpdate()).deltas).toEqual([]);
+        });
+    }
+
+    // A sparse root carries its own nodes; its allowlist past its nominal depth emits on its own.
+    test('dense ancestor renders a sparse child and its deep allowlisted descendant once', async () => {
+        const prefix = `deep-${uniquePrefix}-${testRun}`;
+
+        container = Neo.create(SparseMockContainer, {appName, id: prefix, items: [{
+            module: SparseMockContainer, id: `${prefix}-child`,
+            items : [{module: SparseMockContainer, items: [{module: SparseMockContainer, items: [
+                {module: SparseMockComponent, id: `${prefix}-leaf`, text: 'Before'}
+            ]}]}]
+        }]});
+        await container.ready();
+        await container.initVnode(true);
+        container.mounted = true;
+
+        const child = Neo.getComponent(`${prefix}-child`),
+              leaf  = Neo.getComponent(`${prefix}-leaf`);
+
+        let component = container;
+        while (component) {
+            await component.promiseUpdate();
+            component = component.items?.[0]
+        }
+
+        container.setSilent({style: {color: 'green'}, updateDepth: 2});
+        container.denseUpdate = true;
+        child.setSilent({style: {color: 'purple'}, updateDepth: 2});
+        leaf.setSilent({text: 'After'});
+
+        const {deltas} = await container.promiseUpdate();
+
+        expect(deltas.filter(delta => delta.id === leaf.id && delta.textContent === 'After')).toHaveLength(1);
+        expect(deltas.filter(delta => delta.id === child.id && delta.style?.color === 'purple')).toHaveLength(1);
+        expect(leaf.vnode.textContent).toBe('After');
+        expect((await child.promiseUpdate()).deltas).toEqual([]);
+    });
+
     test('TreeBuilder prunes clean siblings at finite depth', async () => {
         container = Neo.create(SparseMockContainer, {
             appName,

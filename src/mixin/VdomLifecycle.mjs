@@ -226,9 +226,10 @@ class VdomLifecycle extends Base {
      *    and its descendants.
      * 2. **Disjoint Payloads:** Each component retains its configured update depth. The VDOM
      *    engine updates additional roots directly without requiring the initiator to bridge to them.
-     * 3. **Collision Filtering:** A sparse ancestor can absorb allowlisted shallow or sparse roots
-     *    beyond nominal depth. Dense roots stay independent: their silent descendants are not covered
-     *    by that allowlist. Dense ancestors retain their depth-based coverage rule.
+     * 3. **Boundary Planning:** A root is absorbed only when its nearest emitted ancestor's payload
+     *    carries its whole scope ({@link #carriesScope}); every other root is emitted. Each payload stops at
+     *    the other emitted roots, leaving them as references in both trees, so every subtree is diffed
+     *    by exactly one payload.
      * 4. **Flight Ownership:** Protect emitted and sparse-absorbed roots at their captured depths until
      *    all returned trees are adopted. Each protected root owns its settlement; a dead carrier cancels live
      *    co-roots with an error, never their destroy sentinel. Outcomes release deferred updates.
@@ -275,11 +276,12 @@ class VdomLifecycle extends Base {
             const
                 updates   = {},
                 depths    = new Map(),
+                scopes    = new Map(), // collected id → the merged ids its payload expands, in collection order
                 processed = new Set(); // Prevent duplicates and cycles
 
             let sparseScopes, absorbedScopes;
 
-            const collectPayloads = (componentId) => {
+            const collectScopes = (componentId) => {
                 if (processed.has(componentId)) return;
                 processed.add(componentId);
 
@@ -332,47 +334,50 @@ class VdomLifecycle extends Base {
                     (sparseScopes ||= new Map()).set(componentId, ids)
                 }
 
-                // We pass null as the second arg to respect the component's configured updateDepth.
-                updates[componentId] = component.getVdomUpdatePayload(ids, null);
+                scopes.set(componentId, ids);
 
                 // Recursively collect merged children
                 if (mergedChildIds) {
                     for (const childId of mergedChildIds) {
-                        collectPayloads(childId)
+                        collectScopes(childId)
                     }
                 }
             };
 
             // Start collection from the root of the update (me)
-            collectPayloads(me.id);
+            collectScopes(me.id);
 
-            // Collision Filtering:
-            // If a parent update covers this child, remove the child from the disjoint batch
-            for (const id in updates) {
-                if (Object.hasOwn(updates, id)) {
-                    let parent   = Neo.getComponent(id)?.parent,
-                        distance = 1;
+            // Boundary Planning: a root is absorbed only when its nearest emitted ancestor's payload carries its
+            // whole scope, so ancestors decide first. Every emitted root then bounds the other payloads.
+            const emitted = new Set(),
+                  levelOf = id => {let level = 0, item = Neo.getComponent(id); while ((item = item.parent)) level++; return level},
+                  levels  = new Map([...scopes.keys()].map(id => [id, levelOf(id)]));
 
-                    while (parent) {
-                        if (updates[parent.id]) {
-                            const parentDepth = depths.get(parent.id),
-                                  parentIds   = sparseScopes?.get(parent.id),
-                                  depthCovers = parentDepth === -1 || parentDepth > distance,
-                                  scopeCovers = parentIds
-                                      ? parentIds.has(id) && (depths.get(id) === 1 || sparseScopes.has(id))
-                                      : depthCovers;
+            for (const id of [...scopes.keys()].sort((a, b) => levels.get(a) - levels.get(b))) {
+                let ancestor = Neo.getComponent(id).parent,
+                    distance = 1;
 
-                            if (scopeCovers) {
-                                // A leapfrogged root still needs its own protection beyond the ancestor's depth.
-                                if (!depthCovers) (absorbedScopes ||= []).push(id);
-                                delete updates[id];
-                                break; // exit the while loop
-                            }
-                        }
-                        parent   = parent.parent;
-                        distance++
-                    }
+                while (ancestor && !emitted.has(ancestor.id)) {
+                    ancestor = ancestor.parent;
+                    distance++
                 }
+
+                const ancestorDepth = ancestor && depths.get(ancestor.id);
+
+                if (ancestor?.carriesScope(ancestorDepth, sparseScopes?.get(ancestor.id), distance, id, depths.get(id), sparseScopes?.has(id))) {
+                    // A leapfrogged root still needs its own protection beyond the ancestor's depth.
+                    if (ancestorDepth !== -1 && ancestorDepth <= distance) (absorbedScopes ||= []).push(id)
+                } else {
+                    emitted.add(id)
+                }
+            }
+
+            // Collection order: a container clears its descendants' needsVdomUpdate as its payload is built.
+            for (const [id, ids] of scopes) {
+                // We pass null as the second arg to respect the component's configured updateDepth.
+                const payload = Neo.getComponent(id).getVdomUpdatePayload(ids, null, emitted.size > 1 ? emitted : null);
+
+                if (emitted.has(id)) updates[id] = payload
             }
 
             // Absorbing a payload must not retire the scope that owns late writes and callbacks.
@@ -569,15 +574,16 @@ class VdomLifecycle extends Base {
      *
      * @param {Set<String>|null} mergedChildIds
      * @param {Number} [depth] Override the update depth
+     * @param {Set<String>|null} [boundaryIds=null] Roots of the same batch, left as references in both trees
      * @returns {Object} opts
      */
-    getVdomUpdatePayload(mergedChildIds, depth) {
+    getVdomUpdatePayload(mergedChildIds, depth, boundaryIds=null) {
         let me            = this,
             updateDepth   = depth ?? me.updateDepth,
             {vdom, vnode} = me,
             opts          = {
-                vdom : TreeBuilder.getVdomTree(vdom,   updateDepth, mergedChildIds),
-                vnode: TreeBuilder.getVnodeTree(vnode, updateDepth, mergedChildIds)
+                vdom : TreeBuilder.getVdomTree(vdom,   updateDepth, mergedChildIds, boundaryIds),
+                vnode: TreeBuilder.getVnodeTree(vnode, updateDepth, mergedChildIds, boundaryIds)
             };
 
         if (currentWorker?.isSharedWorker) {
@@ -669,6 +675,29 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * @summary Whether this component's payload, as captured for a batch, carries a collected root's whole scope.
+     *
+     * A full-depth payload carries everything. A sparse payload expands only its allowlist, and a dense one
+     * every component above its depth. Reaching a root carries the root's own nodes, which is all a depth-1
+     * or sparse root holds: a sparse root's allowlist members are collected and decided on their own. A dense
+     * root of depth c at distance k fits a dense depth-d payload only when k + c <= d.
+     * @param {Number} depth This component's captured update depth
+     * @param {Set<String>|undefined} ids This component's allowlist, when its payload is sparse
+     * @param {Number} distance The root's distance below this component
+     * @param {String} rootId
+     * @param {Number} rootDepth
+     * @param {Boolean} rootSparse
+     * @returns {Boolean}
+     * @protected
+     */
+    carriesScope(depth, ids, distance, rootId, rootDepth, rootSparse) {
+        if (depth === -1) return true;
+        if (ids ? !ids.has(rootId) : depth <= distance) return false;
+
+        return rootDepth === 1 || rootSparse || (!ids && rootDepth !== -1 && distance + rootDepth <= depth)
+    }
+
+    /**
      * Checks if a given updateDepth & distance would result in an update collision.
      * The check must use `<` because `updateDepth` is 1-based.
      *
@@ -753,7 +782,7 @@ class VdomLifecycle extends Base {
                 me._needsVdomUpdate = false;
                 me.afterSetNeedsVdomUpdate?.(false, true);
 
-                // The first render collects here, exactly as a flight does in collectPayloads()
+                // The first render collects here, exactly as a flight does in collectScopes()
                 VDomUpdate.claimPromiseCallbacks(me.id);
 
                 const data = await Promise.resolve(Neo.vdom.Helper.create({
