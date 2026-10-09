@@ -1314,6 +1314,111 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         }
     });
 
+    test.describe('a tabs node crossing the root', () => {
+        const items   = {alpha: {reference: 'alpha', title: 'Alpha'}, beta: {reference: 'beta', title: 'Beta'}},
+              tabRoot = {schema: 'neo.dock.zone.v1', root: 'root-tabs', items, nodes: {
+                  'root-tabs': {activeItemId: 'alpha', items: ['alpha', 'beta'], type: 'tabs'}
+              }},
+              nested  = {schema: 'neo.dock.zone.v1', root: 'split', items, nodes: {
+                  split      : {children: ['root-tabs', 'beta-tabs'], orientation: 'horizontal', sizes: [0.5, 0.5], type: 'split'},
+                  'root-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'},
+                  'beta-tabs': {activeItemId: 'beta', items: ['beta'], type: 'tabs'}
+              }};
+
+        // Projects `nextModel` over a host showing `model`; the first host flight `rejectWhen` accepts rejects.
+        const reconcileCrossing = async (model, nextModel, rejectWhen=null) => {
+            const panes = Object.fromEntries(Object.entries(model.items)
+                      .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
+                  host         = Neo.create(Container, {items: [DockLayoutAdapter.project(model, {
+                      resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                  })]}),
+                  oldShell     = host.items[0],
+                  oldTabs      = DockProjectionReconciler.collectProjectedTabs(oldShell),
+                  placeholders = new Map(),
+                  original     = host.promiseUpdate.bind(host);
+
+            let error = null, rejected = false;
+
+            host.promiseUpdate = () => !rejected && rejectWhen?.(oldShell, host) && (rejected = true)
+                ? Promise.reject(new Error('injected: the swap flight fails'))
+                : original();
+
+            try {
+                await DockProjectionReconciler.reconcileProjection({
+                    host,
+                    nextConfig: DockLayoutAdapter.project(nextModel, {
+                        resolveComponentRef(_reference, item, itemId) {
+                            const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                            placeholders.set(itemId, placeholder);
+
+                            return placeholder
+                        }
+                    }),
+                    placeholders,
+                    resolveItem: itemId => panes[itemId]
+                })
+            } catch (e) {
+                error = e
+            }
+
+            host.promiseUpdate = original;
+
+            return {error, host, oldShell, oldTabs, panes}
+        };
+
+        test('nesting the tab root keeps its tab container, visible, inside the staged split', async () => {
+            const {error, host, oldShell, panes} = await reconcileCrossing(tabRoot, nested);
+
+            try {
+                expect(error).toBeNull();
+                expect(host.items).toHaveLength(1);
+                expect(oldShell.parent, 'the root tab lives on inside the split').toBe(host.items[0]);
+                expect(oldShell.hidden).not.toBe(true);
+                expect(oldShell.cls).not.toContain('neo-dashboard-dock-shell-retiring');
+                Object.values(panes).forEach(pane => expect(pane.isDestroyed).toBeFalsy())
+            } finally {
+                host.destroy()
+            }
+        });
+
+        test('a nesting commit whose swap flight fails keeps the staged split, which holds the root tab', async () => {
+            // The swap is the first host flight after the root tab moved into the staged split.
+            const {error, host, oldShell} = await reconcileCrossing(tabRoot, nested, (shell, host) => shell.parent !== host);
+
+            try {
+                expect(error?.projectionRecovery).toBe('completed-swap');
+                expect(host.items).toHaveLength(1);
+                expect(host.items[0].hidden).not.toBe(true);
+                expect(oldShell.parent).toBe(host.items[0]);
+                expect(oldShell.isDestroyed).toBeFalsy()
+            } finally {
+                host.destroy()
+            }
+        });
+
+        test('collapsing a split to one of its tabs nodes leaves that retained tab as the only shell', async () => {
+            const model                                   = createSplitModel(),
+                  {error, host, oldShell, oldTabs, panes} = await reconcileCrossing(model, {
+                      schema: 'neo.dock.zone.v1', root: 'alpha-tabs', items: model.items, nodes: {
+                          'alpha-tabs': {activeItemId: 'alpha', items: ['alpha', 'beta'], type: 'tabs'}
+                      }
+                  }),
+                  alphaTabs = oldTabs.get('alpha-tabs');
+
+            try {
+                expect(error).toBeNull();
+                expect(host.items).toHaveLength(1);
+                expect(host.items[0], 'the retained tab is the shell').toBe(alphaTabs);
+                expect(alphaTabs.hidden).not.toBe(true);
+                expect(oldShell.isDestroyed).toBe(true);
+                expect(alphaTabs.getCardContainer().items).toEqual([panes.alpha, panes.beta])
+            } finally {
+                host.destroy()
+            }
+        })
+    });
+
     test('the next projection after a failure reconciles normally onto the surviving shell', async () => {
         const {host, model, panes} = await reconcileWithRejectedFlight(2);
 
