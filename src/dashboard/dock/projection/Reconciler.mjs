@@ -6,6 +6,10 @@ import Base      from '../../../core/Base.mjs';
 // in place through its own reactive `railItems`, never as structural children.
 const projectionNodeTypes = new Set(['edge-rail', 'edge-zone', 'split', 'tabs']);
 
+// The outgoing shell from the visibility swap until its destruction. `dashboard/Container.scss` takes
+// it out of layout; hidden by visibility alone it keeps its width in the host's flex row.
+const retiringShellCls = 'neo-dashboard-dock-shell-retiring';
+
 /**
  * @summary Preserves live tab-chrome identity across dock-layout projections.
  *
@@ -349,11 +353,12 @@ class Reconciler extends Base {
      * With a current shell, the host keeps it rendered while a visibility-hidden projection is
      * inserted beside it. Four explicit ownership phases follow: mount the target tree, move
      * pane/button descendants, move retained tab ancestors plus swap shell visibility, then destroy
-     * the empty source shell. With no current shell, the same projection is inserted at
-     * `shellIndex` as the explicit first projection; it resolves panes and becomes visible without
-     * inventing an outgoing shell. Each phase receives its own host update so renderer cleanup
-     * cannot overtake a native reparent. Floating Overflow controls are reprojected only after final
-     * ownership settles.
+     * the empty source shell. The swap also takes the outgoing shell out of layout, so the incoming
+     * one fills the host in the frame it becomes visible. With no current shell, the same projection
+     * is inserted at `shellIndex` as the explicit first projection; it resolves panes and becomes
+     * visible without inventing an outgoing shell. Each phase receives its own host update so renderer
+     * cleanup cannot overtake a native reparent. Floating Overflow controls are reprojected only after
+     * final ownership settles.
      * Live panes imported from elsewhere in the same window commit through their common ancestor
      * before inner rendering flights, preserving the existing DOM node across projection boundaries.
      *
@@ -565,7 +570,11 @@ class Reconciler extends Base {
             retainedRoot = oldShell === nextShell;
 
             if (!retainedRoot) {
-                oldShell?.setSilent({hideMode: 'visibility', hidden: true});
+                oldShell?.setSilent({
+                    cls     : oldShell.cls.includes(retiringShellCls) ? oldShell.cls : [...oldShell.cls, retiringShellCls],
+                    hideMode: 'visibility',
+                    hidden  : true
+                });
                 nextShell.setSilent({hidden: false})
             }
 
@@ -727,7 +736,8 @@ class Reconciler extends Base {
             }
 
             if (survivor && !survivor.isDestroyed) {
-                survivor.setSilent({hidden: false})
+                // A swap whose flight failed may have retired the outgoing shell; the survivor returns to layout.
+                survivor.setSilent({cls: survivor.cls.filter(cls => cls !== retiringShellCls), hidden: false})
             }
 
             host.updateDepth = -1;
