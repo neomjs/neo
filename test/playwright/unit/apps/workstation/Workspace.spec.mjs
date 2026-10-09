@@ -2445,6 +2445,39 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    // A failed render rejects the repaint's promise just as a destruction does, but the pane survives it.
+    test('a landed pane leaves its repaint layer after a render or a failed render, never after its destruction', async () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const {state}   = stageCommittedVessel(workspace);
+        const errors    = [], report = console.error;
+        const stubPane  = render => {
+            const pane = {isDestroyed: false, order: []};
+            return Object.assign(pane, {
+                addCls       : cls => pane.order.push(`add ${cls}`),
+                promiseUpdate: () => { pane.order.push('render'); return render(pane) },
+                removeCls    : cls => pane.order.push(`remove ${cls}`)
+            })
+        };
+        console.error = message => errors.push(message);
+        try {
+            const rendered  = stubPane(async () => {}),
+                  failed    = stubPane(async () => { throw new Error('the flight failed') }),
+                  destroyed = stubPane(async pane => { pane.isDestroyed = true; throw new Error('destroyed') });
+            await state.host.repaintLandedPane(rendered);
+            await state.host.repaintLandedPane(failed);
+            await state.host.repaintLandedPane(destroyed);
+            expect(rendered.order).toEqual(['add workstation-pane-repaint', 'render', 'remove workstation-pane-repaint']);
+            expect(failed.order, 'a live pane takes the layer off after a failed render')
+                .toEqual(['add workstation-pane-repaint', 'render', 'remove workstation-pane-repaint']);
+            expect(destroyed.order, 'a destroyed pane is not touched again').toEqual(['add workstation-pane-repaint', 'render']);
+            expect(errors, 'only the live failure is reported').toEqual(['PopupWorkspace: the landed pane\'s repaint render failed'])
+        } finally {
+            console.error = report;
+            state.host.destroy();
+            workspace.destroy()
+        }
+    });
+
     // The registry keeps an item's vessel ownership through a release this host retains, so the
     // emptied vessel's records would otherwise outlive the return and receive the item's next
     // tear-out as a late binding of the old adoption — a vessel that opens owned, unstaged, empty.

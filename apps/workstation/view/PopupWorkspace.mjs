@@ -188,6 +188,8 @@ class PopupWorkspace extends DockWorkspace {
     /**
      * @summary Gives a landed pane one rendered frame on its own compositing layer: entering the layer rasters
      * the pane from its current layout, leaving it rasters the pane into its parent again.
+     * @description A failed render rejects like a destruction does, but the pane survives it: the failure is
+     * reported and the layer still comes off. Only a destroyed pane is left alone.
      * @param {Neo.component.Base|null} pane
      * @returns {Promise<void>}
      * @protected
@@ -201,8 +203,9 @@ class PopupWorkspace extends DockWorkspace {
 
         try {
             await pane.promiseUpdate()
-        } catch {
-            return // destroyed while the frame was in flight
+        } catch (error) {
+            if (pane.isDestroyed) return;
+            console.error('PopupWorkspace: the landed pane\'s repaint render failed', error)
         }
 
         pane.isDestroyed || pane.removeCls(cls)
