@@ -277,6 +277,167 @@ test.describe('VDOM settlement exceptions', () => {
         expect(fresh.vnode.className).toContain('after-mount')
     });
 
+    test('a throwing mount resolver rejects late work and renders its queued state', async () => {
+        const fresh = Neo.create(Component, {appName, id: `mount-failure-${run}`}),
+              error = new Error('mount resolver failed');
+        extra.push(fresh);
+        let late;
+        VDomUpdate.addPromiseCallback(fresh.id, () => {
+            fresh.vdom.cls = ['queued-at-mount'];
+            late = track(fresh.promiseUpdate());
+            throw error
+        });
+
+        const initial = track(fresh.initVnode(true));
+        await initial.promise;
+        expect(initial.state).toBe('rejected');
+        expect(initial.error).toBe(error);
+        await expect.poll(() => late.state, {timeout: 1000}).toBe('rejected');
+        expect(late.error).toBe(error);
+        await expect.poll(() => fresh.vnode.className.includes('queued-at-mount') && !fresh.isVdomUpdating).toBe(true);
+        expect(fresh.isVnodeInitializing).toBe(false);
+        expect(VDomUpdate.inFlightUpdateMap.has(fresh.id)).toBe(false);
+        expect(VDomUpdate.promiseCallbackMap.has(fresh.id)).toBe(false)
+    });
+
+    test('initial failure rejection preserves the newer flight and phase work it starts', async () => {
+        hold(1);
+        const fresh = Neo.create(Component, {appName, id: `mount-reentrant-${run}`}),
+              error = new Error('mount failed before settlement');
+        extra.push(fresh);
+        let late, newer, postCalls = 0;
+        VDomUpdate.addPromiseCallback(fresh.id, () => {
+            late = track(new Promise((resolve, reject) => fresh.updateVdom(resolve, reason => {
+                reject(reason);
+                if (reason === Neo.isDestroyed) return;
+                fresh.vdom.cls = ['newer-after-mount-failure'];
+                newer = track(fresh.promiseUpdate());
+                VDomUpdate.registerPostUpdate(fresh.id, peer.id, () => postCalls++);
+                throw new Error('reentrant reject also failed')
+            })));
+            throw error
+        });
+
+        const initial = track(fresh.initVnode(true));
+        await initial.promise;
+        expect(initial.error).toBe(error);
+        await expect.poll(() => late.state, {timeout: 1000}).toBe('rejected');
+        await gates[0].entered;
+        expect(newer.state).toBe('pending');
+        expect(fresh.isVdomUpdating).toBe(true);
+        expect(VDomUpdate.inFlightUpdateMap.has(fresh.id)).toBe(true);
+        expect(VDomUpdate.postUpdateQueueMap.has(fresh.id)).toBe(true);
+        expect(postCalls).toBe(0);
+        gates[0].release();
+        await newer.promise;
+        await expect.poll(() => postCalls).toBe(1);
+        expect(fresh.vnode.className).toContain('newer-after-mount-failure')
+    });
+
+    test('a failed initial mount leaves a reused-ID replacement initialization intact', async () => {
+        const id    = `mount-replaced-${run}`, fresh = Neo.create(Component, {appName, id}),
+              error = new Error('old mount resolver failed'), create = VdomHelper.create;
+        let replacement, newer, release, entered;
+        const held = new Promise(resolve => release = resolve), started = new Promise(resolve => entered = resolve);
+        extra.push(fresh);
+        VdomHelper.create = function(data) {
+            const result = create.call(this, data);
+            if (replacement && data.vdom.id === id) {
+                entered();
+                return held.then(() => result)
+            }
+            return result
+        };
+        try {
+            VDomUpdate.addPromiseCallback(id, () => {
+                fresh.destroy();
+                replacement = Neo.create(Component, {appName, id});
+                extra.push(replacement);
+                newer = track(replacement.initVnode(true));
+                throw error
+            });
+            const initial = track(fresh.initVnode(true));
+            await initial.promise;
+            await started;
+            expect(initial.error).toBe(error);
+            expect(newer.state).toBe('pending');
+            expect(Neo.getComponent(id)).toBe(replacement);
+            expect(replacement.isVnodeInitializing).toBe(true);
+            expect(replacement.isVdomUpdating).toBe(true);
+            expect(VDomUpdate.inFlightUpdateMap.has(id)).toBe(true);
+            release();
+            await newer.promise;
+            expect(newer.state).toBe('fulfilled');
+            expect(replacement.mounted).toBe(true)
+        } finally {
+            release();
+            VdomHelper.create = create
+        }
+    });
+
+    test('an older rejected initialization cannot retire the same instance retry', async () => {
+        const fresh = Neo.create(Component, {appName, id: `mount-overlap-${run}`}),
+              error = new Error('older initialization failed'), create = VdomHelper.create;
+        let rejectOld, releaseNew, enterOld, enterNew, calls = 0;
+        const oldReply   = new Promise((resolve, reject) => rejectOld = reject),
+              newReply   = new Promise(resolve => releaseNew = resolve),
+              oldEntered = new Promise(resolve => enterOld = resolve),
+              newEntered = new Promise(resolve => enterNew = resolve);
+        extra.push(fresh);
+        VdomHelper.create = function(data) {
+            const result = create.call(this, data);
+            if (data.vdom.id !== fresh.id) return result;
+            if (++calls === 1) { enterOld(); return oldReply }
+            enterNew();
+            return newReply.then(() => result)
+        };
+        try {
+            const older = track(fresh.initVnode(true));
+            await oldEntered;
+            fresh.vdom.cls = ['newer-initialization'];
+            const newer = track(fresh.initVnode(true));
+            await newEntered;
+            const late = track(fresh.promiseUpdate());
+            rejectOld(error);
+            await older.promise;
+            expect(older.error).toBe(error);
+            expect(fresh.isVnodeInitializing).toBe(true);
+            expect(fresh.isVdomUpdating).toBe(true);
+            expect(VDomUpdate.inFlightUpdateMap.has(fresh.id)).toBe(true);
+            expect(late.state).toBe('pending');
+            releaseNew();
+            await newer.promise;
+            await late.promise;
+            expect(newer.state).toBe('fulfilled');
+            expect(late.state).toBe('fulfilled');
+            expect(fresh.vnode.className).toContain('newer-initialization')
+        } finally {
+            rejectOld(error);
+            releaseNew();
+            VdomHelper.create = create
+        }
+    });
+
+    test('a retry started by rejection does not discard the failed attempt post waiters', async () => {
+        const fresh = Neo.create(Component, {appName, id: `mount-waiters-${run}`}),
+              error = new Error('mount with waiting work failed');
+        extra.push(fresh);
+        let newer, postCalls = 0;
+        VDomUpdate.addPromiseCallback(fresh.id, () => {
+            VDomUpdate.registerPostUpdate(fresh.id, peer.id, () => postCalls++);
+            fresh.updateVdom(undefined, reason => {
+                if (reason !== Neo.isDestroyed) newer = track(fresh.initVnode(true))
+            });
+            throw error
+        });
+        const initial = track(fresh.initVnode(true));
+        await initial.promise;
+        expect(initial.error).toBe(error);
+        await newer.promise;
+        expect(newer.state).toBe('fulfilled');
+        await expect.poll(() => postCalls, {timeout: 1000}).toBe(1)
+    });
+
     for (const phase of ['pre-update', 'post-update']) {
         test(`the old settlement leaves a newer flight's ${phase} work for its own reply`, async () => {
             hold(2);
