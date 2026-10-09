@@ -313,8 +313,10 @@ export const fiveBeatFilmScript = Object.freeze({
                     targetNodeId : 'bottom-tabs',
                     placementKind: 'tab-into'
                 }],
+                // Each preview is held long enough to read the choice it offers — a hold inside a
+                // gesture, bounded by the same 1.5 s the morph's born hold keeps.
                 options: {
-                    dwellDelay: 700,
+                    dwellDelay: 1500,
                     moveDelay : 24,
                     moveSteps : 18,
                     showCursor: true
@@ -338,6 +340,12 @@ export const fiveBeatFilmScript = Object.freeze({
             caption   : 'tear the room apart: Security becomes its own split below the matrix',
             descriptor: {operation: 'splitNode', itemId: 'security', targetNodeId: 'scale-tabs', orientation: 'vertical', edge: 'bottom', sizes: [0.72, 0.28]},
             expect    : [{path: 'nodes.split-scale-tabs-0.children', equals: ['scale-tabs', 'tabs-security-0']}]
+        }, {
+            // The torn room is an outcome the viewer reads before it is undone: one cue-free second,
+            // the cap the picture allows.
+            type   : 'pause',
+            ms     : 1000,
+            caption: 'the room torn apart — a second to read it before the restore'
         }, {
             // Cue effects are witnessed through their receipts (each carries the tabs membership
             // it produced), never through a following `topology-assert`: the document-tier replay

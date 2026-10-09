@@ -148,6 +148,24 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(close[0].caption).toContain('close')
     });
 
+    test('the showcase holds each preview to read the choice, and the split gets a reading second before the restore', () => {
+        const
+            showcase = steps().find(step => step.cue?.type === 'cross-zone-showcase'),
+            history  = fiveBeatFilmScript.scenes.find(scene => scene.id === 'film-perspectives-undo').steps,
+            splitAt  = history.findIndex(step => step.type === 'op' && step.descriptor?.operation === 'splitNode');
+
+        // a dwell over a target is a hold inside a gesture: long enough to read the choice, bounded like the born hold
+        expect(showcase.cue.dwells).toHaveLength(2);
+        expect(showcase.cue.options.dwellDelay).toBe(1500);
+        expect(showcase.cue.options.dwellDelay).toBeLessThanOrEqual(1500);
+
+        // the torn room is an outcome the viewer reads at rest before the restore undoes it: one cue-free second, at the cap
+        expect(splitAt).toBeGreaterThan(0);
+        expect(history[splitAt + 1]).toMatchObject({type: 'pause', ms: 1000});
+        expect(history[splitAt + 1].cue).toBeUndefined();
+        expect(history[splitAt + 2].cue?.type).toBe('perspective-restore')
+    });
+
     test('the document tier runs twice with identical logs and ends with Security in the matrix group', async () => {
         createRunner();
 
