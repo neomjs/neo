@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-10-09",
+            "id": "blog/a-workspace-that-can-leave-its-window",
+            "isLeaf": true,
+            "name": "A workspace that can leave its window: multi-window apps in Neo.mjs 13.2.",
+            "parentId": "2026",
+            "path": "learn/blog/a-workspace-that-can-leave-its-window.md"
+        },
+        {
             "date": "2026-07-04",
             "id": "blog/the-salute",
             "isLeaf": true,
