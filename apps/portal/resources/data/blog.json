@@ -17,6 +17,14 @@
             "path": "learn/blog/a-workspace-that-can-leave-its-window.md"
         },
         {
+            "date": "2026-10-09",
+            "id": "blog/one-repository-per-reader",
+            "isLeaf": true,
+            "name": "One repository per reader: why Neo.mjs split in 13.2, and the cockpit we build next.",
+            "parentId": "2026",
+            "path": "learn/blog/one-repository-per-reader.md"
+        },
+        {
             "date": "2026-07-04",
             "id": "blog/the-salute",
             "isLeaf": true,
