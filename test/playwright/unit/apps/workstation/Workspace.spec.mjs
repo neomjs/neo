@@ -869,139 +869,7 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
-    test('large-over-small park uses both live extents and restores the same exact popup', async () => {
-        const
-            workspace             = Neo.create(Workspace, {windowId: Neo.config.windowId}),
-            originalDragDrop      = Neo.main.addon.DragDrop,
-            originalFocus         = Neo.Main.windowNativeFocus,
-            originalGetWindowData = Neo.Main.getWindowData,
-            originalManagerGet    = Neo.manager.Window.get,
-            focusCalls            = [],
-            parkCalls             = [],
-            resumeCalls           = [];
-
-        const
-            sourceRoute = {
-                capabilities   : {close: true, focus: true, position: true, resize: true},
-                nativeHandleKey: 'handle-source',
-                ownerWindowId  : workspace.windowId,
-                targetWindowId : 'source-window'
-            },
-            targetRoute = {
-                capabilities   : {close: true, focus: true, position: true, resize: true},
-                nativeHandleKey: 'handle-target',
-                ownerWindowId  : workspace.windowId,
-                targetWindowId : 'target-window'
-            },
-            // Real-chrome shapes: each window's viewport sits below its frame by the published chrome.
-            // The park lands the shrunk source FRAME clear of the target; a re-show takes the
-            // source's own chrome off the content rect it is handed.
-            records = new Map([
-                ['source-window', {
-                    chrome     : {bottom: 0, left: 0, right: 0, top: 67},
-                    innerRect  : {height: 479, width: 640, x: 40, y: 127},
-                    nativeRoute: sourceRoute,
-                    outerRect  : {height: 546, width: 640, x: 40, y: 60}
-                }],
-                ['target-window', {
-                    chrome     : {bottom: 0, left: 0, right: 0, top: 67},
-                    innerRect  : {height: 260, width: 360, x: 800, y: 187},
-                    nativeRoute: targetRoute,
-                    outerRect  : {height: 327, width: 360, x: 800, y: 120}
-                }]
-            ]);
-
-        workspace.nativeWindows.sources.get(workspace.id).connections.set("audit", {
-            nativeRoute: sourceRoute,
-            windowId   : 'source-window',
-            windowName : 'tearout-audit'
-        });
-        workspace.vesselConversionTargetWindowId = 'target-window';
-        Neo.manager.Window.get = id => records.get(id) ?? null;
-        Neo.Main.getWindowData = async () => ({screen: {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1600}});
-        Neo.Main.windowNativeFocus = async data => {
-            focusCalls.push(data);
-            return true
-        };
-        Neo.main.addon.DragDrop = {
-            parkWindowDrag: async data => {
-                parkCalls.push(data);
-                return true
-            },
-            resumeWindowDrag: async data => {
-                resumeCalls.push(data);
-                return true
-            }
-        };
-
-        try {
-            await expect(workspace.parkTearOutVessel({
-                itemId: 'audit', windowName: 'tearout-audit'
-            })).resolves.toBe(true);
-            expect(focusCalls, 'the pointer park focuses nothing (#19278)').toEqual([]);
-            // the shrunk 360x260 frame takes the work-area corner farthest from the target's content
-            expect(parkCalls).toEqual([{
-                nativeHandleKey: 'handle-source',
-                parkSize       : {height: 260, width: 360},
-                restoreRect    : {height: 546, width: 640, x: 40, y: 60},
-                targetWindowId : 'source-window',
-                windowId       : workspace.windowId,
-                windowName     : 'tearout-audit',
-                x              : 0,
-                y              : 740
-            }]);
-            expect(workspace.tearOutParkGeometries.audit).toEqual({
-                park   : {height: 260, width: 360, x: 0, y: 740},
-                restore: {height: 546, width: 640, x: 40, y: 60}
-            });
-            expect(workspace.lastVesselParkReceipt).toMatchObject({
-                cleared    : true,
-                needsResize: true,
-                parked     : true,
-                parkSize   : {height: 260, width: 360}
-            });
-
-            await expect(workspace.reshowTearOutVessel({
-                itemId    : 'audit',
-                rect      : {height: 120, width: 200, x: 420, y: 240},
-                windowName: 'tearout-audit'
-            })).resolves.toBe(true);
-            // the content re-shows at (420, 240): the frame goes 67 px higher, under the title bar
-            expect(resumeCalls).toEqual([{
-                nativeHandleKey: 'handle-source',
-                targetWindowId : 'source-window',
-                windowId       : workspace.windowId,
-                windowName     : 'tearout-audit',
-                x              : 420,
-                y              : 173
-            }]);
-            expect(workspace.lastVesselRestoreReceipt).toMatchObject({
-                frame: {x: 420, y: 173},
-                rect : {height: 120, width: 200, x: 420, y: 240}
-            });
-            expect(workspace.tearOutParkGeometries.audit).toBeUndefined();
-
-            sourceRoute.capabilities.resize = false;
-
-            await expect(workspace.parkTearOutVessel({
-                itemId: 'audit', windowName: 'tearout-audit'
-            })).resolves.toBe(false);
-            expect(focusCalls).toHaveLength(0);
-            expect(parkCalls).toHaveLength(1);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({
-                authority: {sourceResizeCapable: false},
-                reason   : 'native route or live park geometry refused'
-            })
-        } finally {
-            Neo.main.addon.DragDrop    = originalDragDrop;
-            Neo.Main.getWindowData     = originalGetWindowData;
-            Neo.Main.windowNativeFocus = originalFocus;
-            Neo.manager.Window.get     = originalManagerGet;
-            workspace.destroy()
-        }
-    });
-
-    test('terminal and pointer restores preserve the content anchor or live frame origin', async () => {
+    test('the native restore preserves the content anchor; the pointer path never leaves the hand', async () => {
         const
             workspace             = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalDragDrop      = Neo.main.addon.DragDrop,
@@ -1096,46 +964,33 @@ test.describe('Workstation.view.Workspace', () => {
                 y              : sourceOuter.y
             });
 
-            // The pointer path records the same plane, whatever the sensor sampled.
-            await expect(workspace.getDockProjectionOptions().onDockVesselConversionIn({
-                itemId  : 'audit',
-                record  : {sourceRect: {...sourceOuter}},
-                targetId: Workspace.MAIN_WORKSPACE_ID
-            })).resolves.toBe(true);
-            expect(workspace.vesselParkHandlers.parkedVessel.preConversionRect, 'the pointer park records the content rect')
-                .toEqual(sourceInner);
-
+            // The pointer path holds the vessel in the hand: the conversion still records the content
+            // rect, and neither direction reaches the platform — it never left the hand.
             const resumeCalls = [];
 
             Neo.main.addon.DragDrop.resumeWindowDrag = async data => {
                 resumeCalls.push(data);
                 return true
             };
-            // The live window now describes its parking corner, not the origin saved by the park.
-            records.get('source-window').innerRect = {...sourceInner, x: 0, y: 760};
-            await expect(workspace.getDockProjectionOptions().onDockVesselConversionOut({
-                itemId: 'audit', record: {sourceRect: {...sourceOuter}}
-            })).resolves.toBe(true);
-            expect(resumeCalls[0], 'without a live pointer origin the saved content anchor restores the original frame')
-                .toMatchObject({x: sourceOuter.x, y: sourceOuter.y});
-            expect(workspace.lastVesselRestoreReceipt).toMatchObject({rect: sourceInner, terminal: false});
+            moveCalls.length = 0;
 
-            records.get('source-window').innerRect = {...sourceInner};
-            await expect(workspace.getDockProjectionOptions().onDockVesselConversionIn({
-                itemId: 'audit', targetId: Workspace.MAIN_WORKSPACE_ID
-            })).resolves.toBe(true);
+            expect(await workspace.getDockProjectionOptions().onDockVesselConversionIn({
+                itemId  : 'audit',
+                record  : {sourceRect: {...sourceOuter}},
+                targetId: Workspace.MAIN_WORKSPACE_ID
+            })).toBe(true);
+            expect(workspace.vesselParkHandlers.parkedVessel.preConversionRect, 'the pointer park records the content rect')
+                .toEqual(sourceInner);
+            expect(workspace.lastVesselParkReceipt).toMatchObject({held: true, physical: false});
 
             const logicalRect = {height: 240, width: 320, x: 1000, y: 340};
 
             await expect(workspace.getDockProjectionOptions().onDockVesselConversionOut({
                 itemId: 'audit', logicalRect, record: {sourceRect: {...sourceOuter}}
             })).resolves.toBe(true);
-            expect(resumeCalls[1], 'the live frame origin survives the content-to-frame transaction')
-                .toMatchObject({x: logicalRect.x, y: logicalRect.y});
-            expect(workspace.lastVesselRestoreReceipt).toMatchObject({
-                rect    : {...logicalRect, y: logicalRect.y + 67},
-                terminal: false
-            });
+            expect(resumeCalls, 'nothing to resume').toEqual([]);
+            expect(moveCalls, 'nothing moved').toEqual([]);
+            expect(workspace.lastVesselRestoreReceipt).toMatchObject({admitted: true, held: true, terminal: false});
             expect(logicalRect.y, 'the coordinator-owned input is not mutated').toBe(340)
         } finally {
             Neo.main.addon.DragDrop     = originalDragDrop;
@@ -1194,7 +1049,7 @@ test.describe('Workstation.view.Workspace', () => {
 
             calls.length = 0;
 
-            const admitted = await workspace.reshowTearOutVessel({
+            const admitted = await workspace.vesselTransaction.reshowVessel({
                 itemId    : 'audit',
                 rect      : {height: 120, width: 200, x: 420, y: 240},
                 windowName: 'tearout-audit'
@@ -1227,132 +1082,6 @@ test.describe('Workstation.view.Workspace', () => {
             Neo.main.addon.DragDrop       = originalDragDrop;
             Neo.Main.windowNativeMoveTo   = originalMove;
             Neo.Main.windowNativeResizeTo = originalResize
-        }
-    });
-
-    test('terminal restore compensates safely until exact extent and position both succeed', async () => {
-        let
-            moveAdmitted       = false,
-            parkResizeAdmitted = true;
-
-        const
-            workspace        = Neo.create(Workspace, {windowId: Neo.config.windowId}),
-            originalDragDrop = Neo.main.addon.DragDrop,
-            originalMove     = Neo.Main.windowNativeMoveTo,
-            originalResize   = Neo.Main.windowNativeResizeTo,
-            originalGet      = Neo.manager.Window.get,
-            calls            = [],
-            sourceRoute      = {
-                capabilities   : {close: true, focus: true, position: true, resize: true},
-                nativeHandleKey: 'handle-source',
-                ownerWindowId  : workspace.windowId,
-                targetWindowId : 'source-window'
-            },
-            geometry           = {
-                park   : {height: 260, width: 360, x: 800, y: 120},
-                restore: {height: 546, width: 640, x: 40, y: 60}
-            };
-
-        workspace.nativeWindows.sources.get(workspace.id).connections.set("audit", {
-            nativeRoute: sourceRoute,
-            windowId   : 'source-window',
-            windowName : 'tearout-audit'
-        });
-        workspace.tearOutParkGeometries.audit = geometry;
-        Neo.manager.Window.get = id => id === 'source-window'
-            ? {chrome: {left: 8, top: 67}}
-            : originalGet.call(Neo.manager.Window, id);
-        Neo.main.addon.DragDrop = {
-            acknowledgeWindowDragOrphanRecovery: async () => true,
-            hasWindowDragOrphanRecovery        : async () => false,
-            resumeWindowDrag                   : async () => false
-        };
-        Neo.Main.windowNativeResizeTo = async data => {
-            calls.push(['resize', data]);
-            return data.width === geometry.park.width ? parkResizeAdmitted : true
-        };
-        Neo.Main.windowNativeMoveTo = async data => {
-            calls.push(['move', data]);
-            return moveAdmitted
-        };
-
-        const requested = {
-            itemId    : 'audit',
-            rect      : {height: 120, width: 200, x: 420, y: 240},
-            terminal  : true,
-            windowName: 'tearout-audit'
-        };
-
-        try {
-            await expect(workspace.reshowTearOutVessel(requested)).resolves.toBe(false);
-            expect(calls).toEqual([
-                ['resize', {
-                    height         : 546,
-                    nativeHandleKey: 'handle-source',
-                    targetWindowId : 'source-window',
-                    width          : 640,
-                    windowId       : workspace.windowId,
-                    x              : 40,
-                    y              : 60
-                }],
-                ['move', {
-                    nativeHandleKey: 'handle-source',
-                    targetWindowId : 'source-window',
-                    windowId       : workspace.windowId,
-                    x              : 412,
-                    y              : 173
-                }],
-                ['resize', {
-                    height         : 260,
-                    nativeHandleKey: 'handle-source',
-                    targetWindowId : 'source-window',
-                    width          : 360,
-                    windowId       : workspace.windowId,
-                    x              : 800,
-                    y              : 120
-                }],
-                ['move', {
-                    nativeHandleKey: 'handle-source',
-                    targetWindowId : 'source-window',
-                    windowId       : workspace.windowId,
-                    x              : 800,
-                    y              : 120
-                }]
-            ]);
-            expect(workspace.tearOutParkGeometries.audit).toBe(geometry);
-
-            calls.length        = 0;
-            parkResizeAdmitted = false;
-
-            await expect(workspace.reshowTearOutVessel(requested)).resolves.toBe(false);
-            expect(calls.map(([type]) => type)).toEqual(['resize', 'move', 'resize']);
-            expect(calls.some(([type, data]) => (
-                type === 'move' && data.x === geometry.park.x && data.y === geometry.park.y
-            ))).toBe(false);
-            expect(workspace.lastVesselRestoreReceipt).toMatchObject({
-                compensationResized: false,
-                moved              : false
-            });
-
-            calls.length         = 0;
-            moveAdmitted         = true;
-            parkResizeAdmitted   = true;
-
-            await expect(workspace.reshowTearOutVessel(requested)).resolves.toBe(true);
-            expect(calls.map(([type]) => type)).toEqual(['resize', 'move']);
-            expect(workspace.tearOutParkGeometries.audit).toBeUndefined();
-            expect(workspace.lastVesselRestoreReceipt).toMatchObject({
-                admitted: true,
-                moved   : true,
-                resized : true,
-                terminal: true
-            })
-        } finally {
-            Neo.main.addon.DragDrop       = originalDragDrop;
-            Neo.Main.windowNativeMoveTo   = originalMove;
-            Neo.Main.windowNativeResizeTo = originalResize;
-            Neo.manager.Window.get        = originalGet;
-            workspace.destroy()
         }
     });
 
@@ -1392,15 +1121,14 @@ test.describe('Workstation.view.Workspace', () => {
                     : originalGet.call(Neo.manager.Window, id);
                 calls.length = 0;
 
-                await expect(workspace.reshowTearOutVessel({
+                await expect(workspace.vesselTransaction.reshowVessel({
                     itemId: 'audit', rect: {x: 420, y: 240}, terminal: true, windowName: 'tearout-audit'
                 })).resolves.toBe(true);
 
                 expect(calls.map(([type, {x, y}]) => ({type, x, y}))).toEqual([
                     {type: 'resume', ...expectedFrame},
                     {type: 'move', ...expectedFrame}
-                ]);
-                expect(workspace.tearOutParkGeometries.audit).toBeUndefined()
+                ])
             }
         } finally {
             Neo.main.addon.DragDrop     = originalDragDrop;
@@ -1481,44 +1209,6 @@ test.describe('Workstation.view.Workspace', () => {
         ])
     }
 
-    test('a pointer park refused at the work area or the move admits nothing and keeps no park geometry', async () => {
-        const
-            workspace             = Neo.create(Workspace, {windowId: Neo.config.windowId}),
-            originalDragDrop      = Neo.main.addon.DragDrop,
-            originalFocus         = Neo.Main.windowNativeFocus,
-            originalGetWindowData = Neo.Main.getWindowData,
-            originalManagerGet    = Neo.manager.Window.get,
-            records               = registerParkWindows(workspace, {height: 260, width: 360, x: 800, y: 187}),
-            focusCalls            = [],
-            parkCalls             = [];
-
-        let screen = null;
-
-        Neo.manager.Window.get     = id => records.get(id) ?? null;
-        Neo.Main.getWindowData     = async () => ({screen});
-        Neo.Main.windowNativeFocus = async data => focusCalls.push(data);
-        Neo.main.addon.DragDrop    = {parkWindowDrag: async data => parkCalls.push(data) && false};
-
-        try {
-            await expect(workspace.parkTearOutVessel({itemId: 'audit', windowName: 'tearout-audit'})).resolves.toBe(false);
-            expect(workspace.lastVesselParkReceipt.refusedAt).toBe('screen');
-            expect(parkCalls, 'no work area, no move').toEqual([]);
-
-            screen = {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1600};
-
-            await expect(workspace.parkTearOutVessel({itemId: 'audit', windowName: 'tearout-audit'})).resolves.toBe(false);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({cleared: true, moved: false, refusedAt: 'move'});
-            expect(workspace.tearOutParkGeometries.audit).toBeUndefined();
-            expect(focusCalls).toEqual([])
-        } finally {
-            Neo.main.addon.DragDrop    = originalDragDrop;
-            Neo.Main.getWindowData     = originalGetWindowData;
-            Neo.Main.windowNativeFocus = originalFocus;
-            Neo.manager.Window.get     = originalManagerGet;
-            workspace.destroy()
-        }
-    });
-
     test('a native-titlebar refocus refusal never admits conversion, regardless of source-restore outcome', async () => {
         const
             workspace          = Neo.create(Workspace, {windowId: Neo.config.windowId}),
@@ -1555,8 +1245,7 @@ test.describe('Workstation.view.Workspace', () => {
                     refocused  : false
                 });
                 expect(moveCalls.at(-2), 'parked on the target frame').toMatchObject({x: 800, y: 120});
-                expect(moveCalls.at(-1), 'compensated to the source frame').toMatchObject({x: 40, y: 60});
-                expect(workspace.tearOutParkGeometries.audit).toBeUndefined()
+                expect(moveCalls.at(-1), 'compensated to the source frame').toMatchObject({x: 40, y: 60})
             }
         } finally {
             Neo.Main.windowNativeFocus  = originalFocus;
@@ -3006,10 +2695,6 @@ test.describe('Workstation.view.Workspace', () => {
                 windowId       : 'tear-child',
                 windowName     : 'tearout-alerts'
             });
-            workspace.tearOutParkGeometries.alerts = {
-                park   : {height: 260, width: 360, x: 800, y: 120},
-                restore: {height: 546, width: 640, x: 40, y: 60}
-            };
             originalTearOut.onVesselRetired = data => calls.push(['tear-out', data]);
             workspace.vesselParkHandlers = {
                 onVesselRetired: data => calls.push(['park', data])
@@ -3024,7 +2709,6 @@ test.describe('Workstation.view.Workspace', () => {
             await releaseVessel(workspace, 'tear-child');
 
             expect(workspace.nativeWindows.getConnection(workspace.id, 'alerts')).toBeNull();
-            expect(workspace.tearOutParkGeometries.alerts).toBeUndefined();
             expect(calls).toEqual([
                 ['proxy', 'tear-child'],
                 ['tear-out', {

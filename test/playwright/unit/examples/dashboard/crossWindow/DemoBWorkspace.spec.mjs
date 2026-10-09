@@ -983,29 +983,19 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
             expect(workspace.resolveVesselConversionSourceRect({itemId: 'timeline'})).toEqual({
                 height: 320, width: 480, x: 40, y: 60
             });
-            await expect(workspace.parkTearOutVessel({
-                itemId: 'timeline', windowName: 'tearout-timeline'
-            })).resolves.toBe(true);
-            expect(vessel.events, 'the park focuses nothing (#19278)').toEqual(['park']);
-            // the 480x360 frame takes the work-area corner clear of, and farthest from, the target
-            expect(vessel.parkCalls).toEqual([{
-                nativeHandleKey: 'handle-tear-child',
-                targetWindowId : 'tear-child',
-                windowId       : workspace.windowId,
-                windowName     : 'tearout-timeline',
-                x              : 0,
-                y              : 640
-            }]);
+            // The park keeps the vessel in the hand: no window may appear for it, and nothing moves.
+            expect(workspace.parkTearOutVessel({itemId: 'timeline', windowName: 'tearout-timeline'})).toBe(true);
+            expect(vessel.events, 'nothing dispatches').toEqual([]);
+            expect(vessel.parkCalls).toEqual([]);
 
             const liveRect = {height: 320, width: 480, x: 420, y: 240};
 
             await expect(workspace.reshowTearOutVessel({
                 itemId: 'timeline', rect: liveRect, terminal: false, windowName: 'tearout-timeline'
             })).resolves.toBe(true);
-            expect(vessel.resumeCalls.at(-1)).toMatchObject({
-                nativeHandleKey: 'handle-tear-child', targetWindowId: 'tear-child', x: 420, y: 240
-            });
+            expect(vessel.resumeCalls, 'it never left the hand').toEqual([]);
 
+            // A vessel no longer held is restored through its exact physical route.
             await expect(workspace.reshowTearOutVessel({
                 itemId: 'timeline', rect: liveRect, terminal: true, windowName: 'tearout-timeline'
             })).resolves.toBe(true);
@@ -1016,9 +1006,6 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
             const route = Neo.manager.Window.get('tear-child').nativeRoute;
 
             route.ownerWindowId = 'wrong-owner';
-            await expect(workspace.parkTearOutVessel({
-                itemId: 'timeline', windowName: 'tearout-timeline'
-            })).resolves.toBe(false);
             await expect(retireVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
             })).resolves.toBe(false);
@@ -1129,8 +1116,10 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
         }
     });
 
-    test('a target that refuses focus no longer holds the park: the vessel parks clear of it (#19278)', async () => {
-        const vessel  = installWindowVessel({nativeFocusResult: false}),
+    // A drag shows no window the user did not drag: the park keeps the vessel in the hand, so no
+    // platform refusal (focus, move) can change it, and only the vessel the registry names is held.
+    test('the park holds the vessel in the hand whatever the platform would refuse', async () => {
+        const vessel  = installWindowVessel({nativeFocusResult: false, parkResult: false}),
               harness = installWindowConnectHarness(workspace);
 
         try {
@@ -1141,35 +1130,12 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
             harness.register('target-child');
             workspace.crossWindowTargetWindowId = 'target-child';
 
-            await expect(workspace.parkTearOutVessel({
-                itemId: 'timeline', windowName: 'tearout-timeline'
-            })).resolves.toBe(true);
-            expect(vessel.events).toEqual(['park']);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({cleared: true, parked: true})
-        } finally {
-            harness.restore();
-            vessel.restore()
-        }
-    });
+            expect(workspace.parkTearOutVessel({itemId: 'timeline', windowName: 'tearout-timeline'})).toBe(true);
+            expect(vessel.events, 'nothing dispatches').toEqual([]);
+            expect(workspace.lastVesselParkReceipt).toMatchObject({held: true, parked: true, physical: false});
 
-    test('a refused park move admits nothing', async () => {
-        const vessel  = installWindowVessel({parkResult: false}),
-              harness = installWindowConnectHarness(workspace);
-
-        try {
-            await workspace.nativeWindows.acquire(workspace.vesselSourceId, {
-                itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
-            });
-            await harness.connect('tear-child', vessel.openCalls.at(-1).topologyIdentity);
-            harness.register('target-child');
-            workspace.crossWindowTargetWindowId = 'target-child';
-
-            await expect(workspace.parkTearOutVessel({
-                itemId: 'timeline', windowName: 'tearout-timeline'
-            })).resolves.toBe(false);
-            expect(vessel.events).toEqual(['park']);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({moved: false, refusedAt: 'move'});
-            expect(workspace.lastVesselParkReceipt).not.toHaveProperty('parked')
+            expect(workspace.parkTearOutVessel({itemId: 'timeline', windowName: 'a-different-vessel'}), 'not this vessel').toBe(false);
+            expect(workspace.lastVesselParkReceipt).toMatchObject({held: false, parked: false})
         } finally {
             harness.restore();
             vessel.restore()

@@ -1,5 +1,4 @@
 import Base          from '../../../core/Base.mjs';
-import Rectangle     from '../../../util/Rectangle.mjs';
 import WindowManager from '../../../manager/Window.mjs';
 
 /**
@@ -258,54 +257,6 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
-     * @summary Where a parked vessel goes so it covers the target as little as the display allows: the
-     * corner of the target display's work area whose frame overlaps the target's content least, the
-     * farthest one among equals, with the whole frame kept inside the work area.
-     *
-     * A real OS mouse drag does not honour a `focus()` raise, so a vessel parked behind the target
-     * would stay on top of every affordance the conversion produced. Clear of the target, it needs no
-     * z-order at all.
-     * @param {Object} data
-     * @param {{height:Number,width:Number}} data.frame The parked frame's outer extent
-     * @param {Object} data.screen The target display's `availLeft`, `availTop`, `availWidth` and `availHeight`
-     * @param {{height:Number,width:Number,x:Number,y:Number}} data.target The target's content rect
-     * @returns {{cleared:Boolean,x:Number,y:Number}|null} The frame origin, and whether the frame misses the
-     * target's content; `null` when an input is not measurable, the target has no extent, or the frame is
-     * larger than the work area and cannot be placed whole
-     */
-    static resolveClearPark({frame, screen, target} = {}) {
-        const {availHeight, availLeft, availTop, availWidth} = screen ?? {};
-
-        if (
-            ![availHeight, availLeft, availTop, availWidth, frame?.height, frame?.width, target?.height, target?.width, target?.x, target?.y].every(Number.isFinite) ||
-            availHeight <= 0 || availWidth <= 0 || frame.height <= 0 || frame.width <= 0 || target.height <= 0 || target.width <= 0 ||
-            frame.height > availHeight || frame.width > availWidth
-        ) {
-            return null
-        }
-
-        const
-            content = new Rectangle(target.x, target.y, target.width, target.height),
-            right   = availLeft + availWidth  - frame.width,
-            bottom  = availTop  + availHeight - frame.height;
-
-        let best = null;
-
-        for (const [x, y] of [[availLeft, availTop], [right, availTop], [availLeft, bottom], [right, bottom]]) {
-            const
-                overlap  = Rectangle.getIntersection(new Rectangle(x, y, frame.width, frame.height), content),
-                area     = overlap ? overlap.width * overlap.height : 0,
-                distance = Math.hypot(x + frame.width / 2 - content.x - content.width / 2, y + frame.height / 2 - content.y - content.height / 2);
-
-            if (!best || area < best.area || (area === best.area && distance > best.distance)) {
-                best = {area, distance, x, y}
-            }
-        }
-
-        return {cleared: best.area === 0, x: best.x, y: best.y}
-    }
-
-    /**
      * @summary Resolves the live vessel one registration may address for an item, connect- or commit-side.
      *
      * A connection outranks a recorded owner, because it is the generation attached right now. An entry
@@ -493,27 +444,20 @@ class NativeVesselTransaction extends Base {
      * `'drag'` asks the addon that may still own the gesture before addressing the route, `'route'`
      * addresses the route directly. A restore ending a drag wants `'drag'`; one ending a conversion
      * has no drag to hand back to and wants `'route'`.
-     * @param {String} [descriptor.rectPlane='inner'] Which published rect the size metric and the
-     * shrink extent speak — `'inner'` or `'outer'`. A child window may legitimately omit `outerRect`,
-     * so a consumer whose admission does not depend on the frame stays on the inner plane rather
-     * than refusing an otherwise-authorized live vessel. The park's clearance reads the outer frame
-     * on either plane: a vessel that owes no resize and publishes no `outerRect` is refused at
-     * `'screen'`.
      * @returns {{disposeVessel:Function,parkVessel:Function,reshowVessel:Function}}
      */
     static effectsFor(descriptor) {
         const
+            heldInHand      = new Set(),
             restoreGeometry = descriptor.restoreGeometry ?? (() => null),
-            // Which published rect the size metric and the shrink extent speak. A child window may
-            // legitimately omit `outerRect`, so a consumer whose admission does not depend on the
-            // frame stays on `innerRect` rather than rejecting an otherwise-authorized vessel.
-            plane           = descriptor.rectPlane === 'outer' ? 'outerRect' : 'innerRect',
             snapshot        = rect => rect && {
                 height: rect.height, width: rect.width, x: rect.x, y: rect.y
             };
 
         return {
             disposeVessel: async ({itemId, windowName}) => {
+                heldInHand.delete(itemId);
+
                 const
                     entry = descriptor.resolveVessel(itemId),
                     route = entry?.nativeRoute ?? null,
@@ -603,106 +547,29 @@ class NativeVesselTransaction extends Base {
                 return disposed
             },
 
-            parkVessel: async ({itemId, windowName}) => {
-                const
-                    entry          = descriptor.resolveVessel(itemId),
-                    targetWindowId = descriptor.targetWindowId() ?? null,
-                    geometry       = restoreGeometry(itemId),
-                    sourceWindow   = WindowManager.get(entry?.windowId),
-                    targetWindow   = WindowManager.get(targetWindowId),
-                    route          = entry?.nativeRoute ?? null,
-                    sourceRect     = sourceWindow?.[plane] ?? null,
-                    targetRect     = targetWindow?.[plane] ?? null,
-                    admissions     = NativeVesselTransaction.resolveAdmissions(descriptor, entry, targetWindowId),
-                    authority      = NativeVesselTransaction.describeAuthority(admissions, entry?.windowName === windowName),
-                    // The obligation, not the capability: `resize` is required exactly when this
-                    // transaction has promised to restore an extent later.
-                    owesResize     = Boolean(geometry),
-                    receipt        = {authority, geometry, owesResize, sourceRect: snapshot(sourceRect), targetRect: snapshot(targetRect)};
+            // The pointer path keeps the vessel in the hand: it is the window the user drags, so no
+            // other window appears for it, and a re-exit onto the desktop still carries it. Nothing
+            // moves, resizes or pauses pointer-follow; admission is the vessel's identity alone.
+            parkVessel: ({itemId, windowName}) => {
+                const held = descriptor.resolveVessel(itemId)?.windowName === windowName;
 
-                // The receipt is a stage machine this method amends as the choreography advances,
-                // so it is published FIRST and mutated in place. A caller reading it after a
-                // refusal must be able to see how far the transaction got, which a receipt
-                // assembled only on success cannot express.
-                descriptor.publishReceipt('park', receipt);
+                held && heldInHand.add(itemId);
+                descriptor.publishReceipt('park', {held, itemId, parked: held, physical: false, windowName});
                 descriptor.publishReceipt('restore', null);
 
-                // The size precondition falls out of the same obligation, rather than being a second
-                // policy: a parked vessel is no larger than the target, so a source that does not fit
-                // must be shrunk first — and only a transaction that owes a geometry restore may
-                // shrink it, because only that transaction has promised to give the extent back. One
-                // consumer resizes and one refuses; both are this rule, read through their own
-                // declared obligation.
-                receipt.fits = Boolean(sourceRect && targetRect &&
-                    sourceRect.width <= targetRect.width && sourceRect.height <= targetRect.height);
-
-                if (
-                    !admissions.sourcePos.granted || (owesResize && !admissions.sourceResize.granted) ||
-                    !authority.entryNameMatches || !sourceRect || !targetRect || (!receipt.fits && !owesResize)
-                ) {
-                    receipt.reason = 'native route or live park geometry refused';
-                    return false
-                }
-
-                try {
-                    // The vessel parks clear of the target, so no step focuses anything. The clearance
-                    // reads an OUTER frame: the shrunk extent is one, since `windowNativeResizeTo`
-                    // sets outer dimensions; otherwise only the published `outerRect` is, and without
-                    // it the park is refused rather than cleared against a smaller inner rect.
-                    const
-                        extent = owesResize ? {
-                            height: Math.min(sourceRect.height, targetRect.height),
-                            width : Math.min(sourceRect.width, targetRect.width)
-                        } : null,
-                        frame  = extent ?? sourceWindow.outerRect,
-                        {screen} = await Neo.Main.getWindowData({windowId: targetWindowId}),
-                        park   = NativeVesselTransaction.resolveClearPark({frame, screen, target: targetWindow.innerRect ?? targetRect});
-
-                    if (!park) {
-                        receipt.refusedAt = 'screen';
-                        return false
-                    }
-
-                    receipt.cleared = park.cleared;
-
-                    if (extent) {
-                        receipt.resized = await Neo.Main.windowNativeResizeTo({
-                            ...extent,
-                            nativeHandleKey: route.nativeHandleKey,
-                            targetWindowId : route.targetWindowId,
-                            windowId       : descriptor.ownerWindowId()
-                        }) === true;
-
-                        if (!receipt.resized) {
-                            receipt.refusedAt = 'resize';
-                            return false
-                        }
-                    }
-
-                    receipt.requested = {x: park.x, y: park.y};
-                    receipt.moved     = await Neo.main.addon.DragDrop.parkWindowDrag({
-                        nativeHandleKey: route.nativeHandleKey,
-                        targetWindowId : route.targetWindowId,
-                        windowId       : descriptor.ownerWindowId(),
-                        windowName,
-                        x              : park.x,
-                        y              : park.y
-                    }) === true;
-
-                    if (!receipt.moved) {
-                        receipt.refusedAt = 'move';
-                        return false
-                    }
-
-                    receipt.parked = true;
-                    return true
-                } catch (error) {
-                    receipt.refusedAt = 'throw';
-                    return false
-                }
+                return held
             },
 
             reshowVessel: async ({itemId, rect, terminal=false, windowName}) => {
+                // A vessel held in the hand never moved: re-showing it means only that it is still
+                // the same window.
+                if (heldInHand.delete(itemId)) {
+                    const admitted = descriptor.resolveVessel(itemId)?.windowName === windowName;
+
+                    descriptor.publishReceipt('restore', {admitted, held: true, itemId, terminal});
+                    return admitted
+                }
+
                 const
                     entry      = descriptor.resolveVessel(itemId),
                     route      = entry?.nativeRoute ?? null,

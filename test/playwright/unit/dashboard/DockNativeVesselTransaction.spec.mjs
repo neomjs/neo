@@ -32,21 +32,17 @@ import WindowManager           from '../../../../src/manager/Window.mjs';
 
 const
     ROUTE        = {nativeHandleKey: 'handle-1', targetWindowId: 'win-source'},
-    SCREEN       = {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1600},
     TARGET_ROUTE = {nativeHandleKey: 'handle-target', targetWindowId: 'win-target'};
 
 /**
  * @summary Registers the two windows the choreography measures, and doubles every platform call.
  *
- * The park effect DISPATCHES — optional resize, then the park-move — so a descriptor alone cannot
- * exercise it. `calls` records the order, and whether a call happened at all: a park that still
- * focused would be asking for the z-order a real drag never grants.
+ * The re-show and the dispose DISPATCH, so a descriptor alone cannot exercise them. `calls` records
+ * the order, and whether a call happened at all: the park must make none.
  * @param {Object} [outcomes={}] Per-call boolean results; anything omitted succeeds.
- * @param {Object} [options={}]
- * @param {Object|null} [options.screen=SCREEN] The target display's work area `getWindowData` answers.
  * @returns {{calls:String[],restore:Function}}
  */
-const installPlatform = (outcomes={}, {screen=SCREEN}={}) => {
+const installPlatform = (outcomes={}) => {
     Neo.Main       ??= {};
     Neo.main       ??= {};
     Neo.main.addon ??= {};
@@ -54,11 +50,10 @@ const installPlatform = (outcomes={}, {screen=SCREEN}={}) => {
     const
         calls    = [],
         previous = {
-            focus        : Neo.Main.windowNativeFocus,
-            getWindowData: Neo.Main.getWindowData,
-            moveTo       : Neo.Main.windowNativeMoveTo,
-            resizeTo     : Neo.Main.windowNativeResizeTo,
-            addon        : Neo.main?.addon?.DragDrop
+            focus   : Neo.Main.windowNativeFocus,
+            moveTo  : Neo.Main.windowNativeMoveTo,
+            resizeTo: Neo.Main.windowNativeResizeTo,
+            addon   : Neo.main?.addon?.DragDrop
         },
         answer   = (name, payload) => {
             calls.push(name);
@@ -69,7 +64,6 @@ const installPlatform = (outcomes={}, {screen=SCREEN}={}) => {
     WindowManager.register({id: 'win-source', innerRect: new Rectangle(40, 60, 480, 320), outerRect: new Rectangle(40, 60, 480, 320), nativeRoute: ROUTE});
     WindowManager.register({id: 'win-target', innerRect: new Rectangle(0, 0, 800, 600),   outerRect: new Rectangle(0, 0, 800, 600),   nativeRoute: TARGET_ROUTE});
 
-    Neo.Main.getWindowData        = () => Promise.resolve({screen});
     Neo.Main.windowNativeFocus    = () => answer('focus');
     Neo.Main.windowNativeMoveTo   = data => answer('moveTo', data);
     Neo.Main.windowNativeResizeTo = () => answer('resize');
@@ -82,7 +76,6 @@ const installPlatform = (outcomes={}, {screen=SCREEN}={}) => {
     return {
         calls,
         restore() {
-            Neo.Main.getWindowData        = previous.getWindowData;
             Neo.Main.windowNativeFocus    = previous.focus;
             Neo.Main.windowNativeMoveTo   = previous.moveTo;
             Neo.Main.windowNativeResizeTo = previous.resizeTo;
@@ -136,23 +129,80 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         restore  = null
     });
 
-    test('the authority block is the fixed ten keys, in order, whatever the obligation', () => {
+    // A drag shows no window the user did not drag, and loses none it had: the pointer park keeps
+    // the vessel in the hand, so nothing moves and a re-exit onto the desktop still carries it.
+    test('the park holds the vessel in the hand: admitted on identity, with no platform call', async () => {
+        const receipts = {};
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+
+        const held = await NativeVesselTransaction
+            .effectsFor(descriptorFor({receipts}))
+            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+        expect(held).toBe(true);
+        expect(platform.calls, 'no move, no resize, no focus, no pause of pointer-follow').toEqual([]);
+        expect(receipts.park).toEqual({held: true, itemId: 'item-1', parked: true, physical: false, windowName: 'vessel-1'})
+    });
+
+    test('a vessel whose name no longer matches is not held', async () => {
+        const receipts = {};
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+
+        const held = await NativeVesselTransaction
+            .effectsFor(descriptorFor({receipts}))
+            .parkVessel({itemId: 'item-1', windowName: 'a-different-vessel'});
+
+        expect(held).toBe(false);
+        expect(receipts.park).toMatchObject({held: false, parked: false});
+        expect(platform.calls).toEqual([])
+    });
+
+    test('re-showing a held vessel admits the same window without dispatching anything', async () => {
+        const receipts = {},
+              effects  = NativeVesselTransaction.effectsFor(descriptorFor({receipts}));
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+
+        await effects.parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+        expect(await effects.reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'})).toBe(true);
+        expect(platform.calls, 'it never left the hand').toEqual([]);
+        expect(receipts.restore).toEqual({admitted: true, held: true, itemId: 'item-1', terminal: false})
+    });
+
+    test('the hold ends with its gesture: after a dispose, a re-show takes the physical path again', async () => {
+        const receipts = {},
+              effects  = NativeVesselTransaction.effectsFor(descriptorFor({receipts}));
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+
+        await effects.parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+        await effects.disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
+        await effects.reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'});
+
+        expect(platform.calls, 'a later physically parked vessel is restored, not waved through').toContain('resume')
+    });
+
+    test('the authority block is the fixed ten keys, in order, whatever the obligation', async () => {
         const receipts = {};
 
         restore  = stubRoutes({focus: true, position: true, resize: false});
         platform = installPlatform();
 
-        return NativeVesselTransaction.effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'})
-            .then(() => {
-                expect(Object.keys(receipts.park.authority), 'ten keys, fixed order').toEqual(
-                    NativeVesselTransaction.authorityKeys
-                );
-                expect(receipts.park.authority.sourceResizeCapable, 'reported even when not required').toBe(false)
-            })
+        await NativeVesselTransaction.effectsFor(descriptorFor({receipts}))
+            .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'});
+
+        expect(Object.keys(receipts.restore.authority), 'ten keys, fixed order').toEqual(NativeVesselTransaction.authorityKeys);
+        expect(receipts.restore.authority.sourceResizeCapable, 'reported even when not required').toBe(false)
     });
 
-    test('a position-only park ADMITS a route with no resize capability', async () => {
+    test('a position-only re-show ADMITS a route with no resize capability', async () => {
         const receipts = {};
 
         restore  = stubRoutes({focus: true, position: true, resize: false});
@@ -160,13 +210,13 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
 
         const admitted = await NativeVesselTransaction
             .effectsFor(descriptorFor({geometry: null, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+            .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'});
 
         expect(admitted, 'no declared geometry restore ⇒ resize is not a prerequisite').toBe(true);
-        expect(receipts.park.owesResize, 'the obligation is recorded, not inferred').toBe(false)
+        expect(receipts.restore.owesResize, 'the obligation is recorded, not inferred').toBe(false)
     });
 
-    test('a geometry-restoring park REFUSES the same route', async () => {
+    test('a geometry-restoring re-show REFUSES the same route', async () => {
         const receipts = {};
 
         restore  = stubRoutes({focus: true, position: true, resize: false});
@@ -174,10 +224,10 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
 
         const admitted = await NativeVesselTransaction
             .effectsFor(descriptorFor({geometry: {height: 200, width: 300}, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+            .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'});
 
-        expect(admitted, 'a promised extent restore makes resize a prerequisite at park').toBe(false);
-        expect(receipts.park.owesResize).toBe(true)
+        expect(admitted, 'a promised extent restore makes resize a prerequisite').toBe(false);
+        expect(receipts.restore.owesResize).toBe(true)
     });
 
     test('the park clears any prior restore receipt, so a stale one cannot read as this gesture', async () => {
@@ -221,175 +271,6 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
 
         expect(admitted, 'no origin is a refusal, never a move to NaN').toBe(false);
         expect(receipts.restore.frame).toBeNull()
-    });
-
-    test('the park moves the vessel clear of the target and focuses nothing (#19278)', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-
-        const parked = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(parked).toBe(true);
-        expect(platform.calls.filter(call => !call.includes(':')), 'one move, no focus step').toEqual(['park']);
-        expect(receipts.park).toMatchObject({cleared: true, parked: true});
-        // the 480x320 frame's work-area corner farthest from the 800x600 target at the origin
-        expect(receipts.park.requested).toEqual({x: 1120, y: 680});
-        expect(receipts.park).not.toHaveProperty('refocused')
-    });
-
-    test('a target focus route the park no longer uses does not refuse it', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: false, position: true, resize: true});
-        platform = installPlatform();
-
-        const parked = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(parked).toBe(true);
-        expect(receipts.park.authority.targetFocusCapable, 'still reported').toBe(false)
-    });
-
-    test('a geometry-restoring park resizes before the move, and places the shrunk frame', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-
-        await NativeVesselTransaction
-            .effectsFor(descriptorFor({geometry: {height: 320, width: 480}, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(platform.calls.filter(call => !call.includes(':'))).toEqual(['resize', 'park']);
-        expect(receipts.park.resized).toBe(true)
-    });
-
-    test('a target spanning the work area still parks, and the receipt says it is not cleared', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform({}, {screen: {availHeight: 600, availLeft: 0, availTop: 0, availWidth: 800}});
-
-        const parked = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(parked, 'no corner is clear: the zones before the park are the belt').toBe(true);
-        expect(receipts.park.cleared).toBe(false)
-    });
-
-    test('a target display without a measurable work area refuses before any move', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform({}, {screen: null});
-
-        const parked = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(parked).toBe(false);
-        expect(receipts.park.refusedAt).toBe('screen');
-        expect(platform.calls).toEqual([])
-    });
-
-    test('a vessel without an outer frame that owes no resize is refused, not cleared against its inner rect', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-
-        WindowManager.unregister('win-source');
-        WindowManager.register({id: 'win-source', innerRect: new Rectangle(40, 60, 480, 320), nativeRoute: ROUTE});
-
-        const parked = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(parked).toBe(false);
-        expect(receipts.park.refusedAt).toBe('screen');
-        expect(platform.calls, 'nothing moves').toEqual([])
-    });
-
-    test('an inner-plane park that owes a resize clears the frame the outer-plane resize applies', async () => {
-        const
-            receipts = {},
-            resizes  = [];
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-
-        // Real chrome: each window's content sits 68 px below its frame
-        WindowManager.unregister('win-source');
-        WindowManager.unregister('win-target');
-        WindowManager.register({id: 'win-source', innerRect: new Rectangle(40, 128, 480, 252), outerRect: new Rectangle(40, 60, 480, 320), nativeRoute: ROUTE});
-        WindowManager.register({id: 'win-target', innerRect: new Rectangle(0, 68, 800, 532),   outerRect: new Rectangle(0, 0, 800, 600),   nativeRoute: TARGET_ROUTE});
-
-        Neo.Main.windowNativeResizeTo = ({height, width}) => {
-            resizes.push({height, width});
-            return Promise.resolve(true)
-        };
-
-        await NativeVesselTransaction
-            .effectsFor(descriptorFor({geometry: {height: 320, width: 480}, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(resizes, 'the inner-plane shrink, applied as the outer size').toEqual([{height: 252, width: 480}]);
-        // the corner farthest from the target that holds a 480x252 frame, the one the resize produces
-        expect(receipts.park.requested).toEqual({x: 1120, y: 748});
-        expect(receipts.park.cleared).toBe(true)
-    });
-
-    test('a source too large to hide behind the target refuses when nothing may shrink it', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-        // Bigger than the 800x600 target: it cannot be covered as-is.
-        // `manager.Base#register` refuses an id it already holds rather than replacing it, so the
-        // oversized source has to displace the fixture's window instead of shadowing it.
-        WindowManager.unregister('win-source');
-        WindowManager.register({
-            id         : 'win-source', innerRect: new Rectangle(0, 0, 1200, 900),
-            nativeRoute: ROUTE, outerRect: new Rectangle(0, 0, 1200, 900)
-        });
-
-        const admitted = await NativeVesselTransaction
-            .effectsFor(descriptorFor({geometry: null, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(admitted, 'no extent obligation ⇒ no licence to shrink ⇒ refuse').toBe(false);
-        expect(receipts.park.fits).toBe(false);
-        expect(platform.calls, 'refused before any platform effect').toEqual([])
-    });
-
-    test('the same oversized source is ADMITTED when the transaction owes an extent restore', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-        // `manager.Base#register` refuses an id it already holds rather than replacing it, so the
-        // oversized source has to displace the fixture's window instead of shadowing it.
-        WindowManager.unregister('win-source');
-        WindowManager.register({
-            id         : 'win-source', innerRect: new Rectangle(0, 0, 1200, 900),
-            nativeRoute: ROUTE, outerRect: new Rectangle(0, 0, 1200, 900)
-        });
-
-        const admitted = await NativeVesselTransaction
-            .effectsFor(descriptorFor({geometry: {height: 900, width: 1200}, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(admitted, 'the promise to restore the extent is what licences the shrink').toBe(true);
-        expect(receipts.park.fits).toBe(false);
-        expect(platform.calls.filter(call => !call.includes(':'))).toEqual(['resize', 'park']);
-        // the frame shrinks to the 800x600 target; beside it, the corner farthest from it is clear
-        expect(receipts.park).toMatchObject({cleared: true, requested: {x: 800, y: 400}})
     });
 
     test('a terminal restore ending a DRAG asks its owner before the route', async () => {
@@ -438,66 +319,6 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
             .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'a-different-vessel'});
 
         expect(admitted).toBe(false)
-    });
-});
-
-/**
- * Where the park puts the vessel so it covers none of the target. Every arm is a real frame on a
- * real work area: the corner's frame must stay whole inside the work area, and "farthest" only decides
- * between corners that overlap the target equally.
- */
-test.describe('Neo.dashboard.dock.window.NativeVesselTransaction.resolveClearPark', () => {
-    const park = (frame, screen, target) => NativeVesselTransaction.resolveClearPark({frame, screen, target});
-
-    test('the frame takes the clear corner farthest from the target, whole inside the work area', () => {
-        const screen = {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1600};
-
-        expect(park({height: 320, width: 480}, screen, {height: 600, width: 800, x: 0, y: 0}))
-            .toEqual({cleared: true, x: 1120, y: 680});
-        // three corners clear an off-centre target; the farthest of them wins, not the first
-        expect(park({height: 300, width: 400}, screen, {height: 400, width: 600, x: 200, y: 100}))
-            .toEqual({cleared: true, x: 1200, y: 700})
-    });
-
-    test('a second display keeps the frame on its own work area', () => {
-        const screen = {availHeight: 900, availLeft: 1920, availTop: 0, availWidth: 1440};
-
-        expect(park({height: 300, width: 400}, screen, {height: 600, width: 800, x: 2000, y: 100}))
-            .toEqual({cleared: true, x: 2960, y: 600})
-    });
-
-    test('a frame larger than the work area is refused before placement: no corner holds it whole', () => {
-        const screen = {availHeight: 800, availLeft: 0, availTop: 0, availWidth: 1000}, target = {height: 300, width: 400, x: 0, y: 0};
-
-        expect(park({height: 300, width: 1200}, screen, target), 'wider').toBeNull();
-        expect(park({height: 900, width: 400},  screen, target), 'taller').toBeNull();
-        expect(park({height: 800, width: 1000}, screen, target), 'exactly the work area still fits').toEqual({cleared: false, x: 0, y: 0})
-    });
-
-    test('a target without extent is refused: nothing can be cleared of it', () => {
-        const screen = {availHeight: 900, availLeft: 0, availTop: 0, availWidth: 1440}, frame = {height: 300, width: 400};
-
-        expect(park(frame, screen, {height: 0, width: 800, x: 0, y: 0})).toBeNull();
-        expect(park(frame, screen, {height: 600, width: -1, x: 0, y: 0})).toBeNull()
-    });
-
-    test('a target spanning the work area answers the least-overlapping corner, not cleared', () => {
-        const screen = {availHeight: 600, availLeft: 0, availTop: 0, availWidth: 800};
-
-        expect(park({height: 300, width: 400}, screen, {height: 600, width: 800, x: 0, y: 0}))
-            .toEqual({cleared: false, x: 0, y: 0})
-    });
-
-    test('an unmeasurable frame, work area or target answers null', () => {
-        const
-            frame  = {height: 300, width: 400},
-            screen = {availHeight: 900, availLeft: 0, availTop: 0, availWidth: 1440},
-            target = {height: 600, width: 800, x: 0, y: 0};
-
-        expect(park(frame, null, target)).toBeNull();
-        expect(park(frame, {...screen, availWidth: 0}, target)).toBeNull();
-        expect(park({...frame, height: NaN}, screen, target)).toBeNull();
-        expect(park(frame, screen, {...target, x: undefined})).toBeNull()
     });
 });
 

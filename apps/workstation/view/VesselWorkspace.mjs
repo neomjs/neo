@@ -147,14 +147,6 @@ class VesselWorkspace extends DockWorkspace {
     vesselProxyEmbodiment = null
 
     /**
-     * Exact pre-conversion and target-cover outer geometry for parked tear-out vessels.
-     * Runtime-only physical recovery authority; never persisted workspace state.
-     * @member {Object} tearOutParkGeometries={}
-     * @protected
-     */
-    tearOutParkGeometries = {}
-
-    /**
      * Park attempts per vessel item id since that vessel last parked. The coordinator retries a
      * refused park; a stalled retry reads live as a rising count with the same `refusedAt`.
      * @member {Object} tearOutParkAttempts={}
@@ -319,39 +311,35 @@ class VesselWorkspace extends DockWorkspace {
         me.syncDockParticipation({recompose: true});
 
         // Conversion never re-acquires a popup: close-and-reopen is a one-way door (mid-gesture
-        // acquisition consumes transient activation and reads as unsolicited), so conversion
-        // PARKS the real vessel behind its target, out-conversion re-shows the SAME generation,
-        // and only a commit disposes — every other outcome restores.
-        // The transaction is the engine's; this host supplies the four inputs that vary. It DOES
-        // declare a geometry restore, which is what licences its park to shrink an oversized source
-        // and obliges its re-show to give the extent back. The park below stays an override: the
-        // native-titlebar paths are product policy (an OS titlebar drag carries no user activation,
-        // so a main-window target parks nothing at all) and cannot be expressed as a descriptor
-        // input without turning this default into a configuration language.
+        // acquisition consumes transient activation and reads as unsolicited), so out-conversion
+        // re-shows the SAME generation, and only a commit disposes — every other outcome restores.
+        // The transaction is the engine's; this host supplies the inputs that vary. Its pointer
+        // park keeps the vessel in the hand. The native-titlebar park stays this host's override:
+        // that path is product policy (an OS titlebar drag carries no user activation, so a
+        // main-window target parks nothing at all) and cannot be expressed as a descriptor input
+        // without turning this default into a configuration language.
         me.vesselTransaction = NativeVesselTransaction.effectsFor({
             ownerWindowId : () => me.windowId,
             publishReceipt: (key, receipt) => {
                 me[VesselWorkspace.VESSEL_RECEIPT_MEMBERS[key]] = receipt
             },
-            rectPlane      : 'outer',
-            resolveVessel  : itemId => me.resolveTearOutVessel(itemId),
-            restoreGeometry: itemId => me.tearOutParkGeometries[itemId] ?? null,
-            retireVessel   : vessel => me.tearOutHandlers.retireActiveVessel(vessel),
-            targetWindowId : () => me.vesselConversionTargetWindowId,
+            resolveVessel : itemId => me.resolveTearOutVessel(itemId),
+            retireVessel  : vessel => me.tearOutHandlers.retireActiveVessel(vessel),
+            targetWindowId: () => me.vesselConversionTargetWindowId,
             // Its terminal restore ends a DRAG, so the addon that may still own the gesture is
             // asked before the route is addressed directly.
             terminalRestoreOwner: 'drag'
         });
 
         me.vesselParkHandlers = Neo.create(VesselPark, {
-            disposeVessel: vessel => me.disposeParkedTearOutVessel(vessel),
-            parkVessel   : vessel => me.parkTearOutVessel(vessel),
-            reshowVessel : vessel => me.reshowTearOutVessel(vessel)
+            disposeVessel: vessel => me.vesselTransaction.disposeVessel(vessel),
+            parkVessel   : vessel => me.vesselTransaction.parkVessel(vessel),
+            reshowVessel : vessel => me.vesselTransaction.reshowVessel(vessel)
         });
         me.nativeVesselParkHandlers = Neo.create(VesselPark, {
             disposeVessel: ({itemId}) => me.retireReturnedVessel(VesselWorkspace.vesselWorkspaceId(itemId)),
-            parkVessel   : vessel => me.parkTearOutVessel({...vessel, nativeTitlebar: true}),
-            reshowVessel : vessel => me.reshowTearOutVessel(vessel)
+            parkVessel   : vessel => me.parkTearOutVessel(vessel),
+            reshowVessel : vessel => me.vesselTransaction.reshowVessel(vessel)
         });
     }
 
@@ -1171,23 +1159,18 @@ class VesselWorkspace extends DockWorkspace {
      * @returns {Promise<Boolean>}
      * @protected
      */
-    async closeTearOutVessel(vessel) {
-        const
-            me             = this,
-            parkGeometries = me.tearOutParkGeometries,
-            closed         = await NativeVesselTransaction.closeVessel({
-                embodiment    : me.tearOutEmbodiment,
-                nativeWindows : me.nativeWindows,
-                ownerWindowId : me.windowId,
-                publishReceipt: receipt => me.lastTearOutClose = receipt,
-                sourceId      : me.id,
-                sourceOwns    : itemId => Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
-                windowNameFor : itemId => `tearout-${itemId}`
-            }, vessel);
+    closeTearOutVessel(vessel) {
+        const me = this;
 
-        closed && delete parkGeometries[vessel.itemId];
-
-        return closed
+        return NativeVesselTransaction.closeVessel({
+            embodiment    : me.tearOutEmbodiment,
+            nativeWindows : me.nativeWindows,
+            ownerWindowId : me.windowId,
+            publishReceipt: receipt => me.lastTearOutClose = receipt,
+            sourceId      : me.id,
+            sourceOwns    : itemId => Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
+            windowNameFor : itemId => `tearout-${itemId}`
+        }, vessel)
     }
 
     /**
@@ -1210,48 +1193,21 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * Retires the parked vessel and its orphan recovery through the engine's default transaction,
-     * then clears the two ledgers this host keys by item.
-     * @param {Object} vessel
-     * @returns {Promise<Boolean>}
-     * @protected
-     */
-    async disposeParkedTearOutVessel(vessel) {
-        const disposed = await this.vesselTransaction.disposeVessel(vessel);
-
-        if (disposed) {
-            delete this.tearOutParkGeometries[vessel.itemId];
-            delete this.tearOutParkAttempts[vessel.itemId]
-        }
-
-        return disposed
-    }
-
-    /**
-     * Parks one converted vessel out of its conversion target's way, which keeps the REAL OS window
-     * alive while the target embodies the drag. Close-and-reopen is a one-way door (mid-gesture popup
-     * acquisition reads as unsolicited), so conversion parks instead: the same exact generation
-     * re-shows on out-conversion or restore.
-     *
-     * The pointer path parks CLEAR of the target: a source whose outer frame exceeds the
-     * target first shrinks through its exact native route, then moves to the corner of the target
-     * display's work area that covers the target least ({@link NativeVesselTransaction.resolveClearPark}).
-     * Nothing is focused: under a real OS mouse drag `focus()` raises nothing, which left the vessel on
-     * top of the target's zones. The native-titlebar path parks only after the OS released the drag,
-     * where focus is granted, so it keeps the focus / move / refocus chain that hides the vessel
-     * behind the target; a refocus refusal compensates to the source rect. On that path to the MAIN
-     * window nothing is parked at all — the hold is the gesture: the transfer lands when the dwell
-     * completes and the popup retires right after, so the park answers satisfied with no platform
-     * effect (the platform never grants a popup an opener focus without a user activation, and an OS
-     * titlebar drag carries none).
+     * Parks a popup dragged by its native titlebar behind its conversion target, once the OS released
+     * the drag and focus is granted: focus the target, move the source onto the target's frame origin,
+     * refocus. A refocus refusal compensates to the source rect. On the path to the MAIN window nothing
+     * is parked at all — the hold is the gesture: the transfer lands when the dwell completes and the
+     * popup retires right after, so the park answers satisfied with no platform effect (the platform
+     * never grants a popup an opener focus without a user activation, and an OS titlebar drag carries
+     * none). The pointer path never comes here: its vessel stays in the hand
+     * ({@link Neo.dashboard.dock.window.NativeVesselTransaction.effectsFor}).
      * @param {Object} vessel
      * @param {String} vessel.itemId
-     * @param {Boolean} [vessel.nativeTitlebar=false] The park follows an OS titlebar drag terminal
      * @param {String} vessel.windowName
      * @returns {Promise<Boolean>}
      * @protected
      */
-    async parkTearOutVessel({itemId, nativeTitlebar=false, windowName}) {
+    async parkTearOutVessel({itemId, windowName}) {
         let me           = this,
             entry        = me.resolveTearOutVessel(itemId),
             route        = entry?.nativeRoute,
@@ -1261,25 +1217,11 @@ class VesselWorkspace extends DockWorkspace {
             targetIsMain = me.vesselConversionTargetWindowId === me.windowId,
             // The size check and the authority check speak published inner-window geometry (a child
             // omitting outerRect never rejects an authorized live vessel); the park POSITION is a
-            // frame origin: `moveTo` places the source frame, clear of the target on the pointer path,
-            // on the target's frame origin behind it on the native-titlebar path.
+            // frame origin: `moveTo` places the source frame on the target's, behind it.
             sourceRect   = sourceWindow?.innerRect,
             sourceOuter  = sourceWindow?.outerRect ?? sourceRect,
             targetRect   = targetWindow?.innerRect,
-            targetOuter  = targetWindow?.outerRect ?? targetRect,
-            needsResize  = !nativeTitlebar && Boolean(sourceOuter && targetRect && (
-                sourceOuter.width > targetRect.width || sourceOuter.height > targetRect.height
-            )),
-            parkSize      = needsResize ? {
-                height: Math.min(sourceOuter.height, targetRect.height),
-                width : Math.min(sourceOuter.width, targetRect.width)
-            } : null,
-            restoreRect   = sourceOuter ? {
-                height: sourceOuter.height,
-                width : sourceOuter.width,
-                x     : sourceOuter.x,
-                y     : sourceOuter.y
-            } : null;
+            targetOuter  = targetWindow?.outerRect ?? targetRect;
 
         const
             sourceArgs   = {ownerWindowId: me.windowId, route, targetWindowId: entry?.windowId ?? null},
@@ -1293,8 +1235,6 @@ class VesselWorkspace extends DockWorkspace {
             // default transaction. A hand-written copy here is how the two receipts drifted: nine
             // of ten keys agreed and the tenth was silently absent from the sibling.
             authority  : NativeVesselTransaction.describeAuthority({sourcePos, sourceResize, targetFocus}, entry?.windowName === windowName),
-            needsResize,
-            parkSize,
             sourceInner: sourceRect && {
                 height: sourceRect.height, width: sourceRect.width, x: sourceRect.x, y: sourceRect.y
             },
@@ -1313,12 +1253,9 @@ class VesselWorkspace extends DockWorkspace {
         me.lastVesselParkReceipt.parkAttempts = me.tearOutParkAttempts[itemId] = (me.tearOutParkAttempts[itemId] ?? 0) + 1;
 
         if (
-            !sourcePos.granted || (needsResize && !sourceResize.granted) ||
-            (nativeTitlebar && !targetIsMain && !targetFocus.granted) ||
+            !sourcePos.granted || (!targetIsMain && !targetFocus.granted) ||
             entry.windowName !== windowName || !sourceRect || !sourceOuter || !targetRect ||
-            (nativeTitlebar && (
-                sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
-            ))
+            sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
         ) {
             me.lastVesselParkReceipt.reason = 'native route or live park geometry refused';
             return false
@@ -1332,7 +1269,7 @@ class VesselWorkspace extends DockWorkspace {
         // with no physical effect; the receipt says so, the attempt counter resets as after a park, and
         // the conversion bookkeeping around this call runs exactly as for a parked vessel. Popup
         // targets keep the physical park below.
-        if (nativeTitlebar && targetIsMain) {
+        if (targetIsMain) {
             delete me.tearOutParkAttempts[itemId];
             me.lastVesselParkReceipt.parked   = true;
             me.lastVesselParkReceipt.physical = false;
@@ -1340,8 +1277,8 @@ class VesselWorkspace extends DockWorkspace {
             return true
         }
 
-        // Only the native-titlebar path to a popup focuses, by its owner through the handle it minted;
-        // a main-window target on that path returned satisfied above.
+        // A popup target is focused by its owner through the handle it minted; a main-window target
+        // returned satisfied above.
         const focusTarget = () => Neo.Main.windowNativeFocus({
             nativeHandleKey: targetRoute.nativeHandleKey,
             targetWindowId : targetRoute.targetWindowId,
@@ -1349,49 +1286,25 @@ class VesselWorkspace extends DockWorkspace {
         });
 
         try {
-            let origin = {x: targetOuter.x, y: targetOuter.y};
+            let focused = await focusTarget() === true;
 
-            if (nativeTitlebar) {
-                let focused = await focusTarget() === true;
+            me.lastVesselParkReceipt.focused = focused;
 
-                me.lastVesselParkReceipt.focused = focused;
-
-                if (!focused) {
-                    // The owner focuses a window it opened, which the platform grants once the OS
-                    // releases the dragged source. The coordinator retries the park.
-                    me.lastVesselParkReceipt.refusedAt = 'focus';
-                    return false
-                }
-            } else {
-                const
-                    {screen} = await Neo.Main.getWindowData({windowId: me.vesselConversionTargetWindowId}),
-                    clear    = NativeVesselTransaction.resolveClearPark({frame: parkSize ?? sourceOuter, screen, target: targetRect});
-
-                if (!clear) {
-                    me.lastVesselParkReceipt.refusedAt = 'screen';
-                    return false
-                }
-
-                me.lastVesselParkReceipt.cleared = clear.cleared;
-                origin = {x: clear.x, y: clear.y}
+            if (!focused) {
+                // The owner focuses a window it opened, which the platform grants once the OS
+                // releases the dragged source. The coordinator retries the park.
+                me.lastVesselParkReceipt.refusedAt = 'focus';
+                return false
             }
 
-            const moveData = {
+            let moved = await Neo.Main.windowNativeMoveTo({
                 nativeHandleKey: route.nativeHandleKey,
                 targetWindowId : route.targetWindowId,
                 windowId       : me.windowId,
                 windowName,
-                ...origin
-            };
-
-            if (!nativeTitlebar) {
-                moveData.parkSize    = parkSize;
-                moveData.restoreRect = restoreRect
-            }
-
-            let moved = await (nativeTitlebar
-                ? Neo.Main.windowNativeMoveTo(moveData)
-                : Neo.main.addon.DragDrop.parkWindowDrag(moveData)) === true;
+                x              : targetOuter.x,
+                y              : targetOuter.y
+            }) === true;
 
             me.lastVesselParkReceipt.moved = moved;
 
@@ -1400,11 +1313,9 @@ class VesselWorkspace extends DockWorkspace {
                 return false
             }
 
-            parkSize && (me.tearOutParkGeometries[itemId] = {park: {...parkSize, ...origin}, restore: restoreRect});
+            let refocused = await focusTarget() === true;
 
-            let refocused = !nativeTitlebar || await focusTarget() === true;
-
-            nativeTitlebar && (me.lastVesselParkReceipt.refocused = refocused);
+            me.lastVesselParkReceipt.refocused = refocused;
 
             if (!refocused) {
                 const restoreData = {
@@ -1439,31 +1350,12 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * Re-shows the parked vessel through the engine's default transaction. This host declares a
-     * geometry restore, so the default gives the extent back before the position and compensates
-     * both when the move is refused; the park ledger entry is consumed here because it is this
-     * host's bookkeeping, not the transaction's.
-     * @param {Object} vessel
-     * @returns {Promise<Boolean>}
-     * @protected
-     */
-    async reshowTearOutVessel(vessel) {
-        const admitted = await this.vesselTransaction.reshowVessel(vessel);
-
-        admitted && delete this.tearOutParkGeometries[vessel.itemId];
-
-        return admitted
-    }
-
-    /**
      * @summary Resolves one dragged vessel's exact live FRAME rect for conversion sampling.
      * The sensor reads this measurable geometry; the park captures its content restore anchor
      * separately through {@link #resolveVesselRestoreAnchor}. Only the runtime window identity may
      * select the manager-owned rect (the logical drag proxy is intentionally ignored).
-     * A child that publishes no outer rect samples its inner one — this diverges from the park
-     * admission, which is fail-closed on its single declared plane; failing open is deliberate, since
-     * refusing an otherwise-authorized live vessel over a missing frame is what that admission's own
-     * `rectPlane` documentation warns against.
+     * A child that publishes no outer rect samples its inner one: refusing an otherwise-authorized
+     * live vessel over a missing frame would fail the gesture for a measurement gap.
      * @param {Object} data
      * @param {String|null} data.itemId
      * @returns {Object|null}
@@ -1695,8 +1587,8 @@ class VesselWorkspace extends DockWorkspace {
 
     /**
      * The engine cleared a vessel's ownership records — on its release, its lease running out, or a
-     * refused recovery — and brought a committed item home. The park and native-park machines, the
-     * park geometry and, unless the workspace survives headless, the vessel target retire with it.
+     * refused recovery — and brought a committed item home. The park and native-park machines and,
+     * unless the workspace survives headless, the vessel target retire with it.
      * @param {Object} data
      * @param {String} data.itemId
      * @param {Boolean} [data.recovered=true] `false` when the vessel's workspace stays registered headless.
@@ -1705,7 +1597,6 @@ class VesselWorkspace extends DockWorkspace {
     afterTearOutWindowDisconnect({itemId, recovered=true}) {
         let me = this;
 
-        delete me.tearOutParkGeometries[itemId];
         me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
         me.nativeVesselParkHandlers.onVesselRetired({itemId, retirement: true});
         recovered && me.retireVesselWorkspaceTarget(itemId)
