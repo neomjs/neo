@@ -1188,9 +1188,10 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
      * fourth retires the old shell. Rejecting the second or third leaves the swap unlanded (the
      * outgoing shell must survive); rejecting the fourth happens after it landed (the staged shell
      * must survive and the swap simply finishes) — so the two recovery verdicts are both reachable
-     * and are asserted by name rather than inferred.
+     * and are asserted by name rather than inferred. `onCall` observes the host before each flight;
+     * `rejectOnCall: 0` rejects none.
      */
-    const reconcileWithRejectedFlight = async rejectOnCall => {
+    const reconcileWithRejectedFlight = async (rejectOnCall, onCall) => {
         const
             model = createSplitModel(),
             panes = Object.fromEntries(Object.entries(model.items)
@@ -1225,6 +1226,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
         host.promiseUpdate = function() {
             calls++;
+            onCall?.(calls, host, oldShell);
 
             return calls === rejectOnCall
                 // The shape the live report carried: a landing ancestor flight whose stored vnode
@@ -1270,6 +1272,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
                 // The invariant every later commit depends on: ONE shell, at shellIndex, visible.
                 expect(host.items.length, 'the host holds exactly one shell').toBe(1);
                 expect(host.items[0].hidden, 'the surviving shell is visible').not.toBe(true);
+                expect(host.items[0].cls, 'the surviving shell is back in layout').not.toContain('neo-dashboard-dock-shell-retiring');
 
                 expectedSurvivor === 'old'
                     ? expect(host.items[0], 'the outgoing shell survives an unlanded swap').toBe(oldShell)
@@ -1286,6 +1289,30 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             }
         })
     }
+
+    test('the visibility swap takes the outgoing shell out of layout in the flight that shows the staged one', async () => {
+        let atSwap = null;
+
+        // The third flight is the swap. A shell hidden only by visibility keeps its width in the host's
+        // flex row, so the staged shell must not become visible beside it.
+        const {error, host, oldShell} = await reconcileWithRejectedFlight(0, (call, host, oldShell) => {
+            if (call === 3) {
+                atSwap = {
+                    outgoingRetired: oldShell.cls.includes('neo-dashboard-dock-shell-retiring'),
+                    stagedVisible  : host.items[1]?.hidden !== true
+                }
+            }
+        });
+
+        try {
+            expect(error, 'the projection completes').toBeNull();
+            expect(atSwap).toEqual({outgoingRetired: true, stagedVisible: true});
+            expect(host.items.length, 'the outgoing shell is destroyed afterwards').toBe(1);
+            expect(oldShell.isDestroyed).toBe(true)
+        } finally {
+            host.destroy()
+        }
+    });
 
     test('the next projection after a failure reconciles normally onto the surviving shell', async () => {
         const {host, model, panes} = await reconcileWithRejectedFlight(2);

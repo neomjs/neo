@@ -36,6 +36,14 @@ class PreviewGeometryWorkspace extends DockWorkspace {
          */
         className: 'Test.Playwright.Component.DockPreviewGeometry.Workspace',
         /**
+         * Spec trigger: a JSON operation descriptor commits through the real reducer and refresh loop
+         * (`applyDockZoneOperation` → `onDockZoneDocumentChange`), so a spec can replace or retain
+         * this fixture's tab root.
+         * @member {String|null} applyOperationJson_=null
+         * @reactive
+         */
+        applyOperationJson_: null,
+        /**
          * @member {String[]} cls=['dock-preview-geometry-workspace']
          */
         cls: ['dock-preview-geometry-workspace'],
@@ -82,6 +90,21 @@ class PreviewGeometryWorkspace extends DockWorkspace {
     afterRefreshDockWorkspace(data) {
         super.afterRefreshDockWorkspace(data);
         this.dockProjectionSettles++
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetApplyOperationJson(value, oldValue) {
+        if (oldValue === undefined || !value) {
+            return
+        }
+
+        const result = this.applyDockZoneOperation(JSON.parse(value));
+
+        result && !result.errors?.length && this.onDockZoneDocumentChange(result.document)
     }
 
     /**
