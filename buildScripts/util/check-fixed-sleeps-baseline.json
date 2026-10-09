@@ -1,10 +1,5 @@
 [
     {
-        "file": "test/playwright/component/dashboard/DockPreviewGeometry.spec.mjs",
-        "text": "await page.waitForTimeout(1200);",
-        "count": 1
-    },
-    {
         "file": "test/playwright/component/menu/List.spec.mjs",
         "text": "await page.waitForTimeout(1300);",
         "count": 3
