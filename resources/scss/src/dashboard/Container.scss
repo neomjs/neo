@@ -632,9 +632,10 @@ $dock-reveal-entry-travel: (
 
 // The outgoing shell between a projection's visibility swap and its destruction (the Reconciler).
 // Hidden by visibility alone, it keeps its full width in the host's flex row and pushes the incoming
-// shell past the host's edge, a frame that paints the workspace empty. Both classes, so the rule
-// outranks the single-class layout `display` without `!important`.
-.neo-container.neo-dashboard-dock-shell-retiring {
+// shell past the host's edge, a frame that paints the workspace empty. The doubled class outranks the
+// single-class layout `display` without `!important` and without naming a base class: a root tabs
+// node projects a `neo-tab-container`, not a `neo-container`.
+.neo-dashboard-dock-shell-retiring.neo-dashboard-dock-shell-retiring {
     display: none;
 }
 
