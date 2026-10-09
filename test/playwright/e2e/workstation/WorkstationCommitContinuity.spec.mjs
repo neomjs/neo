@@ -72,6 +72,10 @@ test.describe('Workstation — a dock commit keeps its panes on screen', () => {
               settled        = Math.max(...ticks.map(tick => tick.visible)),
               collapsed      = ticks.filter(tick => tick.visible < settled / 2);
 
+        // An empty or unbaselined sample would pass the continuity check vacuously.
+        expect(ticks.length, 'the sampler recorded painted frames').toBeGreaterThan(0);
+        expect(ticks.every(tick => Number.isFinite(tick.visible)), 'every sample is a finite area').toBe(true);
+        expect(settled, 'the workspace showed panes before the commits').toBeGreaterThan(0);
         expect(swaps).toBeGreaterThanOrEqual(3);
         expect(collapsed, `the visible pane area collapsed across a commit (settled at ${settled}%)`).toEqual([])
     })
