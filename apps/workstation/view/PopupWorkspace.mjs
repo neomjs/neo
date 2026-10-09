@@ -48,6 +48,13 @@ class PopupWorkspace extends DockWorkspace {
     workspaceSet = null
 
     /**
+     * Items a cross-window transfer landed here whose pane has not been re-rastered yet.
+     * @member {Set<String>} landingItemIds
+     * @protected
+     */
+    landingItemIds = new Set()
+
+    /**
      * Presentation and connection references owned by this popup; membership lives in its Group.
      * Supplied at creation by the root's `createPopupWorkspace`, so the Group registration in
      * {@link #construct} already finds it — a reader reacting to that membership must resolve it.
@@ -127,6 +134,78 @@ class PopupWorkspace extends DockWorkspace {
      */
     getRefreshOptions(descriptor, source) {
         return {...super.getRefreshOptions(descriptor, source), preserveItemIds: descriptor?.preserveItemIds ?? []}
+    }
+
+    /**
+     * @summary Records the items a cross-window transfer lands in this vessel for {@link #refreshDockWorkspace}.
+     * @param {Object|null} document
+     * @param {Object|null} [descriptor=null]
+     * @param {Object|null} [source=null]
+     * @param {Object} [projectionOptions={}]
+     * @returns {Promise}
+     * @protected
+     */
+    projectDockZoneDocument(document, descriptor=null, source=null, projectionOptions={}) {
+        const me       = this,
+              previous = projectionOptions.previousDocument ?? me.dockModel;
+
+        if (['transferItem', 'transferNode'].includes(descriptor?.operation) && descriptor.targetWorkspaceId === projectionOptions.workspaceKey) {
+            Object.keys(document?.items ?? {})
+                .filter(itemId => !Object.hasOwn(previous?.items ?? {}, itemId))
+                .forEach(itemId => me.landingItemIds.add(itemId))
+        }
+
+        return super.projectDockZoneDocument(document, descriptor, source, projectionOptions)
+    }
+
+    /**
+     * @summary Re-rasters each landing pane after the first refresh that finds it seated in this window.
+     * @description Chrome can present a vessel's freshly composed pane incomplete — a resident card's kicker
+     * and icon without its metric and title — while its DOM is complete and unclipped, until the next
+     * invalidation of that region. The transfer's own projection can settle before the pane is
+     * seated here, so each refresh checks again; an item that leaves first is dropped.
+     * @param {...*} args
+     * @returns {Promise}
+     * @protected
+     */
+    async refreshDockWorkspace(...args) {
+        const me     = this,
+              result = await super.refreshDockWorkspace(...args);
+
+        me.landingItemIds.forEach(itemId => {
+            const pane   = me.rootWorkspace.paneCache[itemId],
+                  seated = pane?.windowId === me.windowId;
+
+            if (seated || !Object.hasOwn(me.dockModel?.items ?? {}, itemId)) {
+                me.landingItemIds.delete(itemId);
+                seated && me.repaintLandedPane(pane)
+            }
+        });
+
+        return result
+    }
+
+    /**
+     * @summary Gives a landed pane one rendered frame on its own compositing layer: entering the layer rasters
+     * the pane from its current layout, leaving it rasters the pane into its parent again.
+     * @param {Neo.component.Base|null} pane
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async repaintLandedPane(pane) {
+        const cls = 'workstation-pane-repaint';
+
+        if (!pane || pane.isDestroyed) return;
+
+        pane.addCls(cls);
+
+        try {
+            await pane.promiseUpdate()
+        } catch {
+            return // destroyed while the frame was in flight
+        }
+
+        pane.isDestroyed || pane.removeCls(cls)
     }
 
     /**

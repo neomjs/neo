@@ -280,6 +280,12 @@
     }
 }
 
+// One rendered frame on its own layer re-rasters a pane a transfer just landed in a vessel
+// (`PopupWorkspace#repaintLandedPane`).
+.workstation-pane-repaint {
+    will-change: transform;
+}
+
 // The resident pane — the class the reported vessel actually hosts. Its root and its card
 // children are the skin whose absence read as "raw stacked text" on the operator's frame.
 //
