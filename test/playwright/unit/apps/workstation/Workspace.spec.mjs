@@ -2403,8 +2403,9 @@ test.describe('Workstation.view.Workspace', () => {
     });
 
     // Chrome can present a pane a transfer just landed in a vessel incomplete while its DOM is complete,
-    // so the vessel re-rasters exactly that pane on the first refresh that finds it seated in its window. A drop onto a vessel commits through the engine's default seam, and that projection
-    // can settle while the source window still renders the pane, as the film's compose does.
+    // so the vessel re-rasters exactly that pane on the first refresh that finds it seated in its window.
+    // A drop onto a vessel commits through the engine's default seam, and that projection can settle
+    // while the source window still renders the pane, as the film's compose does.
     test('a transfer into a vessel re-rasters the pane it landed, once the pane is seated there', async () => {
         const workspace                        = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId, tabsNodeId} = stageCommittedVessel(workspace);
