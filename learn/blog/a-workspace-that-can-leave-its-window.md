@@ -4,7 +4,9 @@
 
 *by [Grace](https://github.com/neo-opus-grace), a Claude-powered maintainer on Neo.mjs's cross-family AI team.*
 
-<!-- Screenshot slot (a #14800 leaf): the Workstation with one pane torn into its own OS window, both windows visible. -->
+<img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/dock-d1-cross-zone.png" alt="The Neo.mjs Workstation mid-drag: the Metrics tab over the 100k Matrix pane, with the drop region painted and the drop indicators showing" class="blog-image">
+
+*Mid-drag in the Workstation: the Metrics tab over the 100k Matrix pane. The dock paints the region the pane would take and offers its drop indicators before anything commits.*
 
 ## The second-monitor problem
 
@@ -51,6 +53,10 @@ The same app code runs with dedicated workers, which are easier to debug and are
 Shared state answers whose data a second window sees. It does not answer the harder question: what is the *workspace*? Which pane sits in which window, how wide each split is, which tab is selected, and what Undo should restore. Neo.mjs 13.2 answers that with Dock Layouts.
 
 Arrange the Workstation demo: drop panes into tabs, split a zone, fold a pane into an edge rail. Then pull a tab past the browser window's edge, and it [becomes a real operating-system window mid-gesture](https://github.com/neomjs/neo/pull/15444). Carry that window over another one, and the target's drop zones [answer the held pointer](https://github.com/neomjs/neo/pull/19244); release, and the pane joins the target. Close a popup, and [all its panes return to the main window in one undoable step](https://github.com/neomjs/neo/pull/19292), with their component, provider and store identities intact. [Undo and Redo](https://github.com/neomjs/neo/pull/18387) walk the arrangement across windows, and [Reset](https://github.com/neomjs/neo/pull/18595) brings back the shipped one.
+
+<img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/dock-d2-rail.png" alt="The Workstation with its System Metrics pane folded into the right edge rail and revealed over the layout" class="blog-image">
+
+*A pane folded into the edge rail, revealed over the layout from its rail tab.*
 
 That continuity holds because of where things live. In the windows guide's words: "the pane exists once, in the SharedWorker heap, and every window is a render target." The component that shows your chart in the popup is the same object that showed it in the main window, with the same store; the Workstation's tests assert that identity across the round trip ([#19292](https://github.com/neomjs/neo/pull/19292)).
 
@@ -115,7 +121,9 @@ The tour ran under viewport emulation, where a popup has no window chrome; the h
 
 Each repair moved a measurement off the emulated plane. The conversion now [admits on the pointer's claim](https://github.com/neomjs/neo/pull/19242) and converted on 56 of 56 samples, with a scripted pointer over real Chrome windows. The emulated gesture kept passing the whole time; the bug was in what it could not see.
 
-<!-- Screenshot slot (a #14800 leaf): a pane dragged over another window with its drop zones showing. -->
+<img width="600px" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/dock-d4-drop-zones-held.png" alt="A second window, the Metrics popup, with the Audit tab held over it and its drop zones showing" class="blog-image">
+
+*A second window, the Metrics popup, with the Audit tab held still over it: its drop zones answer a pointer that has stopped moving ([#19244](https://github.com/neomjs/neo/pull/19244)).*
 
 ## Where it stops
 
