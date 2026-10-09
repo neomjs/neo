@@ -581,7 +581,19 @@ handles by the semantic `windowName` passed to `Main.windowOpen()`. Those identi
 This is the generic multi-window Possession Interface consumed by inspection tooling. Product code still decides what a
 window *means* and which semantic transaction precedes a physical effect.
 
-#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396; amended 2026-07-29, #16117; amended 2026-09-26, #19278)
+#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396; amended 2026-07-29, #16117; amended 2026-09-26, #19278; amended 2026-10-09, #19533)
+
+> **Amended 2026-10-09 (#19533): the pointer path never parks.** A drag shows no window the user did not
+> drag, and a script can neither hide a window nor move it off the visible work area (the clamp below). A
+> window of the group that claims the pointer carries the drag as the source's own tab-header proxy, engaged
+> and commit-eligible from its first claimed frame. A vessel riding the hand retires on that claim exactly as
+> it does on re-entry into the source window: zero model mutation, the pane back home. A claimed frame is no
+> boundary crossing, so no vessel is born over a window; leaving that window for the desktop is a boundary
+> exit again and acquires a vessel through the ordinary fail-closed admission — a browser that refuses a
+> second popup in one gesture leaves the drag in-window, as for any refused tear-out. The pointer-path park,
+> its target-clear placement and its re-show below are retained as history. The native title-bar park (after
+> the OS released the drag, behind the target) is unchanged. The operator's verdict that retired the corner
+> park: *"we NEVER EVER want additional visible windows (popups) … OFF SCREEN or not at all."*
 
 Popup-to-proxy conversion is an admitted transition inside the existing outcome machine, not a new
 terminal state. A source may enter `HOVERING_CLAIM` only after its physical park effect returns strict

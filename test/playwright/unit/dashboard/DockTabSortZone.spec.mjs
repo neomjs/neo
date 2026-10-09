@@ -787,446 +787,84 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
         })
     });
 
-    test.describe('vessel conversion binding — source-owned decision and pointer stability', () => {
-        const zones      = [];
-        const sourceRect = {x: 20, y: 20, width: 200, height: 120};
-        const targetRect = {x: 0, y: 0, width: 800, height: 600};
+    // A drag shows no window the user did not drag: the window of the group that holds the pointer
+    // carries it as the source's tab-header proxy, a vessel riding the hand retires on that claim as
+    // it does on re-entry, and nothing is parked anywhere.
+    test.describe('a window of the group that claims the pointer carries the drag', () => {
         // the target proxy is the dragged tab header: its measured extent + the grab offset inside it
         const header = {height: 32, offsetX: 12, offsetY: 9, width: 90};
 
-        test.afterEach(() => zones.splice(0).forEach(zone => zone.vesselConversionSensor?.destroy()));
-
         function createZone(overrides = {}) {
-            const calls = [];
+            const fired = [];
             const zone  = {
-                dockItemIds                 : ['graph'],
-                dockSourceNodeId            : 'tabs-main',
                 dragComponent               : {id: 'graph-button', reference: 'graph'},
-                dragCoordinator             : null,
                 dragElementRect             : {x: 40, y: 4, width: header.width, height: header.height},
                 enableVesselConversion      : true,
+                fire                        : (name, data) => fired.push([name, data]),
                 getVesselConversionProxyRect: DockTabSortZone.prototype.getVesselConversionProxyRect,
-                getVesselConversionSensor   : DockTabSortZone.prototype.getVesselConversionSensor,
                 isWindowDragging            : true,
                 offsetX                     : header.offsetX,
                 offsetY                     : header.offsetY,
-                owner                       : {up: () => ({fire(name, data) {
-                    if (name === 'dockVesselConversionSourceRectRequest') {
-                        data.sourceRect = typeof overrides.liveSourceRect === 'function'
-                            ? overrides.liveSourceRect(data)
-                            : overrides.liveSourceRect ?? data.logicalRect;
-                        return
-                    }
-                    if (name === 'dockVesselConversionIn') {
-                        data.admission = overrides.convertInAdmission ?? true
-                    } else if (name === 'dockVesselConversionOut') {
-                        data.admission = overrides.convertOutAdmission ?? true
-                    }
-                    calls.push([name, data])
-                }})},
-                resolveVesselConversionSourceGeometry: DockTabSortZone.prototype.resolveVesselConversionSourceGeometry,
-                resolveRemoteDragTransition          : DockTabSortZone.prototype.resolveRemoteDragTransition,
-                resetVesselConversion                : DockTabSortZone.prototype.resetVesselConversion,
-                scheduleVesselConversionReplay       : DockTabSortZone.prototype.scheduleVesselConversionReplay,
-                startIndex                           : 0,
-                vesselConversionCancelPromise        : null,
-                vesselConversionCoordinatorFrame     : null,
-                vesselConversionEpoch                : 0,
-                vesselConversionItemId               : null,
-                vesselConversionPointerExitGraceMs   : 0,
-                vesselConversionPointerMissedAt      : null,
-                vesselConversionReplayFrame          : null,
-                vesselConversionReplayPromise        : null,
-                vesselConversionSensor               : null,
-                vesselConversionLogicalRect          : null,
-                vesselConversionSourceRect           : null,
-                vesselConversionTargetId             : null,
-                vesselConversionTargetRect           : null,
                 ...overrides
             };
 
-            zones.push(zone);
-            return {calls, zone}
+            return {fired, zone}
         }
 
         const resolve = (zone, overrides = {}) => DockTabSortZone.prototype.resolveRemoteDragTransition.call(zone, {
-            draggedItem      : {id: 'graph'},
-            now              : 100,
-            pointerInTarget  : true,
-            logicalSourceRect: sourceRect,
-            targetId         : 'workspace-a',
-            targetRect,
+            draggedItem    : {id: 'graph'},
+            pointerInTarget: true,
             ...overrides
         });
 
-        test('disabled or non-window sources return null — the generic coordinator path stays byte-identical', () => {
-            expect(resolve(createZone({enableVesselConversion: false}).zone)).toBeNull();
-            expect(resolve(createZone({isWindowDragging: false}).zone)).toBeNull()
+        test('the claimed window embodies the tab-header proxy and may commit at once: nothing waits on a park', () => {
+            const {fired, zone} = createZone({isWindowDragging: false});
+
+            expect(resolve(zone)).toEqual({commitEligible: true, engage: true, proxyRect: header, retain: false});
+            expect(fired, 'an in-window drag has no vessel to retire').toEqual([])
         });
 
-        test('the binding converts every size-pair direction through dock-owned lifecycle events', () => {
-            const pairs = [
-                [{x: 100, y: 100, width: 200,  height: 150}, {x: 0,   y: 0,   width: 1200, height: 800}],
-                [{x: 0,   y: 0,   width: 1200, height: 800}, {x: 300, y: 200, width: 200,  height: 150}],
-                [{x: 0,   y: 0,   width: 640,  height: 480}, {x: 0,   y: 0,   width: 600,  height: 500}]
-            ];
-
-            for (const [source, target] of pairs) {
-                const {calls, zone} = createZone();
-                const decision      = resolve(zone, {logicalSourceRect: source, targetRect: target});
-
-                expect(decision).toEqual({
-                    commitEligible: true,
-                    engage        : true,
-                    preview       : true,
-                    retain        : false,
-                    proxyRect     : header
-                });
-                expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
-                expect(calls[0][1]).toMatchObject({sourceNodeId: 'tabs-main', targetId: 'workspace-a'})
-            }
-        });
-
-        test('the live vessel resolver owns the metric denominator, never the logical proxy', () => {
-            const liveSourceRect = {x: 310, y: 220, width: 400, height: 300};
-            const {zone}         = createZone({liveSourceRect});
-
-            expect(resolve(zone, {
-                logicalSourceRect: {x: 20, y: 20, width: 40, height: 20},
-                targetRect       : {x: 300, y: 200, width: 420, height: 320}
-            })).toEqual({
-                commitEligible: true,
-                engage        : true,
-                preview       : true,
-                retain        : false,
-                proxyRect     : header
-            });
-            expect(zone.vesselConversionSourceRect).toEqual(liveSourceRect);
-            expect(zone.vesselConversionLogicalRect).toEqual({x: 20, y: 20, width: 40, height: 20})
-        });
-
-        test('the coordinator frame carries actuator identity when no base reorder index exists', () => {
-            const {calls, zone} = createZone({dockItemIds: null, startIndex: null});
-
-            expect(resolve(zone, {draggedItem: {dockItemId: 'workbench'}})).toEqual({
-                commitEligible: true,
-                engage        : true,
-                preview       : true,
-                retain        : false,
-                proxyRect     : header
-            });
-            expect(calls[0][1].itemId).toBe('workbench')
-        });
-
-        test('async park admission is fail-closed, then admitted frames use logical position with frozen exact extents', async () => {
-            let resolvePark,
-                physical = {x: 20, y: 20, width: 200, height: 120};
-
-            const admission     = new Promise(resolve => resolvePark = resolve),
-                  {calls, zone} = createZone({
-                      convertInAdmission: admission,
-                      liveSourceRect    : () => physical
-                  });
-
-            // the park is pending on the claimed target: its zones may show, nothing embodies or commits
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, preview: true, retain: false});
-            expect(zone.vesselConversionSensor.transitioning).toBe(true);
-
-            // Product park output is host-authored physical placement. That observation must not
-            // become the next user-trajectory sample.
-            physical = {x: -10000, y: -10000, width: 200, height: 120};
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, preview: true, retain: false});
-
-            resolvePark(true);
-            await zone.vesselConversionSensor.transitionPromise;
-
-            expect(resolve(zone)).toEqual({
-                commitEligible: true,
-                engage        : true,
-                preview       : true,
-                retain        : false,
-                proxyRect     : header
-            });
-            expect(zone.vesselConversionSourceRect).toEqual(sourceRect);
-            expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn'])
-        });
-
-        test('settled initial park re-enters the coordinator without a second external pointer frame', async () => {
-            let resolvePark;
-
-            const
-                admission         = new Promise(resolve => resolvePark = resolve),
-                coordinatorFrames = [],
-                proxyRect         = {},
-                {calls, zone}     = createZone({
-                    convertInAdmission: admission,
-                    dragCoordinator   : {
-                        onDragMove(frame) {
-                            coordinatorFrames.push(frame)
-                        }
-                    }
-                });
-
-            Object.defineProperties(proxyRect, {
-                height: {value: 120},
-                width : {value: 200},
-                x     : {value: 20},
-                y     : {value: 20}
-            });
-            zone.vesselConversionCoordinatorFrame = {
-                draggedItem   : {id: 'graph'},
-                offsetX       : 10,
-                offsetY       : 8,
-                proxyRect,
-                screenX       : 180,
-                screenY       : 140,
-                sourceSortZone: zone
-            };
-
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, preview: true, retain: false});
-
-            const replay = zone.vesselConversionReplayPromise;
-
-            resolvePark(true);
-            await replay;
-
-            expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
-            expect(coordinatorFrames).toHaveLength(1);
-            expect(coordinatorFrames[0]).toMatchObject({
-                draggedItem          : {id: 'graph'},
-                proxyRect            : {height: 120, width: 200, x: 20, y: 20},
-                replayAfterTransition: true,
-                screenX              : 180,
-                screenY              : 140,
-                sourceSortZone       : zone
-            })
-        });
-
-        test('refused initial park emits no coordinator replay or automatic retry', async () => {
-            let resolvePark;
-
-            const
-                admission         = new Promise(resolve => resolvePark = resolve),
-                coordinatorFrames = [],
-                {calls, zone}     = createZone({
-                    convertInAdmission              : admission,
-                    dragCoordinator                 : {onDragMove: frame => coordinatorFrames.push(frame)},
-                    vesselConversionCoordinatorFrame: {
-                        draggedItem   : {id: 'graph'},
-                        proxyRect     : sourceRect,
-                        screenX       : 180,
-                        screenY       : 140,
-                        sourceSortZone: null
-                    }
-                });
-
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, preview: true, retain: false});
-
-            const replay = zone.vesselConversionReplayPromise;
-
-            resolvePark(false);
-            await replay;
-
-            expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
-            expect(coordinatorFrames).toEqual([]);
-            expect(zone.vesselConversionSensor.converted).toBe(false);
-            expect(zone.vesselConversionReplayPromise).toBeNull()
-        });
-
-        test('gesture reset invalidates a successful late park before coordinator replay', async () => {
-            let resolvePark;
-
-            const
-                admission         = new Promise(resolve => resolvePark = resolve),
-                coordinatorFrames = [],
-                {zone}            = createZone({
-                    convertInAdmission              : admission,
-                    dragCoordinator                 : {onDragMove: frame => coordinatorFrames.push(frame)},
-                    vesselConversionCoordinatorFrame: {
-                        draggedItem   : {id: 'graph'},
-                        proxyRect     : sourceRect,
-                        screenX       : 180,
-                        screenY       : 140,
-                        sourceSortZone: null
-                    }
-                });
-
-            resolve(zone);
-
-            const replay = zone.vesselConversionReplayPromise;
-
-            DockTabSortZone.prototype.resetVesselConversion.call(zone);
-            resolvePark(true);
-            await replay;
-
-            expect(coordinatorFrames).toEqual([]);
-            expect(zone.vesselConversionCoordinatorFrame).toBeNull();
-            expect(zone.vesselConversionSensor.converted).toBe(false)
-        });
-
-        test('the latest claim-free frame replays after async park so a stale admission cannot pin a vessel the pointer has left', async () => {
-            let resolvePark;
-
-            const admission     = new Promise(resolve => resolvePark = resolve),
-                  {calls, zone} = createZone({convertInAdmission: admission});
-
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, preview: true, retain: false});
-
-            // The pointer leaves the target while the host effect is pending, then stops. No third
-            // browser frame may be required.
-            expect(resolve(zone, {pointerInTarget: false, targetId: null, targetRect: null}))
-                .toEqual({commitEligible: false, engage: false, retain: false});
-
-            const replay = zone.vesselConversionReplayPromise;
-
-            resolvePark(true);
-            await replay;
-
-            expect(zone.vesselConversionSensor.converted).toBe(false);
-            expect(zone.vesselConversionSensor.transitioning).toBe(false);
-            expect(calls.map(([name]) => name)).toEqual([
-                'dockVesselConversionIn', 'dockVesselConversionOut'
-            ])
-        });
-
-        test('the latest re-entry frame replays after async re-show without waiting for another move', async () => {
-            let resolveRestore;
-
-            const restoration   = new Promise(resolve => resolveRestore = resolve),
-                  {calls, zone} = createZone({convertOutAdmission: restoration});
-
-            expect(resolve(zone)).toEqual({
-                commitEligible: true,
-                engage        : true,
-                preview       : true,
-                retain        : false,
-                proxyRect     : header
-            });
-            expect(resolve(zone, {pointerInTarget: false, targetId: null, targetRect: null}))
-                .toEqual({commitEligible: false, engage: false, retain: false});
-
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
-
-            const replay = zone.vesselConversionReplayPromise;
-
-            resolveRestore(true);
-            await replay;
-
-            expect(zone.vesselConversionSensor.converted).toBe(true);
-            expect(calls.map(([name]) => name)).toEqual([
-                'dockVesselConversionIn', 'dockVesselConversionOut', 'dockVesselConversionIn'
-            ])
-        });
-
-        test('re-show replay re-converts on the returning claim from the LOGICAL origin, never from a stale parked manager rect', async () => {
-            let resolveRestore,
-                physical = sourceRect;
-
-            const restoration   = new Promise(resolve => resolveRestore = resolve),
-                  {calls, zone} = createZone({
-                      convertOutAdmission: restoration,
-                      liveSourceRect     : () => physical
-                  });
-
-            expect(resolve(zone)).toEqual({
-                commitEligible: true,
-                engage        : true,
-                preview       : true,
-                retain        : false,
-                proxyRect     : header
-            });
-            physical = {x: 0, y: 0, width: 200, height: 120};
-
-            expect(resolve(zone, {pointerInTarget: false, targetId: null, targetRect: null}))
-                .toEqual({commitEligible: false, engage: false, retain: false});
-
-            // The pointer returns while the re-show is pending: the latest frame waits behind it.
-            expect(resolve(zone, {
-                logicalSourceRect: {x: 760, y: 20, width: 200, height: 120}
-            })).toEqual({commitEligible: false, engage: false, retain: false});
-
-            const replay = zone.vesselConversionReplayPromise;
-
-            resolveRestore(true);
-            await replay;
-
-            expect(zone.vesselConversionSensor.converted, 'the returning claim re-converts after the re-show').toBe(true);
-            expect(calls.map(([name]) => name)).toEqual([
-                'dockVesselConversionIn', 'dockVesselConversionOut', 'dockVesselConversionIn'
-            ]);
-
-            // The parked binding rides the pointer's logical origin with the last exact extents —
-            // the manager's parked rect at (0, 0) never reaches the sensor.
-            expect(resolve(zone, {
-                logicalSourceRect: {x: 760, y: 20, width: 200, height: 120}
-            })).toEqual({
-                commitEligible: true,
-                engage        : true,
-                preview       : true,
-                retain        : false,
-                proxyRect     : header
-            });
-            expect(zone.vesselConversionSourceRect).toEqual({height: 120, width: 200, x: 760, y: 20})
-        });
-
-        test('raw claim loss drops commit immediately while a bounded visual grace emits no flip', () => {
-            const {calls, zone} = createZone({vesselConversionPointerExitGraceMs: 50});
+        test('a vessel riding the hand retires through the re-entry contract the moment a window claims the pointer', () => {
+            const {fired, zone} = createZone();
 
             expect(resolve(zone)).toMatchObject({commitEligible: true, engage: true});
-            expect(resolve(zone, {now: 110, pointerInTarget: false, targetId: null, targetRect: null}))
-                .toEqual({
-                    commitEligible: false,
-                    engage        : true,
-                    retain        : true,
-                    proxyRect     : header
-                });
-            expect(resolve(zone, {now: 159, pointerInTarget: false, targetId: null, targetRect: null}))
-                .toEqual({
-                    commitEligible: false,
-                    engage        : true,
-                    retain        : true,
-                    proxyRect     : header
-                });
-
-            expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
-
-            expect(resolve(zone, {now: 160, pointerInTarget: false, targetId: null, targetRect: null}))
-                .toEqual({commitEligible: false, engage: false, retain: false});
-            expect(calls.map(([name]) => name)).toEqual([
-                'dockVesselConversionIn', 'dockVesselConversionOut'
-            ])
+            expect(fired).toEqual([['dragBoundaryEntry', {draggedItem: zone.dragComponent, proxyRect: null, sortZone: zone}]])
         });
 
-        test('A→B target identity cannot inherit conversion — A exits before B decides fresh', () => {
-            const {calls, zone} = createZone();
-
-            resolve(zone);
-            resolve(zone, {targetId: 'workspace-b'});
-
-            expect(calls.map(([name]) => name)).toEqual([
-                'dockVesselConversionIn',
-                'dockVesselConversionOut',
-                'dockVesselConversionIn'
-            ]);
-            expect(calls[1][1].targetId).toBe('workspace-a');
-            expect(calls[2][1].targetId).toBe('workspace-b')
+        test('a claim-free frame belongs to the source or the void; a source that did not opt in keeps the generic path', () => {
+            expect(resolve(createZone().zone, {pointerInTarget: false})).toBeNull();
+            expect(resolve(createZone({enableVesselConversion: false}).zone)).toBeNull()
         });
 
-        test('gesture reset is silent and clears every binding-owned identity/timestamp', () => {
-            const {calls, zone} = createZone({vesselConversionPointerExitGraceMs: 50});
+        test('an unmeasured drag element engages nothing rather than a window-sized proxy', () => {
+            const {fired, zone} = createZone({dragElementRect: null});
 
-            resolve(zone);
-            resolve(zone, {now: 110, pointerInTarget: false, targetId: null, targetRect: null});
-            DockTabSortZone.prototype.resetVesselConversion.call(zone);
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+            expect(fired).toEqual([])
+        });
 
-            expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
-            expect(zone.vesselConversionSensor.converted).toBe(false);
-            expect(zone.vesselConversionItemId).toBeNull();
-            expect(zone.vesselConversionPointerMissedAt).toBeNull();
-            expect(zone.vesselConversionLogicalRect).toBeNull();
-            expect(zone.vesselConversionSourceRect).toBeNull();
-            expect(zone.vesselConversionTargetId).toBeNull();
-            expect(zone.vesselConversionTargetRect).toBeNull()
+        test('a claimed frame is no boundary crossing, and leaving that window for the desktop exits again', () => {
+            let claim = {stableId: 'workspace-a'};
+
+            const {fired, zone} = createZone({
+                boundaryContainerRect: {x: 0, y: 0, width: 400, height: 300},
+                detachThreshold      : 0.8,
+                dragCoordinator      : {pointerClaimArbiter: {resolve: () => claim}},
+                isWindowDragging     : false,
+                lastIntersectionRatio: 0,
+                reattachThreshold    : 0.6
+            });
+            // the proxy far outside the source window: on a claimed frame this is the other window's
+            const outside = {proxyRect: {x: 900, y: 600, width: 90, height: 32}};
+
+            expect(DockTabSortZone.prototype.checkWindowBoundary.call(zone, outside), 'the frame belongs to the claim').toBe(true);
+            expect(fired, 'no vessel is born over a window').toEqual([]);
+
+            claim = null;
+            DockTabSortZone.prototype.checkWindowBoundary.call(zone, outside);
+
+            expect(fired.map(([name]) => name), 'leaving that window for the desktop').toEqual(['dragBoundaryExit']);
+            expect(zone.isWindowDragging).toBe(true)
         })
     })
 });
