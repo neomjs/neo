@@ -144,5 +144,58 @@ test.describe('Sparse VDOM batch roundtrip', () => {
                 }
             });
         }
+
+        for (const [ancestor, distance, scope] of [
+            ['sparse', 2, 'finite'], ['sparse', 1, 'finite'], ['sparse', 2, 'full'],
+            ['sparse', 2, 'implicit'], ['dense', 2, 'finite'], ['full', 2, 'full']
+        ]) {
+            test(`${shared ? 'shared' : 'dedicated'} workers: ${ancestor} ancestor, ${scope} hide root at distance ${distance}`, async ({page, neuralLink}) => {
+                await neuralLink.routeConfig(page, config => ({...config, useDomApiRenderer: true, useSharedWorkers: shared, useVdomWorker: true}));
+                await page.goto('/examples/button/base/index.html');
+                const app = await neuralLink.connectToApp('Neo.examples.button.base');
+                await expect(page.locator('.neo-button').first()).toBeVisible({timeout: 30000});
+                const tree = await app.getComponentTree(undefined, 1, true);
+                expect(await page.evaluate(() => ['app', 'vdom'].map(name => Neo.worker.Manager.getWorker(name).constructor.name)))
+                    .toEqual([shared ? 'SharedWorker' : 'Worker', shared ? 'SharedWorker' : 'Worker']);
+
+                let branch = {
+                    ntype: 'container', id: 'dense-nl-host', layout: 'vbox',
+                    items: [
+                        {ntype: 'component', id: 'dense-nl-hidden', text: 'Hide me'},
+                        {ntype: 'component', id: 'dense-nl-kept', text: 'Keep me'}
+                    ]
+                };
+                if (distance === 2) branch = {ntype: 'container', id: 'dense-nl-bridge', layout: 'vbox', items: [branch]};
+                await app.createComponent(tree.tree.id, {ntype: 'container', id: 'dense-nl-root', layout: 'vbox', items: [branch]});
+                await expect(page.locator('#dense-nl-hidden')).toHaveText('Hide me');
+                await runInAppWorker(page, `
+                    for (const id of ['dense-nl-root', ${distance === 2 ? "'dense-nl-bridge'," : ''} 'dense-nl-host', 'dense-nl-hidden', 'dense-nl-kept']) {
+                        await Neo.getComponent(id).promiseUpdate();
+                    }
+                `);
+                try {
+                    await runInAppWorker(page, `
+                        const root = Neo.getComponent('dense-nl-root'),
+                              host = Neo.getComponent('dense-nl-host'),
+                              hidden = Neo.getComponent('dense-nl-hidden');
+                        root.setSilent({style: {color: 'green'}, updateDepth: ${ancestor === 'full' ? -1 : 2}});
+                        if (${ancestor === 'dense'}) root.denseUpdate = true;
+                        hidden.hide();
+                        if (${scope === 'implicit'}) host.denseUpdate = false;
+                        if (${scope === 'full'}) host.updateDepth = -1;
+                        await root.promiseUpdate();
+                    `);
+                    await expect(page.locator('#dense-nl-hidden')).toHaveCount(0);
+                    await expect(page.locator('#dense-nl-kept')).toHaveText('Keep me');
+                    expect(await app.getComponent('dense-nl-hidden', ['hidden', 'mounted', 'vnode']))
+                        .toMatchObject({hidden: true, mounted: false, vnode: null});
+                    expect(await app.getComponent('dense-nl-host', ['isVdomUpdating'])).toMatchObject({isVdomUpdating: false});
+                    await app.callMethod('dense-nl-hidden', 'show');
+                    await expect(page.locator('#dense-nl-hidden')).toHaveText('Hide me');
+                } finally {
+                    await app.removeComponent('dense-nl-root')
+                }
+            });
+        }
     }
 });

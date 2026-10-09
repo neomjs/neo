@@ -185,6 +185,49 @@ test.describe('Sparse VDOM Updates', () => {
         }
     }
 
+    for (const [ancestor, distance] of [['sparse', 1], ['sparse', 2], ['dense', 2], ['full', 1], ['full', 2]]) {
+        for (const scope of ['finite', 'implicit', 'full']) {
+            test(`${ancestor} ancestor preserves ${scope} hide at distance ${distance}`, async () => {
+                const prefix = `hide-${uniquePrefix}-${testRun}`;
+                let   branch = {
+                    module: SparseMockContainer, id: `${prefix}-host`,
+                    items : [
+                        {module: SparseMockComponent, id: `${prefix}-hidden`, text: 'Hide me'},
+                        {module: SparseMockComponent, text: 'Keep me'}
+                    ]
+                };
+                if (distance === 2) branch = {module: SparseMockContainer, items: [branch]};
+                container = Neo.create(SparseMockContainer, {appName, id: prefix, items: [branch]});
+                await container.ready();
+                await container.initVnode(true);
+                container.mounted = true;
+
+                const host   = Neo.getComponent(`${prefix}-host`),
+                      hidden = host.items[0],
+                      kept   = host.items[1];
+                let component = container;
+                while (component) {
+                    await component.promiseUpdate();
+                    component = component.items?.[0]
+                }
+                await kept.promiseUpdate();
+
+                container.setSilent({style: {color: 'green'}, updateDepth: ancestor === 'full' ? -1 : 2});
+                if (ancestor === 'dense') container.denseUpdate = true;
+                hidden.hide();
+                if (scope === 'implicit') host.denseUpdate = false;
+                if (scope === 'full') host.updateDepth = -1;
+                const result = await container.promiseUpdate();
+
+                expect(result.deltas.filter(delta => delta.action === 'removeNode' && delta.id === hidden.id)).toHaveLength(1);
+                expect(hidden.vnode).toBeNull();
+                expect(hidden.mounted).toBe(false);
+                expect(kept.vnode.textContent).toBe('Keep me');
+                expect(host.isVdomUpdating).toBe(false);
+            });
+        }
+    }
+
     test('TreeBuilder prunes clean siblings at finite depth', async () => {
         container = Neo.create(SparseMockContainer, {
             appName,

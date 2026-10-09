@@ -226,8 +226,9 @@ class VdomLifecycle extends Base {
      *    and its descendants.
      * 2. **Disjoint Payloads:** Each component retains its configured update depth. The VDOM
      *    engine updates additional roots directly without requiring the initiator to bridge to them.
-     * 3. **Collision Filtering:** Sparse allowlists cover their bridge paths beyond nominal depth;
-     *    dense payloads cover only their configured depth. Emit each covered root once.
+     * 3. **Collision Filtering:** A sparse ancestor can absorb allowlisted shallow or sparse roots
+     *    beyond nominal depth. Dense roots stay independent: their silent descendants are not covered
+     *    by that allowlist. Dense ancestors retain their depth-based coverage rule.
      * 4. **Flight Ownership:** Protect emitted and sparse-absorbed roots at their captured depths until
      *    all returned trees are adopted. Each protected root owns its settlement; a dead carrier cancels live
      *    co-roots with an error, never their destroy sentinel. Outcomes release deferred updates.
@@ -356,9 +357,12 @@ class VdomLifecycle extends Base {
                         if (updates[parent.id]) {
                             const parentDepth = depths.get(parent.id),
                                   parentIds   = sparseScopes?.get(parent.id),
-                                  depthCovers = parentDepth === -1 || parentDepth > distance;
+                                  depthCovers = parentDepth === -1 || parentDepth > distance,
+                                  scopeCovers = parentIds
+                                      ? parentIds.has(id) && (depths.get(id) === 1 || sparseScopes.has(id))
+                                      : depthCovers;
 
-                            if (parentIds ? parentIds.has(id) : depthCovers) {
+                            if (scopeCovers) {
                                 // A leapfrogged root still needs its own protection beyond the ancestor's depth.
                                 if (!depthCovers) (absorbedScopes ||= []).push(id);
                                 delete updates[id];
