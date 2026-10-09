@@ -329,7 +329,6 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         }
     });
 
-    // Out of scope, noted in defect-note: the retained witness is hidden after F5 on unchanged dev.
     test('warm F5 preserves the Workspace and its live panes while the Group rebinds', async ({page, context, neuralLink}) => {
         const keeper = await context.newPage();
 
