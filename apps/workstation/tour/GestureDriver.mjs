@@ -670,6 +670,7 @@ class GestureDriver extends Base {
                     },
                     // A click is the pressed pair plus the click a browser derives from it: synthetic
                     // events derive nothing, so the button's handler needs the third event dispatched.
+                    // Its click count (`detail: 1`) is what tells the rail a pointer opened the reveal.
                     click     = async component => {
                         let point = await centerOf(component);
 
@@ -690,7 +691,7 @@ class GestureDriver extends Base {
                             targetId: component.id,
                             type    : 'click',
                             windowId,
-                            options : opt(point.x, point.y, 0)
+                            options : {...opt(point.x, point.y, 0), detail: 1}
                         }]})
                     },
                     start     = await centerOf(button);

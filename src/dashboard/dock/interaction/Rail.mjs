@@ -193,6 +193,13 @@ class Rail extends Container {
      */
     revealMachine = null
     /**
+     * The modality of the tab click that last fed the reveal machine: `'pointer'` for a click with a
+     * click count (`detail >= 1`), `null` for a keyboard- or AT-activated one. The overlay's focus states it.
+     * @member {String|null} revealModality=null
+     * @protected
+     */
+    revealModality = null
+    /**
      * The overlay bound via {@link Neo.dashboard.dock.interaction.Rail#bindRevealOverlay}, when one exists.
      * @member {Neo.dashboard.dock.interaction.RevealOverlay|null} revealOverlay=null
      * @protected
@@ -738,7 +745,7 @@ class Rail extends Container {
         // Focus-rescue transitions (revealed / dismiss-pending -> focused) already hold focus
         // inside the subtree by definition — re-focusing would fight the user's caret.
         if (next.state === 'revealed-focused' && previous.state !== 'revealed' && previous.state !== 'dismiss-pending') {
-            me.revealOverlay?.focusReveal?.()
+            me.revealOverlay?.focusReveal?.(me.revealModality)
         }
     }
 
@@ -769,8 +776,9 @@ class Rail extends Container {
 
     /**
      * Button handler for rail tabs: feeds the reveal machine — click opens a focused transient
-     * reveal, re-click dismisses. No operation is committed here; the persist path is the overlay
-     * pin ({@link Neo.dashboard.dock.interaction.Rail#onRevealPinRequested}).
+     * reveal, re-click dismisses — after recording the click's modality ({@link #revealModality}).
+     * No operation is committed here; the persist path is the overlay pin
+     * ({@link Neo.dashboard.dock.interaction.Rail#onRevealPinRequested}).
      * @param {Object} data The button click event data; `data.component` is the tab button.
      * @returns {{revealedItemId:(String|null), state:String}|null} Machine snapshot after the input.
      */
@@ -782,6 +790,7 @@ class Rail extends Container {
             return null
         }
 
+        me.revealModality = data.detail >= 1 ? 'pointer' : null;
         me.revealMachine.tabClick(itemId);
 
         return {revealedItemId: me.revealMachine.revealedItemId, state: me.revealMachine.state}
