@@ -369,8 +369,21 @@ export const fiveBeatFilmScript = Object.freeze({
         title        : 'It never left',
         targetSeconds: 10,
         narration    : 'A hundred thousand rows still cross their midpoint. Same instances, end to end. Heartbeats monotonic through every transition. The content never stopped living — because it never left.',
-        beats        : ['the hundred-thousand-row matrix crosses its midpoint', 'final topology readout', 'identity equality end-to-end', 'monotonic heartbeat close'],
+        beats        : ['the matrix and the feed come back in front', 'the hundred-thousand-row matrix crosses its midpoint', 'final topology readout', 'identity equality end-to-end', 'monotonic heartbeat close'],
         steps        : [{
+            // The showcase left Metrics in front of the feed and the redo left Security in front
+            // of the matrix: the close is about both panes, so both come back in front first —
+            // committed document operations, a no-op where the tab is already active.
+            type      : 'op',
+            caption   : 'the hundred-thousand-row matrix comes back in front of its group',
+            descriptor: {operation: 'setActiveItem', tabsNodeId: 'scale-tabs', itemId: 'scale'},
+            expect    : [{path: 'nodes.scale-tabs.activeItemId', equals: 'scale'}]
+        }, {
+            type      : 'op',
+            caption   : 'the live feed comes back in front of its group',
+            descriptor: {operation: 'setActiveItem', tabsNodeId: 'bottom-tabs', itemId: 'feed'},
+            expect    : [{path: 'nodes.bottom-tabs.activeItemId', equals: 'feed'}]
+        }, {
             type   : 'pause',
             ms     : 1400,
             cue    : {type: 'scroll', index: 50000},
@@ -382,6 +395,8 @@ export const fiveBeatFilmScript = Object.freeze({
                 // the main split's proportion differs by tier after the resize beat (the document
                 // tier runs no cues), so the readout pins its order; the witness pins the proportion
                 {path: 'nodes.split-main.children', equals: ['scale-tabs', 'heavy-tabs']},
+                {path: 'nodes.scale-tabs.activeItemId', equals: 'scale'},
+                {path: 'nodes.bottom-tabs.activeItemId', equals: 'feed'},
                 {path: 'items.metrics.title', equals: 'System Metrics'},
                 {path: 'items.commits.title', equals: 'Commit Stream'},
                 {path: 'items.traces.title', equals: 'Distributed Trace Explorer'}

@@ -88,8 +88,9 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         filmCueTypes.forEach(type => expect(WORKSTATION_CUE_TYPES).toContain(type));
 
         // the cold open's resize is a pointer drag (a `resize` cue), so the document tier's own
-        // operations are the showcase's split and the perspective scene's re-add
-        expect(operations).toEqual(['splitNode', 'addTab']);
+        // operations are the perspective scene's split and re-add, then the signature's two
+        // activations that bring the matrix and the feed back in front
+        expect(operations).toEqual(['splitNode', 'addTab', 'setActiveItem', 'setActiveItem']);
         operations.forEach(operation => expect(Operations.operations).toContain(operation))
     });
 
@@ -197,7 +198,7 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(history[addTabAt + 2].cue?.type).toBe('undo')
     });
 
-    test('the document tier runs twice with identical logs and ends with Security in the matrix group', async () => {
+    test('the document tier runs twice with identical logs and ends with the matrix and the feed in front, Security a member of the matrix group', async () => {
         createRunner();
 
         const first = await runner.start();
@@ -210,7 +211,11 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         // both resizes are cues (pointer drags), which spec mode never executes: the shipped
         // proportion stands, and the receipts carry the committed vectors in the film witness
         expect(firstDocument.nodes['split-main'].sizes).toEqual([0.6, 0.4]);
-        expect(firstDocument.nodes['scale-tabs'].activeItemId).toBe('security');
+        // the redo leaves Security in the matrix group; the signature brings the matrix and the
+        // feed back in front before the close (a take frame-checked on 2026-10-10 had both hidden)
+        expect(firstDocument.nodes['scale-tabs'].items).toContain('security');
+        expect(firstDocument.nodes['scale-tabs'].activeItemId).toBe('scale');
+        expect(firstDocument.nodes['bottom-tabs'].activeItemId).toBe('feed');
         expect(firstDocument.nodes['heavy-tabs'].items).not.toContain('security');
         // cues are not executed in spec mode, so the travelled panes never left the document
         expect(firstDocument.items.metrics.title).toBe('System Metrics');
