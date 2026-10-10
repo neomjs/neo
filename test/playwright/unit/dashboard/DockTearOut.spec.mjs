@@ -227,6 +227,48 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
         })
     }
 
+    // A pointer drag crosses the windows of its group: a claimed window retires the vessel and leaving it
+    // opens a fresh one. A fast hand can leave that window before the first vessel was even admitted, and
+    // the exit fires once per crossing.
+    for (const comesBack of [false, true]) {
+        test(`an exit while the previous admission is pending waits for it, ${comesBack ? 'and stands down once the drag came back in' : 'then admits a fresh vessel'}`, async () => {
+            let attempt = 0,
+                resolveOpen;
+
+            const {calls, handlers, sortZone} = harness({
+                openResult: request => ++attempt === 1
+                    ? new Promise(resolve => resolveOpen = resolve)
+                    : {gestureToken: request.gestureToken, popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'}
+            });
+
+            sortZone.isWindowDragging = true;
+
+            const first = handlers.onDockTearOutExit(exitData(sortZone));
+
+            // a window of the group claims the pointer, then the hand leaves it before the admission settles
+            handlers.onDockTearOutEntry({itemId: 'graph', sortZone});
+
+            const second = handlers.onDockTearOutExit(exitData(sortZone));
+
+            sortZone.isWindowDragging = !comesBack;
+            resolveOpen({gestureToken: 1, popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'});
+
+            await expect(first).resolves.toBe(false);
+            expect(calls.closed, 'the first vessel, admitted after the claim, retires').toHaveLength(1);
+
+            if (comesBack) {
+                await expect(second).resolves.toBe(false);
+                expect(calls.opened, 'a drag back inside acquires nothing').toHaveLength(1);
+                expect(handlers.activeVessel).toBeNull()
+            } else {
+                await expect(second, 'the second crossing waits instead of being refused').resolves.toBe(true);
+                expect(calls.opened).toHaveLength(2);
+                expect(calls.started).toHaveLength(1);
+                expect(handlers.activeVessel).toEqual({itemId: 'graph', windowName: 'vessel-graph'})
+            }
+        })
+    }
+
     test('an externally retired pending admission stays dead and a successor exit admits fresh', async () => {
         let attempt = 0,
             resolveOpen;
