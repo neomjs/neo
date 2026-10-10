@@ -793,6 +793,117 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
         }
     });
 
+    // Inside a window of the group the drag is that window's tab-header proxy; outside every window it
+    // is a vessel (docking design record §2.8.6). So under one pointer-down the vessel that left main
+    // retires over a foreign popup, and leaving that popup for the desktop opens a fresh one.
+    test('one pointer-down crosses a foreign popup: its vessel closes there and a fresh one carries the drag out',
+    async ({page, neuralLink}) => {
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-dock-host', {timeout: 60000});
+        await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
+
+        const
+            app       = await neuralLink.connectToApp('Workstation'),
+            workspace = await findOne(app, {className: 'Workstation.view.Workspace'}, ['id', 'windowId']),
+            manager   = await findOne(app, {className: 'Neo.manager.Window'}, ['id']),
+            wsId      = workspace.id,
+            managerId = manager.id,
+            screen    = await page.evaluate(() => ({
+                height: globalThis.screen.availHeight,
+                left  : globalThis.screen.availLeft,
+                top   : globalThis.screen.availTop,
+                width : globalThis.screen.availWidth
+            })),
+            mainWidth  = 760,
+            gap        = 160,
+            popupWidth = 480;
+
+        test.skip(screen.width < 24 + mainWidth + gap + popupWidth + gap + 40,
+            `${screen.width}px stage cannot hold main, the foreign popup and free desktop beside them`);
+
+        await setNativeBounds(await acquireNativeWindow(page), {
+            height: Math.min(720, screen.height - 80),
+            left  : screen.left + 24,
+            top   : screen.top  + 24,
+            width : mainWidth
+        });
+
+        let firstVessel, pointerDown = false, secondVessel, targetPage;
+
+        try {
+            ({popup: targetPage} = await beginActualTearOut({label: 'Metrics', page}));
+            pointerDown = true;
+
+            const targetWindowId = await awaitVesselWindowId(app, wsId, TARGET_ITEM_ID, false);
+
+            await page.mouse.up();
+            pointerDown = false;
+            expect(await awaitVesselWindowId(app, wsId, TARGET_ITEM_ID, true)).toBe(targetWindowId);
+            await awaitPointerSessionIdle(page);
+
+            await setNativeBounds(await acquireNativeWindow(targetPage), {
+                height: 440,
+                left  : screen.left + 24 + mainWidth + gap,
+                top   : screen.top  + 80,
+                width : popupWidth
+            });
+
+            const
+                main   = (await awaitGeometryParity(app, managerId, page, workspace.properties.windowId)).managed,
+                target = (await awaitGeometryParity(app, managerId, targetPage, targetWindowId)).managed,
+                paneId = await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                // the mouse speaks main's client space; a screen point maps through main's content origin
+                client     = point => ({x: Math.round(point.x - main.x), y: Math.round(point.y - main.y)}),
+                overTarget = client({x: target.x + target.width / 2, y: target.y + target.height / 2}),
+                desktop    = client({x: target.x + target.width + gap / 2, y: target.y + target.height / 2});
+
+            ({popup: firstVessel} = await beginActualTearOut({label: 'Audit', page}));
+            pointerDown = true;
+
+            const firstWindowId = await awaitVesselWindowId(app, wsId, 'audit', false);
+
+            await page.mouse.move(overTarget.x, overTarget.y, {steps: 24});
+            await expect.poll(() => firstVessel.isClosed(), {
+                message: 'the vessel retires once the foreign window claims the pointer',
+                timeout: 10000
+            }).toBe(true);
+            await awaitVesselRetirement(app, managerId, wsId, 'audit', firstWindowId);
+            await expect(targetPage.locator('.neo-dock-dragproxy'),
+                'the foreign window carries the drag as the tab-header proxy').toBeVisible({timeout: 10000});
+            expect(page.context().pages().filter(child => !child.isClosed()),
+                'over a window, only the windows the user owns are open').toHaveLength(2);
+
+            const secondPopup = page.waitForEvent('popup', {timeout: 30000});
+
+            await page.mouse.move(desktop.x, desktop.y, {steps: 24});
+            secondVessel = await secondPopup;
+
+            const secondWindowId = await awaitVesselWindowId(app, wsId, 'audit', false);
+
+            expect(secondWindowId, 'leaving the foreign window opens a fresh vessel').not.toBe(firstWindowId);
+            await expect(targetPage.locator('.neo-dock-dragproxy'),
+                'the foreign window lets the drag go').toHaveCount(0);
+
+            await page.mouse.up();
+            pointerDown = false;
+            expect(await awaitVesselWindowId(app, wsId, 'audit', true),
+                'the release detaches the item into the fresh vessel').toBe(secondWindowId);
+
+            const {dockModel} = await app.getComponent(wsId, ['dockModel']);
+
+            expect(Object.values(dockModel.nodes).some(node => node.items?.includes('audit')),
+                'the item left the main arrangement').toBe(false);
+            expect(await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                'the same live pane rides every hop').toBe(paneId)
+        } finally {
+            pointerDown && await page.mouse.up().catch(() => {});
+
+            for (const child of [secondVessel, firstVessel, targetPage]) {
+                await child?.close().catch(() => {})
+            }
+        }
+    });
+
     /**
      * @summary Exercises the same held-pointer overlap before restoring or committing the vessel.
      * @param {Object} fixtures
