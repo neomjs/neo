@@ -375,8 +375,8 @@ class DomAccess extends Base {
                 // Modality is an explicit contract: :focus-visible cannot survive the async worker→main
                 // programmatic focus (and a tabindex=-1 node has no reliable user-agent ring to fall back on).
                 // The class is applied immediately before focus() so class + focus land atomically (no flash).
-                // 'pointer' suppresses the accidental ring; the first keydown without an intervening blur swaps
-                // it to the intentional keyboard ring; both self-clear on blur.
+                // 'pointer' suppresses the accidental ring (resources/scss/src/Global.scss); the first keydown
+                // without an intervening blur swaps it to the intentional keyboard ring; both self-clear on blur.
                 if (modality === 'pointer') {
                     node.classList.add('neo-focus-pointer');
 
