@@ -14,50 +14,52 @@
  *   are the working screenplay, and the final voice track re-times to the footage.
  *
  * Show-order: the film opens on the committed tear-out. The room is alive for a breath — its first
- * motion a real splitter drag — then a
- * live pane leaves the window and a real vessel is born mid-gesture and stays — the most exciting
- * thing the engine does comes first, before any tour of the room; then the conversion, the
- * return home, the rail beat (a pane folds into its edge rail, is revealed, and comes back), the
- * resize (the main boundary follows a real pointer drag, both panes re-flowing live, and commits
- * once on release), the
- * morph (the window born and retired inside one gesture — the change of mind, once the viewer
- * has seen a window stay), the drop-zone showcase that puts the travelled pane wherever the
- * viewer likes, perspectives with undo/redo, and the living close. The picture sets the pace: a
- * hold inside a gesture is at most 1.5 s, a cue-free pause at most 1 s, and the voice is cut to
- * the motion, never the reverse. The tear-out and the morph both leave Audit behind:
- * a re-entry can only re-arm on a strip that still exists (a tabs node emptied by its last pane
- * is removed with it — measured on 2026-09-23 as `reattachArmed=false` on a single-tab source),
- * and Audit holds `right-top-tabs` as the stored home the stack comes back to.
+ * motion a real splitter drag — then a live pane leaves the window and a real vessel is born
+ * mid-gesture and stays — the most exciting thing the engine does comes first, before any tour of
+ * the room; then the journey (one drag: out, back over the room, out again, into the first window,
+ * out once more, and in to stay — the change of mind and the compose inside one gesture, the
+ * engine keeping one rule for every window of the group), the return home, the rail beat (a pane
+ * folds into its edge rail, is revealed, and comes back), the resize (the main boundary follows a
+ * real pointer drag, both panes re-flowing live, and commits once on release), the drop-zone
+ * showcase that puts the travelled pane wherever the viewer likes, perspectives with undo/redo,
+ * and the living close. The picture sets the pace: a hold inside a gesture is at most 1.5 s, a
+ * cue-free pause at most 1 s, and the voice is cut to the motion, never the reverse. The tear-out
+ * leaves Audit behind, and Audit holds `right-top-tabs` as the stored home the stack comes back to.
  *
  * How the window scenes run from a button: a vessel birth is `Neo.Main.windowOpen`, which the
  * browser permits only inside a user gesture. The screenplay therefore places a `gate` cue before
  * every beat that opens a window: the viewer's click on **Continue** is the activation the birth
  * needs, and the tour's host settlement holds the next beat until that click. Replay and take
  * modes resolve gates without a viewer (`autoGates`), because Playwright's real pointer carries
- * its own activation. The dense tour (`denseWorkstation.mjs`) stays the no-window fallback.
+ * its own activation. A gate covers one activation: the journey births further windows inside the
+ * same held drag, and those rest on the site's one-time pop-up permission (docking design record
+ * §2.8.6) — the take's browser has it, the headless witnesses grant it by launch flag, and a viewer
+ * who has not allowed it sees the in-window degrade. The dense tour (`denseWorkstation.mjs`) stays
+ * the no-window fallback.
  *
  * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
- * real duration and the cut re-paces around them. The scenes sum to exactly 97s inside the
- * 90–150s envelope, 7s above the `minSeconds` floor: a budget edit trades seconds within the 97s
- * sum or cuts toward the floor, and captured gesture durations plus the edit-layer cut-in re-pace
- * upward from there.
+ * real duration and the cut re-paces around them. The scenes sum to exactly 91s inside the
+ * 90–150s envelope, 1s above the `minSeconds` floor: a budget edit trades seconds within the 91s
+ * sum, and captured gesture durations plus the edit-layer cut-in re-pace upward from there.
  *
  * Claim discipline (revalidated against the current witnesses at authoring time):
- * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 2, 4, 10)
- * - zero-mutation re-entry     → `documentsUnchanged` after a vessel retires mid-gesture (scene 7)
- * - mid-gesture window birth   → `proof.born` before pointer-up (scenes 2, 3, 7)
- * - exactly-one-claim          → `claimCount: 1` + single rendered preview (scene 3)
+ * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 2, 3, 4, 9)
+ * - zero-mutation return       → the journey's `main` hop retires the vessel mid-gesture with the
+ *                                committed document byte-identical (scene 3)
+ * - mid-gesture window birth   → `proof.born` before pointer-up; the journey births three
+ *                                generations under one pointer-down (scenes 2, 3)
+ * - exactly-one-claim          → `claimCount: 1` + single rendered preview, twice in one gesture (scene 3)
  * - atomic return + self-close → `phaseOrder` `documents-adopted → … → topology-exited` (scene 4)
  * - rail round trip            → `collapsed` / `revealed` / `restored` receipts, the pane home
  *                                in its own node afterwards (scene 5)
  * - live-preview resize        → `previewTracked` while `documentUnchangedDuringPreview`, then
  *                                `committedOnce` at the requested proportion — the receipt carries
  *                                the value, the document tier runs no cues (scene 6)
- * - preview determinism        → two-take beat-log equality + painted-dwell rect witnesses (scene 8)
+ * - preview determinism        → two-take beat-log equality + painted-dwell rect witnesses (scene 7)
  * - perspective restore        → store-backed capture/restore with exact-baseline document
- *                                fidelity, fail-closed on unknown names (scene 9)
- * - undo/redo round-trip       → one dock mutation walked back and replayed on the Group cursor (scene 9)
- * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 10)
+ *                                fidelity, fail-closed on unknown names (scene 8)
+ * - undo/redo round-trip       → one dock mutation walked back and replayed on the Group cursor (scene 8)
+ * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 9)
  * Narration makes NO cross-platform, default-selection, or portability claims, and carries no
  * competitive comparisons — captions inherit the spec's macOS-headed claim boundary.
  *
@@ -86,7 +88,7 @@ const filmPace = Object.freeze({birthAttempts: 240, curve: 0.18, moveDelay: 33, 
  */
 export const filmCueTypes = Object.freeze([
     'scroll', 'canvas-update', 'cross-zone-showcase', 'rail', 'resize', 'gate', 'tear-out',
-    'convert-while-dragging', 'native-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo'
+    'journey', 'native-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo'
 ]);
 
 /**
@@ -159,27 +161,34 @@ export const fiveBeatFilmScript = Object.freeze({
             caption: 'the committed vessel reads as a window — one breath, then on'
         }]
     }, {
-        id           : 'film-second-window',
-        title        : 'The second window learns to dock',
-        targetSeconds: 14,
-        narration    : 'A second pane converts to a window while you drag it — and docks into the first. Dock zones glow inside a real OS window. Two windows overlap; exactly one claims the pointer. One application. One shared heap.',
-        beats        : ['the viewer opens the door for the second window', 'convert-while-dragging', 'dock zones render inside the target popup', 'overlap arbitration: exactly one claim', 'A+B compose in the vessel'],
+        id           : 'film-journey',
+        title        : 'One drag, every boundary',
+        targetSeconds: 18,
+        narration    : 'Now take Commits. Out — a window is born under the pointer. Back over the room — it folds back into its tab; nothing happened. Out again. Into Metrics’ window — it takes the drag as its own tab, the zones glow. Out once more. And in, to stay. One drag. Nothing reloads.',
+        beats        : ['the viewer opens the door: one click is the activation for the journey’s first window; the births that follow inside the same drag rest on the site’s one-time pop-up permission', 'out: a vessel is born under the pointer', 'back over main: the vessel retires, the tab proxy resumes, the document is untouched', 'out again: a window again', 'over Metrics’ window: it carries the drag as its tab-header proxy, its zones glow', 'out once more: a window again', 'the drop composes A+B in Metrics’ window'],
         steps        : [{
             type   : 'pause',
             ms     : 0,
-            cue    : {type: 'gate', prompt: 'Continue — Commits becomes a window and docks into Metrics'},
-            caption: 'A second pane is about to become a window while it is dragged, and dock into the first one.'
+            cue    : {type: 'gate', prompt: 'Continue — Commits leaves, comes back, leaves again, and joins Metrics'},
+            caption: 'One pane is about to cross every boundary under one pointer-down. Your click opens its first window; the windows that follow in the same drag need this site allowed to open pop-ups.'
         }, {
+            // Six hops under one pointer-down, one rule for every window of the group: inside a
+            // window the drag is that window's tab-header proxy, outside every window it is a vessel.
+            // Commits is the only tab of `right-bottom-tabs`: its vacated slot stays while the pane is
+            // away, so the return hop re-arms on it (measured 2026-10-10 in the film witness). A born
+            // hold reads as "that is a window", a dwell over Metrics' window as "it answers like the
+            // room does"; both stay inside the picture's bounds.
             type: 'pause',
             ms  : 1400,
             cue : {
-                type        : 'convert-while-dragging',
+                type        : 'journey',
                 itemId      : 'commits',
                 sourceNodeId: 'right-bottom-tabs',
                 targetItemId: 'metrics',
-                options     : {attempts: 240, dwellDelay: 3200, moveDelay: 33, moveSteps: 24, showCursor: true}
+                hops        : ['desktop', 'main', 'desktop', 'target', 'desktop', 'target'],
+                options     : {...filmPace, birthDwellMs: 1500, dwellDelay: 1000}
             },
-            caption: 'dock zones glow inside a real OS window; exactly one target claims the pointer; A and B compose in the vessel'
+            caption: 'out, back, out again, into Metrics’ window, out once more, and in: one drag, the same live pane, three windows born and retired under the hand'
         }, {
             type   : 'pause',
             ms     : 1000,
@@ -251,40 +260,6 @@ export const fiveBeatFilmScript = Object.freeze({
             type   : 'topology-assert',
             caption: 'the layout settled: the boundary moved, the room\'s order did not',
             expect : [{path: 'nodes.split-main.children', equals: ['scale-tabs', 'heavy-tabs']}]
-        }]
-    }, {
-        id           : 'film-morph',
-        title        : 'Change your mind — nothing happened',
-        targetSeconds: 10,
-        narration    : 'Drag a live pane past the window’s edge — a real window is born mid-gesture. Changed your mind? Come back. The window retires itself before you release. Zero mutation — the workspace never even blinked.',
-        beats        : ['the viewer opens the door: one click is the browser’s permission', 'boundary exit births the vessel before pointer-up', 're-entry while dragging retires the vessel', 'document byte-identical by guard'],
-        steps        : [{
-            type   : 'pause',
-            ms     : 0,
-            cue    : {type: 'gate', prompt: 'Continue — Metrics leaves and comes back before the pointer lifts'},
-            caption: 'A pane is about to leave the window and return before you let go. Your click is the browser’s permission to open the window.'
-        }, {
-            // The re-entry pane is a small group's ACTIVE tab, the one a narrow tab bar always
-            // renders: a tab folded into an overflow menu is no drag handle (Audit, third in the
-            // 14 %-wide right group, and Traces in the twelve-tab heavy group both refused to arm
-            // on 2026-09-23), and a single tab cannot come back at all — its departure removes the
-            // group, so the re-entry finds no strip to re-arm on (Commits out of `right-bottom-tabs`
-            // ended with `reattachArmed=false`, the same day). After the return and the rail beat,
-            // Metrics leaves Audit and Commits behind. The born hold is the picture's, not a line's:
-            // long enough to read "that is a window", never a park.
-            type: 'pause',
-            ms  : 1000,
-            cue : {type: 'tear-out', itemId: 'metrics', sourceNodeId: 'right-top-tabs',
-                options: {...filmPace, birthDwellMs: 1500, reenter: true}},
-            caption: 're-entry while dragging retires the vessel; the in-window proxy resumes'
-        }, {
-            type   : 'topology-assert',
-            caption: 'document byte-identical: Metrics is still catalogued where it was',
-            expect : [{path: 'items.metrics.title', equals: 'System Metrics'}]
-        }, {
-            type   : 'pause',
-            ms     : 1000,
-            caption: 'the re-entry is settled; the unchanged layout has a breath to read'
         }]
     }, {
         id           : 'film-showcase',

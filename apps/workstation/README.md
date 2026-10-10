@@ -56,16 +56,20 @@ Two screenplays share one player.
 through `splitNode`, returns it through `addTab`, and flips both themes — no windows are opened.
 Pane, store, component, and relevant DOM identities remain stable while the layout changes.
 
-**Start film tour** plays the flagship film's eight scenes, and it opens on the tear-outs: a
+**Start film tour** plays the flagship film's nine scenes, and it opens on the tear-outs: a
 breath of the living room, then a pane leaves the window into a real vessel mid-gesture and
-changes its mind before the pointer lifts; the same pane is torn out for good; a second pane
-becomes a window while dragged and docks into the first; the merged stack is dragged home as one;
+stays; a second pane crosses every boundary under one pointer-down — out, back over the room, out
+again, into the first window, out once more, and in to stay; the merged stack is dragged home as
+one; a pane folds into its edge rail and comes back; the main boundary follows a real pointer drag;
 the drop-zone showcase puts the travelled pane wherever the viewer likes; a perspective is
 captured, torn apart and restored, one dock mutation undone and redone; and the closing readout
 scrolls the hundred-thousand-row grid through its midpoint while the feed keeps ticking. Before
 every beat that opens a window the tour stops at a gate and shows **Continue**: that click is the
 user activation the browser demands for `window.open`, so the window is born inside your gesture
-rather than blocked as a popup. Two measured preconditions shape the screenplay: a tab folded
+rather than blocked as a popup. One click covers one activation: the journey scene births further
+windows inside the same held drag, and those rest on the site's one-time pop-up permission — allow
+pop-ups for the site once, or the later births degrade to the in-window proxy. Two measured
+preconditions shape the screenplay: a tab folded
 into a tab bar's overflow menu is not a drag handle, and a torn-out pane's stored home must
 survive its departure for the stack to return to it — which is why the hook tears Metrics out of
 a two-tab group.
