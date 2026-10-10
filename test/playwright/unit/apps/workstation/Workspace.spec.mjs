@@ -2446,10 +2446,11 @@ test.describe('Workstation.view.Workspace', () => {
     });
 
     // A failed render rejects the repaint's promise just as a destruction does, but the pane survives it.
+    // So does a window that leaves mid-frame, which is no failure to report.
     test('a landed pane leaves its repaint layer after a render or a failed render, never after its destruction', async () => {
         const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state}   = stageCommittedVessel(workspace);
-        const errors    = [], report = console.error;
+        const errors    = [], report = console.error, {isDeparture} = Neo.currentWorker;
         const stubPane  = render => {
             const pane = {isDestroyed: false, order: []};
             return Object.assign(pane, {
@@ -2459,19 +2460,25 @@ test.describe('Workstation.view.Workspace', () => {
             })
         };
         console.error = message => errors.push(message);
+        Neo.currentWorker.isDeparture = reason => reason?.code === 'NEO_DEAD_PORT';
         try {
             const rendered  = stubPane(async () => {}),
                   failed    = stubPane(async () => { throw new Error('the flight failed') }),
+                  departed  = stubPane(async () => { throw Object.assign(new Error('Worker port disconnected before reply'), {code: 'NEO_DEAD_PORT'}) }),
                   destroyed = stubPane(async pane => { pane.isDestroyed = true; throw new Error('destroyed') });
             await state.host.repaintLandedPane(rendered);
             await state.host.repaintLandedPane(failed);
+            await state.host.repaintLandedPane(departed);
             await state.host.repaintLandedPane(destroyed);
             expect(rendered.order).toEqual(['add workstation-pane-repaint', 'render', 'remove workstation-pane-repaint']);
             expect(failed.order, 'a live pane takes the layer off after a failed render')
                 .toEqual(['add workstation-pane-repaint', 'render', 'remove workstation-pane-repaint']);
+            expect(departed.order, 'a pane whose window left takes the layer off as well')
+                .toEqual(['add workstation-pane-repaint', 'render', 'remove workstation-pane-repaint']);
             expect(destroyed.order, 'a destroyed pane is not touched again').toEqual(['add workstation-pane-repaint', 'render']);
             expect(errors, 'only the live failure is reported').toEqual(['PopupWorkspace: the landed pane\'s repaint render failed'])
         } finally {
+            Neo.currentWorker.isDeparture = isDeparture;
             console.error = report;
             state.host.destroy();
             workspace.destroy()
