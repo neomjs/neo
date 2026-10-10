@@ -53,7 +53,7 @@ function targetDoc() {
 }
 
 test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — workspace wiring)', () => {
-    let createDockVesselProxyEmbodiment, DockCrossWindowParticipation, DockTabSortZone, WorkspaceDocument, DragCoordinator, Persistence, Rectangle, WindowManager;
+    let VesselProxyEmbodiment, DockCrossWindowParticipation, DockTabSortZone, WorkspaceDocument, DragCoordinator, Persistence, Rectangle, WindowManager;
 
     const createCoordinatorStub = calls => ({
         register  : zone => calls.push(['register', zone]),
@@ -69,7 +69,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         Rectangle                    = (await import('../../../../src/util/Rectangle.mjs')).default;
         WindowManager                = (await import('../../../../src/manager/Window.mjs')).default;
 
-        ({createDockVesselProxyEmbodiment} = await import('../../../../src/dashboard/dock/window/VesselEmbodiment.mjs'))
+        VesselProxyEmbodiment        = (await import('../../../../src/dashboard/dock/window/VesselProxyEmbodiment.mjs')).default
     });
 
     test('registration lifecycle: mount registers ONE identity-complete target, unmount unregisters the same instance', () => {
@@ -302,7 +302,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             const
                 commits     = [],
                 draggedItem = {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'},
-                embodiment  = createDockVesselProxyEmbodiment({
+                embodiment  = Neo.create(VesselProxyEmbodiment, {
                     createProxy: config => {
                         const proxy = Neo.create(Component, {cls: config.cls, style: config.style});
 

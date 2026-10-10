@@ -15,7 +15,7 @@ import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
 
-import {createDockVesselEmbodiment} from '../../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import VesselEmbodiment             from '../../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
 import '../../../../src/manager/Instance.mjs';
 import '../../../../src/button/Base.mjs';
 import '../../../../src/tab/Container.mjs';
@@ -1667,7 +1667,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
         // The stand-in is minted by the production path, never hand-built here: the repair belongs to
         // the creation site, so an arm that constructs its own placeholder could never witness it.
-        const embodiment = createDockVesselEmbodiment({
+        const embodiment = Neo.create(VesselEmbodiment, {
             resolvePane  : itemId => panes[itemId] ?? null,
             resolveTarget: windowId => windowId === 'admitted-window' ? vessel : null
         });

@@ -15,7 +15,7 @@ import PerspectiveSelection                     from './interaction/PerspectiveS
 import PerspectiveState                         from './projection/PerspectiveState.mjs';
 import Reconciler                               from './projection/Reconciler.mjs';
 import StateProvider                            from '../../state/Provider.mjs';
-import {createDockTearOutHandlers}              from './window/TearOut.mjs';
+import TearOut                                  from './window/TearOut.mjs';
 import {retireParticipation, syncParticipation} from './window/ParticipationLifecycle.mjs';
 import WorkspaceDocument                        from './model/WorkspaceDocument.mjs';
 import Operations                               from './model/Operations.mjs';
@@ -561,8 +561,9 @@ class Workspace extends Container {
     transactionManagerReady = null
 
     /**
-     * The four gesture callbacks produced by {@link Neo.dashboard.dock.window.TearOut} for this workspace.
-     * @member {Object|null} tearOutHandlers=null
+     * This workspace's tear-out choreography: the {@link Neo.dashboard.dock.window.TearOut} it creates
+     * and destroys when `enableDockTearOutLifecycle` is on, or one a host supplies and owns.
+     * @member {Neo.dashboard.dock.window.TearOut|null} tearOutHandlers=null
      * @protected
      */
     tearOutHandlers = null
@@ -687,7 +688,7 @@ class Workspace extends Container {
         }
 
         if (this.enableDockTearOutLifecycle) {
-            this.tearOutHandlers = createDockTearOutHandlers({
+            this.tearOutHandlers = Neo.create(TearOut, {
                 applyOperation      : descriptor => this.applyTearOutOperation(descriptor),
                 awaitRefresh        : () => this.refreshPromise,
                 closeVessel         : vessel => this.nativeWindows?.retire(this.id, vessel) ?? false,
@@ -1584,7 +1585,8 @@ class Workspace extends Container {
         me.releaseDeclaredPanes(null);
         me.transactionManager?.un({bind: me.onTopologyGroupBinding, scope: me});
         me.nativeWindows?.unregisterSource(me.id);
-        me.tearOutHandlers?.retirePaneState?.();
+        // The workspace destroys the TearOut it created; a host-supplied one is released, never destroyed.
+        me.enableDockTearOutLifecycle ? me.tearOutHandlers?.destroy?.() : me.tearOutHandlers?.retirePaneState?.();
         me.tearOutHandlers = null;
         me.nativeWindows = null;
         me.dockPreviewProducer?.destroy();
@@ -1658,9 +1660,10 @@ class Workspace extends Container {
      *
      * **An override MUST spread `super.getDockProjectionOptions()`.** This method is the only
      * carrier of the tear-out opt-ins into the projection context: `enableDockTearOut` is what
-     * arms `allowOverdrag` and `enableProxyToPopup` on every tab sort zone, and the handler bundle
-     * rides beside it. A host that returns its own object instead of extending this one drops both,
-     * so dragging a tab out of the dock becomes unreachable and a dragged popup finds no target.
+     * arms `allowOverdrag` and `enableProxyToPopup` on every tab sort zone, and the four gesture
+     * callbacks ride beside it. A host that returns its own object instead of extending this one drops
+     * both, so dragging a tab out of the dock becomes unreachable and a dragged popup finds no target.
+     * The callbacks come from the TearOut's `getProjectionCallbacks()` and dispatch through it.
      *
      * **The pop-out action is not evidence the options arrived.** `dockPopOutActionActive` derives
      * from `tearOutHandlers` on the instance rather than from the context, so the button renders,
@@ -1671,7 +1674,7 @@ class Workspace extends Container {
      */
     getDockProjectionOptions() {
         return this.enableDockTearOutLifecycle
-            ? {enableDockTearOut: true, ...this.tearOutHandlers}
+            ? {enableDockTearOut: true, ...this.tearOutHandlers?.getProjectionCallbacks?.()}
             : {}
     }
 
@@ -2361,8 +2364,8 @@ class Workspace extends Container {
             // action rendering is not evidence the options arrived.
             //
             // The check compares against the WHOLE bundle, not against `enableDockTearOut` alone.
-            // The flag is one of eight keys `super` contributes — the rest are the tear-out gesture
-            // handlers `LayoutAdapter.project` reads — so testing the flag would make it a proxy for
+            // The flag is one of five keys `super` contributes — the rest are the four tear-out gesture
+            // callbacks `LayoutAdapter.project` reads — so testing the flag would make it a proxy for
             // the bundle, and a host that writes the flag by hand (which `apps/workstation` does)
             // would pass with none of the handlers present. That is this same failure one key
             // deeper, and asking what `super` would have contributed keeps the check true as the

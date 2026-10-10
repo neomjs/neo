@@ -12,8 +12,11 @@ import WindowManager from '../../../manager/Window.mjs';
  * ({@link #authorityKeys}), so a host's park and this re-show report the same decision under the
  * same shape.
  *
- * This class holds no state and no host. {@link #effectsFor} closes over a descriptor and returns
- * the re-show; anything genuinely app-specific stays an override with a stated product reason.
+ * The statics are stateless and host-free. An INSTANCE is one host's re-show owner: its four seam
+ * configs are the whole host-varying surface (which window the park targets, how a vessel resolves,
+ * where the receipt lands), and {@link #reshowVessel} is a prototype method, so a subclass or a
+ * `Neo.overwrites` entry replaces the re-show that actually runs. The host that creates it destroys it;
+ * anything genuinely app-specific stays an override with a stated product reason.
  *
  * @class Neo.dashboard.dock.window.NativeVesselTransaction
  * @extends Neo.core.Base
@@ -24,7 +27,27 @@ class NativeVesselTransaction extends Base {
          * @member {String} className='Neo.dashboard.dock.window.NativeVesselTransaction'
          * @protected
          */
-        className: 'Neo.dashboard.dock.window.NativeVesselTransaction'
+        className: 'Neo.dashboard.dock.window.NativeVesselTransaction',
+        /**
+         * Host seam: `() => String` — the host's current `windowId`, the native route's owner.
+         * @member {Function|null} ownerWindowId=null
+         */
+        ownerWindowId: null,
+        /**
+         * Host seam: `receipt => void` — where the re-show's receipt lands.
+         * @member {Function|null} publishReceipt=null
+         */
+        publishReceipt: null,
+        /**
+         * Host seam: `itemId => entry|null` — the vessel registry entry a re-show addresses.
+         * @member {Function|null} resolveVessel=null
+         */
+        resolveVessel: null,
+        /**
+         * Host seam: `() => String|null` — the park target's `windowId`.
+         * @member {Function|null} targetWindowId=null
+         */
+        targetWindowId: null
     }
 
     /**
@@ -417,71 +440,64 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
-     * @summary Closes over a host descriptor and returns `VesselPark`'s re-show seam.
+     * @summary `VesselPark`'s re-show effect: moves one parked vessel back to its recorded content rect.
      *
-     * The descriptor is the whole host-varying surface: which window the park targets, how a vessel
-     * resolves, and where the receipt lands. Everything else is shared and lives here.
-     * @param {Object} descriptor
-     * @param {Function} descriptor.ownerWindowId Returns the host's current `windowId`.
-     * @param {Function} descriptor.publishReceipt `receipt => void`, the re-show's receipt.
-     * @param {Function} descriptor.resolveVessel `itemId => entry|null`.
-     * @param {Function} descriptor.targetWindowId Returns the park target's `windowId`.
-     * @returns {{reshowVessel:Function}}
+     * The statics it composes are reached through `this.constructor`, so a subclass's static override
+     * applies to its own instances.
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Object} data.rect The CONTENT rect the park recorded.
+     * @param {String} data.windowName
+     * @returns {Promise<Boolean>} Whether the platform admitted the move.
      */
-    static effectsFor(descriptor) {
-        const snapshot = rect => rect && {
-            height: rect.height, width: rect.width, x: rect.x, y: rect.y
+    async reshowVessel({itemId, rect, windowName}) {
+        const
+            me         = this,
+            ctor       = me.constructor,
+            entry      = me.resolveVessel(itemId),
+            route      = entry?.nativeRoute ?? null,
+            frame      = ctor.toFrameOrigin(rect, entry?.windowId ?? null),
+            admissions = ctor.resolveAdmissions(me, entry, me.targetWindowId() ?? null);
+
+        const receipt = {
+            authority: ctor.describeAuthority(admissions, entry?.windowName === windowName),
+            frame,
+            // Both are recorded because they answer different questions: `rect` is what the caller asked
+            // for in content space, `frame` is what the platform was handed. A receipt carrying only one
+            // cannot show that the chrome conversion happened.
+            rect     : rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
         };
 
-        return {
-            reshowVessel: async ({itemId, rect, windowName}) => {
-                const
-                    entry      = descriptor.resolveVessel(itemId),
-                    route      = entry?.nativeRoute ?? null,
-                    frame      = NativeVesselTransaction.toFrameOrigin(rect, entry?.windowId ?? null),
-                    admissions = NativeVesselTransaction.resolveAdmissions(descriptor, entry, descriptor.targetWindowId() ?? null);
+        // Published first and amended in place, same as the host's park: a caller reading it after a
+        // refusal must see which beat refused.
+        me.publishReceipt(receipt);
 
-                const receipt = {
-                    authority: NativeVesselTransaction.describeAuthority(admissions, entry?.windowName === windowName),
-                    frame,
-                    // Both are recorded because they answer different questions: `rect` is what the
-                    // caller asked for in content space, `frame` is what the platform was handed.
-                    // A receipt carrying only one cannot show that the chrome conversion happened.
-                    rect     : snapshot(rect)
-                };
-
-                // Published first and amended in place, same as the host's park: a caller reading it
-                // after a refusal must see which beat refused.
-                descriptor.publishReceipt(receipt);
-
-                if (!admissions.sourcePos.granted || entry?.windowName !== windowName || !frame) {
-                    receipt.reason = 'native route or restore geometry refused';
-                    return false
-                }
-
-                try {
-                    receipt.moved = await Neo.Main.windowNativeMoveTo({
-                        nativeHandleKey: route.nativeHandleKey,
-                        targetWindowId : route.targetWindowId,
-                        windowId       : descriptor.ownerWindowId(),
-                        x              : frame.x,
-                        y              : frame.y
-                    }) === true
-                } catch (error) {
-                    receipt.error     = String(error?.message || error);
-                    receipt.refusedAt = 'throw';
-                    return false
-                }
-
-                if (!receipt.moved) {
-                    receipt.refusedAt = 'move';
-                    return false
-                }
-
-                receipt.admitted = true;
-                return true
-            }
+        if (!admissions.sourcePos.granted || entry?.windowName !== windowName || !frame) {
+            receipt.reason = 'native route or restore geometry refused';
+            return false
         }
+
+        try {
+            receipt.moved = await Neo.Main.windowNativeMoveTo({
+                nativeHandleKey: route.nativeHandleKey,
+                targetWindowId : route.targetWindowId,
+                windowId       : me.ownerWindowId(),
+                x              : frame.x,
+                y              : frame.y
+            }) === true
+        } catch (error) {
+            receipt.error     = String(error?.message || error);
+            receipt.refusedAt = 'throw';
+            return false
+        }
+
+        if (!receipt.moved) {
+            receipt.refusedAt = 'move';
+            return false
+        }
+
+        receipt.admitted = true;
+        return true
     }
 }
 

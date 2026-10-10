@@ -1,28 +1,26 @@
-import Component                    from '../../../src/component/Base.mjs';
-import Container                    from '../../../src/container/Base.mjs';
-import CounterPane                  from './CounterPane.mjs';
-import {createCrossWindowStage}     from './DemoBCrossWindowStage.mjs';
-import DockDropIndicators           from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
-import DockLayoutAdapter            from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
-import DockMotionSignal             from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
-import PerspectiveLibrary           from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
-import Placement                    from '../../../src/dashboard/dock/window/Placement.mjs';
-import TopologySeams                from '../../../src/dashboard/dock/window/TopologySeams.mjs';
-import DockPreview                  from '../../../src/dashboard/dock/interaction/Preview.mjs';
-import DockPreviewProducer          from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
-import DockProjectionReconciler     from '../../../src/dashboard/dock/projection/Reconciler.mjs';
-import DockService                  from '../../../src/ai/client/DockService.mjs';
-import DockTopologyReconciler       from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
-import WorkspaceDocument            from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
-import Operations                   from '../../../src/dashboard/dock/model/Operations.mjs';
-import Persistence                  from '../../../src/dashboard/dock/model/Persistence.mjs';
-import InteractionService           from '../../../src/ai/client/InteractionService.mjs';
-import {createDockKeyboardCommands} from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
-import {createDockTearOutHandlers}  from '../../../src/dashboard/dock/window/TearOut.mjs';
-import {
-    createDockVesselEmbodiment,
-    createDockVesselProxyEmbodiment
-} from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import Component                          from '../../../src/component/Base.mjs';
+import Container                          from '../../../src/container/Base.mjs';
+import CounterPane                        from './CounterPane.mjs';
+import {createCrossWindowStage}           from './DemoBCrossWindowStage.mjs';
+import DockDropIndicators                 from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockLayoutAdapter                  from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockMotionSignal                   from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
+import PerspectiveLibrary                 from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import Placement                          from '../../../src/dashboard/dock/window/Placement.mjs';
+import TopologySeams                      from '../../../src/dashboard/dock/window/TopologySeams.mjs';
+import DockPreview                        from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockPreviewProducer                from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
+import DockProjectionReconciler           from '../../../src/dashboard/dock/projection/Reconciler.mjs';
+import DockService                        from '../../../src/ai/client/DockService.mjs';
+import DockTopologyReconciler             from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
+import WorkspaceDocument                  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Operations                         from '../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence                        from '../../../src/dashboard/dock/model/Persistence.mjs';
+import InteractionService                 from '../../../src/ai/client/InteractionService.mjs';
+import {createDockKeyboardCommands}       from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
+import TearOut                            from '../../../src/dashboard/dock/window/TearOut.mjs';
+import VesselEmbodiment                   from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import VesselProxyEmbodiment              from '../../../src/dashboard/dock/window/VesselProxyEmbodiment.mjs';
 import WorkspaceSet                       from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 import NativeVesselTransaction            from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
 import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
@@ -406,13 +404,13 @@ class DemoBWorkspace extends Container {
      * Transient render-only pane embodiment. An admitted pre-terminal vessel carries the real pane
      * while an exact-slot placeholder preserves the source card/header pairing. WorkspaceDocument truth is
      * untouched until terminal; cancellation restores through the live placeholder position.
-     * @member {Object|null} tearOutEmbodiment=null
+     * @member {Neo.dashboard.dock.window.VesselEmbodiment|null} tearOutEmbodiment=null
      * @protected
      */
     tearOutEmbodiment = null
     /**
      * Target-local live pane ownership while its native source vessel is parked.
-     * @member {Object|null} vesselProxyEmbodiment=null
+     * @member {Neo.dashboard.dock.window.VesselProxyEmbodiment|null} vesselProxyEmbodiment=null
      * @protected
      */
     vesselProxyEmbodiment = null
@@ -516,7 +514,7 @@ class DemoBWorkspace extends Container {
         me.perspectiveStore = Neo.create(PerspectiveLibrary, {});
         me.topologyCollection = Persistence.createTopologyCollection().collection;
 
-        me.vesselProxyEmbodiment = createDockVesselProxyEmbodiment({
+        me.vesselProxyEmbodiment = Neo.create(VesselProxyEmbodiment, {
             resolvePane       : itemId => me.paneCache[itemId],
             resolveProxyConfig: ({sourceSortZone, targetWindowId}) => ({
                 ...sourceSortZone.getDragProxyConfig(),
@@ -617,7 +615,7 @@ class DemoBWorkspace extends Container {
             workspaceSet          : me.workspaceSet
         });
 
-        me.tearOutEmbodiment = createDockVesselEmbodiment({
+        me.tearOutEmbodiment = Neo.create(VesselEmbodiment, {
             resolvePane: itemId => me.paneCache[itemId]
                 ?? (me.dockModel?.items?.[itemId] && me.resolvePane(itemId, me.dockModel.items[itemId])),
             resolveTarget: windowId => Neo.apps[windowId]?.mainView ?? null
@@ -630,7 +628,7 @@ class DemoBWorkspace extends Container {
         // (`onWindowDisconnect` → `reattachPane`) structurally OUT of the gesture path, so a
         // cancelled tear-out is zero-mutation by GUARD. Post-commit adoption keeps its bookkeeping
         // in the Group's vessel source, never on this host.
-        me.tearOutHandlers = createDockTearOutHandlers({
+        me.tearOutHandlers = Neo.create(TearOut, {
             applyOperation: descriptor => me.applyTearOutOperation(descriptor),
             awaitRefresh  : () => me.refreshPromise,
             closeVessel   : vessel => me.nativeWindows?.retire(me.vesselSourceId, me.exactTearOutVessel(vessel)) ?? false,
@@ -3827,7 +3825,7 @@ class DemoBWorkspace extends Container {
                 || ((reference, item, itemId) => me.resolvePane(itemId, item)),
             resolveRevealComponentRef: (reference, item, itemId) => me.resolvePane(itemId, item),
             workspaceId,
-            ...(tearOut ? me.tearOutHandlers : null),
+            ...(tearOut ? me.tearOutHandlers.getProjectionCallbacks() : null),
             onDockTearOutExit: tearOut ? data => me.onDockTearOutExit(data) : undefined
         })
     }
@@ -4346,6 +4344,8 @@ class DemoBWorkspace extends Container {
         me.vesselProxyEmbodiment = null;
         me.tearOutEmbodiment?.destroy();
         me.tearOutEmbodiment = null;
+        me.tearOutHandlers?.destroy();
+        me.tearOutHandlers = null;
         me.crossWindowStagePromise   = null;
         me.crossWindowStageResolve   = null;
         me.crossWindowStageReject    = null;

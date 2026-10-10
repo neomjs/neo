@@ -1849,7 +1849,7 @@ test('the holder contract: a config-assigned document is readable before any ope
             //
             // The sibling stub arm injects `terminalResult` and therefore certifies a grammar the
             // production terminal never emits. This one drives the REAL pair: real admission, the
-            // real `createDockTearOutHandlers` terminal, the real `applyTearOutOperation` wrapper
+            // real `TearOut` terminal, the real `applyTearOutOperation` wrapper
             // (including its placement capture and rollback), and a real vessel retirement whose
             // success is what makes the Boolean lie.
             workspace = Neo.create(TearOutWorkspace, {
@@ -1869,7 +1869,7 @@ test('the holder contract: a config-assigned document is readable before any ope
             // content comparison, and it is the call that is forbidden here.
             const syncs        = [],
                   realSync     = workspace.onTearOutDocumentChange.bind(workspace),
-                  realTerminal = workspace.tearOutHandlers.onDockTearOutTerminal;
+                  realTerminal = workspace.tearOutHandlers.onDockTearOutTerminal.bind(workspace.tearOutHandlers);
 
             workspace.onTearOutDocumentChange = (...args) => {
                 syncs.push(args);
