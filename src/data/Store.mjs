@@ -1588,6 +1588,27 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Assigns the data config while optionally marking its load notifications as continuation.
+     * Data hooks, records, filtering and sorting retain their normal behavior; this does not append rows.
+     * The notification context is restored after nested calls or errors, so later mutations stay ordinary.
+     * @param {Object[]|Neo.data.Model[]} data The data config's next value.
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.continuation=false] Whether this assignment continues the current data view.
+     * @returns {void}
+     */
+    setData(data, {continuation=false}={}) {
+        const me = this, previousAppendNotification = me.#appendNotification;
+
+        me.#appendNotification = continuation === true;
+
+        try {
+            me.data = data
+        } finally {
+            me.#appendNotification = previousAppendNotification
+        }
+    }
+
+    /**
      * @param {Object} opts={}
      * @param {String} opts.direction
      * @param {String} opts.property
