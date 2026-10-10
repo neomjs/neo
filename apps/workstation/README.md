@@ -56,10 +56,11 @@ Two screenplays share one player.
 through `splitNode`, returns it through `addTab`, and flips both themes — no windows are opened.
 Pane, store, component, and relevant DOM identities remain stable while the layout changes.
 
-**Start film tour** plays the flagship film's eight scenes, and it opens on the tear-outs: a
+**Start film tour** plays the flagship film's nine scenes, and it opens on the tear-outs: a
 breath of the living room, then a pane leaves the window into a real vessel mid-gesture and
-changes its mind before the pointer lifts; the same pane is torn out for good; a second pane
-becomes a window while dragged and docks into the first; the merged stack is dragged home as one;
+stays; a second pane crosses every boundary under one pointer-down — out, back over the room, out
+again, into the first window, out once more, and in to stay; the merged stack is dragged home as
+one; a pane folds into its edge rail and comes back; the main boundary follows a real pointer drag;
 the drop-zone showcase puts the travelled pane wherever the viewer likes; a perspective is
 captured, torn apart and restored, one dock mutation undone and redone; and the closing readout
 scrolls the hundred-thousand-row grid through its midpoint while the feed keeps ticking. Before
