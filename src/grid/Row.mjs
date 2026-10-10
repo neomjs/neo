@@ -680,7 +680,7 @@ class Row extends Component {
     }
 
     /**
-     * Updates the content of this Row instance to display a new record.
+     * @summary Updates this pooled row to display a record, refreshing cells when the record instance changes.
      *
      * This is the core method of the Row Pooling architecture. It is called by `Neo.grid.Body`
      * during scrolling or rendering. It updates the internal state (`record`, `rowIndex`)
@@ -689,7 +689,7 @@ class Row extends Component {
      * @param {Object} data
      * @param {Boolean} [data.force=false] True to force a VDOM update even if record and rowIndex are unchanged.
      * @param {Object} data.record The new record to display.
-     * @param {Boolean} [data.recycle=true] True to attempt reusing existing cell VDOMs (performance optimization).
+     * @param {Boolean} [data.recycle=true] True to reuse cell VDOMs only while retaining the same record instance.
      * @param {Number} data.rowIndex The new row index.
      * @param {Boolean} [data.silent=false] True to prevent an immediate VDOM update (useful for batching).
      */
@@ -702,6 +702,7 @@ class Row extends Component {
             return
         }
 
+        recycle     = recycle && me.record === record;
         me.record   = record;
         me.rowIndex = rowIndex;
 

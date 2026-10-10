@@ -1,3 +1,4 @@
+import Button        from '../../../../../src/button/Base.mjs';
 import Component     from '../../../../../src/component/Base.mjs';
 import GridContainer from '../../../../../src/grid/Container.mjs';
 import Store         from '../../../../../src/data/Store.mjs';
@@ -47,10 +48,25 @@ export const onStart = () => Neo.app({
         layout: {ntype: 'vbox', align: 'stretch'},
 
         items: [{
-            module: GridContainer,
-            id    : 'grid-component-columns',
-            flex  : 1,
-            store : ProfileStore,
+            module: Button,
+            text  : 'Toggle snapshot',
+            /** @summary Replaces profile records while keeping their semantic keys. */
+            handler() {
+                const store   = Neo.get('grid-component-columns').store,
+                      changed = store.get(1).name === 'Octo One';
+
+                store.setData(store.items.map(record => ({
+                    ...record.toJSON(),
+                    name     : record.id === 1 ? (changed ? 'Updated One' : 'Octo One') : record.name,
+                    followers: record.id === 1 ? (changed ? 84 : 42) : record.followers
+                })), {continuation: true});
+            }
+        }, {
+            module       : GridContainer,
+            id           : 'grid-component-columns',
+            flex         : 1,
+            store        : ProfileStore,
+            useInternalId: false,
 
             columns: [{
                 type     : 'githubUser',
