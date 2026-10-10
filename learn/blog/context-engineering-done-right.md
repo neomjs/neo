@@ -11,7 +11,7 @@ We argued that for AI to be a true partner, it needs a development environment t
 for collaboration. We launched this vision with a local AI Knowledge Base and a formal AI Agent Protocol (`AGENTS.md`),
 powered by a suite of simple shell scripts.
 
-November 9, 2025, with the release of **[Neo.mjs v11.0.0](https://github.com/neomjs/neo/blob/dev/.github/RELEASE_NOTES/v11.0.0.md)**,
+November 9, 2025, with the release of **[Neo.mjs v11.0.0](https://github.com/neomjs/neo/releases/tag/11.0.0)**,
 we are taking a giant leap forward.
 
 - **388 resolved tickets**
