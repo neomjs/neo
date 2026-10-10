@@ -31,10 +31,10 @@ import {createCrossWindowStage}           from '../../../../../../examples/dashb
  * @param {Object} [options={}]
  * @param {Error|null} [options.openError=null]
  * @param {Error|null} [options.closeError=null]
+ * @param {Boolean} [options.closeResult=true]
  * @param {Boolean|Function} [options.nativeCloseResult=true]
  * @param {Boolean|Function} [options.nativeFocusResult=true]
  * @param {Boolean} [options.nativeMoveResult=true]
- * @param {Boolean} [options.resumeResult=true]
  * @returns {Object}
  */
 function installWindowVessel({
@@ -43,11 +43,9 @@ function installWindowVessel({
     closeResult=true,
     nativeCloseResult=true,
     nativeFocusResult=true,
-    nativeMoveResult=true,
-    resumeResult=true
+    nativeMoveResult=true
 } = {}) {
     let previous = {
-            dragDrop          : Neo.main.addon.DragDrop,
             getWindowData     : Neo.Main.getWindowData,
             windowClose       : Neo.Main.windowClose,
             windowNativeClose : Neo.Main.windowNativeClose,
@@ -57,7 +55,7 @@ function installWindowVessel({
         },
         state = {
             closeCalls: [], closeCount: 0, nativeCloseCalls: [], nativeMoveCalls: [],
-            events    : [], focusCalls: [], openCalls: [], openCount: 0, resumeCalls: []
+            events    : [], focusCalls: [], openCalls: [], openCount: 0
         };
 
     Neo.Main.getWindowData = async () => ({
@@ -90,12 +88,6 @@ function installWindowVessel({
         state.nativeMoveCalls.push(data);
         return nativeMoveResult
     };
-    Neo.main.addon.DragDrop = {
-        resumeWindowDrag: async data => {
-            state.resumeCalls.push(data);
-            return resumeResult
-        }
-    };
 
     return {
         get closeCount() { return state.closeCount },
@@ -106,9 +98,7 @@ function installWindowVessel({
         get nativeMoveCalls() { return state.nativeMoveCalls },
         get openCalls() { return state.openCalls },
         get openCount() { return state.openCount },
-        get resumeCalls() { return state.resumeCalls },
         restore() {
-            Neo.main.addon.DragDrop = previous.dragDrop;
             Object.assign(Neo.Main, {
                 getWindowData     : previous.getWindowData,
                 windowClose       : previous.windowClose,
