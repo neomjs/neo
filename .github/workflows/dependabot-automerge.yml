@@ -1,0 +1,22 @@
+# The Engine owns only the event trigger, its permissions and the Skills release it calls. The called workflow
+# decides and hands Dependabot's pull requests to GitHub's auto-merge, which merges each one once `dev`'s
+# required checks pass. No agent merges. The repository variable `NEO_AUTOMERGE_DEPENDABOT=off` stops it.
+
+name: Dependabot Auto-Merge
+
+# Arming auto-merge and taking it back need both write grants; the called jobs hold no more than this.
+permissions:
+  contents: write
+  pull-requests: write
+
+# `synchronize` matters: a push by any other account onto a Dependabot pull request takes the arming back.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  automerge:
+    # Every other pull request is skipped before a runner starts; the called decision checks the author again.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    # A published Skills release, named by its tag; Dependabot moves the tag.
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-dependabot-automerge.yml@v0.1.35
