@@ -6,9 +6,9 @@ import path           from 'node:path';
  * Regression coverage for the release note's lifecycle in `buildScripts/release/publish.mjs`.
  *
  * The note is authored at `.github/RELEASE_NOTES/v{version}.md`: `publish.mjs` requires it before the
- * cut, creates the GitHub release from it and keeps it. The release commit drops every older note;
- * each was released already, and the conversation corpus archives it from its GitHub Release. The
- * engine therefore holds only notes it has not released. These arms keep it that way.
+ * cut, creates the GitHub release from it and keeps it. The release commit drops every older note by
+ * version alone, so the engine holds only notes it has not released; the content sync and the Pages
+ * pin carry the released ones to the site. These arms keep the engine that way.
  */
 
 /** @summary Compares two SemVer strings by their numeric core; a prerelease sorts below its release. */

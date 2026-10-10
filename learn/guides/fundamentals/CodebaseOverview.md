@@ -386,7 +386,7 @@ The content in `/learn` is the source material for the AI Knowledge Base. Query 
 
 ### Conversation Corpus (`neomjs/github-content-sync`)
 
-The project's GitHub history (issues, pull requests, discussions and release notes for every `neomjs` repository) publishes to [neomjs/github-content-sync](https://github.com/neomjs/github-content-sync), and the Agent OS Knowledge Base ingests it from there. The engine itself carries only the release note being written, in `.github/RELEASE_NOTES/`; once released, a note lives in the corpus beside the rest.
+The project's GitHub history (issues, pull requests, discussions and release notes for every `neomjs` repository) publishes to [neomjs/github-content-sync](https://github.com/neomjs/github-content-sync), and the Agent OS Knowledge Base ingests it from there. The engine itself carries only the release note being written, in `.github/RELEASE_NOTES/`; once released, the sync archives it from its GitHub Release beside the rest.
 
 Query the Knowledge Base when you need to understand *why* something works a certain way, track the evolution of an architectural design, or find open tasks.
 

@@ -17,8 +17,9 @@
  *
  * The release note is authored at `.github/RELEASE_NOTES/v<version>.md` and stamped with its GitHub
  * Release frontmatter in Step 2. The engine keeps only the notes it has not released: the release
- * commit drops the older ones, each already archived from its GitHub Release by the conversation corpus
- * (`neomjs/github-content-sync`), so the engine carries no synced content.
+ * commit drops the older ones by version alone, reading nothing from the conversation corpus. Each
+ * reaches the site through two separate steps: the content sync archives its GitHub Release into
+ * `neomjs/github-content-sync`, and Pages serves the corpus commit its pin names.
  * The Knowledge Base upload is Brain-side lifecycle work in the
  * `neo-agent-brain` repository, whose release runbook is the next step after this script
  * finishes. The boundary is deliberate: this script imports and spawns nothing from the Brain, so
@@ -41,9 +42,9 @@ const root = path.resolve();
 // --- Helper Functions ---
 
 /**
- * @summary Removes every note older than the version being released from `.github/RELEASE_NOTES`.
- * Each was published with its own GitHub Release, which the conversation corpus archives, so the release
- * commit carries only the notes not yet released.
+ * @summary Removes every note older than the version being released from `.github/RELEASE_NOTES`, so the
+ * release commit carries only the notes not yet released. The version comparison is the whole trigger: the
+ * corpus copy is the content sync's and the Pages pin's to deliver, and this script never reads it.
  * @param {String} version The version being released.
  */
 function dropReleasedNotes(version) {
