@@ -4,10 +4,13 @@ import {fiveBeatFilmScript}                      from '../../../../apps/workstat
 
 /**
  * @summary The flagship film plays from the Workstation's own toolbar: **Start film tour** runs the
- * eight scenes, every window birth waits at a gate until the viewer clicks **Continue** (the user
- * activation `window.open` needs), and the tour's receipt carries one settled cue per beat —
- * tear-out born mid-gesture, re-entry cancelled without mutation, conversion docked into the
- * first vessel, the stack returned home, a perspective restored, one mutation undone and redone.
+ * nine scenes, each window scene waits at a gate until the viewer clicks **Continue** (the user
+ * activation its first `window.open` needs; the journey's later births inside the same held drag
+ * rest on the site's pop-up permission, which Playwright grants by launch flag), and the tour's
+ * receipt carries one settled cue per beat —
+ * tear-out born mid-gesture, the journey's three vessels born and retired under one pointer-down
+ * and its drop into the first vessel, the stack returned home, a perspective restored, one
+ * mutation undone and redone.
  *
  * The gestures themselves are the five-beat witness's authority
  * (`WorkstationFiveBeatNL.spec.mjs`); this spec witnesses that the screenplay drives them from a
@@ -89,41 +92,55 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
      * gate continued the expected way, and each window effect proven by its own receipt.
      * @param {Object} receipt The settled tour receipt.
      * @param {Object} options
-     * @param {String} options.continued `'viewer'` or `'auto'` — how the three gates settled.
+     * @param {String} options.continued `'viewer'` or `'auto'` — how the two gates settled.
      * @param {String[]} options.pageErrors
      */
     function assertFilmReceipt(receipt, {continued, pageErrors}) {
+        // A failed journey names its hops: each one carries the window rects, the pointer and the
+        // sampler's reading, so the log explains the wrong turn without a rerun.
+        const journeyHops = receipt.cueReceipts.find(entry => entry.cue.type === 'journey')?.receipt?.hops;
+
+        receipt.errors.length && journeyHops && console.log(`[film-probe] journey hops: ${JSON.stringify(journeyHops)}`);
+
         expect(receipt.errors, `film tour errors:\n${receipt.errors.join('\n')}\npage errors:\n${pageErrors.join('\n')}`).toEqual([]);
         expect(receipt.completed).toBe(true);
         expect(receipt.scriptId).toBe(fiveBeatFilmScript.id);
         expect(receipt.log).toHaveLength(fiveBeatFilmScript.scenes.flatMap(scene => scene.steps).length);
 
-        // one settled receipt per cue, in screenplay order; three gates, each settled the same way
+        // one settled receipt per cue, in screenplay order; two gates, each settled the same way
         expect(receipt.cueReceipts.map(entry => entry.cue.type)).toEqual(filmCues);
         expect(receipt.cueReceipts.filter(entry => entry.cue.type === 'gate').map(entry => entry.receipt.continued))
-            .toEqual([continued, continued, continued]);
+            .toEqual([continued, continued]);
 
         const byType = type => receipt.cueReceipts.filter(entry => entry.cue.type === type).map(entry => entry.receipt);
 
-        // scene 2 opens the film with the committed tear-out; scene 7, after the rails and the resize, is the morph:
-        // born mid-gesture, retired on re-entry with zero mutation, proven
-        const [tearOut, reentry] = byType('tear-out');
-
-        expect(reentry.applied).toBe(false);
-        expect(reentry.reentered, 'the vessel must retire on re-entry, before pointer-up').toBe(true);
-        expect(reentry.proof?.documentsUnchanged, 'the re-entry must leave the committed document byte-identical').toBe(true);
-        expect(reentry.proof?.birthHold, 'the short born hold must preserve the vessel without arming a preview')
-            .toEqual({durationMs: 1500, survived: true, claimCount: 0, hasTarget: false, hasPreview: false});
-        expect(reentry.proof?.entrySeen, 'window absence alone is not proof of re-entry').toBe(true);
-
         // scene 2 — born mid-gesture, committed into its vessel
+        const [tearOut] = byType('tear-out');
+
         expect(tearOut.applied, 'the detached release must transfer into its vessel').toBe(true);
         expect(tearOut.proof?.born, 'the vessel must be born before pointer-up').toBe(true);
 
-        // scene 3 — the conversion docks into the first vessel
-        const [convert] = byType('convert-while-dragging');
+        // scene 3 — the journey: out, back over main, out, over Metrics' window, out, and the drop —
+        // three vessel generations born and retired under one pointer-down, the pane the same throughout
+        const [journey] = byType('journey');
 
-        expect(convert.applied, 'commits must dock into the metrics vessel').toBe(true);
+        expect(journey.applied, 'commits must dock into the metrics vessel at the end of the journey').toBe(true);
+        expect(journey.hops.map(hop => hop.kind)).toEqual(['desktop', 'main', 'desktop', 'target', 'desktop', 'target']);
+        expect(journey.hops.filter(hop => hop.kind === 'desktop').map(hop => hop.born), 'every desktop hop births a vessel').toEqual([true, true, true]);
+        expect(journey.proof?.vesselWindowIds, 'three generations, each a fresh window').toHaveLength(3);
+        expect(new Set(journey.proof?.vesselWindowIds).size).toBe(3);
+        expect(journey.hops[1], 'back over main: the vessel retires on the observed re-entry and the document is untouched')
+            .toMatchObject({entrySeen: true, retired: true, documentsUnchanged: true});
+        expect(journey.hops.filter(hop => hop.kind === 'target').map(hop => hop.claimed), 'both visits to Metrics\' window settle as one claim').toEqual([true, true]);
+        expect(journey.hops[3].snapshot, 'over Metrics\' window the proxy lives there and no vessel survives')
+            .toMatchObject({claimCount: 1, sourceVesselWindowId: null, proxy: {settled: true, visible: true}});
+        expect(journey.proof?.birthHold, 'the born hold keeps the window under the still pointer').toEqual({durationMs: 1500, survived: true});
+        // the continuity claim is the ledger: one non-constructing read of the borrowed pane per settled hop plus the drop
+        expect(journey.proof?.continuity, 'every settled hop and the drop read the same live pane').toHaveLength(7);
+        expect(journey.proof?.continuity.map(entry => entry.same)).toEqual([true, true, true, true, true, true, true]);
+        expect(journey.proof?.continuity.map(entry => entry.destroyed)).toEqual([false, false, false, false, false, false, false]);
+        expect(new Set(journey.proof?.continuity.map(entry => entry.paneId)).size, 'one pane id throughout').toBe(1);
+        expect(journey.proof?.identityPreserved, 'the same live pane rides every hop').toBe(true);
 
         // scene 4 — the merged stack comes home
         const [stackReturn] = byType('native-return');
@@ -179,7 +196,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(receipt.feed.growth).toBeGreaterThan(0)
     }
 
-    test('Start film tour runs all eight scenes; the viewer\'s Continue clicks open every window', async ({page, neuralLink}) => {
+    test('Start film tour runs all nine scenes; the viewer\'s Continue clicks open every window', async ({page, neuralLink}) => {
         const {app, dispose, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
         try {
@@ -244,11 +261,11 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
             receipt.completed || await dumpDiagnostics('incomplete receipt');
 
-            expect(gatesSeen, 'the viewer continued every gate').toHaveLength(3);
+            expect(gatesSeen, 'the viewer continued every gate').toHaveLength(2);
             assertFilmReceipt(receipt, {continued: 'viewer', pageErrors});
 
             // every window the film opened was closed again by the signature
-            expect(popupProbe.length, 'three windows are born: the tear-out, the re-entry, the conversion').toBeGreaterThanOrEqual(3);
+            expect(popupProbe.length, 'four windows are born: the tear-out and the journey\'s three').toBeGreaterThanOrEqual(4);
             await expect.poll(() => popupProbe.every(fact => fact.closed), {timeout: 15000}).toBe(true);
 
             expect(pageErrors).toEqual([])
@@ -305,7 +322,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
             await expect(page.locator('.workstation-tour-continue')).toBeHidden();
             assertFilmReceipt(receipt, {continued: 'auto', pageErrors});
 
-            expect(popupProbe.length, 'three windows are born without a click: the tear-out, the re-entry, the conversion').toBeGreaterThanOrEqual(3);
+            expect(popupProbe.length, 'four windows are born without a click: the tear-out and the journey\'s three').toBeGreaterThanOrEqual(4);
             await expect.poll(() => popupProbe.every(fact => fact.closed), {timeout: 15000}).toBe(true);
 
             expect(pageErrors).toEqual([])

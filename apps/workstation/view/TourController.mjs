@@ -315,6 +315,10 @@ class TourController extends Controller {
                 return (await this.getGestureDriver()).executeCrossWindowDockStep(
                     {itemId: cue.itemId, sourceNodeId: cue.sourceNodeId, targetItemId: cue.targetItemId}, cue.options
                 )
+            case 'journey':
+                return (await this.getGestureDriver()).executeJourneyStep(
+                    {hops: cue.hops, itemId: cue.itemId, sourceNodeId: cue.sourceNodeId, targetItemId: cue.targetItemId}, cue.options
+                )
             case 'stack-return':
                 return (await this.getGestureDriver()).executeStackReturnStep({ownerItemId: cue.ownerItemId}, cue.options)
             case 'native-return':
@@ -449,6 +453,7 @@ class TourController extends Controller {
                 diag              : receipt?.proof?.diag ?? null,
                 documentsUnchanged: receipt?.proof?.documentsUnchanged ?? null,
                 errors            : receipt?.errors ?? [],
+                hops              : receipt?.hops ?? null,
                 phases            : receipt?.proof?.phaseOrder ?? null,
                 reentered         : receipt?.reentered ?? false,
                 type              : cue.type

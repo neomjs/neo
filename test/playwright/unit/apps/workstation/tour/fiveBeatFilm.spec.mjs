@@ -68,15 +68,14 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
 
         expect(valid).toBe(true);
         expect(errors).toEqual([]);
-        // the film opens on the committed tear-out right after a three-second cold open, and the
-        // conversion and the return stay contiguous with it, the order the five-beat witness proves
-        // them in; the rail beat follows the return, the resize (a real pointer drag with the live
-        // preview) settles the layout after it, the morph (a window born and retired inside one
-        // gesture) plays next as the change of mind, and the drop-zone showcase moves the
-        // travelled pane afterwards
+        // the film opens on the committed tear-out right after a three-second cold open; the journey
+        // (one drag across every boundary, ending in the first vessel) and the return stay contiguous
+        // with it, the order the five-beat witness proves them in; the rail beat follows the return,
+        // the resize (a real pointer drag with the live preview) settles the layout after it, and
+        // the drop-zone showcase moves the travelled pane afterwards
         expect(fiveBeatFilmScript.scenes.map(scene => scene.id)).toEqual([
-            'film-cold-open', 'film-tear-out', 'film-second-window', 'film-reintegration',
-            'film-rails', 'film-resize', 'film-morph', 'film-showcase', 'film-perspectives-undo', 'film-signature'
+            'film-cold-open', 'film-tear-out', 'film-journey', 'film-reintegration',
+            'film-rails', 'film-resize', 'film-showcase', 'film-perspectives-undo', 'film-signature'
         ]);
         fiveBeatFilmScript.scenes.forEach(scene => {
             expect(scene.steps.length, `${scene.id} must carry runnable steps`).toBeGreaterThan(0);
@@ -94,8 +93,8 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         operations.forEach(operation => expect(Operations.operations).toContain(operation))
     });
 
-    test('every window birth is gated: a gate cue directly precedes each tear-out and conversion', () => {
-        const birthing = ['tear-out', 'convert-while-dragging'];
+    test('every window birth is gated: a gate cue directly precedes the tear-out and the journey', () => {
+        const birthing = ['tear-out', 'journey'];
 
         let births = 0;
 
@@ -110,20 +109,29 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
             })
         });
 
-        // the tear-out, the re-entry and the conversion; the stack return opens no window
-        expect(births).toBe(3);
-        expect(steps().filter(step => step.cue?.type === 'gate')).toHaveLength(3);
+        // the tear-out and the journey (one gate: the click activates its first window, the two births
+        // that follow inside the same drag rest on the site's pop-up permission); the stack return opens no window
+        expect(births).toBe(2);
+        expect(steps().filter(step => step.cue?.type === 'gate')).toHaveLength(2);
         expect(steps().find(step => step.cue?.type === 'native-return').cue.ownerItemId).toBe('metrics');
         expect(steps().filter(step => step.cue?.type === 'tear-out').map(step => step.cue.options.reenter === true))
-            .toEqual([false, true]);
-        // the re-entry source is a small group; the heavy group overflows and cannot arm or re-arm there
-        expect(steps().find(step => step.cue?.options?.reenter === true).cue.sourceNodeId).not.toBe('heavy-tabs')
+            .toEqual([false]);
+
+        // the journey walks Commits out, back over main, out, into the vessel the tear-out committed,
+        // out once more, and drops there: a target hop follows a desktop hop, and the last hop drops
+        const journey = steps().find(step => step.cue?.type === 'journey').cue;
+
+        expect(journey.hops).toEqual(['desktop', 'main', 'desktop', 'target', 'desktop', 'target']);
+        expect(journey.targetItemId).toBe(steps().find(step => step.cue?.type === 'tear-out').cue.itemId);
+        expect(journey.itemId).not.toBe(journey.targetItemId);
+        // the journey's source is a small group; the heavy group overflows and cannot arm or re-arm there
+        expect(journey.sourceNodeId).not.toBe('heavy-tabs')
     });
 
-    test('the pacing budget sums to 97s inside the 90–150s envelope', () => {
+    test('the pacing budget sums to 91s inside the 90–150s envelope', () => {
         const total = fiveBeatFilmScript.scenes.reduce((sum, scene) => sum + scene.targetSeconds, 0);
 
-        expect(total).toBe(97);
+        expect(total).toBe(91);
         expect(total).toBeGreaterThanOrEqual(fiveBeatFilmScript.envelope.minSeconds);
         expect(total).toBeLessThanOrEqual(fiveBeatFilmScript.envelope.maxSeconds)
     });
@@ -136,7 +144,7 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
                 .map(step => ({scene: scene.id, ms: step.ms, caption: step.caption}))),
             close  = pauses.filter(pause => pause.scene === 'film-signature');
 
-        expect(holds.length, 'the morph keeps its born hold').toBe(1);
+        expect(holds.length, 'the journey keeps its born hold').toBe(1);
         holds.forEach(ms => expect(ms, 'a hold inside a gesture reads as "that is a window", never as a park').toBeLessThanOrEqual(1500));
 
         pauses.filter(pause => pause.scene !== 'film-signature').forEach(pause =>
