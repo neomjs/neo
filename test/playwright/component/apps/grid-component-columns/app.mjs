@@ -57,7 +57,7 @@ export const onStart = () => Neo.app({
             text  : 'Toggle snapshot',
             /** @summary Replaces profile records while keeping their semantic keys. */
             handler() {
-                const store = Neo.get('grid-component-columns').store;
+                const store = this.up().getReference('profiles').store;
 
                 store.data = snapshots[store.get(1).name === 'Octo One' ? 1 : 0];
             }
@@ -66,6 +66,7 @@ export const onStart = () => Neo.app({
             id           : 'grid-component-columns',
             flex         : 1,
             store        : ProfileStore,
+            reference    : 'profiles',
             useInternalId: false,
 
             columns: [{
