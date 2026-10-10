@@ -133,6 +133,44 @@ test('a gate holds until Continue; under autoGates it settles on its own and pub
     } finally {workspace.destroy()}
 });
 
+test('a take holds an auto-resolved gate by ordinal: the receipt carries heldMs, no prompt is published, and the ordinal resets per playback', async () => {
+    const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          provider   = workspace.getStateProvider(), prompt = 'Continue — go',
+          script     = {
+              schema: 'neo.tour.script.v1', id: 'gate-hold', title: 'Gate hold',
+              scenes: [{id: 's', title: 'Scene', steps: [
+                  {type: 'pause', ms: 0, cue: {type: 'gate', prompt}},
+                  {type: 'pause', ms: 0, cue: {type: 'gate', prompt}}
+              ]}]
+          },
+          gates      = receipt => receipt.cueReceipts.map(entry => entry.receipt);
+    controller.setPipProgress = async () => {};
+    workspace.resetTopology = async () => acceptedReset();
+    try {
+        const startedAt = Date.now(),
+              run       = controller.startTour(script, {autoGates: true, autoGateHoldMs: {1: 120}});
+
+        // the first gate settles at once; while the second holds, nothing is published for a viewer
+        await expect.poll(() => controller.cueReceipts.length).toBeGreaterThanOrEqual(1);
+        expect(controller.getPendingGate()).toBeNull();
+        expect(provider.getData('tour.gatePrompt')).toBeNull();
+
+        const first = await run;
+        expect(first.completed).toBe(true);
+        expect(gates(first).map(gate => gate.continued)).toEqual(['auto', 'auto']);
+        expect(gates(first).map(gate => gate.heldMs)).toEqual([undefined, 120]);
+        expect(Date.now() - startedAt).toBeGreaterThanOrEqual(120);
+
+        // the ordinal resets per playback: the next run holds its second gate again, and the holds stay set
+        expect(gates(await controller.startTour(script)).map(gate => gate.heldMs)).toEqual([undefined, 120]);
+
+        // cleared, the gate returns the synchronous receipt
+        controller.autoGateHoldMs = null;
+        expect(controller.openGate({prompt})).toEqual({applied: true, continued: 'auto', prompt})
+    } finally {workspace.destroy()}
+});
+
 test('startTour sets the gate mode only when asked: a gated screenplay then runs unattended, and stays so until told otherwise', async () => {
     const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
           controller = await workspace.getController().getTourController(),
