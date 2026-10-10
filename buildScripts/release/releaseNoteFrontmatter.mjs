@@ -6,10 +6,10 @@ import semver from 'semver';
  * @summary Stamps an authored release note with the frontmatter the Portal's release index dates it by, and splits
  * a note into the title and body its GitHub Release receives.
  *
- * The archived notes in `.github/RELEASE_NOTES` carry their GitHub Release's metadata as frontmatter, and
- * `buildScripts/docs/index/release.mjs` dates each release by its `publishedAt`. A note is authored without it, and
- * since the notes stay in the engine as the archive, nothing re-materializes it from GitHub. So `publish.mjs`
- * stamps the note before `prepare.mjs` rebuilds that index, and later hands GitHub the note without the block.
+ * Archived notes carry their GitHub Release's metadata as frontmatter, and `buildScripts/docs/index/release.mjs`
+ * dates each release by its `publishedAt`. A note is authored without it in `.github/RELEASE_NOTES`, and nothing
+ * re-materializes it from GitHub before the release. So `publish.mjs` stamps the note before `prepare.mjs` rebuilds
+ * that index, and later hands GitHub the note without the block.
  */
 
 /**

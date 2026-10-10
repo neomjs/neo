@@ -15,9 +15,10 @@
  * 4. **Documentation**: Finalizes release notes with the production commit hash.
  * 5. **Distribution**: Triggers the GitHub Release (which cascades to npm).
  *
- * The release note is authored at `.github/RELEASE_NOTES/v<version>.md` and stays there as the
- * archive, stamped with its GitHub Release frontmatter in Step 2. The conversation corpus
- * publishes from `neomjs/github-content-sync`, so the engine carries no synced content.
+ * The release note is authored at `.github/RELEASE_NOTES/v<version>.md` and stamped with its GitHub
+ * Release frontmatter in Step 2. The engine keeps only the notes it has not released: the release
+ * commit drops the older ones, each already archived from its GitHub Release by the conversation corpus
+ * (`neomjs/github-content-sync`), so the engine carries no synced content.
  * The Knowledge Base upload is Brain-side lifecycle work in the
  * `neo-agent-brain` repository, whose release runbook is the next step after this script
  * finishes. The boundary is deliberate: this script imports and spawns nothing from the Brain, so
@@ -29,6 +30,7 @@
 import {execSync} from 'child_process';
 import fs         from 'fs-extra';
 import path       from 'path';
+import semver     from 'semver';
 import {
     getReleaseNoteParts,
     stampReleaseNote
@@ -37,6 +39,24 @@ import {
 const root = path.resolve();
 
 // --- Helper Functions ---
+
+/**
+ * @summary Removes every note older than the version being released from `.github/RELEASE_NOTES`.
+ * Each was published with its own GitHub Release, which the conversation corpus archives, so the release
+ * commit carries only the notes not yet released.
+ * @param {String} version The version being released.
+ */
+function dropReleasedNotes(version) {
+    const dir = path.join(root, '.github/RELEASE_NOTES');
+
+    for (const file of fs.readdirSync(dir)) {
+        const noteVersion = /^v(.+)\.md$/.exec(file)?.[1];
+
+        if (noteVersion && semver.valid(noteVersion) && semver.lt(noteVersion, version)) {
+            fs.removeSync(path.join(dir, file))
+        }
+    }
+}
 
 function runCommand(command, errorMessage) {
     try {
@@ -104,6 +124,8 @@ async function main() {
     // --- 2. Prepare (Dev) ---
 
     console.log('📦 Step 2: Preparing Release Artifacts...');
+
+    dropReleasedNotes(newVersion);
 
     // The release index dates a release by its note's frontmatter, so the note is stamped before prepare rebuilds it
     fs.writeFileSync(releaseNotePath, stampReleaseNote(fs.readFileSync(releaseNotePath, 'utf-8'), {publishedAt: new Date(), version: newVersion}));

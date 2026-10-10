@@ -4,7 +4,7 @@ The roadmap holds the **next-release scope only** — what ships next and why. E
 
 - **Vision & positioning:** [`.github/VISION.md`](.github/VISION.md)
 - **Architecture:** [Engine and ecosystem overview](learn/benefits/ArchitectureOverview.md) · [Brain: Dream Pipeline & Golden Path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md)
-- **Shipped history:** the [Engine release notes](.github/RELEASE_NOTES/) ([v13.1.0](.github/RELEASE_NOTES/v13.1.0.md)) + the [v13 architectural path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/v13-path.md)
+- **Shipped history:** the [Engine release notes](https://github.com/neomjs/neo/releases) ([v13.1.0](https://github.com/neomjs/neo/releases/tag/13.1.0)) + the [v13 architectural path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/v13-path.md)
 
 ## Next: Engine 13.2 — A Runtime That Ships From Several Repositories
 

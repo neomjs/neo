@@ -5,11 +5,21 @@ import path           from 'node:path';
 /**
  * Regression coverage for the release note's lifecycle in `buildScripts/release/publish.mjs`.
  *
- * The note is authored at `.github/RELEASE_NOTES/v{version}.md` and that file is the archive:
- * `publish.mjs` requires it before the cut, appends the atomic-hash line, creates the GitHub release
- * from it and keeps it. Nothing re-materializes it elsewhere, so a note can no longer be orphaned
- * beside a synced copy. These arms keep it that way.
+ * The note is authored at `.github/RELEASE_NOTES/v{version}.md`: `publish.mjs` requires it before the
+ * cut, creates the GitHub release from it and keeps it. The release commit drops every older note;
+ * each was released already, and the conversation corpus archives it from its GitHub Release. The
+ * engine therefore holds only notes it has not released. These arms keep it that way.
  */
+
+/** @summary Compares two SemVer strings by their numeric core; a prerelease sorts below its release. */
+const compareVersions = (a, b) => {
+    const parse = value => {
+        const [core, pre] = value.split('-');
+        return [...core.split('.').map(Number), pre === undefined ? Infinity : -1]
+    };
+    const [x, y] = [parse(a), parse(b)];
+    return x.map((part, index) => part - y[index]).find(delta => delta !== 0) ?? 0
+};
 
 const
     root     = process.cwd(),
@@ -17,12 +27,23 @@ const
     publish  = () => fs.readFileSync(path.join(root, 'buildScripts/release/publish.mjs'), 'utf8');
 
 test.describe('Release-note lifecycle', () => {
-    test('publish.mjs requires the note at its authored path and keeps it after the release', () => {
+    test('publish.mjs requires the note at its authored path, keeps it, and drops only older notes', () => {
         const src = publish();
 
         expect(src).toContain('.github/RELEASE_NOTES/v${newVersion}.md');
         expect(src).not.toContain('resources/content');
         expect(src).not.toMatch(/fs\.remove(Sync)?\(releaseNotePath\)/);
+        expect(src).toContain('dropReleasedNotes(newVersion)');
+        expect(src).toContain('semver.lt(noteVersion, version)');
+    });
+
+    test('the engine holds no released note: every note is at or above package.json\'s version', () => {
+        const
+            {version} = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')),
+            notes     = fs.readdirSync(notesDir).map(name => /^v(.+)\.md$/.exec(name)?.[1]).filter(Boolean);
+
+        expect(notes.length, 'at least the note being written').toBeGreaterThan(0);
+        expect(notes.filter(note => compareVersions(note, version) < 0)).toEqual([]);
     });
 
     test('publish.mjs stamps the note before prepare.mjs indexes it, and strips the stamp from the release body (#19409)', () => {

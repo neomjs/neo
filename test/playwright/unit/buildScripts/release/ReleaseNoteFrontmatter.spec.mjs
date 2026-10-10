@@ -1,6 +1,4 @@
 import {test, expect} from '@playwright/test';
-import fs             from 'node:fs';
-import path           from 'node:path';
 import matter         from 'gray-matter';
 import {
     getReleaseNoteParts,
@@ -30,8 +28,18 @@ test.describe('stampReleaseNote (#19409)', () => {
         expect(content).toBe(note)
     });
 
+    // The frontmatter of an archived note (v13.1.0, as the corpus holds it): the shape a stamp must produce.
     test('carries the keys an archived note carries', () => {
-        const archived = matter(fs.readFileSync(path.join(process.cwd(), '.github/RELEASE_NOTES/v13.1.0.md'), 'utf8')).data;
+        const archived = matter([
+            '---',
+            'tagName: 13.1.0',
+            'name: Neo.mjs v13.1.0 Release Notes',
+            "publishedAt: '2026-07-03T21:40:28Z'",
+            'isPrerelease: false',
+            'isDraft: false',
+            '---',
+            '# Neo.mjs v13.1.0 Release Notes'
+        ].join('\n')).data;
 
         expect(Object.keys(matter(stampReleaseNote(note, {publishedAt, version: '13.2.0'})).data)).toEqual(Object.keys(archived))
     });
