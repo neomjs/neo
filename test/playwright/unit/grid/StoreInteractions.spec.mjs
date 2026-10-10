@@ -349,6 +349,33 @@ test.describe('Grid & Store Interactions', () => {
             Neo.main.DomAccess.scrollTo = originalScrollTo
         }
     });
+
+    test('in-memory continuation reprojects fresh records without a top reset; ordinary assignment still resets', async () => {
+        const originalScrollTo = Neo.main.DomAccess.scrollTo, scrollCalls = [];
+        Neo.main.DomAccess.scrollTo = data => scrollCalls.push(data);
+
+        try {
+            await grid.timeout(70);
+            const previous = store.get(5), data = Array.from({length: 30}, (_, id) => ({id, name: `New row ${id}`, score: id}));
+
+            store.setData(data, {continuation: true});
+            await grid.timeout(70);
+
+            expect(store.count).toBe(30);
+            expect(store.get(5)).not.toBe(previous);
+            expect(grid.body.items.find(row => row.rowIndex === 5).record).toBe(store.get(5));
+            expect(scrollCalls).toEqual([]);
+
+            store.setData([{id: 100, name: 'New reading window', score: 1}]);
+            await grid.timeout(70);
+
+            expect(store.items.map(item => item.id)).toEqual([100]);
+            expect(scrollCalls.length).toBeGreaterThan(0);
+            expect(scrollCalls.every(({direction, value}) => direction === 'top' && value === 0)).toBe(true)
+        } finally {
+            Neo.main.DomAccess.scrollTo = originalScrollTo
+        }
+    });
 });
 
 test.describe('Grid & TreeStore Bulk Projection Interactions', () => {
