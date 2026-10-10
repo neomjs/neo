@@ -95,8 +95,8 @@ class VesselWorkspace extends DockWorkspace {
         dockHistoryDepth: 50,
         /**
          * A torn-out vessel opens at the dragged pane's rendered size; a product that wants one
-         * size for every vessel pins `{width, height}` here. Either way the engine clamps to the
-         * screen and the popup floor (`Placement.resolveVesselSize`).
+         * size for every vessel pins `{width, height}` here, in outer window pixels. Either way the
+         * engine clamps to the screen and the popup floor (`Placement.resolveVesselSize`).
          * @member {Object|null} tearOutVesselSize=null
          */
         tearOutVesselSize: null,
@@ -1006,9 +1006,14 @@ class VesselWorkspace extends DockWorkspace {
      * acquisition rather than optional presentation: an unavailable authority reaches the outer
      * diagnostic boundary and prevents an unthemed child from opening.
      * The vessel opens at the size the dragged pane showed at: `sourceRect`, the card body the
-     * sort zone measured at drag arming (the tab header's drag proxy is no measure of the widget),
-     * clamped by {@link Neo.dashboard.dock.window.Placement.resolveVesselSize}; `tearOutVesselSize`
-     * pins one size instead. It is born at the proxy's position, under the hand.
+     * sort zone measured at drag arming (the tab header's drag proxy is no measure of the widget;
+     * without a measurement the helper's fallback applies, never the header's size), clamped by
+     * {@link Neo.dashboard.dock.window.Placement.resolveVesselSize}; `tearOutVesselSize` pins one
+     * size instead. That size is the window's OUTER size, applied as the total extent by
+     * `Main.windowOpen`: the popup's frame takes over the pane's footprint on screen, and its body
+     * is smaller by the window chrome on purpose. A popup larger than the widget it replaces is the
+     * unwanted outcome, so no chrome is added to keep the content area. It is born at the proxy's
+     * position, under the hand.
      * @param {Object} request
      * @param {String} request.itemId
      * @param {Object} request.proxyRect
@@ -1036,31 +1041,21 @@ class VesselWorkspace extends DockWorkspace {
                 selectedTheme = Object.hasOwn(schemes, me.theme)
                     ? me.theme
                     : bootstrap?.defaultTheme || me.theme,
+                // the outer size, which `windowOpen` applies as the window's total extent
                 {height, width} = Placement.resolveVesselSize({
-                    chrome    : {
-                        height: (winData.outerHeight ?? 0) - (winData.innerHeight ?? 0),
-                        width : (winData.outerWidth  ?? 0) - (winData.innerWidth  ?? 0)
-                    },
-                    pinned    : me.tearOutVesselSize,
-                    screen    : winData.screen,
-                    sourceRect: sourceRect ?? proxyRect
+                    pinned: me.tearOutVesselSize,
+                    screen: winData.screen,
+                    sourceRect
                 }),
-                // Chrome sizes a popup's `height` feature as the frame, location bar included, so the
-                // content comes out shorter by the popup chrome (measured: 67 px on macOS). The best
-                // known popup chrome is added: an open popup's own record first, main's chrome as
-                // the first vessel's estimate.
-                chromeTop = me.knownPopupChrome(winData),
-                left      = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
-                top       = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
-
-            me.lastVesselOpen.chrome = chromeTop;
+                left = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
+                top  = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
 
             let opened = await Neo.Main.windowOpen({
                 nativeCapabilities: {close: true, position: true, resize: true},
                 stagedColorScheme : schemes[selectedTheme],
                 topologyIdentity,
                 url               : `./index.html?popout=${itemId}&theme=${encodeURIComponent(selectedTheme)}`,
-                windowFeatures    : `height=${height + chromeTop},left=${left},top=${top},width=${width}`,
+                windowFeatures    : `height=${height},left=${left},top=${top},width=${width}`,
                 windowId,
                 windowName
             });
@@ -1106,28 +1101,6 @@ class VesselWorkspace extends DockWorkspace {
             sourceOwns    : itemId => Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
             windowNameFor : itemId => `tearout-${itemId}`
         }, vessel)
-    }
-
-    /**
-     * @summary The popup chrome a new vessel's `height` feature must carry so its content matches the
-     * pane: an open popup's recorded `chrome.top` when one exists (the exact value for this
-     * browser), else main's own chrome as the estimate, else nothing.
-     * @param {Object} winData Main's window data (`outerHeight`, `innerHeight`).
-     * @returns {Number}
-     * @protected
-     */
-    knownPopupChrome(winData) {
-        let me = this;
-
-        for (const state of me.getPopupStates()) {
-            let top = WindowManager.get(state.windowId)?.chrome?.top;
-
-            if (Number.isFinite(top) && top > 0) return Math.round(top)
-        }
-
-        let main = (winData?.outerHeight ?? 0) - (winData?.innerHeight ?? 0);
-
-        return Number.isFinite(main) && main > 0 ? Math.round(main) : 0
     }
 
     /**

@@ -2632,7 +2632,7 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
-    test('a torn-out vessel opens at the dragged pane\'s rendered size, pinned when the host says so, the proxy only without a pane', async () => {
+    test('a torn-out vessel opens at the dragged pane\'s outer size, pinned when the host says so, the fallback without a pane', async () => {
         const
             workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light', windowId: Neo.config.windowId}),
             originalGetByPath  = Neo.Main.getByPath,
@@ -2665,25 +2665,25 @@ test.describe('Workstation.view.Workspace', () => {
             // the card body the pane filled, measured at arming, not the tab header's proxy
             await workspace.openTearOutVessel({itemId: 'alerts', proxyRect: proxy, sourceRect: {height: 428.6, width: 612.2, x: 700, y: 120}, topologyIdentity: identity('alerts')});
 
-            // no measurement (an older zone, or a hidden card): the proxy stays the fallback, floored
+            // no measurement (an older zone, or a hidden card): the helper's fallback, never the
+            // tab header's size, which is the defect this seam fixes
             await workspace.openTearOutVessel({itemId: 'alerts', proxyRect: proxy, sourceRect: null, topologyIdentity: identity('alerts')});
 
-            // a pane taller than the usable screen is capped below the chrome
+            // a pane taller than the usable screen is capped at the screen; main's 87 px of chrome
+            // takes nothing off
             await workspace.openTearOutVessel({itemId: 'alerts', proxyRect: proxy, sourceRect: {height: 1400, width: 800, x: 0, y: 0}, topologyIdentity: identity('alerts')});
 
             // the host's pin wins over the pane
             workspace.tearOutVesselSize = {height: 500, width: 640};
             await workspace.openTearOutVessel({itemId: 'alerts', proxyRect: proxy, sourceRect: {height: 428, width: 612, x: 0, y: 0}, topologyIdentity: identity('alerts')});
 
-            // the frame carries the content height plus the popup chrome the host knows — main's
-            // 87 px here, no popup being open yet — so the content comes out at the pane's size
+            // outer sizes, as `windowOpen` applies them: the pane's footprint, no chrome added
             expect(calls.map(sizeOf)).toEqual([
-                {height: 429 + 87, width: 612},
-                {height: 240 + 87, width: 320},
-                {height: 993 + 87, width: 800},
-                {height: 500 + 87, width: 640}
+                {height: 429,  width: 612},
+                {height: 360,  width: 480},
+                {height: 1080, width: 800},
+                {height: 500,  width: 640}
             ]);
-            expect(workspace.lastVesselOpen.chrome).toBe(87);
             // born at the proxy's position, under the hand, whatever the size
             expect(calls.map(call => featuresOf(call).left)).toEqual(['50', '50', '50', '50']);
             expect(workspace.tearOutVesselDims).toEqual({height: 500, width: 640})

@@ -281,12 +281,13 @@ class Placement extends Base {
     }
 
     /**
-     * @summary Resolves the size a torn-out vessel opens at: the dragged pane's rendered size by
-     * default (a tab header's drag proxy is no measure of the widget), a host-pinned size when the
-     * product wants one, clamped to the screen's usable area less the window chrome and to the
-     * platform's popup floor. Without a source or a pin the fallback applies.
+     * @summary Resolves the outer size a torn-out vessel opens at: the dragged pane's rendered size
+     * by default (a tab header's drag proxy is no measure of the widget), a host-pinned size when
+     * the product wants one, clamped to the screen's usable area and to the platform's popup floor.
+     * Without a source or a pin the fallback applies. All sizes are outer window pixels: the window's
+     * frame takes over the pane's footprint on screen, and its content is smaller by the window
+     * chrome on purpose, so no chrome is added anywhere.
      * @param {Object} [request={}]
-     * @param {Object} [request.chrome] `{width, height}` the host window's outer-minus-inner size, kept free of the ceiling.
      * @param {Object} [request.fallback={width: 480, height: 360}] The size without a source or a pin.
      * @param {Object} [request.floor={width: 320, height: 240}] The platform's popup minimum.
      * @param {Object|null} [request.pinned] A host-pinned `{width, height}`.
@@ -295,7 +296,7 @@ class Placement extends Base {
      * @returns {{height: Number, width: Number}}
      * @static
      */
-    static resolveVesselSize({chrome=null, fallback={height: 360, width: 480}, floor={height: 240, width: 320}, pinned=null, screen=null, sourceRect=null}={}) {
+    static resolveVesselSize({fallback={height: 360, width: 480}, floor={height: 240, width: 320}, pinned=null, screen=null, sourceRect=null}={}) {
         const
             positive = (candidate, key) => Number.isFinite(candidate?.[key]) && candidate[key] > 0 ? candidate[key] : null,
             wanted   = {
@@ -303,8 +304,8 @@ class Placement extends Base {
                 width : positive(pinned, 'width')  ?? positive(sourceRect, 'width')  ?? fallback.width
             },
             ceiling  = {
-                height: (positive(screen, 'availHeight') ?? Infinity) - (positive(chrome, 'height') ?? 0),
-                width : (positive(screen, 'availWidth')  ?? Infinity) - (positive(chrome, 'width')  ?? 0)
+                height: positive(screen, 'availHeight') ?? Infinity,
+                width : positive(screen, 'availWidth')  ?? Infinity
             };
 
         return {

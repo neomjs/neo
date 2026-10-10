@@ -8,9 +8,9 @@ import * as core      from '../../../../src/core/_export.mjs';
 import Placement      from '../../../../src/dashboard/dock/window/Placement.mjs';
 
 /**
- * @summary Pins the size a torn-out vessel opens at: the dragged pane's rendered size by
- * default, a host pin when given, the popup floor below, the screen less the window chrome above,
- * and the fallback when nothing was measured.
+ * @summary Pins the outer size a torn-out vessel opens at: the dragged pane's rendered size by
+ * default, a host pin when given, the popup floor below, the screen above, and the fallback when
+ * nothing was measured. No chrome term: the frame takes over the pane's footprint on screen.
  */
 test.describe('Dock vessel size', () => {
     const screen = {availHeight: 1080, availWidth: 1920};
@@ -30,9 +30,9 @@ test.describe('Dock vessel size', () => {
         expect(Placement.resolveVesselSize({pinned: {height: 100, width: 100}, screen})).toEqual({height: 240, width: 320})
     });
 
-    test('the screen less the window chrome caps a pane taller or wider than the usable area', () => {
-        expect(Placement.resolveVesselSize({chrome: {height: 87, width: 0}, screen, sourceRect: {height: 1400, width: 2600}}))
-            .toEqual({height: 993, width: 1920})
+    test('the screen\'s usable area caps a pane taller or wider than it, with nothing taken off for chrome', () => {
+        expect(Placement.resolveVesselSize({screen, sourceRect: {height: 1400, width: 2600}})).toEqual({height: 1080, width: 1920});
+        expect(Placement.resolveVesselSize({pinned: {height: 2000, width: 600}, screen})).toEqual({height: 1080, width: 600})
     });
 
     test('without a source, a pin or a screen the fallback applies, and an empty rect is no source', () => {
