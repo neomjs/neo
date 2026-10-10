@@ -444,8 +444,7 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
                     previews         : await page.locator('.neo-dock-preview-affordance').count(),
                     nativeLifecycle  : await readNativeLifecycle(app, workspaceId).catch(e => String(e)),
                     workspace        : await app.getComponent(workspaceId, [
-                        'lastTearOutClose', 'lastVesselParkReceipt', 'lastVesselRestoreReceipt',
-                        'tearOutParkGeometries'
+                        'lastTearOutClose', 'lastVesselParkReceipt', 'lastVesselRestoreReceipt'
                     ]).catch(e => String(e))
                 };
 

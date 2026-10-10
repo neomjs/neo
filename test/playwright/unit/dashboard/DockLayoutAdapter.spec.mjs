@@ -1460,101 +1460,15 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         })
     });
 
-    test.describe('vessel-conversion projection threading — policy stays source-owned', () => {
-        test('the explicit opt-in and the finite exit grace reach every projected dock sort zone', () => {
-            const liveRect = {height: 240, width: 320, x: 40, y: 60};
-            const result   = DockLayoutAdapter.project(createModel(), {
-                enableVesselConversion            : true,
-                resolveComponentRef               : reference => ({ntype: 'dashboard-panel', reference}),
-                resolveVesselConversionSourceRect : () => liveRect,
-                vesselConversionPointerExitGraceMs: 40
-            });
-            const config = result.items[0].headerToolbar.sortZoneConfig;
+    test.describe('claim projection threading — the source decides, the projection threads one flag', () => {
+        test('the explicit opt-in reaches the projected dock sort zone, and the default stays off', () => {
+            const project = options => DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference}),
+                ...options
+            }).items[0].headerToolbar.sortZoneConfig;
 
-            expect(config).toMatchObject({
-                enableVesselConversion            : true,
-                vesselConversionPointerExitGraceMs: 40
-            });
-            expect(config).not.toHaveProperty('resolveVesselConversionSourceRect');
-
-            const request = {sourceRect: null};
-
-            result.items[0].listeners.dockVesselConversionSourceRectRequest(request);
-            expect(request.sourceRect).toBe(liveRect)
-        });
-
-        test('strict lifecycle admissions and terminal settlements stay on clone-safe mutable records', async () => {
-            const pending = Promise.resolve(true),
-                  calls   = [],
-                  result  = DockLayoutAdapter.project(createModel(), {
-                      enableVesselConversion  : true,
-                      onDockVesselConversionIn: data => {
-                          calls.push(['in', data.itemId]);
-                          return pending
-                      },
-                      onDockVesselConversionOut       : data => {
-                          calls.push(['out', data.itemId]);
-                          return true
-                      },
-                      onDockVesselConversionRetired   : data => {
-                          calls.push(['retired', data.itemId]);
-                          return true
-                      },
-                      onDockVesselConversionTerminal  : data => {
-                          calls.push(['terminal', data.outcome]);
-                          return pending
-                      },
-                      resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
-                  }),
-                  listeners = result.items[0].listeners,
-                  convertIn = {admission: false, itemId: 'swarm'},
-                  convertOut = {admission: false, itemId: 'swarm'},
-                  terminal = {itemId: 'swarm', outcome: 'committed', settlement: false},
-                  retired = {itemId: 'swarm', settlement: false};
-
-            listeners.dockVesselConversionIn(convertIn);
-            listeners.dockVesselConversionOut(convertOut);
-            listeners.dockVesselConversionTerminal(terminal);
-            listeners.dockVesselConversionRetired(retired);
-
-            expect(convertIn.admission, 'Promise identity is preserved behind the source latch').toBe(pending);
-            expect(convertOut.admission).toBe(true);
-            expect(terminal.settlement).toBe(pending);
-            expect(retired.settlement).toBe(true);
-            expect(await terminal.settlement).toBe(true);
-            expect(calls).toEqual([
-                ['in', 'swarm'], ['out', 'swarm'], ['terminal', 'committed'], ['retired', 'swarm']
-            ])
-        });
-
-        test('the default is fail-closed and does not mint an exit grace into the projection', () => {
-            const result = DockLayoutAdapter.project(createModel(), {
-                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
-            });
-            const config = result.items[0].headerToolbar.sortZoneConfig;
-
-            expect(config.enableVesselConversion).toBe(false);
-            expect(config).not.toHaveProperty('vesselConversionPointerExitGraceMs');
-
-            const request = {sourceRect: {height: 1, width: 1, x: 0, y: 0}};
-
-            result.items[0].listeners.dockVesselConversionSourceRectRequest(request);
-            expect(request.sourceRect).toBeNull();
-
-            for (const eventName of [
-                'dockVesselConversionIn',
-                'dockVesselConversionOut',
-                'dockVesselConversionTerminal',
-                'dockVesselConversionRetired'
-            ]) {
-                const key = eventName === 'dockVesselConversionIn' || eventName === 'dockVesselConversionOut'
-                        ? 'admission'
-                        : 'settlement',
-                    data = {[key]: true};
-
-                result.items[0].listeners[eventName](data);
-                expect(data[key]).toBe(false)
-            }
+            expect(project({enableVesselConversion: true}).enableVesselConversion).toBe(true);
+            expect(project({}).enableVesselConversion).toBe(false)
         })
     });
 

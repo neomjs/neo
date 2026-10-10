@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
     "apps/workstation/tour/NativeGestureDriver.mjs": 1129,
     "examples/dashboard/crossWindow/DemoBWorkspace.mjs": 2507,
+=======
+    "examples/dashboard/crossWindow/DemoBWorkspace.mjs": 2450,
+>>>>>>> origin/dev
     "src/main/addon/DragDrop.mjs": 1294
 }
