@@ -54,7 +54,7 @@ flowchart TD
     Descriptors["operation descriptors<br/>setActiveItem · resizeSplit · resizeEdgeZone<br/>moveItem · splitNode · addTab · detachItem"]:::inter
     Coordinator["Neo.manager.DragCoordinator<br/>cross-window arbitration — dock-BLIND"]:::cross
     Arbiter["GestureClaimArbiter<br/>one token per gesture, deterministic winner"]:::cross
-    Vessels["Vessel lifecycle<br/>window.TearOut choreography · VesselEmbodiment<br/>VesselConversion · VesselPark"]:::cross
+    Vessels["Vessel lifecycle<br/>window.TearOut choreography · VesselEmbodiment<br/>VesselPark"]:::cross
 
     Document --> Adapter
     Adapter --> Reconciler

@@ -46,17 +46,6 @@ class VesselWorkspace extends DockWorkspace {
     static CROSS_WINDOW_SORT_GROUP = 'workstation-cross-window'
 
     /**
-     * The member each engine-published vessel receipt lands in, keyed by the transaction's receipt kind.
-     * @member {Object} VESSEL_RECEIPT_MEMBERS
-     * @static
-     */
-    static VESSEL_RECEIPT_MEMBERS = {
-        dispose: 'lastVesselDisposeReceipt',
-        park   : 'lastVesselParkReceipt',
-        restore: 'lastVesselRestoreReceipt'
-    }
-
-    /**
      * @member {String} VESSEL_WORKSPACE_PREFIX='workstation-vessel:'
      * @static
      */
@@ -139,20 +128,12 @@ class VesselWorkspace extends DockWorkspace {
     tearOutEmbodiment = null
 
     /**
-     * The nested transient embodiment for an admitted converted vessel: the same cached pane
-     * moves from its parked source popup into exactly one target-local DragProxyContainer while a
-     * second hidden placeholder reserves the popup's live slot.
+     * The target-local drag embodiment: a claimed tab drag shows the source's tab-header proxy, and a
+     * native title-bar handoff moves the same cached pane from its parked source popup into exactly one
+     * target-local DragProxyContainer while a second hidden placeholder reserves the popup's live slot.
      * @member {Object|null} vesselProxyEmbodiment=null
      */
     vesselProxyEmbodiment = null
-
-    /**
-     * Exact pre-conversion and target-cover outer geometry for parked tear-out vessels.
-     * Runtime-only physical recovery authority; never persisted workspace state.
-     * @member {Object} tearOutParkGeometries={}
-     * @protected
-     */
-    tearOutParkGeometries = {}
 
     /**
      * Park attempts per vessel item id since that vessel last parked. The coordinator retries a
@@ -163,24 +144,18 @@ class VesselWorkspace extends DockWorkspace {
     tearOutParkAttempts = {}
 
     /**
-     * The runtime window id of the vessel an in-flight conversion is hovering over — stashed by
-     * the conversion-in seam so the park's cover geometry resolves the exact target. Never
-     * persisted workspace state: a window is a render target.
+     * The runtime window id of the target a native title-bar drop parks its popup behind — stashed
+     * by the suspend seam so the park resolves the exact target. Never persisted workspace state:
+     * a window is a render target.
      * @member {String|Number|null} vesselConversionTargetWindowId=null
      * @protected
      */
     vesselConversionTargetWindowId = null
 
     /**
-     * The in-gesture vessel lifecycle authority (park / re-show / dispose-on-commit).
-     * @member {Neo.dashboard.dock.window.VesselPark|null} vesselParkHandlers=null
-     * @protected
-     */
-    vesselParkHandlers = null
-
-    /**
-     * Post-terminal native-titlebar park/restore authority. Separate from pointer conversion:
-     * the generic DragDrop addon has no active pointer-follow session after a dropped popup.
+     * The native title-bar drop's park / restore / dispose authority: the released popup parks
+     * behind its target while the drop settles. The generic DragDrop addon has no active
+     * pointer-follow session after a dropped popup.
      * @member {Neo.dashboard.dock.window.VesselPark|null} nativeVesselParkHandlers=null
      * @protected
      */
@@ -222,17 +197,6 @@ class VesselWorkspace extends DockWorkspace {
      * @protected
      */
     lastVesselParkReceipt = null
-
-    /**
-     * Most recent dispose receipt of a committed conversion — the engine transaction publishes it
-     * before the first retire call and amends it in place: `attempts` (at most two), `admitted`,
-     * the refusal class (`no-vessel` · `identity-mismatch` · `host-close-refused` · `vessel-replaced`) and whether the
-     * vessel's window was still alive when the close was refused. A hand run that leaves a parked
-     * vessel on screen reads here what the dispose said about it.
-     * @member {Object|null} lastVesselDisposeReceipt=null
-     * @protected
-     */
-    lastVesselDisposeReceipt = null
 
     /**
      * Most recent exact-handle restore admission receipt.
@@ -322,45 +286,30 @@ class VesselWorkspace extends DockWorkspace {
         // carries it as a tab-header proxy, and leaving that window opens a fresh vessel. What
         // parks is the native title-bar drop, after the OS released it: behind its target while
         // the drop settles, re-shown as the SAME generation on refusal, disposed only on commit.
-        // The transaction is the engine's; this host supplies the four inputs that vary. It DOES
-        // declare a geometry restore, which is what licences its park to shrink an oversized source
-        // and obliges its re-show to give the extent back. The park below stays an override: the
-        // native-titlebar paths are product policy (an OS titlebar drag carries no user activation,
-        // so a main-window target parks nothing at all) and cannot be expressed as a descriptor
-        // input without turning this default into a configuration language.
+        // The re-show is the engine's transaction over this host's inputs. The park stays an
+        // override: the native-titlebar paths are product policy (an OS titlebar drag carries no
+        // user activation, so a main-window target parks nothing at all) and cannot be expressed as
+        // a descriptor input without turning that default into a configuration language.
         me.vesselTransaction = NativeVesselTransaction.effectsFor({
             ownerWindowId : () => me.windowId,
-            publishReceipt: (key, receipt) => {
-                me[VesselWorkspace.VESSEL_RECEIPT_MEMBERS[key]] = receipt
-            },
-            rectPlane      : 'outer',
-            resolveVessel  : itemId => me.resolveTearOutVessel(itemId),
-            restoreGeometry: itemId => me.tearOutParkGeometries[itemId] ?? null,
-            retireVessel   : vessel => me.tearOutHandlers.retireActiveVessel(vessel),
-            targetWindowId : () => me.vesselConversionTargetWindowId,
-            // Its terminal restore ends a DRAG, so the addon that may still own the gesture is
-            // asked before the route is addressed directly.
-            terminalRestoreOwner: 'drag'
+            publishReceipt: receipt => me.lastVesselRestoreReceipt = receipt,
+            resolveVessel : itemId => me.resolveTearOutVessel(itemId),
+            targetWindowId: () => me.vesselConversionTargetWindowId
         });
 
-        me.vesselParkHandlers = Neo.create(VesselPark, {
-            disposeVessel: vessel => me.disposeParkedTearOutVessel(vessel),
-            parkVessel   : vessel => me.parkTearOutVessel(vessel),
-            reshowVessel : vessel => me.reshowTearOutVessel(vessel)
-        });
         me.nativeVesselParkHandlers = Neo.create(VesselPark, {
             disposeVessel: ({itemId}) => me.retireReturnedVessel(VesselWorkspace.vesselWorkspaceId(itemId)),
-            parkVessel   : vessel => me.parkTearOutVessel({...vessel, nativeTitlebar: true}),
-            reshowVessel : vessel => me.reshowTearOutVessel(vessel)
+            parkVessel   : vessel => me.parkTearOutVessel(vessel),
+            reshowVessel : me.vesselTransaction.reshowVessel
         });
     }
 
     /**
      * @summary Retries an exact retained vessel retirement before admitting a successor tear-out.
      *
-     * A strict close refusal keeps both lifecycle owners so recovery remains possible. The next
-     * boundary exit must retire that generation and clear its park owner before opening another
-     * popup; a second refusal ends the newly armed window drag instead of leaving it wedged.
+     * A strict close refusal keeps the lifecycle owner so recovery remains possible. The next
+     * boundary exit must retire that generation before opening another popup; a second refusal
+     * ends the newly armed window drag instead of leaving it wedged.
      * @param {Object} data
      * @returns {Promise<Boolean>}
      * @protected
@@ -369,15 +318,9 @@ class VesselWorkspace extends DockWorkspace {
         let me     = this,
             active = me.tearOutHandlers.activeVessel;
 
-        if (active) {
-            const retired = await me.tearOutHandlers.retireActiveVessel(active);
-
-            if (!retired) {
-                data.sortZone?.endWindowDrag();
-                return false
-            }
-
-            me.vesselParkHandlers.onVesselRetired({itemId: active.itemId, retirement: true})
+        if (active && !await me.tearOutHandlers.retireActiveVessel(active)) {
+            data.sortZone?.endWindowDrag();
+            return false
         }
 
         await me.tearOutHandlers.onDockTearOutExit(data);
@@ -456,7 +399,7 @@ class VesselWorkspace extends DockWorkspace {
 
     /**
      * The workstation's full multi-window projection surface: cross-window participation, the
-     * tear-out and vessel-conversion opt-ins with their handler seams, the drag-affordance
+     * tear-out and claim opt-ins with the exit seam this host wraps, the drag-affordance
      * layer's cross-zone seams, and the stable workspace identity. The class threads the reducer,
      * the view-sync and the resolvers onto every projection; this hook contributes everything
      * that is genuinely this host's.
@@ -467,7 +410,7 @@ class VesselWorkspace extends DockWorkspace {
 
         return {
             // The engine's tear-out opt-in and its gesture handler bundle come first; this host wraps
-            // one of them (the exit, with its park retirement) and adds the flagship's own surfaces.
+            // one of them (the exit, retiring a retained vessel first) and adds the flagship's own surfaces.
             ...super.getDockProjectionOptions(),
             // Dense Workstation panes need more than the engine's compact 25% reveal floor. The
             // committed edge extent still wins whenever it is larger.
@@ -487,51 +430,7 @@ class VesselWorkspace extends DockWorkspace {
             onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),
             onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data),
             onDockTearOutExit        : data => me.onDockTearOutExit(data),
-            onDockVesselConversionIn : data => {
-                let targetWorkspaceId = data.targetId,
-                    targetState       = me.getPopupState(targetWorkspaceId);
-
-                // The coordinator speaks stable claim identity. Platform effects speak runtime
-                // window identity. Resolve the former through the app-owned workspace registry;
-                // never reinterpret `workstation-vessel:<item>` as a manager.Window id.
-                me.vesselConversionTargetWindowId = targetWorkspaceId === VesselWorkspace.MAIN_WORKSPACE_ID
-                    ? me.windowId
-                    : targetState?.windowId ?? null;
-
-                return me.vesselParkHandlers.onConversionIn({
-                    itemId    : data.itemId,
-                    sourceRect: me.resolveVesselRestoreAnchor(data.itemId),
-                    windowName: me.resolveTearOutVessel(data.itemId)?.windowName
-                })
-            },
-            onDockVesselConversionOut: data => {
-                // The live pane is nested source-main → popup → target-proxy. Restore the INNER
-                // target-proxy reservation first; only then may the park owner re-show the exact
-                // popup. Reversing this order produces a visible empty source vessel.
-                if (
-                    me.vesselProxyEmbodiment.isStaged(data.itemId) &&
-                    !me.vesselProxyEmbodiment.restore({itemId: data.itemId})
-                ) {
-                    return false
-                }
-
-                const rect   = data.logicalRect,
-                      chrome = WindowManager.get(me.resolveTearOutVessel(data.itemId)?.windowId)?.chrome;
-
-                // Pointer-follow supplies a frame origin; the native transaction consumes content.
-                // Without a live origin the park retains its saved content anchor.
-                return me.vesselParkHandlers.onConversionOut({
-                    rect: rect ? {
-                        ...rect,
-                        x: rect.x + (chrome?.left ?? 0),
-                        y: rect.y + (chrome?.top ?? 0)
-                    } : null
-                })
-            },
-            onDockVesselConversionTerminal   : data => me.vesselParkHandlers.onGestureTerminal(data),
-            onDockVesselConversionRetired    : data => me.vesselParkHandlers.onVesselRetired(data),
-            resolveVesselConversionSourceRect: data => me.resolveVesselConversionSourceRect(data),
-            workspaceId                      : VesselWorkspace.MAIN_WORKSPACE_ID
+            workspaceId              : VesselWorkspace.MAIN_WORKSPACE_ID
         }
     }
 
@@ -1159,9 +1058,8 @@ class VesselWorkspace extends DockWorkspace {
     /**
      * The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry, cancel, or a
      * refused model commit) through the engine's shared close. The Group's native retirement holds the
-     * retirement fence and clears the ownership records around this call. This host's part is its
-     * trimmings: the `lastTearOutClose` receipt the tour and the Neural Link read, and the park geometry an
-     * acknowledged close retires.
+     * retirement fence and clears the ownership records around this call. This host's part is the
+     * `lastTearOutClose` receipt the tour and the Neural Link read.
      * @param {Object} vessel
      * @param {String} [vessel.generationToken] The reservation's lineage token.
      * @param {String} vessel.itemId
@@ -1171,22 +1069,17 @@ class VesselWorkspace extends DockWorkspace {
      * @protected
      */
     async closeTearOutVessel(vessel) {
-        const
-            me             = this,
-            parkGeometries = me.tearOutParkGeometries,
-            closed         = await NativeVesselTransaction.closeVessel({
-                embodiment    : me.tearOutEmbodiment,
-                nativeWindows : me.nativeWindows,
-                ownerWindowId : me.windowId,
-                publishReceipt: receipt => me.lastTearOutClose = receipt,
-                sourceId      : me.id,
-                sourceOwns    : itemId => Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
-                windowNameFor : itemId => `tearout-${itemId}`
-            }, vessel);
+        const me = this;
 
-        closed && delete parkGeometries[vessel.itemId];
-
-        return closed
+        return NativeVesselTransaction.closeVessel({
+            embodiment    : me.tearOutEmbodiment,
+            nativeWindows : me.nativeWindows,
+            ownerWindowId : me.windowId,
+            publishReceipt: receipt => me.lastTearOutClose = receipt,
+            sourceId      : me.id,
+            sourceOwns    : itemId => Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
+            windowNameFor : itemId => `tearout-${itemId}`
+        }, vessel)
     }
 
     /**
@@ -1209,48 +1102,21 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * Retires the parked vessel and its orphan recovery through the engine's default transaction,
-     * then clears the two ledgers this host keys by item.
-     * @param {Object} vessel
-     * @returns {Promise<Boolean>}
-     * @protected
-     */
-    async disposeParkedTearOutVessel(vessel) {
-        const disposed = await this.vesselTransaction.disposeVessel(vessel);
-
-        if (disposed) {
-            delete this.tearOutParkGeometries[vessel.itemId];
-            delete this.tearOutParkAttempts[vessel.itemId]
-        }
-
-        return disposed
-    }
-
-    /**
-     * Parks one converted vessel out of its conversion target's way, which keeps the REAL OS window
-     * alive while the target embodies the drag. Close-and-reopen is a one-way door (mid-gesture popup
-     * acquisition reads as unsolicited), so conversion parks instead: the same exact generation
-     * re-shows on out-conversion or restore.
-     *
-     * The pointer path parks CLEAR of the target: a source whose outer frame exceeds the
-     * target first shrinks through its exact native route, then moves to the corner of the target
-     * display's work area that covers the target least ({@link NativeVesselTransaction.resolveClearPark}).
-     * Nothing is focused: under a real OS mouse drag `focus()` raises nothing, which left the vessel on
-     * top of the target's zones. The native-titlebar path parks only after the OS released the drag,
-     * where focus is granted, so it keeps the focus / move / refocus chain that hides the vessel
-     * behind the target; a refocus refusal compensates to the source rect. On that path to the MAIN
+     * Parks a native title-bar drop's popup behind its target while the drop settles, which keeps the
+     * REAL OS window alive: a refusal re-shows the same exact generation, and only a commit disposes it.
+     * The OS has released the drag here, so focus is granted: the focus / move / refocus chain hides
+     * the vessel behind the target, and a refocus refusal compensates to the source rect. To the MAIN
      * window nothing is parked at all — the hold is the gesture: the transfer lands when the dwell
      * completes and the popup retires right after, so the park answers satisfied with no platform
      * effect (the platform never grants a popup an opener focus without a user activation, and an OS
      * titlebar drag carries none).
      * @param {Object} vessel
      * @param {String} vessel.itemId
-     * @param {Boolean} [vessel.nativeTitlebar=false] The park follows an OS titlebar drag terminal
      * @param {String} vessel.windowName
      * @returns {Promise<Boolean>}
      * @protected
      */
-    async parkTearOutVessel({itemId, nativeTitlebar=false, windowName}) {
+    async parkTearOutVessel({itemId, windowName}) {
         let me           = this,
             entry        = me.resolveTearOutVessel(itemId),
             route        = entry?.nativeRoute,
@@ -1260,25 +1126,11 @@ class VesselWorkspace extends DockWorkspace {
             targetIsMain = me.vesselConversionTargetWindowId === me.windowId,
             // The size check and the authority check speak published inner-window geometry (a child
             // omitting outerRect never rejects an authorized live vessel); the park POSITION is a
-            // frame origin: `moveTo` places the source frame, clear of the target on the pointer path,
-            // on the target's frame origin behind it on the native-titlebar path.
+            // frame origin: `moveTo` places the source frame on the target's frame origin behind it.
             sourceRect   = sourceWindow?.innerRect,
             sourceOuter  = sourceWindow?.outerRect ?? sourceRect,
             targetRect   = targetWindow?.innerRect,
-            targetOuter  = targetWindow?.outerRect ?? targetRect,
-            needsResize  = !nativeTitlebar && Boolean(sourceOuter && targetRect && (
-                sourceOuter.width > targetRect.width || sourceOuter.height > targetRect.height
-            )),
-            parkSize      = needsResize ? {
-                height: Math.min(sourceOuter.height, targetRect.height),
-                width : Math.min(sourceOuter.width, targetRect.width)
-            } : null,
-            restoreRect   = sourceOuter ? {
-                height: sourceOuter.height,
-                width : sourceOuter.width,
-                x     : sourceOuter.x,
-                y     : sourceOuter.y
-            } : null;
+            targetOuter  = targetWindow?.outerRect ?? targetRect;
 
         const
             sourceArgs   = {ownerWindowId: me.windowId, route, targetWindowId: entry?.windowId ?? null},
@@ -1292,8 +1144,6 @@ class VesselWorkspace extends DockWorkspace {
             // default transaction. A hand-written copy here is how the two receipts drifted: nine
             // of ten keys agreed and the tenth was silently absent from the sibling.
             authority  : NativeVesselTransaction.describeAuthority({sourcePos, sourceResize, targetFocus}, entry?.windowName === windowName),
-            needsResize,
-            parkSize,
             sourceInner: sourceRect && {
                 height: sourceRect.height, width: sourceRect.width, x: sourceRect.x, y: sourceRect.y
             },
@@ -1312,12 +1162,9 @@ class VesselWorkspace extends DockWorkspace {
         me.lastVesselParkReceipt.parkAttempts = me.tearOutParkAttempts[itemId] = (me.tearOutParkAttempts[itemId] ?? 0) + 1;
 
         if (
-            !sourcePos.granted || (needsResize && !sourceResize.granted) ||
-            (nativeTitlebar && !targetIsMain && !targetFocus.granted) ||
+            !sourcePos.granted || (!targetIsMain && !targetFocus.granted) ||
             entry.windowName !== windowName || !sourceRect || !sourceOuter || !targetRect ||
-            (nativeTitlebar && (
-                sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
-            ))
+            sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
         ) {
             me.lastVesselParkReceipt.reason = 'native route or live park geometry refused';
             return false
@@ -1329,9 +1176,9 @@ class VesselWorkspace extends DockWorkspace {
         // reaches a popup during an OS titlebar drag, so a popup asking its opener to take focus is
         // declined for as long as the user holds, and after). The strict park is answered as satisfied
         // with no physical effect; the receipt says so, the attempt counter resets as after a park, and
-        // the conversion bookkeeping around this call runs exactly as for a parked vessel. Popup
-        // targets keep the physical park below.
-        if (nativeTitlebar && targetIsMain) {
+        // the park bookkeeping around this call runs exactly as for a parked vessel. Popup targets
+        // keep the physical park below.
+        if (targetIsMain) {
             delete me.tearOutParkAttempts[itemId];
             me.lastVesselParkReceipt.parked   = true;
             me.lastVesselParkReceipt.physical = false;
@@ -1339,8 +1186,8 @@ class VesselWorkspace extends DockWorkspace {
             return true
         }
 
-        // Only the native-titlebar path to a popup focuses, by its owner through the handle it minted;
-        // a main-window target on that path returned satisfied above.
+        // The owner focuses a popup target through the handle it minted; a main-window target
+        // returned satisfied above.
         const focusTarget = () => Neo.Main.windowNativeFocus({
             nativeHandleKey: targetRoute.nativeHandleKey,
             targetWindowId : targetRoute.targetWindowId,
@@ -1348,49 +1195,25 @@ class VesselWorkspace extends DockWorkspace {
         });
 
         try {
-            let origin = {x: targetOuter.x, y: targetOuter.y};
+            let focused = await focusTarget() === true;
 
-            if (nativeTitlebar) {
-                let focused = await focusTarget() === true;
+            me.lastVesselParkReceipt.focused = focused;
 
-                me.lastVesselParkReceipt.focused = focused;
-
-                if (!focused) {
-                    // The owner focuses a window it opened, which the platform grants once the OS
-                    // releases the dragged source. The coordinator retries the park.
-                    me.lastVesselParkReceipt.refusedAt = 'focus';
-                    return false
-                }
-            } else {
-                const
-                    {screen} = await Neo.Main.getWindowData({windowId: me.vesselConversionTargetWindowId}),
-                    clear    = NativeVesselTransaction.resolveClearPark({frame: parkSize ?? sourceOuter, screen, target: targetRect});
-
-                if (!clear) {
-                    me.lastVesselParkReceipt.refusedAt = 'screen';
-                    return false
-                }
-
-                me.lastVesselParkReceipt.cleared = clear.cleared;
-                origin = {x: clear.x, y: clear.y}
+            if (!focused) {
+                // The owner focuses a window it opened, which the platform grants once the OS
+                // releases the dragged source. The coordinator retries the park.
+                me.lastVesselParkReceipt.refusedAt = 'focus';
+                return false
             }
 
-            const moveData = {
+            let moved = await Neo.Main.windowNativeMoveTo({
                 nativeHandleKey: route.nativeHandleKey,
                 targetWindowId : route.targetWindowId,
                 windowId       : me.windowId,
                 windowName,
-                ...origin
-            };
-
-            if (!nativeTitlebar) {
-                moveData.parkSize    = parkSize;
-                moveData.restoreRect = restoreRect
-            }
-
-            let moved = await (nativeTitlebar
-                ? Neo.Main.windowNativeMoveTo(moveData)
-                : Neo.main.addon.DragDrop.parkWindowDrag(moveData)) === true;
+                x              : targetOuter.x,
+                y              : targetOuter.y
+            }) === true;
 
             me.lastVesselParkReceipt.moved = moved;
 
@@ -1399,11 +1222,9 @@ class VesselWorkspace extends DockWorkspace {
                 return false
             }
 
-            parkSize && (me.tearOutParkGeometries[itemId] = {park: {...parkSize, ...origin}, restore: restoreRect});
+            let refocused = await focusTarget() === true;
 
-            let refocused = !nativeTitlebar || await focusTarget() === true;
-
-            nativeTitlebar && (me.lastVesselParkReceipt.refocused = refocused);
+            me.lastVesselParkReceipt.refocused = refocused;
 
             if (!refocused) {
                 const restoreData = {
@@ -1421,8 +1242,8 @@ class VesselWorkspace extends DockWorkspace {
                 me.lastVesselParkReceipt.refusedAt   = 'refocus';
 
                 // Recovery ownership and visual admission are separate: if target refocus failed,
-                // the real source may still cover the target. Never publish conversion-ready on
-                // that frame, even when exact source restoration also needs a later retry.
+                // the real source may still cover the target. Never publish park-ready on that
+                // frame, even when exact source restoration also needs a later retry.
                 return false
             }
 
@@ -1438,51 +1259,10 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * Re-shows the parked vessel through the engine's default transaction. This host declares a
-     * geometry restore, so the default gives the extent back before the position and compensates
-     * both when the move is refused; the park ledger entry is consumed here because it is this
-     * host's bookkeeping, not the transaction's.
-     * @param {Object} vessel
-     * @returns {Promise<Boolean>}
-     * @protected
-     */
-    async reshowTearOutVessel(vessel) {
-        const admitted = await this.vesselTransaction.reshowVessel(vessel);
-
-        admitted && delete this.tearOutParkGeometries[vessel.itemId];
-
-        return admitted
-    }
-
-    /**
-     * @summary Resolves one dragged vessel's exact live FRAME rect for conversion sampling.
-     * The sensor reads this measurable geometry; the park captures its content restore anchor
-     * separately through {@link #resolveVesselRestoreAnchor}. Only the runtime window identity may
-     * select the manager-owned rect (the logical drag proxy is intentionally ignored).
-     * A child that publishes no outer rect samples its inner one — this diverges from the park
-     * admission, which is fail-closed on its single declared plane; failing open is deliberate, since
-     * refusing an otherwise-authorized live vessel over a missing frame is what that admission's own
-     * `rectPlane` documentation warns against.
-     * @param {Object} data
-     * @param {String|null} data.itemId
-     * @returns {Object|null}
-     * @protected
-     */
-    resolveVesselConversionSourceRect({itemId}) {
-        let windowId = this.resolveTearOutVessel(itemId)?.windowId,
-            record   = windowId && Neo.manager?.Window?.get(windowId),
-            rect     = record?.outerRect ?? record?.innerRect;
-
-        return rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
-    }
-
-    /**
-     * @summary Resolves the CONTENT rect the park records as its restore anchor. The conversion samples the
-     * frame ({@link #resolveVesselConversionSourceRect}: the plane the pointer rides and the park
-     * admission reads), but the re-show converts the rect it is handed into a frame origin by
-     * taking the window's own chrome off it — so the anchor must be the content rect, or the
-     * window re-shows one chrome too high. A child publishing no inner rect records its outer one:
-     * chrome-less, the two coincide.
+     * @summary Resolves the CONTENT rect the park records as its restore anchor. The re-show converts
+     * the rect it is handed into a frame origin by taking the window's own chrome off it — so the
+     * anchor must be the content rect, or the window re-shows one chrome too high. A child publishing
+     * no inner rect records its outer one: chrome-less, the two coincide.
      * @param {String|null} itemId
      * @returns {Object|null}
      * @protected
@@ -1694,8 +1474,8 @@ class VesselWorkspace extends DockWorkspace {
 
     /**
      * The engine cleared a vessel's ownership records — on its release, its lease running out, or a
-     * refused recovery — and brought a committed item home. The park and native-park machines, the
-     * park geometry and, unless the workspace survives headless, the vessel target retire with it.
+     * refused recovery — and brought a committed item home. The native park and, unless the
+     * workspace survives headless, the vessel target retire with it.
      * @param {Object} data
      * @param {String} data.itemId
      * @param {Boolean} [data.recovered=true] `false` when the vessel's workspace stays registered headless.
@@ -1704,8 +1484,6 @@ class VesselWorkspace extends DockWorkspace {
     afterTearOutWindowDisconnect({itemId, recovered=true}) {
         let me = this;
 
-        delete me.tearOutParkGeometries[itemId];
-        me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
         me.nativeVesselParkHandlers.onVesselRetired({itemId, retirement: true});
         recovered && me.retireVesselWorkspaceTarget(itemId)
     }
@@ -1724,7 +1502,6 @@ class VesselWorkspace extends DockWorkspace {
         me.getPopupStates().forEach(state => state.host?.destroy());
         me.workspaceSet?.destroy();
         me.dragAffordances?.destroy();
-        me.vesselParkHandlers?.destroy();
         me.nativeVesselParkHandlers?.destroy();
         me.vesselProxyEmbodiment?.destroy();
         me.tearOutEmbodiment?.destroy();

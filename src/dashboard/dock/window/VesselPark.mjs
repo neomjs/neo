@@ -3,9 +3,9 @@ import Base from '../../../core/Base.mjs';
 /**
  * @class Neo.dashboard.dock.window.VesselPark
  * @extends Neo.core.Base
- * @summary The in-gesture vessel lifecycle authority — the pure choreography deciding what happens
- * to a dragged popup's REAL OS window between conversion and the gesture terminal: park it, never
- * close it; re-show the SAME window; dispose exactly once, on commit only.
+ * @summary The native title-bar drop's vessel lifecycle authority — the pure choreography deciding
+ * what happens to a dropped popup's REAL OS window between its park and the gesture terminal: park
+ * it, never close it; re-show the SAME window; dispose exactly once, on commit only.
  *
  * Why park exists (the platform law this machine encodes): popup acquisition consumes WHATWG
  * transient user activation, `windowOpen` reports failure by BOOLEAN — a blocked popup never
@@ -17,24 +17,20 @@ import Base from '../../../core/Base.mjs';
  * the window acquires a fresh vessel under the application's pop-up permission.
  *
  * The choreography contract this implements (the docking design record, multi-window amendment):
- * - **The in-gesture segment only.** The conversion DECISION belongs to the companion sensor
- *   ({@link Neo.dashboard.dock.window.VesselConversion}); the gesture terminals belong to the outcome
- *   machine; the reintegration close POLICY belongs to the host behind the dispose seam. This
- *   machine owns the ordering between them: convert-in → park; convert-out → re-show; terminal →
- *   dispose (commit) or restore (everything else).
+ * - **The in-gesture segment only.** The park DECISION belongs to the coordinator's native drop
+ *   (`suspendNativeWindowDrag`); the gesture terminals belong to the outcome machine; the
+ *   reintegration close POLICY belongs to the host behind the dispose seam. This machine owns the
+ *   ordering between them: convert-in → park; terminal → dispose (commit) or restore (everything else).
  * - **Commit is the ONLY disposition.** A committed target owns the item now, so the parked vessel
  *   retires through the host's one `disposeVessel` settlement — one in-flight close at a time, and
  *   the slot clears only after strict success. A refusal retains exact retry authority. EVERY other
  *   outcome — cancel, reject, or any terminal the host routes while parked — fails toward RESTORE:
  *   the machine never loses the user's window to a lifecycle edge.
- * - **Two rect sources, one rule.** Out-conversion re-shows at the out-event's LIVE rect when the
- *   caller supplies one (the design record's `resumeWindowDrag(widgetName, proxyRect)` semantics —
- *   the popup resumes under the pointer, where the drag is NOW); absent a supplied rect it falls
- *   back to the recorded pre-conversion rect (origin semantics — the restore path's meaning). The
- *   recorded rect preserves the user's own mid-session sizing either way.
- * - **Stale events are no-ops, not errors.** Duplicate convert-in with a live slot, convert-out or
- *   terminal with no slot, and terminals for a different `itemId` all return silently — the
- *   exact-once/idempotent cleanup bar every gesture surface owes its terminals.
+ * - **The origin is the restore anchor.** A restore re-shows at the rect recorded at the park, which
+ *   preserves the user's own mid-session sizing.
+ * - **Stale events are no-ops, not errors.** Duplicate convert-in with a live slot, a terminal with
+ *   no slot, and terminals for a different `itemId` all return silently — the exact-once/idempotent
+ *   cleanup bar every gesture surface owes its terminals.
  */
 class VesselPark extends Base {
     static config = {
@@ -51,7 +47,7 @@ class VesselPark extends Base {
          */
         parkVessel: null,
         /**
-         * Receives `{itemId, rect, terminal, windowName}`. Only strict success releases the park slot.
+         * Receives `{itemId, rect, windowName}`. Only strict success releases the park slot.
          * @member {Function|null} reshowVessel=null
          */
         reshowVessel: null
@@ -84,8 +80,6 @@ class VesselPark extends Base {
     parked = null
     /** @member {Object|null} parking=null @protected */
     parking = null
-    /** @member {Object|null} pendingOut=null @protected */
-    pendingOut = null
     /** @member {Object|null} pendingRetirement=null @protected */
     pendingRetirement = null
     /** @member {Object|null} pendingTerminal=null @protected */
@@ -119,19 +113,16 @@ class VesselPark extends Base {
     }
 
     /**
-     * @summary Re-shows one admitted vessel without clearing ownership before strict success.
+     * @summary Re-shows one admitted vessel at its park origin without clearing ownership before strict success.
      * @param {Object} vessel
-     * @param {Object|null} rect
-     * @param {Boolean} [terminal=false]
      * @returns {Boolean|Promise<Boolean>}
      */
-    restore(vessel, rect, terminal=false) {
+    restore(vessel) {
         if (this.reshowing) return this.reshowing.promise;
 
         const result = this.settleEffect(this.callEffect(this.reshowVessel, {
             itemId    : vessel.itemId,
-            rect      : rect ?? vessel.preConversionRect,
-            terminal,
+            rect      : vessel.preConversionRect,
             windowName: vessel.windowName
         }));
 
@@ -183,20 +174,17 @@ class VesselPark extends Base {
             })
         }
 
-        return this.parked === vessel || compensate
-            ? this.restore(vessel, vessel.preConversionRect, true)
-            : true
+        return this.parked === vessel || compensate ? this.restore(vessel) : true
     }
 
     /**
-     * @summary Parks the existing window when the conversion sensor admits a proxy transition.
-     * The sensor converted the dragged vessel into a proxy: PARK the OS window — never close
-     * it (the one-way activation door this module exists to remove). Records the vessel's
-     * pre-conversion rect as the restore anchor. A convert-in while a slot is live is a stale
+     * @summary Parks the existing window when the native drop suspends it: PARK the OS window —
+     * never close it (the one-way activation door this module exists to remove). Records the
+     * vessel's pre-park rect as the restore anchor. A convert-in while a slot is live is a stale
      * re-fire: ignored.
      * @param {Object} data
      * @param {String} data.itemId
-     * @param {Object} [data.sourceRect] The vessel's live CONTENT rect at the conversion moment —
+     * @param {Object} [data.sourceRect] The vessel's live CONTENT rect at the park moment —
      *     recorded as the restore/origin anchor. The re-show converts it into the frame origin it
      *     moves, taking the window's own chrome off it; a frame rect handed in here re-shows the
      *     window one chrome too high.
@@ -236,40 +224,6 @@ class VesselPark extends Base {
     }
 
     /**
-     * @summary Re-shows the same parked window after conversion reverses.
-     * The sensor reverted the conversion: RE-SHOW the same parked window. At the supplied live
-     * rect when the out-event carries one (the popup resumes under the pointer); at the
-     * recorded pre-conversion rect otherwise (origin semantics). No slot = stale event = no-op.
-     * @param {Object} [data]
-     * @param {Object} [data.rect] The live rect in the host's re-show coordinate space.
-     * @returns {Boolean|Promise<Boolean>}
-     */
-    onConversionOut(data) {
-        if (this.isDestroyed) return false;
-        if (this.pendingRetirement) return this.pendingRetirement.promise;
-        if (this.pendingTerminal) return false;
-        if (this.pendingOut) return this.pendingOut.promise;
-        if (this.reshowing) return this.reshowing.promise;
-
-        if (this.parking) {
-            const state = {generation: this.parking.generation, phase: 'queued-out', promise: null, vessel: this.parking.vessel};
-
-            this.pendingOut = state;
-            state.promise = this.parking.promise.then(admitted => {
-                if (this.isDestroyed) return false;
-                return admitted && !this.pendingRetirement ? this.restore(state.vessel, data?.rect) : !admitted
-            }).then(restored => {
-                this.pendingOut === state && (this.pendingOut = null);
-                return restored
-            });
-
-            return state.promise
-        }
-
-        return this.parked ? this.restore(this.parked, data?.rect) : false
-    }
-
-    /**
      * @summary Disposes on committed transfer and restores on every other terminal outcome.
      * The gesture resolved while the vessel is parked — the outcome machine's terminal routed
      * here decides the parked window's fate:
@@ -277,7 +231,7 @@ class VesselPark extends Base {
      *   host's close policy takes it from there). Duplicate terminals coalesce while close is
      *   pending; strict refusal retains the slot, and strict success clears it.
      * - anything else (cancel, reject, host-routed disconnect): RESTORE — re-show at the
-     *   pre-conversion rect with zero disposition. The machine fails toward never losing the
+     *   pre-park rect with zero disposition. The machine fails toward never losing the
      *   user's window.
      * A terminal for a different `itemId` than the parked one is stale: no-op.
      * @param {Object} data
@@ -370,8 +324,7 @@ class VesselPark extends Base {
                 : false
         }
 
-        const vessel = this.pendingTerminal?.vessel ?? this.pendingOut?.vessel ?? this.reshowing?.vessel
-            ?? this.parking?.vessel ?? this.parked;
+        const vessel = this.pendingTerminal?.vessel ?? this.reshowing?.vessel ?? this.parking?.vessel ?? this.parked;
 
         if (!vessel || vessel.itemId !== itemId) return false;
 
@@ -408,7 +361,7 @@ class VesselPark extends Base {
      */
     clearState() {
         this.generation++;
-        this.parked = this.parking = this.pendingOut = this.pendingRetirement = this.pendingTerminal = this.reshowing = null;
+        this.parked = this.parking = this.pendingRetirement = this.pendingTerminal = this.reshowing = null;
         return true
     }
 
@@ -423,7 +376,7 @@ class VesselPark extends Base {
      * @member {Object|null} transition
      */
     get transition() {
-        return this.pendingRetirement ?? this.pendingTerminal ?? this.pendingOut ?? this.reshowing ?? this.parking ?? null
+        return this.pendingRetirement ?? this.pendingTerminal ?? this.reshowing ?? this.parking ?? null
     }
 }
 

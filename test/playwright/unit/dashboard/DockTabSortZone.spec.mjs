@@ -23,24 +23,6 @@ import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/Sort
  * walk); the rendered consequence rides the visual harness.
  */
 test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
-    test('owns the registered sensor across resets and destroys it with the zone', async () => {
-        const zone = Neo.create(DockTabSortZone, {
-            owner: {addDomListeners() {}, cls: [], dragResortable: false,
-                items: [], on() {}, style: {}, up: () => ({fire() {}})}
-        });
-        try {
-            await zone.ready();
-            const sensor = zone.getVesselConversionSensor();
-            expect(sensor.className).toBe('Neo.dashboard.dock.window.VesselConversion');
-            zone.resetVesselConversion();
-            expect(zone.getVesselConversionSensor()).toBe(sensor);
-            zone.destroy();
-            expect(sensor.isDestroyed).toBe(true)
-        } finally {
-            zone.destroy()
-        }
-    });
-
     test('keeps dock headers parent-sized and toolbar-relative during a drag', () => {
         expect(DockTabSortZone.config.adjustItemRectsToParent).toBe(true);
         expect(DockTabSortZone.config.expandOwnerOnDrag).toBe(false);
@@ -176,10 +158,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             const calls = [];
             const zone  = {
                 dragEndActive: true,
-                owner        : {getDomRect: () => calls.push('measure')},
-                resetVesselConversion() {
-                    calls.push('reset')
-                }
+                owner        : {getDomRect: () => calls.push('measure')}
             };
 
             await DockTabSortZone.prototype.onDragStart.call(zone, {path: []});
@@ -342,7 +321,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
         test.afterEach(() => {
             TabHeaderSortZone.prototype.processDragEnd = originalCleanup;
             coordinator.activeSourceZone = coordinator.activeTargetZone = null;
-            coordinator.activeTargetCommitEligible = coordinator.activeTransitionOwned = false
+            coordinator.activeTransitionOwned = false
         });
 
         for (const stack of [false, true]) {
@@ -352,23 +331,21 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                           calls   = [],
                           error   = new Error('target failure'),
                           zone    = {
-                              dockItemIds           : ['graph'],
-                              dragComponent         : {dockItemId: 'graph', id: 'graph-button'},
-                              dragCoordinator       : coordinator,
-                              dragEnd               : () => calls.push(['cleanup']),
-                              fireDockLifecycleEvent: DockTabSortZone.prototype.fireDockLifecycleEvent,
+                              dockItemIds    : ['graph'],
+                              dragComponent  : {dockItemId: 'graph', id: 'graph-button'},
+                              dragCoordinator: coordinator,
+                              dragEnd        : () => calls.push(['cleanup']),
                               onRemoteDropOut() {
                                   calls.push(['remote-out']);
                                   this.remoteDropCommitted = true
                               },
-                              owner                 : {up: () => ({fire: (name, data) => calls.push([name, data])})},
-                              processDragEnd        : DockTabSortZone.prototype.processDragEnd,
-                              releaseVoidsReorder   : () => false,
-                              remoteDropCommitted   : false,
-                              sortGroup             : 'async-dock-test',
-                              stackDragActive       : stack,
-                              startIndex            : 0,
-                              vesselConversionSensor: {converted: true, targetConverted: true}
+                              owner              : {up: () => ({fire: (name, data) => calls.push([name, data])})},
+                              processDragEnd     : DockTabSortZone.prototype.processDragEnd,
+                              releaseVoidsReorder: () => false,
+                              remoteDropCommitted: false,
+                              sortGroup          : 'async-dock-test',
+                              stackDragActive    : stack,
+                              startIndex         : 0
                           };
 
                     TabHeaderSortZone.prototype.processDragEnd = async () => calls.push(['cleanup']);
@@ -386,13 +363,14 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                         : pending.resolve(outcome === 'committed' ? {} : outcome === 'refused-false' ? false : null);
                     expect(await settled).toBe(outcome === 'rejected' ? error : null);
 
-                    const terminal = stack ? ['dockStackDragTerminal'] : outcome === 'committed'
-                        ? ['dockVesselConversionTerminal'] : ['dockTearOutCancel', 'dockVesselConversionRetired'];
+                    // A pane's remote outcome needs no local terminal: a commit already left this
+                    // document, and a refusal leaves the pane where the drag found it.
+                    const terminal = stack ? ['dockStackDragTerminal'] : [];
 
                     expect(calls.map(([name]) => name)).toEqual([
                         ...(outcome === 'committed' ? ['remote-out'] : []), ...terminal, 'cleanup'
                     ]);
-                    if (stack || outcome === 'committed') {
+                    if (stack) {
                         expect(calls.find(([name]) => name === terminal[0])[1].outcome)
                             .toBe(outcome === 'committed' ? 'committed' : 'rejected')
                     }
@@ -444,16 +422,15 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
         // Prototype-driven like every pin above: the drag-end decision chain is the unit; the
         // base lifecycle is stubbed to nothing so only the dock routing under test runs.
         const zoneFor = (fired, overrides = {}) => ({
-            dockItemIds           : ['audit', 'graph', 'inbox'],
-            dockSourceNodeId      : 'tabs-main',
-            dragComponent         : null,
-            fireDockLifecycleEvent: DockTabSortZone.prototype.fireDockLifecycleEvent,
-            isWindowDragging      : false,
-            owner                 : {up: () => ({fire: (name, data) => fired.push([name, data])})},
-            releaseVoidsReorder   : () => false,
-            remoteDropCommitted   : false,
-            sortGroup             : null,
-            startIndex            : 1,
+            dockItemIds        : ['audit', 'graph', 'inbox'],
+            dockSourceNodeId   : 'tabs-main',
+            dragComponent      : null,
+            isWindowDragging   : false,
+            owner              : {up: () => ({fire: (name, data) => fired.push([name, data])})},
+            releaseVoidsReorder: () => false,
+            remoteDropCommitted: false,
+            sortGroup          : null,
+            startIndex         : 1,
             ...overrides
         });
 
@@ -502,61 +479,6 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             expect(fired.some(([name]) => name === 'dockCrossZoneDrop')).toBe(false)
         });
 
-        test('a converted detached cancel forwards the sole tear-out close settlement into Park', async () => {
-            const fired      = [];
-            const retirement = Promise.resolve(true);
-            const zone       = zoneFor(fired, {
-                dragComponent   : {dockItemId: 'graph', id: 'graph-button'},
-                fire            : (name, data) => fired.push([name, data]),
-                isWindowDragging: true,
-                owner           : {up: () => ({fire(name, data) {
-                    name === 'dockTearOutCancel' && (data.settlement = retirement);
-                    fired.push([name, data])
-                }})},
-                vesselConversionSensor: {converted: true, transitioning: false}
-            });
-
-            zone.onDragEnd = data => runDragEnd(zone, data);
-
-            await DockTabSortZone.prototype.onDragCancel.call(zone, {key: 'Escape'});
-
-            expect(fired.map(([name]) => name)).toEqual([
-                'dockTearOutCancel',
-                'dockVesselConversionRetired',
-                'dragCancel',
-                'dockCrossZoneDragCancel'
-            ]);
-            expect(fired[1][1]).toMatchObject({itemId: 'graph', retirement})
-        });
-
-        test('a cancel while the conversion is still pending retires the vessel as a converted one does', async () => {
-            const fired      = [];
-            const retirement = Promise.resolve(true);
-            const zone       = zoneFor(fired, {
-                dragComponent   : {dockItemId: 'graph', id: 'graph-button'},
-                fire            : (name, data) => fired.push([name, data]),
-                isWindowDragging: true,
-                owner           : {up: () => ({fire(name, data) {
-                    name === 'dockTearOutCancel' && (data.settlement = retirement);
-                    fired.push([name, data])
-                }})},
-                // Escape from another window can land here before the coordinator ever admitted a target
-                vesselConversionSensor: {converted: false, transitioning: true}
-            });
-
-            zone.onDragEnd = data => runDragEnd(zone, data);
-
-            await DockTabSortZone.prototype.onDragCancel.call(zone, {key: 'Escape'});
-
-            expect(fired.map(([name]) => name)).toEqual([
-                'dockTearOutCancel',
-                'dockVesselConversionRetired',
-                'dragCancel',
-                'dockCrossZoneDragCancel'
-            ]);
-            expect(fired[1][1]).toMatchObject({itemId: 'graph', retirement})
-        });
-
         test('an in-window cancel never emits a tear-out terminal', async () => {
             const fired = [];
             const zone  = zoneFor(fired, {
@@ -590,93 +512,6 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
 
             expect(fired, 'the item already left this document — every local commit seam stays silent').toEqual([]);
             expect(zone.remoteDropCommitted, 'the one-shot flag is consumed').toBe(false)
-        });
-
-        test('a converted remote commit emits one committed conversion terminal and no local terminal', async () => {
-            const fired = [];
-            const zone  = zoneFor(fired, {
-                dragComponent         : {dockItemId: 'graph', id: 'graph-button'},
-                sortGroup             : 'dock-cross-window',
-                vesselConversionSensor: {
-                    converted      : true,
-                    targetConverted: true,
-                    transitioning  : false
-                }
-            });
-
-            zone.dragCoordinator = {
-                onDragEnd() {
-                    zone.remoteDropCommitted = true
-                }
-            };
-
-            await runDragEnd(zone, {cancelled: false, clientX: 5000, clientY: 400});
-
-            expect(fired.map(([name]) => name)).toEqual(['dockVesselConversionTerminal']);
-            expect(fired[0][1]).toMatchObject({itemId: 'graph', outcome: 'committed', settlement: false})
-        });
-
-        test('a throwing remote target retires the parked provisional vessel before rethrowing', async () => {
-            const fired = [];
-            const zone  = zoneFor(fired, {
-                dragComponent         : {dockItemId: 'graph', id: 'graph-button'},
-                sortGroup             : 'dock-cross-window',
-                vesselConversionSensor: {
-                    converted      : true,
-                    targetConverted: true,
-                    transitioning  : false
-                }
-            });
-
-            zone.dragCoordinator = {
-                onDragEnd() {
-                    throw new Error('target commit failed')
-                }
-            };
-
-            await expect(runDragEnd(zone, {cancelled: false, clientX: 5000, clientY: 400}))
-                .rejects.toThrow('target commit failed');
-            expect(fired.map(([name]) => name)).toEqual([
-                'dockTearOutCancel', 'dockVesselConversionRetired'
-            ]);
-            expect(fired[1][1]).toMatchObject({itemId: 'graph', retirement: false})
-        });
-
-        test('a release during convert-out restores before the ordinary detached terminal', async () => {
-            let resolveRestore;
-
-            const restored = new Promise(resolve => resolveRestore = resolve),
-                  order    = [],
-                  fired    = [],
-                  zone     = zoneFor(fired, {
-                      dragComponent   : {dockItemId: 'graph', id: 'graph-button'},
-                      isWindowDragging: true,
-                      owner           : {up: () => ({fire(name, data) {
-                          order.push(name);
-                          name === 'dockVesselConversionTerminal' && (data.settlement = restored);
-                          fired.push([name, data])
-                      }})},
-                      resetVesselConversion() {
-                          order.push('reset')
-                      },
-                      vesselConversionSensor: {
-                          converted      : true,
-                          targetConverted: false,
-                          transitioning  : true
-                      }
-                  });
-
-            const running = runDragEnd(zone, {cancelled: false, clientX: 5000, clientY: 400});
-
-            await Promise.resolve();
-            expect(order).toEqual(['dockVesselConversionTerminal', 'reset']);
-
-            resolveRestore(true);
-            await running;
-
-            expect(order).toEqual([
-                'dockVesselConversionTerminal', 'reset', 'dockTearOutTerminal'
-            ])
         });
 
         test('the boundary events re-fire on the tab.Container with the dock identity attached', () => {
@@ -820,14 +655,14 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
         test('the claimed window embodies the tab-header proxy and may commit at once: nothing waits on a park', () => {
             const {fired, zone} = createZone({isWindowDragging: false});
 
-            expect(resolve(zone)).toEqual({commitEligible: true, engage: true, proxyRect: header, retain: false});
+            expect(resolve(zone)).toEqual({engage: true, proxyRect: header});
             expect(fired, 'an in-window drag has no vessel to retire').toEqual([])
         });
 
         test('a vessel riding the hand retires through the re-entry contract the moment a window claims the pointer', () => {
             const {fired, zone} = createZone();
 
-            expect(resolve(zone)).toMatchObject({commitEligible: true, engage: true});
+            expect(resolve(zone)).toMatchObject({engage: true});
             expect(fired).toEqual([['dragBoundaryEntry', {draggedItem: zone.dragComponent, proxyRect: null, sortZone: zone}]])
         });
 
@@ -839,7 +674,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
         test('an unmeasured drag element engages nothing rather than a window-sized proxy', () => {
             const {fired, zone} = createZone({dragElementRect: null});
 
-            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+            expect(resolve(zone)).toEqual({engage: false});
             expect(fired).toEqual([])
         });
 

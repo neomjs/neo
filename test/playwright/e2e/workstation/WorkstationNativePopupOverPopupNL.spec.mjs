@@ -719,7 +719,7 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                 expect(frame.closed, `cycle ${cycle}: the source vessel is still open after the re-show`).toBeUndefined();
 
                 cycles.push({cycle, frame, parkedFrom, park: {parkAttempts: park.parkAttempts, requested: park.requested ?? null}, restore: {
-                    addonRestored: restore.addonRestored ?? null, frame: restore.frame, moved: restore.moved ?? null, rect: restore.rect, terminal: restore.terminal
+                    frame: restore.frame, moved: restore.moved ?? null, rect: restore.rect
                 }});
 
                 // Let the coordinator's settle window close before the next entry re-arms a claim.

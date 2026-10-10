@@ -418,8 +418,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                 catalogRetained: true,
                 itemAbsent     : true
             },
-            parkReceiptUnchanged: true,
-            stats               : {
+            stats: {
                 localDropFires    : 0,
                 remoteDropOutFires: 0,
                 transferCommits   : 0

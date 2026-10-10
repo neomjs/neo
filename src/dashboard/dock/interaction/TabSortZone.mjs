@@ -1,4 +1,3 @@
-import VesselConversion  from '../window/VesselConversion.mjs';
 import TabHeaderSortZone from '../../../draggable/tab/header/toolbar/SortZone.mjs';
 
 /**
@@ -125,13 +124,7 @@ class TabSortZone extends TabHeaderSortZone {
          * it offers stable-claim frames, this zone decides. Disabled keeps the generic coordinator path.
          * @member {Boolean} enableVesselConversion=false
          */
-        enableVesselConversion: false,
-        /**
-         * Binding-owned raw-claim miss grace. During this interval the visual preview is retained,
-         * but commit eligibility drops immediately; a release can never land on a stale claim.
-         * @member {Number} vesselConversionPointerExitGraceMs=0
-         */
-        vesselConversionPointerExitGraceMs: 0
+        enableVesselConversion: false
     }
 
     /**
@@ -169,100 +162,6 @@ class TabSortZone extends TabHeaderSortZone {
      * @protected
      */
     dragCoordinator = null
-
-    /**
-     * One pure conversion sensor per source zone, reset at every gesture terminal.
-     * @member {Object|null} vesselConversionSensor=null
-     * @protected
-     */
-    vesselConversionSensor = null
-
-    /**
-     * Stable identity of the target whose geometry owns the current sensor state.
-     * @member {String|null} vesselConversionTargetId=null
-     * @protected
-     */
-    vesselConversionTargetId = null
-
-    /**
-     * Last live target rect for a bounded raw-claim miss. Copied per frame so mutable manager
-     * rectangles cannot rewrite an already-made decision.
-     * @member {Object|null} vesselConversionTargetRect=null
-     * @protected
-     */
-    vesselConversionTargetRect = null
-
-    /**
-     * First raw-claim miss timestamp for the active converted target.
-     * @member {Number|null} vesselConversionPointerMissedAt=null
-     * @protected
-     */
-    vesselConversionPointerMissedAt = null
-
-    /**
-     * Last exact live dragged-vessel rect resolved by the source owner. This is the geometry the
-     * conversion sensor measures; a proxy or requested birth size can never substitute for it.
-     * @member {Object|null} vesselConversionSourceRect=null
-     * @protected
-     */
-    vesselConversionSourceRect = null
-
-    /**
-     * Last logical pointer-follow rect supplied by the coordinator. This is deliberately distinct
-     * from {@link #vesselConversionSourceRect}: conversion measures the exact live vessel, while
-     * later re-show choreography needs the pointer-owned logical destination.
-     * @member {Object|null} vesselConversionLogicalRect=null
-     * @protected
-     */
-    vesselConversionLogicalRect = null
-
-    /**
-     * Exact item identity carried by the coordinator frame for the active conversion epoch.
-     * The platform actuator must not reconstruct it from `startIndex`: a live source can enter
-     * through a composed/native handoff whose base tab-reorder index is intentionally absent.
-     * @member {String|null} vesselConversionItemId=null
-     * @protected
-     */
-    vesselConversionItemId = null
-
-    /**
-     * One queued convert-out chained behind a still-provisional park admission.
-     * @member {Promise<Boolean>|null} vesselConversionCancelPromise=null
-     * @protected
-     */
-    vesselConversionCancelPromise = null
-
-    /**
-     * Zone-owned generation protecting async cancellation continuations across sensor reuse.
-     * @member {Number} vesselConversionEpoch=0
-     * @protected
-     */
-    vesselConversionEpoch = 0
-
-    /**
-     * Latest raw pointer frame accepted by the cross-window coordinator. A successful async
-     * park/re-show settlement re-enters that same coordinator boundary so live claim arbitration,
-     * target engagement, and proxy staging settle without requiring another browser event.
-     * @member {Object|null} vesselConversionCoordinatorFrame=null
-     * @protected
-     */
-    vesselConversionCoordinatorFrame = null
-
-    /**
-     * Latest gesture frame observed while a strict platform transition is settling. Only the
-     * newest frame is replayed after settlement, so a slow park/re-show can never commit stale
-     * geometry merely because the pointer stopped before another browser event arrived.
-     * @member {Object|null} vesselConversionReplayFrame=null
-     * @protected
-     */
-    vesselConversionReplayFrame = null
-
-    /**
-     * One generation-scoped replay chained behind the current sensor transition.
-     * @member {Promise<Boolean>|null} vesselConversionReplayPromise=null
-     * @protected
-     */
-    vesselConversionReplayPromise = null
 
     /**
      * Warms the cross-window {@link Neo.manager.DragCoordinator} OFF the drag hot path: a `sortGroup`
@@ -372,244 +271,6 @@ class TabSortZone extends TabHeaderSortZone {
     }
 
     /**
-     * @summary Ends a non-terminal conversion because its target disappeared.
-     *
-     * Unlike {@link #resetVesselConversion}, this path emits the sensor's convert-out seam before
-     * forgetting state, so the physical-lifecycle owner receives exactly one convert-out seam when
-     * a target unregisters mid-gesture. Gesture terminals use the silent reset instead: their
-     * outcome choreography owns disposition and must not be double-driven by a synthetic reversion.
-     * @returns {Boolean} `true` only when no conversion ownership remains
-     */
-    cancelVesselConversion() {
-        let me     = this,
-            sensor = me.vesselConversionSensor;
-
-        if (!sensor) return true;
-
-        if (sensor.transitioning) {
-            // If the target disappears while park admission is still provisional, never reset
-            // the sensor out from under the host effect. Queue one convert-out behind that exact
-            // settlement; a refused park has no ownership and can reset immediately.
-            if (sensor.targetConverted && !me.vesselConversionCancelPromise) {
-                const epoch      = me.vesselConversionEpoch,
-                      transition = sensor.transitionPromise;
-
-                me.vesselConversionCancelPromise = Promise.resolve(transition).then(admitted => {
-                    if (me.vesselConversionSensor !== sensor || me.vesselConversionEpoch !== epoch) return false;
-
-                    me.vesselConversionCancelPromise = null;
-
-                    if (!admitted || !sensor.converted) {
-                        me.resetVesselConversion();
-                        return true
-                    }
-
-                    const record = sensor.sample({
-                        pointerInTarget: false,
-                        sourceRect     : me.vesselConversionSourceRect,
-                        targetRect     : me.vesselConversionTargetRect
-                    });
-
-                    if (!record.transitioning && !record.converted) {
-                        me.resetVesselConversion();
-                        return true
-                    }
-
-                    return false
-                }, () => {
-                    me.vesselConversionSensor === sensor && me.vesselConversionEpoch === epoch
-                        && me.resetVesselConversion();
-                    return true
-                })
-            }
-
-            return false
-        }
-
-        if (sensor.converted) {
-            const record = sensor.sample({
-                pointerInTarget: false,
-                sourceRect     : me.vesselConversionSourceRect,
-                targetRect     : me.vesselConversionTargetRect
-            });
-
-            // Re-show admission owns the slot until strict success. A pending or refused effect
-            // must remain retryable; resetting here would strand the physical vessel parked.
-            if (record.transitioning || record.converted) return false
-        }
-
-        me.resetVesselConversion();
-
-        return true
-    }
-
-    /**
-     * @summary Returns the source-owned conversion sensor, creating it lazily for an active drag.
-     * @returns {Neo.dashboard.dock.window.VesselConversion}
-     * @protected
-     */
-    getVesselConversionSensor() {
-        let me = this;
-
-        return me.vesselConversionSensor ??= Neo.create(VesselConversion, {
-            onConvertIn(record) {
-                let itemId = me.vesselConversionItemId ?? me.dragComponent?.dockItemId
-                    ?? me.dockItemIds?.[me.startIndex] ?? null;
-
-                const data = {
-                    admission   : false,
-                    itemId,
-                    logicalRect : me.vesselConversionLogicalRect && {...me.vesselConversionLogicalRect},
-                    record,
-                    sortZone    : me,
-                    sourceNodeId: me.dockSourceNodeId,
-                    targetId    : me.vesselConversionTargetId
-                };
-
-                me.owner?.up?.()?.fire('dockVesselConversionIn', data);
-
-                return data.admission
-            },
-            onConvertOut(record) {
-                let itemId = me.vesselConversionItemId ?? me.dragComponent?.dockItemId
-                    ?? me.dockItemIds?.[me.startIndex] ?? null;
-
-                const data = {
-                    admission   : false,
-                    itemId,
-                    logicalRect : me.vesselConversionLogicalRect && {...me.vesselConversionLogicalRect},
-                    record,
-                    sortZone    : me,
-                    sourceNodeId: me.dockSourceNodeId,
-                    targetId    : me.vesselConversionTargetId
-                };
-
-                me.owner?.up?.()?.fire('dockVesselConversionOut', data);
-
-                return data.admission
-            }
-        })
-    }
-
-    /**
-     * @summary Returns clone-safe admitted/provisional conversion truth for diagnostics and Neural Link.
-     * @returns {{converted:Boolean, targetConverted:Boolean, targetId:(String|null), transitioning:Boolean}}
-     */
-    getVesselConversionState() {
-        let sensor = this.vesselConversionSensor;
-
-        return {
-            converted      : sensor?.converted === true,
-            targetConverted: sensor?.targetConverted === true,
-            targetId       : this.vesselConversionTargetId ?? null,
-            transitioning  : sensor?.transitioning === true
-        }
-    }
-
-    /**
-     * @summary Replays the newest pointer/geometry truth after strict platform admission settles.
-     *
-     * Pointer frames are intentionally not queued one-by-one: only the latest source-owned truth
-     * can decide whether the just-admitted park/re-show still matches user intent. Reset bumps the
-     * epoch and invalidates the continuation before it can touch a successor gesture.
-     * @param {Object} frame
-     * @returns {Promise<Boolean>}
-     * @protected
-     */
-    scheduleVesselConversionReplay(frame) {
-        let me     = this,
-            sensor = me.vesselConversionSensor;
-
-        me.vesselConversionReplayFrame = {
-            ...frame,
-            logicalSourceRect: frame.logicalSourceRect && {...frame.logicalSourceRect},
-            targetRect       : frame.targetRect && {...frame.targetRect}
-        };
-
-        if (me.vesselConversionReplayPromise || !sensor?.transitionPromise) {
-            return me.vesselConversionReplayPromise ?? Promise.resolve(false)
-        }
-
-        const epoch      = me.vesselConversionEpoch,
-              transition = sensor.transitionPromise;
-
-        me.vesselConversionReplayPromise = Promise.resolve(transition).then(admitted => {
-            if (me.vesselConversionSensor !== sensor || me.vesselConversionEpoch !== epoch) return false;
-
-            const latest = me.vesselConversionReplayFrame;
-
-            me.vesselConversionReplayFrame   = null;
-            me.vesselConversionReplayPromise = null;
-
-            if (admitted !== true || !latest || !me.isWindowDragging) return admitted === true;
-
-            const coordinatorFrame = me.vesselConversionCoordinatorFrame;
-
-            if (coordinatorFrame && me.dragCoordinator) {
-                me.dragCoordinator.onDragMove({
-                    ...coordinatorFrame,
-                    proxyRect: coordinatorFrame.proxyRect && {
-                        height: coordinatorFrame.proxyRect.height,
-                        width : coordinatorFrame.proxyRect.width,
-                        x     : coordinatorFrame.proxyRect.x,
-                        y     : coordinatorFrame.proxyRect.y
-                    },
-                    replayAfterTransition: true
-                });
-
-                return true
-            }
-
-            me.resolveRemoteDragTransition({...latest, replayAfterTransition: true});
-
-            return true
-        }, () => {
-            if (me.vesselConversionSensor === sensor && me.vesselConversionEpoch === epoch) {
-                me.vesselConversionReplayFrame   = null;
-                me.vesselConversionReplayPromise = null
-            }
-
-            return false
-        });
-
-        return me.vesselConversionReplayPromise
-    }
-
-    /**
-     * @summary Resolves the exact live tear-out vessel rect through the clone-safe owner seam.
-     *
-     * A projected SortZone cannot carry a function config through the component clone boundary.
-     * The zone therefore fires a synchronous request on its tab.Container; the workspace-owned
-     * listener resolves the current item→vessel identity and writes `sourceRect`. Missing,
-     * thenable, degenerate, or non-finite answers fail closed. The coordinator's logical proxy rect
-     * is context only and can never become the conversion denominator.
-     * @param {Object} data
-     * @param {Object} data.draggedItem
-     * @param {Object|null} data.logicalRect
-     * @returns {Object|null}
-     * @protected
-     */
-    resolveVesselConversionSourceGeometry({draggedItem, logicalRect}) {
-        let me      = this,
-            itemId  = draggedItem?.dockItemId ?? me.dockItemIds?.[me.startIndex] ?? null,
-            request = {draggedItem, itemId, logicalRect, sourceRect: null},
-            rect;
-
-        me.owner?.up?.()?.fire('dockVesselConversionSourceRectRequest', request);
-        rect = request.sourceRect;
-
-        if (
-            typeof rect?.then === 'function' ||
-            !['x', 'y', 'width', 'height'].every(key => Number.isFinite(rect?.[key])) ||
-            rect.width <= 0 || rect.height <= 0
-        ) {
-            return null
-        }
-
-        return {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
-    }
-
-    /**
      * @summary The target proxy's extent: the dragged tab header's size and the grab offset inside it,
      * so a converted drag enters the target as the same tab-header proxy it showed in its own window.
      * @returns {{height: Number, offsetX: Number, offsetY: Number, width: Number}|null} `null` before
@@ -636,10 +297,9 @@ class TabSortZone extends TabHeaderSortZone {
      * @param {Object} frame
      * @param {Object} frame.draggedItem
      * @param {Boolean} frame.pointerInTarget
-     * @returns {{commitEligible: Boolean, engage: Boolean, proxyRect: (Object|undefined), retain: Boolean}|null}
-     *     An engaged record carries the target proxy's extent ({@link #getVesselConversionProxyRect});
-     *     `null` leaves a claim-free frame to the source or the void, and keeps the generic coordinator
-     *     path for a source that did not opt in.
+     * @returns {{engage: Boolean, proxyRect: (Object|undefined)}|null} An engaged record carries the
+     *     target proxy's extent ({@link #getVesselConversionProxyRect}); `null` leaves a claim-free frame
+     *     to the source or the void, and keeps the generic coordinator path for a source that did not opt in.
      */
     resolveRemoteDragTransition({draggedItem, pointerInTarget} = {}) {
         let me = this;
@@ -651,48 +311,12 @@ class TabSortZone extends TabHeaderSortZone {
         let proxyRect = draggedItem && me.getVesselConversionProxyRect();
 
         if (!proxyRect) {
-            return {commitEligible: false, engage: false, retain: false}
+            return {engage: false}
         }
 
         me.isWindowDragging && me.fire('dragBoundaryEntry', {draggedItem: me.dragComponent, proxyRect: null, sortZone: me});
 
-        return {commitEligible: true, engage: true, proxyRect, retain: false}
-    }
-
-    /**
-     * @summary Silently clears all conversion binding state at a gesture terminal.
-     */
-    resetVesselConversion() {
-        let me = this;
-
-        me.vesselConversionEpoch++;
-        me.vesselConversionSensor?.reset();
-        me.vesselConversionCancelPromise   = null;
-        me.vesselConversionCoordinatorFrame = null;
-        me.vesselConversionItemId          = null;
-        me.vesselConversionLogicalRect     = null;
-        me.vesselConversionPointerMissedAt = null;
-        me.vesselConversionReplayFrame     = null;
-        me.vesselConversionReplayPromise   = null;
-        me.vesselConversionSourceRect      = null;
-        me.vesselConversionTargetId        = null;
-        me.vesselConversionTargetRect      = null
-    }
-
-    /**
-     * @summary Fires one clone-safe vessel lifecycle record for the caller to settle.
-     * @param {Neo.tab.Container|null} tabContainer
-     * @param {String} eventName
-     * @param {Object} data
-     * @returns {Object}
-     * @protected
-     */
-    fireDockLifecycleEvent(tabContainer, eventName, data) {
-        const record = {settlement: false, sortZone: this, ...data};
-
-        tabContainer?.fire(eventName, record);
-
-        return record
+        return {engage: true, proxyRect}
     }
 
     /**
@@ -783,8 +407,6 @@ class TabSortZone extends TabHeaderSortZone {
         // Starting a successor in that interval would let the predecessor's exact-window effect
         // mutate the successor generation. Fail shut until the inherited end latch releases.
         if (me.dragEndActive) return;
-
-        me.resetVesselConversion?.();
 
         if (me.isStackHandleDrag?.(data)) {
             let pathIds     = new Set((data.path || []).map(node => node.id).filter(Boolean)),
@@ -926,24 +548,11 @@ class TabSortZone extends TabHeaderSortZone {
      * @returns {Promise<void>}
      */
     async onDragCancel(data={}) {
-        let me               = this,
-            itemId           = me.dockItemIds?.[me.startIndex],
-            conversionItemId = me.dragComponent?.dockItemId ?? itemId ?? null,
-            conversionActive = Boolean(
-                me.vesselConversionSensor?.converted || me.vesselConversionSensor?.transitioning
-            ),
-            tabContainer = me.owner?.up?.();
+        let me     = this,
+            itemId = me.dockItemIds?.[me.startIndex];
 
         if (me.isWindowDragging && itemId) {
-            const retirement = me.fireDockLifecycleEvent(tabContainer, 'dockTearOutCancel', {
-                itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId
-            });
-
-            if (conversionActive && conversionItemId) {
-                me.fireDockLifecycleEvent(tabContainer, 'dockVesselConversionRetired', {
-                    itemId: conversionItemId, retirement: retirement.settlement
-                })
-            }
+            me.owner?.up?.()?.fire('dockTearOutCancel', {itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId})
         }
 
         await super.onDragCancel(data)
@@ -984,14 +593,7 @@ class TabSortZone extends TabHeaderSortZone {
             tabContainer = me.owner?.up?.(),
             {clientX, clientY} = data || {};
 
-        const conversionItemId = me.dragComponent?.dockItemId ?? itemId ?? null,
-              conversionActive = Boolean(
-                  me.vesselConversionSensor?.converted || me.vesselConversionSensor?.transitioning
-              ),
-              conversionTargetConverted = me.vesselConversionSensor?.targetConverted === true;
-
-        let commitError = null,
-            postCleanup = null;
+        let commitError = null;
 
         try {
             if (me.sortGroup && me.dragComponent) {
@@ -1036,8 +638,7 @@ class TabSortZone extends TabHeaderSortZone {
                 me.dragComponent   = null;
                 me.dragElement     = null;
                 me.stackDragActive = false;
-                me.startIndex      = -1;
-                me.resetVesselConversion?.()
+                me.startIndex      = -1
             }
 
             if (commitError) {
@@ -1055,59 +656,6 @@ class TabSortZone extends TabHeaderSortZone {
             me.remoteDropCommitted = false;
             itemId && tabContainer?.fire('dockCrossZoneDragCancel', {itemId, sourceNodeId: me.dockSourceNodeId})
         } else if (!commitError && me.remoteDropCommitted) {
-            if (conversionActive && conversionItemId) {
-                me.fireDockLifecycleEvent(tabContainer, 'dockVesselConversionTerminal', {
-                    itemId: conversionItemId, outcome: 'committed'
-                })
-            }
-
-            me.remoteDropCommitted = false
-        } else if (conversionActive && conversionItemId) {
-            if (conversionTargetConverted) {
-                // The target refused while the G1 vessel was parking/parked. It is still an empty
-                // provisional render target and source model truth remains home: retire it with
-                // zero mutation, then clear the park generation. Re-showing before close would
-                // create competing physical dispositions for the same exact handle.
-                const retirement = me.fireDockLifecycleEvent(tabContainer, 'dockTearOutCancel', {
-                    itemId: conversionItemId, sourceNodeId: me.dockSourceNodeId
-                });
-
-                me.fireDockLifecycleEvent(tabContainer, 'dockVesselConversionRetired', {
-                    itemId: conversionItemId, retirement: retirement.settlement
-                })
-            } else {
-                // Release raced an admitted convert-out. Complete terminal re-show first; only a
-                // strict restore may proceed to the ordinary detached commit/adoption. Refusal
-                // degrades to zero-mutation retirement so no still-parked vessel is adopted.
-                const terminal = me.fireDockLifecycleEvent(tabContainer, 'dockVesselConversionTerminal', {
-                    itemId: conversionItemId, outcome: 'rejected'
-                });
-
-                postCleanup = async () => {
-                    let restored = false;
-
-                    try {
-                        restored = await terminal.settlement === true
-                    } catch {
-                        restored = false
-                    }
-
-                    if (restored) {
-                        tabContainer?.fire('dockTearOutTerminal', {
-                            itemId: conversionItemId, sortZone: me, sourceNodeId: me.dockSourceNodeId
-                        })
-                    } else {
-                        const retirement = me.fireDockLifecycleEvent(tabContainer, 'dockTearOutCancel', {
-                            itemId: conversionItemId, sourceNodeId: me.dockSourceNodeId
-                        });
-
-                        me.fireDockLifecycleEvent(tabContainer, 'dockVesselConversionRetired', {
-                            itemId: conversionItemId, retirement: retirement.settlement
-                        })
-                    }
-                }
-            }
-
             me.remoteDropCommitted = false
         } else if (me.isWindowDragging) {
             // Released while detached — THE terminal a dock host may commit a `detachItem` on
@@ -1119,17 +667,7 @@ class TabSortZone extends TabHeaderSortZone {
             tabContainer.fire('dockCrossZoneDrop', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
         }
 
-        try {
-            await super.processDragEnd(data)
-        } finally {
-            if (!me.isDestroying && !me.isDestroyed) {
-                me.resetVesselConversion?.()
-            }
-        }
-
-        if (!me.isDestroying && !me.isDestroyed) {
-            await postCleanup?.()
-        }
+        await super.processDragEnd(data);
 
         if (commitError) {
             throw commitError
@@ -1176,7 +714,6 @@ class TabSortZone extends TabHeaderSortZone {
                 sourceSortZone: me
             };
 
-            me.vesselConversionCoordinatorFrame = coordinatorFrame;
             me.dragCoordinator?.onDragMove(coordinatorFrame)
         }
 
@@ -1221,17 +758,6 @@ class TabSortZone extends TabHeaderSortZone {
      */
     resolveSourceOwnershipId() {
         return this.dragCoordinator?.resolveSourceOwnership?.(this) ?? null
-    }
-
-    /**
-     * @summary Destroys the owned conversion sensor before ordinary SortZone teardown.
-     * @param {...*} args
-     */
-    destroy(...args) {
-        this.vesselConversionSensor?.destroy();
-        this.vesselConversionSensor = null;
-        this.resetVesselConversion();
-        super.destroy(...args)
     }
 }
 

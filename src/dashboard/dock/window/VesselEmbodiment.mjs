@@ -209,15 +209,15 @@ function isMeasurableProxyRect(rect) {
 /**
  * Creates one host-local target-proxy embodiment over {@link createDockVesselEmbodiment}.
  *
- * A converted tab drag (`embodyHeader`) enters the target as the tab-header proxy it showed in its
+ * A claimed tab drag (`embodyHeader`) enters the target as the tab-header proxy it showed in its
  * own window — a {@link Neo.draggable.DragProxyComponent} over the source zone's drag-proxy vdom —
- * while the live pane stays in the parked vessel until the drop. Every other embodiment (the native
- * title-bar handoff) moves the SAME live pane into one target-window
- * {@link Neo.draggable.DragProxyContainer}, the nested registry preserving its exact slot in the parked
- * source popup. The generation fence makes a late renderer settlement from a restored predecessor
- * unable to retire a successor proxy. The host remains the lifecycle authority: pointer movement calls
- * {@link #move}, convert-out/cancel calls {@link #restore}, and a committed transfer calls
- * {@link #promote}. No document or native-window state enters this helper.
+ * while the live pane stays home until the drop. Every other embodiment (the native title-bar
+ * handoff) moves the SAME live pane into one target-window {@link Neo.draggable.DragProxyContainer},
+ * the nested registry preserving its exact slot in the parked source popup. The generation fence
+ * makes a late renderer settlement from a restored predecessor unable to retire a successor proxy.
+ * The host remains the lifecycle authority: pointer movement calls {@link #move}, a leave or cancel
+ * calls {@link #restore}, and a committed transfer calls {@link #promote}. No document or
+ * native-window state enters this helper.
  *
  * @param {Object} seams
  * @param {Function} [seams.createProxy] Injectable proxy factory for focused tests.

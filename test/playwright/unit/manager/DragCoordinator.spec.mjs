@@ -43,7 +43,6 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         calls = [];
         DragCoordinator.activeTargetZone = null;
         DragCoordinator.activeSourceZone = null;
-        DragCoordinator.activeTargetCommitEligible = false;
         DragCoordinator.activeTransitionOwned = false;
         DragCoordinator.sortZones.clear();
         DragCoordinator.nativeWindowDropCandidates.clear()
@@ -52,7 +51,6 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
     test.afterEach(() => {
         DragCoordinator.activeTargetZone = null;
         DragCoordinator.activeSourceZone = null;
-        DragCoordinator.activeTargetCommitEligible = false;
         DragCoordinator.activeTransitionOwned = false;
         DragCoordinator.sortZones.clear();
         DragCoordinator.nativeWindowDropCandidates.clear()
@@ -337,7 +335,6 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
 
         DragCoordinator.activeSourceZone = nextSource;
         DragCoordinator.activeTargetZone = nextTarget;
-        DragCoordinator.activeTargetCommitEligible = true;
         DragCoordinator.activeTransitionOwned = true;
         pending.resolve({type: 'transferItem'});
         await completion;
@@ -345,7 +342,6 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         expect(calls).toEqual([['onRemoteDrop', 'tab-1'], ['onRemoteDropOut', 'tab-1']]);
         expect(DragCoordinator.activeSourceZone).toBe(nextSource);
         expect(DragCoordinator.activeTargetZone).toBe(nextTarget);
-        expect(DragCoordinator.activeTargetCommitEligible).toBe(true);
         expect(DragCoordinator.activeTransitionOwned).toBe(true)
     });
 
@@ -589,7 +585,6 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
     function resetCoordinator() {
         DragCoordinator.activeTargetZone = null;
         DragCoordinator.activeSourceZone = null;
-        DragCoordinator.activeTargetCommitEligible = false;
         DragCoordinator.activeTransitionOwned = false;
         DragCoordinator.sortZones.clear();
         DragCoordinator.nativeWindowDropCandidates.forEach(candidate => clearTimeout(candidate.timeoutId));
@@ -2430,7 +2425,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         }
     });
 
-    test('conversion resolver receives one live INNER-viewport frame and owns engagement without legacy suspension', () => {
+    test('a source-owned frame engages the claiming target with the header proxy in its INNER viewport, without legacy suspension', () => {
         const
             frames       = [],
             movePayloads = [];
@@ -2447,12 +2442,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         source.isWindowDragging = true;
         source.resolveRemoteDragTransition = frame => {
             frames.push(frame);
-            return {
-                commitEligible: true,
-                engage        : true,
-                retain        : false,
-                proxyRect     : {height: 32, offsetX: 12, offsetY: 9, width: 90}
-            }
+            return {engage: true, proxyRect: {height: 32, offsetX: 12, offsetY: 9, width: 90}}
         };
 
         registerWindow('win-source', 2000, 0, 400, 400);
@@ -2464,17 +2454,12 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
         move(source, 200, 200);
 
-        expect(frames[0]).toMatchObject({
-            pointerInTarget  : true,
-            logicalSourceRect: {x: 190, y: 190, width: 100, height: 60},
-            targetId         : 'workspace-a',
-            targetRect       : {x: 100, y: 120, width: 400, height: 300},
-            targetWindowId   : 'win-a'
-        });
+        expect(frames).toEqual([{draggedItem: {id: 'tab-1', reference: 'tab-1'}, pointerInTarget: true}]);
         expect(calls.filter(([name]) => name === 'suspend')).toEqual([]);
         expect(calls.filter(([name]) => name === 'move')).toHaveLength(1);
-        // the target proxy is the dragged tab header: its extent, under the grab offset inside it —
-        // never the window drag's popup-origin offsets (10, 10) nor the popup's extent (100×60)
+        // the target proxy is the dragged tab header: its extent, under the grab offset inside it,
+        // placed in the target's inner viewport — never the window drag's popup-origin offsets
+        // (10, 10), the popup's extent (100×60) nor the outer frame's origin
         expect(movePayloads[0]).toMatchObject({
             embodyHeader  : true,
             embodyProxy   : true,
@@ -2482,21 +2467,12 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             sourceSortZone: source
         });
         expect(DragCoordinator.activeSourceZone).toBe(source);
-        expect(DragCoordinator.activeTargetCommitEligible).toBe(true);
-        expect(DragCoordinator.activeTransitionOwned).toBe(true);
-
-        WindowManager.get('win-a').innerRect = new Rectangle(110, 130, 360, 260);
-        move(source, 210, 210, {replayAfterTransition: true});
-
-        expect(frames[1]).toMatchObject({
-            replayAfterTransition: true,
-            targetRect           : {x: 110, y: 130, width: 360, height: 260}
-        })
+        expect(DragCoordinator.activeTransitionOwned).toBe(true)
     });
 
     test('async, throwing, and malformed transition decisions fail closed before preview', () => {
         const variants = [
-            () => Promise.resolve({commitEligible: true, engage: true}),
+            () => Promise.resolve({engage: true}),
             () => { throw new Error('resolver failed') },
             () => ({})
         ];
@@ -2524,7 +2500,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         }
     });
 
-    test('an engaged record whose header extent or grab offset is not finite cancels the conversion before preview (#19248)', () => {
+    test('an engaged record whose header extent or grab offset is not finite is refused before preview (#19248)', () => {
         const variants = [
             {height: 32, offsetX: NaN, offsetY: 9, width: 90},
             {height: 0,  offsetX: 12,  offsetY: 9, width: 90},
@@ -2540,8 +2516,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             const target = createZone('workspace-a', 'win-a');
 
             source.isWindowDragging = true;
-            source.resolveRemoteDragTransition = () => ({commitEligible: true, engage: true, retain: false, proxyRect});
-            source.cancelVesselConversion = () => calls.push(['cancel-conversion']);
+            source.resolveRemoteDragTransition = () => ({engage: true, proxyRect});
 
             registerWindow('win-source', 2000, 0, 400, 400);
             registerWindow('win-a', 0, 0, 800, 600);
@@ -2549,12 +2524,12 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
             move(source, 300, 300);
 
-            expect(calls.filter(([name]) => name === 'move'), JSON.stringify(proxyRect)).toEqual([]);
-            expect(calls.filter(([name]) => name === 'cancel-conversion')).toHaveLength(1)
+            expect(calls.filter(([name]) => ['move', 'suspend'].includes(name)), JSON.stringify(proxyRect)).toEqual([]);
+            expect(DragCoordinator.activeTargetZone).toBeNull()
         }
     });
 
-    test('a resolver failure after engagement cancels the source conversion before clearing preview', () => {
+    test('a resolver failure after engagement leaves the target and commits nothing', () => {
         let   fail   = false;
         const source = createSource();
         const target = createZone('workspace-a', 'win-a');
@@ -2563,9 +2538,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         source.resolveRemoteDragTransition = () => {
             if (fail) throw new Error('frame authority lost');
 
-            return {commitEligible: true, engage: true, retain: false}
+            return {engage: true}
         };
-        source.cancelVesselConversion = () => calls.push(['cancel-conversion']);
 
         registerWindow('win-source', 2000, 0, 400, 400);
         registerWindow('win-a', 0, 0, 800, 600);
@@ -2575,77 +2549,12 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         fail = true;
         move(source, 310, 310);
 
-        expect(calls.filter(([name]) => ['cancel-conversion', 'leave'].includes(name))).toEqual([
-            ['cancel-conversion'], ['leave', 'workspace-a']
-        ]);
-        expect(DragCoordinator.activeTargetZone).toBeNull();
-        expect(DragCoordinator.activeTargetCommitEligible).toBe(false)
-    });
-
-    test('zones before the park: a claim the park has not admitted previews without an embodiment and commits nothing (#19278)', () => {
-        let   record = {commitEligible: false, engage: false, retain: false};
-        const frames = [];
-        const source = createSource();
-        const target = createZone('workspace-a', 'win-a');
-
-        source.isWindowDragging = true;
-        source.resolveRemoteDragTransition = () => record;
-        target.onRemoteDragMove = payload => frames.push(payload.embodyProxy);
-
-        registerWindow('win-source', 2000, 0, 400, 400);
-        registerWindow('win-a', 0, 0, 800, 600);
-        DragCoordinator.register(target);
-
-        move(source, 300, 300);
-        expect(frames, 'without the source\'s preview mark a pending claim reaches no target').toEqual([]);
-
-        record = {commitEligible: false, engage: false, preview: true, retain: false};
-        move(source, 310, 300);
-        expect(frames, 'the target renders its zones from the claim, embodying nothing').toEqual([false]);
-        expect(DragCoordinator.activeTargetCommitEligible).toBe(false);
-
-        record = {commitEligible: true, engage: true, preview: true, retain: false};
-        move(source, 320, 300);
-        expect(frames, 'the admitted park embodies on the next frame').toEqual([false, true]);
-        expect(DragCoordinator.activeTargetCommitEligible).toBe(true);
-
-        record = {commitEligible: false, engage: false, preview: true, retain: false};
-        move(source, 330, 300);
-        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
-
-        expect(calls.filter(([name]) => ['drop', 'dropOut', 'leave'].includes(name)), 'a drop on a preview-only frame leaves')
-            .toEqual([['leave', 'workspace-a']])
-    });
-
-    test('visual claim grace can retain hover, but release after raw loss cannot commit', () => {
-        let   rawClaim = true;
-        const source   = createSource();
-        const target   = createZone('workspace-a', 'win-a', {accepts: () => rawClaim});
-
-        source.isWindowDragging = true;
-        source.resolveRemoteDragTransition = frame => frame.pointerInTarget
-            ? {commitEligible: true, engage: true, retain: false}
-            : {commitEligible: false, engage: true, retain: true};
-        source.resetVesselConversion = () => calls.push(['reset']);
-
-        registerWindow('win-source', 2000, 0, 400, 400);
-        registerWindow('win-a', 0, 0, 800, 600);
-        DragCoordinator.register(target);
-
-        move(source, 300, 300);
-        rawClaim = false;
-        move(source, 310, 310);
-
-        expect(DragCoordinator.activeTargetZone).toBe(target);
-        expect(DragCoordinator.activeTargetCommitEligible).toBe(false);
-        expect(calls.filter(([name]) => name === 'leave')).toEqual([]);
-
-        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
-
-        expect(calls.filter(([name]) => name === 'drop')).toEqual([]);
-        expect(calls.filter(([name]) => name === 'dropOut')).toEqual([]);
         expect(calls.filter(([name]) => name === 'leave')).toEqual([['leave', 'workspace-a']]);
-        expect(calls.filter(([name]) => name === 'reset')).toEqual([['reset']])
+        expect(DragCoordinator.activeTargetZone).toBeNull();
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => ['drop', 'dropOut'].includes(name))).toEqual([])
     })
 
     test('the claim trace records each conjunct separately, so a refusal is distinguishable from a zone never asked', () => {
