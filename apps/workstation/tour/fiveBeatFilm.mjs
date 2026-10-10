@@ -10,8 +10,10 @@
  *   beat speaks over the witnessed gesture — and the executable steps that drive it. One script,
  *   two consumers today: the viewer's in-app tour and the whitebox replay. The recorded take is
  *   the film epic's next step and will consume this same script.
- * - The recorded transcript derives from the captured cut, never the reverse: these captions
- *   are the working screenplay, and the final voice track re-times to the footage.
+ * - The approved narration is whole and runs at its own rate (the operator's brief, 2026-10-10:
+ *   a 1:30–2:30 film, nothing trimmed): these captions are the working screenplay, the cut places
+ *   each line at its cue, and the PICTURE is sized to carry the lines — by hand-tempo gestures and
+ *   more scenes, never by a held frame.
  *
  * Show-order: the film opens on the committed tear-out. The room is alive for a breath — its first
  * motion a real splitter drag — then a live pane leaves the window and a real vessel is born
@@ -22,9 +24,11 @@
  * folds into its edge rail, is revealed, and comes back), the resize (the main boundary follows a
  * real pointer drag, both panes re-flowing live, and commits once on release), the drop-zone
  * showcase that puts the travelled pane wherever the viewer likes, perspectives with undo/redo,
- * and the living close. The picture sets the pace: a hold inside a gesture is at most 1.5 s, a
- * cue-free pause at most 1 s, and the voice is cut to the motion, never the reverse. The tear-out
- * leaves Audit behind, and Audit holds `right-top-tabs` as the stored home the stack comes back to.
+ * and the living close. The picture sets the pace: every pointer walk runs at hand tempo (a sample
+ * every 33 ms, the leg's `moveSteps` sized to about a second of travel), a hold inside a gesture
+ * and a cue-free reading beat are each at most 1.5 s, and no gesture or beat is stretched to fit a
+ * line. The tear-out leaves Audit behind, and Audit holds `right-top-tabs` as the stored home the
+ * stack comes back to.
  *
  * How the window scenes run from a button: a vessel birth is `Neo.Main.windowOpen`, which the
  * browser permits only inside a user gesture. The screenplay therefore places a `gate` cue before
@@ -40,7 +44,11 @@
  * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
  * real duration and the cut re-paces around them. The scenes sum to exactly 91s inside the
  * 90–150s envelope, 1s above the `minSeconds` floor: a budget edit trades seconds within the 91s
- * sum, and captured gesture durations plus the edit-layer cut-in re-pace upward from there.
+ * sum, and captured gesture durations plus the edit-layer cut-in re-pace upward from there. A
+ * `pause` step's `ms` is a floor the runner waits while the host performs the cue, not a wait
+ * after it: a cue's picture time is its gesture, and a cue-free `pause` after an instant document
+ * operation is the only time a viewer gets to read that outcome. The headless film witness's beat
+ * log is the clock these options are measured against before any take.
  *
  * Claim discipline (revalidated against the current witnesses at authoring time):
  * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 2, 3, 4, 9)
@@ -127,7 +135,7 @@ export const fiveBeatFilmScript = Object.freeze({
             // proportion. The receipt carries the vector (the document tier runs no cues).
             type   : 'pause',
             ms     : 800,
-            cue    : {type: 'resize', splitNodeId: 'split-main', sizes: [0.52, 0.48], options: {moveDelay: 33, moveSteps: 24, showCursor: true}},
+            cue    : {type: 'resize', splitNodeId: 'split-main', sizes: [0.52, 0.48], options: {moveDelay: 33, moveSteps: 48, showCursor: true}},
             caption: 'the first motion: the real boundary follows the pointer to 52/48 and the document keeps the proportion'
         }, {
             type   : 'pause',
@@ -201,10 +209,12 @@ export const fiveBeatFilmScript = Object.freeze({
         narration    : 'Bring the whole window home — as one. The commit is atomic. And the emptied window closes itself — after the document lands, never before.',
         beats        : ['native frame crosses live targets', 'stored-home acquisition', 'atomic transferNode commit', 'vessel self-close strictly after adoption'],
         steps        : [{
+            // Every sample also pays a window move's round trip, so sixteen per leg is about a
+            // second of travel through each of the three targets.
             type: 'pause',
             ms  : 1200,
             cue : {type: 'native-return', ownerItemId: 'metrics', previewNodeId: 'heavy-tabs',
-                options: {attempts: 240, moveDelay: 33, moveSteps: 8}},
+                options: {attempts: 240, moveDelay: 33, moveSteps: 16}},
             caption: 'the native window crosses the animated targets; both panes return before the empty vessel closes'
         }, {
             type   : 'topology-assert',
@@ -248,10 +258,10 @@ export const fiveBeatFilmScript = Object.freeze({
             // The main split's boundary moves left: the hundred-thousand-row grid gives the twelve-tab
             // group the room the cold open denied it. The preview IS the picture — both panes re-flow
             // on the main thread while the committed document waits for the release — so the travel
-            // is sampled at the film pace with the cursor visible, and the release commits once.
+            // is sampled at hand tempo with the cursor visible, and the release commits once.
             type   : 'pause',
             ms     : 800,
-            cue    : {type: 'resize', splitNodeId: 'split-main', sizes: [0.42, 0.58], options: {moveDelay: 33, moveSteps: 24, showCursor: true}},
+            cue    : {type: 'resize', splitNodeId: 'split-main', sizes: [0.42, 0.58], options: {moveDelay: 33, moveSteps: 48, showCursor: true}},
             caption: 'the boundary follows the pointer; both panes re-flow live; one commit on release'
         }, {
             // The proportion lives in the cue's receipt (`sizesAfter`, asserted by the film witness),
@@ -292,8 +302,8 @@ export const fiveBeatFilmScript = Object.freeze({
                 // gesture, bounded by the same 1.5 s the morph's born hold keeps.
                 options: {
                     dwellDelay: 1500,
-                    moveDelay : 24,
-                    moveSteps : 18,
+                    moveDelay : 33,
+                    moveSteps : 30,
                     showCursor: true
                 }
             },
@@ -306,8 +316,11 @@ export const fiveBeatFilmScript = Object.freeze({
         narration    : 'Save this arrangement as a perspective. Tear the room apart — one click restores it, same instances, same living content. And every dock operation is a transaction: undo walks it back. Redo replays it.',
         beats        : ['capture perspective', 'disruptive rearrangement', 'restore: topology returns, instances persist', 'undo/redo round-trip on a dock mutation'],
         steps        : [{
+            // Every operation in this scene is a document transaction, instant by nature; the
+            // viewer's time is the reading beat after each outcome (1.5 s, the cap), so the scene
+            // runs at the tempo of a hand that clicks, looks, and clicks again.
             type   : 'pause',
-            ms     : 600,
+            ms     : 1000,
             cue    : {type: 'perspective-capture', name: 'film-baseline', title: 'Film baseline'},
             caption: 'the arrangement is captured as a perspective — data, not a screenshot'
         }, {
@@ -316,17 +329,17 @@ export const fiveBeatFilmScript = Object.freeze({
             descriptor: {operation: 'splitNode', itemId: 'security', targetNodeId: 'scale-tabs', orientation: 'vertical', edge: 'bottom', sizes: [0.72, 0.28]},
             expect    : [{path: 'nodes.split-scale-tabs-0.children', equals: ['scale-tabs', 'tabs-security-0']}]
         }, {
-            // The torn room is an outcome the viewer reads before it is undone: one cue-free second,
-            // the cap the picture allows.
+            // The torn room is an outcome the viewer reads before it is undone: one cue-free
+            // reading beat, at the cap.
             type   : 'pause',
-            ms     : 1000,
-            caption: 'the room torn apart — a second to read it before the restore'
+            ms     : 1500,
+            caption: 'the room torn apart — a beat to read it before the restore'
         }, {
             // Cue effects are witnessed through their receipts (each carries the tabs membership
             // it produced), never through a following `topology-assert`: the document-tier replay
             // in `spec` mode executes no cues, and the screenplay must run there unchanged.
             type   : 'pause',
-            ms     : 900,
+            ms     : 1500,
             cue    : {type: 'perspective-restore', name: 'film-baseline'},
             caption: 'one restore: the topology returns, the instances never moved'
         }, {
@@ -335,13 +348,19 @@ export const fiveBeatFilmScript = Object.freeze({
             descriptor: {operation: 'addTab', itemId: 'security', tabsNodeId: 'scale-tabs'},
             expect    : [{path: 'nodes.scale-tabs.activeItemId', equals: 'security'}]
         }, {
+            // The mutation is read before it is walked back; without this beat the undo lands on
+            // the same frame as the mutation and the viewer never sees what it undoes.
             type   : 'pause',
-            ms     : 900,
+            ms     : 1500,
+            caption: 'Security sits in the matrix group — a beat to read the mutation before it is walked back'
+        }, {
+            type   : 'pause',
+            ms     : 1500,
             cue    : {type: 'undo'},
             caption: 'undo walks the transaction back — the heavy group holds Security again'
         }, {
             type   : 'pause',
-            ms     : 900,
+            ms     : 1500,
             cue    : {type: 'redo'},
             caption: 'redo replays it — Security is in the matrix group once more'
         }]

@@ -136,7 +136,7 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(total).toBeLessThanOrEqual(fiveBeatFilmScript.envelope.maxSeconds)
     });
 
-    test('the picture sets the pace: no hold inside a gesture over 1.5 s, no cue-free pause over 1 s except the named close', () => {
+    test('the picture sets the pace: no hold inside a gesture or cue-free reading beat over 1.5 s except the named close', () => {
         const
             holds  = steps().filter(step => step.cue?.options?.birthDwellMs !== undefined).map(step => step.cue.options.birthDwellMs),
             pauses = fiveBeatFilmScript.scenes.flatMap(scene => scene.steps
@@ -147,8 +147,9 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(holds.length, 'the journey keeps its born hold').toBe(1);
         holds.forEach(ms => expect(ms, 'a hold inside a gesture reads as "that is a window", never as a park').toBeLessThanOrEqual(1500));
 
+        // a cue-free pause is the beat a viewer gets to read an instant outcome: one bound with the hold
         pauses.filter(pause => pause.scene !== 'film-signature').forEach(pause =>
-            expect(pause.ms, `${pause.scene}: "${pause.caption}"`).toBeLessThanOrEqual(1000));
+            expect(pause.ms, `${pause.scene}: "${pause.caption}"`).toBeLessThanOrEqual(1500));
 
         // the living close is the one outcome the viewer reads at rest; it is named, and bounded
         expect(close).toHaveLength(1);
@@ -156,22 +157,44 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(close[0].caption).toContain('close')
     });
 
-    test('the showcase holds each preview to read the choice, and the split gets a reading second before the restore', () => {
+    test('every pointer walk runs at hand tempo: a sample every 33 ms, a leg about a second of travel', () => {
+        const walks = steps()
+            .filter(step => step.cue?.options?.moveSteps !== undefined)
+            .map(step => ({type: step.cue.type, ...step.cue.options}));
+
+        expect(walks.map(walk => walk.type)).toEqual(['resize', 'tear-out', 'journey', 'native-return', 'rail', 'resize', 'cross-zone-showcase']);
+        walks.forEach(walk => expect(walk.moveDelay, `${walk.type}: the film's sampling rhythm`).toBe(33));
+
+        // a same-thread walk's leg is its samples times the rhythm; the native return pays a window
+        // move's round trip per sample on top, so its leg is pinned by samples alone
+        walks.filter(walk => walk.type !== 'native-return').forEach(walk =>
+            expect(walk.moveDelay * walk.moveSteps, `${walk.type}: a leg is about a second, never a machine-speed jump`).toBeGreaterThanOrEqual(790));
+        expect(walks.find(walk => walk.type === 'native-return').moveSteps).toBeGreaterThanOrEqual(16)
+    });
+
+    test('the showcase holds each preview to read the choice; the split and the mutation each get a reading beat before they are undone', () => {
         const
             showcase = steps().find(step => step.cue?.type === 'cross-zone-showcase'),
             history  = fiveBeatFilmScript.scenes.find(scene => scene.id === 'film-perspectives-undo').steps,
-            splitAt  = history.findIndex(step => step.type === 'op' && step.descriptor?.operation === 'splitNode');
+            splitAt  = history.findIndex(step => step.type === 'op' && step.descriptor?.operation === 'splitNode'),
+            addTabAt = history.findIndex(step => step.type === 'op' && step.descriptor?.operation === 'addTab');
 
         // a dwell over a target is a hold inside a gesture: long enough to read the choice, bounded like the born hold
         expect(showcase.cue.dwells).toHaveLength(2);
         expect(showcase.cue.options.dwellDelay).toBe(1500);
         expect(showcase.cue.options.dwellDelay).toBeLessThanOrEqual(1500);
 
-        // the torn room is an outcome the viewer reads at rest before the restore undoes it: one cue-free second, at the cap
+        // the torn room is an outcome the viewer reads at rest before the restore undoes it: one cue-free beat, at the cap
         expect(splitAt).toBeGreaterThan(0);
-        expect(history[splitAt + 1]).toMatchObject({type: 'pause', ms: 1000});
+        expect(history[splitAt + 1]).toMatchObject({type: 'pause', ms: 1500});
         expect(history[splitAt + 1].cue).toBeUndefined();
-        expect(history[splitAt + 2].cue?.type).toBe('perspective-restore')
+        expect(history[splitAt + 2].cue?.type).toBe('perspective-restore');
+
+        // the mutation is read before the undo walks it back, or the undo lands on the mutation's own frame
+        expect(addTabAt).toBeGreaterThan(splitAt);
+        expect(history[addTabAt + 1]).toMatchObject({type: 'pause', ms: 1500});
+        expect(history[addTabAt + 1].cue).toBeUndefined();
+        expect(history[addTabAt + 2].cue?.type).toBe('undo')
     });
 
     test('the document tier runs twice with identical logs and ends with Security in the matrix group', async () => {
