@@ -1075,6 +1075,43 @@ class NativeGestureDriver extends GestureDriver {
     }
 
     /**
+     * @summary Holds one `dockTearOutEntry` probe on the source tabs for the span of `run`, and lets
+     * it go on EVERY exit — a settled result, a rejection, a driver destroyed mid-wait. A journey
+     * registers a probe per hop; a probe outliving a cancelled hop would read the next gesture's
+     * entry as this one's.
+     * @param {Neo.component.Base} tabs The source tabs container the entry fires on.
+     * @param {Function} run Async body; its resolved object is returned with `entrySeen` merged in.
+     * @returns {Promise<Object>} `{...result, entrySeen}`
+     * @protected
+     */
+    static async withEntryProbe(tabs, run) {
+        let entrySeen = false,
+            probe     = () => {entrySeen = true};
+
+        tabs.on('dockTearOutEntry', probe);
+
+        try {
+            return {...await run(), entrySeen}
+        } finally {
+            tabs.un('dockTearOutEntry', probe)
+        }
+    }
+
+    /**
+     * @summary Derives the journey's every-hop continuity claim from its ledger, never from the
+     * endpoints: the claim holds only when every expected hop recorded the one borrowed pane, live
+     * and the same instance. A replacement that returns to the original before the drop leaves equal
+     * endpoints and a broken middle; the ledger sees the middle.
+     * @param {Object[]} ledger One `{hop, paneId, destroyed, same}` entry per settled hop plus the drop.
+     * @param {Number} expectedEntries The hop count plus one for the drop.
+     * @returns {Boolean}
+     */
+    static continuityPreserved(ledger, expectedEntries) {
+        return ledger.length === expectedEntries
+            && ledger.every(entry => entry.same === true && entry.destroyed === false && entry.paneId != null)
+    }
+
+    /**
      * @summary The film's journey executor: under one pointer-down the pane crosses every boundary the
      * hand likes, and the engine keeps one rule for every window of the group (docking design record
      * §2.8.6) — inside a window the drag is that window's tab-header proxy, outside every window it is
@@ -1208,11 +1245,19 @@ class NativeGestureDriver extends GestureDriver {
                         }
                     },
                     vesselWindowId = () => me.nativeWindows?.getConnection(me.id, itemId)?.windowId ?? null,
+                    // The borrowed pane, read without constructing: the root cache is the one every
+                    // window of the group borrows from. One ledger entry per settled hop and the drop.
+                    continuity = [],
+                    ledgerHop  = hopIndex => {
+                        let live = me.paneCache[itemId] ?? null;
+
+                        continuity.push({destroyed: live?.isDestroyed === true, hop: hopIndex, paneId: live?.id ?? null, same: live != null && live === pane})
+                    },
                     diag = () => `isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} vesselOpen=${JSON.stringify(me.lastVesselOpen ?? null)} connects=${Boolean(me.nativeWindows?.getConnection(me.id, itemId))} staged=${me.tearOutEmbodiment.isStaged(itemId)} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} pointer=${JSON.stringify(pointer)}`,
                     fail = async (error, extra={}) => {
                         let cancellation = await driver.cancelTearOutGesture(run, button, pointer, {sortZone});
 
-                        return {applied: false, errors: [error], hops: walked, proof: {cancellation, documentBefore, ...extra}}
+                        return {applied: false, errors: [error], hops: walked, proof: {cancellation, continuity, documentBefore, ...extra}}
                     };
 
                 pointer = at(startX, startY);
@@ -1361,17 +1406,14 @@ class NativeGestureDriver extends GestureDriver {
                         }
 
                         previousVesselId = hop.windowId;
-                        vesselWindowIds.push(hop.windowId)
+                        vesselWindowIds.push(hop.windowId);
+                        ledgerHop(index)
                     } else if (kind === 'main') {
-                        let entrySeen  = false,
-                            entryProbe = () => {entrySeen = true};
+                        let {entrySeen, retired} = await NativeGestureDriver.withEntryProbe(tabs, async () => {
+                            await leg(inside);
 
-                        tabs.on('dockTearOutEntry', entryProbe);
-                        await leg(inside);
-
-                        let retired = await driver.trap(driver.waitForTearOutVesselRetired(itemId));
-
-                        tabs.un('dockTearOutEntry', entryProbe);
+                            return {retired: await driver.trap(driver.waitForTearOutVesselRetired(itemId))}
+                        });
 
                         Object.assign(sampled(hop), {
                             documentsUnchanged: JSON.stringify(documentBefore) === JSON.stringify(WorkspaceDocument.clone(me.dockModel)),
@@ -1385,43 +1427,43 @@ class NativeGestureDriver extends GestureDriver {
                         if (!entrySeen || !retired || !hop.documentsUnchanged) {
                             return fail(`journey hop ${index + 1} (main): the vessel did not retire on re-entry with the document unchanged — ${diag()}`)
                         }
+
+                        ledgerHop(index)
                     } else {
-                        let frozen     = {clientX: pointer.clientX, clientY: pointer.clientY},
-                            over       = targetCentre(),
-                            claimed    = false,
-                            entrySeen  = false,
-                            entryProbe = () => {entrySeen = true};
+                        let frozen = {clientX: pointer.clientX, clientY: pointer.clientY},
+                            over   = targetCentre();
 
                         if (!over) {
                             return fail(`journey hop ${index + 1} (target): the target window has no live rect`)
                         }
 
+                        hop.over = over;
+
                         // The foreign claim retires the vessel through the source's own entry seam, so
                         // an entry here is the claim itself, recorded, never a wrong turn by itself.
-                        tabs.on('dockTearOutEntry', entryProbe);
-                        hop.over = over;
-                        await leg({...frozen, screenX: over.screenX, screenY: over.screenY});
-                        showCursor && (targetDot = driver.createFilmCursorDot(over.clientX, over.clientY, targetState.windowId));
+                        let {claimed, entrySeen} = await NativeGestureDriver.withEntryProbe(tabs, async () => {
+                            await leg({...frozen, screenX: over.screenX, screenY: over.screenY});
+                            showCursor && (targetDot = driver.createFilmCursorDot(over.clientX, over.clientY, targetState.windowId));
 
-                        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-                            over = targetCentre() ?? over;
+                            for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
+                                over = targetCentre() ?? over;
 
-                            await sample({
-                                clientX: frozen.clientX + attempt % 2,
-                                clientY: frozen.clientY,
-                                screenX: over.screenX + attempt % 2,
-                                screenY: over.screenY
-                            });
+                                await sample({
+                                    clientX: frozen.clientX + attempt % 2,
+                                    clientY: frozen.clientY,
+                                    screenX: over.screenX + attempt % 2,
+                                    screenY: over.screenY
+                                });
 
-                            remoteSnapshot = me.readCrossWindowGestureSnapshot({draggedItemId: itemId, sourceZone: sortZone, targetWorkspaceId});
+                                remoteSnapshot = me.readCrossWindowGestureSnapshot({draggedItemId: itemId, sourceZone: sortZone, targetWorkspaceId});
 
-                            if (remoteSnapshot.ready) {
-                                claimed = true;
-                                break
+                                if (remoteSnapshot.ready) {
+                                    return {claimed: true}
+                                }
                             }
-                        }
 
-                        tabs.un('dockTearOutEntry', entryProbe);
+                            return {claimed: false}
+                        });
 
                         Object.assign(sampled(hop), {
                             claimed,
@@ -1452,6 +1494,7 @@ class NativeGestureDriver extends GestureDriver {
                         }
 
                         dwellDelay > 0 && await driver.trap(driver.timeout(dwellDelay));
+                        ledgerHop(index);
 
                         if (index < hops.length - 1) {
                             await driver.retireFilmCursorDot(targetDot);
@@ -1477,7 +1520,8 @@ class NativeGestureDriver extends GestureDriver {
                     targetItems       = targetAfter?.nodes?.[me.constructor.vesselTabsNodeId(targetItemId)]?.items || [],
                     sourceOwns        = WorkspaceDocument.findContainingTabsId(sourceAfter, itemId) != null,
                     paneIdAfter       = me.getPaneIdentity(itemId),
-                    identityPreserved = paneIdBefore != null && paneIdAfter === paneIdBefore,
+                    identityPreserved = (ledgerHop('drop'), NativeGestureDriver.continuityPreserved(continuity, hops.length + 1))
+                        && paneIdBefore != null && paneIdAfter === paneIdBefore,
                     freshGenerations  = new Set(vesselWindowIds).size === vesselWindowIds.length,
                     applied           = transfer?.reconciled === true && retired && !sourceOwns
                         && targetItems.length === 2 && targetItems[0] === targetItemId && targetItems[1] === itemId
@@ -1491,6 +1535,7 @@ class NativeGestureDriver extends GestureDriver {
                     hops  : walked,
                     proof : {
                         birthHold,
+                        continuity,
                         documentBefore,
                         documentsUnchangedAfterReturn,
                         freshGenerations,

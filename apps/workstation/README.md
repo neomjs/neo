@@ -66,7 +66,10 @@ captured, torn apart and restored, one dock mutation undone and redone; and the 
 scrolls the hundred-thousand-row grid through its midpoint while the feed keeps ticking. Before
 every beat that opens a window the tour stops at a gate and shows **Continue**: that click is the
 user activation the browser demands for `window.open`, so the window is born inside your gesture
-rather than blocked as a popup. Two measured preconditions shape the screenplay: a tab folded
+rather than blocked as a popup. One click covers one activation: the journey scene births further
+windows inside the same held drag, and those rest on the site's one-time pop-up permission — allow
+pop-ups for the site once, or the later births degrade to the in-window proxy. Two measured
+preconditions shape the screenplay: a tab folded
 into a tab bar's overflow menu is not a drag handle, and a torn-out pane's stored home must
 survive its departure for the stack to return to it — which is why the hook tears Metrics out of
 a two-tab group.

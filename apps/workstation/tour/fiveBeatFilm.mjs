@@ -31,7 +31,11 @@
  * every beat that opens a window: the viewer's click on **Continue** is the activation the birth
  * needs, and the tour's host settlement holds the next beat until that click. Replay and take
  * modes resolve gates without a viewer (`autoGates`), because Playwright's real pointer carries
- * its own activation. The dense tour (`denseWorkstation.mjs`) stays the no-window fallback.
+ * its own activation. A gate covers one activation: the journey births further windows inside the
+ * same held drag, and those rest on the site's one-time pop-up permission (docking design record
+ * §2.8.6) — the take's browser has it, the headless witnesses grant it by launch flag, and a viewer
+ * who has not allowed it sees the in-window degrade. The dense tour (`denseWorkstation.mjs`) stays
+ * the no-window fallback.
  *
  * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
  * real duration and the cut re-paces around them. The scenes sum to exactly 91s inside the
@@ -161,12 +165,12 @@ export const fiveBeatFilmScript = Object.freeze({
         title        : 'One drag, every boundary',
         targetSeconds: 18,
         narration    : 'Now take Commits. Out — a window is born under the pointer. Back over the room — it folds back into its tab; nothing happened. Out again. Into Metrics’ window — it takes the drag as its own tab, the zones glow. Out once more. And in, to stay. One drag. Nothing reloads.',
-        beats        : ['the viewer opens the door: one click is the browser’s permission for every window of the journey', 'out: a vessel is born under the pointer', 'back over main: the vessel retires, the tab proxy resumes, the document is untouched', 'out again: a window again', 'over Metrics’ window: it carries the drag as its tab-header proxy, its zones glow', 'out once more: a window again', 'the drop composes A+B in Metrics’ window'],
+        beats        : ['the viewer opens the door: one click is the activation for the journey’s first window; the births that follow inside the same drag rest on the site’s one-time pop-up permission', 'out: a vessel is born under the pointer', 'back over main: the vessel retires, the tab proxy resumes, the document is untouched', 'out again: a window again', 'over Metrics’ window: it carries the drag as its tab-header proxy, its zones glow', 'out once more: a window again', 'the drop composes A+B in Metrics’ window'],
         steps        : [{
             type   : 'pause',
             ms     : 0,
             cue    : {type: 'gate', prompt: 'Continue — Commits leaves, comes back, leaves again, and joins Metrics'},
-            caption: 'One pane is about to cross every boundary under one pointer-down. Your click is the browser’s permission to open its windows.'
+            caption: 'One pane is about to cross every boundary under one pointer-down. Your click opens its first window; the windows that follow in the same drag need this site allowed to open pop-ups.'
         }, {
             // Six hops under one pointer-down, one rule for every window of the group: inside a
             // window the drag is that window's tab-header proxy, outside every window it is a vessel.

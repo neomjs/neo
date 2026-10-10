@@ -4,8 +4,10 @@ import {fiveBeatFilmScript}                      from '../../../../apps/workstat
 
 /**
  * @summary The flagship film plays from the Workstation's own toolbar: **Start film tour** runs the
- * nine scenes, every window birth waits at a gate until the viewer clicks **Continue** (the user
- * activation `window.open` needs), and the tour's receipt carries one settled cue per beat —
+ * nine scenes, each window scene waits at a gate until the viewer clicks **Continue** (the user
+ * activation its first `window.open` needs; the journey's later births inside the same held drag
+ * rest on the site's pop-up permission, which Playwright grants by launch flag), and the tour's
+ * receipt carries one settled cue per beat —
  * tear-out born mid-gesture, the journey's three vessels born and retired under one pointer-down
  * and its drop into the first vessel, the stack returned home, a perspective restored, one
  * mutation undone and redone.
@@ -133,6 +135,11 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(journey.hops[3].snapshot, 'over Metrics\' window the proxy lives there and no vessel survives')
             .toMatchObject({claimCount: 1, sourceVesselWindowId: null, proxy: {settled: true, visible: true}});
         expect(journey.proof?.birthHold, 'the born hold keeps the window under the still pointer').toEqual({durationMs: 1500, survived: true});
+        // the continuity claim is the ledger: one non-constructing read of the borrowed pane per settled hop plus the drop
+        expect(journey.proof?.continuity, 'every settled hop and the drop read the same live pane').toHaveLength(7);
+        expect(journey.proof?.continuity.map(entry => entry.same)).toEqual([true, true, true, true, true, true, true]);
+        expect(journey.proof?.continuity.map(entry => entry.destroyed)).toEqual([false, false, false, false, false, false, false]);
+        expect(new Set(journey.proof?.continuity.map(entry => entry.paneId)).size, 'one pane id throughout').toBe(1);
         expect(journey.proof?.identityPreserved, 'the same live pane rides every hop').toBe(true);
 
         // scene 4 — the merged stack comes home

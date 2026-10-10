@@ -109,7 +109,8 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
             })
         });
 
-        // the tear-out and the journey (three windows behind one gate); the stack return opens no window
+        // the tear-out and the journey (one gate: the click activates its first window, the two births
+        // that follow inside the same drag rest on the site's pop-up permission); the stack return opens no window
         expect(births).toBe(2);
         expect(steps().filter(step => step.cue?.type === 'gate')).toHaveLength(2);
         expect(steps().find(step => step.cue?.type === 'native-return').cue.ownerItemId).toBe('metrics');
