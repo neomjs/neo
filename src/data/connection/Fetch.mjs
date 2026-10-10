@@ -99,6 +99,8 @@ class Fetch extends Base {
 
     /**
      * @summary Dispatches a request through the connection's scoped URL resolver.
+     * The response hands the request config back as `response.request`. In both URL forms its `url`
+     * is the caller's original string; the resolved or redirected address is `response.url`.
      * @param {Object|String} url
      * @param {Object} config={}
      * @param {String} method
@@ -110,7 +112,7 @@ class Fetch extends Base {
             config = url;
             url    = config.url
         } else {
-            config.url = config
+            config.url = url
         }
 
         return fetch(this.resolveUrl(url), {
