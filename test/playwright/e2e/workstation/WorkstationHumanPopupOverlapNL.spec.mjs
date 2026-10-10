@@ -185,8 +185,7 @@ async function awaitPointerSessionIdle(page) {
             return {
                 dragProxyPresent: Boolean(addon.dragProxyElement),
                 dragZoneId      : addon.dragZoneId,
-                isWindowDragging: addon.isWindowDragging,
-                windowDragParked: addon.windowDragParked
+                isWindowDragging: addon.isWindowDragging
             }
         });
 
@@ -198,8 +197,7 @@ async function awaitPointerSessionIdle(page) {
     }).toEqual({
         dragProxyPresent: false,
         dragZoneId      : null,
-        isWindowDragging: false,
-        windowDragParked: false
+        isWindowDragging: false
     });
     await expect(
         page.locator('.neo-is-dragging'),
