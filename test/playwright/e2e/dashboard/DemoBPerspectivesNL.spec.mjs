@@ -143,15 +143,17 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
                     intervals: [250]
                 }).toBe(HOSTED);
 
+                // The tour's pointer goes from the source tab straight onto the target: a claimed
+                // frame is no boundary crossing, so no vessel is born and the pane mounts once.
                 await expect.poll(readCounter, {
-                    message  : 'worker truth must show the original instance mounted through the vessel and final target',
+                    message  : 'worker truth must show the original instance mounted once, into the final target',
                     timeout  : 10000,
                     intervals: [100]
                 }).toMatchObject({
                     id        : baseline.id,
                     properties: {
                         frames    : expect.any(Number),
-                        mountCount: runBaseline.properties.mountCount + 2
+                        mountCount: runBaseline.properties.mountCount + 1
                     }
                 });
 
@@ -174,7 +176,7 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
                         retirements: native.retirements.length
                     }
                 }, {
-                    message  : 'the committed target owns the pane and the converted tear-out vessel is retired',
+                    message  : 'the committed target owns the pane and no tear-out vessel exists',
                     timeout  : 10000,
                     intervals: [100]
                 }).toEqual({counterInTarget: true, connections: [], owners: [], retirements: 0})
