@@ -318,10 +318,10 @@ class VesselWorkspace extends DockWorkspace {
         // seams it borrows are re-bound now — the one moment this host's seams change.
         me.syncDockParticipation({recompose: true});
 
-        // Conversion never re-acquires a popup: close-and-reopen is a one-way door (mid-gesture
-        // acquisition consumes transient activation and reads as unsolicited), so conversion
-        // PARKS the real vessel behind its target, out-conversion re-shows the SAME generation,
-        // and only a commit disposes — every other outcome restores.
+        // A pointer drag never parks (docking design record §2.8.6): another window of the group
+        // carries it as a tab-header proxy, and leaving that window opens a fresh vessel. What
+        // parks is the native title-bar drop, after the OS released it: behind its target while
+        // the drop settles, re-shown as the SAME generation on refusal, disposed only on commit.
         // The transaction is the engine's; this host supplies the four inputs that vary. It DOES
         // declare a geometry restore, which is what licences its park to shrink an oversized source
         // and obliges its re-show to give the extent back. The park below stays an override: the
