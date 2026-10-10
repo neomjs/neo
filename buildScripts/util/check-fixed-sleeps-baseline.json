@@ -165,11 +165,6 @@
         "count": 1
     },
     {
-        "file": "test/playwright/e2e/workstation/WorkstationHumanPopupOverlapNL.spec.mjs",
-        "text": "await page.waitForTimeout(1200);",
-        "count": 1
-    },
-    {
         "file": "test/playwright/e2e/workstation/WorkstationNL.spec.mjs",
         "text": "await page.waitForTimeout(1200);",
         "count": 1

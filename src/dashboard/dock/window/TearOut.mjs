@@ -615,9 +615,9 @@ export function createDockTearOutHandlers({
         /**
          * @summary Retires the exact active vessel without discarding retry authority first.
          *
-         * A committed remote target consumes the source vessel without traversing the detached
-         * terminal below. The conversion lifecycle therefore needs one exact, item-guarded close
-         * path. Strict refusal retains this private slot; every stale or other-item request is inert.
+         * A vessel whose close was refused stays the active slot; a host retires it before a successor
+         * tear-out opens, and an abandoned pop-out retires it outright, neither through the detached
+         * terminal below. Strict refusal retains this private slot; every stale or other-item request is inert.
          * @param {Object} identity
          * @param {String} [identity.generationToken] The slot's lineage token; a superseded one closes nothing.
          * @param {String} identity.itemId

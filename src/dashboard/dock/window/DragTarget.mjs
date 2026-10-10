@@ -294,10 +294,9 @@ class DragTarget extends Base {
     /**
      * @summary Answers a frame again once the owner can preview it.
      *
-     * A settled park replays exactly one frame (docking design record §2.8.6), and a hand that
-     * stops sends no other. When the owner could not answer that frame yet, this asks it once
-     * more after {@link #awaitPreviewable} resolves — only while the frame is still this target's
-     * current payload, so a later frame, a leave, or a terminal always wins.
+     * A hand that stops sends no further frame. When the owner could not answer the last one yet,
+     * this asks it once more after {@link #awaitPreviewable} resolves — only while the frame is still
+     * this target's current payload, so a later frame, a leave, or a terminal always wins.
      * @param {Object} payload The frame that answered no preview.
      * @protected
      */

@@ -54,9 +54,9 @@ owns no concern outright". Knowing the cast is most of understanding the journey
   retires — with every seam injected, so the choreography is a pure decision machine".
 - **Embodiment** — `src/dashboard/dock/window/VesselEmbodiment.mjs`. "This helper owns render topology only. It never
   opens, closes, identifies, or authorizes a native window, and it never mutates a dock document."
-- **Conversion, park and the native transaction** — `VesselConversion.mjs` decides when a dragged popup converts into
-  an in-window proxy; `VesselPark.mjs` parks the real window instead of closing it; `NativeVesselTransaction.mjs` is
-  the strict native effect both consumers used to write by hand.
+- **Park and the native transaction** — `VesselPark.mjs` parks a native title-bar drop's real window behind its
+  target while the drop settles, instead of closing it; `NativeVesselTransaction.mjs` holds the strict native effects
+  the hosts share: the parked window's re-show and the tear-out close.
 - **Placement** — `src/dashboard/dock/window/Placement.mjs`, the durable intent of where a popup belongs relative to
   the main frame, as "relative offsets and semantic fallback targets; window routes, rectangles and pending effects
   stay on this live owner."
