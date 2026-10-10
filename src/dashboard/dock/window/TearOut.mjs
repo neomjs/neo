@@ -41,8 +41,10 @@
  *     receives the committed post-detach document plus the exact admitted vessel generation (the
  *     same document/operation seam shape the adapter's `moveTo` listener feeds).
  * @param {Function} seams.openVessel Host vessel acquisition:
- *     `({gestureToken, itemId, proxyRect, sortZone}) => Promise<{generationToken, popupHeight,
- *     popupWidth, windowName, workspaceKey}|null>` —
+ *     `({gestureToken, itemId, proxyRect, sortZone, sourceRect}) => Promise<{generationToken,
+ *     popupHeight, popupWidth, windowName, workspaceKey}|null>` — `sourceRect` is the card body
+ *     the dragged pane filled, measured at drag arming (null when the zone could not measure it):
+ *     the size the vessel opens at, where the tab header's `proxyRect` is only its position;
  *     the host performs the platform work (URL, geometry, `windowOpen`) and resolves FALSY on any
  *     failed admission (`windowOpen` returns a Boolean — a blocked popup never throws, so the host
  *     must check the Boolean, not catch).
@@ -755,7 +757,8 @@ export function createDockTearOutHandlers({
                     gestureToken: state.token,
                     itemId      : data.itemId,
                     proxyRect   : data.proxyRect,
-                    sortZone    : data.sortZone
+                    sortZone    : data.sortZone,
+                    sourceRect  : data.sourceRect ?? null
                 });
 
                 vessel = await state.opening

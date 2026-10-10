@@ -443,6 +443,10 @@ test.describe('Workstation — human popup-over-popup drag (#16117)', () => {
 
         await expect(page.locator(`#${paneId}`)).toBeVisible();
 
+        // the size the pane shows at in the room is the size its window opens at, floored
+        // at the platform's 320×240 — the tab header's drag proxy is no measure of the widget
+        const paneRect = await page.locator(`#${paneId}`).boundingBox();
+
         let popup;
         try {
             ({popup} = await beginActualTearOut({label: 'Metrics', page}));
@@ -450,6 +454,20 @@ test.describe('Workstation — human popup-over-popup drag (#16117)', () => {
 
             const liveElement = await popup.locator(`[id="${paneId}"]`).elementHandle();
             expect(liveElement).toBeTruthy();
+
+            // Chrome sizes a popup's `height` feature as the frame, so the host adds the popup chrome
+            // it knows (`lastVesselOpen.chrome`); the frame carries the pane's height plus that
+            // allowance, and the content is the pane's height less whatever chrome the host could
+            // not yet know (its first vessel estimates from main's).
+            const
+                vessel = await popup.evaluate(() => ({inner: {height: innerHeight, width: innerWidth}, outer: {height: outerHeight, width: outerWidth}})),
+                birth  = (await app.getComponent(workspace.id, ['lastVesselOpen'])).lastVesselOpen,
+                sizing = `pane ${JSON.stringify(paneRect)}, vessel ${JSON.stringify(vessel)}, birth ${JSON.stringify(birth)}`,
+                want   = {height: Math.max(240, Math.round(paneRect.height)), width: Math.max(320, Math.round(paneRect.width))};
+
+            expect(birth.sourceRect, `the zone measured the pane at arming (${sizing})`).toMatchObject({height: paneRect.height, width: paneRect.width});
+            expect(Math.abs(vessel.inner.width - want.width), `the vessel's content is as wide as the pane (${sizing})`).toBeLessThanOrEqual(2);
+            expect(Math.abs(vessel.outer.height - (want.height + birth.chrome)), `the vessel's frame is the pane's height plus the chrome the host knew (${sizing})`).toBeLessThanOrEqual(2);
             await expect(popup.locator('.workstation-vessel-provisional-chrome .neo-tab-header-button'),
                 'the staged popup shows its pane header before the terminal').toContainText('Metrics');
             await expect(page.locator('.neo-dashboard-dock-vessel-placeholder'),

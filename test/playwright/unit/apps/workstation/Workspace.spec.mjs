@@ -2632,6 +2632,69 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    test('a torn-out vessel opens at the dragged pane\'s rendered size, pinned when the host says so, the proxy only without a pane', async () => {
+        const
+            workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light', windowId: Neo.config.windowId}),
+            originalGetByPath  = Neo.Main.getByPath,
+            originalWindowData = Neo.Main.getWindowData,
+            originalWindowOpen = Neo.Main.windowOpen,
+            calls              = [],
+            featuresOf         = call => Object.fromEntries(call.windowFeatures.split(',').map(pair => pair.split('='))),
+            sizeOf             = call => {
+                const features = featuresOf(call);
+
+                return {height: Number(features.height), width: Number(features.width)}
+            };
+
+        Neo.Main.getWindowData = async () => ({
+            innerHeight: 700, innerWidth: 1200, outerHeight: 787, outerWidth: 1200,
+            screen     : {availHeight: 1080, availLeft: 0, availTop: 0, availWidth: 1920},
+            screenLeft : 10, screenTop: 20
+        });
+        Neo.Main.getByPath   = async () => ({defaultTheme: 'neo-theme-neo-dark', schemes: {'neo-theme-neo-light': 'light'}});
+        Neo.Main.windowOpen  = async data => {
+            calls.push(data);
+
+            return true
+        };
+
+        const identity = itemId => ({generationToken: `lineage-${itemId}`, groupId: 'group-a', workspaceKey: `popup:${itemId}`}),
+              proxy    = {height: 36, width: 140, x: 40, y: 60};
+
+        try {
+            // the card body the pane filled, measured at arming, not the tab header's proxy
+            await workspace.openTearOutVessel({itemId: 'alerts', proxyRect: proxy, sourceRect: {height: 428.6, width: 612.2, x: 700, y: 120}, topologyIdentity: identity('alerts')});
+
+            // no measurement (an older zone, or a hidden card): the proxy stays the fallback, floored
+            await workspace.openTearOutVessel({itemId: 'alerts', proxyRect: proxy, sourceRect: null, topologyIdentity: identity('alerts')});
+
+            // a pane taller than the usable screen is capped below the chrome
+            await workspace.openTearOutVessel({itemId: 'alerts', proxyRect: proxy, sourceRect: {height: 1400, width: 800, x: 0, y: 0}, topologyIdentity: identity('alerts')});
+
+            // the host's pin wins over the pane
+            workspace.tearOutVesselSize = {height: 500, width: 640};
+            await workspace.openTearOutVessel({itemId: 'alerts', proxyRect: proxy, sourceRect: {height: 428, width: 612, x: 0, y: 0}, topologyIdentity: identity('alerts')});
+
+            // the frame carries the content height plus the popup chrome the host knows — main's
+            // 87 px here, no popup being open yet — so the content comes out at the pane's size
+            expect(calls.map(sizeOf)).toEqual([
+                {height: 429 + 87, width: 612},
+                {height: 240 + 87, width: 320},
+                {height: 993 + 87, width: 800},
+                {height: 500 + 87, width: 640}
+            ]);
+            expect(workspace.lastVesselOpen.chrome).toBe(87);
+            // born at the proxy's position, under the hand, whatever the size
+            expect(calls.map(call => featuresOf(call).left)).toEqual(['50', '50', '50', '50']);
+            expect(workspace.tearOutVesselDims).toEqual({height: 500, width: 640})
+        } finally {
+            Neo.Main.getByPath     = originalGetByPath;
+            Neo.Main.getWindowData = originalWindowData;
+            Neo.Main.windowOpen    = originalWindowOpen;
+            workspace.destroy()
+        }
+    });
+
     test('tear-out navigation carries the workspace active theme into each admitted child', async () => {
         const
             workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light', windowId: Neo.config.windowId}),
@@ -2744,9 +2807,10 @@ test.describe('Workstation.view.Workspace', () => {
             expect(result).toBeNull();
             expect(windowOpenCalls).toEqual([]);
             expect(workspace.lastVesselOpen).toEqual({
-                error : 'WorkstationBootstrap unavailable',
-                itemId: 'alerts',
-                stage : 'threw'
+                error     : 'WorkstationBootstrap unavailable',
+                itemId    : 'alerts',
+                sourceRect: null,
+                stage     : 'threw'
             })
         } finally {
             Neo.Main.getByPath    = originalGetByPath;

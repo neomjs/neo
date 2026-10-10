@@ -281,6 +281,39 @@ class Placement extends Base {
     }
 
     /**
+     * @summary Resolves the size a torn-out vessel opens at: the dragged pane's rendered size by
+     * default (a tab header's drag proxy is no measure of the widget), a host-pinned size when the
+     * product wants one, clamped to the screen's usable area less the window chrome and to the
+     * platform's popup floor. Without a source or a pin the fallback applies.
+     * @param {Object} [request={}]
+     * @param {Object} [request.chrome] `{width, height}` the host window's outer-minus-inner size, kept free of the ceiling.
+     * @param {Object} [request.fallback={width: 480, height: 360}] The size without a source or a pin.
+     * @param {Object} [request.floor={width: 320, height: 240}] The platform's popup minimum.
+     * @param {Object|null} [request.pinned] A host-pinned `{width, height}`.
+     * @param {Object|null} [request.screen] `{availWidth, availHeight}` of the current screen.
+     * @param {Object|null} [request.sourceRect] The dragged pane's rendered rect, measured before it left.
+     * @returns {{height: Number, width: Number}}
+     * @static
+     */
+    static resolveVesselSize({chrome=null, fallback={height: 360, width: 480}, floor={height: 240, width: 320}, pinned=null, screen=null, sourceRect=null}={}) {
+        const
+            positive = (candidate, key) => Number.isFinite(candidate?.[key]) && candidate[key] > 0 ? candidate[key] : null,
+            wanted   = {
+                height: positive(pinned, 'height') ?? positive(sourceRect, 'height') ?? fallback.height,
+                width : positive(pinned, 'width')  ?? positive(sourceRect, 'width')  ?? fallback.width
+            },
+            ceiling  = {
+                height: (positive(screen, 'availHeight') ?? Infinity) - (positive(chrome, 'height') ?? 0),
+                width : (positive(screen, 'availWidth')  ?? Infinity) - (positive(chrome, 'width')  ?? 0)
+            };
+
+        return {
+            height: Math.round(Math.max(floor.height, Math.min(wanted.height, ceiling.height))),
+            width : Math.round(Math.max(floor.width,  Math.min(wanted.width,  ceiling.width)))
+        }
+    }
+
+    /**
      * @summary Resolves a relative hint inside the current screen's usable bounds.
      * @param {Object} hint
      * @param {Object} main Observed main outer rectangle.
