@@ -723,7 +723,7 @@ export function createDockTearOutHandlers({
          */
         async onDockTearOutExit(data) {
             for (let wait = 0; (pendingAdmission || retirement) && wait < 3; wait++) {
-                await Promise.all([pendingAdmission?.settled, retirement?.promise])
+                await Promise.allSettled([pendingAdmission?.opening, retirement?.promise])
             }
 
             if (data.sortZone?.isWindowDragging === false) return false;
@@ -748,20 +748,17 @@ export function createDockTearOutHandlers({
 
             pendingAdmission = state;
 
-            // Called now, inside the gesture; a synchronous throw lands as a rejection.
-            const opening = (async () => openVessel({
-                gestureToken: state.token,
-                itemId      : data.itemId,
-                proxyRect   : data.proxyRect,
-                sortZone    : data.sortZone
-            }))();
-
-            state.settled = opening.then(() => {}, () => {});
-
             let vessel;
 
             try {
-                vessel = await opening
+                state.opening = openVessel({
+                    gestureToken: state.token,
+                    itemId      : data.itemId,
+                    proxyRect   : data.proxyRect,
+                    sortZone    : data.sortZone
+                });
+
+                vessel = await state.opening
             } catch {
                 vessel = null
             }
