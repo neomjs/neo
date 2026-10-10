@@ -214,15 +214,15 @@ class NativeGestureDriver extends GestureDriver {
     }
 
     /**
-     * @summary Scene 3's real-pointer executor: converts a second tear-out while the gesture remains
-     * down, parks that exact OS window over a committed sibling Workspace, and releases only after one
-     * semantic + rendered target claim has settled.
+     * @summary Scene 3's real-pointer executor: drags a second pane out of the main window onto a
+     * committed sibling Workspace, which takes the drag as the pane's tab-header proxy, and releases
+     * only after one semantic + rendered target claim has settled with no vessel left.
      *
-     * The source stays on the ordinary tab-drag path. It first crosses the source workspace boundary
-     * to acquire its real vessel; subsequent events keep source-local coordinates outside while
-     * moving in global screen space over the target vessel. The landed conversion sensor and
-     * coordinator therefore own the park, preview, arbitration, and atomic transfer. This method
-     * drives and reports those seams; it never calls a reducer or target commit directly.
+     * The source stays on the ordinary tab-drag path. It crosses the source workspace boundary, where
+     * free desktop under the pointer gives the pane a vessel riding the hand, then moves in global
+     * screen space over the target vessel, whose claim retires that vessel. The coordinator owns the
+     * preview, arbitration, and atomic transfer. This method drives and reports those seams; it never
+     * calls a reducer or target commit directly.
      * @param {Object} step
      * @param {String} step.itemId Incoming pane id.
      * @param {String} step.sourceNodeId Main-workspace tabs node currently holding the pane.
@@ -363,23 +363,6 @@ class NativeGestureDriver extends GestureDriver {
                     }]}))
                 }
 
-                if (!await driver.trap(driver.waitForTearOutVessel(itemId, {attempts}))) {
-                    release = {
-                        clientX: outX,
-                        clientY: outY,
-                        screenX: sourceWindow.innerRect.x + outX,
-                        screenY: sourceWindow.innerRect.y + outY
-                    };
-
-                    let cancellation = await driver.cancelTearOutGesture(run, button, release, {sortZone});
-
-                    return {
-                        applied: false,
-                        errors : ['cross-window source vessel was not born while the gesture remained down'],
-                        proof  : {cancellation}
-                    }
-                }
-
                 let remoteSnapshot;
 
                 if (showCursor) {
@@ -408,12 +391,9 @@ class NativeGestureDriver extends GestureDriver {
                         options: opt(outX + attempt % 2, outY, targetScreenX, targetScreenY, 1)
                     }]}));
 
-                    let transition = sortZone.vesselConversionSensor?.transitionPromise;
-
-                    transition && await driver.trap(transition);
                     remoteSnapshot = me.readCrossWindowGestureSnapshot({
-                        parkedItemId: itemId,
-                        sourceZone  : sortZone,
+                        draggedItemId: itemId,
+                        sourceZone   : sortZone,
                         targetWorkspaceId
                     });
 
@@ -425,7 +405,7 @@ class NativeGestureDriver extends GestureDriver {
 
                     return {
                         applied: false,
-                        errors : ['target vessel did not reach one parked semantic + rendered claim'],
+                        errors : ['target vessel did not take the drag as one semantic + rendered claim'],
                         proof  : {cancellation, remoteSnapshot}
                     }
                 }
@@ -948,11 +928,10 @@ class NativeGestureDriver extends GestureDriver {
                         survived  : await driver.trap(driver.waitForTearOutVessel(itemId, {attempts: 0})),
                         claimCount: coordinator?.pointerClaimArbiter?.claimCount ?? 0,
                         hasTarget : Boolean(target),
-                        hasPreview: Boolean(target?.currentPreview),
-                        converted : sortZone.vesselConversionSensor?.converted === true
+                        hasPreview: Boolean(target?.currentPreview)
                     };
 
-                    if (!birthHold.survived || birthHold.claimCount || birthHold.hasTarget || birthHold.hasPreview || birthHold.converted) {
+                    if (!birthHold.survived || birthHold.claimCount || birthHold.hasTarget || birthHold.hasPreview) {
                         const cancellation = await driver.cancelTearOutGesture(run, button, release);
 
                         return {

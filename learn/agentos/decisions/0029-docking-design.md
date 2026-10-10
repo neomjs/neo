@@ -581,7 +581,23 @@ handles by the semantic `windowName` passed to `Main.windowOpen()`. Those identi
 This is the generic multi-window Possession Interface consumed by inspection tooling. Product code still decides what a
 window *means* and which semantic transaction precedes a physical effect.
 
-#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396; amended 2026-07-29, #16117; amended 2026-09-26, #19278)
+#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396; amended 2026-07-29, #16117; amended 2026-09-26, #19278; amended 2026-10-09, #19533)
+
+> **Amended 2026-10-09 (#19533): the pointer path never parks.** The operator's rule: *"we NEVER EVER want
+> additional visible windows (popups) … OFF SCREEN or not at all."* A script can neither hide a window nor
+> move it off the visible work area (the clamp below), so a drag keeps one rule for every window of the
+> group: inside a window it is that window's tab-header proxy, outside every window it is a vessel, the rule
+> re-entry into the source window always followed. A window of the group that claims the pointer carries the
+> drag as the source's own tab-header proxy, engaged and commit-eligible from its first claimed frame. A
+> vessel riding the hand retires on that claim exactly as on re-entry: zero model mutation, the pane back
+> home. A claimed frame is no boundary crossing, so no vessel is born over a window; leaving that window for
+> the desktop is a boundary exit again and acquires a fresh vessel. A held drag grants no second activation,
+> so that needs the site's pop-up permission, the one-time setup of the multi-window application; without it
+> the exit fails closed and the drag stays in-window, as for any refused tear-out. Keeping the vessel as the
+> drag over another window was the alternative: it keeps the desktop reachable without the permission, and
+> the operator chose the one rule instead (2026-10-10). The pointer-path park, its target-clear placement and
+> its re-show below are retained as history. The native title-bar park (after the OS released the drag,
+> behind the target) is unchanged.
 
 Popup-to-proxy conversion is an admitted transition inside the existing outcome machine, not a new
 terminal state. A source may enter `HOVERING_CLAIM` only after its physical park effect returns strict

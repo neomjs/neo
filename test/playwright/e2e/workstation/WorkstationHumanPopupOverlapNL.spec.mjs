@@ -794,6 +794,295 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
     });
 
     /**
+     * @summary Stages a foreign window of the group: Metrics torn out, released on the desktop and placed
+     * clear of a narrowed main, with free desktop beyond it.
+     * @param {Object} page
+     * @param {Object} neuralLink
+     * @returns {Promise<Object>} the app handles, the popup's Page and window id, and main-client points
+     *     over the popup (`overTarget`) and on the desktop beyond it (`desktop`)
+     */
+    async function stageForeignPopup(page, neuralLink) {
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-dock-host', {timeout: 60000});
+        await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
+
+        const
+            app       = await neuralLink.connectToApp('Workstation'),
+            workspace = await findOne(app, {className: 'Workstation.view.Workspace'}, ['id', 'windowId']),
+            manager   = await findOne(app, {className: 'Neo.manager.Window'}, ['id']),
+            wsId      = workspace.id,
+            managerId = manager.id,
+            screen    = await page.evaluate(() => ({
+                height: globalThis.screen.availHeight,
+                left  : globalThis.screen.availLeft,
+                top   : globalThis.screen.availTop,
+                width : globalThis.screen.availWidth
+            })),
+            mainWidth  = 760,
+            gap        = 160,
+            popupWidth = 480;
+
+        test.skip(screen.width < 24 + mainWidth + gap + popupWidth + gap + 40,
+            `${screen.width}px stage cannot hold main, the foreign popup and free desktop beside them`);
+
+        await setNativeBounds(await acquireNativeWindow(page), {
+            height: Math.min(720, screen.height - 80),
+            left  : screen.left + 24,
+            top   : screen.top  + 24,
+            width : mainWidth
+        });
+
+        const {popup: targetPage} = await beginActualTearOut({label: 'Metrics', page});
+
+        const targetWindowId = await awaitVesselWindowId(app, wsId, TARGET_ITEM_ID, false);
+
+        await page.mouse.up();
+        expect(await awaitVesselWindowId(app, wsId, TARGET_ITEM_ID, true)).toBe(targetWindowId);
+        await awaitPointerSessionIdle(page);
+
+        await setNativeBounds(await acquireNativeWindow(targetPage), {
+            height: 440,
+            left  : screen.left + 24 + mainWidth + gap,
+            top   : screen.top  + 80,
+            width : popupWidth
+        });
+
+        const
+            main   = (await awaitGeometryParity(app, managerId, page, workspace.properties.windowId)).managed,
+            target = (await awaitGeometryParity(app, managerId, targetPage, targetWindowId)).managed,
+            // the mouse speaks main's client space; a screen point maps through main's content origin
+            client = point => ({x: Math.round(point.x - main.x), y: Math.round(point.y - main.y)});
+
+        return {
+            app,
+            desktop   : client({x: target.x + target.width + gap / 2, y: target.y + target.height / 2}),
+            mainInner : main,
+            managerId,
+            overTarget: client({x: target.x + target.width / 2, y: target.y + target.height / 2}),
+            targetPage,
+            targetWindowId,
+            wsId
+        }
+    }
+
+    /**
+     * @summary Records every native move main asks for, with its settled answer: a host may admit the popup
+     * but refuse every `window.moveTo`, which is a stage ceiling, not a gesture that stopped asking.
+     * @param {Object} page
+     */
+    async function traceWindowMoves(page) {
+        await page.evaluate(() => {
+            const
+                main     = globalThis.Neo.Main,
+                original = main.windowMoveTo.bind(main),
+                trace    = globalThis.__foreignPopupMoves = [];
+
+            main.windowMoveTo = data => {
+                const entry  = {data: {...data}, result: 'pending'},
+                      result = original(data);
+
+                trace.push(entry);
+                Promise.resolve(result).then(value => {entry.result = value}, error => {entry.result = `reject:${error.message}`});
+
+                return result
+            }
+        })
+    }
+
+    /**
+     * @summary Where an item lives: in main's arrangement, in the foreign popup's, and its pane's window.
+     * @param {Object} app
+     * @param {String} wsId
+     * @param {String} itemId
+     * @returns {Promise<Object>}
+     */
+    async function readPlacement(app, wsId, itemId) {
+        const [main, target, paneId] = await Promise.all([
+            app.callMethod(wsId, 'getWorkspaceDocument', ['workstation-main']),
+            app.callMethod(wsId, 'getWorkspaceDocument', [TARGET_WORKSPACE_ID]),
+            app.callMethod(wsId, 'getPaneIdentity', [itemId])
+        ]);
+
+        return {
+            main        : Object.values(main.nodes).some(node => node.items?.includes(itemId)),
+            paneWindowId: (await app.getComponent(paneId, ['windowId'])).windowId,
+            target      : Object.values(target.nodes).some(node => node.items?.includes(itemId))
+        }
+    }
+
+    // Inside a window of the group the drag is that window's tab-header proxy; outside every window it
+    // is a vessel (docking design record §2.8.6). So under one pointer-down the vessel that left main
+    // retires over a foreign popup, and leaving that popup for the desktop opens a fresh one.
+    test('one pointer-down crosses a foreign popup: its vessel closes there and a fresh one carries the drag out',
+    async ({page, neuralLink}) => {
+        const {app, desktop, mainInner, managerId, overTarget, targetPage, wsId} = await stageForeignPopup(page, neuralLink);
+
+        let firstVessel, pointerDown = false, secondVessel;
+
+        try {
+            const paneId = await app.callMethod(wsId, 'getPaneIdentity', ['audit']);
+
+            ({popup: firstVessel} = await beginActualTearOut({label: 'Audit', page}));
+            pointerDown = true;
+
+            const firstWindowId = await awaitVesselWindowId(app, wsId, 'audit', false);
+
+            await page.mouse.move(overTarget.x, overTarget.y, {steps: 24});
+            await expect.poll(() => firstVessel.isClosed(), {
+                message: 'the vessel retires once the foreign window claims the pointer',
+                timeout: 10000
+            }).toBe(true);
+            await awaitVesselRetirement(app, managerId, wsId, 'audit', firstWindowId);
+            await expect(targetPage.locator('.neo-dock-dragproxy'),
+                'the foreign window carries the drag as the tab-header proxy').toBeVisible({timeout: 10000});
+            expect(page.context().pages().filter(child => !child.isClosed()),
+                'over a window, only the windows the user owns are open').toHaveLength(2);
+
+            const secondPopup = page.waitForEvent('popup', {timeout: 30000});
+
+            await traceWindowMoves(page);
+            await page.mouse.move(desktop.x, desktop.y, {steps: 24});
+            secondVessel = await secondPopup;
+
+            const secondWindowId = await awaitVesselWindowId(app, wsId, 'audit', false);
+
+            expect(secondWindowId, 'leaving the foreign window opens a fresh vessel').not.toBe(firstWindowId);
+            await expect(targetPage.locator('.neo-dock-dragproxy'),
+                'the foreign window lets the drag go').toHaveCount(0);
+
+            // The fresh vessel rides the held pointer: it sits under the pointer and follows one more move.
+            const
+                step     = {x: 48, y: 36},
+                pointer  = {x: mainInner.x + desktop.x + step.x, y: mainInner.y + desktop.y + step.y},
+                readMove = () => page.evaluate(() => globalThis.__foreignPopupMoves),
+                readSelf = () => secondVessel.evaluate(() => ({h: outerHeight, w: outerWidth, x: screenX, y: screenY}));
+
+            await expect.poll(async () => (await readMove()).some(entry => entry.result !== 'pending'), {
+                message: 'the continuing pointer asks the fresh vessel to move',
+                timeout: 5000
+            }).toBe(true);
+
+            const settledAt = await readSelf();
+
+            await page.mouse.move(desktop.x + step.x, desktop.y + step.y, {steps: 8});
+
+            test.skip((await readMove()).every(entry => entry.result === false),
+                'the host refused every verified window.moveTo; native pointer-follow is stage-bound here');
+
+            await expect.poll(async () => {
+                const now = await readSelf();
+
+                return {x: now.x - settledAt.x, y: now.y - settledAt.y}
+            }, {message: 'the fresh vessel follows the held pointer', timeout: 10000}).toEqual(step);
+
+            const under = await readSelf();
+
+            expect(pointer.x >= under.x && pointer.x <= under.x + under.w && pointer.y >= under.y && pointer.y <= under.y + under.h,
+                `the fresh vessel sits under the pointer: ${JSON.stringify({pointer, under})}`).toBe(true);
+
+            await page.mouse.up();
+            pointerDown = false;
+            expect(await awaitVesselWindowId(app, wsId, 'audit', true),
+                'the release detaches the item into the fresh vessel').toBe(secondWindowId);
+
+            const {dockModel} = await app.getComponent(wsId, ['dockModel']);
+
+            expect(Object.values(dockModel.nodes).some(node => node.items?.includes('audit')),
+                'the item left the main arrangement').toBe(false);
+            expect(await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                'the same live pane rides every hop').toBe(paneId)
+        } finally {
+            pointerDown && await page.mouse.up().catch(() => {});
+
+            for (const child of [secondVessel, firstVessel, targetPage]) {
+                await child?.close().catch(() => {})
+            }
+        }
+    });
+
+    test('a release over a foreign popup transfers the pane there, and undo and redo move it back and forth',
+    async ({page, neuralLink}) => {
+        const {app, overTarget, targetPage, targetWindowId, wsId} = await stageForeignPopup(page, neuralLink);
+
+        let pointerDown = false, vessel;
+
+        try {
+            const
+                paneId    = await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                {groupId} = await app.callMethod(wsId, 'controller.getTopologyState'),
+                committed = {main: false, paneWindowId: targetWindowId, target: true};
+
+            ({popup: vessel} = await beginActualTearOut({label: 'Audit', page}));
+            pointerDown = true;
+            await page.mouse.move(overTarget.x, overTarget.y, {steps: 24});
+            await expect.poll(() => vessel.isClosed(), {
+                message: 'the vessel retires once the foreign window claims the pointer',
+                timeout: 10000
+            }).toBe(true);
+            await expect(targetPage.locator('.neo-dock-dragproxy'),
+                'one local proxy carries the drag').toHaveCount(1);
+            expect(await readPlacement(app, wsId, 'audit'), 'the held drag has not committed early')
+                .toMatchObject({main: true, target: false});
+
+            await page.mouse.up();
+            pointerDown = false;
+            await expect.poll(() => readPlacement(app, wsId, 'audit'), {
+                message: 'the release transfers the item into the foreign window',
+                timeout: 10000
+            }).toEqual(committed);
+            await expect(targetPage.locator(`[id="${paneId}"]`)).toBeVisible();
+            await expect(page.locator(`[id="${paneId}"]`)).toHaveCount(0);
+
+            await app.callMethod(wsId, 'transactionManager.undo', [{groupId}]);
+            await expect.poll(() => readPlacement(app, wsId, 'audit'), {message: 'undo brings the pane home'})
+                .toMatchObject({main: true, target: false});
+            await expect(page.locator(`[id="${paneId}"]`)).toBeVisible();
+
+            await app.callMethod(wsId, 'transactionManager.redo', [{groupId}]);
+            await expect.poll(() => readPlacement(app, wsId, 'audit'), {message: 'redo moves it back'})
+                .toEqual(committed);
+            expect(await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                'the same live pane through every move').toBe(paneId)
+        } finally {
+            pointerDown && await page.mouse.up().catch(() => {});
+            await vessel?.close().catch(() => {});
+            await targetPage.close().catch(() => {})
+        }
+    });
+
+    test('Escape over a foreign popup leaves both arrangements and the pane where they were',
+    async ({page, neuralLink}) => {
+        const {app, overTarget, targetPage, wsId} = await stageForeignPopup(page, neuralLink);
+
+        let pointerDown = false, vessel;
+
+        try {
+            const
+                paneId = await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                before = await readPlacement(app, wsId, 'audit');
+
+            ({popup: vessel} = await beginActualTearOut({label: 'Audit', page}));
+            pointerDown = true;
+            await page.mouse.move(overTarget.x, overTarget.y, {steps: 24});
+            await expect(targetPage.locator('.neo-dock-dragproxy')).toHaveCount(1, {timeout: 10000});
+
+            await page.keyboard.press('Escape');
+            await expect(targetPage.locator('.neo-dock-dragproxy'),
+                'the foreign window lets the drag go').toHaveCount(0);
+            await page.mouse.up();
+            pointerDown = false;
+
+            await expect.poll(() => readPlacement(app, wsId, 'audit'), {message: 'nothing moved'})
+                .toEqual(before);
+            await expect(page.locator(`[id="${paneId}"]`)).toBeVisible()
+        } finally {
+            pointerDown && await page.mouse.up().catch(() => {});
+            await vessel?.close().catch(() => {});
+            await targetPage.close().catch(() => {})
+        }
+    });
+
+    /**
      * @summary Exercises the same held-pointer overlap before restoring or committing the vessel.
      * @param {Object} fixtures
      * @param {Object} testInfo
@@ -1664,12 +1953,15 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
         })
     }
 
+    // The size matrix calibrated the pointer-path park, which the docking design record §2.8.6 retired:
+    // a vessel now closes on the claim whatever the sizes, and the foreign-popup arms above witness
+    // that rule. The matrix leaves with the dormant park machinery.
     for (const terminal of ['restore', 'commit']) {
         const name = terminal === 'restore'
             ? 'one local proxy plus readable target choices'
             : 'pointer release transfers one pane with undo and redo';
 
-        test(`${MATRIX_CELL.name}: ${name}`, ({page, neuralLink}, testInfo) =>
+        test.skip(`${MATRIX_CELL.name}: ${name}`, ({page, neuralLink}, testInfo) =>
             runOverlap({page, neuralLink}, testInfo, terminal))
     }
 });

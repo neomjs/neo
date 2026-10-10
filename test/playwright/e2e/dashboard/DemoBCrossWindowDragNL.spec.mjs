@@ -3,102 +3,39 @@ import {placeBesideSource}   from '../utils/filmStage.mjs';
 import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
 
 /**
- * @summary Waits for one admitted child realm's ordinary geometry publisher, then publishes its
- * observed frame after CDP automation moved the real top-level window.
+ * @summary Whether a browser-owned Page is a tear-out vessel after its staged same-origin navigation.
+ * A closed Page keeps its last URL, so a vessel the target's claim retired still counts.
  * @param {import('@playwright/test').Page} page
- * @param {String} message
+ * @returns {Boolean}
  */
-async function publishObservedGeometry(page, message) {
-    await expect.poll(() => page.evaluate(() =>
-        Boolean(globalThis.Neo?.main?.addon?.WindowPosition?.publishGeometry)
-    ), {
-        message,
-        timeout  : 10000,
-        intervals: [25, 50, 100]
-    }).toBe(true);
-
-    await page.evaluate(() => globalThis.Neo.main.addon.WindowPosition.publishGeometry())
+function isTearOutPage(page) {
+    try {
+        return new URL(page.url()).searchParams.get('popout') === 'workbench'
+    } catch {
+        return false
+    }
 }
 
 /**
- * @summary Moves one real popup to an observed screen-space origin and republishes its target-
- * realm geometry. This is automation plumbing only; it never writes requested coordinates into
- * Neo's manager truth.
- * @param {import('@playwright/test').Page} popup
- * @param {{x:Number, y:Number}} origin
- * @param {String} message
- */
-async function placePopupAtObservedOrigin(popup, origin, message) {
-    const popupCdp    = await popup.context().newCDPSession(popup),
-          popupWindow = await popupCdp.send('Browser.getWindowForTarget'),
-          requested   = {
-              height: popupWindow.bounds.height,
-              left  : origin.x,
-              top   : origin.y,
-              width : popupWindow.bounds.width
-          };
-
-    await popupCdp.send('Browser.setWindowBounds', {
-        bounds  : {...requested, windowState: 'normal'},
-        windowId: popupWindow.windowId
-    });
-
-    await expect.poll(async () => {
-        const observed = await popup.evaluate(() => ({x: globalThis.screenX, y: globalThis.screenY}));
-
-        return Math.max(Math.abs(observed.x - requested.left), Math.abs(observed.y - requested.top))
-    }, {
-        message,
-        timeout  : 5000,
-        intervals: [25, 50, 100]
-    }).toBeLessThanOrEqual(80);
-
-    await publishObservedGeometry(popup, 'the moving vessel must install its geometry publisher')
-}
-
-/**
- * @summary Headed-Chrome adapter for the moving tear-out vessel. Automation can deny the
- * product's pointer-follow `window.moveTo()` even though it allowed the popup acquisition. Move
- * the real top-level window to the observed target origin, then publish only the observed target-
- * realm geometry; Neo's conversion and exact-handle park gates remain the decision authority.
- * @param {import('@playwright/test').Page} target
- * @param {import('@playwright/test').Page} vessel
- */
-async function placeMovingVesselAtTarget(target, vessel) {
-    const targetOrigin = await target.evaluate(() => ({x: globalThis.screenX, y: globalThis.screenY}));
-
-    await placePopupAtObservedOrigin(
-        vessel,
-        targetOrigin,
-        'the CDP adapter must place the real moving vessel over the observed target'
-    )
-}
-
-/**
- * @summary Finds the one browser-owned tear-out child after its staged same-origin navigation.
+ * @summary Waits until at least `count` tear-out vessels have navigated, and returns them in birth order.
  * @param {import('@playwright/test').Page[]} pages
- * @returns {Promise<import('@playwright/test').Page>}
+ * @param {Number} count
+ * @returns {Promise<import('@playwright/test').Page[]>}
  */
-async function waitForTearOutPopup(pages) {
-    let popup;
+async function waitForTearOutPages(pages, count) {
+    let found = [];
 
     await expect.poll(() => {
-        popup = pages.find(child => {
-            try {
-                return new URL(child.url()).searchParams.get('popout') === 'workbench'
-            } catch {
-                return false
-            }
-        });
+        found = pages.filter(isTearOutPage);
 
-        return Boolean(popup)
+        return found.length
     }, {
-        message  : 'the exact tear-out Page must navigate and remain live during conversion',
-        timeout  : 5000,
+        message  : `${count} tear-out Page(s) must navigate`,
+        timeout  : 15000,
         intervals: [25, 50, 100]
-    }).toBe(true);
+    }).toBeGreaterThanOrEqual(count);
 
-    return popup
+    return found
 }
 
 /**
@@ -125,6 +62,12 @@ async function widenAutomationWindowMoveObservation(page) {
  * drop zero times, both worker-owned documents changed, and the same CounterPane instance mounted
  * into the second browser document without resetting its heartbeat.
  *
+ * One rule for every window of the group (the docking design record §2.8.6): inside a
+ * window the drag is that window's tab-header proxy, outside every window it is a vessel. The direct
+ * path never births one, because a claimed frame is no boundary crossing; the desktop legs do, and
+ * the target's claim retires the vessel that rode the hand in. The matrix profile allows pop-ups,
+ * which is the product's one-time setup.
+ *
  * Headed matrix run: NEO_E2E_PORT=8120 npx playwright test dashboard/DemoBCrossWindowDragNL \
  *   -c test/playwright/playwright.config.matrix.mjs --workers=1
  */
@@ -138,7 +81,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         viewport      : {height: 720, width: 760}
     });
 
-    test('the cold gesture transfers Workbench once and preserves its live worker instance', async ({page, neuralLink, headless}) => {
+    test('the cold gesture transfers Workbench once and preserves its live worker instance', async ({page, neuralLink}) => {
         const pageErrors    = [],
               popupErrors   = [],
               popupPages    = [],
@@ -200,10 +143,11 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         }).toBe(1);
 
         const baseline = await readCounter(),
-              before   = await app.getComponent(wsId, ['dockModel', 'popupDocument']);
+              before   = await app.getComponent(wsId, ['dockModel', 'popupDocument', 'tearOutAcquisitionAttempts']);
 
         expect(before.dockModel.nodes['workbench-tabs'].items).toEqual(['workbench']);
         expect(before.popupDocument.nodes['popup-tabs'].items).toEqual([]);
+        expect(before.tearOutAcquisitionAttempts).toBe(0);
 
         await app.getDragTrace(true);
 
@@ -225,10 +169,6 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(placement.fits, placement.reason ?? 'the popup must be placeable outside the source')
             .toBe(true);
 
-        const tearOutPopup = await waitForTearOutPopup(popupPages);
-
-        if (!headless) await placeMovingVesselAtTarget(popup, tearOutPopup);
-
         popup.on('pageerror', error => {
             let value = String(error?.stack || error?.message || error || '');
 
@@ -248,17 +188,21 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             .toEqual([]);
         expect(result.applied).toBe(true);
         expect(result.witness.instanceId, 'the transferred pane is the original live instance').toBe(baseline.id);
+        // The pointer went from the source tab straight onto the target: a claimed frame is no
+        // boundary crossing, so no vessel was born and the pane mounted once, into the target.
         expect(result.proof).toMatchObject({
             framesNotReset           : true,
+            homeMountDelta           : 0,
             localDropFires           : 0,
-            mountDelta               : 2,
-            proxyMountDelta          : 0,
+            mountDelta               : 1,
             remoteDropOutFires       : 1,
             sameInstance             : true,
             sourceSuppressionConsumed: true,
             targetMountDelta         : 1,
             transferCommits          : 1,
-            vesselMountDelta         : 1
+            vesselBorn               : false,
+            vesselMountDelta         : 0,
+            vesselRetired            : true
         });
         expect(result.proof.remoteSnapshot).toMatchObject({
             engaged     : true,
@@ -280,11 +224,12 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(result.proof.remoteSnapshot.indicators.activePreviewId,
             'the lit indicator and committed semantic preview must be the same candidate')
             .toBe(result.proof.remoteSnapshot.preview.previewId);
+        expect(popupPages.filter(isTearOutPage), 'the direct path births no vessel').toHaveLength(0);
 
         await expect(popup.locator('.agentos-dockdemo-counter-pane'),
             'the target window must render the transferred live pane').toBeVisible({timeout: 10000});
 
-        const after                = await app.getComponent(wsId, ['crossWindowStats', 'dockModel', 'popupDocument']),
+        const after                = await app.getComponent(wsId, ['crossWindowStats', 'dockModel', 'popupDocument', 'tearOutAcquisitionAttempts']),
               counter              = await readCounter(),
               topologyCaptureProbe = await app.callMethod(wsId, 'capturePerspective', [
                   'CrossWindowProbe', {scope: 'topology'}
@@ -329,8 +274,9 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             remoteDropOutFires: 1,
             transferCommits   : 1
         });
+        expect(after.tearOutAcquisitionAttempts, 'no vessel was acquired on the direct path').toBe(0);
         expect(counter.id).toBe(baseline.id);
-        expect(counter.properties.mountCount).toBe(baseline.properties.mountCount + 2);
+        expect(counter.properties.mountCount).toBe(baseline.properties.mountCount + 1);
         expect(counter.properties.mounted).toBe(true);
         expect(counter.properties.windowId).not.toBe(baseline.properties.windowId);
 
@@ -362,7 +308,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(pageErrors).toEqual([])
     });
 
-    test('one gesture parks, re-shows, and detaches the same vessel without popup re-acquisition', async ({page, neuralLink, headless}) => {
+    test('one gesture leaves for the desktop, hands the drag to the target, leaves again and detaches a fresh vessel', async ({page, neuralLink}) => {
         const pageErrors      = [],
               popupPages      = [],
               windowOpenCalls = [];
@@ -424,7 +370,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                   sourceWorkspaceId: 'demo-b-main',
                   targetNodeId     : 'popup-tabs',
                   targetWorkspaceId: 'demo-b-popup'
-              }, {parkObservationMs: 1800, roundTrip: true}]),
+              }, {roundTrip: true}]),
               targetPopup = await targetPromise;
 
         const placement = await placeBesideSource(page, targetPopup);
@@ -432,149 +378,100 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(placement.fits, placement.reason ?? 'the target popup must be placeable outside the source')
             .toBe(true);
 
-        let tearOutPopup;
+        // The desktop leg births the first vessel; the target's claim retires it while the drag goes on.
+        let firstTearOut;
 
         try {
-            tearOutPopup = await waitForTearOutPopup(popupPages)
+            [firstTearOut] = await waitForTearOutPages(popupPages, 1)
         } catch (error) {
             const result = await resultPromise;
 
-            throw new Error(`${error.message}\nround-trip result: ${JSON.stringify(result)}`)
+            throw new Error(`${error.message}\njourney result: ${JSON.stringify(result)}`)
         }
 
-        if (!headless) await placeMovingVesselAtTarget(targetPopup, tearOutPopup);
-
-        let parkReceipt;
-
-        try {
-            await expect.poll(async () => {
-                parkReceipt = (await app.getComponent(wsId, ['lastVesselParkReceipt'])).lastVesselParkReceipt;
-                return parkReceipt?.parked === true
-            }, {
-                message  : 'the product must publish strict park admission before the observation window ends',
-                timeout  : 1500,
-                intervals: [25, 50]
-            }).toBe(true)
-        } catch (error) {
-            const result = await resultPromise;
-
-            throw new Error(`${error.message}\npark receipt: ${JSON.stringify(parkReceipt)}`
-                + `\nround-trip result: ${JSON.stringify(result)}`)
-        }
-
-        await expect(targetPopup.locator('.neo-dock-dragproxy'),
-            'the target shows the dragged tab header as its proxy while the native source is parked')
-            .toBeVisible({timeout: 5000});
-        await expect(tearOutPopup.locator('.agentos-dockdemo-counter-pane'),
-            'the live pane stays in its parked source until restore or commit')
-            .toHaveCount(1);
-        await expect(tearOutPopup.locator('.neo-dashboard-dock-vessel-placeholder'),
-            'a header proxy leaves no stand-in behind')
-            .toHaveCount(0);
-
-        let sourceParkState;
-
-        await expect.poll(async () => {
-            sourceParkState = await tearOutPopup.evaluate(() => ({
-                focused: document.hasFocus(),
-                x      : globalThis.screenX,
-                y      : globalThis.screenY
-            }));
-
-            return Math.max(
-                Math.abs(sourceParkState.x - parkReceipt.requested.x),
-                Math.abs(sourceParkState.y - parkReceipt.requested.y)
-            )
-        }, {
-            message  : 'the tear-out renderer must observe the admitted physical park position',
-            timeout  : 1000,
-            intervals: [25, 50]
-        }).toBeLessThanOrEqual(2);
-
-        // The vessel parks clear of the target instead of behind it, so no z-order is asked for.
-        expect(parkReceipt.cleared, 'the parked source covers none of the target').toBe(true);
-
-        const result         = await resultPromise,
-              restoreReceipt = result.proof?.restoreReceipt;
-
-        expect(restoreReceipt?.frame,
-            'the settled out-conversion must publish its exact frame-space restore request').toEqual({
-            x: expect.any(Number),
-            y: expect.any(Number)
-        });
-
-        await placePopupAtObservedOrigin(
-            tearOutPopup,
-            restoreReceipt.frame,
-            'the CDP adapter must let the real vessel reach Neo\'s exact restore request'
-        );
+        const result = await resultPromise;
 
         expect(result.errors,
-            `the full conversion round-trip must settle detached: ${JSON.stringify(result.debug ?? null)}`)
+            `the journey must settle detached in a fresh vessel: ${JSON.stringify(result.debug ?? result.proof ?? null)}`)
             .toEqual([]);
         expect(result.applied).toBe(true);
         expect(result.witness.instanceId).toBe(baseline.id);
         expect(result.proof).toMatchObject({
             acquisitionAttempts: {
-                afterRestore            : 1,
-                atFirstPark             : 1,
-                beforeGesture           : 0,
-                midGestureReacquisitions: 0,
-                totalGestureAttempts    : 1
+                afterExit           : 2,
+                atClaim             : 1,
+                beforeGesture       : 0,
+                totalGestureAttempts: 2
+            },
+            claim: {
+                activeSlot   : false,
+                paneHome     : true,
+                settled      : true,
+                vesselRetired: true
+            },
+            claimSnapshot: {
+                embodiment: {header: true, ownsPane: false, settled: true, visible: true},
+                engaged   : true,
+                ready     : true
             },
             detached: {
                 catalogRetained: true,
                 itemAbsent     : true
             },
-            parkSlotCleared : true,
-            restored        : true,
-            sameNativeHandle: true,
-            sameWindowId    : true,
-            stats           : {
+            parkReceiptUnchanged: true,
+            stats               : {
                 localDropFires    : 0,
                 remoteDropOutFires: 0,
                 transferCommits   : 0
             }
         });
-        expect(result.proof.firstRemoteSnapshot).toMatchObject({
-            embodiment: {header: true, ownsPane: false, settled: true, visible: true},
-            engaged   : true,
-            ready     : true
+
+        const {firstVessel, mounts, secondVessel} = result.proof;
+
+        expect(firstVessel.windowId, 'the desktop leg acquired a vessel').toBeTruthy();
+        expect(secondVessel.windowId, 'leaving the target acquired a fresh vessel').toBeTruthy();
+        expect(secondVessel.windowId, 'the fresh vessel is a new generation').not.toBe(firstVessel.windowId);
+        expect(secondVessel.windowName, 'the same semantic slot names both generations').toBe(firstVessel.windowName);
+        expect(result.proof.detached.entry.windowId).toBe(secondVessel.windowId);
+        expect(result.proof.terminalVessel.windowId).toBe(secondVessel.windowId);
+        // One mount per window the pane entered: the first vessel, home on the claim, the fresh vessel.
+        expect(mounts).toEqual({
+            atClaim       : mounts.beforeGesture + 2,
+            atFirstVessel : mounts.beforeGesture + 1,
+            atSecondVessel: mounts.beforeGesture + 3,
+            beforeGesture : baseline.properties.mountCount,
+            terminal      : mounts.beforeGesture + 3
         });
-        expect(result.proof.outSnapshot).toMatchObject({engaged: false, ready: false});
-        expect(result.proof.detached.entry.windowId).toBe(result.proof.firstIdentity.windowId);
-        expect(result.proof.terminalIdentity).toEqual(result.proof.firstIdentity);
-        expect(result.proof.parkReceipt).toEqual(parkReceipt);
 
-        // Same-origin acquisition now opens about:blank before minting its route and navigating.
-        // The browser-owned target name, not the staged URL, joins the surviving Page back to its
-        // actual window.open call without consulting the product's acquisition counter.
-        const tearOutTargetName = await tearOutPopup.evaluate(() => globalThis.name),
-              tearOutOpenCalls  = windowOpenCalls.filter(call => call.target === tearOutTargetName);
-
-        expect(tearOutOpenCalls, 'browser-realm instrumentation observes zero mid-gesture reacquisition')
-            .toHaveLength(1);
-
-        await expect.poll(() => page.context().pages().filter(child => {
-            try {
-                return new URL(child.url()).searchParams.get('popout') === 'workbench'
-            } catch {
-                return false
-            }
-        }).length, {
-            message  : 'exactly one tear-out Page survives as the detached terminal owner',
+        // Browser-realm facts, read after the gesture settled: the claim closed the first vessel, the
+        // fresh one survives as the detached owner, and both came from the same semantic window name.
+        await expect.poll(() => firstTearOut.isClosed(), {
+            message  : 'the target\'s claim closes the vessel that rode the hand in',
             timeout  : 10000,
-            intervals: [100]
-        }).toBe(1);
+            intervals: [50, 100]
+        }).toBe(true);
 
-        const survivingTearOut = page.context().pages().filter(child => {
-                  try {
-                      return new URL(child.url()).searchParams.get('popout') === 'workbench'
-                  } catch {
-                      return false
-                  }
-              })[0],
-              after = await app.getComponent(wsId, [
+        const tearOutPages = await waitForTearOutPages(popupPages, 2),
+              liveTearOuts = tearOutPages.filter(child => !child.isClosed());
+
+        expect(tearOutPages, 'two vessels were born in one gesture').toHaveLength(2);
+        expect(liveTearOuts, 'exactly one tear-out Page survives as the detached terminal owner').toHaveLength(1);
+
+        // Same-origin acquisition opens about:blank under a per-generation browser-owned name before
+        // minting its route; the vessel's 320×240 minimum extent tells its calls from the stage's popup.
+        const survivingTearOut  = liveTearOuts[0],
+              tearOutTargetName = await survivingTearOut.evaluate(() => globalThis.name),
+              tearOutOpenCalls  = windowOpenCalls.filter(call =>
+                  call.features.startsWith('height=240,') && call.features.endsWith(',width=320'));
+
+        expect(survivingTearOut, 'the surviving vessel is the fresh generation').not.toBe(firstTearOut);
+        expect(tearOutOpenCalls, 'browser-realm instrumentation observes one acquisition per desktop leg')
+            .toHaveLength(2);
+        expect(new Set(tearOutOpenCalls.map(call => call.target)).size, 'each generation opened under its own name').toBe(2);
+        expect(tearOutOpenCalls.map(call => call.target), 'the survivor came from the second acquisition')
+            .toContain(tearOutTargetName);
+
+        const after = await app.getComponent(wsId, [
                   'crossWindowStats', 'dockModel', 'popupDocument', 'tearOutAcquisitionAttempts'
               ]),
               native = await readNativeLifecycle(app, wsId),
@@ -583,33 +480,26 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                   ['id', 'mountCount', 'windowId']
               ),
               finalCounterList = Array.isArray(finalCounters) ? finalCounters : finalCounters ? [finalCounters] : [],
-              finalCounter = finalCounterList[0],
-              restoredPhysical = await survivingTearOut.evaluate(() => ({
-                  x: globalThis.screenX,
-                  y: globalThis.screenY
-              }));
+              finalCounter = finalCounterList[0];
 
-        expect(survivingTearOut, 're-show and terminal retain the acquisition-time Page object').toBe(tearOutPopup);
-        expect(finalCounterList, 'the round-trip never duplicates the live CounterPane').toHaveLength(1);
+        expect(finalCounterList, 'the journey never duplicates the live CounterPane').toHaveLength(1);
         await expect(survivingTearOut.locator('.agentos-dockdemo-counter-pane')).toBeVisible({timeout: 10000});
-        expect(Math.abs(restoredPhysical.x - result.proof.restoreReceipt.frame.x)).toBeLessThanOrEqual(2);
-        expect(Math.abs(restoredPhysical.y - result.proof.restoreReceipt.frame.y)).toBeLessThanOrEqual(2);
-        expect(after.tearOutAcquisitionAttempts).toBe(1);
+        expect(after.tearOutAcquisitionAttempts).toBe(2);
         expect(after.popupDocument).toEqual(before.popupDocument);
         expect(after.dockModel.items.workbench).toEqual(before.dockModel.items.workbench);
         expect(Object.values(after.dockModel.nodes).some(node => node.items?.includes('workbench'))).toBe(false);
-        expect(native.owners.workbench.windowId).toBe(result.proof.firstIdentity.windowId);
+        expect(native.owners.workbench.windowId).toBe(secondVessel.windowId);
         expect(after.crossWindowStats).toEqual(result.proof.stats);
         expect(finalCounter.id).toBe(baseline.id);
-        expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 1);
-        expect(finalCounter.properties.windowId).toBe(result.proof.firstIdentity.windowId);
+        expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 3);
+        expect(finalCounter.properties.windowId).toBe(secondVessel.windowId);
         expect(pageErrors).toEqual([]);
 
         await survivingTearOut.close();
         await targetPopup.close()
     });
 
-    test('Escape after remote preview clears every gesture surface and mutates neither document', async ({page, neuralLink, headless}) => {
+    test('Escape after remote preview clears every gesture surface and mutates neither document', async ({page, neuralLink}) => {
         const pageErrors    = [],
               popupErrors   = [],
               popupPages    = [],
@@ -662,13 +552,15 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(wsId).toBeTruthy();
         await app.getDragTrace(true);
 
+        // Through the desktop: the vessel born there retires on the target's claim, so Escape must
+        // clear a target proxy whose pane already came home, with no vessel left anywhere.
         const popupPromise  = page.waitForEvent('popup', {timeout: 30000}),
               resultPromise = app.callMethod(wsId, 'executeCrossWindowStep', [{
                   itemId           : 'workbench',
                   sourceWorkspaceId: 'demo-b-main',
                   targetNodeId     : 'popup-tabs',
                   targetWorkspaceId: 'demo-b-popup'
-              }, {cancelAtTarget: true}]),
+              }, {cancelAtTarget: true, viaDesktop: true}]),
               popup = await popupPromise;
 
         popup.on('pageerror', error => {
@@ -682,12 +574,18 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(placement.fits, placement.reason ?? 'the popup must be placeable outside the source')
             .toBe(true);
 
-        const tearOutPopup = await waitForTearOutPopup(popupPages);
+        let firstTearOut;
 
-        if (!headless) await placeMovingVesselAtTarget(popup, tearOutPopup);
+        try {
+            [firstTearOut] = await waitForTearOutPages(popupPages, 1)
+        } catch (error) {
+            const result = await resultPromise;
+
+            throw new Error(`${error.message}\ncancel result: ${JSON.stringify(result)}`)
+        }
 
         const result        = await resultPromise,
-              after         = await app.getComponent(wsId, ['crossWindowStats', 'dockModel', 'popupDocument']),
+              after         = await app.getComponent(wsId, ['crossWindowStats', 'dockModel', 'popupDocument', 'tearOutAcquisitionAttempts']),
               finalCounters = await app.findInstances(
                   {className: 'Neo.examples.dashboard.crossWindow.CounterPane'},
                   ['frames', 'id', 'mountCount', 'windowId']
@@ -701,6 +599,10 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(result.cancelled).toBe(true);
         expect(result.errors).toEqual(['cross-window gesture cancelled before commit']);
         expect(result.proof.documentsUnchanged).toBe(true);
+        expect(result.proof.acquisitionAttempts, 'the desktop leg acquired one vessel').toBe(1);
+        expect(result.proof.firstVessel.windowId).toBeTruthy();
+        expect(result.proof.claim).toMatchObject({paneHome: true, settled: true, vesselRetired: true});
+        expect(result.proof.vesselAfterCancel).toEqual({nativeHandleKey: null, windowId: null, windowName: null});
         expect(result.proof.remoteSnapshot).toMatchObject({
             embodiment: {header: true, ownsPane: false, settled: true, visible: true},
             engaged   : true,
@@ -734,10 +636,19 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             transferCommits   : 0
         });
 
+        await expect.poll(() => firstTearOut.isClosed(), {
+            message  : 'the vessel that rode the hand into the claim is closed',
+            timeout  : 10000,
+            intervals: [50, 100]
+        }).toBe(true);
+        expect(popupPages.filter(isTearOutPage), 'exactly one vessel was born').toHaveLength(1);
+
         expect(after.dockModel).toEqual(before.dockModel);
         expect(after.popupDocument).toEqual(before.popupDocument);
         expect(after.crossWindowStats).toEqual(result.proof.stats);
+        expect(after.tearOutAcquisitionAttempts).toBe(1);
         expect(finalCounter.id).toBe(baseline.id);
+        // The vessel mounted the pane once; the claim brought it home once; Escape moved nothing.
         expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 2);
         expect(finalCounter.properties.windowId).toBe(baseline.properties.windowId);
         expect(trace?.events.at(-1)?.t).toBe('cancel');

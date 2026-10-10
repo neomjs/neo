@@ -8,14 +8,13 @@ import Base from '../../../core/Base.mjs';
  * close it; re-show the SAME window; dispose exactly once, on commit only.
  *
  * Why park exists (the platform law this machine encodes): popup acquisition consumes WHATWG
- * transient user activation, and `windowOpen` reports failure by BOOLEAN — a blocked popup never
- * throws. A popup→proxy→popup round-trip within ONE continuous gesture therefore cannot count on
- * re-acquisition: the activation that opened the vessel may be consumed, and a mid-gesture reopen
- * reads as unsolicited to popup blocking. Close-and-reopen is a one-way door — the user drags over
- * a target, changes their mind, drags out, and their window is unrecoverable without a fresh
- * gesture. The park contract removes the door: **conversion parks the vessel (a render-target
- * effect behind a host seam), out-conversion re-shows the same OS window, and the activation wall
- * is unreachable BY CONSTRUCTION — this machine has no acquisition seam to call.**
+ * transient user activation, `windowOpen` reports failure by BOOLEAN — a blocked popup never
+ * throws — and an OS title-bar release grants no activation at all. A native title-bar drop
+ * therefore cannot give a refused drop a NEW window: **the released popup parks behind its target
+ * while the drop settles, a refusal re-shows the same OS window, and only a commit disposes it —
+ * this machine has no acquisition seam to call.** A pointer drag never parks (the docking design
+ * record §2.8.6): inside a window of the group it is that window's tab-header proxy, and leaving
+ * the window acquires a fresh vessel under the application's pop-up permission.
  *
  * The choreography contract this implements (the docking design record, multi-window amendment):
  * - **The in-gesture segment only.** The conversion DECISION belongs to the companion sensor

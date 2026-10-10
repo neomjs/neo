@@ -37,7 +37,6 @@ export default defineConfig({
     testMatch: [
         '**/colors/tearOutMatrix.spec.mjs',
         '**/dashboard/TearOutMatrixRows4To7NL.spec.mjs',
-        '**/dashboard/DemoBVesselConversionNL.spec.mjs',
         '**/dashboard/DemoBCrossWindowDragNL.spec.mjs',
         '**/dashboard/DemoBThirdClaimantStageNL.spec.mjs'
     ],

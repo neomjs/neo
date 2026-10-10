@@ -318,10 +318,10 @@ class VesselWorkspace extends DockWorkspace {
         // seams it borrows are re-bound now — the one moment this host's seams change.
         me.syncDockParticipation({recompose: true});
 
-        // Conversion never re-acquires a popup: close-and-reopen is a one-way door (mid-gesture
-        // acquisition consumes transient activation and reads as unsolicited), so conversion
-        // PARKS the real vessel behind its target, out-conversion re-shows the SAME generation,
-        // and only a commit disposes — every other outcome restores.
+        // A pointer drag never parks (docking design record §2.8.6): another window of the group
+        // carries it as a tab-header proxy, and leaving that window opens a fresh vessel. What
+        // parks is the native title-bar drop, after the OS released it: behind its target while
+        // the drop settles, re-shown as the SAME generation on refusal, disposed only on commit.
         // The transaction is the engine's; this host supplies the four inputs that vary. It DOES
         // declare a geometry restore, which is what licences its park to shrink an oversized source
         // and obliges its re-show to give the extent back. The park below stays an override: the
@@ -480,9 +480,8 @@ class VesselWorkspace extends DockWorkspace {
             // window boundary. Exiting a source toolbar remains ordinary cross-zone motion; only
             // leaving this app/window root enters the vessel outcome machine.
             dockTearOutBoundaryContainerId: me.id,
-            // Vessel conversion (the multi-window amendment): popup-over-vessel converts to a
-            // proxy over the target while the park keeps the real vessel alive — the projection
-            // threads the opt-in; this host owns every platform effect.
+            // A window of the Group that claims the pointer carries the drag as the tab-header proxy,
+            // and the vessel riding the hand retires — the projection threads the opt-in.
             enableVesselConversion   : true,
             onDockCrossZoneDragCancel: data => me.dragAffordances.onDragCancel(data),
             onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),

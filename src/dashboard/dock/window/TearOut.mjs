@@ -713,10 +713,21 @@ export function createDockTearOutHandlers({
          * admission seam. Falsy resolution = fail closed — end the window-drag embodiment the base
          * armed before firing this event, retain no state, and let the gesture continue on the
          * live in-window proxy. An admitted vessel engages the zone's OS pointer-follow.
+         *
+         * A pointer drag crosses the windows of its group (the docking design record §2.8.6), and the
+         * exit fires once per crossing: a hand that leaves the next window while this gesture's previous
+         * vessel is still being acquired or retired waits for that to settle instead of being refused,
+         * then stands down if the drag came back into a window meanwhile.
          * @param {Object} data
          * @returns {Promise<void>}
          */
         async onDockTearOutExit(data) {
+            for (let wait = 0; (pendingAdmission || retirement) && wait < 3; wait++) {
+                await Promise.allSettled([pendingAdmission?.opening, retirement?.promise])
+            }
+
+            if (data.sortZone?.isWindowDragging === false) return false;
+
             if (activeVessel || retirement || pendingAdmission) return false;
 
             if (lateVessel) {
@@ -740,12 +751,14 @@ export function createDockTearOutHandlers({
             let vessel;
 
             try {
-                vessel = await openVessel({
+                state.opening = openVessel({
                     gestureToken: state.token,
                     itemId      : data.itemId,
                     proxyRect   : data.proxyRect,
                     sortZone    : data.sortZone
-                })
+                });
+
+                vessel = await state.opening
             } catch {
                 vessel = null
             }

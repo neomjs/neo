@@ -489,7 +489,7 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                     vessels       : await app.getComponent(workspaceId, ['lastTearOutClose', 'lastVesselRestoreReceipt', 'vesselConversionTargetWindowId']).catch(e => String(e)),
                     lifecycle     : await readNativeLifecycle(app, workspaceId).catch(e => String(e)),
                     park          : receipt?.lastVesselParkReceipt ?? null,
-                    snapshot      : await app.callMethod(workspaceId, 'readCrossWindowGestureSnapshot', [{parkedItemId: SOURCE_ITEM, targetWorkspaceId: TARGET_WORKSPACE_ID}]).catch(e => String(e)),
+                    snapshot      : await app.callMethod(workspaceId, 'readCrossWindowGestureSnapshot', [{draggedItemId: SOURCE_ITEM, targetWorkspaceId: TARGET_WORKSPACE_ID}]).catch(e => String(e)),
                     group         : receipt?.group ?? null,
                     windows       : (await app.callMethod(managerId, 'toJSON')).windows.map(win => ({id: win.id, chrome: win.chrome, innerRect: win.innerRect, outerRect: win.outerRect}))
                 }, null, 1));

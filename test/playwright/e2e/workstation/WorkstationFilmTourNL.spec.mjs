@@ -113,7 +113,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(reentry.reentered, 'the vessel must retire on re-entry, before pointer-up').toBe(true);
         expect(reentry.proof?.documentsUnchanged, 'the re-entry must leave the committed document byte-identical').toBe(true);
         expect(reentry.proof?.birthHold, 'the short born hold must preserve the vessel without arming a preview')
-            .toEqual({durationMs: 1500, survived: true, claimCount: 0, hasTarget: false, hasPreview: false, converted: false});
+            .toEqual({durationMs: 1500, survived: true, claimCount: 0, hasTarget: false, hasPreview: false});
         expect(reentry.proof?.entrySeen, 'window absence alone is not proof of re-entry').toBe(true);
 
         // scene 2 — born mid-gesture, committed into its vessel
