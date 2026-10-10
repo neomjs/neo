@@ -285,7 +285,9 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
             // The probe line carries the beat's elapsed milliseconds, since the previous beat and
             // since the film started: one replay log is the silent choreography rehearsal's
-            // per-beat receipt, the pace the picture set before any voice is placed over it.
+            // per-beat receipt, the pace the picture set before any voice is placed over it. The
+            // poll is the clock's resolution, so it stays at 100 ms: a screenplay pacing change is
+            // measured here, against this log, before any take.
             let pendingGates = 0, lastCaption = null, startedAt = Date.now(), lastBeatAt = startedAt;
 
             await expect.poll(async () => {
@@ -307,7 +309,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
             }, {
                 message  : 'the unattended film tour settles its receipt after the signature scene',
                 timeout  : 200000,
-                intervals: [250, 500, 1000]
+                intervals: [100]
             }).toBe(true).catch(async error => {
                 const cueLog = await callWorkstationTour(app, wsId, 'getCueLog').catch(err => ({error: String(err)}));
 
@@ -317,6 +319,9 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
             });
 
             const receipt = await callWorkstationTour(app, wsId, 'getTourReceipt');
+
+            // the controller's own clock: start to settlement, the picture's total before any voice
+            console.log(`[film-probe] auto receipt settled: elapsed ${receipt.elapsedMs}ms`);
 
             expect(pendingGates, 'no gate ever waited for a viewer').toBe(0);
             await expect(page.locator('.workstation-tour-continue')).toBeHidden();
