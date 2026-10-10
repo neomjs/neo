@@ -287,7 +287,7 @@ test.describe('film birth pacing retains the pressed-pointer bracket', () => {
                 expect(receipt.errors).toEqual([]);
                 expect(receipt.proof.born).toBe(true);
                 expect(receipt.proof.birthHold).toEqual({durationMs: 1234, survived: true,
-                    claimCount: 0, hasTarget: false, hasPreview: false, converted: false});
+                    claimCount: 0, hasTarget: false, hasPreview: false});
                 expect(fixture.calls.indexOf('mouseup')).toBeGreaterThan(fixture.calls.indexOf('hold-settled'));
                 if (reenter) {
                     expect(receipt.reentered).toBe(true);
