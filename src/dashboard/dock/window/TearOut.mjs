@@ -929,11 +929,16 @@ class TearOut extends Base {
         // A host that publishes synchronously returns undefined and is admitted unchanged — only an
         // explicit `false` or a rejected Promise is a refusal. An asynchronous owner (the Group's
         // admission barrier) is awaited, so the terminal never reports a commit that has not landed.
+        // A publication that settles after this owner's destruction reports nothing and revives no
+        // slot: the vessel belongs to the Group's native lifecycle by then.
         if (typeof published?.then !== 'function') {
             return published === false ? refuse() : true
         }
 
-        return published.then(settled => settled === false ? refuse() : true, refuse)
+        return published.then(
+            settled => me.isDestroyed ? false : settled === false ? refuse() : true,
+            ()      => me.isDestroyed ? false : refuse()
+        )
     }
 }
 

@@ -64,7 +64,7 @@ try {
 test.describe('Neo.dashboard.dock.window.TearOut', () => {
     const harness = ({
         admit = true, closeResult = true, commitErrors = [], commitThrows = false, openResult = null,
-        commitReturn = null, refresh = null, cls = TearOut
+        commitReturn = null, refresh = null, cls = TearOut, publish = null
     } = {}) => {
         const calls = {applied: [], closed: [], ended: 0, opened: [], published: [], returns: [], started: [], synced: []};
 
@@ -85,7 +85,10 @@ test.describe('Neo.dashboard.dock.window.TearOut', () => {
                 calls.closed.push(vessel);
                 return typeof closeResult === 'function' ? closeResult(vessel) : closeResult
             },
-            onDocumentChange: (document, operation) => calls.synced.push({document, operation}),
+            onDocumentChange: (document, operation) => {
+                calls.synced.push({document, operation});
+                return publish ? publish(document, operation) : undefined
+            },
             openVessel      : async request => {
                 calls.opened.push(request);
                 if (openResult) return openResult(request);
@@ -650,6 +653,52 @@ test.describe('Neo.dashboard.dock.window.TearOut', () => {
 
             expect(await exit).toBe(true);
             expect(calls.started).toHaveLength(1)
-        })
+        });
+
+        // The terminal awaits an asynchronous publication. A destruction inside that wait must leave the
+        // owner dead: no answer, no revived slot, no retirement.
+        for (const outcome of ['refused', 'rejected', 'admitted']) {
+            test(`a publication ${outcome} after destruction reports false and revives nothing`, async () => {
+                let settle;
+
+                const {calls, handlers, sortZone} = harness({
+                    publish: () => new Promise((resolve, reject) => settle = {resolve, reject})
+                });
+
+                await handlers.onDockTearOutExit(exitData(sortZone));
+
+                const terminal = handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+
+                handlers.destroy();
+
+                outcome === 'rejected'
+                    ? settle.reject(new Error('the Group refused the publication'))
+                    : settle.resolve(outcome === 'admitted');
+
+                expect(await terminal, 'a dead owner reports no commit').toBe(false);
+                expect(Object.hasOwn(handlers, 'activeVessel'), 'no slot is recreated on the dead owner').toBe(false);
+                expect(calls.closed, 'no retirement runs for a dead owner').toHaveLength(0)
+            })
+        }
+
+        for (const outcome of ['refused', 'admitted']) {
+            test(`control: a live owner's ${outcome} publication ${outcome === 'refused' ? 'retires the vessel once' : 'reports the commit'}`, async () => {
+                let settle;
+
+                const {calls, handlers, sortZone} = harness({
+                    publish: () => new Promise(resolve => settle = resolve)
+                });
+
+                await handlers.onDockTearOutExit(exitData(sortZone));
+
+                const terminal = handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+
+                settle(outcome === 'admitted');
+
+                expect(await terminal).toBe(true);
+                expect(calls.closed).toHaveLength(outcome === 'refused' ? 1 : 0);
+                expect(handlers.activeVessel).toBeNull()
+            })
+        }
     })
 });

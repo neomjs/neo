@@ -185,7 +185,8 @@ class VesselEmbodiment extends Base {
      * are silent, so staging owns exactly one settlement transaction per parent. A parked source
      * renderer may reject or never acknowledge another frame, so its transaction starts without being
      * allowed to veto or deadlock the target's independently provable readability. A failure restores
-     * the pane through the placeholder's live slot.
+     * the pane through the placeholder's live slot. A settlement that outlives its owner refuses and
+     * touches nothing: destruction already removed the placeholders, and the pane stays borrowed.
      * @param {Object} record
      * @param {Number} sourceIndex
      * @param {Neo.container.Base} target
@@ -208,9 +209,9 @@ class VesselEmbodiment extends Base {
                 .catch(() => {});
             await Promise.resolve().then(() => target.promiseUpdate?.());
 
-            return me.records.get(itemId) === record
+            return !me.isDestroyed && me.records.get(itemId) === record
         } catch {
-            if (me.records.get(itemId) !== record) return false;
+            if (me.isDestroyed || me.records.get(itemId) !== record) return false;
 
             me.records.delete(itemId);
 

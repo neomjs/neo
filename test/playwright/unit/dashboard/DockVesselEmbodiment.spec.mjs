@@ -614,6 +614,82 @@ class BlindProxyEmbodiment extends VesselProxyEmbodiment {
 
 Neo.setupClass(BlindProxyEmbodiment);
 
+test.describe('a stage whose render settles after its owner was destroyed', () => {
+    /**
+     * @summary Stages a borrowed pane into a target whose render acknowledgement the test releases.
+     * @returns {Object}
+     */
+    const pendingStage = () => {
+        const fixture = {
+            source: Neo.create(Container, {items: [{module: Component, html: 'live'}]}),
+            target: Neo.create(Container, {items: []})
+        };
+
+        fixture.pane       = fixture.source.items[0];
+        fixture.embodiment = Neo.create(VesselEmbodiment, {resolvePane: () => fixture.pane, resolveTarget: () => fixture.target});
+
+        fixture.target.promiseUpdate = () => new Promise((resolve, reject) => fixture.render = {reject, resolve});
+        fixture.stage = fixture.embodiment.stage({itemId: 'live', windowId: 'admitted-window'});
+
+        return fixture
+    };
+
+    const teardown = ({embodiment, source, target}) => {
+        embodiment.isDestroyed || embodiment.destroy();
+        source.destroy();
+        target.destroy()
+    };
+
+    for (const outcome of ['acknowledged', 'refused']) {
+        test(`a render ${outcome} after destruction resolves false and leaves the restored pane home`, async () => {
+            const fixture = pendingStage();
+
+            try {
+                await expect.poll(() => Boolean(fixture.render)).toBe(true);
+
+                expect(fixture.embodiment.restore({itemId: 'live', windowId: 'admitted-window'})).toBe(true);
+                fixture.embodiment.destroy();
+
+                outcome === 'refused' ? fixture.render.reject(new Error('renderer refused')) : fixture.render.resolve();
+
+                await expect(fixture.stage, 'a dead owner settles false, never throws').resolves.toBe(false);
+                expect(fixture.pane.isDestroyed, 'the borrowed pane survives').toBeFalsy();
+                expect(fixture.source.items[0], 'no late restoration moves it again').toBe(fixture.pane)
+            } finally {
+                teardown(fixture)
+            }
+        })
+    }
+
+    test('control: a live owner settles true once the render is acknowledged', async () => {
+        const fixture = pendingStage();
+
+        try {
+            await expect.poll(() => Boolean(fixture.render)).toBe(true);
+            fixture.render.resolve();
+
+            await expect(fixture.stage).resolves.toBe(true);
+            expect(fixture.pane.parent).toBe(fixture.target)
+        } finally {
+            teardown(fixture)
+        }
+    });
+
+    test('control: a live owner restores the pane when the render is refused', async () => {
+        const fixture = pendingStage();
+
+        try {
+            await expect.poll(() => Boolean(fixture.render)).toBe(true);
+            fixture.render.reject(new Error('renderer refused'));
+
+            await expect(fixture.stage).resolves.toBe(false);
+            expect(fixture.source.items[0], 'the pane is back in its slot').toBe(fixture.pane)
+        } finally {
+            teardown(fixture)
+        }
+    })
+});
+
 test.describe('the embodiments dispatch their internal steps through the instance', () => {
     test('a subclass settlement decides the stage', async () => {
         const source   = Neo.create(Container, {items: [{module: Component, html: 'live'}]}),
