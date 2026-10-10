@@ -126,8 +126,9 @@
         text-transform: none;
 
         @media (max-width: 600px) {
-            // Default Buttons use a slightly bigger font-size, which does not make sense here
-            font-size: var(--button-text-font-size);
+            // button/Base changes its text size for narrow windows; the header keeps its own at every
+            // width (a torn-out pane is a narrow window too, and its header must not grow)
+            font-size: var(--grid-header-button-font-size);
         }
     }
 }
