@@ -146,23 +146,56 @@ test('a take holds after a named step: the receipt records the hold, the gate st
           };
     controller.setPipProgress = async () => {};
     workspace.resetTopology = async () => acceptedReset();
-    try {
-        const startedAt = Date.now(),
-              run       = controller.startTour(script, {autoGates: true, takeHoldMs: {'s[0]': 120}});
 
-        // the gate itself settles at once and publishes nothing; the hold follows its settlement
-        await expect.poll(() => controller.cueReceipts.length).toBe(1);
+    // The hold's own wait is made controllable so the test proves the BARRIER, not a wall-clock
+    // floor (the progress path awaits 90 ms per step on its own, which a floor cannot tell apart):
+    // the controller's `timeout` routes the hold's duration — a value no other wait uses — to a
+    // deferred promise and leaves every other wait on the real timer. A hold that never asked for
+    // its wait, or did not await it, fails below.
+    const
+        hold            = deferred(),
+        holdCalls       = [],
+        originalTimeout = controller.timeout.bind(controller);
+
+    controller.timeout = (ms, options) => {
+        if (ms === 777) {
+            holdCalls.push(ms);
+            return hold.promise
+        }
+
+        return originalTimeout(ms, options)
+    };
+
+    try {
+        const run = controller.startTour(script, {autoGates: true, takeHoldMs: {'s[0]': 777}});
+
+        // the gate itself settles at once and publishes nothing; then the hold asks for its wait
+        await expect.poll(() => holdCalls).toEqual([777]);
+        expect(controller.cueReceipts).toHaveLength(1);
         expect(controller.cueReceipts[0].receipt).toEqual({applied: true, continued: 'auto', prompt});
         expect(controller.getPendingGate()).toBeNull();
         expect(provider.getData('tour.gatePrompt')).toBeNull();
 
+        // while the hold is pending the next beat cannot start: the runner's log keeps the one
+        // step, nothing is recorded as held, no receipt settles — sampled over several ticks
+        for (let tick = 0; tick < 5; tick++) {
+            await new Promise(setImmediate);
+            expect(controller.tourRunner.log, 'the second step must wait for the hold').toHaveLength(1);
+            expect(controller.holds).toEqual([]);
+            expect(controller.getTourReceipt()).toBeNull()
+        }
+
+        hold.resolve();
+
         const held = await run;
         expect(held.completed).toBe(true);
-        expect(held.holds).toEqual([{heldMs: 120, sceneId: 's', stepIndex: 0}]);
-        expect(Date.now() - startedAt).toBeGreaterThanOrEqual(120);
+        expect(held.log).toHaveLength(2);
+        expect(held.holds).toEqual([{heldMs: 777, sceneId: 's', stepIndex: 0}]);
 
-        // the holds stay set for the next take, and are recorded afresh per playback
-        expect((await controller.startTour(script)).holds).toEqual([{heldMs: 120, sceneId: 's', stepIndex: 0}]);
+        // the real timer again: the holds stay set for the next take and are recorded afresh per
+        // playback (heldMs is the requested duration, the receipt's elapsedMs the measured one)
+        delete controller.timeout;
+        expect((await controller.startTour(script, {takeHoldMs: {'s[0]': 30}})).holds).toEqual([{heldMs: 30, sceneId: 's', stepIndex: 0}]);
 
         // the viewer's tour reads no take hold: same holds configured, gate mode off, nothing recorded
         const viewer = controller.startTour(script, {autoGates: false});
