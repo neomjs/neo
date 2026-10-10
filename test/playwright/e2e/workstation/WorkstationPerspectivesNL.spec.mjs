@@ -365,7 +365,13 @@ test.describe('Workstation — a perspective across windows re-births its closed
             expect(await holdersOf(app, workspaceId), 'and one owning document').toEqual([vesselKey]);
             expect(await embodimentOf(app, paneId), 'the live pane is mounted in the re-born window')
                 .toEqual({windowId: await readWindowId(reborn), mounted: true, isDestroyed: false});
-            expect(await hostOf(vesselKey)).toMatchObject({disconnected: false})
+            expect(await hostOf(vesselKey)).toMatchObject({disconnected: false});
+
+            // the user's own close is the re-born window's way home
+            await reborn.close({runBeforeUnload: true});
+            await expect.poll(() => holdersOf(app, workspaceId), {...POLL, message: 'closing the re-born window returns the pane to main'})
+                .toEqual([MAIN]);
+            await expect(page.locator(`#${paneId}`), 'and main shows it again').toBeVisible({timeout: 30000})
         } finally {
             for (const window of [popup, reborn]) {
                 window && !window.isClosed() && await window.close({runBeforeUnload: true})

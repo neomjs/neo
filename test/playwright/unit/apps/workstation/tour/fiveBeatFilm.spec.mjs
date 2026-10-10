@@ -72,10 +72,12 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         // (one drag across every boundary, ending in the first vessel) and the return stay contiguous
         // with it, the order the five-beat witness proves them in; the rail beat follows the return,
         // the resize (a real pointer drag with the live preview) settles the layout after it, and
-        // the drop-zone showcase moves the travelled pane afterwards
+        // the drop-zone showcase moves the travelled pane afterwards; the arrangement saved during
+        // the journey comes back across windows right after the in-room perspectives
         expect(fiveBeatFilmScript.scenes.map(scene => scene.id)).toEqual([
             'film-cold-open', 'film-tear-out', 'film-journey', 'film-reintegration',
-            'film-rails', 'film-resize', 'film-showcase', 'film-perspectives-undo', 'film-signature'
+            'film-rails', 'film-resize', 'film-showcase', 'film-perspectives-undo',
+            'film-perspective-across-windows', 'film-signature'
         ]);
         fiveBeatFilmScript.scenes.forEach(scene => {
             expect(scene.steps.length, `${scene.id} must carry runnable steps`).toBeGreaterThan(0);
@@ -93,8 +95,8 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         operations.forEach(operation => expect(Operations.operations).toContain(operation))
     });
 
-    test('every window birth is gated: a gate cue directly precedes the tear-out and the journey', () => {
-        const birthing = ['tear-out', 'journey'];
+    test('every window birth is gated: a gate cue directly precedes the tear-out, the journey and the re-birth', () => {
+        const birthing = ['tear-out', 'journey', 'workspace-open'];
 
         let births = 0;
 
@@ -109,10 +111,11 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
             })
         });
 
-        // the tear-out and the journey (one gate: the click activates its first window, the two births
-        // that follow inside the same drag rest on the site's pop-up permission); the stack return opens no window
-        expect(births).toBe(2);
-        expect(steps().filter(step => step.cue?.type === 'gate')).toHaveLength(2);
+        // the tear-out, the journey (one gate: the click activates its first window, the two births
+        // that follow inside the same drag rest on the site's pop-up permission) and the re-birth of
+        // the restored window; the stack returns open no window
+        expect(births).toBe(3);
+        expect(steps().filter(step => step.cue?.type === 'gate')).toHaveLength(3);
         expect(steps().find(step => step.cue?.type === 'native-return').cue.ownerItemId).toBe('metrics');
         expect(steps().filter(step => step.cue?.type === 'tear-out').map(step => step.cue.options.reenter === true))
             .toEqual([false]);
@@ -128,10 +131,32 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(journey.sourceNodeId).not.toBe('heavy-tabs')
     });
 
-    test('the pacing budget sums to 91s inside the 90–150s envelope', () => {
+    test('the arrangement across windows: saved while Metrics\' window holds both panes, restored after the stack came home, re-born behind a gate and closed home', () => {
+        const scenes                             = fiveBeatFilmScript.scenes,
+              ids                                = scenes.map(scene => scene.id),
+              capture                            = scenes.find(scene => scene.id === 'film-journey').steps.at(-1).cue,
+              across                             = scenes.find(scene => scene.id === 'film-perspective-across-windows'),
+              owner                              = steps().find(step => step.cue?.type === 'tear-out').cue.itemId,
+              [restore, gate, open, dwell, home] = across.steps;
+
+        // the capture is the journey's last step, taken before the stack return empties the window
+        expect(capture).toMatchObject({type: 'perspective-capture', captureScope: 'topology'});
+        expect(ids.indexOf(across.id), 'it follows the in-room perspectives scene').toBe(ids.indexOf('film-perspectives-undo') + 1);
+
+        expect(restore.cue).toEqual({type: 'perspective-restore', name: capture.name});
+        expect(gate.cue.type, 'the restore opens nothing; the re-birth is a gated window birth').toBe('gate');
+        expect(open.cue).toEqual({type: 'workspace-open', workspaceKey: `workstation-vessel:${owner}`});
+        expect(dwell, 'a cue-free beat to read the re-born window').toMatchObject({type: 'pause', ms: 1500});
+        expect(dwell.cue).toBeUndefined();
+        // a re-born window has no tear-out ownership record for a title-bar return; closing it brings its panes home
+        expect(home.cue).toEqual({type: 'workspace-close', workspaceKey: open.cue.workspaceKey});
+        expect(steps().filter(step => step.cue?.type === 'native-return')).toHaveLength(1)
+    });
+
+    test('the pacing budget sums to 99s inside the 90–150s envelope', () => {
         const total = fiveBeatFilmScript.scenes.reduce((sum, scene) => sum + scene.targetSeconds, 0);
 
-        expect(total).toBe(91);
+        expect(total).toBe(99);
         expect(total).toBeGreaterThanOrEqual(fiveBeatFilmScript.envelope.minSeconds);
         expect(total).toBeLessThanOrEqual(fiveBeatFilmScript.envelope.maxSeconds)
     });

@@ -2,6 +2,7 @@ import Controller                               from '../../../src/controller/Co
 import ClassSystem                              from '../../../src/util/ClassSystem.mjs';
 import TourRunner                               from '../../../src/ai/client/TourRunner.mjs';
 import TransactionManager                       from '../../../src/manager/Transaction.mjs';
+import WindowManager                            from '../../../src/manager/Window.mjs';
 import NativeGestureDriver                      from '../tour/NativeGestureDriver.mjs';
 import WorkspaceDocument                        from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import {WORKSTATION_CUE_TYPES}                  from '../tour/cueVocabulary.mjs';
@@ -344,6 +345,8 @@ class TourController extends Controller {
                 return this.restorePerspectiveCue(cue)
             case 'workspace-open':
                 return this.openWorkspaceCue(cue)
+            case 'workspace-close':
+                return this.closeWorkspaceCue(cue)
             case 'undo':
             case 'redo':
                 return this.historyCue(cue.type)
@@ -397,14 +400,49 @@ class TourController extends Controller {
         const me        = this,
               workspace = me.workspace,
               result    = await me.trap(workspace.controller.openTopologyWorkspace(workspaceKey)),
-              mounted   = result?.opened === true &&
-                  await me.waitFor(() => workspace.getPopupState(workspaceKey)?.disconnected === false, {attempts: 600});
+              // The window's bind mounts the workspace's existing host directly. The popup state's
+              // `mountPromise` can belong to an earlier mount of that workspace, so the cue waits for
+              // the host itself to be mounted in the new window.
+              mounted   = result?.opened === true && await me.waitFor(() => {
+                  const state = workspace.getPopupState(workspaceKey);
 
-        mounted && await me.trap(Promise.resolve(workspace.getPopupState(workspaceKey).mountPromise));
+                  return state?.disconnected === false && state.host?.mounted === true && state.host.windowId === state.windowId
+              }, {attempts: 600});
 
         return {
             applied: mounted === true,
             errors : result?.errors?.length ? result.errors : mounted ? [] : [`workspace "${workspaceKey}" did not mount in its window`],
+            workspaceKey
+        }
+    }
+
+    /**
+     * @summary Closes a Group workspace's window the way its close button does, then waits until the
+     * window is gone and its panes are home.
+     *
+     * A closing window returns its panes before it disconnects, so this is how the film ends a window a
+     * restore re-born: the request rides the window's own native close route, the one the Neural
+     * Link's `close_window` uses.
+     * @param {Object} cue
+     * @param {String} cue.workspaceKey The Group workspace, e.g. `workstation-vessel:metrics`
+     * @returns {Promise<Object>} `{applied, errors, workspaceKey}`; `applied` once the window is gone and its workspace holds no pane.
+     */
+    async closeWorkspaceCue({workspaceKey}) {
+        const me        = this,
+              workspace = me.workspace,
+              windowId  = workspace.getPopupState(workspaceKey)?.windowId,
+              {route}   = windowId ? WindowManager.resolveNativeRoute({capability: 'close', route: WindowManager.get(windowId)?.nativeRoute}) : {},
+              accepted  = Boolean(route) && await me.trap(Neo.Main.windowNativeClose({
+                  nativeHandleKey: route.nativeHandleKey,
+                  targetWindowId : route.targetWindowId,
+                  windowId       : route.ownerWindowId
+              })) === true,
+              home      = accepted && await me.waitFor(() => !WindowManager.get(windowId) &&
+                  !Object.keys(workspace.getPopupState(workspaceKey)?.document?.items ?? {}).length, {attempts: 600});
+
+        return {
+            applied: home === true,
+            errors : home ? [] : [`workspace "${workspaceKey}" did not close with its panes home`],
             workspaceKey
         }
     }

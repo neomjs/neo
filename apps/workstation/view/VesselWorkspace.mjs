@@ -819,10 +819,13 @@ class VesselWorkspace extends DockWorkspace {
 
         // Through the engine's retirement, not the platform seam directly: the fence it holds keeps a
         // late bind for the same item cleanup-only while the close is in flight.
-        const closed = await me.nativeWindows.retire(me.id, vessel);
+        const windowId = state.windowId,
+              closed   = await me.nativeWindows.retire(me.id, vessel);
 
         if (closed) {
-            state.closeRequested = true;
+            // The retirement can settle after the window already detached. A close request describes
+            // only the window still bound to this state, never a later one born for the same workspace.
+            if (state.windowId === windowId) state.closeRequested = true;
 
             if (
                 me.lastCrossWindowTransfer?.sourceWorkspaceId === workspaceId &&
