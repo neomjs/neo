@@ -819,7 +819,12 @@ class Overflow extends Plugin {
                 startKey      = geometry.dimension === 'width' ? 'left' : 'top',
                 coordinateKey = geometry.dimension === 'width' ? 'x' : 'y',
                 ownerStart    = Number(ownerRect?.[startKey] ?? ownerRect?.[coordinateKey]),
-                actionStart   = Number(actionRects[0]?.[startKey] ?? actionRects[0]?.[coordinateKey]),
+                // The rail begins at the first action that HAS a box. A collapsed action, or one whose insert has not
+                // landed yet (the drain pass after a drag, once its focus brought the contextual actions back),
+                // reports an all-zero rect: read as a coordinate, it would start the rail at the owner's own edge
+                // and withhold every unprotected tab for one pass.
+                firstAction   = actionRects.find(rect => Number(rect?.[geometry.dimension]) > 0),
+                actionStart   = Number(firstAction?.[startKey] ?? firstAction?.[coordinateKey]),
                 ownerSize     = Number(ownerRect?.[geometry.dimension]),
                 actionSize    = actionRects.reduce((sum, rect) => {
                     let size = Number(rect?.[geometry.dimension]);
