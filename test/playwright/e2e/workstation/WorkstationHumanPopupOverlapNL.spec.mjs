@@ -856,12 +856,37 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
         return {
             app,
             desktop   : client({x: target.x + target.width + gap / 2, y: target.y + target.height / 2}),
+            mainInner : main,
             managerId,
             overTarget: client({x: target.x + target.width / 2, y: target.y + target.height / 2}),
             targetPage,
             targetWindowId,
             wsId
         }
+    }
+
+    /**
+     * @summary Records every native move main asks for, with its settled answer: a host may admit the popup
+     * but refuse every `window.moveTo`, which is a stage ceiling, not a gesture that stopped asking.
+     * @param {Object} page
+     */
+    async function traceWindowMoves(page) {
+        await page.evaluate(() => {
+            const
+                main     = globalThis.Neo.Main,
+                original = main.windowMoveTo.bind(main),
+                trace    = globalThis.__foreignPopupMoves = [];
+
+            main.windowMoveTo = data => {
+                const entry  = {data: {...data}, result: 'pending'},
+                      result = original(data);
+
+                trace.push(entry);
+                Promise.resolve(result).then(value => {entry.result = value}, error => {entry.result = `reject:${error.message}`});
+
+                return result
+            }
+        })
     }
 
     /**
@@ -890,7 +915,7 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
     // retires over a foreign popup, and leaving that popup for the desktop opens a fresh one.
     test('one pointer-down crosses a foreign popup: its vessel closes there and a fresh one carries the drag out',
     async ({page, neuralLink}) => {
-        const {app, desktop, managerId, overTarget, targetPage, wsId} = await stageForeignPopup(page, neuralLink);
+        const {app, desktop, mainInner, managerId, overTarget, targetPage, wsId} = await stageForeignPopup(page, neuralLink);
 
         let firstVessel, pointerDown = false, secondVessel;
 
@@ -915,6 +940,7 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
 
             const secondPopup = page.waitForEvent('popup', {timeout: 30000});
 
+            await traceWindowMoves(page);
             await page.mouse.move(desktop.x, desktop.y, {steps: 24});
             secondVessel = await secondPopup;
 
@@ -923,6 +949,36 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
             expect(secondWindowId, 'leaving the foreign window opens a fresh vessel').not.toBe(firstWindowId);
             await expect(targetPage.locator('.neo-dock-dragproxy'),
                 'the foreign window lets the drag go').toHaveCount(0);
+
+            // The fresh vessel rides the held pointer: it sits under the pointer and follows one more move.
+            const
+                step     = {x: 48, y: 36},
+                pointer  = {x: mainInner.x + desktop.x + step.x, y: mainInner.y + desktop.y + step.y},
+                readMove = () => page.evaluate(() => globalThis.__foreignPopupMoves),
+                readSelf = () => secondVessel.evaluate(() => ({h: outerHeight, w: outerWidth, x: screenX, y: screenY}));
+
+            await expect.poll(async () => (await readMove()).some(entry => entry.result !== 'pending'), {
+                message: 'the continuing pointer asks the fresh vessel to move',
+                timeout: 5000
+            }).toBe(true);
+
+            const settledAt = await readSelf();
+
+            await page.mouse.move(desktop.x + step.x, desktop.y + step.y, {steps: 8});
+
+            test.skip((await readMove()).every(entry => entry.result === false),
+                'the host refused every verified window.moveTo; native pointer-follow is stage-bound here');
+
+            await expect.poll(async () => {
+                const now = await readSelf();
+
+                return {x: now.x - settledAt.x, y: now.y - settledAt.y}
+            }, {message: 'the fresh vessel follows the held pointer', timeout: 10000}).toEqual(step);
+
+            const under = await readSelf();
+
+            expect(pointer.x >= under.x && pointer.x <= under.x + under.w && pointer.y >= under.y && pointer.y <= under.y + under.h,
+                `the fresh vessel sits under the pointer: ${JSON.stringify({pointer, under})}`).toBe(true);
 
             await page.mouse.up();
             pointerDown = false;
