@@ -80,7 +80,7 @@ test.describe('Neo.main.addon.DragDrop — physical window drag', () => {
                   offsetY      : 10
               };
 
-        Neo.Main.windowMoveTo      = data => moved.push(data);
+        Neo.Main.windowMoveTo      = async data => {moved.push(data); return true};
         DomEvents.sendMessageToApp = data => sent.push(data);
 
         DragDrop.prototype.startWindowDrag.call(addon, {popupHeight: 240, popupName: 'tearout-graph', popupWidth: 320});
@@ -100,6 +100,50 @@ test.describe('Neo.main.addon.DragDrop — physical window drag', () => {
         });
         expect({height: proxyRect.height, width: proxyRect.width, x: proxyRect.x, y: proxyRect.y})
             .toEqual({height: 240, width: 320, x: 480, y: 290})
+    });
+
+    test('a refused native move skips only that move: the drag frame still flows and nothing goes unhandled', async () => {
+        const sent    = [],
+              seen    = [],
+              observe = reason => seen.push(String(reason)),
+              // The runner fails a test on an unhandled rejection, which would kill the positive
+              // control, so take the listener slot exclusively and hand it back in `finally`.
+              borrowed = process.listeners('unhandledRejection'),
+              drain    = async () => {
+                  await new Promise(resolve => setImmediate(resolve));
+                  await new Promise(resolve => setTimeout(resolve, 0))
+              },
+              addon    = {
+                  dragCancelled: false,
+                  dragZoneId   : 'zone-a',
+                  getEventData : () => ({clientX: 10, clientY: 20}),
+                  offsetX      : 20,
+                  offsetY      : 10
+              };
+
+        Neo.Main.windowMoveTo      = async () => {throw new Error('SecurityError: the popup navigated away')};
+        DomEvents.sendMessageToApp = data => sent.push(data);
+        process.removeAllListeners('unhandledRejection');
+        process.on('unhandledRejection', observe);
+
+        try {
+            // Positive control first: an inert observer would make the final assertion vacuous.
+            Promise.reject(new Error('observer-control'));
+            await drain();
+            expect(seen, 'the observer itself works').toEqual(['Error: observer-control']);
+            seen.length = 0;
+
+            DragDrop.prototype.startWindowDrag.call(addon, {popupHeight: 240, popupName: 'tearout-graph', popupWidth: 320});
+            DragDrop.prototype.onDragMove.call(addon, {detail: {originalEvent: {screenX: 500, screenY: 300}}});
+            await drain()
+        } finally {
+            process.off('unhandledRejection', observe);
+            borrowed.forEach(listener => process.on('unhandledRejection', listener))
+        }
+
+        expect(sent).toHaveLength(1);
+        expect(sent[0]).toMatchObject({dragZoneId: 'zone-a', type: 'drag:move'});
+        expect(seen).toEqual([])
     });
 
     test('a reset completes safely when no document exists at all', () => {

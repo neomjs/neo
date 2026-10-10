@@ -430,7 +430,8 @@ class DragDrop extends Base {
                 x = originalEvent.screenX - (me.offsetX || 0),
                 y = originalEvent.screenY - (me.offsetY || 0);
 
-            Neo.Main.windowMoveTo({windowName: me.popupName, x, y});
+            // A refused native move (an accessor throws once the popup navigated) skips this frame's move only.
+            Neo.Main.windowMoveTo({windowName: me.popupName, x, y}).catch(Neo.emptyFn);
 
             DomEvents.sendMessageToApp({
                 ...me.getEventData(event),
