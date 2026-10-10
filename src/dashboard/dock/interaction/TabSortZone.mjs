@@ -224,7 +224,7 @@ class TabSortZone extends TabHeaderSortZone {
             itemId = me.dockItemIds?.[me.startIndex];
 
         me.owner?.up?.()?.fire('dockTearOutExit', {
-            ...data, itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId
+            ...data, itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId, sourceRect: me.dockSourceCardRect ?? null
         })
     }
 
@@ -437,9 +437,14 @@ class TabSortZone extends TabHeaderSortZone {
 
         me.stackDragActive = false;
 
-        // The real toolbar boundary, distinct from the base's tab-only sortBoundaryRect.
-        // One pre-gesture measure, off the per-frame hot path.
-        me.dockSourceToolbarRect = await me.owner?.getDomRect() ?? null;
+        // The real toolbar boundary, distinct from the base's tab-only sortBoundaryRect, and the
+        // card body the dragged pane fills — the size its vessel opens at, measured now, while
+        // the pane is still laid out (the exit admission comes after the host stages it). One
+        // pre-gesture measure, off the per-frame hot path.
+        [me.dockSourceToolbarRect, me.dockSourceCardRect] = await Promise.all([
+            me.owner?.getDomRect() ?? null,
+            me.owner?.up?.()?.getCardContainer?.()?.getDomRect?.() ?? null
+        ]);
 
         await super.onDragStart(data);
 

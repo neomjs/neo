@@ -93,6 +93,13 @@ class VesselWorkspace extends DockWorkspace {
         mixins: [CrossWindowGestureSnapshot],
         /** @member {Number} dockHistoryDepth=50 Bounded Group history retained across window releases. */
         dockHistoryDepth: 50,
+        /**
+         * A torn-out vessel opens at the dragged pane's rendered size; a product that wants one
+         * size for every vessel pins `{width, height}` here, in outer window pixels. Either way the
+         * engine clamps to the screen and the popup floor (`Placement.resolveVesselSize`).
+         * @member {Object|null} tearOutVesselSize=null
+         */
+        tearOutVesselSize: null,
         /** @member {Boolean} enableDockTearOutLifecycle=true The engine owns native admission and retirement. */
         enableDockTearOutLifecycle: true
     }
@@ -998,14 +1005,24 @@ class VesselWorkspace extends DockWorkspace {
      * so the gesture degrades to its in-window fallback. The theme bootstrap is part of that
      * acquisition rather than optional presentation: an unavailable authority reaches the outer
      * diagnostic boundary and prevents an unthemed child from opening.
+     * The vessel opens at the size the dragged pane showed at: `sourceRect`, the card body the
+     * sort zone measured at drag arming (the tab header's drag proxy is no measure of the widget;
+     * without a measurement the helper's fallback applies, never the header's size), clamped by
+     * {@link Neo.dashboard.dock.window.Placement.resolveVesselSize}; `tearOutVesselSize` pins one
+     * size instead. That size is the window's OUTER size, applied as the total extent by
+     * `Main.windowOpen`: the popup's frame takes over the pane's footprint on screen, and its body
+     * is smaller by the window chrome on purpose. A popup larger than the widget it replaces is the
+     * unwanted outcome, so no chrome is added to keep the content area. It is born at the proxy's
+     * position, under the hand.
      * @param {Object} request
      * @param {String} request.itemId
      * @param {Object} request.proxyRect
+     * @param {Object|null} [request.sourceRect] The card body the pane filled, from the exit payload.
      * @param {Object} request.topologyIdentity The reserved slot, written into the vessel's carrier.
      * @returns {Promise<{popupHeight: Number, popupWidth: Number, windowName: String}|null>}
      * @protected
      */
-    async openTearOutVessel({itemId, proxyRect, topologyIdentity}) {
+    async openTearOutVessel({itemId, proxyRect, sourceRect=null, topologyIdentity}) {
         let me         = this,
             {windowId} = me,
             windowName = `tearout-${itemId}`;
@@ -1013,7 +1030,7 @@ class VesselWorkspace extends DockWorkspace {
         // Diagnostic trail for the birth gate: absence has three distinct layers (admission
         // refused / platform refused the window / window granted but never bound), and the
         // failure diag must name which one this gesture died in.
-        me.lastVesselOpen = {itemId, stage: 'invoked'};
+        me.lastVesselOpen = {itemId, sourceRect, stage: 'invoked'};
 
         try {
             let [winData, bootstrap] = await Promise.all([
@@ -1024,10 +1041,14 @@ class VesselWorkspace extends DockWorkspace {
                 selectedTheme = Object.hasOwn(schemes, me.theme)
                     ? me.theme
                     : bootstrap?.defaultTheme || me.theme,
-                width  = Math.max(Math.round(proxyRect?.width  || 480), 320),
-                height = Math.max(Math.round(proxyRect?.height || 360), 240),
-                left   = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
-                top    = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
+                // the outer size, which `windowOpen` applies as the window's total extent
+                {height, width} = Placement.resolveVesselSize({
+                    pinned: me.tearOutVesselSize,
+                    screen: winData.screen,
+                    sourceRect
+                }),
+                left = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
+                top  = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
 
             let opened = await Neo.Main.windowOpen({
                 nativeCapabilities: {close: true, position: true, resize: true},

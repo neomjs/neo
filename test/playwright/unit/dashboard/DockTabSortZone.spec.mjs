@@ -122,6 +122,8 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             // never a fully-constructed zone.
             const WIDE = {x: 100, y: 100, width: 600, height: 32};
             const SPAN = {x: 100, y: 100, width: 180, height: 32};
+            // the card body the dragged pane fills: the size its vessel opens at
+            const CARD = {x: 100, y: 132, width: 600, height: 428};
 
             const calls = [];
 
@@ -131,7 +133,16 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
 
                     if (ids === undefined) return Promise.resolve({...WIDE});
                     return Promise.resolve(ids.map(() => ({...SPAN})))
-                }
+                },
+                up: () => ({
+                    getCardContainer: () => ({
+                        getDomRect() {
+                            calls.push('card-snapshot');
+
+                            return Promise.resolve({...CARD})
+                        }
+                    })
+                })
             };
 
             // The base chain needs more scaffolding than this witness wants to carry. Its stub
@@ -147,8 +158,9 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             try {
                 await DockTabSortZone.prototype.onDragStart.call(zone, {path: []});
 
-                expect(calls).toEqual(['snapshot', 'base-start']);
+                expect(calls).toEqual(['snapshot', 'card-snapshot', 'base-start']);
                 expect(zone.dockSourceToolbarRect, 'release truth is the pre-base toolbar extent').toEqual(WIDE);
+                expect(zone.dockSourceCardRect, 'the card body is measured at arming, before the exit stages the pane').toEqual(CARD);
             } finally {
                 TabHeaderSortZone.prototype.onDragStart = original
             }

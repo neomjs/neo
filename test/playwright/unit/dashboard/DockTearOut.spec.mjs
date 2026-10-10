@@ -99,9 +99,10 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
 
         await handlers.onDockTearOutExit(data);
 
-        // `gestureToken` is the pair's own correlation id, echoed unread by the host
+        // `gestureToken` is the pair's own correlation id, echoed unread by the host; `sourceRect`
+        // is the card body the zone measured at arming, null when it did not
         expect(calls.opened[0]).toEqual({
-            gestureToken: 1, itemId: 'graph', proxyRect: data.proxyRect, sortZone
+            gestureToken: 1, itemId: 'graph', proxyRect: data.proxyRect, sortZone, sourceRect: null
         });
         expect(calls.ended).toBe(0);
         expect(calls.started).toEqual([{
