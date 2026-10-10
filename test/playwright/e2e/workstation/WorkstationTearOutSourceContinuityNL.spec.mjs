@@ -244,6 +244,51 @@ async function waitPresentedFrames(page, count = 8) {
 }
 
 /**
+ * @summary Waits until the room has settled before a geometry station is recorded: the dock carries
+ * no `neo-dashboard-dock-animating` (the motion signal, counted and fail-safe) and every target
+ * pane's rect is identical across `stableFrames` consecutive presented frames. Frame- and
+ * signal-based, never a sleep. A baseline armed while a boot motion is still easing a pane reads
+ * as a restore defect it is not (2026-10-10: Audit at 258 → 268 px through a four-frame station,
+ * 280.5 px once settled). On timeout the result names what was still moving.
+ * @param {import('@playwright/test').Page} page Browser page.
+ * @param {Object[]} targets The restore targets; `paneClass` selects each pane.
+ * @param {Object} [options={}]
+ * @param {Number} [options.maxFrames=240] Presented-frame budget (~4 s at 60 Hz).
+ * @param {Number} [options.stableFrames=8] Consecutive identical frames required.
+ * @returns {Promise<{animating: Boolean, frames: Number, rects: Object, settled: Boolean}>}
+ */
+async function waitRoomSettled(page, targets, {maxFrames = 240, stableFrames = 8} = {}) {
+    return page.evaluate(({maxFrames, paneClasses, stableFrames}) => new Promise(resolve => {
+        const rects = () => Object.fromEntries(paneClasses.map(cls => {
+            const rect = document.querySelector(`.${cls}`)?.getBoundingClientRect();
+
+            return [cls, rect ? [rect.left, rect.top, rect.width, rect.height].map(value => Math.round(value * 100) / 100) : null]
+        }));
+
+        let frames = 0, stable = 0, last = null;
+
+        const next = () => {
+            const
+                animating = Boolean(document.querySelector('.neo-dashboard-dock-animating')),
+                now       = rects(),
+                key       = JSON.stringify(now);
+
+            frames++;
+            stable = !animating && key === last ? stable + 1 : 0;
+            last   = key;
+
+            if (stable >= stableFrames || frames >= maxFrames) {
+                return resolve({animating, frames, rects: now, settled: stable >= stableFrames})
+            }
+
+            requestAnimationFrame(next)
+        };
+
+        requestAnimationFrame(next)
+    }), {maxFrames, paneClasses: targets.map(target => target.paneClass), stableFrames})
+}
+
+/**
  * @summary Keeps the per-rAF sampler live across a presented-time evidence band.
  * @param {import('@playwright/test').Page} page Browser page.
  * @param {Number} durationMs Minimum performance-timeline duration.
@@ -616,6 +661,13 @@ test.describe('#16498 tear-out source continuity', () => {
                 await expect(page.locator(`.${target.paneClass} .workstation-resident-card`),
                     `${target.key}: target card must be visible at the roomy station`).toBeVisible()
             }
+
+            // The baseline is a settled room: the Audit click can land while the boot's dock motion
+            // is still easing a pane, and a station recorded then reads as a restore defect.
+            const roomyStill = await waitRoomSettled(page, restoreTargets);
+
+            expect(roomyStill.settled,
+                `the roomy station must be a settled room before its baseline is recorded — ${JSON.stringify(roomyStill)}`).toBe(true);
 
             const identitiesBefore = await readResidentIdentities(app);
 
