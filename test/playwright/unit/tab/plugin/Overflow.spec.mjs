@@ -710,6 +710,47 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.control, 'and assigns the fresh instance as the new control').not.toBeNull()
     });
 
+    test('an action without a box (not mounted yet, or collapsed) never moves the rail to the owner edge (#19544)', async () => {
+        // After a header drag, the drain pass runs while the focus-returned contextual actions have items but no
+        // DOM yet: their rects are all zeros. Read as the rail's start, x=0 withheld every unprotected tab for a pass.
+        const pending = {hidden: false, id: 'action-pending'},
+              mounted = {hidden: false, id: 'action-mounted'};
+        let   pendingRect = {height: 0, left: 0, top: 0, width: 0, x: 0, y: 0};
+
+        const plugin = createPlugin(async ids => ids.map(id => id === 'tab-overflow-test-owner'
+            ? {height: 30, left: 0, top: 0, width: 772, x: 0, y: 0}
+            : id === pending.id
+                ? pendingRect
+                : id === mounted.id
+                    ? {height: 20, left: 692, top: 0, width: 20, x: 692, y: 0}
+                    : {height: 30, width: 70}));
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let split;
+        plugin.applySplit = (hidden, buttons, tabContainer, activeCap) => {
+            split = {activeCap, hidden}
+        };
+
+        plugin.owner.getActionItems = () => [pending, mounted];
+        plugin.naturalWidths         = {b1: 110, b2: 110};
+        await plugin.project(false);
+
+        expect(split.hidden, 'the mounted action at x=692 names the rail: both tabs fit').toEqual([]);
+
+        plugin.owner.getActionItems = () => [pending];
+        await plugin.project(false);
+
+        expect(split.hidden, 'with no laid-out action the owner width is the extent').toEqual([]);
+
+        // Control: once the same action has its box at the owner's edge, the rail really does start there.
+        pendingRect                 = {height: 20, left: 0, top: 0, width: 20, x: 0, y: 0};
+        plugin.owner.getActionItems = () => [pending, mounted];
+        await plugin.project(false);
+
+        expect(split.hidden, 'a laid-out action at x=0 is a real zero extent: only the active tab survives').toEqual(['b2']);
+    });
+
     test('main-axis geometry reserves actions and maps all four toolbar orientations', async () => {
         const action  = {hidden: false, id: 'action-1'};
         let   actionX = 200,
