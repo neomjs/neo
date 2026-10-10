@@ -163,7 +163,7 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
             .filter(step => step.cue?.options?.moveSteps !== undefined)
             .map(step => ({type: step.cue.type, ...step.cue.options}));
 
-        expect(walks.map(walk => walk.type)).toEqual(['resize', 'tear-out', 'journey', 'native-return', 'rail', 'resize', 'cross-zone-showcase']);
+        expect(walks.map(walk => walk.type)).toEqual(['resize', 'tear-out', 'journey', 'native-return', 'rail', 'resize', 'cross-zone-showcase', 'grid-drag-scroll']);
         walks.forEach(walk => expect(walk.moveDelay, `${walk.type}: the film's sampling rhythm`).toBe(33));
 
         // a same-thread walk's leg is its samples times the rhythm; the native return pays a window

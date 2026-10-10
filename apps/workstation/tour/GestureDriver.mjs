@@ -1122,6 +1122,157 @@ class GestureDriver extends Base {
     }
 
     /**
+     * @summary Scrolls a grid pane by real diagonal pointer strokes on its body: the grid's own
+     * drag-scroll (`Neo.grid.ScrollManager#dragScroll` through the `GridDragScroll` main-thread
+     * addon) carries the content with the hand, so one stroke moves the view vertically and
+     * horizontally at once. Each stroke is a mousedown → mouseup bracket the simulator drives from
+     * the pane's anchor point along `(deltaX, deltaY)`, the film cursor riding the drive's clock;
+     * between strokes the hand returns to the anchor, as a person pans a map. The receipt proves
+     * the grid followed the hand on both axes: `scrollTop` from the View and `scrollLeft` from the
+     * Body, read before the first press and after the addon's inertia tail has settled.
+     * @param {Object} step
+     * @param {String} step.paneId The workspace pane cache key, e.g. `'scale'`.
+     * @param {Number} step.deltaX Pointer travel per stroke in CSS px; negative drags the content left, so `scrollLeft` grows.
+     * @param {Number} step.deltaY Pointer travel per stroke in CSS px; negative drags the content up, so `scrollTop` grows.
+     * @param {Object} [step.anchor] Where each stroke presses, as fractions of the view rect (default `{x: 0.5, y: 0.5}`).
+     * @param {Number} [step.strokes=1] How many strokes, each from the anchor.
+     * @param {Object} [options]
+     * @param {Number} [options.attempts=180] Poll attempts (16 ms each) for the scroll to settle after a release.
+     * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
+     * @param {Number} [options.moveSteps=12] Samples along one stroke.
+     * @param {Boolean} [options.showCursor=false] Film mode: show the shared synthetic cursor.
+     * @returns {Promise<Object>} `{applied, errors, proof}`
+     */
+    async executeGridDragScrollStep(step, {attempts=180, moveDelay=16, moveSteps=12, showCursor=false}={}) {
+        return this.runGesture(async run => {
+            let me = run.workspace, driver = this,
+                {anchor={x: 0.5, y: 0.5}, deltaX=0, deltaY=0, paneId, strokes=1} = step || {},
+                pane                                            = me.paneCache?.[paneId],
+                cursorDot                                       = null;
+
+            if (!pane?.view?.id || !pane.body?.id) {
+                return {applied: false, errors: [`grid drag-scroll step must name a rendered grid pane; '${paneId}' is not one`]}
+            }
+
+            if (!(deltaX || deltaY) || !Number.isInteger(strokes) || strokes < 1) {
+                return {applied: false, errors: ['grid drag-scroll step needs a non-zero travel and at least one stroke']}
+            }
+
+            try {
+                await driver.trap(Promise.resolve(me.refreshPromise));
+
+                let windowId = pane.windowId,
+                    [rect]   = await driver.trap(pane.view.getDomRect([pane.view.id], windowId)),
+                    read     = () => ({scrollLeft: pane.body.scrollLeft ?? 0, scrollTop: pane.view.scrollTop ?? 0}),
+                    // the grid settles when two reads agree over a few frames: the release hands the
+                    // addon an inertia tail, and the receipt reads what the tail left, not the press
+                    settle     = async () => {
+                        let last = read(), stable = 0;
+
+                        for (let poll = 0; poll < attempts && stable < 6; poll++) {
+                            await driver.trap(driver.timeout(16));
+
+                            let next = read();
+
+                            stable = next.scrollLeft === last.scrollLeft && next.scrollTop === last.scrollTop ? stable + 1 : 0;
+                            last   = next
+                        }
+
+                        return {...last, settled: stable >= 6}
+                    };
+
+                if (!(rect?.width > 0 && rect?.height > 0)) {
+                    return {applied: false, errors: [`'${paneId}' has no rendered geometry`]}
+                }
+
+                // The grid's drag-scroll is a plain DOM listener (mousedown on the body, then
+                // document-level moves), not a Neo drag the simulator's drive could arm: each
+                // stroke is dispatched as the raw event bracket the addon reads, like the rail's
+                // clicks and the showcase's walk. The press lands on the body itself so the addon's
+                // registration is on the event path; the moves ride the document.
+                let WindowManager = (await driver.trap(import('../../../src/manager/Window.mjs'))).default,
+                    window        = WindowManager.get(windowId),
+                    opt           = (clientX, clientY, buttons) => ({
+                        bubbles   : true,
+                        button    : 0,
+                        buttons,
+                        cancelable: true,
+                        clientX,
+                        clientY,
+                        screenX   : (window?.innerRect?.x ?? 0) + clientX,
+                        screenY   : (window?.innerRect?.y ?? 0) + clientY
+                    }),
+                    start         = {x: Math.round(rect.x + rect.width * anchor.x), y: Math.round(rect.y + rect.height * anchor.y)},
+                    before        = read(),
+                    dispatched    = [];
+
+                showCursor && (cursorDot = driver.createFilmCursorDot(start.x, start.y, windowId));
+
+                for (let stroke = 0; stroke < strokes; stroke++) {
+                    let events = [{targetId: pane.body.id, type: 'mousedown', windowId, options: opt(start.x, start.y, 1)}],
+                        at     = ratio => ({x: Math.round(start.x + deltaX * ratio), y: Math.round(start.y + deltaY * ratio)});
+
+                    for (let index = 1; index <= moveSteps; index++) {
+                        let point = at(index / moveSteps);
+
+                        events.push({delay: moveDelay, targetId: 'document.body', type: 'mousemove', windowId, options: opt(point.x, point.y, 1)})
+                    }
+
+                    let end = at(1);
+
+                    events.push({delay: moveDelay, targetId: 'document.body', type: 'mouseup', windowId, options: opt(end.x, end.y, 0)});
+
+                    let escort = async () => {
+                            for (let index = 1; index <= moveSteps; index++) {
+                                let point = at(index / moveSteps);
+
+                                if (cursorDot) {
+                                    cursorDot.style = {...cursorDot.style, left: `${point.x - 8}px`, top: `${point.y - 8}px`}
+                                }
+
+                                await driver.trap(driver.timeout(moveDelay))
+                            }
+                        },
+                        [ok] = await Promise.all([driver.simulateEvent(run, {events}), escort()]);
+
+                    dispatched.push(ok);
+
+                    if (!ok) {
+                        return {applied: false, errors: [`stroke ${stroke + 1} could not be dispatched`], proof: {before, dispatched}}
+                    }
+
+                    // the hand comes back to the anchor for the next stroke
+                    if (cursorDot && stroke + 1 < strokes) {
+                        cursorDot.style = {...cursorDot.style, left: `${start.x - 8}px`, top: `${start.y - 8}px`};
+                        await driver.trap(driver.timeout(moveDelay * 4))
+                    }
+                }
+
+                let after  = await settle(),
+                    proof  = {after, before, dispatched, strokes, travel: {deltaX, deltaY}},
+                    movedX = Math.sign(after.scrollLeft - before.scrollLeft),
+                    movedY = Math.sign(after.scrollTop - before.scrollTop),
+                    wantX  = -Math.sign(deltaX),
+                    wantY  = -Math.sign(deltaY);
+
+                if ((wantX && movedX !== wantX) || (wantY && movedY !== wantY)) {
+                    return {
+                        applied: false,
+                        errors : [`the grid did not follow the hand: scrollLeft ${before.scrollLeft} → ${after.scrollLeft}, scrollTop ${before.scrollTop} → ${after.scrollTop} for ${strokes} stroke(s) of (${deltaX}, ${deltaY})`],
+                        proof
+                    }
+                }
+
+                return {applied: true, errors: [], proof}
+            } catch (error) {
+                return {applied: false, errors: [error?.message || String(error)]}
+            } finally {
+                await driver.retireFilmCursorDot(cursorDot)
+            }
+        })
+    }
+
+    /**
      * @summary Settles a resize beat that failed after its drive was handed to the main thread, so
      * the cue never leaves residue. The simulator owns the mousedown → mouseup bracket and releases
      * it itself — a failed drive attempts its own mouseup, a refused terminal restores the panes'

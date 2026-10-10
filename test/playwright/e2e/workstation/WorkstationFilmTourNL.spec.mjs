@@ -192,6 +192,16 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(redo.applied).toBe(true);
         expect(redo.tabs['scale-tabs']).toContain('security');
 
+        // the signature's diagonal strokes: the grid followed the hand on both axes, down and to the
+        // right, so the rows kept crossing and the canvas column at the right edge came into view
+        const [gridDrag] = byType('grid-drag-scroll');
+
+        expect(gridDrag.applied, `the grid must follow the hand:\n${(gridDrag.errors || []).join('\n')}`).toBe(true);
+        expect(gridDrag.proof?.strokes).toBe(3);
+        expect(gridDrag.proof?.after?.settled, 'the inertia tail settled before the read').toBe(true);
+        expect(gridDrag.proof?.after?.scrollLeft, 'the view panned right').toBeGreaterThan(gridDrag.proof?.before?.scrollLeft ?? 0);
+        expect(gridDrag.proof?.after?.scrollTop,  'the view panned down').toBeGreaterThan(gridDrag.proof?.before?.scrollTop ?? 0);
+
         // the room never stopped living
         expect(receipt.feed.growth).toBeGreaterThan(0)
     }

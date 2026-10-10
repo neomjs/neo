@@ -316,6 +316,10 @@ class TourController extends Controller {
                 return (await this.getGestureDriver()).executeResizeStep(
                     {sizes: cue.sizes, splitNodeId: cue.splitNodeId}, cue.options
                 )
+            case 'grid-drag-scroll':
+                return (await this.getGestureDriver()).executeGridDragScrollStep(
+                    {anchor: cue.anchor, deltaX: cue.deltaX, deltaY: cue.deltaY, paneId: cue.paneId, strokes: cue.strokes}, cue.options
+                )
             case 'theme':
                 return this.workspace.setWorkspaceTheme(cue.theme)
             case 'gate':
