@@ -18,9 +18,9 @@ import {workstationTourScript, initialDocument} from '../tour/denseWorkstation.m
  * **Continue**, because `Neo.Main.windowOpen` is granted only inside a user gesture. The host
  * settlement boundary ({@link #settleTourStep}) is what holds the runner at the gate; the runner
  * itself stays document-tier and never learns about viewers. Replays and takes pass
- * `autoGates: true` and gates resolve on their own; a take may also name a hold per gate
- * ({@link #autoGateHoldMs}) — the gate still publishes no prompt, and the picture it holds on is the
- * cut's time for an introduction or an explanation over the living room.
+ * `autoGates: true` and gates resolve on their own; a take may also hold at named steps
+ * ({@link #takeHoldMs}) after their settlement — the picture it holds on is the cut's time for an
+ * introduction or an explanation over the living room, and the viewer's tour never holds.
  *
  * A cue that fails fails its beat: the settlement boundary rejects, so the runner stops before a
  * later window effect could run on top of a world the screenplay no longer describes. The failed
@@ -57,12 +57,15 @@ class TourController extends Controller {
      */
     autoGates = false
     /**
-     * Holds for auto-resolved gates, keyed by the gate's ordinal within one playback (`{1: 12000}`
-     * holds the second gate twelve seconds). Read only while {@link #autoGates} is on; a held gate's
-     * receipt carries `heldMs`. Set through `startTour({autoGateHoldMs})` or directly before Start.
-     * @member {Object|null} autoGateHoldMs=null
+     * Take-only holds after a step's settlement, keyed `'<sceneId>[<stepIndex>]'` (`{'film-journey[0]':
+     * 19000}` holds nineteen seconds on the born window before the journey). Read only while
+     * {@link #autoGates} is on; each hold is recorded in the tour receipt's `holds`. Set through
+     * `startTour({takeHoldMs})` or directly before Start.
+     * @member {Object|null} takeHoldMs=null
      */
-    autoGateHoldMs = null
+    takeHoldMs = null
+    /** @member {Object[]} holds `{sceneId, stepIndex, heldMs}` per take hold of the current playback. */
+    holds = []
     /** @member {Promise} cuePromise */
     cuePromise = Promise.resolve()
     /** @member {Map<String,Promise>} cueSettlements */
@@ -80,8 +83,6 @@ class TourController extends Controller {
     /** @member {Set<Neo.ai.client.TourRunner>} specRunners */
     specRunners = new Set()
 
-    /** @member {Number} #gateOrdinal=0 Gates opened so far in the current playback; indexes {@link #autoGateHoldMs}. */
-    #gateOrdinal = 0
     /** @member {Object|null} #pendingGate=null `{prompt, reject, resolve}` while a gate cue waits for the viewer. */
     #pendingGate = null
     /** @member {Promise|null} #settledPromise=null Retains cleanup completion after the controller retires. */
@@ -170,7 +171,7 @@ class TourController extends Controller {
      * @param {Object} [options={}]
      * @param {Boolean} [options.autoGates] Sets the gate mode for this controller: true resolves
      * gate cues without a viewer (replays, takes). Omitted keeps the current mode.
-     * @param {Object|null} [options.autoGateHoldMs] Per-gate holds for auto-resolved gates, see {@link #autoGateHoldMs}.
+     * @param {Object|null} [options.takeHoldMs] Take-only holds after named steps, see {@link #takeHoldMs}.
      * @returns {Promise<Object>}
      */
     startTour(script=workstationTourScript, options={}) {
@@ -246,23 +247,16 @@ class TourController extends Controller {
 
     /**
      * @summary Opens a viewer gate: publishes the prompt and settles only on {@link #continueTour}.
-     * With {@link #autoGates} the gate settles at once — replays and takes carry their own activation —
-     * or after the hold {@link #autoGateHoldMs} names for this gate, still without a prompt.
+     * With {@link #autoGates} the gate settles at once — replays and takes carry their own activation.
      * @param {Object} cue
      * @param {String} [cue.prompt] The Continue button's text while this gate is pending.
-     * @returns {Promise<Object>|Object} The gate receipt `{applied, continued, prompt}`, plus `heldMs` after a hold.
+     * @returns {Promise<Object>|Object} The gate receipt `{applied, continued, prompt}`.
      */
     openGate(cue) {
-        const me      = this,
-              prompt  = cue.prompt || 'Continue',
-              ordinal = me.#gateOrdinal++;
+        const me     = this,
+              prompt = cue.prompt || 'Continue';
 
-        if (me.autoGates) {
-            const hold    = me.autoGateHoldMs?.[ordinal] ?? 0,
-                  receipt = {applied: true, continued: 'auto', prompt};
-
-            return hold > 0 ? me.timeout(hold).then(() => ({...receipt, heldMs: hold})) : receipt
-        }
+        if (me.autoGates) return {applied: true, continued: 'auto', prompt};
 
         // The prompt is published as one string: the toolbar's `hidden` and `text` binds read a
         // primitive, so the gate's appearance never depends on how a nested object write is tracked.
@@ -604,7 +598,16 @@ class TourController extends Controller {
 
         if (outcome?.cueFailed) throw new Error(outcome.cueFailed);
 
-        await workspace.refreshPromise
+        await workspace.refreshPromise;
+
+        // A take's hold comes after the step's own barrier, so it never masks a cue or refresh that
+        // did not settle; the viewer's tour (no autoGates) never holds.
+        const hold = me.autoGates ? me.takeHoldMs?.[`${data.sceneId}[${data.stepIndex}]`] ?? 0 : 0;
+
+        if (hold > 0) {
+            await me.timeout(hold);
+            me.holds.push({heldMs: hold, sceneId: data.sceneId, stepIndex: data.stepIndex})
+        }
     }
 
     /**
@@ -788,10 +791,10 @@ class TourController extends Controller {
      * @param {Object} [script=workstationTourScript]
      * @param {Object} [options={}]
      * @param {Boolean} [options.autoGates] Sets the gate mode when given; omitted keeps it.
-     * @param {Object|null} [options.autoGateHoldMs] Sets the per-gate holds when given; omitted keeps them.
+     * @param {Object|null} [options.takeHoldMs] Sets the take holds when given; omitted keeps them.
      * @returns {Promise<Object>|undefined}
      */
-    async runVisibleTour(script=workstationTourScript, {autoGates, autoGateHoldMs}={}) {
+    async runVisibleTour(script=workstationTourScript, {autoGates, takeHoldMs}={}) {
         let me = this, workspace = me.workspace;
 
         me.getTourRunner(script);
@@ -802,8 +805,8 @@ class TourController extends Controller {
         }
 
         if (autoGates !== undefined) me.autoGates = autoGates === true;
-        if (autoGateHoldMs !== undefined) me.autoGateHoldMs = autoGateHoldMs;
-        me.#gateOrdinal = 0;
+        if (takeHoldMs !== undefined) me.takeHoldMs = takeHoldMs;
+        me.holds = [];
         me.setState({'tour.gatePrompt': null, 'tour.running': true, 'tour.totalBeats': TourController.totalBeats(script).length});
         me.cueErrors       = [];
         me.cuePromise      = Promise.resolve();
@@ -870,6 +873,7 @@ class TourController extends Controller {
                     produced      : (feedStore.batchCount - feedStartBatch) * feedStore.batchSize,
                     startCount    : feedStartCount
                 },
+                holds   : me.holds.slice(),
                 log     : runnerResult.log,
                 scriptId: script.id ?? null
             };

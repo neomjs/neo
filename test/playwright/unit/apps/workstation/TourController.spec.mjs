@@ -133,41 +133,42 @@ test('a gate holds until Continue; under autoGates it settles on its own and pub
     } finally {workspace.destroy()}
 });
 
-test('a take holds an auto-resolved gate by ordinal: the receipt carries heldMs, no prompt is published, and the ordinal resets per playback', async () => {
+test('a take holds after a named step: the receipt records the hold, the gate stays prompt-free, and the viewer\'s tour never holds', async () => {
     const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
           controller = await workspace.getController().getTourController(),
           provider   = workspace.getStateProvider(), prompt = 'Continue — go',
           script     = {
-              schema: 'neo.tour.script.v1', id: 'gate-hold', title: 'Gate hold',
+              schema: 'neo.tour.script.v1', id: 'take-hold', title: 'Take hold',
               scenes: [{id: 's', title: 'Scene', steps: [
                   {type: 'pause', ms: 0, cue: {type: 'gate', prompt}},
-                  {type: 'pause', ms: 0, cue: {type: 'gate', prompt}}
+                  {type: 'pause', ms: 0}
               ]}]
-          },
-          gates      = receipt => receipt.cueReceipts.map(entry => entry.receipt);
+          };
     controller.setPipProgress = async () => {};
     workspace.resetTopology = async () => acceptedReset();
     try {
         const startedAt = Date.now(),
-              run       = controller.startTour(script, {autoGates: true, autoGateHoldMs: {1: 120}});
+              run       = controller.startTour(script, {autoGates: true, takeHoldMs: {'s[0]': 120}});
 
-        // the first gate settles at once; while the second holds, nothing is published for a viewer
-        await expect.poll(() => controller.cueReceipts.length).toBeGreaterThanOrEqual(1);
+        // the gate itself settles at once and publishes nothing; the hold follows its settlement
+        await expect.poll(() => controller.cueReceipts.length).toBe(1);
+        expect(controller.cueReceipts[0].receipt).toEqual({applied: true, continued: 'auto', prompt});
         expect(controller.getPendingGate()).toBeNull();
         expect(provider.getData('tour.gatePrompt')).toBeNull();
 
-        const first = await run;
-        expect(first.completed).toBe(true);
-        expect(gates(first).map(gate => gate.continued)).toEqual(['auto', 'auto']);
-        expect(gates(first).map(gate => gate.heldMs)).toEqual([undefined, 120]);
+        const held = await run;
+        expect(held.completed).toBe(true);
+        expect(held.holds).toEqual([{heldMs: 120, sceneId: 's', stepIndex: 0}]);
         expect(Date.now() - startedAt).toBeGreaterThanOrEqual(120);
 
-        // the ordinal resets per playback: the next run holds its second gate again, and the holds stay set
-        expect(gates(await controller.startTour(script)).map(gate => gate.heldMs)).toEqual([undefined, 120]);
+        // the holds stay set for the next take, and are recorded afresh per playback
+        expect((await controller.startTour(script)).holds).toEqual([{heldMs: 120, sceneId: 's', stepIndex: 0}]);
 
-        // cleared, the gate returns the synchronous receipt
-        controller.autoGateHoldMs = null;
-        expect(controller.openGate({prompt})).toEqual({applied: true, continued: 'auto', prompt})
+        // the viewer's tour reads no take hold: same holds configured, gate mode off, nothing recorded
+        const viewer = controller.startTour(script, {autoGates: false});
+        await expect.poll(() => controller.getPendingGate()).toEqual({prompt});
+        expect(controller.continueTour()).toBe(true);
+        expect((await viewer).holds).toEqual([])
     } finally {workspace.destroy()}
 });
 
