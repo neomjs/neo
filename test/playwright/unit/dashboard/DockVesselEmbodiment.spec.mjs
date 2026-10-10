@@ -15,10 +15,8 @@ import Container          from '../../../../src/container/Base.mjs';
 import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 import DragProxyComponent from '../../../../src/draggable/DragProxyComponent.mjs';
 
-import {
-    createDockVesselEmbodiment,
-    createDockVesselProxyEmbodiment
-} from '../../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import VesselEmbodiment      from '../../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import VesselProxyEmbodiment from '../../../../src/dashboard/dock/window/VesselProxyEmbodiment.mjs';
 
 test.describe('Neo.dashboard.dock.window.VesselEmbodiment (#15396)', () => {
     let embodiment, pane, proxyEmbodiment, source, target;
@@ -35,7 +33,7 @@ test.describe('Neo.dashboard.dock.window.VesselEmbodiment (#15396)', () => {
         target = Neo.create(Container, {items: []});
         pane   = source.items[1];
 
-        embodiment = createDockVesselEmbodiment({
+        embodiment = Neo.create(VesselEmbodiment, {
             resolvePane  : itemId => itemId === 'live' ? pane : null,
             resolveTarget: windowId => windowId === 'admitted-window' ? target : null
         })
@@ -243,7 +241,7 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
             return sourcePromiseUpdate(...args)
         };
 
-        proxyEmbodiment = createDockVesselProxyEmbodiment({
+        proxyEmbodiment = Neo.create(VesselProxyEmbodiment, {
             createProxy: config => {
                 const proxy = Neo.create(Container, {
                     cls  : config.cls,
@@ -490,7 +488,7 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
                     windowId          : 'source-window'
                 };
 
-            proxyEmbodiment = createDockVesselProxyEmbodiment({
+            proxyEmbodiment = Neo.create(VesselProxyEmbodiment, {
                 createProxy: config => {
                     const proxy = Neo.create(Component, {cls: config.cls, style: config.style});
 
@@ -585,5 +583,101 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
             expect(fixture.proxies[0].isDestroyed).toBe(true);
             expect(source.items[1], 'the pane never left its slot').toBe(pane)
         })
+    })
+});
+
+/**
+ * @summary Refuses every staging settlement, so a stage reaches the subclass or it reaches nothing.
+ */
+class RefusingEmbodiment extends VesselEmbodiment {
+    static config = {className: 'Test.Unit.DockVesselEmbodiment.Refusing'}
+
+    /** @summary Declines the mount. @returns {Promise<Boolean>} */
+    async settleStage() {
+        return false
+    }
+}
+
+Neo.setupClass(RefusingEmbodiment);
+
+/**
+ * @summary Treats every proxy rectangle as unmeasurable, so a move reaches the subclass or nothing.
+ */
+class BlindProxyEmbodiment extends VesselProxyEmbodiment {
+    static config = {className: 'Test.Unit.DockVesselEmbodiment.BlindProxy'}
+
+    /** @summary Measures nothing. @returns {Boolean} */
+    isMeasurableProxyRect() {
+        return false
+    }
+}
+
+Neo.setupClass(BlindProxyEmbodiment);
+
+test.describe('the embodiments dispatch their internal steps through the instance', () => {
+    test('a subclass settlement decides the stage', async () => {
+        const source   = Neo.create(Container, {items: [{module: Component, html: 'live'}]}),
+              target   = Neo.create(Container, {items: []}),
+              pane     = source.items[0],
+              refusing = Neo.create(RefusingEmbodiment, {resolvePane: () => pane, resolveTarget: () => target});
+
+        try {
+            await expect(refusing.stage({itemId: 'live', windowId: 'admitted-window'}), 'the override answered').resolves.toBe(false)
+        } finally {
+            refusing.destroy();
+            source.destroy();
+            target.destroy()
+        }
+    });
+
+    test('a subclass measurement decides the proxy move', () => {
+        const pane  = Neo.create(Component, {windowId: 'source-window'}),
+              proxy = Neo.create(BlindProxyEmbodiment, {
+                  createProxy       : () => {throw new Error('a refused rect must never create a proxy')},
+                  resolvePane       : () => pane,
+                  resolveProxyConfig: () => ({cls: []})
+              });
+
+        try {
+            expect(proxy.move({
+                draggedItem   : {dockItemId: 'live'},
+                proxyRect     : {x: 1, y: 2, width: 30, height: 40},
+                sourceWindowId: 'source-window',
+                targetWindowId: 'target-window'
+            }), 'the override refused a drawable rect').toBe(false);
+            expect(proxy.snapshot('live')).toBeNull()
+        } finally {
+            proxy.destroy();
+            pane.destroy()
+        }
+    });
+
+    test('control: the base classes stage and measure the same inputs', async () => {
+        const created = [],
+              source  = Neo.create(Container, {items: [{module: Component, html: 'live'}]}),
+              target  = Neo.create(Container, {items: []}),
+              pane    = source.items[0],
+              base    = Neo.create(VesselEmbodiment, {resolvePane: () => pane, resolveTarget: () => target}),
+              proxy   = Neo.create(VesselProxyEmbodiment, {
+                  createProxy       : config => {created.push(config); return null},
+                  resolvePane       : () => null,
+                  resolveProxyConfig: () => ({cls: []})
+              });
+
+        try {
+            await expect(base.stage({itemId: 'live', windowId: 'admitted-window'}), 'the base settles the stage').resolves.toBe(true);
+            proxy.move({
+                draggedItem   : {dockItemId: 'live'},
+                proxyRect     : {x: 1, y: 2, width: 30, height: 40},
+                sourceWindowId: 'source-window',
+                targetWindowId: 'target-window'
+            });
+            expect(created, 'the base measured the rect as drawable and went on to create a proxy').toHaveLength(1)
+        } finally {
+            proxy.destroy();
+            base.destroy();
+            source.destroy();
+            target.destroy()
+        }
     })
 });

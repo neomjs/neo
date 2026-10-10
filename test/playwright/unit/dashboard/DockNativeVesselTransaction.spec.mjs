@@ -91,6 +91,43 @@ const descriptorFor = ({receipts}) => ({
     targetWindowId: () => 'win-target'
 });
 
+/**
+ * @summary Shifts every frame origin, so a re-show reaches the subclass static or it reaches nothing.
+ */
+class ShiftedTransaction extends NativeVesselTransaction {
+    static config = {className: 'Test.Unit.DockNativeVesselTransaction.Shifted'}
+
+    /** @summary Adds a fixed offset to the base origin. @param {Object} rect @param {String} windowId @returns {Object|null} */
+    static toFrameOrigin(rect, windowId) {
+        const origin = super.toFrameOrigin(rect, windowId);
+        return origin && {x: origin.x + 100, y: origin.y + 200}
+    }
+}
+
+Neo.setupClass(ShiftedTransaction);
+
+/**
+ * @summary A subclass whose re-show comes from `Neo.overwrites`, applied at class setup.
+ */
+class OverwrittenTransaction extends NativeVesselTransaction {
+    static config = {className: 'Test.Unit.DockNativeVesselTransaction.Overwritten'}
+}
+
+const previousOverwrites = Neo.overwrites;
+
+Neo.overwrites = {Test: {Unit: {DockNativeVesselTransaction: {Overwritten: {
+    async reshowVessel(data) {
+        this.overwrittenReshow = data;
+        return false
+    }
+}}}}};
+
+try {
+    Neo.setupClass(OverwrittenTransaction)
+} finally {
+    Neo.overwrites = previousOverwrites
+}
+
 test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
     let platform = null,
         restore  = null;
@@ -108,7 +145,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         restore  = stubRoutes({focus: true, position: true, resize: false});
         platform = installPlatform();
 
-        const admitted = await NativeVesselTransaction.effectsFor(descriptorFor({receipts}))
+        const admitted = await Neo.create(NativeVesselTransaction, descriptorFor({receipts}))
             .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'});
 
         expect(admitted, 'a position restore needs no resize capability').toBe(true);
@@ -122,7 +159,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         restore  = stubRoutes({focus: true, position: true, resize: true});
         platform = installPlatform();
 
-        const effects = NativeVesselTransaction.effectsFor(descriptorFor({receipts}));
+        const effects = Neo.create(NativeVesselTransaction, descriptorFor({receipts}));
 
         await effects.reshowVessel({itemId: 'item-1', rect: {x: 400, y: 300}, windowName: 'vessel-1'});
 
@@ -138,8 +175,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         restore  = stubRoutes({focus: true, position: true, resize: true});
         platform = installPlatform();
 
-        const admitted = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
+        const admitted = await Neo.create(NativeVesselTransaction, descriptorFor({receipts}))
             .reshowVessel({itemId: 'item-1', rect: null, windowName: 'vessel-1'});
 
         expect(admitted, 'no origin is a refusal, never a move to NaN').toBe(false);
@@ -152,8 +188,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         restore  = stubRoutes({focus: true, position: true, resize: true});
         platform = installPlatform();
 
-        const reshow = () => NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
+        const reshow = () => Neo.create(NativeVesselTransaction, descriptorFor({receipts}))
             .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'});
 
         expect(await reshow()).toBe(true);
@@ -173,11 +208,34 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         restore  = stubRoutes({focus: true, position: true, resize: true});
         platform = installPlatform();
 
-        const admitted = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
+        const admitted = await Neo.create(NativeVesselTransaction, descriptorFor({receipts}))
             .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'a-different-vessel'});
 
         expect(admitted).toBe(false)
+    });
+
+    test('a subclass static override reaches the frame the re-show hands the platform', async () => {
+        const receipts = {};
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+
+        expect(await Neo.create(ShiftedTransaction, descriptorFor({receipts}))
+            .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'})).toBe(true);
+        expect(platform.calls, 'the subclass frame reached the move').toEqual([{...ROUTE, windowId: 'win-owner', x: 110, y: 220}])
+    });
+
+    test('a Neo.overwrites entry replaces the re-show a park seam dispatches', async () => {
+        const receipts = {},
+              owner    = Neo.create(OverwrittenTransaction, descriptorFor({receipts})),
+              seam     = args => owner.reshowVessel(args);
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+
+        expect(await seam({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'}), 'the overwrite answered').toBe(false);
+        expect(owner.overwrittenReshow).toMatchObject({itemId: 'item-1'});
+        expect(platform.calls, 'the base re-show never moved the window').toEqual([])
     });
 });
 

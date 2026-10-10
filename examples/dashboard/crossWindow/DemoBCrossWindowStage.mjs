@@ -11,8 +11,7 @@ import PreviewContract    from '../../../src/dashboard/dock/model/PreviewContrac
  * whole-stack return. Extracted from `DemoBWorkspace` (decomposition Phase 1) with zero behavior
  * change.
  *
- * Following the `createDockTearOutHandlers` precedent: a pure decision machine with every seam
- * injected. Unlike that sibling, the stage's STATE deliberately stays host-owned — the unit
+ * A pure decision machine with every seam injected. Its STATE deliberately stays host-owned — the unit
  * spec's stage doubles write `workspace.crossWindowTargetWindowId` and call
  * `workspace.crossWindowStageResolve` directly, making those fields the host's public stage
  * contract. This module owns the CODE that manipulates them; the workspace owns the fields.

@@ -12,11 +12,9 @@ import StateProvider              from '../../../src/state/Provider.mjs';
 import TransactionManager         from '../../../src/manager/Transaction.mjs';
 import WindowManager              from '../../../src/manager/Window.mjs';
 import WorkspaceSet               from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import VesselEmbodiment           from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
 import VesselPark                 from '../../../src/dashboard/dock/window/VesselPark.mjs';
-import {
-    createDockVesselEmbodiment,
-    createDockVesselProxyEmbodiment
-} from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import VesselProxyEmbodiment      from '../../../src/dashboard/dock/window/VesselProxyEmbodiment.mjs';
 
 /**
  * @summary Workstation's Group, popup and native-vessel lifecycle, independent of its pane presentation.
@@ -130,7 +128,7 @@ class VesselWorkspace extends DockWorkspace {
     /**
      * The transient render embodiment for admitted tear-out vessels (live pane staged into the
      * vessel while a hidden exact-slot placeholder holds the source indices).
-     * @member {Object|null} tearOutEmbodiment=null
+     * @member {Neo.dashboard.dock.window.VesselEmbodiment|null} tearOutEmbodiment=null
      */
     tearOutEmbodiment = null
 
@@ -138,7 +136,7 @@ class VesselWorkspace extends DockWorkspace {
      * The target-local drag embodiment: a claimed tab drag shows the source's tab-header proxy, and a
      * native title-bar handoff moves the same cached pane from its parked source popup into exactly one
      * target-local DragProxyContainer while a second hidden placeholder reserves the popup's live slot.
-     * @member {Object|null} vesselProxyEmbodiment=null
+     * @member {Neo.dashboard.dock.window.VesselProxyEmbodiment|null} vesselProxyEmbodiment=null
      */
     vesselProxyEmbodiment = null
 
@@ -167,6 +165,13 @@ class VesselWorkspace extends DockWorkspace {
      * @protected
      */
     nativeVesselParkHandlers = null
+
+    /**
+     * The engine's re-show owner over this host's inputs, behind the park handlers' `reshowVessel` seam.
+     * @member {Neo.dashboard.dock.window.NativeVesselTransaction|null} vesselTransaction=null
+     * @protected
+     */
+    vesselTransaction = null
 
     /**
      * The worker-owned cross-window workspace registry — `{workspaceId → document accessors}`.
@@ -256,13 +261,13 @@ class VesselWorkspace extends DockWorkspace {
             preview   : me.getReference('dock-preview')
         });
 
-        me.tearOutEmbodiment = createDockVesselEmbodiment({
+        me.tearOutEmbodiment = Neo.create(VesselEmbodiment, {
             resolvePane: itemId => me.paneCache[itemId]
                 ?? (me.dockModel?.items?.[itemId] && me.resolvePane(itemId, me.dockModel.items[itemId])),
             resolveTarget: windowId => me.resolveVesselStageTarget(windowId)
         });
 
-        me.vesselProxyEmbodiment = createDockVesselProxyEmbodiment({
+        me.vesselProxyEmbodiment = Neo.create(VesselProxyEmbodiment, {
             resolvePane: itemId => me.paneCache[itemId]
                 ?? (me.dockModel?.items?.[itemId] && me.resolvePane(itemId, me.dockModel.items[itemId])),
             resolveProxyConfig: ({sourceSortZone, targetWindowId}) => {
@@ -297,7 +302,7 @@ class VesselWorkspace extends DockWorkspace {
         // override: the native-titlebar paths are product policy (an OS titlebar drag carries no
         // user activation, so a main-window target parks nothing at all) and cannot be expressed as
         // a descriptor input without turning that default into a configuration language.
-        me.vesselTransaction = NativeVesselTransaction.effectsFor({
+        me.vesselTransaction = Neo.create(NativeVesselTransaction, {
             ownerWindowId : () => me.windowId,
             publishReceipt: receipt => me.lastVesselRestoreReceipt = receipt,
             resolveVessel : itemId => me.resolveTearOutVessel(itemId),
@@ -307,7 +312,7 @@ class VesselWorkspace extends DockWorkspace {
         me.nativeVesselParkHandlers = Neo.create(VesselPark, {
             disposeVessel: ({itemId}) => me.retireReturnedVessel(VesselWorkspace.vesselWorkspaceId(itemId)),
             parkVessel   : vessel => me.parkTearOutVessel(vessel),
-            reshowVessel : me.vesselTransaction.reshowVessel
+            reshowVessel : args => me.vesselTransaction.reshowVessel(args)
         });
     }
 
@@ -1524,6 +1529,7 @@ class VesselWorkspace extends DockWorkspace {
         me.workspaceSet?.destroy();
         me.dragAffordances?.destroy();
         me.nativeVesselParkHandlers?.destroy();
+        me.vesselTransaction?.destroy();
         me.vesselProxyEmbodiment?.destroy();
         me.tearOutEmbodiment?.destroy();
         Object.keys(me.provisionalVesselChromes).forEach(windowId => me.retireProvisionalVesselChrome(windowId));
