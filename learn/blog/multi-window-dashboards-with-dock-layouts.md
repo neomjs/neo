@@ -79,7 +79,7 @@ errors:  ['item "logs" is locked']
 
 with the arrangement unchanged ([features guide](https://github.com/neomjs/neo/blob/dev/learn/guides/uibuildingblocks/DockLayoutsFeatures.md#freeze-what-must-not-change)). The hidden button is a courtesy; the refusal is the guarantee, and it is the same for a click, a keystroke, a test and an agent.
 
-The header follows the same rule: it offers only what the engine can honor. The pop-out action renders only where the app can actually open a window, so nobody clicks a button that does nothing. And every outcome that crosses a window boundary also has a keyboard command, whose result is announced, failures included.
+The header follows the same rule: an action appears only where the engine has something behind it. The pop-out action stays hidden wherever the app has no way to open a window. Where it shows, the browser can still refuse a particular window, and then the pane stays where it was ([#15478](https://github.com/neomjs/neo/pull/15478)). And every outcome that crosses a window boundary also has a keyboard command, whose result is announced, failures included.
 
 ## What the developer writes
 
