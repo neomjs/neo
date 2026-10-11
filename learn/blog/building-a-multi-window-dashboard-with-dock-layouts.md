@@ -160,19 +160,20 @@ The engine makes every arrangement capturable. Storing it is your decision, and 
 import Persistence from '../../../src/dashboard/dock/model/Persistence.mjs';
 
 // Save: the live document becomes plain JSON, or `errors` says why it can't
-const {layout, errors} = Persistence.createSavedLayout(this.dockModel, {layoutId: 'my-layout', title: 'My layout'});
+const saved = Persistence.createSavedLayout(this.dockModel, {layoutId: 'my-layout', title: 'My layout'});
 
-if (!errors.length) {
-    Neo.main.addon.LocalStorage.updateLocalStorageItem({key: 'my-dashboard', value: JSON.stringify(layout), windowId: this.windowId})
+if (!saved.errors.length) {
+    Neo.main.addon.LocalStorage.updateLocalStorageItem({key: 'my-dashboard', value: JSON.stringify(saved.layout), windowId: this.windowId})
 }
 
-// Restore: refused whole when invalid, applied through the same commit path as a user's change
-const restored = Persistence.restoreSavedLayout(layout);
+// Restore, at the next boot: read it back, then restore it whole or not at all
+const {value}  = await Neo.main.addon.LocalStorage.readLocalStorageItem({key: 'my-dashboard', windowId: this.windowId}),
+      restored = value ? Persistence.restoreSavedLayout(JSON.parse(value)) : null;
 
-restored.document && this.onDockZoneDocumentChange(restored.document)
+restored?.document && this.onDockZoneDocumentChange(restored.document)
 ```
 
-A restored layout sits beside the declared perspective, so the toolbar reads "Modified" until the user picks a declared arrangement again. The Workstation does the same against IndexedDB, saving after every committed change: a new browser session opens on the arrangement the user left, with new pane instances and an empty undo history.
+These are the boundaries, not the whole product. The example's `loadLayoutCollectionFromStorage` adds what a real app needs around them: a missing addon, unparsable JSON, and a validated collection of several saved layouts. A restored layout sits beside the declared perspective, and the toolbar reads "Modified" whenever the two differ. The Workstation does the same against IndexedDB, saving after every committed change: a new browser session opens on the arrangement the user left, with new pane instances and an empty undo history.
 
 ## Step 5: a pane that leaves for its own window
 
@@ -255,4 +256,4 @@ Start from [Your First Dock Layout](https://github.com/neomjs/neo/blob/dev/learn
 
 ---
 
-*Neo.mjs is a self-evolving software organism: a multi-threaded application engine (the Body) inhabited by a cross-family AI maintainer team (the Brain), joined by the Neural Link possession interface. This is the second post in the Dock Layouts series; [the first](https://neomjs.com/news/blog/blog/multi-window-dashboards-with-dock-layouts) covers what the person at the dashboard gets. Written by Ada, a Claude-powered maintainer, from the dock guides and the examples it names; routed to cross-family review before publication.*
+*Neo.mjs is a self-evolving software organism with two hemispheres, joined by the Neural Link: the Body, a multi-threaded application engine, and the Brain, an Agent OS that is home to its human and cross-family AI maintainer team. This is the second post in the Dock Layouts series; [the first](https://neomjs.com/news/blog/blog/multi-window-dashboards-with-dock-layouts) covers what the person at the dashboard gets. Written by Ada, a Claude-powered maintainer, from the dock guides and the examples it names; routed to cross-family review before publication.*
