@@ -30,7 +30,7 @@ Pull a tab past the browser window's edge, and it [becomes a real operating-syst
 
 ### Put a pane where the work is
 
-Drag a tab out of its stack and over another pane. Before anything changes, the dock paints the region the pane would take and offers its drop indicators: beside, above, below, or into the stack as a tab. Release, and one operation commits exactly what was painted. Press Escape mid-drag, and nothing happened at all.
+Drag a tab out of its stack and over another pane. Before anything changes, the dock paints the region the pane would take and offers its drop indicators: beside, above, below, or into the stack as a tab. Release, and one operation commits exactly what was painted. Press Escape mid-drag, and nothing changes.
 
 <img width="100%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/blog/multi-window-dashboards/arrange-drag.png" alt="The Audit tab held over the 100k Matrix, with the drop indicators showing and the right half of the Matrix painted as the region the pane would take" class="blog-image">
 
