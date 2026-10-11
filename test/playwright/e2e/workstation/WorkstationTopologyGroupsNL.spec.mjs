@@ -705,14 +705,17 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             ), 'the human dock action committed').toMatchObject({applied: true});
             await expect.poll(async () => (await state()).historyCount, {message: 'the dock action appended one row'}).toBe(1);
 
-            const header = await focusPane(page, FEED_TITLE),
-                  popOut = header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first();
+            // A right-column pane: a header pop-out opens at the pane's footprint, and the full-width
+            // Feed strip's popup has no two free positions beside the main window.
+            const paneTitle = 'Commits',
+                  header    = await focusPane(page, paneTitle),
+                  popOut    = header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first();
             await expect(popOut).toBeVisible({timeout: 10000});
 
             const vesselPromise = context.waitForEvent('page', {timeout: 45000});
             await popOut.click();
             const vessel = await vesselPromise;
-            await expect(vessel.locator(TAB, {hasText: FEED_TITLE})).toBeVisible({timeout: 60000});
+            await expect(vessel.locator(TAB, {hasText: paneTitle})).toBeVisible({timeout: 60000});
             await vessel.waitForFunction(() => {
                 const observer = window.Neo?.main?.addon?.WindowPosition;
                 return Boolean(observer?.observeMovement && observer.intervalId && Neo.worker.Manager.windowId)
