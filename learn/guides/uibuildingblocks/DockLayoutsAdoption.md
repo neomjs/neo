@@ -438,7 +438,10 @@ derive ownership from it, because ownership arrives through the topology carrier
 The [cross-window demo's Viewport](https://github.com/neomjs/neo/blob/dev/examples/dashboard/crossWindow/Viewport.mjs)
 shows the empty-target pattern: its popup branch returns before adding a workspace. That demo recognizes its own
 `popout` and `workspaceId` parameters, not the default opener's `tearout` parameter. Reuse the pattern with the route
-your opener produces, rather than copying the demo's condition unchanged.
+your opener produces, rather than copying the demo's condition unchanged. For the default route itself,
+[`examples/dashboard/tearOut`](https://github.com/neomjs/neo/blob/dev/examples/dashboard/tearOut/Viewport.mjs) is the
+minimal running reference: its viewport stays empty when the URL carries `tearout`, and
+`test/playwright/e2e/dashboard/DockTearOutDefaultRoute.spec.mjs` witnesses the pop-out and the return.
 
 For a richer application-owned vessel, read
 [`apps/workstation/view/VesselWorkspace.mjs`](https://github.com/neomjs/neo/blob/dev/apps/workstation/view/VesselWorkspace.mjs)
