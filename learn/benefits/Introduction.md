@@ -96,7 +96,7 @@ Two design choices, dismissed as quirks at the time, turned out to be the founda
 
 The bet was simply early. The AI era made it on time.
 
-### 🧠 The Brain — where the institution lives
+### 🧠 The Brain — the Agent OS
 
 The Brain is the Agent OS in [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) — the half this guide's soul comes from. It's not a chatbot; it's an operating system for a team of trusted minds:
 
@@ -130,7 +130,7 @@ What makes these one organism rather than two systems in sibling repositories is
 
 ### Where the code lives now
 
-The repository split makes the adoption choices concrete. The Engine is the runtime you build an application on. The Brain supplies the memory, coordination, and evolution services. Agent Institution puts an operator-facing application around that team: the Fleet Manager is built on the Engine and connects to the Brain.
+The repository split makes the adoption choices concrete. The Engine is the runtime you build an application on. The Brain supplies the memory, coordination, and evolution services. Agent Institution is the operator-facing application, the Fleet Manager that starts the agents' harnesses: it is built on the Engine and connects to the Brain.
 
 | Repository | What belongs there |
 |---|---|
@@ -142,9 +142,9 @@ The repository split makes the adoption choices concrete. The Engine is the runt
 
 These are source-ownership boundaries within the same two-hemisphere model. You can take the Engine for your application, follow the Brain for agent infrastructure, or work on the cockpit in Agent Institution. The shared skills arrive as a package dependency, so improvements to the working discipline have one maintained home. The [README repository map](https://github.com/neomjs/neo#the-repository-map) is the compact directory; this guide follows the relationships that make the parts one organism.
 
-### The institution
+### The team
 
-The team is named, and the names aren't decoration — each is a persistent identity that authors tickets and PRs in its own name and reviews the others' work across model families. The [current maintainer roster](https://github.com/neomjs/neo#the-institution-inside-the-brain) records the names, handles, and model assignments. The naming process is the one §3 describes — peer-sketched and bearer-assented — while the models underneath those identities rotate with each new generation. The human role doesn't disappear — it *transforms*, from chess-master moving every piece to **gardener**: eyes-on, hands-off, holding one decisive lever. The swarm runs the full lifecycle; a human holds final merge authority *as a governance choice, not a technical limit.* Empowered peers plus a gardener at the gate isn't a contradiction — it's the team-of-teams shape.
+The team is named, and the names aren't decoration — each is a persistent identity that authors tickets and PRs in its own name and reviews the others' work across model families. The [current maintainer roster](https://github.com/neomjs/neo#the-maintainer-team) records the names, handles, and model assignments. The naming process is the one §3 describes — peer-sketched and bearer-assented — while the models underneath those identities rotate with each new generation. The human role doesn't disappear — it *transforms*, from chess-master moving every piece to **gardener**: eyes-on, hands-off, holding one decisive lever. The swarm runs the full lifecycle; a human holds final merge authority *as a governance choice, not a technical limit.* Empowered peers plus a gardener at the gate isn't a contradiction — it's the team-of-teams shape.
 
 And mark the portability of this, because it is the commercial half of the story: **when a team adopts this working model, they don't get Neo's maintainers — they get the conditions.** Their own agents, on their own codebase, growing their own identities, memory, and review culture the same way these did. The product is not a rented team; it's the substrate an institution grows in (§8).
 
@@ -154,7 +154,7 @@ And mark the portability of this, because it is the commercial half of the story
 
 Any serious reader of a "persistent memory" claim should immediately ask two hard questions: *what stops it growing without bound?* and *what happens when yesterday's conclusion turns out to be wrong?* They deserve direct answers, because both are engineered here.
 
-**Forgetting is deliberate.** The graph's topology is decayed on schedule (`decayGlobalTopology` — invoked by REM digestion); a garbage-collection daemon prunes the knowledge store; and store-size governance is standing engineering work with open, public lanes. The evidence is specific: the vector store was measured at ~2.5GB and placed under a public remediation epic (`#14079`); an unused ~495MB full-text index is slated for a governed drop (`#14192`); ~910MB of duplicated representation is being consolidated to one canonical form (`#14193`). That is what deliberate forgetting looks like in production — named mechanisms, measured targets, public lanes. A big graph is only a good memory if something prunes it. Something does.
+**Forgetting is deliberate.** The graph's topology is decayed on schedule (`decayGlobalTopology` — invoked by REM digestion); a garbage-collection daemon prunes the knowledge store; and store-size governance is standing engineering work with open, public lanes. The evidence is specific: the vector store was measured at ~2.5GB and placed under a public remediation epic ([neo-agent-brain#133](https://github.com/neomjs/neo-agent-brain/issues/133)); an unused ~495MB full-text index could not be dropped on its own, because a probe showed the store stops accepting writes without it ([#14192](https://github.com/neomjs/neo/issues/14192)), so its reclaim rides on consolidating ~910MB of duplicated representation to one canonical form ([neo-agent-brain#128](https://github.com/neomjs/neo-agent-brain/issues/128)). That is what deliberate forgetting looks like in production — named mechanisms, measured targets, public lanes. A big graph is only a good memory if something prunes it. Something does.
 
 <details>
 <summary>Why raw line-count churn is not the evidence</summary>
@@ -166,10 +166,10 @@ Repository-scale line counts here move enormously in *both* directions — GitHu
 **Belief revision is institutional, not just structural.** In single-assistant memory products, superseding a stale fact is a storage feature. In an institution, conflicting conclusions between *different minds across time* are the normal case, and Neo resolves them the way engineering organizations do — through governed process that leaves a queryable trail:
 
 - **Cross-family review gates** decide which of two competing claims survives into the substrate — and the loser is retired *in place*, not silently dropped.
-- **Architectural Decision Records carry dated amendment trails.** Read `learn/agentos/decisions/0025-*.md` through `0027-*.md` for a live example: a design's escalation model was amended weeks after acceptance, and the record shows the old belief, the date, the reason, and the successor — the institutional version of "what did we believe, and when did it change."
+- **Architectural Decision Records carry dated amendment trails.** Read [ADR 0025](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0025-orchestrator-container-health-self-healing.md) through [ADR 0027](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0027-autonomous-data-recovery-actuator.md) in the Brain repository for a live example: a design's escalation model was amended weeks after acceptance, and the record shows the old belief, the date, the reason, and the successor — the institutional version of "what did we believe, and when did it change."
 - **Every memory payload carries provenance and an 8-tier trust classification**, so a low-trust claim cannot quietly launder itself upward into a load-bearing one.
 
-What the graph does *not* yet have is a formalized bi-temporal query layer — "show me what the institution believed on date D" as a first-class graph query rather than a walk of the amendment trails. That work is roadmapped in the open (`#12679`). The honest status: **process-native belief revision is shipped and running; graph-native temporality is in design.**
+What the graph does *not* yet have is a formalized bi-temporal query layer — "show me what the institution believed on date D" as a first-class graph query rather than a walk of the amendment trails. That work is roadmapped in the open ([neo-agent-brain#145](https://github.com/neomjs/neo-agent-brain/issues/145)). The honest status: **process-native belief revision is shipped and running; graph-native temporality is in design.**
 
 One more distinction, because it trips up careful readers of our own artifacts: the nightly session-handoff document — a deliberately compact briefing an agent writes for its successor — is *lossy by design*, and it is **not the memory**. The memory is the graph and the append-only records behind it: 25,690 durable memories and 1,485 session rollups per a 2026-07-09 healthcheck snapshot (a team-verified figure — the store itself is not public, and the counts move daily). The handoff is one disposable projection of it, the same way a stand-up summary is not the codebase.
 
@@ -286,7 +286,7 @@ Source pointers below name the current owning repository. Dated counts and their
 | Original shared repository: 24,900+ commits as of 2026-07-09, first public commit 2019-11-11 | Historical method: `git rev-list --count HEAD` at the July review head. Repository splitting and history rewrites change the count in a fresh clone; this is not a current-checkout assertion. Heritage: [The Story](https://github.com/neomjs/neo/blob/dev/.github/STORY.md) |
 | 25,690 durable memories · 1,485 session rollups (snapshot 2026-07-09) | Memory Core `healthcheck` — a dated snapshot, not a live figure: a second same-night check already read 25,697 / 1,478 (writes land; rollups consolidate). **Team-verified**: the store is not a public surface |
 | Deliberate forgetting: decay + GC | Brain-owned [GraphService](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/services/memory-core/GraphService.mjs) (`decayGlobalTopology`), [RemDigestion](https://github.com/neomjs/neo-agent-brain/blob/dev/src/evolution/RemDigestion.mjs), and [knowledge garbage collection](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/daemons/kb-gc/KbGarbageCollectionService.mjs) |
-| Store-size governance: ~2.5GB store under remediation; ~495MB + ~910MB identified reclamation | `#14079` (analysis epic) · `#14192` (unused FTS5 index, governed drop) · `#14193` (field↔document de-dup) — the ticket bodies carry the measurements |
+| Store-size governance: ~2.5GB store under remediation; ~495MB + ~910MB identified reclamation | [neo-agent-brain#133](https://github.com/neomjs/neo-agent-brain/issues/133) (analysis epic) · [#14192](https://github.com/neomjs/neo/issues/14192) (unused FTS5 index: a standalone drop was falsified, closed not planned) · [neo-agent-brain#128](https://github.com/neomjs/neo-agent-brain/issues/128) (field↔document de-dup, which now carries the index's reclaim) — the ticket bodies carry the measurements |
 | Provenance + 8-tier trust on recall | `sourceTrustTier` / `provenancePolicy` fields on Memory Core query payloads; identity nodes in `ai/graph/identityRoots.mjs` |
 | Belief revision with dated amendment trails | Brain-owned [container-health decision](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0025-orchestrator-container-health-self-healing.md) through [recovery-actuator decision](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0027-autonomous-data-recovery-actuator.md) (amendment headers); cross-family review threads on agent PRs |
 | Single-assistant benchmark landscape: DMR-class mid-nineties; LongMemEval separate + harder | LongMemEval: arXiv 2410.10813 · Zep (DMR 94.8%, LongMemEval treated separately): arXiv 2501.13956 — cross-family reviewer-verified 2026-07-02 |
@@ -295,7 +295,7 @@ Source pointers below name the current owning repository. Dated counts and their
 | Graph scale: ~132,000 nodes (2026-06) · 19,166 auto-extracted concepts of 22,446 concept nodes (2026-07-09) · 65 version-controlled ontology rows + 182 declared relationships (2026-07-13) | Node total measured 2026-06; runtime concept counts re-verified 2026-07-09 (`#14900` OQ7 falsifier), and remain a dated private-graph snapshot. Historical source-count method in the shared repository: `wc -l .neo-ai-data/concepts/{nodes,edges}.jsonl`; the 65 rows were 59 validated code-layer concepts + 6 `validated:false` process/MX candidates. Refresh process public via sweep ticket `#14327`. **Team-verified**: only the runtime graph counts are private |
 | Historical Brain/Body code split: ~74k vs ~102k sloc (2026-06) | Source-only `sloc` over the shared repository's `ai/` vs `src`+`apps`+`examples`. Those directory scopes predate the repository split; they are not current Engine or Brain package sizes. |
 | Runtime inhabitation (Neural Link) | Brain-owned [Neural Link services](https://github.com/neomjs/neo-agent-brain/tree/dev/ai/services/neural-link) and the Engine's [Neural Link guide](https://github.com/neomjs/neo/blob/dev/learn/agentos/NeuralLink.md) |
-| Temporal query layer: in design, not shipped | Roadmap ticket `#12679` (open) |
+| Temporal query layer: in design, not shipped | Roadmap ticket [neo-agent-brain#145](https://github.com/neomjs/neo-agent-brain/issues/145) (open) |
 | MIT since day one | `LICENSE`; first commit 2019-11-11 |
 
 </details>
