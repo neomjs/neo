@@ -15,12 +15,15 @@ import PerspectiveSelection                     from './interaction/PerspectiveS
 import PerspectiveState                         from './projection/PerspectiveState.mjs';
 import Reconciler                               from './projection/Reconciler.mjs';
 import StateProvider                            from '../../state/Provider.mjs';
-import {createDockTearOutHandlers}              from './window/TearOut.mjs';
 import {retireParticipation, syncParticipation} from './window/ParticipationLifecycle.mjs';
 import WorkspaceDocument                        from './model/WorkspaceDocument.mjs';
 import Operations                               from './model/Operations.mjs';
 import PreviewContract                          from './model/PreviewContract.mjs';
 import TopologySeams                            from './window/TopologySeams.mjs';
+import {
+    createDockTearOutHandlers,
+    resolveVesselSize
+} from './window/TearOut.mjs';
 
 // The workspace classes already warned that a torn-out window has no way back (see projectDockModel)
 const unreachableReturnWarned = new Set();
@@ -367,6 +370,14 @@ class Workspace extends Container {
          * @member {Boolean} enableDockTearOutLifecycle=false
          */
         enableDockTearOutLifecycle: false,
+        /**
+         * A staged composition's fixed size for born vessels, `{height, width}`. `null` (the
+         * default) sizes each vessel from the dragged pane's rendered rect, clamped to the
+         * display. A composition that owns its footprint pins the size here; the Workstation
+         * film does, so a newborn window never covers a target the pointer still has to cross.
+         * @member {Object|null} tearOutVesselSize=null
+         */
+        tearOutVesselSize: null,
         /**
          * The cross-window participation this workspace composes once it publishes a
          * `crossWindowSortGroup` through {@link #getDockProjectionOptions} — the §2.3 registry identity
@@ -1083,12 +1094,14 @@ class Workspace extends Container {
      * @param {Object} request
      * @param {String} request.itemId
      * @param {Object} [request.proxyRect] Where the user released the drag proxy.
+     * @param {Object|null} [request.sourceRect] The dragged pane's rendered rect, measured at
+     *   boundary exit while the pane still lives in the source window; the size's default source.
      * @param {Object} request.topologyIdentity The slot the host reserved; `Main.windowOpen` writes it
      *   into the vessel's carrier, and the vessel presents it when it connects.
      * @returns {Promise<Object|null>} `{windowName}`, or `null` when no vessel opened.
      * @protected
      */
-    async openTearOutVessel({itemId, proxyRect, topologyIdentity}={}) {
+    async openTearOutVessel({itemId, proxyRect, sourceRect, topologyIdentity}={}) {
         let me         = this,
             {windowId} = me;
 
@@ -1114,11 +1127,18 @@ class Workspace extends Container {
             url.searchParams.delete('tearout');
             url.searchParams.set('tearout', itemId);
 
-            // The proxy rect is the pane the user dragged, so the vessel opens where they let go.
-            // Floors keep a degenerate rect (a collapsed rail tab) from opening an unusable window.
-            let height     = Math.max(Math.round(proxyRect?.height || 360), 240),
-                width      = Math.max(Math.round(proxyRect?.width  || 480), 320),
-                left       = Math.round((proxyRect?.x ?? 120) + (winData?.screenLeft || 0)),
+            // The dragged pane's rendered rect is the size the vessel opens from, so a torn-out
+            // tab shows what it showed; the proxy rect keeps its placement and stays the size
+            // fallback. The helper owns the clamp (screen, title bar, floor) and any staged pin.
+            const {height, width} = resolveVesselSize({
+                pinnedSize   : me.tearOutVesselSize,
+                proxyRect,
+                screen       : winData?.screen,
+                sourceRect,
+                titleBarDelta: (winData?.outerHeight - winData?.innerHeight) || 0
+            });
+
+            let left       = Math.round((proxyRect?.x ?? 120) + (winData?.screenLeft || 0)),
                 top        = Math.round((proxyRect?.y ?? 120) + ((winData?.outerHeight - winData?.innerHeight) || 0) + (winData?.screenTop || 0)),
                 windowName = me.tearOutWindowName(itemId);
 

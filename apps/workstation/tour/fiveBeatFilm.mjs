@@ -75,9 +75,21 @@
  * The film-paced gesture options every real-pointer cue shares: a bowed path sampled at ~30 fps
  * with the synthetic cursor visible, and a birth gate wide enough for a vsync-limited boot.
  * Data only — the executors read these as plain options.
+ *
+ * `vesselSize` pins the born window's footprint to the floor size the choreography was cut
+ * against: scenes 3 and 4 drag across the main window's targets beside the newborn vessel, so a
+ * source-sized window would cover the very targets the pointer has to cross. The pin rides the
+ * host option (`tearOutVesselSize`), scoped to each tear-out gesture.
  * @type {Object}
  */
-const filmPace = Object.freeze({birthAttempts: 240, curve: 0.18, moveDelay: 33, moveSteps: 24, showCursor: true});
+const filmPace = Object.freeze({
+    birthAttempts: 240,
+    curve        : 0.18,
+    moveDelay    : 33,
+    moveSteps    : 24,
+    showCursor   : true,
+    vesselSize   : Object.freeze({height: 240, width: 320})
+});
 
 /**
  * The surface-cue vocabulary the screenplay uses. `TourController#executeCue` must handle every

@@ -41,11 +41,13 @@
  *     receives the committed post-detach document plus the exact admitted vessel generation (the
  *     same document/operation seam shape the adapter's `moveTo` listener feeds).
  * @param {Function} seams.openVessel Host vessel acquisition:
- *     `({gestureToken, itemId, proxyRect, sortZone}) => Promise<{generationToken, popupHeight,
+ *     `({gestureToken, itemId, proxyRect, sourceRect, sortZone}) => Promise<{generationToken, popupHeight,
  *     popupWidth, windowName, workspaceKey}|null>` —
  *     the host performs the platform work (URL, geometry, `windowOpen`) and resolves FALSY on any
  *     failed admission (`windowOpen` returns a Boolean — a blocked popup never throws, so the host
- *     must check the Boolean, not catch).
+ *     must check the Boolean, not catch). `sourceRect` is the dragged pane's rendered rect,
+ *     measured while the pane still lives in the source window; `null` when none could be measured.
+ *     The engine's `resolveVesselSize` turns either rect into the born window's size.
  *
  * The pane-handoff seams below carry the live-component half. Every one of them is host-supplied
  * for the same reason the four above are: this module resolves, reparents and destroys nothing
@@ -228,6 +230,24 @@ export function createDockTearOutHandlers({
 
         return resolvePane(itemId) || null
     };
+
+    /**
+     * @summary Measures the dragged pane's rendered rect while it still lives in the source
+     * window: the size the vessel is born from. The detach commits only at the terminal, so an
+     * exit-time read still finds the pane in place; an unmeasurable pane answers `null`, and the
+     * host falls back to its proxy rect.
+     * @param {Neo.component.Base} pane
+     * @returns {Promise<Object|null>} `{height, width, x, y}` in viewport coordinates, or `null`.
+     */
+    async function measurePaneRect(pane) {
+        try {
+            const rect = await pane.getDomRect();
+
+            return rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
+        } catch {
+            return null
+        }
+    }
 
     // Named, not `this`: two hosts SPREAD this bundle into a projection context
     // (`dock/Workspace#getDockProjectionOptions`, `DemoBWorkspace`), and a spread rebinds `this` to
@@ -740,10 +760,15 @@ export function createDockTearOutHandlers({
             let vessel;
 
             try {
+                const
+                    pane       = livePane(data.itemId),
+                    sourceRect = pane && !pane.isDestroyed ? await measurePaneRect(pane) : null;
+
                 vessel = await openVessel({
                     gestureToken: state.token,
                     itemId      : data.itemId,
                     proxyRect   : data.proxyRect,
+                    sourceRect,
                     sortZone    : data.sortZone
                 })
             } catch {
@@ -844,4 +869,45 @@ export function createDockTearOutHandlers({
     };
 
     return api
+}
+
+/**
+ * @summary Resolves a born vessel's window size: the dragged pane's rendered size by default,
+ * clamped to the display's available area, or the fixed size a host pins for a staged composition.
+ *
+ * The default is the source pane's own rect, so a torn-out tab shows what it showed. The clamp
+ * subtracts the title-bar delta from the available height, so a source-sized window born at the
+ * pointer does not land half off-screen. Inputs that cannot be measured degrade to the proxy
+ * rect, then to a 480×360 fallback; the 320×240 floor survives every clamp, because below it a
+ * window is not usable whatever the display says. A pinned size wins outright: the composition
+ * that pins one owns its footprint.
+ * @param {Object} [data]
+ * @param {Object|null} [data.pinnedSize=null] Host-staged fixed size, `{height, width}`.
+ * @param {Object|null} [data.proxyRect=null] The drag proxy's rect, the fallback size input.
+ * @param {Object|null} [data.screen=null] The display's `availHeight` and `availWidth`.
+ * @param {Object|null} [data.sourceRect=null] The dragged pane's rendered rect.
+ * @param {Number} [data.titleBarDelta=0] Outer-minus-inner height of the source window.
+ * @returns {{height: Number, width: Number}}
+ */
+export function resolveVesselSize({pinnedSize=null, proxyRect=null, screen=null, sourceRect=null, titleBarDelta=0} = {}) {
+    const
+        clamp        = (value, floor, cap) => Math.max(floor, Math.min(Math.round(value), Math.max(floor, cap))),
+        isMeasurable = rect => Number.isFinite(rect?.width) && Number.isFinite(rect?.height) && rect.width > 0 && rect.height > 0;
+
+    if (isMeasurable(pinnedSize)) {
+        return {height: Math.round(pinnedSize.height), width: Math.round(pinnedSize.width)}
+    }
+
+    const
+        {availHeight, availWidth} = screen ?? {},
+        base                      = isMeasurable(sourceRect) ? sourceRect : (isMeasurable(proxyRect) ? proxyRect : {height: 360, width: 480}),
+        heightCap                 = Number.isFinite(availHeight) && availHeight > 0
+            ? availHeight - (Number.isFinite(titleBarDelta) ? titleBarDelta : 0)
+            : Infinity,
+        widthCap                  = Number.isFinite(availWidth) && availWidth > 0 ? availWidth : Infinity;
+
+    return {
+        height: clamp(base.height, 240, heightCap),
+        width : clamp(base.width, 320, widthCap)
+    }
 }

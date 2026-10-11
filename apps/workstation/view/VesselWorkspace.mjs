@@ -13,6 +13,7 @@ import TransactionManager         from '../../../src/manager/Transaction.mjs';
 import WindowManager              from '../../../src/manager/Window.mjs';
 import WorkspaceSet               from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 import VesselPark                 from '../../../src/dashboard/dock/window/VesselPark.mjs';
+import {resolveVesselSize}        from '../../../src/dashboard/dock/window/TearOut.mjs';
 import {
     createDockVesselEmbodiment,
     createDockVesselProxyEmbodiment
@@ -1103,11 +1104,13 @@ class VesselWorkspace extends DockWorkspace {
      * @param {Object} request
      * @param {String} request.itemId
      * @param {Object} request.proxyRect
+     * @param {Object|null} [request.sourceRect] The dragged pane's rendered rect, measured at
+     *   boundary exit while the pane still lives in the source window; the size's default source.
      * @param {Object} request.topologyIdentity The reserved slot, written into the vessel's carrier.
      * @returns {Promise<{popupHeight: Number, popupWidth: Number, windowName: String}|null>}
      * @protected
      */
-    async openTearOutVessel({itemId, proxyRect, topologyIdentity}) {
+    async openTearOutVessel({itemId, proxyRect, sourceRect, topologyIdentity}) {
         let me         = this,
             {windowId} = me,
             windowName = `tearout-${itemId}`;
@@ -1125,11 +1128,21 @@ class VesselWorkspace extends DockWorkspace {
                 schemes       = bootstrap?.schemes || {},
                 selectedTheme = Object.hasOwn(schemes, me.theme)
                     ? me.theme
-                    : bootstrap?.defaultTheme || me.theme,
-                width  = Math.max(Math.round(proxyRect?.width  || 480), 320),
-                height = Math.max(Math.round(proxyRect?.height || 360), 240),
-                left   = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
-                top    = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
+                    : bootstrap?.defaultTheme || me.theme;
+
+            // The dragged pane's rendered rect is the size the vessel opens from, so a torn-out
+            // tab shows what it showed; the proxy rect keeps its placement and stays the size
+            // fallback. The helper owns the clamp (screen, title bar, floor) and any staged pin.
+            const {height, width} = resolveVesselSize({
+                pinnedSize   : me.tearOutVesselSize,
+                proxyRect,
+                screen       : winData.screen,
+                sourceRect,
+                titleBarDelta: winData.outerHeight - winData.innerHeight
+            });
+
+            let left = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
+                top  = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
 
             let opened = await Neo.Main.windowOpen({
                 nativeCapabilities: {close: true, position: true, resize: true},

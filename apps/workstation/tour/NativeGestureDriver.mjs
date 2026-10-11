@@ -772,9 +772,13 @@ class NativeGestureDriver extends GestureDriver {
      * @param {Boolean} [options.reenter=false] Walk back inside instead of releasing — the morph witness.
      * @param {Boolean} [options.showCursor=false] Film mode: ride a visible synthetic cursor dot on
      *     the logged pointer coordinates — CDP events move no OS cursor, and the camera needs one.
+     * @param {Object|null} [options.vesselSize=null] Staged pin for the born window's size,
+     *     `{height, width}`. Applied to the workspace's `tearOutVesselSize` for this gesture and
+     *     restored when it ends; the film pins its footprint so a newborn window never covers a
+     *     target the pointer still has to cross.
      * @returns {Promise<Object>}
      */
-    async executeTearOutStep(step, {birthAttempts=180, birthDwellMs=0, cancel=false, curve=0, moveDelay=16, moveSteps=4, postBirthMoves=2, reenter=false, showCursor=false}={}) {
+    async executeTearOutStep(step, {birthAttempts=180, birthDwellMs=0, cancel=false, curve=0, moveDelay=16, moveSteps=4, postBirthMoves=2, reenter=false, showCursor=false, vesselSize=null}={}) {
         return this.runGesture(async run => {
             let me                     = run.workspace, driver = this,
                 {itemId, sourceNodeId} = step || {},
@@ -782,7 +786,8 @@ class NativeGestureDriver extends GestureDriver {
                 node                   = document?.nodes?.[sourceNodeId],
                 button                 = null,
                 cursorDot              = null,
-                release                = null;
+                release                = null,
+                vesselSizeRestore      = undefined;
 
             if (!itemId || node?.type !== 'tabs' || !node.items.includes(itemId)) {
                 return {applied: false, errors: ['tear-out step must name a live item held by a tabs node']}
@@ -795,6 +800,14 @@ class NativeGestureDriver extends GestureDriver {
             }
 
             try {
+                // A staged composition pins the born window's footprint through the host option
+                // (`tearOutVesselSize`); the pin is scoped to this gesture and restored in the
+                // finally below, so one take's staged size never leaks into the next.
+                if (vesselSize != null) {
+                    vesselSizeRestore    = me.tearOutVesselSize;
+                    me.tearOutVesselSize = vesselSize
+                }
+
                 // Drain the host-owned projection queue before reading tab chrome.
                 await driver.trap(Promise.resolve(me.refreshPromise));
 
@@ -1087,6 +1100,10 @@ class NativeGestureDriver extends GestureDriver {
 
                 return {applied: false, errors: [error?.message || String(error)]}
             } finally {
+                // The staged pin is scoped to the gesture: the host option returns to whatever it
+                // held before this take, so one composition's footprint never leaks into the next.
+                vesselSize != null && (me.tearOutVesselSize = vesselSizeRestore);
+
                 // The synthetic cursor is per-gesture presentation: it never outlives the take's
                 // gesture, and it never enters worker truth (pointer-events:none, no dock document).
                 await driver.retireFilmCursorDot(cursorDot)

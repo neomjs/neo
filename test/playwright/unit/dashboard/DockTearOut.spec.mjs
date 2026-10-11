@@ -10,8 +10,8 @@ setup({
     mockMain        : false
 });
 
-import {test, expect}              from '@playwright/test';
-import {createDockTearOutHandlers} from '../../../../src/dashboard/dock/window/TearOut.mjs';
+import {test, expect}                                 from '@playwright/test';
+import {createDockTearOutHandlers, resolveVesselSize} from '../../../../src/dashboard/dock/window/TearOut.mjs';
 
 /**
  * @summary The tear-out admission machine, driven end-to-end through its injected seams.
@@ -26,7 +26,7 @@ import {createDockTearOutHandlers} from '../../../../src/dashboard/dock/window/T
 test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers', () => {
     const harness = ({
         admit = true, closeResult = true, commitErrors = [], commitThrows = false, openResult = null,
-        commitReturn = null, refresh = null
+        commitReturn = null, pane = null, refresh = null
     } = {}) => {
         const calls = {applied: [], closed: [], ended: 0, opened: [], published: [], returns: [], started: [], synced: []};
 
@@ -68,7 +68,7 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
             onPaneAdopted          : () => {},
             onPaneReturn           : data => calls.returns.push(data),
             reparentPane           : () => true,
-            resolvePane            : () => null,
+            resolvePane            : () => pane,
             resolveReturnDescriptor: (document, itemId) => ({operation: 'restoreTab', itemId, tabsNodeId: 'tabs-1'}),
             settlePane             : () => {}
         });
@@ -99,14 +99,58 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
 
         await handlers.onDockTearOutExit(data);
 
-        // `gestureToken` is the pair's own correlation id, echoed unread by the host
+        // `gestureToken` is the pair's own correlation id, echoed unread by the host.
+        // `sourceRect` stays null here: this witness resolves no pane, so the host keeps the
+        // proxy rect as its sizing fallback.
         expect(calls.opened[0]).toEqual({
-            gestureToken: 1, itemId: 'graph', proxyRect: data.proxyRect, sortZone
+            gestureToken: 1, itemId: 'graph', proxyRect: data.proxyRect, sortZone, sourceRect: null
         });
         expect(calls.ended).toBe(0);
         expect(calls.started).toEqual([{
             dragData: data, popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'
         }])
+    });
+
+    test('the exit payload carries the dragged pane\'s rendered rect, measured before admission', async () => {
+        const order = [],
+            pane    = {
+                isDestroyed: false,
+                getDomRect : async () => {
+                    order.push('measured');
+
+                    return {x: 12, y: 34, width: 812, height: 615}
+                }
+            },
+            {calls, handlers, sortZone} = harness({
+                pane,
+                openResult: () => {
+                    order.push('opened');
+
+                    return {popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'}
+                }
+            });
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(calls.opened[0].sourceRect, 'the pane rect travels with the admission request')
+            .toEqual({x: 12, y: 34, width: 812, height: 615});
+        expect(order, 'measured while the pane still lives in the source window, before the host is asked')
+            .toEqual(['measured', 'opened'])
+    });
+
+    test('an unmeasurable pane answers null and admission still proceeds', async () => {
+        const pane = {
+                isDestroyed: false,
+                getDomRect : async () => {
+                    throw new Error('the pane detached mid-flight')
+                }
+            },
+            {calls, handlers, sortZone} = harness({pane});
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(calls.opened[0].sourceRect, 'a failed measurement never blocks the gesture').toBeNull();
+        expect(calls.started).toHaveLength(1)
     });
 
     test('the detached terminal commits detachItem EXACTLY once, syncs the committed document, and the vessel STAYS', async () => {
@@ -496,4 +540,56 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
         expect(calls.applied).toHaveLength(0);
         expect(calls.synced).toHaveLength(0)
     })
+});
+
+test.describe('Neo.dashboard.dock.window.TearOut — resolveVesselSize', () => {
+    test('the source pane\'s rendered size is the default', () => {
+        expect(resolveVesselSize({
+            screen    : {availHeight: 1080, availWidth: 1920},
+            sourceRect: {height: 615, width: 812, x: 10, y: 20}
+        })).toEqual({height: 615, width: 812})
+    });
+
+    test('the display clamps a large source size, with the title-bar delta off the height', () => {
+        expect(resolveVesselSize({
+            screen       : {availHeight: 900, availWidth: 1000},
+            sourceRect   : {height: 1300, width: 1400, x: 0, y: 0},
+            titleBarDelta: 40
+        })).toEqual({height: 860, width: 1000})
+    });
+
+    test('the 320×240 floor survives a degenerate source rect and a display smaller than the floor', () => {
+        expect(resolveVesselSize({
+            screen    : {availHeight: 1080, availWidth: 1920},
+            sourceRect: {height: 30, width: 40, x: 0, y: 0}
+        })).toEqual({height: 240, width: 320});
+
+        expect(resolveVesselSize({
+            screen    : {availHeight: 100, availWidth: 200},
+            sourceRect: {height: 800, width: 800, x: 0, y: 0}
+        })).toEqual({height: 240, width: 320})
+    });
+
+    test('the proxy rect is the fallback when the pane could not be measured, and 480×360 the last resort', () => {
+        expect(resolveVesselSize({
+            proxyRect: {height: 600, width: 700, x: 5, y: 6}
+        })).toEqual({height: 600, width: 700});
+
+        expect(resolveVesselSize({})).toEqual({height: 360, width: 480})
+    });
+
+    test('a host-pinned size wins outright over source, proxy and screen', () => {
+        expect(resolveVesselSize({
+            pinnedSize: {height: 240, width: 320},
+            proxyRect : {height: 600, width: 700, x: 5, y: 6},
+            screen    : {availHeight: 900, availWidth: 1000},
+            sourceRect: {height: 615, width: 812, x: 0, y: 0}
+        })).toEqual({height: 240, width: 320})
+    });
+
+    test('fractional rects round, like the window features they feed', () => {
+        expect(resolveVesselSize({
+            sourceRect: {height: 614.5, width: 812.6, x: 0, y: 0}
+        })).toEqual({height: 615, width: 813})
+    });
 });

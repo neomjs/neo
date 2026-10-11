@@ -2621,11 +2621,18 @@ test.describe('Workstation — dense living-data composition', () => {
                 workspaceId
             }),
             beforeRect         = await page.locator(`#${chrome.containerId}`).boundingBox(),
+            paneRect           = await page.locator(`#${paneId}`).boundingBox(),
+            screenData         = await page.evaluate(() => ({
+                availHeight  : screen.availHeight,
+                availWidth   : screen.availWidth,
+                titleBarDelta: outerHeight - innerHeight
+            })),
             popupPromise       = page.waitForEvent('popup', {timeout: 30000});
 
         const beforeGroup = await app.callMethod(workspaceId, 'controller.getTopologyState');
         expect(paneId, 'Commit Stream owns a live pane before pop-out').toBeTruthy();
         expect(beforeRect, 'the pop-out source pane is measurable').toBeTruthy();
+        expect(paneRect, 'the dragged pane is measurable before the tear-out').toBeTruthy();
 
         try {
             await locator.click();
@@ -2649,9 +2656,12 @@ test.describe('Workstation — dense living-data composition', () => {
                 timeout  : 30000,
                 intervals: [50, 100, 250]
             }).toEqual({
+                // The born window takes the dragged pane's own rendered size: clamped to the
+                // frame's display with the source chrome's title-bar delta subtracted from the
+                // height, and the 320×240 floor survives both clamps.
                 dims: {
-                    height: Math.max(Math.round(beforeRect.height), 240),
-                    width : Math.max(Math.round(beforeRect.width), 320)
+                    height: Math.max(240, Math.min(Math.round(paneRect.height), screenData.availHeight - screenData.titleBarDelta)),
+                    width : Math.max(320, Math.min(Math.round(paneRect.width),  screenData.availWidth))
                 },
                 // The subject is WHERE the pane is recorded, so the two fields that say so are
                 // asserted exactly. The record is allowed to carry more — it gained a rebuildable

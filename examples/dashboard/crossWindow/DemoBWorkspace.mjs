@@ -18,7 +18,10 @@ import Operations                   from '../../../src/dashboard/dock/model/Oper
 import Persistence                  from '../../../src/dashboard/dock/model/Persistence.mjs';
 import InteractionService           from '../../../src/ai/client/InteractionService.mjs';
 import {createDockKeyboardCommands} from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
-import {createDockTearOutHandlers}  from '../../../src/dashboard/dock/window/TearOut.mjs';
+import {
+    createDockTearOutHandlers,
+    resolveVesselSize
+} from '../../../src/dashboard/dock/window/TearOut.mjs';
 import {
     createDockVesselEmbodiment,
     createDockVesselProxyEmbodiment
@@ -204,7 +207,14 @@ class DemoBWorkspace extends Container {
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * A staged composition's fixed size for born vessels, `{height, width}`. `null` sizes
+         * each vessel from the dragged pane's rendered rect, clamped to the display (the
+         * `resolveVesselSize` contract shared with the engine workspace).
+         * @member {Object|null} tearOutVesselSize=null
+         */
+        tearOutVesselSize: null
         // `items` is built in construct() — each projection carries the instance-bound
         // reducer + view-sync callbacks, so it cannot live in static config.
     }
@@ -3958,11 +3968,13 @@ class DemoBWorkspace extends Container {
      * @param {Object} request
      * @param {String} request.itemId
      * @param {Object} request.proxyRect
+     * @param {Object|null} [request.sourceRect] The dragged pane's rendered rect, measured at
+     *   boundary exit while the pane still lives in the source window; the size's default source.
      * @param {Object} request.topologyIdentity The reserved slot, supplied by `NativeLifecycle#acquire`.
      * @returns {Promise<{popupHeight: Number, popupWidth: Number, windowName: String}|null>}
      * @protected
      */
-    async openTearOutVessel({itemId, proxyRect, topologyIdentity}) {
+    async openTearOutVessel({itemId, proxyRect, sourceRect, topologyIdentity}) {
         let me         = this,
             {windowId} = me,
             windowName = `tearout-${itemId}`;
@@ -3972,11 +3984,20 @@ class DemoBWorkspace extends Container {
         // effect invoked without one would open a native window no Group slot admits.
         if (!topologyIdentity) return null;
 
-        let winData = await Neo.Main.getWindowData({windowId}),
-            width   = Math.max(Math.round(proxyRect?.width  || 480), 320),
-            height  = Math.max(Math.round(proxyRect?.height || 360), 240),
-            left    = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
-            top     = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
+        let winData = await Neo.Main.getWindowData({windowId});
+
+        // The dragged pane's rendered rect is the size the vessel opens from; the proxy rect
+        // keeps its placement and stays the size fallback. The helper owns the clamp and any pin.
+        const {height, width} = resolveVesselSize({
+            pinnedSize   : me.tearOutVesselSize,
+            proxyRect,
+            screen       : winData.screen,
+            sourceRect,
+            titleBarDelta: winData.outerHeight - winData.innerHeight
+        });
+
+        let left = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
+            top  = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
 
         me.tearOutAcquisitionAttempts++;
 
