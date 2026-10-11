@@ -417,7 +417,7 @@ deliberately not offered; a snapshot is restored, a declaration is selected.
 
 ## The tear-out window's render target
 
-Tear-out turns a pane into a real OS window whose content is *the same live object*. It needs
+Tear-out turns a pane into a real OS window whose content is *the same live object*. The engine's default window path needs
 `useSharedWorkers: true` so both windows reach that object, and `enableDockTearOutLifecycle: true` on the workspace.
 The lifecycle is off by default. When enabled, the workspace owns gesture admission, the pre-terminal versus
 committed connection state, placement capture before `detachItem`, the semantic return after a physical disconnect,
