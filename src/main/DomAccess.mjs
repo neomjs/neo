@@ -1413,6 +1413,7 @@ class DomAccess extends Base {
      * This method implements a "Triangular Communication" pattern required to bypass a core limitation in Firefox Nightly (and potentially other browsers) regarding SharedWorkers.
      * Firefox fails silently when attempting to transfer an `OffscreenCanvas` from the Main Thread to the App Worker (SharedWorker), and then again from the App Worker to the Canvas Worker.
      * By calling this method, the Main Thread extracts the canvas and sends it directly to the Canvas Worker, bypassing the App Worker entirely for the buffer transfer.
+     * Connect this window first: retained components do not repeat their worker bootstrap after a window hop.
      *
      * @param {Object} data
      * @param {String} data.componentId
@@ -1424,6 +1425,8 @@ class DomAccess extends Base {
 
         if (node) {
             try {
+                if (!Neo.worker.Manager.startWorker({name: 'canvas'})) return;
+
                 let offscreen = node.transferControlToOffscreen();
 
                 Neo.worker.Manager.sendMessage('canvas', {
@@ -1433,7 +1436,7 @@ class DomAccess extends Base {
                     nodeId
                 }, [offscreen])
             } catch (e) {
-                // Ignore, means the canvas was already transferred or we do not support it
+                // Keep the best-effort path for unavailable worker startup or canvas transfer.
             }
         }
     }
