@@ -130,7 +130,7 @@ What makes these one organism rather than two systems in sibling repositories is
 
 ### Where the code lives now
 
-The repository split makes the adoption choices concrete. The Engine is the runtime you build an application on. The Brain supplies the memory, coordination, and evolution services. Agent Institution is the operator-facing application, the Fleet Manager that starts the agents' harnesses: it is built on the Engine and connects to the Brain.
+The repository split makes the adoption choices concrete. The Engine is the runtime you build an application on. The Brain supplies the memory, coordination, and evolution services. Agent Institution is the operator-facing application, the Fleet Manager that starts the agents' harnesses: it is built on the Engine and connects to the Brain. Its direction is to become a harness itself and the agents' home.
 
 | Repository | What belongs there |
 |---|---|
