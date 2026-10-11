@@ -329,6 +329,39 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         }
     });
 
+    // The re-opened window holds no tear-out record; its Group binding is the identity that closes it.
+    test('a sibling window re-opened for its workspace closes once its stack returns home', async ({page, context, baseURL, neuralLink}) => {
+        const seed = await savedColdFixture(page, context, neuralLink, ['feed', 'alerts']);
+        await context.close();
+        const coldContext = await neuralLink.newContext({baseURL, storageState: seed.storageState, viewport: {width: 1600, height: 900}});
+
+        try {
+            const root         = await coldRoot(coldContext, neuralLink, seed.carrier);
+            const popupPromise = coldContext.waitForEvent('page', {timeout: 45000});
+            expect(await root.app.callMethod(root.workspaceId, 'controller.openTopologyWorkspace', ['details'])).toMatchObject({opened: true});
+            const popup = await popupPromise;
+            await expect(popup.locator(TAB, {hasText: FEED_TITLE})).toBeVisible({timeout: 60000});
+
+            const workspaces = await root.app.callMethod(root.workspaceId, 'getDockTopologyWorkspaces'),
+                  target     = Object.entries(workspaces['workstation-main'].nodes).find(([, node]) => node.type === 'tabs')[0];
+
+            expect(await root.app.callMethod(root.workspaceId, 'commitCrossWindowTransfer', [{
+                sourceWorkspaceId: 'details', targetWorkspaceId: 'workstation-main',
+                descriptor       : {
+                    operation        : 'transferNode', nodeId: 'details-tabs', sourceWorkspaceId: 'details',
+                    targetWorkspaceId: 'workstation-main', target: {targetNodeId: target, placement: {kind: 'tab-into'}}
+                }
+            }]), 'the whole stack transfers home').toBe(true);
+            await expect.poll(() => popup.isClosed(), {message: 'the emptied re-opened window must close', timeout: 15000}).toBe(true);
+
+            const after = await root.app.callMethod(root.workspaceId, 'getDockTopologyWorkspaces');
+            expect(after.details.items).toEqual({});
+            expect(after['workstation-main'].nodes[target].items).toEqual(expect.arrayContaining(['feed', 'alerts']))
+        } finally {
+            await coldContext.close()
+        }
+    });
+
     test('warm F5 preserves the Workspace and its live panes while the Group rebinds', async ({page, context, neuralLink}) => {
         const keeper = await context.newPage();
 

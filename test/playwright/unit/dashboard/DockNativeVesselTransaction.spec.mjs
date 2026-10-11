@@ -467,7 +467,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
 
     test.beforeEach(() => {
         Neo.Main ??= {};
-        previousMain = Object.fromEntries(['windowNativeIsClosed', 'windowOpen', 'clearTopologyIdentity', 'closeTopologyWindow']
+        previousMain = Object.fromEntries(['windowNativeIsClosed', 'windowOpen', 'clearTopologyIdentity', 'closeTopologyWindow', 'setTopologyIdentity']
             .map(key => [key, Neo.Main[key]]));
         previousLease = TransactionManager.reconnectLeaseMs;
         previousLogError = Neo.logError
@@ -509,7 +509,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         host = {
             id     : 'independent-dock-document-owner', groupId, set, sourceIdentity, policy,
             calls  : [], returned: [], effects: [], logs: [],
-            answers: {observe: true, open: false, clear: true, close: true},
+            answers: {observe: true, open: false, clear: true, close: true, set: true},
             source : {document: dockDocument(['pane-last', 'pane-first']), windowId: bound ? 'native-return-floating' : null},
             target : {document: dockDocument(['anchor']), windowId: 'native-return-landing'}
         };
@@ -522,6 +522,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         Neo.Main.windowOpen = data => dispatch('open', data);
         Neo.Main.clearTopologyIdentity = data => dispatch('clear', data);
         Neo.Main.closeTopologyWindow = data => dispatch('close', data);
+        Neo.Main.setTopologyIdentity = data => dispatch('set', data);
         Neo.logError = error => host.logs.push(error.message);
 
         host.listeners = {
@@ -774,17 +775,77 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         await expect.poll(() => owner.effects.length).toBe(1);
         let resolveClear;
         owner.answers.clear = new Promise(resolve => resolveClear = resolve);
-        const result = await TransactionManager.redo({groupId: owner.groupId});
+        const reopenedToken = TransactionManager.getBinding(owner.groupId, FLOATING).generationToken;
+        const result        = await TransactionManager.redo({groupId: owner.groupId});
         await expect.poll(() => owner.calls.some(call => call.name === 'clear')).toBe(true);
         expect(TransactionManager.release(owner.source.windowId)).toBe(true);
         const successor = TransactionManager.reserve({groupId: owner.groupId, workspaceKey: FLOATING});
         owner.rebind(successor, 'native-return-new-lineage');
         resolveClear(true);
         await expect.poll(() => owner.effects.length).toBe(2);
+        // The clear names the lineage it was issued for, so the window's carrier refuses it once the
+        // successor wrote its own (Main.clearTopologyIdentity compares the token).
+        expect(owner.calls.find(call => call.name === 'clear').data.generationToken).toBe(reopenedToken);
+        expect(reopenedToken).not.toBe(successor.generationToken);
         expect(owner.calls.filter(call => call.name === 'close')).toEqual([]);
+        expect(owner.calls.filter(call => call.name === 'set'), 'the earlier lineage never writes its carrier back over the successor').toEqual([]);
         expect(owner.effects[1]).toMatchObject({transactionId: result.transactionId, observation: {closed: false}});
         expect(owner.source.windowId).toBe('native-return-new-lineage');
         expect(owner.source.document.items).toEqual({});
         expect(TransactionManager.get(owner.groupId).history.cursor).toBe(0)
+    });
+
+    /**
+     * Re-opens the returned popup through Undo, then empties it into the landing by a committed write, as
+     * a whole-stack transfer does, while its window stays bound.
+     * @returns {Promise<Object>} The host.
+     */
+    const reopenedAndEmptied = async () => {
+        const owner = createHost();
+        await owner.release();
+        owner.answers.open = data => { owner.rebind(data.topologyIdentity, 'native-return-reopened'); return true };
+        await TransactionManager.undo({groupId: owner.groupId});
+        await expect.poll(() => owner.effects.length).toBe(1);
+        await owner.set.write({[SOURCE]: dockDocument([]), [TARGET]: dockDocument(['anchor', 'pane-first', 'pane-last'])}, {cause: 'transfer'});
+        owner.calls.length = 0;
+        return owner
+    };
+
+    test('an emptied re-opened window closes through its Group binding outside replay, and only while bound', async () => {
+        const owner = await reopenedAndEmptied();
+
+        expect(await NativeVesselTransaction.closeWorkspaceWindow(owner.set, SOURCE)).toBe(true);
+        expect(owner.calls.map(call => call.name)).toEqual(['clear', 'close']);
+        expect(owner.calls[0].data, 'the clear names the bound lineage').toEqual({
+            generationToken: TransactionManager.getBinding(owner.groupId, FLOATING).generationToken,
+            groupId        : owner.groupId,
+            windowId       : 'native-return-reopened'
+        });
+        expect(owner.calls[1].data).toEqual({windowId: 'native-return-reopened'});
+
+        owner.source.windowId = null;
+        owner.calls.length = 0;
+        expect(await NativeVesselTransaction.closeWorkspaceWindow(owner.set, SOURCE), 'no bound window, nothing to close').toBe(false);
+        expect(owner.calls).toEqual([])
+    });
+
+    test('a pane committed back into the still-bound source while the clear is deferred keeps the window and its carrier', async () => {
+        const owner = await reopenedAndEmptied(), token = TransactionManager.getBinding(owner.groupId, FLOATING).generationToken;
+        let resolveClear;
+        owner.answers.clear = new Promise(resolve => resolveClear = resolve);
+
+        const closing = NativeVesselTransaction.closeWorkspaceWindow(owner.set, SOURCE);
+        await expect.poll(() => owner.calls.some(call => call.name === 'clear')).toBe(true);
+        await owner.set.write({[SOURCE]: dockDocument(['pane-first']), [TARGET]: dockDocument(['anchor', 'pane-last'])}, {cause: 'transfer'});
+        const historyCount = TransactionManager.get(owner.groupId).history.count;
+        resolveClear(true);
+
+        expect(await closing, 'a repopulated source is no emptied vessel').toBe(false);
+        expect(owner.calls.filter(call => call.name === 'close')).toEqual([]);
+        expect(owner.calls.filter(call => call.name === 'set').map(call => call.data), 'the still-bound window gets its carrier back')
+            .toEqual([{generationToken: token, groupId: owner.groupId, onlyIfEmpty: true, windowId: 'native-return-reopened', workspaceKey: FLOATING}]);
+        expect(Object.keys(owner.source.document.items)).toEqual(['pane-first']);
+        expect(TransactionManager.get(owner.groupId).history.count, 'a refused close rewrites no history').toBe(historyCount);
+        expect(TransactionManager.getBinding(owner.groupId, FLOATING)?.windowId).toBe('native-return-reopened')
     });
 });

@@ -311,6 +311,12 @@ leaves the source with its panes. On the Workstation the receipt for this road r
 adopted, projections settled, close dispatched, close acknowledged — so the emptied vessel closes itself only after
 the main document holds its panes, each with the instance id it left with.
 
+A popup that Undo or a restored perspective re-opens is the same workspace in a new render target, not a tear-out.
+`NativeVesselTransaction.embodyWorkspace` opens it, so it carries no tear-out record and no native-route
+capabilities. Its stack still comes home by the grip, and once empty it closes through its Group binding, behind the
+same fence a Redo uses. Its title-bar drag returns nothing: a native return is admitted only for a vessel the tear-out
+registry knows, on a route born with the `position` capability, and a re-opened window has neither.
+
 All four share one physical fact that fooled two maintainers on the same day, and the guide would be dishonest to
 skip it. When a pane comes home, the *document* moves first and the *component* follows. On the Workstation the
 committed document lists the pane in the main workspace about thirty milliseconds after the Reset click; the popup's
