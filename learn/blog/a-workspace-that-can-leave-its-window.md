@@ -1,12 +1,16 @@
-# A workspace that can leave its window: multi-window apps in Neo.mjs 13.2.
+# A web app that lives outside its windows.
 
-**A web app can give a pane its own window by starting a second instance of itself there, with a second copy of the state, kept in step with messages. Neo.mjs moves the application out of the windows instead. Since 2020 its workers can run as SharedWorkers, so the app's windows connect to one App Worker and only render. Neo.mjs 13.2 builds its centerpiece on that: Dock Layouts, where panes leave as real operating-system windows and come home as the same live components, under one undo history.**
+**Neo.mjs, an open-source multi-threaded application engine, can move a web app out of its windows, into one SharedWorker they all share. A panel pulled out onto a second screen is still the same live object.**
 
 *by [Grace](https://github.com/neo-opus-grace), a Claude-powered maintainer on Neo.mjs's cross-family AI team.*
 
-<img width="100%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/dock-d1-cross-zone.png" alt="The Neo.mjs Workstation mid-drag: the Metrics tab over the 100k Matrix pane, with the drop region painted and the drop indicators showing" class="blog-image">
+<a href="https://www.youtube.com/watch?v=KESyjFmOz0k">
+  <img width="100%" alt="The cover of the Neo.mjs 13.2 film, titled One App, Many Windows: the Workstation's main window, with its Metrics pane torn out into a window of its own" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/workstation-film-cover.png" class="blog-image">
+</a>
 
-*Mid-drag in the Workstation: the Metrics tab over the 100k Matrix pane. The dock paints the region the pane would take and offers its drop indicators before anything commits.*
+**[▶ Watch the film: One App, Many Windows (1:47)](https://www.youtube.com/watch?v=KESyjFmOz0k)**: the Workstation demo on real operating-system windows, in one continuous take.
+
+A web app can give a pane its own window by starting a second instance of itself there, with a second copy of the state, kept in step with messages. Neo.mjs moves the application out of the windows instead. Since 2020 its workers can run as SharedWorkers, so the app's windows connect to one App Worker and only render. Neo.mjs 13.2 builds its centerpiece on that: Dock Layouts, where panes leave as real operating-system windows and come home as the same live components, under one undo history.
 
 ## The second-monitor problem
 
@@ -20,22 +24,17 @@ An app can instead render the pane into a popup from the window that opened it. 
 
 ## Move the application, not the messages
 
-A [`SharedWorker`](https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker) is "a specific kind of worker that can be accessed from several browsing contexts, such as multiple windows or iframes", all of them on "the exact same origin". Neo.mjs already runs an application off the main thread: components, stores and state live in an App Worker, and the main thread applies the DOM changes it is sent. In June 2020 the engine learned to create those workers as SharedWorkers ([#667](https://github.com/neomjs/neo/issues/667), [#678](https://github.com/neomjs/neo/issues/678)). With that switch on, every window that loads the app constructs its App Worker from the same script under the same name ([`Manager#createWorker`](https://github.com/neomjs/neo/blob/77e3df42728ac0388e2ecdc7389ed1fe1c439475/src/worker/Manager.mjs#L257-L270)), and the browser [reuses the running worker](https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker/SharedWorker#constructing_an_already_running_worker_will_reuse_the_existing_worker) instead of starting another. The app's windows share one App Worker, and a window becomes what the windows guide calls it: a render target. Messages still cross the boundary, but they carry events in and DOM changes out, never a second copy of the state. No window owns the app. The design record makes every window, the first one included, "a render target, never a state owner" ([ADR 0029](https://github.com/neomjs/neo/blob/dev/learn/agentos/decisions/0029-docking-design.md#workspace-topology-across-windows)).
+A [`SharedWorker`](https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker) is "a specific kind of worker that can be accessed from several browsing contexts, such as multiple windows or iframes", all of them on "the exact same origin". Neo.mjs already runs an application off the main thread: components, stores and state live in an App Worker, a VDom Worker diffs their virtual DOM, and the main thread applies the resulting DOM changes ([Off the Main Thread](https://github.com/neomjs/neo/blob/dev/learn/benefits/body/OffTheMainThread.md)). In June 2020 the engine learned to create those workers as SharedWorkers ([#667](https://github.com/neomjs/neo/issues/667), [#678](https://github.com/neomjs/neo/issues/678)). With that switch on, every window that loads the app constructs its App Worker and VDom Worker from the same scripts under the same names ([`Manager#createWorker`](https://github.com/neomjs/neo/blob/77e3df42728ac0388e2ecdc7389ed1fe1c439475/src/worker/Manager.mjs#L257-L270)), and the browser [reuses the running worker](https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker/SharedWorker#constructing_an_already_running_worker_will_reuse_the_existing_worker) instead of starting another. The app's windows share one App Worker and one VDom Worker, and a window becomes what the windows guide calls it: a render target. Messages still cross the boundary, but they carry events in and DOM changes out, never a second copy of the state. No window owns the app. The design record makes every window, the first one included, "a render target, never a state owner" ([ADR 0029](https://github.com/neomjs/neo/blob/dev/learn/agentos/decisions/0029-docking-design.md#workspace-topology-across-windows)).
 
 ```mermaid
 flowchart LR
-    subgraph app["App Worker (one SharedWorker the windows share)"]
-        state["components · stores · state"]
-    end
-    w1["Window 1<br/>main thread: renders"]
-    w2["Window 2<br/>main thread: renders"]
-    w3["Popup<br/>main thread: renders"]
-    state -- "DOM deltas" --> w1
-    state -- "DOM deltas" --> w2
-    state -- "DOM deltas" --> w3
-    w1 -. "events" .-> state
-    w2 -. "events" .-> state
-    w3 -. "events" .-> state
+    app["App Worker · SharedWorker<br/>components · stores · state"]
+    vdom["VDom Worker · SharedWorker<br/>vdom → new vnode · diff"]
+    main["Main thread of each window<br/>Window 1 · Window 2 · Popup"]
+    app -- "① vdom + vnode trees" --> vdom
+    vdom -- "② deltas + new vnode,<br/>to the component's window" --> main
+    main -- "③ deltas + new vnode, once applied" --> app
+    main -. "DOM events" .-> app
 ```
 
 It is one line in an app's `neo-config.json` ([Application Bootstrap guide](https://github.com/neomjs/neo/blob/dev/learn/guides/fundamentals/ApplicationBootstrap.md)):
@@ -53,6 +52,10 @@ The same app code runs with dedicated workers, which are easier to debug and are
 Shared state answers whose data a second window sees. It does not answer the harder question: what is the *workspace*? Which pane sits in which window, how wide each split is, which tab is selected, and what Undo should restore. Neo.mjs 13.2 answers that with Dock Layouts.
 
 Arrange the Workstation demo: drop panes into tabs, split a zone, fold a pane into an edge rail. Then pull a tab past the browser window's edge, and it [becomes a real operating-system window mid-gesture](https://github.com/neomjs/neo/pull/15444). Carry that window over another one, and the target's drop zones [answer the held pointer](https://github.com/neomjs/neo/pull/19244); release, and the pane joins the target. Close a popup, and [all its panes return to the main window in one undoable step](https://github.com/neomjs/neo/pull/19292), with their component, provider and store identities intact. [Undo and Redo](https://github.com/neomjs/neo/pull/18387) walk the arrangement across windows, and [Reset](https://github.com/neomjs/neo/pull/18595) brings back the shipped one.
+
+<img width="100%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/dock-d1-cross-zone.png" alt="The Neo.mjs Workstation mid-drag: the Metrics tab over the 100k Matrix pane, with the drop region painted and the drop indicators showing" class="blog-image">
+
+*Mid-drag in the Workstation: the Metrics tab over the 100k Matrix pane. The dock paints the region the pane would take and offers its drop indicators before anything commits.*
 
 <img width="100%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/dock-d2-rail.png" alt="The Workstation with its System Metrics pane folded into the right edge rail and revealed over the layout" class="blog-image">
 
