@@ -796,7 +796,9 @@ class VesselWorkspace extends DockWorkspace {
 
     /**
      * Closes an emptied vessel only after the main target projection has adopted the committed
-     * stack. Physical disconnect remains the topology-exit terminal.
+     * stack. Physical disconnect remains the topology-exit terminal. A torn-out vessel closes through
+     * its tear-out record; a window re-opened for the workspace (Undo, a perspective) has none and
+     * closes through its Group binding, as a Redo does.
      * @param {String} workspaceId
      * @returns {Promise<Boolean>}
      * @protected
@@ -805,9 +807,10 @@ class VesselWorkspace extends DockWorkspace {
         let me      = this,
             state   = me.getPopupState(workspaceId),
             vessel  = state && me.resolveTearOutVessel(state.itemId),
+            bound   = !vessel && me.workspaceSet?.getParticipant(workspaceId)?.nativeWindow?.windowId(),
             receipt = me.lastCrossWindowTransfer;
 
-        if (!state || Object.keys(state.document?.items || {}).length || !vessel) return false;
+        if (!state || Object.keys(state.document?.items || {}).length || !(vessel || bound)) return false;
 
         if (
             receipt?.sourceWorkspaceId === workspaceId &&
@@ -819,7 +822,9 @@ class VesselWorkspace extends DockWorkspace {
 
         // Through the engine's retirement, not the platform seam directly: the fence it holds keeps a
         // late bind for the same item cleanup-only while the close is in flight.
-        const closed = await me.nativeWindows.retire(me.id, vessel);
+        const closed = vessel
+            ? await me.nativeWindows.retire(me.id, vessel)
+            : await NativeVesselTransaction.closeWorkspaceWindow(me.workspaceSet, workspaceId);
 
         if (closed) {
             state.closeRequested = true;

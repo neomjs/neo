@@ -165,22 +165,39 @@ class NativeVesselTransaction extends Base {
         }
         const result = await project();
         if (context.cursorAction === 'redo' && native.windowId() && !Object.keys(source.getDocument().items).length) {
-            const manager  = workspaceSet.manager, group = manager.get(workspaceSet.resolveGroupId()),
-                  binding  = group?.bindings.get(source.bindingKey), generation = binding?.generation,
-                  windowId = native.windowId(), current = () => manager.get(group?.id) === group &&
-                      group?.snapshot === context.snapshot && workspaceSet.getParticipant(workspaceId) === source &&
-                      group?.bindings.get(source.bindingKey) === binding && binding?.generation === generation &&
-                      binding?.windowId === windowId && native.windowId() === windowId;
-            let closed = false;
-            try {
-                if (current() && await Neo.Main.clearTopologyIdentity({groupId: group.id, windowId}) === true && current()) {
-                    closed = await Neo.Main.closeTopologyWindow({windowId}) === true
-                }
-            } catch {}
+            const closed = await this.closeWorkspaceWindow(workspaceSet, workspaceId, {snapshot: context.snapshot});
             this.publishWorkspaceEffect(workspaceSet, workspaceId, context,
                 {closed, errors: closed ? [] : ['native replay close was refused']})
         }
         return result
+    }
+
+    /**
+     * @summary Closes a participant's bound native window through its Group binding.
+     * Both sides of identity clearing are fenced against the exact binding, generation and window, and
+     * against `snapshot` when one is given, so a successor binding is never the one closed.
+     * @param {Neo.dashboard.dock.window.WorkspaceSet} workspaceSet
+     * @param {String} workspaceId
+     * @param {Object} [options={}]
+     * @param {Object} [options.snapshot] The Group snapshot the close must still belong to.
+     * @returns {Promise<Boolean>} `true` once the window accepted the close.
+     */
+    static async closeWorkspaceWindow(workspaceSet, workspaceId, {snapshot}={}) {
+        const source   = workspaceSet?.getParticipant(workspaceId), native = source?.nativeWindow,
+              manager  = workspaceSet?.manager, group = manager?.get(workspaceSet.resolveGroupId()),
+              binding  = group?.bindings.get(source?.bindingKey), generation = binding?.generation,
+              windowId = native?.windowId(), current = () => manager.get(group.id) === group &&
+                  (snapshot === undefined || group.snapshot === snapshot) &&
+                  workspaceSet.getParticipant(workspaceId) === source &&
+                  group.bindings.get(source.bindingKey) === binding && binding.generation === generation &&
+                  binding.windowId === windowId && native.windowId() === windowId;
+        if (!windowId || !binding) return false;
+        try {
+            if (current() && await Neo.Main.clearTopologyIdentity({groupId: group.id, windowId}) === true && current()) {
+                return await Neo.Main.closeTopologyWindow({windowId}) === true
+            }
+        } catch {}
+        return false
     }
 
     /**

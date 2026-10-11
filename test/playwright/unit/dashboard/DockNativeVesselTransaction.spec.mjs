@@ -787,4 +787,22 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         expect(owner.source.document.items).toEqual({});
         expect(TransactionManager.get(owner.groupId).history.cursor).toBe(0)
     });
+
+    test('a re-opened window closes through its Group binding outside replay, and only while bound', async () => {
+        const owner = createHost();
+        await owner.release();
+        owner.answers.open = data => { owner.rebind(data.topologyIdentity, 'native-return-reopened'); return true };
+        await TransactionManager.undo({groupId: owner.groupId});
+        await expect.poll(() => owner.effects.length).toBe(1);
+        owner.calls.length = 0;
+
+        expect(await NativeVesselTransaction.closeWorkspaceWindow(owner.set, SOURCE)).toBe(true);
+        expect(owner.calls.map(call => call.name)).toEqual(['clear', 'close']);
+        expect(owner.calls[1].data).toEqual({windowId: 'native-return-reopened'});
+
+        owner.source.windowId = null;
+        owner.calls.length = 0;
+        expect(await NativeVesselTransaction.closeWorkspaceWindow(owner.set, SOURCE), 'no bound window, nothing to close').toBe(false);
+        expect(owner.calls).toEqual([])
+    });
 });

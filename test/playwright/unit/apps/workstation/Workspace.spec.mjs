@@ -16,6 +16,7 @@ import DockWorkspace            from '../../../../../src/dashboard/dock/Workspac
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../../../src/dashboard/dock/model/Persistence.mjs';
 import DockParticipation        from '../../../../../src/dashboard/dock/window/Participation.mjs';
+import NativeVesselTransaction  from '../../../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import TopologyLibrary    from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
@@ -47,6 +48,32 @@ test('binding a restored vessel supplies its native item identity', async () => 
     });
     expect(await Workspace.prototype.retireReturnedVessel.call(workspace, 'restored-slot')).toBe(true);
     expect(calls, 'the rebound identity resolves the vessel that must close').toEqual(['metrics'])
+});
+
+test('an emptied vessel re-opened for its workspace closes through its Group binding', async () => {
+    const original  = NativeVesselTransaction.closeWorkspaceWindow, closes = [], retired = [],
+          native    = {windowId: () => 'reopened-window'},
+          workspace = {
+              getPopupState       : () => ({document: {items: {}}, itemId: 'feed'}),
+              resolveTearOutVessel: () => null,
+              nativeWindows       : {retire: async (_sourceId, vessel) => {retired.push(vessel); return true}},
+              workspaceSet        : {getParticipant: () => ({nativeWindow: native})}
+          };
+
+    NativeVesselTransaction.closeWorkspaceWindow = async (set, workspaceId) => {closes.push(workspaceId); return true};
+
+    try {
+        expect(await Workspace.prototype.retireReturnedVessel.call(workspace, 'workstation-vessel:feed')).toBe(true);
+        expect(closes, 'no tear-out record: the Group binding closes the window').toEqual(['workstation-vessel:feed']);
+        expect(retired, 'the item-keyed retirement has no record to retire').toEqual([]);
+
+        native.windowId = () => null;
+        expect(await Workspace.prototype.retireReturnedVessel.call(workspace, 'workstation-vessel:feed'),
+            'neither a record nor a bound window: nothing to close').toBe(false);
+        expect(closes).toHaveLength(1)
+    } finally {
+        NativeVesselTransaction.closeWorkspaceWindow = original
+    }
 });
 
 test('Reset awaits bound popup projections without waiting for a headless owner to remount', async () => {
