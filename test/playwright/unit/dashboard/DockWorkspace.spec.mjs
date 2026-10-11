@@ -1173,6 +1173,9 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // has none, and the seam already accepts the difference.
             expect(calls[0][1]).toMatchObject({itemId, sortZone: null});
             expect(calls[0][1].proxyRect).toMatchObject({height: 200, width: 400});
+            // The vessel takes its size from `sourceRect` alone, so the measured box must ride there too,
+            // or a click opens the window at the host's fallback size instead of the pane's footprint.
+            expect(calls[0][1].sourceRect, 'the measured box also sizes the vessel').toEqual(calls[0][1].proxyRect);
             expect(calls[1][1]).toEqual({itemId})
         });
 
