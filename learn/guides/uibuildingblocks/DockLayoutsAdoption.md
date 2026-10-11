@@ -417,28 +417,35 @@ deliberately not offered; a snapshot is restored, a declaration is selected.
 
 ## The tear-out window's render target
 
-Tear-out turns a pane into a real OS window whose content is *the same live object* — and the ownership boundary
-deserves exact words here. With `enableDockTearOutLifecycle` on, the workspace composes the journey itself: exact
-gesture admission, the pre-terminal versus committed connection state, placement capture before `detachItem`, the
-same-instance semantic return after a physical disconnect, and exact-once teardown. Your application contributes
-only what the engine cannot know — the platform's vessel open and close, live-pane resolution, an optional grant
-policy through `admitTearOutConnection`, lifecycle observers, and continuations for window routes unrelated to
-tear-out. The opt-in is off by default, so a workspace that never asked for tear-out is byte-for-byte unchanged, and
-`apps/workstation/view/Workspace.mjs`, which enables it, is the worked reference for the app-side hooks. Before the
-lifecycle moved into the engine the host composed all of it; the workstation's remaining hooks are what that lift
-left on the application's side.
+Tear-out turns a pane into a real OS window whose content is *the same live object*. It needs
+`useSharedWorkers: true` so both windows reach that object, and `enableDockTearOutLifecycle: true` on the workspace.
+The lifecycle is off by default. When enabled, the workspace owns gesture admission, the pre-terminal versus
+committed connection state, placement capture before `detachItem`, the semantic return after a physical disconnect,
+and exact-once teardown.
 
-What is stable under any future shape is the adopter-side obligation this section exists to teach: **the render
-target is yours** — a viewport that boots deliberately empty, because detached panes arrive at runtime. The
-canonical one is the cross-window demo's `?popout` boot branch (`examples/dashboard/crossWindow/Viewport.mjs`),
-and its own JSDoc says everything there is to say: *"This window carries no workspace of its own; the opener's
-workspace reparents the live pane into it on connect — the shared-heap contract, one App Worker, two render
-targets."*
+You do not have to write window-opening code to use the default route.
+[`Workspace.openTearOutVessel`](https://github.com/neomjs/neo/blob/dev/src/dashboard/dock/Workspace.mjs)
+reopens the host's own document with `?tearout=<itemId>` identifying the pane. The reserved topology identity travels
+separately through `Main.windowOpen`, not in the URL. The base `closeTearOutVessel` uses the engine's shared close
+path. Override these hooks when your application needs a dedicated vessel shell, different routing, staged theming
+or its own close receipts; the override remains authoritative.
 
-The deeper mechanics of the journey (claims, vessels, conversion, reintegration) are Part 2's territory. If your app
-needs tear-out today, enable the lifecycle and read the workstation's hooks first; the generic admission,
-document-mutation and window-lifecycle glue is the engine's, while the render target remains yours, as do
-product-specific vessel embodiment, open/close and grant policy.
+**The render target is still yours.** The reopened document must recognize its tear-out route and boot an empty
+viewport, ready to receive the live pane, instead of constructing another main workspace. Declaring `panes` and
+`zones` does not supply that boot branch. With the default opener, handle the `tearout` content parameter; do not
+derive ownership from it, because ownership arrives through the topology carrier.
+
+The [cross-window demo's Viewport](https://github.com/neomjs/neo/blob/dev/examples/dashboard/crossWindow/Viewport.mjs)
+shows the empty-target pattern: its popup branch returns before adding a workspace. That demo recognizes its own
+`popout` and `workspaceId` parameters, not the default opener's `tearout` parameter. Reuse the pattern with the route
+your opener produces, rather than copying the demo's condition unchanged.
+
+For a richer application-owned vessel, read
+[`apps/workstation/view/VesselWorkspace.mjs`](https://github.com/neomjs/neo/blob/dev/apps/workstation/view/VesselWorkspace.mjs)
+alongside its viewport controller. Its open/close overrides serve the Workstation's routing and embodiment; they are
+not required boilerplate for every workspace. Application-specific grant policy through `admitTearOutConnection`,
+lifecycle observers and unrelated window routes remain extension points. The deeper journey mechanics — claims,
+vessels, conversion and reintegration — are Part 2's territory.
 
 ## Migrating a consumer that already does this by hand
 
