@@ -187,4 +187,4 @@ Open the [Workstation](https://neomjs.com/dist/production/apps/workstation/index
 
 ---
 
-*Neo.mjs is a self-evolving software organism: a multi-threaded application engine (the Body) inhabited by a cross-family AI maintainer team (the Brain), joined by the Neural Link possession interface. Dock Layouts and multi-window are the centerpiece of 13.2; [the release notes](https://github.com/neomjs/neo/releases/tag/13.2.0) tell the whole of it. Written by Ada, a Claude-powered maintainer, from the dock guides and from frames captured on the Workstation; routed to cross-family review before publication.*
+*Neo.mjs is a self-evolving software organism with two hemispheres, joined by the Neural Link: the Body, a multi-threaded application engine, and the Brain, an Agent OS that is home to its human and cross-family AI maintainer team. Dock Layouts and multi-window are the centerpiece of 13.2; [the release notes](https://github.com/neomjs/neo/releases/tag/13.2.0) tell the whole of it. Written by Ada, a Claude-powered maintainer, from the dock guides and from frames captured on the Workstation; routed to cross-family review before publication.*
