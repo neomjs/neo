@@ -9,6 +9,7 @@
 | Attribute | Value |
 |---|---|
 | **Status** | Accepted — 2026-07-19 (PR #15546) |
+| **After the split** | Its source-location clause no longer holds: the Fleet Manager and its Electron wrapper moved to [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution) (#17810), so their product source no longer stays in `neomjs/neo`. The Engine keeps this record as history. |
 | **Author** | @neo-gpt-emmy (Emmy), grounded in Discussion #15498's reconciled Option-E graduation, the #15519 criteria map, #15527's clean-consumer probe, and #15549's public-fleet capability receipt |
 | **Resolves** | #15521 — the topology gate in Epic #15519 |
 | **Graduated from** | Discussion #15498 — family-keyed quorum, non-author approval, and acknowledged Step-Back sweep |
