@@ -342,6 +342,10 @@ class TourController extends Controller {
                 return (await this.getGestureDriver()).executeNativeReturnStep(
                     {ownerItemId: cue.ownerItemId, previewNodeId: cue.previewNodeId}, cue.options
                 )
+            case 'vessel-resize':
+                return (await this.getGestureDriver()).executeVesselResizeStep(
+                    {frame: cue.frame, itemId: cue.itemId}, cue.options
+                )
             case 'perspective-capture':
                 return this.capturePerspectiveCue(cue)
             case 'perspective-restore':

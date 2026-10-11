@@ -110,13 +110,14 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
             })
         });
 
-        // the tear-out and the journey (one gate: the click activates its first window, the two births
-        // that follow inside the same drag rest on the site's pop-up permission); the stack return opens no window
-        expect(births).toBe(2);
-        expect(steps().filter(step => step.cue?.type === 'gate')).toHaveLength(2);
-        expect(steps().find(step => step.cue?.type === 'native-return').cue.ownerItemId).toBe('metrics');
+        // the tear-out, the journey (one gate: the click activates its first window, the two births
+        // that follow inside the same drag rest on the site's pop-up permission) and the close's
+        // tear-out of the matrix, which stays in its own window through the close; the native return opens no window
+        expect(births).toBe(3);
+        expect(steps().filter(step => step.cue?.type === 'gate')).toHaveLength(3);
+        expect(steps().filter(step => step.cue?.type === 'native-return').map(step => step.cue.ownerItemId)).toEqual(['metrics']);
         expect(steps().filter(step => step.cue?.type === 'tear-out').map(step => step.cue.options.reenter === true))
-            .toEqual([false]);
+            .toEqual([false, false]);
 
         // the journey walks Commits out, back over main, out, into the vessel the tear-out committed,
         // out once more, and drops there: a target hop follows a desktop hop, and the last hop drops
@@ -163,12 +164,13 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
             .filter(step => step.cue?.options?.moveSteps !== undefined)
             .map(step => ({type: step.cue.type, ...step.cue.options}));
 
-        expect(walks.map(walk => walk.type)).toEqual(['resize', 'tear-out', 'journey', 'native-return', 'rail', 'resize', 'cross-zone-showcase', 'grid-drag-scroll']);
+        expect(walks.map(walk => walk.type)).toEqual(['resize', 'tear-out', 'journey', 'native-return', 'rail', 'resize', 'cross-zone-showcase', 'tear-out', 'vessel-resize', 'grid-drag-scroll']);
         walks.forEach(walk => expect(walk.moveDelay, `${walk.type}: the film's sampling rhythm`).toBe(33));
 
         // a same-thread walk's leg is its samples times the rhythm; the native return pays a window
-        // move's round trip per sample on top, so its leg is pinned by samples alone
-        walks.filter(walk => walk.type !== 'native-return').forEach(walk =>
+        // move's round trip per sample on top, and the vessel resize a move's and a resize's, so
+        // their legs are pinned by samples alone
+        walks.filter(walk => !['native-return', 'vessel-resize'].includes(walk.type)).forEach(walk =>
             expect(walk.moveDelay * walk.moveSteps, `${walk.type}: a leg is about a second, never a machine-speed jump`).toBeGreaterThanOrEqual(790));
         expect(walks.find(walk => walk.type === 'native-return').moveSteps).toBeGreaterThanOrEqual(16)
     });

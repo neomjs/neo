@@ -110,7 +110,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         // one settled receipt per cue, in screenplay order; two gates, each settled the same way
         expect(receipt.cueReceipts.map(entry => entry.cue.type)).toEqual(filmCues);
         expect(receipt.cueReceipts.filter(entry => entry.cue.type === 'gate').map(entry => entry.receipt.continued))
-            .toEqual([continued, continued]);
+            .toEqual([continued, continued, continued]);
 
         const byType = type => receipt.cueReceipts.filter(entry => entry.cue.type === type).map(entry => entry.receipt);
 
@@ -192,20 +192,29 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(redo.applied).toBe(true);
         expect(redo.tabs['scale-tabs']).toContain('security');
 
-        // the signature's diagonal strokes: the grid followed the hand on both axes, down and to the
-        // right, by the travel the screenplay asked for or the room the matrix had left — a direction
-        // alone or a pixel of motion is not a pan. Whether the canvas column is in the frame is the
-        // take's own evidence; the witness pins the measured travel.
+        // the close: the matrix leaves the room in a window of its own, that window grows beside the
+        // room through its owner-granted resize route, one flick's momentum carries the rows on, and
+        // the window comes home still streaming. Whether the canvas column is in the frame is the
+        // take's own evidence; the witness pins the frame, the measured travel and the return.
+        const [vesselResize] = byType('vessel-resize'), grown = vesselResize.proof;
+
+        expect(vesselResize.applied, `the matrix window must grow:\n${(vesselResize.errors || []).join('\n')}`).toBe(true);
+        for (const side of ['x', 'y', 'width', 'height']) {
+            expect(Math.abs(grown.after[side] - grown.target[side]), `the frame's ${side} settled on its target`).toBeLessThanOrEqual(2)
+        }
+        expect(grown.after.width * grown.after.height, 'the window is at least four times the frame it was born with').toBeGreaterThanOrEqual(4 * grown.before.width * grown.before.height);
+
         const [gridDrag] = byType('grid-drag-scroll'), travel = gridDrag.proof?.travel;
 
+        console.log(`[film-probe] close: frame ${JSON.stringify(grown.after)} for ${JSON.stringify(grown.target)}; throw ${JSON.stringify(travel)}`);
         expect(gridDrag.applied, `the grid must follow the hand:\n${(gridDrag.errors || []).join('\n')}`).toBe(true);
-        expect(gridDrag.proof?.strokes).toBe(3);
-        expect(gridDrag.proof?.after?.settled, 'the inertia tail settled before the read').toBe(true);
+        expect(gridDrag.proof?.strokes).toBe(1);
+        expect(gridDrag.proof?.after?.settled, 'the momentum tail settled before the read').toBe(true);
         expect(travel?.met, 'both dragged axes reached their expected travel').toEqual({x: true, y: true});
         expect(travel?.expected?.x, 'the pan right had at least a column of room').toBeGreaterThanOrEqual(130);
-        expect(travel?.expected?.y, 'the pan down had at least a row of room').toBeGreaterThanOrEqual(50);
         expect(travel?.observed?.x, 'the view panned right by the expected travel').toBeGreaterThanOrEqual(travel.expected.x - travel.slack.x);
-        expect(travel?.observed?.y, 'the view panned down by the expected travel').toBeGreaterThanOrEqual(travel.expected.y - travel.slack.y);
+        expect(travel?.observed?.y, 'the momentum carried the rows at least as far again as the hand').toBeGreaterThanOrEqual(2 * travel.requested.y);
+
 
         // the room never stopped living
         expect(receipt.feed.growth).toBeGreaterThan(0)
@@ -276,12 +285,13 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
             receipt.completed || await dumpDiagnostics('incomplete receipt');
 
-            expect(gatesSeen, 'the viewer continued every gate').toHaveLength(2);
+            expect(gatesSeen, 'the viewer continued every gate: the tear-out, the journey and the close').toHaveLength(3);
             assertFilmReceipt(receipt, {continued: 'viewer', pageErrors});
 
             // every window the film opened was closed again by the signature
-            expect(popupProbe.length, 'four windows are born: the tear-out and the journey\'s three').toBeGreaterThanOrEqual(4);
-            await expect.poll(() => popupProbe.every(fact => fact.closed), {timeout: 15000}).toBe(true);
+            expect(popupProbe.length, 'five windows are born: the tear-out, the journey\'s three and the matrix of the close').toBeGreaterThanOrEqual(5);
+            // every window but the close's lives and dies inside the film; the matrix keeps its own
+            await expect.poll(() => popupProbe.filter(fact => !fact.closed).length, {timeout: 15000}).toBe(1);
 
             expect(pageErrors).toEqual([])
         } finally {
@@ -342,8 +352,8 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
             await expect(page.locator('.workstation-tour-continue')).toBeHidden();
             assertFilmReceipt(receipt, {continued: 'auto', pageErrors});
 
-            expect(popupProbe.length, 'four windows are born without a click: the tear-out and the journey\'s three').toBeGreaterThanOrEqual(4);
-            await expect.poll(() => popupProbe.every(fact => fact.closed), {timeout: 15000}).toBe(true);
+            expect(popupProbe.length, 'five windows are born without a click: the tear-out, the journey\'s three and the matrix of the close').toBeGreaterThanOrEqual(5);
+            await expect.poll(() => popupProbe.filter(fact => !fact.closed).length, {message: 'the matrix keeps its own window; every other one closed', timeout: 15000}).toBe(1);
 
             expect(pageErrors).toEqual([])
         } finally {

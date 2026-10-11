@@ -15,8 +15,9 @@ export const WORKSTATION_CUE_TYPES = Object.freeze([
     'overflow', 'scroll', 'canvas-update', 'cross-zone-showcase', 'theme', 'rail', 'resize', 'grid-drag-scroll',
     // the viewer gate: playback waits for a click, which is the user activation a window birth needs
     'gate',
-    // real-pointer window gestures over the NativeGestureDriver's executors
-    'tear-out', 'convert-while-dragging', 'journey', 'stack-return', 'native-return',
+    // real-pointer window gestures over the NativeGestureDriver's executors, and the one scripted
+    // frame operation among them: a committed vessel growing through its owner-granted resize route
+    'tear-out', 'convert-while-dragging', 'journey', 'stack-return', 'native-return', 'vessel-resize',
     // perspectives and Group-cursor history through the workspace's own seams
     'perspective-capture', 'perspective-restore', 'undo', 'redo'
 ]);

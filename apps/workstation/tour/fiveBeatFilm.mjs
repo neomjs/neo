@@ -97,7 +97,7 @@ const filmPace = Object.freeze({birthAttempts: 240, curve: 0.18, moveDelay: 33, 
 export const filmCueTypes = Object.freeze([
     'scroll', 'canvas-update', 'cross-zone-showcase', 'rail', 'resize', 'gate', 'tear-out',
     'journey', 'native-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo',
-    'grid-drag-scroll'
+    'grid-drag-scroll', 'vessel-resize'
 ]);
 
 /**
@@ -370,7 +370,7 @@ export const fiveBeatFilmScript = Object.freeze({
         title        : 'It never left',
         targetSeconds: 10,
         narration    : 'A hundred thousand rows still cross their midpoint. Same instances, end to end. Heartbeats monotonic through every transition. The content never stopped living — because it never left.',
-        beats        : ['the matrix and the feed come back in front', 'the hundred-thousand-row matrix crosses its midpoint', 'a real diagonal drag pans the matrix to its canvas columns', 'final topology readout', 'identity equality end-to-end', 'monotonic heartbeat close'],
+        beats        : ['the matrix and the feed come back in front', 'the matrix leaves the room in a window of its own', 'the window grows beside the room', 'the hundred-thousand-row matrix crosses its midpoint', 'one flick: the grid\'s momentum carries the rows on into the canvas columns', 'final topology readout: the room whole, the matrix in its own window', 'identity equality end-to-end', 'monotonic heartbeat close'],
         steps        : [{
             // The showcase left Metrics in front of the feed and the redo left Security in front
             // of the matrix: the close is about both panes, so both come back in front first —
@@ -385,36 +385,64 @@ export const fiveBeatFilmScript = Object.freeze({
             descriptor: {operation: 'setActiveItem', tabsNodeId: 'bottom-tabs', itemId: 'feed'},
             expect    : [{path: 'nodes.bottom-tabs.activeItemId', equals: 'feed'}]
         }, {
+            // The matrix at three hundred pixels of pane can show neither its rows nor its canvas
+            // columns at scale. The close takes it out of the room the way a desktop user would: a
+            // window born under the hand, the same instance riding along, then grown beside the
+            // room — the film's one window resize.
+            type   : 'pause',
+            ms     : 0,
+            cue    : {type: 'gate', prompt: 'Continue — the matrix leaves the room, grows, and comes home'},
+            caption: 'One more window is about to be born under the hand. Your click is the browser’s permission to open it.'
+        }, {
+            type   : 'pause',
+            ms     : 1200,
+            cue    : {type: 'tear-out', itemId: 'scale', sourceNodeId: 'scale-tabs', options: filmPace},
+            caption: 'the matrix leaves the room: a window is born under the hand, the same hundred thousand rows riding along'
+        }, {
+            type   : 'pause',
+            ms     : 1000,
+            cue    : {type: 'vessel-resize', itemId: 'scale', frame: {anchor: 'right-of-main', gap: 24, width: 900}, options: {moveDelay: 33, moveSteps: 16}},
+            caption: 'the window grows beside the room — the matrix gets the space it never had in its pane'
+        }, {
             type   : 'pause',
             ms     : 1400,
             cue    : {type: 'scroll', index: 50000},
             caption: 'a hundred thousand rows cross their midpoint — and the rest of the room keeps breathing'
         }, {
-            // The matrix is wider than its pane: the sparkline column at its right edge — the
-            // framework's OffscreenCanvas path — never shows unless the grid is panned. Three real
-            // strokes from the pane's lower right, up and to the left, pan the view down and to the
-            // right the way the grid's own drag-scroll answers a hand; the rows keep crossing and
-            // the canvas column enters the frame.
+            // A throw, not a walk: one stroke at the film's rhythm that winds up and whips (the
+            // distance eased in, so the last hundred milliseconds carry the speed), then the grid's
+            // own drag-scroll carries the rows on under momentum for seconds (the velocity over the
+            // last hundred milliseconds, friction 0.95). The x axis stops at the matrix's right room
+            // with the sparkline column — the framework's OffscreenCanvas path — in view; the y axis
+            // runs far past the hand. The receipt's travel judges both.
             type: 'pause',
             ms  : 800,
             cue : {
                 type   : 'grid-drag-scroll',
                 paneId : 'scale',
-                anchor : {x: 0.85, y: 0.7},
-                deltaX : -260,
-                deltaY : -120,
-                strokes: 3,
-                options: {moveDelay: 33, moveSteps: 36, showCursor: true}
+                anchor : {x: 0.8, y: 0.85},
+                deltaX : -360,
+                deltaY : -480,
+                strokes: 1,
+                options: {attempts: 300, curve: 'throw', moveDelay: 33, moveSteps: 24, showCursor: true}
             },
-            caption: 'a real diagonal drag — the rows keep crossing, the canvas columns at the right edge come into view'
+            caption: 'one flick — the grid\'s own momentum carries the rows on past the hand, the canvas columns at the right edge in view'
         }, {
+            // The film ends on the title: one app, many windows — the room breathing and the matrix
+            // streaming in a window of its own. (A vessel holding one item torn out alone has no
+            // scripted road home yet: the dock's native return adopts only a stack-keyed drag record,
+            // the stack grip's return does not settle, a close is an undoable close, and an undo of
+            // the tear-out leaves the emptied window open — the viewer brings it home by its grip.)
             type   : 'topology-assert',
-            caption: 'final readout: the main split intact, every travelled pane, all still here',
+            caption: 'final readout: the main split intact, every travelled pane still here, the matrix keeping its seat in the room from its own window',
             expect : [
                 // the main split's proportion differs by tier after the resize beat (the document
                 // tier runs no cues), so the readout pins its order; the witness pins the proportion
                 {path: 'nodes.split-main.children', equals: ['scale-tabs', 'heavy-tabs']},
-                {path: 'nodes.scale-tabs.activeItemId', equals: 'scale'},
+                // the matrix's stored home survives its departure (Security stays in the group, so
+                // the tabs node is not removed with its last pane — the road back exists), the feed
+                // stays in front; the membership differs by tier, the document tier never tore it out
+                {path: 'nodes.scale-tabs.type', equals: 'tabs'},
                 {path: 'nodes.bottom-tabs.activeItemId', equals: 'feed'},
                 {path: 'items.metrics.title', equals: 'System Metrics'},
                 {path: 'items.commits.title', equals: 'Commit Stream'},

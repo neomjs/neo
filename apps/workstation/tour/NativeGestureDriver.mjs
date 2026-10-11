@@ -118,7 +118,12 @@ class NativeGestureDriver extends GestureDriver {
                           sourceItemIds.every(itemId => me.dockModel.nodes[returnNodeId]?.items?.includes(itemId)) &&
                           phaseOrder.join(',') === 'documents-adopted,projections-settled,close-dispatched,close-acknowledged';
 
-                return {applied, errors: applied ? [] : ['native return did not settle through whole-stack adoption and close'],
+                return {applied, errors: applied ? [] : [
+                        'native return did not settle through whole-stack adoption and close: '
+                        + `operation ${JSON.stringify(transfer?.descriptor?.operation ?? null)}, closeRequested ${transfer?.closeRequested}, topologyExited ${transfer?.topologyExited}, `
+                        + `phases [${phaseOrder.join(', ')}], window gone ${sourceWindowGone}, identity preserved ${identityPreserved}, `
+                        + `home holds ${JSON.stringify(sourceItemIds.filter(itemId => me.dockModel.nodes[returnNodeId]?.items?.includes(itemId)))} of ${JSON.stringify(sourceItemIds)}`
+                    ],
                     proof: {identityPreserved, phaseOrder, positions, previews, sourceItemIds, sourceWindowGone, sourceWindowId,
                         transfer    : transfer ? WorkspaceDocument.clone(transfer) : null,
                         mainDocument: WorkspaceDocument.clone(me.dockModel)}}
@@ -129,8 +134,12 @@ class NativeGestureDriver extends GestureDriver {
                 await driver.trap(Promise.resolve(me.participationPromise));
                 const source = coordinator.getNativeWindowDragSource(sourceWindowId),
                       nodeId = WorkspaceDocument.resolveStackRoot(state.document);
+                // the native window's drag source must carry the whole committed stack — a stack drag
+                // keyed to the vessel's root. A vessel whose record is a tab drag (an item torn out
+                // alone, never composed) has no native road home: the dock adopts nothing from it.
                 if (!nodeId || source?.draggedItem?.dockGroupNodeId !== nodeId || source.widgetName !== ownerItemId) {
-                    throw new Error('native window does not expose its complete committed stack')
+                    throw new Error(`native window does not expose its complete committed stack: stack root ${JSON.stringify(nodeId)}, `
+                        + `drag source ${JSON.stringify(source ? {widgetName: source.widgetName, dockGroupNodeId: source.draggedItem?.dockGroupNodeId ?? null} : null)}`)
                 }
                 route = WindowManager.resolveNativeRoute({capability: 'position', ownerWindowId: me.windowId,
                     windowId: sourceWindowId}).route;
@@ -211,6 +220,146 @@ class NativeGestureDriver extends GestureDriver {
                     proof: {positions, previews, recovery: {restored, error: recoveryError}, sourceWindowId}}
             }
         })
+    }
+
+    /**
+     * @summary Grows a committed tear-out vessel to a frame derived from the main window: top-aligned,
+     * `gap` px right of its right edge, `width` wide and the main frame's height unless given — or,
+     * when the display has no room there, against the display's right edge over the main window,
+     * never beyond the display's available area (`deriveVesselFrame` records the clamp). The walk
+     * goes through the vessel's owner-granted native routes, a verified resize then a verified move
+     * per sample at `moveDelay`; the move carries a native-effect identity, so the geometry reports
+     * the walk produces read as a scripted effect to the dock's coordinator and the placement, never
+     * as the user dragging the window (a native return afterwards would refuse a live drag). The
+     * receipt reads the frame back and refuses one that settled off its target. The film cursor is
+     * not involved: this is the window moving, not the hand.
+     * @param {Object} step
+     * @param {String} step.itemId The item committed in a window of its own.
+     * @param {Object} step.frame `{anchor: 'right-of-main', gap, width, height}` — the target OUTER frame's recipe.
+     * @param {Object} [options]
+     * @param {Number} [options.moveDelay=33] Milliseconds between samples.
+     * @param {Number} [options.moveSteps=16] Samples from the birth frame to the target.
+     * @returns {Promise<Object>} `{applied, errors, proof}`; `proof = {before, target, after, samples, route}`
+     */
+    async executeVesselResizeStep({itemId, frame}={}, {moveDelay=33, moveSteps=16}={}) {
+        return this.runGesture(async run => {
+            const me            = run.workspace, driver = this,
+                  WindowManager = (await driver.trap(import('../../../src/manager/Window.mjs'))).default,
+                  {anchor='right-of-main', gap=24, height=null, width=null} = frame || {},
+                  workspaceId   = itemId && me.constructor.vesselWorkspaceId(itemId),
+                  state         = workspaceId && me.getPopupState(workspaceId),
+                  windowId      = state?.windowId,
+                  fail          = (errors, proof) => ({applied: false, errors, ...(proof ? {proof} : {})});
+
+            if (!state?.committed || state.closeRequested || !windowId) {
+                return fail([`vessel resize needs '${itemId}' committed in a window of its own`])
+            }
+
+            if (anchor !== 'right-of-main' || !(width > 0) || !Number.isInteger(moveSteps) || moveSteps < 1) {
+                return fail(['vessel resize needs a frame {anchor: \'right-of-main\', width} and at least one sample'])
+            }
+
+            try {
+                await driver.trap(Promise.resolve(me.refreshPromise));
+
+                const resolve = capability => WindowManager.resolveNativeRoute({capability, ownerWindowId: me.windowId, windowId}).route,
+                      routes  = {position: resolve('position'), resize: resolve('resize')};
+
+                if (!routes.position || !routes.resize) {
+                    return fail([`vessel resize has no owner-granted ${routes.position ? 'resize' : 'position'} route for '${itemId}'`])
+                }
+
+                const call   = (capability, data) => ({...routes[capability], windowId: routes[capability].ownerWindowId, ...data}),
+                      before = await driver.trap(Neo.Main.windowNativeGetGeometry(call('position', {}))),
+                      record = WindowManager.get(me.windowId),
+                      main   = record?.outerRect || record?.innerRect;
+
+                if (!before || !main) {
+                    return fail([`vessel resize could not read the ${before ? 'main' : 'vessel'} frame`])
+                }
+
+                const screen        = (await driver.trap(Neo.Main.getWindowData({windowId: me.windowId})))?.screen,
+                      target        = driver.deriveVesselFrame({gap, height, main, screen, width}),
+                      transactionId = `vessel-resize:${itemId}:${Date.now()}`,
+                      samples       = [],
+                      lerp          = (from, to, t) => Math.round(from + (to - from) * t);
+
+                for (let index = 1; index <= moveSteps; index++) {
+                    const t      = index / moveSteps,
+                          sample = {height: lerp(before.height, target.height, t), width: lerp(before.width, target.width, t), x: lerp(before.x, target.x, t), y: lerp(before.y, target.y, t)};
+
+                    // the resize first: the move that follows carries the effect identity, so the
+                    // last geometry report of every sample is a scripted effect, never a drag
+                    run.pending = Neo.Main.windowNativeResizeTo(call('resize', {height: sample.height, width: sample.width}));
+
+                    if (await driver.trap(run.pending) !== true) {
+                        return fail([`the window resize was refused at sample ${index} of ${moveSteps}`], {before, route: {windowId}, samples: samples.length, target})
+                    }
+
+                    run.pending = Neo.Main.windowNativeMoveTo(call('position', {nativeEffect: {effectId: `sample-${index}`, transactionId}, x: sample.x, y: sample.y}));
+
+                    if (await driver.trap(run.pending) !== true) {
+                        return fail([`the window move was refused at sample ${index} of ${moveSteps}`], {before, route: {windowId}, samples: samples.length, target})
+                    }
+
+                    samples.push(sample);
+                    index < moveSteps && await driver.trap(driver.timeout(moveDelay))
+                }
+
+                const after = await driver.trap(Neo.Main.windowNativeGetGeometry(call('position', {}))),
+                      off   = ['x', 'y', 'width', 'height'].filter(side => !after || Math.abs(after[side] - target[side]) > 2),
+                      proof = {after, before, route: {windowId}, samples: samples.length, target};
+
+                if (off.length) {
+                    return fail([`the window frame ended off its target on ${off.join(', ')}: ${JSON.stringify(after)} for ${JSON.stringify(target)}`], proof)
+                }
+
+                return {applied: true, errors: [], proof}
+            } catch (error) {
+                return fail([error?.message || String(error)])
+            }
+        })
+    }
+
+    /**
+     * @summary Derives a vessel's target OUTER frame beside the main window: top-aligned, `gap` px
+     * right of the main frame, `width` wide, the main frame's height unless `height` is given. When
+     * the display's available area has no room to the right, the frame sits against the display's
+     * right edge over the main window instead; a frame still too big for the display shrinks to it.
+     * `clamped` records any such adjustment; an unknown display clamps nothing.
+     * @param {Object} data
+     * @param {Number} data.gap
+     * @param {Number|null} data.height
+     * @param {Object} data.main The main window's outer frame `{x, y, width, height}`.
+     * @param {Object|null} data.screen `{availLeft, availTop, availWidth, availHeight}` or null when unknown.
+     * @param {Number} data.width
+     * @returns {Object} `{x, y, width, height, clamped}`
+     * @protected
+     */
+    deriveVesselFrame({gap, height, main, screen, width}) {
+        let target  = {height: Math.round(height ?? main.height), width: Math.round(width), x: Math.round(main.x + main.width + gap), y: Math.round(main.y)},
+            clamped = false;
+
+        if (screen && [screen.availLeft, screen.availTop, screen.availWidth, screen.availHeight].every(Number.isFinite)) {
+            const right  = screen.availLeft + screen.availWidth,
+                  bottom = screen.availTop + screen.availHeight;
+
+            if (target.x + target.width > right) {
+                target.x = Math.max(screen.availLeft, right - target.width);
+                clamped  = true
+            }
+
+            if (target.x + target.width > right) {
+                target.width = right - target.x
+            }
+
+            if (target.y + target.height > bottom) {
+                target.height = Math.max(0, bottom - target.y);
+                clamped       = true
+            }
+        }
+
+        return {...target, clamped}
     }
 
     /**
