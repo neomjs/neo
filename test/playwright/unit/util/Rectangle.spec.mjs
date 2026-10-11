@@ -62,7 +62,7 @@ test.describe('Rectangle', () => {
 
         test('Should constrain non-fitting subject rectangle when minima allow', () => {
             const constrainTo = new Rectangle(0, 0, 200, 200);
-            const subject = new Rectangle(1000, 1000, 210, 210);
+            const subject     = new Rectangle(1000, 1000, 210, 210);
 
             // Subject Rectangle is willing to shrink to 200x200
             subject.minWidth = subject.minHeight = 200;
@@ -123,6 +123,49 @@ test.describe('Rectangle', () => {
     });
 
     test.describe('alignTo', () => {
+        test('applies the final offset without mutating the source Rectangle', () => {
+            const
+                subject = new Rectangle(0, 0, 50, 50),
+                result  = subject.alignTo({
+                    target   : new Rectangle(100, 100, 100, 100),
+                    edgeAlign: 't0-b0',
+                    offset   : [12, 34]
+                });
+
+            expect(result.equals(new Rectangle(112, 234, 50, 50))).toBe(true);
+            expect(result.position).toBe('bottom');
+            expect(subject.equals(new Rectangle(0, 0, 50, 50))).toBe(true)
+        });
+
+        test('applies the final offset to an overlapping early-return result', () => {
+            const result = new Rectangle(0, 0, 100, 100).alignTo({
+                target     : new Rectangle(100, 100, 50, 50),
+                constrainTo: new Rectangle(0, 0, 150, 150),
+                edgeAlign  : 't0-t0',
+                offset     : [5, 7]
+            });
+
+            expect(result.equals(new Rectangle(105, 107, 100, 100))).toBe(true);
+            expect(result.position).toBe('top')
+        });
+
+        test('applies the final offset to a constrained solution', () => {
+            const subject = new Rectangle(0, 0, 50, 200);
+
+            subject.minHeight = 100;
+
+            const result = subject.alignTo({
+                target     : new Rectangle(200, 350, 100, 100),
+                constrainTo: new Rectangle(0, 0, 500, 500),
+                edgeAlign  : 't-b',
+                matchSize  : true,
+                offset     : [7, 9]
+            });
+
+            expect(result.equals(new Rectangle(157, 309, 50, 200))).toBe(true);
+            expect(result.position).toBe('left')
+        });
+
         test.describe('unconstrained', () => {
             const target = new Rectangle(100, 100, 100, 100);
 
@@ -237,92 +280,92 @@ test.describe('Rectangle', () => {
             let result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 't-b'
+                edgeAlign   : 't-b'
             });
             expect(result.equals(new Rectangle(125, 200, 50, 50))).toBe(true);
 
             result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 't0-b0'
+                edgeAlign   : 't0-b0'
             });
             expect(result.equals(new Rectangle(110, 200, 50, 50))).toBe(true);
 
             result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 't100-b100'
+                edgeAlign   : 't100-b100'
             });
             expect(result.equals(new Rectangle(140, 200, 50, 50))).toBe(true);
 
             result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 'b-t'
+                edgeAlign   : 'b-t'
             });
             expect(result.equals(new Rectangle(125, 50, 50, 50))).toBe(true);
 
             result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 'b0-t0'
+                edgeAlign   : 'b0-t0'
             });
             expect(result.equals(new Rectangle(110, 50, 50, 50))).toBe(true);
 
             result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 'b100-t100'
+                edgeAlign   : 'b100-t100'
             });
             expect(result.equals(new Rectangle(140, 50, 50, 50))).toBe(true);
 
             result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 'l-r'
+                edgeAlign   : 'l-r'
             });
             expect(result.equals(new Rectangle(200, 125, 50, 50))).toBe(true);
 
             result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 'l0-r0'
+                edgeAlign   : 'l0-r0'
             });
             expect(result.equals(new Rectangle(200, 110, 50, 50))).toBe(true);
 
             result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 'l100-r100'
+                edgeAlign   : 'l100-r100'
             });
             expect(result.equals(new Rectangle(200, 140, 50, 50))).toBe(true);
 
             result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 'r-l'
+                edgeAlign   : 'r-l'
             });
             expect(result.equals(new Rectangle(50, 125, 50, 50))).toBe(true);
 
             result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 'r0-l0'
+                edgeAlign   : 'r0-l0'
             });
             expect(result.equals(new Rectangle(50, 110, 50, 50))).toBe(true);
 
             result = new Rectangle(0, 0, 50, 50).alignTo({
                 target,
                 targetMargin: 10,
-                edgeAlign: 'r100-l100'
+                edgeAlign   : 'r100-l100'
             });
             expect(result.equals(new Rectangle(50, 140, 50, 50))).toBe(true);
         });
 
         test.describe('constrained, edgeAlign : "t-b"', () => {
             const constrainTo = new Rectangle(0, 0, 500, 500);
-            let target = new Rectangle(200, 200, 100, 100);
-            let subject = new Rectangle(0, 0, 10, 1000);
+            let   target      = new Rectangle(200, 200, 100, 100);
+            let   subject     = new Rectangle(0, 0, 10, 1000);
 
             test('Subject shrinks to fit', () => {
                 subject.minHeight = 100;

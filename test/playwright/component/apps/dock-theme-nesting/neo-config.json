@@ -1,0 +1,10 @@
+{
+    "appPath"         : "test/playwright/component/apps/dock-lock/app.mjs",
+    "basePath"        : "../../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Navigator", "Stylesheet"],
+    "themes"          : ["neo-theme-neo-dark", "neo-theme-neo-light", "neo-theme-light", "neo-theme-dark"],
+    "useAiClient"     : true,
+    "useSharedWorkers": false
+}

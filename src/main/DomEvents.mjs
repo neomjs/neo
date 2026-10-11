@@ -65,7 +65,8 @@ const lastWheelEvent = {
 const
     disabledInputKeys         = {},
     preventClickTargets       = [],
-    preventContextmenuTargets = [];
+    preventContextmenuTargets = [],
+    preventDefaultKeys        = {};
 
 /**
  * @class Neo.main.DomEvents
@@ -107,8 +108,10 @@ class DomEvents extends Base {
             app: [
                 'addDomListener',
                 'registerDisabledInputChars',
+                'registerPreventDefaultKeys',
                 'registerPreventDefaultTargets',
-                'unregisterDisabledInputChars'
+                'unregisterDisabledInputChars',
+                'unregisterPreventDefaultKeys'
             ]
         }
     }
@@ -140,6 +143,8 @@ class DomEvents extends Base {
         document.addEventListener('visibilitychange',  me.onVisibilitychange .bind(me));
         window  .addEventListener('orientationchange', me.onOrientationChange.bind(me));
         window  .addEventListener('hashchange',        me.onHashChange       .bind(me));
+        window  .addEventListener('blur',              me.onWindowBlur       .bind(me));
+        window  .addEventListener('focus',             me.onWindowFocus      .bind(me));
 
         if (Neo.config.useSharedWorkers) {
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me))
@@ -473,6 +478,7 @@ class DomEvents extends Base {
     onClick(event) {
         let me = this;
 
+        me.flushPendingMouseMove();
         me.sendMessageToApp(me.getMouseEventData(event));
 
         me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
@@ -484,6 +490,7 @@ class DomEvents extends Base {
     onContextMenu(event) {
         let me = this;
 
+        me.flushPendingMouseMove();
         me.sendMessageToApp(me.getMouseEventData(event));
 
         if (event.ctrlKey || me.testPathInclusion(event, preventContextmenuTargets)) {
@@ -505,6 +512,7 @@ class DomEvents extends Base {
     onDoubleClick(event) {
         let me = this;
 
+        me.flushPendingMouseMove();
         me.sendMessageToApp(me.getMouseEventData(event));
 
         me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
@@ -518,10 +526,63 @@ class DomEvents extends Base {
     }
 
     /**
+     * A focusout raised while `Neo.main.DeltaUpdates` removes a node carries that node's id as
+     * `removedNodeId`, so the app worker can tell the leave of a removed mount from a leave to elsewhere.
      * @param {FocusEvent} event
      */
     onFocusOut(event) {
-        this.sendMessageToApp(this.getEventData(event))
+        let data             = this.getEventData(event),
+            {removingNodeId} = Neo.main.DeltaUpdates;
+
+        if (removingNodeId) {
+            data.removedNodeId = removingNodeId
+        }
+
+        this.sendMessageToApp(data)
+    }
+
+    /**
+     * Focus crossing into a nested document is invisible to the focus events this document forwards:
+     * the element losing focus fires `focusout` with no `relatedTarget`, the `<iframe>` element that
+     * now holds it fires no `focusin`, and only the window's `blur` says anything happened. Without a
+     * `focusin` the app worker's focus manager reads the `focusout` as a leave after its gap — a
+     * click into an iframe INSIDE a focus-holding subtree looks like leaving it. This forwards the
+     * frame element as the focus target, so the worker sees a move to the component that hosts the
+     * frame. `activeElement` settles after `blur`, hence the deferral; a blur that leaves the
+     * document altogether (another window) has no iframe at the active element and forwards nothing.
+     */
+    onWindowBlur() {
+        let me = this;
+
+        setTimeout(() => {
+            let node = document.activeElement,
+                path = [];
+
+            if (node?.tagName !== 'IFRAME') {
+                return
+            }
+
+            for (let current = node; current; current = current.parentNode) {
+                path.push(current)
+            }
+
+            me.sendMessageToApp(me.getEventData({
+                composedPath: () => path,
+                target      : node,
+                timeStamp   : performance.now(),
+                type        : 'focusin'
+            }))
+        }, 0)
+    }
+
+    /**
+     * Tells the App Worker that this window regained focus, e.g. a user coming back from another application
+     */
+    onWindowFocus() {
+        Neo.worker.Manager.sendMessage('app', {
+            action: 'windowFocus',
+            data  : {windowId: Neo.worker.Manager.windowId}
+        })
     }
 
     /**
@@ -564,11 +625,43 @@ class DomEvents extends Base {
                 event.preventDefault()
             }
 
+            // A picker field opens its own picker on Alt+ArrowDown; a date or time input would open the browser's too
+            if (isInput && event.altKey && event.key === 'ArrowDown' && me.testPathInclusion(event, ['neo-pickerfield'])) {
+                event.preventDefault()
+            }
+
+            // A key the App Worker handles for this exact node: it still gets the event, only the default is gone.
+            // The worker cannot cancel a default after the fact, so it registers the node before the key arrives.
+            if (preventDefaultKeys[target.id]?.includes(event.key)) {
+                event.preventDefault()
+            }
+
+            // A grid editor sits in grid.View's scroll area, and a key its input does not consume scrolls the View,
+            // recycling the pooled row the editor is embodied in. PageUp/PageDown never move a single-line caret;
+            // Home/End scroll under macOS key bindings and move the caret everywhere else. Bindings follow the host
+            // OS, which `navigator.platform` reports even where the user agent is emulated.
+            if (
+                tagName === 'INPUT' &&
+                (['PageDown', 'PageUp'].includes(event.key) || ['End', 'Home'].includes(event.key) && /Mac/.test(navigator.platform)) &&
+                me.testPathInclusion(event, ['neo-grid-editor'])
+            ) {
+                event.preventDefault()
+            }
+
+            // Arrows drive roving / efficiency focus within a neo-selection region and may not scroll the
+            // page. The app still receives the keydown (sendMessageToApp above) — this only suppresses the
+            // browser's scroll default. Space is intentionally NOT suppressed here: native interactive
+            // targets (buttons, selects, links, contenteditable) own Enter/Space activation.
             if (
                 !isInput &&
                 ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key) &&
                 me.testPathInclusion(event, ['neo-selection'], true)
             ) {
+                event.preventDefault()
+            }
+
+            // A menu item is not such a native target: Space activates it, like Enter, and scrolls nothing
+            if (!isInput && event.key === ' ' && me.testPathInclusion(event, ['neo-menu-list'])) {
                 event.preventDefault()
             }
         }
@@ -585,6 +678,7 @@ class DomEvents extends Base {
      * @param {MouseEvent} event
      */
     onMouseDown(event) {
+        this.flushPendingMouseMove();
         this.sendMessageToApp(this.getMouseEventData(event))
     }
 
@@ -595,6 +689,7 @@ class DomEvents extends Base {
         let me       = this,
             appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement?.id || null, toElementId: event.toElement?.id || null};
 
+        me.flushPendingMouseMove();
         me.sendMessageToApp(appEvent);
         me.fire('mouseEnter', appEvent)
     }
@@ -606,6 +701,7 @@ class DomEvents extends Base {
         let me       = this,
             appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement?.id || null, toElementId: event.toElement?.id || null};
 
+        me.flushPendingMouseMove();
         me.sendMessageToApp(appEvent);
         me.fire('mouseLeave', appEvent)
     }
@@ -638,9 +734,26 @@ class DomEvents extends Base {
     }
 
     /**
+     * Sends a coalesced move that is still waiting for its frame, ahead of the mouse event that calls this. Without
+     * it a press overtakes the move and reaches the app worker as press-then-move, so a consumer deriving movement
+     * from the last reported position (a canvas's mouse state) reads the whole jump as a held button's movement.
+     * Call it only on the path that sends: an event the main thread keeps has no order to restore, and flushing for
+     * it would spend the frame's one move.
+     */
+    flushPendingMouseMove() {
+        let me = this;
+
+        if (me.mouseMoveReqId) {
+            cancelAnimationFrame(me.mouseMoveReqId);
+            me.flushMouseMove()
+        }
+    }
+
+    /**
      * @param {MouseEvent} event
      */
     onMouseUp(event) {
+        this.flushPendingMouseMove();
         this.sendMessageToApp(this.getMouseEventData(event))
     }
 
@@ -727,10 +840,25 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Event} event
+     * A wheel listener a component mounted on its own node (`wheel: {local: true}`) fires with that node as the
+     * `currentTarget`. The global target list does not know such a node, so the node itself is the target; the body
+     * listener has no local target.
+     * @param {WheelEvent} event
+     * @returns {Object|Boolean} `{cls: null, node}` for a local listener, otherwise false
+     */
+    getLocalWheelTarget(event) {
+        let node = event.currentTarget;
+
+        return node && node !== document.body ? {cls: null, node} : false
+    }
+
+    /**
+     * Wheel events reach the app worker for the global target list, and for any node a component listens on
+     * locally (`getLocalWheelTarget`); everything else stays on the main thread.
+     * @param {WheelEvent} event
      */
     onWheel(event) {
-        let target        = this.testPathInclusion(event, globalWheelTargets),
+        let target        = this.testPathInclusion(event, globalWheelTargets) || this.getLocalWheelTarget(event),
             preventUpdate = false,
             targetCls;
 
@@ -751,12 +879,18 @@ class DomEvents extends Base {
             }
 
             if (!preventUpdate) {
-                let {deltaX, deltaY, deltaZ} = event;
+                // A wheel event is a mouse event: the mouse serializer carries the pointer position, the held
+                // buttons and the modifiers (a zooming consumer zooms towards the pointer, tells the trackpad
+                // pinch — ctrl + wheel on macOS — from a scroll, and keeps a drag's buttons through a wheel tick);
+                // the deltas and the target's scroll geometry ride beside them.
+                let {deltaMode, deltaX, deltaY, deltaZ} = event;
 
+                this.flushPendingMouseMove();
                 this.sendMessageToApp({
-                    ...this.getEventData(event),
+                    ...this.getMouseEventData(event),
                     clientHeight: target.node.clientHeight,
                     clientWidth : target.node.clientWidth,
+                    deltaMode,
                     deltaX,
                     deltaY,
                     deltaZ,
@@ -853,6 +987,19 @@ class DomEvents extends Base {
     }
 
     /**
+     * Cancels the browser default of `keys` while the node `id` is the keydown target. Unlike
+     * {@link #registerDisabledInputChars} the event is still delivered to the App Worker, and the node need not be
+     * an input: this is for a key the worker handles itself on a focusable container, where letting the default
+     * through as well — Tab leaving the component, say — would undo what the handler does.
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String[]} data.keys `KeyboardEvent.key` values
+     */
+    registerPreventDefaultKeys(data) {
+        preventDefaultKeys[data.id] = data.keys
+    }
+
+    /**
      * @param {Object} data
      * @param {Array|String} data.cls
      * @param {String} data.name
@@ -937,6 +1084,14 @@ class DomEvents extends Base {
      */
     unregisterDisabledInputChars(data) {
         delete disabledInputKeys[data.id]
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    unregisterPreventDefaultKeys(data) {
+        delete preventDefaultKeys[data.id]
     }
 }
 

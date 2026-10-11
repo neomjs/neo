@@ -161,7 +161,7 @@ A critical architectural difference emerges when dealing with moving components 
 
 *   **JSX vs. Plain Objects:** React uses JSX (requiring a build step for UI definition). Neo.mjs uses plain JavaScript objects for VDOM (no JSX compilation needed for VDOM definition).
 *   **Ecosystem & Maturity:** React has a massive, mature ecosystem with abundant libraries, tools, and community support. Neo.mjs has a smaller but dedicated community, with a focus on engine-level solutions and integrated features.
-*   **Dependency Management (Batteries Included):** React projects often involve a large `node_modules` directory and can lead to complex dependency trees and version conflicts, a common pain point often referred to as "dependency hell." Neo.mjs, in contrast, is a "batteries included" platform. It literally has zero real runtime dependencies outside of its own core. This native ES Module approach and integrated framework significantly reduces this complexity, offering a much leaner and more controlled dependency management experience.
+*   **Dependency Management (Batteries Included):** React projects often involve a large `node_modules` directory and can lead to complex dependency trees and version conflicts, a common pain point often referred to as "dependency hell." Neo.mjs, in contrast, is a "batteries included" platform. It literally has zero real runtime dependencies outside of its own core. This native ES Module approach and integrated engine significantly reduces this complexity, offering a much leaner and more controlled dependency management experience.
 
 ## Conclusion: Why Neo.mjs Offers Significant Technical Advantages Over React
 

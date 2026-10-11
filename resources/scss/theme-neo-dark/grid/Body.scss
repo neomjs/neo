@@ -1,6 +1,6 @@
 @use "sass:color";
 
-:root .neo-theme-neo-dark { // .neo-grid-body
+:where(.neo-theme-neo-dark) { // .neo-grid-body
     --grid-cell-background-color-hover                    : var(--purple-900);
     --grid-cell-ismodified-color                          : orange;
     --grid-cell-ismodified-size                           : 10px;

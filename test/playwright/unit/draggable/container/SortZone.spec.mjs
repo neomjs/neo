@@ -17,10 +17,77 @@ import Container       from '../../../../../src/container/Base.mjs';
 import SortZone        from '../../../../../src/draggable/container/SortZone.mjs';
 
 /**
+ * @summary Handle membership keeps the owning item sortable without making its body a native
+ * gesture target. Creation and insertion share the same marker contract.
+ */
+test.describe('SortZone native handle markers', () => {
+    test('a descendant handle keeps its marker while the owner body remains unmarked', async () => {
+        const item = id => ({ntype: 'component', id, vdom: {cn: [
+            {tag: 'div', cls: ['neo-draggable', 'pane-handle'], text: 'Handle'},
+            {tag: 'div', text: 'Selectable body'}
+        ]}});
+        const owner = Neo.create(Container, {
+            appName, dragResortable: true,
+            sortZoneConfig: {module: SortZone, dragHandleSelector: '.pane-handle'},
+            items         : [item('handle-first')]
+        });
+
+        try {
+            await expect.poll(() => owner.sortZone).toBeTruthy();
+            const zone = owner.sortZone, first = owner.items[0];
+
+            expect(zone.getDraggableItems()).toEqual([first]);
+            expect(first.wrapperCls).not.toContain('neo-draggable');
+            expect(first.vdom.cn[0].cls).toContain('neo-draggable');
+
+            const inserted = Promise.withResolvers();
+            owner.on('insert', () => inserted.resolve(), owner, {once: true});
+            const second = owner.add(item('handle-second'));
+            await inserted.promise;
+            expect(zone.getDraggableItems()).toEqual([first, second]);
+            expect(second.wrapperCls).not.toContain('neo-draggable');
+
+            zone.dragHandleSelector = null;
+            zone.adjustItemCls(true);
+            expect(first.wrapperCls).toContain('neo-draggable');
+            zone.dragHandleSelector = '.pane-handle';
+            zone.adjustItemCls(true);
+            expect(first.wrapperCls, 'retire an outer marker from the earlier whole-item mode').not.toContain('neo-draggable');
+            zone.adjustItemCls(false);
+            expect(first.vdom.cn[0].cls, 'the consumer still owns its header marker').toContain('neo-draggable')
+        } finally {
+            owner.destroy()
+        }
+    });
+
+    for (const selector of [null, '.neo-draggable', '.neo-tab-header-button']) {
+        test(`whole-item or root handle ${selector} retains its automatic wrapper marker`, async () => {
+            const owner = Neo.create(Container, {
+                appName, dragResortable: true,
+                sortZoneConfig: {module: SortZone, dragHandleSelector: selector},
+                items         : [{ntype: 'component', cls: selector ? [selector.slice(1)] : []}]
+            });
+
+            try {
+                await expect.poll(() => owner.sortZone).toBeTruthy();
+                expect(owner.sortZone.getDraggableItems()).toEqual(owner.items);
+                expect(owner.items[0].wrapperCls).toContain('neo-draggable')
+            } finally {
+                owner.destroy()
+            }
+        })
+    }
+});
+
+/**
  * @summary Tests for Neo.draggable.container.SortZone
  */
-test.describe.serial('Neo.draggable.container.SortZone', () => {
+test.describe('Neo.draggable.container.SortZone', () => {
     let container, sortZone;
+
+    const
+        realApplyDeltas = Neo.applyDeltas,
+        realGetDomRect  = Container.prototype.getDomRect;
 
     test.beforeEach(() => {
         // Mock Neo.main.addon.DragDrop
@@ -71,6 +138,11 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
     test.afterEach(() => {
         sortZone?.destroy();
         container?.destroy();
+
+        // The prototype patch leaks exactly as far as the namespace one does: Playwright reuses the
+        // worker, so a later spec's real getDomRect would stay replaced by this file's dummy rects.
+        Neo.applyDeltas               = realApplyDeltas;
+        Container.prototype.getDomRect = realGetDomRect;
     });
 
     test('Initializes correctly with mixed content', async () => {
@@ -153,6 +225,61 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         expect(container.items[2].id).toBe('btnC');
         expect(container.items[3].id).toBe('btnD');
         expect(container.items[4].id).toBe('btnA');
+    });
+
+    test('drag:cancel restores the captured index and commits no reorder', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]
+        });
+
+        sortZone.currentIndex = 2;
+
+        await sortZone.onDragCancel({key: 'Escape'});
+
+        expect(container.items.map(item => item.id)).toEqual(['btnA', 'btnB', 'sep1', 'btnC', 'btnD']);
+        expect(sortZone.currentIndex).toBe(-1);
+        expect(sortZone.dragProxy).toBeNull()
+    });
+
+    test('a drag whose item owned focus hands it back at the terminal as a pointer focus, committed or cancelled; an item without focus gets none (#19281)', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const
+            realFocus    = Neo.main.DomAccess.focus,
+            calls        = [],
+            [btnA, btnB] = container.items,
+            start        = id => sortZone.onDragStart({path: [{id, cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]});
+
+        Neo.main.DomAccess.focus = data => calls.push(data);
+
+        try {
+            btnA.containsFocus = true;
+            await start('btnA');
+            expect(sortZone.dragFocusOwner, 'the gesture took focus with the item').toBe(btnA);
+            await sortZone.onDragEnd({});
+            expect(calls).toEqual([{children: false, id: 'btnA', modality: 'pointer', preventScroll: true, windowId: btnA.windowId}]);
+            expect(sortZone.dragFocusOwner).toBeNull();
+
+            calls.length = 0;
+            btnB.containsFocus = true;
+            await start('btnB');
+            await sortZone.onDragCancel({key: 'Escape'});
+            expect(calls.map(call => call.id), 'a cancelled drag restores the same way').toEqual(['btnB']);
+
+            calls.length = 0;
+            btnA.containsFocus = false;
+            btnB.containsFocus = false;
+            await start('btnA');
+            expect(sortZone.dragFocusOwner).toBeNull();
+            await sortZone.onDragEnd({});
+            expect(calls, 'an item that never had focus is not focused').toEqual([])
+        } finally {
+            Neo.main.DomAccess.focus = realFocus
+        }
     });
 
      test('Correctly handles placeholder in index calculation', async () => {
@@ -268,4 +395,190 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         SortZone.traces.length = 0;
         SortZone.activeTrace   = null
     });
+});
+
+test.describe('checkWindowBoundary — the re-entry Schmitt trigger (the false-re-entry reap)', () => {
+    // Prototype-driven: the hysteresis decision chain is the unit. Geometry helper: a 1000×1000
+    // boundary + a 100×100 proxy whose x-position dials the intersection ratio exactly —
+    // ratioAt(f) places the proxy so intersectionArea/proxyArea === f.
+    const BOUNDARY = {x: 0, y: 0, width: 1000, height: 1000, left: 0, top: 0, right: 1000, bottom: 1000};
+
+    const proxyAt = f => {
+        const x = 1000 - 100 * f;
+        return {x, y: 450, width: 100, height: 100, left: x, top: 450, right: x + 100, bottom: 550}
+    };
+
+    const zoneFor = () => {
+        const fired = [], continued = [];
+
+        const zone = {
+            boundaryContainerRect: BOUNDARY,
+            detachThreshold      : 0.8,
+            dragComponent        : {id: 'dragged'},
+            dragPlaceholder      : {wrapperStyle: {}},
+            indexMap             : [],
+            isWindowDragging     : false,
+            itemRects            : [],
+            lastIntersectionRatio: 1,
+            owner                : {items: []},
+            reattachArmed        : false,
+            reattachThreshold    : 0.6,
+            fire                 : (name, data) => fired.push(name),
+            onWindowDragContinue : () => continued.push(1)
+        };
+
+        const move = f => SortZone.prototype.checkWindowBoundary.call(zone, {proxyRect: proxyAt(f)});
+
+        return {continued, fired, move, zone}
+    };
+
+    test('the reap sequence: exit at the band edge + one inward-jitter sample fires NO re-entry (the newborn popup survives)', () => {
+        const {continued, fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(0.79);                                     // crossing under detachThreshold, moving out
+        expect(fired).toEqual(['dragBoundaryExit']);
+        expect(zone.isWindowDragging).toBe(true);
+        expect(zone.reattachArmed, 'slow exit inside the reattach zone starts UNarmed').toBe(false);
+
+        move(0.795);                                    // the single post-exit jitter that used to reap
+        move(0.85);                                     // even sustained inward drift without leaving
+        expect(fired, 'no false dragBoundaryEntry — the pre-fix reap path').toEqual(['dragBoundaryExit']);
+        expect(continued.length, 'the window drag CONTINUES instead').toBe(2)
+    });
+
+    test('genuine re-entry still works: leave below reattachThreshold, then return moving in', () => {
+        const {fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(0.79);                                     // exit
+        move(0.5);                                      // demonstrably left — arms the trigger
+        expect(zone.reattachArmed).toBe(true);
+
+        move(0.65);                                     // rising back above reattachThreshold
+        expect(fired).toEqual(['dragBoundaryExit', 'dragBoundaryEntry'])
+    });
+
+    test('band wobble between the thresholds never re-enters (hysteresis discipline)', () => {
+        const {continued, fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(0.79);
+        for (const f of [0.7, 0.65, 0.75, 0.7, 0.78]) move(f);
+
+        expect(fired).toEqual(['dragBoundaryExit']);
+        expect(continued.length).toBe(5)
+    });
+
+    test('a single-move fling below reattachThreshold is PRE-armed: the direct return re-enters', () => {
+        const {fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.9;
+
+        move(0.5);                                      // one move from deep-inside to below reattach
+        expect(fired).toEqual(['dragBoundaryExit']);
+        expect(zone.reattachArmed, 'exit already below reattachThreshold pre-arms').toBe(true);
+
+        move(0.65);                                     // direct return, moving in
+        expect(fired).toEqual(['dragBoundaryExit', 'dragBoundaryEntry'])
+    })
+});
+
+test.describe('checkWindowBoundary — arming across the proxy-identity swap (the vessel stillbirth)', () => {
+    // The move stream swaps proxy IDENTITY mid-window-drag: the in-window DOM proxy until the
+    // vessel grant lands, the future vessel's dimensions afterwards. Arming earned in the small
+    // proxy's scale must NOT discharge in the vessel's scale — the ratio jump at the swap sample
+    // is a geometry artifact, not movement. Same 1000×1000 boundary; smallAt(f) is the 100×100
+    // pre-grant proxy, vesselAt(f) the 320×240 post-grant proxy — each placed so
+    // intersectionArea/proxyArea === f.
+    const BOUNDARY = {x: 0, y: 0, width: 1000, height: 1000, left: 0, top: 0, right: 1000, bottom: 1000};
+
+    const smallAt = f => {
+        const x = 1000 - 100 * f;
+        return {x, y: 450, width: 100, height: 100, left: x, top: 450, right: x + 100, bottom: 550}
+    };
+
+    const vesselAt = f => {
+        const x = 1000 - 320 * f;
+        return {x, y: 300, width: 320, height: 240, left: x, top: 300, right: x + 320, bottom: 540}
+    };
+
+    const zoneFor = () => {
+        const fired = [], continued = [];
+
+        const zone = {
+            boundaryContainerRect: BOUNDARY,
+            detachThreshold      : 0.8,
+            dragComponent        : {id: 'dragged'},
+            dragPlaceholder      : {wrapperStyle: {}},
+            indexMap             : [],
+            isWindowDragging     : false,
+            itemRects            : [],
+            lastIntersectionRatio: 1,
+            owner                : {items: []},
+            reattachArmed        : false,
+            reattachThreshold    : 0.6,
+            fire                 : name => fired.push(name),
+            onWindowDragContinue : () => continued.push(1)
+        };
+
+        const move = rect => SortZone.prototype.checkWindowBoundary.call(zone, {proxyRect: rect});
+
+        return {continued, fired, move, zone}
+    };
+
+    test('the stillbirth sequence: arming earned pre-swap must NOT discharge on the swap sample', () => {
+        const {continued, fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(smallAt(0.79));                            // exit — window-drag begins, dims seeded
+        move(smallAt(0.5));                             // demonstrably left — arms in the SMALL scale
+        expect(zone.reattachArmed).toBe(true);
+
+        move(vesselAt(0.95));                           // the grant lands: vessel dims, ratio jumps
+        expect(fired, 'the swap sample must not fire an entry — the vessel has not connected yet')
+            .toEqual(['dragBoundaryExit']);
+        expect(zone.reattachArmed, 'arming is re-earned in the NEW scale').toBe(false);
+        expect(zone.lastProxyDims).toEqual({height: 240, width: 320});
+
+        move(vesselAt(0.9));                            // still high in the new scale, disarmed
+        expect(fired, 'no entry until re-entry is earned post-swap').toEqual(['dragBoundaryExit'])
+    });
+
+    test('genuine post-swap return still re-enters exactly once', () => {
+        const {fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(smallAt(0.79));
+        move(smallAt(0.5));                             // armed in the small scale
+        move(vesselAt(0.95));                           // swap — reseed + disarm
+        move(vesselAt(0.4));                            // leaves below reattachThreshold — re-earns
+        expect(zone.reattachArmed).toBe(true);
+
+        move(vesselAt(0.65));                           // rising back across the threshold
+        expect(fired).toEqual(['dragBoundaryExit', 'dragBoundaryEntry'])
+    });
+
+    test('a swap landing already below reattachThreshold re-arms immediately and skips the continue hook', () => {
+        const {continued, fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(smallAt(0.79));
+        move(smallAt(0.3));                             // armed, one continue sample
+        expect(continued.length).toBe(1);
+
+        move(vesselAt(0.2));                            // swap sample far outside — reseed, stays armed
+        expect(zone.reattachArmed).toBe(true);
+        expect(continued.length, 'the swap sample is a reseed, not a movement — no continue call').toBe(1);
+        expect(fired).toEqual(['dragBoundaryExit']);
+
+        move(vesselAt(0.65));                           // genuine return in the vessel scale
+        expect(fired).toEqual(['dragBoundaryExit', 'dragBoundaryEntry'])
+    })
 });

@@ -8,8 +8,10 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../src/Neo.mjs';
+import * as core         from '../../../../src/core/_export.mjs';
+import UnitTestWebSocket from './UnitTestWebSocket.mjs';
 
 /**
  * @summary Non-SharedWorker apps never fire the App-worker `connect` event that populates
@@ -19,20 +21,27 @@ import Neo            from '../../../../src/Neo.mjs';
  * registered from the windowId-keyed `Neo.apps` registry for non-shared apps, and the
  * SharedWorker path is left untouched.
  *
- * The live end-to-end ACs (a real devindex window appearing in `get_window_topology` and a
+ * The live end-to-end ACs (a real non-shared app window appearing in `get_window_topology` and a
  * `simulate_event` click routing to it) are L3 runtime evidence verified post-merge — they
  * need a running bridge + non-shared app the unit sandbox cannot host.
  */
 test.describe('Neo.ai.Client — non-SharedWorker window registration', () => {
-    let client;
+    let client, originalWebSocket;
 
     test.beforeAll(() => {
+        originalWebSocket    = globalThis.WebSocket;
+        globalThis.WebSocket = UnitTestWebSocket;
+
         if (!Neo.currentWorker) {
             Neo.currentWorker = {on: () => {}, isSharedWorker: false}
         }
         if (!Neo.worker) {
             Neo.worker = {App: {id: 'test-worker'}}
         }
+    });
+
+    test.afterAll(() => {
+        globalThis.WebSocket = originalWebSocket
     });
 
     test.beforeEach(async () => {
@@ -58,22 +67,21 @@ test.describe('Neo.ai.Client — non-SharedWorker window registration', () => {
             client.sendNotification       = originalSendNotification;
             client.socket                 = originalSocket;
             Neo.worker.App.isSharedWorker = originalSharedWorker;
-            Neo.apps                      = originalApps;
-            client.isConnected            = false
+            Neo.apps                      = originalApps
         }
 
         return notifications
     };
 
     test('onSocketOpen registers the implicit window for a non-SharedWorker app', () => {
-        const notifications = runOnSocketOpen(false, {'win-nonshared-1': {name: 'DevIndexApp'}});
+        const notifications = runOnSocketOpen(false, {'win-nonshared-1': {name: 'NonSharedApp'}});
 
         const implicit = notifications.find(
             n => n.method === 'window_connected' && n.params.windowId === 'win-nonshared-1'
         );
 
         expect(implicit, 'the non-shared implicit window must be registered with the bridge').toBeTruthy();
-        expect(implicit.params.appName).toBe('DevIndexApp')
+        expect(implicit.params.appName).toBe('NonSharedApp')
     });
 
     test('a SharedWorker app does NOT get the implicit-app-registry fallback', () => {
@@ -86,5 +94,46 @@ test.describe('Neo.ai.Client — non-SharedWorker window registration', () => {
         );
 
         expect(fromApps.length).toBe(0)
+    });
+
+    test('projects capability facts without leaking the private native route', () => {
+        const
+            notifications  = [],
+            originalGet    = Neo.manager.Window.get,
+            originalSend   = client.sendNotification,
+            originalSocket = client.socket;
+
+        Neo.manager.Window.get = () => ({
+            capabilities: {close: true, focus: true, position: true, resize: true},
+            nativeRoute : {
+                nativeHandleKey: 'handle-a',
+                ownerWindowId  : 'owner-a',
+                targetWindowId : 'popup-id'
+            }
+        });
+        // `isConnected` reads the socket's readyState, so a connected client is a client holding an open socket
+        client.socket           = {socket: {readyState: WebSocket.OPEN}, sendMessage: () => {}};
+        client.sendNotification = (method, params) => notifications.push({method, params});
+
+        try {
+            client.onAppWorkerWindowConnect({appName: 'PopupApp', windowId: 'popup-id'})
+        } finally {
+            Neo.manager.Window.get  = originalGet;
+            client.sendNotification = originalSend;
+            client.socket           = originalSocket
+        }
+
+        expect(notifications).toEqual([{
+            method: 'window_connected',
+            params: {
+                appName     : 'PopupApp',
+                capabilities: {close: true, focus: true, position: true, resize: true},
+                chrome      : undefined,
+                innerRect   : undefined,
+                outerRect   : undefined,
+                windowId    : 'popup-id'
+            }
+        }]);
+        expect(notifications[0].params.nativeRoute).toBeUndefined()
     });
 });

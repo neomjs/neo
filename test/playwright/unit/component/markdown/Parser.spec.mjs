@@ -227,6 +227,21 @@ test.describe('MarkdownParser — extended block grammar', () => {
         expect(blocks[1].cn.map(item => item.tag)).toEqual(['li', 'li'])
     });
 
+    test('preserves ordered-list starts across separated producer ranks, including zero, without changing normal or unordered lists', () => {
+        const parser = new MarkdownParser({idPrefix: 'list-start'}),
+              blocks = parser.update('1. first\n2. second\n\n2. restarted rank\n\n0. zero rank\n\n- unordered\n\n');
+
+        expect(blocks.map(block => block.tag)).toEqual(['ol', 'ol', 'ol', 'ul']);
+        expect(blocks[0].start).toBeUndefined();
+        expect(blocks[0].cn).toHaveLength(2);
+        expect(blocks[1].start).toBe('2');
+        expect(blocks[2].start).toBe('0');
+        expect(blocks[3].start).toBeUndefined();
+        expect(textOf([blocks[1].cn[0]])).toBe('restarted rank');
+        expect(textOf([blocks[2].cn[0]])).toBe('zero rank');
+        expect(textOf([blocks[3].cn[0]])).toBe('unordered')
+    });
+
     test('a marker-type switch splits into two list blocks', () => {
         const parser = new MarkdownParser({idPrefix: 'split'});
 

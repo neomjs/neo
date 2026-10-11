@@ -4,7 +4,7 @@
 // `Neo.component.Abstract.afterSetWindowId`). Previously these vars lived only in the tickets and
 // discussions leaf themes, which left a directly-loaded pulls view unstyled until a sibling view had
 // been visited first. Leaf themes now define only their own type-specific vars.
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     --gh-badge-bg         : var(--sem-color-bg-neutral-highlighted);
     --gh-badge-border     : var(--sem-color-border-subtle);
     --gh-bg-default       : var(--sem-color-bg-neutral-default);

@@ -26,8 +26,15 @@
     }
 
     .neo-button-text {
-        color    : var(--tab-button-text-color);
-        font-size: var(--tab-button-text-font-size);
+        color      : var(--tab-button-text-color);
+        font-size  : var(--tab-button-text-font-size);
+        // The title's weight is its own token. Without one it fell through to the button family's
+        // weight, so every theme with semibold buttons had semibold tab titles by accident — and
+        // the inline dock header, where width is scarce, had no way to opt out. The fallback IS
+        // that inheritance, made explicit: a theme that declares no tab tokens at all (cyberpunk)
+        // keeps the button family's weight, because an undefined token would otherwise make this
+        // declaration invalid and hand the title the document's inherited weight instead.
+        font-weight: var(--tab-button-text-font-weight, var(--button-text-font-weight));
     }
 
     .neo-tab-button-indicator {
@@ -68,10 +75,27 @@
             color: var(--tab-button-glyph-color-pressed);
         }
 
+        .neo-button-text {
+            color: var(--tab-button-text-color-pressed, var(--tab-button-text-color));
+        }
+
         .neo-tab-button-indicator {
             animation-duration: 260ms;
             animation-name    : delaybgcolor;
             background-color  : var(--tab-indicator-background-color-active);
+        }
+    }
+
+    // The overflow plugin bounds a degenerate over-wide active button (inline max-width) so its box —
+    // and the absolute per-button indicator spanning that box — ends where the floating overflow
+    // control begins. The box bound alone would let the label glyphs overflow the shrunken box; this
+    // turns the covered cut into an honest ellipsis.
+    &.neo-tab-overflow-capped {
+        .neo-button-text {
+            min-width    : 0;
+            overflow     : hidden;
+            text-overflow: ellipsis;
+            white-space  : nowrap;
         }
     }
 

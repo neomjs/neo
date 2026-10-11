@@ -123,7 +123,7 @@ class Pipeline extends Base {
             if (me.isDestroyed) return null;
 
             try {
-                const response = await me.remote.data.execute(method, params);
+                const response = await me.remote.data.execute([method, params]);
 
                 if (response === null && attempt <= maxRemoteRetries) {
                     console.warn(`Pipeline: Remote execute returned null, retrying (attempt ${attempt}/${maxRemoteRetries})...`);

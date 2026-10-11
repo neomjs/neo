@@ -1,5 +1,91 @@
 @use "global/all";
 
+// Global element typography — structure, so it lives here rather than in a theme value file (#18232,
+// batch 5 of #18145). Every declaration reads a token and falls back to `revert`, which is the whole
+// contract: a family that declares the token gets its value, a family that does not gets the UA
+// stylesheet. Three rules govern edits here, all measured on #18232 rather than assumed:
+//
+// 1. `revert`, never `inherit`. UA `h1` is 32px/700 from the UA sheet, NOT by inheritance, so an
+//    `inherit` fallback silently computes 16px/400 — the regression that killed the first attempt.
+// 2. One token per property. `font-weight: var(--shared, revert)` resolving to a length is invalid at
+//    computed-value time, and an invalid substitution does NOT reach the fallback — the property
+//    becomes `unset`, silently. Sharing a token between two properties is therefore a latent bug.
+// 3. A fallback fires on ABSENCE, and inheritance is not absence. A classic theme nested inside a neo
+//    scope inherits the neo tokens and never reaches `revert`, so each classic family must DECLARE
+//    its decline as `--token: initial` at its own scope. This is not hypothetical: the portal's
+//    Helix and Colors previews are `neo-theme-dark` inside a neo-themed document.
+h1, h2, h3 {
+    color         : var(--sem-color-fg-neutral-contrast, revert);
+    font-family   : var(--core-fontfamily-sans, revert);
+    font-weight   : var(--core-fontweight-semibold, revert);
+    letter-spacing: var(--global-heading-letter-spacing, revert);
+    line-height   : var(--core-lineheight-headline, revert);
+}
+
+h1 {font-size: var(--core-fontsize-h1, revert)}
+h2 {font-size: var(--core-fontsize-h2, revert)}
+h3 {font-size: var(--core-fontsize-h3, revert)}
+
+p {
+    color      : var(--global-paragraph-color, revert);
+    font-family: var(--core-fontfamily-sans, revert);
+    font-size  : var(--core-fontsize-body, revert);
+    font-weight: var(--core-fontweight-regular, revert);
+    line-height: var(--core-lineheight-paragraph, revert);
+}
+
+// Matches the UA default, so it needs no token: a family declining it would decline to the same value.
+i, em {
+    font-style: italic;
+}
+
+code:not(.hljs) {
+    background-color: var(--global-code-background-color, revert);
+    border          : var(--global-code-border, revert);
+    border-radius   : var(--global-code-border-radius, revert);
+    color           : var(--sem-color-fg-neutral-contrast, revert);
+    // `font-family` is absent HERE and declared at zero weight below — see that rule for why.
+    font-size       : var(--global-code-font-size, revert);
+    font-weight     : var(--core-fontweight-regular, revert);
+    line-height     : var(--core-lineheight-headline, revert);
+    padding         : var(--global-code-padding, revert);
+}
+
+// Inline-code font, at ZERO specificity, and the weight is the whole mechanism.
+//
+// Two sheets can supply this font and only one of them is always present:
+//   - `util/HighlightJs.scss` declares `code` at (0,0,1) reading the same token. It is the author
+//     rule that already owned the mono font, and it loads lazily.
+//   - this rule, at (0,0,0) via `:where()`, is in the always-loaded structure layer.
+//
+// Because `:where()` zeroes the selector, HighlightJs OUTRANKS this whenever it is present, so the
+// two never fight; this one speaks only when that sheet has not loaded. That is what keeps neo
+// inline code on its mono token in a document without HighlightJs — a `revert` here would hand that
+// case back to the user agent, and declaring it at (0,1,1) inside the block above would do the
+// reverse damage: outrank HighlightJs and, for a declining family, roll back the author origin and
+// erase it. Zero weight is the only position that is correct in BOTH compositions.
+//
+// Verified across the full 2×2 — {neo, classic} × {with, without HighlightJs} — against `dev`.
+// The `revert` fallback is right here precisely because no other author rule exists in the
+// uncomposed case; a family that declines and has no HighlightJs should reach the UA.
+:where(code:not(.hljs)) {
+    font-family: var(--global-code-font-family, revert);
+}
+
+h1, h2, h3, h4, h5, h6 {
+    code:not(.hljs) {
+        color  : var(--global-heading-code-color, revert);
+        margin : var(--global-heading-code-margin, revert);
+        padding: var(--global-heading-code-padding, revert);
+    }
+}
+
+mark {
+    background-color: var(--global-mark-background-color, revert);
+    color           : var(--global-mark-color, revert);
+    padding         : var(--global-mark-padding, revert);
+}
+
 html, .neo-body-viewport {
     align-items    : center;
     display        : flex;
@@ -49,4 +135,51 @@ html, .neo-body-viewport {
 
 .neo-unselectable {
     user-select: none;
+}
+
+// Gesture-scoped selection guard: applied by the draggable Mouse sensor from mousedown on a
+// drag target until the physical gesture ends — ordinary mouseup, or the gesture's own move
+// stream observing the primary button gone (an off-document release never reaches mouseup) —
+// so a drag across card content can never become a text selection sweep (the native selection
+// machinery otherwise claims the pre-threshold window).
+.neo-drag-active,
+.neo-drag-active * {
+    user-select: none !important;
+}
+
+// The same gesture scope has to suppress iframe pointer capture, and for the same reason the rule
+// above exists: a nested browsing context claims input the gesture needs. `user-select` stops dead
+// at the iframe boundary, and so does the parent's pointer stream — once the cursor is over an
+// iframe, pointermove/pointerup are delivered to the CHILD document, the sensor never observes the
+// release, and the gesture never ends. The stuck class then outlives the drag. Shielding iframes for
+// the gesture's duration keeps the stream in the parent document, where the sensor is listening.
+//
+// Scoped to the gesture class on purpose, and the scope is load-bearing rather than tidy:
+// `pointer-events: none` also removes an element as a NATIVE drag-and-drop target, because the same
+// hit-testing governs dragover/drop. This class is stamped only inside sensor-driven synthetic
+// gestures and never for a native drag, so the shield can never suppress a real HTML5 drop. A drag
+// whose legitimate target IS the iframe opts out per element. The rail reveal's frame shield in
+// `dashboard/Container.scss` rests on this same side effect with the opposite scope (an open reveal,
+// not a gesture), so it lifts while `body.neo-native-drag-active` marks a native drag in flight; the
+// rail-iframe component arms witness both — a change to either scope is a change to both.
+//
+// This covers a window nothing else does. Once a DragZone session is live,
+// `draggable/DragProxyComponent.scss` shields the whole page with
+// `body:has(.neo-is-dragging) * {pointer-events: none !important}`. But that class lands only after
+// the session starts, while the sensor claims the pointer at mousedown — and a splitter resize never
+// opens a DragZone session at all. The unguarded interval is exactly where a crossing loses the
+// stream, which is why the guard keys on the sensor's own class rather than the session's.
+//
+// The same rule bounds the opt-out: a universal selector carrying `!important` outranks any `:not()`
+// here, so an opted-out iframe stays interactive through a sensor gesture and is still inert through
+// a DragZone drag. That is the contract, not an oversight; widening it means changing that rule.
+.neo-drag-active iframe:not(.neo-drag-passthrough) {
+    pointer-events: none;
+}
+
+// DomAccess#focus stamps `neo-focus-pointer` on a node it focuses for a pointer gesture, because the
+// worker→main hop loses `:focus-visible`'s link to that gesture. Zero specificity: the rule beats only
+// the user agent's ring, and any component outline (a locked pane, an arrival pulse) still wins.
+:where(.neo-focus-pointer:focus-visible) {
+    outline: none;
 }

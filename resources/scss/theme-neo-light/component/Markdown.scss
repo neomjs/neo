@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     --markdown-bg                   : #ffffff;
     --markdown-blockquote-bg        : var(--gray-100);
     --markdown-blockquote-border    : var(--sem-color-surface-primary-background);

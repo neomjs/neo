@@ -10,7 +10,13 @@ class Viewport extends BaseViewport {
          * @member {String} className='ColorsWidget.view.Viewport'
          * @protected
          */
-        className: 'Widget.view.Viewport'
+        className: 'ColorsWidget.view.Viewport',
+        /**
+         * Stable id so whitebox e2e runs (Neural Link childapp-connect proof) can read the
+         * viewport back through a live session without relying on generated ids.
+         * @member {String} id='colors-widget-viewport'
+         */
+        id: 'colors-widget-viewport'
     }
 }
 

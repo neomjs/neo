@@ -73,6 +73,12 @@ const
  */
 class Store extends Collection {
     /**
+     * @member {Boolean} #appendNotification=false Synchronous load-commit continuation context.
+     * @private
+     */
+    #appendNotification = false;
+
+    /**
      * True automatically applies the core.Observable mixin
      * @member {Boolean} observable=true
      * @static
@@ -274,11 +280,15 @@ class Store extends Collection {
             threshold = me.initialChunkSize;
 
         if (init) {
-            super.add(items);
+            const prepared = me.prepareAddedItems(items);
+
+            super.add(prepared);
 
             me.isLoaded = true;
 
-            return items.map(i => me.get(me.getKey(i)))
+            // the VISIBLE instance per key: the existing record for a duplicate, null for a row an
+            // active filter hides
+            return prepared.map(i => me.get(me.getKey(i)))
         }
 
         if (threshold > 0 && items.length > threshold) {
@@ -314,6 +324,26 @@ class Store extends Collection {
         me.isLoaded = true;
 
         return returnValue // Pass raw item directly
+    }
+
+    /**
+     * @summary Adds loaded items while marking their synchronous collection notification as a continuation.
+     * @param {Array|Object} items
+     * @param {Boolean} [append=false]
+     * @returns {Number|Object[]|Neo.data.Model[]}
+     * @private
+     */
+    addLoadedItems(items, append=false) {
+        let me                         = this,
+            previousAppendNotification = me.#appendNotification;
+
+        me.#appendNotification = append;
+
+        try {
+            return me.add(items)
+        } finally {
+            me.#appendNotification = previousAppendNotification
+        }
     }
 
     /**
@@ -708,13 +738,28 @@ class Store extends Collection {
 
     /**
      * Overrides collection.Base:forEach() to ensure the iterated item is a Record instance.
-     * @param {Function} fn The function to execute for each record.
+     * @param {Function} fn The function to execute for each record, called as `fn(record, index, items)`. `items` is a
+     * defensive copy of the store's items, shared by the calls: every entry the loop has reached is its Record, and a
+     * callback that adds or removes store items gets a fresh copy from the next call on. Treat it as read-only.
      * @param {Object} [scope] Value to use as `this` when executing `fn`.
      */
     forEach(fn, scope) {
-        const me = this;
-        for (let i = 0; i < me.count; i++) {
-            fn.call(scope || me, me.getAt(i), i, me.items);
+        let me    = this,
+            count = me.count,
+            items = me.items, // the getter copies the whole array on every read: copy per change, not per record
+            i     = 0,
+            record;
+
+        for (; i < me.count; i++) {
+            if (me.count !== count) {
+                count = me.count;
+                items = me.items
+            }
+
+            record   = me.getAt(i);
+            items[i] = record; // lazy hydration swapped the raw entry for this Record
+
+            fn.call(scope || me, record, i, items)
         }
     }
 
@@ -775,6 +820,26 @@ class Store extends Collection {
             keyField = model?.getField(me.getKeyProperty());
 
         return keyField?.type?.toLowerCase() || null
+    }
+
+    /**
+     * @summary What an eager-mode `add` / `insert` hands to the splice: records, created BEFORE the
+     * mutation runs.
+     *
+     * The mutation — and the unfiltered projection (`allItems`) mirrored inside it — then carries
+     * the record instances every listener will see, so no listener can observe a raw/record split:
+     * a filter on a calculated field evaluates records, and a mounted list that renders inside the
+     * store's own `load` holds the same instances the projection does. The caller's array stays
+     * raw (a copy is converted).
+     *
+     * Overridable: a store whose structural layer annotates raw rows before records exist (see
+     * {@link Neo.data.TreeStore#prepareAddedItems}) hands the rows through and hydrates lazily.
+     * @param {Object[]} items The raw rows (or records) passed to `add` / `insert`
+     * @returns {Object[]} The items to splice
+     * @protected
+     */
+    prepareAddedItems(items) {
+        return this.createRecord([...items])
     }
 
     /**
@@ -869,7 +934,7 @@ class Store extends Collection {
      */
     insert(index, item, init=this.autoInitRecords) {
         let me    = this,
-            items = super.insert(index, item);
+            items = super.insert(index, init ? me.prepareAddedItems(Array.isArray(item) ? item : [item]) : item);
 
         if (init) {
             return items.map(i => me.get(me.getKey(i)))
@@ -901,11 +966,14 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Loads records through the configured Pipeline, API, or URL and optionally appends the result.
      * @param {Object} opts={}
+     * @param {Boolean} [opts.append=false] Append loaded items and preserve continuation position.
      * @param {Object} opts.data
      * @param {Object} opts.headers
      * @param {String} opts.method DELETE, GET, POST, PUT
      * @param {Object} opts.params
+     * @param {Number} [opts.params.page] Page to request; the caller owns page selection and Store does not advance it.
      * @param {String} opts.responseType
      * @param {Object} opts.scope
      * @param {String} opts.url
@@ -914,6 +982,7 @@ class Store extends Collection {
      */
     async load(opts={}) {
         let me     = this,
+            append = !!opts.append,
             params = {page: me.currentPage, pageSize: me.pageSize, ...opts.params};
 
         // Ensure the dummy pipeline is fully constructed before proceeding
@@ -930,14 +999,20 @@ class Store extends Collection {
         }
 
         if (me.pipeline) {
-            if (me.items.length > 0 && !opts.append) {
+            if (me.items.length > 0 && !append) {
                 me.clear();
             }
 
             me.isLoading = true;
 
+            let receivedData = false;
+
             const onData = (data) => {
-                me.add(data);
+                if (data != null && (!Array.isArray(data) || data.length > 0)) {
+                    receivedData = true
+                }
+
+                me.addLoadedItems(data, append);
 
                 // Progressive Rendering:
                 // As soon as we have data, we want the grid to render.
@@ -984,9 +1059,10 @@ class Store extends Collection {
                         items = Neo.ns(me.responseRoot, false, items) || items;
                     }
 
-                    // If it was a bulk load and not progressive (where onData added them), add them now
-                    if (Array.isArray(items) && items.length > 0 && me.count === 0) {
-                         me.add(items);
+                    // Parser data events have already committed progressive rows. Empty data events do not
+                    // suppress the final bulk response, which can still carry the fetched rows.
+                    if (Array.isArray(items) && items.length > 0 && !receivedData) {
+                        me.addLoadedItems(items, append);
                     }
 
                     me.totalCount = response.totalCount || (response.json && !Array.isArray(response.json) ? response.json.totalCount : null) || me.count;
@@ -995,7 +1071,7 @@ class Store extends Collection {
                     me.fire('load', {
                         isLoading    : false,
                         items        : me.items,
-                        postChunkLoad: me.pipeline.parser?.ntype === 'parser-stream',
+                        postChunkLoad: append || me.pipeline.parser?.ntype === 'parser-stream',
                         total        : me.totalCount
                     });
                     return me.items;
@@ -1030,10 +1106,17 @@ class Store extends Collection {
 
                 if (response.success) {
                     me.totalCount = response.totalCount;
-                    me.data       = Neo.ns(me.responseRoot, false, response); // fires the load event
+                    const items = Neo.ns(me.responseRoot, false, response);
+
+                    if (append) {
+                        items && me.addLoadedItems(items, true);
+                    } else {
+                        me.data = items; // fires the load event
+                    }
+
                     me.isLoaded   = true;
 
-                    return me.data
+                    return append ? me.items : me.data
                 }
 
                 return null
@@ -1082,14 +1165,29 @@ class Store extends Collection {
             me.fire('load', {
                 isLoading    : !!me.isStreaming,
                 items        : me.items,
-                postChunkLoad: !!me.isStreaming && !isFirstChunk,
+                postChunkLoad: me.#appendNotification || (!!me.isStreaming && !isFirstChunk),
                 total        : me.chunkingTotal
             });
         }
     }
 
     /**
+     * @summary Re-fires a sort as a `load`. This is deliberate — do NOT suppress it.
      *
+     * `load` is the store's **coarse** change-notification and `sort` the **fine-grained** one, so a consumer
+     * binds whichever granularity it needs. Several bind `load` alone and react to a sort *only* because of
+     * this method:
+     *
+     * - `form.field.ComboBox`
+     * - `toolbar.Paging`
+     * - `table.Container` — note its `sort` listener is on a *column*, not on the store
+     * - `table.Body` and `grid.Body` — the row-rendering surfaces of both data grids
+     *
+     * Reading this as a conflation and suppressing the fire stops all five updating on a sort, with no error
+     * and no failing test. The corresponding consumer-side hazard is the mirror image: a component binding
+     * both events runs its `sort` handler *after* the `load` handler has already rebuilt the view, because
+     * this store registers its own collection listener in `construct()` — before any component can bind. That
+     * second handler is therefore looking at already-corrected state.
      */
     onCollectionSort() {
         let me = this;
@@ -1186,16 +1284,91 @@ class Store extends Collection {
     }
 
     /**
+     * Resolves the canonical key a record insertion would store for a given value, or refuses.
+     *
+     * @summary Puts a key lookup and a key insertion on one Map identity, so neither can hold a
+     * different record under the same key.
+     *
+     * `Collection.get()` is a strict `Map` lookup, while `add()` routes each field through
+     * `RecordFactory.parseRecordValue()` and converts it to its declared type. A value whose type
+     * differs from the stored one is therefore not a near-miss but a miss, and callers which answer
+     * a miss by inserting will append a second record under the same identity.
+     *
+     * ## Supported domain
+     *
+     * A key whose field declares no `convert` and no `calculate`, and which converts to a primitive.
+     * Within it, the conversion is delegated to the parser insertion uses, so the declared-type rules
+     * stay owned by `RecordFactory` rather than being restated here.
+     *
+     * Everything else is **refused** with `undefined`, because a wrong key is worse than no key —
+     * it inserts a second row under an identity that already exists:
+     *
+     * - `calculate` derives the stored key from a record that does not exist at lookup time;
+     * - `convert` receives the Record at insertion, while a lookup can only offer the raw value, so
+     *   a converter which reads the record produces a different key on each path;
+     * - an object result — a `Date` key being the realistic case — is equal-but-distinct on every
+     *   call, and a `Map` compares keys by identity, so it could never match what was stored;
+     * - a value that converts to `NaN`, or which the field's length/nullable rules reject, has no
+     *   addressable identity at all.
+     *
+     * Refusal is not silent at the call site: `onPipelinePush()` drops the push rather than
+     * synthesizing a row for a record the payload never successfully named.
+     *
+     * @param {*} value The key as it was received, e.g. from a server push or a DOM id.
+     * @returns {*|undefined} The canonical key, or `undefined` when the value falls outside the
+     * supported domain above.
+     */
+    getCanonicalKey(value) {
+        let field = this.model?.getField(this.getKeyProperty());
+
+        // An absent value is not an identity, whatever the Model says. This is checked before the
+        // no-field case on purpose: a Store without a declared key field would otherwise pass null
+        // straight through, and a caller which inserts on a miss then adds a row nothing can address.
+        if (value === null || value === undefined) {
+            return undefined
+        }
+
+        // With no declared key field there is nothing to canonicalize against, so a present value
+        // stands as its own identity.
+        if (!field) {
+            return value
+        }
+
+        // Context-dependent keys cannot be resolved from a value alone — see Supported domain.
+        if (field.calculate || field.convert) {
+            return undefined
+        }
+
+        let canonical = RecordFactory.parseRecordValue({record: {}, field, value});
+
+        // `typeof null` is 'object'; a null here means the field's own rules rejected the value.
+        if (canonical === null || canonical === undefined || Number.isNaN(canonical)) {
+            return undefined
+        }
+
+        return typeof canonical === 'object' ? undefined : canonical
+    }
+
+    /**
      * @param {Object} data
      * @protected
      */
     onPipelinePush(data) {
-        let me = this,
-            id = data[me.getKeyProperty()],
+        let me          = this,
+            keyProperty = me.getKeyProperty(),
+            id          = me.getCanonicalKey(me.getKey(data)),
             record;
 
         if (id !== undefined) {
             record = me.get(id);
+
+            // The Collection keys itself by the value it is handed, so a received key would be
+            // stored verbatim and then miss every later canonical lookup — the same identity split,
+            // one insert further along. Only a key the payload carries directly is rewritten; a
+            // mapped one stays the Model's to resolve.
+            if (Object.hasOwn(data, keyProperty) && data[keyProperty] !== id) {
+                data = {...data, [keyProperty]: id}
+            }
 
             if (record) {
                 record.set(data)
@@ -1412,6 +1585,27 @@ class Store extends Collection {
 
         me.fire('mutationFailed', {action: 'update', record, data, response});
         throw new Error(response?.message || 'Neo.data.Store: remoteUpdate() failed')
+    }
+
+    /**
+     * @summary Assigns the data config while optionally marking its load notifications as continuation.
+     * Data hooks, records, filtering and sorting retain their normal behavior; this does not append rows.
+     * The notification context is restored after nested calls or errors, so later mutations stay ordinary.
+     * @param {Object[]|Neo.data.Model[]} data The data config's next value.
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.continuation=false] Whether this assignment continues the current data view.
+     * @returns {void}
+     */
+    setData(data, {continuation=false}={}) {
+        const me = this, previousAppendNotification = me.#appendNotification;
+
+        me.#appendNotification = continuation === true;
+
+        try {
+            me.data = data
+        } finally {
+            me.#appendNotification = previousAppendNotification
+        }
     }
 
     /**

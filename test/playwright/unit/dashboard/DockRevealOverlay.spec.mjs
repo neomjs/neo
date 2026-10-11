@@ -1,0 +1,493 @@
+import {setup} from '../../setup.mjs';
+
+setup({
+    appConfig: {
+        name: 'DashboardDockRevealOverlayTest'
+    }
+});
+
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../src/Neo.mjs';
+import * as core         from '../../../../src/core/_export.mjs';
+import DockMotionSignal  from '../../../../src/dashboard/dock/projection/MotionSignal.mjs';
+import DockRevealOverlay from '../../../../src/dashboard/dock/interaction/RevealOverlay.mjs';
+
+const createItem = (config={}) => ({
+    dockEdge  : 'right',
+    dockItemId: 'terminal',
+    restorable: true,
+    title     : 'Terminal',
+    ...config
+});
+
+/**
+ * @summary Builds the local `DomEvents` wire shape for an `animationend`; native
+ * `AnimationEvent.animationName` is deliberately absent from the serialized payload.
+ * @param {String} targetId Config-aware browser target id.
+ * @param {String[]} [pathIds] Serialized composed-path ids.
+ * @param {String} [rawId] Raw DOM id retained by the local-listener envelope.
+ * @returns {Object}
+ */
+const createSerializedAnimationEnd = (targetId, pathIds=[targetId], rawId=targetId) => ({
+    id       : rawId,
+    path     : pathIds.map(id => ({id})),
+    target   : {id: targetId},
+    timeStamp: 1,
+    type     : 'animationend',
+    value    : undefined
+});
+
+test.describe('Neo.dashboard.dock.interaction.RevealOverlay', () => {
+    let overlay;
+
+    test.afterEach(() => {
+        overlay?.destroy();
+        overlay = null;
+        DockMotionSignal.activeMotions.clear()
+    });
+
+    test('stays hidden while idle, composes header (active tab + pin) and pane slot as real children', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'right',
+            id  : 'dock-reveal-render'
+        });
+
+        expect(overlay.visible).toBe(false);
+        expect(overlay.cls).toContain('neo-dashboard-dock-reveal-overlay-hidden');
+        expect(overlay.cls).toContain('neo-dashboard-dock-reveal-overlay-right');
+
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+
+        expect(overlay.visible).toBe(true);
+        expect(overlay.cls).not.toContain('neo-dashboard-dock-reveal-overlay-hidden');
+
+        // Real composed children, not synthesized vdom.
+        expect(overlay.titleTab.text).toBe('Terminal');
+        expect(overlay.titleTab.className).toBe('Neo.tab.header.Button');
+        expect(overlay.titleTab.pressed).toBe(true);
+        expect(overlay.titleTab.vdom.tabIndex).toBe(-1);
+        expect(overlay.titleTab.cls, 'long preview titles reuse the tab overflow contract')
+            .toContain('neo-tab-overflow-capped');
+        expect(overlay.pinButton.disabled).toBe(false);
+        expect(overlay.items[0].className).toBe('Neo.tab.header.Toolbar');
+        expect(overlay.items[0].cls).toContain('neo-tab-header-toolbar');
+        expect(overlay.items[0].cls).toContain('neo-tab-container-inline');
+        expect(overlay.pinButton.cls).toContain('neo-dashboard-dock-reveal-pin');
+        expect(overlay.pinButton.cls).toContain('neo-toolbar-action');
+        expect(overlay.pinButton.isToolbarAction, 'the preview uses the real tab-header action primitive').toBe(true);
+        expect(overlay.pinButton.showOnFocus, 'the revealed inverse stays persistently available').toBe(false);
+        expect(overlay.pinButton.ui, 'tab-header CSS, not a standalone Button ui, owns its chrome').toBeNull();
+        expect(overlay.pinButton.iconCls).toBe('fa fa-thumbtack');
+        expect(overlay.pinButton.text, 'pane chrome uses a compact icon control').toBeNull();
+        expect(overlay.pinButton.vdom['aria-label']).toBe('Pin');
+        expect(overlay.paneSlot.cls).toContain('neo-dashboard-dock-reveal-pane-slot');
+        expect(overlay.paneSlot.items).toHaveLength(0);
+    });
+
+    test('remains visible through the dismiss grace window', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge        : 'left',
+            id          : 'dock-reveal-grace',
+            revealState : 'dismiss-pending',
+            revealedItem: createItem()
+        });
+
+        expect(overlay.visible).toBe(true);
+    });
+
+    test('sizes the free dimension from the committed extent, else the default fraction', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge        : 'left',
+            id          : 'dock-reveal-sizing',
+            revealExtent: 0.3,
+            revealState : 'revealed',
+            revealedItem: createItem({dockEdge: 'left'})
+        });
+
+        expect(overlay.style.width).toBe('30%');
+        expect(overlay.style.height).toBeNull();
+
+        overlay.revealExtent = 0.1;
+        expect(overlay.style.width, 'the configured fallback is also the usability floor').toBe('25%');
+
+        overlay.revealExtent = null;
+        expect(overlay.style.width).toBe('25%');
+
+        overlay.set({defaultRevealFraction: 0.4, edge: 'top'});
+        expect(overlay.style.height).toBe('40%');
+        expect(overlay.style.width).toBeNull();
+    });
+
+    test('the pin button mirrors policy: disabled for a non-pinnable item, intent still routes upstream', () => {
+        let pins = [];
+
+        overlay = Neo.create(DockRevealOverlay, {
+            edge        : 'right',
+            id          : 'dock-reveal-pin-policy',
+            revealState : 'revealed',
+            revealedItem: createItem({restorable: false})
+        });
+
+        overlay.on('revealPinRequested', data => pins.push(data));
+
+        expect(overlay.pinButton.disabled).toBe(true);
+
+        // Enforcement lives in the rail/model; the overlay only mirrors the affordance.
+        overlay.onPinClick({});
+        expect(pins).toHaveLength(1);
+        expect(pins[0].itemId).toBe('terminal');
+
+        // A live policy flip re-enables the SAME pin button instance.
+        let pinButton = overlay.pinButton;
+
+        overlay.revealedItem = createItem({restorable: true});
+
+        expect(overlay.pinButton).toBe(pinButton);
+        expect(pinButton.disabled).toBe(false);
+    });
+
+    test('translates DOM reality into semantic intents (pointer, focus, escape, pin)', () => {
+        let fired = [];
+
+        overlay = Neo.create(DockRevealOverlay, {
+            edge        : 'right',
+            id          : 'dock-reveal-intents',
+            revealState : 'revealed',
+            revealedItem: createItem()
+        });
+
+        ['revealEscape', 'revealFocusEnter', 'revealFocusLeave', 'revealPinRequested', 'revealPointerEnter', 'revealPointerLeave']
+            .forEach(name => overlay.on(name, () => fired.push(name)));
+
+        overlay.onPointerEnter({});
+        overlay.onPointerLeave({});
+        overlay.onFocusEnter({});
+        overlay.onFocusLeave({});
+        overlay.onKeyDown({key: 'Escape'});
+        overlay.onKeyDown({key: 'Enter'});
+        overlay.onPinClick({});
+
+        expect(fired).toEqual([
+            'revealPointerEnter',
+            'revealPointerLeave',
+            'revealFocusEnter',
+            'revealFocusLeave',
+            'revealEscape',
+            'revealPinRequested'
+        ]);
+    });
+
+    test('inside mousedown focuses the programmatic root through the global listener', () => {
+        const focused = [];
+
+        overlay = Neo.create(DockRevealOverlay, {
+            edge        : 'right',
+            id          : 'dock-reveal-inside-focus',
+            revealState : 'revealed-focused',
+            revealedItem: createItem()
+        });
+
+        overlay.focus = (...args) => focused.push(args);
+
+        expect(overlay.vdom.tabIndex).toBe(-1);
+        expect(overlay.domListeners.some(listener => typeof listener.mousedown === 'function')).toBe(true);
+
+        overlay.onMouseDown({});
+
+        expect(focused).toEqual([[overlay.id, false, true, 'pointer']])
+    });
+
+    test('inside mousedown on a target that takes focus itself leaves that focus alone', () => {
+        const focused = [];
+
+        overlay = Neo.create(DockRevealOverlay, {
+            edge        : 'right',
+            id          : 'dock-reveal-inside-focusable',
+            revealState : 'revealed-focused',
+            revealedItem: createItem()
+        });
+
+        overlay.focus = (...args) => focused.push(args);
+
+        // a text field as the target, a textarea further up the path, a contenteditable, an
+        // explicit tab stop — the browser focuses each on its own mousedown
+        overlay.onMouseDown({target: {tagName: 'input'}});
+        overlay.onMouseDown({target: {tagName: 'span'}, path: [{tagName: 'span'}, {tagName: 'textarea'}]});
+        overlay.onMouseDown({target: {tagName: 'div', isContentEditable: true}});
+        overlay.onMouseDown({target: {tagName: 'li', tabIndex: 0}});
+
+        expect(focused).toEqual([]);
+
+        // prose, a button, and the root's own tabindex -1 still hand focus to the root
+        overlay.onMouseDown({target: {tagName: 'div'}, path: [{tagName: 'div'}, {tagName: 'p'}]});
+        overlay.onMouseDown({target: {tagName: 'button'}});
+        overlay.onMouseDown({target: {tagName: 'div', tabIndex: -1}});
+
+        expect(focused).toEqual([
+            [overlay.id, false, true, 'pointer'],
+            [overlay.id, false, true, 'pointer'],
+            [overlay.id, false, true, 'pointer']
+        ])
+    });
+
+    test('the reveal-slide routes the motion signal: enter on hidden→visible, filtered leave on animationend', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'left',
+            id  : 'dock-reveal-motion'
+        });
+
+        const rootId = overlay.vdom?.id || overlay.id;
+
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // idle → revealed opens the signal window (the CSS keyframes restart natively:
+        // the hidden state is display:none)
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
+
+        // A hosted pane's bubbled animation keeps its child target id and must NOT close the
+        // overlay-owned window, even though the serialized path reaches the overlay root.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd('hosted-pane-animation', ['hosted-pane-animation', rootId]));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
+
+        // Raw DOM ids are a different identity namespace. A non-Neo child can omit the
+        // config-aware target id while its browser id happens to collide with the overlay id;
+        // that must not settle the overlay-owned motion window.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(undefined, [rootId], rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
+
+        // The overlay root event settles. A blank raw DOM id models `useDomIds:false`; the
+        // config-aware `target.id` remains the portable identity authority.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId, [rootId], ''));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // dismiss is an instant display cut: no motion window opens
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // visible→visible state shifts (revealed → dismiss-pending) never double-enter
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        overlay.set({revealState: 'dismiss-pending'});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false)
+    });
+
+    test('a dismissal on a MOUNTED overlay leaves in two phases: the leaving class first, hidden on the root\'s own animationend', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'right',
+            id  : 'dock-reveal-leave'
+        });
+
+        const rootId  = overlay.vdom?.id || overlay.id,
+              hidden  = 'neo-dashboard-dock-reveal-overlay-hidden',
+              leaving = 'neo-dashboard-dock-reveal-overlay-leaving';
+
+        overlay.mounted = true;
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id), 'the entry settled').toBe(false);
+
+        // The dismissal keeps the DOM: leaving, not hidden, and the motion window re-opens for
+        // the exit keyframes — a hosted pane's bubbled end still cannot close it.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.visible).toBe(false);
+        expect(overlay.revealLeaving).toBe(true);
+        expect(overlay.cls).toContain(leaving);
+        expect(overlay.cls, 'not hidden while the exit runs').not.toContain(hidden);
+        expect(DockMotionSignal.isAnimating(overlay.id), 'the exit is motion too').toBe(true);
+
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd('hosted-pane-animation', ['hosted-pane-animation', rootId]));
+        expect(overlay.revealLeaving).toBe(true);
+
+        // The root's own end lands the hidden class and settles.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(overlay.revealLeaving).toBe(false);
+        expect(overlay.cls).toContain(hidden);
+        expect(overlay.cls).not.toContain(leaving);
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // A re-entry during a leave cancels it and stays visible; the window stays open for the
+        // entry keyframes the class change restarts, and their end settles it.
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.cls).toContain(leaving);
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        expect(overlay.revealLeaving).toBe(false);
+        expect(overlay.cls).not.toContain(leaving);
+        expect(overlay.cls).not.toContain(hidden);
+        expect(DockMotionSignal.isAnimating(overlay.id), 'still one open window').toBe(true);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // Teardown mid-leave settles without an end event and releases the fail-safe timer.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.revealLeaving).toBe(true);
+        expect(overlay.revealLeaveTimer).not.toBeNull();
+        overlay.destroy();
+        expect(DockMotionSignal.activeMotions.has(overlay)).toBe(false);
+        overlay = null
+    });
+
+    test('an unmounted overlay hides at once: nothing to animate, the producer settles synchronously', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'left',
+            id  : 'dock-reveal-unmounted-hide'
+        });
+
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.set({revealState: 'idle', revealedItem: null});
+
+        expect(overlay.revealLeaving).toBe(false);
+        expect(overlay.cls).toContain('neo-dashboard-dock-reveal-overlay-hidden');
+        expect(overlay.cls).not.toContain('neo-dashboard-dock-reveal-overlay-leaving');
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false)
+    });
+
+    test('a retarget while visible flips the swap generation and opens one motion window; hidden retargets do not', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'right',
+            id  : 'dock-reveal-swap'
+        });
+
+        const rootId = overlay.vdom?.id || overlay.id,
+              swap1  = 'neo-dashboard-dock-reveal-overlay-swap-1',
+              swap2  = 'neo-dashboard-dock-reveal-overlay-swap-2';
+
+        // An entry is generation 0: no swap class.
+        overlay.set({revealState: 'revealed', revealedItem: createItem({dockItemId: 'alpha', title: 'Alpha'})});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(overlay.revealSwapGeneration).toBe(0);
+        expect(overlay.cls).not.toContain(swap1);
+
+        // Retarget to another item while visible: generation 1, one motion window.
+        overlay.set({revealedItem: createItem({dockItemId: 'beta', title: 'Beta'})});
+        expect(overlay.revealSwapGeneration).toBe(1);
+        expect(overlay.cls).toContain(swap1);
+        expect(overlay.cls).not.toContain(swap2);
+        expect(overlay.titleTab.text).toBe('Beta');
+        expect(DockMotionSignal.isAnimating(overlay.id), 'the swap is motion').toBe(true);
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count, 'one window, not two').toBe(1);
+
+        // The root's own end settles it, like an entry.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // The same item again is not a retarget.
+        overlay.set({revealedItem: createItem({dockItemId: 'beta', title: 'Beta'})});
+        expect(overlay.revealSwapGeneration).toBe(1);
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // The next retarget alternates.
+        overlay.set({revealedItem: createItem({dockItemId: 'alpha', title: 'Alpha'})});
+        expect(overlay.revealSwapGeneration).toBe(2);
+        expect(overlay.cls).toContain(swap2);
+        expect(overlay.cls).not.toContain(swap1);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+
+        // Hiding clears the generation; a retarget while hidden opens nothing.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.revealSwapGeneration).toBe(0);
+        expect(overlay.cls).not.toContain(swap2);
+        overlay.revealedItem = createItem({dockItemId: 'beta', title: 'Beta'});
+        expect(overlay.revealSwapGeneration, 'no swap while hidden').toBe(0);
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false)
+    });
+
+    test('a retarget that passes through hidden on a mounted overlay is still a retarget: the leave is cancelled and the incoming item gets its entry', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'right',
+            id  : 'dock-reveal-swap-via-leave'
+        });
+
+        const rootId  = overlay.vdom?.id || overlay.id,
+              swap1   = 'neo-dashboard-dock-reveal-overlay-swap-1',
+              leaving = 'neo-dashboard-dock-reveal-overlay-leaving';
+
+        overlay.mounted = true;
+        overlay.set({revealState: 'revealed-focused', revealedItem: createItem({dockItemId: 'alpha', title: 'Alpha'})});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+
+        // A pressed-button rail releases the old tab before it presses the new one: idle, then the
+        // other item — within one tick, so the leave never reaches the DOM.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.revealLeaving).toBe(true);
+        expect(overlay.cls).toContain(leaving);
+
+        overlay.set({revealState: 'revealed-focused', revealedItem: createItem({dockItemId: 'beta', title: 'Beta'})});
+        expect(overlay.revealLeaving, 'the leave is cancelled').toBe(false);
+        expect(overlay.cls).not.toContain(leaving);
+        expect(overlay.revealSwapGeneration, 'the incoming item gets its entry').toBe(1);
+        expect(overlay.cls).toContain(swap1);
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count, 'one window across leave, cancel and swap').toBe(1);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // The same item returning after a cancelled leave is a plain re-entry, not a retarget: the
+        // generation is neither advanced nor reset — the class still on the node is the one the
+        // NEXT retarget has to alternate against.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.revealSwapGeneration, 'a leave keeps the generation').toBe(1);
+        overlay.set({revealState: 'revealed-focused', revealedItem: createItem({dockItemId: 'beta', title: 'Beta'})});
+        expect(overlay.revealSwapGeneration, 'a return of the same item is not a swap').toBe(1);
+        expect(overlay.cls).toContain(swap1);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // A retarget after that alternates, and a completed leave resets to the entry rules.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        overlay.set({revealState: 'revealed-focused', revealedItem: createItem({dockItemId: 'alpha', title: 'Alpha'})});
+        expect(overlay.revealSwapGeneration, 'the next retarget alternates').toBe(2);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        overlay.set({revealState: 'idle', revealedItem: null});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(overlay.revealLeaving).toBe(false);
+        expect(overlay.revealSwapGeneration, 'a completed leave resets the generation').toBe(0);
+        expect(overlay.cls).not.toContain(swap1);
+        expect(overlay.cls).not.toContain('neo-dashboard-dock-reveal-overlay-swap-2')
+    });
+
+    test('early dismissal, rapid re-reveal and destroy each settle exactly their owned motion entry', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'left',
+            id  : 'dock-reveal-motion-cancel'
+        });
+
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count).toBe(1);
+
+        // display:none cancels the CSS animation without animationend. The state transition
+        // settles synchronously instead of leaving the signal wedged until its fail-safe.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+        expect(DockMotionSignal.activeMotions.has(overlay)).toBe(false);
+
+        // A quick second reveal starts from a clean count; its one end event fully settles it.
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count).toBe(1);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(overlay.vdom?.id || overlay.id));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // Item-only visibility shifts follow the same balanced lifecycle while the state remains
+        // `revealed`: removing the item hides/cancels; restoring one restarts from count one.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.revealedItem = null;
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+        overlay.revealedItem = createItem();
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count).toBe(1);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(overlay.vdom?.id || overlay.id));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // Teardown is another animation-cancellation path and must release instance ownership.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+
+        let doomed = overlay;
+
+        overlay.destroy();
+        overlay = null;
+
+        expect(DockMotionSignal.activeMotions.has(doomed)).toBe(false)
+    });
+});

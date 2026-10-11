@@ -1,0 +1,1681 @@
+import {setup} from '../../setup.mjs';
+
+setup({
+    appConfig: {
+        name: 'NeoDashboardDockCrossWindowParticipationTest'
+    }
+});
+
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import Component       from '../../../../src/component/Base.mjs';
+import Container       from '../../../../src/container/Base.mjs';
+import DockWorkspace   from '../../../../src/dashboard/dock/Workspace.mjs';
+import PreviewContract from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
+
+/**
+ * @summary Tests for Neo.dashboard.dock.window.Participation — the adapter-tier composition
+ * that wires ONE dock workspace into the §2.3 cross-window contract over landed machinery only:
+ * target registration lifecycle, the owner seams, foreign-vs-local drop discrimination, the
+ * atomic `transferItem` composition, and finite-schema publication of the executor's document
+ * pair. The executor itself is the REAL DockZoneModel — no transfer semantics are mocked.
+ */
+
+/** A fresh source-workspace document ('A') — `terminal` is the item every transfer moves. */
+function sourceDoc() {
+    return {
+        schema: 'neo.dock.zone.v1',
+        root  : 'root',
+        items : {
+            strategy: {reference: 'strategy', title: 'Strategy'},
+            terminal: {reference: 'terminal', title: 'Terminal'}
+        },
+        nodes: {
+            root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'side-tabs'}}},
+            'main-tabs': {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'},
+            'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
+        }
+    }
+}
+
+/** A fresh target-workspace document ('B') with a disjoint catalog. */
+function targetDoc() {
+    return {
+        schema: 'neo.dock.zone.v1',
+        root  : 'root',
+        items : {alpha: {reference: 'alpha', title: 'Alpha'}},
+        nodes : {
+            root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}},
+            'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
+        }
+    }
+}
+
+test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — workspace wiring)', () => {
+    let VesselProxyEmbodiment, DockCrossWindowParticipation, DockTabSortZone, WorkspaceDocument, DragCoordinator, Persistence, Rectangle, WindowManager;
+
+    const createCoordinatorStub = calls => ({
+        register  : zone => calls.push(['register', zone]),
+        unregister: zone => calls.push(['unregister', zone])
+    });
+
+    test.beforeAll(async () => {
+        DockCrossWindowParticipation = (await import('../../../../src/dashboard/dock/window/Participation.mjs')).default;
+        DockTabSortZone              = (await import('../../../../src/dashboard/dock/interaction/TabSortZone.mjs')).default;
+        WorkspaceDocument                     = (await import('../../../../src/dashboard/dock/model/WorkspaceDocument.mjs')).default;
+        Persistence                  = (await import('../../../../src/dashboard/dock/model/Persistence.mjs')).default;
+        DragCoordinator              = (await import('../../../../src/manager/DragCoordinator.mjs')).default;
+        Rectangle                    = (await import('../../../../src/util/Rectangle.mjs')).default;
+        WindowManager                = (await import('../../../../src/manager/Window.mjs')).default;
+
+        VesselProxyEmbodiment        = (await import('../../../../src/dashboard/dock/window/VesselProxyEmbodiment.mjs')).default
+    });
+
+    test('registration lifecycle: mount registers ONE identity-complete target, unmount unregisters the same instance', () => {
+        const calls = [];
+
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            dragCoordinator: createCoordinatorStub(calls),
+            getDocument    : () => targetDoc(),
+            hitTest        : () => true,
+            sortGroup      : 'dock-demo',
+            windowId       : 'window-b',
+            workspaceId    : 'B'
+        });
+
+        expect(calls).toHaveLength(1);
+
+        const [action, zone] = calls[0];
+
+        expect(action).toBe('register');
+        expect(zone).toBe(participation.target);
+        expect(zone.sortGroup).toBe('dock-demo');
+        expect(zone.windowId).toBe('window-b');
+        // the §2.3 mandatory target hooks all exist on the registered instance
+        for (const hook of ['acceptsRemoteDrag', 'onRemoteDragMove', 'onRemoteDragLeave', 'onRemoteDrop']) {
+            expect(typeof zone[hook]).toBe('function')
+        }
+
+        participation.destroy();
+
+        expect(calls).toHaveLength(2);
+        expect(calls[1]).toEqual(['unregister', zone]);
+        // Base.destroy() deletes own members — the owned target reference is gone either way
+        expect(participation.target ?? null).toBeNull()
+    });
+
+    /**
+     * The overlays this adapter composes are CHILDREN of the workspace, so releasing them has to tell
+     * the parent to drop them from its vdom. `Component#destroy()` defaults `updateParentVdom` to
+     * `false`, which unregisters the instance and leaves the parent's `cn` still naming it — a
+     * reference no `ComponentManager` can resolve, which every downstream consumer then trips over
+     * under a different error.
+     *
+     * Asserted as an OUTCOME on the parent's vdom rather than as "destroy was called with true":
+     * an argument assertion witnesses that the child was TOLD to detach, not that it detached.
+     */
+    /**
+     * The overlays this adapter composes are CHILDREN of the workspace container, so releasing them
+     * has to leave the container's TWO collections agreed: `vdom.cn` and `items`. `Component#destroy()`
+     * defaults `updateParentVdom` to `false` and leaves the parent naming a component no
+     * `ComponentManager` can resolve; `destroy(true)` repairs `cn` and still leaves `items` holding the
+     * dead child, so a later `removeAt(index)` addresses the wrong one.
+     *
+     * Built through the real `add()` / release path rather than by pushing `cn` directly: a fixture
+     * shaped like the code under test cannot see a collection the code under test never touches.
+     */
+    test('releasing owned overlays leaves the parent container\'s vdom AND items agreed', () => {
+        const parent = Neo.create(Container, {autoMount: false, items: []}),
+              owned  = id => parent.add({module: Container, autoMount: false, id});
+
+        const preview    = owned('test-owned-preview'),
+              indicators = owned('test-owned-indicators');
+
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            dragCoordinator: createCoordinatorStub([]),
+            getDocument    : () => targetDoc(),
+            sortGroup      : 'dock-demo',
+            windowId       : 'window-b',
+            workspaceId    : 'B'
+        });
+
+        participation.ownedPreview    = preview;
+        participation.ownedIndicators = indicators;
+
+        const namedInVdom  = () => (parent.vdom.cn || []).map(node => node.componentId ?? node.id),
+              namedInItems = () => parent.items.map(item => item.id);
+
+        expect(namedInVdom(), 'the parent names both overlays before release')
+            .toEqual(expect.arrayContaining(['test-owned-preview', 'test-owned-indicators']));
+        expect(namedInItems(), 'and holds both as items')
+            .toEqual(['test-owned-preview', 'test-owned-indicators']);
+
+        participation.destroy();
+
+        expect(namedInVdom(), 'the vdom names neither after it').toEqual([]);
+        // The collection the previous shape of this arm could not see: a destroyed child left in
+        // `items` makes every later index-addressed removal point at the wrong component.
+        expect(namedInItems(), 'and items holds neither').toEqual([]);
+
+        // The consequence, driven rather than asserted about: a live child added after the release
+        // must be the one an index-addressed removal reaches.
+        const live = parent.add({module: Container, autoMount: false, id: 'test-live-after-release'});
+
+        expect(namedInItems(), 'the live child is the only item').toEqual(['test-live-after-release']);
+        expect(parent.items[0]).toBe(live);
+
+        parent.destroy()
+    });
+
+    test('a registered target resolves the current preview policy at drop time', () => {
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            dragCoordinator: createCoordinatorStub([]),
+            getDocument    : () => targetDoc(),
+            sortGroup      : 'dock-demo',
+            windowId       : 'window-b',
+            workspaceId    : 'B'
+        });
+        const original = PreviewContract.previewToOperation;
+        const preview  = {
+            schema  : 'neo.dock.preview.v1', itemId: 'alpha',
+            target  : {nodeId: 'main-tabs'}, placement: {kind: 'tab-into'},
+            feedback: {state: 'accepted'}
+        };
+
+        try {
+            expect(participation.target.previewToOperation(preview).operation).toBe('addTab');
+            PreviewContract.previewToOperation = function(value) {
+                return this.isValidPreview(value) ? {operation: 'customDrop'} : null
+            };
+            expect(participation.target.previewToOperation(preview)).toEqual({operation: 'customDrop'});
+            expect(participation.target.previewToOperation(null)).toBeNull()
+        } finally {
+            PreviewContract.previewToOperation = original;
+            participation.destroy()
+        }
+    });
+
+    test('native-titlebar source seams ride the SAME stable participation registration', async () => {
+        const
+            calls           = [],
+            draggedItem     = {id: 'terminal'},
+            awaitEmbodiment = payload => {
+                calls.push(['await-embodiment', payload]);
+                return true
+            },
+            source      = {
+                draggedItem,
+                embodyNativeHover: true,
+                sourceWindowId   : 'window-popup',
+                widgetName       : 'terminal'
+            };
+
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            awaitDragEmbodiment    : awaitEmbodiment,
+            dragCoordinator        : createCoordinatorStub(calls),
+            getDocument            : () => targetDoc(),
+            resolveNativeWindowDrag: windowId => windowId === 'window-popup' ? source : null,
+            resumeNativeWindowDrag : (widgetName, proxyRect) => {
+                calls.push(['resume', widgetName, proxyRect]);
+                return 'resumed'
+            },
+            retireNativeWindowDrag : item => {
+                calls.push(['retire', item]);
+                return 'retired'
+            },
+            sortGroup              : 'dock-demo',
+            suspendNativeWindowDrag: (widgetName, context) => {
+                calls.push(['suspend', widgetName, context]);
+                return true
+            },
+            windowId   : 'window-main',
+            workspaceId: 'main'
+        });
+
+        const target = participation.target;
+
+        expect(calls.filter(([name]) => name === 'register')).toEqual([['register', target]]);
+        expect(target.awaitDragEmbodiment).toBe(awaitEmbodiment);
+        expect(target.getNativeWindowDrag('window-popup')).toBe(source);
+        expect(target.getNativeWindowDrag('window-other')).toBeNull();
+
+        const context = {targetWindowId: 'window-main'};
+
+        expect(target.suspendWindowDrag('terminal', context)).toBe(true);
+        expect(target.resumeWindowDrag('terminal', {x: 10, y: 20})).toBe('resumed');
+        expect(target.onRemoteDropOut(draggedItem)).toBe('retired');
+        expect(calls.slice(1)).toEqual([
+            ['suspend', 'terminal', context],
+            ['resume', 'terminal', {x: 10, y: 20}],
+            ['retire', draggedItem]
+        ]);
+
+        participation.destroy();
+
+        expect(calls.filter(([name]) => name === 'unregister')).toEqual([['unregister', target]])
+    });
+
+    test('seam binding: the registered target rides the owner preview pipeline — previewFor on hover, previewToOperation + commit on drop', () => {
+        const seen  = {previews: [], conversions: [], commits: []};
+        const calls = [];
+
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            commitLocal       : operation => { seen.commits.push(operation); return {document: targetDoc(), errors: []} },
+            dragCoordinator   : createCoordinatorStub(calls),
+            getDocument       : () => targetDoc(),
+            hitTest           : () => true,
+            previewFor        : payload => { seen.previews.push(payload); return {itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}} },
+            previewToOperation: preview => { seen.conversions.push(preview); return {operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'} },
+            resolveOwnershipId: () => 'group-1',
+            sortGroup         : 'dock-demo',
+            windowId          : 'window-b',
+            workspaceId       : 'B'
+        });
+
+        const draggedItem = {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'};
+        const payload     = {draggedItem, localX: 10, localY: 10, offsetX: 0, offsetY: 0, proxyRect: null};
+
+        // hover computes through the owner's landed path and the drop converts THAT preview
+        const preview = participation.target.onRemoteDragMove(payload);
+
+        expect(seen.previews).toEqual([payload]);
+        expect(preview.itemId).toBe('alpha');
+
+        participation.target.onRemoteDrop(draggedItem);
+
+        expect(seen.conversions).toEqual([preview]);
+        // the payload NAMES this workspace ('B') as its source → the LOCAL seam committed it
+        expect(seen.commits).toEqual([{operation: 'addTab', itemId: 'alpha', tabsNodeId: 'main-tabs'}]);
+
+        participation.destroy()
+    });
+
+    /**
+     * A header proxy mounts after the hover admitted it, so the drop has to consult the render outcome.
+     * Drives the REAL proxy embodiment through the participation's default seams; the proxy that
+     * rendered is the control that the same gesture commits. `landsFirst` drops while the mount is
+     * still in flight and only then answers it.
+     */
+    test('a header proxy that has not rendered commits no drop, refused or still mounting; over a rendered one the same drop commits', async () => {
+        const dropBehindHeaderProxy = async (mount, landsFirst=null) => {
+            const
+                commits     = [],
+                draggedItem = {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'},
+                embodiment  = Neo.create(VesselProxyEmbodiment, {
+                    createProxy: config => {
+                        const proxy = Neo.create(Component, {cls: config.cls, style: config.style});
+
+                        proxy.initVnode = mount;
+                        return proxy
+                    },
+                    resolvePane       : () => null,
+                    resolveProxyConfig: () => ({cls: ['neo-dock-dragproxy']})
+                });
+
+            const participation = Neo.create(DockCrossWindowParticipation, {
+                commitLocal       : operation => { commits.push(operation); return {document: targetDoc(), errors: []} },
+                dragCoordinator   : createCoordinatorStub([]),
+                dragEmbodiment    : embodiment,
+                getDocument       : () => targetDoc(),
+                hitTest           : () => true,
+                previewFor        : payload => ({itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}}),
+                previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+                resolveOwnershipId: () => 'group-1',
+                sortGroup         : 'dock-demo',
+                windowId          : 'window-b',
+                workspaceId       : 'B'
+            });
+
+            const payload = {
+                draggedItem, embodyHeader: true, embodyProxy: true, localX: 10, localY: 10, offsetX: 0, offsetY: 0,
+                proxyRect     : {height: 32, width: 90, x: 10, y: 10},
+                sourceSortZone: {getDragProxyVdom: () => ({cn: [{tag: 'button', text: 'Alpha'}]})},
+                sourceWindowId: 'window-a'
+            };
+
+            const admitted = participation.target.onRemoteDragMove(payload) !== null,
+                  settled  = landsFirst ? null : await embodiment.whenSettled({itemId: 'alpha'}),
+                  result   = participation.target.onRemoteDrop(draggedItem),
+                  preview  = participation.target.currentPreview;
+
+            landsFirst?.();
+            await Promise.resolve();
+
+            participation.destroy();
+            embodiment.destroy();
+
+            return {admitted, commits, preview, result, settled}
+        };
+
+        let refuseLate;
+
+        const rendered = await dropBehindHeaderProxy(() => Promise.resolve()),
+              refused  = await dropBehindHeaderProxy(() => Promise.reject(new Error('renderer refused'))),
+              mounting = await dropBehindHeaderProxy(
+                  () => new Promise((resolve, reject) => {refuseLate = reject}),
+                  () => refuseLate(new Error('renderer refused after the drop'))
+              );
+
+        expect(rendered.admitted).toBe(true);
+        expect(rendered.settled).toBe(true);
+        expect(rendered.commits).toEqual([{operation: 'addTab', itemId: 'alpha', tabsNodeId: 'main-tabs'}]);
+
+        expect(refused.admitted, 'the hover admits the proxy before its render answers').toBe(true);
+        expect(refused.settled).toBe(false);
+        expect(refused.commits, 'no drop lands behind a proxy nobody sees').toEqual([]);
+        expect(refused.result).toBeNull();
+        expect(refused.preview).toBeNull();
+
+        expect(mounting.admitted).toBe(true);
+        expect(mounting.commits, 'a drop while the proxy is still mounting lands behind nothing either').toEqual([]);
+        expect(mounting.result).toBeNull();
+        expect(mounting.preview).toBeNull()
+    });
+
+    test('foreign drop: composes ONE transferItem through the real executor — source loses the item, target gains it, commitTransfer publishes the pair', () => {
+        const transfers = [];
+        const source    = sourceDoc();
+
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            commitLocal       : () => { throw new Error('a foreign drop must never ride the local seam') },
+            commitTransfer    : published => transfers.push(published),
+            dragCoordinator   : createCoordinatorStub([]),
+            getDocument       : () => targetDoc(),
+            getForeignDocument: workspaceId => workspaceId === 'A' ? source : null,
+            resolveOwnershipId: () => 'group-1',
+            sortGroup         : 'dock-demo',
+            windowId          : 'window-b',
+            workspaceId       : 'B'
+        });
+
+        const result = participation.commitDrop(
+            {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'},
+            {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'}
+        );
+
+        expect(result).not.toBeNull();
+        expect(transfers).toHaveLength(1);
+
+        const {descriptor, sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId} = transfers[0];
+
+        expect(sourceWorkspaceId).toBe('A');
+        expect(targetWorkspaceId).toBe('B');
+        expect(descriptor).toMatchObject({operation: 'transferItem', itemId: 'terminal', sourceWorkspaceId: 'A', targetWorkspaceId: 'B'});
+        expect(descriptor.target).toEqual({operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'});
+
+        // atomic two-document truth from the REAL executor: the source lost tree + catalog
+        // entry — and `normalizeTree` collapsed the emptied `side-tabs` slot entirely (the §2.3
+        // invariant-restoring commit) — while the target gained the verbatim record in place
+        expect(sourceDocument.items.terminal).toBeUndefined();
+        expect(sourceDocument.nodes['side-tabs']).toBeUndefined();
+        expect(targetDocument.nodes['main-tabs'].items).toContain('terminal');
+        expect(targetDocument.items.terminal).toMatchObject({reference: 'terminal', title: 'Terminal'});
+
+        participation.destroy()
+    });
+
+    test('whole-stack drop: only the source model-resolved stack root transfers and publication gates source retirement', () => {
+        const source    = sourceDoc();
+        const target    = targetDoc();
+        const transfers = [];
+
+        target.nodes['target-tabs'] = target.nodes['main-tabs'];
+        target.nodes.root.zones.center.nodeId = 'target-tabs';
+        delete target.nodes['main-tabs'];
+
+        const create = commitTransfer => Neo.create(DockCrossWindowParticipation, {
+            commitTransfer,
+            dragCoordinator   : createCoordinatorStub([]),
+            getDocument       : () => target,
+            getForeignDocument: workspaceId => workspaceId === 'A' ? source : null,
+            resolveOwnershipId: () => 'group-1',
+            sortGroup         : 'dock-demo',
+            windowId          : 'window-b',
+            workspaceId       : 'B'
+        });
+        const operation = {
+            operation: 'transferNode',
+            nodeId   : 'main-tabs',
+            target   : {targetNodeId: 'target-tabs', placement: {kind: 'tab-into'}}
+        };
+        const drag     = {dockGroupNodeId: 'main-tabs', dockItemId: 'strategy', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
+        const accepted = create(pair => transfers.push(pair));
+        const result   = accepted.commitDrop(operation, drag);
+
+        expect(result).not.toBeNull();
+        expect(transfers).toHaveLength(1);
+        expect(transfers[0].descriptor).toEqual({
+            ...operation,
+            sourceWorkspaceId: 'A',
+            targetWorkspaceId: 'B'
+        });
+        expect(transfers[0].sourceDocument.items.strategy).toBeUndefined();
+        expect(transfers[0].targetDocument.nodes['target-tabs'].items).toEqual(['alpha', 'strategy']);
+
+        const mismatch = create(() => { throw new Error('a non-root group must never publish') });
+
+        expect(mismatch.commitDrop(
+            {...operation, nodeId: 'side-tabs'},
+            {...drag, dockGroupNodeId: 'side-tabs', dockItemId: 'terminal'}
+        )).toBeNull();
+
+        let   refusedPublications = 0;
+        const refused             = create(() => { refusedPublications++; return false });
+
+        expect(refused.commitDrop(operation, drag)).toBeNull();
+        expect(refusedPublications).toBe(1);
+        // The executor is pure and a refused publication cannot retire the source workspace.
+        expect(source.items.strategy).toBeDefined();
+        expect(target.items.strategy).toBeUndefined();
+
+        accepted.destroy();
+        mismatch.destroy();
+        refused.destroy()
+    });
+
+    test('foreign addTab and splitNode publish verbatim finite item records that remain topology-capturable', () => {
+        for (const operation of [
+            {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'},
+            {operation: 'splitNode', itemId: 'terminal', targetNodeId: 'main-tabs', orientation: 'horizontal', position: 'after', sizes: [0.5, 0.5]}
+        ]) {
+            const transfers     = [];
+            const source        = sourceDoc();
+            const target        = targetDoc();
+            const sourceRecord  = {...source.items.terminal};
+            const participation = Neo.create(DockCrossWindowParticipation, {
+                commitTransfer    : published => transfers.push(published),
+                dragCoordinator   : createCoordinatorStub([]),
+                getDocument       : () => target,
+                getForeignDocument: () => source,
+                resolveOwnershipId: () => 'group-1',
+            sortGroup         : 'dock-demo',
+                windowId   : 'window-b',
+                workspaceId: 'B'
+            });
+
+            const result = participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'});
+
+            expect(result).not.toBeNull();
+            expect(transfers).toHaveLength(1);
+
+            const {sourceDocument, targetDocument} = transfers[0];
+            const record                           = targetDocument.items.terminal;
+
+            // The generic dock item travels verbatim. Placement intent is perspective/workspace
+            // state and must never make the published `dockZone.v1` catalog open-ended.
+            expect(record).toEqual(sourceRecord);
+            expect(record).not.toHaveProperty('owningWorkspaceId');
+            expect(record).not.toHaveProperty('fallbackTarget');
+            expect(WorkspaceDocument.validate(sourceDocument)).toEqual([]);
+            expect(WorkspaceDocument.validate(targetDocument)).toEqual([]);
+
+            // The finite writer is the integration tripwire that the former loose fields failed.
+            // Exercise the real two-document capture for BOTH placement shapes.
+            const captured = Persistence.captureTopologyPerspective({
+                A: sourceDocument,
+                B: targetDocument
+            }, {
+                layoutId       : `post-${operation.operation}`,
+                perspectiveName: `Post ${operation.operation}`,
+                revision       : 1,
+                title          : `Post ${operation.operation}`
+            });
+
+            expect(captured.errors).toEqual([]);
+            expect(captured.topology.schema).toBe(Persistence.TOPOLOGY_SCHEMA);
+            expect(Object.keys(captured.topology.workspaces)).toEqual(['A', 'B']);
+
+            participation.destroy()
+        }
+    });
+
+    test('fails closed: missing payload identity, unresolvable source workspace, and executor rejections all commit NOTHING', () => {
+        const transfers     = [];
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            commitLocal       : () => { throw new Error('must not commit locally') },
+            commitTransfer    : published => transfers.push(published),
+            dragCoordinator   : createCoordinatorStub([]),
+            getDocument       : () => targetDoc(),
+            getForeignDocument: workspaceId => workspaceId === 'A' ? sourceDoc() : null,
+            resolveOwnershipId: () => 'group-1',
+            sortGroup         : 'dock-demo',
+            windowId          : 'window-b',
+            workspaceId       : 'B'
+        });
+
+        const operation = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'};
+
+        // no dockItemId stamped on the payload → no guessing, no commit
+        expect(participation.commitDrop(operation, {id: 'anonymous'})).toBeNull();
+        // an unknown source workspace resolves no document → no commit
+        expect(participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'ghost'})).toBeNull();
+        // the executor rejects an invalid nested target → commit-or-neither holds, nothing publishes
+        expect(participation.commitDrop({operation: 'moveItem', itemId: 'terminal'}, {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'})).toBeNull();
+        // no ownership stamped → the payload cannot prove the source's commit authority → no commit
+        expect(participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceWorkspaceId: 'A'})).toBeNull();
+        // another Group's payload naming THIS workspace's bare id → not local, not foreign: nothing (docking design record §2.3)
+        expect(participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceOwnershipId: 'group-2', dockSourceWorkspaceId: 'B'})).toBeNull();
+
+        expect(transfers).toHaveLength(0);
+
+        participation.destroy()
+    });
+
+    test('id collision across workspaces: a foreign payload whose id exists in the target NEVER rides the local seam — the executor rejects, nothing commits', () => {
+        const locals    = [];
+        const transfers = [];
+
+        // the collision trap: the TARGET document also catalogs an item named `terminal`, so
+        // item-id presence must not read as ownership — only workspace identity may
+        const collisionTarget = () => {
+            const doc = targetDoc();
+
+            doc.items.terminal = {reference: 'terminal-b', title: 'Terminal B'};
+            doc.nodes['main-tabs'].items.push('terminal');
+
+            return doc
+        };
+
+        const create = getDocument => Neo.create(DockCrossWindowParticipation, {
+            commitLocal       : operation => { locals.push(operation); return {document: getDocument(), errors: []} },
+            commitTransfer    : published => transfers.push(published),
+            dragCoordinator   : createCoordinatorStub([]),
+            getDocument,
+            getForeignDocument: workspaceId => workspaceId === 'A' ? sourceDoc() : null,
+            resolveOwnershipId: () => 'group-1',
+            sortGroup         : 'dock-demo',
+            windowId          : 'window-b',
+            workspaceId       : 'B'
+        });
+
+        const operation   = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'};
+        const foreignDrag = {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
+
+        // source workspace A → target workspace B, both cataloging `terminal`: the discriminator
+        // sends it FOREIGN, the executor's collision precondition rejects, commit-or-neither holds
+        const collided = create(collisionTarget);
+
+        expect(collided.commitDrop(operation, foreignDrag)).toBeNull();
+        expect(locals).toHaveLength(0);
+        expect(transfers).toHaveLength(0);
+
+        // control: the identical gesture with the collision removed transfers cleanly — only the
+        // collision blocked the commit, never the discrimination
+        const clean = create(targetDoc);
+
+        expect(clean.commitDrop(operation, foreignDrag)).not.toBeNull();
+        expect(locals).toHaveLength(0);
+        expect(transfers).toHaveLength(1);
+
+        // an UNSTAMPED payload whose id happens to exist locally proves nothing → fails closed,
+        // and in particular never rides the local seam on id-presence alone
+        expect(clean.commitDrop({operation: 'addTab', itemId: 'alpha', tabsNodeId: 'main-tabs'}, {dockItemId: 'alpha'})).toBeNull();
+        expect(locals).toHaveLength(0);
+
+        collided.destroy();
+        clean.destroy()
+    });
+
+    test('source→target through the REAL coordinator: a real DockTabSortZone engages a registered remote target, the drop transfers, exactly ONE local commit is suppressed', async () => {
+        const fires     = [];
+        const previews  = [];
+        const transfers = [];
+
+        // two windows on the coordinator's screen-space map: the source zone drags in win-a, the
+        // registered target lives in win-b
+        WindowManager.register({id: 'cwd-win-a', innerRect: new Rectangle(0, 0, 800, 600),    outerRect: new Rectangle(0, 0, 800, 600)});
+        WindowManager.register({id: 'cwd-win-b', innerRect: new Rectangle(1000, 0, 800, 600), outerRect: new Rectangle(1000, 0, 800, 600)});
+
+        // no dragCoordinator injected → the target registers with the REAL singleton
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            commitLocal       : () => { throw new Error('a remote drop must never ride the local seam') },
+            commitTransfer    : published => transfers.push(published),
+            getDocument       : () => targetDoc(),
+            getForeignDocument: workspaceId => workspaceId === 'A' ? sourceDoc() : null,
+            hitTest           : () => true,
+            previewFor        : payload => { previews.push(payload); return {itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}} },
+            previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+            resolveOwnershipId: () => 'group-1',
+            sortGroup         : 'dock-crosswindow-source-test',
+            windowId          : 'cwd-win-b',
+            workspaceId       : 'B'
+        });
+
+        // window A's own registered surface (docking design record §2.3): the header zone below drags under its
+        // ownership, as a dock window's header drags under the participation its workspace registered
+        const sourceParticipation = Neo.create(DockCrossWindowParticipation, {
+            getDocument       : () => sourceDoc(),
+            resolveOwnershipId: () => 'group-1',
+            sortGroup         : 'dock-crosswindow-source-test',
+            windowId          : 'cwd-win-a',
+            workspaceId       : 'A'
+        });
+
+        const zone = Neo.create(DockTabSortZone, {
+            dockItemIds     : ['terminal'],
+            dockSourceNodeId: 'side-tabs',
+            dockWorkspaceId : 'A',
+            owner           : {
+                addDomListeners: () => {},
+                cls            : [],
+                dragResortable : false,
+                items          : [],
+                on             : () => {},
+                style          : {},
+                up             : () => ({fire: (name, data) => fires.push([name, data])})
+            },
+            sortGroup: 'dock-crosswindow-source-test',
+            windowId : 'cwd-win-a'
+        });
+
+        // construct() preloads the coordinator OFF the drag hot path; in production that settles
+        // frames before any gesture, so onDragMove's sync-on-entry engage always has its handle.
+        // Await it here (the test creates + drags in the same tick) to model that warmed state.
+        await zone.resolveDragCoordinator();
+
+        // seed the mid-gesture drag state exactly as the base drag-start leaves it, with the
+        // payload stamps exactly as this class's onDragStart writes them
+        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
+        zone.dragProxy     = {hidden: false};
+        zone.startIndex    = 0;
+
+        // the REAL move lifecycle with the pointer in win-b's screen space: the coordinator
+        // engages the registered remote target and suspends the source embodiment
+        await zone.onDragMove({clientX: 60, clientY: 20, offsetX: 8, offsetY: 8, proxyRect: {width: 120, height: 32}, screenX: 1400, screenY: 300});
+
+        expect(previews).toHaveLength(1);
+        expect(previews[0].draggedItem).toBe(zone.dragComponent);
+        expect(previews[0].localX).toBe(400); // screen 1400 − win-b origin 1000
+        expect(zone.dragProxy.hidden).toBe(true);
+
+        // the REAL end lifecycle: the drop commits through the coordinator → the real executor
+        // transfers A→B, and the source suppresses its local cross-zone drop event
+        await zone.processDragEnd({clientX: 60, clientY: 20});
+
+        expect(transfers).toHaveLength(1);
+        expect(transfers[0].targetDocument.items.terminal).toBeDefined();
+        expect(zone.remoteDropCommitted).toBe(false); // consumed, never sticky
+        expect(fires.filter(([name]) => name === 'dockCrossZoneDrop')).toHaveLength(0);
+
+        // …suppressed exactly ONCE: the next gesture (no remote target engaged) fires the local
+        // cross-zone drop again, and no second transfer occurs
+        zone.dockItemIds   = ['strategy'];
+        zone.dragComponent = {id: 'tab-proxy-2', dockItemId: 'strategy', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
+        zone.startIndex    = 0;
+
+        await zone.processDragEnd({clientX: 40, clientY: 10});
+
+        expect(fires.filter(([name]) => name === 'dockCrossZoneDrop')).toHaveLength(1);
+        expect(transfers).toHaveLength(1);
+
+        participation.destroy();
+        sourceParticipation.destroy();
+        zone.destroy();
+        WindowManager.unregister(WindowManager.get('cwd-win-a'));
+        WindowManager.unregister(WindowManager.get('cwd-win-b'))
+    });
+
+    test('two same-shape roots on one App-Worker heap (docking design record §2.3): a drag from root A over root B previews nothing and commits nothing — both documents byte-identical — while A root → A popup still commits exactly once, in the same arm', async () => {
+        const
+            fires    = [],
+            previews = [],
+            commits  = [],
+            docs     = {
+                'a-main' : sourceDoc(),
+                'a-popup': targetDoc(),
+                'b-main' : sourceDoc(),
+                'b-popup': targetDoc()
+            },
+            snapshot = () => JSON.stringify(docs),
+            windows  = {
+                'root-a-main' : new Rectangle(0,    0,   800, 600),
+                'root-a-popup': new Rectangle(1000, 0,   800, 600),
+                'root-b-main' : new Rectangle(0,    700, 800, 600),
+                'root-b-popup': new Rectangle(1000, 700, 800, 600)
+            };
+
+        Object.entries(windows).forEach(([id, rect]) => WindowManager.register({id, innerRect: rect, outerRect: rect}));
+
+        // Both roots use the SAME bare workspace ids — 'workstation-main' for the root document and
+        // 'vessel-1' for the popup — exactly as two Workstation instances do. Only the Group differs.
+        const participate = (root, key, workspaceId, windowId) => Neo.create(DockCrossWindowParticipation, {
+            commitLocal   : () => { throw new Error(`${root}/${key}: a remote drop must never ride the local seam`) },
+            commitTransfer: published => {
+                commits.push([root, key, published.descriptor.itemId]);
+                docs[`${root}-main`]   = published.sourceDocument;
+                docs[`${root}-${key}`] = published.targetDocument;
+                return true
+            },
+            getDocument       : () => docs[`${root}-${key}`],
+            getForeignDocument: sourceWorkspaceId => sourceWorkspaceId === 'workstation-main' ? docs[`${root}-main`] : null,
+            hitTest           : () => true,
+            previewFor        : payload => { previews.push([root, key]); return {itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}} },
+            previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+            resolveOwnershipId: () => `group-${root}`,
+            sortGroup         : 'dock-two-roots-test',
+            windowId,
+            workspaceId
+        });
+
+        const
+            aMain  = participate('a', 'main',  'workstation-main', 'root-a-main'),
+            aPopup = participate('a', 'popup', 'vessel-1',         'root-a-popup'),
+            bMain  = participate('b', 'main',  'workstation-main', 'root-b-main'),
+            bPopup = participate('b', 'popup', 'vessel-1',         'root-b-popup');
+
+        // The header zone of root A's main window registers nothing and declares nothing: it drags under
+        // aMain's ownership — the surface registered for its own window.
+        const zone = Neo.create(DockTabSortZone, {
+            dockItemIds     : ['terminal'],
+            dockSourceNodeId: 'side-tabs',
+            dockWorkspaceId : 'workstation-main',
+            owner           : {addDomListeners: () => {}, cls: [], dragResortable: false, items: [], on: () => {}, style: {}, up: () => ({fire: (name, data) => fires.push([name, data])})},
+            sortGroup       : 'dock-two-roots-test',
+            windowId        : 'root-a-main'
+        });
+
+        await zone.resolveDragCoordinator();
+
+        const
+            before = snapshot(),
+            frame  = (screenX, screenY) => ({clientX: 60, clientY: 20, offsetX: 8, offsetY: 8, proxyRect: {width: 120, height: 32}, screenX, screenY}),
+            arm    = id => {
+                zone.dragComponent = {id, dockItemId: 'terminal', dockSourceOwnershipId: zone.resolveSourceOwnershipId(), dockSourceWorkspaceId: 'workstation-main'};
+                zone.dragProxy     = {hidden: false};
+                zone.startIndex    = 0
+            };
+
+        arm('tab-proxy');
+        expect(zone.dragComponent.dockSourceOwnershipId, 'the header zone drags under its window\'s registered surface').toBe('group-a');
+
+        // NEGATIVE: over root B's main window (the same bare workspace id, another Group), then its popup.
+        await zone.onDragMove(frame(400, 1000));
+        await zone.onDragMove(frame(1400, 1000));
+        await zone.processDragEnd({clientX: 60, clientY: 20});
+
+        expect(previews, 'no preview for a target that cannot legally receive the item').toEqual([]);
+        expect(commits).toEqual([]);
+        expect(zone.dragProxy.hidden, 'no staged embodiment: the source proxy never hid').toBe(false);
+        expect(snapshot(), 'both roots\' documents are byte-identical afterwards').toBe(before);
+
+        // POSITIVE, same arm: A root → A popup previews once and commits exactly once.
+        arm('tab-proxy-2');
+        await zone.onDragMove(frame(1400, 300));
+        await zone.processDragEnd({clientX: 60, clientY: 20});
+
+        expect(previews).toEqual([['a', 'popup']]);
+        expect(commits).toEqual([['a', 'popup', 'terminal']]);
+        expect(docs['a-popup'].items.terminal).toBeDefined();
+        expect(docs['a-main'].items.terminal, 'the source document lost the item').toBeUndefined();
+        expect(JSON.stringify([docs['b-main'], docs['b-popup']]), 'root B is untouched by root A\'s gesture').toBe(JSON.stringify([sourceDoc(), targetDoc()]));
+
+        [aMain, aPopup, bMain, bPopup].forEach(participation => participation.destroy());
+        zone.destroy();
+        Object.keys(windows).forEach(id => WindowManager.unregister(WindowManager.get(id)))
+    });
+
+    test('fire-and-forget move/end: the coordinator engages on move-ENTRY, so a release that does NOT await the move still commits once and suppresses the local drop once', async () => {
+        const fires     = [];
+        const order     = [];
+        const transfers = [];
+
+        // A recorder coordinator modelling the REAL synchronous contract: onDragMove ENGAGES a
+        // target; onDragEnd commits ONLY if a target is engaged and then arms the source suppression
+        // (exactly as the real DragCoordinator does via onRemoteDrop → onRemoteDropOut). If the end
+        // ran before the move engaged, `engaged` would be false → no transfer, no suppression.
+        const coordinator = {
+            engaged   : false,
+            register  : () => {},
+            unregister: () => {},
+            onDragMove: () => { order.push('engage'); coordinator.engaged = true },
+            onDragEnd : ({draggedItem, sourceSortZone}) => {
+                order.push('end');
+
+                if (coordinator.engaged) {
+                    transfers.push(draggedItem.dockItemId);
+                    sourceSortZone.onRemoteDropOut(draggedItem)
+                }
+            }
+        };
+
+        const zone = Neo.create(DockTabSortZone, {
+            dockItemIds     : ['terminal'],
+            dockSourceNodeId: 'side-tabs',
+            dockWorkspaceId : 'A',
+            owner           : {
+                addDomListeners: () => {},
+                cls            : [],
+                dragResortable : false,
+                items          : [],
+                on             : () => {},
+                style          : {},
+                up             : () => ({fire: (name, data) => fires.push([name, data])})
+            },
+            sortGroup: 'dock-crosswindow-ff-order-test',
+            windowId : 'cwd-ff-a'
+        });
+
+        // let construct's real preload settle, THEN pin the recorder onto the synchronous handle
+        await zone.resolveDragCoordinator();
+        zone.dragCoordinator = coordinator;
+
+        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
+        zone.dragProxy     = {hidden: false};
+        zone.startIndex    = 0;
+
+        // production-equivalent fire-and-forget ordering: START the move but DO NOT await it, then
+        // run end while it is still in flight — exactly what DomEvent.fire's non-awaited dispatch
+        // permits. The pre-fix shape (engage AFTER `await super.onDragMove`) fails here: the sync end
+        // overtakes the suspended move, sees no engaged target, transfers nothing, fires the local drop.
+        const movePromise = zone.onDragMove({clientX: 60, clientY: 20, offsetX: 8, offsetY: 8, proxyRect: {width: 120, height: 32}, screenX: 1400, screenY: 300});
+        const endPromise  = zone.processDragEnd({clientX: 60, clientY: 20});
+
+        await Promise.all([movePromise, endPromise]);
+
+        expect(order).toEqual(['engage', 'end']);                                       // engage strictly before end
+        expect(transfers).toEqual(['terminal']);                                        // committed exactly once
+        expect(fires.filter(([name]) => name === 'dockCrossZoneDrop')).toHaveLength(0); // local drop suppressed once
+        expect(zone.remoteDropCommitted).toBe(false);                                   // suppression flag consumed
+
+        zone.destroy()
+    });
+
+    test('drag:cancel releases remote hover and emits only the dock cancel seam', async () => {
+        const
+            fires  = [],
+            leaves = [];
+
+        const zone = Neo.create(DockTabSortZone, {
+            dockItemIds     : ['terminal'],
+            dockSourceNodeId: 'side-tabs',
+            dockWorkspaceId : 'A',
+            owner           : {
+                addDomListeners: () => {},
+                cls            : [],
+                dragResortable : false,
+                items          : [],
+                on             : () => {},
+                style          : {},
+                up             : () => ({fire: (name, data) => fires.push([name, data])})
+            },
+            sortGroup: 'dock-crosswindow-cancel-test',
+            windowId : 'cwd-cancel-a'
+        });
+
+        await zone.resolveDragCoordinator();
+        zone.dragCoordinator = DragCoordinator;
+        zone.dragComponent   = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
+        zone.startIndex      = 0;
+
+        DragCoordinator.activeTargetZone = {
+            onRemoteDragLeave: () => leaves.push('leave'),
+            onRemoteDrop     : () => { throw new Error('cancel must never commit the remote target') }
+        };
+
+        await zone.processDragEnd({cancelled: true});
+
+        expect(leaves).toEqual(['leave']);
+        expect(DragCoordinator.activeTargetZone).toBeNull();
+        expect(fires.filter(([name]) => name === 'dockCrossZoneDragCancel')).toHaveLength(1);
+        expect(fires.filter(([name]) => name === 'dockCrossZoneDrop')).toHaveLength(0);
+
+        zone.destroy()
+    });
+
+    test('a source zone without a sortGroup is coordinator-inert: no remote engagement, no suspension — the dock stays fully in-window', async () => {
+        const previews = [];
+
+        WindowManager.register({id: 'cwd-inert-a', innerRect: new Rectangle(0, 0, 800, 600),    outerRect: new Rectangle(0, 0, 800, 600)});
+        WindowManager.register({id: 'cwd-inert-b', innerRect: new Rectangle(1000, 0, 800, 600), outerRect: new Rectangle(1000, 0, 800, 600)});
+
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            getDocument: () => targetDoc(),
+            hitTest    : () => true,
+            previewFor : payload => { previews.push(payload); return {itemId: payload.draggedItem.dockItemId} },
+            sortGroup  : 'dock-crosswindow-inert-test',
+            windowId   : 'cwd-inert-b',
+            workspaceId: 'B'
+        });
+
+        const zone = Neo.create(DockTabSortZone, {
+            dockItemIds    : ['terminal'],
+            dockWorkspaceId: 'A',
+            owner          : {addDomListeners: () => {}, cls: [], dragResortable: false, items: [], on: () => {}, style: {}, up: () => null},
+            windowId       : 'cwd-inert-a'
+            // no sortGroup — the §2.3 opt-in axis stays unset
+        });
+
+        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
+        zone.dragProxy     = {hidden: false};
+        zone.startIndex    = 0;
+
+        await zone.onDragMove({clientX: 60, clientY: 20, offsetX: 8, offsetY: 8, proxyRect: {width: 120, height: 32}, screenX: 1400, screenY: 300});
+        await zone.processDragEnd({clientX: 60, clientY: 20});
+
+        expect(previews).toHaveLength(0);
+        expect(zone.dragProxy.hidden).toBe(false);
+
+        participation.destroy();
+        zone.destroy();
+        WindowManager.unregister(WindowManager.get('cwd-inert-a'));
+        WindowManager.unregister(WindowManager.get('cwd-inert-b'))
+    });
+
+    /**
+     * The seams the engine answers from state the workspace already holds. Every arm asserts the
+     * default AND that a host value still wins: a default that cannot be overridden would be a
+     * capability REMOVAL wearing the shape of an addition.
+     */
+    test.describe('seams the engine answers from workspace state', () => {
+        const createWorkspaceStub = ({dockModel, projectionOptions, resolvePane, nativeWindows, topologyGroupId='group-1'} = {}) => ({
+            applied      : [],
+            changes      : [],
+            dockModel    : dockModel ?? targetDoc(),
+            nativeWindows: nativeWindows ?? null,
+            // the workspace's bound Group: the default commit authority its participation declares
+            topologyGroupId,
+
+            applyDockZoneOperation(descriptor) {
+                this.applied.push(descriptor);
+
+                return {document: this.dockModel, errors: []}
+            },
+            getDockHost() {
+                return null
+            },
+            getDockProjectionOptions() {
+                return projectionOptions ?? {}
+            },
+            onDockZoneDocumentChange(document, descriptor) {
+                this.changes.push([document, descriptor])
+            },
+            resolvePane(itemId, item) {
+                return resolvePane?.(itemId, item) ?? null
+            },
+            // BORROWED, never reimplemented: the root chip's boundary is a dock-owner seam, so a
+            // double that answered it in its own words could agree with an assertion the shipped
+            // resolution disagrees with. With no host this correctly resolves to null.
+            resolveDockableRoot: DockWorkspace.prototype.resolveDockableRoot
+        });
+
+        const createParticipation = config => Neo.create(DockCrossWindowParticipation, {
+            dragCoordinator: createCoordinatorStub(config.calls ?? []),
+            windowId       : 'window-b',
+            workspaceId    : 'B',
+            ...config
+        });
+
+        test('default remote hover owns, selects and paints reusable overlays without changing the document', async () => {
+            const workspace = Neo.create(Container, {
+                items: [{module: Container, dockNodeId: 'main-tabs'}]
+            });
+            workspace.dockModel = targetDoc();
+            workspace.getDockHost = () => workspace;
+            workspace.getDockProjectionOptions = () => ({});
+            workspace.resolveDockableRoot = DockWorkspace.prototype.resolveDockableRoot;
+            workspace.getDomRect = async () => [
+                {x: 100, y: 80, width: 800, height: 600},
+                {x: 100, y: 80, width: 800, height: 600}
+            ];
+
+            const participation = createParticipation({sortGroup: 'dock-engine', workspace}),
+                  document      = JSON.stringify(workspace.dockModel),
+                  payload       = {
+                      draggedItem: {dockItemId: 'terminal'}, localX: 500, localY: 380,
+                      dwell      : {armedAt: Date.now(), durationMs: 800}
+                  };
+
+            try {
+                expect(participation.defaultPreviewFor(payload)).toBeNull();
+                await participation.ownedAffordances.ensureGeometry();
+
+                const resolved                         = participation.defaultPreviewFor(payload),
+                      {ownedAffordances, ownedPreview} = participation,
+                      indicators                       = ownedAffordances.indicators;
+
+                expect(resolved?.feedback.state).toBe('accepted');
+                expect(ownedPreview.dockPreview, 'accepted preview reaches its renderer').toEqual(resolved);
+                expect(ownedPreview.dwell).toEqual(payload.dwell);
+                expect(ownedPreview.vdom.cn[0].style).toMatchObject({left: '0px', top: '0px', width: '800px', height: '600px'});
+                expect(indicators?.candidateSet?.zone.nodeId, 'default target paints the menu').toBe('main-tabs');
+                expect(indicators.activeCandidate?.position).toBe('center');
+                expect(workspace.items.length, 'one host child and two owned overlays').toBe(3);
+
+                const split = participation.defaultPreviewFor({...payload, localY: 342});
+                expect(indicators.activeCandidate?.position).toBe('top');
+                expect(split.placement.kind).toBe('edge-top');
+                expect(ownedPreview.dockPreview).toEqual(split);
+                expect(participation.resolveAffordances()).toBe(ownedAffordances);
+                expect(JSON.stringify(workspace.dockModel)).toBe(document);
+
+                participation.defaultClearPreview();
+                expect(ownedPreview.dockPreview).toBeNull();
+                expect(ownedPreview.dwell).toBeNull();
+                expect(indicators.candidateSet).toBeNull();
+                expect(ownedAffordances.geometry).toBeNull();
+
+                participation.destroy();
+                expect(ownedPreview.isDestroyed).toBe(true);
+                expect(indicators.isDestroyed).toBe(true);
+                expect(ownedAffordances.isDestroyed).toBe(true)
+            } finally {
+                !participation.isDestroyed && participation.destroy();
+                workspace.destroy()
+            }
+        });
+
+        test.describe('a frame met by cold geometry', () => {
+            const frame = {draggedItem: {dockItemId: 'terminal'}, localX: 500, localY: 380};
+
+            /**
+             * A default target whose geometry measurement settles only when the arm says so — the
+             * state a settled park leaves: during the park the source withheld the target, and the
+             * leave before it cleared the affordance geometry.
+             * @returns {{participation: Object, settle: Function, workspace: Object}}
+             */
+            const createColdTarget = () => {
+                let resolveRects;
+
+                const workspace = Neo.create(Container, {
+                    items: [{module: Container, dockNodeId: 'main-tabs'}]
+                });
+                workspace.dockModel = targetDoc();
+                workspace.getDockHost = () => workspace;
+                workspace.getDockProjectionOptions = () => ({});
+                workspace.resolveDockableRoot = DockWorkspace.prototype.resolveDockableRoot;
+                workspace.getDomRect = () => new Promise(resolve => resolveRects = resolve);
+
+                const participation = createParticipation({sortGroup: 'dock-engine', workspace});
+
+                return {
+                    participation,
+                    workspace,
+                    async settle() {
+                        const measured = participation.ownedAffordances.dragGeometry;
+
+                        resolveRects([
+                            {x: 100, y: 80, width: 800, height: 600},
+                            {x: 100, y: 80, width: 800, height: 600}
+                        ]);
+                        await measured;
+                        await new Promise(resolve => setTimeout(resolve, 0))
+                    }
+                }
+            };
+
+            test('one frame is enough: the preview renders once geometry settles, with no second frame', async () => {
+                const {participation, settle, workspace} = createColdTarget(),
+                      {target}                           = participation;
+
+                try {
+                    // a settled park replays exactly one frame (docking design record §2.8.6)
+                    expect(target.onRemoteDragMove(frame)).toBeNull();
+
+                    await settle();
+
+                    // the hand has stopped: no second onRemoteDragMove arrives
+                    expect(target.currentPreview?.feedback.state, 'the drop path holds a preview to commit').toBe('accepted');
+                    expect(target.currentPreview.placement.kind).toBe('tab-into');
+                    expect(participation.ownedPreview.dockPreview, 'the drop zones render').toEqual(target.currentPreview)
+                } finally {
+                    !participation.isDestroyed && participation.destroy();
+                    workspace.destroy()
+                }
+            });
+
+            test('a newer frame wins: the settled answer is for the pointer where it is now', async () => {
+                const {participation, settle, workspace} = createColdTarget(),
+                      {target}                           = participation;
+
+                try {
+                    expect(target.onRemoteDragMove(frame)).toBeNull();
+                    expect(target.onRemoteDragMove({...frame, localY: 342})).toBeNull();
+
+                    await settle();
+
+                    expect(target.currentPreview?.placement.kind).toBe('edge-top');
+                    expect(participation.ownedPreview.dockPreview).toEqual(target.currentPreview)
+                } finally {
+                    !participation.isDestroyed && participation.destroy();
+                    workspace.destroy()
+                }
+            });
+
+            test('a leave before geometry settles leaves no preview behind', async () => {
+                const {participation, settle, workspace} = createColdTarget(),
+                      {target}                           = participation;
+
+                try {
+                    expect(target.onRemoteDragMove(frame)).toBeNull();
+                    target.onRemoteDragLeave();
+
+                    await settle();
+
+                    expect(target.currentPreview).toBeNull();
+                    expect(target.currentDragPayload).toBeNull();
+                    expect(participation.ownedPreview?.dockPreview ?? null).toBeNull()
+                } finally {
+                    !participation.isDestroyed && participation.destroy();
+                    workspace.destroy()
+                }
+            });
+
+            test('a target destroyed before geometry settles answers nothing', async () => {
+                const {participation, settle, workspace} = createColdTarget(),
+                      {target}                           = participation;
+
+                let settledPreviews = 0;
+
+                try {
+                    expect(target.onRemoteDragMove(frame)).toBeNull();
+
+                    const previewFor = target.previewFor;
+
+                    target.previewFor = payload => (settledPreviews++, previewFor(payload));
+                    target.destroy();
+
+                    await settle();
+
+                    expect(settledPreviews).toBe(0)
+                } finally {
+                    !participation.isDestroyed && participation.destroy();
+                    workspace.destroy()
+                }
+            });
+
+            test('a re-driven preview that throws releases the frame and reports the error', async () => {
+                const {participation, settle, workspace} = createColdTarget(),
+                      {target}                           = participation,
+                      originalError                      = console.error,
+                      reported                           = [];
+
+                try {
+                    expect(target.onRemoteDragMove(frame)).toBeNull();
+
+                    target.previewFor = () => {throw new Error('preview exploded')};
+                    console.error = (...args) => reported.push(args);
+
+                    await settle();
+
+                    expect(target.currentPreview).toBeNull();
+                    expect(target.currentDragPayload).toBeNull();
+                    expect(reported.map(([message, error]) => [message, error?.message])).toEqual([
+                        ['DragTarget: the re-driven preview failed', 'preview exploded']
+                    ])
+                } finally {
+                    console.error = originalError;
+                    !participation.isDestroyed && participation.destroy();
+                    workspace.destroy()
+                }
+            })
+        });
+
+        test('a custom preview seam leaves overlay ownership with its caller', () => {
+            const workspace     = createWorkspaceStub(),
+                  payload       = {draggedItem: {dockItemId: 'terminal'}},
+                  preview       = {custom: true},
+                  participation = createParticipation({
+                      sortGroup : 'dock-engine', workspace,
+                      previewFor: value => value === payload ? preview : null
+                  });
+
+            try {
+                expect(participation.target.previewFor(payload)).toBe(preview);
+                expect(participation.ownedAffordances).toBeNull();
+                participation.destroy()
+            } finally {
+                !participation.isDestroyed && participation.destroy()
+            }
+        });
+
+        test('a workspace publishing a cross-window sort group registers a target with no sortGroup seam', () => {
+            const
+                calls         = [],
+                participation = createParticipation({
+                    calls,
+                    workspace: createWorkspaceStub({projectionOptions: {crossWindowSortGroup: 'dock-engine'}})
+                });
+
+            expect(calls).toHaveLength(1);
+            expect(participation.target.sortGroup).toBe('dock-engine');
+
+            participation.destroy()
+        });
+
+        test('a workspace publishing NO sort group registers nothing — the opt-in stays opt-in', () => {
+            const
+                calls         = [],
+                participation = createParticipation({calls, workspace: createWorkspaceStub()});
+
+            expect(calls).toHaveLength(0);
+            expect(participation.target.sortGroup ?? null).toBeNull();
+
+            participation.destroy()
+        });
+
+        test('a host sortGroup still wins over the workspace default', () => {
+            const participation = createParticipation({
+                sortGroup: 'host-group',
+                workspace: createWorkspaceStub({projectionOptions: {crossWindowSortGroup: 'dock-engine'}})
+            });
+
+            expect(participation.target.sortGroup).toBe('host-group');
+
+            participation.destroy()
+        });
+
+        test('an unset resolveOwnershipId rides the workspace\'s topology Group, read live — a workspace whose Group is unresolved declares null, never undefined, and commits nothing (docking design record §2.3)', () => {
+            const
+                workspace = createWorkspaceStub(),
+                bound     = createParticipation({sortGroup: 'dock-engine', workspace}),
+                unbound   = createParticipation({sortGroup: 'dock-engine', workspace: createWorkspaceStub({topologyGroupId: null})}),
+                operation = {operation: 'addTab', itemId: 'alpha', tabsNodeId: 'main-tabs'};
+
+            expect(bound.ownershipId).toBe('group-1');
+            expect(bound.target.ownershipId, 'the registered target reads the same authority').toBe('group-1');
+
+            // learned after registration: the next read sees it — nothing was cached at construct
+            workspace.topologyGroupId = 'group-1b';
+            expect(bound.target.ownershipId).toBe('group-1b');
+
+            expect(unbound.ownershipId).toBeNull();
+            expect(unbound.target.ownershipId, 'declared but unresolved is null, never undefined').toBeNull();
+            expect(unbound.commitDrop(operation, {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'})).toBeNull();
+
+            bound.destroy();
+            unbound.destroy()
+        });
+
+        test('an unset commitLocal rides the workspace reducer pair', () => {
+            const
+                workspace     = createWorkspaceStub(),
+                participation = createParticipation({sortGroup: 'dock-engine', workspace}),
+                operation     = {operation: 'addTab', itemId: 'alpha', tabsNodeId: 'main-tabs'},
+                result        = participation.commitDrop(operation, {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'});
+
+            expect(workspace.applied).toEqual([operation]);
+            expect(workspace.changes).toHaveLength(1);
+            expect(result?.document).toBe(workspace.dockModel);
+
+            participation.destroy()
+        });
+
+        test('an unset foreign pair rides the workspace set, and without a set a foreign drop fails closed', () => {
+            const
+                adopted   = [],
+                source    = sourceDoc(),
+                operation = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'},
+                payload   = {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
+
+            const joined = createParticipation({
+                sortGroup   : 'dock-engine',
+                workspace   : createWorkspaceStub(),
+                workspaceSet: {
+                    adoptTransfer: data => {adopted.push(data); return true},
+                    getDocument  : workspaceId => (workspaceId === 'A' ? source : null)
+                }
+            });
+
+            expect(joined.commitDrop(operation, payload)).toBeTruthy();
+            expect(adopted).toHaveLength(1);
+            expect(adopted[0].sourceWorkspaceId).toBe('A');
+            expect(adopted[0].targetWorkspaceId).toBe('B');
+
+            joined.destroy();
+
+            // No set means no sibling to resolve — the same drop must decline, not guess.
+            const lone = createParticipation({sortGroup: 'dock-engine', workspace: createWorkspaceStub()});
+
+            expect(lone.commitDrop(operation, payload)).toBeNull();
+
+            lone.destroy()
+        });
+
+        test('the engine hit test answers window-local bounds and refuses everything outside them', () => {
+            WindowManager.register({
+                id       : 'cwd-default-win',
+                innerRect: new Rectangle(0, 0, 800, 600),
+                outerRect: new Rectangle(0, 0, 800, 600)
+            });
+
+            const participation = createParticipation({
+                sortGroup: 'dock-engine',
+                windowId : 'cwd-default-win',
+                workspace: createWorkspaceStub()
+            });
+
+            expect(participation.target.acceptsRemoteDrag(10, 10)).toBe(true);
+            expect(participation.target.acceptsRemoteDrag(900, 10)).toBe(false);
+            expect(participation.target.acceptsRemoteDrag(10, 700)).toBe(false);
+            expect(participation.target.acceptsRemoteDrag(Number.NaN, 10)).toBe(false);
+
+            participation.destroy();
+            WindowManager.unregister(WindowManager.get('cwd-default-win'))
+        });
+
+        test('supplied affordances and embodiment retain ownership while the target joins exact native pane and renderer settlement', async () => {
+            const {default: DragAffordances} = await import('../../../../src/dashboard/dock/interaction/DragAffordances.mjs');
+            const {default: Preview}         = await import('../../../../src/dashboard/dock/interaction/Preview.mjs');
+            const renderer                   = Neo.create(Preview),
+                  affordances = Neo.create(DragAffordances, {preview: renderer}),
+                  calls = [],
+                  draggedItem = {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'},
+                  semantic = {schema: 'neo.dock.preview.v1', previewId: 'preview:alpha:main-tabs:tab-into',
+                      itemId: 'alpha', target: {nodeId: 'main-tabs'}, placement: {kind: 'tab-into'}, feedback: {state: 'accepted'}},
+                  payload = {draggedItem, embodyProxy: true, sourceWindowId: 'native-source-popup',
+                      sourceSortZone: {windowId: 'source-root-window'}, localX: 100, localY: 100},
+                  identity = {itemId: 'alpha', sourceWindowId: 'native-source-popup', targetWindowId: 'target-popup'};
+            let settlePane, settleRenderer, settled = false;
+            const paneReady      = new Promise(resolve => settlePane = resolve),
+                  rendererReady  = new Promise(resolve => settleRenderer = resolve),
+                  dragEmbodiment = {
+                      move       : data => { calls.push(['move', data]); return true },
+                      whenSettled: data => { calls.push(['settle', data]); return paneReady },
+                      promote    : data => { calls.push(['promote', data]); return true },
+                      restore    : data => { calls.push(['restore', data]); return true },
+                      destroy    : () => calls.push(['destroy'])
+                  };
+            renderer.promiseUpdate = () => { calls.push(['render']); return rendererReady };
+            const participation = createParticipation({
+                affordances, dragEmbodiment, sortGroup: 'dock-engine', windowId: 'target-popup',
+                workspace: createWorkspaceStub(), workspaceId: 'B', previewFor: () => semantic
+            });
+
+            try {
+                expect(participation.resolveAffordances()).toBe(affordances);
+                expect(participation.ownedAffordances).toBeNull();
+                expect(participation.ownedPreview).toBeNull();
+                renderer.dockPreview = semantic;
+                expect(participation.target.onRemoteDragMove(payload)).toBe(semantic);
+                expect(calls[0]).toEqual(['move', {...payload, targetWindowId: 'target-popup'}]);
+
+                const ready = participation.target.awaitRemoteDragEmbodiment(draggedItem).then(value => {
+                    settled = true;
+                    return value
+                });
+                expect(calls).toContainEqual(['settle', identity]);
+                expect(calls).toContainEqual(['render']);
+                settlePane(true);
+                await new Promise(resolve => setTimeout(resolve, 0));
+                expect(settled, 'the pane alone cannot release the readability hold').toBe(false);
+                settleRenderer();
+                expect(await ready).toBe(true);
+
+                participation.target.onRemoteDragLeave();
+                expect(calls).toContainEqual(['restore', identity]);
+                expect(renderer.dockPreview, 'default clear reaches the externally owned affordances').toBeNull();
+
+                renderer.dockPreview = semantic;
+                participation.target.onRemoteDragMove(payload);
+                expect(await participation.target.onRemoteDrop(draggedItem)).toBeTruthy();
+                expect(calls).toContainEqual(['promote', identity]);
+
+                participation.target.onRemoteDragMove(payload);
+                expect(await participation.target.awaitRemoteDragEmbodiment(draggedItem), 'an absent rendered preview cannot settle').toBe(false);
+                participation.destroy();
+                expect(affordances.isDestroyed).toBeFalsy();
+                expect(renderer.isDestroyed).toBeFalsy();
+                expect(calls.some(([kind]) => kind === 'destroy')).toBe(false)
+            } finally {
+                participation.isDestroyed || participation.destroy();
+                affordances.destroy();
+                renderer.destroy()
+            }
+        });
+
+        test('an unset native-window resolver maps a moving popup through its Group-owned registry', () => {
+            const
+                pane          = {id: 'pane-terminal', isDestroyed: false},
+                participation = createParticipation({
+                    sortGroup: 'dock-engine',
+                    workspace: createWorkspaceStub({
+                        dockModel    : sourceDoc(),
+                        resolvePane  : itemId => (itemId === 'terminal' ? pane : null),
+                        nativeWindows: {ownerEntries: () => [['terminal', {windowId: 'popup-1'}]]}
+                    }),
+                    workspaceId: 'A'
+                });
+
+            const resolved = participation.target.getNativeWindowDrag('popup-1');
+
+            expect(resolved?.draggedItem).toBe(pane);
+            expect(resolved.widgetName).toBe('terminal');
+            expect(pane.dockItemId).toBe('terminal');
+            expect(pane.dockSourceWorkspaceId).toBe('A');
+
+            expect(participation.target.getNativeWindowDrag('popup-unknown')).toBeNull();
+
+            participation.destroy()
+        });
+
+        test('a registered singleton keeps resolving through the legacy WorkspaceSet seams', () => {
+            const
+                pane           = {id: 'pane-terminal', isDestroyed: false},
+                sourceDocument = {
+                    schema: WorkspaceDocument.SCHEMA,
+                    root  : 'popup-tabs',
+                    items : {terminal: {reference: 'terminal', title: 'Terminal'}},
+                    nodes : {'popup-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}}
+                },
+                workspace = createWorkspaceStub({
+                    nativeWindows: {ownerEntries: () => [['terminal', {windowId: 'popup-singleton', workspaceKey: 'popup-document'}]]},
+                    resolvePane  : itemId => itemId === 'terminal' ? pane : null
+                });
+            workspace.id = 'native-singleton-source';
+
+            const participation = createParticipation({
+                sortGroup   : 'dock-engine',
+                workspace,
+                workspaceId : 'main',
+                workspaceSet: {
+                    has        : workspaceId => workspaceId === 'popup-document',
+                    getDocument: workspaceId => workspaceId === 'popup-document' ? sourceDocument : null
+                }
+            });
+
+            try {
+                const source = participation.target.getNativeWindowDrag('popup-singleton');
+
+                expect(source?.draggedItem).toBe(pane);
+                expect(source.draggedItem.dockItemId).toBe('terminal');
+                expect(source.draggedItem.dockSourceWorkspaceId).toBe('popup-document');
+                expect(source.draggedItem.dockSourceOwnershipId).toBe('group-1');
+                expect(source.draggedItem.dockGroupNodeId).toBeUndefined()
+            } finally {
+                participation.destroy()
+            }
+        });
+
+        test('a registered native popup supplies its own document and refuses empty or multi-item single-pane drags', async () => {
+            const {default: manager}      = await import('../../../../src/manager/Transaction.mjs');
+            const {default: WorkspaceSet} = await import('../../../../src/dashboard/dock/window/WorkspaceSet.mjs');
+            const groupId                 = manager.bind({windowId: 'native-popup-owner-root', workspaceKey: 'main'}).groupId;
+            const panes                   = {
+                strategy: {id: 'pane-strategy', isDestroyed: false,
+                    dockGroupNodeId: 'stale-stack', dockSourceNodeId: 'stale-tabs'},
+                terminal: {id: 'pane-terminal', isDestroyed: false,
+                    dockGroupNodeId: 'stale-stack', dockSourceNodeId: 'stale-tabs'}
+            };
+            const workspace = createWorkspaceStub({
+                dockModel    : targetDoc(), topologyGroupId: groupId,
+                nativeWindows: manager.getNativeLifecycle(groupId),
+                resolvePane  : itemId => panes[itemId] ?? null
+            });
+            workspace.id = 'native-popup-source';
+            let popup = sourceDoc(), participation;
+            delete popup.items.strategy;
+            delete popup.nodes['main-tabs'];
+            delete popup.nodes.root.zones.center;
+
+            const workspaceSet = Neo.create(WorkspaceSet, {manager, getGroupId: () => groupId, documentModel: WorkspaceDocument});
+            workspaceSet.register('A', {getDocument: () => workspace.dockModel, setDocument: value => workspace.dockModel = value});
+            workspaceSet.register('popup-document', {getDocument: () => popup, setDocument: value => popup = value});
+            workspace.nativeWindows.registerSource(workspace.id, {
+                keyFor: () => 'popup-document', open: async () => null, close: async () => true
+            });
+            workspace.nativeWindows.recordOwner(workspace.id, 'terminal', {
+                windowId: 'native-popup-live', workspaceKey: 'popup-document'
+            });
+            workspace.nativeWindows.recordOwner(workspace.id, 'strategy', {
+                windowId: 'native-popup-center-owner', workspaceKey: 'popup-document'
+            });
+
+            try {
+                participation = createParticipation({sortGroup: 'dock-engine', workspace, workspaceId: 'A', workspaceSet});
+                const source = participation.target.getNativeWindowDrag('native-popup-live');
+
+                expect(source).toMatchObject({draggedItem: panes.terminal, sourceWindowId: 'native-popup-live', widgetName: 'terminal'});
+                expect(panes.terminal.dockSourceWorkspaceId).toBe('popup-document');
+                expect(panes.terminal.dockSourceOwnershipId).toBe(groupId);
+                expect(panes.terminal.dockGroupNodeId).toBeUndefined();
+                expect(panes.terminal.dockSourceNodeId).toBeUndefined();
+                expect(participation.target.getNativeWindowDrag('native-popup-unknown')).toBeNull();
+
+                popup = sourceDoc();
+                expect(participation.target.getNativeWindowDrag('native-popup-live'), 'a registered mixed workspace cannot be misread as a complete stack').toBeNull();
+                expect(participation.target.getNativeWindowDrag('native-popup-center-owner'), 'a center-stack owner cannot hide a catalog item outside its stack').toBeNull();
+
+                workspace.dockModel = sourceDoc();
+                popup = {schema: 'neo.dock.zone.v1', root: null, nodes: {}, items: {}};
+                expect(participation.target.getNativeWindowDrag('native-popup-live'), 'an empty registered owner cannot borrow the main document').toBeNull()
+            } finally {
+                participation?.destroy();
+                workspaceSet.destroy();
+                manager.retireGroup(groupId)
+            }
+        });
+
+        test('a registered native popup returns its complete center stack through its Group and keeps both pane instances', async () => {
+            const {default: manager}      = await import('../../../../src/manager/Transaction.mjs');
+            const {default: WorkspaceSet} = await import('../../../../src/dashboard/dock/window/WorkspaceSet.mjs');
+            const groupId                 = manager.bind({windowId: 'native-stack-owner-root', workspaceKey: 'main'}).groupId;
+            const panes                   = {
+                metrics: {id: 'pane-metrics', isDestroyed: false},
+                commits: {id: 'pane-commits', isDestroyed: false}
+            };
+            const vesselDocument = () => ({
+                schema: WorkspaceDocument.SCHEMA,
+                root  : 'vessel-root',
+                items : {
+                    metrics: {reference: 'metrics', title: 'Metrics'},
+                    commits: {reference: 'commits', title: 'Commits'}
+                },
+                nodes: {
+                    'vessel-root' : {type: 'edge-zone', zones: {center: {nodeId: 'vessel-stack'}}},
+                    'vessel-stack': {type: 'tabs', items: ['metrics', 'commits'], activeItemId: 'metrics'}
+                }
+            });
+            let   popup     = vesselDocument();
+            const workspace = createWorkspaceStub({
+                dockModel      : targetDoc(),
+                nativeWindows  : manager.getNativeLifecycle(groupId),
+                resolvePane    : itemId => panes[itemId] ?? null,
+                topologyGroupId: groupId
+            });
+            workspace.id = 'native-stack-source';
+
+            const workspaceSet = Neo.create(WorkspaceSet, {manager, getGroupId: () => groupId, documentModel: WorkspaceDocument});
+
+            workspaceSet.register('main', {
+                getDocument: () => workspace.dockModel,
+                setDocument: document => { workspace.dockModel = document }
+            });
+            workspaceSet.register('popup-document', {
+                getDocument: () => popup,
+                setDocument: document => { popup = document }
+            });
+            workspace.nativeWindows.registerSource(workspace.id, {
+                keyFor: () => 'popup-document', open: async () => null, close: async () => true
+            });
+            workspace.nativeWindows.recordOwner(workspace.id, 'metrics', {
+                windowId: 'native-stack-live', workspaceKey: 'popup-document'
+            });
+
+            let participation, otherGroupId, otherSet;
+
+            try {
+                participation = createParticipation({sortGroup: 'dock-engine', workspace, workspaceId: 'main', workspaceSet});
+
+                for (const invalidRoot of [
+                    {type: 'edge-zone', zones: {}},
+                    {type: 'edge-zone', zones: {center: {nodeId: 'missing-stack'}}},
+                    {type: 'edge-zone', zones: {center: {nodeId: 'vessel-root'}}},
+                    {type: 'tabs', items: ['metrics', 'commits'], activeItemId: 'metrics'}
+                ]) {
+                    popup = vesselDocument();
+                    popup.nodes[popup.root] = invalidRoot;
+                    expect(participation.target.getNativeWindowDrag('native-stack-live'),
+                        'a native source must resolve a transferable non-root stack').toBeNull()
+                }
+                popup = vesselDocument();
+                const source = participation.target.getNativeWindowDrag('native-stack-live');
+
+                expect(source).not.toBeNull();
+                expect(source.draggedItem).toBe(panes.metrics);
+                expect(source.draggedItem.dockItemId).toBe('metrics');
+                expect(source.draggedItem.dockSourceWorkspaceId).toBe('popup-document');
+                expect(source.draggedItem.dockSourceOwnershipId).toBe(groupId);
+                expect(source.draggedItem.dockGroupNodeId).toBe('vessel-stack');
+                expect(source.draggedItem.dockGroupNodeId).not.toBe(popup.root);
+
+                const transfer = await participation.commitDrop({
+                    operation: 'transferNode',
+                    nodeId   : source.draggedItem.dockGroupNodeId,
+                    target   : {targetNodeId: 'main-tabs', placement: {kind: 'tab-into'}}
+                }, source.draggedItem);
+
+                expect(transfer).not.toBeNull();
+                expect(popup.items).toEqual({});
+                expect(workspace.dockModel.nodes['main-tabs'].items).toEqual(['alpha', 'metrics', 'commits']);
+                expect(workspace.resolvePane('metrics')).toBe(panes.metrics);
+                expect(workspace.resolvePane('commits')).toBe(panes.commits);
+
+                // A native registry from one Group cannot borrow a WorkspaceSet from another, even
+                // when that Group happens to have a document under the same workspace key.
+                otherGroupId = manager.bind({windowId: 'native-stack-other-root', workspaceKey: 'main'}).groupId;
+                otherSet     = Neo.create(WorkspaceSet, {manager, getGroupId: () => otherGroupId, documentModel: WorkspaceDocument});
+
+                otherSet.register('main', {
+                    getDocument: () => workspace.dockModel,
+                    setDocument: document => { workspace.dockModel = document }
+                });
+                otherSet.register('popup-document', {
+                    getDocument: () => popup,
+                    setDocument: document => { popup = document }
+                });
+                workspace.dockModel = vesselDocument();
+                popup = vesselDocument();
+                participation.workspaceSet = otherSet;
+
+                expect(participation.target.getNativeWindowDrag('native-stack-live'), 'cross-Group ownership must refuse instead of falling back to a same-id document').toBeNull();
+
+            } finally {
+                otherSet?.destroy();
+                if (otherGroupId) manager.retireGroup(otherGroupId);
+                participation?.destroy();
+                workspaceSet.destroy();
+                manager.retireGroup(groupId)
+            }
+        });
+
+        test('the refinement seams stay null and a participation built without them degrades', () => {
+            const participation = createParticipation({
+                sortGroup: 'dock-engine',
+                workspace: createWorkspaceStub()
+            });
+
+            for (const seam of [
+                'awaitDragEmbodiment', 'promoteDragEmbodiment', 'restoreDragEmbodiment',
+                'resumeNativeWindowDrag', 'retireNativeWindowDrag', 'stageDragEmbodiment',
+                'suspendNativeWindowDrag'
+            ]) {
+                expect(participation[seam] ?? null, `${seam} stays host-owned`).toBeNull()
+            }
+
+            expect(() => participation.target.onRemoteDragLeave()).not.toThrow();
+
+            participation.destroy()
+        })
+    })
+});

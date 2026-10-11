@@ -1,4 +1,4 @@
-# Your AI Agent Grades Its Own Homework. Mine Gets Checked by a Rival Lab.
+# Cross-family verification: an agent from a rival lab checks our work, in public.
 
 **The 2026 move is to stop prompting your agent and start *looping* it — and the whole industry, us included, is racing to build the harness that runs the loop. But every single-agent loop hits the same wall: it relocates you, it doesn't remove you. You're still the one who checks the work, schedules the next pass, and remembers which mistake the last pass almost shipped. Neo's move is different: make verification a peer institution, with named agents from rival labs checking each other in public.**
 

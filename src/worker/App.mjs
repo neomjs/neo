@@ -1,5 +1,8 @@
 import Neo             from '../Neo.mjs';
 import Base            from './Base.mjs';
+import CanvasGroups    from './CanvasGroups.mjs';
+import HiddenTick      from './HiddenTick.mjs';
+import Message         from './Message.mjs';
 import Application     from '../controller/Application.mjs';
 import InstanceManager from '../manager/Instance.mjs';
 import DomEventManager from '../manager/DomEvent.mjs';
@@ -96,7 +99,8 @@ class App extends Base {
         Neo.applyDeltas    = me.applyDeltas   .bind(me);
         Neo.setCssVariable = me.setCssVariable.bind(me);
 
-        me.interceptConsole()
+        me.canvasGroups = Neo.create(CanvasGroups, {isDeparted: windowId => me.isWindowDeparted(windowId)});
+        me.hiddenTick   = Neo.create(HiddenTick,   {worker: me})
     }
 
     /**
@@ -122,6 +126,20 @@ class App extends Base {
         }
 
         return this.promiseMessage(windowId, {action: 'updateVdom', deltas})
+    }
+
+    /**
+     * @summary Addresses a reply like the base, and to the canvas group whose channel carried the request: a canvas
+     * worker's own requests name no window, so only their channel tells the groups apart.
+     * @param {Object} source The request
+     * @param {Object} target The reply options
+     */
+    assignPort(source, target) {
+        super.assignPort(source, target);
+
+        if (source?.canvasGroup) {
+            target.canvasGroup = source.canvasGroup
+        }
     }
 
     /**
@@ -217,6 +235,18 @@ class App extends Base {
     }
 
     /**
+     * Destroys the instances construct() created
+     */
+    destroy() {
+        let me = this;
+
+        me.canvasGroups?.destroy();
+        me.hiddenTick?.destroy();
+
+        super.destroy()
+    }
+
+    /**
      * Remote method to use inside main threads for destroying neo based class instances.
      *
      * @warning This provides legacy testing support for environments where Neural Link
@@ -300,6 +330,17 @@ class App extends Base {
     windowAddons = {}
 
     /**
+     * Created in construct(); synced by onConnect() and onVisibilityChange()
+     * @member {Neo.worker.HiddenTick|null} hiddenTick=null
+     */
+    hiddenTick = null
+    /**
+     * Created in construct(); routes canvas-bound traffic per window group and gates it on the group's readiness
+     * @member {Neo.worker.CanvasGroups|null} canvasGroups=null
+     */
+    canvasGroups = null
+
+    /**
      * Convenience shortcut to lazy-load main thread addons, in case they are not imported yet
      * @param {String} name
      * @param {String} windowId
@@ -381,91 +422,11 @@ class App extends Base {
         }
 
         return import(
-            /* webpackInclude: /(?:apps|docs\/app|examples|src)\/.*app\.mjs$/ */
-            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|devindex(?:\/|\\)services|test(?:\/|\\))/ */
+            /* webpackInclude: /(?:(?:apps|docs\/app|examples|src)\/.*|docs\/)app\.mjs$/ */
+            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
         )
-    }
-
-    /**
-     * Intercepts console logs and errors to forward them to the Neural Link
-     */
-    interceptConsole() {
-        const types = ['log', 'warn', 'error', 'info'];
-
-        types.forEach(type => {
-            const original = console[type];
-
-            console[type] = (...args) => {
-                original.apply(console, args);
-
-                // Use the Client singleton if available (lazy check)
-                const client = Neo.ai?.Client;
-
-                if (client) {
-                    try {
-                        const message = args.map(arg => {
-                            if (arg instanceof Error) {
-                                return arg.message + '\n' + arg.stack
-                            }
-                            if (typeof arg === 'object') {
-                                try {
-                                    return JSON.stringify(arg)
-                                } catch (e) {
-                                    return String(arg)
-                                }
-                            }
-                            return String(arg)
-                        }).join(' ');
-
-                        const logEntry = {
-                            type,
-                            message,
-                            timestamp: Date.now(),
-                            stack    : type === 'error' ? new Error().stack : undefined
-                        };
-
-                        if (client.isConnected) {
-                            client.sendNotification('console_log', logEntry)
-                        } else {
-                            // Direct push to Client instance array
-                            client.logs.push(logEntry)
-                        }
-                    } catch (err) {
-                        // Prevent infinite loop if logging fails
-                    }
-                }
-            }
-        });
-
-        // Intercept unhandled errors
-        const originalOnError = globalThis.onerror;
-
-        globalThis.onerror = (msg, url, lineNo, columnNo, error) => {
-            const client = Neo.ai?.Client;
-
-            if (client) {
-                const logEntry = {
-                    type     : 'error',
-                    message  : msg,
-                    timestamp: Date.now(),
-                    stack    : error?.stack
-                };
-
-                if (client.isConnected) {
-                    client.sendNotification('console_log', logEntry)
-                } else {
-                    client.logs.push(logEntry)
-                }
-            }
-
-            if (originalOnError) {
-                return originalOnError(msg, url, lineNo, columnNo, error)
-            }
-
-            return false
-        }
     }
 
     /**
@@ -620,9 +581,46 @@ class App extends Base {
     }
 
     /**
+     * @summary Handles one message from a canvas group's own channel, stamped with that group so its reply takes the
+     * same channel back, then marks the group ready once its `Neo.worker.Canvas` remotes have registered over this
+     * channel: a registered port alone is not readiness, since the worker's `registerRemote` follows its `registerPort`.
+     * @param {MessageEvent} event
+     * @param {String}       group
+     * @param {MessagePort}  channel The channel that delivered the message
+     * @protected
+     */
+    onCanvasChannelMessage(event, group, channel) {
+        let {data} = event;
+
+        if (data) {
+            data.canvasGroup = group
+        }
+
+        this.onMessage(event);
+
+        data?.action === 'registerRemote' && data.className === 'Neo.worker.Canvas' && this.canvasGroups.markReady(group, channel)
+    }
+
+    /**
+     * @summary A window's main thread saw its canvas worker fail to load or parse: that group's waits reject now
+     * instead of running into the silent-start bound.
+     * @param {Object} msg
+     * @param {String} msg.group
+     * @protected
+     */
+    onCanvasStartFailed({group}) {
+        this.canvasGroups.fail(group, 'load')
+    }
+
+    /**
      * @param {Object} data
+     * @param {String} data.appName
+     * @param {Object} [data.sourcePort]
+     * @param {String} data.windowId
      */
     async onConnect(data) {
+        let me = this;
+
         if (this.aiClientPromise) {
             await this.aiClientPromise
         }
@@ -630,16 +628,26 @@ class App extends Base {
         // short delay to ensure app VCs are in place
         await this.timeout(10);
 
-        let {appName, windowId} = data,
+        let {appName, sourcePort, windowId} = data,
             windowData;
+
+        if (!me.isCurrentPort(sourcePort, {appName, windowId})) {
+            return
+        }
 
         try {
             windowData = await Neo.Main.getWindowData({windowId})
         } catch (e) {
-            console.error('onConnect: getWindowData failed', e)
+            e?.name === 'PortDisconnectedError' || console.error('onConnect: getWindowData failed', e)
         }
 
-        this.fire('connect', {appName, windowData, windowId})
+        if (!me.isCurrentPort(sourcePort, {appName, windowId})) {
+            return
+        }
+
+        windowData && me.hiddenTick.sync({hidden: windowData.hidden, windowId});
+
+        me.fire('connect', {appName, windowData, windowId})
     }
 
     /**
@@ -710,9 +718,10 @@ class App extends Base {
 
     /**
      * @param {Object} msg
+     * @param {Object} [sourcePort]
      */
-    onRegisterNeoConfig(msg) {
-        super.onRegisterNeoConfig(msg);
+    onRegisterNeoConfig(msg, sourcePort) {
+        super.onRegisterNeoConfig(msg, sourcePort);
 
         if (Neo.config.useSharedWorkers) {
             import('../manager/Window.mjs')
@@ -770,15 +779,40 @@ class App extends Base {
     }
 
     /**
+     * @summary A window's main thread announces which canvas group its canvas worker belongs to, before that worker
+     * exists, so canvas-bound traffic from this window can be routed to its own group.
      * @param {Object} msg
+     * @param {String} msg.group
+     * @param {String} msg.windowId
+     * @protected
+     */
+    onRegisterCanvasGroup({group, windowId}) {
+        this.canvasGroups.addWindow({group, windowId})
+    }
+
+    /**
+     * @summary Keeps a worker's direct channel. A canvas worker's channel is kept per group — one canvas worker per
+     * window group — and every message on it is attributed to that group; other workers keep one channel each.
+     * @param {Object}      msg
+     * @param {String}      [msg.canvasGroup] Set when the registration arrived over that canvas group's own channel
+     * @param {String}      [msg.group]       The canvas group, for a canvas worker named per group
+     * @param {String}      msg.origin
+     * @param {MessagePort} msg.transfer
      */
     onRegisterPort(msg) {
-        let me   = this,
-            port = msg.transfer;
+        let me              = this,
+            {group, origin} = msg,
+            port            = msg.transfer;
+
+        if (origin === 'canvas' && group) {
+            port.onmessage = event => me.onCanvasChannelMessage(event, group, port);
+            me.canvasGroups.setPort({group, handover: msg.canvasGroup === group, port});
+            return
+        }
 
         port.onmessage = me.onMessage.bind(me);
 
-        me.channelPorts[msg.origin] = port
+        me.channelPorts[origin] = port
     }
 
     /**
@@ -795,6 +829,8 @@ class App extends Base {
     }
 
     /**
+     * Reported twice: the window's app fires `visibilitychange`, and this worker fires `visibilityChange` for listeners
+     * that serve every window, like {@link Neo.ai.Client}.
      * @param {Object}  msg
      * @param {Object}  msg.data
      * @param {Boolean} msg.data.hidden
@@ -802,14 +838,33 @@ class App extends Base {
      * @param {Number}  msg.data.windowId
      */
     onVisibilityChange(msg) {
-        Neo.apps[msg.data.windowId]?.fire('visibilitychange', msg.data)
+        let me = this;
+
+        me.hiddenTick.sync(msg.data);
+        Neo.apps[msg.data.windowId]?.fire('visibilitychange', msg.data);
+        me.fire('visibilityChange', msg.data)
+    }
+
+    /**
+     * A window of this worker regained focus, reported as the `windowFocus` event
+     * @param {Object} msg
+     * @param {Object} msg.data
+     * @param {String} msg.data.windowId
+     */
+    onWindowFocus(msg) {
+        this.fire('windowFocus', msg.data)
     }
 
     /**
      * @param {Object} data
      * @param {Object} data.data
+     * @param {Object} [sourcePort]
      */
-    onWindowPositionChange({data}) {
+    onWindowPositionChange({data}, sourcePort) {
+        if (!this.isCurrentPort(sourcePort, {windowId: data.windowId})) {
+            return
+        }
+
         // Only available in shared workers
         Neo.manager.Window?.onWindowPositionChange(data);
         Neo.manager.DragCoordinator?.onWindowPositionChange(data);
@@ -818,13 +873,18 @@ class App extends Base {
     }
 
     /**
-     * Only needed for SharedWorkers
+     * An Application instance announces itself for its window. The port bookkeeping matters only for
+     * SharedWorkers; the topology admission runs for both worker types — this is the first moment the
+     * window has a live app, and the window's config carries the identity its carrier presented. The
+     * manager is loaded by the first multi-window participant, never here: an app that loaded none is
+     * admitted by the manager's own sweep the moment one does.
      * @param {String} appName
      * @param {String} windowId
      */
     registerApp(appName, windowId) {
         // register the name as fast as possible
-        this.onRegisterApp({appName});
+        this.onRegisterApp({appName}, this.getPort({windowId}));
+        Neo.manager.Transaction?.admit({topologyIdentity: Neo.windowConfigs?.[windowId]?.topologyIdentity, windowId});
         this.sendMessage(windowId, {action: 'registerAppName', appName})
     }
 
@@ -838,6 +898,29 @@ class App extends Base {
     }
 
     /**
+     * @summary Retires a port as the base does, and with it the canvas waits that exact port admitted. When it was the
+     * window's last port, that window leaves its canvas group too, so only its own canvas waits reject — as its
+     * departure — and a sibling keeps waiting.
+     * @param {Object} portEntry
+     * @returns {Boolean} True when the entry was live and removed
+     */
+    removePort(portEntry) {
+        let me         = this,
+            removed    = super.removePort(portEntry),
+            {windowId} = portEntry;
+
+        if (removed) {
+            me.canvasGroups.retirePort(portEntry);
+
+            if (windowId && !me.ports.some(entry => entry.windowId === windowId)) {
+                me.canvasGroups.removeWindow(windowId)
+            }
+        }
+
+        return removed
+    }
+
+    /**
      * @private
      */
     resolveThemeFilesCache() {
@@ -848,6 +931,37 @@ class App extends Base {
         });
 
         me.themeFilesCache = []
+    }
+
+    /**
+     * @summary Sends like the base, except that canvas-bound traffic resolves `windowId` → group → that group's own
+     * channel, and a reply takes the channel its request arrived on. It never falls back to another group's canvas
+     * worker, which would paint into a canvas owned by a different renderer process; an unroutable message is not
+     * sent, and `promiseMessage()` reports it. A canvas worker that registered without a group keeps the base routing.
+     * @param {String} dest
+     * @param {Object} opts
+     * @param {String} [opts.canvasGroup] The group of the channel a request arrived on, set for its reply
+     * @param {Array}  [transfer]
+     * @returns {Neo.worker.Message|undefined}
+     */
+    sendMessage(dest, opts, transfer) {
+        let me     = this,
+            groups = me.canvasGroups,
+            message, port;
+
+        if (dest !== 'canvas' || me.channelPorts.canvas) {
+            return super.sendMessage(dest, opts, transfer)
+        }
+
+        opts.destination = dest;
+        port             = opts.canvasGroup ? groups.groupPort(opts.canvasGroup) : groups.portFor(opts.windowId ?? opts.data?.windowId);
+
+        if (port) {
+            message = new Message(opts);
+            port.postMessage(message, transfer)
+        }
+
+        return message
     }
 
     /**
@@ -897,6 +1011,17 @@ class App extends Base {
         }
 
         return Stylesheet.setCssVariable({theme, ...data})
+    }
+
+    /**
+     * @summary Resolves once the canvas worker of this window's group can take calls — the readiness entry that
+     * replaces polling for its remotes.
+     * @param {String} [windowId] The calling window; may be omitted only while one canvas group is known
+     * @returns {Promise<void>} Rejects with `NEO_UNROUTABLE`, `NEO_WORKER_START_FAILED`, or the window's departure
+     *     (`NEO_DEAD_PORT` naming it, see {@link Neo.worker.Base#isDeparture})
+     */
+    whenCanvasReady(windowId) {
+        return this.canvasGroups.whenReady(windowId)
     }
 }
 

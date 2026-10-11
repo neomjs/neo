@@ -1,16 +1,142 @@
 import { test as base, expect } from '@playwright/test';
-import * as RmaHelpers from './util/RmaHelpers.mjs';
-import {
-    NeuralLink_ConnectionService,
-    NeuralLink_InstanceService,
-    NeuralLink_ComponentService,
-    NeuralLink_DataService,
-    NeuralLink_RuntimeService,
-    NeuralLink_InteractionService
-} from '../../ai/services.mjs';
-import aiConfig from '../../ai/mcp/server/neural-link/config.mjs';
+import path                     from 'node:path';
+import process                  from 'node:process';
+import {pathToFileURL}          from 'node:url';
+import { findBridgeScriptRoot } from './findBridgeScriptRoot.mjs';
+import * as RmaHelpers          from './util/RmaHelpers.mjs';
+
+// `Neo` plus the core class system, imported for their SIDE EFFECT and not for these bindings.
+//
+// They are the half of this change that is easy to delete and expensive to restore. `ai/services.mjs`
+// used to supply them incidentally, because a barrel that reaches the whole Brain also reaches
+// whatever bootstraps the class system. Importing the Neural Link services directly removes that,
+// and the failure is a `ReferenceError: Neo is not defined` thrown from `src/core/Compare.mjs` —
+// a file this module does not name, during a service construction it did not obviously trigger.
+// `ai/mcp/server/neural-link/run-bridge.mjs` carries the same pair for the same reason.
+import Neo       from '../../src/Neo.mjs';
+import * as core from '../../src/core/_export.mjs';
+
+let neuralLinkModulesPromise = null;
+
+/**
+ * @summary Imports one module from the explicitly provisioned Agent OS runtime checkout.
+ * @param {String} relativePath Repository-relative module path inside neo-agent-brain
+ * @param {Object} [env=process.env]
+ * @returns {Promise<Object>}
+ */
+export function loadAgentOsModule(relativePath, env = process.env) {
+    const runtimeRoot = env.NEO_AGENTOS_RUNTIME_ROOT;
+
+    if (typeof runtimeRoot !== 'string' || !path.isAbsolute(runtimeRoot)) {
+        throw new Error(
+            'Agent OS test modules require NEO_AGENTOS_RUNTIME_ROOT to name an absolute ' +
+            'neo-agent-brain checkout; Engine cwd fallback is forbidden.'
+        )
+    }
+
+    return import(pathToFileURL(path.join(runtimeRoot, relativePath)).href)
+}
+
+/**
+ * @summary Loads the Neural Link fixture implementation from an explicitly provisioned Brain root.
+ * Engine-only projects import this shared fixture for RMA and must not load Brain code as a side
+ * effect. Whitebox projects cross the repository boundary only when they request `neuralLink`.
+ * @param {Object} [env=process.env]
+ * @returns {Promise<Object>}
+ */
+export function loadNeuralLinkModules(env = process.env) {
+    const runtimeRoot = env.NEO_AGENTOS_RUNTIME_ROOT;
+
+    if (typeof runtimeRoot !== 'string' || !path.isAbsolute(runtimeRoot)) {
+        throw new Error(
+            'The neuralLink fixture requires NEO_AGENTOS_RUNTIME_ROOT to name an absolute ' +
+            'neo-agent-brain checkout; Engine cwd fallback is forbidden.'
+        )
+    }
+
+    neuralLinkModulesPromise ??= Promise.all([
+        loadAgentOsModule('ai/services/neural-link/ComponentService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/ConnectionService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/DataService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/DockService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/InstanceService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/InteractionService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/RuntimeService.mjs', env),
+        loadAgentOsModule('ai/mcp/server/neural-link/config.template.mjs', env)
+    ]).then(([component, connection, data, dock, instance, interaction, runtime, config]) => {
+        const bridgeScriptRoot = findBridgeScriptRoot(runtimeRoot, connection.BRIDGE_NPM_SCRIPT);
+
+        if (!bridgeScriptRoot) {
+            throw new Error(
+                `NEO_AGENTOS_RUNTIME_ROOT '${runtimeRoot}' does not declare ` +
+                `the Neural Link bridge script '${connection.BRIDGE_NPM_SCRIPT}'.`
+            )
+        }
+
+        return {
+            NeuralLink_ComponentService  : component.default,
+            NeuralLink_ConnectionService : connection.default,
+            NeuralLink_DataService       : data.default,
+            NeuralLink_DockService       : dock.default,
+            NeuralLink_InstanceService   : instance.default,
+            NeuralLink_InteractionService: interaction.default,
+            NeuralLink_RuntimeService    : runtime.default,
+            aiConfig                     : config.default,
+            bridgeScriptRoot
+        }
+    });
+
+    return neuralLinkModulesPromise
+}
+
+/**
+ * A line `Neo.worker.Base#forwardErrorToMainThread` mirrors into the page console: `<Name> Worker: …`.
+ * @type {RegExp}
+ */
+const MIRRORED_WORKER_ERROR = /^[A-Za-z]+ Worker: /;
 
 export const test = base.extend({
+    /**
+     * @summary Fails a test whose page received a worker error or an uncaught page error, unless the
+     * test named it with `workerErrors.expect(RegExp)` (non-global).
+     *
+     * A worker error that a component catches and logs fails nothing else; this reads it for every test
+     * that imports `test` from here, by both channels it reaches the page: a SharedWorker's mirrored
+     * line, and a dedicated worker's own console. `lines` lets a test wait for its own error.
+     */
+    workerErrors: [async ({page}, use) => {
+        const expected = [],
+              seen     = [];
+
+        page.on('console', message => {
+            const text   = message.text(),
+                  worker = message.worker();
+
+            if (message.type() === 'error') {
+                if (worker) {
+                    // Named from its script the way the mirror names a shared one (`…/App.mjs` → `App Worker: `), so a waiver reads in either mode
+                    const prefix = worker.url().split('/').pop().split('.')[0] + ' Worker: ';
+
+                    seen.push(text.startsWith(prefix) ? text : prefix + text)
+                } else if (MIRRORED_WORKER_ERROR.test(text)) {
+                    seen.push(text)
+                }
+            }
+        });
+
+        // The stack frames follow the message, as on a mirrored worker line, so a CI failure names its source
+        page.on('pageerror', ({message, stack}) => seen.push([`pageerror: ${message}`, ...(stack?.split('\n').slice(1) || [])].join('\n')));
+
+        await use({
+            expect: pattern => expected.push(pattern),
+            get lines() {
+                return [...seen]
+            }
+        });
+
+        expect(seen.filter(line => !expected.some(pattern => pattern.test(line))),
+            'no worker error reached the page console, and the page threw nothing').toEqual([])
+    }, {auto: true}],
     /**
      * @warning The `neo` fixture uses legacy Remote Method Access (RMA).
      * It is retained for environments where the Neural Link is unavailable
@@ -68,7 +194,7 @@ export const test = base.extend({
             async getFragmentAnchors(id) {
                 return page.evaluate(fragmentId => {
                     const start = document.evaluate(`//comment()[contains(., ' ${fragmentId}-start ')]`, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                    const end = document.evaluate(`//comment()[contains(., ' ${fragmentId}-end ')]`, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                    const end   = document.evaluate(`//comment()[contains(., ' ${fragmentId}-end ')]`, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
                     return { start: !!start, end: !!end };
                 }, id);
             }
@@ -77,9 +203,41 @@ export const test = base.extend({
         await use(neo);
     },
 
-    neuralLink: async ({ page }, use) => {
+    neuralLink: async ({ browser, context, page }, use) => {
+        const {
+            NeuralLink_ComponentService,
+            NeuralLink_ConnectionService,
+            NeuralLink_DataService,
+            NeuralLink_DockService,
+            NeuralLink_InstanceService,
+            NeuralLink_InteractionService,
+            NeuralLink_RuntimeService,
+            aiConfig,
+            bridgeScriptRoot
+        } = await loadNeuralLinkModules();
+
+        // This fixture is the second Bridge entrypoint, alongside the MCP server, so it owes the same
+        // `cwd` the MCP server supplies via `--cwd`. `??=` yields to an entrypoint that already did.
+        NeuralLink_ConnectionService.cwd ??= bridgeScriptRoot;
+
         // 1. Ensure Bridge connects
         await NeuralLink_ConnectionService.manageConnection({action: 'start'});
+
+        // The page's client dials `Neo.config.neuralLinkUrl`, which defaults to the shared :8081. A seat running its
+        // own Bridge (NEO_NL_PORT) must point the page there too, or it drives this Bridge and reads another. Routed
+        // per context, because a popup loads its own config and a test may open contexts of its own (`newContext`).
+        // A page route outranks a context route, so a spec that edits its config goes through `routeConfig` too.
+        const routeConfig = (target, mutate = config => config, url = '**/neo-config.json*') => target.route(url, async route => {
+            const response = await route.fetch();
+
+            if (!response.ok()) {
+                return route.fulfill({response})
+            }
+
+            await route.fulfill({response, json: {...mutate(await response.json()), neuralLinkUrl: `ws://127.0.0.1:${aiConfig.port}`}})
+        });
+
+        await routeConfig(context);
 
         // 2. Define the Neural Link Fixture object
         const nl = {
@@ -90,6 +248,31 @@ export const test = base.extend({
              * @member {Number} bridgePort
              */
             bridgePort: aiConfig.port,
+
+            /**
+             * Opens a browser context whose pages dial this fixture's Bridge. `browser.newContext()` skips the
+             * fixture's route, so its pages dial the default `:8081` while the test waits on `bridgePort`.
+             * @param {Object} [options] `browser.newContext()` options
+             * @returns {Promise<Object>} The Playwright `BrowserContext`
+             */
+            async newContext(options) {
+                const created = await browser.newContext(options);
+
+                await routeConfig(created);
+
+                return created
+            },
+
+            /**
+             * Routes `neo-config.json` through `mutate`, then points it at this fixture's Bridge. A spec that edits its
+             * config uses this instead of `page.route()`: a page route outranks the fixture's context route, so a plain
+             * one hands the page a config without the Bridge URL.
+             * @param {Object}   target   A Playwright `Page` or `BrowserContext`
+             * @param {Function} [mutate] Receives the served config, returns the edited one
+             * @param {String}   [url]    The config route pattern
+             * @returns {Promise<void>}
+             */
+            routeConfig,
 
             /**
              * Waits for the Test's specific App Worker to connect to the Bridge and returns an SDK wrapper.
@@ -134,10 +317,12 @@ export const test = base.extend({
                 }
 
                 // Prefer the page's own worker id (exact-id match); fall back to explicit / inferred appName.
-                // A top-level app's getWorkerId() resolves to a string, but a childapp that joined an existing
-                // SharedWorker gets the raw remote-reply envelope ({action:'reply', data, ...}) instead — not a
-                // usable session-id match — so treat a non-string workerId as absent and use the appName fallback.
-                const targetId = (typeof workerId === 'string' && workerId ? workerId : null) || appName || inferredAppName;
+                // Some SharedWorker remotes return the raw reply envelope instead of unwrapping the data field.
+                // The `data` payload is still the App Worker id and remains the only same-name-safe target.
+                const normalizedWorkerId = typeof workerId === 'string' ? workerId : workerId?.data,
+                      targetId           = typeof normalizedWorkerId === 'string' && normalizedWorkerId ?
+                          normalizedWorkerId :
+                          appName || inferredAppName;
                 if (!targetId) {
                     throw new Error('neuralLink.connectToApp requires either an initialized Neo environment or an explicit appName to wait for.');
                 }
@@ -156,7 +341,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async inspectClass(className, detail = 'standard') {
-                        return NeuralLink_InstanceService.inspectClass({ sessionId, className, detail });
+                        // RuntimeService owns inspect_class (authority: the MCP toolService routing table)
+                        return NeuralLink_RuntimeService.inspectClass({ sessionId, className, detail });
                     },
 
                     /**
@@ -166,7 +352,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async getMethodSource(className, methodName) {
-                        return NeuralLink_InstanceService.getMethodSource({ sessionId, className, methodName });
+                        // RuntimeService owns get_method_source (authority: the MCP toolService routing table)
+                        return NeuralLink_RuntimeService.getMethodSource({ sessionId, className, methodName });
                     },
 
                     /**
@@ -178,7 +365,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async patchCode(className, methodName, source) {
-                        return NeuralLink_InstanceService.patchCode({ sessionId, className, methodName, source });
+                        // RuntimeService owns patch_code (authority: the MCP toolService routing table)
+                        return NeuralLink_RuntimeService.patchCode({ sessionId, className, methodName, source });
                     },
 
                     // --- Instance Methods ---
@@ -191,7 +379,7 @@ export const test = base.extend({
                      */
                     async getComponent(id, properties) {
                         const propsToFetch = properties || ['ntype', 'windowId', 'cls', 'className', 'vnode'];
-                        const response = await NeuralLink_InstanceService.getInstanceProperties({ sessionId, id, properties: propsToFetch });
+                        const response     = await NeuralLink_InstanceService.getInstanceProperties({ sessionId, id, properties: propsToFetch });
                         return response.properties;
                     },
 
@@ -235,6 +423,43 @@ export const test = base.extend({
                      */
                     async createInstance(opts) {
                         return NeuralLink_InstanceService.createInstance({ sessionId, ...opts });
+                    },
+
+                    /**
+                     * Reverts the latest transaction for this App Worker session.
+                     * @returns {Promise<Object>}
+                     */
+                    async undo() {
+                        return NeuralLink_InstanceService.undo({sessionId});
+                    },
+
+                    /**
+                     * Replays the latest reverted transaction for this App Worker session.
+                     * @returns {Promise<Object>}
+                     */
+                    async redo() {
+                        return NeuralLink_InstanceService.redo({sessionId});
+                    },
+
+                    /**
+                     * Archives one committed transaction for later replay.
+                     * @param {Object} opts
+                     * @param {String} opts.txId
+                     * @param {String} [opts.name]
+                     * @returns {Promise<Object>}
+                     */
+                    async saveTransaction(opts) {
+                        return NeuralLink_InstanceService.saveTransaction({ sessionId, ...opts });
+                    },
+
+                    /**
+                     * Replays one archived transaction into this App Worker session as a new undoable transaction.
+                     * @param {Object} opts
+                     * @param {String} opts.archiveId
+                     * @returns {Promise<Object>}
+                     */
+                    async replayTransaction(opts) {
+                        return NeuralLink_InstanceService.replayTransaction({ sessionId, ...opts });
                     },
 
                     // --- Component & VDOM Methods ---
@@ -300,7 +525,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async highlightComponent(componentId, options) {
-                        return NeuralLink_ComponentService.highlightComponent({ sessionId, componentId, options });
+                        // InteractionService owns highlight_component (authority: the MCP toolService routing table)
+                        return NeuralLink_InteractionService.highlightComponent({ sessionId, componentId, options });
                     },
 
                     /**
@@ -335,8 +561,40 @@ export const test = base.extend({
                         return NeuralLink_ComponentService.removeComponent({ sessionId, componentId });
                     },
 
+                    // --- Dock Methods ---
+
+                    /**
+                     * Reads a live dock workspace's serializable layout document.
+                     * @param {String} componentId The dock workspace / document-holder component id.
+                     * @returns {Promise<Object>}
+                     */
+                    async getDockTopology(componentId) {
+                        return NeuralLink_DockService.getDockTopology({ sessionId, componentId });
+                    },
+
+                    /**
+                     * Applies one semantic dockZone.v1 operation and returns the post-operation document.
+                     * @param {String} componentId The dock workspace / document-holder component id.
+                     * @param {Object} descriptor  The operation descriptor `{operation, ...}`.
+                     * @returns {Promise<Object>}
+                     */
+                    async executeDockOperation(componentId, descriptor) {
+                        return NeuralLink_DockService.executeDockOperation({ sessionId, componentId, descriptor });
+                    },
+
 
                     // --- Interaction Methods ---
+
+                    /**
+                     * Drives one complete Engine-owned Mouse gesture and returns its physical
+                     * lifecycle receipt. This fixture calls the raw Engine RPC directly so Engine
+                     * whitebox coverage does not depend on the Brain MCP tool.
+                     * @param {Object} request The `drive_drag` request object.
+                     * @returns {Promise<Object>}
+                     */
+                    async driveDrag(request) {
+                        return NeuralLink_ConnectionService.call(sessionId, 'drive_drag', request)
+                    },
 
                     /**
                      * Simulates a native DOM event directly onto the VNode exactly as a user would.
@@ -488,7 +746,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async getConsoleLogs(type, filter) {
-                        return NeuralLink_RuntimeService.getConsoleLogs({ sessionId, type, filter });
+                        // ConnectionService owns get_console_logs (authority: the MCP toolService routing table)
+                        return NeuralLink_ConnectionService.getConsoleLogs({ sessionId, type, filter });
                     },
 
                     /**
@@ -522,7 +781,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async getDragState() {
-                        return NeuralLink_RuntimeService.getDragState({ sessionId });
+                        // InteractionService owns get_drag_state (authority: the MCP toolService routing table)
+                        return NeuralLink_InteractionService.getDragState({ sessionId });
                     },
 
                     /**
@@ -543,6 +803,14 @@ export const test = base.extend({
                      */
                     async openComponentWindow(options) {
                         return NeuralLink_RuntimeService.openComponentWindow({ sessionId, ...options });
+                    },
+
+                    /**
+                     * Close an owner-granted topology-known popup and wait for its terminal disconnect.
+                     * @param {String} windowId
+                     */
+                    async closeWindow(windowId) {
+                        return NeuralLink_RuntimeService.closeWindow({ sessionId, windowId });
                     },
 
                     /**

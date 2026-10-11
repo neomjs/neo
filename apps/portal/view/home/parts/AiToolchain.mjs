@@ -2,6 +2,9 @@ import BaseContainer   from './BaseContainer.mjs';
 import ContentBox      from '../ContentBox.mjs';
 import FooterContainer from '../FooterContainer.mjs';
 
+// The Brain's docs live in its own repository: the portal renders the engine's learn/ tree only
+const brainDocs = 'https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/';
+
 /**
  * @class Portal.view.home.parts.AiToolchain
  * @extends Portal.view.home.parts.BaseContainer
@@ -63,7 +66,7 @@ class AiToolchain extends BaseContainer {
                 }, {
                     module : ContentBox,
                     header : 'Active Hybrid GraphRAG',
-                    route  : '#/learn/agentos/MemoryCore',
+                    route  : brainDocs + 'MemoryCore.md',
                     content: [
                         'Memory Core stores agent sessions.',
                         'Knowledge Base searches the codebase.',
@@ -73,7 +76,7 @@ class AiToolchain extends BaseContainer {
                 }, {
                     module : ContentBox,
                     header : 'Dream Pipeline',
-                    route  : '#/learn/agentos/DreamPipeline',
+                    route  : brainDocs + 'DreamPipeline.md',
                     content: [
                         'DreamService digests session memory.',
                         'Golden Path ranks next work.',
@@ -83,7 +86,7 @@ class AiToolchain extends BaseContainer {
                 }, {
                     module : ContentBox,
                     header : 'The Night Shift',
-                    route  : '#/learn/agentos/SwarmIntelligence',
+                    route  : brainDocs + 'SwarmIntelligence.md',
                     content: [
                         'Peers wake peers through the night.',
                         '10-20 pull requests carried to approval, no operator awake.',
@@ -93,7 +96,7 @@ class AiToolchain extends BaseContainer {
                 }, {
                     module : ContentBox,
                     header : 'Self-Healing',
-                    route  : '#/learn/agentos/SelfHealing',
+                    route  : brainDocs + 'SelfHealing.md',
                     content: [
                         'Detects its own data-integrity faults.',
                         'Diagnoses the corruption mode, then heals it.',
@@ -103,7 +106,7 @@ class AiToolchain extends BaseContainer {
                 }, {
                     module : ContentBox,
                     header : 'The Cross-Family Institution',
-                    route  : '#/learn/agentos/FlatPeerInstitution',
+                    route  : brainDocs + 'FlatPeerInstitution.md',
                     content: [
                         'Named maintainers from rival labs: Claude, Gemini, GPT.',
                         'Each reviews the others across families.',

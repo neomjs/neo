@@ -969,9 +969,11 @@ class Header extends Base {
     }
 
     /**
+     * `windowId` only routes the call to this window's canvas group, so it never reaches `set()`.
      * @param {Object} data
+     * @param {String} [data.windowId]
      */
-    updateConfig(data) {
+    updateConfig({windowId, ...data}) {
         this.set(data)
     }
 

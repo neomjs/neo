@@ -3,14 +3,16 @@
 /**
  * @file This script automates critical tasks required before a new Neo.mjs release.
  * It ensures that the package version is consistently updated across key framework files
- * and generates up-to-date SEO-related files (sitemap.xml and llm.txt) for deployment.
+ * and rebuilds the Portal indexes whose sources the engine holds: the release notes and the labels.
  * This consolidation streamlines the release process and prevents manual errors.
  */
 
 import fs                          from 'fs-extra';
 import os                          from 'os';
 import path                        from 'path';
-import rebuildContentIndexesAndSeo from '../docs/rebuildContentIndexesAndSeo.mjs';
+import createLabelIndex            from '../docs/index/labels.mjs';
+import createReleaseIndex          from '../docs/index/release.mjs';
+import {getEngineReleaseNotesRoot} from '../util/contentRoot.mjs';
 
 const
     root        = path.resolve(),
@@ -101,36 +103,12 @@ if (insideNeo) {
         fs.writeFileSync(neuralLinkPath, neuralLinkContent);
         console.log('Updated learn/agentos/NeuralLink.md version');
     }
-
-    // Sync .npmignore with .gitignore
-    // This ensures that we don't accidentally publish files that should be ignored,
-    // while maintaining the specific npm-only rules.
-    const npmIgnorePath = path.join(root, '.npmignore');
-    const gitIgnorePath = path.join(root, '.gitignore');
-
-    if (fs.existsSync(npmIgnorePath) && fs.existsSync(gitIgnorePath)) {
-        const npmIgnoreContent = fs.readFileSync(npmIgnorePath, 'utf-8').split(os.EOL);
-        const gitIgnoreContent = fs.readFileSync(gitIgnorePath, 'utf-8');
-        const splitString      = '# Original content of the .gitignore file';
-        const splitIndex       = npmIgnoreContent.indexOf(splitString);
-        let   headerLines;
-
-        if (splitIndex !== -1) {
-            headerLines = npmIgnoreContent.slice(0, splitIndex + 1);
-        } else {
-            // Fallback to the default 7 lines if the marker is missing
-            headerLines = npmIgnoreContent.slice(0, 7);
-        }
-
-        const newNpmIgnoreContent = headerLines.join(os.EOL) + os.EOL + gitIgnoreContent;
-
-        fs.writeFileSync(npmIgnorePath, newNpmIgnoreContent);
-        console.log('Synced .npmignore with .gitignore');
-    }
 }
 
-// Generate the Portal indexes and SEO files from the shared bundle used by sync paths.
-await rebuildContentIndexesAndSeo({root, includeLabelIndex: true});
+// The conversation indexes, sitemap.xml and llms.txt read the corpus, which the engine does not hold: a build that
+// declares one rebuilds them (`rebuildContentIndexesAndSeo.mjs --corpus-root`).
+await createReleaseIndex({releaseNotesRoot: getEngineReleaseNotesRoot(root)});
+await createLabelIndex();
 
 const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 console.log(`\nTotal time for ${programName}: ${processTime}s`);

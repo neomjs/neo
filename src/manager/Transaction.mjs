@@ -1,0 +1,990 @@
+import Manager         from './Base.mjs';
+import StateProvider   from '../state/Provider.mjs';
+import Commit          from './transaction/Commit.mjs';
+import NativeLifecycle from './transaction/NativeLifecycle.mjs';
+
+/**
+ * @summary The worker-side authority for logical topology Groups, their window bindings and their history.
+ * @description A Group is the persistent identity of one multi-window topology instance. `appName` is
+ * routing metadata and never identifies a Group: two independent roots of the same app under one
+ * SharedWorker are two Groups. A window binds into a Group under a `workspaceKey` — one key per full
+ * Workspace slot — and the binding records the replaceable runtime generation, the `windowId`.
+ *
+ * The rules a binding follows:
+ * - A warm reload releases its binding on `disconnect` and rebinds on `connect` with the same lineage
+ *   token; only that binding's generation moves, no other slot and no other Group is touched.
+ * - A late `disconnect` for a superseded generation finds no binding carrying its `windowId` and does
+ *   nothing — it cannot unbind its successor.
+ * - An identity presented while its binder is live, or against a released slot with a foreign token,
+ *   forks: the newcomer receives a fresh Group and the caller rewrites the boot carrier.
+ * - A released or reserved slot is held for its lineage for {@link #reconnectLeaseMs}; afterwards the
+ *   lineage is dead — a window presenting it finds no slot in its Group and forks, a revocation naming
+ *   it is refused. Only a Group this worker never saw admits a carried identity into an absent slot: a
+ *   cold root returning after the worker restarted.
+ * - An opener reserves a slot for a window it is about to create; the reservation is the token the
+ *   child must present, bounded by the same lease, and the only token that may give the slot back.
+ * - A minted or forked identity exists once its window's carrier holds it: admission awaits the main
+ *   thread's acknowledgement, and a pending, refused or rejected write binds nothing and publishes
+ *   nothing. An identity the carrier already holds — a rebind, a cold root — binds at once.
+ * - A Group also holds keyed participants — the owners its slots resolve to, registered by the hosts
+ *   that live in it. Membership is separate from binding: a participant lives while its Group does,
+ *   whatever its window's generation is doing, and a Group holding participants is never empty.
+ * - A Group keeps a bounded, append-only transaction history and one cursor when {@link #historyDepth}
+ *   is above zero. {@link #write} admits a transaction through the Group's serialized queue and awaits
+ *   the history module once — before any participant mutation — so a Group at depth zero never imports
+ *   it; {@link #undo} and {@link #redo} move the cursor and return the row. The Group's
+ *   {@link #getProvider provider} publishes `canUndo` / `canRedo` to every window bound into it.
+ *
+ * The main thread carries the identity across page loads in `sessionStorage` and rewrites it on request;
+ * it never decides — it only says whether it could. This manager knows windows, keys, tokens, opaque
+ * participants and plain-data rows — no dock, no document, no app class.
+ * @class Neo.manager.Transaction
+ * @extends Neo.manager.Base
+ * @singleton
+ */
+class Transaction extends Manager {
+    static config = {
+        /**
+         * @member {String} className='Neo.manager.Transaction'
+         * @protected
+         */
+        className: 'Neo.manager.Transaction',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true,
+        /**
+         * The history depth a Group is born with. Zero — the default — means the Group keeps no history
+         * and never loads `transaction/History.mjs`, so a single-window or history-disabled app pays
+         * nothing for it. Depth is a Group's choice: a consumer that wants undo for its own Group calls
+         * {@link #setHistoryDepth} before that Group's first write, so two independent roots of one app
+         * in one worker never take each other's policy through this worker-wide default. A non-negative
+         * integer; anything else is refused at the setter, so no Group can be born with an unbounded or
+         * fractional log.
+         * @member {Number} historyDepth_=0
+         * @reactive
+         */
+        historyDepth_: 0,
+        /**
+         * How long a released or reserved binding holds its slot for a token-matched successor before the
+         * slot is free. The dock tear-out connect window is the precedent for the bound.
+         * @member {Number} reconnectLeaseMs=20000
+         */
+        reconnectLeaseMs: 20000
+    }
+
+    /**
+     * Lease timers keyed by binding, so a binding that is superseded, rebound or retired before its
+     * lease ends never expires a slot it no longer describes.
+     * @member {Map} leaseTimers=new Map()
+     * @protected
+     */
+    leaseTimers = new Map()
+
+    /**
+     * Admissions whose carrier write is still in flight, keyed by `windowId`. A window that leaves
+     * while its write is pending is refused when the answer arrives — never bound to a gone window.
+     * @member {Map} pendingAdmissions=new Map()
+     * @protected
+     */
+    pendingAdmissions = new Map()
+
+    /**
+     * This module loads on demand — the first multi-window participant imports it — so windows whose apps
+     * registered before that moment are admitted here, with the identity their config registered with.
+     * Every later window is admitted as its app registers (`worker/App#registerApp`).
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        Neo.currentWorker?.on?.({
+            disconnect: me.onWindowDisconnect,
+            scope     : me
+        });
+
+        Object.keys(Neo.apps || {}).forEach(windowId => {
+            me.admit({topologyIdentity: Neo.windowConfigs?.[windowId]?.topologyIdentity, windowId})
+        })
+    }
+
+    /**
+     * Admits a window the worker just learned of: binds it under the identity its carrier presented.
+     * An identity the carrier already holds — a rebind, a reserved slot, a cold root — binds and is
+     * published at once. A minted or forked outcome names an identity the carrier does not hold yet, so
+     * the write is awaited and only an accepted write binds and publishes: while it is pending nothing
+     * is registered or announced; a refused or rejected write, or a window that left meanwhile, admits
+     * nothing and fires `admissionRefused`.
+     * @param {Object} data
+     * @param {Object} data.topologyIdentity `{}` for a first boot; else `{groupId, workspaceKey, generationToken}`
+     * @param {String} data.windowId
+     * @returns {Promise<Object>} The binding description, see {@link #bind}, or `{outcome: 'refused',
+     *   groupId: null, generationToken: null, generation: 0, windowId, workspaceKey}` when nothing was admitted.
+     */
+    async admit({topologyIdentity, windowId}) {
+        let me       = this,
+            identity = topologyIdentity || {},
+            plan     = me.plan({...identity, windowId});
+
+        if (
+            plan.groupId         === identity.groupId      &&
+            plan.workspaceKey    === identity.workspaceKey &&
+            plan.generationToken === identity.generationToken
+        ) {
+            return me.settle(plan)
+        }
+
+        const pending = {cancelled: false};
+
+        me.pendingAdmissions.set(windowId, pending);
+
+        const accepted = await me.writeCarrier(windowId, {
+            generationToken: plan.generationToken,
+            groupId        : plan.groupId,
+            workspaceKey   : plan.workspaceKey
+        });
+
+        me.pendingAdmissions.get(windowId) === pending && me.pendingAdmissions.delete(windowId);
+
+        if (!accepted || pending.cancelled) {
+            const description = {
+                generation     : 0,
+                generationToken: null,
+                groupId        : null,
+                outcome        : 'refused',
+                windowId,
+                workspaceKey   : plan.workspaceKey
+            };
+
+            me.fire('admissionRefused', {...description, presented: identity, reason: pending.cancelled ? 'window-gone' : 'carrier-refused'});
+
+            return description
+        }
+
+        // Only a minted or forked identity waits, and both name a Group that does not exist yet, so the
+        // registry cannot have moved under the plan — except by admitting this same window elsewhere,
+        // in which case that binding stands and nothing new is published.
+        const settled = me.findByWindow(windowId);
+
+        if (settled) {
+            const binding = me.get(settled.groupId).bindings.get(settled.workspaceKey);
+
+            return {
+                generation     : binding.generation,
+                generationToken: binding.generationToken,
+                groupId        : settled.groupId,
+                outcome        : 'bound',
+                windowId,
+                workspaceKey   : settled.workspaceKey
+            }
+        }
+
+        return me.settle(plan)
+    }
+
+    /**
+     * Binds a window into a Group under a workspace key, synchronously and published at once — the
+     * registry operation {@link #admit} runs after the carrier accepted. Without an identity the window is
+     * a new root and receives a freshly minted Group. Every outcome names the identity the caller must
+     * carry from now on: after `forked` it differs from the one presented.
+     * @param {Object} data
+     * @param {String} [data.groupId] The presented Group, absent for a first boot.
+     * @param {String} [data.workspaceKey='main'] One key per full Workspace slot.
+     * @param {String} [data.generationToken] The lineage token the carrier holds.
+     * @param {String} data.windowId The runtime generation binding now.
+     * @returns {{outcome: String, groupId: String, workspaceKey: String, generationToken: String, windowId: String, generation: Number}}
+     *   `outcome` is one of `minted` (no identity presented), `cold` (a Group this worker never saw),
+     *   `bound` (a reserved slot, or this window's own live binding), `rebound` (a released slot, token
+     *   matched) or `forked` (a live binder's copy, a stranger's token, or a slot the Group no longer holds).
+     */
+    bind(data) {
+        return this.settle(this.plan(data))
+    }
+
+    /**
+     * Decides what binding a presented identity gets, without touching the registry. The plan carries
+     * everything {@link #settle} needs, so a decision can wait for the carrier and land unchanged.
+     * @param {Object} data See {@link #bind}.
+     * @returns {{outcome: String, groupId: String, workspaceKey: String, generationToken: String, windowId: String, group: Object|null, binding: Object|null}}
+     *   `group` is the existing Group the binding lands in, `null` when {@link #settle} creates it;
+     *   `binding` is the existing slot the window takes over, `null` when a new one is added.
+     * @protected
+     */
+    plan({groupId, workspaceKey='main', generationToken, windowId}) {
+        let me      = this,
+            group   = groupId ? me.get(groupId) : null,
+            binding = group?.bindings.get(workspaceKey) ?? null,
+            outcome;
+
+        if (!groupId) {
+            outcome = 'minted'
+        } else if (!group) {
+            outcome = 'cold'
+        } else if (!binding) {
+            // The presented lineage names a slot this Group does not hold: never reserved here, revoked,
+            // or its lease ran out. A dead lineage is not a door into a live Group.
+            outcome = 'forked'
+        } else if (binding.windowId !== null) {
+            // A copied identity while the binder lives forks; the binder is never superseded from outside.
+            outcome = binding.windowId === windowId ? 'bound' : 'forked'
+        } else if (binding.generationToken !== generationToken) {
+            outcome = 'forked'
+        } else {
+            outcome = binding.generation === 0 ? 'bound' : 'rebound'
+        }
+
+        const fresh = outcome === 'minted' || outcome === 'forked';
+
+        return {
+            binding        : fresh ? null : binding,
+            generationToken: fresh || !generationToken ? crypto.randomUUID() : generationToken,
+            group          : fresh ? null : group,
+            groupId        : fresh ? crypto.randomUUID() : groupId,
+            outcome,
+            windowId,
+            workspaceKey
+        }
+    }
+
+    /**
+     * Lands a {@link #plan}: creates the Group a fresh or cold identity names, takes over or adds the
+     * slot, and publishes the binding.
+     * @param {Object} plan
+     * @returns {Object} The binding description, see {@link #bind}.
+     * @protected
+     */
+    settle(plan) {
+        let me                                = this,
+            {outcome, windowId, workspaceKey} = plan,
+            group                             = plan.group ?? me.createGroup(plan.groupId),
+            binding                           = plan.binding;
+
+        if (binding) {
+            if (binding.windowId === windowId) {
+                return me.describe(group, binding, outcome)
+            }
+
+            me.clearLease(binding);
+            binding.awaitingClosure = false;
+            binding.releasedWindowId = null;
+            binding.releaseWork = null;
+            binding.windowId = windowId;
+            binding.generation++
+        } else {
+            binding = {
+                generation     : 1,
+                generationToken: plan.generationToken,
+                windowId,
+                workspaceKey
+            };
+
+            group.bindings.set(workspaceKey, binding)
+        }
+
+        return me.describe(group, binding, outcome)
+    }
+
+    /**
+     * Ends a lease timer for a binding, if one is running.
+     * @param {Object} binding
+     * @protected
+     */
+    clearLease(binding) {
+        let me      = this,
+            timerId = me.leaseTimers.get(binding);
+
+        if (timerId !== undefined) {
+            clearTimeout(timerId);
+            me.leaseTimers.delete(binding)
+        }
+    }
+
+    /**
+     * @summary Registers a new Group. The id is minted here unless a carrier presents one this worker never saw.
+     * The default history bound is sampled now; the Group may choose its own before loading history.
+     * @param {String} [groupId]
+     * @returns {Object} The Group record: `{id, bindings, createdAt, participants, historyDepth, history,
+     *   historyReady, provider, queue, retainedReferences}`
+     * @protected
+     */
+    createGroup(groupId=crypto.randomUUID()) {
+        const group = {
+            batch             : null,
+            bindings          : new Map(),
+            createdAt         : Date.now(),
+            history           : null,
+            historyDepth      : this.historyDepth,
+            historyReady      : null,
+            id                : groupId,
+            participants      : new Map(),
+            provider          : null,
+            queue             : Promise.resolve(),
+            retainedReferences: new Set()
+        };
+
+        this.register(group);
+
+        return group
+    }
+
+    /**
+     * @summary Returns the one native lifecycle owner for a Group, instantiated only on demand.
+     * @param {String} groupId
+     * @returns {Neo.manager.transaction.NativeLifecycle}
+     */
+    getNativeLifecycle(groupId) {
+        const group = this.get(groupId);
+        if (!group) throw new Error('unknown-group');
+        return group.nativeLifecycle ??= Neo.create(NativeLifecycle, {groupId, manager: this})
+    }
+
+    /**
+     * @summary Finds a caller's pending batch without exposing its mutable request buffer.
+     * @param {String} owner Opaque caller key, separate from the Group history cursor.
+     * @returns {Object|null}
+     */
+    findBatch(owner) {
+        const group = owner && this.items.find(group => group.batch?.owner === owner);
+        return group ? {groupId: group.id, id: group.batch.id, name: group.batch.name,
+            requestCount: group.batch.requests.length} : null
+    }
+
+    /**
+     * @summary Opens a bounded, caller-owned preparation buffer; no participant or history changes.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @param {String} request.name
+     * @param {Number} request.limit Maximum requests, supplied by the command contract.
+     * @returns {Object} The pending batch identity.
+     */
+    beginBatch({groupId, owner, name, limit}) {
+        const group = this.get(groupId);
+        if (!group) throw new Error('unknown-group');
+        if (!owner || typeof name !== 'string' || !name.trim() || !Number.isInteger(limit) || limit < 1) {
+            throw new TypeError('invalid-batch')
+        }
+        if (group.batch || this.findBatch(owner)) throw new Error('transaction-already-open');
+        group.batch = {id: crypto.randomUUID(), owner, name: name.trim(), limit, requests: [], committing: false};
+        return this.findBatch(owner)
+    }
+
+    /**
+     * @summary Stages finite requests; their reducers run against current values only on commit.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @param {Object[]} request.changes Participant inputs.
+     * @param {Object} [request.descriptor={}]
+     * @returns {Object} The pending batch identity.
+     */
+    stageBatch({groupId, owner, changes, descriptor = {}}) {
+        const batch = this.get(groupId)?.batch;
+        if (!batch || batch.owner !== owner || batch.committing) throw new Error('no-open-transaction');
+        if (batch.requests.length >= batch.limit) throw new Error('max-ops-per-transaction');
+        batch.requests.push(Commit.copy({changes, descriptor}));
+        return this.findBatch(owner)
+    }
+
+    /**
+     * @summary Commits all staged inputs as one compensatable write and one history row.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @param {Object} [request.provenance={}]
+     * @returns {Promise<Object>}
+     */
+    async commitBatch({groupId, owner, provenance = {}}) {
+        const group = this.get(groupId), batch = group?.batch;
+        if (!batch || batch.owner !== owner || batch.committing) throw new Error('no-open-transaction');
+        if (!batch.requests.length) throw new Error('empty-transaction');
+        const changes = new Map();
+        for (const request of batch.requests) {
+            for (const {workspaceKey, input} of request.changes) {
+                if (!changes.has(workspaceKey)) changes.set(workspaceKey, []);
+                changes.get(workspaceKey).push(input)
+            }
+        }
+        batch.committing = true;
+        try {
+            const result = await this.write({groupId, cause: 'batch', provenance,
+                descriptor: {name: batch.name, requests: batch.requests.map(request => request.descriptor)},
+                changes: [...changes].map(([workspaceKey, inputs]) => ({workspaceKey, inputs}))});
+            if (group.batch === batch) group.batch = null;
+            return result
+        } finally {
+            batch.committing = false
+        }
+    }
+
+    /**
+     * @summary Discards only the caller's pending preparation; live documents were never changed.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @returns {Boolean}
+     */
+    abortBatch({groupId, owner}) {
+        const group = this.get(groupId);
+        if (!group?.batch || group.batch.owner !== owner || group.batch.committing) return false;
+        group.batch = null;
+        return true
+    }
+
+    /**
+     * @param {Object} group
+     * @param {Object} binding
+     * @param {String} outcome
+     * @returns {Object}
+     * @protected
+     */
+    describe(group, binding, outcome) {
+        const result = {
+            generation     : binding.generation,
+            generationToken: binding.generationToken,
+            groupId        : group.id,
+            outcome,
+            windowId       : binding.windowId,
+            workspaceKey   : binding.workspaceKey
+        };
+
+        // The emitter annotates the object it is handed; callers get the plain description.
+        this.fire('bind', {...result});
+
+        return result
+    }
+
+    /**
+     * Finds the Group and binding a live window belongs to.
+     * @param {String} windowId
+     * @returns {{groupId: String, workspaceKey: String, generation: Number}|null}
+     */
+    findByWindow(windowId) {
+        for (const group of this.items) {
+            for (const binding of group.bindings.values()) {
+                if (binding.windowId === windowId) {
+                    return {generation: binding.generation, groupId: group.id, workspaceKey: binding.workspaceKey}
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Copies one binding's lineage and replaceable runtime generation.
+     * @param {String} groupId
+     * @param {String} workspaceKey
+     * @returns {{windowId: String|null, generation: Number, generationToken: String, workspaceKey: String}|null}
+     *   `windowId` is `null` while the slot is released or reserved.
+     */
+    getBinding(groupId, workspaceKey) {
+        const binding = this.get(groupId)?.bindings.get(workspaceKey);
+
+        return binding ? {generation: binding.generation, generationToken: binding.generationToken,
+            windowId: binding.windowId, workspaceKey} : null
+    }
+
+    /**
+     * The participant a Group resolves one key to, or `null`.
+     * @param {String} groupId
+     * @param {String} workspaceKey
+     * @returns {Object|null}
+     */
+    getParticipant(groupId, workspaceKey) {
+        return this.get(groupId)?.participants.get(workspaceKey) ?? null
+    }
+
+    /**
+     * The keys a Group holds participants under, in registration order.
+     * @param {String} groupId
+     * @returns {String[]}
+     */
+    participantKeys(groupId) {
+        return [...(this.get(groupId)?.participants.keys() ?? [])]
+    }
+
+    /**
+     * Runs one task on a Group's queue: tasks run in call order, one at a time, and a task that rejects
+     * releases the queue for the next. The task's own promise is returned, so the caller sees its result
+     * or its error. A task must not write to its own Group — that write would wait for the task holding
+     * the queue.
+     * @param {Object} group
+     * @param {Function} task
+     * @returns {Promise}
+     * @protected
+     */
+    enqueue(group, task) {
+        const run  = () => task(),
+              turn = group.queue.then(run, run);
+
+        group.queue = turn.then(() => {}, () => {});
+
+        return turn
+    }
+
+    /**
+     * The Group's `state.Provider`, created on first request: one instance per Group whatever window asks,
+     * publishing `canUndo`, `canRedo`, `historyCursor`, `historyDepth` and `historyLength` — `false` and
+     * empty until the first admitted transaction. A host binds its own provider to it as the explicit
+     * parent, so a control reads the same answer from the opener and from a popped-out window.
+     * @param {String} groupId
+     * @returns {Neo.state.Provider|null} `null` for an unknown Group
+     */
+    getProvider(groupId) {
+        const group = this.get(groupId);
+
+        if (!group) return null;
+
+        return group.provider ??= Neo.create(StateProvider, {data: this.historyState(group)})
+    }
+
+    /**
+     * The provider-shaped view of a Group's history.
+     * @param {Object} group
+     * @returns {{canRedo: Boolean, canUndo: Boolean, historyCursor: Number, historyDepth: Number, historyLength: Number}}
+     * @protected
+     */
+    historyState({history, historyDepth}) {
+        return {
+            canRedo      : history?.canRedo ?? false,
+            canUndo      : history?.canUndo ?? false,
+            historyCursor: history?.cursor  ?? -1,
+            historyDepth,
+            historyLength: history?.count   ?? 0
+        }
+    }
+
+    /**
+     * The one dynamic import of the history module, kept as a method so a harness can observe or replace
+     * the load. The manager's static closure never contains the module.
+     * @returns {Promise<Object>} The module namespace
+     * @protected
+     */
+    importHistory() {
+        return import('./transaction/History.mjs')
+    }
+
+    /**
+     * The admission barrier: for a Group that keeps history, loads the module once and creates the Group's
+     * History; every write awaits this before touching a participant. A Group at depth zero resolves to
+     * `null` without importing anything. The load is fenced by the Group's lifetime: a Group retired while
+     * the module was still loading gets no History — one created then would be registered with no owner
+     * to release it — and the write that waited rejects at its own liveness check.
+     * @param {Object} group
+     * @returns {Promise<Neo.manager.transaction.History|null>}
+     * @protected
+     */
+    loadHistory(group) {
+        let me = this;
+
+        if (group.historyDepth < 1) {
+            return Promise.resolve(null)
+        }
+
+        return group.historyReady ??= me.importHistory().then(({default: History}) => {
+            if (me.get(group.id) !== group) {
+                return null
+            }
+
+            group.history = Neo.create(History, {depth: group.historyDepth});
+
+            return group.history
+        }).catch(error => {
+            group.historyReady = null;
+            throw error
+        })
+    }
+
+    /**
+     * A task reaching the head of a Group's queue after the Group was retired must not touch what the
+     * retirement released.
+     * @param {Object} group
+     * @param {String} method The caller, for the message
+     * @protected
+     */
+    assertLive(group, method) {
+        if (this.get(group.id) !== group) {
+            throw new Error(`${this.className}#${method}: Group ${group.id} was retired while queued`)
+        }
+    }
+
+    /**
+     * Refuses a default history depth that is not a non-negative integer, so the bound a Group is born
+     * with is always one a History can enforce. The refusal is logged and the default in force stays; a
+     * config setter cannot throw without leaving the refused value staged.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     * @protected
+     */
+    beforeSetHistoryDepth(value, oldValue) {
+        if (!Number.isInteger(value) || value < 0) {
+            Neo.logError(`${this.className}: historyDepth must be a non-negative integer, got ${value} — keeping ${oldValue}`);
+
+            return oldValue
+        }
+
+        return value
+    }
+
+    /**
+     * Publishes the Group's history state to its provider, if one was ever requested.
+     * @param {Object} group
+     * @protected
+     */
+    publishHistory(group) {
+        group.provider?.setData(this.historyState(group))
+    }
+
+    /**
+     * @summary Re-applies the next row through the complete compensating participant protocol.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} [data.cause='redo']
+     * @param {Object} [data.provenance={}]
+     * @param {Object[]} [data.effects=[]]
+     * @returns {Promise<Object>} The same result as write(); row is null at the cursor bound.
+     */
+    redo({groupId, cause = 'redo', provenance = {}, effects = [], apply}) {
+        if (apply !== undefined) return Promise.reject(new TypeError('redo applies registered participants; an external apply callback is not supported'));
+        return this.write({groupId, cause, provenance, effects, cursorAction: 'redo'})
+    }
+
+    /**
+     * Sets the history depth of one Group — the Group's own policy, independent of this worker-wide
+     * default and of any other Group. Refused for an unknown Group, a depth that is not a non-negative
+     * integer, or a Group whose history already loaded: the bound is fixed at that first write.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {Number} data.depth `0` keeps no history and loads nothing
+     * @returns {Boolean}
+     */
+    setHistoryDepth({groupId, depth}) {
+        const group = this.get(groupId);
+
+        if (!group || group.historyReady || !Number.isInteger(depth) || depth < 0) {
+            return false
+        }
+
+        group.historyDepth = depth;
+        this.publishHistory(group);
+
+        return true
+    }
+
+    /**
+     * @summary Reverses the current row through the complete compensating participant protocol.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} [data.cause='undo']
+     * @param {Object} [data.provenance={}]
+     * @param {Object[]} [data.effects=[]]
+     * @returns {Promise<Object>} The same result as write(); row is null at the cursor bound.
+     */
+    undo({groupId, cause = 'undo', provenance = {}, effects = [], apply}) {
+        if (apply !== undefined) return Promise.reject(new TypeError('undo applies registered participants; an external apply callback is not supported'));
+        return this.write({groupId, cause, provenance, effects, cursorAction: 'undo'})
+    }
+
+    /**
+     * @summary Captures and prepares at the queue head, then commits participants, history and snapshot
+     * in one compensating critical section. Request data is copied at admission; participants remain
+     * live owners until capture. Presentation runs after queue release and cannot reject the commit.
+     * Preserve writes publish current state without changing history, including an existing redo tail;
+     * cold hydration and observed reference-frame rebasing use this mode.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.cause Explicit reason for this write, separate from cursorAction.
+     * @param {Object} [request.provenance={}] Plain origin metadata.
+     * @param {Object} [request.descriptor={}] Plain transaction metadata.
+     * @param {Function} [request.prepareDescriptor] Pure synchronous `({descriptor, snapshot})` metadata resolver
+     *     at the Group queue head. Must not mutate participants or enqueue another write.
+     * @param {Object[]} [request.changes=[]] Unique {workspaceKey, input} entries.
+     * @param {String} [request.cursorAction='append'] append, preserve, undo or redo.
+     * @param {Object[]} [request.effects=[]] {effectId, run} callbacks, invoked after semantic commit.
+     * @returns {Promise<Object>} {row, snapshot, participants, transactionId, notificationErrors};
+     * participants carries the committed before/after endpoints even when history is disabled.
+     */
+    write(request) {
+        let me    = this,
+            group = me.get(request.groupId);
+
+        if (!group) {
+            return Promise.reject(new Error(`${me.className}#write: unknown Group ${request.groupId}`))
+        }
+
+        try {
+            if (request.prepareDescriptor !== undefined && typeof request.prepareDescriptor !== 'function') {
+                throw new TypeError('prepareDescriptor must be a function')
+            }
+            request = Object.freeze({
+                ...request,
+                changes   : Commit.copy(request.changes ?? []),
+                descriptor: Commit.copy(request.descriptor ?? {}),
+                provenance: Commit.copy(request.provenance ?? {}),
+                effects   : (request.effects ?? []).map(effect => Object.freeze({...effect}))
+            })
+        } catch (error) {
+            return Promise.reject(error)
+        }
+
+        return me.enqueue(group, () => Commit.run(me, group, request)).then(result => {
+            Commit.complete(me, group, result);
+            return {
+                row               : result.row,
+                snapshot          : result.snapshot,
+                participants      : result.participants,
+                transactionId     : result.transactionId,
+                notificationErrors: result.notificationErrors.map(error => error.message)
+            }
+        })
+    }
+
+    /**
+     * Registers — or replaces — the participant a Group resolves one key to. What a participant IS is the
+     * host's business: this manager holds it opaque, so a dock host registers document accessors and
+     * another domain registers whatever its slots resolve to. An unknown Group refuses.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @param {Object} data.participant
+     * @param {Function} [data.participant.dispose] Synchronous owner cleanup on explicit Group retirement.
+     * @returns {Boolean}
+     */
+    registerParticipant({groupId, workspaceKey, participant}) {
+        const group = this.get(groupId);
+
+        if (!group || typeof workspaceKey !== 'string' || !workspaceKey || !participant || typeof participant !== 'object') {
+            return false
+        }
+
+        group.participants.set(workspaceKey, participant);
+
+        return true
+    }
+
+    /**
+     * Retires one participant of a Group — an explicit owner decision, never a side effect of a window's
+     * binding leaving: closing a vessel unbinds a render target, it does not delete worker documents.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @returns {Boolean}
+     */
+    unregisterParticipant({groupId, workspaceKey}) {
+        return this.get(groupId)?.participants.delete(workspaceKey) ?? false
+    }
+
+    /**
+     * Worker `disconnect`: the binding carrying this `windowId` is released and its slot held for the
+     * lease. A `windowId` no binding carries — a superseded generation reporting late — changes nothing.
+     * @param {Object} data
+     * @param {String} data.windowId
+     * @protected
+     */
+    onWindowDisconnect({windowId}) {
+        this.release(windowId)
+    }
+
+    /**
+     * @summary Releases an exact binding record and starts its reconnect lease.
+     * Releases the binding a window holds and starts its lease. A window still waiting for its carrier's
+     * answer holds no binding yet; its admission is cancelled instead, so the answer binds nothing.
+     * @param {String} windowId
+     * @returns {Boolean} Whether a binding was released.
+     */
+    release(windowId) {
+        let me      = this,
+            pending = me.pendingAdmissions.get(windowId);
+
+        pending && (pending.cancelled = true);
+
+        for (const group of me.items) {
+            for (const binding of group.bindings.values()) {
+                if (binding.windowId === windowId) {
+                    binding.awaitingClosure = false;
+                    binding.releasedWindowId = windowId;
+                    binding.windowId = null;
+                    me.startLease(group, binding);
+                    me.fire('release', {generation: binding.generation, generationToken: binding.generationToken,
+                        groupId: group.id, releasedBinding: binding, releasedWindowId: windowId,
+                        windowId, workspaceKey: binding.workspaceKey});
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * @summary Releases one exact ownership token without deciding whether the Group may retire.
+     * @param {String} groupId
+     * @param {*} reference The same non-null token supplied to retainGroup().
+     * @returns {Boolean} Whether that token was retained and removed.
+     */
+    releaseGroup(groupId, reference) {
+        return reference != null && (this.get(groupId)?.retainedReferences.delete(reference) ?? false)
+    }
+
+    /**
+     * Reserves a slot for a window the caller is about to open. The returned identity is what the opener
+     * writes into the child's carrier; the child's `connect` then binds with the reserved token. A slot
+     * with a live binder cannot be reserved.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @returns {{groupId: String, workspaceKey: String, generationToken: String}|null}
+     */
+    reserve({groupId, workspaceKey}) {
+        let me    = this,
+            group = me.get(groupId),
+            binding;
+
+        if (!group || !workspaceKey) return null;
+
+        binding = group.bindings.get(workspaceKey);
+
+        if (binding?.windowId) return null;
+
+        binding && me.clearLease(binding);
+
+        binding = {
+            generation     : 0,
+            generationToken: crypto.randomUUID(),
+            windowId       : null,
+            workspaceKey
+        };
+
+        group.bindings.set(workspaceKey, binding);
+        me.startLease(group, binding);
+
+        return {generationToken: binding.generationToken, groupId, workspaceKey}
+    }
+
+    /**
+     * @summary Retains a Group for an opaque owner independently of windows, participants and history.
+     * @param {String} groupId
+     * @param {*} reference A non-null ownership token, compared by Set identity.
+     * @returns {Boolean} Whether a new token was retained; duplicates and absent Groups return false.
+     */
+    retainGroup(groupId, reference) {
+        const group = this.get(groupId);
+
+        if (!group || reference == null || group.retainedReferences.has(reference)) return false;
+
+        group.retainedReferences.add(reference);
+        return true
+    }
+
+    /**
+     * Gives a reserved or released slot back before its lease ends — the opener's vessel never came,
+     * or the host retired it. Only the lineage holding the slot may give it back: an older reservation's
+     * failure or cleanup, arriving after the slot was reserved again, names a token the slot no longer
+     * carries and is refused. A slot with a live binder is not the caller's to revoke.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @param {String} data.generationToken The reservation's own token.
+     * @returns {Boolean}
+     */
+    revoke({groupId, workspaceKey, generationToken}) {
+        let me      = this,
+            group   = me.get(groupId),
+            binding = group?.bindings.get(workspaceKey);
+
+        if (!binding || binding.windowId !== null || !generationToken || binding.generationToken !== generationToken) return false;
+
+        me.clearLease(binding);
+        group.bindings.delete(workspaceKey);
+
+        return true
+    }
+
+    /**
+     * Retires a Group with every lease, participant, history row and provider it holds. Whether a Group
+     * MAY retire — durably persisted, no retained reference — is the caller's contract; this manager only
+     * forgets what it is told to.
+     * @param {String} groupId
+     * @returns {Boolean}
+     */
+    retireGroup(groupId) {
+        let me    = this,
+            group = me.get(groupId);
+
+        if (!group) return false;
+
+        group.bindings.forEach(binding => me.clearLease(binding));
+        group.nativeLifecycle?.destroy();
+        [...group.participants.values()].forEach(participant => participant.dispose?.());
+        group.participants.clear();
+        group.provider?.destroy();
+        group.history?.destroy();
+        group.provider = group.history = null;
+        me.unregister(group);
+        me.fire('groupRetired', {groupId});
+
+        return true
+    }
+
+    /**
+     * Tells a window's carrier what to hold from now on and reports whether it took. A window is admitted
+     * once its app registered, which is after the main realm registered its remote surface; a realm
+     * without the setter — a unit harness that mocks no `Neo.Main` — has no carrier to disagree, so its
+     * absence accepts. A present setter must answer exactly `true`: a pending answer is awaited, and
+     * `false`, a rejection or anything else refuses.
+     * @param {String} windowId
+     * @param {{groupId: String, workspaceKey: String, generationToken: String}} identity
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async writeCarrier(windowId, identity) {
+        if (typeof Neo.Main?.setTopologyIdentity !== 'function') return true;
+
+        try {
+            return await Neo.Main.setTopologyIdentity({...identity, windowId}) === true
+        } catch (error) {
+            return false
+        }
+    }
+
+    /**
+     * @summary Holds a released or reserved slot for its lineage; on expiry the slot is free.
+     * @param {Object} group
+     * @param {Object} binding
+     * @protected
+     */
+    startLease(group, binding) {
+        let me = this;
+
+        me.clearLease(binding);
+
+        me.leaseTimers.set(binding, setTimeout(() => {
+            me.leaseTimers.delete(binding);
+
+            // A rebind made this record live, or a new reservation replaced it.
+            if (group.bindings.get(binding.workspaceKey) === binding && binding.windowId === null) {
+                binding.leaseExpired = true;
+                group.bindings.delete(binding.workspaceKey);
+                me.fire('leaseExpired', {generation: binding.generation, generationToken: binding.generationToken,
+                    groupId     : group.id, releasedBinding: binding, releasedWindowId: binding.releasedWindowId ?? null,
+                    workspaceKey: binding.workspaceKey});
+
+                // Only empty, unreferenced Groups may expire automatically. Owners decide when a
+                // Group retaining participants, history or external references can be retired.
+                if (group.bindings.size === 0 && group.participants.size === 0 &&
+                    group.retainedReferences.size === 0 && !group.history?.count &&
+                    !group.nativeLifecycle?.hasResources && me.get(group.id) === group
+                ) {
+                    me.retireGroup(group.id);
+                }
+            }
+        }, me.reconnectLeaseMs))
+    }
+}
+
+export default Neo.setupClass(Transaction);

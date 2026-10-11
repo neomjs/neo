@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-calendar-weekcomponent
+:where(.neo-theme-neo-dark) { // .neo-calendar-weekcomponent
     --c-w-background-color                  : var(--sem-color-bg-neutral-default);
     --c-w-border-color                      : var(--sem-color-border-default);
     --c-w-event-resizable-color             : var(--sem-color-border-focus);

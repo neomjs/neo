@@ -51,7 +51,7 @@ Tools for generating the API documentation and handling SEO for the portal.
 
 | Script | NPM Command | Description |
 | :--- | :--- | :--- |
-| `jsdocx.mjs` | `npm run generate-docs-json` | Parses JSDoc comments across the codebase and generates `docs/output/db.json` for the Docs App. |
+| `generateDocsJson.mjs` | `npm run generate-docs-json` | Parses JSDoc comments across the codebase and generates `docs/output/db.json` for the Docs App. |
 | `seo/generate.mjs` | N/A | Generates static HTML snapshots for Search Engine Optimization. |
 
 ---
@@ -331,6 +331,12 @@ Runs the automated test suite using Playwright.
 **Script:** `buildScripts/helpers/watchThemes.mjs`
 
 Watches the `resources/scss` directory and incrementally recompiles themes when files change.
+
+- Run `npm run build-themes -- -n -e dev -t all` once before starting the watcher. It refuses to watch an incomplete or stale development theme tree.
+- Content changes to existing entry files keep the single-file fast path.
+- Add, rename, and delete events reconcile missing/stale outputs, remove retired CSS and source maps, and replace the generated development theme map.
+- Partial changes rebuild their owning theme root; shared-mixin changes rebuild every root and surface compiler failures.
+
 *Note: This script has no CLI options.*
 
 ---

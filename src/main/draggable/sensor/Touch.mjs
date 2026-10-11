@@ -135,16 +135,19 @@ class Touch extends Base {
             });
 
             document.removeEventListener('contextmenu', preventDefault, true);
-            document.removeEventListener('touchmove',   me.onTouchMove);
-
-            Object.assign(me, {
-                currentElement: null,
-                dragging      : false,
-                startEvent    : null
-            })
+            document.removeEventListener('touchmove',   me.onTouchMove)
         }
 
-        me.dragging = false
+        // Same release contract as the Mouse sensor: the pressed element is bracket state and
+        // clears on every end, whether or not the touch ever became a drag.
+        Object.assign(me, {
+            currentElement: null,
+            dragging      : false,
+            pageX         : null,
+            pageY         : null,
+            startEvent    : null,
+            touchStartTime: 0
+        })
     }
 
     /**

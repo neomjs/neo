@@ -17,6 +17,7 @@ import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import Button             from '../../../../src/button/Base.mjs';
+import SplitButton        from '../../../../src/button/Split.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
@@ -116,6 +117,93 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         expect(updateData.vnode.className.includes('pressed')).toBe(false);
 
         button.destroy();
+    });
+
+    test('should project disabled state onto Button and SplitButton native roots', async () => {
+        const button = Neo.create(Button, {
+            appName,
+            text: 'Native semantics'
+        });
+        let {vnode} = await button.initVnode();
+        button.mounted = true;
+
+        expect(vnode.attributes.disabled).toBeUndefined();
+        expect(vnode.className).not.toContain('neo-disabled');
+
+        ({vnode} = await button.set({disabled: true}));
+
+        expect(button.getVdomRoot().disabled).toBe(true);
+        expect(vnode.attributes.disabled).toBe('true');
+        expect(vnode.className).toContain('neo-disabled');
+
+        ({vnode} = await button.set({disabled: false}));
+
+        expect(vnode.attributes.disabled).toBeUndefined();
+        expect(vnode.className).not.toContain('neo-disabled');
+
+        const splitButton = Neo.create(SplitButton, {
+            appName,
+            disabled: true,
+            text    : 'Split action'
+        });
+        const splitVnode = (await splitButton.initVnode()).vnode;
+
+        expect(splitVnode.childNodes).toHaveLength(2);
+        expect(splitVnode.childNodes[0].nodeName).toBe('button');
+        expect(splitVnode.childNodes[0].attributes.disabled).toBe('true');
+        expect(splitVnode.childNodes[1].nodeName).toBe('button');
+        expect(splitVnode.childNodes[1].attributes.disabled).toBe('true');
+
+        await splitButton.set({disabled: false});
+
+        expect(splitButton.getVdomRoot().disabled).toBeUndefined();
+        expect(splitButton.triggerButton.getVdomRoot().disabled).toBeUndefined();
+
+        splitButton.destroy();
+        button.destroy();
+    });
+
+    test('should keep native disabled aligned with button-to-anchor transitions', async () => {
+        const urlButton = Neo.create(Button, {
+            appName,
+            disabled: true,
+            text    : 'External link',
+            url     : 'https://example.com'
+        });
+        let {vnode} = await urlButton.initVnode();
+
+        urlButton.mounted = true;
+
+        expect(vnode.nodeName).toBe('a');
+        expect(vnode.attributes.disabled).toBeUndefined();
+        expect(vnode.className).toContain('neo-disabled');
+
+        ({vnode} = await urlButton.set({url: null}));
+
+        expect(vnode.nodeName).toBe('button');
+        expect(vnode.attributes.disabled).toBe('true');
+
+        ({vnode} = await urlButton.set({url: 'https://example.com/again'}));
+
+        expect(vnode.nodeName).toBe('a');
+        expect(vnode.attributes.disabled).toBeUndefined();
+
+        const routeButton = Neo.create(Button, {
+            appName,
+            disabled : true,
+            editRoute: false,
+            route    : 'details',
+            text     : 'Internal link'
+        });
+        const routeVnode = (await routeButton.initVnode()).vnode;
+
+        expect(routeVnode.nodeName).toBe('a');
+        expect(routeVnode.attributes.href).toBe('#details');
+        expect(routeVnode.attributes.disabled).toBeUndefined();
+        expect(routeVnode.className).toContain('neo-disabled');
+
+        routeButton.destroy();
+        urlButton.destroy();
     });
 
     test('Prototype VDOM mutation check', async () => {

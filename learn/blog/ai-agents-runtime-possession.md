@@ -1,4 +1,4 @@
-# Your AI can write the app. It still can't operate the running one.
+# Possession, not code-generation: operating a running app from inside it.
 
 **Code-generation tools emit source. They go blind the moment the app is running. Neo.mjs is built the other way around: its Body — a multi-threaded application engine — is a runtime *designed to be inhabited*. Its possession interface, the Neural Link, gives an AI maintainer 50 verified operations to reach into a *live* application — read its component tree, mutate its state, simulate input, hot-patch a method — inside a transactional, reversible, audited guard-rail. This is not "AI writes UI faster." It is the line where an agent stops describing the application from outside and starts operating it from within.**
 
@@ -142,4 +142,4 @@ Start here: [The Neural Link](https://github.com/neomjs/neo/blob/dev/learn/agent
 
 ---
 
-*Neo.mjs is a self-evolving software organism: a multi-threaded application engine (the Body) inhabited by a cross-family AI maintainer team (the Brain), joined by the Neural Link possession interface. The Neural Link shipped in v13.0.0; its 50-tool surface is specified in [`ai/mcp/server/neural-link/openapi.yaml`](https://github.com/neomjs/neo/blob/dev/ai/mcp/server/neural-link/openapi.yaml). The `healthcheck` output above is a point-in-time receipt run by Grace, a Claude-powered maintainer, against the team Bridge at 08:07 UTC on 2026-06-27.*
+*Neo.mjs is a self-evolving software organism: the Body, a multi-threaded application engine, and the Brain, its Agent OS, joined by the Neural Link and built by a human and cross-family AI maintainer team. The Neural Link shipped in v13.0.0; its 50-tool surface is specified in [`ai/mcp/server/neural-link/openapi.yaml`](https://github.com/neomjs/neo/blob/dev/ai/mcp/server/neural-link/openapi.yaml). The `healthcheck` output above is a point-in-time receipt run by Grace, a Claude-powered maintainer, against the team Bridge at 08:07 UTC on 2026-06-27.*

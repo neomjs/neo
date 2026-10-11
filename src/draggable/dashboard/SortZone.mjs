@@ -7,6 +7,30 @@ import SortZone           from '../container/SortZone.mjs';
 import VDomUtil           from '../../util/VDom.mjs';
 
 /**
+ * A single `flex` token that is a length or a percentage rather than a bare number. In the CSS
+ * shorthand such a token is the **basis**, and the grow factor defaults to 1 — so `flex: 100px`
+ * grows by 1, never by 100. Kept explicit rather than inferred from "digits followed by letters",
+ * which would read `1oops` as a length.
+ * @type {RegExp}
+ */
+const CSS_FLEX_BASIS = /^(?:auto|content|0|\+?(?:\d+\.?\d*|\.\d+)(?:%|px|em|rem|ex|ch|cap|ic|lh|rlh|vw|vh|vi|vb|vmin|vmax|cm|mm|q|in|pt|pc))$/;
+
+/**
+ * @summary Reads a `flex` token that must be a non-negative number — the grow and shrink positions.
+ *
+ * CSS rejects a negative grow or shrink, and a rejected token invalidates the **whole declaration**,
+ * so such an item is not flexible at all rather than flexible by its leading number.
+ * @param {String} token
+ * @returns {Number|null} The value, or `null` when the token cannot hold that position.
+ * @private
+ */
+function toFlexFactor(token) {
+    const factor = Number(token);
+
+    return Number.isFinite(factor) && factor >= 0 ? factor : null
+}
+
+/**
  * @class Neo.draggable.dashboard.SortZone
  * @extends Neo.draggable.container.SortZone
  */
@@ -93,13 +117,6 @@ class DashboardSortZone extends SortZone {
 
             me.adjustProxyRectToParent?.(rect, me.ownerRect);
 
-            console.log('applyAbsolutePositioning', {
-                height  : `${rect.height}px`,
-                left    : `${rect.left}px`,
-                top     : `${rect.top}px`,
-                width   : `${rect.width}px`
-            });
-
             item.wrapperStyle = Object.assign(itemStyle, {
                 flex    : 'none',
                 height  : `${rect.height}px`,
@@ -120,7 +137,10 @@ class DashboardSortZone extends SortZone {
      *     and the gaps between items, ensuring the new layout respects the original design tokens.
      * 2.  **Identifies Remaining Items:** Filters out the dragged component and its placeholder.
      * 3.  **Distributes Space:** Calculates the available space (Total Size - Offsets - Gaps - Fixed Items) and distributes
-     *     it among flex items proportional to their flex values.
+     *     it among flex items proportional to their flex values. Membership of that set is decided by
+     *     {@link Neo.draggable.dashboard.SortZone#resolveFlexWeight resolveFlexWeight} rather than by a truthiness test,
+     *     because `flex` here is app-supplied and `'none'` is a legal truthy value — see that method for why the
+     *     distinction is load-bearing.
      * 4.  **Generates Styles:** Returns a list of style objects (`top`, `left`, `width`, `height`) to be applied to the remaining items.
      *
      * @returns {Object[]} Array of objects containing the `item` reference and the calculated `style` object.
@@ -179,18 +199,19 @@ class DashboardSortZone extends SortZone {
                 continue
             }
 
-            let item = me.owner.items[mappedIndex];
+            let item = me.ownerItems[mappedIndex];
 
             if (item === me.dragPlaceholder || item === me.dragComponent) {
                 continue
             }
 
-            let rect = me.itemRects[i];
+            let rect = me.itemRects[i],
+                flex = me.resolveFlexWeight(item.flex);
 
-            items.push({item, rect});
+            items.push({item, rect, flex});
 
-            if (item.flex) {
-                totalFlex += item.flex
+            if (flex) {
+                totalFlex += flex
             } else {
                 let size = isHorizontal ? rect.width : rect.height;
                 usedSize += size
@@ -204,11 +225,11 @@ class DashboardSortZone extends SortZone {
         // 4. Distribute space
         let currentPos = startOffset;
 
-        items.forEach(({item, rect}, index) => {
+        items.forEach(({item, rect, flex}, index) => {
             let itemSize, style = {};
 
-            if (item.flex) {
-                itemSize = (item.flex / totalFlex) * availableSpace
+            if (flex) {
+                itemSize = (flex / totalFlex) * availableSpace
             } else {
                 itemSize = isHorizontal ? rect.width : rect.height
             }
@@ -242,6 +263,86 @@ class DashboardSortZone extends SortZone {
     destroy() {
         DragCoordinator.unregister(this);
         super.destroy()
+    }
+
+    /**
+     * @summary Resolves an item's `flex` config into the numeric weight the expanded layout divides by.
+     *
+     * **`flex` is app-supplied on this path.** The sole caller reaching
+     * {@link Neo.draggable.dashboard.SortZone#calculateExpandedLayout} is `Neo.dashboard.Container`'s widget
+     * sorting, so the value is whatever an application put on its widgets — every CSS-legal spelling can
+     * arrive, and **`'none'` is a legal one that is also truthy**. A truthiness test therefore does not
+     * identify a flex item: `'none'` passes it, `totalFlex += 'none'` concatenates into `'0none'`, and the
+     * division yields `NaN` — written straight into `style.width` as `'NaNpx'`. Nothing throws, so the
+     * geometry is simply wrong.
+     *
+     * **It reads the shorthand's grow factor rather than scanning for the first number**, because
+     * CSS-equivalent spellings must not disagree. `flex: auto` and `flex: 1 1 auto` are the same
+     * declaration, and a leading-number scan resolves them to different weights. The same scan reads
+     * `100px` — a *basis*, whose grow defaults to 1 — as weight 100, and invents weight 1 out of
+     * `1oops`. This codebase writes shorthands routinely (`'0 1 auto'`, `'1 1 600px'`, `'1 1 100%'`),
+     * so the grammar is load-bearing rather than defensive.
+     *
+     * The grammar, all of it:
+     *
+     * - a finite positive number is the weight;
+     * - `none` is `0 0 auto` and `initial` is `0 1 auto`, so both are **not flexible**;
+     * - `auto` is `1 1 auto`, so it is weight **1**;
+     * - otherwise the first of up to three tokens carries grow: a bare number is that grow, and a
+     *   lone length or percentage is a basis whose grow is 1;
+     * - anything else — a fourth token, a non-numeric leading token, a non-string non-number — is
+     *   not flexible.
+     *
+     * A zero or negative grow is likewise not flexible: it grows nothing, which preserves the
+     * behaviour a falsy `0` already had. **Unparseable never invents a weight**; the item keeps its
+     * measured rect, which is the safe wrong answer.
+     *
+     * @param {Number|String|null|undefined} flex The item's `flex` config, unvalidated — `undefined`
+     * is the routine case, since most items declare no `flex` at all.
+     * @returns {Number|null} A positive finite weight, or `null` when the item does not participate in the
+     * flex distribution.
+     */
+    resolveFlexWeight(flex) {
+        if (typeof flex === 'number') {
+            return Number.isFinite(flex) && flex > 0 ? flex : null
+        }
+
+        if (typeof flex !== 'string') {
+            return null
+        }
+
+        const value = flex.trim().toLowerCase();
+
+        if (value === 'none' || value === 'initial') return null;
+        if (value === 'auto')                        return 1;
+
+        const tokens = value.split(/\s+/).filter(Boolean);
+
+        if (tokens.length === 0 || tokens.length > 3) {
+            return null
+        }
+
+        const grow = toFlexFactor(tokens[0]);
+
+        // A lone token that is not a factor must be a basis, and CSS grows a lone basis by 1.
+        if (grow === null) {
+            return tokens.length === 1 && CSS_FLEX_BASIS.test(tokens[0]) ? 1 : null
+        }
+
+        // `<grow> <shrink>? <basis>?` — EVERY remaining token is validated, not skipped. A browser
+        // drops the entire declaration on one bad token, so `1 oops`, `1 -1 auto`, `1 2 3` and
+        // `1 1 none` leave the item not flexible; reading grow off token 0 and trusting the rest
+        // would invent weight 1 for all four. Validating position 0 alone was the same defect this
+        // method exists to remove, one position further along.
+        if (tokens.length === 3 && (toFlexFactor(tokens[1]) === null || !CSS_FLEX_BASIS.test(tokens[2]))) {
+            return null
+        }
+
+        if (tokens.length === 2 && toFlexFactor(tokens[1]) === null && !CSS_FLEX_BASIS.test(tokens[1])) {
+            return null
+        }
+
+        return grow > 0 ? grow : null
     }
 
     /**
@@ -291,7 +392,7 @@ class DashboardSortZone extends SortZone {
         let me = this;
 
         if (!me.isRemoteDragging) {
-            DragCoordinator.onDragEnd({
+            DragCoordinator[data.cancelled ? 'onDragCancel' : 'onDragEnd']({
                 draggedItem   : me.dragComponent,
                 sourceSortZone: me
             })
@@ -375,28 +476,41 @@ class DashboardSortZone extends SortZone {
     }
 
     /**
+     * @summary Takes the item into this zone, and REPORTS whether it did.
+     *
+     * The return value is the commit decision the coordinator gates source retirement on: the
+     * committed operation, or `null` when this zone did not take the item. Both paths previously
+     * returned `undefined`, so committing and declining were indistinguishable to the caller — and a
+     * caller cannot honour an outcome the target refuses to state.
+     *
      * @param {Neo.component.Base} draggedItem
+     * @returns {Promise<Object|null>} The committed operation, or `null` when nothing was taken.
      */
     async onRemoteDrop(draggedItem) {
         let me    = this,
             index = me.currentIndex;
 
-        // Ensure we are in remote drag mode
-        if (me.isRemoteDragging) {
-            // Cleanup placeholder but keep layout ready
-            await me.onDragEnd({});
-
-            // Remove from old parent (if not already detached)
-            const parentId = draggedItem.parentId;
-            if (parentId && parentId !== 'document.body') {
-                Neo.getComponent(parentId)?.remove(draggedItem, false)
-            }
-
-            // Insert into new owner
-            me.owner.insert(index, draggedItem);
-
-            me.isRemoteDragging = false
+        // Not in remote drag mode: this zone takes nothing, and says so. Silence here is what let the
+        // coordinator retire a source into a target that never accepted the item.
+        if (!me.isRemoteDragging) {
+            return null
         }
+
+        // Cleanup placeholder but keep layout ready
+        await me.onDragEnd({});
+
+        // Remove from old parent (if not already detached)
+        const parentId = draggedItem.parentId;
+        if (parentId && parentId !== 'document.body') {
+            Neo.getComponent(parentId)?.remove(draggedItem, false)
+        }
+
+        // Insert into new owner
+        me.owner.insert(index, draggedItem);
+
+        me.isRemoteDragging = false;
+
+        return {index, ownerId: me.owner.id, type: 'insertItem'}
     }
 
     /**
@@ -466,6 +580,7 @@ class DashboardSortZone extends SortZone {
             dragElement            : VDomUtil.find(owner.vdom, draggedItem.id).vdom,
             dragProxyConfig        : me.getDragProxyConfig(),
             indexMap,
+            ownerItems             : [...owner.items],
             ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
             reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
             sortableItems,
@@ -486,15 +601,6 @@ class DashboardSortZone extends SortZone {
 
         itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
 
-        itemRects.forEach(rect => {
-            console.log('itemRect', {
-                height  : `${rect.height}px`,
-                left    : `${rect.left}px`,
-                top     : `${rect.top}px`,
-                width   : `${rect.width}px`
-            });
-        });
-
         me.ownerRect = itemRects.shift();
         me.boundaryContainerRect = me.ownerRect;
 
@@ -504,8 +610,6 @@ class DashboardSortZone extends SortZone {
             minWidth: `${me.ownerRect.width}px`,
             width   : `${me.ownerRect.width}px`
         };
-
-        console.log('adjustItemRectsToParent', adjustItemRectsToParent);
 
         adjustItemRectsToParent && itemRects.forEach(rect => {
             rect.x -= me.ownerRect.x;
@@ -540,8 +644,6 @@ class DashboardSortZone extends SortZone {
         // Update dragged item to target app context
         draggedItem.appName = me.appName;
 
-        console.log('startRemoteDrag', draggedItem.id, draggedItem.windowId, draggedItem.parentId, draggedItem.parentComponent);
-
         // Break the parent chain to prevent circular config lookups during handover
         draggedItem.parentId        = null;
         draggedItem.parentComponent = null;
@@ -551,21 +653,13 @@ class DashboardSortZone extends SortZone {
         draggedItem.vnode            = null;
         draggedItem.vnodeInitialized = false;
 
-        console.log('parent cleared:', draggedItem.parentId, draggedItem.parentComponent);
-
         // 1. Get Owner Rect (needed for proxy positioning)
         let rects = await owner.getDomRect([owner.id]);
         me.ownerRect = rects[0];
 
-        console.log('ownerRect', me.ownerRect);
-
         // Assign the drag offsets to the instance, so that the DragZone onDragMove logic works
         me.offsetX = data.offsetX;
         me.offsetY = data.offsetY;
-
-        console.log('startRemoteDrag: ownerRect', me.ownerRect);
-        console.log('startRemoteDrag: local coords', data.localX, data.localY);
-        console.log('startRemoteDrag: calculated coords', data.localX - me.offsetX, data.localY - me.offsetY);
 
         // 2. Create a local DragProxy manually (using DragProxyContainer to hold the live widget)
         // We use DragProxyContainer to ensure the widget remains active/connected.
@@ -583,11 +677,7 @@ class DashboardSortZone extends SortZone {
             }
         };
 
-        console.log('Creating local drag proxy', config);
-
         me.dragProxy = Neo.create(config);
-
-        console.log('Created local drag proxy', me.dragProxy);
 
         // 3. Create Placeholder
         me.dragPlaceholder = Neo.create({
@@ -632,7 +722,7 @@ class DashboardSortZone extends SortZone {
      * @param {Object} data - The drag move event data.
      */
     startWindowDrag(data) {
-        let me = this,
+        let me                                    = this,
             {popupHeight, popupWidth, windowName} = data;
 
         // Keep the proxy active to capture mouse events, but make it invisible

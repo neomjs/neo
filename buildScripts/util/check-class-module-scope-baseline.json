@@ -1,0 +1,222 @@
+[
+    {
+        "file": "src/ai/client/ComponentService.mjs",
+        "name": "registerComponentServiceMethods",
+        "count": 1
+    },
+    {
+        "file": "src/ai/client/DataService.mjs",
+        "name": "registerDataServiceMethods",
+        "count": 1
+    },
+    {
+        "file": "src/ai/client/DockService.mjs",
+        "name": "registerDockServiceMethods",
+        "count": 1
+    },
+    {
+        "file": "src/ai/client/InstanceService.mjs",
+        "name": "registerInstanceServiceMethods",
+        "count": 1
+    },
+    {
+        "file": "src/ai/client/InteractionService.mjs",
+        "name": "driveFailure",
+        "count": 1
+    },
+    {
+        "file": "src/ai/client/InteractionService.mjs",
+        "name": "registerInteractionServiceMethods",
+        "count": 1
+    },
+    {
+        "file": "src/ai/client/RuntimeService.mjs",
+        "name": "registerRuntimeServiceMethods",
+        "count": 1
+    },
+    {
+        "file": "src/ai/client/TourRunner.mjs",
+        "name": "isPlainObject",
+        "count": 1
+    },
+    {
+        "file": "src/ai/client/TourRunner.mjs",
+        "name": "validateCrossWindowResult",
+        "count": 1
+    },
+    {
+        "file": "src/ai/TransactionService.mjs",
+        "name": "cloneOp",
+        "count": 1
+    },
+    {
+        "file": "src/ai/TransactionService.mjs",
+        "name": "cloneTx",
+        "count": 1
+    },
+    {
+        "file": "src/ai/TransactionService.mjs",
+        "name": "stackKey",
+        "count": 1
+    },
+    {
+        "file": "src/ai/WriteGuard.mjs",
+        "name": "copyAcquisition",
+        "count": 1
+    },
+    {
+        "file": "src/ai/WriteGuard.mjs",
+        "name": "copyLease",
+        "count": 1
+    },
+    {
+        "file": "src/ai/WriteGuard.mjs",
+        "name": "copyReceipt",
+        "count": 1
+    },
+    {
+        "file": "src/component/Base.mjs",
+        "name": "addUnits",
+        "count": 1
+    },
+    {
+        "file": "src/component/markdown/Parser.mjs",
+        "name": "isTableDelimiter",
+        "count": 1
+    },
+    {
+        "file": "src/component/markdown/Parser.mjs",
+        "name": "splitTableRow",
+        "count": 1
+    },
+    {
+        "file": "src/container/Base.mjs",
+        "name": "byWeight",
+        "count": 1
+    },
+    {
+        "file": "src/dashboard/dock/projection/HeaderActionPolicy.mjs",
+        "name": "effectiveActiveItemId",
+        "count": 1
+    },
+    {
+        "file": "src/dashboard/dock/projection/HeaderActionPolicy.mjs",
+        "name": "tabFlowItems",
+        "count": 1
+    },
+    {
+        "file": "src/draggable/dashboard/SortZone.mjs",
+        "name": "toFlexFactor",
+        "count": 1
+    },
+    {
+        "file": "src/functional/util/html.mjs",
+        "name": "html",
+        "count": 1
+    },
+    {
+        "file": "src/Main.mjs",
+        "name": "resolveNativeWindowRoute",
+        "count": 1
+    },
+    {
+        "file": "src/main/addon/EventSimulator.mjs",
+        "name": "interpolatePoint",
+        "count": 1
+    },
+    {
+        "file": "src/main/addon/EventSimulator.mjs",
+        "name": "pathLength",
+        "count": 1
+    },
+    {
+        "file": "src/main/addon/EventSimulator.mjs",
+        "name": "pointAtDistance",
+        "count": 1
+    },
+    {
+        "file": "src/main/addon/EventSimulator.mjs",
+        "name": "pointDistance",
+        "count": 1
+    },
+    {
+        "file": "src/main/DomAccess.mjs",
+        "name": "doPreventDefault",
+        "count": 1
+    },
+    {
+        "file": "src/main/DomAccess.mjs",
+        "name": "filterTabbable",
+        "count": 1
+    },
+    {
+        "file": "src/main/DomAccess.mjs",
+        "name": "isSerializedRectangle",
+        "count": 1
+    },
+    {
+        "file": "src/main/draggable/Resize.mjs",
+        "name": "resolveCssBound",
+        "count": 1
+    },
+    {
+        "file": "src/main/draggable/sensor/Mouse.mjs",
+        "name": "preventDefault",
+        "count": 1
+    },
+    {
+        "file": "src/main/draggable/sensor/Touch.mjs",
+        "name": "preventDefault",
+        "count": 1
+    },
+    {
+        "file": "src/manager/transaction/History.mjs",
+        "name": "deepFreeze",
+        "count": 1
+    },
+    {
+        "file": "src/manager/transaction/History.mjs",
+        "name": "isPlainData",
+        "count": 1
+    },
+    {
+        "file": "src/manager/transaction/History.mjs",
+        "name": "isValidDepth",
+        "count": 1
+    },
+    {
+        "file": "src/state/Provider.mjs",
+        "name": "getRecordChangeBinding",
+        "count": 1
+    },
+    {
+        "file": "src/util/Rectangle.mjs",
+        "name": "createReversedEdgeAlign",
+        "count": 1
+    },
+    {
+        "file": "src/util/Rectangle.mjs",
+        "name": "finishAlignResult",
+        "count": 1
+    },
+    {
+        "file": "src/util/Rectangle.mjs",
+        "name": "getElRect",
+        "count": 1
+    },
+    {
+        "file": "src/util/Rectangle.mjs",
+        "name": "parseEdgeAlign",
+        "count": 1
+    },
+    {
+        "file": "src/util/Rectangle.mjs",
+        "name": "parseEdgeValue",
+        "count": 1
+    },
+    {
+        "file": "src/vdom/VNode.mjs",
+        "name": "normalizeClassName",
+        "count": 1
+    }
+]

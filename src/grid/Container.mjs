@@ -106,6 +106,14 @@ class GridContainer extends BaseContainer {
          */
         view: null,
         /**
+         * Extra configs for the grid.View this container creates — the seam for what the View owns,
+         * first of all the selection model: `viewConfig: {selectionModel: null}` selects nothing,
+         * `{selectionModel: {module: CellModel}}` names the model; omitted, the View instantiates its
+         * default `RowModel`. Applied once, at creation; runtime changes go to `grid.view` directly.
+         * @member {Object|null} viewConfig=null
+         */
+        viewConfig: null,
+        /**
          * true uses grid.plugin.CellEditing
          * @member {Boolean} cellEditing_=false
          * @reactive
@@ -228,12 +236,6 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * We do not need the first event to trigger logic, since afterSetMounted() handles this
-     * @member {Boolean} initialResizeEvent=true
-     * @protected
-     */
-    initialResizeEvent = true
-    /**
      * @member {Object[]|Neo.grid.column.Base[]} centerColumns=[]
      * @protected
      */
@@ -273,7 +275,7 @@ class GridContainer extends BaseContainer {
     construct(config) {
         super.construct(config);
 
-        let me = this,
+        let me                                    = this,
             {appName, rowHeight, store, windowId} = me;
 
         me.items = me.items || [];
@@ -288,6 +290,7 @@ class GridContainer extends BaseContainer {
         });
 
         me.view = Neo.create(View, {
+            ...me.viewConfig,
             appName,
             flex         : 1,
             gridContainer: me,
@@ -336,6 +339,15 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Observes, or stops observing, this grid's own box.
+     *
+     * `componentId` and `id` carry the same value here and are still both required: `id` is the DOM
+     * target the addon observes, while `componentId` is the App-Worker holder it refcounts. The
+     * addon unobserves a target only once its holder list is empty, and `unregister` removes exactly
+     * `data.componentId` — so a payload naming only `id` asks to remove an anonymous holder, leaves
+     * the real one in place, and releases nothing while looking like a teardown. `list.Buffered`
+     * carries the same contract.
+     *
      * @param {Boolean} mounted
      * @protected
      */
@@ -343,13 +355,12 @@ class GridContainer extends BaseContainer {
         let me             = this,
             {windowId}     = me,
             ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
-            resizeParams   = {id: me.id, windowId};
+            resizeParams   = {componentId: me.id, id: me.id, windowId};
 
         if (mounted) {
             ResizeObserver.register(resizeParams);
             await me.passSizeToBody()
         } else {
-            me.initialResizeEvent = true;
             ResizeObserver.unregister(resizeParams)
         }
     }
@@ -361,18 +372,40 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     afterSetCellEditing(value, oldValue) {
-        if (value) {
+        let me     = this,
+            plugin = me.getPlugin('grid-cell-editing');
+
+        // The plugin is created once and afterwards follows this config, so turning editing off ends an open edit
+        // and refuses new ones, and turning it on again reuses the instance instead of adding a second one.
+        // A plugin declared directly inside `plugins` is its own enablement: this config only governs it once it
+        // actually changes, so the default value cannot disable a plugin the app asked for by hand.
+        if (plugin) {
+            oldValue !== undefined && (plugin.disabled = !value)
+        } else if (value) {
             import('./plugin/CellEditing.mjs').then(module => {
-                let me        = this,
-                    {appName} = me,
-                    plugins   = me.plugins || [];
+                let {appName} = me,
+                    plugins   = me.plugins || [],
+                    // Enabling twice before the first import settles queues a continuation each. A lookup made
+                    // before the import cannot reserve the slot, so admission is decided here: the first
+                    // continuation to arrive creates the plugin and every later one only carries the config onto it.
+                    settled   = me.getPlugin('grid-cell-editing');
+
+                if (settled) {
+                    settled.disabled = !me.cellEditing;
+                    return
+                }
 
                 plugins.push({
-                    module: module.default,
-                    appName
+                    module  : module.default,
+                    appName,
+                    // The config can have changed again while the import was in flight
+                    disabled: !me.cellEditing
                 });
 
-                me.plugins = plugins
+                me.plugins = plugins;
+
+                // The plugin arrives after an import, so rows may have rendered without it
+                me.repaintCells()
             })
         }
     }
@@ -542,13 +575,20 @@ class GridContainer extends BaseContainer {
 
         me.isTreeGrid = value?.isTreeStore === true;
 
-        value   ?.on(listeners);
-        oldValue?.un(listeners);
+        // on() and un() both consume (delete) keys like `scope` from the passed object,
+        // so each call needs its own copy — a shared object breaks the second call silently.
+        value   ?.on({...listeners});
+        oldValue?.un({...listeners});
 
-        // in case we dynamically change the store, grid.Body needs to get the new reference
-        if (me.body)      me.body.store = value;
-        if (me.bodyStart) me.bodyStart.store = value;
-        if (me.bodyEnd)   me.bodyEnd.store = value
+        // in case we dynamically change the store (incl. a state.Provider store binding resolving
+        // after construction), grid.Body + the scrollbar need to get the new reference
+        if (me.body)              me.body.store = value;
+        if (me.bodyStart)         me.bodyStart.store = value;
+        if (me.bodyEnd)           me.bodyEnd.store = value
+        if (me.verticalScrollbar) me.verticalScrollbar.store = value
+
+        // the View follows the store for the one selection field it owns
+        me.view?.bindStore(value, oldValue);
 
         if (me.footerToolbar && me.footerToolbar.store !== value) {
             me.footerToolbar.store = value
@@ -605,6 +645,11 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Keeps the ScrollManager realm aligned on initial attachment and later window transfers.
+     *
+     * Grids can be constructed while detached, so their first real `windowId` transition is
+     * `null` → id. Forwarding only when `oldValue` was truthy left the ScrollManager permanently
+     * windowless and routed its main-thread addon registrations through the first-port fallback.
      * Triggered after the windowId config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -615,7 +660,7 @@ class GridContainer extends BaseContainer {
 
         let {scrollManager} = this;
 
-        if (oldValue && scrollManager) {
+        if (scrollManager) {
             scrollManager.windowId = value
         }
     }
@@ -769,6 +814,9 @@ class GridContainer extends BaseContainer {
 
                 buttonConfig = {...column};
 
+                // An id the app gave the column names the column: its button takes a generated one
+                delete buttonConfig.id;
+
                 if (column.locked === 'start') {
                     lockedStartButtons.push(buttonConfig);
                 } else if (column.locked === 'end') {
@@ -835,7 +883,6 @@ class GridContainer extends BaseContainer {
             if (!me.bodyStart) {
                 me.bodyStart = Neo.create(GridBody, {
                     ...me.body.initialConfig,
-                    selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
                     flex         : 'none',
                     gridContainer: me,
                     parentId     : me.view.id,
@@ -860,7 +907,6 @@ class GridContainer extends BaseContainer {
             if (!me.bodyEnd) {
                 me.bodyEnd = Neo.create(GridBody, {
                     ...me.body.initialConfig,
-                    selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
                     flex         : 'none',
                     gridContainer: me,
                     parentId     : me.view.id,
@@ -888,38 +934,8 @@ class GridContainer extends BaseContainer {
 
         me.view.items = bodyItems;
 
-        // Single View-owned SelectionModel: hoist the center body's model up to grid.View and share
-        // the one instance to all bodies BEFORE they render (no per-body clones, no transient models).
-        me.applyViewSelectionModel(me.view.selectionModel || me.body?.selectionModel);
-
         // Header assembly is owned by header.Wrapper.updateHeaders(); only the bodies render here.
         me.view.createItems()
-    }
-
-    /**
-     * Establishes the single View-owned SelectionModel: registers it on grid.View (the body
-     * orchestrator) and shares the one instance to every body as a render/event delegate, so locked
-     * bodies never carry independent cloned models. Identity-guarded (idempotent + re-entrant-safe);
-     * invoked on sub-grid (re)creation and on any dynamic `body.selectionModel` swap.
-     * @param {Neo.selection.grid.BaseModel|null} model
-     * @protected
-     */
-    applyViewSelectionModel(model) {
-        let me = this;
-
-        // Re-entrancy guard: sharing the model to a body fires Body.afterSetSelectionModel, which calls
-        // back here. Without this flag the callbacks re-add the `selectionModel` config during a body's
-        // processConfigs and recurse infinitely.
-        if (!model || !me.view || me.applyingViewSelectionModel) return;
-
-        me.applyingViewSelectionModel = true;
-
-        me.view.selectionModel      !== model && (me.view.selectionModel      = model);
-        me.body      && me.body.selectionModel      !== model && (me.body.selectionModel      = model);
-        me.bodyStart && me.bodyStart.selectionModel !== model && (me.bodyStart.selectionModel = model);
-        me.bodyEnd   && me.bodyEnd.selectionModel   !== model && (me.bodyEnd.selectionModel   = model);
-
-        me.applyingViewSelectionModel = false
     }
 
     /**
@@ -1033,12 +1049,25 @@ class GridContainer extends BaseContainer {
         me.verticalScrollbar?.destroy();
         me.scrollManager.destroy();
 
+        // `componentId` names the holder to drop; without it the addon removes nothing and the
+        // native observer outlives this grid. See addResizeObserver().
         me.mounted && Neo.main.addon.ResizeObserver.unregister({
-            id      : me.id,
-            windowId: me.windowId
+            componentId: me.id,
+            id         : me.id,
+            windowId   : me.windowId
         });
 
         super.destroy(...args)
+    }
+
+    /**
+     * Triggered by `grid.column.Base#afterSetEditable`. The cell editing plugin, when present, ends an edit its
+     * column no longer allows, and the cells repaint their `aria-readonly`.
+     * @param {Neo.grid.column.Base} column
+     */
+    onColumnEditableChange(column) {
+        this.getPlugin('grid-cell-editing')?.onColumnEditableChange(column);
+        this.repaintCells()
     }
 
     /**
@@ -1047,35 +1076,44 @@ class GridContainer extends BaseContainer {
      * @param {Neo.grid.column.Base} column
      */
     async onColumnLockChange(column) {
-        let me            = this,
-            columnsArray  = [...me.columns.items],
-            sortedColumns = me.sortColumns(columnsArray);
+        let me          = this,
+            cellEditing = me.getPlugin('grid-cell-editing'),
+            holds       = !!cellEditing?.session,
+            sortedColumns;
 
-        // Sync the Collection
-        // clearSilent() and add() is the safest way to reset internal indices.
-        // add() is NON-silent: it fires the collection's mutate event, which IS this container's
-        // registered onColumnsMutate listener — the sub-grid layout sync runs exactly once through
-        // that path. An additional explicit onColumnsMutate() call here would run the rebuild
-        // twice in the same tick: two racing `view.items` assignments diff against a stale vnode
-        // and insert duplicate region-body DOM nodes (the second copy renders the same columns
-        // beside the first — "duplicated columns" after a cross-region drop).
-        me.columns.clearSilent();
-        me.columns.add(sortedColumns);
+        // An open edit leaves its cell before the bodies swap columns, and returns once they have, or failed to
+        holds && await cellEditing.holdEdit();
 
-        // onColumnsMutate re-homed the header buttons across the region toolbars; each region's
-        // body still holds the columnPositions / availableWidth of its OLD membership. Rebuild
-        // them from the new toolbar memberships before re-rendering the rows, or the gaining
-        // region renders without the column and the losing region keeps a hidden ghost position.
-        let {headerWrapper} = me,
-            toolbars        = [headerWrapper.headerStart, me.headerToolbar, headerWrapper.headerEnd].filter(Boolean);
+        try {
+            sortedColumns = me.sortColumns([...me.columns.items]);
 
-        await Promise.all(toolbars.map(toolbar => toolbar.passSizeToBody()));
+            // Sync the Collection
+            // clearSilent() and add() is the safest way to reset internal indices.
+            // add() is NON-silent: it fires the collection's mutate event, which IS this container's
+            // registered onColumnsMutate listener — the sub-grid layout sync runs exactly once through
+            // that path. An additional explicit onColumnsMutate() call here would run the rebuild
+            // twice in the same tick: two racing `view.items` assignments diff against a stale vnode
+            // and insert duplicate region-body DOM nodes (the second copy renders the same columns
+            // beside the first — "duplicated columns" after a cross-region drop).
+            me.columns.clearSilent();
+            me.columns.add(sortedColumns);
 
-        // Force a full row re-render to apply the new column order and styles
-        if (me.body)      me.body.createViewData();
-        if (me.bodyStart) me.bodyStart.createViewData();
-        if (me.bodyEnd)   me.bodyEnd.createViewData();
+            // onColumnsMutate re-homed the header buttons across the region toolbars; each region's
+            // body still holds the columnPositions / availableWidth of its OLD membership. Rebuild
+            // them from the new toolbar memberships before re-rendering the rows, or the gaining
+            // region renders without the column and the losing region keeps a hidden ghost position.
+            let {headerWrapper} = me,
+                toolbars        = [headerWrapper.headerStart, me.headerToolbar, headerWrapper.headerEnd].filter(Boolean);
 
+            await Promise.all(toolbars.map(toolbar => toolbar.passSizeToBody()));
+
+            // Force a full row re-render to apply the new column order and styles
+            if (me.body)      me.body.createViewData();
+            if (me.bodyStart) me.bodyStart.createViewData();
+            if (me.bodyEnd)   me.bodyEnd.createViewData()
+        } finally {
+            holds && cellEditing.releaseEdit()
+        }
     }
 
     /**
@@ -1129,6 +1167,19 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Re-renders every mounted row of every body, including rows whose record and index did not change.
+     *
+     * For state a cell derives from the grid rather than from its record, such as whether it can be edited:
+     * an unforced pass skips every row whose record and index are unchanged.
+     * @protected
+     */
+    repaintCells() {
+        let me = this;
+
+        [me.bodyStart, me.body, me.bodyEnd].forEach(body => body?.createViewData(false, true))
+    }
+
+    /**
      * @param {Object} data
      */
     onColumnsMutate(data) {
@@ -1172,25 +1223,31 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Re-derives worker grid geometry from every ResizeObserver delivery.
+     *
+     * Deliberately NO first-delivery skip: a skip flag assumes the register-time echo after a
+     * (re)mount always arrives, but that echo can lose its routing race — the flag then consumes
+     * the first REAL resize (a committed dock re-layout can land before the echo), freezing
+     * `containerWidth` at the stale mount-time value until an unrelated resize repairs it.
+     * Size-equivalence classification is no safer: any tolerance swallows a real sub-tolerance
+     * resize. Re-processing the echo is idempotent (a silent set of identical values), so
+     * correctness costs one redundant measurement per mount.
      * @param {Object} data
+     * @param {Object} [data.borderBoxSize]
      * @returns {Promise<void>}
      */
     async onResize(data) {
         let me = this;
 
-        if (!me.initialResizeEvent) {
-            me.applyResponsiveLockPolicy(data);
+        me.applyResponsiveLockPolicy(data);
 
-            await me.passSizeToBody(true);
+        await me.passSizeToBody(true);
 
-            me.bodyStart?.updateMountedAndVisibleColumns();
-            me.body.updateMountedAndVisibleColumns();
-            me.bodyEnd?.updateMountedAndVisibleColumns();
+        me.bodyStart?.updateMountedAndVisibleColumns();
+        me.body.updateMountedAndVisibleColumns();
+        me.bodyEnd?.updateMountedAndVisibleColumns();
 
-            await me.headerToolbar.passSizeToBody()
-        } else {
-            me.initialResizeEvent = false
-        }
+        await me.headerToolbar.passSizeToBody()
     }
 
     /**
@@ -1252,20 +1309,26 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Measures the container chrome and passes the derived body size downstream.
+     *
+     * Reads LAYOUT-box metrics (`getLayoutRect()`), never `getBoundingClientRect()`: this async
+     * measurement races presentation windows (a committed dock resize triggers it while DockFlip
+     * still scale-transforms the pane), and visual rects sampled mid-motion would persist as
+     * poisoned `containerWidth`/`availableHeight` until an unrelated resize.
      * @param {Boolean} silent=false
      * @returns {Promise<void>}
      */
     async passSizeToBody(silent=false) {
-        let me            = this,
+        let me                             = this,
             {footerToolbar, headerToolbar} = me,
-            domRects      = [me.id, headerToolbar.id],
+            domRects                       = [me.id, headerToolbar.id],
             containerRect, footerRect, headerRect;
 
         if (footerToolbar) {
             domRects.push(footerToolbar.id)
         }
 
-        [containerRect, headerRect, footerRect] = await me.getDomRect(domRects);
+        [containerRect, headerRect, footerRect] = await me.getLayoutRect(domRects);
 
         // delay for slow connections, where the container-sizing is not done yet
         if (containerRect.height === headerRect.height) {
@@ -1318,52 +1381,38 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Used for keyboard navigation (selection models)
+     * Keyboard navigation scrolls the column `step` along from `index` into sight, when it is out of it. Both count
+     * in {@link #columns}, the order the selection models walk; past either end the walk wraps.
+     *
+     * A locked column is always in sight. A center column is, while it lies inside what the center body shows:
+     * the container's width less the two locked regions, which the horizontal scrollbar carries as its insets. The
+     * scroll position itself belongs to that scrollbar — the bodies follow it, and the container's node does not
+     * scroll.
      * @param {Number} index
      * @param {Number} step
      */
     scrollByColumns(index, step) {
-        let me           = this,
-            {body}       = me,
-            {columnPositions, containerWidth, mountedColumns, visibleColumns} = body,
-            countColumns = columnPositions.getCount(),
-            newIndex     = index + step,
-            column, mounted, scrollLeft, visible;
+        let me                          = this,
+            {body, horizontalScrollbar} = me,
+            {scrollLeft}                = body,
+            countColumns                = me.columns.getCount(),
+            column                      = me.columns.getAt(((index + step) % countColumns + countColumns) % countColumns),
+            position                    = !column.locked && body.columnPositions.get(column.dataField),
+            value, visibleWidth;
 
-        if (newIndex >= countColumns) {
-            newIndex %= countColumns;
-            step     = newIndex - index
-        }
+        if (position) {
+            visibleWidth = body.containerWidth - horizontalScrollbar.startWidth - horizontalScrollbar.endWidth;
 
-        while (newIndex < 0) {
-            newIndex += countColumns;
-            step     += countColumns
-        }
-
-        mounted = newIndex >= mountedColumns[0] && newIndex <= mountedColumns[1];
-
-        // Not using >= or <=, since the first / last column might not be fully visible
-        visible = newIndex > visibleColumns[0] && newIndex < visibleColumns[1];
-
-        if (!visible) {
-            // Leaving the mounted area will re-calculate the visibleColumns for us
-            if (mounted) {
-                visibleColumns[0] += step;
-                visibleColumns[1] += step
+            if (position.x < scrollLeft) {
+                value = position.x
+            } else if (position.x + position.width > scrollLeft + visibleWidth) {
+                value = position.x + position.width - visibleWidth
             }
 
-            column = columnPositions.getAt(newIndex);
-
-            if (step < 0) {
-                scrollLeft = column.x
-            } else {
-                scrollLeft = column.x - containerWidth + column.width
-            }
-
-            Neo.main.DomAccess.scrollTo({
+            Neo.isNumber(value) && Neo.main.DomAccess.scrollTo({
                 direction: 'left',
-                id       : me.getVdomRoot().id,
-                value    : scrollLeft,
+                id       : horizontalScrollbar.id,
+                value,
                 windowId : me.windowId
             })
         }
@@ -1386,12 +1435,12 @@ class GridContainer extends BaseContainer {
 
         return {
             ...super.toJSON(),
-            body             : me.body?.toJSON(),
-            cellEditing      : me.cellEditing,
-            columns          : me.columns?.items.map(item => item.toJSON()),
-            footerToolbar    : me.footerToolbar?.toJSON(),
-            headerToolbar    : me.headerToolbar?.toJSON(),
-            rowHeight        : me.rowHeight,
+            body         : me.body?.toJSON(),
+            cellEditing  : me.cellEditing,
+            columns      : me.columns?.items.map(item => item.toJSON()),
+            footerToolbar: me.footerToolbar?.toJSON(),
+            headerToolbar: me.headerToolbar?.toJSON(),
+            rowHeight    : me.rowHeight,
 
             scrollManager     : me.scrollManager?.toJSON(),
             showHeaderFilters : me.showHeaderFilters,

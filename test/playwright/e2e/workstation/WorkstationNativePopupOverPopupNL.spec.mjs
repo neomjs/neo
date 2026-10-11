@@ -1,0 +1,746 @@
+import {expect, test}                                from '../../fixtures.mjs';
+import {readNativeLifecycle}                         from '../utils/dockNativeLifecycle.mjs';
+import {mainParticipationId, participations, popOut} from '../utils/workstationPopOut.mjs';
+
+/**
+ * @summary The native-titlebar drag of one torn-out popup ONTO ANOTHER torn-out popup.
+ *
+ * A Workstation pane popped out into its own OS window is dragged by that window's titlebar over a
+ * second popped-out pane. The engine's multi-window path must claim the target vessel, render the
+ * drop preview inside the target popup, park the source, commit a `transferItem` into the target
+ * vessel's document and retire the source vessel — the sibling of `WorkstationNativeTitlebarDragNL`,
+ * which proves the same gesture against the main window.
+ *
+ * Trigger discipline: an OS titlebar drag cannot be produced by Playwright, so CDP
+ * `Browser.setWindowBounds` stands in for the window server — ONLY to move windows, always fully
+ * on-screen, with the fewest moves the receipts need. No pointer event reaches either popup realm
+ * (a `mouseout` counter in the source realm is asserted at zero), nothing calls `publishGeometry()`,
+ * and no runtime code is patched. Every hop from the source realm's movement poll onward is
+ * production code.
+ *
+ * Rig facts this spec is built on, so the next author does not re-derive them:
+ * 1. Playwright emulates `window.screen` at the viewport size; a popup outside the main window is
+ *    then off the emulated screen and the app's `window.moveTo` cannot park it. `viewport: null`
+ *    uses the real display.
+ * 2. Chrome will not shrink the main window below roughly 500px wide or 375px tall. On an 800×600
+ *    display the vessels therefore sit to the RIGHT of a 500px-wide main window, while nothing fits
+ *    below a 375px-tall one. A vessel is born at its requested 320px, more than the 280px beside the
+ *    main window after the gap, so the rig sizes both vessels to 146px as it moves them: the target
+ *    fits, the enlarge arm still has room to grow it, and the source still fits behind the target,
+ *    which a native-titlebar park requires (`VesselWorkspace` refuses a source wider than its target).
+ * 3. The Workstation collapses its tab headers into the overflow menu when the main window is small,
+ *    so both pop-outs happen while the main window is full-size; it is narrowed afterwards.
+ * 4. The claim arbiter keeps hover seniority across moves: a source that first claims the main window
+ *    keeps main while it still intersects it, and a pause there longer than dwell + settle
+ *    reintegrates into main. The source therefore moves once, directly onto the target, and only
+ *    nudges afterwards.
+ * 5. The native drop anchor is the moving popup's outer top-left corner plus a small inset, read from
+ *    manager.Window — which takes `screenX/Y` as the FRAME origin, the basis a CDP bounds move
+ *    shares, so placing a frame at (left, top) puts its anchor at (left + inset, top + inset)
+ *    with no chrome arithmetic. Positioning a vessel is itself a move the native path listens to: a
+ *    vessel whose corner lands inside the main window would hand its anchor to main and be
+ *    reintegrated the moment it is placed. Side by side, the anchors' x stays clear of main whatever
+ *    their y.
+ */
+
+test.use({viewport: null});
+
+const
+    SMALL_STAGE_WIDTH   = 146,
+    SOURCE_ITEM         = 'commits',
+    TARGET_ITEM         = 'metrics',
+    TARGET_WORKSPACE_ID = `workstation-vessel:${TARGET_ITEM}`,
+    asArray             = value => Array.isArray(value) ? value : value ? [value] : [];
+
+/**
+ * @summary Resolves one native CDP window handle for a page.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<{cdp: Object, page: Object, windowId: Number}>}
+ */
+async function acquireNativeWindow(page) {
+    const
+        cdp        = await page.context().newCDPSession(page),
+        {windowId} = await cdp.send('Browser.getWindowForTarget');
+
+    return {cdp, page, windowId}
+}
+
+/**
+ * @summary Reads the browser-observed display envelope and viewport geometry of a page.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Object>}
+ */
+function readScreen(page) {
+    return page.evaluate(() => ({
+        availHeight: globalThis.screen.availHeight,
+        availLeft  : globalThis.screen.availLeft,
+        availTop   : globalThis.screen.availTop,
+        availWidth : globalThis.screen.availWidth,
+        innerHeight: globalThis.innerHeight,
+        innerWidth : globalThis.innerWidth,
+        outerHeight: globalThis.outerHeight,
+        outerWidth : globalThis.outerWidth,
+        screenX    : globalThis.screenX,
+        screenY    : globalThis.screenY
+    }))
+}
+
+/**
+ * @summary Sets real native bounds and waits until the browser reports every bound that was requested.
+ * @param {Object} handle
+ * @param {Object} bounds Any of `left`, `top`, `width`, `height`.
+ * @returns {Promise<Object>} The page's geometry after the move.
+ */
+async function setBounds(handle, bounds) {
+    const current = (await handle.cdp.send('Browser.getWindowBounds', {windowId: handle.windowId})).bounds;
+
+    await handle.cdp.send('Browser.setWindowBounds', {
+        bounds  : {...current, ...bounds, windowState: 'normal'},
+        windowId: handle.windowId
+    });
+
+    // Every requested bound is witnessed, size included. An absent bound contributes 0 to the max,
+    // so a size-only call against an origin-only poll converges instantly and returns a mid-resize read.
+    await expect.poll(async () => {
+        const screen = await readScreen(handle.page);
+
+        return Math.max(
+            Number.isFinite(bounds.left)   ? Math.abs(screen.screenX     - bounds.left)   : 0,
+            Number.isFinite(bounds.top)    ? Math.abs(screen.screenY     - bounds.top)    : 0,
+            Number.isFinite(bounds.width)  ? Math.abs(screen.outerWidth  - bounds.width)  : 0,
+            Number.isFinite(bounds.height) ? Math.abs(screen.outerHeight - bounds.height) : 0
+        )
+    }, {
+        message  : `native window ${handle.windowId} reaches its requested bounds`,
+        timeout  : 5000,
+        intervals: [25, 50, 100]
+    }).toBeLessThanOrEqual(80);
+
+    return readScreen(handle.page)
+}
+
+/**
+ * @summary Reads one window's manager-owned rect from the App Worker — the FRAME (`outerRect`) by
+ * default, which is the basis `window.screenX/Y` and CDP window bounds share; `innerRect` is the
+ * viewport inside the chrome, for size comparisons against `innerWidth/Height`.
+ * @param {Object} app
+ * @param {String} managerId
+ * @param {String} windowId
+ * @param {String} [key='outerRect']
+ * @returns {Promise<Object|null>}
+ */
+async function readManagerRect(app, managerId, windowId, key='outerRect') {
+    const state = await app.callMethod(managerId, 'toJSON');
+
+    return state.windows.find(win => win.id === windowId)?.[key] ?? null
+}
+
+/**
+ * @summary Waits until manager.Window agrees with the browser about a window's origin.
+ * @param {Object} app
+ * @param {String} managerId
+ * @param {String} windowId
+ * @param {Object} screen
+ * @param {String} message
+ * @returns {Promise<void>}
+ */
+function awaitOriginParity(app, managerId, windowId, screen, message) {
+    return expect.poll(async () => {
+        const rect = await readManagerRect(app, managerId, windowId);
+
+        return rect ? Math.max(Math.abs(rect.x - screen.screenX), Math.abs(rect.y - screen.screenY)) : Infinity
+    }, {message, timeout: 5000, intervals: [25, 50, 100]}).toBeLessThanOrEqual(2)
+}
+
+/**
+ * @summary Boots the Workstation, pops the target and the source out, and places the target beside
+ * the main window — the stage every arm in this file starts from. Rig facts 1–5 live here once.
+ * @param {Object} data
+ * @param {import('@playwright/test').Page} data.page
+ * @param {Object} data.neuralLink
+ * @param {Object[]} data.popups The caller's close list; both popups are pushed onto it
+ * @returns {Promise<Object>} The live handles, ids and screen reads the arms continue from
+ */
+async function stageVessels({page, neuralLink, popups}) {
+    await page.goto('/apps/workstation/index.html');
+    await page.waitForSelector('.workstation-workspace', {timeout: 30000});
+
+    const stage = await readScreen(page);
+
+    // Rig facts 1–3: a full-size main window for the pop-outs, then a 500px-wide main window
+    // with the target vessel beside it and the source's corner inside that target — all of it
+    // must fit the real display.
+    test.skip(
+        stage.availWidth < 760 || stage.availHeight < 560,
+        `${stage.availWidth}x${stage.availHeight} display cannot hold a 760px main window plus a target vessel below it`
+    );
+
+    const
+        app         = await neuralLink.connectToApp('Workstation'),
+        workspaceId = asArray(await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']))[0]?.id,
+        managerId   = asArray(await app.findInstances({className: 'Neo.manager.Window'}, ['id']))[0]?.id,
+        coordId     = asArray(await app.findInstances({className: 'Neo.manager.DragCoordinator'}, ['id']))[0]?.id,
+        mainWinId   = (await app.getComponent(workspaceId, ['windowId'])).windowId,
+        sourcePane  = await app.callMethod(workspaceId, 'getPaneIdentity', [SOURCE_ITEM]),
+        mainHandle  = await acquireNativeWindow(page);
+
+    expect(workspaceId, 'one live Workspace').toBeTruthy();
+    expect(managerId, 'manager.Window is live').toBeTruthy();
+    expect(coordId, 'manager.DragCoordinator is live').toBeTruthy();
+
+    await setBounds(mainHandle, {
+        height: Math.min(560, stage.availHeight),
+        left  : stage.availLeft,
+        top   : stage.availTop,
+        width : Math.min(760, stage.availWidth)
+    });
+
+    // Target first, then source: both born inside the main window, both adopted and settled.
+    // settleForClaim: this spec raises a native claim against the main window's zone below, and a
+    // claim against a zone the detach projection has not yet re-registered dies silently.
+    const target = await popOut({app, page, workspaceId, itemId: TARGET_ITEM, settleForClaim: true});
+
+    popups.push(target.popup);
+    target.popup.on('close', () => console.log('[native-popup-over-popup] target popup closed at', new Date().toISOString()));
+
+    const source = await popOut({app, page, workspaceId, itemId: SOURCE_ITEM, settleForClaim: true});
+
+    popups.push(source.popup);
+
+    await expect.poll(async () => (await participations(app)).map(entry => entry.workspaceId).sort(), {
+        message  : 'both vessels register as cross-window targets beside the main workspace',
+        timeout  : 20000,
+        intervals: [50, 100, 250]
+    }).toEqual(['workstation-main', `workstation-vessel:${SOURCE_ITEM}`, TARGET_WORKSPACE_ID]);
+
+    // The source realm's witness for the trigger discipline: installed before any movement,
+    // it must still read zero when the previews have rendered.
+    await source.popup.evaluate(() => {
+        globalThis.__nativeTitlebarMouseouts = 0;
+        globalThis.addEventListener('mouseout', () => globalThis.__nativeTitlebarMouseouts++)
+    });
+
+    // Rig fact 2: a vessel and its gap must fit beside the main window. A wide display
+    // holds them beside the full-size 760 px main; a small one (the 800×600 headless screen)
+    // needs the main narrowed to 500 px first — done now that nothing needs clicking in it,
+    // waiting for manager.Window to publish the new extents (observeResize on the render target).
+    if (stage.availLeft + 760 + 20 + 200 > stage.availLeft + stage.availWidth) {
+        const shrunk = await setBounds(mainHandle, {width: 500});
+
+        await expect.poll(async () => (await readManagerRect(app, managerId, mainWinId, 'innerRect'))?.width ?? Infinity, {
+            message  : 'manager.Window follows the main window resize',
+            timeout  : 5000,
+            intervals: [25, 50, 100]
+        }).toBeLessThanOrEqual(shrunk.innerWidth + 2);
+
+        // Environment gate: headless Chrome leaves `outerWidth/outerHeight` at the pre-resize
+        // size after a CDP bounds change while the viewport follows it. manager.Window derives
+        // the frame and the chrome from exactly those numbers, so the main window would
+        // keep a 760 px frame that swallows any vessel beside its 500 px viewport — the main
+        // claims the vessel's own anchor the moment it is placed. Only a real window measures it.
+        test.skip(
+            shrunk.outerWidth - shrunk.innerWidth > 60,
+            `outerWidth ${shrunk.outerWidth} vs innerWidth ${shrunk.innerWidth} after the resize: headless Chrome reports a stale frame size — run this arm headed on a wide display`
+        )
+    }
+
+    // Place the vessel from the main window's own screen read, not from its manager rects:
+    // headless Chrome keeps `outerWidth/outerHeight` at the pre-resize 760×560 after a CDP
+    // bounds change while `innerWidth/innerHeight` follow it, so the frame rect would put the
+    // vessel off-screen and the chrome split (260 px of "side border", a negative top chrome)
+    // would put the viewport rect above the screen — and a vessel parked at a negative y is a
+    // move the platform refuses. `screenX + innerWidth` is right in both worlds.
+    const
+        targetHandle = await acquireNativeWindow(target.popup),
+        sourceHandle = await acquireNativeWindow(source.popup),
+        mainScreen   = await readScreen(page),
+        mainRight    = mainScreen.screenX + mainScreen.innerWidth,
+        roomBeside   = mainScreen.availLeft + mainScreen.availWidth - mainRight - 20,
+        // Rig fact 2: vessels born wider than the room beside the main window move at the small-stage width
+        vesselSize   = (await readScreen(target.popup)).innerWidth > roomBeside ? {width: SMALL_STAGE_WIDTH} : {},
+        targetScreen = await setBounds(targetHandle, {
+            left: Math.round(mainRight + 20),
+            top : Math.round(Math.max(mainScreen.screenY, mainScreen.availTop) + 40),
+            ...vesselSize
+        }),
+        placement    = JSON.stringify({mainScreen, targetScreen});
+
+    expect(targetScreen.screenX, `the target vessel sits beside the main window ${placement}`).toBeGreaterThanOrEqual(mainRight);
+    expect(targetScreen.screenX + targetScreen.innerWidth, `the target vessel is fully on-screen ${placement}`).toBeLessThanOrEqual(targetScreen.availLeft + targetScreen.availWidth);
+    await awaitOriginParity(app, managerId, target.windowId, targetScreen, 'manager.Window follows the target vessel');
+
+    // Rig fact 5's hazard, named: positioning the target is itself a window move, and a move
+    // is what the native path listens to. Main must not have claimed the target's own anchor.
+    await target.popup.waitForTimeout(800);
+
+    expect((await readNativeLifecycle(app, workspaceId)).owners[TARGET_ITEM]?.windowId,
+        'placing the target vessel did not hand it to the main window').toBe(target.windowId);
+
+    return {app, coordId, mainScreen, managerId, source, sourceHandle, sourcePane, stage, target, targetHandle, targetScreen, vesselSize, workspaceId}
+}
+
+test.describe('Workstation — native titlebar drag popup onto popup (#18047)', () => {
+    /**
+     * @summary Runs the native transfer against either the initial or an enlarged target window.
+     * @param {Object} fixtures
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.resizeTarget=false]
+     * @param {Boolean} [options.activeHover=false]
+     */
+    const journey = async ({page, neuralLink}, {resizeTarget=false, activeHover=false}={}) => {
+        const
+            pageErrors = [],
+            popups     = [];
+
+        page.on('pageerror', error => pageErrors.push(String(error.stack || error.message || error)));
+
+        try {
+            const
+                {app, coordId, managerId, source, sourceHandle, sourcePane, stage, target, targetHandle, targetScreen, vesselSize, workspaceId} =
+                    await stageVessels({page, neuralLink, popups});
+
+            if (activeHover) {
+                const oldRect = await readManagerRect(app, managerId, target.windowId, 'innerRect'),
+                      {nativeWindowDropAnchorInset: inset} = await app.getComponent(coordId, ['nativeWindowDropAnchorInset']);
+
+                for (const delta of [0, 3]) {
+                    await setBounds(sourceHandle, {left: oldRect.x + 24 + delta - inset, top: oldRect.y + 24 - inset, ...vesselSize});
+                    await source.popup.waitForTimeout(120)
+                }
+
+                const participant = (await participations(app)).find(entry => entry.workspaceId === TARGET_WORKSPACE_ID),
+                      cached = await app.getComponent(participant.id, ['ownedAffordances.geometry']);
+
+                expect(cached['ownedAffordances.geometry']?.hostRect.width, 'native hover warms the old size before resizing')
+                    .toBe(targetScreen.innerWidth)
+            }
+
+            if (resizeTarget) {
+                const
+                    headroom = {
+                        width : stage.availLeft + stage.availWidth  - targetScreen.screenX,
+                        height: stage.availTop  + stage.availHeight - targetScreen.screenY
+                    },
+                    enlarged = await setBounds(targetHandle, {
+                        width : Math.min(520, headroom.width),
+                        height: Math.min(460, headroom.height)
+                    }),
+                    // The enlargement is bounded by the space to the target's right, so a failure here
+                    // is either the resize not landing or the display not having the room. Name both.
+                    geometry = JSON.stringify({stage, targetScreen, headroom, enlarged});
+
+                // 1.5 is a floor chosen to clear the 800×600 rig (146 → 280 of a possible 280) while a
+                // no-op resize still fails it. It is not derived: the clamp above bounds growth by the
+                // room right of the target, so any fixed multiple is a claim about the display. What
+                // proves the resize LANDED is setBounds witnessing the requested size, not this number.
+                expect(enlarged.innerWidth, `the target is substantially wider ${geometry}`).toBeGreaterThan(targetScreen.innerWidth * 1.5);
+                expect(enlarged.innerHeight, `the target is substantially taller ${geometry}`).toBeGreaterThan(targetScreen.innerHeight * 1.5);
+                await expect.poll(async () => {
+                    const rect = await readManagerRect(app, managerId, target.windowId, 'innerRect');
+                    return Math.max(Math.abs(rect.width - enlarged.innerWidth), Math.abs(rect.height - enlarged.innerHeight))
+                }, {message: 'manager.Window observes the enlarged viewport', timeout: 5000}).toBeLessThanOrEqual(2)
+            }
+
+            const
+                // the drop anchor is the source FRAME's top-left corner plus the inset, and the claim
+                // tests the target's VIEWPORT — so the aim is frame-corner-into-viewport
+                targetInner                          = await readManagerRect(app, managerId, target.windowId, 'innerRect'),
+                sourceScreen                         = await readScreen(source.popup),
+                {nativeWindowDropAnchorInset: inset} = await app.getComponent(coordId, ['nativeWindowDropAnchorInset']),
+                armed                                = await source.popup.evaluate(() => ({
+                    intervalArmed  : Boolean(globalThis.Neo.main.addon.WindowPosition.intervalId),
+                    mouseouts      : globalThis.__nativeTitlebarMouseouts,
+                    observeMovement: globalThis.Neo.main.addon.WindowPosition.observeMovement
+                }));
+
+            expect(armed, 'the source realm owns an armed movement poll with no pointer event').toEqual({
+                intervalArmed  : true,
+                mouseouts      : 0,
+                observeMovement: true
+            });
+
+            // Rig facts 4 + 5: one direct move that parks the source's CORNER anchor inside the target,
+            // then two nudges inside the dwell window — the first update over an unmeasured target only
+            // starts the preview measurement, the following updates render it, and each update re-arms
+            // the commit. The anchor is the coordinator's arithmetic: the source's outer rect plus the
+            // inset, and manager.Window takes `screenX/Y` as the FRAME origin, the same basis a CDP
+            // bounds move uses — so a frame placed at (left, top) puts the anchor at (left + inset,
+            // top + inset), no chrome arithmetic. Aim it 24 px inside the target's viewport.
+            const
+                goalLeft = Math.round(targetInner.x + (resizeTarget && !activeHover ? targetInner.width * .7 : 24) - inset),
+                goalTop  = Math.round(targetInner.y + (resizeTarget && !activeHover ? targetInner.height * .5 : 24) - inset),
+                targetParticipation = (await participations(app)).find(entry => entry.workspaceId === TARGET_WORKSPACE_ID);
+
+            if (resizeTarget && !activeHover) {
+                expect(goalLeft + inset, 'the drop aims outside the old target width')
+                    .toBeGreaterThan(targetInner.x + targetScreen.innerWidth)
+            }
+
+            let measuredTarget;
+
+            for (const [dx, dy] of [[0, 0], [3, 2], [6, 4]]) {
+                const moved = await setBounds(sourceHandle, {left: goalLeft + dx, top: goalTop + dy, ...vesselSize});
+
+                await awaitOriginParity(app, managerId, source.windowId, moved, 'manager.Window follows the source popup through the poll alone');
+                await source.popup.waitForTimeout(120);
+
+                if (resizeTarget) {
+                    const observed = await app.getComponent(targetParticipation.id, ['ownedAffordances.geometry', 'ownedIndicators.candidateSet']);
+                    if (observed['ownedIndicators.candidateSet']) measuredTarget = observed
+                }
+            }
+
+            if (resizeTarget) {
+                expect(measuredTarget, 'the real native hover populated the resized target menu').toBeTruthy();
+                const host = await target.popup.locator('.workstation-vessel-dock-host').boundingBox(),
+                      zone = await target.popup.locator('.neo-dashboard-dock-tabs').first().boundingBox(),
+                      geometry = measuredTarget['ownedAffordances.geometry'],
+                      candidates = measuredTarget['ownedIndicators.candidateSet'];
+
+                for (const key of ['x', 'y', 'width', 'height']) {
+                    expect(geometry.hostRect[key], `preview host ${key} matches the resized DOM`).toBeCloseTo(host[key], 0);
+                    expect(candidates.zone.rect[key], `drop zone ${key} matches the resized DOM`).toBeCloseTo(zone[key], 0)
+                }
+                test.info().annotations.push({type: 'resized-target-geometry', description: JSON.stringify({
+                    before: {width: targetScreen.innerWidth, height: targetScreen.innerHeight},
+                    after: host, previewHost: geometry.hostRect, dropZone: candidates.zone.rect,
+                    anchor: {x: goalLeft + inset, y: goalTop + inset}
+                })})
+            }
+
+            // The coordinator's own arithmetic must place the anchor inside the target — the source's
+            // OUTER corner plus the inset, against the target's inner rect. It is the precondition every
+            // claim below depends on, named here so a placement mistake fails as itself.
+            const
+                sourceOuter = (await app.callMethod(managerId, 'toJSON')).windows.find(win => win.id === source.windowId)?.outerRect,
+                anchor      = sourceOuter && {x: sourceOuter.x + inset, y: sourceOuter.y + inset};
+
+            expect(anchor, 'manager.Window holds the source popup\'s outer rect').toBeTruthy();
+            expect(
+                anchor.x >= targetInner.x && anchor.x <= targetInner.x + targetInner.width &&
+                anchor.y >= targetInner.y && anchor.y <= targetInner.y + targetInner.height,
+                `the source's corner anchor ${JSON.stringify(anchor)} sits inside the target ${JSON.stringify(targetInner)} ` +
+                `(requested ${goalLeft},${goalTop}; source ${JSON.stringify(await readScreen(source.popup))}; stage ${JSON.stringify(stage)})`
+            ).toBe(true);
+
+            // Every movement of the gesture is done: read the trigger witness NOW, while the source
+            // realm is certainly alive. The dwell timer is already running, and the commit that retires
+            // the source can land while the preview poll below is still reading — so a read placed after
+            // it would race the retirement, and any catch on that read would turn a dead probe into a 0.
+            expect(await source.popup.evaluate(() => globalThis.__nativeTitlebarMouseouts),
+                'no mouseout reached the source realm during the gesture').toBe(0);
+
+            const {claimTrace} = await app.getComponent(coordId, ['claimTrace']);
+
+            expect(claimTrace.at(-1), 'the last claim resolution names the target vessel').toMatchObject({
+                claimedStableId: TARGET_WORKSPACE_ID,
+                outcome        : 'claimed'
+            });
+
+            await expect.poll(() => target.popup.locator('.neo-dock-preview-affordance').count(), {
+                message  : 'the target popup renders a drop-zone preview while the source hovers it',
+                timeout  : 3000,
+                intervals: [25, 50, 100]
+            }).toBeGreaterThan(0);
+
+            expect(await page.locator('.neo-dock-preview-affordance').count(), 'the main window renders no preview').toBe(0);
+
+            // Dwell + settle: the native terminal parks the source, commits the transfer into the
+            // target vessel and retires the source vessel. The spec never closes a popup itself.
+            let receipt;
+
+            try {
+                await expect.poll(async () => {
+                    const [state, group, nativeLifecycle] = await Promise.all([
+                        app.getComponent(workspaceId, ['lastVesselParkReceipt']),
+                        app.callMethod(workspaceId, 'controller.getTopologyState'),
+                        readNativeLifecycle(app, workspaceId)
+                    ]);
+
+                    receipt = {...state, group, nativeLifecycle, dockModel: group.snapshot.participants['workstation-main']};
+
+                    return {
+                        parked        : state.lastVesselParkReceipt?.parked === true,
+                        sourceClosed  : source.popup.isClosed(),
+                        sourceWindowId: nativeLifecycle.owners[SOURCE_ITEM].windowId,
+                        sourceItems   : Object.keys(group.snapshot.participants[`workstation-vessel:${SOURCE_ITEM}`].items),
+                        targetItems   : Object.keys(group.snapshot.participants[TARGET_WORKSPACE_ID].items).sort()
+                    }
+                }, {
+                    message  : 'dwelling over the target vessel commits the transfer and retires the source vessel',
+                    timeout  : 15000,
+                    intervals: [50, 100, 250]
+                }).toEqual({
+                    parked        : true,
+                    sourceClosed  : true,
+                    sourceWindowId: null,
+                    sourceItems   : [],
+                    targetItems   : [SOURCE_ITEM, TARGET_ITEM].sort()
+                })
+            } catch (error) {
+                // Bounded triage receipt: which phase the native terminal died in, what the target saw
+                // at that instant, and where every window stood in the manager's own coordinates.
+                console.log('[native-popup-over-popup-diagnostic]', JSON.stringify({
+                    claimTail: ((await app.getComponent(coordId, ['claimTrace'])).claimTrace ?? []).slice(-6)
+                        .map(entry => ({claimedStableId: entry.claimedStableId, outcome: entry.outcome, token: entry.gestureToken})),
+                    candidates    : await app.getComponent(coordId, ['nativeWindowDropCandidates']).catch(e => String(e)),
+                    participations: await participations(app).catch(e => String(e)),
+                    popups        : {sourceClosed: source.popup.isClosed(), targetClosed: target.popup.isClosed()},
+                    vessels       : await app.getComponent(workspaceId, ['lastTearOutClose', 'lastVesselRestoreReceipt', 'vesselConversionTargetWindowId']).catch(e => String(e)),
+                    lifecycle     : await readNativeLifecycle(app, workspaceId).catch(e => String(e)),
+                    park          : receipt?.lastVesselParkReceipt ?? null,
+                    snapshot      : await app.callMethod(workspaceId, 'readCrossWindowGestureSnapshot', [{draggedItemId: SOURCE_ITEM, targetWorkspaceId: TARGET_WORKSPACE_ID}]).catch(e => String(e)),
+                    group         : receipt?.group ?? null,
+                    windows       : (await app.callMethod(managerId, 'toJSON')).windows.map(win => ({id: win.id, chrome: win.chrome, innerRect: win.innerRect, outerRect: win.outerRect}))
+                }, null, 1));
+                throw error
+            }
+
+            const
+                targetDocument = await app.callMethod(workspaceId, 'getWorkspaceDocument', [TARGET_WORKSPACE_ID]),
+                mainItems      = Object.values(receipt.dockModel.nodes)
+                    .filter(node => node.type === 'tabs')
+                    .flatMap(node => node.items || []);
+
+            expect(Object.keys(targetDocument.items).sort(), 'the target vessel document holds both panes').toEqual([SOURCE_ITEM, TARGET_ITEM]);
+            expect(targetDocument.nodes[`workstation-vessel-tabs:${TARGET_ITEM}`]?.items, 'the target vessel tabs node lists the transferred pane')
+                .toContain(SOURCE_ITEM);
+            expect(mainItems, 'the main document no longer lists the transferred pane').not.toContain(SOURCE_ITEM);
+
+            // A stand-in holds a slot only while its pane settles in another window; one left behind is a pane lost from view.
+            await expect(page.locator('.neo-dashboard-dock-vessel-placeholder'), 'the main window keeps no stand-in')
+                .toHaveCount(0, {timeout: 10000});
+            await expect(target.popup.locator('.neo-dashboard-dock-vessel-placeholder'), 'the target vessel keeps no stand-in')
+                .toHaveCount(0, {timeout: 10000});
+
+            // Object permanence across windows: the transferred item is the SAME live pane instance,
+            // now owned by the target vessel's window. It lands as an inactive tab (the target keeps
+            // its own active item), so the witness is the instance's window, not its visibility.
+            expect(await app.callMethod(workspaceId, 'getPaneIdentity', [SOURCE_ITEM]),
+                'the transfer keeps the exact live pane instance').toBe(sourcePane);
+            expect((await app.getComponent(sourcePane, ['windowId'])).windowId,
+                'the live pane instance now belongs to the target vessel window').toBe(target.windowId);
+            expect(pageErrors, 'no page errors during the native drag').toEqual([])
+        } finally {
+            for (const popup of popups) {
+                popup && !popup.isClosed() && await popup.close()
+            }
+        }
+    };
+
+    test('a popup moved by its OS titlebar onto another popup previews there and transfers its pane',
+        ({page, neuralLink}) => journey({page, neuralLink}));
+
+    test('an enlarged popup updates its drop zones before another popup transfers into the newly exposed area',
+        ({page, neuralLink}) => journey({page, neuralLink}, {resizeTarget: true}));
+
+    test('resizing an already-hovered popup refreshes its drop zones without leaving the target',
+        ({page, neuralLink}) => journey({page, neuralLink}, {resizeTarget: true, activeHover: true}));
+
+    /**
+     * @summary A parked vessel re-shows at its original OUTER footprint.
+     *
+     * The park records the source's frame and the re-show hands `moveTo` a frame origin, while the
+     * window's own chrome sits between the two readings — the arithmetic the unit tier proves only
+     * with chrome it supplies itself. Here the chrome is the real window's: the source is parked by
+     * the real gesture (its corner anchor dwells inside the target, the coordinator commits the
+     * handoff and the host parks the window behind the target), the handoff is then refused, and the
+     * window is read back where it started — in the OS's own `screenX/Y`, `outerWidth/Height` and
+     * in manager.Window's `outerRect`.
+     *
+     * The refusal: on the native path, geometry updates after the park are the park's own (the
+     * coordinator ignores them by phase), so dragging out again cannot un-park — the hold IS the
+     * gesture. The engine's one way back is its rejected disposition: the coordinator drops the
+     * candidate (`clearNativeWindowDropCandidate`, the path a target that declines the drop, a failed
+     * embodiment and a cancelled gesture all take), settles the source as rejected and the host
+     * restores it at its pre-conversion frame. The arm invokes that coordinator method through the
+     * Neural Link once the park receipt is in, inside the handoff hold it has widened for the
+     * purpose — a timing knob, never geometry. The pre-fix defect was per-cycle and additive, so
+     * the cycle runs three times and every pass must land on the same frame. The inner rect is never
+     * asserted: it is preserved by the buggy arithmetic as well.
+     * @param {Object} fixtures
+     */
+    const reshowJourney = async ({page, neuralLink}) => {
+        const
+            CYCLES     = 3,
+            HANDOFF_MS = 3000,
+            TOLERANCE  = 2,
+            pageErrors = [],
+            popups     = [];
+
+        page.on('pageerror', error => pageErrors.push(String(error.stack || error.message || error)));
+
+        try {
+            const
+                {app, coordId, managerId, source, sourceHandle, stage, target, targetScreen, vesselSize, workspaceId} =
+                    await stageVessels({page, neuralLink, popups}),
+                born = await readScreen(source.popup),
+                // The subject is the frame-versus-viewport offset, read from the window itself.
+                chrome = {side: (born.outerWidth - born.innerWidth) / 2, top: born.outerHeight - born.innerHeight};
+
+            test.skip(
+                chrome.top === 0 && chrome.side === 0,
+                `the source popup renders no window chrome (outer ${born.outerWidth}x${born.outerHeight} = inner ${born.innerWidth}x${born.innerHeight}): frame and viewport coincide, so a frame witness cannot see the class here`
+            );
+
+            // Home: a frame clear of the target and of the main window — below the target when the
+            // display holds it, else to its right. Rig fact 5: placing it is a move the native path
+            // listens to, so the anchor must land in no window at all.
+            const
+                bottomRoom = stage.availTop + stage.availHeight - (targetScreen.screenY + targetScreen.outerHeight + 24),
+                rightRoom  = stage.availLeft + stage.availWidth - (targetScreen.screenX + targetScreen.outerWidth + 24),
+                home       = bottomRoom >= born.outerHeight
+                    ? {left: targetScreen.screenX, top: targetScreen.screenY + targetScreen.outerHeight + 24}
+                    : rightRoom >= (vesselSize.width ?? born.outerWidth)
+                        ? {left: targetScreen.screenX + targetScreen.outerWidth + 24, top: targetScreen.screenY}
+                        : null;
+
+            test.skip(!home, `${stage.availWidth}x${stage.availHeight} display holds no second vessel clear of the target and the main window (target ${JSON.stringify(targetScreen)}, source ${JSON.stringify(born)})`);
+
+            // The handoff hold between the park and the target's commit is 180 ms by default. The
+            // refusal below must land inside it, so the hold is widened for this arm; the geometry
+            // the witness reads is untouched by it.
+            await app.setProperties(coordId, {nativeWindowDropHandoffMs: HANDOFF_MS});
+
+            expect((await app.getComponent(coordId, ['nativeWindowDropHandoffMs'])).nativeWindowDropHandoffMs,
+                'the coordinator holds the widened handoff').toBe(HANDOFF_MS);
+
+            const homeScreen = await setBounds(sourceHandle, {...home, ...vesselSize});
+
+            await awaitOriginParity(app, managerId, source.windowId, homeScreen, 'manager.Window follows the source to its home');
+            await source.popup.waitForTimeout(800);
+
+            expect((await readNativeLifecycle(app, workspaceId)).owners[SOURCE_ITEM]?.windowId,
+                'placing the source at home handed it to no window').toBe(source.windowId);
+
+            const
+                homeOuter                            = await readManagerRect(app, managerId, source.windowId),
+                targetInner                          = await readManagerRect(app, managerId, target.windowId, 'innerRect'),
+                {nativeWindowDropAnchorInset: inset} = await app.getComponent(coordId, ['nativeWindowDropAnchorInset']),
+                goalLeft                             = Math.round(targetInner.x + 24 - inset),
+                goalTop                              = Math.round(targetInner.y + 24 - inset),
+                readFrame                            = async () => {
+                    // A frame placed one chrome low can re-enter the target's drop zone and commit the
+                    // handoff the cycle refused: the vessel retires and the popup closes mid-poll. A
+                    // closed popup reads as no frame at all, so the footprint assertion fails on its
+                    // own message instead of on an evaluate against a closed page.
+                    if (source.popup.isClosed()) {
+                        return {closed: true, manager: null, os: null}
+                    }
+
+                    const screen = await readScreen(source.popup), outer = await readManagerRect(app, managerId, source.windowId);
+
+                    return {
+                        manager: outer && {height: outer.height, width: outer.width, x: outer.x, y: outer.y},
+                        os     : {height: screen.outerHeight, width: screen.outerWidth, x: screen.screenX, y: screen.screenY}
+                    }
+                },
+                frameDelta                           = (frame, reference) => !frame.manager ? Infinity : Math.max(
+                    Math.abs(frame.os.x - reference.x),              Math.abs(frame.os.y - reference.y),
+                    Math.abs(frame.os.width - reference.width),      Math.abs(frame.os.height - reference.height),
+                    Math.abs(frame.manager.x - reference.x),         Math.abs(frame.manager.y - reference.y),
+                    Math.abs(frame.manager.width - reference.width), Math.abs(frame.manager.height - reference.height)
+                ),
+                cycles                               = [];
+
+            expect(homeOuter, 'manager.Window holds the source\'s outer rect at home').toBeTruthy();
+            expect(frameDelta(await readFrame(), homeOuter), `the OS and the manager agree on the home frame ${JSON.stringify({homeOuter, homeScreen})}`)
+                .toBeLessThanOrEqual(TOLERANCE);
+
+            for (let cycle = 1; cycle <= CYCLES; cycle++) {
+                // Each cycle starts from home: the restore's reference is the frame the park took
+                // the window FROM, so a displacement cannot carry into the next cycle's placement.
+                if (cycle > 1) {
+                    await setBounds(sourceHandle, {...home, ...vesselSize});
+                    await source.popup.waitForTimeout(400)
+                }
+
+                // In: one move puts the source's corner anchor inside the target. The dwell runs,
+                // the coordinator commits the handoff and the host parks the source behind the
+                // target — its receipt says so. The frame read here, before the park, is what the
+                // refusal must give back: the window where the user left it, not where it began.
+                const entered = await setBounds(sourceHandle, {left: goalLeft, top: goalTop, ...vesselSize});
+
+                await awaitOriginParity(app, managerId, source.windowId, entered, `cycle ${cycle}: manager.Window follows the source onto the target`);
+
+                const parkedFrom = (await readFrame()).manager;
+
+                expect(parkedFrom, `cycle ${cycle}: manager.Window holds the source's outer rect before the park`).toBeTruthy();
+
+                // A park begins by clearing the previous restore receipt, so "parked, and no restore
+                // receipt" is this cycle's park rather than the last cycle's.
+                let park, restore;
+
+                await expect.poll(async () => {
+                    ({lastVesselParkReceipt: park, lastVesselRestoreReceipt: restore} =
+                        await app.getComponent(workspaceId, ['lastVesselParkReceipt', 'lastVesselRestoreReceipt']));
+
+                    return park?.parked === true && restore == null
+                }, {
+                    message  : `cycle ${cycle}: the native path parks the source behind the target`,
+                    timeout  : 4000,
+                    intervals: [25, 50, 100]
+                }).toBe(true);
+
+                // A park that lands the frame one chrome low can push its corner into the main window
+                // and reintegrate the pane, which closes the popup: the witness names that before any
+                // read against the closed page would.
+                expect(source.popup.isClosed(), `cycle ${cycle}: the source vessel survives the park (receipt ${JSON.stringify(park)})`).toBe(false);
+
+                // The refusal, inside the widened handoff: the coordinator drops its candidate, settles
+                // the source as rejected and the host restores it at its pre-conversion frame.
+                await app.callMethod(coordId, 'clearNativeWindowDropCandidate', [source.windowId]);
+
+                await expect.poll(async () => {
+                    restore = (await app.getComponent(workspaceId, ['lastVesselRestoreReceipt'])).lastVesselRestoreReceipt;
+
+                    return restore?.admitted === true
+                }, {
+                    message  : `cycle ${cycle}: the refused handoff re-shows the source (last receipt ${JSON.stringify(restore)}, popup closed ${source.popup.isClosed()})`,
+                    timeout  : 5000,
+                    intervals: [25, 50, 100]
+                }).toBe(true);
+
+                expect(source.popup.isClosed(), `cycle ${cycle}: the source vessel survives the refused handoff`).toBe(false);
+
+                // The witness: the OUTER frame is back where the park took it from — the OS's
+                // reading and the manager's — not one chrome higher, not left behind the target.
+                let frame;
+
+                await expect.poll(async () => frameDelta(frame = await readFrame(), parkedFrom), {
+                    message  : `cycle ${cycle}: the source re-shows at the outer footprint it was parked from, and stays open ${JSON.stringify({chrome, parkedFrom, restore})}`,
+                    timeout  : 5000,
+                    intervals: [25, 50, 100]
+                }).toBeLessThanOrEqual(TOLERANCE);
+
+                expect((await readNativeLifecycle(app, workspaceId)).owners[SOURCE_ITEM]?.windowId,
+                    `cycle ${cycle}: the pane still lives in the source vessel`).toBe(source.windowId);
+
+                expect(frame.closed, `cycle ${cycle}: the source vessel is still open after the re-show`).toBeUndefined();
+
+                cycles.push({cycle, frame, parkedFrom, park: {parkAttempts: park.parkAttempts, requested: park.requested ?? null}, restore: {
+                    frame: restore.frame, moved: restore.moved ?? null, rect: restore.rect
+                }});
+
+                // Let the coordinator's settle window close before the next entry re-arms a claim.
+                await source.popup.waitForTimeout(400)
+            }
+
+            const receipt = JSON.stringify({chrome, cycles, homeOuter});
+
+            test.info().annotations.push({type: 'reshow-outer-footprint', description: receipt});
+            console.log('[reshow-outer-footprint]', receipt);
+
+            expect(await source.popup.evaluate(() => globalThis.__nativeTitlebarMouseouts),
+                'no mouseout reached the source realm during the cycles').toBe(0);
+            expect(pageErrors, 'no page errors during the park/re-show cycles').toEqual([])
+        } finally {
+            for (const popup of popups) {
+                popup && !popup.isClosed() && await popup.close()
+            }
+        }
+    };
+
+    test('a popup parked by its OS titlebar drag re-shows at its original outer footprint when the drag leaves the target, three cycles without drift (#18532)',
+        ({page, neuralLink}) => reshowJourney({page, neuralLink}))
+});

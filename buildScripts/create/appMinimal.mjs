@@ -81,7 +81,7 @@ if (programOpts.info) {
 
     if (!programOpts.themes) {
         questions.push({
-            type:     'list',
+            type:     'select',
             name:     'themes',
             message:  'Please choose a theme for your neo app:',
             choices:  ['all', ...themeFolders, 'none'],
@@ -91,7 +91,7 @@ if (programOpts.info) {
 
     if (!programOpts.useSharedWorkers) {
         questions.push({
-            type:     'list',
+            type:     'select',
             name:     'useSharedWorkers',
             message:  'Do you want to use SharedWorkers? Pick yes for multiple main threads (Browser Windows):',
             choices:  ['yes', 'no'],
@@ -101,7 +101,7 @@ if (programOpts.info) {
 
     if (!programOpts.useServiceWorker) {
         questions.push({
-            type:     'list',
+            type:     'select',
             name:     'useServiceWorker',
             message:  'Do you want to use a ServiceWorker for caching assets?',
             choices:  ['yes', 'no'],

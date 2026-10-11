@@ -379,7 +379,7 @@ async onAppConnect(data) {
 
 ### Component Tree Advantages:
 
-- **Predictable Performance**: Framework handles optimizations automatically
+- **Predictable Performance**: The engine handles optimizations automatically
 - **Automatic Batching**: Updates are batched and optimized
 - **Memory Efficiency**: Shared component instances and configs
 - **Worker Threading**: Non-blocking UI operations
@@ -491,7 +491,7 @@ Neo.config.logDeltaUpdates = true;  // Enable update timing logs
 
 Neo.mjs's two-tier architecture successfully balances developer productivity with engine performance through:
 
-- **Clear Abstraction Layers**: Component tree for apps, VDom for framework optimization
+- **Clear Abstraction Layers**: Component tree for apps, VDom for engine optimization
 - **Multi-Threading Architecture**: Optimal resource utilization across worker threads
 - **Reactive Component Tree**: Automatic UI synchronization with configuration changes
 - **Runtime Mutability**: Dynamic component tree modifications without recreation

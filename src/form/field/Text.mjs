@@ -313,6 +313,14 @@ class Text extends Field {
     clean = true
 
     /**
+     * The value the DOM input reported last through `onInputValueChange()`, kept until a render writes the input's
+     * value itself or the field unmounts. See {@link #afterVnodeSync} for what it restores.
+     * @member {String|null} reportedInputValue=null
+     * @protected
+     */
+    reportedInputValue = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -521,7 +529,7 @@ class Text extends Field {
         let me    = this,
             {cls} = me;
 
-        me.getInputEl().value = me.containsFocus ? value : me.inputValueRenderer(value);
+        me.getInputEl().value = me.getInputElValue(value);
 
         me.useAlertState && NeoArray.toggle(cls, 'neo-empty-required', me.isEmpty() && me.required);
 
@@ -714,6 +722,9 @@ class Text extends Field {
             let triggers = me.triggers || [],
                 i        = 0,
                 len      = triggers.length;
+
+            // An unmounted input left the DOM, and what it reported left with it
+            value || (me.reportedInputValue = null);
 
             for (; i < len; i++) {
                 if (!triggers[i].vdom.removeDom) {
@@ -959,6 +970,34 @@ class Text extends Field {
     }
 
     /**
+     * A render lands with the vnode it was diffed against, the field's own render or an ancestor's that covered it.
+     * When the user typed after that render collected its payload, the vnode no longer holds what the DOM shows, and
+     * `onInputValueChange()`'s sync is undone: the next render would write a stale value over newer typing. Unless
+     * that render wrote the input's value itself, the DOM still shows the reported value, so the vnode gets it back.
+     * A first render built the input from the vnode, which leaves the report nothing to restore.
+     * @param {Object[]|null} deltas
+     * @protected
+     */
+    afterVnodeSync(deltas) {
+        let me                   = this,
+            {reportedInputValue} = me;
+
+        if (reportedInputValue !== null) {
+            let inputId = me.getInputElId();
+
+            if (!deltas || deltas.some(delta => delta.id === inputId && (delta.action === 'removeNode' || Object.hasOwn(delta.attributes || {}, 'value')))) {
+                me.reportedInputValue = null
+            } else {
+                let {vnode} = VNodeUtil.find(me.vnode, me.getInputElId()) || {};
+
+                vnode && (vnode.attributes.value = reportedInputValue)
+            }
+        }
+
+        super.afterVnodeSync(deltas)
+    }
+
+    /**
      * Return a shallow copy of the triggers config
      * @param {Array|null} value
      * @protected
@@ -1141,6 +1180,21 @@ class Text extends Field {
     }
 
     /**
+     * @summary Selects the input's text, so the next keystroke replaces it instead of appending.
+     *
+     * Selection is the same node's next step after {@link #focus}, and the facts it needs — the input element's id
+     * and the field's `windowId` — are the field's own. Callers reaching for `Neo.main.DomAccess.selectNode()`
+     * directly have to reassemble both. Omitting the range selects the whole value: `selectNode()` clamps its own.
+     * @param {Number} [start=0]
+     * @param {Number} [end] Defaults to the end of the value.
+     */
+    selectText(start=0, end) {
+        let me = this;
+
+        Neo.main.DomAccess.selectNode({end, id: me.getInputElId(), start, windowId: me.windowId})
+    }
+
+    /**
      * @returns {Object|null}
      */
     getCenterBorderEl() {
@@ -1159,6 +1213,26 @@ class Text extends Field {
      */
     getInputElId() {
         return `${this.id}__input`
+    }
+
+    /**
+     * What the input's vdom says for an input value. `value` is trimmed, the DOM is not: a space typed at either end
+     * is in the input and in the vnode, and a vdom holding the trimmed spelling would make every render write it back
+     * over the input, with whatever was typed while that render was on its way. So while the DOM's last report is such
+     * a spelling, the vdom keeps the report. An adjustor's correction or a value set in code is written as before.
+     * @param {*} value
+     * @returns {*}
+     * @protected
+     */
+    getInputElValue(value) {
+        let me                   = this,
+            {reportedInputValue} = me;
+
+        if (Neo.isString(reportedInputValue) && reportedInputValue !== value && reportedInputValue.trim() === value) {
+            return reportedInputValue
+        }
+
+        return me.containsFocus ? value : me.inputValueRenderer(value)
     }
 
     /**
@@ -1377,6 +1451,7 @@ class Text extends Field {
     onFocusLeave(data) {
         let me             = this,
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
+            inputEl        = me.getInputEl(),
             cls;
 
         if (!me.readOnly) {
@@ -1396,6 +1471,11 @@ class Text extends Field {
             me.value = me.value.trim()
         }
 
+        // Spaces typed at either end stayed in the input while the typing went on (see getInputElValue())
+        if (Neo.isString(inputEl.value) && inputEl.value !== inputEl.value.trim()) {
+            inputEl.value = me.inputValueRenderer(me.inputValue)
+        }
+
         me.update();
 
         super.onFocusLeave(data)
@@ -1412,7 +1492,7 @@ class Text extends Field {
             inputValue = data.value;
 
         // Find the VNode for the real input element within the component's vnode tree.
-        const {vnode: inputVNode} = VNodeUtil.find(me.vnode, {nodeName: 'input'}) || {};
+        const {vnode: inputVNode} = VNodeUtil.find(me.vnode, me.getInputElId()) || {};
 
         if (inputVNode) {
             // This is the critical synchronization step. The user's input has changed the
@@ -1421,7 +1501,8 @@ class Text extends Field {
             // This prevents the framework from sending a redundant delta update that could
             // overwrite the user's input or cause cursor jumps.
             // Required e.g. for validation -> revert a wrong user input
-            inputVNode.attributes.value = inputValue
+            inputVNode.attributes.value = inputValue;
+            me.reportedInputValue       = inputValue
         }
 
         if (Neo.isString(inputValue)) {
@@ -1430,6 +1511,9 @@ class Text extends Field {
 
         me.clean      = false;
         me.inputValue = me.inputValueAdjustor(inputValue); // updates this.value
+
+        // A space at either end changes no config, so afterSetInputValue() never ran for it
+        me.getInputEl().value = me.getInputElValue(me.inputValue);
 
         me.fireUserChangeEvent(me.value, oldValue)
     }

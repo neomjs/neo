@@ -4,7 +4,22 @@ pre.hljs {
     padding: 0;
 }
 
-code,
+// This sheet owns the mono font for ALL code, highlighted or not, and it is the only author rule that
+// does. The two selectors are split rather than grouped so a theme can restyle inline `code` without
+// reaching `.hljs`: `--global-code-font-family` is the seam, and `Menlo, monospace` stays here as its
+// default rather than moving into a theme or into Global.
+//
+// The split is load-bearing for a family that DECLINES the theme's mono font. Global's structural
+// `code` rule cannot carry `font-family` for that case: it would outrank this declaration at (0,1,1)
+// and then resolve to `revert`, which rolls back the whole AUTHOR origin — discarding this rule
+// instead of deferring to it. Declining to a token default keeps the author cascade; declining to
+// `revert` destroys it. Measured on #18232 after it shipped the destructive form.
+code {
+    font-family: var(--global-code-font-family, Menlo, monospace);
+}
+
+// Grouped-out on purpose: `.hljs` (0,1,0) outranks `code` (0,0,1), so highlighted code keeps this
+// font in every theme regardless of what a theme declares for inline code.
 .hljs {
     font-family: Menlo, monospace;
 }

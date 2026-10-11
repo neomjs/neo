@@ -1,0 +1,514 @@
+import {expect, test}               from '../../fixtures.mjs';
+import gridCellEditing, {driveGrid} from '../utils/gridCellEditing.mjs';
+
+/**
+ * @summary A grid cell edit is one logical session over pooled cells: its editor is embodied in whichever cell
+ * currently renders the record and column, leaves when pooling rebinds that cell, and comes back with the draft.
+ *
+ * Fixture: `test/playwright/component/apps/grid-cell-editing`, grid `#grid-cell-editing-pooled` — 40 columns of
+ * 150px and 400 rows, `c0` locked to the start and `c39` to the end. A horizontal scroll moves the mounted column
+ * window, so a pool slot changes the column it renders; a vertical scroll rebinds pooled rows to other records.
+ *
+ * Two planes. The DOM shows where the editor is embodied, and whether focus is in it. Whether a scroll committed
+ * or cancelled the draft cannot be read off a cell that is not rendered, so every arm ends by pressing Escape on
+ * the reprojected editor: a draft that survived the round trip, and an original value after Escape, prove the
+ * scroll did neither.
+ *
+ * Scroll arms wait for the rendered cells to change rather than for time: a column leaving the mounted window
+ * leaves the DOM with its `data-field`, and a rebound row carries another `data-record-id`.
+ */
+const GRID                                                      = '#grid-cell-editing-pooled',
+      {EDITOR, INPUT, cell, editingIn, embodiment, recordLeaks} = gridCellEditing(GRID);
+
+let pageErrors;
+
+/**
+ * The record id of the third rendered row — row 3, a row the initial window always renders.
+ * @returns {Promise<String>}
+ */
+const thirdRecordId = page => page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`).getByText('r3c3', {exact: true})
+    .getAttribute('data-record-id');
+
+const scrollHorizontally = (page, left) => page.evaluate(({grid, left}) => {
+    document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`).scrollLeft = left
+}, {grid: GRID, left});
+
+const scrollVertically = (page, top) => page.evaluate(({grid, top}) => {
+    document.querySelector(`${grid} .neo-grid-view`).scrollTop = top
+}, {grid: GRID, top});
+
+const viewScrollTop = page => page.evaluate(grid => document.querySelector(`${grid} .neo-grid-view`).scrollTop, GRID);
+
+/**
+ * Per rendered cell of a column, whether it carries `aria-readonly="true"`.
+ * @returns {Promise<Boolean[]>}
+ */
+const readonlyCells = (page, field) => page.evaluate(({grid, field}) => [...document.querySelectorAll(`${grid} .neo-grid-cell[data-field="${field}"]`)]
+    .map(node => node.getAttribute('aria-readonly') === 'true'), {grid: GRID, field});
+
+test.describe('Grid cell editing across row and cell pooling', () => {
+    test.use({viewport: {width: 1400, height: 900}});
+
+    test.beforeEach(async ({page}) => {
+        pageErrors = [];
+        page.on('pageerror', error => pageErrors.push(error.message));
+
+        await page.goto('/test/playwright/component/apps/grid-cell-editing/index.html');
+        await page.waitForSelector(`${GRID} .neo-grid-cell[data-field="c39"]`, {state: 'visible', timeout: 30000})
+    });
+
+    test.afterEach(() => {
+        expect(pageErrors, 'no page error in the arm').toEqual([])
+    });
+
+    // Real keys must settle the edit before the selection model consumes them. Read the worker's event order and
+    // logical selection as well as the reprojected DOM: a new selected cell alone used to hide a surviving draft.
+    for (const model of ['cell', 'row', 'CellColumnModel', 'CellColumnRowModel', 'ColumnModel']) {
+        const columnsOnly  = model === 'ColumnModel',
+              selectsCells = model !== 'row' && !columnsOnly,
+              keys         = columnsOnly ? ['ArrowLeft', 'ArrowRight'] : selectsCells ? ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'] : ['ArrowDown', 'ArrowUp'];
+
+        for (const key of keys) {
+            for (const invalid of [false, true]) {
+                test(`${model}: ${key} resolves ${invalid ? 'an invalid' : 'a valid'} suspended edit before navigation`, async ({page}) => {
+                    const recordId = await thirdRecordId(page),
+                          field    = invalid ? 'c5' : 'c3',
+                          viewId   = await page.locator(`${GRID} .neo-grid-view`).getAttribute('id'),
+                          config   = (id, keys) => page.evaluate(({id, keys}) => Neo.worker.App.getConfigs({id, keys}), {id, keys}),
+                          selected = () => columnsOnly ? config('grid-arrow-selection', 'selectedColumns') :
+                              config(viewId, selectsCells ? 'selectedCells' : 'selectedRows'),
+                          initial  = columnsOnly ? [field] : selectsCells ? [`${recordId}__${field}`] : [recordId],
+                          vertical = key === 'ArrowDown' || key === 'ArrowUp',
+                          nextRow  = vertical ? await page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`)
+                              .getByText(key === 'ArrowDown' ? 'r4c3' : 'r2c3', {exact: true}).getAttribute('data-record-id') : recordId;
+
+                    model === 'row' && await driveGrid(page, 'rowModel');
+
+                    if (model.endsWith('Model')) {
+                        const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}), `../selection/grid/${model}.mjs`);
+
+                        expect(success).toBe(true);
+                        await page.evaluate(({viewId, model}) => Neo.worker.App.setConfigs({
+                            id: viewId, selectionModel: {id: 'grid-arrow-selection', ntype: `selection-grid-${model.toLowerCase()}`}
+                        }), {viewId, model})
+                    }
+
+                    await cell(page, field, recordId).click();
+                    await expect.poll(selected).toEqual(initial);
+
+                    // A row or column selection names no cell. Activate this specific cell by pointer.
+                    if (!selectsCells) {
+                        await cell(page, field, recordId).dblclick()
+                    } else {
+                        await page.keyboard.press('Enter')
+                    }
+
+                    await expect.poll(() => editingIn(page, field, recordId)).toBe(true);
+                    await expect.poll(selected).toEqual(initial);
+                    const editorId = await page.locator(EDITOR).getAttribute('id');
+
+                    await page.locator(INPUT).fill(invalid ? '' : 'arrow draft');
+                    await expect.poll(() => config(editorId, 'value')).toBe(invalid ? null : 'arrow draft');
+                    await driveGrid(page, 'logEvents');
+
+                    await (vertical ? scrollVertically(page, 4000) : scrollHorizontally(page, 3000));
+                    await expect.poll(() => embodiment(page)).toEqual({count: 0, field: null, recordId: null});
+                    await expect(page.locator(`${GRID} .neo-grid-view`)).toBeFocused();
+                    await page.keyboard.press(key);
+
+                    if (invalid) {
+                        await expect.poll(() => editingIn(page, field, recordId), {message: 'the invalid draft returns to focus'}).toBe(true);
+                        expect(await page.locator(EDITOR).getAttribute('id'), 'the same editor survives').toBe(editorId);
+                        await expect.poll(selected, {message: 'validation vetoed the selection move'}).toEqual(initial);
+                        expect(await config(GRID.slice(1), 'driverEventLog')).toEqual([]);
+                        await expect(page.locator(INPUT)).toHaveValue('');
+                        await expect(page.locator(EDITOR)).toHaveClass(/neo-invalid/);
+                        await expect(page.locator(`${EDITOR} .neo-textfield-error-wrapper`)).toHaveText('Required');
+                        await page.keyboard.press('Escape');
+                        await expect(cell(page, field, recordId)).toHaveText(`r3${field}`)
+                    } else {
+                        const nextField = vertical ? field : key === 'ArrowLeft' ? 'c2' : 'c4',
+                              expected  = columnsOnly ? [nextField] : selectsCells ? [`${nextRow}__${nextField}`] : [nextRow];
+
+                        await expect.poll(() => config(editorId, 'id'), {message: 'the suspended editor is destroyed'}).toBe(false);
+                        await expect.poll(selected).toEqual(expected);
+                        const events = await config(GRID.slice(1), 'driverEventLog');
+
+                        expect(events[0], 'the draft commits before any selection change').toBe('commit:c3');
+                        if (columnsOnly) {
+                            expect(await config(GRID.slice(1), 'driverColumnsAtCommit'), 'the commit precedes the column move').toEqual(initial)
+                        } else {
+                            expect(events.slice(1).length).toBeGreaterThan(0)
+                        }
+                        expect(events.slice(1).every(event => event === 'select'), 'no second commit').toBe(true);
+                        await scrollVertically(page, 0);
+                        await scrollHorizontally(page, 0);
+                        await expect(cell(page, field, recordId)).toHaveText('arrow draft');
+                        await expect(page.locator(EDITOR)).toHaveCount(0);
+
+                        await page.keyboard.press({ArrowDown: 'ArrowUp', ArrowUp: 'ArrowDown', ArrowLeft: 'ArrowRight', ArrowRight: 'ArrowLeft'}[key]);
+                        await expect.poll(selected, {message: 'the next arrow navigates normally without an edit'}).toEqual(initial)
+                    }
+                })
+            }
+        }
+    }
+
+    test('a double-clicked cell anchors the suspended arrow commit even when no cell is selected', async ({page}) => {
+        const recordId = await thirdRecordId(page),
+              nextId   = await page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`).getByText('r4c3', {exact: true}).getAttribute('data-record-id'),
+              viewId   = await page.locator(`${GRID} .neo-grid-view`).getAttribute('id'),
+              selected = () => page.evaluate(id => Neo.worker.App.getConfigs({id, keys: 'selectedCells'}), viewId);
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await expect.poll(selected, {message: 'the second click toggled the cell off'}).toEqual([]);
+        await page.locator(INPUT).fill('pointer draft');
+        await driveGrid(page, 'logEvents');
+        await scrollVertically(page, 4000);
+        await expect.poll(() => embodiment(page)).toEqual({count: 0, field: null, recordId: null});
+        await expect(page.locator(`${GRID} .neo-grid-view`)).toBeFocused();
+        await page.keyboard.press('ArrowDown');
+
+        await expect.poll(selected, {message: 'the arrow moves from the edited cell, not the first cell'}).toEqual([`${nextId}__c3`]);
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'c3', recordId)).toHaveText('pointer draft');
+        const events = await page.evaluate(id => Neo.worker.App.getConfigs({id, keys: 'driverEventLog'}), GRID.slice(1));
+
+        expect(events[0], 'the anchor is restored after the commit').toBe('commit:c3');
+        expect(events.slice(1).every(event => event === 'select')).toBe(true)
+    });
+
+    for (const [field, body] of [['c0', 'locked-start'], ['c3', 'center'], ['c39', 'locked-end']]) {
+        test(`a double-click embodies the editor in a pooled grid's ${body} cell`, async ({page}) => {
+            const recordId = await thirdRecordId(page);
+
+            await cell(page, field, recordId).dblclick();
+
+            await expect.poll(() => editingIn(page, field, recordId)).toBe(true);
+            expect((await embodiment(page)).count).toBe(1)
+        })
+    }
+
+    test('horizontal: an in-range remap keeps the editor and its focus; leaving the window suspends; returning restores the draft', async ({page}) => {
+        const recordId = await thirdRecordId(page);
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await page.keyboard.type('draft');
+        await recordLeaks(page, 'c3', recordId);
+
+        // Two columns: c1 leaves the mounted window, c3 stays in it
+        await scrollHorizontally(page, 300);
+        await expect(page.locator(`${GRID} .neo-grid-cell[data-field="c1"]`), 'the column window moved').toHaveCount(0);
+        await expect.poll(() => editingIn(page, 'c3', recordId), {message: 'the remap kept embodiment and focus'}).toBe(true);
+
+        await scrollHorizontally(page, 3000);
+        await expect(page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`), 'c3 left the mounted window').toHaveCount(0);
+        await expect.poll(() => embodiment(page), {message: 'no cell embodies the suspended editor'}).toEqual({count: 0, field: null, recordId: null});
+
+        await scrollHorizontally(page, 0);
+        await expect.poll(() => embodiment(page), {message: 'the editor is reprojected into its cell'}).toEqual({count: 1, field: 'c3', recordId});
+        await expect(page.locator(INPUT), 'the draft survived').toHaveValue('draft');
+
+        expect(await page.evaluate(() => window.__leaks), 'no other cell ever showed the editor').toEqual([]);
+
+        await page.locator(INPUT).focus();
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'c3', recordId), 'the scrolls wrote nothing').toHaveText('r3c3')
+    });
+
+    test('vertical: rebinding the row suspends the editor, returning reprojects it with the draft', async ({page}) => {
+        const recordId = await thirdRecordId(page);
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await page.keyboard.type('draft');
+        await recordLeaks(page, 'c3', recordId);
+
+        await scrollVertically(page, 4000);
+        await expect(page.locator(`${GRID} .neo-grid-row[data-record-id="${recordId}"]`), 'the row slot was rebound').toHaveCount(0);
+        await expect.poll(() => embodiment(page), {message: 'no cell embodies the suspended editor'}).toEqual({count: 0, field: null, recordId: null});
+
+        await scrollVertically(page, 0);
+        await expect.poll(() => embodiment(page), {message: 'the editor is reprojected into its cell'}).toEqual({count: 1, field: 'c3', recordId});
+        await expect(page.locator(INPUT)).toHaveValue('draft');
+
+        expect(await page.evaluate(() => window.__leaks), 'no rebound slot ever showed the editor').toEqual([]);
+
+        await page.locator(INPUT).focus();
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'c3', recordId), 'the scrolls wrote nothing').toHaveText('r3c3')
+    });
+
+    // `c7` opts out of suspension. The arm above is its control: the same scroll on `c3` suspends and restores
+    test('a column that cannot suspend cancels its edit when the row leaves the pool, and the grid says so', async ({page}) => {
+        const recordId = await thirdRecordId(page);
+
+        await cell(page, 'c7', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c7', recordId)).toBe(true);
+        await page.keyboard.type('draft');
+        await expect(page.locator(INPUT)).toHaveValue('draft');
+
+        await scrollVertically(page, 4000);
+
+        // The fixture writes the `cellEditCancel` event onto the grid's node
+        await expect(page.locator(GRID), 'the cancel is announced, with its reason').toHaveClass(/edit-cancelled-c7-projectionLoss/);
+
+        await scrollVertically(page, 0);
+        await expect(cell(page, 'c7', recordId), 'the row is back, and the draft is gone').toHaveText('r3c7');
+        await expect(page.locator(EDITOR), 'nothing is reprojected').toHaveCount(0)
+    });
+
+    // Code can end an edit too, and a listener hears that as well: a cancel that names no reason is the API's
+    test('a cancel from code that names no reason is announced as api', async ({page}) => {
+        const recordId = await thirdRecordId(page);
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await page.keyboard.type('draft');
+        await expect(page.locator(INPUT)).toHaveValue('draft');
+
+        await driveGrid(page, 'cancel');
+
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'c3', recordId), 'the draft was not written').toHaveText('r3c3');
+        await expect(page.locator(GRID), 'the cancel is announced, with its reason').toHaveClass(/edit-cancelled-c3-api/)
+    });
+
+    // Only an embodiment that existed can be lost. Tab from a suspended edit starts the next one suspended too, on its
+    // way into sight. The bodies render one after another, so while the center body reports its pass the locked `c39`
+    // has not been rendered yet — which must not read as a loss
+    test('an edit born suspended on a locked column that cannot suspend is embodied, not cancelled', async ({page}) => {
+        const recordId = await thirdRecordId(page);
+
+        // The fixture's locked columns suspend, as the locked-body arms need them to: this arm opts `c39` out itself
+        await driveGrid(page, 'optOutEnd');
+
+        await scrollHorizontally(page, 10000);
+        await expect(cell(page, 'c38', recordId)).toBeVisible();
+
+        // The pool can re-slot cells once more after the jump, and a pointer gesture then lands on another column.
+        // The click is retried until the model holds c38; Enter edits the SELECTED cell, which is logical
+        await expect(async () => {
+            await cell(page, 'c38', recordId).click();
+            await expect(cell(page, 'c38', recordId)).toHaveClass(/neo-selected/, {timeout: 1000})
+        }).toPass();
+
+        await page.keyboard.press('Enter');
+        await expect.poll(() => editingIn(page, 'c38', recordId)).toBe(true);
+
+        await scrollVertically(page, 4000);
+        await expect.poll(() => embodiment(page), {message: 'no cell embodies the suspended editor'}).toEqual({count: 0, field: null, recordId: null});
+
+        await page.keyboard.press('Tab');
+
+        await expect.poll(() => editingIn(page, 'c39', recordId), {message: 'the grid scrolled back and edits c39'}).toBe(true);
+        await expect(page.locator(GRID), 'no cancel was announced').not.toHaveClass(/edit-cancelled/)
+    });
+
+    // A lock change holds the editor out of every cell while the bodies swap columns, and the node it re-embeds is a
+    // new one: for a column that cannot suspend, that is a loss like any other. Its control is the locked-bodies arm
+    // that moves the same column, by default, with its draft intact
+    test('a column that cannot suspend cancels its edit when a lock change moves it to another body', async ({page}) => {
+        const recordId = await thirdRecordId(page);
+
+        await driveGrid(page, 'optOutEdited');
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await page.keyboard.type('draft');
+        await expect(page.locator(INPUT)).toHaveValue('draft');
+
+        await driveGrid(page, 'lockEnd');
+
+        await expect(page.locator(GRID), 'the cancel is announced, with its reason').toHaveClass(/edit-cancelled-c3-projectionLoss/);
+        await expect(page.locator(`${GRID} .neo-grid-body`).nth(2).locator(`.neo-grid-cell[data-field="c3"][data-record-id="${recordId}"]`),
+            'c3 renders in the end body, and nothing was committed').toHaveText('r3c3');
+        await expect(page.locator(EDITOR), 'the release embeds nothing').toHaveCount(0);
+
+        // The cancelled session left nothing held: the next edit opens
+        await cell(page, 'c4', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c4', recordId), {message: 'the grid edits again'}).toBe(true)
+    });
+
+    // An IME composes text the browser has not committed yet. Every composing `input` still reaches the App Worker, so
+    // the draft holds the composition when the node goes; no `compositionend` ever arrives, and none is needed. What
+    // is lost is the IME's own conversion state, never text — which is why pooling does not have to wait for it.
+    test('a composition in flight when the row leaves the pool survives as the draft', async ({page}) => {
+        const recordId = await thirdRecordId(page),
+              client   = await page.context().newCDPSession(page);
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+
+        // Activation selected the value; the composition replaces it
+        await client.send('Input.imeSetComposition', {selectionEnd: 1, selectionStart: 1, text: 'に'});
+        await client.send('Input.imeSetComposition', {selectionEnd: 2, selectionStart: 2, text: 'にほ'});
+        await expect(page.locator(INPUT)).toHaveValue('にほ');
+
+        await scrollVertically(page, 4000);
+        await expect.poll(() => embodiment(page), {message: 'no cell embodies the suspended editor'}).toEqual({count: 0, field: null, recordId: null});
+
+        await scrollVertically(page, 0);
+        await expect.poll(() => embodiment(page), {message: 'the editor is reprojected into its cell'}).toEqual({count: 1, field: 'c3', recordId});
+        await expect(page.locator(INPUT), 'the composed text is the draft').toHaveValue('にほ');
+
+        await page.locator(INPUT).focus();
+        await page.keyboard.press('Enter');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'c3', recordId)).toHaveText('にほ')
+    });
+
+    test('a column turned non-editable is read-only in every row, the rows the pool rebinds afterwards included', async ({page}) => {
+        const recordId = await thirdRecordId(page),
+              marks    = async () => ({c3: await readonlyCells(page, 'c3'), c4: await readonlyCells(page, 'c4')}),
+              state    = ({c3, c4}) => ({c3: c3.length > 0 && c3.every(Boolean), c4: c4.some(Boolean)});
+
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'grid-cell-editing-pooled-c3', editable: false}));
+        await expect.poll(async () => state(await marks()), {message: 'the mounted rows repaint'}).toEqual({c3: true, c4: false});
+
+        // Rebound rows render other records, which no repaint touched
+        await scrollVertically(page, 4000);
+        await expect(page.locator(`${GRID} .neo-grid-row[data-record-id="${recordId}"]`), 'the row slot was rebound').toHaveCount(0);
+        await expect.poll(async () => state(await marks()), {message: 'the rebound rows render the mark'}).toEqual({c3: true, c4: false})
+    });
+
+    for (const key of ['Escape', 'Enter']) {
+        test(`${key} while a body render is in the air leaves that render no destroyed editor to resolve`, async ({page}) => {
+            const recordId = await thirdRecordId(page),
+                  bodyId   = await page.locator(`${GRID} .neo-grid-body`).nth(1).getAttribute('id'),
+                  config   = async (id, name) => (await page.evaluate(({id, name}) => Neo.worker.App.getConfigs({id, keys: [name]}), {id, name}))[0];
+
+            await cell(page, 'c3', recordId).dblclick();
+            await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+            await page.keyboard.type('draft');
+
+            // A 1px scroll re-renders the body without rebinding the row, and the key ends the edit while that render
+            // is in the air. The render lands naming the editor, which the fixture's worker-error gate would report.
+            await scrollVertically(page, 1);
+            await page.keyboard.press(key);
+
+            await expect(page.locator(EDITOR)).toHaveCount(0);
+            await expect(cell(page, 'c3', recordId)).toHaveText(key === 'Enter' ? 'draft' : 'r3c3');
+            await expect.poll(() => config(bodyId, 'isScrolling'), {message: 'the scroll has settled'}).toBe(false)
+        })
+    }
+
+    test('a drag inside the editor selects text instead of drag-scrolling the grid', async ({page}) => {
+        const recordId = await thirdRecordId(page),
+              view     = page.locator(`${GRID} .neo-grid-view`).first();
+
+        /**
+         * A pointer drag from `from`, held past GridDragScroll's activation delay, moving 160px up in steps.
+         * @param {{x: Number, y: Number}} from
+         */
+        const drag = async from => {
+            await page.mouse.move(from.x, from.y);
+            await page.mouse.down();
+            // out-waits: GridDragScroll#delay (100ms) — the addon only starts a drag after it
+            await page.waitForTimeout(150);
+
+            for (let i = 1; i <= 8; i++) {
+                await page.mouse.move(from.x - i * 4, from.y - i * 20)
+            }
+
+            await page.mouse.up()
+        };
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+
+        // The press must start inside the editor. Until its theme lands the input has the browser's default width,
+        // which overflows the cell, so a point near its edge would press the next cell and drag-scroll the grid
+        let from;
+
+        await expect.poll(async () => {
+            const input = await page.locator(INPUT).boundingBox();
+
+            from = {x: input.x + input.width - 6, y: input.y + input.height / 2};
+
+            return page.evaluate(({x, y}) => !!document.elementFromPoint(x, y)?.closest('.neo-grid-editor'), from)
+        }, {message: 'the press point is inside the editor'}).toBe(true);
+
+        await drag(from);
+
+        expect(await viewScrollTop(page), 'the grid did not scroll').toBe(0);
+        await expect.poll(() => editingIn(page, 'c3', recordId), {message: 'the editor kept its cell and focus'}).toBe(true);
+
+        // Positive control: the same gesture from a plain cell does scroll, so the gesture is a real drag
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+
+        const box = await view.boundingBox();
+
+        await drag({x: box.x + box.width / 2, y: box.y + box.height * 0.8});
+        await expect.poll(() => viewScrollTop(page), {message: 'a drag from a cell scrolls'}).toBeGreaterThan(0)
+    });
+
+    test('navigation keys pressed inside the editor never scroll the View', async ({page}) => {
+        // Scrolled down, so PageUp and Home have somewhere to scroll back to; row 10 stays fully visible there
+        const recordId = await page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`).getByText('r10c3', {exact: true})
+            .getAttribute('data-record-id');
+
+        const viewId = await page.locator(`${GRID} .neo-grid-view`).first().getAttribute('id'),
+              bodyId = await page.locator(`${GRID} .neo-grid-body`).nth(1).getAttribute('id'),
+              config = async (id, key) => (await page.evaluate(({id, key}) => Neo.worker.App.getConfigs({id, keys: [key]}), {id, key}))[0];
+
+        await scrollVertically(page, 160);
+
+        // Clicking while the App Worker still re-slots rows hands Playwright a moving target, and its scroll-into-view
+        // retries move the View themselves: wait for the scroll to arrive, then for the grid to end it
+        await expect.poll(() => config(viewId, 'scrollTop')).toBe(160);
+        await expect.poll(() => config(bodyId, 'isScrolling')).toBe(false);
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+
+        // Read after activation: focusing the input may scroll it into view, which is not what this arm is about
+        const scrollTop = await viewScrollTop(page);
+
+        expect(scrollTop, 'precondition: the View is scrolled').toBeGreaterThan(0);
+
+        // Home and End are caret keys except under macOS key bindings, where the platform scrolls instead. Bindings
+        // follow the host OS, which `navigator.platform` reports even under user-agent emulation.
+        const macBindings = await page.evaluate(() => /Mac/.test(navigator.platform));
+
+        for (const key of ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'PageDown', 'PageUp', 'End', 'Home']) {
+            await page.evaluate(() => {
+                const input = document.activeElement;
+                input.setSelectionRange(2, 2)
+            });
+
+            await page.keyboard.press(key);
+
+            // Ordered round trip: typing a character is handled after the key, and lands in the input only if
+            // the editor is still embodied and focused
+            await page.keyboard.type('#');
+            await expect(page.locator(INPUT)).toHaveValue(/#/);
+
+            // One marker on every platform. A stale value written back over the previous removal shows as a second
+            // one, which the caret assertions below only catch where End and Home move the caret
+            expect((await page.locator(INPUT).inputValue()).split('#').length - 1, `${key} typed into the value the editor holds`).toBe(1);
+
+            expect(await viewScrollTop(page), `${key} left the View where it was`).toBe(scrollTop);
+
+            const caret = await page.evaluate(() => document.activeElement.value.indexOf('#'));
+
+            if (!macBindings && key === 'Home') {
+                expect(caret, 'Home still moves the caret to the start').toBe(0)
+            } else if (!macBindings && key === 'End') {
+                expect(caret, 'End still moves the caret to the end').toBe((await page.locator(INPUT).inputValue()).length - 1)
+            }
+
+            // Remove the marker so the next key starts from the same value
+            await page.evaluate(() => {
+                const input = document.activeElement;
+                input.value = input.value.replace('#', '');
+                input.dispatchEvent(new Event('input', {bubbles: true}))
+            })
+        }
+    })
+});

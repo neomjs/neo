@@ -297,4 +297,233 @@ test.describe('ClassConfigsAndFields', () => {
 
         expectations.forEach(item => expect(item.value).toBe(item.expected));
     });
+
+    test('a base-class field that shadows a subclass reactive config throws at the first construction, naming both classes', () => {
+        class FieldBase extends core.Base {
+            static config = {className: 'Test.Unit.Core.ClassConfigsAndFields.FieldBase'}
+
+            value = null
+        }
+
+        Neo.setupClass(FieldBase);
+
+        class ConfigSub extends FieldBase {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.ConfigSub',
+                value_   : 1
+            }
+
+            afterSetValue() {}
+        }
+
+        Neo.setupClass(ConfigSub);
+
+        const pattern = /Invalid class field 'value' in Test\.Unit\.Core\.ClassConfigsAndFields\.ConfigSub: it shadows the reactive config 'value_' declared by Test\.Unit\.Core\.ClassConfigsAndFields\.ConfigSub/;
+
+        expect(() => Neo.create(ConfigSub)).toThrow(pattern);
+        expect(() => Neo.create(ConfigSub), 'a broken class keeps throwing').toThrow(/afterSetValue\(\) never fires/);
+
+        // The base class itself is fine: its field shadows nothing.
+        const base = Neo.create(FieldBase);
+
+        expect(base.value).toBeNull();
+        base.destroy()
+    });
+
+    test('a field and a config of the same name inside ONE class throw as well', () => {
+        class Both extends core.Base {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.Both',
+                flag_    : true
+            }
+
+            flag = false
+        }
+
+        Neo.setupClass(Both);
+
+        expect(() => Neo.create(Both)).toThrow(/Invalid class field 'flag' in Test\.Unit\.Core\.ClassConfigsAndFields\.Both/)
+    });
+
+    test('the documented way stays silent: a subclass gives an inherited config a new default without a field', () => {
+        class Owner extends core.Base {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.Owner',
+                mode_    : 'a'
+            }
+
+            hits = 0
+
+            afterSetMode() {
+                this.hits++
+            }
+        }
+
+        Neo.setupClass(Owner);
+
+        class Tuned extends Owner {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.Tuned',
+                mode     : 'b'
+            }
+
+            note = 'a plain field with no config of that name'
+        }
+
+        Neo.setupClass(Tuned);
+
+        const instance = Neo.create(Tuned);
+
+        expect(instance.mode).toBe('b');
+        expect(instance.hits).toBe(1);
+        expect(instance.note).toBe('a plain field with no config of that name');
+        instance.destroy()
+    });
+
+    test('an own accessor installed before super.construct() is an ordinary override, not a shadow: silent, and fields-first batch assignment holds', () => {
+        class Scaled extends core.Base {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.Scaled',
+                factor_  : 2
+            }
+
+            construct(config) {
+                let value = 0;
+
+                Object.defineProperty(this, 'value', {
+                    enumerable  : true,
+                    configurable: true,
+                    get() { return value },
+                    set(next) { value = next * this.factor }
+                });
+
+                super.construct(config)
+            }
+        }
+
+        Neo.setupClass(Scaled);
+
+        const instance = Neo.create(Scaled);
+
+        expect(instance.isConfig('value')).toBe(false);
+        instance.set({value: 3, factor: 4});
+        expect(instance.value).toBe(12);
+        instance.destroy()
+    });
+
+    test('a subclass field over a parent accessor that is no config stays silent', () => {
+        class Accessor extends core.Base {
+            static config = {className: 'Test.Unit.Core.ClassConfigsAndFields.Accessor'}
+
+            get value() { return this._value ?? 'accessor' }
+            set value(next) { this._value = next }
+        }
+
+        Neo.setupClass(Accessor);
+
+        class FieldOverAccessor extends Accessor {
+            static config = {className: 'Test.Unit.Core.ClassConfigsAndFields.FieldOverAccessor'}
+
+            value = 5
+        }
+
+        Neo.setupClass(FieldOverAccessor);
+
+        const instance = Neo.create(FieldOverAccessor);
+
+        expect(instance.value).toBe(5);
+        instance.destroy()
+    });
+
+    test('the declaration is refused at creation, before any construct() could repair it: removing the shadow before super.construct() changes nothing', () => {
+        class Masked extends core.Base {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.Masked',
+                value_   : 1
+            }
+
+            value = null
+
+            construct(config={}) {
+                if (config.unmask) delete this.value;
+                super.construct(config)
+            }
+        }
+
+        Neo.setupClass(Masked);
+
+        const shadowed = /Invalid class field 'value' in Test\.Unit\.Core\.ClassConfigsAndFields\.Masked/;
+
+        expect(() => Neo.create(Masked, {unmask: true})).toThrow(shadowed);
+        expect(() => Neo.create(Masked)).toThrow(shadowed)
+    });
+
+    test('the rule covers plain configs in both directions: a base field under a subclass plain config, and a subclass field over an inherited plain config', () => {
+        class PlainFieldBase extends core.Base {
+            static config = {className: 'Test.Unit.Core.ClassConfigsAndFields.PlainFieldBase'}
+
+            mode = 'field'
+        }
+
+        Neo.setupClass(PlainFieldBase);
+
+        class PlainConfigSub extends PlainFieldBase {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.PlainConfigSub',
+                mode     : 'config'
+            }
+        }
+
+        Neo.setupClass(PlainConfigSub);
+
+        expect(() => Neo.create(PlainConfigSub)).toThrow(/Invalid class field 'mode' in Test\.Unit\.Core\.ClassConfigsAndFields\.PlainConfigSub: it shadows the config 'mode': its value in static config never applies/);
+
+        class PlainConfigBase extends core.Base {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.PlainConfigBase',
+                mode     : 'config'
+            }
+        }
+
+        Neo.setupClass(PlainConfigBase);
+
+        class FieldOverPlainConfig extends PlainConfigBase {
+            static config = {className: 'Test.Unit.Core.ClassConfigsAndFields.FieldOverPlainConfig'}
+
+            mode = 'field'
+        }
+
+        Neo.setupClass(FieldOverPlainConfig);
+
+        expect(() => Neo.create(FieldOverPlainConfig)).toThrow(/Invalid class field 'mode' in Test\.Unit\.Core\.ClassConfigsAndFields\.FieldOverPlainConfig/);
+
+        // Each base alone is fine: a field with no config of that name, a config with no field of that name.
+        const fieldOnly = Neo.create(PlainFieldBase), configOnly = Neo.create(PlainConfigBase);
+
+        expect(fieldOnly.mode).toBe('field');
+        expect(configOnly.mode).toBe('config');
+        fieldOnly.destroy();
+        configOnly.destroy()
+    });
+
+    test('a construct() that assigns a plain config before super.construct() declares no field: it runs after the check and passes', () => {
+        class Presets extends core.Base {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.Presets',
+                mode     : 'config'
+            }
+
+            construct(config) {
+                this.mode = 'assigned';
+                super.construct(config)
+            }
+        }
+
+        Neo.setupClass(Presets);
+
+        const instance = Neo.create(Presets);
+
+        expect(instance.mode).toBe('assigned');
+        instance.destroy()
+    });
 });

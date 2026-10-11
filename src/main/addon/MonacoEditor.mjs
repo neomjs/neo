@@ -31,9 +31,11 @@ class MonacoEditor extends Base {
             'updateOptions'
         ],
         /**
-         * @member {String} libraryBasePath='../../node_modules/monaco-editor/min/vs'
+         * The engine's Monaco build from `buildScripts/build/monaco.mjs`: the editor, its stylesheet and
+         * font, and its workers.
+         * @member {String} libraryBasePath=Neo.config.basePath+'dist/monaco'
          */
-        libraryBasePath: Neo.config.basePath + 'node_modules/monaco-editor/min/vs',
+        libraryBasePath: Neo.config.basePath + 'dist/monaco',
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -60,38 +62,39 @@ class MonacoEditor extends Base {
     map = {}
 
     /**
+     * @summary Creates one native editor per mounted wrapper and routes its model changes to the worker.
      * For a complete list of options see:
      * https://microsoft.github.io/monaco-editor/typedoc/interfaces/editor.IEditorOptions.html
      * @param {Object} data
      */
     createInstance(data) {
-        let me   = this,
-            {id} = data,
-            node = DomAccess.getElement(id),
+        let me                                  = this,
+            {appName, id, windowId, ...options} = data,
+            node                                = DomAccess.getElement(id),
             editor;
-
-        delete data.appName;
-        delete data.id;
 
         if (me.map[id]) {
             return
         }
 
         if (node) {
-            editor = me.map[id] = monaco.editor.create(node, data);
+            editor = me.map[id] = monaco.editor.create(node, options);
 
-            editor.getModel().onDidChangeContent(me.onContentChange.bind(me, id))
+            editor.onDidChangeModelContent(me.onContentChange.bind(me, id))
         } else if (Neo.config.environment === 'development') {
             console.warn(`addon.MonacoEditor: node ${id} not found`)
         }
     }
 
     /**
+     * @summary Releases the editor and its owned model/listeners before forgetting the holder.
+     * Monaco owns models created from value/language options; externally supplied models remain
+     * caller-owned, so model disposal must stay with the editor's ownership rules.
      * @param {Object} data
      * @param {String} data.id
      */
     destroyInstance(data) {
-        // todo: destroy the editor instance if possible
+        this.map[data.id]?.dispose();
         delete this.map[data.id]
     }
 
@@ -105,6 +108,30 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * @summary Maps the label of a worker Monaco starts onto that worker's bundle in the build.
+     * The labels of the language services are their language ids; every other label runs the
+     * generic editor worker.
+     * @param {String} moduleId Always `'workerMain.js'`
+     * @param {String} label
+     * @returns {String}
+     */
+    getWorkerUrl(moduleId, label) {
+        let worker = {
+            css       : 'css',
+            handlebars: 'html',
+            html      : 'html',
+            javascript: 'ts',
+            json      : 'json',
+            less      : 'css',
+            razor     : 'html',
+            scss      : 'css',
+            typescript: 'ts'
+        }[label] || 'editor';
+
+        return `${this.libraryBasePath}/${worker}.worker.mjs`
+    }
+
+    /**
      * Changing the size of the parent container will only get honored when re-triggering an editor layout
      * @param {Object} data
      * @param {String} data.id
@@ -114,20 +141,23 @@ class MonacoEditor extends Base {
     }
 
     /**
-     *
+     * @summary Imports the Monaco build with its stylesheet, after pointing Monaco at the build's workers.
+     * The module namespace becomes the `monaco` global this addon calls. Monaco's own `globalAPI` flag
+     * would publish only the core API, without language namespaces such as `monaco.typescript`.
+     * @returns {Promise<void>}
      */
     async loadFiles() {
         let me   = this,
-            path = me.libraryBasePath;
+            path = new URL(me.libraryBasePath, document.baseURI).href;
 
-        window.require = {paths: {vs: path}};
+        globalThis.MonacoEnvironment = {getWorkerUrl: me.getWorkerUrl.bind(me)};
 
-        await DomAccess.loadScript(path + '/loader.js');
-
-        await Promise.all([
-            DomAccess.loadStylesheet(path + '/editor/editor.main.css', {name: 'vs/editor/editor.main'}),
-            DomAccess.loadScript(path + '/editor/editor.main.nls.js'),
-            DomAccess.loadScript(path + '/editor/editor.main.js')
+        [globalThis.monaco] = await Promise.all([
+            // Resolved against the document like the stylesheet, and left alone by webpack
+            import(/* webpackIgnore: true */ `${path}/editor.mjs`),
+            DomAccess.loadStylesheet(`${path}/editor.css`).catch(error => {
+                throw new Error(`Monaco stylesheet failed: ${path}/editor.css`, {cause: error})
+            })
         ])
     }
 
@@ -150,21 +180,25 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * @summary Changes the current model's language through Monaco's public editor API.
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.value
      */
     setLanguage(data) {
-        this.map[data.id].getModel().setLanguage(data.value)
+        const model = this.map[data.id]?.getModel();
+
+        model && monaco.editor.setModelLanguage(model, data.value)
     }
 
     /**
+     * @summary Applies the main realm's Monaco theme through its public editor API.
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.value
      */
     setTheme(data) {
-        this.map[data.id]._themeService.setTheme(data.value)
+        this.map[data.id] && monaco.editor.setTheme(data.value)
     }
 
     /**

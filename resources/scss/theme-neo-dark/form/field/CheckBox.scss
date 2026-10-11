@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-checkboxfield
+:where(.neo-theme-neo-dark) { // .neo-checkboxfield
     --checkboxfield-color           : var(--gray-200);
     --checkboxfield-color-checked   : var(--purple-300);
     --checkboxfield-icon-font-family: var(--fa-style-family-classic);

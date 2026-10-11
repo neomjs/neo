@@ -25,6 +25,7 @@ import VDomUtil         from '../../util/VDom.mjs';
  * 3.  **Force Selection (`forceSelection` config):**
  *     - When `true` (default), the component ensures that the field's final value corresponds to a valid record from the store.
  *     - On blur, if the user has typed partial text, the component will automatically select the "closest" match (the current typeahead suggestion) and fill the input with its full `displayField` value.
+ *     - Text that matches no record is refused. Until the field is left, `validate()` reports it (`errorTextNoMatch`), so a commit gated on it writes nothing; on blur the field returns to the record it held before the user typed, or to empty if it held none.
  *
  * 4.  **Filtering (`useFilter`, `filterOperator`, `triggerAction`):**
  *     - The dropdown list can be dynamically filtered as the user types.
@@ -68,6 +69,11 @@ class ComboBox extends Picker {
          * @member {String} displayField='name'
          */
         displayField: 'name',
+        /**
+         * The error {@link #validate} reports under {@link #forceSelection} while the input holds text and no record
+         * @member {Function} errorTextNoMatch=data=>`No match: ${data.input}`
+         */
+        errorTextNoMatch: data => `No match: ${data.input}`,
         /**
          * The millisecond time to delay between input field mutation and applying the input field's
          * new value to the filter
@@ -119,6 +125,9 @@ class ComboBox extends Picker {
          */
         role: 'combobox',
         /**
+         * The records to pick from. A config or an array makes the field create the store, which it
+         * then owns. A store instance, passed or bound, stays its owner's: the field filters and destroys
+         * only its own view of it (see `listStore`), so every other reader keeps every record.
          * @member {Neo.data.Store|null} store_=null
          * @reactive
          */
@@ -158,6 +167,19 @@ class ComboBox extends Picker {
     }
 
     /**
+     * What the picker list shows and the typing filter narrows: the store itself when the field created
+     * it, otherwise a view the field owns over it (`sourceId`), which follows the store's changes.
+     * @member {Neo.data.Store|null} listStore=null
+     * @protected
+     */
+    listStore = null
+    /**
+     * The stores this field created, and so destroys. A passed or bound store is never in it.
+     * @member {WeakSet} #owned
+     * @private
+     */
+    #owned = new WeakSet()
+    /**
      * Internal flag to store the value, in case it was set before the store was loaded
      * @member {Number|String} preStoreLoadValue=null
      */
@@ -167,6 +189,13 @@ class ComboBox extends Picker {
      * @member {Boolean} programmaticValueChange=false
      */
     programmaticValueChange = false
+    /**
+     * The record the field held when the user started typing over it: the value {@link #forceSelection} returns to
+     * when the typed text matches no record. It lives for one input attempt, which leaving the field ends.
+     * @member {Object|null} valueBeforeInput=null
+     * @protected
+     */
+    valueBeforeInput = null
 
     /**
      * @param {Object} config
@@ -180,6 +209,26 @@ class ComboBox extends Picker {
         me.filterOnInput = buffer(me.filterOnInput, me, me.filterDelay);
 
         me.typeAhead && me.updateTypeAhead()
+    }
+
+    /**
+     * Destroys what this field owns — its list view, or a store it created — once the list showing it is
+     * gone. A passed or bound store stays its owner's, minus this field's load listener. A filter still buffered
+     * from the last keystroke is cancelled: it would run against the destroyed field.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me                 = this,
+            owned              = me.#owned,
+            {listStore, store} = me;
+
+        me.filterOnInput.cancel();
+        store?.un('load', me.onStoreLoad, me);
+
+        super.destroy(...args);
+
+        listStore !== store && owned.has(listStore) && listStore.destroy();
+        owned.has(store) && store.destroy()
     }
 
     /**
@@ -200,12 +249,23 @@ class ComboBox extends Picker {
      * @protected
      */
     afterSetStore(value, oldValue) {
-        let me = this,
-            filters;
+        let me           = this,
+            owned        = me.#owned,
+            previousView = me.listStore,
+            filters, listStore, rawValue;
 
         if (value) {
+            listStore = owned.has(value) ? value : Neo.create(Store, {
+                keyProperty: value.keyProperty,
+                model      : value.model,
+                sourceId   : value.id
+            });
+
+            owned.add(listStore);
+            me.listStore = listStore;
+
             if (me.useFilter) {
-                filters = value.filters || [];
+                filters = listStore.filters || [];
 
                 filters.push({
                     includeEmptyValues: true,
@@ -214,14 +274,37 @@ class ComboBox extends Picker {
                     value             : value?.[me.displayField] || null
                 });
 
-                value.filters = filters
+                listStore.filters = filters
             }
 
             if (me.list) {
-                me.list.store = value
+                me.list.store = listStore
             }
 
-            value.on('load', me.onStoreLoad, me)
+            // A view follows the store's items, but only the store itself announces a load
+            value.on('load', me.onStoreLoad, me);
+
+            // Re-resolve what no previous store resolved or may keep: a parked key, a storeless field's raw key
+            // (once constructed: before, `_value` may be a config processConfigs() has yet to apply), and a record
+            // of a store destroyed below. Silently, as onStoreLoad() does; beforeSetValue() parks a miss again.
+            rawValue = Neo.isRecord(me._value)
+                ? owned.has(oldValue) ? me._value[value.keyProperty] : null
+                : (me.isConstructed ? me._value : null) ?? me.preStoreLoadValue;
+
+            if (rawValue != null) {
+                me.preStoreLoadValue = null;
+                me._value            = undefined;
+                me.value             = rawValue
+            }
+        } else {
+            me.listStore = null
+        }
+
+        // Retired only now, with the list already showing the new store
+        if (oldValue) {
+            oldValue.un('load', me.onStoreLoad, me);
+            previousView !== oldValue && owned.has(previousView) && previousView.destroy();
+            owned.has(oldValue) && oldValue.destroy()
         }
     }
 
@@ -288,8 +371,6 @@ class ComboBox extends Picker {
             return null
         }
 
-        oldValue?.destroy();
-
         // Promote an array of items to be a Store
         if (Array.isArray(value)) {
             value = {
@@ -318,7 +399,12 @@ class ComboBox extends Picker {
             }
         }
 
-        return ClassSystemUtil.beforeSetInstance(value, Store)
+        let store = ClassSystemUtil.beforeSetInstance(value, Store);
+
+        // Built here from a config or an array, so this field's to destroy; an instance comes back as is
+        store && store !== value && me.#owned.add(store);
+
+        return store
     }
 
     /**
@@ -364,7 +450,15 @@ class ComboBox extends Picker {
                 return record
             }
 
-            return store.find(displayField, value)[0] || null
+            record = store.find(displayField, value)[0];
+
+            // A miss during construction may be against a store the field is about to lose: a binding delivers
+            // its store once construction ends. Park the key where a pending load parks it, for afterSetStore().
+            if (!record && !me.isConstructed) {
+                me.preStoreLoadValue = value
+            }
+
+            return record || null
         } else {
             // store not loaded yet
             me.preStoreLoadValue = value;
@@ -390,9 +484,11 @@ class ComboBox extends Picker {
             parentId      : me.id,
             role          : 'listbox',
             selectionModel: {stayInList: false},
-            store         : me.store,
+            store         : me.listStore,
             windowId,
-            ...me.listConfig
+            ...me.listConfig,
+            // The field destroys what it owns; the list must not destroy what it only shows
+            autoDestroyStore: false
         });
 
         me.getInputEl()['aria-controls'] = me.list.id;
@@ -424,10 +520,11 @@ class ComboBox extends Picker {
      * @param {String|null} value The value to filter the picker by
      */
     doFilter(value) {
-        let me              = this,
-            {picker, store} = me,
-            record          = me.value,
-            filter          = store.getFilter(me.displayField);
+        let me       = this,
+            {picker} = me,
+            store    = me.listStore,
+            record   = me.value,
+            filter   = store.getFilter(me.displayField);
 
         if (filter) {
             filter.value = value
@@ -514,7 +611,7 @@ class ComboBox extends Picker {
         let {list}    = this,
             recordKey = list.selectionModel.getSelection()[0];
 
-        return recordKey && this.store.get(list.getItemRecordId(recordKey)) || null
+        return recordKey && this.listStore.get(list.getItemRecordId(recordKey)) || null
     }
 
     /**
@@ -554,13 +651,18 @@ class ComboBox extends Picker {
         /*
          * If we are leaving the field, using forceSelection=true and the field does not have a selected record,
          * we do want to pick the closest match => the focussed record (honoring filters).
-         * If no record is found, we will clear the field instead.
+         * Text that matches no record returns to the record the field held before the user typed, or to empty.
+         * A value that stays empty re-renders nothing, so the input is written from the value either way.
          */
         if (me.forceSelection && !me.value) {
             me.programmaticValueChange = true;
-            me.value                   = me.store.get(me.activeRecordId);
-            me.programmaticValueChange = false;
+            me.value                   = me.listStore.get(me.activeRecordId) || (me.lastManualInput && me.valueBeforeInput) || null;
+            me.updateInputValueFromValue(me.value);
+            me.programmaticValueChange = false
         }
+
+        // leaving ends the input attempt, and its fallback with it: the next attempt starts from what the field holds
+        me.valueBeforeInput = null;
 
         me.updateTypeAheadValue(null);
 
@@ -594,7 +696,7 @@ class ComboBox extends Picker {
         if (selection?.length) {
             let me       = this,
                 {list}   = me,
-                {store}  = me,
+                store    = me.listStore,
                 selected = selection[0],
                 record;
 
@@ -645,8 +747,8 @@ class ComboBox extends Picker {
         let {activeIndex} = data;
 
         if (activeIndex >= 0) {
-            let me      = this,
-                {store} = me;
+            let me    = this,
+                store = me.listStore;
 
             me.activeRecord   = data.record || store.getAt(activeIndex);
             me.activeRecordId = me.activeRecord[store.getKeyProperty()];
@@ -697,7 +799,7 @@ class ComboBox extends Picker {
      *
      */
     selectLastListItem() {
-        this.selectListItem(this.store.getCount() -1)
+        this.selectListItem(this.listStore.getCount() -1)
     }
 
     /**
@@ -709,7 +811,7 @@ class ComboBox extends Picker {
 
         if (!Neo.isNumber(index)) {
             if (me.activeRecordId) {
-                index = me.store.indexOfKey(me.activeRecordId)
+                index = me.listStore.indexOfKey(me.activeRecordId)
             } else {
                 index = 0
             }
@@ -786,10 +888,11 @@ class ComboBox extends Picker {
      * @protected
      */
     updateTypeAheadValue(value=this.lastManualInput, silent=false) {
-        let me                    = this,
-            match                 = false,
-            inputHintEl           = me.getInputHintEl(),
-            {displayField, store} = me;
+        let me             = this,
+            match          = false,
+            inputHintEl    = me.getInputHintEl(),
+            {displayField} = me,
+            store          = me.listStore;
 
         if (me.typeAhead) {
             if (!me.value && value?.length > 0) {
@@ -827,12 +930,33 @@ class ComboBox extends Picker {
         me.lastManualInput = inputValue;
 
         if (!me.programmaticValueChange) {
-            // changing the input => silent record reset
+            // changing the input => silent record reset, remembering the record for a refused entry to return to
+            me._value && (me.valueBeforeInput = me._value);
             me._value = null;
             me.list?.selectionModel.deselectAll();
 
             me.filterOnInput(inputValue)
         }
+    }
+
+    /**
+     * Under {@link #forceSelection}, input text without a record is refused: the value is empty while the input shows
+     * something else, and a commit gated on this method would otherwise write that empty value over the old one.
+     * @param {Boolean} silent=true
+     * @returns {Boolean} Returns true in case there are no client-side errors
+     */
+    validate(silent=true) {
+        let me          = this,
+            returnValue = super.validate(silent);
+
+        if (returnValue && me.forceSelection && !me.value && me.lastManualInput) {
+            me._error   = me.errorTextNoMatch({input: me.lastManualInput});
+            returnValue = false
+        }
+
+        !returnValue && !me.clean && me.updateError(me._error, silent);
+
+        return returnValue
     }
 }
 

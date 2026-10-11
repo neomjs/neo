@@ -136,13 +136,14 @@ class RemoteMethodAccess extends Base {
      *
      * @param {Object} remote The remote configuration object.
      * @param {String} method The name of the method to generate a proxy for.
-     * @returns {function(*=, *=): Promise<any>} The proxy function.
+     * @returns {function(*=, *=): Promise<any>} The proxy function, carrying `remoteProvenance`
+     *     (`{className, origin}`) so {@link #onRegisterRemote} can tell a replay of this exact endpoint from a collision.
      */
     generateRemote(remote, method) {
         let me       = this,
             {origin} = remote;
 
-        return function(data, buffer) {
+        const proxy = function(data, buffer) {
             let opts = {
                 action         : 'remoteMethod',
                 data,
@@ -161,14 +162,33 @@ class RemoteMethodAccess extends Base {
 
             me.isSharedWorker && me.assignPort(data, opts);
 
+            // A canvas call is settled against its group's readiness BEFORE it is sent: `sendMessage` must return
+            // the Message it actually sent, so waiting can never be queued inside it. The wait is bound to the port
+            // generation the call carries, as a sent call's promise is. Once ready, straight through.
+            if (origin === 'canvas' && me.canvasGroups && !me.canvasGroups.isReadyFor(data?.windowId)) {
+                return me.canvasGroups.whenReady(data?.windowId, opts.port ? me.getPort({id: opts.port}) : null)
+                    .then(() => me.promiseMessage(opts.destination, opts, buffer))
+            }
+
             return me.promiseMessage(opts.destination, opts, buffer)
-        }
+        };
+
+        proxy.remoteProvenance = {className: remote.className, origin};
+
+        return proxy
     }
 
     /**
      * Handles the 'registerRemote' message action.
      * It iterates over the list of methods provided in the remote config and generates local proxy functions
      * for them in the appropriate namespace. This makes the remote methods available to be called as if they were local.
+     *
+     * A registration of the SAME endpoint — `className`, `method` and `origin` all equal — arriving again
+     * is a no-op that keeps the existing proxy: a SharedWorker replays every stored registration to each
+     * newly connected port, and the singleton's own startup registration also addresses the first window,
+     * so that window legitimately sees one endpoint twice. Anything else already occupying the slot — a
+     * proxy for a different origin, or a local member — is a collision and throws, so a wrong binding is
+     * never retained in silence.
      *
      * @param {Object} remote The remote configuration object containing className and methods list.
      */
@@ -179,14 +199,19 @@ class RemoteMethodAccess extends Base {
                 pkg                  = Neo.ns(className, true);
 
             methods.forEach(method => {
-                if (remote.origin !== 'main' && pkg[method]) {
-                    throw new Error('Duplicate remote method definition ' + className + '.' + method)
+                const existing = pkg[method],
+                      repeat   = existing?.remoteProvenance?.className === className
+                              && existing.remoteProvenance.origin === remote.origin;
+
+                if (existing && !repeat) {
+                    throw new Error(
+                        `Remote method collision: ${className}.${method} is already bound to ` +
+                        (existing.remoteProvenance ? `origin "${existing.remoteProvenance.origin}"` : 'a local member') +
+                        `; a registration from "${remote.origin}" cannot replace it`
+                    )
                 }
 
-                pkg[method] ??= me.generateRemote({
-                    className: remote.className,
-                    origin   : remote.origin
-                }, method)
+                pkg[method] ??= me.generateRemote({className, origin: remote.origin}, method)
             });
 
             if (remote.id) {
@@ -203,8 +228,10 @@ class RemoteMethodAccess extends Base {
      * 1. Resolves the target class and method from the namespace.
      * 2. Checks if the call should be intercepted (e.g., if the target singleton is not ready).
      * 3. Executes the method (handling both sync and async results).
-     * 4. Catches errors and sends a rejection reply.
+     * 4. Catches errors, thrown or rejected, and sends a rejection reply.
      * 5. Resolves success and sends a reply with the result.
+     *
+     * Every executed call answers its caller exactly once: a rejection never follows with a resolve.
      *
      * @param {Object} msg The message payload containing remoteClassName, remoteMethod, and data.
      */
@@ -226,34 +253,37 @@ class RemoteMethodAccess extends Base {
             throw new Error(`Invalid remote method name "${msg.remoteMethod}" in ${msg.remoteId ? 'instance "'+msg.remoteId+'"' : 'namespace "'+msg.remoteClassName+'"'}`)
         }
 
-        // Check for interception
-        if (!pkg.isReady && pkg.interceptRemotes?.includes(msg.remoteMethod)) {
-            out = pkg.onInterceptRemotes(msg);
-        } else if (Array.isArray(msg.data)) {
-            out = method.call(pkg, ...msg.data)
-        } else {
-            out = method.call(pkg, msg.data)
+        /*
+         * A failing remote method would not show its error inside the console, so it is logged here for
+         * debugging, and the rejection gives the caller the chance to recover.
+         *
+         * Example:
+         * Neo.vdom.Helper.update(opts).catch(err => {
+         *     me.isVdomUpdating = false;
+         *     reject?.()
+         * }).then(data => {...})
+         */
+        const fail = err => {
+            console.error(err);
+            me.reject(msg, err)
+        };
+
+        try {
+            // Check for interception
+            if (!pkg.isReady && pkg.interceptRemotes?.includes(msg.remoteMethod)) {
+                out = pkg.onInterceptRemotes(msg);
+            } else if (Array.isArray(msg.data)) {
+                out = method.call(pkg, ...msg.data)
+            } else {
+                out = method.call(pkg, msg.data)
+            }
+        } catch (err) {
+            fail(err);
+            return
         }
 
         if (Neo.isPromise(out)) {
-            out
-                /*
-                 * Intended logic:
-                 * If the code of a remote method fails, it would not show any errors inside the console,
-                 * so we want to manually log the error for debugging.
-                 * Rejecting the Promise gives us the chance to recover.
-                 *
-                 * Example:
-                 * Neo.vdom.Helper.update(opts).catch(err => {
-                 *     me.isVdomUpdating = false;
-                 *     reject?.()
-                 * }).then(data => {...})
-                 */
-                .catch(err => {
-                    console.error(err);
-                    me.reject(msg, err)
-                })
-                .then(data => {me.resolve(msg, data)})
+            out.then(data => {me.resolve(msg, data)}, fail)
         } else {
             me.resolve(msg, out)
         }
@@ -333,7 +363,8 @@ class RemoteMethodAccess extends Base {
      * path — an escaped exception here makes replies vanish and wedges the caller-side promise
      * forever (`isVdomUpdating` stuck `true`, `vnode: null`, blank app, zero errors).
      * The failure is logged with its full routing context instead, so the update watchdog and
-     * the console make the loss diagnosable.
+     * the console make the loss diagnosable. A reply to a window whose port this worker retired is not logged: that
+     * window disconnected before its answer could reach it.
      * @param {Object} msg The original message object
      * @param {Object} opts The reply options (action, data, replyId, routing keys)
      * @param {Array|null} [transfer=null] An optional array of Transferable objects
@@ -355,7 +386,7 @@ class RemoteMethodAccess extends Base {
             return
         }
 
-        if (!message) {
+        if (!message && !this.departedWindowIds?.has(opts.windowId)) {
             console.error('[RemoteMethodAccess] Reply not routable (no live port) — the caller-side promise will not settle', {
                 destination: msg.origin,
                 port       : opts.port,

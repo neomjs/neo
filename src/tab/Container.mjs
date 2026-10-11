@@ -1,9 +1,10 @@
-import BaseContainer from '../container/Base.mjs';
-import BodyContainer from './BodyContainer.mjs';
-import HeaderButton  from './header/Button.mjs';
-import HeaderToolbar from './header/Toolbar.mjs';
-import NeoArray      from '../util/Array.mjs';
-import Strip         from './Strip.mjs';
+import BaseContainer  from '../container/Base.mjs';
+import BodyContainer  from './BodyContainer.mjs';
+import HeaderButton   from './header/Button.mjs';
+import HeaderToolbar  from './header/Toolbar.mjs';
+import NeoArray       from '../util/Array.mjs';
+import Strip          from './Strip.mjs';
+import {isDescriptor} from '../core/ConfigSymbols.mjs';
 
 /**
  * @summary Manages a tabbed interface with a header toolbar and a content body.
@@ -42,6 +43,15 @@ class Container extends BaseContainer {
          */
         ntype: 'tab-container',
         /**
+         * Selects the tab-header chrome for this placement. `inline` is the compact, flush variant for
+         * embedding inside pane/header bands; `standalone` is the roomier free-standing variant. `null`
+         * preserves the active theme's established default. This overrides the inherited reactive
+         * config's default without repeating its trailing underscore, per the class-system contract.
+         * @member {String|null} ui=null
+         * @reactive
+         */
+        ui: null,
+        /**
          * You can use null to not mount any items initially
          * @member {Number|null} activeIndex_=0
          * @reactive
@@ -78,6 +88,20 @@ class Container extends BaseContainer {
          * @member {Object|null} headerToolbar=null
          */
         headerToolbar: null,
+        /**
+         * Optional flat action configs for the tab header toolbar. Tab actions are gated on this
+         * TabContainer holding focus by default; an action can set `showOnFocus: false` to stay
+         * persistent.
+         * @member {Object[]|String[]|null} headerActions=null
+         * @reactive
+         */
+        headerActions_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            isEqual       : () => false,
+            value         : null
+        },
         /**
          * @member {Object|null} layout=null
          * @reactive
@@ -133,7 +157,7 @@ class Container extends BaseContainer {
      * @returns {Neo.component.Base|Neo.component.Base[]} The newly created component(s).
      */
     add(item) {
-        return this.insert(this.getTabBar().items.length, item)
+        return this.insert(this.getCount(), item)
     }
 
     /**
@@ -194,6 +218,20 @@ class Container extends BaseContainer {
     afterSetDragResortable(value, oldValue) {
         if (oldValue !== undefined) {
             this.getTabBar().dragResortable = value
+        }
+    }
+
+    /**
+     * Replaces the live header action group after construction.
+     * @param {Object[]|String[]|null} value
+     * @param {Object[]|String[]|null} oldValue
+     * @protected
+     */
+    afterSetHeaderActions(value, oldValue) {
+        if (oldValue !== undefined) {
+            let tabBar = this.getTabBar();
+
+            tabBar && (tabBar.actions = value)
         }
     }
 
@@ -262,11 +300,11 @@ class Container extends BaseContainer {
      * @protected
      */
     createItems() {
-        let me            = this,
+        let me                                                        = this,
             {activeIndex, removeInactiveCards, useActiveTabIndicator} = me,
-            items         = me.items || [],
-            tabButtons    = [],
-            tabComponents = [];
+            items                                                     = me.items || [],
+            tabButtons                                                = [],
+            tabComponents                                             = [];
 
         Object.assign(me, {
             bodyContainerId: me.bodyContainerId || Neo.getId('container'),
@@ -286,6 +324,7 @@ class Container extends BaseContainer {
 
         me.items = [{
             module        : HeaderToolbar,
+            actions       : me.headerActions,
             dock          : me.tabBarPosition,
             dragResortable: me.dragResortable,
             flex          : 'none',
@@ -346,7 +385,24 @@ class Container extends BaseContainer {
      * @returns {Number} The number of tabs.
      */
     getCount() {
-        return this.getTabBar().items.length
+        return this.getTabButtons().length
+    }
+
+    /**
+     * Returns the stable header action instances.
+     * @returns {Neo.component.Base[]}
+     */
+    getActionItems() {
+        return this.getTabBar()?.getActionItems() || []
+    }
+
+    /**
+     * Returns the header action addressed by its `action` name — the tab bar's `toolbar.Base#getAction`.
+     * @param {String} name
+     * @returns {Neo.component.Base|null}
+     */
+    getAction(name) {
+        return this.getTabBar()?.getAction(name) || null
     }
 
     /**
@@ -389,7 +445,7 @@ class Container extends BaseContainer {
      * @returns {Neo.tab.header.Button|null} The tab button component or null if not found.
      */
     getTabAtIndex(index) {
-        return this.getTabBar().items[index] || null
+        return this.getTabButtons()[index] || null
     }
 
     /**
@@ -398,6 +454,14 @@ class Container extends BaseContainer {
      */
     getTabBar() {
         return Neo.getComponent(this.tabBarId)
+    }
+
+    /**
+     * Returns the semantic tab-header button collection.
+     * @returns {Neo.tab.header.Button[]}
+     */
+    getTabButtons() {
+        return this.getTabBar()?.getTabButtons() || []
     }
 
     /**
@@ -413,10 +477,11 @@ class Container extends BaseContainer {
         let me = this,
 
         defaultConfig = {
-            module : HeaderButton,
-            flex   : 'none',
+            module               : HeaderButton,
+            flex                 : 'none',
             index,
-            pressed: me.activeIndex === index,
+            pressed              : me.activeIndex === index,
+            useActiveTabIndicator: me.useActiveTabIndicator,
 
             domListeners: [{
                 click(data) {
@@ -481,14 +546,14 @@ class Container extends BaseContainer {
             }
 
             if (!hasItem) {
-                tab = tabBar.insert(index, me.getTabButtonConfig(item.header, index));
+                tab = tabBar.insertTab(index, me.getTabButtonConfig(item.header, index));
 
                 // todo: non index based matching of tab buttons and cards
                 i = 0;
-                len = tabBar.items.length;
+                len = me.getTabButtons().length;
 
                 for (; i < len; i++) {
-                    tabBar.items[i].index = i
+                    me.getTabButtons()[i].index = i
                 }
 
                 item.flex = 1;
@@ -520,7 +585,7 @@ class Container extends BaseContainer {
         let me            = this,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
-            activeTab     = tabBar.items[me.activeIndex],
+            activeTab     = me.getTabButtons()[me.activeIndex],
             index, returnValue;
 
         tabBar.moveTo(fromIndex, toIndex);
@@ -549,7 +614,29 @@ class Container extends BaseContainer {
      */
     onConstructed() {
         this.layout = {ntype: 'flexbox', ...this.getLayoutConfig()};
-        super.onConstructed()
+        super.onConstructed();
+
+        let tabBar = this.getTabBar();
+
+        tabBar.on('action', this.onHeaderAction, this);
+
+        // The bar is constructed before its parent finished wiring, so its own attempt may have
+        // resolved nothing. The subject is this TabContainer: focus anywhere inside it — a tab
+        // button, the body, an action — exposes the gated actions; only leaving hides them.
+        tabBar.wireFocusSubject()
+    }
+
+    /**
+     * Re-emits generic toolbar intent with TabContainer and active-card context.
+     * @param {Object} data
+     * @protected
+     */
+    onHeaderAction(data) {
+        this.fire('headerAction', {
+            activeCard  : this.getActiveCard(),
+            tabContainer: this,
+            ...data
+        })
     }
 
     /**
@@ -564,12 +651,13 @@ class Container extends BaseContainer {
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
             i             = 0,
-            len           = tabBar.items.length,
+            tabButtons    = me.getTabButtons(),
+            len           = tabButtons.length,
             index         = -1,
             card;
 
         for (; i < len; i++) {
-            if (tabBar.items[i].id === buttonId) {
+            if (tabButtons[i].id === buttonId) {
                 index = i;
                 break
             }
@@ -593,15 +681,16 @@ class Container extends BaseContainer {
      * @param {Neo.component.Base} component The card component instance to remove.
      * @param {Boolean} [destroyItem=true] Set to false to keep the component instance in memory.
      * @param {Boolean} [silent=false] Set to true to prevent `updateTabButtons` from being called.
+     * @param {Boolean} [keepMounted=false] Preserve the card's mounted state for an atomic cross-parent move.
      */
-    remove(component, destroyItem=true, silent=false) {
+    remove(component, destroyItem=true, silent=false, keepMounted=false) {
         let items = [...this.getCardContainer().items],
             i     = 0,
             len   = items.length;
 
         for (; i < len; i++) {
             if (items[i].id === component.id) {
-                this.removeAt(i, destroyItem, silent)
+                return this.removeAt(i, destroyItem, silent, keepMounted)
             }
         }
     }
@@ -610,49 +699,70 @@ class Container extends BaseContainer {
      * Removes a tab from the container at a specific index.
      * @param {Number} index The index of the tab to remove.
      * @param {Boolean} [destroyItem=true] Set to false to keep the component instance in memory.
-     * @param {Boolean} [silent=false] Set to true to prevent `updateTabButtons` from being called.
+     * @param {Boolean} [silent=false] Defer child DOM updates to the caller's common-parent transaction.
+     * @param {Boolean} [keepMounted=false] Preserve the card's mounted state for an atomic cross-parent move.
      */
-    removeAt(index, destroyItem=true, silent=false) {
+    removeAt(index, destroyItem=true, silent=false, keepMounted=false) {
         let me            = this,
             {activeIndex} = me,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
-            i, len;
+            card, i, len;
 
-        cardContainer.removeAt(index, destroyItem, silent);
-        tabBar       .removeAt(index, true,        false);
+        card = cardContainer.removeAt(index, destroyItem, silent, keepMounted);
+        tabBar       .removeTabAt(index, true,     silent);
 
         if (index < activeIndex) {
             // silent updates
             me._activeIndex = activeIndex - 1;
             cardContainer.layout._activeIndex = activeIndex - 1
         } else if (index === activeIndex) {
-            me.activeIndex = activeIndex - 1
+            if (silent) {
+                me._activeIndex = activeIndex - 1;
+                cardContainer.layout._activeIndex = activeIndex - 1;
+
+                // Atomic cross-parent moves defer their one DOM commit to the closest common parent.
+                // Keep both card visibility and tab pressed-state inside that same silent transaction.
+                cardContainer.items.forEach((item, itemIndex) => {
+                    cardContainer.layout.applyChildAttributes(item, itemIndex, true)
+                });
+                me.updateTabButtons(true)
+            } else {
+                me.activeIndex = activeIndex - 1
+            }
         }
 
         // todo: non index based matching of tab buttons and cards
         i   = 0;
-        len = tabBar.items.length;
+        len = me.getTabButtons().length;
 
         for (; i < len; i++) {
-            tabBar.items[i].index = i
+            me.getTabButtons()[i].index = i
         }
+
+        return card
     }
 
     /**
      * Synchronizes the `pressed` state of all tab buttons with the container's `activeIndex`.
      * This ensures that only the button corresponding to the active tab appears pressed.
+     * @param {Boolean} [silent=false] Mutate VDOM state without committing a child-level update.
      * @protected
      */
-    updateTabButtons() {
+    updateTabButtons(silent=false) {
         let me            = this,
             {activeIndex} = me,
-            tabButtons    = me.getTabBar()?.items || [];
+            tabButtons    = me.getTabButtons();
 
         tabButtons.forEach((item, index) => {
-            item.pressed = index === activeIndex
+            if (silent) {
+                item.setSilent({pressed: index === activeIndex})
+            } else {
+                item.pressed = index === activeIndex
+            }
         })
     }
+
 }
 
 export default Neo.setupClass(Container);

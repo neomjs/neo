@@ -1,34 +1,44 @@
 import fs                   from 'fs-extra';
 import path                 from 'path';
+import {fileURLToPath}      from 'node:url';
 import * as Terser          from 'terser';
+import {BROWSER_BUNDLES}    from '../util/browserBundles.mjs';
+import {isDistAppAsset}     from '../util/distAppAssets.mjs';
 import {minifyHtml}         from '../util/minifyHtml.mjs';
 import {processFileContent} from '../util/astTemplateProcessor.mjs';
 
+import {
+    esmOutputRoot,
+    findUnresolvableImports,
+    relativeSpecifiers,
+    resolveSourceRoots,
+    rewriteImportPaths,
+    rewriteNeoConfig
+} from '../util/esmDistTransforms.mjs';
+
 const
-    outputBasePath = 'dist/esm/',
-    regexImport    = /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
+    outputBasePath = `${esmOutputRoot}/`,
     root           = path.resolve(),
     requireJson    = path => JSON.parse(fs.readFileSync(path, 'utf-8')),
     packageJson    = requireJson(path.join(root, 'package.json')),
     insideNeo      = packageJson.name.includes('neo.mjs'),
     startDate      = new Date();
 
+const
+    /** `{outputPath, specifiers}` per emitted module, checked once the whole tree exists. */
+    emittedModules = [],
+    /** Files that threw. Collected rather than logged, so the build can refuse to exit 0. */
+    failures       = [];
+
 let inputDirectories;
 
-if (insideNeo) {
-    inputDirectories = ['apps', 'docs', 'examples', 'src']
-} else {
-    inputDirectories = ['apps', 'docs', 'node_modules/neo.mjs/src', 'src']
-}
-
-function adjustImportPathHandler(match, p1, p2, p3) {
-    let newPath;
-    if (p3.includes('/node_modules/neo.mjs/')) {
-        newPath = p3.replace('/node_modules/neo.mjs/', '/')
-    } else {
-        newPath = '../../' + p3;
-    }
-    return p1 + p2 + newPath + p2
+// A rejected source root is a manifest mistake, not an engine crash: the developer who typed the
+// path is the one who has to read this, and a stack trace through buildScripts tells them nothing.
+try {
+    inputDirectories = resolveSourceRoots({insideNeo, packageJson})
+} catch (error) {
+    console.error(`\ndist/esm: ${error.message}`);
+    process.exit(1)
 }
 
 async function minifyDirectory(inputDir, outputDir) {
@@ -40,16 +50,11 @@ async function minifyDirectory(inputDir, outputDir) {
                 continue;
             }
 
-            const currentPath = dirent.parentPath || dirent.path;
-            const inputPath = path.join(currentPath, dirent.name);
+            const currentPath     = dirent.parentPath || dirent.path;
+            const inputPath       = path.join(currentPath, dirent.name);
             const normalizedInput = inputPath.replace(/\\/g, '/');
 
             if (normalizedInput.includes('/docs/output/')) {
-                continue;
-            }
-
-            // Exception for devindex app: Do not deploy the data folder.
-            if (normalizedInput.includes('/apps/devindex/resources/data/')) {
                 continue;
             }
 
@@ -59,7 +64,7 @@ async function minifyDirectory(inputDir, outputDir) {
             if (dirent.name.endsWith('.mjs') || dirent.name.endsWith('.json') || dirent.name.endsWith('.html')) {
                 const content = fs.readFileSync(inputPath, 'utf8');
                 await minifyFile(content, outputPath);
-            } else if (normalizedInput.includes('/resources/')) {
+            } else if (isDistAppAsset(dirent.name) || normalizedInput.includes('/resources/')) {
                 fs.mkdirSync(path.dirname(outputPath), {recursive: true});
                 fs.copyFileSync(inputPath, outputPath);
             }
@@ -74,15 +79,7 @@ async function minifyFile(content, outputPath) {
         if (outputPath.endsWith('.json')) {
             const jsonContent = JSON.parse(content);
             if (outputPath.endsWith('neo-config.json')) {
-                Object.assign(jsonContent, {
-                    basePath: '../../' + jsonContent.basePath,
-                    environment: 'dist/esm',
-                    mainPath: './Main.mjs',
-                    workerBasePath: jsonContent.basePath + 'src/worker/'
-                });
-                if (!insideNeo) {
-                    jsonContent.appPath = jsonContent.appPath.substring(6)
-                }
+                rewriteNeoConfig(jsonContent, {insideNeo})
             }
             fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
             console.log(`Minified JSON: ${outputPath}`)
@@ -91,27 +88,36 @@ async function minifyFile(content, outputPath) {
             fs.writeFileSync(outputPath, minifiedContent);
             console.log(`Minified HTML: ${outputPath}`)
         } else if (outputPath.endsWith('.mjs')) {
-            let adjustedContent = content.replace(regexImport, adjustImportPathHandler);
+            let adjustedContent = rewriteImportPaths(content);
 
             // AST-based processing for html templates
             const result = processFileContent(adjustedContent, outputPath);
 
             const minifiedResult = await Terser.minify(result.content, {
-                module: true,
+                module  : true,
                 compress: {dead_code: true},
-                mangle: {toplevel: true}
+                mangle  : {toplevel: true}
             });
 
             fs.writeFileSync(outputPath, minifiedResult.code);
+
+            // Recorded from the emitted code, not the source: Terser normalizes quoting, so this is
+            // the only text that reflects what the browser will actually request.
+            emittedModules.push({outputPath, specifiers: relativeSpecifiers(minifiedResult.code)});
+
             console.log(`Minified JS: ${outputPath}`)
         }
     } catch (e) {
+        // Recorded, not merely logged. This catch used to swallow: a file that threw was simply
+        // ABSENT from dist/esm and the build still exited 0 — the same silent-success failure mode
+        // as an unrewritten import, on the error path instead of the transform path.
+        failures.push({outputPath, error: e});
         console.error(`Error minifying ${outputPath}:`, e)
     }
 }
 
 const promises = [];
-const swPath = path.resolve(root, 'ServiceWorker.mjs');
+const swPath   = path.resolve(root, 'ServiceWorker.mjs');
 
 if (fs.existsSync(swPath)) {
     promises.push(minifyFile(fs.readFileSync(swPath, 'utf8'), path.resolve(root, outputBasePath, 'ServiceWorker.mjs')));
@@ -132,6 +138,83 @@ Promise.all(promises).then(() => {
     if (fs.existsSync(docsOutputPath)) {
         fs.copySync(docsOutputPath, path.resolve(root, outputBasePath, 'docs/output'))
     }
+
+    // These bundles belong to the engine supplying this build, not the consumer's cwd.
+    // Their relative imports survive the source-tree flattening unchanged.
+    for (const name of BROWSER_BUNDLES) {
+        const bundlePath = fileURLToPath(new URL(`../../dist/${name}.mjs`, import.meta.url));
+
+        if (fs.existsSync(bundlePath)) {
+            fs.copySync(bundlePath, path.resolve(root, outputBasePath, `dist/${name}.mjs`))
+        }
+    }
+
+    if (failures.length > 0) {
+        console.error(`\ndist/esm: ${failures.length} file(s) failed to build:`);
+        failures.forEach(({outputPath}) => console.error(`  ${path.relative(root, outputPath)}`));
+        process.exit(1)
+    }
+
+    // Runs only once the whole tree exists, because a forward reference to a file another root has
+    // not emitted yet is not a defect. `dist/esm` ships without a resolver, so this is the only
+    // stage that can tell a working output from one that merely finished.
+    const
+        unresolvable = findUnresolvableImports(
+            emittedModules,
+            fs.existsSync,
+            (outputPath, specifier) => path.resolve(path.dirname(outputPath), specifier),
+            root
+        ),
+        describe     = ({outputPath, specifier}) => `  ${path.relative(root, outputPath)} → ${specifier}`,
+        report       = (reason, format = describe) => unresolvable.filter(entry => entry.reason === reason).map(format),
+        missing      = report('missing'),
+        computedRoot = report('computed-root',
+            entry => `${describe(entry)}  (directory ${path.relative(root, entry.resolved)}/ is absent)`),
+        wrongEngine  = report('engine-identity');
+
+    if (missing.length > 0) {
+        console.error(`\ndist/esm: ${missing.length} import(s) do not resolve inside the output tree:`);
+        missing.forEach(line => console.error(line));
+        console.error('\nA source root the app imports may be missing from package.json "neo.esmSourceRoots".')
+    }
+
+    // Reported apart from the missing set because the instruction differs: these specifiers are
+    // computed at runtime and are not broken. The directory their family loads from is the thing that
+    // is not in the output tree, so that is what the line names — telling a developer "this import
+    // does not resolve" would send them to inspect a template literal that is doing nothing wrong.
+    //
+    // A WARNING, never fatal, because the absence has two readings and this stage cannot choose
+    // between them. Inside this repository `apps`, `docs`, `examples` and `src` are all default roots
+    // and all present, so the uncopied-root reading is the only one that ever applies and the arm has
+    // never fired. A consuming workspace inverts it: `examples` is not among ITS default roots, so
+    // `dist/esm/examples/` cannot exist, and `src/worker/Data.mjs`'s `examples/` branch is one such a
+    // workspace never takes. Treated as fatal, that made every consumer build fail on a directory the
+    // workspace had no reason to own and no error text told it to declare.
+    //
+    // The `missing` arm above is the load-bearing one and is untouched: a LITERAL specifier that does
+    // not resolve is a dangling import whoever is building, which is what catches an uncopied root for
+    // every module actually imported by name.
+    if (computedRoot.length > 0) {
+        console.warn(`\ndist/esm: ${computedRoot.length} computed import(s) read from a directory the output tree does not have:`);
+        computedRoot.forEach(line => console.warn(line));
+        console.warn('\nThe interpolation is never resolved — only the path before it. Either a whole source root is uncopied, or the branch that reads it is one this workspace never takes. Only the first is a defect.')
+    }
+
+    // Separate from the missing set on purpose: these DO resolve. They reach the workspace's own
+    // engine source instead of the copy in dist/esm, so the app boots two disjoint module graphs —
+    // a failure that looks like nothing at build time and like everything at runtime.
+    if (wrongEngine.length > 0) {
+        console.error(`\ndist/esm: ${wrongEngine.length} import(s) still address the workspace engine at node_modules/neo.mjs:`);
+        wrongEngine.forEach(line => console.error(line));
+        console.error('\nThese must be rewritten to the flattened dist/esm/src copy; two engine graphs cannot share a class registry.')
+    }
+
+    // `computed-root` is deliberately absent from this sum — see its report above. A build stays green
+    // with warnings and fails only on the two arms that name a real dangling or duplicated module.
+    if (missing.length + wrongEngine.length > 0) {
+        process.exit(1)
+    }
+
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
     console.log(`\nTotal time for dist/esm: ${processTime}s`);
     process.exit()

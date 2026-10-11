@@ -24,7 +24,13 @@ import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs
 import InstanceManager from '../../../../src/manager/Instance.mjs';
 
 // Mock applyDeltas to prevent errors during mount
+const realApplyDeltas = Neo.applyDeltas; // patched at import; restored in afterAll below
+
 Neo.applyDeltas = async () => {};
+
+test.afterAll(() => {
+    Neo.applyDeltas = realApplyDeltas;
+});
 
 class ChildComponent extends Component {
     static config = {

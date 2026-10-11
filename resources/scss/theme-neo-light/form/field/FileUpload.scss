@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-fileuploadfield
+:where(.neo-theme-neo-light) { // .neo-fileuploadfield
     --fileuploadfield-background-color        : #fff;
     --fileuploadfield-border-color            : #d5d5d5;
     --fileuploadfield-color                   : #000;

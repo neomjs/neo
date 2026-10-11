@@ -51,8 +51,49 @@ export default Neo.setupClass(MyReactiveClass);
 ```
 
 Assigning a new value to a reactive property (e.g., `this.myReactiveProp = 'new value'`) triggers its setter, which in
-turn can invoke lifecycle hooks, enabling automatic updates and side effects. Properties without the underscore are
-static and do not trigger this reactive behavior.
+turn can invoke lifecycle hooks, enabling automatic updates and side effects. When you are declaring a **new** config,
+leaving the underscore off makes it a plain prototype value that does not trigger this reactive behavior.
+
+### Overriding an inherited reactive config
+
+A config is declared reactive exactly once **per config name** in the prototype chain. The sentence above therefore
+still holds for any config this class introduces — a subclass declares its own new reactive configs with the underscore
+exactly like a base class does. What changes is only the case where the name is **already reactive on an ancestor**: to
+give such a config a new default, use the **bare name** — it stays fully reactive, lifecycle hooks included:
+
+```javascript readonly
+class MyComponent extends Neo.component.Base {
+    static config = {
+        className: 'My.Component',
+        width    : 300 // overrides the inherited `width_` default — still reactive
+    }
+}
+```
+
+Repeating the underscore is not merely unidiomatic — `Neo.setupClass` **throws**, because an ancestor already owns the
+accessor. The check is `Neo.hasPropertySetter`, which walks the whole prototype chain, so this fires for a config
+inherited from any base class, not only the direct parent:
+
+```javascript readonly
+static config = {
+    width_: 300 // ✗ throws: 'width' is already defined as reactive by a parent class
+}
+```
+
+If what you need is custom behavior rather than a new default, implement the `beforeGetWidth()`, `beforeSetWidth()` or
+`afterSetWidth()` hooks described in section 3 instead of redeclaring the config. The canonical statement of this rule
+lives in [Class Compilation → Prototype Chain Walking & Config Merging](../coreengine/SetupClass.md#1-prototype-chain-walking--config-merging).
+
+### Fields and configs never trade places
+
+The same discipline covers the other kind of member: **a class extension never replaces a class field with a config, or
+a config with a field.** A field is an own data property that `new` initializes on the instance; a config is a prototype
+value or, when reactive, a prototype accessor that `Neo.setupClass` generates. A name shared across the two anywhere in
+one prototype chain is a collision, not an override — the own property shadows the prototype for reads and writes
+alike, so a plain config's value never applies and a reactive config's hooks never run, and nothing would report it.
+`Neo.create` refuses the collision right after `new`, before `construct()` runs — for plain and reactive configs alike —
+naming the field, the class and, for a reactive config, the hook that would never fire. Give a config a new default with
+a bare entry in `static config`, and keep internal state in fields whose names no config in the chain uses.
 
 ## 3. Configuration Lifecycle Hooks (`beforeSet`, `afterSet`, `beforeGet`)
 
@@ -192,13 +233,31 @@ This means that after `Neo.setupClass(MyClass)` is executed, your class becomes 
   * **Improve Readability**: Clearly show the dependencies of your module.
   * **Enhance Tooling**: Enable better static analysis, auto-completion, and refactoring support in modern IDEs.
   * **Ensure Consistency**: Promote a consistent and predictable coding style.
-* **Framework Internal Use**: The global `Neo` namespace is heavily utilized internally by the engine itself for
+* **Engine Internal Use**: The global `Neo` namespace is heavily utilized internally by the engine itself for
   its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
+
+### Automatic `is<Ntype>` Type Flags
+
+Enhancing the global namespace is not the only thing `setupClass()` does. It also derives a boolean `is<Ntype>` flag
+on the prototype for every `ntype` in the class's chain — `ntype: 'tree-store'` yields `isTreeStore`, and a
+`TreeStore` also carries its ancestors' `isStore`. That gives a subtype test needing no `instanceof` and no import of
+the class being tested against, so a base class can branch on a subtype without taking a dependency edge on it:
+
+```javascript
+// src/grid/Container.mjs — a TreeStore turns the grid into a TreeGrid; a plain Store does not
+me.isTreeGrid = value?.isTreeStore === true;
+```
+
+Because the names are **computed at runtime**, a source search cannot find where they are set: `grep isTreeStore src/`
+matches only the line that *reads* the flag. One hit at a read site is not evidence of a dangling reference.
+
+See [Class Compilation → Synthesizing `is<Ntype>` Type Flags](../coreengine/SetupClass.md#3-synthesizing-isntype-type-flags)
+for the derivation, the chain-walk semantics, and how this differs from the trailing-underscore reactive API.
 
 Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for
 its configuration-driven approach.
 
-## 5. Practical Examples: Models, Stores, and Controllers
+## 6. Practical Examples: Models, Stores, and Controllers
 
 The principles of class extension apply universally across all Neo.mjs class types.
 

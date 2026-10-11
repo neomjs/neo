@@ -30,6 +30,8 @@ test.describe('functional/Button', () => {
     let button, vnode;
     let testRun = 0;
 
+    const realApplyDeltas = Neo.applyDeltas;
+
     test.beforeEach(async () => {
         testRun++;
 
@@ -51,6 +53,8 @@ test.describe('functional/Button', () => {
         button?.destroy();
         button = null;
         vnode  = null;
+
+        Neo.applyDeltas = realApplyDeltas;
     });
 
     test('should create initial vnode correctly', async () => {

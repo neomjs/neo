@@ -1,0 +1,1382 @@
+import Base from '../../../core/Base.mjs';
+
+/**
+ * @class Neo.dashboard.dock.model.WorkspaceDocument
+ * @extends Neo.core.Base
+ *
+ * @summary The committed dock-zone document contract: schema keys, validation, normalization, tree helpers, and the fail-closed commit.
+ *
+ * Split out of the former monolithic zone model per the graduated v13.2 DockLayouts
+ * architecture: `model.WorkspaceDocument` owns the committed-document contract, `model.Operations`
+ * owns the semantic reducer vocabulary, `model.Persistence` owns saved-layout envelopes,
+ * and `persistence.PerspectiveLibrary` is the sole collection/perspective authority.
+ * Return shape for every operation and envelope helper: `{document|layout, errors}` —
+ * fail-closed, the input is never partially mutated.
+ */
+class WorkspaceDocument extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.dashboard.dock.model.WorkspaceDocument'
+         * @protected
+         */
+        className: 'Neo.dashboard.dock.model.WorkspaceDocument'
+    }
+
+    /**
+     * The persisted dock-zone document schema this executor operates on.
+     * @member {String} SCHEMA='neo.dock.zone.v1'
+     * @static
+     */
+    static SCHEMA = 'neo.dock.zone.v1'
+
+    /**
+     * Top-level fields allowed in a persisted dock-zone document.
+     * @member {Set<String>} dockZoneDocumentKeys
+     * @protected
+     * @static
+     */
+    static dockZoneDocumentKeys = new Set(['schema', 'root', 'items', 'nodes'])
+
+    /**
+     * Fields allowed on persisted dock-zone item records.
+     *
+     * `reference` is the component-lookup key, spelled as the engine spells it everywhere else
+     * (`component.Base#reference_`), so a projected pane resolves through `getReference()` and the
+     * view-controller path and carries `data-ref` on its root. It replaces the retired
+     * `componentRef`, which is absent by intent rather than by oversight: this Set is a strict
+     * allowlist and {@link #findUnexpectedKey} rejects anything outside it, so a document still
+     * carrying the old name fails validation loudly instead of restoring into a field nothing owns.
+     *
+     * `kind` is retired for the same reason and by the same rule. No engine code ever read it,
+     * and its values named nothing the dock instantiates — every pane carrying `kind: 'panel'`
+     * is a `component.Base`, not a `container.Panel`. It is not to be confused with
+     * `placement.kind` (`tab-*`, `split-*`, `edge-*`), a live drag-geometry field that shares
+     * only the name.
+     *
+     * A consumer that wants a tag the engine does not own puts it in `metadata`, the sanctioned
+     * opaque channel — not in a first-class field.
+     * @member {Set<String>} dockZoneItemKeys
+     * @protected
+     * @static
+     */
+    static dockZoneItemKeys = new Set([
+        'reference', 'title', 'blueprint', 'closable', 'pinnable', 'pinned',
+        'autoHidden', 'lockable', 'locked', 'movable', 'metadata'
+    ])
+
+    /**
+     * Fields allowed on persisted dock-zone nodes, keyed by node type.
+     * @member {Object<String, Set<String>>} dockZoneNodeKeys
+     * @protected
+     * @static
+     */
+    static dockZoneNodeKeys = {
+        'edge-zone': new Set(['type', 'zones']),
+        split      : new Set(['type', 'orientation', 'children', 'sizes']),
+        tabs       : new Set(['type', 'items', 'activeItemId'])
+    }
+
+    /**
+     * Runtime-only preview / interaction keys that must never enter committed OR persisted dock-zone
+     * state (the JSON-first serialization contract). `validate` rejects a document carrying any of
+     * these ANYWHERE — including inside the opaque `metadata` channel — so they cannot be smuggled
+     * through a saved layout; `Neo.dashboard.dock.projection.LayoutAdapter` reads this same set at the projection
+     * boundary, so persistence-rejection and projection-rejection cannot drift.
+     * @member {Set<String>} forbiddenPreviewKeys
+     * @protected
+     * @static
+     */
+    static forbiddenPreviewKeys = new Set([
+        'appName',
+        'currentIndex',
+        'draggedItem',
+        'dockPreview',
+        'domRect',
+        'DOMRect',
+        'groupNodeId',
+        'isWindowDragging',
+        'placement',
+        'pointer',
+        'pointerX',
+        'pointerY',
+        'previewId',
+        'sourceSortZone',
+        'targetSortZone',
+        'windowId'
+    ])
+
+    /**
+     * @summary Recursively finds the first runtime-only preview key ({@link #forbiddenPreviewKeys})
+     * anywhere in an arbitrary JSON graph — including nested `metadata` — or null when the graph is
+     * clean. Both the persistence contract (`validate`) and the render boundary (adapter projection)
+     * scan through this one finder.
+     * @param {*} value
+     * @returns {String|null}
+     * @protected
+     * @static
+     */
+    static findForbiddenPreviewKey(value) {
+        if (!value || typeof value !== 'object') {
+            return null
+        }
+
+        if (Array.isArray(value)) {
+            for (let i = 0; i < value.length; i++) {
+                let match = WorkspaceDocument.findForbiddenPreviewKey(value[i]);
+
+                if (match) {
+                    return match
+                }
+            }
+
+            return null
+        }
+
+        for (let key of Object.keys(value)) {
+            if (WorkspaceDocument.forbiddenPreviewKeys.has(key)) {
+                return key
+            }
+
+            let match = WorkspaceDocument.findForbiddenPreviewKey(value[key]);
+
+            if (match) {
+                return match
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * Zone names allowed in an `edge-zone` node.
+     * @member {Set<String>} dockZoneEdgeKeys
+     * @protected
+     * @static
+     */
+    static dockZoneEdgeKeys = new Set(['top', 'right', 'bottom', 'left', 'center'])
+
+    /**
+     * Fields allowed on one nested edge-zone descriptor.
+     * @member {Set<String>} dockZoneDescriptorKeys
+     * @protected
+     * @static
+     */
+    static dockZoneDescriptorKeys = new Set(['nodeId', 'extent', 'resizable'])
+
+    /**
+     * @summary Resolves the child node id owned by one final nested edge-zone descriptor.
+     *
+     * The v13.2 greenfield contract deliberately rejects the retired string shorthand. Returning
+     * null for every non-record shape keeps tree walkers fail-closed without creating a hidden
+     * compatibility reader.
+     * @param {*} descriptor
+     * @returns {String|null}
+     * @static
+     */
+    static getZoneNodeId(descriptor) {
+        return WorkspaceDocument.isJsonRecord(descriptor) && typeof descriptor.nodeId === 'string' && descriptor.nodeId
+            ? descriptor.nodeId
+            : null
+    }
+
+    /**
+     * @summary Repoints one nested edge-zone descriptor while preserving its extent and policy.
+     * @param {Object} edgeZoneNode
+     * @param {String} edge
+     * @param {String} nodeId
+     * @protected
+     * @static
+     */
+    static setZoneNodeId(edgeZoneNode, edge, nodeId) {
+        edgeZoneNode.zones[edge] = {
+            ...(WorkspaceDocument.isJsonRecord(edgeZoneNode.zones[edge]) ? edgeZoneNode.zones[edge] : {}),
+            nodeId
+        }
+    }
+
+    /**
+     * @summary Type-aware deep clone of a dock-zone document.
+     *
+     * Uses `Neo.clone` (deep, ignoring Neo instances) rather than a `JSON.parse(JSON.stringify())`
+     * round-trip: the round-trip corrupts `Date` values into strings and silently drops `undefined`,
+     * functions, `Map`/`Set`, and symbol keys, whereas `Neo.clone`'s type map preserves them.
+     * @param {Object} document
+     * @returns {Object}
+     * @static
+     */
+    static clone(document) {
+        return Neo.clone(document, true, true)
+    }
+
+    /**
+     * @summary Returns true for JSON object records only.
+     * @param {*} value
+     * @returns {Boolean}
+     * @protected
+     * @static
+     */
+    static isJsonRecord(value) {
+        return value !== null &&
+            typeof value === 'object' &&
+            (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
+    }
+
+    /**
+     * @summary Returns the first value that cannot round-trip as JSON.
+     * @param {*} value
+     * @param {String} [path='value']
+     * @param {WeakSet<Object>} [seen=new WeakSet()]
+     * @returns {{path:String, reason:String}|null}
+     * @protected
+     * @static
+     */
+    static findNonJsonValue(value, path='value', seen=new WeakSet()) {
+        if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+            return null
+        }
+
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? null : {path, reason: 'number must be finite'}
+        }
+
+        if (typeof value !== 'object') {
+            return {path, reason: `${typeof value} is not JSON-serializable`}
+        }
+
+        if (seen.has(value)) {
+            return {path, reason: 'cyclic object graph is not JSON-serializable'}
+        }
+
+        seen.add(value);
+
+        if (Array.isArray(value)) {
+            for (let i = 0; i < value.length; i++) {
+                let match = WorkspaceDocument.findNonJsonValue(value[i], `${path}[${i}]`, seen);
+
+                if (match) {
+                    return match
+                }
+            }
+
+            return null
+        }
+
+        if (!WorkspaceDocument.isJsonRecord(value)) {
+            return {path, reason: `${value.constructor?.name || 'object'} is not a JSON record`}
+        }
+
+        for (const key of Reflect.ownKeys(value)) {
+            if (typeof key === 'symbol') {
+                return {path: `${path}.${String(key)}`, reason: 'symbol keys are not JSON-serializable'}
+            }
+
+            let match = WorkspaceDocument.findNonJsonValue(value[key], `${path}.${key}`, seen);
+
+            if (match) {
+                return match
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Returns the first own string key outside a finite schema allowlist.
+     * @param {Object} record
+     * @param {Set<String>} allowedKeys
+     * @param {String} path
+     * @returns {{key:String, path:String, reason:String}|null}
+     * @protected
+     * @static
+     */
+    static findUnexpectedKey(record, allowedKeys, path) {
+        for (const key of Object.keys(record)) {
+            if (!allowedKeys.has(key)) {
+                return {key, path: `${path}.${key}`, reason: 'field is outside the saved-layout schema'}
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Returns true when a metadata key name is likely to carry credential material.
+     * @param {String} key
+     * @returns {Boolean}
+     * @protected
+     * @static
+     */
+    static isSecretMetadataKey(key) {
+        let normalized = key
+            .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+            .replace(/[^a-z0-9]+/gi, '_')
+            .replace(/^_+|_+$/g, '')
+            .toLowerCase();
+
+        return /(^|_)(secret|secrets|token|tokens|credential|credentials|password|passwords|pat|pats)$/.test(normalized) ||
+            /(^|_)(api|auth|session|access|refresh|bridge|github|private|personal_access)_?(key|token|secret|credential|password)$/.test(normalized)
+    }
+
+    /**
+     * @summary Returns the first metadata key that looks like credential material.
+     * @param {*} value
+     * @param {String} [path='metadata']
+     * @returns {{key:String, path:String, reason:String}|null}
+     * @protected
+     * @static
+     */
+    static findSecretMetadataKey(value, path='metadata') {
+        if (Array.isArray(value)) {
+            for (let i = 0; i < value.length; i++) {
+                let match = WorkspaceDocument.findSecretMetadataKey(value[i], `${path}[${i}]`);
+
+                if (match) {
+                    return match
+                }
+            }
+
+            return null
+        }
+
+        if (!WorkspaceDocument.isJsonRecord(value)) {
+            return null
+        }
+
+        for (const [key, child] of Object.entries(value)) {
+            if (WorkspaceDocument.isSecretMetadataKey(key)) {
+                return {key, path: `${path}.${key}`, reason: 'metadata must not contain credentials or secrets'}
+            }
+
+            let match = WorkspaceDocument.findSecretMetadataKey(child, `${path}.${key}`);
+
+            if (match) {
+                return match
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Returns the first field in a dock-zone document that is outside the persisted schema.
+     *
+     * `metadata` and `blueprint` are explicit opaque JSON-only extension points. They are caller-owned
+     * descriptive/config payloads and must not carry secrets or runtime authority; the helper enforces
+     * their JSON value shape, while this allowlist rejects runtime fields added beside the known model.
+     * @param {Object} document
+     * @param {String} [path='dockZone']
+     * @returns {{key:String, path:String, reason:String}|null}
+     * @protected
+     * @static
+     */
+    static findUnexpectedDockZoneKey(document, path='dockZone') {
+        if (!WorkspaceDocument.isJsonRecord(document)) {
+            return null
+        }
+
+        let unexpected = WorkspaceDocument.findUnexpectedKey(document, WorkspaceDocument.dockZoneDocumentKeys, path);
+
+        if (unexpected) {
+            return unexpected
+        }
+
+        if (WorkspaceDocument.isJsonRecord(document.items)) {
+            for (const [itemId, item] of Object.entries(document.items)) {
+                if (!WorkspaceDocument.isJsonRecord(item)) {
+                    return {key: itemId, path: `${path}.items.${itemId}`, reason: 'item record must be a JSON object'}
+                }
+
+                unexpected = WorkspaceDocument.findUnexpectedKey(item, WorkspaceDocument.dockZoneItemKeys, `${path}.items.${itemId}`);
+
+                if (unexpected) {
+                    return unexpected
+                }
+            }
+        }
+
+        if (WorkspaceDocument.isJsonRecord(document.nodes)) {
+            for (const [nodeId, node] of Object.entries(document.nodes)) {
+                if (!WorkspaceDocument.isJsonRecord(node)) {
+                    return {key: nodeId, path: `${path}.nodes.${nodeId}`, reason: 'node record must be a JSON object'}
+                }
+
+                let allowedNodeKeys = WorkspaceDocument.dockZoneNodeKeys[node.type];
+
+                if (!allowedNodeKeys) {
+                    return {key: 'type', path: `${path}.nodes.${nodeId}.type`, reason: `unsupported dock-zone node type "${node.type}"`}
+                }
+
+                unexpected = WorkspaceDocument.findUnexpectedKey(node, allowedNodeKeys, `${path}.nodes.${nodeId}`);
+
+                if (unexpected) {
+                    return unexpected
+                }
+
+                if (node.type === 'edge-zone') {
+                    if (!WorkspaceDocument.isJsonRecord(node.zones)) {
+                        return {key: 'zones', path: `${path}.nodes.${nodeId}.zones`, reason: 'edge-zone zones must be a JSON object'}
+                    }
+
+                    unexpected = WorkspaceDocument.findUnexpectedKey(node.zones, WorkspaceDocument.dockZoneEdgeKeys, `${path}.nodes.${nodeId}.zones`);
+
+                    if (unexpected) {
+                        return unexpected
+                    }
+
+                    for (const [edge, descriptor] of Object.entries(node.zones)) {
+                        if (!WorkspaceDocument.isJsonRecord(descriptor)) {
+                            return {
+                                key   : edge,
+                                path  : `${path}.nodes.${nodeId}.zones.${edge}`,
+                                reason: 'edge-zone descriptor must be a JSON object'
+                            }
+                        }
+
+                        unexpected = WorkspaceDocument.findUnexpectedKey(
+                            descriptor,
+                            WorkspaceDocument.dockZoneDescriptorKeys,
+                            `${path}.nodes.${nodeId}.zones.${edge}`
+                        );
+
+                        if (unexpected) {
+                            return unexpected
+                        }
+                    }
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Mints a node id not yet present in the document.
+     * @param {Object} document
+     * @param {String} prefix
+     * @returns {String}
+     * @static
+     */
+    static genId(document, prefix) {
+        let n = 0,
+            id;
+
+        do {
+            id = `${prefix}-${n++}`
+        } while (document.nodes[id]);
+
+        return id
+    }
+
+    /**
+     * @summary Returns the id of the tabs node currently holding `itemId`, or null.
+     * @param {Object} document
+     * @param {String} itemId
+     * @returns {String|null}
+     * @static
+     */
+    static findContainingTabsId(document, itemId) {
+        for (const [nodeId, node] of Object.entries(document.nodes)) {
+            if (node.type === 'tabs' && Array.isArray(node.items) && node.items.includes(itemId)) {
+                return nodeId
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Captures an item's exact tree placement — the stored-position half of
+     * exact-position reintegration (docking design record §2.8,
+     * `learn/agentos/decisions/0029-docking-design.md`).
+     *
+     * `addTab` appends by default, so a detached item's way back to its ORIGINAL slot exists
+     * only if this pair was captured while the item was still in the tree — capture happens
+     * BEFORE the detach commit, restore passes the pair straight into `addTab`'s clamped
+     * `index`. Fail-closed: an item no tabs node currently holds captures `null` (catalog
+     * presence is not placement; there is nothing to restore to).
+     *
+     * `home` carries the tabs node's OWN position, because a `tabsNodeId` is only restorable
+     * while that node still exists — and for the commonest tear-out (a pane alone in its zone)
+     * it never does: the emptied node is removed on commit and an emptied split collapses with
+     * it. The id alone therefore describes a home that is guaranteed to be gone exactly when it
+     * is needed. See {@link Neo.dashboard.dock.model.WorkspaceDocument.captureNodeHome}.
+     * @param {Object} document
+     * @param {String} itemId
+     * @returns {{tabsNodeId: String, index: Number, home: Object|null}|null}
+     * @static
+     */
+    static captureItemPlacement(document, itemId) {
+        let tabsNodeId = WorkspaceDocument.findContainingTabsId(document, itemId),
+            index      = tabsNodeId ? document.nodes[tabsNodeId].items.indexOf(itemId) : -1;
+
+        return index >= 0 ? {tabsNodeId, index, home: WorkspaceDocument.captureNodeHome(document, tabsNodeId)} : null
+    }
+
+    /**
+     * @summary Captures a node's own position well enough to REBUILD it, not merely to find it.
+     *
+     * Records the parent slot plus, for a split parent, the orientation, the node's size share and
+     * a sibling anchor. The sibling is what makes the record survive its own parent: removing a
+     * node from a two-child split leaves one child, and `normalizeTree` collapses that split away
+     * too — so `parentId` is unresolvable in precisely the case this record exists for. The sibling
+     * is the node that split collapsed INTO, so it is still there.
+     *
+     * An edge-zone parent needs no anchor: an edge-zone node survives losing every zone, so its id
+     * and the zone key remain resolvable. **That argument covers the ANCHOR and nothing else** — the
+     * id surviving says nothing about the slot's geometry surviving. An edge zone's size lives on the
+     * DESCRIPTOR (`{nodeId, extent, resizable}`), and a sole-occupant tear-out clears the whole
+     * descriptor with the node, so the extent has to be recorded here or it is gone. `extent` and
+     * `resizable` are therefore the edge-zone counterpart of the split branch's `size` and
+     * `orientation`: absent when the descriptor declared none, never invented.
+     * @param {Object} document
+     * @param {String} nodeId
+     * @returns {{parentId:String, slot:(Number|String), orientation:String, size:Number, siblingId:String, position:String, extent:Number, resizable:Boolean}|null}
+     * @static
+     */
+    static captureNodeHome(document, nodeId) {
+        let slot = WorkspaceDocument.findParentSlot(document, nodeId);
+
+        if (!slot) return null;
+
+        let parent = document.nodes[slot.parentId],
+            home   = {parentId: slot.parentId, slot: slot.slot};
+
+        if (parent?.type === 'edge-zone' && typeof slot.slot === 'string') {
+            let descriptor = parent.zones?.[slot.slot];
+
+            if (WorkspaceDocument.isJsonRecord(descriptor)) {
+                // Recorded only when declared: a slot that never carried an extent must come back
+                // without one, so the projection default keeps deciding rather than a value we made up.
+                typeof descriptor.extent  === 'number'  && (home.extent    = descriptor.extent);
+                typeof descriptor.resizable === 'boolean' && (home.resizable = descriptor.resizable)
+            }
+        }
+
+        if (parent?.type === 'split' && typeof slot.slot === 'number') {
+            let children = parent.children || [],
+                sizes    = Array.isArray(parent.sizes) ? parent.sizes : [],
+                size     = sizes[slot.slot],
+                before   = children[slot.slot - 1],
+                after    = children[slot.slot + 1];
+
+            home.orientation = parent.orientation;
+            home.size        = typeof size === 'number' && size > 0 && size < 1 ? size : 0.5;
+
+            if (before || after) {
+                home.siblingId = before || after;
+                home.position  = before ? 'after' : 'before'
+            }
+        }
+
+        return home
+    }
+
+    /**
+     * @summary Mutating helper: grafts an already-present node back into the home
+     * {@link Neo.dashboard.dock.model.WorkspaceDocument.captureNodeHome} recorded for it.
+     *
+     * Three resolutions, most faithful first: the recorded parent still holds the slot and it is
+     * still FREE (an edge-zone that lost the key, or a split that kept ≥ 2 other children);
+     * otherwise the sibling the collapsed split folded into is re-split against, restoring
+     * orientation, side and ratio; otherwise nothing resolves and this fails closed rather than
+     * guessing a home.
+     *
+     * A recorded coordinate can go wrong two ways, and they need different answers: it can become
+     * INVALID (the node is gone — what the sibling anchor exists for) or OCCUPIED (someone else
+     * took the slot). Restoration guards the first by instinct and forgets the second, so the
+     * single-slot edge-zone path checks ownership explicitly; the split path is safe only because
+     * insertion is additive.
+     *
+     * Fails closed on purpose: choosing an arbitrary node here would look like a restoration and be
+     * a relocation. Deciding that somewhere beats nowhere belongs to the caller, which knows whether
+     * a pane is otherwise about to be dropped.
+     * @param {Object} document the working (already-cloned) document
+     * @param {String} nodeId
+     * @param {Object} home
+     * @returns {String[]} the (possibly empty) errors — empty means it mutated `document`
+     * @protected
+     * @static
+     */
+    static restoreNodeHome(document, nodeId, home) {
+        if (!document.nodes[nodeId]) return [`unknown node "${nodeId}"`];
+        if (!home)                   return [`no recorded home for "${nodeId}"`];
+
+        let parent = document.nodes[home.parentId];
+
+        if (parent?.type === 'edge-zone' && typeof home.slot === 'string') {
+            const occupant = WorkspaceDocument.getZoneNodeId(parent.zones?.[home.slot]);
+
+            // An edge zone holds ONE node per key, so writing the slot REPLACES whatever is there.
+            // A vessel is long-lived: the user can dock another pane to this edge while the pane is
+            // out, and overwriting would orphan that node — a silently lost pane, and not the one
+            // being restored. An occupied slot is therefore not a home. This is the ownership
+            // question, distinct from the existence question every other path asks.
+            if (!occupant || occupant === nodeId) {
+                let existed = WorkspaceDocument.isJsonRecord(parent.zones?.[home.slot]);
+
+                WorkspaceDocument.setZoneNodeId(parent, home.slot, nodeId);
+
+                // `setZoneNodeId` spreads whatever descriptor it finds, so a SURVIVING slot keeps its
+                // own geometry — including a resize the user performed while the pane was out, which
+                // a stale record must never overwrite. Only an emptied slot has nothing to spread,
+                // and that is the one case the record fills.
+                if (!existed) {
+                    let target = parent.zones[home.slot];
+
+                    // Fail closed on a corrupt record rather than authoring a document `validate`
+                    // would reject: the extent contract is a finite number in the open interval (0,1).
+                    if (typeof home.extent === 'number' && Number.isFinite(home.extent) &&
+                        home.extent > 0 && home.extent < 1) {
+                        target.extent = home.extent
+                    }
+
+                    typeof home.resizable === 'boolean' && (target.resizable = home.resizable)
+                }
+
+                return []
+            }
+        }
+
+        if (parent?.type === 'split' && typeof home.slot === 'number') {
+            let children = parent.children || (parent.children = []),
+                at       = Math.max(0, Math.min(home.slot, children.length)),
+                size     = typeof home.size === 'number' ? home.size : 1 / (children.length + 1);
+
+            children.splice(at, 0, nodeId);
+
+            if (Array.isArray(parent.sizes)) {
+                // Whatever the survivors' ratios are now, they sum to 1, so scaling them by the share
+                // being reclaimed frees exactly that share and leaves their ratios TO EACH OTHER
+                // untouched. It does not recover the split's pre-detach geometry: `normalizeTree`
+                // resets a split's sizes to equal when a child collapses, so that is already gone
+                // before this runs. This helper restores POSITION; geometry is not recoverable here.
+                parent.sizes = parent.sizes.map(value => value * (1 - size));
+                parent.sizes.splice(at, 0, size)
+            }
+
+            return []
+        }
+
+        if (home.siblingId && document.nodes[home.siblingId]) {
+            // The split that held both is gone, so it had exactly two children — the sibling's share
+            // is the remainder, exactly rather than approximately.
+            let sizes = home.position === 'before' ? [home.size, 1 - home.size] : [1 - home.size, home.size];
+
+            return WorkspaceDocument.attachNode(document, nodeId, home.siblingId, {
+                orientation: home.orientation,
+                position   : home.position,
+                sizes
+            })
+        }
+
+        return [`the recorded home of "${nodeId}" no longer resolves`]
+    }
+
+    /**
+     * @summary Finds the parent node id + the slot key pointing at `nodeId`.
+     *
+     * For a `split` parent the slot is the child index (Number); for an `edge-zone` parent it is the
+     * zone key (String). Returns null when `nodeId` is the root or unreferenced.
+     * @param {Object} document
+     * @param {String} nodeId
+     * @returns {{parentId:String, slot:(Number|String)}|null}
+     * @static
+     */
+    static findParentSlot(document, nodeId) {
+        for (const [parentId, node] of Object.entries(document.nodes)) {
+            if (node.type === 'split' && Array.isArray(node.children)) {
+                const index = node.children.indexOf(nodeId);
+                if (index > -1) return {parentId, slot: index}
+            } else if (node.type === 'edge-zone' && node.zones) {
+                for (const [zone, descriptor] of Object.entries(node.zones)) {
+                    if (WorkspaceDocument.getZoneNodeId(descriptor) === nodeId) return {parentId, slot: zone}
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Returns the workspace edge whose rail `itemId` would collapse to, or null when no
+     * edge owns it — the structural half of docking design record §2.7's "the rail an item collapses
+     * to is the edge zone that contains it".
+     *
+     * Walks item → tabs node → ancestors, recording every `edge-zone` ancestor reached through a
+     * DIRECTIONAL slot and returning the OUTERMOST one. Outermost is not an arbitrary tie-break: it
+     * is what the projection already does. `LayoutAdapter.projectEdgeZoneNode` collects each band
+     * with `collectAutoHiddenItems`, which recurses through nested edge-zones, then passes the
+     * claimed set down as `railedItemIds` so the inner tab flow drops them — so an item nested two
+     * edge-zones deep rails on the OUTER edge, and an inner band that also contains it never gets to
+     * claim it, because that projection filters its own collection against the inherited claim.
+     *
+     * This query and that projection must agree, and `DockZoneModel.spec` pins them together against
+     * the RENDERED tree — `LayoutAdapter.project()`, not `collectAutoHiddenItems`. Comparing against
+     * the collection helper is what let them drift: the helper recurses correctly and so agreed with
+     * this query by construction, while the projection built from it re-railed the nested item and
+     * left its sibling in the tab flow. Two derivations agreeing with each other was never the
+     * property; agreeing with what renders is.
+     *
+     * A `center` slot is not a claim (§2.7: center-zone items never rail — main content does not
+     * auto-hide), so an item reaching the root only through center zones returns null. Null is
+     * therefore the fail-safe answer for BOTH "center-owned" and "no such item": a caller gating an
+     * affordance on a truthy edge cannot offer a collapse the projection would not render.
+     * @param {Object} document
+     * @param {String} itemId
+     * @returns {String|null} One of `top`, `right`, `bottom`, `left`, else null
+     * @static
+     */
+    static findOwningEdge(document, itemId) {
+        let nodeId = WorkspaceDocument.findContainingTabsId(document, itemId),
+            edge   = null,
+            seen   = new Set(),
+            parent;
+
+        // `seen` bounds the climb. A well-formed document is a tree, but this query also runs
+        // against documents mid-operation, and a cycle here would hang the render thread.
+        while (nodeId && !seen.has(nodeId)) {
+            seen.add(nodeId);
+
+            parent = WorkspaceDocument.findParentSlot(document, nodeId);
+
+            if (!parent) break;
+
+            if (document.nodes[parent.parentId]?.type === 'edge-zone' &&
+                ['top', 'right', 'bottom', 'left'].includes(parent.slot)) {
+                edge = parent.slot
+            }
+
+            nodeId = parent.parentId
+        }
+
+        return edge
+    }
+
+    /**
+     * @summary Mutating helper: removes `itemId` from whatever tabs node holds it, fixing activeItemId.
+     * @param {Object} document the working (already-cloned) document
+     * @param {String} itemId
+     * @protected
+     * @static
+     */
+    static detachFromTabs(document, itemId) {
+        let tabsId = WorkspaceDocument.findContainingTabsId(document, itemId);
+
+        if (!tabsId) return;
+
+        let node = document.nodes[tabsId];
+
+        node.items = node.items.filter(id => id !== itemId);
+
+        if (node.activeItemId === itemId) {
+            node.activeItemId = node.items[0] ?? null
+        }
+    }
+
+    /**
+     * @summary Set of node ids reachable from the document root.
+     * @param {Object} document
+     * @returns {Set<String>}
+     * @static
+     */
+    static reachableNodeIds(document) {
+        let seen = new Set(),
+            walk = nodeId => {
+                if (!nodeId || seen.has(nodeId)) return;
+
+                let node = document.nodes[nodeId];
+
+                if (!node) return;
+
+                seen.add(nodeId);
+
+                if (node.type === 'split') {
+                    (node.children || []).forEach(walk)
+                } else if (node.type === 'edge-zone') {
+                    Object.values(node.zones || {}).map(WorkspaceDocument.getZoneNodeId).forEach(walk)
+                }
+            };
+
+        walk(document.root);
+
+        return seen
+    }
+
+    /**
+     * @summary Mutating helper: unlinks the subtree rooted at `nodeId` from its parent, leaving the
+     * subtree's nodes in place (an unreferenced subtree the caller re-attaches, or `normalizeTree`
+     * prunes). A split parent has the child spliced out and its remaining sizes renormalized to sum 1
+     * (preserving the survivors' relative ratios); an edge-zone parent has the zone deleted.
+     * @param {Object} document the working (already-cloned) document
+     * @param {String} nodeId
+     * @protected
+     * @static
+     */
+    static detachNode(document, nodeId) {
+        let slot = WorkspaceDocument.findParentSlot(document, nodeId);
+
+        if (!slot) return;
+
+        let parent = document.nodes[slot.parentId];
+
+        if (typeof slot.slot === 'number') {
+            parent.children.splice(slot.slot, 1);
+
+            if (Array.isArray(parent.sizes)) {
+                parent.sizes.splice(slot.slot, 1);
+
+                let sum = parent.sizes.reduce((total, size) => total + size, 0);
+
+                if (sum > 0) {
+                    parent.sizes = parent.sizes.map(size => size / sum);
+
+                    // pin the last ratio to absorb float drift so the survivors sum to exactly 1
+                    let last = parent.sizes.length - 1;
+
+                    if (last > 0) {
+                        parent.sizes[last] = 1 - parent.sizes.slice(0, last).reduce((total, size) => total + size, 0)
+                    }
+                }
+            }
+        } else {
+            delete parent.zones[slot.slot]
+        }
+    }
+
+    /**
+     * @summary Mutating helper: grafts an already-present subtree root `nodeId` into `document` at
+     * `targetNodeId` per `placement`. A `{kind: 'tab-into'}` placement merges the moved tabs node's
+     * items into the target tabs node in order then drops the emptied node; otherwise a split
+     * placement (`{orientation, position|edge, sizes}`) wraps the target + the moved subtree in a new
+     * split — the same parent-slot swap `splitNode` performs, generalized from a fresh pane to an
+     * existing subtree. Assumes `nodeId` is already detached and its nodes are present. Returns the
+     * (possibly empty) errors — empty means it mutated `document`.
+     * @param {Object} document the working (already-cloned) document
+     * @param {String} nodeId the subtree root to attach
+     * @param {String} targetNodeId the node the placement is relative to
+     * @param {Object} placement `{kind:'tab-into'}` or `{orientation, position, edge, sizes}`
+     * @returns {String[]}
+     * @protected
+     * @static
+     */
+    static attachNode(document, nodeId, targetNodeId, placement = {}) {
+        let node   = document.nodes[nodeId],
+            target = document.nodes[targetNodeId];
+
+        if (!node)   return [`unknown node "${nodeId}"`];
+        if (!target) return [`unknown target node "${targetNodeId}"`];
+
+        if (placement.kind === 'tab-into') {
+            if (node.type !== 'tabs' || target.type !== 'tabs') {
+                return ['tab-into placement requires both the moved node and the target to be tabs nodes']
+            }
+
+            target.items = [...(target.items || []), ...(node.items || [])];
+
+            if ((target.activeItemId === null || target.activeItemId === undefined) && target.items.length) {
+                target.activeItemId = target.items[0]
+            }
+
+            delete document.nodes[nodeId];
+
+            return []
+        }
+
+        if (placement.orientation !== 'horizontal' && placement.orientation !== 'vertical') {
+            return [`invalid split orientation "${placement.orientation}"`]
+        }
+
+        let {edge, orientation, position, sizes} = placement,
+            newSplitId                           = WorkspaceDocument.genId(document, `split-${targetNodeId}`),
+            ratio                                = (Array.isArray(sizes) && sizes.length === 2) ? sizes : [0.5, 0.5],
+            atPosition                           = position || ((edge === 'top' || edge === 'left') ? 'before' : 'after'),
+            // Resolve the target's parent BEFORE inserting the new split (which references the target).
+            parentSlot = WorkspaceDocument.findParentSlot(document, targetNodeId);
+
+        document.nodes[newSplitId] = {
+            type    : 'split',
+            orientation,
+            children: atPosition === 'before' ? [nodeId, targetNodeId] : [targetNodeId, nodeId],
+            sizes   : ratio
+        };
+
+        if (!parentSlot) {
+            document.root = newSplitId
+        } else if (typeof parentSlot.slot === 'number') {
+            document.nodes[parentSlot.parentId].children[parentSlot.slot] = newSplitId
+        } else {
+            WorkspaceDocument.setZoneNodeId(document.nodes[parentSlot.parentId], parentSlot.slot, newSplitId)
+        }
+
+        return []
+    }
+
+    /**
+     * @summary Validates a dock-zone document against the contract invariants.
+     *
+     * Checks: schema, root presence, reference integrity (split children / edge-zone zones / tabs
+     * items all resolve), each item appears at most once across the tree, committed item-state
+     * booleans have the right type, split sizes match child count and sum to 1, and
+     * `tabs.activeItemId` is null or one of `tabs.items`.
+     * Malformed node records or containers report errors without hiding safe sibling checks.
+     * @param {Object} document
+     * @returns {String[]} the (possibly empty) list of invariant violations
+     * @static
+     */
+    static validate(document) {
+        let errors = [];
+
+        if (!document || typeof document !== 'object') return ['document is not an object'];
+        if (document.schema !== WorkspaceDocument.SCHEMA)   errors.push(`schema must be ${WorkspaceDocument.SCHEMA}`);
+        if (!document.nodes || !document.nodes[document.root]) errors.push(`root node "${document.root}" is missing`);
+
+        // Runtime-only preview state is invalid at the model boundary — not just at render projection.
+        // The scan reaches into the opaque `metadata` channel, so a preview key cannot ride a saved
+        // layout through createSavedLayout / restoreSavedLayout (both validate through here).
+        let previewKey = WorkspaceDocument.findForbiddenPreviewKey(document);
+
+        if (previewKey) {
+            errors.push(`runtime-only preview field "${previewKey}" must not enter committed dock-zone state`)
+        }
+
+        let items   = document.items || {},
+            nodes   = document.nodes || {},
+            itemUse = {};
+
+        for (const [itemId, item] of Object.entries(items)) {
+            errors.push(...WorkspaceDocument.validateItemPolicy(itemId, item))
+        }
+
+        for (const [nodeId, node] of Object.entries(nodes)) {
+            if (!WorkspaceDocument.isJsonRecord(node)) {
+                errors.push(`node "${nodeId}" must be a node record`);
+                continue
+            }
+            if (node.type === 'split') {
+                const children = node.children || [];
+                if (!Array.isArray(children)) errors.push(`split "${nodeId}" children must be an array`);
+                else children.forEach(childId => {
+                    if (!nodes[childId]) errors.push(`split "${nodeId}" references missing node "${childId}"`)
+                });
+
+                let sizes = node.sizes || [];
+
+                if (!Array.isArray(sizes)) errors.push(`split "${nodeId}" sizes must be an array`);
+                else if (Array.isArray(children) && sizes.length !== children.length) {
+                    errors.push(`split "${nodeId}" sizes length ${sizes.length} != children length ${children.length}`)
+                } else if (sizes.length && Math.abs(sizes.reduce((a, b) => a + b, 0) - 1) > 1e-6) {
+                    errors.push(`split "${nodeId}" sizes do not sum to 1`)
+                }
+            } else if (node.type === 'edge-zone') {
+                if (!WorkspaceDocument.isJsonRecord(node.zones)) {
+                    errors.push(`edge-zone "${nodeId}" zones must be a JSON object`)
+                    continue
+                }
+
+                for (const [edge, descriptor] of Object.entries(node.zones)) {
+                    if (!WorkspaceDocument.dockZoneEdgeKeys.has(edge)) {
+                        errors.push(`edge-zone "${nodeId}" has unsupported edge "${edge}"`);
+                        continue
+                    }
+
+                    if (!WorkspaceDocument.isJsonRecord(descriptor)) {
+                        errors.push(`edge-zone "${nodeId}" zone "${edge}" descriptor must be a JSON object`);
+                        continue
+                    }
+
+                    let unexpected = WorkspaceDocument.findUnexpectedKey(
+                            descriptor,
+                            WorkspaceDocument.dockZoneDescriptorKeys,
+                            `document.nodes.${nodeId}.zones.${edge}`
+                        ),
+                        targetId = WorkspaceDocument.getZoneNodeId(descriptor);
+
+                    if (unexpected) {
+                        errors.push(`${unexpected.path} ${unexpected.reason}`)
+                    }
+
+                    if (!targetId) {
+                        errors.push(`edge-zone "${nodeId}" zone "${edge}" descriptor requires a non-empty nodeId`)
+                    } else if (!nodes[targetId]) {
+                        errors.push(`edge-zone "${nodeId}" references missing node "${targetId}"`)
+                    }
+
+                    if (Object.hasOwn(descriptor, 'extent') && (
+                        typeof descriptor.extent !== 'number' ||
+                        !Number.isFinite(descriptor.extent) ||
+                        descriptor.extent <= 0 ||
+                        descriptor.extent >= 1
+                    )) {
+                        errors.push(`edge-zone "${nodeId}" zone "${edge}" extent must be a finite number between 0 and 1`)
+                    }
+
+                    if (Object.hasOwn(descriptor, 'resizable') && typeof descriptor.resizable !== 'boolean') {
+                        errors.push(`edge-zone "${nodeId}" zone "${edge}" resizable must be a boolean`)
+                    }
+                }
+            } else if (node.type === 'tabs') {
+                const members = node.items || [];
+                if (!Array.isArray(members)) {
+                    errors.push(`tabs "${nodeId}" items must be an array`);
+                    continue
+                }
+                members.forEach(itemId => {
+                    if (!items[itemId]) errors.push(`tabs "${nodeId}" references missing item "${itemId}"`);
+                    itemUse[itemId] = (itemUse[itemId] || 0) + 1
+                });
+
+                if (node.activeItemId !== null && node.activeItemId !== undefined && !members.includes(node.activeItemId)) {
+                    errors.push(`tabs "${nodeId}" activeItemId "${node.activeItemId}" is not one of its items`)
+                }
+            }
+        }
+
+        Object.entries(itemUse).forEach(([itemId, count]) => {
+            if (count > 1) errors.push(`item "${itemId}" appears ${count} times in the tree (must be at most once)`)
+        });
+
+        return errors
+    }
+
+    /**
+     * @summary Validates item policy independently of opaque catalog payloads and tree structure.
+     *
+     * Both document validation and authoring use this authority. A malformed metadata/blueprint
+     * payload must not hide an independent policy error; JSON admission is checked separately.
+     * @param {String} itemId
+     * @param {Object} item
+     * @returns {String[]}
+     * @static
+     */
+    static validateItemPolicy(itemId, item) {
+        const errors = [];
+        if (!WorkspaceDocument.isJsonRecord(item)) return errors;
+
+        if (Object.hasOwn(item, 'pinned') && typeof item.pinned !== 'boolean') {
+            errors.push(`item "${itemId}" pinned must be a boolean`)
+        }
+        if (Object.hasOwn(item, 'autoHidden') && typeof item.autoHidden !== 'boolean') {
+            errors.push(`item "${itemId}" autoHidden must be a boolean`)
+        }
+        if (Object.hasOwn(item, 'lockable') && typeof item.lockable !== 'boolean') {
+            errors.push(`item "${itemId}" lockable must be a boolean`)
+        }
+        if (Object.hasOwn(item, 'locked') && typeof item.locked !== 'boolean') {
+            errors.push(`item "${itemId}" locked must be a boolean`)
+        }
+        if (item.pinned === true && item.autoHidden === true) {
+            errors.push(`item "${itemId}" cannot be pinned and autoHidden at the same time`)
+        }
+        return errors
+    }
+
+    /**
+     * @summary Normalizes a document: collapses empty/redundant structural nodes, repairs split
+     * sizes, prunes orphaned nodes, and repairs each `tabs.activeItemId`.
+     *
+     * An empty tabs or split node is removed from its parent; a split with a single child is replaced
+     * by that child; split sizes are evened when their count/sum is invalid; nodes unreachable from
+     * the root are dropped.
+     * @param {Object} document
+     * @returns {Object} a normalized clone
+     * @static
+     */
+    static normalizeTree(document) {
+        let doc = WorkspaceDocument.clone(document);
+
+        const collapse = nodeId => {
+            let node = doc.nodes[nodeId];
+
+            if (!node) return nodeId;
+
+            if (node.type === 'split') {
+                node.children = (node.children || []).map(collapse).filter(id => doc.nodes[id]);
+
+                if (node.children.length === 0) { delete doc.nodes[nodeId]; return null }
+                if (node.children.length === 1) {
+                    let only = node.children[0];
+                    delete doc.nodes[nodeId];
+                    return only
+                }
+
+                let count = node.children.length;
+                if (!Array.isArray(node.sizes) || node.sizes.length !== count || Math.abs(node.sizes.reduce((a, b) => a + b, 0) - 1) > 1e-6) {
+                    node.sizes = node.children.map(() => 1 / count)
+                }
+            } else if (node.type === 'edge-zone') {
+                for (const [zone, descriptor] of Object.entries(node.zones || {})) {
+                    let resolved = collapse(WorkspaceDocument.getZoneNodeId(descriptor));
+
+                    if (resolved && doc.nodes[resolved]) {
+                        WorkspaceDocument.setZoneNodeId(node, zone, resolved)
+                    } else {
+                        delete node.zones[zone]
+                    }
+                }
+            } else if (node.type === 'tabs') {
+                if (!node.items || node.items.length === 0) { delete doc.nodes[nodeId]; return null }
+                if (node.activeItemId === undefined || (node.activeItemId !== null && !node.items.includes(node.activeItemId))) {
+                    node.activeItemId = node.items[0]
+                }
+            }
+
+            return nodeId
+        };
+
+        let newRoot = collapse(doc.root);
+        doc.root = newRoot ?? doc.root;
+
+        // prune nodes unreachable from the (possibly new) root
+        let reachable = WorkspaceDocument.reachableNodeIds(doc);
+        Object.keys(doc.nodes).forEach(nodeId => {
+            if (!reachable.has(nodeId)) delete doc.nodes[nodeId]
+        });
+
+        return doc
+    }
+
+    /**
+     * @summary Normalizes + validates a mutated document; returns it only if valid (fail-closed).
+     * @param {Object} original the untouched input document
+     * @param {Object} mutated the working document after a mutation
+     * @returns {{document:Object, errors:String[]}}
+     * @protected
+     * @static
+     */
+    static commit(original, mutated) {
+        let normalized = WorkspaceDocument.normalizeTree(mutated),
+            errors     = WorkspaceDocument.validate(normalized);
+
+        return errors.length ? {document: original, errors} : {document: normalized, errors: []}
+    }
+
+    /**
+     * @summary Validates and normalizes split-size ratios to sum to 1.
+     * @param {Array<Number>} sizes
+     * @param {Number} count
+     * @param {String} splitNodeId
+     * @returns {{sizes:Number[], errors:String[]}}
+     * @protected
+     * @static
+     */
+    static normalizeSplitSizes(sizes, count, splitNodeId) {
+        let errors = [];
+
+        if (!Array.isArray(sizes)) {
+            return {sizes: [], errors: ['sizes must be an array']}
+        }
+
+        if (sizes.length !== count) {
+            return {sizes: [], errors: [`split "${splitNodeId}" sizes length ${sizes.length} != children length ${count}`]}
+        }
+
+        for (let i = 0; i < sizes.length; i++) {
+            let value = sizes[i];
+
+            if (typeof value !== 'number' || !Number.isFinite(value)) {
+                errors.push(`split "${splitNodeId}" size ${i} must be a finite number`)
+            } else if (value <= 0) {
+                errors.push(`split "${splitNodeId}" size ${i} must be greater than 0`)
+            }
+        }
+
+        if (errors.length) {
+            return {sizes: [], errors}
+        }
+
+        let total = sizes.reduce((sum, value) => sum + value, 0);
+
+        if (!Number.isFinite(total) || total <= 0) {
+            return {sizes: [], errors: [`split "${splitNodeId}" sizes must sum to a finite positive value`]}
+        }
+
+        let normalized = sizes.map(value => value / total);
+
+        if (normalized.length > 1) {
+            normalized[normalized.length - 1] = 1 - normalized.slice(0, -1).reduce((sum, value) => sum + value, 0)
+        }
+
+        return {sizes: normalized, errors: []}
+    }
+
+    /**
+     * @summary Computes the shape-only fingerprint of a dock-zone document.
+     *
+     * The fingerprint describes topology SHAPE — node types, nesting, child arity, zone
+     * occupancy — and deliberately contains no node ids, item ids, sizes, titles or window
+     * identity, so two structurally identical layouts fingerprint identically regardless of
+     * where or when they were captured (the persistence guardrail for `windowFingerprint`).
+     * Deterministic by construction: child arrays keep document order, edge zones walk in the
+     * fixed {@link #dockZoneEdgeKeys} order.
+     *
+     * An edge-zone must carry a JSON-record zones container; malformed containers fail closed
+     * instead of collapsing into the legitimate empty-record shape. Optional slots may be absent.
+     * A present slot whose descriptor cannot resolve to a node id also fails closed, so corrupt
+     * input cannot fingerprint identically to an omitted slot and pass downstream shape gates as a
+     * legitimate no-change result.
+     * @param {Object} document The committed dock-zone document.
+     * @returns {{fingerprint:(Object|null), errors:String[]}}
+     * @static
+     */
+    static computeShapeFingerprint(document) {
+        let errors = [];
+
+        if (!WorkspaceDocument.isJsonRecord(document) || !WorkspaceDocument.isJsonRecord(document.nodes)) {
+            return {fingerprint: null, errors: ['fingerprint requires a document with a nodes record']}
+        }
+
+        const counts  = {'edge-zone': 0, split: 0, tabs: 0},
+              visited = new Set();
+
+        const walk = nodeId => {
+            const node = document.nodes[nodeId];
+
+            if (!node) {
+                errors.push(`fingerprint walk found no node for id "${nodeId}"`);
+                return '?'
+            }
+
+            // cycle guard: a node graph that references an ancestor would recurse forever —
+            // fail closed through the errors path, never a RangeError out of the public API
+            if (visited.has(nodeId)) {
+                errors.push(`fingerprint walk detected a cycle at node "${nodeId}"`);
+                return '?'
+            }
+
+            visited.add(nodeId);
+
+            counts[node.type] = (counts[node.type] || 0) + 1;
+
+            switch (node.type) {
+                case 'split':
+                    return `${node.orientation === 'horizontal' ? 'h' : 'v'}(${(node.children || []).map(walk).join(',')})`;
+                case 'tabs':
+                    return `t${node.items?.length || 0}`;
+                case 'edge-zone': {
+                    if (!WorkspaceDocument.isJsonRecord(node.zones)) {
+                        errors.push(`fingerprint walk found a non-record zones container for edge-zone "${nodeId}"`);
+                        return '?'
+                    }
+
+                    const zones = node.zones;
+
+                    return `e{${[...WorkspaceDocument.dockZoneEdgeKeys]
+                        .map(zone => {
+                            if (!Object.hasOwn(zones, zone)) {
+                                return ''
+                            }
+
+                            let childNodeId = WorkspaceDocument.getZoneNodeId(zones[zone]);
+
+                            if (!childNodeId) {
+                                errors.push(`fingerprint walk found unusable descriptor for edge-zone "${nodeId}" zone "${zone}"`);
+                                return ''
+                            }
+
+                            return `${zone}:${walk(childNodeId)}`
+                        })
+                        .filter(Boolean).join(',')}}`;
+                }
+                default:
+                    errors.push(`fingerprint walk found unsupported node type "${node.type}"`);
+                    return '?'
+            }
+        };
+
+        const shape = walk(document.root);
+
+        if (errors.length) {
+            return {fingerprint: null, errors}
+        }
+
+        return {
+            fingerprint: {
+                schema    : 'neo.dock.shape.v1',
+                shape,
+                nodeCounts: counts,
+                itemCount : Object.keys(document.items || {}).length
+            },
+            errors
+        }
+    }
+
+    /**
+     * @summary Composes workspace-keyed shape fingerprints into one deterministic topology fingerprint.
+     *
+     * Workspace identity, not registration order, is the durable coordinate. Keys are sorted before
+     * composition, so two equivalent records produce identical evidence regardless of object insertion
+     * order. Each value must be the complete output of {@link #computeShapeFingerprint}; a malformed or
+     * missing `itemCount` fails closed instead of being defaulted into a fictive zero.
+     * @param {Object<String,Object>} workspaceFingerprints Per-workspace records keyed by `workspaceKey`.
+     * @returns {{fingerprint:(Object|null), errors:String[]}}
+     * @static
+     */
+    static composeTopologyFingerprint(workspaceFingerprints) {
+        let errors = [];
+
+        if (!WorkspaceDocument.isJsonRecord(workspaceFingerprints) || !Object.keys(workspaceFingerprints).length) {
+            return {fingerprint: null, errors: ['topology fingerprint requires a non-empty keyed workspace record']}
+        }
+
+        const workspaceKeys = Object.keys(workspaceFingerprints).sort();
+
+        workspaceKeys.forEach(workspaceKey => {
+            const entry = workspaceFingerprints[workspaceKey];
+
+            if (!workspaceKey.trim()) {
+                errors.push('topology fingerprint workspace keys must be non-empty strings')
+            } else if (entry?.schema !== 'neo.dock.shape.v1' || typeof entry.shape !== 'string') {
+                errors.push(`workspace "${workspaceKey}" is not a workspace shape fingerprint record`)
+            } else if (!Number.isInteger(entry.itemCount) || entry.itemCount < 0) {
+                errors.push(`workspace "${workspaceKey}" is an incomplete workspace fingerprint record: itemCount must be an integer >= 0`)
+            }
+        });
+
+        if (errors.length) {
+            return {fingerprint: null, errors}
+        }
+
+        return {
+            fingerprint: {
+                schema        : 'neo.dock.topologyShape.v2',
+                workspaceCount: workspaceKeys.length,
+                shape         : `w{${workspaceKeys.map(key => `${JSON.stringify(key)}:${workspaceFingerprints[key].shape}`).join('|')}}`,
+                totalItems    : workspaceKeys.reduce((sum, key) => sum + workspaceFingerprints[key].itemCount, 0)
+            },
+            errors
+        }
+    }
+
+    /**
+     * @summary Resolves a workspace document's transferable STACK ROOT — the explicit source-side
+     * projection for whole-stack reintegration (docking design record §2.8,
+     * `learn/agentos/decisions/0029-docking-design.md`).
+     *
+     * The canonical vessel document shape is an `edge-zone` ROOT (window chrome) whose `center`
+     * zone names the subtree holding the vessel's content — so "the whole stack" is the root's
+     * center child, never the document root itself. Resolving it keeps `transferNode`'s root
+     * rejection byte-identical: whole-stack transfer is explicit resolution composed with the
+     * landed two-document executor, and an implicit root transfer stays impossible.
+     *
+     * Fail-closed: a missing document, a missing root node, a root that is not an `edge-zone`,
+     * or a center zone that is absent or names an unknown node all resolve `null` — a document
+     * that cannot prove its stack root never transfers.
+     * @param {Object} document a committed dock-zone document
+     * @returns {String|null} the stack-root node id, or null
+     * @static
+     */
+    static resolveStackRoot(document) {
+        let root = document?.nodes?.[document?.root],
+            centerId;
+
+        if (!root || root.type !== 'edge-zone') {
+            return null
+        }
+
+        centerId = WorkspaceDocument.getZoneNodeId(root.zones?.center);
+
+        return centerId && document.nodes[centerId] ? centerId : null
+    }
+}
+
+export default Neo.setupClass(WorkspaceDocument);

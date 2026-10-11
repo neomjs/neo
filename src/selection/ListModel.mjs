@@ -15,7 +15,16 @@ class ListModel extends Model {
          * @member {String} ntype='selection-listmodel'
          * @protected
          */
-        ntype: 'selection-listmodel'
+        ntype: 'selection-listmodel',
+        /**
+         * True lets a click on an already-selected item deselect it — the removable-selection
+         * affordance a multi-select list needs (a multi-select whose selections are irrevocable
+         * is half a control). Only consulted while `singleSelect` is false: single-select keeps
+         * its click-reselects semantics untouched. Defaults to false, so every existing consumer
+         * keeps the shipped behavior unless it opts in.
+         * @member {Boolean} toggleOnClick=false
+         */
+        toggleOnClick: false
     }
 
     /**
@@ -58,12 +67,19 @@ class ListModel extends Model {
      * @param {Object} data
      */
     onListClick({currentTarget}) {
-        let {view} = this,
+        let me     = this,
+            {view} = me,
             id     = view.getItemRecordId(currentTarget),
             record = view.store.get(id);
 
-        if (!view.disableSelection) {
-            record && this.select(record)
+        if (!view.disableSelection && record) {
+            // isSelected() compares raw against the vdom-id collection, so the record maps through
+            // getSelectionItemId first — the same conversion select() and deselect() apply on entry.
+            if (!me.singleSelect && me.toggleOnClick && me.isSelected(me.getSelectionItemId(record))) {
+                me.deselect(record)
+            } else {
+                me.select(record)
+            }
         }
     }
 
@@ -100,23 +116,12 @@ class ListModel extends Model {
             {id, view} = me;
 
         view.addDomListeners([{
-            click: me.onListClick,
-            scope: me,
-
-            // Should be `.${view.itemCls}:not(.neo-disabled,.neo-list-header)`
-            // TODO parse delegate selectors
-            delegate: path => {
-                for (let i = 0, { length } = path; i < length; i++) {
-                    const { cls } = path[i];
-
-                    if (cls.includes(view.itemCls) && !cls.includes('neo-disabled') && !cls.includes('neo-list-header')) {
-                        return i;
-                    }
-                }
-            }
+            click   : me.onListClick,
+            delegate: path => view.getInteractiveItemIndex(path),
+            scope   : me
         }, {
-            neonavigate : me.onListNavigate,
-            scope       : me
+            neonavigate: me.onListNavigate,
+            scope      : me
         }]);
 
         view.keys?._keys.push(

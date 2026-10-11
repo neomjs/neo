@@ -1,0 +1,8 @@
+{
+    "appPath"         : "test/playwright/component/apps/pooled-children/app.mjs",
+    "basePath"        : "../../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "themes"          : ["neo-theme-neo-light"],
+    "useSharedWorkers": false
+}

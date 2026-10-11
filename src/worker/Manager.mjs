@@ -1,4 +1,8 @@
 import Base               from '../core/Base.mjs';
+import CanvasGroups, {
+    CANVAS_GROUP_STORAGE_KEY,
+    CANVAS_WORKER_NAME_PREFIX
+}                         from './CanvasGroups.mjs';
 import DomAccess          from '../main/DomAccess.mjs';
 import DomEvents          from '../main/DomEvents.mjs';
 import Message            from './Message.mjs';
@@ -107,6 +111,15 @@ class Manager extends Base {
          */
         windowId: window.__NEO_SSR__?.windowId || crypto.randomUUID(),
         /**
+         * The `sessionStorage` key carrying this window's topology identity — `{groupId, workspaceKey,
+         * generationToken}` — across page loads. Read once per worker registration and sent with the
+         * config, so every window arrives in the App Worker already carrying what it is; `Neo.Main`
+         * writes it on the worker's word and hands a staged popup its reserved slot under the same key.
+         * @member {String} topologyIdentityStorageKey='neo-topology-identity'
+         * @protected
+         */
+        topologyIdentityStorageKey: 'neo-topology-identity',
+        /**
          * Contains the fileNames for the App, Data & Vdom workers
          * @member {Object} workers
          * @protected
@@ -138,6 +151,12 @@ class Manager extends Base {
      * @member {ServiceWorker|null} serviceWorker=null
      */
     serviceWorker = null
+    /**
+     * @summary This window's canvas group, which names the canvas SharedWorker it shares. Resolved once per boot
+     * by {@link Neo.worker.CanvasGroups.resolveCarrier}.
+     * @member {String|null} canvasGroup=null
+     */
+    canvasGroup = null
 
     /**
      * @param {Object} config
@@ -151,7 +170,10 @@ class Manager extends Base {
 
         me.detectFeatures();
 
-        !Neo.insideWorker && me.createWorkers();
+        if (!Neo.insideWorker) {
+            me.canvasGroup = me.resolveCanvasGroup();
+            me.createWorkers()
+        }
 
         if (navigator.serviceWorker) {
             // Bind the message handler globally to ensure even "unmanaged" apps (those not using the SW addon)
@@ -170,11 +192,10 @@ class Manager extends Base {
         Neo.workerId        = 'main';
 
         me.on({
-            'message:addDomListener'    : {fn: DomEvents.addDomListener,       scope: DomEvents},
-            'message:getOffscreenCanvas': {fn: DomAccess.onGetOffscreenCanvas, scope: DomAccess},
-            'message:readDom'           : {fn: DomAccess.onReadDom,            scope: DomAccess},
-            'message:registerRemote'    : {fn: me.onRegisterRemote,            scope: me},
-            'message:workerConstructed' : {fn: me.onWorkerConstructed,         scope: me}
+            'message:addDomListener'   : {fn: DomEvents.addDomListener, scope: DomEvents},
+            'message:readDom'          : {fn: DomAccess.onReadDom,      scope: DomAccess},
+            'message:registerRemote'   : {fn: me.onRegisterRemote,      scope: me},
+            'message:workerConstructed': {fn: me.onWorkerConstructed,   scope: me}
         })
     }
 
@@ -234,16 +255,29 @@ class Manager extends Base {
      * @returns {SharedWorker|Worker}
      */
     createWorker(opts) {
-        let me         = this,
-            {fileName} = opts,
-            filePath   = (opts.basePath || Neo.config.workerBasePath) + fileName,
-            name       = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
-            isShared   = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
-            cls        = isShared ? SharedWorker : Worker,
-            worker     = new cls(filePath, {name, type: 'module'});
+        let me            = this,
+            {canvasGroup} = me,
+            {fileName}    = opts,
+            filePath      = (opts.basePath || Neo.config.workerBasePath) + fileName,
+            isCanvas      = opts === me.workers.canvas,
+            name          = isCanvas ? CANVAS_WORKER_NAME_PREFIX + canvasGroup : `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
+            isShared      = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
+            cls           = isShared ? SharedWorker : Worker,
+            worker;
+
+        // The app worker must know this window's group before the canvas worker can register anything with it
+        isCanvas && me.sendMessage('app', {action: 'registerCanvasGroup', group: canvasGroup});
+
+        worker = new cls(filePath, {name, type: 'module'});
 
         (isShared ? worker.port : worker).onmessage = me.onWorkerMessage.bind(me);
         (isShared ? worker.port : worker).onerror   = me.onWorkerError  .bind(me);
+
+        // `error` on the worker object is the only programmatic signal that a canvas worker failed to load or
+        // parse; the app worker fails the group's waits instead of letting them run into the silent-start bound
+        isCanvas && worker.addEventListener('error', () => {
+            me.sendMessage('app', {action: 'canvasStartFailed', group: canvasGroup})
+        });
 
         me.activeWorkers++;
 
@@ -255,7 +289,8 @@ class Manager extends Base {
      *
      * This method reads the `Neo.config` to determine which workers to create (App, Data, VDom, etc.)
      * and whether to use `Worker` or `SharedWorker`. It injects the initial configuration and environment
-     * data (like window ID) into each worker upon creation.
+     * data (like window ID) into each worker upon creation. The URL payload keeps the effective
+     * document base beside its location, so workspace connections honor the page's base element.
      */
     createWorkers() {
         let me                   = this,
@@ -277,7 +312,7 @@ class Manager extends Base {
             }
         }
 
-        config.url = {href, search};
+        config.url = {base: document.baseURI, href, search};
 
         for ([key, value] of Object.entries(me.workers)) {
             if (key === 'canvas' && !config.useCanvasWorker ||
@@ -295,7 +330,7 @@ class Manager extends Base {
                 break
             }
 
-            let workerConfig = {...config, windowId};
+            let workerConfig = {...config, topologyIdentity: me.readTopologyIdentity(), windowId};
 
             if (ssrData && key === 'app') {
                 Object.assign(workerConfig, {
@@ -449,8 +484,21 @@ class Manager extends Base {
      * @param {Object} e
      */
     onWorkerError(e) {
-        // starting a worker from a JS module will show JS errors in a correct way
-        !useMjsFiles && console.log('Worker Error:', e)
+        // The `!useMjsFiles` deferral is true for a DEDICATED module worker, whose errors the browser
+        // surfaces on its own, and false for a SharedWorker, whose output goes to an inspector context
+        // no page can read. The comment predates that distinction: it was written in 2019 to explain
+        // the CLASSIC branch of `new Worker(...)`, and the commit that dropped that branch renamed
+        // `hasJsModules` to `useMjsFiles` inside the guard in the same diff — the guard outlived what
+        // it was guarding by one hunk.
+        //
+        // `error` level, not `log`: this is the ONLY signal for a SharedWorker that fails to load or
+        // parse. `Neo.worker.Base#forwardErrorToMainThread` cannot cover it — a worker that never ran
+        // cannot mirror its own failure.
+        if (NeoConfig.useSharedWorkers) {
+            console.error('Worker Error:', e)
+        } else {
+            !useMjsFiles && console.log('Worker Error:', e)
+        }
     }
 
     /**
@@ -463,7 +511,8 @@ class Manager extends Base {
      *     that contain DOM updates. It normalizes `autoMount` operations into `insertNode` deltas and delegates
      *     them to `handleDomUpdate`.
      * 2.  **Promise Resolution:** It resolves pending promises for `reply` messages (e.g., remote method calls).
-     * 3.  **Message Forwarding:** It routes messages between workers (e.g., App -> Data).
+     * 3.  **Message Forwarding:** It routes messages between workers (e.g., App -> Data), preserving
+     *     a rejected worker's named cause inside the reply `data` field the origin consumes.
      *
      * @param {Object} event
      */
@@ -515,14 +564,10 @@ class Manager extends Base {
                     }
                 }
             } else {
-                if (dest === 'main') {
-                    data = data.data
-                }
-
-                if (data) {
-                    promise[data.reject ? 'reject' : 'resolve'](data);
-                    delete me.promises[replyId]
-                }
+                // Settled like worker.Base settles its own replies, whatever the payload's truthiness. A reply to a
+                // request this thread forwarded keeps the envelope, which the forward sends on.
+                promise[data.reject ? 'reject' : 'resolve'](dest === 'main' || dest === me.windowId ? data.data : data);
+                delete me.promises[replyId]
             }
         }
 
@@ -534,11 +579,17 @@ class Manager extends Base {
             me.promiseMessage(dest, data, transfer).then(response => {
                 me.sendMessage(response.destination, response)
             }).catch(err => {
+                const
+                    reason  = err?.data ?? err,
+                    message = reason?.error?.message || reason?.error || reason?.message ||
+                        'Worker message forwarding failed',
+                    error   = reason instanceof Error ? reason : new Error(String(message));
+
                 me.sendMessage(data.origin, {
                     action : 'reply',
+                    data   : error,
                     reject : true,
-                    replyId: data.id,
-                    error  : err.message
+                    replyId: data.id
                 })
             })
         }
@@ -595,6 +646,23 @@ class Manager extends Base {
     }
 
     /**
+     * Reads this window's carried topology identity for a worker registration. An empty object means
+     * "no identity yet": the App Worker mints one and asks `Neo.Main#setTopologyIdentity` to write it
+     * back. Unavailable storage and a malformed or incomplete record read the same way, so the window
+     * boots as a fresh root instead of failing.
+     * @returns {{groupId: String, workspaceKey: String, generationToken: String}|{}}
+     */
+    readTopologyIdentity() {
+        try {
+            const {generationToken, groupId, workspaceKey} = JSON.parse(window.sessionStorage?.getItem(this.topologyIdentityStorageKey) || 'null') || {};
+
+            return groupId && workspaceKey && generationToken ? {generationToken, groupId, workspaceKey} : {}
+        } catch {
+            return {}
+        }
+    }
+
+    /**
      * Rejects the delayed-reply promise for a DOM operation whose delta application threw.
      *
      * Counterpart to {@link #resolveDomOperationPromise}: a failed operation must settle its
@@ -615,6 +683,29 @@ class Manager extends Base {
                 delete promises[replyId]
             }
         }
+    }
+
+    /**
+     * @summary Resolves this window's canvas group by the carrier rule and keeps it in the window's sessionStorage,
+     * where a `reload` of this window and a popup opened from it find it again.
+     * @returns {String}
+     * @protected
+     */
+    resolveCanvasGroup() {
+        let stored, group;
+
+        try {stored = sessionStorage.getItem(CANVAS_GROUP_STORAGE_KEY)} catch {}
+
+        group = CanvasGroups.resolveCarrier({
+            hasLiveOpener : Boolean(window.opener && !window.opener.closed),
+            mint          : CanvasGroups.mint,
+            navigationType: performance.getEntriesByType?.('navigation')[0]?.type,
+            stored
+        });
+
+        try {sessionStorage.setItem(CANVAS_GROUP_STORAGE_KEY, group)} catch {}
+
+        return group
     }
 
     /**
@@ -704,7 +795,7 @@ class Manager extends Base {
     }
 
     /**
-     * Starts a worker in case it is not running yet
+     * @summary Starts a worker with the same effective document base as initial worker registration.
      * @param {Object} data
      * @param {String} data.name
      * @returns {Boolean} true in case the worker was started or is already running
@@ -739,7 +830,7 @@ class Manager extends Base {
             {windowId}           = me;
 
         delete config.cesiumJsToken;
-        config.url = {href, search};
+        config.url = {base: document.baseURI, href, search};
 
         if (hash) {
             config.hash = {

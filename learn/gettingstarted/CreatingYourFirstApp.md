@@ -51,7 +51,7 @@ ecommerce/
   docs/               # Documentation files
   node_modules/       # Installed dependencies
   resources/          # Static assets (images, fonts, etc.)
-  src/                # Framework source code (neo.mjs core)
+  src/                # Engine source code (neo.mjs core)
   AGENTS.md           # documentation about Neo.mjs Agents
   ServiceWorker.mjs   # Service worker file
   package.json

@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     --trigger-background-color-hover: #fff;
     --trigger-border-width          : 1px;
     --trigger-color                 : #bbb;

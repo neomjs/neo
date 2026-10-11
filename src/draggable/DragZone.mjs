@@ -82,6 +82,14 @@ class DragZone extends Base {
          */
         dragElement: null,
         /**
+         * A copy of the drag element as the drag proxy first showed it, kept for the gesture: a sort zone
+         * hides the element in place once its proxy exists, and a later proxy (a cross-window target's)
+         * must still show what the drag showed.
+         * @member {Object|null} dragElementSnapshot=null
+         * @protected
+         */
+        dragElementSnapshot: null,
+        /**
          * The bounding client rect of the dragElement
          * Will get set inside dragStart()
          * @member {Object|null} dragElementRect=null
@@ -161,6 +169,19 @@ class DragZone extends Base {
          */
         scrollFactorTop: 1,
         /**
+         * Optional main-thread sibling-resize descriptor consumed by `Neo.main.addon.DragDrop`.
+         * The App Worker receives only the terminal resolved size.
+         * @member {Object|null} resizeConfig=null
+         * @protected
+         */
+        resizeConfig: null,
+        /**
+         * True creates a drag proxy for the gesture. False keeps the gesture lifecycle without a
+         * cloned embodiment; an optional resizeConfig can then keep pointer frames main-thread-only.
+         * @member {Boolean} useProxy=true
+         */
+        useProxy: true,
+        /**
          * True creates a position:absolute wrapper div which contains the cloned element
          * @member {Boolean} useProxyWrapper=true
          */
@@ -178,9 +199,94 @@ class DragZone extends Base {
     construct(config) {
         super.construct(config);
 
+        let me = this;
+
         if (!Neo.main.addon.DragDrop) {
-            console.error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons', this.id)
+            console.error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons', me.id)
+        } else {
+            // Eager registration: the main-thread addon resolves the owning zone synchronously
+            // inside onDragStart, so the first drag:start of a boot already carries a zone id.
+            // Best-effort: a zone whose drag element is only assigned later re-registers on its
+            // first setConfigs handshake. Fire-and-forget — never block construction on the RPC.
+            me.registerZone()
         }
+    }
+
+    /**
+     * @param args
+     */
+    destroy(...args) {
+        let me = this;
+
+        // Drop the eager registration so a stale root id can never resolve to a dead zone —
+        // a stale id is worse than a zoneless one: it silently misattributes a later gesture
+        // to a destroyed zone. The key MUST come from the same expression as registration
+        // (wrapping zones override getDragElementRoot, e.g. tree/DragZone), so both call
+        // sites share getRegistrationRootId() — the pair is the invariant.
+        // optional-chained: bare harnesses may stub the addon without the registry API
+        if (Neo.main.addon.DragDrop) {
+            Neo.main.addon.DragDrop.unregisterZone?.({
+                appName          : me.appName,
+                windowId         : me.windowId,
+                dragElementRootId: me.getRegistrationRootId(),
+                dragZoneId       : me.id
+            })
+        }
+
+        super.destroy(...args)
+    }
+
+    /**
+     * The registration key of this zone's drag element root — the SINGLE expression shared by
+     * register (construct) and unregister (destroy). Resolved via getDragElementRoot() (which
+     * wrapping zones override — tree/DragZone unwraps to `dragElement.cn[0]`), never via
+     * `dragElement.id` directly: the wrapper and the root diverge by design.
+     * @returns {String|null}
+     * @protected
+     */
+    getRegistrationRootId() {
+        let root = this.dragElement && this.getDragElementRoot();
+
+        return root?.id ?? null
+    }
+
+    /**
+     * Registers the gesture owner and optional main-thread behavior using one shared root key.
+     * @returns {Promise<*>|undefined}
+     * @protected
+     */
+    registerZone() {
+        let me                = this,
+            dragElementRootId = me.getRegistrationRootId();
+
+        if (dragElementRootId) {
+            return Neo.main.addon.DragDrop.registerZone?.({
+                appName     : me.appName,
+                windowId    : me.windowId,
+                dragElementRootId,
+                dragZoneId  : me.id,
+                resizeConfig: me.resizeConfig
+            })
+        }
+    }
+
+    /**
+     * Routes one semantic resize verdict back to the exact main-thread gesture owner.
+     * @param {Object} data
+     * @param {Number} data.resizeGeneration
+     * @param {String} data.resizeTargetId
+     * @param {Boolean} [data.restore=false]
+     * @returns {Promise<Boolean>|undefined}
+     */
+    settleResize(data={}) {
+        let me = this;
+
+        return Neo.main.addon.DragDrop.settleResize?.({
+            appName   : me.appName,
+            dragZoneId: me.id,
+            windowId  : me.windowId,
+            ...data
+        })
     }
 
     /**
@@ -205,6 +311,21 @@ class DragZone extends Base {
     }
 
     /**
+     * @summary The drag proxy's content: a fresh clone of the drag element (or of the configured proxy
+     * vdom), wrapped unless `useProxyWrapper` is off. A cross-window target proxy renders the same
+     * content as the local one: during a gesture the clone comes from the `dragElementSnapshot` the local
+     * proxy was built from, not from the element the sort zone has hidden since.
+     * @returns {Object|null} `null` while no drag element is known
+     */
+    getDragProxyVdom() {
+        let me     = this,
+            source = me.dragProxyConfig?.vdom || me.dragElementSnapshot || me.dragElement,
+            clone  = source && VDomUtil.clone(source);
+
+        return !clone ? null : me.useProxyWrapper ? {cn: [clone]} : clone
+    }
+
+    /**
      * @param {Object}  data
      * @param {Boolean} createComponent=true
      * @returns {Object|Neo.draggable.DragProxyComponent}
@@ -215,8 +336,6 @@ class DragZone extends Base {
             rect        = me.dragElementRect,
             proxyConfig = me.dragProxyConfig || {},
             isContainer = proxyConfig.module === DragProxyContainer,
-            vdom        = proxyConfig.vdom,
-            clone       = !isContainer && VDomUtil.clone(vdom ? vdom : me.dragElement),
             config, proxy;
 
         config = {
@@ -239,17 +358,23 @@ class DragZone extends Base {
             config.cls = config.cls || [];
             config.cls.push('neo-draggable');
         } else {
-            config.vdom = me.useProxyWrapper ? {cn: [clone]} : clone;
+            me.dragElementSnapshot = me.dragElement && VDomUtil.clone(me.dragElement);
+            config.vdom            = me.getDragProxyVdom();
 
-            if (clone.cls && !me.useProxyWrapper) {
+            if (config.vdom.cls && !me.useProxyWrapper) {
                 config.cls = config.cls || [];
-                config.cls.push(...clone.cls)
+                config.cls.push(...config.vdom.cls)
             }
         }
 
         config.cls = config.cls || [];
 
-        if (component) {
+        // An explicit theme in the proxy config wins: subclasses can resolve a NEAREST-ancestor
+        // theme (see Neo.dashboard.dock.interaction.TabSortZone#getDragProxyConfig) — `getTheme()` resolves the
+        // OUTER boot theme, which is wrong for apps that theme-swap an inner root while
+        // `document.body` keeps the boot theme. Pushing both would leave the winner to stylesheet
+        // load order.
+        if (component && !config.cls.some(item => item.startsWith('neo-theme-'))) {
             config.cls.push(component.getTheme())
         }
 
@@ -322,12 +447,25 @@ class DragZone extends Base {
      * Override for using custom animations
      */
     destroyDragProxy() {
-        let me = this,
-            id = me.dragProxy.id;
+        let me         = this,
+            id         = me.dragProxy.id,
+            {windowId} = me;
 
-        me.timeout(me.moveInMainThread ? 0 : 30).then(() => {
-            Neo.applyDeltas(me.windowId, [{action: 'removeNode', id}])
-        });
+        // The cleanup delta must outlive this zone: core.Base#destroy() clears and rejects
+        // pending timeouts, and a zone torn down inside the deferral window (e.g. a closing
+        // dock vessel's chrome un-projection racing a cross-window drop) would otherwise
+        // orphan the proxy's DOM node in the source window with no owner left to remove it.
+        me.timeout(me.moveInMainThread ? 0 : 30)
+            .catch(() => null)
+            .then(() => Neo.applyDeltas(windowId, [{action: 'removeNode', id}]))
+            .catch(reason => {
+                // The dispatch owns its terminal outcome: if the destination window departed, the
+                // node died with it and the cleanup is moot. Every other rejection is a delta failure,
+                // and this detached chain has no caller to propagate to, so the console is the
+                // honest terminal surface.
+                Neo.currentWorker?.isDeparture?.(reason, windowId) ||
+                    console.error('DragZone: proxy removal delta failed', {id, reason, windowId})
+            });
 
         me.dragProxy.destroy()
     }
@@ -354,11 +492,12 @@ class DragZone extends Base {
         }
 
         Object.assign(me, {
-            dragElementRect  : null,
-            dragStartIndex   : null,
-            offsetX          : 0,
-            offsetY          : 0,
-            scrollContainerId: null
+            dragElementRect    : null,
+            dragElementSnapshot: null,
+            dragStartIndex     : null,
+            offsetX            : 0,
+            offsetY            : 0,
+            scrollContainerId  : null
         });
 
         me.fire('dragEnd', data);
@@ -423,7 +562,9 @@ class DragZone extends Base {
             offsetY
         });
 
-        await me.createDragProxy(rect);
+        if (me.useProxy) {
+            await me.createDragProxy(rect)
+        }
 
         me.fire('dragStart', {
             clientX        : data.clientX,
@@ -488,10 +629,22 @@ class DragZone extends Base {
             dropZoneIdentifier : me.dropZoneIdentifier,
             moveHorizontal     : me.moveHorizontal,
             moveVertical       : me.moveVertical,
+            resizeConfig       : me.resizeConfig,
             scrollContainerId  : me.scrollContainerId,
             scrollFactorLeft   : me.scrollFactorLeft,
             scrollFactorTop    : me.scrollFactorTop
         }
+    }
+
+    /**
+     * Handles the first-class gesture-cancel signal. Base drag zones have no semantic drop
+     * work to undo, so cancellation fires its own observable event and tears down the proxy
+     * immediately. Sort zones override this entry to restore their captured layout first.
+     * @param {Object} data
+     */
+    onDragCancel(data) {
+        this.fire('dragCancel', data);
+        this.dragEnd({...data, cancelled: true})
     }
 
     /**

@@ -29,10 +29,11 @@ class TreeBuilder extends Base {
      * @param {Number} depth The current recursion depth.
      * @param {Set<String>|null} mergedChildIds A set of component IDs to selectively expand.
      * @param {String} childKey The property name for child nodes ('cn' or 'childNodes').
+     * @param {Set<String>|null} boundaryIds Components that carry their own payload: never expanded.
      * @returns {Object}
      * @private
      */
-    #buildTree(node, depth, mergedChildIds, childKey) {
+    #buildTree(node, depth, mergedChildIds, childKey, boundaryIds) {
         // We can not use Neo.isObject() here, since inside unit-test scenarios, we will import vdom.Helper into main threads.
         // Inside this scenario, Neo.isObject() returns false for VNode instances
         if (typeof node !== 'object' || node === null) {
@@ -58,6 +59,12 @@ class TreeBuilder extends Base {
 
                 if (currentItem.componentId) {
                     const component = ComponentManager.get(currentItem.componentId);
+
+                    // Another root of the same batch diffs this subtree; expanding it here would diff it twice.
+                    if (boundaryIds?.has(currentItem.componentId)) {
+                        output[childKey].push({...currentItem, neoIgnore: true});
+                        continue
+                    }
 
                     // Sparse Tree Generation & Scoped Updates
                     // We prune the branch (send a placeholder) if:
@@ -89,7 +96,7 @@ class TreeBuilder extends Base {
                     childDepth = depth
                 }
 
-                output[childKey].push(this.#buildTree(currentItem, childDepth, mergedChildIds, childKey))
+                output[childKey].push(this.#buildTree(currentItem, childDepth, mergedChildIds, childKey, boundaryIds))
             }
         }
 
@@ -98,14 +105,54 @@ class TreeBuilder extends Base {
 
 
     /**
+     * The length of the longest chain of nested components rooted at the given component, counting the
+     * component itself as 1. A component with no child components is 1; one whose vdom references a
+     * child which itself references another is 3.
+     *
+     * This is the inverse of the pruning `#buildTree` performs, and lives beside it so the two read the
+     * same structure: a caller that needs a tree fully expanded down to `component` can pass
+     * `distanceToComponent + getComponentDepth(component)` as its depth instead of a literal, which
+     * would silently become a snapshot of whatever nesting happened to ship.
+     *
+     * @param {Neo.component.Base} component
+     * @returns {Number}
+     */
+    getComponentDepth(component) {
+        let depth = 1;
+
+        const scan = node => {
+            if (typeof node !== 'object' || node === null) {
+                return
+            }
+
+            if (node.componentId) {
+                const child = ComponentManager.get(node.componentId);
+
+                if (child) {
+                    depth = Math.max(depth, 1 + this.getComponentDepth(child));
+                    return
+                }
+            }
+
+            node.cn?.forEach(scan)
+        };
+
+        component?.vdom && scan(component.vdom);
+
+        return depth
+    }
+
+    /**
      * Copies a given vdom tree and replaces child component references with their vdom.
      * @param {Object} vdom
      * @param {Number} [depth=-1]
      * @param {Set<String>|null} [mergedChildIds=null]
+     * @param {Set<String>|null} [boundaryIds=null] Components left as `neoIgnore` references at any depth.
+     * Pass the same set to {@link #getVnodeTree}: the diff needs both trees cut at the same nodes.
      * @returns {Object}
      */
-    getVdomTree(vdom, depth=-1, mergedChildIds=null) {
-        return this.#buildTree(vdom, depth, mergedChildIds, 'cn')
+    getVdomTree(vdom, depth=-1, mergedChildIds=null, boundaryIds=null) {
+        return this.#buildTree(vdom, depth, mergedChildIds, 'cn', boundaryIds)
     }
 
     /**
@@ -113,10 +160,11 @@ class TreeBuilder extends Base {
      * @param {Object} vnode
      * @param {Number} [depth=-1]
      * @param {Set<String>|null} [mergedChildIds=null]
+     * @param {Set<String>|null} [boundaryIds=null] Components left as `neoIgnore` references at any depth.
      * @returns {Object}
      */
-    getVnodeTree(vnode, depth=-1, mergedChildIds=null) {
-        return this.#buildTree(vnode, depth, mergedChildIds, 'childNodes')
+    getVnodeTree(vnode, depth=-1, mergedChildIds=null, boundaryIds=null) {
+        return this.#buildTree(vnode, depth, mergedChildIds, 'childNodes', boundaryIds)
     }
 }
 

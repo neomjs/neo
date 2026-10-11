@@ -1,0 +1,149 @@
+// The hold's rising fill (see `.neo-dock-preview-dwelling` below): bottom to top over the dwell.
+@keyframes neo-dock-preview-dwell-fill {
+    from { transform: scaleY(0) }
+    to   { transform: scaleY(1) }
+}
+
+// The preview's own geometry, owned here rather than by each consumer. A dock host lays out `fit`,
+// so an UNPOSITIONED preview is an in-flow `.neo-layout-fit-item` — `flex: 1 0 100%`, a second full
+// host width in the flex row. `overflow-x: hidden` hides the scrollbar but the host stays
+// programmatically scrollable, so any focus or scroll-into-view aimed past the first width shifts
+// the whole workspace out to the left, permanently: nothing scrolls it back once the re-projection
+// has retired the old shell. Lifting the preview out of the flow means the host has no overflow at
+// rest, and the transient two-shell width the reconciler stages during a swap clamps back to 0 on
+// its own.
+//
+// `z-index` sits between the reveal overlay (20) and the drop-indicator layer (30) — the value the
+// consumers that re-derived this rule had each arrived at. The sibling indicator layer already owns
+// its own `inset`/`position`/`z-index` in the engine sheet; this is the pair the preview was
+// missing. A consumer may still override the stacking value.
+.neo-dock-preview {
+    inset          : 0;
+    pointer-events : none;
+    position       : absolute;
+    z-index        : 25;
+
+    .neo-dock-preview-affordance {
+        border-radius  : 3px;
+        box-sizing     : border-box;
+        opacity        : 0.85;
+        pointer-events : none;
+        position       : absolute;
+        // Motion rides the one dock transition contract. Reduced-motion collapses the duration
+        // at that authority, never at this call site.
+        transition     : opacity var(--dock-transition-duration) var(--dock-transition-easing),
+                         background-color var(--dock-transition-duration) var(--dock-transition-easing),
+                         border-color var(--dock-transition-duration) var(--dock-transition-easing);
+    }
+
+    // The hold is the gesture (native titlebar drops): while a still popup rests on a claimed zone,
+    // the region fills from the bottom over the dwell the coordinator publishes with every hover
+    // frame, so the paint and the commit read ONE clock. `--dock-native-dwell-elapsed` is the time
+    // already spent when this node was (re)built, applied as a negative delay: a node the renderer
+    // replaces mid-hold resumes at the right height instead of starting over. Leaving the zone
+    // removes the node, which ends the fill. The fill is a shape, not only a colour, so the cue
+    // survives colour-vision deficits; reduced motion shows the armed state as a static tint.
+    .neo-dock-preview-dwelling {
+        overflow : hidden;
+
+        &::after {
+            animation        : neo-dock-preview-dwell-fill var(--dock-native-dwell-ms, 1200ms) linear
+                               calc(-1 * var(--dock-native-dwell-elapsed, 0ms)) 1 forwards;
+            background-color : var(--agent-dock-preview-accept, #58a6ff);
+            content          : '';
+            inset            : 0;
+            opacity          : 0.35;
+            pointer-events   : none;
+            position         : absolute;
+            transform        : scaleY(0);
+            transform-origin : bottom;
+        }
+    }
+
+    // Zone highlights — edge/split RESULT REGIONS and whole-node tab targets — read as a
+    // translucent filled region: the half (or whole) of the target the drop would occupy.
+    // `neo-dock-preview-region` is the mode class the renderer adds for directional
+    // placements when result-region previews are on (the default).
+    .neo-dock-preview-edge,
+    .neo-dock-preview-region,
+    .neo-dock-preview-tab-into {
+        &.neo-dock-preview-accepted {
+            background-color : var(--agent-dock-preview-accept-fill, rgba(88, 166, 255, 0.22));
+            border           : 2px solid var(--agent-dock-preview-accept, #58a6ff);
+        }
+
+        &.neo-dock-preview-rejected {
+            background-color : var(--agent-dock-preview-reject-fill, rgba(207, 34, 46, 0.16));
+            border           : 2px dashed var(--agent-dock-preview-reject, #cf222e);
+            opacity          : 0.55;
+        }
+    }
+
+    // The region's border stays UNIFORM on purpose: the filled region already shows the
+    // outcome, and its inner edge IS the future splitter position by construction — a thicker
+    // cut edge restated that and read as a rendering glitch. The renderer still stamps
+    // `neo-dock-preview-cut-<side>` as the semantic marker; themes may restyle it.
+
+    // Insertion guides — split lines (the `resultRegionPreviews: false` presentation) and tab
+    // before/after markers — read as a solid bar. The `:not(...)` guard keeps region-mode split
+    // affordances in the filled family above.
+    .neo-dock-preview-split:not(.neo-dock-preview-region),
+    .neo-dock-preview-tab-before,
+    .neo-dock-preview-tab-after {
+        border-radius : 2px;
+
+        &.neo-dock-preview-accepted {
+            background-color : var(--agent-dock-preview-accept, #58a6ff);
+            box-shadow       : 0 0 6px var(--agent-dock-preview-accept, #58a6ff);
+        }
+
+        &.neo-dock-preview-rejected {
+            background-color : var(--agent-dock-preview-reject, #cf222e);
+            opacity          : 0.55;
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────
+// Preview-language variant «Signal glow» (the design-exploration switch; sibling of the
+// indicator/chip variant in src/dashboard/Container.scss). Each app projects its own
+// signal chroma through the domain aliases — deep-pigment teal on light skins, glow teal
+// on dark — and the accepted zone gains a condensed boundary ring plus a soft outer bloom.
+// The rejected language is deliberately untouched (rejection must stay unmistakably itself).
+// Strictly additive: without the host modifier, the family above renders unchanged. NO
+// color fallbacks: a missing projection drops the variant visibly (the census pins this).
+// ─────────────────────────────────────────────────────────────────────────────────────
+// Reduced motion: the armed state is a static tint of the full region — the information (a hold is
+// running here) survives, the rising fill does not. Declared AFTER the fill rule it overrides: equal
+// specificity, so source order is the whole mechanism.
+@media (prefers-reduced-motion: reduce) {
+    .neo-dock-preview .neo-dock-preview-dwelling::after {
+        animation : none;
+        opacity   : 0.2;
+        transform : scaleY(1);
+    }
+}
+
+.neo-preview-lang-signal .neo-dock-preview {
+    // Same boundary as the indicator variant: component-domain aliases only — the apps
+    // project their palettes; this file never reaches for an app palette directly.
+    .neo-dock-preview-edge,
+    .neo-dock-preview-region,
+    .neo-dock-preview-tab-into {
+        &.neo-dock-preview-accepted {
+            background-color : var(--agent-dock-preview-signal-fill);
+            border-color     : var(--agent-dock-preview-signal);
+            box-shadow       : inset 0 0 0 1px color-mix(in srgb, var(--agent-dock-preview-signal) 55%, transparent),
+                               0 0 14px color-mix(in srgb, var(--agent-dock-preview-signal) 25%, transparent);
+        }
+    }
+
+    .neo-dock-preview-split:not(.neo-dock-preview-region),
+    .neo-dock-preview-tab-before,
+    .neo-dock-preview-tab-after {
+        &.neo-dock-preview-accepted {
+            background-color : var(--agent-dock-preview-signal);
+            box-shadow       : 0 0 8px color-mix(in srgb, var(--agent-dock-preview-signal) 60%, transparent);
+        }
+    }
+}

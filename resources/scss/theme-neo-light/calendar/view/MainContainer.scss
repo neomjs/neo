@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-calendar-maincontainer
+:where(.neo-theme-neo-light) { // .neo-calendar-maincontainer
     --calendar-border-color              : #ddd;
     --event-blue-background-color        : rgba(  0,  80, 181, 0.1);
     --event-blue-background-color-focus  : rgba(  0,  80, 181, 0.6);

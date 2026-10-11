@@ -1,1 +1,24 @@
-node ./buildScripts/util/check-branch-discipline.mjs
+# Fail on the FIRST failing guard.
+#
+# Without this, sh reports only the LAST command's status, so a guard that fails anywhere but the
+# bottom of this file does not block the push — it prints its complaint and the push proceeds. Every
+# guard here was therefore blocking only by virtue of being last, which is a property of the file
+# ordering rather than of the guard. Measured, not assumed: `sh -c 'false-ish; true-ish'` exits 0.
+set -e
+
+# git sends the pre-push payload — `<localRef> <localSha> <remoteRef> <remoteSha>` per ref — on stdin
+# exactly ONCE. Read by the first guard that wants it, it is gone for every guard after, which
+# degrades those to a guessed range silently. Capturing it here and handing each guard its own copy
+# makes the payload a property of the hook rather than a race won by whoever runs first.
+payload="$(cat)"
+
+printf '%s\n' "$payload" | node ./buildScripts/util/check-branch-discipline.mjs
+printf '%s\n' "$payload" | node ./buildScripts/util/check-spec-retirement.mjs
+
+# The commit-authorship guard ships with `neo-agent-skills`; the team roster it checks co-author trailers against lives
+# in the Brain. A seat whose shell names its Brain checkout (`NEO_AGENTOS_RUNTIME_ROOT`) checks trailers here too;
+# without one, the guard still refuses the operator's identity from an agent checkout, and CI checks the trailers.
+authorship=./node_modules/.bin/neo-agent-skills-commit-authorship
+[ -x "$authorship" ] || { echo "pre-push: $authorship is missing; run npm install (neo-agent-skills 0.1.12+)" >&2; exit 1; }
+roster="${NEO_AGENTOS_RUNTIME_ROOT:+$NEO_AGENTOS_RUNTIME_ROOT/ai/graph/agentCoAuthorEmails.mjs}"
+printf '%s\n' "$payload" | "$authorship" ${roster:+--roster "$roster"}

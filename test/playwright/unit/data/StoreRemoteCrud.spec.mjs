@@ -30,7 +30,7 @@ const
  * A fake api service is registered directly into the Neo namespace, so no real websocket /
  * remotes-api registration is involved — the methods just resolve `api.<verb>` and call it.
  */
-test.describe.serial('Neo.data.Store remote CRUD', () => {
+test.describe('Neo.data.Store remote CRUD', () => {
     test('remoteCreate persists, then inserts the server-authoritative record', async () => {
         Neo.ns(apiNs, true).create = async data => ({success: true, data: {...data, id: 99}});
 

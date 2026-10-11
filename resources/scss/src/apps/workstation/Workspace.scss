@@ -1,0 +1,388 @@
+// Workstation — dense, living-data composition. Theme values come exclusively from the
+// app-owned Workstation token layer; all motion rides the dashboard aliases, including the
+// reduced-motion collapse owned by Neo.dashboard.Container.
+
+.workstation-film-cursor {
+    background-color: var(--workstation-film-cursor-background);
+    border-radius   : 50%;
+    box-shadow      : var(--workstation-film-cursor-shadow);
+    display         : block;
+    height          : 16px;
+    pointer-events  : none;
+    position        : fixed;
+    width           : 16px;
+    z-index         : 99999;
+}
+
+.workstation-workspace {
+    // The grid/tab token bridge sits on `.workstation-viewport`, one level up: the `?popout=`
+    // vessel is a viewport WITHOUT a workspace, so a bridge scoped here never reached the pane it
+    // tears out. What remains below is workspace-only presentation the vessel must not inherit —
+    // the gradient backdrop belongs to the dense composition, not to a bare pane host.
+    background:
+        radial-gradient(circle at 22% 8%, color-mix(in srgb, var(--workstation-signal) 8%, transparent), transparent 32%),
+        var(--workstation-ground);
+    color: var(--workstation-ink);
+
+    .workstation-tourbar,
+    .workstation-statusbar {
+        transition: background var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                    color var(--dock-transition-duration-fast) var(--dock-transition-easing);
+    }
+
+    .neo-dashboard-dock-edge-zone {
+        gap: 7px;
+    }
+
+    .neo-dashboard-dock-edge-row {
+        gap: 7px;
+    }
+
+    // DockLayoutAdapter already projects one real DockSplitter per split boundary. Paint that
+    // exact six-pixel interaction target instead of adding a disconnected decorative handle.
+    /* Values only. Ring and glow are workstation SIGNAL language — they were born reading
+       `--workstation-signal` — so they live here rather than in the engine's affordance floor.
+       The band, the 36x2 handle and the hover/active behaviour are engine capability.
+
+       The `opacity: 1 !important` this block used to carry is gone rather than moved: it was
+       fighting a competing rule, and the engine now owns the active state at its own
+       specificity, so there is nothing left to fight. */
+    .neo-dashboard-dock-splitter {
+        --dock-splitter-background        : color-mix(in srgb, var(--workstation-signal) 9%, transparent);
+        --dock-splitter-background-hover  : color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+        --dock-splitter-background-active : color-mix(in srgb, var(--workstation-signal) 30%, transparent);
+        --dock-splitter-handle-color      : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+        --dock-splitter-handle-color-hover: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
+        --dock-splitter-handle-color-active: var(--workstation-signal);
+        --dock-splitter-handle-glow-hover : 0 0 9px color-mix(in srgb, var(--workstation-signal) 48%, transparent);
+        --dock-splitter-ring              : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+        --dock-splitter-ring-hover        : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 38%, transparent);
+        --dock-splitter-ring-active       : inset 0 0 0 1px var(--workstation-signal),
+                                            0 0 12px color-mix(in srgb, var(--workstation-signal) 32%, transparent);
+    }
+
+    // The band is dock chrome and stays; `.neo-tab-container` was grouped with it and is pane
+    // skin, so the pair had to split rather than move together. Zero only the CROSS axis:
+    // the drag axis carries the engine's `min-inline/block-size` floor vars, which the
+    // splitter's live-resize clamp reads as its inward bound — a physical `min-width: 0`
+    // here out-cascades those logical floors and lets a drag collapse the band to 0px,
+    // an extent the document model refuses to commit.
+    .neo-dashboard-dock-edge-band-left,
+    .neo-dashboard-dock-edge-band-right {
+        min-height: 0;
+    }
+
+    .neo-dashboard-dock-edge-band-bottom,
+    .neo-dashboard-dock-edge-band-top {
+        min-width: 0;
+    }
+
+    /* Values only. The rail's structural paint moved to `src/dashboard/Container.scss`, where the
+       engine declares it against these tokens — this block used to be the only place in the tree
+       that answered "what does a dock rail look like", so a second consumer could reach that answer
+       only by copying it. `overflow` rides along because it is what clips the tabs to the 7px
+       corners: it belongs to the radius decision made here, not to every rail. */
+    .neo-dashboard-dock-edge-rail {
+        --dock-edge-rail-background: color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-rail));
+        --dock-edge-rail-border    : 1px solid color-mix(in srgb, var(--workstation-signal) 52%, var(--workstation-line));
+        --dock-edge-rail-radius    : 7px;
+        --dock-edge-rail-shadow    : 0 0 22px color-mix(in srgb, var(--workstation-signal) 12%, transparent);
+        --dock-edge-rail-overflow  : hidden;
+
+        // The stock theme floors every `.neo-button` at `min-width: var(--cmp-button-height)` (48px)
+        // through `:root .neo-theme-* .neo-button` — a (0,3,0) selector that TIES the shared rail
+        // override and wins on load order alone. On the 14px vertical rail that floor defeats the
+        // cross-axis stretch and pushes the rotated label span outside the clipped strip: the rail
+        // renders as an empty pill. This app used to release that floor itself with its own
+        // (0,4,0) `min-width: 0`; the engine now outranks the theme directly, so the release is
+        // engine capability and no consumer needs a local escape hatch to get a working rail.
+        // Values only: the structural paint and the glyph/text inherit fix live in
+        // `src/dashboard/Container.scss`. Re-declaring them here is what put an app-layer rule in
+        // an equal-specificity tie with the engine's.
+        .neo-button.neo-dashboard-dock-rail-tab {
+            --dock-rail-tab-background-hover: color-mix(in srgb, var(--workstation-signal) 14%, transparent);
+            --dock-rail-tab-color           : var(--workstation-ink-dim);
+            --dock-rail-tab-color-hover     : var(--workstation-ink);
+            --dock-rail-tab-font-family     : var(--workstation-font-mono);
+        }
+    }
+
+    .neo-dashboard-dock-reveal-overlay {
+        --dock-reveal-background     : var(--workstation-rail);
+        --dock-reveal-border         : 1px solid color-mix(in srgb, var(--workstation-signal) 46%, var(--workstation-line));
+        --dock-reveal-min-block-size : 16rem;
+        --dock-reveal-min-inline-size: 20rem;
+        --dock-reveal-radius         : 8px;
+        --dock-reveal-shadow         : 0 14px 38px color-mix(in srgb, var(--workstation-ground) 72%, transparent),
+                                       0 0 20px color-mix(in srgb, var(--workstation-signal) 16%, transparent);
+    }
+
+    // Horizontal rails read as an app-edge info line: give their labels the tourbar caption's
+    // breathing room instead of the shared strip's 1px inline padding. The vertical rails keep the
+    // slim shared padding — the physical 1px inline is what lets the rotated label fit the 14px
+    // strip at all.
+    .neo-dashboard-dock-edge-rail-top .neo-button.neo-dashboard-dock-rail-tab,
+    .neo-dashboard-dock-edge-rail-bottom .neo-button.neo-dashboard-dock-rail-tab {
+        padding: 4px 10px;
+    }
+
+}
+
+.workstation-controls {
+    background   : var(--workstation-panel-2);
+    border-bottom: 1px solid var(--workstation-line);
+}
+
+.workstation-topologybar {
+    // `.neo-toolbar` paints its padding from this token, so a plain `padding` here loses the cascade
+    // to it on source order at equal specificity — the declaration this replaces computed to the
+    // shared 5px. Going through the token is also what gives the trailing button's badge room: the
+    // bar is flush right, and at 5px the count overflows the viewport edge.
+    --toolbar-background-color: transparent;
+    --toolbar-padding         : 6px 12px;
+
+    gap: 6px;
+
+    // Every axis the button paints on is named here on purpose. `button/Base.scss` keeps `color`
+    // inheriting at the root so the child glyph and text nodes can own themed colours — which means
+    // a consumer that sets only background and text hands the disabled state to the UA
+    // `button:disabled` cascade, and Chromium paints GrayText. Glyph and disabled tokens are not
+    // polish; they are the half of the contract the engine deliberately leaves to us. Opacity stays
+    // at 1 so the state reads as a colour change rather than a wash over the label.
+    .neo-button {
+        --button-background-color         : var(--workstation-panel-2);
+        --button-background-color-disabled: var(--workstation-panel-2);
+        --button-background-color-hover   : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+        --button-badge-background-color   : var(--workstation-signal);
+        --button-badge-color              : var(--workstation-panel);
+        --button-border                   : 1px solid var(--workstation-line);
+        --button-border-disabled          : 1px solid var(--workstation-line);
+        --button-glyph-color              : var(--workstation-ink-dim);
+        --button-glyph-color-disabled     : color-mix(in srgb, var(--workstation-ink-dim) 45%, transparent);
+        --button-glyph-color-hover        : var(--workstation-signal);
+        --button-height                   : 32px;
+        --button-opacity-disabled         : 1;
+        --button-text-color               : var(--workstation-ink);
+        --button-text-color-disabled      : color-mix(in srgb, var(--workstation-ink) 45%, transparent);
+    }
+
+}
+
+.workstation-tourbar {
+    --button-height: 34px;
+
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--workstation-signal) 13%, var(--workstation-panel)),
+        var(--workstation-panel) 55%);
+    border-bottom: 1px solid color-mix(in srgb, var(--workstation-signal) 30%, var(--workstation-line));
+    box-shadow   : 0 8px 28px color-mix(in srgb, var(--workstation-ground) 66%, transparent);
+    gap    : 12px;
+    height : 64px;
+    padding: 8px 14px;
+
+    .workstation-tour-story {
+        background: transparent;
+        gap       : 8px;
+        min-width : 0;
+    }
+
+    .workstation-tour-caption {
+        color        : var(--workstation-ink-dim);
+        font-family  : var(--workstation-font-mono);
+        font-size    : 12px;
+        overflow     : hidden;
+        padding-left : 12px;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+
+    .workstation-tour-pips {
+        display: flex;
+        gap    : 5px;
+        padding: 0 12px;
+
+        .workstation-pip {
+            background   : var(--workstation-line);
+            border-radius: 999px;
+            flex  : 1;
+            height: 4px;
+            max-width    : 48px;
+            transition   : background .2s ease, box-shadow .2s ease;
+        }
+
+        .workstation-pip-done {
+            background: var(--workstation-signal);
+            box-shadow: 0 0 8px color-mix(in srgb, var(--workstation-signal) 45%, transparent);
+        }
+    }
+
+    .workstation-theme-button {
+        --button-background-color       : var(--workstation-panel-2);
+        --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
+        --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+        --button-border                 : 1px solid var(--workstation-line);
+        --button-border-active          : 1px solid var(--workstation-signal);
+        --button-border-hover           : 1px solid color-mix(in srgb, var(--workstation-signal) 55%, var(--workstation-line));
+        --button-glyph-color            : var(--workstation-ink-dim);
+        --button-glyph-color-active     : var(--workstation-signal);
+        --button-glyph-color-hover      : var(--workstation-signal);
+        --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 32%, transparent);
+        --button-text-color             : var(--workstation-ink);
+        --button-text-color-active      : var(--workstation-ink);
+        --button-text-color-hover       : var(--workstation-ink);
+        border-radius: 7px;
+        font-family  : var(--workstation-font-mono);
+        margin       : 0;
+    }
+}
+
+.workstation-workspace .neo-button.workstation-tour-play,
+.workstation-workspace .neo-button.workstation-tour-film,
+.workstation-workspace .neo-button.workstation-tour-continue {
+    --button-background-color       : var(--workstation-signal);
+    --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
+    --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 88%, var(--workstation-panel));
+    --button-border                 : 1px solid var(--workstation-signal);
+    --button-border-active          : 1px solid var(--workstation-signal);
+    --button-border-hover           : 1px solid var(--workstation-signal);
+    --button-glyph-color            : var(--workstation-ground);
+    --button-glyph-color-active     : var(--workstation-ground);
+    --button-glyph-color-hover      : var(--workstation-ground);
+    --button-ripple-background-color: color-mix(in srgb, var(--workstation-ground) 24%, transparent);
+    --button-text-color             : var(--workstation-ground);
+    --button-text-color-active      : var(--workstation-ground);
+    --button-text-color-hover       : var(--workstation-ground);
+}
+
+// Beat generic button focus/pressed descendant colors without relying on theme load order.
+.workstation-workspace .workstation-tourbar {
+    .workstation-theme-button {
+        .neo-button-glyph,
+        .neo-button-text {
+            color: var(--workstation-ink);
+        }
+    }
+}
+
+.workstation-statusbar {
+    align-items  : center;
+    display: flex;
+    flex-wrap: wrap;
+    gap    : 8px;
+    min-height   : 34px;
+    min-width    : 0;
+    padding : 5px 12px;
+    position: relative;
+    z-index      : 2;
+
+    span {
+        background: color-mix(in srgb, var(--workstation-signal) 9%, var(--workstation-panel));
+        border    : 1px solid color-mix(in srgb, var(--workstation-signal) 32%, var(--workstation-line));
+        border-radius : 999px;
+        color         : var(--workstation-ink-dim);
+        font-family   : var(--workstation-font-mono);
+        font-size     : 10px;
+        letter-spacing: .04em;
+        padding       : 3px 9px;
+        text-transform: uppercase;
+    }
+}
+
+.workstation-dock-host {
+    // Workstation owns density policy; the shared dashboard owns projection hooks and defaults.
+    // Root-font-relative floors remain readable while the fluid preferred terms follow this
+    // definite-size host, including when the standalone app becomes a child workspace.
+    // No max overrides: boot width is governed by each edge's committed document extent (the
+    // projection's inline percentage), so a rem cap here only limits how far the USER may drag —
+    // and a cap at or below the boot width pins the band with zero outward headroom. The engine's
+    // 50% default then bounds each edge INDIVIDUALLY — a container-relative per-band cap, not an
+    // aggregate center reservation (opposing edges dragged to their caps can meet in the middle).
+    --dock-edge-band-left-inline-size     : 20.3125cqi;
+    --dock-edge-band-left-min-inline-size : 11.25rem;
+    --dock-edge-band-right-inline-size    : 25cqi;
+    --dock-edge-band-right-min-inline-size: 13.75rem;
+    --dock-edge-band-bottom-block-size    : 28cqb;
+    --dock-edge-band-bottom-min-block-size: 8.75rem;
+
+    padding : 12px;
+    position: relative;
+
+    // Persistent drag affordances share this host's local geometry. `position: relative` above is
+    // the whole contract this app owes them: the preview and the indicator layer both position
+    // themselves against it from the engine sheet. This app used to re-declare the preview's
+    // `inset`/`position`/`z-index` here — the engine now owns that pair, so the copy is gone.
+}
+
+// The generic overflow button is a floating direct-body child. Scope its cockpit skin to
+// documents that actually contain Workstation rather than coupling the shared plugin to this app.
+body:has(.workstation-workspace) .neo-button.neo-tab-overflow-control {
+    --button-background-color       : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+    --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 24%, var(--workstation-panel-2));
+    --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
+    --button-border                 : 1px solid color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+    --button-border-active          : 1px solid var(--workstation-signal);
+    --button-border-hover           : 1px solid color-mix(in srgb, var(--workstation-signal) 70%, var(--workstation-line));
+    --button-glyph-color            : var(--workstation-signal);
+    --button-glyph-color-active     : var(--workstation-signal);
+    --button-glyph-color-hover      : var(--workstation-signal);
+    --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 32%, transparent);
+    border-radius: 6px;
+}
+
+// The generic menu is a second floating direct-body embodiment. Its own live `neo-theme-*` class
+// carries the active palette; this Workstation-only bridge projects that palette into menu-domain
+// tokens without coupling the shared tab plugin or shared menu component to product colours.
+body:has(.workstation-viewport) .neo-menu-list.neo-tab-overflow-menu {
+    --menu-list-background-color              : var(--workstation-panel-2);
+    --menu-list-border-color                  : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+    --menu-list-item-background-color         : transparent;
+    --menu-list-item-background-color-disabled: transparent;
+    --menu-list-item-background-color-hover   : color-mix(in srgb, var(--workstation-signal) 14%, var(--workstation-panel-2));
+    --menu-list-item-background-color-selected: color-mix(in srgb, var(--workstation-signal) 20%, var(--workstation-panel-2));
+    --menu-list-item-color                    : var(--workstation-ink);
+    --menu-list-item-font-family              : var(--workstation-font-mono);
+    --menu-list-item-font-weight              : 500;
+    --menu-list-item-height                   : 30px;
+    --menu-list-item-icon-color               : var(--workstation-ink-dim);
+    --menu-list-item-icon-color-disabled      : var(--workstation-ink-faint);
+    --menu-list-item-icon-color-selected      : var(--workstation-signal);
+    --menu-list-item-line-height              : 1.2;
+    --menu-list-item-opacity-disabled         : .45;
+    --menu-list-item-outline-focus            : 1px solid var(--workstation-signal);
+    --menu-list-item-padding                  : 4px 10px;
+    --menu-list-item-text-transform           : none;
+
+    border-radius: 6px;
+    box-shadow   : 0 12px 28px color-mix(in srgb, var(--workstation-ground) 58%, transparent);
+    font-size    : 12px;
+
+    .neo-list-item:focus {
+        outline-offset: -2px;
+    }
+}
+
+// The third floating direct-body embodiment, and the newest: the dock header actions gained
+// tooltips, so the shared singleton now paints here — in the stock theme blue, the one piece of
+// chrome not speaking this palette. Same bridge as the overflow menu above, and deliberately the
+// same values: a tooltip and that menu are both transient label chrome and should not disagree
+// about what floating chrome looks like here.
+//
+// The `body:has()` scope keeps this rule to documents that contain Workstation. The tooltip value
+// sheets declare at `:where(.neo-theme-*)` weight, like the dock values layer, so these values win on
+// weight wherever both match, never on stylesheet order.
+//
+// It also has to be the element rather than an ancestor: the shared singleton stamps the hovered
+// target's theme onto ITSELF, so after this app's runtime light/dark toggle the tooltip carries
+// `neo-theme-neo-light` while `body` still carries `neo-theme-neo-dark`. A body-inherited
+// projection could not follow that; an own-element declaration does.
+body:has(.workstation-viewport) .neo-tooltip {
+    --tooltip-bg       : var(--workstation-panel-2);
+    --tooltip-border   : 1px solid color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+    --tooltip-boxshadow: 0 12px 28px color-mix(in srgb, var(--workstation-ground) 58%, transparent);
+    --tooltip-color    : var(--workstation-ink);
+    --tooltip-fontsize : 12px;
+}
+
+// Pane skin — `.workstation-placeholder`, `.workstation-resident-*`, `.workstation-data-pane` and
+// `.workstation-heat-*` — moved to `Viewport.scss`. They are what the reported `?popout=` vessel
+// actually hosts, and this file's generated sheet never loads there.

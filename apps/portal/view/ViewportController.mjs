@@ -277,30 +277,22 @@ class ViewportController extends Controller {
         let me       = this,
             viewport = me.component,
             oldTheme = viewport.theme || 'neo-theme-neo-light',
-            newTheme = oldTheme === 'neo-theme-neo-light' ? 'neo-theme-neo-dark' : 'neo-theme-neo-light',
-            radius, x, y;
+            newTheme = oldTheme === 'neo-theme-neo-light' ? 'neo-theme-neo-dark' : 'neo-theme-neo-light';
 
-        if (data.clientX) {
-            x      = data.clientX;
-            y      = data.clientY;
-            radius = Math.hypot(Math.max(x, 3000 - x), Math.max(y, 3000 - y)) // simplified max calculation
-        }
-
+        // The reveal geometry belongs to the realm that owns the DOM: the App worker knows where
+        // the pointer was, not how a pseudo-element resolves a length. Passing the raw coordinates
+        // keeps the unit decision in one engine place instead of one copy per app.
+        //
+        // The catch is the decorative promise kept. The engine resolves rather than rejects — no
+        // API returns false, a failed reveal is caught inside — but this is a REMOTE method, and
+        // the transport can reject for reasons the callee never sees. Without this, a rejected
+        // round trip would skip the theme change entirely and leave the button doing nothing at
+        // all, which is a worse outcome than the missing animation it was meant to guard.
         await Neo.main.DomAccess.startViewTransition({
-            animate: {
-                keyframes: [
-                    {clipPath: `circle(0px at ${x}px ${y}px)`},
-                    {clipPath: `circle(${radius}px at ${x}px ${y}px)`}
-                ],
-                options: {
-                    duration     : 500,
-                    easing       : 'ease-in',
-                    pseudoElement: '::view-transition-new(root)'
-                }
-            },
             delay   : 100,
+            reveal  : {x: data?.clientX, y: data?.clientY},
             windowId: me.windowId
-        });
+        }).catch(() => {});
 
         me.setTheme(newTheme)
     }

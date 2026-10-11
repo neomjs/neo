@@ -2,15 +2,15 @@
 
 Neo has four areas a reader should keep separate before the details start:
 
-- **Body:** the multi-threaded application engine that runs apps off the main thread.
-- **Brain:** the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, Dream Pipeline,
+- **Body:** the multi-threaded application engine in [`neomjs/neo`](https://github.com/neomjs/neo) that runs apps off the main thread.
+- **Brain:** the Agent OS in [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain): Memory Core, Knowledge Base, Native Edge Graph, Dream Pipeline,
   Golden Path, and the orchestration substrate around them.
 - **Neural Link:** the possession bridge between the Brain and a live Neo application Body.
 - **Deployment topology:** LOCAL Agent OS for one developer, or CLOUD Agent OS for a shared
   team service. This is separate from whether the models themselves run locally or remotely.
 
-This guide is the map across those areas. It shows how the Body and Brain share one class
-system, how the Brain keeps one unified Chroma topology for logical Knowledge Base and Memory
+This guide is the ecosystem map across those areas. It shows how the Brain consumes the Body's
+class system, how the Brain keeps one unified Chroma topology for logical Knowledge Base and Memory
 Core collections, and how Neural Link lets the Brain inhabit a running Neo application without
 turning repository learning into a browser-runtime requirement.
 
@@ -19,8 +19,8 @@ of this document.
 
 ## The Two Hemispheres
 
-Neo.mjs is a single platform with two distinct hemispheres that share a common nervous system —
-the Neo Class System:
+Neo.mjs is one organism across two sibling repositories. Its hemispheres share a common nervous
+system — the Neo Class System:
 
 ```mermaid
 flowchart TD
@@ -46,8 +46,8 @@ flowchart TD
 
 Both hemispheres are built on the same `Neo.core.Base` class system. `DreamService`,
 `GraphService`, `Agent`, `Loop`, and every MCP service extend `Neo.core.Base` and use
-`Neo.setupClass()` exactly like `Neo.button.Base` or `Neo.grid.Container`. The AI
-infrastructure is not a separate project — it is a native inhabitant of the organism
+`Neo.setupClass()` exactly like `Neo.button.Base` or `Neo.grid.Container`. The Brain is a
+separate package and repository, but it remains a native consumer and inhabitant of the Engine
 it maintains.
 
 ## Left Hemisphere: The Runtime Engine
@@ -240,8 +240,17 @@ The agent runtime (`ai/agent/Loop.mjs`) implements a four-phase cognitive loop:
 
 ### The SDK Bouncer Pattern
 
-`ai/services.mjs` is the critical safety layer. It loads OpenAPI specs from each MCP server and
-wraps each method with `makeSafe()` — a function that generates Zod validators at startup.
+The SDK is **two barrels, one safety layer**. `ai/services.host.mjs` serves the host plane and
+`ai/services.mjs` serves the cloud plane while re-exporting the host services, so it remains the
+composition root for containerised work. Both load OpenAPI specs from each MCP server and wrap each
+method with `makeSafe()` — a function that generates Zod validators at startup.
+
+The validating-Proxy machinery lives below both barrels, so a service is the **same Proxy instance**
+whichever barrel imports it. The split exists because a host process has only the base package tier:
+importing the cloud root eagerly reaches packages it does not have, and **a host entrypoint must not
+be able to reach a durable store by import alone.** See
+[ADR 0039](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0039-two-plane-sdk-barrel-boundary.md) — including why that property
+needs both a static walk and a runtime denial witness, and why neither alone establishes it.
 
 - **Frontier models** access services via MCP protocol (stdio) with unbounded
   tool access.
@@ -255,7 +264,7 @@ wraps each method with `makeSafe()` — a function that generates Zod validators
 |---|---|---|
 | **Knowledge Base** | Semantic RAG over the indexed codebase | `ask_knowledge_base`, `query_documents` |
 | **Memory Core** | Episodic memory, session summaries, native edge graph | `add_memory`, `query_raw_memories`, `get_context_frontier` |
-| **GitHub Workflow** | Offline-first issue and PR management | `create_issue`, `sync_all`, `manage_issue_labels` |
+| **GitHub Workflow** | Live issue and PR management plus scheduled local mirroring | `create_issue`, `list_issues`, `manage_issue_labels` |
 | **GitLab Workflow** | GitLab issue and merge-request workflow support | `list_issues`, `list_merge_requests`, `manage_mr_reviewers` |
 | **Neural Link** | Live application introspection via WebSocket | `get_component_tree`, `patch_code`, `simulate_event` |
 | **File System** | Direct codebase read/write access | `read_file`, `write_file`, `list_directory`, `check_syntax` |
@@ -424,48 +433,67 @@ complete organism where the codebase and the agent co-evolve.
 | `src/core/` | Class system, Observable, Logger | `Base`, `Observable` | — |
 | `src/component/` | UI primitives | `Base`, `Wrapper` | — |
 | `src/container/` | Layout containers | `Base`, `Viewport` | — |
+| `src/list/` | Store-bound semantic lists, including fixed-height buffered component pools | `Base`, `Component`, `Buffered` | — |
 | `src/grid/` | Buffered data grids | `Container`, `View` | — |
+| `src/dashboard/` | Generic dashboard roots plus the DockLayouts domain package: committed dock documents, semantic operations, projection, interaction affordances, perspectives, cross-window choreography and observed relative placement, and declinable owner plugins the Workspace installs under `dock/{model,projection,interaction,persistence,window,plugin}` | `Container`, `Panel`, `dock.Workspace`, `dock.model.WorkspaceDocument`, `dock.model.Operations`, `dock.persistence.PerspectiveLibrary`, `dock.window.Placement`, `dock.plugin.Maximize` | [0029](../agentos/decisions/0029-docking-design.md) |
 | `src/data/` | Data layer | `Store`, `Model`, `RecordFactory` | — |
 | `src/state/` | State management | `Provider` | — |
 | `src/worker/` | Thread management | `App`, `VDom`, `Data`, `Manager` | — |
+| `src/manager/` | Worker-side registries and authorities: instances, components, window geometry, drag coordination, and logical topology Groups — with serialized compensating writes, immutable snapshots, bounded transaction history, one cursor and native admission/retirement under `transaction/` | `Instance`, `Component`, `Window`, `DragCoordinator`, `Transaction`, `transaction/Commit`, `transaction/History`, `transaction/NativeLifecycle` | [ADR 0029](https://github.com/neomjs/neo/blob/dev/learn/agentos/decisions/0029-docking-design.md) |
 | `src/vdom/` | Virtual DOM engine | `Helper` | — |
 | `src/main/` | Main thread addons | `DomEvents`, `DomAccess` | — |
 | `src/ai/` | Neural Link client | `Client` | — |
 
-### Agent OS (Node.js)
+### Agent OS (Brain repository)
+
+All paths in this table are relative to the sibling
+[`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) repository, including its
+canonical `src/**` domains. They are separate from the Engine's `src/**` packages listed above.
 
 Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-server services were lifted from `ai/mcp/server/<name>/services/` into the flat SDK boundary at `ai/services/<name>/`. The `ai/mcp/server/<name>/` directories now host only the server entry-point (`Server.mjs`), config templates, logger, and shared helpers; the service implementations live under `ai/services/<name>/`. Both rows are listed below for navigability.
 
 | Package | Purpose | Key Classes | Decisions |
 |---|---|---|---|
 | `ai/Agent.mjs` | Agent base class | `Agent` | — |
-| `ai/agent/` | Cognitive runtime | `Loop`, `Orchestrator`, `Scheduler` | — |
+| `ai/agent/` | Cognitive runtime | `Loop`, `Orchestrator`, `Scheduler` | [ADR 0035](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0035-live-lane-awareness-composition.md) |
 | `ai/config.template.mjs`, `ai/ConfigProvider.mjs` | Tier-1 Agent OS config template and shared config provider consumed by top-level and MCP server configs | `Config`, `ConfigProvider` | — |
 | `ai/context/` | Context window management | `Assembler` | — |
 | `ai/provider/` | LLM abstraction | `Gemini`, `Ollama`, `OpenAiCompatible` | — |
-| `ai/services.mjs` | SDK with Zod validation aggregator | — | — |
+| `ai/services.mjs` | SDK aggregator, cloud plane — re-exports the host barrel | — | [ADR 0039](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0039-two-plane-sdk-barrel-boundary.md) |
+| `ai/services.host.mjs` | SDK aggregator, host plane — cannot reach a cloud-plane package | — | [ADR 0039](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0039-two-plane-sdk-barrel-boundary.md) |
+| `ai/services/shared/serviceProxy.mjs` | Validating-Proxy machinery below both barrels (one Proxy identity per service) | — | [ADR 0039](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0039-two-plane-sdk-barrel-boundary.md) |
 | `ai/services/knowledge-base/` | Semantic RAG services (post-M6 SDK location) | `QueryService`, `SearchService`, `KBRecorderService` | — |
-| `ai/services/memory-core/` | Episodic memory services (post-M6 SDK location) | `MemoryService`, `SessionService`, `GraphService`, `MailboxService` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md), [ADR 0030](../agentos/decisions/0030-work-graph-stall-inference.md) |
-| `ai/services/graph/` | Dream Pipeline graph analysis, Golden Path synthesis, handoff rendering, and deterministic gap/finding inference | `GapInferenceEngine`, `GoldenPathSynthesizer`, graph-section helpers | [ADR 0023](../agentos/decisions/0023-dreamservice-organism-map-fidelity-consolidation-liveness.md), [ADR 0024](../agentos/decisions/0024-native-edge-graph-model.md), [ADR 0030](../agentos/decisions/0030-work-graph-stall-inference.md) |
-| `ai/services/github-workflow/` | Issue/PR management services (post-M6 SDK location) | `IssueService`, `SyncService`, `LabelService` | — |
+| `ai/services/memory-core/` | Episodic memory services (post-M6 SDK location) | `MemoryService`, `SessionService`, `GraphService`, `MailboxService` | [ADR 0001](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0002](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md), [ADR 0030](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0030-work-graph-stall-inference.md), [ADR 0035](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0035-live-lane-awareness-composition.md), [ADR 0036](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0036-durable-community-activity-authority.md) |
+| `ai/services/fleet/` | Fleet Manager registry, tenant, lifecycle, projection adapters, and the optional composed Fleet HTTP service | `FleetControlBridge`, `FleetRegistryService`, `FleetTenantService`, `fleetServer.mjs` | [ADR 0038](../agentos/decisions/0038-fm-client-topology.md) |
+| `src/fleet/contract/` | Client-safe Fleet vocabulary and wire helpers, exported as `neo-agent-brain/fleet-contract`; no Node, Neo-class, service or credential-policy imports | Harness/MCP catalogs, protocol negotiation and envelopes, cockpit source identifiers | [ADR 0038](../agentos/decisions/0038-fm-client-topology.md) |
+| `ai/services/graph/` | Dream Pipeline graph analysis, Golden Path synthesis, handoff rendering, and deterministic gap/finding inference | `GapInferenceEngine`, `GoldenPathSynthesizer`, graph-section helpers | [ADR 0023](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0023-dreamservice-organism-map-fidelity-consolidation-liveness.md), [ADR 0024](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0024-native-edge-graph-model.md), [ADR 0030](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0030-work-graph-stall-inference.md), [ADR 0035](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0035-live-lane-awareness-composition.md) |
+| `ai/services/github-workflow/` | Issue/PR management services (post-M6 SDK location) | `IssueService`, `SyncService`, `LabelService` | [ADR 0036](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0036-durable-community-activity-authority.md) |
 | `ai/services/gitlab-workflow/` | GitLab project workflow services when enabled | GitLab issue/MR service classes | — |
 | `ai/services/neural-link/` | Live app bridge services (post-M6 SDK location) | `ConnectionService`, `RecorderService` | — |
 | `ai/services/shared/vector/` | Cross-server vector-engine primitives consumed by per-server ChromaManager classes (KB + MC); functional helpers, not Neo classes | `chromaClientPrimitives.mjs` (`chromaConnect`, `createSilentExecutor`, `chromaDeleteCollection`) | — |
-| `ai/services/shared/contentTrust/` | Cross-service self-defense content helpers — GitHub author-tier classification + astroturf sanitization (URL defang / name redaction / stealth-intent flags), consumed by github-workflow read paths + KB ingestion; functional helpers, not Neo classes | `authorTrustClassifier.mjs`, `astroturfSanitizer.mjs` | [#10291](https://github.com/neomjs/neo/issues/10291) (P8 self-defense) |
+| `ai/services/shared/contentTrust/` | Cross-service self-defense content helpers — GitHub author-tier classification + astroturf sanitization (URL defang / name redaction / stealth-intent flags), consumed by github-workflow read paths + KB ingestion; functional helpers, not Neo classes | `authorTrustClassifier.mjs`, `astroturfSanitizer.mjs` | [#10291](https://github.com/neomjs/neo/issues/10291) (P8 self-defense), [ADR 0036](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0036-durable-community-activity-authority.md) |
 | `ai/scripts/` | One-shot operator scripts + thin helper wrappers | `lifecycle/`, `maintenance/` | — |
-| `ai/daemons/` | Long-running daemon classes and entry points | `Orchestrator`, `orchestrator/daemon.mjs`, `wake/daemon.mjs`, `DreamService`, `SwarmHeartbeatService`, tenant sync, summary backfill, Golden Path, GraphLog compaction, recovery and data-integrity services | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md), [ADR 0025](../agentos/decisions/0025-orchestrator-container-health-self-healing.md), [ADR 0026](../agentos/decisions/0026-recovery-actuator.md), [ADR 0027](../agentos/decisions/0027-autonomous-data-recovery-actuator.md), [ADR 0030](../agentos/decisions/0030-work-graph-stall-inference.md) |
-| `ai/graph/` | Native Edge Graph (SQLite-backed knowledge graph) | `Database`, `Store`, `NodeModel` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0015](../agentos/decisions/0015-graph-store-backend-posture.md) |
+| `ai/daemons/` | Long-running daemon classes and entry points | `Orchestrator`, `orchestrator/daemon.mjs`, `wake/daemon.mjs`, `DreamService`, `SwarmHeartbeatService`, tenant sync, summary backfill, Golden Path, GraphLog compaction, recovery and data-integrity services | [ADR 0002](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md), [ADR 0025](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0025-orchestrator-container-health-self-healing.md), [ADR 0026](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0026-recovery-actuator.md), [ADR 0027](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0027-autonomous-data-recovery-actuator.md), [ADR 0030](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0030-work-graph-stall-inference.md), [ADR 0035](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0035-live-lane-awareness-composition.md), [ADR 0036](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0036-durable-community-activity-authority.md) |
+| `ai/daemons/shared/` | Cross-daemon pure primitives (fully injectable, no Neo classes) | `fileLease.mjs` (single-owner file lease, liveness-injected: pid-probe same-namespace / TTL cross-namespace), `drainDisposition.mjs` (drain receipt states) | [ADR 0019](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md) (§10.8 single-owner rule, #16230) |
+| `ai/graph/` | Native Edge Graph (SQLite-backed knowledge graph) | `Database`, `Store`, `NodeModel` | [ADR 0001](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0015](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0015-graph-store-backend-posture.md) |
 | `ai/mcp/server/knowledge-base/` | KB MCP-server entry point + config | `Server`, `config` | — |
-| `ai/mcp/server/memory-core/` | MC MCP-server entry point + config | `Server`, `config` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md) |
-| `ai/mcp/server/github-workflow/` | GH-WF MCP-server entry point + config | `Server`, `config` | — |
+| `ai/mcp/server/memory-core/` | MC MCP-server entry point + config | `Server`, `config` | [ADR 0001](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0036](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0036-durable-community-activity-authority.md) |
+| `ai/mcp/server/github-workflow/` | GH-WF MCP-server entry point + config | `Server`, `config` | [ADR 0036](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0036-durable-community-activity-authority.md) |
 | `ai/mcp/server/gitlab-workflow/` | GitLab Workflow MCP-server entry point + config | `Server`, `config` | — |
 | `ai/mcp/server/neural-link/` | NL MCP-server entry point + config | `Server`, `config` | — |
 | `ai/mcp/server/file-system/` | File System MCP-server entry point + services | `Server`, file operation services | — |
 | `ai/mcp/server/shared/` | Cross-cutting MCP infrastructure | `BaseServer`, `AuthMiddleware`, `RequestContextService`, `TransportService` | — |
 
+### Harness (the Agent Harness's native vessel)
+
+| Package | Purpose | Key Classes | Decisions |
+|---|---|---|---|
+| `harness/` | The Electron packaging root — the optional native embodiment around the harness app (Body apps run without it): boots the dev-mode source app on the privileged `app://` origin, resolves the repo-root source graph through an explicit renderer-content allowlist for Neural-Link possession depth, supervises the Brain children it owns, and retains the cockpit behind an event-derived tray lifecycle; fail-closed content/window/navigation/permission posture; harness UI source stays in `apps/`, the Brain stays in `ai/`; produces packaged artifacts and release receipts without ceding product-source ownership | `main.mjs`, `appLifecycle.mjs`, `brain.mjs`, `contentPolicy.mjs`, `preload.cjs` | [ADR 0020](../agentos/decisions/0020-agent-harness-concept.md), [ADR 0034](../agentos/decisions/0034-electron-shell-architecture.md), [ADR 0037](../agentos/decisions/0037-fleet-manager-outward-door-topology.md) |
+| `.claude/hooks/`, `.codex/hooks/`, `.kimi-code/hooks/` | Thin harness-native payload adapters; shared policy and persistence remain owned by `ai/` | `turnPresenceHook.mjs`, `codex-context.mjs`, stop-hook adapters | [ADR 0002](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md), [ADR 0035](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0035-live-lane-awareness-composition.md) |
+
 ## Architectural Decision Records
 
-The Agent OS subsystem records its load-bearing architectural trade-offs in [`learn/agentos/decisions/`](../agentos/decisions/). Every cross-system trade-off — i.e. one that touches multiple subsystems, sets a precedent for future code, or affects load-bearing invariants — earns an ADR (per the `structural-pre-flight` skill's Strategy-vs-Tactics threshold). Per-class localized constraints stay inline as Anchor & Echo guards instead.
+The Agent OS subsystem records its load-bearing architectural trade-offs in [`learn/agentos/decisions/`](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/). Every cross-system trade-off — i.e. one that touches multiple subsystems, sets a precedent for future code, or affects load-bearing invariants — earns an ADR (per the `structural-pre-flight` skill's Strategy-vs-Tactics threshold). Per-class localized constraints stay inline as Anchor & Echo guards instead.
 
 The map-as-pointer principle: the Structural Inventory above links each subsystem row to its relevant ADRs so readers who follow the map naturally encounter the architectural-decision substrate without needing to remember to consult `decisions/` separately. Authors of new ADRs MUST add the link to the affected Structural Inventory rows in the same PR (per [#10449](https://github.com/neomjs/neo/issues/10449) Sub-Issue 2 / `structural-pre-flight` map-maintenance discipline).
 
@@ -473,29 +501,32 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 
 | ADR | Subject | Subsystems Affected | Status |
 |---|---|---|---|
-| [0001](../agentos/decisions/0001-cross-process-cache-coherence.md) | Cross-Process Cache Coherence for Memory Core Graph | `ai/services/memory-core/`, `ai/graph/`, `ai/mcp/server/memory-core/` | Proposed (#10186 / #10189) |
-| [0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) | Phase 3 Wake-Substrate Standards Alignment (MCP + A2A schema mappings) | `ai/daemons/wake/`, `ai/daemons/`, `ai/services/memory-core/` (MailboxService A2A primitives) | Proposed (#10311 / #10355) |
-| [0015](../agentos/decisions/0015-graph-store-backend-posture.md) | Graph Store Backend Posture - SQLite WAL First, Networked SQL Deferred | `ai/graph/`, `ai/services/memory-core/`, cloud deployment docs | Accepted - 2026-05-22 (#11732; PR #11779) |
-| [0025](../agentos/decisions/0025-orchestrator-container-health-self-healing.md) | Orchestrator Container-Health Diagnostics Daemon | `ai/daemons/orchestrator/services/`, `ai/deploy/` | Proposed (#13861) |
-| [0026](../agentos/decisions/0026-recovery-actuator.md) | Orchestrator Recovery Actuator | `ai/daemons/orchestrator/services/`, `ai/deploy/` | Proposed (#13880) |
-| [0027](../agentos/decisions/0027-autonomous-data-recovery-actuator.md) | Autonomous Memory Core Data-Recovery Actuator | `ai/daemons/orchestrator/services/`, `ai/services/memory-core/` | Proposed (#14134) |
-| [0028](../agentos/decisions/0028-temporal-pyramid-summarization-substrate.md) | Temporal-Pyramid Summarization Substrate | `ai/services/memory-core/`, `ai/daemons/`, temporal summary consumers | Proposed (#14427; PR #14428) |
-| [0029](../agentos/decisions/0029-harness-docking-design.md) | Harness Docking Design — multi-window layout model, topology perspectives, cross-window drag, container contract | `src/dashboard/`, `src/manager/` (`DragCoordinator` seam), `apps/agentos/` | Proposed (#14423; PR #14425) |
-| [0030](../agentos/decisions/0030-work-graph-stall-inference.md) | Work-Graph Stall Inference — `STALL_*` finding schema, defer tuple, and consumer boundaries | `ai/services/graph/`, `ai/services/memory-core/`, `ai/daemons/`, hook/wake/FM consumers | Proposed (#14461) |
+| [0001](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0001-cross-process-cache-coherence.md) | Cross-Process Cache Coherence for Memory Core Graph | `ai/services/memory-core/`, `ai/graph/`, `ai/mcp/server/memory-core/` | Proposed (#10186 / #10189) |
+| [0002](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) | Phase 3 Wake-Substrate Standards Alignment (MCP + A2A schema mappings) | `ai/daemons/wake/`, `ai/daemons/`, `ai/services/memory-core/` (MailboxService A2A primitives) | Proposed (#10311 / #10355) |
+| [0015](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0015-graph-store-backend-posture.md) | Graph Store Backend Posture - SQLite WAL First, Networked SQL Deferred | `ai/graph/`, `ai/services/memory-core/`, cloud deployment docs | Accepted - 2026-05-22 (#11732; PR #11779) |
+| [0025](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0025-orchestrator-container-health-self-healing.md) | Orchestrator Container-Health Diagnostics Daemon | `ai/daemons/orchestrator/services/`, `ai/deploy/` | Proposed (#13861) |
+| [0026](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0026-recovery-actuator.md) | Orchestrator Recovery Actuator | `ai/daemons/orchestrator/services/`, `ai/deploy/` | Proposed (#13880) |
+| [0027](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0027-autonomous-data-recovery-actuator.md) | Autonomous Memory Core Data-Recovery Actuator | `ai/daemons/orchestrator/services/`, `ai/services/memory-core/` | Proposed (#14134) |
+| [0028](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0028-temporal-pyramid-summarization-substrate.md) | Temporal-Pyramid Summarization Substrate | `ai/services/memory-core/`, `ai/daemons/`, temporal summary consumers | Proposed (#14427; PR #14428) |
+| [0029](../agentos/decisions/0029-docking-design.md) | Docking Design — multi-window layout model, topology perspectives, cross-window drag, container contract; §2.9 superseded by the v13.2 `neo.dock.*` greenfield amendment | `src/dashboard/dock/**`, `src/manager/` (`DragCoordinator` seam) | Accepted — 2026-07-02 (#14423; PR #14425); amended 2026-08-29 |
+| [0030](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0030-work-graph-stall-inference.md) | Work-Graph Stall Inference — `STALL_*` finding schema, defer tuple, and consumer boundaries | `ai/services/graph/`, `ai/services/memory-core/`, `ai/daemons/`, hook/wake/FM consumers | Proposed (#14461) |
 | [0031](../agentos/decisions/0031-target-architecture-composition.md) | Target-Architecture Composition — the whole-organism seam table + trajectory invariants + id-based staleness guard | Organism-level: no single Structural Inventory row owns this seam (it composes ALL of them — the boundary is deliberate); guard: `ai/scripts/lint/` | Proposed (#14525; PR #14527) |
+| [0035](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0035-live-lane-awareness-composition.md) | Live Lane Awareness — typed route, lifecycle frontier, Bird-View references, and fenced hook projection | `ai/agent/`, `ai/services/graph/`, `ai/services/memory-core/`, `ai/daemons/`, Claude/Codex hook consumers | Proposed (#15101) |
+| [0036](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0036-durable-community-activity-authority.md) | Durable Community Activity — provider-neutral admission, zero-authority attention, explicit Task claim | `ai/services/github-workflow/`, `ai/services/memory-core/`, `ai/services/shared/contentTrust/`, `ai/daemons/orchestrator/`, `ai/mcp/server/github-workflow/`, `ai/mcp/server/memory-core/` | Proposed (#15148) |
+| [0037](../agentos/decisions/0037-fleet-manager-outward-door-topology.md) | Fleet Manager Outward-Door Topology — one site, source-less-of-product storefront | `harness/`, `apps/agentos/`, release receipts, storefront consumer boundary | Proposed (#15521) |
 
 ## Next Steps
 
-- [Deploying the Agent OS](DeployingTheAgentOS.md) — Benefit-altitude path into
+- [Deploying the Agent OS](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/benefits/brain/DeployingTheAgentOS.md) — Benefit-altitude path into
   the cloud-deployment guide set
-- [Why Deploy the Agent OS](../agentos/cloud-deployment/WhyDeploy.md) — The
+- [Why Deploy the Agent OS](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/WhyDeploy.md) — The
   cloud-deployment hub and ordered learning path
-- [Strategic Workflows](../agentos/StrategicWorkflows.md) — Advanced agent workflow patterns
-- [Swarm Intelligence & Sub-Agents](../agentos/SwarmIntelligence.md) — Delegation, profiles, and capability gating
-- [The Dream Pipeline & Golden Path](../agentos/DreamPipeline.md) — Forecasting engine and scoring algorithm
+- [Strategic Workflows](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md) — Advanced agent workflow patterns
+- [Swarm Intelligence & Sub-Agents](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md) — Delegation, profiles, and capability gating
+- [The Dream Pipeline & Golden Path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md) — Forecasting engine and scoring algorithm
 - [Neural Link: Live Application Mutability](../agentos/NeuralLink.md) — Deep dive into the Neural Link bridge
-- [The Knowledge Base Server](../agentos/KnowledgeBase.md) — Semantic RAG architecture
-- [The Memory Core Server](../agentos/MemoryCore.md) — Episodic memory and graph storage
-- [Self-Healing Immune System](../agentos/SelfHealing.md) — Detect, diagnose, and bounded autonomous recovery
-- [The GitHub Workflow Server](../agentos/GitHubWorkflow.md) — Offline-first issue management
-- [Code Execution (AI SDK)](../agentos/CodeExecution.md) — The SDK Bouncer pattern in detail
+- [The Knowledge Base Server](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/KnowledgeBase.md) — Semantic RAG architecture
+- [The Memory Core Server](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md) — Episodic memory and graph storage
+- [Self-Healing Immune System](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SelfHealing.md) — Detect, diagnose, and bounded autonomous recovery
+- [The GitHub Workflow Server](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/GitHubWorkflow.md) — Offline-first issue management
+- [Code Execution (AI SDK)](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/CodeExecution.md) — The SDK Bouncer pattern in detail

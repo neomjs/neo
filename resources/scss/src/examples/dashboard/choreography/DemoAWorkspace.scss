@@ -1,0 +1,123 @@
+// Demo-A dock-choreography showcase — structural skin.
+// Consumes the standalone dashboard-example palette exclusively. Theme variance rides the
+// example-owned token layer, so this structural skin stays theme-agnostic without importing
+// or tracking a product application's palette.
+// Pane-identity tints (the design mock's --pane-a…d) are deliberately NOT minted here;
+// until the example palette gains that explicit need, panes alternate its existing tiers.
+
+.agentos-dockdemo-viewport {
+    background: var(--dashboard-example-ground);
+    color     : var(--dashboard-example-ink);
+    font-family: var(--dashboard-example-font-sans);
+}
+
+.agentos-dockdemo-workspace {
+    background: var(--dashboard-example-ground);
+}
+
+.agentos-dockdemo-tourbar {
+    background   : var(--dashboard-example-panel);
+    border-bottom: 1px solid var(--dashboard-example-line);
+    flex   : 0 0 auto;
+    height : 52px;
+    padding: 8px 12px;
+
+    .agentos-dockdemo-tour-play {
+        background   : var(--dashboard-example-signal);
+        border-radius: 7px;
+        color        : var(--dashboard-example-ground);
+        font-family  : var(--dashboard-example-font-mono);
+        font-weight  : 600;
+
+        // the button's glyph/text descendants own their colors in the theme layer —
+        // the token must be bridged onto them explicitly or it never lands
+        .neo-button-glyph,
+        .neo-button-text {
+            color: var(--dashboard-example-ground);
+        }
+
+        .neo-button-text {
+            font-family: var(--dashboard-example-font-mono);
+        }
+    }
+
+    .agentos-dockdemo-tour-caption {
+        color      : var(--dashboard-example-ink-dim);
+        font-family: var(--dashboard-example-font-mono);
+        font-size  : 13px;
+    }
+}
+
+.agentos-dockdemo-tour-pips {
+    display: flex;
+    gap    : 5px;
+    padding: 0 4px;
+
+    .agentos-dockdemo-pip {
+        background   : var(--dashboard-example-line);
+        border-radius: 3px;
+        height    : 5px;
+        transition: background var(--motion-base) var(--ease-out-soft);
+        width     : 14px;
+    }
+
+    .agentos-dockdemo-pip-done {
+        background: var(--dashboard-example-signal);
+    }
+}
+
+.agentos-dockdemo-dock-host {
+    background: var(--dashboard-example-ground);
+    padding   : 8px;
+    // the positioning context for the two persistent drag-affordance overlays below
+    position  : relative;
+
+    // The preview renderer + indicator menu are absolute overlay SIBLINGS of the projection
+    // (never inside it — the coarse refresh replaces only the projection child, so these keep
+    // their instances across every re-projection). `position: relative` above is the whole
+    // contract this example owes them: both overlays position themselves against it from the
+    // engine sheet. This file used to re-declare the preview's `inset`/`position`/`z-index`;
+    // the engine now owns that pair, so the copy is gone.
+}
+
+.agentos-dockdemo-pane {
+    background: var(--dashboard-example-panel);
+    border    : 1px solid var(--dashboard-example-line-soft);
+    border-radius: 8px;
+    color        : var(--dashboard-example-ink-dim);
+    font-family  : var(--dashboard-example-font-mono);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.agentos-dockdemo-clock-pane {
+    align-items    : center;
+    background: var(--dashboard-example-panel-2);
+    display   : flex;
+    flex-direction : column;
+    gap            : 6px;
+    justify-content: center;
+
+    .agentos-dockdemo-clock-label {
+        color         : var(--dashboard-example-ink-dim);
+        font-family   : var(--dashboard-example-font-mono);
+        font-size     : 12px;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+    }
+
+    .agentos-dockdemo-clock-time {
+        color      : var(--dashboard-example-signal);
+        font-family: var(--dashboard-example-font-mono);
+        font-size  : 34px;
+        font-weight: 600;
+        // the witness must stay readable while panes glide — tabular digits prevent jitter
+        font-variant-numeric: tabular-nums;
+    }
+
+    .agentos-dockdemo-clock-note {
+        color      : var(--dashboard-example-ink-dim);
+        font-family: var(--dashboard-example-font-mono);
+        font-size  : 11px;
+    }
+}

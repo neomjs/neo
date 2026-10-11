@@ -1,0 +1,823 @@
+import Base              from '../../../core/Base.mjs';
+import DragAffordances   from '../interaction/DragAffordances.mjs';
+import DragTarget        from './DragTarget.mjs';
+import DropIndicators    from '../interaction/DropIndicators.mjs';
+import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
+import Operations        from '../model/Operations.mjs';
+import Preview           from '../interaction/Preview.mjs';
+import PreviewContract   from '../model/PreviewContract.mjs';
+
+/**
+ * @class Neo.dashboard.dock.window.Participation
+ * @extends Neo.core.Base
+ *
+ * @summary The adapter-tier composition that makes ONE dock workspace a cross-window drag
+ * participant — the integration half of the docking design record's §2.3 (see
+ * `learn/agentos/decisions/0029-docking-design.md`) over exclusively LANDED machinery.
+ *
+ * It owns the target registration lifecycle (create on workspace mount, destroy on unmount) and
+ * binds the owner seams of {@link Neo.dashboard.dock.window.DragTarget} to the workspace's landed
+ * pipeline, adding exactly ONE new decision: foreign-vs-local drop discrimination at commit time.
+ *
+ * - **Local drop** (the payload's source workspace IS this one — two windows may project the
+ *   same document): the converted operation rides the owner's landed single-document commit
+ *   seam — the identical pipeline in-window drags use. No parallel drag system (§2.3 inherited
+ *   guardrail).
+ * - **Foreign drop** (the item belongs to a sibling window's workspace on the same App-Worker
+ *   heap): the converted `addTab`/`splitNode` descriptor becomes the nested `target` of ONE
+ *   semantic `transferItem` operation, executed through the landed atomic two-document executor
+ *   ({@link Neo.dashboard.dock.model.WorkspaceDocument#transferItem}) — commit-or-neither, item record verbatim,
+ *   live component instances move and are never re-instantiated (§2.6). The adapter publishes
+ *   those finite documents unchanged. Durable placement intent belongs to the separate topology
+ *   hint layer; once that layer exists, its workspace-set owner must join it to the document-pair
+ *   transaction instead of extending a `dockZone.v1` item record.
+ *
+ * Layer discipline (the target's established layer note, unchanged): `src/dashboard/` imports no app module —
+ * hosts can override the seams below; the default preview tier composes the shared engine visuals.
+ * The {@link Neo.manager.DragCoordinator} stays dock-blind: all dock semantics
+ * live here and in the seams, never in the coordinator (§2.3 binding invariant).
+ *
+ * The cross-window drag payload contract (stamped by {@link Neo.dashboard.dock.interaction.TabSortZone} at
+ * drag start): `draggedItem.dockItemId` names the dock catalog item, and
+ * `draggedItem.dockSourceWorkspaceId` names the workspace document it departs. A whole-stack
+ * source additionally stamps `draggedItem.dockGroupNodeId`; only the source document's
+ * model-resolved stack root is eligible for the `transferNode` path. The local/foreign
+ * discriminator keys on the LATTER's identity with this workspace — item-id presence in the
+ * target catalog is never ownership evidence (a foreign item with a colliding id must reach the
+ * executor's fail-closed collision rejection, not commit the local record) — and a payload
+ * missing any of its stamps fails closed (no signal-free guessing). `draggedItem.dockSourceOwnershipId`
+ * names the commit authority the item departs — the source window's topology Group — and the commit
+ * re-checks it against this workspace's own (docking design record §2.3), so an equal bare workspace id across two
+ * Groups never reads as local.
+ */
+class Participation extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.dashboard.dock.window.Participation'
+         * @protected
+         */
+        className: 'Neo.dashboard.dock.window.Participation',
+        /**
+         * @member {String} ntype='dock-crosswindow-participation'
+         * @protected
+         */
+        ntype: 'dock-crosswindow-participation',
+        /**
+         * An externally owned affordance controller; omitted, this participation composes its own.
+         * @member {Neo.dashboard.dock.interaction.DragAffordances|null} affordances=null
+         */
+        affordances: null,
+        /**
+         * Existing target-proxy owner exposing move, restore, promote and whenSettled, and optionally
+         * snapshot, whose `settled` the drop consults to refuse a proxy that has not rendered.
+         * Its creator retains teardown ownership; explicit handler configs override these defaults.
+         * @member {Object|null} dragEmbodiment=null
+         */
+        dragEmbodiment: null,
+        /**
+         * Owner seam, forwarded to the target: clears the workspace's preview overlay when a
+         * remote drag leaves. Optional.
+         * @member {Function|null} clearPreview=null
+         */
+        clearPreview: null,
+        /**
+         * Owner seam: the workspace's landed single-document commit path — receives the converted
+         * operation descriptor for a LOCAL drop and returns the executor result
+         * (`{document, errors}`-shaped) or a falsy value. The same seam in-window drops ride.
+         * @member {Function|null} commitLocal=null
+         */
+        commitLocal: null,
+        /**
+         * Owner seam: publishes an atomically-transferred document PAIR through the workspace
+         * set's change-notification path. Receives
+         * `{sourceWorkspaceId, sourceDocument, targetWorkspaceId, targetDocument, descriptor}`
+         * where both documents are the executor's unchanged, finite committed results. Returns a
+         * truthy acknowledgement only after the pair was synchronously accepted; a refusal keeps
+         * the coordinator's source-retirement path closed.
+         * @member {Function|null} commitTransfer=null
+         */
+        commitTransfer: null,
+        /**
+         * Forwarded to the target: the arbitration registry. Defaults to the
+         * `Neo.manager.DragCoordinator` singleton inside the target; unit tests inject a stand-in.
+         * @member {Neo.manager.DragCoordinator|null} dragCoordinator=null
+         * @protected
+         */
+        dragCoordinator: null,
+        /**
+         * Owner seam: `(sourceWorkspaceId) => document` — resolves a sibling workspace's committed
+         * document from the worker-owned workspace set. Foreign drops fail closed without it.
+         * @member {Function|null} getForeignDocument=null
+         */
+        getForeignDocument: null,
+        /**
+         * Owner seam: `() => document` — this workspace's committed document (the discrimination
+         * + transfer-target input). Required.
+         * @member {Function|null} getDocument=null
+         */
+        getDocument: null,
+        /**
+         * Owner seam, forwarded to the target: cheap window-local hit-test (§2.3, side-effect
+         * free). Without it the workspace never claims a remote drag (fail-closed).
+         * @member {Function|null} hitTest=null
+         */
+        hitTest: null,
+        /**
+         * Owner seam, forwarded to the target: maps a remote hover payload onto the workspace's
+         * landed `dockPreview` compute+render path.
+         * @member {Function|null} previewFor=null
+         */
+        previewFor: null,
+        /**
+         * Owner seam, forwarded to the target: the workspace's landed `previewToOperation`
+         * converter — the single preview→operation pipeline.
+         * @member {Function|null} previewToOperation=null
+         */
+        previewToOperation: null,
+        /**
+         * Optional product-owned native-popup resolver forwarded through the SAME stable target
+         * registration. It never creates a second coordinator entry.
+         * @member {Function|null} resolveNativeWindowDrag=null
+         */
+        resolveNativeWindowDrag: null,
+        /**
+         * Owner seam: the commit authority this workspace's surfaces belong to — its topology Group id
+         * (`Neo.manager.Transaction`), or `null` while unresolved — read live through {@link #ownershipId}
+         * at claim time and at commit. Defaults to the owning {@link #workspace}'s Group; a host that
+         * passes no workspace supplies it here (docking design record §2.3).
+         * @member {Function|null} resolveOwnershipId=null
+         */
+        resolveOwnershipId: null,
+        /**
+         * Optional product-owned native-popup restore seam forwarded to the stable participation.
+         * @member {Function|null} resumeNativeWindowDrag=null
+         */
+        resumeNativeWindowDrag: null,
+        /**
+         * Optional product-owned native-popup retirement seam forwarded to the stable participation.
+         * @member {Function|null} retireNativeWindowDrag=null
+         */
+        retireNativeWindowDrag: null,
+        /**
+         * Owner seam forwarded to the target: promotes the target-local live drag embodiment
+         * after a successful semantic commit.
+         * @member {Function|null} promoteDragEmbodiment=null
+         */
+        promoteDragEmbodiment: null,
+        /**
+         * Owner seam forwarded to the target: restores the target-local live drag embodiment on
+         * leave or any non-commit terminal.
+         * @member {Function|null} restoreDragEmbodiment=null
+         */
+        restoreDragEmbodiment: null,
+        /**
+         * §2.3 registry identity, forwarded to the target: only targets sharing the drag source's
+         * `sortGroup` are arbitration candidates.
+         * @member {String|null} sortGroup=null
+         */
+        sortGroup: null,
+        /**
+         * Owner seam forwarded to the target: stages/updates an explicitly licensed target-local
+         * live drag embodiment.
+         * @member {Function|null} stageDragEmbodiment=null
+         */
+        stageDragEmbodiment: null,
+        /**
+         * Owner seam forwarded to the target: settles the exact staged target renderer before a
+         * native-titlebar handoff begins its retained readability interval.
+         * @member {Function|null} awaitDragEmbodiment=null
+         */
+        awaitDragEmbodiment: null,
+        /**
+         * Owner seam forwarded to the target: whether the staged embodiment renders. Defaults to the
+         * embodiment owner's settled proxy, so a proxy still mounting or refused refuses the drop.
+         * @member {Function|null} isDragEmbodimentLive=null
+         */
+        isDragEmbodimentLive: null,
+        /**
+         * Owner seam forwarded to the target: resolves once a frame the preview seam could not
+         * answer yet can be answered. Defaults to the affordance geometry settling.
+         * @member {Function|null} awaitPreviewable=null
+         */
+        awaitPreviewable: null,
+        /**
+         * Optional product-owned native-popup park/relegation seam forwarded to the stable
+         * participation.
+         * @member {Function|null} suspendNativeWindowDrag=null
+         */
+        suspendNativeWindowDrag: null,
+        /**
+         * §2.3 registry identity, forwarded to the target: the window this workspace renders in.
+         * @member {String|Number|null} windowId=null
+         */
+        windowId: null,
+        /**
+         * The dock workspace this participation speaks for. Supplying it is what lets the seams
+         * above stay unset: every default below answers from state this workspace already holds
+         * (`dockModel`, the reducer pair, the projection options, the tear-out registries), so a
+         * host that composes a workspace gets cross-window drag without re-deriving it.
+         *
+         * A host seam always wins — the defaults resolve only where one is `null`.
+         * @member {Neo.dashboard.dock.Workspace|null} workspace=null
+         */
+        workspace: null,
+        /**
+         * The worker-owned workspace set ({@link Neo.dashboard.dock.window.WorkspaceSet}) this
+         * workspace is registered in. It is the only source that can resolve a SIBLING workspace's
+         * document, so without it foreign drops decline exactly as they do today — a single-workspace
+         * host loses nothing it had.
+         * @member {Object|null} workspaceSet=null
+         */
+        workspaceSet: null,
+        /**
+         * This workspace's id in the worker-owned workspace set — the `targetWorkspaceId` of every
+         * foreign transfer committed here.
+         * @member {String|null} workspaceId=null
+         */
+        workspaceId: null
+    }
+
+    /**
+     * The registered {@link Neo.dashboard.dock.window.DragTarget} this participation owns.
+     * Created in {@link #construct}, destroyed with this instance.
+     * @member {Neo.dashboard.dock.window.DragTarget|null} target=null
+     */
+    target = null
+
+    /**
+     * The gesture controller composed by {@link #resolveAffordances}, or null while a host seam
+     * answers the preview tier. Owned here, destroyed here.
+     * @member {Neo.dashboard.dock.interaction.DragAffordances|null} ownedAffordances=null
+     * @protected
+     */
+    ownedAffordances = null
+
+    /**
+     * The default target's indicator menu, created and destroyed with its preview tier.
+     * @member {Neo.dashboard.dock.interaction.DropIndicators|null} ownedIndicators=null
+     * @protected
+     */
+    ownedIndicators = null
+
+    /**
+     * The preview overlay composed by {@link #resolveAffordances}. Owned here, destroyed here.
+     * @member {Neo.dashboard.dock.interaction.Preview|null} ownedPreview=null
+     * @protected
+     */
+    ownedPreview = null
+
+    /**
+     * @summary Creates and registers the workspace's cross-window target with its owner seams bound.
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.target = Neo.create(DragTarget, {
+            clearPreview           : me.clearPreview            ?? me.defaultClearPreview.bind(me),
+            commitOperation        : me.commitDrop.bind(me),
+            dragCoordinator        : me.dragCoordinator,
+            hitTest                : me.hitTest                 ?? me.defaultHitTest.bind(me),
+            previewFor             : me.previewFor              ?? me.defaultPreviewFor.bind(me),
+            previewToOperation     : me.previewToOperation      ?? (preview => PreviewContract.previewToOperation(preview)),
+            promoteDragEmbodiment  : me.promoteDragEmbodiment ?? me.defaultPromoteDragEmbodiment.bind(me),
+            resolveNativeWindowDrag: me.resolveNativeWindowDrag ?? me.defaultResolveNativeWindowDrag.bind(me),
+            resolveOwnershipId     : () => me.ownershipId,
+            restoreDragEmbodiment  : me.restoreDragEmbodiment ?? me.defaultRestoreDragEmbodiment.bind(me),
+            resumeNativeWindowDrag : me.resumeNativeWindowDrag,
+            retireNativeWindowDrag : me.retireNativeWindowDrag,
+            sortGroup              : me.sortGroup ?? me.defaultSortGroup(),
+            stageDragEmbodiment    : me.stageDragEmbodiment ?? me.defaultStageDragEmbodiment.bind(me),
+            awaitDragEmbodiment    : me.awaitDragEmbodiment ?? me.defaultAwaitDragEmbodiment.bind(me),
+            awaitPreviewable       : me.awaitPreviewable    ?? me.defaultAwaitPreviewable.bind(me),
+            isDragEmbodimentLive   : me.isDragEmbodimentLive ?? me.defaultIsDragEmbodimentLive.bind(me),
+            suspendNativeWindowDrag: me.suspendNativeWindowDrag,
+            // the workspace id IS the §2.8.1 stable claim identity: it survives re-registration
+            // and never encodes windowId or registration order
+            stableTargetId: me.workspaceId,
+            windowId      : me.windowId
+        })
+    }
+
+    /**
+     * @summary Composes the shared preview renderer, indicator menu and gesture controller on first use.
+     * Default targets own this complete tier; hosts supplying a preview seam retain their own visuals.
+     * @returns {Neo.dashboard.dock.interaction.DragAffordances|null}
+     * @protected
+     */
+    resolveAffordances() {
+        if (this.affordances) return this.affordances;
+
+        let me        = this,
+            workspace = me.workspace,
+            host      = workspace?.getDockHost?.();
+
+        if (me.isDestroyed || me.ownedAffordances || !workspace || !host || workspace.isDestroyed) {
+            return me.ownedAffordances
+        }
+
+        me.ownedPreview = workspace.add({module: Preview});
+        me.ownedIndicators = workspace.add({module: DropIndicators});
+
+        me.ownedAffordances = Neo.create(DragAffordances, {
+            host,
+            indicators: me.ownedIndicators,
+            owner     : workspace,
+            preview   : me.ownedPreview
+        });
+
+        return me.ownedAffordances
+    }
+
+    /**
+     * @summary Clears feedback through the supplied or default-owned affordance controller.
+     * @protected
+     */
+    defaultClearPreview() {
+        (this.affordances ?? this.ownedAffordances)?.clear()
+    }
+
+    /**
+     * @summary Identifies the exact target-local embodiment without re-deriving the native source.
+     * @param {Object} payload The licensed drag payload.
+     * @returns {Object}
+     */
+    getDragEmbodimentIdentity(payload) {
+        return {itemId: payload?.draggedItem?.dockItemId,
+            sourceWindowId: payload?.sourceWindowId, targetWindowId: this.windowId}
+    }
+
+    /**
+     * @summary Stages through the supplied embodiment owner.
+     * @param {Object} payload
+     * @returns {Boolean}
+     * @protected
+     */
+    defaultStageDragEmbodiment(payload) {
+        return this.dragEmbodiment?.move({...payload, targetWindowId: this.windowId}) === true
+    }
+
+    /**
+     * @summary Restores only the licensed target embodiment.
+     * @param {Object} payload
+     * @returns {Boolean}
+     * @protected
+     */
+    defaultRestoreDragEmbodiment(payload) {
+        return this.dragEmbodiment?.restore(this.getDragEmbodimentIdentity(payload)) === true
+    }
+
+    /**
+     * @summary Promotes the target embodiment after semantic commit.
+     * @param {Object} payload
+     * @returns {Boolean}
+     * @protected
+     */
+    defaultPromoteDragEmbodiment(payload) {
+        return this.dragEmbodiment?.promote(this.getDragEmbodimentIdentity(payload)) === true
+    }
+
+    /**
+     * @summary Whether the licensed embodiment renders: the embodiment owner's proxy for the dragged
+     * item has settled. A proxy still mounting has not rendered yet, and one whose render was refused
+     * retired; both answer `false`. An owner without `snapshot` cannot answer, so the answer is `null`
+     * and the drop proceeds as before.
+     * @param {Object} payload
+     * @returns {Boolean|null}
+     * @protected
+     */
+    defaultIsDragEmbodimentLive(payload) {
+        const {dragEmbodiment} = this;
+
+        return typeof dragEmbodiment?.snapshot === 'function'
+            ? dragEmbodiment.snapshot(payload?.draggedItem?.dockItemId)?.settled === true
+            : null
+    }
+
+    /**
+     * @summary Waits for both the live pane and its preview before the retained native handoff.
+     * @param {Object} payload The exact payload fenced by DragTarget across this await.
+     * @returns {Promise<Boolean>}
+     */
+    async defaultAwaitDragEmbodiment(payload) {
+        const preview = this.resolveAffordances()?.preview;
+        if (!this.dragEmbodiment || !preview?.dockPreview) return false;
+
+        const [settled] = await Promise.all([
+            this.dragEmbodiment.whenSettled(this.getDragEmbodimentIdentity(payload)),
+            preview.promiseUpdate?.()
+        ]);
+        return settled === true && Boolean(preview.dockPreview)
+    }
+
+    /**
+     * @summary Resolves `true` once a cold affordance geometry settles measurable, so the target can
+     * answer a frame {@link #defaultPreviewFor} met before the measurement landed.
+     * @returns {Promise<Boolean>|null} `null` when the geometry is already warm or there is none to await
+     * @protected
+     */
+    defaultAwaitPreviewable() {
+        const affordances = this.resolveAffordances();
+
+        if (!affordances || affordances.geometry) return null;
+
+        return affordances.ensureGeometry().then(geometry => Boolean(geometry))
+    }
+
+    /**
+     * Engine default for {@link #commitLocal}: the workspace's own reducer pair — the identical
+     * path an in-window drop rides, so a cross-window local drop never becomes a parallel commit.
+     * @param {Object} operation
+     * @returns {Object|null}
+     * @protected
+     */
+    defaultCommitLocal(operation) {
+        let workspace = this.workspace,
+            result    = workspace?.applyDockZoneOperation?.(operation);
+
+        if (!result || result.errors?.length || !result.document) {
+            return null
+        }
+
+        const committed = workspace.onDockZoneDocumentChange(result.document, operation, workspace);
+        return committed?.then ? committed.then(() => result) : result
+    }
+
+    /**
+     * Engine default for {@link #commitTransfer}: the workspace set's atomic pair adoption. It
+     * returns a strict boolean because a truthy-but-unacknowledged publish would open the
+     * coordinator's source-retirement path over a transfer that never landed.
+     * @param {Object} data
+     * @returns {Boolean}
+     * @protected
+     */
+    defaultCommitTransfer(data) {
+        if (this.workspaceSet?.transfer) {
+            return this.workspaceSet.transfer(data.descriptor, {provenance: {origin: 'human'}}).then(() => true)
+        }
+        return this.workspaceSet?.adoptTransfer?.(data) === true
+    }
+
+    /**
+     * The effective transfer publisher: a host seam, else the workspace set's adoption, else `null`.
+     * `null` is the capability answer rather than a missing function — a workspace with no set has
+     * no sibling to transfer with, and every foreign drop must fail closed there exactly as before.
+     * @returns {Function|null}
+     * @protected
+     */
+    resolveCommitTransfer() {
+        return this.commitTransfer ?? (this.workspaceSet ? this.defaultCommitTransfer.bind(this) : null)
+    }
+
+    /**
+     * Engine default for {@link #getDocument}: this workspace's committed document.
+     * @returns {Object|null}
+     * @protected
+     */
+    defaultGetDocument() {
+        return this.workspace?.dockModel ?? null
+    }
+
+    /**
+     * Engine default for {@link #getForeignDocument}: a sibling's committed document, which only
+     * the workspace set can resolve. Without a set this stays `null` and foreign drops fail closed.
+     * @param {String} workspaceId
+     * @returns {Object|null}
+     * @protected
+     */
+    defaultGetForeignDocument(workspaceId) {
+        return this.workspaceSet?.getDocument?.(workspaceId) ?? null
+    }
+
+    /**
+     * Engine default for {@link #hitTest}: window-local bounds, side-effect free and synchronous as
+     * the seam requires — a measurement here would stall the ~60hz remote hover stream.
+     * @param {Number} localX
+     * @param {Number} localY
+     * @returns {Boolean}
+     * @protected
+     */
+    defaultHitTest(localX, localY) {
+        let inner = this.windowId != null ? Neo.manager?.Window?.get(this.windowId)?.innerRect : null;
+
+        return Boolean(
+            inner && Number.isFinite(localX) && Number.isFinite(localY) &&
+            localX >= 0 && localY >= 0 && localX <= inner.width && localY <= inner.height
+        )
+    }
+
+    /**
+     * @summary Resolves and renders the remote hover frame through the gesture owner.
+     * The engine default for {@link #previewFor} uses the gesture
+     * controller's synchronous geometry mirror. The warm-up is deliberately not awaited — the seam
+     * must answer on the frame it arrives, so a frame that meets a cold mirror answers `null`; the
+     * target answers it again once {@link #defaultAwaitPreviewable} resolves, so a pointer that
+     * stops on that frame still gets its preview.
+     * @param {Object} payload
+     * @returns {Object|null}
+     * @protected
+     */
+    defaultPreviewFor(payload) {
+        let affordances = this.resolveAffordances(),
+            draggedItem = payload?.draggedItem;
+
+        if (!affordances || !draggedItem?.dockItemId) {
+            return null
+        }
+
+        affordances.ensureGeometry();
+
+        return affordances.renderPreview(affordances.resolvePreview({
+            groupNodeId : draggedItem.dockGroupNodeId ?? null,
+            itemId      : draggedItem.dockItemId,
+            pointer     : {x: payload.localX, y: payload.localY},
+            sourceNodeId: draggedItem.dockSourceNodeId ?? payload.sourceNodeId ?? null
+        }) ?? null, payload.dwell ?? null)
+    }
+
+    /**
+     * @summary Resolves a native popup drag from its Group-owned document membership.
+     * A registered popup owns its document even when empty; only vessels without a separate
+     * participant use the admitting workspace's catalog. A registered multi-item vessel may expose
+     * its complete model-resolved center stack as `dockGroupNodeId`; partial stacks fail closed.
+     * @param {String|Number} movingWindowId
+     * @returns {Object|null}
+     * @protected
+     */
+    defaultResolveNativeWindowDrag(movingWindowId) {
+        let me        = this,
+            workspace = me.workspace,
+            panes     = workspace?.nativeWindows?.ownerEntries(workspace.id);
+
+        if (!panes || movingWindowId == null) {
+            return null
+        }
+
+        const match = panes.find(([, entry]) => entry.windowId === movingWindowId);
+        if (!match) return null;
+
+        const
+            [itemId, entry] = match,
+            ownershipId     = me.ownershipId,
+            registered      = Boolean(me.workspaceSet?.has(entry.workspaceKey)),
+            sourceId        = registered ? entry.workspaceKey : me.workspaceId,
+            document        = registered ? me.workspaceSet.getDocument(sourceId) : workspace.dockModel,
+            itemIds         = Object.keys(document?.items ?? {});
+
+        if (registered && itemIds.length === 0) {
+            return null
+        }
+
+        let groupNodeId = null;
+
+        if (registered && itemIds.length > 1) {
+            const nativeGroupId = workspace.nativeWindows.groupId ?? null;
+
+            if (!nativeGroupId || nativeGroupId !== ownershipId || me.workspaceSet.resolveGroupId?.() !== nativeGroupId) {
+                return null
+            }
+
+            groupNodeId = WorkspaceDocument.resolveStackRoot(document);
+
+            if (!groupNodeId || groupNodeId === document.root) {
+                return null
+            }
+
+            // Admit only a complete catalog whose owner is in the center subtree.
+            const
+                subtreeNodeIds = WorkspaceDocument.reachableNodeIds({nodes: document.nodes, root: groupNodeId}),
+                subtreeItemIds = new Set();
+
+            subtreeNodeIds.forEach(nodeId => {
+                const node = document.nodes[nodeId];
+
+                if (node?.type === 'tabs') {
+                    (node.items || []).forEach(subtreeItemId => subtreeItemIds.add(subtreeItemId))
+                }
+            });
+
+            if (!subtreeItemIds.has(itemId) || itemIds.some(sourceItemId => !subtreeItemIds.has(sourceItemId))) {
+                return null
+            }
+        }
+
+        let item = document?.items?.[itemId],
+            pane = item ? workspace.resolvePane?.(itemId, item) : null;
+
+        if (!pane || pane.isDestroyed) {
+            return null
+        }
+
+        delete pane.dockGroupNodeId;
+        delete pane.dockSourceNodeId;
+        if (groupNodeId) pane.dockGroupNodeId = groupNodeId;
+        pane.dockItemId            = itemId;
+        pane.dockSourceOwnershipId = ownershipId;
+        pane.dockSourceWorkspaceId = sourceId;
+
+        return {
+            draggedItem      : pane,
+            embodyNativeHover: true,
+            sourceWindowId   : movingWindowId,
+            widgetName       : itemId
+        }
+    }
+
+    /**
+     * Engine default for {@link #sortGroup}: the value the workspace already publishes to its own
+     * projection, read back through the documented options hook. Absent, the target never registers
+     * and the workspace stays fully in-window — the unchanged opt-in default.
+     * @returns {String|null}
+     * @protected
+     */
+    defaultSortGroup() {
+        return this.workspace?.getDockProjectionOptions?.()?.crossWindowSortGroup ?? null
+    }
+
+    /**
+     * The commit authority this workspace's surfaces declare (docking design record §2.3): the seam's answer, `null`
+     * while unresolved. The registered target reads it at claim time; {@link #commitDrop} re-checks it.
+     * @member {String|null} ownershipId
+     */
+    get ownershipId() {
+        return (this.resolveOwnershipId ?? this.defaultResolveOwnershipId).call(this) ?? null
+    }
+
+    /**
+     * Engine default for {@link #resolveOwnershipId}: the owning workspace's topology Group, resolved
+     * live so a Group learned after this participation registered is covered.
+     * @returns {String|null}
+     * @protected
+     */
+    defaultResolveOwnershipId() {
+        let {workspace} = this;
+
+        return workspace ? (workspace.resolveTopologyGroup?.() ?? workspace.topologyGroupId ?? null) : null
+    }
+
+    /**
+     * @summary The discriminated commit — the one decision this class adds. A payload whose
+     * `dockSourceWorkspaceId` IS this workspace commits through the landed single-document seam;
+     * any other source workspace composes ONE `transferItem` descriptor (the converted operation
+     * nested as its `target`) and publishes the landed atomic two-document transfer verbatim. A
+     * payload carrying `dockGroupNodeId` instead admits only an exact `transferNode` descriptor for
+     * the source document's resolved stack root; a mismatch fails closed before the executor.
+     * Discrimination is workspace IDENTITY, never item-id presence in the target catalog — an id
+     * collision across workspaces rides the executor's fail-closed rejection. Every unprovable
+     * input — missing payload identity, unresolvable source document, executor errors — fails
+     * closed: nothing commits, `null` returns, both documents stay untouched (the executor's
+     * commit-or-neither contract).
+     * @param {Object} operation The converted `addTab`/`splitNode` descriptor from the target's
+     *     preview→operation pipeline.
+     * @param {Object} draggedItem The coordinator's drag payload — carries `dockItemId` +
+     *     `dockSourceWorkspaceId` + `dockSourceOwnershipId` and optional `dockGroupNodeId` per the
+     *     class-summary payload contract.
+     * @returns {Object|null} the owner commit result, or null when nothing committed.
+     */
+    commitDrop(operation, draggedItem) {
+        let me                = this,
+            groupNodeId       = draggedItem?.dockGroupNodeId,
+            itemId            = draggedItem?.dockItemId,
+            sourceOwnershipId = draggedItem?.dockSourceOwnershipId,
+            sourceWorkspaceId = draggedItem?.dockSourceWorkspaceId,
+            publishTransfer   = me.resolveCommitTransfer(),
+            document          = (me.getDocument ?? me.defaultGetDocument).call(me);
+
+        if (!operation || !itemId || !document) {
+            return null
+        }
+
+        // Docking design record §2.3, re-checked at commit: the coordinator admitted this target by ownership, and the
+        // payload proves it again here. An equal bare workspace id across two Groups is not local, and an
+        // unstamped payload proves nothing — both fail closed before the local/foreign discrimination.
+        if (sourceOwnershipId == null || sourceOwnershipId !== me.ownershipId) {
+            return null
+        }
+
+        if (groupNodeId) {
+            // A whole-stack handle is a cross-workspace gesture only. Within one document the
+            // model's `moveNode` verb owns grouped moves; silently routing a `transferNode` through
+            // the local item seam would turn one semantic operation into another by accident.
+            if (sourceWorkspaceId == null || sourceWorkspaceId === me.workspaceId) {
+                return null
+            }
+
+            const sourceDocument = (me.getForeignDocument ?? me.defaultGetForeignDocument).call(me, sourceWorkspaceId);
+
+            if (!sourceDocument || !publishTransfer ||
+                operation.operation !== 'transferNode' || operation.nodeId !== groupNodeId ||
+                WorkspaceDocument.resolveStackRoot(sourceDocument) !== groupNodeId) {
+                return null
+            }
+
+            const descriptor = {
+                ...operation,
+                sourceWorkspaceId,
+                targetWorkspaceId: me.workspaceId
+            };
+
+            const result = Operations.transferNode(sourceDocument, document, descriptor);
+
+            if (result.errors.length) {
+                return null
+            }
+
+            const published = publishTransfer({
+                descriptor,
+                sourceDocument   : result.sourceDocument,
+                sourceWorkspaceId,
+                targetDocument   : result.targetDocument,
+                targetWorkspaceId: me.workspaceId
+            });
+
+            return published?.then ? published.then(value => value === true ? result : null) : published ? result : null
+        }
+
+        // LOCAL means the payload NAMES this workspace as its source (two windows may project the
+        // same document) — workspace IDENTITY, never item-id presence in the target catalog: a
+        // foreign item whose id collides with a local one must reach the executor's fail-closed
+        // collision rejection below, not silently commit the local record. An unstamped payload
+        // proves neither side, so it falls through to the foreign guard and fails closed.
+        if (sourceWorkspaceId != null && sourceWorkspaceId === me.workspaceId) {
+            return (me.commitLocal ?? me.defaultCommitLocal).call(me, operation, draggedItem) ?? null
+        }
+
+        const sourceDocument = sourceWorkspaceId != null
+            ? (me.getForeignDocument ?? me.defaultGetForeignDocument).call(me, sourceWorkspaceId)
+            : null;
+
+        if (!sourceDocument || !publishTransfer) {
+            return null
+        }
+
+        const descriptor = {
+            operation        : 'transferItem',
+            itemId,
+            sourceWorkspaceId,
+            targetWorkspaceId: me.workspaceId,
+            target           : operation
+        };
+
+        const result = Operations.transferItem(sourceDocument, document, descriptor);
+
+        if (result.errors.length) {
+            return null
+        }
+
+        const published = publishTransfer({
+            descriptor,
+            sourceDocument   : result.sourceDocument,
+            sourceWorkspaceId,
+            targetDocument   : result.targetDocument,
+            targetWorkspaceId: me.workspaceId
+        });
+
+        return published?.then ? published.then(value => value === true ? result : null) : published ? result : null
+    }
+
+    /**
+     * @summary Releases one composed overlay through its owning container.
+     *
+     * A container holds each child in TWO collections — `items` and `vdom.cn` — and only the container
+     * owns both. `Component#destroy()` leaves the parent naming a component no `ComponentManager` can
+     * resolve; `destroy(true)` repairs `vdom.cn` and still leaves the dead child in `items`, so a later
+     * index-addressed `removeAt` reaches the wrong component. `remove()` is the one path that keeps the
+     * two agreed.
+     *
+     * An overlay with no container parent — a host-supplied seam this instance did not compose into a
+     * container — has no owner to release it, and destroys itself.
+     * @param {Neo.component.Base|null} overlay
+     * @protected
+     */
+    releaseOverlay(overlay) {
+        Neo.isFunction(overlay?.parent?.remove) ? overlay.parent.remove(overlay) : overlay?.destroy(true)
+    }
+
+    /**
+     * @summary Unregisters and destroys the owned target before instance teardown — the unmount half of the
+     * registration lifecycle.
+     */
+    destroy() {
+        let me = this;
+
+        me.target?.destroy();
+        me.target = null;
+
+        // Only what this instance composed: a host-supplied preview seam owns its own overlay, and
+        // destroying that would tear down a renderer the host still paints in-window drags with.
+        me.releaseOverlay(me.ownedAffordances);
+        me.ownedAffordances = null;
+
+        me.releaseOverlay(me.ownedPreview);
+        me.ownedPreview = null;
+
+        me.releaseOverlay(me.ownedIndicators);
+        me.ownedIndicators = null;
+
+        super.destroy()
+    }
+}
+
+export default Neo.setupClass(Participation);

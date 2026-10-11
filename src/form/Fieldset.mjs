@@ -206,7 +206,9 @@ class Fieldset extends FormContainer {
     }
 
     /**
-     *
+     * @summary Syncs the legend with the current title and icon. An empty pair takes the legend out of the DOM, any
+     * other pair renders it, creating the legend on first use. The legend changes silently, so the fieldset's own
+     * update carries it whole, even when a child's update merges into that cycle.
      */
     updateLegend() {
         let me              = this,
@@ -215,18 +217,21 @@ class Fieldset extends FormContainer {
 
         if (iconCls === '' && title === '') {
             if (legend) {
-                legend.vdom.reomveDom = true;
+                legend.vdom.removeDom = true;
+                me.updateDepth        = 2;
+                me.denseUpdate        = true
             }
         } else {
             if (legend) {
                 me.updateDepth = 2;
+                me.denseUpdate = true;
 
                 legend.setSilent({
                     iconCls,
                     text: title
                 });
 
-                delete legend.vdom.reomveDom
+                delete legend.vdom.removeDom
             } else {
                 me.legend = me.insert(0, {
                     module: Legend,

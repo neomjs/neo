@@ -33,7 +33,7 @@ These instances exist continuously inside the App Worker's memory. This is the c
 - `container.remove(component, destroy)`
 - `container.move(component, newIndex)`
 
-You do not just update props and hope the framework redraws the container correctly over time. You can surgically grab an existing component and move it, unmount it, and remount it at runtime—without ever destroying its internal JavaScript instance or state.
+You do not just update props and hope the engine redraws the container correctly over time. You can surgically grab an existing component and move it, unmount it, and remount it at runtime—without ever destroying its internal JavaScript instance or state.
 
 ### Layer 2: The Persistent VDOM & VNode Trees
 
@@ -80,4 +80,4 @@ This robust double-layer of permanence unlocks architectural super-powers that a
 > [!TIP]
 > **Curious about the low-level implementation?**
 > Discover exactly how Neo.mjs separates the declarative component tree abstraction from the imperative VDOM layer in our deep-dive guide:
-> **[Declarative Component Trees VS Imperative Vdom](../guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom.md)**
+> **[Declarative Component Trees VS Imperative Vdom](../../guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom.md)**

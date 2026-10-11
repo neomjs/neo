@@ -9,10 +9,14 @@
 > invariants**: it re-decides nothing, supersedes nothing, and stays current **by construction**
 > via an id-based CI guard (§4) — a new ADR cannot merge without taking its seam-table row.
 
-**Status:** Proposed — 2026-07-03 (until PR merge, per ADR 0005 lifecycle)
-**Graduated from:** Discussion #13846 (convergence pass + cross-family `[GRADUATION_APPROVED]`)
-**Resolves:** #14525 · **Identity authority:** ADR 0018 (untouched; cited)
-**Sibling leaf:** #14526 — the governed `AGENTS.md` two-hemisphere alignment (never bundled here)
+| Attribute | Value |
+|---|---|
+| **Status** | Accepted — 2026-07-03 (PR #14527) |
+| **After the split** | The `/ai/` hemisphere this record composes left the Engine for [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) (#17806), and the Fleet Manager for [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution) (#17810). [ADR 0018 OD-4](0018-neo-identity-source-of-truth-model.md) records the structure after the split. |
+| **Graduated from** | Discussion #13846 (convergence pass + cross-family `[GRADUATION_APPROVED]`) |
+| **Resolves** | #14525 |
+| **Identity authority** | ADR 0018 (untouched; cited) |
+| **Sibling leaf** | #14526 — the governed `AGENTS.md` two-hemisphere alignment (never bundled here) |
 
 ## §1 The Organism (by citation, not re-decision)
 
@@ -63,9 +67,18 @@ decision owns; *Parent* = the composition record that already aggregates it, whe
 | 0026 | Deployment | Immune system, act half: lifecycle recovery actuator (privilege tiers) | pairs 0025 |
 | 0027 | Deployment | Immune system, data half: Memory-Core data-recovery actuator | pairs 0025/0026 |
 | 0028 | Brain / graph | Temporal-pyramid summarization substrate (history navigation) | 0024 |
-| 0029 | Body ↔ Brain seam | Harness docking design (multi-window layout, perspectives, cross-window drag) | extends 0020 |
+| 0029 | Body ↔ Brain seam | Docking design (multi-window layout, perspectives, cross-window drag) — Body-owned subsystem; the seam is its Brain-surface consumption (§2.6 container contract, §2.8.5 NL possession) | extends 0020 |
 | 0030 | Brain / orchestration | Work-graph stall inference (`STALL_*` findings) | — |
 | 0031 | Organism | **This record**: composition seams + trajectory invariants + the staleness guard | — |
+| 0032 | Body ↔ Brain seam | Institution-Cockpit render-model (object-permanent selves + COP; identity anti-lock-in contract) | extends 0020 |
+| 0033 | Brain / graph | Direction contract: deterministic evolution-direction keys + per-direction `{v,s,r}` velocity + the fail-open additive boundary | amends 0024/0028 |
+| 0034 | Body ↔ Brain seam | Electron shell architecture (process model, SharedWorker window topology, security posture, distribution) | extends 0020 |
+| 0035 | Brain / orchestration | Live-lane awareness federation: typed GP route, lifecycle frontier, fenced hook projection, and Bird-View references | composes 0020/0028/0033 |
+| 0036 | Brain / community activity | Durable provider-neutral source registration/admission, zero-authority attention, and atomic Task claim | composes 0015/0019/0035 |
+| 0037 | Deployment / product boundary | Fleet Manager outward-door topology: source-less-of-product storefront, one canonical launch URL, download sequencing | extends 0034 |
+| 0038 | Body ↔ Brain seam | FM client topology: the cockpit connects (three roles / two registries), four non-aliased identity facts, two never-aggregated grant families + at-rest coherence | amends 0020/0026/0034 |
+| 0039 | Brain / SDK package boundary | Two-plane SDK barrel: a host entrypoint cannot reach a durable store by import alone; one Proxy identity per service; static walk plus runtime denial witness | composes 0018 |
+| 0040 | Brain / repository boundary | The AgentOS extraction topology: `neomjs/neo-agent-brain` — Edge root + independent nested `cloud/`, no workspaces, two root authorities, two blocking receipts before any relocation, cut precedes v13.2 | realizes 0039 |
 
 ## §3 Trajectory Invariants
 

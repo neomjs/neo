@@ -1,6 +1,6 @@
 # ComboBox Field
 
-The `Neo.form.field.ComboBox` is a powerful and flexible input component that provides a dropdown list for selecting one or multiple items. It combines the functionality of a text input field with a list, allowing users to either type to filter options or select directly from a predefined set of choices.
+The `Neo.form.field.ComboBox` is a powerful and flexible input component that provides a dropdown list for selecting one item. It combines the functionality of a text input field with a list, allowing users to either type to filter options or select directly from a predefined set of choices. For an array-valued multi-select with removable selections, use `Neo.form.field.Chip` (section 4).
 
 ## 1. Basic Usage
 
@@ -153,7 +153,7 @@ The `ComboBox` offers several configurations to control its behavior and appeara
 *   **`triggerAction`**: (Default: `'all'`) Controls what happens when the dropdown trigger is clicked.
     *   `'all'`: Shows all list items, regardless of current input.
     *   `'filtered'`: Shows only items that match the current input field's value.
-*   **`listConfig`**: An object that allows you to configure the underlying `Neo.list.Base` component used for the dropdown. For example, you can enable checkboxes for multi-selection (though `ComboBox` itself is typically single-select, `Chip` extends it for multi-select).
+*   **`listConfig`**: An object that allows you to configure the underlying `Neo.list.Base` component used for the dropdown. Checkboxes change the list presentation only; they do not change ComboBox's scalar value contract. `Neo.form.field.Chip` owns the multi-select contract.
 
 ```javascript live-preview
 import ComboBox      from '../../src/form/field/ComboBox.mjs';
@@ -179,7 +179,7 @@ class MainView extends FormContainer {
             store: {
                 keyProperty: 'cityId',
                 model      : {fields: [{name: 'cityId', type: 'String'}, {name: 'cityName', type: 'String'}]},
-                
+
                 data: [
                     {cityId: 'ny',  cityName: 'New York'},
                     {cityId: 'la',  cityName: 'Los Angeles'},
@@ -194,7 +194,37 @@ class MainView extends FormContainer {
 MainView = Neo.setupClass(MainView);
 ```
 
-## 4. Events
+## 4. Multi-select with `Neo.form.field.Chip`
+
+`Neo.form.field.Chip` reuses ComboBox filtering and picker navigation, but its `value` is an array of Store records and its submit value is an array of `valueField` values. Selected records render through `Neo.list.Chip`; each native close button removes one selection, and Backspace removes the last chip when the text input is empty.
+
+Keyboard focus follows the rendered value order: Tab visits each selected chip's remove button, then the filter input, then the next control; Shift+Tab reverses that path. Picker navigation keeps focus in the input and uses `aria-activedescendant`, so Arrow keys and Enter toggle options without moving DOM focus into the popup.
+
+```javascript live-preview
+import ChipField     from '../../src/form/field/Chip.mjs';
+import FormContainer from '../../src/form/Container.mjs';
+
+class TagForm extends FormContainer {
+    static config = {
+        className: 'MyTagForm',
+        items: [{
+            module       : ChipField,
+            displayField : 'name',
+            labelText    : 'Tags',
+            name         : 'tags',
+            value        : ['engine', 'forms'],
+            valueField   : 'id',
+            store        : ['engine', 'forms', 'workers']
+        }]
+    }
+}
+
+TagForm = Neo.setupClass(TagForm);
+```
+
+A `TagForm` instance returns `{tags: ['engine', 'forms']}` from `getSubmitValues()`. Typing filters the remaining picker options without clearing the selected chips.
+
+## 5. Events
 
 The `ComboBox` field emits several events that you can listen to for custom logic:
 

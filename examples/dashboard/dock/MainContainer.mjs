@@ -1,122 +1,131 @@
-import DockLayoutAdapter from '../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockZoneModel     from '../../../src/dashboard/DockZoneModel.mjs';
-import Viewport          from '../../../src/container/Viewport.mjs';
+import DockService        from '../../../src/ai/client/DockService.mjs';
+import DockWorkspace      from '../../../src/dashboard/dock/Workspace.mjs';
+import WorkspaceDocument  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Persistence        from '../../../src/dashboard/dock/model/Persistence.mjs';
+import PerspectiveLibrary from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import ReloadablePane     from './ReloadablePane.mjs';
+import TourRunner         from '../../../src/ai/client/TourRunner.mjs';
 import '../../../src/button/Base.mjs';    // registers the `button` ntype used by the perspective toolbar
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits for tab zones
 import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used by the perspective toolbar
 
 /**
- * A representative dock-zone document (`neo.harness.dockZone.v1`): a horizontal split of a two-tab main zone and a
- * vertical side-split of two single-tab zones, over four items. The shape `Neo.dashboard.DockLayoutAdapter.project`
- * consumes — see its spec for the full contract. Used as the example's INITIAL committed document; the live document
- * advances on each splitter resize (see `MainContainer#dockModel`).
- * @type {Object}
- */
-const initialDockModel = {
-    schema: 'neo.harness.dockZone.v1',
-    root  : 'root',
-    items : {
-        strategy: {componentRef: 'Strategy', title: 'Strategy', kind: 'panel'},
-        swarm   : {componentRef: 'Swarm',    title: 'Swarm',    kind: 'panel'},
-        terminal: {componentRef: 'Terminal', title: 'Terminal', kind: 'terminal'},
-        logs    : {componentRef: 'Logs',     title: 'Logs',     kind: 'panel'}
-    },
-    nodes: {
-        root           : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-split'], sizes: [0.65, 0.35]},
-        'main-tabs'    : {type: 'tabs',  items: ['strategy', 'swarm'], activeItemId: 'strategy'},
-        'side-split'   : {type: 'split', orientation: 'vertical', children: ['terminal-tabs', 'logs-tabs'], sizes: [0.6, 0.4]},
-        'terminal-tabs': {type: 'tabs',  items: ['terminal'], activeItemId: 'terminal'},
-        'logs-tabs'    : {type: 'tabs',  items: ['logs'],     activeItemId: 'logs'}
-    }
-};
-
-const reviewDockModel = DockZoneModel.clone(initialDockModel);
-
-reviewDockModel.nodes.root.sizes = [0.48, 0.52];
-reviewDockModel.nodes['main-tabs'].activeItemId = 'swarm';
-reviewDockModel.nodes['side-split'].sizes = [0.42, 0.58];
-
-/**
- * Example-local saved perspectives, persisted through the same `DockZoneModel` collection helpers as user-saved
- * layouts. The documents stay JSON-only and storage-backend agnostic.
- * @type {Object[]}
- */
-const seededPerspectives = [{
-    document: initialDockModel,
-    layoutId: 'operator-default',
-    title   : 'Operator'
-}, {
-    document: reviewDockModel,
-    layoutId: 'review-focus',
-    title   : 'Review'
-}];
-
-/**
- * Resolves a model `componentRef` to the component config rendered inside its dock zone. For this example, a simple
- * centered label per panel; a real app resolves each ref to its feature view.
- * @param {String} componentRef
- * @returns {Object}
- */
-const resolveComponentRef = componentRef => ({
-    ntype: 'component',
-    style: {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'},
-    html : componentRef
-});
-
-/**
- * @summary Standalone, interactive example for the dashboard dock-zone layout system.
- *
- * Builds a representative {@link Neo.dashboard.DockZoneModel} document, projects it through
- * {@link Neo.dashboard.DockLayoutAdapter} into a live container of split / tab zones with splitter affordances, and
- * wires the **resize commit loop** end-to-end: dragging a splitter commits a `resizeSplit` operation through
- * `DockZoneModel`, and the layout re-projects from the new committed document.
- *
- * The rendered perspective toolbar consumes the same saved-layout collection helpers the model exposes: seed
- * perspectives are stored as `neo.harness.dockLayoutCollection.v1`, selecting a perspective calls
- * `restoreActiveSavedLayout()`, Save Current upserts the live committed document, and Delete Active keeps a valid
- * replacement active. Persistence uses the main-thread `LocalStorage` addon so App-Worker code never reaches for
- * `window.localStorage` directly.
- *
- * The example owns the committed document ({@link #dockModel}) as the single source of truth and drives the loop with
- * the two callbacks `DockSplitter` calls — a clean reducer / view-sync split:
- * - {@link #applyDockZoneOperation} is the **reducer**: a pure `DockZoneModel.applyOperation` over the current document.
- * - {@link #onDockZoneDocumentChange} is the **view-sync**: it stores the committed document and re-projects from it.
- *
- * This is the first *runtime* exercise of the full model → operation → re-projection cycle in a standalone app; Slice 1
- * delivered the static render. See `learn/agentos/HarnessDockZoneModel.md` for the model/projection contract.
  * @class Neo.examples.dashboard.dock.MainContainer
- * @extends Neo.container.Viewport
+ * @extends Neo.dashboard.dock.Workspace
+ * @summary Declarative dock layout with optional example-owned perspectives and tour replay.
+ *
+ * The panes and perspectives configs define the available arrangements. Workspace owns lowering,
+ * pane resolution, first projection and interaction lifetimes. Named structural IDs below are
+ * used by the Review preset and tour operations; other node IDs belong to the engine.
+ *
+ * The remaining methods demonstrate saved-layout collections, a persistent toolbar and LocalStorage
+ * through the main-thread addon. These features consume the captured document and are independent
+ * of initial layout authoring. A supplied document retains the host's precedence over declarations.
+ *
+ * See learn/guides/uibuildingblocks/DockLayouts.md for the adoption guide.
  */
-class MainContainer extends Viewport {
+class MainContainer extends DockWorkspace {
     static config = {
         /**
          * @member {String} className='Neo.examples.dashboard.dock.MainContainer'
          * @protected
          */
         className: 'Neo.examples.dashboard.dock.MainContainer',
+        /** @member {String} activePerspective='operator-default' The initial declared arrangement. */
+        activePerspective: 'operator-default',
+        /**
+         * The projected shell shares the root vbox with the perspective toolbar above it.
+         * @member {Object} dockProjectionConfig={flex:1}
+         */
+        dockProjectionConfig: {flex: 1},
+        /**
+         * The standalone example opts into the engine-owned, model-authoritative close action.
+         * @member {Boolean} enableDockCloseAction=true
+         */
+        enableDockCloseAction: true,
+        /**
+         * And into the engine-owned pin action, so the example demonstrates the WHOLE auto-hide
+         * round-trip: a pane collapses to its edge rail from its own header, and the rail's reveal
+         * overlay brings it back. Before this the example could only show the way back.
+         * @member {Boolean} enableDockPinAction=true
+         */
+        enableDockPinAction: true,
+        /**
+         * And into the engine-owned reload action, which delegates to a pane's `dockReload()` when
+         * it has one and otherwise recreates the pane through the engine. The Strategy pane
+         * implements the contract below, so the example shows both halves of the policy: a
+         * delegated reload that counts, and an engine recreate on every pane that does not.
+         * @member {Boolean} enableDockReloadAction=true
+         */
+        enableDockReloadAction: true,
+        /**
+         * The perspective toolbar sits at index 0; the projected shell follows it.
+         * @member {Number} dockShellIndex=1
+         */
+        dockShellIndex: 1,
         /**
          * @member {Object} layout={ntype:'vbox', align:'stretch'}
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
-        // `items` is built in construct() — not here — so each projection can carry the instance-bound
-        // applyDockZoneOperation + onDockZoneDocumentChange callbacks the resize commit loop needs.
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * Ordinary pane configs keyed by their stable workspace identity. Strategy supplies
+         * the existing reload delegation demo; the other panes use the host's recreate path.
+         * @member {Object} panes
+         */
+        panes: {
+            strategy : {module: ReloadablePane, cls: ['neo-example-dock-pane'], header: {text: 'Strategy'}},
+            swarm    : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Swarm'}, text: 'Swarm'},
+            terminal : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Terminal'}, text: 'Terminal'},
+            logs     : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Logs'}, text: 'Logs'},
+            inspector: {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Inspector'}, text: 'Inspector'},
+            metrics  : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Metrics'}, text: 'Metrics'},
+            timeline : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Timeline'}, text: 'Timeline'},
+            agents   : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Agents'}, text: 'Agents'},
+            alerts   : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Alerts'}, text: 'Alerts'},
+            history  : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'History'}, text: 'History'}
+        },
+        /**
+         * Declared arrangements share pane identities while varying split sizes and the visible tab.
+         * @member {Object} perspectives
+         */
+        perspectives: {
+            'operator-default': {
+                center: {
+                    id      : 'root-split', orientation: 'horizontal', sizes: [0.65, 0.35],
+                    children: [{
+                        id   : 'main-tabs',
+                        items: ['strategy', 'swarm', 'metrics', 'timeline', 'agents', 'alerts', 'history']
+                    }, {
+                        id      : 'side-split', orientation: 'vertical', sizes: [0.6, 0.4],
+                        children: ['terminal', 'logs']
+                    }]
+                },
+                right: {items: ['inspector'], extent: 0.25, resizable: true}
+            },
+            'review-focus': {
+                center: {
+                    id      : 'root-split', orientation: 'horizontal', sizes: [0.48, 0.52],
+                    children: [{
+                        id   : 'main-tabs', activeItemId: 'swarm',
+                        items: ['strategy', 'swarm', 'metrics', 'timeline', 'agents', 'alerts', 'history']
+                    }, {
+                        id      : 'side-split', orientation: 'vertical', sizes: [0.42, 0.58],
+                        children: ['terminal', 'logs']
+                    }]
+                },
+                right: {items: ['inspector'], extent: 0.25, resizable: true}
+            }
+        }
     }
 
     /**
-     * Browser-local storage key for the example's named-perspective collection.
+     * Browser-local storage key for the example's saved snapshots.
      * @member {String} layoutCollectionStorageKey='neo.examples.dashboard.dock.layoutCollection'
      */
     layoutCollectionStorageKey = 'neo.examples.dashboard.dock.layoutCollection'
 
     /**
-     * The live committed dock-zone document — the single source of truth the view projects from. Initialized to
-     * `initialDockModel`; advanced by {@link #onDockZoneDocumentChange} on each committed splitter resize.
-     * @member {Object|null} dockModel=null
-     */
-    dockModel = null
-
-    /**
-     * The active named-perspective collection backing the toolbar.
+     * User-saved snapshots, independent of the declared perspective selection.
      * @member {Object|null} layoutCollection=null
      */
     layoutCollection = null
@@ -134,57 +143,75 @@ class MainContainer extends Viewport {
     savedPerspectiveCount = 0
 
     /**
-     * @param {Object} config
+     * @summary Creates perspective chrome after Workspace captures the initial declarations.
+     * @protected
      */
-    construct(config) {
-        super.construct(config);
+    onAfterConstructed() {
+        super.onAfterConstructed();
 
-        let me = this;
+        const me = this;
 
         me.layoutCollection = me.createDefaultLayoutCollection();
-        me.dockModel        = DockZoneModel.restoreActiveSavedLayout(me.layoutCollection).document || DockZoneModel.clone(initialDockModel);
-
-        me.add(me.buildWorkspaceItems());
-        me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage()
+        me.add(me.createPerspectiveToolbar());
+        me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage().then(result => {
+            if (!me.isDestroyed && result.errors.length) {
+                me.items[0].getReference('snapshot-status').text = 'Saved layouts unavailable'
+            }
+            return result
+        })
     }
 
     /**
-     * The owning reducer `DockSplitter.commitResizeSplit` calls: applies a splitter-emitted operation descriptor
-     * against the live committed document and returns `DockZoneModel`'s fail-closed `{document, errors}` result.
-     * Pure — the view sync happens in {@link #onDockZoneDocumentChange}, which the splitter calls on success.
-     * @param {Object} descriptor The `resizeSplit` operation descriptor.
-     * @returns {{document: Object, errors: String[]}}
+     * An example-local tour-replay ADAPTER consuming the two-part holder contract (the read half
+     * `getDockZoneDocument` / the write half `applyDockZoneOperation`, driven through the app-side
+     * dock seam) — deliberately NOT a third holder-contract member. It replays one
+     * `neo.tour.script.v1` script against THIS holder in `spec` mode and returns the runner's
+     * structured result plus the SETTLED post-run document. One call = one hydrated, settled run —
+     * the whitebox-e2e L3 smoke drives it twice and diffs the operation logs (the determinism
+     * falsifier: entries carry descriptors and assertion outcomes, never timestamps).
+     *
+     * Two synchronization guarantees callers rely on:
+     * 1. Runs only start against the HYDRATED document (storage restore awaited) — a replay racing
+     *    the restore would mutate a baseline the restore then overwrites.
+     * 2. Resolution only after the LAST deferred re-projection settles (`refreshPromise`),
+     *    so a page error thrown by the projection lands inside the caller's verdict window.
+     *
+     * Example-tier by design: the same composition the dockdemo workspaces wire at construct time,
+     * exposed on demand so the shipped dock example is tour-replayable without carrying a tour bar.
+     * Spec mode skips `pause` waits entirely, so a replay never blocks the live surface.
+     * @param {Object} script A `neo.tour.script.v1` script (validated fail-closed by the runner)
+     * @returns {Promise<Object>} `{completed, errors, log, document}` — the runner's structured
+     * result plus a deep clone of the settled committed document
      */
-    applyDockZoneOperation(descriptor) {
-        return DockZoneModel.applyOperation(this.dockModel, descriptor)
+    async runTourSpec(script) {
+        const me = this;
+
+        await me.layoutCollectionLoadPromise;
+
+        const
+            dockService = Neo.create(DockService, {}),
+            runner      = Neo.create(TourRunner, {componentId: me.id, dockService, mode: 'spec', script});
+
+        try {
+            const result = await runner.start();
+
+            await me.refreshPromise;
+
+            return {...result, document: WorkspaceDocument.clone(me.dockModel)}
+        } finally {
+            runner.destroy();
+            dockService.destroy()
+        }
     }
 
     /**
-     * Builds a valid default collection from the example's seeded perspectives.
+     * @summary Creates the empty user-snapshot collection beside the declared arrangements.
      * @returns {Object}
      */
     createDefaultLayoutCollection() {
-        let layouts = seededPerspectives.map(({document, layoutId, title}) => {
-                let {layout, errors} = DockZoneModel.createSavedLayout(document, {
-                    layoutId,
-                    title,
-                    metadata: {
-                        source: 'examples/dashboard/dock'
-                    }
-                });
-
-                if (errors.length) {
-                    throw new Error(`Failed to create seeded dock perspective "${layoutId}": ${errors.join('; ')}`)
-                }
-
-                return layout
-            }),
-            {collection, errors} = DockZoneModel.createSavedLayoutCollection(layouts, {
-                activeLayoutId: 'operator-default',
-                metadata      : {
-                    owner: 'examples/dashboard/dock'
-                }
-            });
+        const {collection, errors} = PerspectiveLibrary.createSavedLayoutCollection([], {
+            metadata: {owner: 'examples/dashboard/dock'}
+        });
 
         if (errors.length) {
             throw new Error(`Failed to create dock perspective collection: ${errors.join('; ')}`)
@@ -194,39 +221,18 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Creates the top-level toolbar + dock projection items from current state.
-     * @returns {Object[]}
-     */
-    buildWorkspaceItems() {
-        let dockConfig = this.projectDockModel();
-
-        dockConfig.flex = 1;
-
-        return [
-            this.createPerspectiveToolbar(),
-            dockConfig
-        ]
-    }
-
-    /**
-     * Builds a compact named-perspective toolbar from the current collection.
+     * @summary Binds declared selection and modification state beside saved-snapshot controls.
      * @returns {Object}
      */
     createPerspectiveToolbar() {
-        let me            = this,
-            collection    = me.layoutCollection,
-            activeLayoutId = collection?.activeLayoutId,
-            layoutButtons = Object.values(collection?.layouts || {}).map(layout => ({
-                cls    : layout.layoutId === activeLayoutId ? ['neo-dashboard-dock-perspective-active'] : [],
-                data   : {layoutId: layout.layoutId},
-                handler: () => me.restorePerspective(layout.layoutId),
-                pressed: layout.layoutId === activeLayoutId,
-                text   : layout.title
-            }));
+        const me = this, titles = {'operator-default': 'Operator', 'review-focus': 'Review'};
 
         return {
             cls         : ['neo-dashboard-dock-perspective-toolbar'],
             dockNodeType: 'perspective-toolbar',
+            // Size to content: without this the toolbar inherits the root vbox's growing default and
+            // splits the viewport ~50/50 with the flex:1 dock. `flex:'none'` keeps it a compact strip.
+            flex        : 'none',
             itemDefaults: {
                 ntype: 'button',
                 style: {margin: '0 8px 0 0'}
@@ -237,19 +243,29 @@ class MainContainer extends Viewport {
                     alignItems : 'center',
                     color      : '#777',
                     display    : 'flex',
-                    fontWeight  : 600,
-                    marginRight : '12px',
-                    whiteSpace  : 'nowrap'
+                    fontWeight : 600,
+                    marginRight: '12px',
+                    whiteSpace : 'nowrap'
                 },
                 html: 'Perspectives'
-            }, ...layoutButtons, {
+            }, ...me.declaredPerspectives().map(name => me.createPerspectiveButton(name, titles[name] ?? name)), {
+                ntype    : 'component',
+                reference: 'perspective-modified',
+                bind     : {text: data => data.dock.perspective.modified ? 'Modified' : ''}
+            }, {
                 iconCls: 'fa fa-save',
                 handler: () => me.saveCurrentPerspective(),
                 text   : 'Save Current'
             }, {
-                iconCls: 'fa fa-trash',
-                handler: () => me.removeActivePerspective(),
-                text   : 'Delete Active'
+                disabled : true,
+                iconCls  : 'fa fa-trash',
+                handler  : () => me.removeActivePerspective(),
+                reference: 'delete-saved-perspective',
+                text     : 'Delete Saved'
+            }, {
+                ntype    : 'component',
+                reference: 'snapshot-status',
+                text     : ''
             }],
             layout: {ntype: 'hbox', align: 'center'},
             ntype : 'toolbar',
@@ -261,29 +277,88 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * The view-sync `DockSplitter` calls after a successful commit: stores the new committed document and re-projects
-     * the layout from it.
-     *
-     * Deferred one tick: this fires synchronously from inside the committing splitter's `onDragEnd` (via
-     * `commitResizeSplit`). Re-projecting immediately would `removeAll()` — destroying that splitter mid-handler, a
-     * use-after-destroy on the rest of `onDragEnd`. The `isDestroyed` guard covers teardown before the tick fires.
-     * @param {Object} document The committed dock-zone document.
+     * @summary Selects a declaration through the intent config and binds its committed state.
+     * @param {String} name Declared perspective name.
+     * @param {String} title Button label.
+     * @returns {Object}
      */
-    onDockZoneDocumentChange(document) {
-        let me = this;
-
-        me.dockModel = document;
-
-        me.timeout(0).then(() => {
-            if (!me.isDestroyed) {
-                me.refreshDockWorkspace()
-            }
-        })
+    createPerspectiveButton(name, title) {
+        return {
+            bind     : {pressed: data => data.dock.perspective.active === name},
+            handler  : () => {this.activePerspective = name},
+            reference: `dock-perspective-${name}`,
+            text     : title
+        }
     }
 
     /**
-     * Reads the persisted named-perspective collection and applies it only when both the collection and active restore
-     * validate. Invalid payloads fail closed to the seeded collection/current document.
+     * @summary Reconciles saved-snapshot membership only when the collection changes.
+     */
+    syncPerspectiveToolbar() {
+        let me        = this,
+            toolbar   = me.items[0],
+            layouts   = Object.values(me.layoutCollection?.layouts || {}),
+            layoutIds = new Set(layouts.map(layout => layout.layoutId)),
+            buttons;
+
+        if (toolbar?.dockNodeType !== 'perspective-toolbar') return;
+
+        buttons = new Map(toolbar.items
+            .filter(item => item.reference?.startsWith('dock-snapshot-'))
+            .map(item => [item.reference.slice('dock-snapshot-'.length), item]));
+
+        buttons.forEach((button, layoutId) => {
+            if (!layoutIds.has(layoutId)) {
+                toolbar.remove(button, true, true)
+            }
+        });
+
+        const start = toolbar.indexOf(toolbar.getReference('perspective-modified')) + 1;
+        layouts.forEach((layout, index) => {
+            let targetIndex = index + start,
+                button      = buttons.get(layout.layoutId),
+                currentIndex;
+
+            if (!button || button.isDestroyed) {
+                button = toolbar.insert(targetIndex, {
+                    handler  : () => me.restorePerspective(layout.layoutId),
+                    reference: `dock-snapshot-${layout.layoutId}`,
+                    text     : layout.title
+                }, true)
+            } else {
+                currentIndex = toolbar.indexOf(button);
+
+                if (currentIndex !== targetIndex) {
+                    toolbar.remove(button, false, true, true);
+                    toolbar.insert(targetIndex, button, true, false)
+                }
+            }
+
+            button.text = layout.title
+        });
+        const selected = me.layoutCollection.layouts[me.layoutCollection.activeLayoutId];
+        toolbar.getReference('delete-saved-perspective').set({
+            disabled: !selected,
+            text    : selected ? `Delete ${selected.title}` : 'Delete Saved'
+        });
+        toolbar.update()
+    }
+
+    /**
+     * @summary Refuses snapshot identifiers that could impersonate the captured declarations.
+     * @param {Object} collection
+     * @returns {String[]} Schema or reserved-name errors.
+     * @private
+     */
+    validateLayoutCollection(collection) {
+        const errors = PerspectiveLibrary.validateSavedLayoutCollection(collection), names = this.declaredPerspectives();
+        return errors.length ? errors : Object.values(collection.layouts).flatMap(layout =>
+            Persistence.reservedNameErrors([layout.layoutId, layout.perspectiveName], names))
+    }
+
+    /**
+     * @summary Reads saved snapshots and applies them only when both the collection and active restore
+     * validate. Colliding or invalid storage stays untouched; the declared arrangement remains active.
      * @returns {Promise<{collection:(Object|null), document:(Object|null), errors:String[], loaded:Boolean}>}
      */
     async loadLayoutCollectionFromStorage() {
@@ -306,21 +381,23 @@ class MainContainer extends Viewport {
             }
 
             parsed = JSON.parse(value);
-            errors = DockZoneModel.validateSavedLayoutCollection(parsed);
+            errors = me.validateLayoutCollection(parsed);
 
             if (errors.length) {
                 return {collection: null, document: null, errors, loaded: false}
             }
 
-            restored = DockZoneModel.restoreActiveSavedLayout(parsed);
+            restored = parsed.activeLayoutId === null ? {document: null, errors: []}
+                : PerspectiveLibrary.restoreActiveSavedLayout(parsed);
 
             if (restored.errors.length) {
                 return {collection: null, document: null, errors: restored.errors, loaded: false}
             }
 
-            me.layoutCollection = DockZoneModel.clone(parsed);
-            me.dockModel        = restored.document;
-            me.refreshDockWorkspace();
+            me.layoutCollection = WorkspaceDocument.clone(parsed);
+            me.syncPerspectiveToolbar();
+            if (restored.document) me.onDockZoneDocumentChange(restored.document);
+            await me.refreshPromise;
 
             return {collection: me.layoutCollection, document: me.dockModel, errors: [], loaded: true}
         } catch (error) {
@@ -329,7 +406,7 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Persists the current named-perspective collection via the main-thread LocalStorage addon.
+     * Persists the saved-snapshot collection via the main-thread LocalStorage addon.
      * @param {Object} [collection=this.layoutCollection]
      * @returns {Promise<{persisted:Boolean, error:(String|null)}>|undefined}
      */
@@ -354,50 +431,43 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Rebuilds the toolbar and dock projection from current state.
-     */
-    refreshDockWorkspace() {
-        this.removeAll();
-        this.add(this.buildWorkspaceItems())
-    }
-
-    /**
-     * Selects and restores a named perspective through `DockZoneModel.restoreActiveSavedLayout()`.
+     * @summary Restores a saved snapshot without changing the declared comparison baseline.
      * @param {String} layoutId
      * @returns {{collection:Object, document:(Object|null), errors:String[]}}
      */
     restorePerspective(layoutId) {
         let me       = this,
-            selected = DockZoneModel.selectSavedLayout(me.layoutCollection, layoutId),
+            selected = PerspectiveLibrary.selectSavedLayout(me.layoutCollection, layoutId),
             restored;
 
+        selected.errors.push(...me.validateLayoutCollection(me.layoutCollection));
         if (selected.errors.length) {
             return {collection: me.layoutCollection, document: null, errors: selected.errors}
         }
 
-        restored = DockZoneModel.restoreActiveSavedLayout(selected.collection);
+        restored = PerspectiveLibrary.restoreActiveSavedLayout(selected.collection);
 
         if (restored.errors.length) {
             return {collection: me.layoutCollection, document: null, errors: restored.errors}
         }
 
         me.layoutCollection = selected.collection;
-        me.dockModel        = restored.document;
         me.persistLayoutCollection();
-        me.refreshDockWorkspace();
+        me.syncPerspectiveToolbar();
+        me.onDockZoneDocumentChange(restored.document);
 
         return {collection: me.layoutCollection, document: me.dockModel, errors: []}
     }
 
     /**
-     * Saves the current committed dock document as a new named perspective and activates it.
+     * @summary Saves the committed document as a snapshot without selecting a declared perspective.
      * @returns {{collection:Object, layout:(Object|null), errors:String[]}}
      */
     saveCurrentPerspective() {
         let me       = this,
             layoutId = me.nextSavedPerspectiveId(),
             title    = `Saved ${me.savedPerspectiveCount}`,
-            saved    = DockZoneModel.createSavedLayout(me.dockModel, {
+            saved    = Persistence.createSavedLayout(me.dockModel, {
                 layoutId,
                 title,
                 metadata: {
@@ -411,7 +481,7 @@ class MainContainer extends Viewport {
             return {collection: me.layoutCollection, layout: null, errors: saved.errors}
         }
 
-        upserted = DockZoneModel.upsertSavedLayout(me.layoutCollection, saved.layout, {activate: true});
+        upserted = PerspectiveLibrary.upsertSavedLayout(me.layoutCollection, saved.layout, {activate: true});
 
         if (upserted.errors.length) {
             return {collection: me.layoutCollection, layout: null, errors: upserted.errors}
@@ -419,13 +489,13 @@ class MainContainer extends Viewport {
 
         me.layoutCollection = upserted.collection;
         me.persistLayoutCollection();
-        me.refreshDockWorkspace();
+        me.syncPerspectiveToolbar();
 
         return {collection: me.layoutCollection, layout: saved.layout, errors: []}
     }
 
     /**
-     * Removes the active saved perspective and restores the next available replacement.
+     * @summary Deletes the toolbar's named snapshot and repoints the collection without restoring a document.
      * @returns {{collection:Object, document:(Object|null), errors:String[]}}
      */
     removeActivePerspective() {
@@ -434,37 +504,30 @@ class MainContainer extends Viewport {
             layoutIds      = Object.keys(collection?.layouts || {}),
             activeLayoutId = collection?.activeLayoutId,
             replacementId  = layoutIds.find(layoutId => layoutId !== activeLayoutId),
-            removed, restored;
+            removed;
 
-        if (!activeLayoutId || !replacementId) {
-            return {collection, document: null, errors: ['at least one replacement perspective must remain']}
+        if (!activeLayoutId) {
+            return {collection, document: null, errors: ['no saved snapshot selected']}
         }
 
-        removed = DockZoneModel.removeSavedLayout(collection, {
-            layoutId            : activeLayoutId,
-            replacementLayoutId : replacementId
-        });
+        removed = replacementId ? PerspectiveLibrary.removeSavedLayout(collection, {
+            layoutId           : activeLayoutId,
+            replacementLayoutId: replacementId
+        }) : {collection: me.createDefaultLayoutCollection(), errors: []};
 
         if (removed.errors.length) {
             return {collection, document: null, errors: removed.errors}
         }
 
-        restored = DockZoneModel.restoreActiveSavedLayout(removed.collection);
-
-        if (restored.errors.length) {
-            return {collection, document: null, errors: restored.errors}
-        }
-
         me.layoutCollection = removed.collection;
-        me.dockModel        = restored.document;
         me.persistLayoutCollection();
-        me.refreshDockWorkspace();
+        me.syncPerspectiveToolbar();
 
         return {collection: me.layoutCollection, document: me.dockModel, errors: []}
     }
 
     /**
-     * Returns the next free example-generated perspective id and updates the visible suffix counter.
+     * @summary Generates a snapshot id outside the captured declaration and stored-record namespaces.
      * @returns {String}
      */
     nextSavedPerspectiveId() {
@@ -474,24 +537,9 @@ class MainContainer extends Viewport {
         do {
             me.savedPerspectiveCount++;
             id = `saved-perspective-${me.savedPerspectiveCount}`
-        } while (me.layoutCollection?.layouts?.[id]);
+        } while (me.layoutCollection?.layouts?.[id] || Persistence.reservedNameErrors([id], me.declaredPerspectives()).length);
 
         return id
-    }
-
-    /**
-     * Projects the live committed {@link #dockModel} into a dock-zone container config, threading the instance-bound
-     * resize-commit-loop callbacks onto every projected splitter affordance.
-     * @returns {Object}
-     */
-    projectDockModel() {
-        let me = this;
-
-        return DockLayoutAdapter.project(me.dockModel, {
-            applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
-            onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef
-        })
     }
 }
 

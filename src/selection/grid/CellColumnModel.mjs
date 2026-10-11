@@ -25,78 +25,12 @@ class CellColumnModel extends CellModel {
          * @member {String} selectedColumnCellCls='selected-column-cell'
          * @protected
          */
-        selectedColumnCellCls: 'selected-column-cell'
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onCellClick(data) {
-        let me        = this,
-            {view}    = me,
-            cellId    = data.data.currentTarget,
-            dataField = cellId && view.getDataField(cellId),
-            newSelection;
-
-        if (dataField) {
-            newSelection = me.isSelected(cellId) ? [] : [dataField];
-
-            if (!Neo.isEqual(me.selectedColumns, newSelection)) {
-                me.selectedColumns = newSelection;
-                view.createViewData() // Flush
-            } else {
-                view.createViewData(true) // Silent
-            }
-        }
-
-        super.onCellClick(data)
-    }
-
-    /**
-     * @param {Number} step
-     */
-    onNavKeyColumn(step) {
-        let me                 = this,
-            {dataFields, view} = me,
-            currentColumn, index;
-
-        if (me.hasSelection()) {
-            currentColumn = me.selectedColumns[0]
-        } else {
-            currentColumn = dataFields[0]
-        }
-
-        index = (dataFields.indexOf(currentColumn) + step) % dataFields.length;
-
-        while (index < 0) {
-            index += dataFields.length
-        }
-
-        me.selectedColumns = [dataFields[index]];
-
-        view.createViewData();
-
-        super.onNavKeyColumn(step)
-    }
-
-    /**
-     * @returns {Object}
-     */
-    toJSON() {
-        return {
-            ...super.toJSON(),
-            selectedColumnCellCls: this.selectedColumnCellCls
-        }
-    }
-
-    /**
-     *
-     */
-    unregister() {
-        this.selectedColumns = [];
-        this.view.createViewData();
-
-        super.unregister()
+        selectedColumnCellCls: 'selected-column-cell',
+        /**
+         * @member {Boolean} selectsColumns=true
+         * @protected
+         */
+        selectsColumns: true
     }
 }
 

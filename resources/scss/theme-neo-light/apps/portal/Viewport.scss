@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-viewport
+:where(.neo-theme-neo-light) { // .neo-viewport
     --portal-bg-main            : #fcfcfc;
     --portal-headline-primary   : #3e63dd;
     --portal-scrollbar-thumb    : #3e63dd;

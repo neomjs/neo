@@ -36,6 +36,28 @@ test.describe('Neo.component.Markdown', () => {
         expect(markdown.wrapMarkdownTables(html)).toBe(html)
     });
 
+    test('a restored code token is inserted verbatim, not read as a substitution pattern', () => {
+        // Red-first: the guide `learn/guides/uibuildingblocks/DockLayouts.md` authors the inline
+        // code `$` while documenting an engine-reserved sigil. Ticket protection swaps every inline
+        // code span for a token, then restores it with `content.replace(token, value)` — and as a
+        // STRING replacement, the restored "`$`" reads as `$` + backtick, which is JS's "insert
+        // everything before the match" pattern. The whole preceding document is spliced back in.
+        const component = Object.create(Markdown.prototype);
+
+        Object.assign(component, {
+            issuesUrl        : 'https://example.com/issues/',
+            renderFrontmatter: false,
+            replaceTicketIds : true
+        });
+
+        const content = 'Alpha sentinel-marker appears once.\n\nSee #123, and the reserved `$` sigil.\n',
+              result  = component.modifyMarkdown(content);
+
+        expect(result.split('sentinel-marker').length - 1,
+            'restoring the token must not splice the preceding document back in').toBe(1);
+        expect(result, 'and the authored inline code survives unchanged').toContain('`$`')
+    });
+
     test('wrapMarkdownTables wraps each rendered Markdown table', () => {
         const html = '<table><tbody><tr><td>One</td></tr></tbody></table><p>Between</p><table class="wide"><tbody><tr><td>Two</td></tr></tbody></table>';
 

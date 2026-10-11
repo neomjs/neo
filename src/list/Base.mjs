@@ -117,6 +117,24 @@ class List extends Component {
          */
         keys: {},
         /**
+         * Class names that mark a rendered item as non-interactive: excluded from the click delegate
+         * and from arrow-key navigation alike.
+         *
+         * The rule needs a single source because it is consumed twice, in two different languages —
+         * as a CSS `:not()` selector handed to `Neo.main.addon.Navigator` (see `afterSetMounted`), and
+         * as the class check in `getInteractiveItemIndex()`, which pointer delegates call because they
+         * cannot parse a selector. Both were hardcoded literals until a third concept needed adding and revealed that
+         * editing one and missing the other yields a row that is unclickable but still arrow-navigable.
+         *
+         * **Read at construct time.** The navigator selector is built once, behind `hasNavigator`, and
+         * frozen at subscribe time — so a later change would leave the subscribed selector disagreeing
+         * with the per-event delegate, which is the same drift in a harder-to-see form. Extend it as a
+         * class config on a subclass, not per instance after mount. An instance may still override the
+         * navigator's `selector` outright via the `navigator` config; that escape hatch is preserved.
+         * @member {String[]} nonInteractiveItemCls=['neo-disabled','neo-list-header']
+         */
+        nonInteractiveItemCls: ['neo-disabled', 'neo-list-header'],
+        /**
          * config values for Neo.list.plugin.Animate
          * @member {Object} pluginAnimateConfig=null
          */
@@ -315,7 +333,7 @@ class List extends Component {
                     autoClick     : me.selectOnFocus,
                     id            : me.id,
                     keepFocusIndex: me.keepFocusIndex,
-                    selector      : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
+                    selector      : me.getNavigableItemSelector(),
                     windowId      : me.windowId
                 }, me.navigator);
 
@@ -459,23 +477,27 @@ class List extends Component {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        oldValue?.destroy();
+        // The same ownership destroy() honours: a list told it does not own its store never destroys it
+        this.autoDestroyStore && oldValue?.destroy();
         return ClassSystemUtil.beforeSetInstance(value, Store)
     }
 
     /**
      * Override this method for custom list items
      * @param {Object} record
-     * @param {Number} index
+     * @param {Number} index Logical index in the bound store.
+     * @param {Number} [poolIndex=index] Physical render-slot index. Ordinary lists keep this equal
+     * to `index`; buffered list subclasses pass a bounded slot so component instances can recycle
+     * without confusing their physical identity with the record's logical position.
      * @returns {Object} The list item vdom object
      */
-    createItem(record, index) {
+    createItem(record, index, poolIndex=index) {
         let me               = this,
             cls              = [me.itemCls],
             hasItemHeight    = me.itemHeight !== null,
             hasItemWidth     = me.itemWidth !== null,
             isHeader         = me.useHeaders && record.isHeader,
-            itemContent      = me.createItemContent(record, index),
+            itemContent      = me.createItemContent(record, index, poolIndex),
             itemId           = me.getItemId(me.getRecordId(record)),
             {selectionModel} = me,
             isSelected       = !me.disableSelection && selectionModel?.isSelected(itemId),
@@ -496,9 +518,9 @@ class List extends Component {
         }
 
         item = {
-            id  : itemId,
-            tag : isHeader ? 'dt' : me.itemTagName,
-            'aria-selected' : isSelected,
+            id             : itemId,
+            tag            : isHeader ? 'dt' : me.itemTagName,
+            'aria-selected': isSelected,
             cls
         };
 
@@ -573,10 +595,11 @@ class List extends Component {
     /**
      * Override this method for custom renderers
      * @param {Object} record
-     * @param {Number} index
+     * @param {Number} index Logical index in the bound store.
+     * @param {Number} [poolIndex=index] Physical render-slot index for buffered subclasses.
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
-    createItemContent(record, index) {
+    createItemContent(record, index, poolIndex=index) {
         let me       = this,
             itemText = record[me.displayField],
             filter;
@@ -715,14 +738,55 @@ class List extends Component {
     }
 
     /**
+     * @summary Returns the event-path index of the first item a pointer may act on.
+     *
+     * The class check behind `getNavigableItemSelector()`, for DOM listener delegates, which cannot parse a
+     * selector yet (TODO parse delegate selectors). Every pointer consumer — the selection model's click, a
+     * menu's hover — calls it, so all of them exclude the same items.
+     * @param {Object[]} path The DOM event path
+     * @returns {Number|undefined}
+     */
+    getInteractiveItemIndex(path) {
+        const {itemCls, nonInteractiveItemCls} = this;
+
+        for (let i = 0, {length} = path; i < length; i++) {
+            const {cls} = path[i];
+
+            if (cls.includes(itemCls) && !nonInteractiveItemCls.some(name => cls.includes(name))) {
+                return i
+            }
+        }
+    }
+
+    /**
+     * Builds the CSS selector matching every item a pointer or an arrow key may land on.
+     *
+     * The selector form of the rule `getInteractiveItemIndex()` evaluates per pointer event. Both
+     * derive from `nonInteractiveItemCls`, so a subclass adding a non-interactive concept — a menu
+     * separator, say — is excluded from clicking and navigation by one declaration instead of two
+     * hand-kept copies.
+     * @returns {String}
+     */
+    getNavigableItemSelector() {
+        let me        = this,
+            {itemCls} = me,
+            excluded  = me.nonInteractiveItemCls;
+
+        // An empty list must degrade to "every item is navigable", not to `:not(.)` — that is invalid
+        // CSS and throws inside the addon's querySelectorAll, taking navigation down entirely rather
+        // than widening it.
+        return excluded?.length > 0 ? `.${itemCls}:not(.${excluded.join(',.')})` : `.${itemCls}`
+    }
+
+    /**
      * @param {String} vnodeId
      * @returns {String|Number} itemId
      */
     getItemRecordId(vnodeId) {
         let itemId = vnodeId.split('__')[1];
 
-        if (!this.useInternalId && this.store.getKeyType()?.includes('int')) {
-            itemId = parseInt(itemId)
+        if (!this.useInternalId) {
+            itemId = this.store.getCanonicalKey(itemId)
         }
 
         return itemId

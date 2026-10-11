@@ -57,7 +57,6 @@ class Toolbar extends Base {
      */
     createItems() {
         let me      = this,
-            handler = me.fireAction.bind(me),
             items   = me.items || [],
             {title} = me;
 
@@ -68,18 +67,6 @@ class Toolbar extends Base {
             hidden: !title,
             text  : title
         });
-
-        if (me.actions) {
-            items.push('->');
-
-            me.actions.forEach(action => {
-                if (Neo.typeOf(action) !== 'Object') {
-                    action = me.actionMap[action]()
-                }
-
-                items.push({handler, ...action})
-            })
-        }
 
         me.items = items;
 

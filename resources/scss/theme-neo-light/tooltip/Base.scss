@@ -1,4 +1,10 @@
-:root .neo-theme-neo-light { // .neo-tooltip
+// `:where()` is deliberate and load-bearing: zero specificity, so an application projecting into
+// this token family at theme-root (`:root .neo-theme-neo-light { --tooltip-bg: … }`, (0,2,0)) wins
+// by weight instead of by load order — the engine appends per-class theme sheets after the app's
+// own, so an equal-weight declaration here used to win every tie. The shared tooltip stamps the
+// hovered target's theme class on itself, so both rules match the tooltip element and the contest
+// is decided there, not by inheritance. Same pattern as the dock values layer.
+:where(.neo-theme-neo-light) { // .neo-tooltip
     // --tooltip-bg            : var(--cmp-tooltip-bg);
     --tooltip-bg            : #3E63DD;
     --tooltip-border        : none;

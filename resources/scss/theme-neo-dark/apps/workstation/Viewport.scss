@@ -1,0 +1,34 @@
+:where(.neo-theme-neo-dark) {
+    // App-owned palette: Workstation is its own theme authority.
+    --workstation-ground   : #0b0e13;
+    --workstation-panel    : #141a23;
+    --workstation-panel-2  : #1a212c;
+    --workstation-rail     : #0e131a;
+    --workstation-line     : #262f3d;
+    --workstation-line-soft: #1c242f;
+    --workstation-ink      : #d6dce6;
+    --workstation-ink-dim  : #8b97a8;
+    --workstation-ink-faint: #5a6575;
+    --workstation-signal   : #5eead4;
+    --workstation-state-ok : #34d399;
+    --workstation-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --workstation-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    --workstation-film-cursor-background: rgba(255, 90, 0, 0.92);
+    --workstation-film-cursor-shadow    : 0 0 10px rgba(255, 90, 0, 0.95), 0 0 3px rgba(255, 255, 255, 0.85);
+
+    // Projections into the DockPreview component-domain aliases (the settled app-neutral
+    // boundary): Workstation renders the reused preview/indicator family through ITS OWN
+    // palette — without these, the shared SCSS silently runs on fallbacks.
+    --agent-dock-preview-accept        : var(--workstation-signal);
+    --agent-dock-preview-accept-fill   : rgba(94, 234, 212, 0.20);
+    --agent-dock-preview-reject        : #f4718b;
+    --agent-dock-preview-reject-fill   : rgba(244, 113, 139, 0.16);
+    --agent-dock-preview-signal        : var(--workstation-signal);
+    --agent-dock-preview-signal-fill   : rgba(94, 234, 212, 0.18);
+    --agent-dock-preview-signal-ground : rgba(11, 14, 19, 0.92);
+    --agent-dock-proxy-border          : color-mix(in srgb, var(--workstation-signal) 38%, var(--workstation-line));
+    --agent-dock-proxy-ground          : var(--workstation-panel);
+    --agent-dock-proxy-shadow          : var(--workstation-ground);
+    --agent-dock-proxy-text            : var(--workstation-ink);
+}

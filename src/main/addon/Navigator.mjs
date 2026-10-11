@@ -5,9 +5,9 @@ import DomUtils  from '../DomUtils.mjs';
 
 // We do not need to inject a synthesized "click" event when we detect an ENTER
 // keypress on these element types.
-const enterActivatedTags= {
-    A      : 1,
-    BUTTON : 1
+const enterActivatedTags = {
+    A     : 1,
+    BUTTON: 1
 };
 
 /**
@@ -53,11 +53,11 @@ class Navigator extends Base {
                 clientY = rect.y + (rect.height / 2);
 
             el.dispatchEvent(new MouseEvent('click', {
-                bubbles  : true,
-                altKey   : Neo.altKeyDown,
-                ctrlKey  : Neo.controlKeyDown,
-                metaKey  : Neo.metaKeyDown,
-                shiftKey : Neo.shiftKeyDown,
+                bubbles : true,
+                altKey  : Neo.altKeyDown,
+                ctrlKey : Neo.controlKeyDown,
+                metaKey : Neo.metaKeyDown,
+                shiftKey: Neo.shiftKeyDown,
                 clientX,
                 clientY
             }))
@@ -167,18 +167,20 @@ class Navigator extends Base {
         treeWalker.currentNode = this.navigatorGetActiveItem(data) || data.subject;
         treeWalker[direction < 0 ? 'previousNode' : 'nextNode']();
 
-        // Found a target in the requested direction
-        if (treeWalker.currentNode) {
-            if (treeWalker.currentNode !== data.activeItem) {
-                return treeWalker.currentNode
-            }
+        // A walker that finds no target keeps its current node; the callers own wrapping
+        if (treeWalker.currentNode !== data.activeItem) {
+            return treeWalker.currentNode
         }
-        // Could not find target in requested direction, then wrap if configured to do so
-        else if (data.wrap !== false) {
-            const allItems = data.subject.querySelector(data.selector);
+    }
 
-            return allItems[direction === 1 ? 0 : allItems.length - 1]
-        }
+    /**
+     * The last element matching the selector. `:last-of-type` cannot express it: it matches the last element of
+     * its tag, so a list whose last row is not navigable (disabled, a separator) would match nothing.
+     * @param {Object} data
+     * @returns {HTMLElement|undefined}
+     */
+    navigateGetLast(data) {
+        return Array.from(data.subject.querySelectorAll(data.selector)).at(-1)
     }
 
     /**
@@ -218,7 +220,7 @@ class Navigator extends Base {
             case data.previousKey:
                 newActiveElement = me.navigateGetAdjacent(-1, data);
                 if (!newActiveElement && wrap) {
-                    newActiveElement = subject.querySelector(`${data.selector}:last-of-type`)
+                    newActiveElement = me.navigateGetLast(data)
                 }
                 break;
             // Move to the next navigable item
@@ -234,7 +236,7 @@ class Navigator extends Base {
                 break;
             // Move to the last navigable item
             case 'End':
-                newActiveElement = subject.querySelector(`${data.selector}:last-of-type`);
+                newActiveElement = me.navigateGetLast(data);
                 break;
             // Click the currently active item if necessary
             case 'Enter':
@@ -258,8 +260,13 @@ class Navigator extends Base {
 
         // If there is a focusable under the mouse, it will take focus, and we respond to that in navigateFocusInHandler.
         // If not, we have to programmatically activate on click, but we must not draw focus away from
-        // where it is, so preventDefault
-        if (target && !data.findFocusable(target)) {
+        // where it is, so preventDefault.
+        if (target) {
+            !data.findFocusable(target) && e.preventDefault()
+        }
+        // A press on no navigable item at all (a disabled row, a separator) activates nothing, so it keeps focus where
+        // it is as well. Only the subject's own scrollbar keeps its default press.
+        else if (!DomUtils.closest(e.target, DomUtils.isFocusable, data.subject.parentNode) && !this.isScrollbarPress(e, data.subject)) {
             e.preventDefault()
         }
     }
@@ -299,14 +306,24 @@ class Navigator extends Base {
      * Navigates to the passed target
      * @param {Object} config
      * @param {Object} config.data The data block as passed to {@link #subscribe}
+     * @param {HTMLElement|String} [config.fromTarget] Only navigate while browser focus is still
+     * inside this source target. This prevents asynchronous reconciliation from stealing focus.
      * @param {HTMLElement|Number|String} config.target The new active element, id or index
      */
     navigateTo(config) {
-        let {data, target} = config;
+        let {data, fromTarget, target} = config;
 
         if (!data.subject) {
             // If subject has been unmounted, we cannot navigate
             if (!(data = DomAccess.getElement(data.id)?.$navigator)) {
+                return
+            }
+        }
+
+        if (fromTarget !== undefined) {
+            fromTarget = typeof fromTarget === 'string' ? DomAccess.getElement(fromTarget) : fromTarget;
+
+            if (!this.isActiveTarget(fromTarget)) {
                 return
             }
         }
@@ -327,8 +344,8 @@ class Navigator extends Base {
 
         // Scroll the target into view smoothly before we focus it without triggering a scroll
         target.scrollIntoView({
-            behavior : 'smooth',
-            block    : 'nearest'
+            behavior: 'smooth',
+            block   : 'nearest'
         });
 
         // Find a focusable element which may be the item, or inside the item to draw focus to.
@@ -343,6 +360,30 @@ class Navigator extends Base {
         else {
             this.setActiveItem(target, data)
         }
+    }
+
+    /**
+     * True for a press on the scroller's own scrollbar: the scroller is the target, and the press lies outside its
+     * client area.
+     * @param {MouseEvent} e
+     * @param {HTMLElement} scroller
+     * @returns {Boolean}
+     */
+    isScrollbarPress({offsetX, offsetY, target}, scroller) {
+        return target === scroller &&
+            (offsetX < 0 || offsetY < 0 || offsetX >= scroller.clientWidth || offsetY >= scroller.clientHeight)
+    }
+
+    /**
+     * Returns true when a target itself or one of its descendants owns browser focus.
+     * @param {HTMLElement|null} target
+     * @returns {Boolean}
+     * @protected
+     */
+    isActiveTarget(target) {
+        const activeElement = target?.ownerDocument?.activeElement;
+
+        return Boolean(target && (target === activeElement || target.contains?.(activeElement)))
     }
 
     /**
@@ -390,19 +431,19 @@ class Navigator extends Base {
         // navigating to the same element should get ignored
         if (data.activeItem !== data.previousActiveItem) {
             DomEvents.sendMessageToApp({
-                type                : 'neonavigate',
-                target              : data.id,
-                path                : [{
+                type  : 'neonavigate',
+                target: data.id,
+                path  : [{
                     id : data.id
                 }],
-                activeItem          : data.activeItem.id,
-                previousActiveItem  : data.previousActiveItem?.id,
-                activeIndex         : data.activeIndex,
-                previousActiveIndex : data.previousActiveIndex,
-                altKey              : Neo.altKeyDown,
-                ctrlKey             : Neo.controlKeyDown,
-                metaKey             : Neo.metaKeyDown,
-                shiftKey            : Neo.shiftKeyDown
+                activeItem         : data.activeItem.id,
+                previousActiveItem : data.previousActiveItem?.id,
+                activeIndex        : data.activeIndex,
+                previousActiveIndex: data.previousActiveIndex,
+                altKey             : Neo.altKeyDown,
+                ctrlKey            : Neo.controlKeyDown,
+                metaKey            : Neo.metaKeyDown,
+                shiftKey           : Neo.shiftKeyDown
             })
         }
 
@@ -472,8 +513,8 @@ class Navigator extends Base {
 
             // We have to know when the DOM mutates in case the active item is removed.
             (data.targetMutationMonitor = new MutationObserver(e => me.navigateTargetChildListChange(e, data))).observe(subject, {
-                childList : true,
-                subtree   : true
+                childList: true,
+                subtree  : true
             });
 
             eventSource.addEventListener('keydown', data.l1 = e => me.navigateKeyDownHandler(e, data));

@@ -79,3 +79,14 @@
         }
     }
 }
+
+/* list.plugin.Animate marks its owner with .neo-animated-list and drives item motion through a
+   per-owner #id transition rule. This single static override wins over that id-scoped rule via
+   !important, so vestibular-safe users get instant reflows from every animated list — inserted
+   here (not per-owner at runtime) because @media rules cannot be deleted by selectorText and a
+   dynamic copy would leak on every list destroy. */
+@media (prefers-reduced-motion: reduce) {
+    .neo-list.neo-animated-list .neo-list-item {
+        transition: none !important;
+    }
+}

@@ -32,7 +32,7 @@ MockParser = Neo.setupClass(MockParser);
 /**
  * @summary Tests for Neo.data.Store with Parser
  */
-test.describe.serial('Neo.data.Store Parser Integration', () => {
+test.describe('Neo.data.Store Parser Integration', () => {
     
     test('Store should create parser from config', () => {
         const store = Neo.create(Store, {

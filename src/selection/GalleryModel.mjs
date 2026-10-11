@@ -42,22 +42,26 @@ class GalleryModel extends Model {
     onContainerClick() {
         let me       = this,
             {view}   = me,
-            oldItems = [...me.items],
-            deltas   = [];
+            oldItems = [...me.items];
 
+        // Was a hand-rolled delta list pushed through Neo.applyDeltas. That writes the DOM directly
+        // and never touches the vdom, so clearing the selection left every item still carrying
+        // neo-selected AND aria-selected in the vdom — invisible until the next differ pass, which
+        // would then have re-asserted the styling this method exists to remove. deannotateItem owns
+        // both halves of the annotation, so routing through it keeps the two trees agreeing.
         me.items.forEach(item => {
-            deltas.push({
-                id : view.getItemVnodeId(item),
-                cls: {
-                    add   : [],
-                    remove: ['neo-selected']
-                }
-            });
+            me.deannotateItem(view.getVdomChild(me.getItemVdomId(item)))
         });
 
         me.items.splice(0, me.items.length);
 
-        Neo.applyDeltas(view.windowId, deltas).then(() => {
+        // promiseUpdate(), not update(): the ordering is part of the contract, not a detail. The
+        // previous Neo.applyDeltas(...).then(...) fired selectionChange only after the DOM had
+        // settled, so a listener could read the cleared state. update() returns void and starts an
+        // async worker cycle, so firing after it synchronously would hand every listener the DOM as
+        // it was BEFORE the clear — a regression invisible to any assertion that only checks the
+        // final state.
+        view.promiseUpdate().then(() => {
             me.fire('selectionChange', me.items, oldItems)
         })
     }
@@ -219,6 +223,21 @@ class GalleryModel extends Model {
     }
 
     /**
+     * @summary Resolves a tracked record id to the prefixed vnode id the view's items actually carry.
+     *
+     * {@link Neo.selection.GalleryModel#select select()} tracks the **logical** record id, while
+     * `Gallery#createItem` keys each item node as `getItemVnodeId(recordId)` → `${view.id}__${recordId}`.
+     * The base implementation is identity, which resolves nothing against this view.
+     *
+     * @param {String} item Tracked record id
+     * @returns {String}
+     * @protected
+     */
+    getItemVdomId(item) {
+        return this.view?.getItemVnodeId(item) ?? item
+    }
+
+    /**
      * @param {String} itemId
      */
     select(itemId) {
@@ -253,7 +272,9 @@ class GalleryModel extends Model {
                             add   : [],
                             remove: ['neo-selected']
                         }
-                    })
+                    });
+
+                    me.deannotateItem(view.getVdomChild(view.getItemVnodeId(item)))
                 }
             });
 
@@ -266,6 +287,12 @@ class GalleryModel extends Model {
                 add: ['neo-selected']
             }
         });
+
+        // The delta reaches the DOM immediately; this puts the SAME annotation on the vdom, which is what
+        // `restoreSelection` reads after a rebuild. Without it the vdom never carries the selection at all,
+        // so `aria-selected` is absent until a restore INVENTS it — and a sort that introduces ARIA for the
+        // first time has not preserved anything. One annotation owner, both paths.
+        me.annotateItem(view.getVdomChild(vnodeId));
 
         NeoArray['add'](items, itemId);
 

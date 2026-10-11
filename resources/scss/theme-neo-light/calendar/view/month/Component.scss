@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-calendar-monthcomponent
+:where(.neo-theme-neo-light) { // .neo-calendar-monthcomponent
     --c-m-background-color        : #fff;
     --c-m-border-color            : #ddd;
     --c-m-day-name-color          : #666;

@@ -1,0 +1,1791 @@
+import {setup} from '../../setup.mjs';
+
+setup({
+    appConfig: {
+        name: 'DashboardDockProjectionReconcilerTest'
+    }
+});
+
+import {test, expect}           from '@playwright/test';
+import Neo                      from '../../../../src/Neo.mjs';
+import * as core                from '../../../../src/core/_export.mjs';
+import Component                from '../../../../src/component/Base.mjs';
+import Container                from '../../../../src/container/Base.mjs';
+import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
+import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
+
+import VesselEmbodiment             from '../../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import '../../../../src/manager/Instance.mjs';
+import '../../../../src/button/Base.mjs';
+import '../../../../src/tab/Container.mjs';
+import '../../../../src/toolbar/Base.mjs';
+
+const createRootTabsModel = () => ({
+    schema: 'neo.dock.zone.v1',
+    root  : 'root-tabs',
+    items : {
+        alpha: {reference: 'alpha', title: 'Alpha'}
+    },
+    nodes: {
+        'root-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'}
+    }
+});
+
+const createSplitModel = () => ({
+    schema: 'neo.dock.zone.v1',
+    root  : 'root-split',
+    items : {
+        alpha: {reference: 'alpha', title: 'Alpha'},
+        beta : {reference: 'beta',  title: 'Beta'}
+    },
+    nodes: {
+        'alpha-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'},
+        'beta-tabs' : {activeItemId: 'beta', items: ['beta'], type: 'tabs'},
+        'root-split': {
+            children   : ['alpha-tabs', 'beta-tabs'],
+            orientation: 'horizontal',
+            sizes      : [0.6, 0.4],
+            type       : 'split'
+        }
+    }
+});
+
+const createEdgeModel = () => ({
+    schema: 'neo.dock.zone.v1',
+    root  : 'root-edge',
+    items : {
+        center: {reference: 'center', title: 'Center'},
+        left  : {reference: 'left',   title: 'Left'}
+    },
+    nodes: {
+        'center-tabs': {activeItemId: 'center', items: ['center'], type: 'tabs'},
+        'left-tabs'  : {activeItemId: 'left',   items: ['left'],   type: 'tabs'},
+        'root-edge'  : {
+            type : 'edge-zone',
+            zones: {
+                center: {nodeId: 'center-tabs'},
+                left  : {nodeId: 'left-tabs', extent: 0.2, resizable: true}
+            }
+        }
+    }
+});
+
+const createThreeChildSplitModel = () => {
+    const model = createSplitModel();
+
+    model.items.gamma = {reference: 'gamma', title: 'Gamma'};
+    model.nodes['gamma-tabs'] = {activeItemId: 'gamma', items: ['gamma'], type: 'tabs'};
+    model.nodes['root-split'].children.push('gamma-tabs');
+    model.nodes['root-split'].sizes = [0.4, 0.35, 0.25];
+
+    return model
+};
+
+// `beforeReconcile` runs on the live host after projection and before the transaction starts.
+const reconcileModel = async (model, mutate, {beforeReconcile=null, geometryOnly=false, preserveItemIds=[], retainTopology=false}={}) => {
+    const
+        panes = Object.fromEntries(Object.entries(model.items)
+            .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
+        host = Neo.create(Container, {
+            items: [DockLayoutAdapter.project(model, {
+                resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+            })]
+        }),
+        oldShell     = host.items[0],
+        nextModel    = structuredClone(model),
+        placeholders = new Map();
+
+    mutate(nextModel);
+
+    const nextConfig = DockLayoutAdapter.project(nextModel, {
+        resolveComponentRef(_reference, item, itemId) {
+            const placeholder = Neo.create(Component, {
+                header: {text: item.title},
+                hidden: true
+            });
+
+            placeholders.set(itemId, placeholder);
+
+            return placeholder
+        }
+    });
+
+    let stagedCount = 0;
+
+    beforeReconcile?.({host, oldShell, panes});
+
+    const result = await DockProjectionReconciler.reconcileProjection({
+        geometryOnly,
+        host,
+        nextConfig,
+        placeholders,
+        preserveItemIds,
+        retainTopology,
+        resolveItem: itemId => panes[itemId],
+        onProjectionStaged() {
+            stagedCount++
+        }
+    });
+
+    return {host, nextModel, oldShell, panes, result, stagedCount}
+};
+
+test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
+    test('preparing a dormant lazy card preserves its slot identity without loading or duplicating it', async () => {
+        let   loads = 0;
+        const model = createRootTabsModel(), pane = Neo.create(Component, {header: {text: 'Alpha'}}),
+              lazy = {id: 'reconciler-lazy-card', module: () => {loads++; return Promise.resolve(Component)}, header: {text: 'Lazy'}};
+        model.items.beta = {reference: 'beta', title: 'Lazy'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta'];
+        const host = Neo.create(Container, {items: [DockLayoutAdapter.project(model, {
+            resolveComponentRef: (_reference, _item, itemId) => itemId === 'alpha' ? pane : lazy
+        })]}), resident = host.items[0].getCardContainer().items[1], placeholders = new Map();
+
+        try {
+            expect(resident.constructor, 'the inactive card is still its config').toBe(Object);
+            expect(loads).toBe(0);
+            const nextConfig = DockLayoutAdapter.project(model, {
+                resolveComponentRef(_reference, item, itemId) {
+                    const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+                    placeholders.set(itemId, placeholder);
+                    return placeholder
+                }
+            });
+            await DockProjectionReconciler.reconcileProjection({
+                host, nextConfig, placeholders, resolveItem: itemId => itemId === 'alpha' ? pane : lazy,
+                prepareItem(value, itemId, context) {
+                    const prepared = DockLayoutAdapter.decorateProjectedItem(value, itemId, model.items[itemId], context);
+                    prepared.header = {...prepared.header, text: `Prepared ${itemId}`};
+                    return prepared
+                }
+            });
+            expect(host.items[0].getCardContainer().items).toHaveLength(2);
+            expect(host.items[0].getCardContainer().items[1]).toBe(resident);
+            expect(host.items[0].getTabButtons()).toHaveLength(2);
+            expect(resident.header.text).toBe('Prepared beta');
+            expect(host.items[0].getTabButtons()[1].text).toBe('Prepared beta');
+            expect(loads, 'metadata preparation does not activate the lazy module').toBe(0)
+        } finally {
+            host.destroy();
+            pane.isDestroyed || pane.destroy()
+        }
+    });
+
+    test('pane preparation keeps the projected context after fresh tab construction consumes its config', async () => {
+        const model      = createRootTabsModel(), pane = Neo.create(Component, {header: {text: 'Alpha'}}),
+              host       = Neo.create(Container, {items: []}), placeholders = new Map(), contexts = [],
+              nextConfig = DockLayoutAdapter.project(model, {
+                  resolveComponentRef(_reference, item, itemId) {
+                      const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+                      placeholders.set(itemId, placeholder);
+                      return placeholder
+                  }
+              });
+
+        try {
+            await DockProjectionReconciler.reconcileProjection({
+                host, nextConfig, placeholders, resolveItem: () => pane,
+                prepareItem(resolved, itemId, context) {contexts.push({itemId, ...context}); return resolved}
+            });
+            expect(contexts).toEqual([{itemId: 'alpha', nodeId: 'root-tabs', stackHandle: false}]);
+            expect(host.items[0].getCardContainer().items).toEqual([pane])
+        } finally {
+            host.destroy();
+            pane.isDestroyed || pane.destroy()
+        }
+    });
+
+    for (const retainTopology of [false, true]) {
+        test(`external pane move settles its ancestor before descendant commits (retain=${retainTopology})`, async () => {
+            const model = createRootTabsModel(),
+                  empty = structuredClone(model),
+                  pane  = Neo.create(Component, {header: {text: 'Alpha'}});
+
+            empty.items = {};
+            empty.nodes['root-tabs'].items = [];
+            empty.nodes['root-tabs'].activeItemId = null;
+
+            const host         = Neo.create(Container, {items: retainTopology ? [DockLayoutAdapter.project(empty)] : []}),
+                  viewport     = Neo.create(Container, {items: [pane, host]}),
+                  placeholders = new Map(),
+                  nextConfig   = DockLayoutAdapter.project(model, {
+                      resolveComponentRef() {
+                          const placeholder = Neo.create(Component, {header: {text: 'Alpha'}, hidden: true});
+                          placeholders.set('alpha', placeholder);
+                          return placeholder
+                      }
+                  }),
+                  originalUpdate = viewport.promiseUpdate.bind(viewport),
+                  events = [];
+
+            let release, projection;
+            const gate = new Promise(resolve => release = resolve);
+            viewport.promiseUpdate = async () => {
+                if (pane.parent === viewport) return originalUpdate();
+                events.push('ancestor started');
+                await gate;
+                await originalUpdate();
+                events.push('ancestor settled')
+            };
+
+            try {
+                projection = DockProjectionReconciler.reconcileProjection({
+                    host, nextConfig, placeholders, retainTopology, resolveItem: () => pane,
+                    onProjectionStaged({nextShell}) {
+                        const bar = nextShell.getTabBar(), update = bar.promiseUpdate.bind(bar);
+                        bar.promiseUpdate = () => {
+                            events.push('descendant');
+                            return update()
+                        }
+                    }
+                });
+                await expect.poll(() => events[0], {timeout: 1000}).toBe('ancestor started');
+                await new Promise(resolve => setTimeout(resolve, 0));
+                expect(events).toEqual(['ancestor started']);
+                release();
+                await projection;
+                expect(events.indexOf('descendant')).toBeGreaterThan(events.indexOf('ancestor settled'));
+                expect(host.items[0].getCardContainer().items).toEqual([pane]);
+                expect(viewport.items).toEqual([host])
+            } finally {
+                release();
+                await projection?.catch(() => {});
+                viewport.destroy()
+            }
+        })
+    }
+
+    test('keys retained tab chrome and reserves only its projected destination', () => {
+        const
+            retainedTab = {dockNodeId: 'primary-tabs', dockNodeType: 'tabs'},
+            retiredTab  = {dockNodeId: 'retired-tabs', dockNodeType: 'tabs'},
+            liveShell   = {
+                items: [{
+                    items: [retainedTab, retiredTab]
+                }]
+            },
+            currentTabs = DockProjectionReconciler.collectProjectedTabs(liveShell),
+            plans       = new Map(),
+            primary     = {
+                activeIndex  : 1,
+                cls          : ['primary'],
+                dockNodeId   : 'primary-tabs',
+                dockNodeType : 'tabs',
+                flex         : 0.7,
+                headerToolbar: {
+                    sortZoneConfig: {dockItemIds: ['alpha', 'beta']}
+                },
+                items: ['projected-pane-config']
+            },
+            secondary = {
+                activeIndex  : 0,
+                dockNodeId   : 'secondary-tabs',
+                dockNodeType : 'tabs',
+                headerToolbar: {
+                    sortZoneConfig: {dockItemIds: ['gamma']}
+                },
+                items: ['new-pane-config']
+            },
+            projection = DockProjectionReconciler.prepareTabChromeProjection({
+                dockNodeId  : 'root',
+                dockNodeType: 'split',
+                items       : [primary, secondary]
+            }, currentTabs, plans),
+            retainedPlan = plans.get('primary-tabs');
+
+        try {
+            expect([...currentTabs.keys()]).toEqual(['primary-tabs', 'retired-tabs']);
+            expect([...plans.keys()]).toEqual(['primary-tabs', 'secondary-tabs']);
+            expect(retainedPlan).toMatchObject({
+                activeIndex : 1,
+                config      : primary,
+                desiredItems: ['alpha', 'beta'],
+                tab         : retainedTab
+            });
+            expect(retainedPlan.placeholder.cls).toContain('neo-dashboard-dock-projection-placeholder');
+            expect(retainedPlan.placeholder.flex).toBe(0.7);
+            expect(retainedPlan.placeholder.hidden).toBe(true);
+            expect(retainedPlan.placeholder.hideMode).toBe('visibility');
+            expect(projection.items[0]).toBe(retainedPlan.placeholder);
+            expect(projection.items[1]).toBe(secondary);
+            expect(plans.get('secondary-tabs').placeholder).toBeNull();
+        } finally {
+            retainedPlan.placeholder.destroy()
+        }
+    });
+
+    test('fails closed when a live item resolver is absent', () => {
+        expect(() => DockProjectionReconciler.reconcileTabChrome(
+            new Map(),
+            new Map(),
+            new Map(),
+            {items: []}
+        )).toThrow('requires a live item resolver')
+    });
+
+    test('retains a root tab and discovers its live item before consulting the app resolver', async () => {
+        const
+            model = createRootTabsModel(),
+            pane  = Neo.create(Component, {header: {text: 'Alpha'}}),
+            host  = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: () => pane
+                })]
+            }),
+            originalTab  = host.items[0],
+            placeholders = new Map();
+
+        let resolverCalls = 0;
+
+        try {
+            const nextConfig = DockLayoutAdapter.project(model, {
+                    resolveComponentRef(reference, item, itemId) {
+                        const placeholder = Neo.create(Component, {
+                            header: {text: item.title},
+                            hidden: true
+                        });
+
+                        placeholders.set(itemId, placeholder);
+
+                        return placeholder
+                    }
+                }),
+                result = await DockProjectionReconciler.reconcileProjection({
+                    host,
+                    nextConfig,
+                    placeholders,
+                    resolveItem() {
+                        resolverCalls++;
+                        return null
+                    }
+                });
+
+            expect(result.nextShell).toBe(originalTab);
+            expect(host.items.length).toBe(1);
+            expect(host.items[0]).toBe(originalTab);
+            expect(originalTab.getCardContainer().items[0]).toBe(pane);
+            expect(resolverCalls).toBe(0)
+        } finally {
+            host.destroy()
+        }
+    })
+
+    test('retained tab reconciliation preserves a flat action rail outside semantic tab exactness', async () => {
+        const
+            model = createRootTabsModel(),
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}})
+            },
+            host = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                })]
+            }),
+            tab          = host.items[0],
+            bar          = tab.getTabBar(),
+            next         = structuredClone(model),
+            placeholders = new Map();
+
+        tab.headerActions = [{action: 'pin', contextual: false, iconCls: 'fa fa-thumbtack'}];
+
+        const action = tab.getAction('pin'),
+              spacer = bar.getActionSpacer();
+
+        next.items.beta = {reference: 'beta', title: 'Beta'};
+        next.nodes['root-tabs'].items.push('beta');
+
+        try {
+            const nextConfig = DockLayoutAdapter.project(next, {
+                resolveComponentRef(_reference, item, itemId) {
+                    const placeholder = Neo.create(Component, {
+                        header: {text: item.title},
+                        hidden: true
+                    });
+
+                    placeholders.set(itemId, placeholder);
+
+                    return placeholder
+                }
+            });
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => panes[itemId]
+            });
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            expect(host.items[0]).toBe(tab);
+            expect(tab.getTabButtons().map(button => button.text)).toEqual(['Alpha', 'Beta']);
+            expect(tab.getAction('pin'), 'the exact action instance survives projection').toBe(action);
+            expect(bar.getActionSpacer(), 'the exact spacer instance survives projection').toBe(spacer);
+            expect(bar.items.slice(-2)).toEqual([spacer, action]);
+            expect(action.wrapperCls).not.toContain('neo-draggable');
+            expect(spacer.wrapperCls).not.toContain('neo-draggable');
+            expect(bar.sortZone.getDraggableItems(bar.items)).toEqual(tab.getTabButtons())
+        } finally {
+            host.destroy()
+        }
+    })
+
+    test('a staged projection leaves an action-mode overflow control hidden until its own recapture shows it', async () => {
+        // The dock's header rail installs the overflow plugin in action mode: the control is a
+        // toolbar contribution whose visibility is the plugin's verdict, so a topology swap must not
+        // force it visible while the recapture that decides is still in flight — on a newborn
+        // single-tab strip that painted a control with nothing to show for one frame.
+        const
+            model = createSplitModel(),
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}}),
+                gamma: Neo.create(Component, {header: {text: 'Gamma'}})
+            },
+            host = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                })]
+            }),
+            shell        = host.items[0],
+            tab          = shell.items.find(item => item.dockNodeId === 'alpha-tabs'),
+            plugin       = tab.getTabBar().getPlugin('tab-overflow'),
+            control      = plugin.createActionControl(),
+            transitions  = [],
+            next         = createThreeChildSplitModel(),
+            placeholders = new Map();
+
+        expect(plugin.projectAsAction).toBe(true);
+        expect(control.hidden, 'a control with nothing to show is born hidden').toBe(true);
+        control.on('hiddenChange', ({value}) => transitions.push(value));
+
+        try {
+            const nextConfig = DockLayoutAdapter.project(next, {
+                resolveComponentRef(_reference, item, itemId) {
+                    const placeholder = Neo.create(Component, {
+                        header: {text: item.title},
+                        hidden: true
+                    });
+
+                    placeholders.set(itemId, placeholder);
+
+                    return placeholder
+                }
+            });
+
+            const result = await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => panes[itemId]
+            });
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            expect(result.landedInPlace, 'a third split child stages a shell swap').toBe(false);
+            expect(result.overflowPlugins).toContain(plugin);
+            expect(transitions, 'the swap never forces the action-mode control visible').toEqual([]);
+            expect(control.hidden).toBe(true)
+        } finally {
+            host.destroy()
+        }
+    })
+
+    test('normalizes an absent-item config to the inserted live component exactly once', async () => {
+        const
+            model = createRootTabsModel(),
+            pane  = Neo.create(Component, {header: {text: 'Alpha'}}),
+            host  = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: () => pane
+                })]
+            }),
+            originalTab  = host.items[0],
+            nextModel    = structuredClone(model),
+            placeholders = new Map();
+
+        nextModel.items.beta = {reference: 'beta', title: 'Beta'};
+        nextModel.nodes['root-tabs'].items.push('beta');
+
+        const resolverCalls = [];
+        let   headerCommits = 0;
+
+        try {
+            const nextConfig = DockLayoutAdapter.project(nextModel, {
+                resolveComponentRef(_reference, item, itemId) {
+                    const placeholder = Neo.create(Component, {
+                        header: {text: item.title},
+                        hidden: true
+                    });
+
+                    placeholders.set(itemId, placeholder);
+
+                    return placeholder
+                }
+            });
+
+            const
+                bar                   = originalTab.getTabBar(),
+                originalPromiseUpdate = bar.promiseUpdate.bind(bar);
+
+            bar.promiseUpdate = (...args) => {
+                headerCommits++;
+                return originalPromiseUpdate(...args)
+            };
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem(itemId) {
+                    resolverCalls.push(itemId);
+
+                    const item = nextModel.items[itemId];
+
+                    return DockLayoutAdapter.decorateProjectedItem(
+                        {ntype: 'component', html: item.title},
+                        itemId,
+                        item
+                    )
+                }
+            });
+
+            const body = originalTab.getCardContainer();
+
+            expect(host.items[0]).toBe(originalTab);
+            expect(body.items[0]).toBe(pane);
+            expect(body.items[1]).toBeInstanceOf(Component);
+            expect(body.items[1].html).toBe('Beta');
+            expect(originalTab.getTabBar().items[1].text).toBe('Beta');
+            expect(originalTab.getTabBar().items[1].wrapperCls).toContain('neo-draggable');
+            expect(headerCommits, 'new chrome commits once through its direct toolbar owner').toBe(1);
+            expect(resolverCalls).toEqual(['beta'])
+        } finally {
+            host.destroy()
+        }
+    });
+
+    test('updates stable split geometry in place without moving retained tab chrome', async () => {
+        const
+            model = createSplitModel(),
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}})
+            },
+            host = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                })]
+            }),
+            oldShell     = host.items[0],
+            currentTabs  = DockProjectionReconciler.collectProjectedTabs(oldShell),
+            alphaTab     = currentTabs.get('alpha-tabs'),
+            betaTab      = currentTabs.get('beta-tabs'),
+            nextModel    = structuredClone(model),
+            placeholders = new Map();
+
+        nextModel.nodes['root-split'].sizes = [0.52, 0.48];
+
+        try {
+            const nextConfig = DockLayoutAdapter.project(nextModel, {
+                resolveComponentRef(_reference, item, itemId) {
+                    const placeholder = Neo.create(Component, {
+                        header: {text: item.title},
+                        hidden: true
+                    });
+
+                    placeholders.set(itemId, placeholder);
+
+                    return placeholder
+                }
+            });
+
+            const result = await DockProjectionReconciler.reconcileProjection({
+                geometryOnly: true,
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem : itemId => panes[itemId]
+            });
+
+            expect(result.nextShell).toBe(oldShell);
+            expect(host.items).toEqual([oldShell]);
+            expect(DockProjectionReconciler.collectProjectedTabs(oldShell))
+                .toEqual(currentTabs);
+            expect(currentTabs.get('alpha-tabs')).toBe(alphaTab);
+            expect(currentTabs.get('beta-tabs')).toBe(betaTab);
+            expect(alphaTab.flex).toBe(0.52);
+            expect(betaTab.flex).toBe(0.48);
+            expect(alphaTab.wrapperStyle.flex).toBe(0.52);
+            expect(betaTab.wrapperStyle.flex).toBe(0.48);
+            expect(placeholders.size).toBe(0)
+        } finally {
+            host.destroy()
+        }
+    });
+
+    test('the option the ENGINE derives for a resize is one this reconciler grants', async () => {
+        // The arms around this one hand `reconcileProjection` a `geometryOnly` the test author
+        // chose, which proves the reconciler honours the request but says nothing about whether
+        // anything ever makes it. The workspace's derived default is the other half of that loop:
+        // a consumer writing no hook gets whatever `getRefreshOptions` returns, so if the two ends
+        // disagree the fast path is dead code that every arm here still passes over.
+        //
+        // Taking the engine's ACTUAL output rather than restating it is what closes the loop —
+        // this goes red if the engine stops emitting the class, and red if the reconciler stops
+        // granting it.
+        const workspace = Neo.create(DockWorkspace, {});
+
+        let options;
+
+        try {
+            options = workspace.getRefreshOptions({operation: 'resizeSplit'}, null)
+        } finally {
+            workspace.destroy()
+        }
+
+        expect(options, 'the engine asks for the in-place path').toEqual({geometryOnly: true});
+
+        const receipt = await reconcileModel(createSplitModel(), nextModel => {
+            nextModel.nodes['root-split'].sizes = [0.7, 0.3]
+        }, options);
+
+        try {
+            // `landedInPlace` is the OUTCOME, not the request — the one read that distinguishes a
+            // granted fast path from a refused one that quietly took the staged transaction.
+            expect(receipt.result.landedInPlace, 'and the reconciler grants it').toBe(true);
+            expect(receipt.result.nextShell, 'the live shell was kept, not swapped').toBe(receipt.oldShell);
+
+            const currentTabs = DockProjectionReconciler.collectProjectedTabs(receipt.oldShell);
+
+            expect(currentTabs.get('alpha-tabs').flex, 'and the new boundary actually landed').toBe(0.7);
+            expect(currentTabs.get('beta-tabs').flex).toBe(0.3)
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
+    test('updates a retained edge band to the newly committed percentage extent', async () => {
+        const receipt = await reconcileModel(createEdgeModel(), nextModel => {
+            nextModel.nodes['root-edge'].zones.left.extent = 0.26
+        }, {geometryOnly: true});
+
+        try {
+            const
+                currentTabs = DockProjectionReconciler.collectProjectedTabs(receipt.oldShell),
+                leftTab     = currentTabs.get('left-tabs');
+
+            expect(receipt.result.nextShell).toBe(receipt.oldShell);
+            expect(receipt.stagedCount).toBe(0);
+            expect(leftTab.width).toBe('26%');
+            expect(leftTab.getVdomRoot().width).toBe('26%')
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
+    test('keeps same-topology non-geometry refreshes on the staged transaction by default', async () => {
+        const receipt = await reconcileModel(createSplitModel(), nextModel => {
+            nextModel.items.alpha.title = 'Renamed'
+        });
+
+        try {
+            expect(receipt.stagedCount).toBe(1);
+            expect(receipt.result.nextShell).not.toBe(receipt.oldShell)
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
+    test('reconciles an explicit same-topology item detachment without replacing the shell', async () => {
+        const model = createSplitModel();
+
+        model.items.gamma = {reference: 'gamma', title: 'Gamma'};
+        model.nodes['alpha-tabs'].items.push('gamma');
+
+        const receipt = await reconcileModel(model, nextModel => {
+            nextModel.nodes['alpha-tabs'].items = ['alpha']
+        }, {
+            preserveItemIds: ['gamma'],
+            retainTopology : true
+        });
+
+        try {
+            const
+                alphaTab = DockProjectionReconciler.collectProjectedTabs(receipt.oldShell)
+                    .get('alpha-tabs'),
+                body     = alphaTab.getCardContainer(),
+                bar      = alphaTab.getTabBar();
+
+            expect(receipt.result.nextShell).toBe(receipt.oldShell);
+            expect(receipt.host.items).toEqual([receipt.oldShell]);
+            expect(body.items).toEqual([receipt.panes.alpha]);
+            expect(alphaTab.getTabButtons().map(button => button.text)).toEqual(['Alpha']);
+            expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha']);
+            expect(receipt.panes.gamma.isDestroyed).toBeFalsy();
+            expect(Boolean(receipt.panes.gamma.parent?.items?.includes(receipt.panes.gamma))).toBe(false);
+            expect(receipt.result.reconciledItems).toBe(true);
+            expect(receipt.stagedCount).toBe(1)
+        } finally {
+            receipt.panes.gamma.destroy();
+            receipt.host.destroy()
+        }
+    });
+
+    test.describe('#18188 a retainTopology REQUEST over a changed topology is refused', () => {
+        // `retainTopology` is an admission request, not a statement of fact. A host sends it for
+        // `detachItem`, and a detach CAN restructure: emptying a tabs node drops it and collapses a
+        // two-child split behind it. The consumer is safe only because `reconcileStableTopology`
+        // refuses — and until now nothing asserted that it does.
+        //
+        // What these arms witness, measured rather than assumed: the refusal is OVER-DETERMINED.
+        // Removing the node-count clause, the missing-node clause, or the child-order clause on its
+        // own leaves the others still refusing, and all three arms stay green. They go red once the
+        // guard is weakened far enough to actually admit a changed topology — with every structural
+        // clause but the missing-node one removed, one arm fails; with that one gone too, two do.
+        //
+        // So this block protects the CONTRACT ("a changed topology is refused") rather than any
+        // single line of it. Worth stating, because a reader who assumed a one-clause mutation would
+        // turn them red — as the ticket's own AC-5 did — would wrongly conclude they cover nothing.
+
+        test('AC-1/AC-2 a detach that COLLAPSES a node falls through to the staged transaction', async () => {
+            // `alpha` is the sole occupant of `alpha-tabs`, the left child of a two-child split.
+            // Removing it empties the node, so the projection has FEWER structural nodes than the
+            // shell — the exact case the node-count clause exists for.
+            const receipt = await reconcileModel(createSplitModel(), nextModel => {
+                delete nextModel.nodes['alpha-tabs'];
+                delete nextModel.items.alpha;
+                nextModel.root = 'beta-tabs';
+                delete nextModel.nodes['root-split']
+            }, {retainTopology: true});
+
+            try {
+                // AC-1: the request was REFUSED. `landedInPlace` is the honest read of the path
+                // actually taken; the request itself says only what the caller hoped for.
+                expect(receipt.result.landedInPlace, 'the fast path was refused').not.toBe(true);
+                expect(receipt.stagedCount, 'the staged transaction ran instead').toBe(1);
+
+                // AC-2: refusing is only half the contract. A guard that refuses AND renders wrongly
+                // would satisfy the assertion above and be worthless, so the OUTCOME is asserted —
+                // which node set the host ends up projecting, not which shell object carries it.
+                // Shell identity is the staged path's own business and asserting it would couple
+                // this arm to an implementation detail the contract does not promise.
+                // The staged path leaves BOTH shells on the host — it moves the surviving nodes
+                // into a fresh shell and the committing surface completes the swap and disposes the
+                // source. At this layer the new shell is the host item that is not the old one;
+                // identifying it by exclusion states that, where an index would just encode it.
+                const newShell = receipt.host.items.find(item => item !== receipt.oldShell);
+
+                expect(newShell, 'a fresh shell was staged').toBeTruthy();
+
+                const tabs = DockProjectionReconciler.collectProjectedTabs(newShell);
+
+                expect([...tabs.keys()], 'only the surviving node is projected').toEqual(['beta-tabs']);
+                expect(tabs.get('beta-tabs').getTabButtons().map(button => button.text)).toEqual(['Beta'])
+            } finally {
+                receipt.host.destroy()
+            }
+        });
+
+        test('AC-3 a node-count INCREASE is refused too, so the size clause holds both ways', async () => {
+            const model = createSplitModel();
+
+            // Catalogued but unplaced, so a live pane exists for it before the mutation adds its
+            // node — the same shape the same-topology arrival arm below uses. Introducing the item
+            // only in `nextModel` would leave `resolveItem` with nothing to hand back, and the arm
+            // would die on pane resolution instead of testing the size clause.
+            model.items.gamma = {reference: 'gamma', title: 'Gamma'};
+
+            const receipt = await reconcileModel(model, nextModel => {
+                nextModel.nodes['gamma-tabs'] = {activeItemId: 'gamma', items: ['gamma'], type: 'tabs'};
+                nextModel.nodes['root-split'].children.push('gamma-tabs');
+                nextModel.nodes['root-split'].sizes = [0.4, 0.35, 0.25]
+            }, {retainTopology: true});
+
+            try {
+                expect(receipt.result.landedInPlace, 'a grown tree is not the same tree').not.toBe(true);
+                expect(receipt.stagedCount).toBe(1)
+            } finally {
+                receipt.host.destroy()
+            }
+        });
+
+        test('AC-4 CONTROL: a detach whose node SURVIVES still lands in place', async () => {
+            // Without this, the arms above would stay green if the guard began refusing everything —
+            // which would silently retire the fast path rather than protect it.
+            const model = createSplitModel();
+
+            model.items.gamma = {reference: 'gamma', title: 'Gamma'};
+            model.nodes['alpha-tabs'].items.push('gamma');
+
+            // `gamma` leaves the node but `alpha` holds it open, so the structural tree is identical
+            // and the fast path is legitimately admissible. `preserveItemIds` keeps the departing
+            // pane resolvable, which is the same shape a real detach uses.
+            const receipt = await reconcileModel(model, nextModel => {
+                nextModel.nodes['alpha-tabs'].items        = ['alpha'];
+                nextModel.nodes['alpha-tabs'].activeItemId = 'alpha'
+            }, {preserveItemIds: ['gamma'], retainTopology: true});
+
+            try {
+                expect(receipt.result.landedInPlace, 'the node survived, so the fast path holds').toBe(true);
+                expect(receipt.result.nextShell).toBe(receipt.oldShell)
+            } finally {
+                receipt.panes.gamma.destroy();
+                receipt.host.destroy()
+            }
+        })
+    });
+
+    test.describe('a rail is stable topology: item deltas land in place, rail topology changes stage', () => {
+        // `createEdgeModel` with `left` auto-hidden projects the left band empty and surfaces the item on
+        // a left edge rail — the smallest document whose projection carries a Rail.
+        const createRailedEdgeModel = () => {
+            const model = createEdgeModel();
+
+            model.items.left.autoHidden = true;
+
+            return model
+        };
+
+        const findRails = shell => {
+            const rails = [];
+
+            const walk = node => {
+                node?.dockNodeType === 'edge-rail' && rails.push(node);
+                node?.items?.forEach?.(walk)
+            };
+
+            walk(shell);
+
+            return rails
+        };
+
+        test('a railed item-only delta lands in place and reaches the surviving rail', async () => {
+            const receipt = await reconcileModel(createRailedEdgeModel(), nextModel => {
+                nextModel.items.left.title = 'Left, renamed'
+            }, {retainTopology: true});
+
+            try {
+                expect(receipt.result.landedInPlace, 'the item-only delta lands in place').toBe(true);
+                expect(receipt.host.items, 'no staged sibling').toHaveLength(1);
+
+                const [rail, ...moreRails] = findRails(receipt.oldShell);
+
+                expect(rail, 'the retained shell carries its rail').toBeTruthy();
+                expect(moreRails).toEqual([]);
+
+                // Pre-fix the rail was invisible to the stable-topology walk: the request landed in
+                // place and the rail kept yesterday's items — a stale rail, worse than a staged shell.
+                expect(rail.railItems.map(item => item.title), 'the surviving rail received the fresh rail items').toEqual(['Left, renamed']);
+                expect(rail.items.find(item => item.dockItemId === 'left')?.text, 'and reconciled its own button in place').toBe('Left, renamed');
+                expect(rail.dockZoneDocument, 'the rail reads the committed document').toEqual(receipt.nextModel)
+            } finally {
+                receipt.host.destroy()
+            }
+        });
+
+        test('a rail that changes edge is a topology change and stages a shell', async () => {
+            const receipt = await reconcileModel(createRailedEdgeModel(), nextModel => {
+                const zones = nextModel.nodes['root-edge'].zones;
+
+                zones.right = zones.left;
+                delete zones.left
+            }, {retainTopology: true});
+
+            try {
+                // Pre-fix the walk saw the same edge-zone and center tabs on both sides and landed in
+                // place, leaving the rail on the edge the document had left.
+                expect(receipt.result.landedInPlace, 'the request was refused').not.toBe(true);
+                expect(receipt.stagedCount, 'the staged transaction ran').toBe(1);
+
+                const newShell = receipt.host.items.find(item => item !== receipt.oldShell);
+
+                expect(findRails(newShell).map(rail => rail.edge), 'the fresh shell carries the rail on its new edge').toEqual(['right'])
+            } finally {
+                receipt.host.destroy()
+            }
+        });
+
+        // The staged transaction keeps an unchanged rail as the same instance, so its runtime reveal
+        // machine, overlay and pressed tab survive a commit that never touched the rail.
+        const createSelectableRailedModel = () => {
+            const model = createRailedEdgeModel();
+
+            model.items.other = {reference: 'other', title: 'Other'};
+            model.nodes['center-tabs'].items.push('other');
+
+            return model
+        };
+
+        const readReveal = rail => ({
+            pressed : rail.items.find(item => item.dockItemId === 'left')?.pressed,
+            revealed: rail.revealMachine.revealedItemId,
+            state   : rail.revealMachine.state
+        });
+
+        for (const timing of ['already open', 'accepted while the projection is pending']) {
+            test(`a staged selection keeps an unchanged rail with a reveal ${timing}`, async () => {
+                let rail;
+
+                const receipt = await reconcileModel(createSelectableRailedModel(), nextModel => {
+                    nextModel.nodes['center-tabs'].activeItemId = 'other'
+                }, {beforeReconcile({host, oldShell}) {
+                    [rail] = findRails(oldShell);
+
+                    if (timing === 'already open') {
+                        rail.revealMachine.tabClick('left');
+                        return
+                    }
+
+                    // The click lands on the first host flight: the staged shell exists, the swap has not.
+                    const original = host.promiseUpdate.bind(host);
+
+                    host.promiseUpdate = () => {
+                        host.promiseUpdate = original;
+                        rail.revealMachine.tabClick('left');
+
+                        return original()
+                    }
+                }});
+
+                try {
+                    expect(receipt.stagedCount, 'the selection took the staged transaction').toBe(1);
+                    expect(receipt.host.items, 'one shell').toHaveLength(1);
+                    expect(receipt.host.items[0], 'the staged shell replaced the old one').not.toBe(receipt.oldShell);
+
+                    const rails = findRails(receipt.host.items[0]);
+
+                    expect(rails, 'the new shell carries one rail').toHaveLength(1);
+                    expect(rails[0], 'and it is the live rail, not a rebuilt one').toBe(rail);
+                    expect(readReveal(rail)).toEqual({pressed: true, revealed: 'left', state: 'revealed-focused'});
+                    expect(rail.dockZoneDocument, 'the retained rail reads the committed document').toEqual(receipt.nextModel)
+                } finally {
+                    receipt.host.destroy()
+                }
+            })
+        }
+
+        test('a staged commit that changes a rail\'s membership rebuilds it', async () => {
+            const model = createRailedEdgeModel();
+            let   rail;
+
+            model.items.leftTwo = {reference: 'leftTwo', title: 'Left two'};
+            model.nodes['left-tabs'].items.push('leftTwo');
+
+            const receipt = await reconcileModel(model, nextModel => {
+                nextModel.items.leftTwo.autoHidden = true
+            }, {beforeReconcile({oldShell}) {
+                [rail] = findRails(oldShell)
+            }});
+
+            try {
+                const [nextRail] = findRails(receipt.host.items[0]);
+
+                expect(nextRail, 'a rail with new members is a new instance').not.toBe(rail);
+                expect(rail.isDestroyed, 'the old rail retired with its shell').toBe(true);
+                expect(nextRail.railItems.map(item => item.dockItemId)).toEqual(['left', 'leftTwo'])
+            } finally {
+                receipt.host.destroy()
+            }
+        });
+
+        test('a staged projection whose swap fails never destroys the retained rail', async () => {
+            let dockHost, rail;
+
+            const receipt = await reconcileModel(createSelectableRailedModel(), nextModel => {
+                nextModel.nodes['center-tabs'].activeItemId = 'other'
+            }, {beforeReconcile({host, oldShell}) {
+                dockHost = host;
+                [rail]   = findRails(oldShell);
+                rail.revealMachine.tabClick('left');
+
+                const original = host.promiseUpdate.bind(host);
+
+                // The swap is the first host flight after the rail left the outgoing shell.
+                host.promiseUpdate = () => {
+                    if (findRails(oldShell).includes(rail)) return original();
+
+                    host.promiseUpdate = original;
+
+                    return Promise.reject(new Error('injected: the swap flight fails'))
+                }
+            }}).catch(error => ({error}));
+
+            try {
+                expect(receipt.error?.isDockProjectionFailure, 'the failure is typed').toBe(true);
+                expect(rail.isDestroyed, 'the live rail survives the recovery').toBeFalsy();
+                expect(readReveal(rail).revealed).toBe('left')
+            } finally {
+                // The recovery detaches the staged shell that holds the rail; it no longer hangs off the host.
+                dockHost.destroy();
+                rail.isDestroyed || rail.destroy()
+            }
+        });
+
+        test('a geometry-only refresh keeps the rail and hands it the committed document', async () => {
+            const receipt = await reconcileModel(createRailedEdgeModel(), nextModel => {
+                nextModel.nodes['root-edge'].zones.left.extent = 0.3
+            }, {geometryOnly: true});
+
+            try {
+                expect(receipt.result.nextShell).toBe(receipt.oldShell);
+                expect(receipt.stagedCount).toBe(0);
+
+                const [rail] = findRails(receipt.oldShell);
+
+                expect(rail.railItems.map(item => item.dockItemId), 'the rail items are untouched').toEqual(['left']);
+                expect(rail.dockZoneDocument, 'the rail reads the committed document').toEqual(receipt.nextModel)
+            } finally {
+                receipt.host.destroy()
+            }
+        })
+    });
+
+    test('reconciles an explicit same-topology item arrival without replacing the shell', async () => {
+        // The stack-return adoption shape: the arriving pane exists as a live instance
+        // (it survived its previous workspace), the structural shell is unchanged, and one tabs
+        // node's item set grows. The catalog entry without a node placement models exactly that.
+        const model = createSplitModel();
+
+        model.items.gamma = {reference: 'gamma', title: 'Gamma'};
+
+        const receipt = await reconcileModel(model, nextModel => {
+            nextModel.nodes['alpha-tabs'].items.push('gamma')
+        }, {
+            retainTopology: true
+        });
+
+        try {
+            const
+                alphaTab = DockProjectionReconciler.collectProjectedTabs(receipt.oldShell)
+                    .get('alpha-tabs'),
+                body     = alphaTab.getCardContainer(),
+                bar      = alphaTab.getTabBar();
+
+            expect(receipt.result.nextShell).toBe(receipt.oldShell);
+            expect(receipt.host.items).toEqual([receipt.oldShell]);
+            expect(body.items).toEqual([receipt.panes.alpha, receipt.panes.gamma]);
+            expect(alphaTab.getTabButtons().map(button => button.text)).toEqual(['Alpha', 'Gamma']);
+            expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha', 'gamma']);
+            expect(receipt.panes.gamma.isDestroyed).toBeFalsy();
+            expect(receipt.result.reconciledItems).toBe(true);
+            expect(receipt.stagedCount).toBe(1)
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
+    test('fails an explicit retained-topology admission closed when structure changes', async () => {
+        const receipt = await reconcileModel(createSplitModel(), nextModel => {
+            nextModel.nodes['root-split'].orientation = 'vertical'
+        }, {retainTopology: true});
+
+        try {
+            expect(receipt.result.nextShell).not.toBe(receipt.oldShell);
+            expect(String(receipt.result.nextShell.layout.ntype).replace(/^layout-/, '')).toBe('vbox')
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
+    test('falls back when a geometry-only projection changes split orientation', async () => {
+        const receipt = await reconcileModel(createSplitModel(), nextModel => {
+            nextModel.nodes['root-split'].orientation = 'vertical'
+        }, {geometryOnly: true});
+
+        try {
+            expect(receipt.stagedCount).toBe(1);
+            expect(receipt.result.nextShell).not.toBe(receipt.oldShell);
+            expect(String(receipt.result.nextShell.layout.ntype).replace(/^layout-/, '')).toBe('vbox')
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
+    test('falls back when a geometry-only projection reorders three split children', async () => {
+        const receipt = await reconcileModel(createThreeChildSplitModel(), nextModel => {
+            nextModel.nodes['root-split'].children = ['gamma-tabs', 'alpha-tabs', 'beta-tabs']
+        }, {geometryOnly: true});
+
+        try {
+            const childNodeIds = receipt.result.nextShell.items
+                .filter(item => item.dockNodeType !== 'splitter')
+                .map(item => item.dockNodeId);
+
+            expect(receipt.stagedCount).toBe(1);
+            expect(receipt.result.nextShell).not.toBe(receipt.oldShell);
+            expect(childNodeIds).toEqual(['gamma-tabs', 'alpha-tabs', 'beta-tabs'])
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
+    test('fails closed on duplicate structural projection identities', () => {
+        expect(DockProjectionReconciler.collectProjectionTopology({
+            dockNodeId  : 'root-split',
+            dockNodeType: 'split',
+            items       : [{
+                dockNodeId  : 'duplicate-tabs',
+                dockNodeType: 'tabs'
+            }, {
+                dockNodeId  : 'duplicate-tabs',
+                dockNodeType: 'tabs'
+            }]
+        })).toBeNull()
+    });
+
+    test('retires a pane and button that are absent from every projected tab exactly once', async () => {
+        const
+            model = createRootTabsModel(),
+            beta  = {reference: 'beta', title: 'Beta'};
+
+        model.items.beta = beta;
+        model.nodes['root-tabs'].items.push('beta');
+
+        const
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}})
+            },
+            host = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                })]
+            }),
+            tab             = host.items[0],
+            bar             = tab.getTabBar(),
+            betaButton      = tab.getTabButtons()[1],
+            betaPaneDestroy = panes.beta.destroy.bind(panes.beta),
+            betaButtonDestroy = betaButton.destroy.bind(betaButton),
+            nextModel       = structuredClone(model),
+            placeholders    = new Map();
+
+        let betaPaneDestroyCount   = 0,
+            betaButtonDestroyCount = 0;
+
+        panes.beta.destroy = (...args) => {
+            betaPaneDestroyCount++;
+            return betaPaneDestroy(...args)
+        };
+        betaButton.destroy = (...args) => {
+            betaButtonDestroyCount++;
+            return betaButtonDestroy(...args)
+        };
+
+        nextModel.nodes['root-tabs'].items = ['alpha'];
+
+        try {
+            const nextConfig = DockLayoutAdapter.project(nextModel, {
+                resolveComponentRef(_reference, item, itemId) {
+                    const placeholder = Neo.create(Component, {
+                        header: {text: item.title},
+                        hidden: true
+                    });
+
+                    placeholders.set(itemId, placeholder);
+
+                    return placeholder
+                }
+            });
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: () => null
+            });
+
+            expect(host.items[0]).toBe(tab);
+            expect(tab.getCardContainer().items).toEqual([panes.alpha]);
+            expect(tab.getTabButtons()).toHaveLength(1);
+            expect(betaPaneDestroyCount).toBe(1);
+            expect(betaButtonDestroyCount).toBe(1)
+        } finally {
+            host.destroy()
+        }
+    })
+
+    test('parks an absent middle pane without shifting sibling chrome and re-adopts the same instance', async () => {
+        const model = createRootTabsModel();
+
+        model.items.beta  = {reference: 'beta',  title: 'Beta'};
+        model.items.gamma = {reference: 'gamma', title: 'Gamma'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta', 'gamma'];
+
+        const
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}}),
+                gamma: Neo.create(Component, {header: {text: 'Gamma'}})
+            },
+            host = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                })]
+            }),
+            tab               = host.items[0],
+            originalButton    = tab.getTabButtons()[1],
+            originalDestroy   = panes.beta.destroy.bind(panes.beta),
+            nextModel         = structuredClone(model),
+            firstPlaceholders = new Map();
+
+        let paneDestroyCount = 0;
+
+        panes.beta.destroy = (...args) => {
+            paneDestroyCount++;
+            return originalDestroy(...args)
+        };
+        nextModel.nodes['root-tabs'].items = ['alpha', 'gamma'];
+
+        const project = (document, placeholders) => DockLayoutAdapter.project(document, {
+            resolveComponentRef(_reference, item, itemId) {
+                const placeholder = Neo.create(Component, {
+                    header: {text: item.title},
+                    hidden: true
+                });
+
+                placeholders.set(itemId, placeholder);
+
+                return placeholder
+            }
+        });
+
+        try {
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig     : project(nextModel, firstPlaceholders),
+                placeholders   : firstPlaceholders,
+                preserveItemIds: ['beta'],
+                resolveItem    : itemId => panes[itemId]
+            });
+
+            let body = tab.getCardContainer(),
+                bar  = tab.getTabBar();
+
+            expect(body.items).toEqual([panes.alpha, panes.gamma]);
+            expect(tab.getTabButtons().map(button => button.text)).toEqual(['Alpha', 'Gamma']);
+            expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha', 'gamma']);
+            expect(bar.sortZone.dockItemIds).toEqual(['alpha', 'gamma']);
+            expect(Boolean(panes.beta.parent?.items?.includes(panes.beta))).toBe(false);
+            expect(panes.beta.isDestroyed).toBeFalsy();
+            expect(originalButton.isDestroyed).toBeTruthy();
+            expect(paneDestroyCount).toBe(0);
+
+            const returnPlaceholders = new Map();
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig  : project(model, returnPlaceholders),
+                placeholders: returnPlaceholders,
+                resolveItem : itemId => panes[itemId]
+            });
+
+            body = tab.getCardContainer();
+            bar  = tab.getTabBar();
+
+            expect(body.items).toEqual([panes.alpha, panes.beta, panes.gamma]);
+            expect(body.items[1]).toBe(panes.beta);
+            expect(tab.getTabButtons().map(button => button.text)).toEqual(['Alpha', 'Beta', 'Gamma']);
+            expect(tab.getTabButtons()[1]).not.toBe(originalButton);
+            expect(tab.getTabButtons()[1].wrapperCls).toContain('neo-draggable');
+            expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha', 'beta', 'gamma']);
+            expect(bar.sortZone.dockItemIds).toEqual(['alpha', 'beta', 'gamma']);
+            expect(paneDestroyCount).toBe(0)
+        } finally {
+            host.destroy()
+        }
+    });
+
+    /**
+     * The transaction's failure path. Phases 2-4 each end in an awaited host flight, and the host
+     * holds TWO shells for that whole window — so a rejection anywhere in it used to unwind out of
+     * the method and leave both shells in place, the outgoing one visible and the staged one hidden,
+     * with every later commit reconciling against `host.items[shellIndex]` forever.
+     *
+     * A rejecting flight is injected by counting `host.promiseUpdate` calls, which is what the phases
+     * ARE: the first stages the shell, the second closes tab chrome, the third swaps visibility, the
+     * fourth retires the old shell. Rejecting the second or third leaves the swap unlanded (the
+     * outgoing shell must survive); rejecting the fourth happens after it landed (the staged shell
+     * must survive and the swap simply finishes) — so the two recovery verdicts are both reachable
+     * and are asserted by name rather than inferred. `onCall` observes the host before each flight;
+     * `rejectOnCall: 0` rejects none.
+     */
+    const reconcileWithRejectedFlight = async (rejectOnCall, onCall) => {
+        const
+            model = createSplitModel(),
+            panes = Object.fromEntries(Object.entries(model.items)
+                .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
+            host  = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                })]
+            }),
+            oldShell     = host.items[0],
+            nextModel    = structuredClone(model),
+            placeholders = new Map();
+
+        // Any topology change that stages a second shell; the failure is about the transaction, not
+        // about which mutation asked for it.
+        nextModel.nodes['root-split'].sizes = [0.3, 0.7];
+        nextModel.nodes['root-split'].children.reverse();
+
+        const nextConfig = DockLayoutAdapter.project(nextModel, {
+            resolveComponentRef(_reference, item, itemId) {
+                const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                placeholders.set(itemId, placeholder);
+
+                return placeholder
+            }
+        });
+
+        const original = host.promiseUpdate.bind(host);
+
+        let calls = 0;
+
+        host.promiseUpdate = function() {
+            calls++;
+            onCall?.(calls, host, oldShell);
+
+            return calls === rejectOnCall
+                // The shape the live report carried: a landing ancestor flight whose stored vnode
+                // still references chrome an earlier phase destroyed silently.
+                ? Promise.reject(new Error('util.VNode.getVnode: Component not found for id: neo-tab-header-button-10'))
+                : original()
+        };
+
+        let error = null;
+
+        try {
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => panes[itemId]
+            })
+        } catch (e) {
+            error = e
+        }
+
+        host.promiseUpdate = original;
+
+        return {calls, error, host, model, oldShell, panes}
+    };
+
+    for (const [phase, rejectOnCall, expectedRecovery, expectedSurvivor] of [
+        ['2 (tab chrome)',      2, 'retired-staged', 'old'],
+        ['3 (visibility swap)', 3, 'retired-staged', 'old'],
+        ['4 (retire outgoing)', 4, 'completed-swap', 'staged']
+    ]) {
+        test(`a rejected flight in phase ${phase} leaves exactly one visible shell and reports it`, async () => {
+            const {error, host, oldShell, panes} = await reconcileWithRejectedFlight(rejectOnCall);
+
+            try {
+                // The failure must still reach the caller — the recovery repairs the host, it never
+                // swallows the cause. Its message is the diagnostic and must survive unwrapped.
+                expect(error, 'the projection failure reaches the caller').toBeTruthy();
+                expect(error.message).toContain('Component not found for id');
+                expect(error.isDockProjectionFailure, 'the failure is typed so the workspace can route it').toBe(true);
+                expect(error.projectionRecovery).toBe(expectedRecovery);
+
+                // The invariant every later commit depends on: ONE shell, at shellIndex, visible.
+                expect(host.items.length, 'the host holds exactly one shell').toBe(1);
+                expect(host.items[0].hidden, 'the surviving shell is visible').not.toBe(true);
+                expect(host.items[0].cls, 'the surviving shell is back in layout').not.toContain('neo-dashboard-dock-shell-retiring');
+
+                expectedSurvivor === 'old'
+                    ? expect(host.items[0], 'the outgoing shell survives an unlanded swap').toBe(oldShell)
+                    : expect(host.items[0], 'the staged shell survives a landed swap').not.toBe(oldShell);
+
+                // Reparent-never-recreate holds THROUGH the failure: a recovery that destroyed the
+                // retired staged shell would take the panes already moved into it, which is the exact
+                // promise the transaction exists to keep.
+                Object.entries(panes).forEach(([itemId, pane]) => {
+                    expect(pane.isDestroyed, `pane "${itemId}" survives the failed projection`).toBeFalsy()
+                })
+            } finally {
+                host.destroy()
+            }
+        })
+    }
+
+    test('the visibility swap takes the outgoing shell out of layout in the flight that shows the staged one', async () => {
+        let atSwap = null;
+
+        // The third flight is the swap. A shell hidden only by visibility keeps its width in the host's
+        // flex row, so the staged shell must not become visible beside it.
+        const {error, host, oldShell} = await reconcileWithRejectedFlight(0, (call, host, oldShell) => {
+            if (call === 3) {
+                atSwap = {
+                    outgoingRetired: oldShell.cls.includes('neo-dashboard-dock-shell-retiring'),
+                    stagedVisible  : host.items[1]?.hidden !== true
+                }
+            }
+        });
+
+        try {
+            expect(error, 'the projection completes').toBeNull();
+            expect(atSwap).toEqual({outgoingRetired: true, stagedVisible: true});
+            expect(host.items.length, 'the outgoing shell is destroyed afterwards').toBe(1);
+            expect(oldShell.isDestroyed).toBe(true)
+        } finally {
+            host.destroy()
+        }
+    });
+
+    test.describe('a tabs node crossing the root', () => {
+        const items   = {alpha: {reference: 'alpha', title: 'Alpha'}, beta: {reference: 'beta', title: 'Beta'}},
+              tabRoot = {schema: 'neo.dock.zone.v1', root: 'root-tabs', items, nodes: {
+                  'root-tabs': {activeItemId: 'alpha', items: ['alpha', 'beta'], type: 'tabs'}
+              }},
+              nested  = {schema: 'neo.dock.zone.v1', root: 'split', items, nodes: {
+                  split      : {children: ['root-tabs', 'beta-tabs'], orientation: 'horizontal', sizes: [0.5, 0.5], type: 'split'},
+                  'root-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'},
+                  'beta-tabs': {activeItemId: 'beta', items: ['beta'], type: 'tabs'}
+              }};
+
+        // Projects `nextModel` over a host showing `model`; the first host flight `rejectWhen` accepts rejects.
+        const reconcileCrossing = async (model, nextModel, rejectWhen=null) => {
+            const panes = Object.fromEntries(Object.entries(model.items)
+                      .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
+                  host         = Neo.create(Container, {items: [DockLayoutAdapter.project(model, {
+                      resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                  })]}),
+                  oldShell     = host.items[0],
+                  oldTabs      = DockProjectionReconciler.collectProjectedTabs(oldShell),
+                  placeholders = new Map(),
+                  original     = host.promiseUpdate.bind(host);
+
+            let error = null, rejected = false;
+
+            host.promiseUpdate = () => !rejected && rejectWhen?.(oldShell, host) && (rejected = true)
+                ? Promise.reject(new Error('injected: the swap flight fails'))
+                : original();
+
+            try {
+                await DockProjectionReconciler.reconcileProjection({
+                    host,
+                    nextConfig: DockLayoutAdapter.project(nextModel, {
+                        resolveComponentRef(_reference, item, itemId) {
+                            const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                            placeholders.set(itemId, placeholder);
+
+                            return placeholder
+                        }
+                    }),
+                    placeholders,
+                    resolveItem: itemId => panes[itemId]
+                })
+            } catch (e) {
+                error = e
+            }
+
+            host.promiseUpdate = original;
+
+            return {error, host, oldShell, oldTabs, panes}
+        };
+
+        test('nesting the tab root keeps its tab container, visible, inside the staged split', async () => {
+            const {error, host, oldShell, panes} = await reconcileCrossing(tabRoot, nested);
+
+            try {
+                expect(error).toBeNull();
+                expect(host.items).toHaveLength(1);
+                expect(oldShell.parent, 'the root tab lives on inside the split').toBe(host.items[0]);
+                expect(oldShell.hidden).not.toBe(true);
+                expect(oldShell.cls).not.toContain('neo-dashboard-dock-shell-retiring');
+                Object.values(panes).forEach(pane => expect(pane.isDestroyed).toBeFalsy())
+            } finally {
+                host.destroy()
+            }
+        });
+
+        test('a nesting commit whose swap flight fails keeps the staged split, which holds the root tab', async () => {
+            // The swap is the first host flight after the root tab moved into the staged split.
+            const {error, host, oldShell} = await reconcileCrossing(tabRoot, nested, (shell, host) => shell.parent !== host);
+
+            try {
+                expect(error?.projectionRecovery).toBe('completed-swap');
+                expect(host.items).toHaveLength(1);
+                expect(host.items[0].hidden).not.toBe(true);
+                expect(oldShell.parent).toBe(host.items[0]);
+                expect(oldShell.isDestroyed).toBeFalsy()
+            } finally {
+                host.destroy()
+            }
+        });
+
+        test('collapsing a split to one of its tabs nodes leaves that retained tab as the only shell', async () => {
+            const model                                   = createSplitModel(),
+                  {error, host, oldShell, oldTabs, panes} = await reconcileCrossing(model, {
+                      schema: 'neo.dock.zone.v1', root: 'alpha-tabs', items: model.items, nodes: {
+                          'alpha-tabs': {activeItemId: 'alpha', items: ['alpha', 'beta'], type: 'tabs'}
+                      }
+                  }),
+                  alphaTabs = oldTabs.get('alpha-tabs');
+
+            try {
+                expect(error).toBeNull();
+                expect(host.items).toHaveLength(1);
+                expect(host.items[0], 'the retained tab is the shell').toBe(alphaTabs);
+                expect(alphaTabs.hidden).not.toBe(true);
+                expect(oldShell.isDestroyed).toBe(true);
+                expect(alphaTabs.getCardContainer().items).toEqual([panes.alpha, panes.beta])
+            } finally {
+                host.destroy()
+            }
+        })
+    });
+
+    test('the next projection after a failure reconciles normally onto the surviving shell', async () => {
+        const {host, model, panes} = await reconcileWithRejectedFlight(2);
+
+        try {
+            const placeholders = new Map(),
+                  nextConfig   = DockLayoutAdapter.project(structuredClone(model), {
+                      resolveComponentRef(_reference, item, itemId) {
+                          const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                          placeholders.set(itemId, placeholder);
+
+                          return placeholder
+                      }
+                  });
+
+            // No injected rejection this time: the repair the workspace schedules, run by hand. The
+            // committed document is untouched by a failed projection, so re-projecting from it is the
+            // whole repair — and it must find one shell to reconcile against, not two.
+            const result = await DockProjectionReconciler.reconcileProjection({
+                host, nextConfig, placeholders, resolveItem: itemId => panes[itemId]
+            });
+
+            expect(result, 'the repair projection completes').toBeTruthy();
+            expect(host.items.length, 'the repair leaves one shell behind').toBe(1);
+            expect(host.items[0].hidden, 'the repaired shell is visible').not.toBe(true);
+
+            // Identity, not just presence: the repair re-parented the SAME pane instances out of the
+            // detached staged shell rather than re-creating them.
+            Object.entries(panes).forEach(([itemId, pane]) => {
+                expect(pane.isDestroyed, `pane "${itemId}" survives the repair`).toBeFalsy();
+                expect(Boolean(pane.parent), `pane "${itemId}" is parented again`).toBe(true)
+            })
+        } finally {
+            host.destroy()
+        }
+    });
+
+    test('a tabs node whose bar ids and body items disagree resolves every item through the app resolver', async () => {
+        const model = createRootTabsModel();
+
+        model.items.beta  = {reference: 'beta',  title: 'Beta'};
+        model.items.gamma = {reference: 'gamma', title: 'Gamma'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta', 'gamma'];
+
+        // Live instances that carry no dock-item stamp: the shape every host owning its own pane
+        // lifecycle hands over, since the adapter decorates configs and returns instances untouched.
+        const panes = {
+                  alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                  beta : Neo.create(Component, {header: {text: 'Beta'}}),
+                  gamma: Neo.create(Component, {header: {text: 'Gamma'}})
+              },
+              projected = structuredClone(model);
+
+        // The chrome on screen holds two of the three items — beta is away, its pane held elsewhere.
+        projected.nodes['root-tabs'].items        = ['alpha', 'gamma'];
+        projected.nodes['root-tabs'].activeItemId = 'alpha';
+
+        const host = Neo.create(Container, {
+                  items: [DockLayoutAdapter.project(projected, {
+                      resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                  })]
+              }),
+              tab = host.items[0],
+              bar = tab.getTabBar();
+
+        try {
+            expect(tab.getCardContainer().items, 'the projected body holds the two present panes')
+                .toEqual([panes.alpha, panes.gamma]);
+
+            // The drift: the bar still lists the away item while the body no longer holds it. Pairing
+            // live panes to ids by POSITION then reads body.items[1] — gamma's pane — as beta's, so
+            // beta is never asked of the resolver (a returning pane is never taken) and two desired
+            // slots resolve to one instance, which the exactness check below reports as an inexact
+            // item set. The pairing must refuse a zip it cannot trust instead of guessing.
+            bar.setSilent({sortZoneConfig: {...bar.sortZoneConfig, dockItemIds: ['alpha', 'beta', 'gamma']}});
+
+            const asked        = [],
+                  placeholders = new Map(),
+                  nextConfig   = DockLayoutAdapter.project(model, {
+                      resolveComponentRef(_reference, item, itemId) {
+                          const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                          placeholders.set(itemId, placeholder);
+
+                          return placeholder
+                      }
+                  });
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => {
+                    asked.push(itemId);
+                    return panes[itemId]
+                }
+            });
+
+            expect(asked, 'the item the drift mis-paired reaches the app resolver').toContain('beta');
+            expect(host.items[0].getCardContainer().items, 'every item lands on its own pane')
+                .toEqual([panes.alpha, panes.beta, panes.gamma]);
+            expect(host.items[0].getTabButtons(), 'one button per projected item').toHaveLength(3)
+        } finally {
+            host.destroy();
+            Object.values(panes).forEach(pane => pane.isDestroyed || pane.destroy())
+        }
+    });
+
+    test('a stand-in staged into a tab body keeps its slot when the bar ids and the body have diverged', async () => {
+        const model = createRootTabsModel();
+
+        model.items.beta = {reference: 'beta', title: 'Beta'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta'];
+
+        const panes = {
+                  alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                  beta : Neo.create(Component, {header: {text: 'Beta'}})
+              },
+              host  = Neo.create(Container, {
+                  items: [DockLayoutAdapter.project(model, {
+                      resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                  })]
+              }),
+              tab    = host.items[0],
+              bar    = tab.getTabBar(),
+              vessel = Neo.create(Container, {items: []});
+
+        // The stand-in is minted by the production path, never hand-built here: the repair belongs to
+        // the creation site, so an arm that constructs its own placeholder could never witness it.
+        const embodiment = Neo.create(VesselEmbodiment, {
+            resolvePane  : itemId => panes[itemId] ?? null,
+            resolveTarget: windowId => windowId === 'admitted-window' ? vessel : null
+        });
+
+        try {
+            await embodiment.stage({itemId: 'beta', windowId: 'admitted-window'});
+
+            const body    = tab.getCardContainer(),
+                  standIn = body.items.find(item => item.cls?.includes('neo-dashboard-dock-vessel-placeholder'));
+
+            expect(standIn, 'staging left a stand-in in the tab body').toBeTruthy();
+
+            // A projection in flight elsewhere left the bar listing one more item than the body holds.
+            // Position stops being evidence here, and the stand-in is the component that pays for it.
+            bar.setSilent({sortZoneConfig: {...bar.sortZoneConfig, dockItemIds: ['alpha', 'beta', 'gamma']}});
+
+            const asked        = [],
+                  placeholders = new Map(),
+                  nextConfig   = DockLayoutAdapter.project(model, {
+                      resolveComponentRef(_reference, item, itemId) {
+                          const stub = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                          placeholders.set(itemId, stub);
+
+                          return stub
+                      }
+                  });
+
+            // Deliberately unguarded: a rejection here is a failure of the thing under test, and a
+            // catch would let every assertion below run against a tree that was never reconciled.
+            const result = await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => {
+                    asked.push(itemId);
+                    return panes[itemId]
+                }
+            });
+
+            const settled = host.items[0].getCardContainer();
+
+            // Staging already left exactly one stand-in in the body and had not asked the resolver,
+            // so the three assertions after these two are ALSO true of a reconcile that did nothing.
+            // Chrome reconciliation rewrites the bar's ids to the projected set as its last act, so
+            // the vanished third id is the one post-condition a no-op cannot produce.
+            expect(result, 'the projection completed rather than resolving early').toBeTruthy();
+            expect(host.items[0].getTabBar().sortZoneConfig.dockItemIds,
+                'chrome reconciliation ran through and rewrote the bar to the projected set')
+                .toEqual(['alpha', 'beta']);
+
+            expect(asked, 'the host is never asked to produce an item whose stand-in is already present')
+                .not.toContain('beta');
+            expect(settled.items.filter(item => item.cls?.includes('neo-dashboard-dock-vessel-placeholder')),
+                'exactly one stand-in survives — a second one is the duplicated load mask').toHaveLength(1);
+            expect(settled.items).toContain(standIn)
+        } finally {
+            embodiment.destroy();
+            host.destroy();
+            vessel.destroy();
+            Object.values(panes).forEach(pane => pane.isDestroyed || pane.destroy())
+        }
+    });
+
+    test('a pane naming its own item outranks its position when the bar ids disagree at equal length', async () => {
+        const model = createRootTabsModel();
+
+        model.items.beta  = {reference: 'beta',  title: 'Beta'};
+        model.items.gamma = {reference: 'gamma', title: 'Gamma'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta', 'gamma'];
+
+        // Panes carrying their own dock identity, as every pane materialized from a projected config
+        // does. Equal lengths prove a COUNT and never an order: a bar whose ids have drifted out of
+        // the body's order is exactly as long as the body it contradicts, so a length check alone
+        // would hand each swapped id its neighbour's pane and report success.
+        const panes = {
+                  alpha: Neo.create(Component, {dockItemId: 'alpha', header: {text: 'Alpha'}}),
+                  beta : Neo.create(Component, {dockItemId: 'beta',  header: {text: 'Beta'}}),
+                  gamma: Neo.create(Component, {dockItemId: 'gamma', header: {text: 'Gamma'}})
+              },
+              host  = Neo.create(Container, {
+                  items: [DockLayoutAdapter.project(model, {
+                      resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                  })]
+              }),
+              tab   = host.items[0],
+              bar   = tab.getTabBar();
+
+        try {
+            expect(tab.getCardContainer().items, 'the body holds the three panes in the committed order')
+                .toEqual([panes.alpha, panes.beta, panes.gamma]);
+
+            // The drift, at equal length: the bar's ids swap the last two, the body does not.
+            bar.setSilent({sortZoneConfig: {...bar.sortZoneConfig, dockItemIds: ['alpha', 'gamma', 'beta']}});
+
+            const placeholders = new Map(),
+                  nextConfig   = DockLayoutAdapter.project(model, {
+                      resolveComponentRef(_reference, item, itemId) {
+                          const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                          placeholders.set(itemId, placeholder);
+
+                          return placeholder
+                      }
+                  });
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => panes[itemId]
+            });
+
+            expect(host.items[0].getCardContainer().items, 'each item keeps the pane that names it')
+                .toEqual([panes.alpha, panes.beta, panes.gamma])
+        } finally {
+            host.destroy();
+            Object.values(panes).forEach(pane => pane.isDestroyed || pane.destroy())
+        }
+    })
+});

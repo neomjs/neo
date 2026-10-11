@@ -1,15 +1,17 @@
-import Base             from '../core/Base.mjs';
-import ClassSystemUtil  from '../util/ClassSystem.mjs';
-import ComponentService   from './client/ComponentService.mjs';
-import DataService        from './client/DataService.mjs';
-import InstanceService    from './client/InstanceService.mjs';
-import InteractionService from './client/InteractionService.mjs';
-import RuntimeService     from './client/RuntimeService.mjs';
-import Socket             from '../data/connection/WebSocket.mjs';
-import WindowManager      from '../manager/Window.mjs';
-import WriteGuard         from './WriteGuard.mjs';
-import TransactionService from './TransactionService.mjs';
-import {parseAgentEnvelope} from './parseAgentEnvelope.mjs';
+import Base                                                    from '../core/Base.mjs';
+import ClassSystemUtil                                         from '../util/ClassSystem.mjs';
+import ComponentService,   {registerComponentServiceMethods}   from './client/ComponentService.mjs';
+import DataService,        {registerDataServiceMethods}        from './client/DataService.mjs';
+import DockService,        {registerDockServiceMethods}        from './client/DockService.mjs';
+import InstanceService,    {registerInstanceServiceMethods}    from './client/InstanceService.mjs';
+import InteractionService, {registerInteractionServiceMethods} from './client/InteractionService.mjs';
+import RuntimeService,     {registerRuntimeServiceMethods}     from './client/RuntimeService.mjs';
+import {dispatchServiceMethod}                                 from './client/resolveServiceMethod.mjs';
+import Socket                                                  from '../data/connection/WebSocket.mjs';
+import WindowManager                                           from '../manager/Window.mjs';
+import WriteGuard                                              from './WriteGuard.mjs';
+import TransactionService                                      from './TransactionService.mjs';
+import {parseAgentEnvelope}                                    from './parseAgentEnvelope.mjs';
 
 /**
  * The AI Client establishes a WebSocket connection to the Neural Link MCP Server.
@@ -32,8 +34,10 @@ class Client extends Base {
          */
         singleton: true,
         /**
-         * Add custom configs for data.connection.Websocket, or pass a module or instance.
-         * @member {Object|Neo.data.connection.WebSocket|null} socket=null
+         * Add custom configs for data.connection.WebSocket, or pass a module or instance. The default socket retries
+         * clean closes too. Explicit `reconnectOnCleanClose: false` ends automatic recovery after a clean code-1000
+         * close, including window-return retries: no exhausted cycle is invented. A supplied instance keeps its policy.
+         * @member {Object|Neo.data.connection.WebSocket|null} socketConfig=null
          */
         socketConfig: null,
         /**
@@ -44,10 +48,17 @@ class Client extends Base {
     }
 
     /**
-     * @member {Boolean} isConnected=false
+     * When the socket last ran out of reconnect attempts. Null while it is connected or still reconnecting on its own.
+     * From then on only {@link #redial} dials, and the failures it meets are no news.
+     * @member {Number|null} gaveUpAt=null
      * @protected
      */
-    isConnected = false
+    gaveUpAt = null
+    /**
+     * Whether the current socket opened, so a close can tell a lost connection from a refused dial
+     * @member {Boolean} #opened=false
+     */
+    #opened = false
     /**
      * Buffer for console logs generated before connection is established
      * @member {Array} logs=[]
@@ -55,7 +66,8 @@ class Client extends Base {
      */
     logs = []
     /**
-     * Map JSON-RPC method prefixes to service instances
+     * JSON-RPC method prefix → service instance, filled by each service's `register*ServiceMethods` at
+     * construction; insertion order is the prefix precedence.
      * @member {Object} serviceMap
      * @protected
      */
@@ -89,6 +101,17 @@ class Client extends Base {
     transactionService = null
 
     /**
+     * True while the socket is open. Read from the socket rather than kept as a flag: a failing socket reports `error`
+     * before `close`, and the worker forwards every console line to the bridge while this is true. A stale flag would
+     * send a failure's own log through the failed socket, whose `sendMessage()` reconnects, which logs again.
+     * @member {Boolean} isConnected
+     * @protected
+     */
+    get isConnected() {
+        return this.socket?.socket?.readyState === WebSocket.OPEN
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -102,74 +125,37 @@ class Client extends Base {
         me.services = {
             component  : Neo.create(ComponentService,   {client: me}),
             data       : Neo.create(DataService,        {client: me}),
+            dock       : Neo.create(DockService,        {client: me}),
             instance   : Neo.create(InstanceService,    {client: me}),
             interaction: Neo.create(InteractionService, {client: me}),
             runtime    : Neo.create(RuntimeService,     {client: me})
         };
 
-        const {component, data, instance, interaction, runtime} = me.services;
+        const {component, data, dock, instance, interaction, runtime} = me.services;
 
-        me.serviceMap = {
-            get_component         : component,
-            get_computed_styles   : component,
-            get_dom_rect          : component,
-            get_vdom              : component,
-            get_vdom_vnode        : component,
-            get_vnode             : component,
-            highlight_component   : component,
-            observe_motion        : component,
-            query_component       : component,
-            query_vdom            : component,
-            verify_component      : component,
+        // Registration order is prefix precedence: the first registered prefix a method starts with wins.
+        me.serviceMap = {};
 
-            call_method            : instance,
-            create_instance         : instance,
-            destroy_instance        : instance,
-            find_instances         : instance,
-            get_instance_properties: instance,
-            set_instance_properties: instance,
-            undo                   : instance,
-            redo                   : instance,
-            abort_transaction      : instance,
-            begin_transaction      : instance,
-            commit_transaction     : instance,
-            list_transactions      : instance,
-
-            get_record            : data,
-            inspect_state_provider: data,
-            inspect_store         : data,
-            list_stores           : data,
-            modify_state_provider : data,
-
-            check_namespace       : runtime,
-            focus_window          : runtime,
-            get_dom_event         : runtime,
-            get_drag              : runtime,
-            get_method_source     : runtime,
-            get_namespace_tree    : runtime,
-            get_neo_config        : runtime,
-            get_route             : runtime,
-            get_window            : runtime,
-            inspect_class         : runtime,
-            open_component_window : runtime,
-            patch_code            : runtime,
-            position_window       : runtime,
-            reload_page           : runtime,
-            set_route             : runtime,
-            simulate_event        : interaction
-        };
+        registerComponentServiceMethods(me.serviceMap, component);
+        registerDockServiceMethods(me.serviceMap, dock);
+        registerInstanceServiceMethods(me.serviceMap, instance);
+        registerDataServiceMethods(me.serviceMap, data);
+        registerRuntimeServiceMethods(me.serviceMap, runtime);
+        registerInteractionServiceMethods(me.serviceMap, interaction);
 
         Neo.currentWorker.on({
-            connect   : me.onAppWorkerWindowConnect,
-            disconnect: me.onAppWorkerWindowDisconnect,
-            scope     : me
+            connect         : me.onAppWorkerWindowConnect,
+            disconnect      : me.onAppWorkerWindowDisconnect,
+            visibilityChange: me.onWindowVisibilityChange,
+            windowFocus     : me.redial,
+            scope           : me
         });
 
         me.connect()
     }
 
     /**
-     * Establishes the WebSocket connection to the Neural Link MCP Server.
+     * @summary Establishes the WebSocket connection to the Neural Link MCP Server.
      * Uses Neo.data.connection.WebSocket for robust connection management.
      */
     connect() {
@@ -196,13 +182,15 @@ class Client extends Base {
             url.searchParams.set('appName', appName);
 
             me.socket = ClassSystemUtil.beforeSetInstance(me.socketConfig, Socket, {
-                serverAddress: url.toString(),
-                listeners    : {
-                    close  : me.onSocketClose,
-                    error  : me.onSocketError,
-                    message: me.onSocketMessage,
-                    open   : me.onSocketOpen,
-                    scope  : me
+                reconnectOnCleanClose: true,
+                serverAddress        : url.toString(),
+                listeners            : {
+                    close          : me.onSocketClose,
+                    error          : me.onSocketError,
+                    message        : me.onSocketMessage,
+                    open           : me.onSocketOpen,
+                    reconnectFailed: me.onSocketReconnectFailed,
+                    scope          : me
                 }
             })
         } catch (e) {
@@ -211,8 +199,8 @@ class Client extends Base {
     }
 
     /**
-     * Routes specific JSON-RPC methods to their corresponding implementation.
-     * This method acts as the central dispatcher for all AI-driven commands.
+     * Routes a JSON-RPC method to the service that registered its prefix — the central dispatcher for
+     * every AI-driven command; the rule lives in {@link Neo.ai.client.resolveServiceMethod}.
      * @param {String} method The JSON-RPC method name
      * @param {Object} params The parameters associated with the method
      * @param {Object} [context] Optional request context (e.g. `{agentId}`) threaded from the
@@ -220,36 +208,7 @@ class Client extends Base {
      * @returns {Promise<*>} The result of the operation
      */
     async handleRequest(method, params, context) {
-        let me      = this,
-            service = null,
-            prefix;
-
-        // Find matching service based on prefix
-        // e.g. "get_component_property" -> matches "get_component" prefix
-        for (prefix in me.serviceMap) {
-            if (method.startsWith(prefix)) {
-                service = me.serviceMap[prefix];
-                break
-            }
-        }
-
-        const fnName = Neo.snakeToCamel(method);
-
-        if (service) {
-            const fn = service[fnName];
-
-            if (Neo.isFunction(fn)) {
-                return fn.call(service, params, context)
-            } else if (Neo.isPromise(fn)) {
-                return await fn.call(service, params, context)
-            }
-        }
-
-        if (service && typeof service[fnName] === 'function') {
-            return service[fnName](params, context)
-        }
-
-        throw new Error(`Unknown method: ${method}`);
+        return dispatchServiceMethod(this.serviceMap, method, params, context)
     }
 
     /**
@@ -258,14 +217,15 @@ class Client extends Base {
     onAppWorkerWindowConnect(data) {
         if (this.isConnected) {
             const
-                win = WindowManager.get(data.windowId),
+                win                 = WindowManager.get(data.windowId),
                 {appName, windowId} = data;
 
             this.sendNotification('window_connected', {
                 appName,
-                chrome   : win?.chrome,
-                innerRect: win?.innerRect,
-                outerRect: win?.outerRect,
+                capabilities: win?.capabilities,
+                chrome      : win?.chrome,
+                innerRect   : win?.innerRect,
+                outerRect   : win?.outerRect,
                 windowId
             })
         }
@@ -308,8 +268,8 @@ class Client extends Base {
         // AND sweep its open transaction + undo stack on the same `agent_disconnected` frame — otherwise a
         // disconnect (or worker restart) leaks an open transaction. `sweep` is the transaction-side counterpart
         // to `releaseAgent`; both key on the same `(agentId, sessionId)` pair validated above.
-        const {released}      = writeGuard.releaseAgent({agentId, sessionId}),
-              {swept = false} = transactionService?.sweep({id: {agentId, sessionId}}) ?? {};
+        const {released} = writeGuard.releaseAgent({agentId, sessionId}),
+              {swept     = false} = transactionService?.sweep({id: {agentId, sessionId}}) ?? {};
 
         return {released, swept}
     }
@@ -342,16 +302,18 @@ class Client extends Base {
      * @param {Event} event
      */
     onSocketOpen(event) {
-        console.log('Neo.ai.Client: Connected to MCP Server');
-        this.isConnected = true;
+        this.gaveUpAt = null;
+        this.#opened  = true;
 
-        // Flush buffered logs
+        // Flush buffered logs, which are older than the line announcing this connection
         if (this.logs.length > 0) {
             this.logs.forEach(log => {
                 this.sendNotification('console_log', log)
             });
             this.logs.length = 0
         }
+
+        console.log('Neo.ai.Client: Connected to MCP Server');
 
         const appWorker = Neo.worker.App;
 
@@ -370,11 +332,12 @@ class Client extends Base {
         // 2. Rehydrate window topology
         WindowManager.items.forEach(win => {
             this.sendNotification('window_connected', {
-                appName  : win.appName,
-                chrome   : win.chrome,
-                innerRect: win.innerRect,
-                outerRect: win.outerRect,
-                windowId : win.id
+                appName     : win.appName,
+                capabilities: win.capabilities,
+                chrome      : win.chrome,
+                innerRect   : win.innerRect,
+                outerRect   : win.outerRect,
+                windowId    : win.id
             })
         })
 
@@ -404,18 +367,76 @@ class Client extends Base {
     }
 
     /**
+     * A dial that never opened disconnects nothing, so only a lost connection is logged
      * @param {CloseEvent} event
      */
     onSocketClose(event) {
-        console.log('Neo.ai.Client: Disconnected');
-        this.isConnected = false
+        let me     = this,
+            opened = me.#opened;
+
+        me.#opened = false;
+        opened && console.log('Neo.ai.Client: Disconnected')
     }
 
     /**
+     * @summary Reports a socket-level failure, which for an optional bridge is not an app fault.
+     *
+     * `warn`, not `error`, and the level is the whole point. This fires on every boot of every app
+     * declaring `useAiClient` whenever no Neural Link bridge is listening — the ordinary state for
+     * CI and for anyone not running one. The event itself carries nothing: the WebSocket spec
+     * deliberately reduces it to `{isTrusted: true}` so a page cannot probe why a connection
+     * failed, and the actionable detail lives on the close event's code instead. An error level on
+     * a content-free, expected condition trains readers to skip the channel. Once the socket gave up,
+     * a refused {@link #redial} is not even news, so it stays silent: the browser logs it anyway.
      * @param {Event} event
      */
     onSocketError(event) {
-        console.error('Neo.ai.Client: WebSocket Error', event)
+        this.gaveUpAt || console.warn('Neo.ai.Client: WebSocket Error', event)
+    }
+
+    /**
+     * @summary The bridge stayed unreachable through every reconnect attempt: the same ordinary state
+     * {@link #onSocketError} reports for anyone not running a Neural Link bridge, so a warning here too,
+     * once. A refused {@link #redial} ends here as well, silently, and restarts the wait for the next one.
+     * @param {Object}  failure
+     * @param {Boolean} failure.handled Set, so the socket does not report it as an error
+     */
+    onSocketReconnectFailed(failure) {
+        let me = this;
+
+        if (!me.gaveUpAt) {
+            console.warn('Neo.ai.Client: the Neural Link bridge stayed unreachable, reconnecting stopped ' +
+                'until a window is focused or shown again')
+        }
+
+        me.gaveUpAt     = Date.now();
+        failure.handled = true
+    }
+
+    /**
+     * A window shown again is a return, like a window regaining focus: see {@link #redial}
+     * @param {Object}  data
+     * @param {Boolean} data.hidden
+     */
+    onWindowVisibilityChange({hidden}) {
+        hidden || this.redial()
+    }
+
+    /**
+     * @summary Dials once more after the socket gave up, when a user returns to one of this worker's windows:
+     * the moment a bridge started meanwhile becomes worth a try.
+     *
+     * Never on a timer. Every refused dial writes a browser-level DevTools error that no script can suppress,
+     * so a page without a bridge pays at most one per return, and at most one per backoff step since the
+     * last failure. One dial at a time: a return while it connects changes nothing.
+     */
+    redial() {
+        let {gaveUpAt, socket} = this;
+
+        if (gaveUpAt && socket.socket.readyState === WebSocket.CLOSED &&
+            Date.now() - gaveUpAt >= socket.backoffStrategy(socket.reconnectAttempts)) {
+            socket.createSocket()
+        }
     }
 
     /**
@@ -429,10 +450,10 @@ class Client extends Base {
             this.socket.sendMessage({
                 jsonrpc: '2.0',
                 id,
-                error: {
-                    code   : -32603, // Internal error
+                error  : {
+                    code: -32603, // Internal error
                     message,
-                    data   : {stack}
+                    data: {stack}
                 }
             })
         }

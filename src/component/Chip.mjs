@@ -2,6 +2,12 @@ import Component from './Base.mjs';
 import NeoArray  from '../util/Array.mjs';
 
 /**
+ * @summary A compact value/status component with an optional, accessible removal action.
+ *
+ * The close affordance is a native button. Pointer clicks and keyboard activation therefore share
+ * one browser-owned interaction path, and consumers listen to the semantic `remove` event instead
+ * of re-implementing key handling around the chip.
+ *
  * @class Neo.component.Chip
  * @extends Neo.component.Base
  */
@@ -40,6 +46,12 @@ class Chip extends Component {
          */
         iconCls_: null,
         /**
+         * Accessible name for the close button.
+         * @member {String|null} removeLabel_='Remove'
+         * @reactive
+         */
+        removeLabel_: 'Remove',
+        /**
          * The text displayed on the button [optional]
          * @member {String|null} text=null
          * @reactive
@@ -51,13 +63,18 @@ class Chip extends Component {
          */
         useDomListeners: true,
         /**
+         * Consumer-owned identity emitted with the `remove` event.
+         * @member {*} value=null
+         */
+        value: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
         {tabIndex: -1, cn: [
             {tag: 'span', cls: ['neo-chip-glyph']},
             {tag: 'span', cls: ['neo-chip-text']},
-            {tag: 'span', cls: ['neo-chip-close-button', 'far fa-times-circle']}
+            {tag: 'button', type: 'button', 'aria-label': 'Remove', cls: ['neo-chip-close-button', 'far fa-times-circle']}
         ]}
     }
 
@@ -86,6 +103,26 @@ class Chip extends Component {
      */
     afterSetClosable(value, oldValue) {
         this.vdom.cn[2].removeDom = !value;
+        this.update()
+    }
+
+    /**
+     * @summary Keeps the native close button unavailable whenever the chip itself is disabled.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDisabled(value, oldValue) {
+        super.afterSetDisabled(value, oldValue);
+
+        const closeButton = this.vdom.cn[2];
+
+        if (value) {
+            closeButton.disabled = true
+        } else {
+            delete closeButton.disabled
+        }
+
         this.update()
     }
 
@@ -124,6 +161,24 @@ class Chip extends Component {
     }
 
     /**
+     * @summary Updates the close button's action-specific accessible name.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetRemoveLabel(value, oldValue) {
+        const closeButton = this.vdom.cn[2];
+
+        if (value) {
+            closeButton['aria-label'] = value
+        } else {
+            delete closeButton['aria-label']
+        }
+
+        this.update()
+    }
+
+    /**
      * Triggered after the text config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -143,11 +198,29 @@ class Chip extends Component {
     }
 
     /**
+     * @summary Emits one semantic removal intent for pointer and keyboard activation alike.
      * @param {Object} data
+     * @protected
      */
     onCloseButtonClick(data) {
+        let me = this;
 
+        if (!me.disabled && me.closable) {
+            data.cancelBubble = true;
+
+            me.fire('remove', {
+                component: me,
+                value    : me.value
+            })
+        }
     }
 }
+
+/**
+ * The remove event fires when the native close button gets activated.
+ * @event remove
+ * @param {Neo.component.Chip} component
+ * @param {*} value
+ */
 
 export default Neo.setupClass(Chip);

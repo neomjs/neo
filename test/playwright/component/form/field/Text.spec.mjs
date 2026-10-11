@@ -100,4 +100,40 @@ test.describe('Neo.form.field.Text', () => {
         await page.evaluate(id => Neo.worker.App.setConfigs({id, labelPosition: 'inline'}), componentId);
         await expect(field).toHaveClass(/label-inline/);
     });
+
+    // `value` is trimmed, the DOM is not: a render between a typed space and the next character used to write the
+    // trimmed value back over the input. The wrapped setter sees every programmatic write, and none of the typing.
+    test('a space typed at the end survives a render that lands before the next character', async ({page}) => {
+        componentId = await createTextField(page);
+        const field = page.locator(`#${componentId}`);
+        const input = field.locator('input');
+
+        await input.click();
+
+        await page.evaluate(() => {
+            const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+
+            window.__valueWrites = [];
+
+            Object.defineProperty(HTMLInputElement.prototype, 'value', {
+                configurable: true,
+                get() {return descriptor.get.call(this)},
+                set(value) {
+                    window.__valueWrites.push({had: descriptor.get.call(this), wrote: value});
+                    descriptor.set.call(this, value)
+                }
+            });
+        });
+
+        await page.keyboard.type('ab ');
+
+        // Any render of the field will do; the label reaching the DOM proves this one has landed
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, labelText: 'Rendered'}), componentId);
+        await expect(field.locator('.neo-textfield-label')).toHaveText('Rendered');
+
+        await page.keyboard.type('c');
+
+        await expect(input).toHaveValue('ab c');
+        expect(await page.evaluate(() => window.__valueWrites), 'no render wrote the input').toEqual([]);
+    });
 });

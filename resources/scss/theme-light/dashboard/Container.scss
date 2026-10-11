@@ -1,0 +1,14 @@
+@use 'preview-accents' as *;
+
+:where(.neo-theme-light) {
+    @include preview-accents;
+
+    --agent-dock-preview-signal-ground: rgba(255, 255, 255, 0.94);
+    --dock-preview-ground             : rgba(250, 250, 250, 0.94);
+    --dock-preview-line               : #ddd;
+    --dock-arrival-outline            : rgba(28, 96, 160, 0.45);
+    --agent-dock-proxy-border         : color-mix(in srgb, #1c60a0 38%, #ddd);
+    --agent-dock-proxy-ground         : #fff;
+    --agent-dock-proxy-shadow         : rgba(0, 0, 0, 0.15);
+    --agent-dock-proxy-text           : #000;
+}

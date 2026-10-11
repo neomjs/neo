@@ -48,7 +48,7 @@ export default MainView;
 
 For more complex, high-order components that require surgical precision and powerful state management (like a buffered grid, a calendar, or an image gallery), the classic class-based approach is more suitable.
 
-This approach involves extending a framework class (like `Neo.container.Base`) and defining your view within the `static config` block. It gives you access to a rich set of lifecycle methods (`beforeSet...`, `afterSet...`, etc.) for fine-grained control.
+This approach involves extending an engine class (like `Neo.container.Base`) and defining your view within the `static config` block. It gives you access to a rich set of lifecycle methods (`beforeSet...`, `afterSet...`, etc.) for fine-grained control.
 
 ### A simple class-based view
 
@@ -162,5 +162,5 @@ MainView = Neo.setupClass(MainView);
 
 *   **Use Class-Based Components (`class ... extends ...`) for:**
     *   Complex, high-order components requiring surgical precision (e.g., buffered grids, calendars, charts, galleries).
-    *   Creating new reusable components that extend the functionality of existing framework classes.
+    *   Creating new reusable components that extend the functionality of existing engine classes.
     *   Components with intricate internal logic that benefits from the full range of class lifecycle methods.

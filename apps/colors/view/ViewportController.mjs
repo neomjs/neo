@@ -187,8 +187,13 @@ class ViewportController extends Controller {
      * @param {Object} data The data for the charts.
      */
     updateCharts(data) {
-        this.getReference('bar-chart').chartData = data;
-        this.getReference('pie-chart').chartData = data
+        ['bar-chart', 'pie-chart'].forEach(name => {
+            let chart = this.getReference(name);
+
+            if (chart) {
+                chart.chartData = data
+            }
+        })
     }
 
     /**
@@ -214,8 +219,12 @@ class ViewportController extends Controller {
      * @param {Object[]} records The array of new records for the grid.
      */
     updateGrid(records) {
-        let grid    = this.getReference('grid'),
-            {store} = grid;
+        let grid  = this.getReference('grid'),
+            store = grid?.store;
+
+        if (!store) {
+            return
+        }
 
         if (store.getCount()) {
             grid.bulkUpdateRecords(records)

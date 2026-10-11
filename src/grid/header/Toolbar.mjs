@@ -96,6 +96,31 @@ class Toolbar extends BaseToolbar {
     pendingScrollTarget = null
 
     /**
+     * @summary The grid body this toolbar drives — the single source of truth for header→body routing.
+     *
+     * In the multi-body architecture a grid owns up to three toolbar/body pairs, matched by
+     * {@link #layoutLock}: 'start' → `bodyStart`, 'end' → `bodyEnd`, null (center) → `body`.
+     *
+     * Consumers MUST resolve the body through this getter, never by walking the component tree:
+     * `grid.header.Wrapper` sits between a toolbar and the `grid.Container` (it owns the header
+     * region's lifecycle), so a `parent.parent.body` walk silently yields `undefined` — no throw,
+     * just a body update that stops happening.
+     * @returns {Neo.grid.Body|null}
+     */
+    get body() {
+        let {gridContainer, layoutLock} = this;
+
+        if (!gridContainer) {
+            return null
+        }
+
+        if (layoutLock === 'start') { return gridContainer.bodyStart }
+        if (layoutLock === 'end')   { return gridContainer.bodyEnd   }
+
+        return gridContainer.body
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -160,7 +185,7 @@ class Toolbar extends BaseToolbar {
      * @protected
      */
     beforeSetScrollLeft(value, oldValue) {
-        let me        = this,
+        let me                              = this,
             {pendingScrollTarget, sortZone} = me;
 
         if (sortZone?.itemRects) {
@@ -229,7 +254,7 @@ class Toolbar extends BaseToolbar {
      *
      */
     createItems() {
-        let me = this,
+        let me          = this,
             { mounted } = me;
 
         me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
@@ -276,8 +301,8 @@ class Toolbar extends BaseToolbar {
 
         Neo.merge(config, {
             boundaryContainerId: [me.id, me.parent.id],
-            ignoreDragSelector: '.neo-resizable',
-            scrollLeft: me.scrollLeft
+            ignoreDragSelector : '.neo-resizable',
+            scrollLeft         : me.scrollLeft
         });
 
         super.createSortZone(config)
@@ -305,35 +330,65 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * @summary Whether a header item's width has to be MEASURED, because the config does not own it.
+     *
+     * A column sized by `flex`, by no width at all, or by a non-px string (`'20%'`, `'auto'`) has its
+     * real width decided by layout, so only the DOM can answer. Anything with an explicit px width
+     * already carries the answer in its config, and the DOM is merely a projection of it.
+     *
+     * `flex` must be compared, never merely tested for truthiness: {@link Neo.grid.header.Button}
+     * defaults it to the STRING `'none'`, which is the CSS keyword for "do not flex" — and truthy.
+     * A bare `item.flex` check therefore called every column in every grid dynamic, so the whole
+     * header was always sized from a layout read even when every width was an explicit px config.
+     *
+     * The distinction is the single source of truth for {@link #passSizeToBody}'s two questions —
+     * "does this toolbar need a layout read at all?" and "where does THIS column's width come from?"
+     * @param {Neo.grid.header.Button} item
+     * @returns {Boolean}
+     */
+    isMeasuredWidth(item) {
+        let {flex, width} = item;
+
+        return !!((flex && flex !== 'none') || !width || (Neo.isString(width) && !width.endsWith('px')))
+    }
+
+    /**
+     * @summary Derives `columnPositions` + `availableWidth` from the rendered header buttons,
+     * then repaints the body rows against the new geometry (unless `silent`).
+     *
+     * Dynamic-width buttons are measured via LAYOUT-box metrics (`getLayoutRect()`), never
+     * `getBoundingClientRect()`: this measurement races presentation windows (committed dock
+     * resizes trigger it while DockFlip still scale-transforms the pane), and visual button
+     * rects sampled mid-motion would poison every column position and the summed
+     * `availableWidth` the body paints itself with.
      * @param {Boolean} silent=false
      * @returns {Promise<void>}
      */
     async passSizeToBody(silent = false) {
-        let me = this,
-            gridContainer = me.gridContainer,
-            layoutLock = me.layoutLock,
-            body = layoutLock === 'start' ? gridContainer.bodyStart : (layoutLock === 'end' ? gridContainer.bodyEnd : gridContainer.body),
-            { items } = me,
+        let me              = this,
+            {body, items}   = me,
             columnPositions = [],
-            currentX = 0,
+            currentX        = 0,
             hasDynamicWidth = false,
-            layoutFinished = true,
-            i = 0,
-            len = items.length,
-            item, rects, w, width;
+            layoutFinished  = true,
+            i               = 0,
+            len             = items.length,
+            item, rects, width;
+
+        // `body` resolves nothing once the grid is gone, as a late resize delivery can find it
+        if (!body) {
+            return
+        }
 
         for (; i < len; i++) {
-            item = items[i];
-            w = item.width;
-
-            if (item.flex || !w || (Neo.isString(w) && !w.endsWith('px'))) {
+            if (me.isMeasuredWidth(items[i])) {
                 hasDynamicWidth = true;
                 break
             }
         }
 
         if (hasDynamicWidth) {
-            rects = await me.getDomRect(items.map(item => item.id));
+            rects = await me.getLayoutRect(items.map(item => item.id));
 
             // If the css sizing is not done, columns after the first one can get x === firstX
             for (i = 1; i < len; i++) {
@@ -349,29 +404,26 @@ class Toolbar extends BaseToolbar {
             await me.timeout(100);
             await me.passSizeToBody(silent)
         } else {
-            if (hasDynamicWidth) {
-                for (i = 0; i < len; i++) {
-                    columnPositions.push({
-                        dataField: items[i].dataField,
-                        width: rects[i].width,
-                        x: currentX
-                    });
+            for (i = 0; i < len; i++) {
+                item = items[i];
 
-                    currentX += rects[i].width
-                }
-            } else {
-                for (i = 0; i < len; i++) {
-                    item = items[i];
-                    width = item.hidden ? 0 : parseInt(item.width, 10);
+                // Per COLUMN, not per toolbar. A single flex column used to force every sibling's
+                // width to come from the layout read below — including columns whose width the
+                // config already owns. Those two sources agree at rest and disagree for exactly one
+                // frame after a write, which is the whole resize-drop defect: `Resizable#onDragEnd`
+                // writes the button's new width and calls this synchronously, so the rect still
+                // carried the PRE-resize width and every cell was repainted onto the geometry the
+                // drag had just replaced — while the header, whose config was set directly, kept the
+                // new one. Measure only what we do not own, and the race has nothing to bite on.
+                width = item.hidden ? 0 : (me.isMeasuredWidth(item) ? rects[i].width : parseInt(item.width, 10));
 
-                    columnPositions.push({
-                        dataField: item.dataField,
-                        width,
-                        x: currentX
-                    });
+                columnPositions.push({
+                    dataField: item.dataField,
+                    width,
+                    x        : currentX
+                });
 
-                    currentX += width
-                }
+                currentX += width
             }
 
             body.columnPositions.clear();
@@ -381,7 +433,12 @@ class Toolbar extends BaseToolbar {
                 availableWidth: currentX
             });
 
-            !silent && body.updateMountedAndVisibleColumns()
+            // refreshColumns(true), not updateMountedAndVisibleColumns(): we just replaced the
+            // column geometry above, and a pure width change (a column resize) leaves the mounted
+            // range [startIndex, endIndex] equal — so neither the range side effect nor
+            // createViewData's own change-detection would repaint, and the cells would keep the
+            // geometry we just discarded. `true` marks this as a geometry change.
+            !silent && body.refreshColumns(true)
         }
     }
 
@@ -462,9 +519,9 @@ class Toolbar extends BaseToolbar {
 
         return {
             ...super.toJSON(),
-            scrollLeft: me.scrollLeft,
-            showHeaderFilters: me.showHeaderFilters,
-            sortable: me.sortable,
+            scrollLeft        : me.scrollLeft,
+            showHeaderFilters : me.showHeaderFilters,
+            sortable          : me.sortable,
             useTriStateSorting: me.useTriStateSorting
         }
     }

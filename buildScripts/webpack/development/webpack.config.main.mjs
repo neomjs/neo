@@ -1,8 +1,8 @@
-import fs                from 'fs-extra';
-import os                from 'os';
-import path              from 'path';
-import webpack           from 'webpack';
-import WebpackHookPlugin from 'webpack-hook-plugin';
+import fs                     from 'fs-extra';
+import os                     from 'os';
+import path                   from 'path';
+import WebpackHookPlugin      from 'webpack-hook-plugin';
+import mainAddonContextPlugin from '../mainAddonContextPlugin.mjs';
 
 const cwd            = process.cwd(),
       requireJson    = path => JSON.parse(fs.readFileSync((path))),
@@ -55,16 +55,7 @@ export default {
     externalsType: 'module',
 
     plugins: [
-        // Only for the non workspace based build scope, we have to ignore workspace related addons.
-        // This might be a fit for webpack.ContextExclusionPlugin, but I did not get it working.
-        new webpack.ContextReplacementPlugin(/.*/, context => {
-            if (insideNeo && path.join(context.request) === path.join('../../../src/main/addon')) {
-                let req = context.request.split(path.sep);
-                req.splice(0, 2);
-
-                context.request = req.join(path.sep);
-            }
-        }),
+        mainAddonContextPlugin(insideNeo),
         new WebpackHookPlugin({
             onBuildEnd: [
                 `${nodeCmd} ${copyFolder} -s ${faFrom} -t ${faTo}`,

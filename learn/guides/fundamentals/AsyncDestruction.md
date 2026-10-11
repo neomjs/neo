@@ -29,7 +29,7 @@ If `this.destroy()` is called while `fetch` is pending, the execution resumes af
 
 ## The Solution: `this.trap()`
 
-`Neo.core.Base`, the ancestor of almost every class in the framework (Components, Controllers, Stores), implements a method called `trap()`.
+`Neo.core.Base`, the ancestor of almost every class in the engine (Components, Controllers, Stores), implements a method called `trap()`.
 
 `trap()` acts as a lifecycle-aware guard for Promises.
 

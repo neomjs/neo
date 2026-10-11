@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     --sem-borderradius-large                                                 : var(--borderradius-8);
     --sem-borderradius-medium                                                : var(--borderradius-4);
     --sem-borderradius-none                                                  : var(--borderradius-0);
@@ -86,4 +86,7 @@
     --sem-typo-label-regular-fontFamily                                      : var(--core-fontfamily-sans);
     --sem-typo-label-regular-fontSize                                        : var(--core-fontsize-body);
     --sem-typo-label-regular-fontWeight                                      : var(--core-fontweight-regular);
+    --sem-typo-label-small-fontFamily                                        : var(--core-fontfamily-sans);
+    --sem-typo-label-small-fontSize                                          : var(--core-fontsize-small);
+    --sem-typo-label-small-fontWeight                                        : var(--core-fontweight-regular);
 }

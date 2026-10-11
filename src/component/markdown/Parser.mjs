@@ -61,7 +61,7 @@ const
     REGEX_BREAK      = /^[ \t]*([-_*])[ \t]*(?:\1[ \t]*){2,}$/,
     REGEX_FENCE_OPEN = /^(`{3,}|~{3,})[ \t]*([\w-]*)[ \t]*$/,
     REGEX_HEADING    = /^(#{1,6})[ \t]+(.*)$/,
-    REGEX_OL_ITEM    = /^[ \t]{0,3}\d{1,9}[.)][ \t]+(.*)$/,
+    REGEX_OL_ITEM    = /^[ \t]{0,3}(\d{1,9})[.)][ \t]+(.*)$/,
     REGEX_QUOTE      = /^[ \t]{0,3}>[ \t]?(.*)$/,
     REGEX_UL_ITEM    = /^[ \t]{0,3}[-*+][ \t]+(.*)$/;
 
@@ -278,6 +278,7 @@ export default class MarkdownParser {
                 vdom = {
                     tag: raw.ordered ? 'ol' : 'ul',
                     id,
+                    ...(raw.ordered && raw.start !== undefined ? {start: String(raw.start)} : {}),
                     cn : raw.items.map(item => ({
                         tag: 'li',
                         id : childId(),
@@ -469,13 +470,18 @@ export default class MarkdownParser {
                     itemRe  = ordered ? REGEX_OL_ITEM : REGEX_UL_ITEM,
                     start   = index,
                     items   = [];
+                let startNumber = 1;
 
                 while (index < lines.length) {
                     const current = lines[index],
                           item    = current.match(itemRe);
 
                     if (item) {
-                        items.push(item[1].trim())
+                        if (ordered && items.length === 0) {
+                            startNumber = Number(item[1])
+                        }
+
+                        items.push(item[ordered ? 2 : 1].trim())
                     } else if (items.length > 0 && !this.#opensBlock(current)) {
                         // Soft-wrapped continuation of the previous item.
                         items[items.length - 1] += ' ' + current.trim()
@@ -490,6 +496,7 @@ export default class MarkdownParser {
                     type  : BLOCK_TYPES.list,
                     items,
                     ordered,
+                    ...(ordered && startNumber !== 1 ? {start: startNumber} : {}),
                     open  : index >= lines.length,
                     source: lines.slice(start, index).join('\n')
                 });

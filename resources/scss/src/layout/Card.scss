@@ -2,8 +2,11 @@
     display    : flex;
     align-items: stretch;
 
+    // Intrinsic content must not outrank the Card viewport; explicit inline minimums still win.
     > * {
-        flex: 1 0 100%;
+        flex      : 1 0 100%;
+        min-height: 0;
+        min-width : 0;
 
         &.neo-inactive-item {
             display: none !important;
@@ -15,8 +18,11 @@
         transition : transform 300ms cubic-bezier(0.47, 0, 0.745, 0.715);
         will-change: transform;
 
+        // Transitions place the cards one Flexbox boundary deeper.
         > * {
-            flex: 1 0 auto;
+            flex      : 1 0 auto;
+            min-height: 0;
+            min-width : 0;
         }
     }
 

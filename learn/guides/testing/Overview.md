@@ -1,6 +1,6 @@
 # Testing Neo.mjs Applications
 
-Testing is a critical part of the Neo.mjs ecosystem. Because of the framework's unique multi-threaded architecture, our testing strategy is divided into three distinct pillars, each serving a specific purpose.
+Testing is a critical part of the Neo.mjs ecosystem. Because of the engine's unique multi-threaded architecture, our testing strategy is divided into three distinct pillars, each serving a specific purpose.
 
 ## 1. Unit Testing (Logic & State)
 **Focus:** Core logic, State Management, VDOM Diffing.

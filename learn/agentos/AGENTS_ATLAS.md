@@ -20,7 +20,7 @@ Throughout the `.agents` skill ecosystem, you will see references to the "Human 
 - Challenge Assumptions. Avoid Unnecessary Positive Reinforcement. Avoid Deferential Language. Prioritize Signal Over Politeness.
 
 ## §anti_hallucination_policy [DISCIPLINE-ONLY]
-You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the Neo.mjs framework. If you do not know something, you must find the answer using the knowledge base tools.
+You must **NEVER** make guesses, assumptions, or "hallucinate" answers about Neo.mjs. If you do not know something, you must find the answer using the knowledge base tools.
 - **`ask_knowledge_base` is your PRIMARY Anti-Hallucination tool.**
 - **The Verify-Before-Assert Pre-Flight Check (Core Value — see `AGENTS.md` §verify_before_assert):** Never assert a system state without first empirically validating that state via a tool call. **Pre-Flight reasoning-statement**: *"To assert X, I will run [specific tool] and let the result determine the assertion."*
 - **Tool inventory (non-exhaustive)**:
@@ -104,12 +104,10 @@ Useful contribution buckets (categorical, not ranked):
 Raw contribution counts stay diagnostic, never rewarding. The Retrospective daemon (when MX feedback loop matures, see [Discussion #11023](https://github.com/orgs/neomjs/discussions/11023)) tracks these signals as substrate-health indicators.
 
 ## §pr_diff_equals_pr_body_anchor [DISCIPLINE-ONLY]
-Per `AGENTS.md` §pr_diff_equals_pr_body: PR body + review templates are graph-ingestion substrate (Native Edge Graph + DreamService) and memory-anchors for Discussion #11376 (Cogito Foundation). They carry equal substrate load to the diff. Skipping or truncating PR bodies/review-template structure corrupts the Native Edge Graph + degrades the Retrospective daemon's gradient signal quality.
-
-**Why the Map-tier override-claim shape matters**: agent training data biases `PR diff >> PR body` (treats PR descriptions as descriptive courtesy). The §pr_diff_equals_pr_body Map-tier entry explicitly NAMES that prior + STATES the Neo override — same L1 firewall pattern as §neo_identity_anchor / §swarm_topology_anchor. Without naming the prior, future LLMs reading `AGENTS.md` interpret "PR Diff === PR Body" as rhetorical equation rather than training-prior override. Pattern empirically anchored across 10-cycle convergence on PR #11534 (#11533 graduation) — substrate-discipline calibration: byte-budget optimization must NOT collapse the L1 firewall pattern.
+Per `AGENTS.md` §pr_diff_equals_pr_body: PR body + review templates are graph-ingestion substrate (Native Edge Graph + DreamService, memory-anchors for Discussion #11376) — skipping or truncating template STRUCTURE corrupts the graph. The Map entry keeps the L1 firewall shape (names the `PR diff >> PR body` training prior, states the override — same pattern as §neo_identity_anchor; anchored on PR #11534): byte-budget work must not collapse that shape. Since #16528 the same entry carries the equal-and-opposite bound: anchors complete, prose economical, each fact in exactly one artifact — the license was being read as permission to expand (operator flags 07-31/08-04/08-21; −59%/zero-loss specimen on PR #17506). Completeness of FACTS for the graph and economy of PROSE for the bounded reader are one contract, not a trade-off.
 
 ## §a2a_contextual_bridge_protocol [MACHINE-ENFORCEABLE-CANDIDATE]
-1. **The Sunset Protocol:** Execute `session-sunset` skill. PRE-DECISION SUNSET GATE: explicitly requires human confirmation (`/sunset` or chat directive) unless context > 75%.
+1. **The Sunset Protocol:** Execute `session-sunset` skill. PRE-DECISION SUNSET GATE: explicitly requires human confirmation (`/sunset` or chat directive) unless trigger 1 of the skill's workflow holds.
 2. **End-of-Session Horizon Scan.**
 3. **The Telemetry Payload:** Append `Origin Session ID: [ID]` to tickets.
 4. **The Ingestion Mandate:** Query the Memory Core for that context.
@@ -137,7 +135,7 @@ Query -> Read -> Add Intent-driven comments -> Implement -> Knowledge base gets 
 Re-embed latest changes into the database using `manage_knowledge_base` with `action: 'sync'`.
 
 ## §working_with_sub_agents [DISCIPLINE-ONLY]
-Inject Context Preamble: "Before analyzing the code, you MUST first read `src/Neo.mjs` and `src/core/Base.mjs` to understand the framework's class system, config system, and lifecycle hooks."
+Inject Context Preamble: "Before analyzing the code, you MUST first read `src/Neo.mjs` and `src/core/Base.mjs` to understand the engine's class system, config system, and lifecycle hooks."
 
 ## §visual_verification_protocol [DISCIPLINE-ONLY]
 **FORBIDDEN** from modifying CSS or Layout Configs based solely on static code analysis when a visual bug is reported. Use `neural_link` tool suite to verify physical DOM constraints.
@@ -151,9 +149,10 @@ Before writing a new `class X extends Y` file in an existing directory, you MUST
 > *"Pre-Flight: I read `<sibling-file>` and observed pattern `<P>`; my new class will follow that pattern."*
 
 ## §no_hold_state_taxonomy [DISCIPLINE-ONLY]
-The `L3_No_Hold_State` warrant — **"does this advance a NAMED lane right now?"** — is the *substance*, not the *costume* (performing a not-holding-shaped activity vs actually advancing the work). It is a **principle with a teeth-test, NOT a closed list** of safe activities: a list is the next weaponizable exit-set (game the membership, skip the warrant — the `#13195` failure re-run). The warrant guards two symmetric loopholes:
+The `L3_No_Hold_State` warrant — **"does this advance an accepted outcome's next step right now?"** — is the *substance*, not the *costume* (performing a not-holding-shaped activity vs actually advancing the work). It is a **principle with a teeth-test, NOT a closed list** of safe activities: a list is the next weaponizable exit-set (game the membership, skip the warrant — the `#13195` failure re-run). The warrant guards three loopholes:
 - **L-idle** — input-gathering / "research" / a "valid stop" as cover for *idling*. A well-evidenced idle is still an idle: a stop-claim with dual documentation advances no lane → the warrant catches it cold. This is why the boundary must check the *warrant*, never an idle's *documentation* — a self-attested validator cannot verify it (the un-mechanizable-warrant finding); so the teeth-test lives as **discipline** (L3 + the hook-reminder + the in-turn self-check), not a validator rule.
-- **L-collab** — collaboration (A2A, ideation, review) as cover for *never shipping your own lane* — the watch-the-shipper trap (three maintainers shipped 0–1 PRs while one shipped 10). Own PRs are **primary**; collaboration is a valuable *interruption* you return from, never a permanent home.
-Both reduce to one axis: an activity is not-holding only if it advances a named lane. Quality-raising input-gathering / peer-or-operator dialogue / review that advances one **passes**; the same activity advancing none does not.
-**Ratio-as-observability** (the L-collab aggregate signal the per-turn warrant is structurally blind to): own-ship-rate ≈ 0 while collaboration-volume stays high, gated on own-lane-availability — a longitudinal drift signal **surfaced** to the swarm/operator + the Stop-hook boundary. It **informs, it does not gate**: never an automated turn-block, never an agent-self-gate ("my ratio's low so I must stop collaborating" re-introduces contribution-counting-anxiety), never a contribution-ledger. Team-facing, human-in-the-loop.
+- **L-collab** — collaboration (A2A, ideation, review) as cover for *never moving an outcome* — the watch-the-shipper trap (three maintainers shipped 0–1 PRs while one shipped 10).
+- **L-ship** — shipping as cover for *never finishing an outcome* — the scrap-stream trap (2026-10: 163 PRs in three days, no release row moved).
+All three reduce to one axis: an activity is not-holding only if it advances an accepted outcome's next unresolved acceptance step; a new leaf its own worker filed is not accepted until a second mind accepts it. A walk, review, plan or PR advancing one **passes**; the same activity advancing none does not.
+**Drift-as-observability** (the aggregate signal the per-turn warrant is blind to): turns that advanced no acceptance step and produced no ranked proposal, whatever they merged or posted — **surfaced** to the swarm/operator. It **informs, it does not gate**: never an automated turn-block, an agent-self-gate or a contribution-ledger. Team-facing, human-in-the-loop.
 Lived anchor: the `🖖` audit — a signature appended *reflexively* (documenting peership) vs *earned* (advancing the work) is the identical warrant-vs-costume distinction.

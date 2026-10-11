@@ -177,7 +177,7 @@ MainView = Neo.setupClass(MainView);
 ## Reusing components
 
 Neo.mjs is class-based, and thus, any component or container can be defined as its own class, and reused like any
-other component in the framework.
+other component in Neo.mjs.
 
 ```javascript live-preview
 import Button from '../button/Base.mjs';
@@ -202,7 +202,7 @@ class MainView extends Container {
         items    : [{
             module : Button,
             iconCls: 'fa fa-home',
-            text   : 'A framework button'
+            text   : 'A Neo.mjs button'
         }, {
             module : MySpecialButton,
             text   : 'My special button'

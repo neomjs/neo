@@ -118,6 +118,26 @@ class MonacoEditor extends Base {
          */
         showLineNumbers_: true,
         /**
+         * Maps a Neo theme onto one of {@link #editorThemes}.
+         *
+         * A map rather than a substring test on the theme name, because the name does not carry the
+         * answer: `neo-theme-cyberpunk` is dark — `--neo-background-color: #0d1117`, and its own
+         * `--neo-color-scheme` says `dark` — and is named neither. Every theme declares that token,
+         * but the main-thread reader for it is protected and absent from the app remote manifest, so
+         * a component in the App Worker cannot ask. Same shape and same reason as the sibling
+         * {@link Neo.component.wrapper.Mermaid#themeMap}, and a config rather than a constant so a
+         * consumer can extend it for a theme Neo does not ship — or map one onto a high-contrast
+         * editor theme, which a two-way guess could never express.
+         * @member {Object} themeMap
+         */
+        themeMap: {
+            'neo-theme-cyberpunk': 'vs-dark',
+            'neo-theme-dark'     : 'vs-dark',
+            'neo-theme-light'    : 'vs',
+            'neo-theme-neo-dark' : 'vs-dark',
+            'neo-theme-neo-light': 'vs'
+        },
+        /**
          * @member {String|String[]} value_=''
          * @reactive
          */
@@ -128,6 +148,13 @@ class MonacoEditor extends Base {
          */
         useThemeAwareness_: true
     }
+
+    /**
+     * Invalidates mounted callbacks when a holder unmounts or moves to another browser window.
+     * @member {Number} editorMountGeneration=0
+     * @protected
+     */
+    editorMountGeneration = 0
 
     /**
      * @param {Object} config
@@ -175,7 +202,9 @@ class MonacoEditor extends Base {
     }
 
     /**
-     * Triggered after the mounted config got changed
+     * @summary Starts native editor creation after DOM mount and accepts only the current mount's reply.
+     * The mounted signal already observes DOM admission; no elapsed-time guess is needed before
+     * sending the create request. Unmounting or moving windows invalidates its completion callback.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -183,13 +212,17 @@ class MonacoEditor extends Base {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me = this;
+        let me         = this,
+            generation = ++me.editorMountGeneration,
+            windowId   = me.windowId;
 
-        value && me.timeout(150).then(() => {
-            Neo.main.addon.MonacoEditor.createInstance(me.getInitialOptions()).then(() => {
+        value && Neo.main.addon.MonacoEditor.createInstance(me.getInitialOptions()).then(() => {
+            if (!me.isDestroyed && me.mounted && me.windowId === windowId && me.editorMountGeneration === generation) {
                 // use this custom method as needed inside your class extensions
                 me.onEditorMounted?.()
-            })
+            }
+        }).catch(error => {
+            if (error !== Neo.isDestroyed) throw error
         })
     }
 
@@ -296,7 +329,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetUseThemeAwareness(value, oldValue) {
-        value && this.afterSetTheme(this.theme, null)
+        value && (this.editorTheme = this.resolveEditorTheme())
     }
 
     /**
@@ -324,19 +357,48 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetTheme(value, oldValue) {
-        if (this.useThemeAwareness && value) {
-            this.editorTheme = value.includes('dark') ? 'vs-dark' : 'vs'
-        }
+        this.editorTheme = this.resolveEditorTheme()
     }
 
     /**
-     * Triggered after the windowId config got changed
+     * @summary Maps this component's resolved theme onto one of Monaco's own theme names.
+     *
+     * Resolution goes through {@link Neo.component.Base#getTheme}, never the `theme` config. A child
+     * inside a themed scope carries no theme class of its own by design, so that config is `null`
+     * for precisely the components which inherit a theme — and `container.Base#afterSetTheme` only
+     * stamps live items on a CHANGE, leaving construction to `createItem`. Reading the config
+     * therefore answers `null` on first render and the right value only after a theme toggle, which
+     * is exactly the asymmetry this repairs. `getTheme()` answers the component's own **`theme`**
+     * first, so a component declaring one is not overruled by the scope it sits in.
+     *
+     * `editorTheme` is the other precedence and a different question: it is what answers when the
+     * resolved theme is absent from {@link #themeMap} or awareness is off, so a declared
+     * `hc-black` survives an unmapped theme and is replaced by a mapped one. Set
+     * `useThemeAwareness: false` to pin it against every theme.
+     *
+     * Pure, so {@link #getInitialOptions} can build a correctly themed editor rather than create a
+     * light one and repaint it: nothing delays creation, so there is no window for a later repaint
+     * to land in unseen.
+     * @returns {String} One of {@link #editorThemes}
+     * @protected
+     */
+    resolveEditorTheme() {
+        let me    = this,
+            theme = me.useThemeAwareness && me.getTheme();
+
+        return me.themeMap[theme] ?? me.editorTheme
+    }
+
+    /**
+     * @summary Retires the old window's native editor and invalidates pending mount callbacks.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
+
+        this.editorMountGeneration++;
 
         oldValue && Neo.main.addon.MonacoEditor.destroyInstance({
             id      : this.id,
@@ -383,9 +445,13 @@ class MonacoEditor extends Base {
     destroy(...args) {
         let me = this;
 
+        // `componentId` names the holder to drop. The addon refcounts observation per component and
+        // unobserves only once a target's holder list is empty, so a payload carrying just `id`
+        // removes nothing and leaves the native observer attached to a destroyed editor.
         me.mounted && Neo.main.addon.ResizeObserver.unregister({
-            id      : me.id,
-            windowId: me.windowId
+            componentId: me.id,
+            id         : me.id,
+            windowId   : me.windowId
         });
 
         Neo.main.addon.MonacoEditor.destroyInstance({
@@ -428,7 +494,7 @@ class MonacoEditor extends Base {
             minimap             : me.minimap,
             readOnly            : me.readOnly,
             scrollBeyondLastLine: me.scrollBeyondLastLine,
-            theme               : me.editorTheme,
+            theme               : me.resolveEditorTheme(),
             value               : me.stringifyValue(me.value),
             windowId            : me.windowId,
 

@@ -9,10 +9,12 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import Component      from '../../../../src/component/Base.mjs';
-import FocusManager   from '../../../../src/manager/Focus.mjs';
+import Neo              from '../../../../src/Neo.mjs';
+import * as core        from '../../../../src/core/_export.mjs';
+import Component        from '../../../../src/component/Base.mjs';
+import ComponentManager from '../../../../src/manager/Component.mjs';
+import FocusManager     from '../../../../src/manager/Focus.mjs';
+import MenuList         from '../../../../src/menu/List.mjs';
 
 test.describe('Neo.manager.Focus', () => {
     let components;
@@ -21,9 +23,8 @@ test.describe('Neo.manager.Focus', () => {
         components?.forEach(component => component.destroy());
         components = null;
 
-        FocusManager.history = [];
-        FocusManager.lastFocusInDate = null;
-        FocusManager.lastFocusOutDate = null;
+        FocusManager.history         = [];
+        FocusManager.pendingFocusOut = null;
     });
 
     function createFocusComponent(id, parentId, log) {
@@ -80,6 +81,31 @@ test.describe('Neo.manager.Focus', () => {
         expect(parent.containsFocus).toBe(true);
         expect(root.containsFocus).toBe(true);
         expect(FocusManager.history[0].componentPath).toEqual(['focus-new-child', 'focus-parent', 'focus-root']);
+    });
+
+    test('walks a floating menu through its configured logical owner', () => {
+        const log = [];
+
+        components = [
+            createFocusComponent('focus-menu-root',  'document.body',   log),
+            createFocusComponent('focus-menu-owner', 'focus-menu-root', log)
+        ];
+
+        const menu = Neo.create(MenuList, {
+            appName,
+            id             : 'focus-floating-menu',
+            parentComponent: components[1],
+            parentId       : 'document.body'
+        });
+
+        components.push(menu);
+
+        expect(menu.parentComponent).toBe(components[1]);
+        expect(ComponentManager.getParentPath([menu.id])).toEqual([
+            'focus-floating-menu',
+            'focus-menu-owner',
+            'focus-menu-root'
+        ])
     });
 
     test('handles disjoint component paths without firing focusMove', () => {
@@ -198,5 +224,172 @@ test.describe('Neo.manager.Focus', () => {
             ['move',   'focus-parent',    'focus-parent', ['old-event-node'], ['new-event-node']],
             ['change', 'parent',          'focus-parent', ['old-event-node'], ['new-event-node']]
         ]);
+    });
+
+    test('a focusin the App Worker handles after the gap still makes a move with the focusout waiting for it', async () => {
+        const log = [];
+
+        components = [
+            createFocusComponent('focus-busy-old', 'document.body', log),
+            createFocusComponent('focus-busy-new', 'document.body', log)
+        ];
+
+        const [oldComponent, newComponent] = components,
+              {maxFocusInOutGap}           = FocusManager;
+
+        FocusManager.onFocusin({componentPath: ['focus-busy-old'], data: {path: ['old-node'], relatedTarget: null}});
+
+        // The browser raises both halves of the move in one task. The worker handles the focusout, then work
+        // longer than the gap, then the focusin — before the focusout's timer gets to run.
+        FocusManager.onFocusout({componentPath: ['focus-busy-old'], data: {path: ['old-node'], relatedTarget: null}});
+
+        const busyUntil = Date.now() + maxFocusInOutGap * 2;
+        while (Date.now() < busyUntil) {}
+
+        FocusManager.onFocusin({componentPath: ['focus-busy-new'], data: {path: ['new-node'], relatedTarget: null}});
+
+        await FocusManager.timeout(maxFocusInOutGap * 2);
+
+        expect(oldComponent.containsFocus, 'the old path lost focus').toBe(false);
+        expect(newComponent.containsFocus).toBe(true);
+
+        expect(log).toEqual([
+            ['enter', 'focus-busy-old', 'focus-busy-old'],
+            ['leave', 'focus-busy-old', 'focus-busy-old'],
+            ['enter', 'focus-busy-new', 'focus-busy-new']
+        ])
+    });
+
+    test('a superseded focusout does not deliver its stale leave, and a later one still delivers its own', async () => {
+        const log = [];
+
+        components = [
+            createFocusComponent('focus-stale-root',  'document.body',    log),
+            createFocusComponent('focus-stale-child', 'focus-stale-root', log),
+            createFocusComponent('focus-stale-other', 'document.body',    log)
+        ];
+
+        const [root, child] = components;
+
+        // Derived, never hard-coded: if maxFocusInOutGap changes, these stay inside the collapse
+        // window instead of silently drifting outside it and making the arm vacuous.
+        const {maxFocusInOutGap} = FocusManager,
+              step               = maxFocusInOutGap / 5;
+
+        root.containsFocus  = true;
+        child.containsFocus = true;
+
+        // The dismissal. `onFocusout` defers delivery by maxFocusInOutGap, so nothing has been
+        // delivered yet and this leave is still only pending.
+        FocusManager.onFocusout({
+            componentPath: ['focus-stale-child', 'focus-stale-root'],
+            data         : {path: ['dismissed-node'], relatedTarget: null}
+        });
+
+        await FocusManager.timeout(step);
+
+        // The reopen, inside the gap. The component path is unchanged because the SAME instance
+        // remounts under the same id — the shape a hidden/un-hidden floating menu produces. The
+        // out/in pair therefore collapses into a focusMove across identical paths, which correctly
+        // delivers nothing: focus never actually left this subtree.
+        FocusManager.history = [{
+            componentPath: ['focus-stale-child', 'focus-stale-root'],
+            data         : {path: ['dismissed-node']}
+        }];
+
+        FocusManager.onFocusin({
+            componentPath: ['focus-stale-child', 'focus-stale-root'],
+            data         : {path: ['reopened-node'], relatedTarget: null}
+        });
+
+        await FocusManager.timeout(step);
+
+        // An unrelated, later focusout. It carries its own opts and deserves its own leave, and it is
+        // the pending one when the FIRST focusout's timer comes due: that timer must not deliver for it.
+        FocusManager.onFocusout({
+            componentPath: ['focus-stale-other'],
+            data         : {path: ['other-node'], relatedTarget: null}
+        });
+
+        // Outlast both pending timers.
+        await FocusManager.timeout(maxFocusInOutGap * 3);
+
+        const leaves = log.filter(entry => entry[0] === 'leave').map(entry => entry[1]);
+
+        // The stale leave belongs to a mount that no longer exists. Delivering it to the remounted
+        // instance is what unmounts a freshly reopened floating menu.
+        expect(leaves).not.toContain('focus-stale-child');
+
+        // ...and the guard must not buy that by suppressing leaves generally: the later focusout is
+        // the newest one and still delivers. Without this half the arm passes if focusLeave never
+        // runs at all.
+        expect(leaves).toEqual(['focus-stale-other']);
+    });
+
+    /**
+     * @summary A root menu that held focus when the engine removed its DOM, still holding that menuFocus.
+     * @param {String} id
+     * @param {Boolean} floating
+     * @returns {Neo.menu.List}
+     */
+    function createDismissedMenu(id, floating) {
+        const menu = Neo.create(MenuList, {appName, floating, id, isRoot: true, parentId: 'document.body'});
+
+        menu.alignTo       = Neo.emptyFn;
+        menu.focus         = Neo.emptyFn;
+        menu.initDomEvents = Neo.emptyFn;
+
+        menu._mounted  = true;
+        menu.menuFocus = true;
+        menu._hidden   = true;
+
+        return menu
+    }
+
+    test('the leave of a removed floating menu does not dismiss the menu once it is shown again', async () => {
+        const menu = createDismissedMenu('focus-reopened-menu', true);
+
+        components = [menu];
+
+        FocusManager.onFocusout({
+            componentPath: [menu.id],
+            data         : {path: [{id: menu.id}], relatedTarget: null, removedNodeId: menu.id}
+        });
+
+        // The reopen lands inside the gap, before the reopened menu's own focusin
+        menu._hidden = false;
+
+        await FocusManager.timeout(FocusManager.maxFocusInOutGap * 2);
+
+        expect(menu.menuFocus).toBe(true);
+        expect(menu.mounted).toBe(true)
+    });
+
+    test('a removed menu that stays hidden, focus leaving a shown menu, and a non-floating remount all still dismiss', async () => {
+        const cases = [
+            {id: 'focus-hidden-menu',       floating: true,  hiddenAtDue: true,  removed: true},
+            {id: 'focus-left-menu',         floating: true,  hiddenAtDue: false, removed: false},
+            {id: 'focus-non-floating-menu', floating: false, hiddenAtDue: false, removed: true}
+        ];
+
+        components = [];
+
+        // One case at a time: a newer focusout supersedes a pending one
+        for (const {id, floating, hiddenAtDue, removed} of cases) {
+            const menu = createDismissedMenu(id, floating);
+
+            components.push(menu);
+
+            FocusManager.onFocusout({
+                componentPath: [id],
+                data         : {path: [{id}], relatedTarget: null, ...removed && {removedNodeId: id}}
+            });
+
+            menu._hidden = hiddenAtDue;
+
+            await FocusManager.timeout(FocusManager.maxFocusInOutGap * 2)
+        }
+
+        expect(components.map(menu => [menu.id, menu.menuFocus])).toEqual(cases.map(({id}) => [id, false]))
     });
 });

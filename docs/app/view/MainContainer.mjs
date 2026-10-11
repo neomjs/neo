@@ -122,7 +122,7 @@ class MainContainer extends Viewport {
             })
         }
 
-        // Disable the examples Tab for dist versions until the webpack builds can handle this (see: #140)
+        // Disable the examples Tab for dist versions: the webpack builds cannot serve them yet
         me.items[1].items[0].items[1].header.disabled = Neo.config.environment !== 'development'
     }
 

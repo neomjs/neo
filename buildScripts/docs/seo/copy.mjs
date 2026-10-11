@@ -9,6 +9,7 @@ const
     cwd         = process.cwd(),
     requireJson = path => JSON.parse(fs.readFileSync((path))),
     packageJson = requireJson(path.join(__dirname, 'package.json')),
+    neoPath     = path.resolve(packageJson.name.includes('neo.mjs') ? './' : './node_modules/neo.mjs/'),
     program     = new Command(),
     programName = `${packageJson.name} copySeoFiles`,
     APP_DIR     = path.resolve(cwd, 'apps'),
@@ -82,7 +83,7 @@ program
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
-        console.log(chalk.cyan(packageJson.bugs.url));
+        console.log(chalk.cyan(requireJson(path.resolve(neoPath, 'package.json')).bugs.url));
     })
     .parse(process.argv);
 

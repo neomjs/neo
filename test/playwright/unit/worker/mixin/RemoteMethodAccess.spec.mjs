@@ -42,11 +42,11 @@ class MockTarget extends Neo.core.Base {
 MockTarget = Neo.setupClass(MockTarget);
 
 
-test.describe.serial('worker/mixin/RemoteMethodAccess', () => {
+test.describe('worker/mixin/RemoteMethodAccess', () => {
 
     test('generateRemote should include remoteId if present in config', async () => {
         const worker = Neo.create(MockWorker);
-        
+
         const proxy = worker.generateRemote({
             className: 'Test.worker.MockTarget',
             id: 'mock-target-123',
@@ -102,7 +102,7 @@ test.describe.serial('worker/mixin/RemoteMethodAccess', () => {
 
     test('onRemoteMethod should fall back to namespace routing if no remoteId is provided', () => {
         const worker = Neo.create(MockWorker);
-        
+
         // Setup a mock singleton in the namespace
         Neo.ns('Test.worker.MockSingleton', true);
         Test.worker.MockSingleton.testMethod = (data) => data.value * 3;
@@ -128,5 +128,50 @@ test.describe.serial('worker/mixin/RemoteMethodAccess', () => {
         expect(resolvedData).toBe(30);
 
         worker.destroy();
+    });
+
+    /**
+     * Drives one remote call whose method fails and counts the replies it sends. The failure is expected,
+     * so its console report is silenced for the call.
+     * @param {Function} failingMethod
+     * @returns {Promise<{rejected: Error[], resolved: Number}>}
+     */
+    const countReplies = async failingMethod => {
+        const
+            worker   = Neo.create(MockWorker),
+            target   = Neo.create(MockTarget),
+            replies  = {rejected: [], resolved: 0},
+            logError = console.error;
+
+        target.failingMethod = failingMethod;
+        worker.resolve       = () => {replies.resolved++};
+        worker.reject        = (msg, err) => {replies.rejected.push(err)};
+        console.error        = () => {};
+
+        try {
+            worker.onRemoteMethod({remoteClassName: 'Test.worker.MockTarget', remoteMethod: 'failingMethod', remoteId: target.id, data: {}});
+            await Promise.resolve();
+            await Promise.resolve()
+        } finally {
+            console.error = logError;
+            target.destroy();
+            worker.destroy()
+        }
+
+        return replies
+    };
+
+    test('a remote method that throws answers its caller with one rejection and no resolve', async () => {
+        const replies = await countReplies(() => {throw new Error('refused')});
+
+        expect(replies.rejected.map(err => err.message)).toEqual(['refused']);
+        expect(replies.resolved).toBe(0)
+    });
+
+    test('a remote method whose promise rejects answers with one rejection and no resolve', async () => {
+        const replies = await countReplies(() => Promise.reject(new Error('refused later')));
+
+        expect(replies.rejected.map(err => err.message)).toEqual(['refused later']);
+        expect(replies.resolved).toBe(0)
     });
 });

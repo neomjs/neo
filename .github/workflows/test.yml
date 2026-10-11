@@ -1,4 +1,4 @@
-name: Tests
+name: Engine Tests
 
 on:
   pull_request:
@@ -6,120 +6,55 @@ on:
   push:
     branches: [dev]
 
+  # The denominator these three tiers had no way to produce. `test-e2e.yml` has carried this since
+  # #18505; unit, unit-tz and components did not, so a day's worth of intermittent sightings across
+  # them yielded four failures and no rate. A rerun is the opposite of a sample: it marks the run
+  # green and erases the observation that provoked it.
+  #
+  # No classifier bypass, and that was measured rather than assumed: `classify-test-scope.yml`
+  # fails OPEN. On a dispatch `getChangedFiles()` matches neither the pull_request nor the push
+  # branch and returns null, so the "changed files unavailable" arm sets every run flag true; the
+  # sibling head check returns true for any non-pull_request event. Both gates on every step below
+  # therefore pass on a dispatch already.
+  workflow_dispatch:
+    inputs:
+      specs:
+        description: 'Spec paths to run instead of the tier selection (space-separated). Empty runs the ordinary selection.'
+        type: string
+      repeatEach:
+        description: 'Run each selected test this many times — the denominator of the measurement.'
+        type: string
+        default: '1'
+      suite:
+        description: 'Restrict the probe to one tier. Empty runs all three.'
+        type: choice
+        options: ['', unit, unit-tz, components]
+        default: ''
+
 concurrency:
-  group: tests-${{ github.workflow }}-${{ github.ref }}
+  # Initial attempts share the ref stream so new heads still supersede old work.
+  # Reruns retain their original run_id and cannot cancel a newer head (#15593).
+  #
+  # A DISPATCH gets its own key, per `test-e2e.yml`'s measured finding: two probes on one ref shared
+  # the ref-keyed group and the second cancelled the first mid-measurement. Superseding is right for
+  # a gate and wrong for an instrument, where every sample is the point.
+  group: tests-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || (github.run_attempt == '1' && github.ref || github.run_id) }}
   cancel-in-progress: true
 
 
 jobs:
+  # The classifier moved out of this file in #17853 so the separately-piped e2e tier
+  # (`test-e2e.yml`, #18408) can consume the SAME decision rather than run on every push.
+  # Its predicates, and the reasoning behind each path atom, live with the job.
+  #
+  # Calling it changes nothing here: `needs.changes.outputs.*` resolves through the reusable
+  # workflow's declared outputs exactly as it resolved through the inline job's.
   changes:
     name: Classify test scope
-    runs-on: ubuntu-latest
-    outputs:
-      run_integration: ${{ steps.scope.outputs.run_integration }}
-      run_unit: ${{ steps.scope.outputs.run_unit }}
-      skip_reason: ${{ steps.scope.outputs.skip_reason }}
-
-    steps:
-      - name: Classify changed paths
-        id: scope
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const eventName = context.eventName;
-
-            async function getChangedFiles() {
-              if (eventName === 'pull_request') {
-                const files = await github.paginate(github.rest.pulls.listFiles, {
-                  owner      : context.repo.owner,
-                  repo       : context.repo.repo,
-                  pull_number: context.payload.pull_request.number,
-                  per_page   : 100
-                });
-
-                return files.map(file => file.filename);
-              }
-
-              if (eventName === 'push') {
-                const before = context.payload.before;
-                const after  = context.payload.after;
-
-                if (!before || !after || /^0+$/.test(before)) {
-                  return null;
-                }
-
-                const comparison = await github.rest.repos.compareCommitsWithBasehead({
-                  owner   : context.repo.owner,
-                  repo    : context.repo.repo,
-                  basehead: `${before}...${after}`,
-                  per_page: 100
-                });
-
-                return comparison.data.files?.map(file => file.filename) || null;
-              }
-
-              return null;
-            }
-
-            const files = await getChangedFiles();
-
-            if (!files || files.length === 0) {
-              core.info('Changed files are unavailable; running full test suites.');
-              core.setOutput('run_integration', 'true');
-              core.setOutput('run_unit', 'true');
-              core.setOutput('skip_reason', 'changed files unavailable');
-              return;
-            }
-
-            const normalizedFiles = files.map(file => file.replace(/\\/g, '/'));
-
-            // Keep explicit unit/integration statuses on docs-only PRs instead of
-            // workflow-level paths-ignore. Missing checks can block protected branches.
-            const isDocsOnlyPath = file =>
-              file.endsWith('.md') ||
-              file.startsWith('learn/') ||
-              file.startsWith('resources/content/');
-
-            // Unit has committed content guards, notably the release-note mutable
-            // GitHub-link scan, discussion markdown fixture reads, and generated
-            // portal index fixtures.
-            const requiresUnitForContent = file =>
-              file.startsWith('resources/content/release-notes/') ||
-              file.startsWith('resources/content/discussions/') ||
-              file.startsWith('apps/portal/resources/data/');
-
-            // Whitelist: integration runs only on changes that can affect the integration
-            // stack — engine (src/), Agent OS (ai/, incl. ai/deploy compose), the integration
-            // specs/fixtures + shared test infra, dep manifests, or this workflow. Keep this
-            // COMPLETE — a missed path silently skips integration (false-negative).
-            const isIntegrationRelevantPath = file =>
-              file.startsWith('src/') ||
-              file.startsWith('ai/') ||
-              file.startsWith('test/playwright/integration/') ||
-              file.startsWith('test/playwright/util/') ||
-              file === 'test/playwright/fixtures.mjs' ||
-              file === 'test/playwright/setup.mjs' ||
-              file === 'test/playwright/playwright.config.integration.mjs' ||
-              file === 'package.json' ||
-              file === 'package-lock.json' ||
-              file === '.github/workflows/test.yml';
-
-            const runIntegration = normalizedFiles.some(isIntegrationRelevantPath);
-            const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
-
-            core.info(`Changed files: ${normalizedFiles.join(', ')}`);
-            core.info(`run_integration=${runIntegration}`);
-            core.info(`run_unit=${runUnit}`);
-
-            core.setOutput('run_integration', String(runIntegration));
-            core.setOutput('run_unit', String(runUnit));
-            core.setOutput(
-              'skip_reason',
-              'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)'
-            );
+    uses: ./.github/workflows/classify-test-scope.yml
 
   test:
-    name: ${{ matrix.suite }}
+    name: ${{ matrix.suite }}${{ matrix.shard && format(' ({0}/{1})', matrix.shard, matrix.shards) || '' }}${{ matrix.tzLabel && format(' ({0})', matrix.tzLabel) || '' }}
     runs-on: ubuntu-latest
     needs: changes
     strategy:
@@ -129,55 +64,223 @@ jobs:
         # Bucket G (#10924) substrate fixes landed via #10940 (TestLifecycleHelper
         # primitive + daemon-spec migration) + open trackers for residual flakes
         # (#10941/#10936/#10937/#10946 — all unit-skip-guarded via NEO_TEST_SKIP_CI).
-        suite: [integration-unified, unit]
+        #
+        # Per-suite run flag resolves the classifier output once (#15368) — every
+        # step below gates on `matrix.run` instead of re-enumerating suite×flag
+        # boolean pairs, which stopped scaling at the third suite.
+        #
+        # The components suite runs one worker per runner, so it scales across runners: each
+        # entry is a Playwright shard. A shard nearing four minutes of test time gets a sibling.
+        include:
+          - suite: unit
+            run: ${{ needs.changes.outputs.run_unit }}
+          # The timezone-discriminating half of the unit tier. A local<->UTC conversion computes the
+          # same answer in both implementations when the offset is zero, so a UTC runner cannot fail
+          # on one - no extra test case closes that, only a non-UTC zone does (#19005). Two entries
+          # because one zone catches one sign: +14 and -11, both DST-free so the runs are stable.
+          - suite: unit-tz
+            run: ${{ needs.changes.outputs.run_unit }}
+            tz: Pacific/Kiritimati
+            tzLabel: plus14
+          - suite: unit-tz
+            run: ${{ needs.changes.outputs.run_unit }}
+            tz: Pacific/Niue
+            tzLabel: minus11
+          - suite: components
+            run: ${{ needs.changes.outputs.run_components }}
+            shard: 1
+            shards: 3
+          - suite: components
+            run: ${{ needs.changes.outputs.run_components }}
+            shard: 2
+            shards: 3
+          - suite: components
+            run: ${{ needs.changes.outputs.run_components }}
+            shard: 3
+            shards: 3
 
     steps:
+      # Re-run failed jobs does not re-run successful prerequisite jobs. Keep this
+      # job-local gate so an obsolete failed suite cannot consume a full runner.
+      - name: Verify current pull-request head
+        id: head
+        uses: actions/github-script@v9
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('current', 'true');
+              return;
+            }
+
+            const pull = await github.rest.pulls.get({
+              owner      : context.repo.owner,
+              repo       : context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            const eventHead = context.payload.pull_request.head.sha;
+            const liveHead  = pull.data.head.sha;
+            const current   = eventHead === liveHead;
+
+            core.setOutput('current', String(current));
+
+            if (!current) {
+              const reason = `stale workflow head ${eventHead}; live PR head is ${liveHead}`;
+
+              core.notice(`Skipping expensive test suite: ${reason}`);
+              core.setOutput('skip_reason', reason);
+              await core.summary
+                .addHeading('Stale workflow attempt')
+                .addRaw(`Skipped the expensive test suite because ${reason}.`)
+                .write();
+            }
+
       - name: Checkout repository
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
-        uses: actions/checkout@v6
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
-        uses: actions/setup-node@v6
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
 
-      # Pre-create .neo-ai-data so the `prepare` lifecycle's downloadKnowledgeBase
-      # short-circuits via its existing-dir guard. Integration tests use a tmpfs
-      # Chroma per `ai/deploy/docker-compose.test.yml`; unit tests are mocked.
-      # Neither suite needs the canonical KB artifact in CI.
-      - name: Skip Knowledge Base download in prepare lifecycle
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
-        run: mkdir -p .neo-ai-data
-
       - name: Install dependencies
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: npm ci
 
       # Required for the unit-test runner per bootstrapWorktree.mjs precedent.
-      # Harmless for the integration suite.
-      - name: Bundle parse5
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
-        run: npm run bundle-parse5
+      # Harmless for the other suites.
+      - name: Bundle browser dependencies
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
+        run: npm run bundle-browser-deps
+
+      # The components suite launches real Chromium against the dev server; unit runs
+      # browserless, so browser provisioning stays scoped to this suite.
+      #
+      # Browser provisioning has two network tails, and each has turned a five-minute
+      # job into a fifteen-minute one: the browser download (20 to 40 seconds on a good
+      # day, five to eleven minutes on a bad one) and the apt install of its system
+      # libraries (seconds when the mirror answers, five minutes when it does not).
+      #
+      # The browser binaries are cached across runs, keyed on the installed Playwright
+      # version: a new version ships a new browser build and misses on purpose. The
+      # cache is saved right after a successful download, not at job end, so a red test
+      # run still leaves the browser behind for the next one. The system libraries are
+      # not installed on a schedule: a launch probe asks the browser whether anything is
+      # missing, and apt runs only when it is — on the runner image that ships Chrome,
+      # it is not.
+      - name: Resolve Playwright version
+        id: playwright
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright Chromium
+        id: playwright-cache
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Playwright Chromium
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        run: npx playwright install chromium
+
+      - name: Save Playwright Chromium
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
+
+      # A failed launch names the missing libraries in its output and hands the job to
+      # the apt step below; a job that still cannot launch after it fails in the tests.
+      - name: Verify Chromium launches
+        id: chromium-probe
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
+        continue-on-error: true
+        run: node -e "require('@playwright/test').chromium.launch().then(browser => browser.close())"
+
+      - name: Install Playwright system dependencies
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' && steps.chromium-probe.outcome == 'failure' }}
+        run: npx playwright install-deps chromium
 
       - name: Skip ${{ matrix.suite }} tests
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration != 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit != 'true') }}
+        if: ${{ matrix.run != 'true' || steps.head.outputs.current != 'true' }}
         run: |
-          echo "${{ matrix.suite }} skipped: ${{ needs.changes.outputs.skip_reason }}"
+          echo "${{ matrix.suite }} skipped: ${{ steps.head.outputs.skip_reason || needs.changes.outputs.skip_reason }}"
 
       - name: Run ${{ matrix.suite }} tests
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
-        run: npm run test-${{ matrix.suite }}
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && (github.event_name != 'workflow_dispatch' || inputs.suite == '' || inputs.suite == matrix.suite) }}
         env:
-          NEO_INTEGRATION_STACK_TIMEOUT_MS: '240000'
-          # Keep the unit residual skip guards active without gating integration specs.
-          NEO_TEST_SKIP_CI: ${{ matrix.suite == 'unit' && 'true' || '' }}
+          # Dispatch inputs reach the shell as ENVIRONMENT, never interpolated into this script.
+          # `${{ inputs.specs }}` spliced into a `run:` is a command-injection surface, and "only
+          # maintainers can dispatch" is a mitigation rather than a fix. Read as `$PROBE_SPECS` the
+          # value is only ever word-split into arguments, so metacharacters inside it stay data.
+          PROBE_SPECS     : ${{ inputs.specs }}
+          PROBE_REPEAT    : ${{ inputs.repeatEach || '1' }}
+          SUITE           : ${{ matrix.suite }}
+          SHARD_ARG       : ${{ matrix.shard && format('--shard={0}/{1}', matrix.shard, matrix.shards) || '' }}
+          NEO_TEST_SKIP_CI: ${{ startsWith(matrix.suite, 'unit') && 'true' || '' }}
+          NEO_UNIT_TZ     : ${{ matrix.tz }}
+        run: |
+          # Without `pipefail` the pipeline reports `tee`'s status, and a red suite passes the gate.
+          set -o pipefail
+
+          args=()
+
+          [ -n "${SHARD_ARG}" ]      && args+=("${SHARD_ARG}")
+          [ "${PROBE_REPEAT}" != 1 ] && args+=("--repeat-each=${PROBE_REPEAT}")
+
+          # `specs` takes paths. An option token would change what the run does: `--list` collects
+          # the whole tier, executes nothing and exits 0.
+          for spec in ${PROBE_SPECS}; do
+            case "${spec}" in
+              -*) echo "::error::specs takes spec paths only; '${spec}' is a Playwright option"; exit 1 ;;
+            esac
+          done
+
+          # Word-splitting is the point here: each path in the input becomes its own argument.
+          # shellcheck disable=SC2206
+          [ -n "${PROBE_SPECS}" ] && args+=(${PROBE_SPECS})
+
+          npm run "test-${SUITE}" -- "${args[@]}" 2>&1 | tee /tmp/test-run.log
+
+      # A probe's green means "this selection passed N times", never "the tier is covered". Saying so
+      # in the summary is the difference between a measurement and a run someone later mistakes for one.
+      - name: Report probe selection
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && matrix.run == 'true' && steps.head.outputs.current == 'true' && (inputs.suite == '' || inputs.suite == matrix.suite) }}
+        env:
+          PROBE_SPECS : ${{ inputs.specs }}
+          PROBE_REPEAT: ${{ inputs.repeatEach || '1' }}
+          SUITE       : ${{ matrix.suite }}
+        run: |
+          {
+            echo "### Probe — ${SUITE}"
+            echo
+            if [ -n "${PROBE_SPECS}" ]; then
+              echo "Covers this selection and nothing else, so its result says nothing about the tier:"
+              echo
+              echo '```'
+              echo "${PROBE_SPECS}"
+              echo '```'
+            else
+              echo "Covers the ordinary ${SUITE} selection."
+            fi
+            echo
+            echo "- repeat-each requested: \`${PROBE_REPEAT}\`"
+            echo
+            # The denominator is Playwright's own tally, never the repeat that was asked for: a green
+            # step can execute nothing. No tally means the run never reached its reporter.
+            grep -asE '^ *[0-9]+ (passed|failed|flaky|skipped|did not run)' /tmp/test-run.log \
+              || echo 'no Playwright summary line — the run did not reach its reporter'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test artifacts on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
+        if: ${{ failure() && matrix.run == 'true' && steps.head.outputs.current == 'true' }}
+        uses: actions/upload-artifact@v7
         with:
-          name: test-results-${{ matrix.suite }}-${{ github.run_id }}
+          name: test-results-${{ matrix.suite }}-${{ github.run_id }}${{ matrix.shard && format('-shard-{0}', matrix.shard) || '' }}${{ matrix.tzLabel && format('-{0}', matrix.tzLabel) || '' }}
           path: test/playwright/test-results/
           retention-days: 14

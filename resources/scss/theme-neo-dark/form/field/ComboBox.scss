@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-combobox
+:where(.neo-theme-neo-dark) { // .neo-combobox
     --combobox-input-hint-color              : var(--gray-400);
     --combobox-input-hint-opacity            : 0.6;
     --combobox-list-search-background-color  : inherit;

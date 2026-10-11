@@ -43,11 +43,17 @@ class ReplyLossWorker extends WorkerBase {
 Neo.setupClass(ReplyLossWorker);
 
 const createCapturingPort = () => {
-    const sent = [];
+    const
+        sent  = [],
+        state = {closed: false};
 
     return {
         sent,
+        state,
         port: {
+            close() {
+                state.closed = true
+            },
             postMessage(message) {
                 sent.push(message)
             }
@@ -189,6 +195,126 @@ test.describe('Worker reply loss on null port lookup (#12958)', () => {
         expect(errors[0][1].replyId).toBe('q-7')
     });
 
+    test('a reply to a window whose port this worker retired is its departure, not a logged loss', () => {
+        const
+            captured  = createCapturingPort(),
+            portEntry = {
+                appNames: new Set(['DepartedApp']),
+                id      : 'port-departed',
+                port    : captured.port,
+                windowId: 'win-departed'
+            },
+            worker        = createSharedWorker([portEntry]),
+            errors        = [],
+            originalError = console.error;
+
+        Neo.ns('Test.Unit.Worker.ReplyLossRemote', true).answer = () => ({ok: true});
+        worker.onDisconnect({appName: 'DepartedApp', windowId: 'win-departed'}, portEntry);
+        console.error = (...args) => errors.push(args);
+
+        try {
+            // No source port: this is how an App request reaches the VDom worker, over their direct channel
+            ['win-departed', 'win-unknown'].forEach((windowId, index) => worker.onMessage({data: {
+                action         : 'remoteMethod',
+                id             : `q-channel-${index}`,
+                origin         : 'app',
+                remoteClassName: 'Test.Unit.Worker.ReplyLossRemote',
+                remoteMethod   : 'answer',
+                windowId
+            }}))
+        } finally {
+            console.error = originalError
+        }
+
+        expect(captured.sent, 'the departed window receives nothing').toHaveLength(0);
+        expect(errors.map(([, context]) => context.windowId), 'a window this worker never knew still reads as a loss')
+            .toEqual(['win-unknown'])
+    });
+
+    /**
+     * Settles within a tick or reports that it did not, so an unsettled caller fails fast instead of hanging.
+     * @param {Promise} promise
+     * @returns {Promise<String>} 'resolved', the rejection's name, or 'pending'
+     */
+    const settlement = promise => Promise.race([
+        promise.then(() => 'resolved', error => error?.name || 'rejected'),
+        new Promise(resolve => setTimeout(() => resolve('pending'), 50))
+    ]);
+
+    /**
+     * An App and a VDom worker sharing one window, joined by the direct channel the App uses for VDom
+     * requests: a request over it carries no port entry, only the `windowId` of the window it renders for.
+     * @param {String} windowId
+     * @returns {Object}
+     */
+    const createChannelPair = windowId => {
+        const
+            appWindow  = createCapturingPort(),
+            vdomWindow = createCapturingPort(),
+            app        = createSharedWorker([{appNames: new Set(['ChannelApp']), id: `app-${windowId}`,  port: appWindow.port,  windowId}]),
+            vdom       = createSharedWorker([{appNames: new Set(['ChannelApp']), id: `vdom-${windowId}`, port: vdomWindow.port, windowId}]),
+            inFlight   = [];
+
+        app.channelPorts.vdom = {postMessage: message => inFlight.push(message)};
+        Neo.ns('Test.Unit.Worker.ChannelRemote', true).updateBatch = () => ({deltas: []});
+
+        const pending = app.generateRemote({className: 'Test.Unit.Worker.ChannelRemote', origin: 'vdom'}, 'updateBatch')({
+            appName: 'ChannelApp',
+            updates: {},
+            windowId
+        });
+
+        return {app, inFlight, pending, vdom, vdomWindow}
+    };
+
+    test('a channel request whose window disconnects settles its caller, and its reply is not reported as lost', async () => {
+        const
+            {app, inFlight, pending, vdom} = createChannelPair('win-channel'),
+            [request]                      = inFlight,
+            errors                         = [],
+            originalError                  = console.error;
+
+        expect(inFlight, 'the request left over the channel').toHaveLength(1);
+
+        // The window closes while the request is in flight: both workers retire its port
+        app .onDisconnect({appName: 'ChannelApp', windowId: 'win-channel'}, app.ports[0]);
+        vdom.onDisconnect({appName: 'ChannelApp', windowId: 'win-channel'}, vdom.ports[0]);
+
+        console.error = (...args) => errors.push(args);
+
+        try {
+            vdom.onMessage({data: request})
+        } finally {
+            console.error = originalError
+        }
+
+        expect(await settlement(pending), 'the caller is settled through the port-retirement contract').toBe('PortDisconnectedError');
+        expect(app.promises[request.id], 'and its pending entry is gone').toBeUndefined();
+        expect(errors, 'the reply its window can no longer receive is not reported as a loss').toEqual([])
+    });
+
+    test('a channel request whose window stays connected is still answered, whatever other windows do', async () => {
+        const
+            {app, inFlight, pending, vdom, vdomWindow} = createChannelPair('win-live'),
+            [request]                                  = inFlight,
+            other                                      = {appNames: new Set(['ChannelApp']), id: 'app-win-other', port: createCapturingPort().port, windowId: 'win-other'};
+
+        app.ports.push(other);
+        app.onDisconnect({appName: 'ChannelApp', windowId: 'win-other'}, other);
+
+        expect(await settlement(pending), 'another window leaving does not settle this request').toBe('pending');
+
+        vdom.onMessage({data: request});
+
+        const [reply] = vdomWindow.sent;
+
+        expect(reply?.replyId, 'the reply routes through the live window').toBe(request.id);
+
+        app.onMessage({data: reply});
+
+        expect(await settlement(pending)).toBe('resolved')
+    });
+
     test('resolve(): a live route still delivers the reply (no regression)', () => {
         const {port, sent} = createCapturingPort();
         const worker       = createSharedWorker([
@@ -201,4 +327,236 @@ test.describe('Worker reply loss on null port lookup (#12958)', () => {
         expect(sent[0].replyId).toBe('q-8');
         expect(sent[0].reject).toBeUndefined()
     });
+});
+
+test.describe('SharedWorker source-port lifecycle (#15906)', () => {
+    test('onConnected binds registration messages to the exact source port', () => {
+        const
+            first       = createCapturingPort(),
+            second      = createCapturingPort(),
+            worker      = createSharedWorker([]),
+            connections = [];
+
+        worker.onConnected({ports: [first.port]});
+        worker.onConnected({ports: [second.port]});
+        worker.onConnect = data => connections.push(data);
+
+        second.port.onmessage({
+            data: {
+                action: 'registerNeoConfig',
+                data  : {windowId: 'win-source'}
+            }
+        });
+        second.port.onmessage({
+            data: {
+                action : 'registerApp',
+                appName: 'SourceBoundApp'
+            }
+        });
+
+        const [firstEntry, sourceEntry] = worker.ports;
+
+        expect(firstEntry.windowId).toBeNull();
+        expect([...firstEntry.appNames]).toEqual([]);
+        expect(sourceEntry.windowId).toBe('win-source');
+        expect([...sourceEntry.appNames]).toEqual(['SourceBoundApp']);
+        expect(connections).toHaveLength(1);
+        expect(connections[0].sourcePort).toBe(sourceEntry)
+    });
+
+    test('one source port preserves every hosted app until its final disconnect', async () => {
+        const
+            captured     = createCapturingPort(),
+            worker       = createSharedWorker([]),
+            connected    = [],
+            disconnected = [];
+
+        worker.on({
+            connect   : data => connected.push(data.appName),
+            disconnect: data => disconnected.push(data.appName)
+        });
+        worker.timeout = () => Promise.resolve();
+        worker.onConnected({ports: [captured.port]});
+
+        const [portEntry] = worker.ports;
+
+        portEntry.windowId = 'win-multi-app';
+        portEntry.port.onmessage({data: {action: 'registerApp', appName: 'AppA'}});
+        portEntry.port.onmessage({data: {action: 'registerApp', appName: 'AppB'}});
+
+        await Promise.resolve();
+
+        expect([...portEntry.appNames]).toEqual(['AppA', 'AppB']);
+        expect(connected).toEqual(['AppA', 'AppB']);
+
+        worker.onDisconnect({appName: 'AppA', windowId: 'win-multi-app'}, portEntry);
+
+        expect(worker.ports).toEqual([portEntry]);
+        expect([...portEntry.appNames]).toEqual(['AppB']);
+        expect(captured.state.closed).toBe(false);
+        expect(disconnected).toEqual(['AppA']);
+
+        worker.onDisconnect({appName: 'AppB', windowId: 'win-multi-app'}, portEntry);
+
+        expect(worker.ports).toHaveLength(0);
+        expect(captured.state.closed).toBe(true);
+        expect(disconnected).toEqual(['AppA', 'AppB'])
+    });
+
+    test('disconnect retires the exact source port and drops its queued messages', () => {
+        const
+            captured  = createCapturingPort(),
+            portEntry = {
+                appNames: new Set(['DepartedApp']),
+                id      : 'port-departed',
+                port    : captured.port,
+                windowId: 'win-departed'
+            },
+            worker = createSharedWorker([portEntry]);
+
+        let queuedGeometryDispatches = 0;
+
+        portEntry.port.onmessage = () => {};
+        worker.onWindowPositionChange = () => queuedGeometryDispatches++;
+        worker.onDisconnect({
+            appName : 'DepartedApp',
+            windowId: 'win-departed'
+        }, portEntry);
+        worker.onMessage({
+            data: {
+                action: 'windowPositionChange',
+                data  : {windowId: 'win-departed'}
+            }
+        }, portEntry);
+
+        expect(worker.ports).toHaveLength(0);
+        expect(worker.getPort({windowId: 'win-departed'})).toBeNull();
+        expect(portEntry.port.onmessage).toBeNull();
+        expect(captured.state.closed).toBe(true);
+        expect(queuedGeometryDispatches).toBe(0)
+    });
+
+    test('disconnect cleanup stays bounded across unique window ids', () => {
+        const worker = createSharedWorker([]);
+
+        for (let index = 0; index < 1000; index++) {
+            const portEntry = {
+                appNames: new Set(['BoundedApp']),
+                id      : `port-${index}`,
+                port    : createCapturingPort().port,
+                windowId: `win-${index}`
+            };
+
+            worker.ports.push(portEntry);
+            worker.onDisconnect({
+                appName : 'BoundedApp',
+                windowId: portEntry.windowId
+            }, portEntry)
+        }
+
+        expect(worker.ports).toHaveLength(0);
+        expect(worker.departedWindowIds.size, 'the departed-window record keeps the newest 16 and no more').toBe(16);
+        expect(worker.departedWindowIds.has('win-999') && !worker.departedWindowIds.has('win-0'), 'the oldest is the one evicted').toBe(true)
+    });
+
+    test('a replacement with identical routing keys cannot complete an old async connect', async () => {
+        const
+            oldPort  = createCapturingPort(),
+            oldEntry = {
+                appNames: new Set(['GenerationApp']),
+                id      : 'port-generation',
+                port    : oldPort.port,
+                windowId: 'win-generation'
+            },
+            worker      = createSharedWorker([oldEntry]),
+            connections = [];
+
+        let releaseDelay;
+
+        worker.on({connect: data => connections.push(data)});
+        worker.timeout = () => new Promise(resolve => {
+            releaseDelay = resolve
+        });
+
+        const pendingConnect = worker.onConnect({
+            appName   : 'GenerationApp',
+            sourcePort: oldEntry,
+            windowId  : 'win-generation'
+        });
+
+        worker.onDisconnect({
+            appName : 'GenerationApp',
+            windowId: 'win-generation'
+        }, oldEntry);
+        worker.ports.push({
+            appNames: new Set(['GenerationApp']),
+            id      : 'port-generation',
+            port    : createCapturingPort().port,
+            windowId: 'win-generation'
+        });
+
+        releaseDelay();
+        await pendingConnect;
+
+        expect(worker.ports).toHaveLength(1);
+        expect(connections).toHaveLength(0)
+    });
+
+    test('disconnect rejects and deletes promises owned by the retired port', async () => {
+        const
+            captured  = createCapturingPort(),
+            portEntry = {
+                appNames: new Set(['PendingApp']),
+                id      : 'port-pending',
+                port    : captured.port,
+                windowId: 'win-pending'
+            },
+            worker  = createSharedWorker([portEntry]),
+            pending = worker.promiseMessage('win-pending', {action: 'pendingReply'});
+
+        const [{id}] = captured.sent;
+
+        worker.onDisconnect({
+            appName : 'PendingApp',
+            windowId: 'win-pending'
+        }, portEntry);
+
+        await expect(pending).rejects.toThrow('Worker port disconnected before reply: port-pending');
+        expect(worker.promises[id]).toBeUndefined()
+    });
+
+    test('retiring an old entry cannot reject a successor generation promise with the same routing id', async () => {
+        const
+            oldEntry = {
+                appNames: new Set(['GenerationApp']),
+                id      : 'port-generation',
+                port    : createCapturingPort().port,
+                windowId: 'win-generation'
+            },
+            successorPort = createCapturingPort(),
+            successor     = {
+                appNames: new Set(['GenerationApp']),
+                id      : 'port-generation',
+                port    : successorPort.port,
+                windowId: 'win-generation'
+            },
+            worker  = createSharedWorker([oldEntry, successor]),
+            pending = worker.promiseMessage('win-generation', {action: 'pendingReply'}),
+            [{id}]  = successorPort.sent;
+
+        worker.removePort(oldEntry);
+
+        expect(worker.promises[id]).toBeDefined();
+
+        worker.onMessage({
+            data: {
+                action : 'reply',
+                data   : 'successor-reply',
+                replyId: id
+            }
+        }, successor);
+
+        await expect(pending).resolves.toBe('successor-reply');
+        expect(worker.promises[id]).toBeUndefined()
+    })
 });

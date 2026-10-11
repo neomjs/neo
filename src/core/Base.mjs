@@ -99,6 +99,9 @@ class Base {
      *     mechanism. This allows external code (like themes or application-level overrides) to change
      *     the default value for the class, which then propagates to all subclasses and instances
      *     globally. Use standard class fields for internal state that should not be globally reconfigured.
+     *     A class extension never replaces a class field with a config, or a config with a field: a field
+     *     is an own data property, and a name it shares with a config anywhere in the prototype chain
+     *     shadows the config instead of overriding it. `Neo.create` refuses it right after `new`.
      *
      * @returns {Object} config
      */
@@ -1110,6 +1113,44 @@ class Base {
     }
 
     /**
+     * @summary Refuses the collision behind the rule that a class extension never replaces a class
+     * field with a config, or a config with a field. `Neo.create` calls this right after `new`, when
+     * the instance owns exactly its class fields and no `construct()` has run: an own data property
+     * whose key is a config of the class shadows that config for the instance's lifetime — a plain
+     * config's value never applies, a reactive config's `beforeSet` / `afterSet` never run. Own
+     * accessors are ordinary overrides and pass, and a `construct()` that assigns a plain config before
+     * `super.construct()` runs after this check and passes too. `Neo.createConfig` refuses the setter
+     * flavour of the same rule at setup time; fields exist only after `new`.
+     * @throws {Error} Naming the field, the instance class and, for a reactive config, the class whose accessor it shadows.
+     * @protected
+     */
+    assertFieldsShadowNoConfig() {
+        const me = this, cls = me.constructor;
+
+        Object.getOwnPropertyNames(me).forEach(key => {
+            if (!Object.hasOwn(cls.config, key) || !('value' in Object.getOwnPropertyDescriptor(me, key))) return;
+
+            let proto = Object.getPrototypeOf(me);
+
+            while (proto && typeof Object.getOwnPropertyDescriptor(proto, key)?.set !== 'function') {
+                proto = Object.getPrototypeOf(proto)
+            }
+
+            const owner = proto && (proto.constructor.config?.className ?? proto.constructor.name),
+                  uKey  = key[0].toUpperCase() + key.slice(1),
+                  what  = owner
+                      ? `the reactive config '${key}_' declared by ${owner}: the config's accessor never runs and afterSet${uKey}() never fires`
+                      : `the config '${key}': its value in static config never applies`;
+
+            throw new Error(
+`Invalid class field '${key}' in ${cls.config.className}: it shadows ${what}.
+A class extension never replaces a class field with a config, or a config with a field.
+Give the config its default with a plain '${key}' entry in static config, or rename one of them.`
+            )
+        })
+    }
+
+    /**
      * We want to assign class fields first and remove them from the config object,
      * so that afterSet(), beforeGet() and beforeSet() methods can get the new values right away
      * @param {Object} config
@@ -1147,21 +1188,63 @@ class Base {
     }
 
     /**
-     * Stores timeoutIds internally, so that destroy() can clear them if needed
-     * @param {Number} time in milliseconds
-     * @returns {Promise<any>}
+     * @summary Waits for a delay owned by this instance, optionally cancellable by its caller.
+     * Abort rejects with the signal's reason; destruction rejects with Neo.isDestroyed.
+     * Every terminal removes the abort listener and async registration. A pre-aborted signal
+     * creates no timer. Omitting the signal retains the ordinary timeout contract.
+     * @param {Number} time Delay in milliseconds
+     * @param {Object} [options={}]
+     * @param {AbortSignal} [options.signal] Cancels this wait while leaving its owner alive
+     * @returns {Promise<void>}
      */
-    timeout(time) {
+    timeout(time, {signal}={}) {
         let me = this;
 
         return new Promise((resolve, reject) => {
-            let id = setTimeout(() => {
+            if (signal?.aborted) {
+                reject(signal.reason);
+                return
+            }
+
+            const cleanup = () => {
                 me.unregisterAsync(id);
+                signal?.removeEventListener('abort', onAbort)
+            }, fail = reason => {
+                cleanup();
+                reject(reason)
+            }, onAbort = () => {
+                clearTimeout(id);
+                fail(signal.reason)
+            }, id = setTimeout(() => {
+                cleanup();
                 resolve()
             }, time);
 
-            me.registerAsync(id, reject)
+            me.registerAsync(id, fail);
+            signal?.addEventListener('abort', onAbort, {once: true})
         })
+    }
+
+    /**
+     * @summary Waits for a synchronous predicate using this instance's cancellable timeouts.
+     * Samples immediately and once more after the retry budget is exhausted. Predicate errors
+     * propagate; destruction during a pending timeout rejects with `Neo.isDestroyed`.
+     * @param {Function} predicate Synchronous readiness check
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=120] Maximum number of waits
+     * @param {Number} [options.delay=16] Delay between samples in milliseconds
+     * @returns {Promise<Boolean>}
+     */
+    async waitFor(predicate, {attempts=120, delay=16}={}) {
+        let me = this;
+
+        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
+            if (predicate()) return true;
+
+            attempt < attempts && await me.timeout(delay)
+        }
+
+        return Boolean(predicate())
     }
 
     /**

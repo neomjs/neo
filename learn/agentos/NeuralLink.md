@@ -70,7 +70,7 @@ organ.
 
 ```mermaid
 flowchart TD
-    Reader["Human or model<br/>asks to inspect or change the app"] --> Server["Neural Link MCP server<br/>50 OpenAPI operations"]
+    Reader["Human or model<br/>asks to inspect or change the app"] --> Server["Neural Link MCP server<br/>OpenAPI operation surface"]
     Server --> Bridge["WebSocket Bridge<br/>local routing hub"]
     Bridge --> Client["Neo.ai.Client<br/>App Worker singleton"]
     Client --> Services["Domain services<br/>component, data, instance,<br/>interaction, runtime"]
@@ -198,9 +198,11 @@ the application knows.
 
 This guide is the concept. The tool catalog is intentionally not copied here.
 The authoritative operation surface lives in
-`ai/mcp/server/neural-link/openapi.yaml`, and the lazy handbook tool
-`get_mcp_tool_handbook` returns operation-level usage detail when an agent needs
-it. At the time of this rewrite, the OpenAPI surface exposes 50 operation IDs.
+`ai/mcp/server/neural-link/openapi.yaml`. The per-verb reference spine lives in
+[Neural Link Capability Matrix](./tooling/NeuralLinkCapabilityMatrix.md), and the
+lazy handbook tool `get_mcp_tool_handbook` returns operation-level usage detail
+when an agent needs it. At the time of this rewrite, the OpenAPI surface exposes
+59 operation IDs.
 
 Keeping the catalog out of the conceptual guide prevents the old failure mode:
 a polished explanation slowly turning into stale reference sludge. When the
@@ -211,11 +213,13 @@ keep explaining why the surface matters and how to think with it.
 
 - [Architecture Overview](../benefits/ArchitectureOverview.md) for the two
   hemispheres and the Body-to-Brain bridge.
-- [Swarm Intelligence](./SwarmIntelligence.md) for the cross-family peer-team
+- [Swarm Intelligence](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md) for the cross-family peer-team
   that uses this surface.
-- [Agent OS on Your Codebase](../benefits/brain/AgentOSOnYourCodebase.md) for the
+- [Agent OS on Your Codebase](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/benefits/brain/AgentOSOnYourCodebase.md) for the
   broader operator story around running the Brain against real applications.
-- `ai/mcp/server/neural-link/openapi.yaml` for the exact tool contract.
+- [`ai/mcp/server/neural-link/openapi.yaml`](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/mcp/server/neural-link/openapi.yaml) for the exact tool contract.
+- [Neural Link Capability Matrix](./tooling/NeuralLinkCapabilityMatrix.md) for
+  the per-verb read/write/admin, transaction, firewall, and fixture support map.
 - `src/ai/Client.mjs` for the App Worker client, write guard, and transaction
   lifecycle.
 - `src/core/Base.mjs` for the `toJSON` Rich Blueprint substrate.

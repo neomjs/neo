@@ -9,6 +9,46 @@
             "path": null
         },
         {
+            "date": "2026-10-11",
+            "id": "blog/building-a-multi-window-dashboard-with-dock-layouts",
+            "isLeaf": true,
+            "name": "From two configs to a second screen: building a dashboard with Neo.mjs Dock Layouts.",
+            "parentId": "2026",
+            "path": "learn/blog/building-a-multi-window-dashboard-with-dock-layouts.md"
+        },
+        {
+            "date": "2026-10-11",
+            "id": "blog/multi-window-dashboards-with-dock-layouts",
+            "isLeaf": true,
+            "name": "Drag it to the other screen: multi-window dashboards with Neo.mjs Dock Layouts.",
+            "parentId": "2026",
+            "path": "learn/blog/multi-window-dashboards-with-dock-layouts.md"
+        },
+        {
+            "date": "2026-10-09",
+            "id": "blog/a-workspace-that-can-leave-its-window",
+            "isLeaf": true,
+            "name": "A workspace that can leave its window: multi-window apps in Neo.mjs 13.2.",
+            "parentId": "2026",
+            "path": "learn/blog/a-workspace-that-can-leave-its-window.md"
+        },
+        {
+            "date": "2026-10-09",
+            "id": "blog/one-repository-per-reader",
+            "isLeaf": true,
+            "name": "One repository per reader: why Neo.mjs split in 13.2, and the cockpit we build next.",
+            "parentId": "2026",
+            "path": "learn/blog/one-repository-per-reader.md"
+        },
+        {
+            "date": "2026-07-04",
+            "id": "blog/the-salute",
+            "isLeaf": true,
+            "name": "Convergence isn't validation: why we distrust our own agents' consensus.",
+            "parentId": "2026",
+            "path": "learn/blog/the-salute.md"
+        },
+        {
             "date": "2026-07-02",
             "id": "blog/the-organism-already-existed",
             "isLeaf": true,
@@ -20,7 +60,7 @@
             "date": "2026-06-18",
             "id": "blog/cross-family-verification",
             "isLeaf": true,
-            "name": "Your AI Agent Grades Its Own Homework. Mine Gets Checked by a Rival Lab.",
+            "name": "Cross-family verification: an agent from a rival lab checks our work, in public.",
             "parentId": "2026",
             "path": "learn/blog/cross-family-verification.md"
         },
@@ -28,7 +68,7 @@
             "date": "2026-06-16",
             "id": "blog/ai-agents-runtime-possession",
             "isLeaf": true,
-            "name": "Your AI can write the app. It still can't operate the running one.",
+            "name": "Possession, not code-generation: operating a running app from inside it.",
             "parentId": "2026",
             "path": "learn/blog/ai-agents-runtime-possession.md"
         },

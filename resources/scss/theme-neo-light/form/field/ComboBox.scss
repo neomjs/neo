@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-combobox
+:where(.neo-theme-neo-light) { // .neo-combobox
     --combobox-input-hint-color              : #333;
     --combobox-input-hint-opacity            : 0.6;
     --combobox-list-search-background-color  : inherit;

@@ -16,9 +16,9 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
 /**
  * @summary Tests for Neo.draggable.dashboard.SortZone directional thresholds
  */
-test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () => {
-    let DashboardContainer, DashboardSortZone, Rectangle, realDragCoordinatorOnDragEnd,
-        realDragCoordinatorOnWindowPositionChange, sortZone;
+test.describe('Neo.draggable.dashboard.SortZone Directional Logic', () => {
+    let DashboardContainer, DashboardSortZone, Rectangle, dwellConfigOnEntry, realApplyDeltas,
+        realDragCoordinatorOnDragEnd, realDragCoordinatorOnWindowPositionChange, sortZone;
 
     test.beforeAll(async () => {
         const containerModule = await import('../../../../../src/dashboard/Container.mjs');
@@ -32,6 +32,37 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
 
         realDragCoordinatorOnDragEnd = Object.getPrototypeOf(Neo.manager.DragCoordinator).onDragEnd;
         realDragCoordinatorOnWindowPositionChange = Object.getPrototypeOf(Neo.manager.DragCoordinator).onWindowPositionChange;
+
+        // Captured once, before any test overrides it — two tests below replace `Neo.applyDeltas`
+        // with closures over their own `appliedDeltas`. Playwright reuses a worker across spec
+        // files, so an unrestored override runs THIS file's fixture against a later spec's
+        // components — the tell is a SortZone stack frame surfacing inside an unrelated spec.
+        realApplyDeltas = Neo.applyDeltas;
+
+        // Captured before the suite mutates anything, because two tests below `Object.assign` a
+        // dwell of 0 straight onto the coordinator to make the hold commit synchronously. That is a
+        // legitimate fixture need; handing 0 to the next spec is not.
+        //
+        // These are non-reactive configs, so they live as OWN properties on the shared singleton
+        // with no prototype value underneath — once a spec overwrites one there is nothing left to
+        // fall back to, which is why the original has to be carried rather than re-derived.
+        dwellConfigOnEntry = {
+            dwellMs : Neo.manager.DragCoordinator.nativeWindowDropDwellMs,
+            settleMs: Neo.manager.DragCoordinator.nativeWindowDropSettleMs
+        };
+    });
+
+    // The leak witness. Asserting equality with what we found — rather than the literals 1200/250 —
+    // keeps the engine defaults at `src/manager/DragCoordinator.mjs` the only place they are stated,
+    // so moving a default can never make this file wrong. A cross-file leak is invisible from inside
+    // the file it lands in; the only place it is observable is here, at the boundary the leak crosses.
+    test.afterAll(() => {
+        const DragCoordinator = Neo.manager?.DragCoordinator;
+
+        expect(DragCoordinator.nativeWindowDropDwellMs, 'the suite hands the next spec the dwell it was given')
+            .toBe(dwellConfigOnEntry.dwellMs);
+        expect(DragCoordinator.nativeWindowDropSettleMs, 'the suite hands the next spec the settle it was given')
+            .toBe(dwellConfigOnEntry.settleMs)
     });
 
     test.beforeEach(() => {
@@ -61,37 +92,58 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
             DragCoordinator.nativeWindowDropCandidates.clear()
         }
         if (DragCoordinator) {
-            DragCoordinator.nativeWindowDropDwellMs  = 450;
-            DragCoordinator.nativeWindowDropSettleMs = 250;
+            // Restoring what the suite was handed, not the literals this fixture happens to like.
+            // The previous `= 450` here was an assignment wearing a restore's clothing: it neither
+            // matched the engine default (1200) nor anything this file had saved, so it published a
+            // halved dwell to every later spec in the worker — while masking the 0 the two
+            // `Object.assign` tests below leave behind, which is worse.
+            DragCoordinator.nativeWindowDropDwellMs  = dwellConfigOnEntry.dwellMs;
+            DragCoordinator.nativeWindowDropSettleMs = dwellConfigOnEntry.settleMs;
             DragCoordinator.sortZones = new Map();
-            delete DragCoordinator.onWindowPositionChange
+            DragCoordinator.activeTargetZone = null;
+
+            // `beforeEach` stubs five methods as OWN properties on the shared singleton; only
+            // `onWindowPositionChange` was ever given back. The other four outlived this file and
+            // silently no-opped every later spec in the worker that touched the coordinator — a stub
+            // that survives its suite is indistinguishable from the method simply not working.
+            // Deleting the own property re-exposes the prototype implementation.
+            delete DragCoordinator.onWindowPositionChange;
+            delete DragCoordinator.onDragMove;
+            delete DragCoordinator.onDragEnd;
+            delete DragCoordinator.register;
+            delete DragCoordinator.unregister
         }
         if (Neo.manager?.Window) {
             Neo.manager.Window.items = [];
             Neo.manager.Window.map   = new Map()
         }
 
+        // Same principle as the DragCoordinator stubs above: an override that survives its suite
+        // is indistinguishable from the method simply not working — except this one is worse,
+        // because it does not no-op, it runs dead fixture state against whoever comes next.
+        Neo.applyDeltas = realApplyDeltas;
+
         sortZone?.destroy();
     });
 
     test('Validates Directional Logic with Colliding Thresholds (0.8 / 0.6)', async () => {
         const mockOwner = {
-            id: 'mockOwner',
+            id   : 'mockOwner',
             items: [{
-                id: 'item1',
-                vdom: {cls: ['neo-draggable']},
+                id          : 'item1',
+                vdom        : {cls: ['neo-draggable']},
                 wrapperStyle: {}
             }],
-            vdom: {},
+            vdom           : {},
             addDomListeners: () => {},
-            getDomRect: () => Promise.resolve([{x:0, y:0, width:100, height:100}]),
-            on: () => {}
+            getDomRect     : () => Promise.resolve([{x:0, y:0, width:100, height:100}]),
+            on             : () => {}
         };
 
         sortZone = Neo.create(DashboardSortZone, {
-            owner: mockOwner,
-            detachThreshold  : 0.8,
-            reattachThreshold: 0.6,
+            owner             : mockOwner,
+            detachThreshold   : 0.8,
+            reattachThreshold : 0.6,
             enableProxyToPopup: true
         });
 
@@ -110,7 +162,7 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
                 proxyRect,
                 screenX: x,
                 screenY: y,
-                path: []
+                path   : []
             });
         };
 
@@ -136,13 +188,181 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         expect(sortZone.lastIntersectionRatio).toBeCloseTo(0.70);
         expect(sortZone.isWindowDragging).toBe(true);
 
+        // Band-internal return (0.70 → 0.75, never below the 0.6 reattach threshold) is window-drag
+        // CONTINUATION, not re-entry: a same-band flap used to fire a false dragBoundaryEntry whose
+        // handler closed the newborn popup ~2ms after birth. Re-entry is EARNED — the ratio must
+        // drop below the reattach threshold before a rising sample counts (the Schmitt trigger).
         await simulateMove(25, 0);
         expect(sortZone.lastIntersectionRatio).toBe(0.75);
-        expect(sortZone.isWindowDragging).toBe(false);
+        expect(sortZone.isWindowDragging).toBe(true);
 
+        // Demonstrably leave the reattach zone — arms the trigger, still window-dragging.
+        await simulateMove(45, 0);
+        expect(sortZone.lastIntersectionRatio).toBeCloseTo(0.55);
+        expect(sortZone.isWindowDragging).toBe(true);
+
+        // The EARNED return: rising back above the reattach threshold now re-enters.
         await simulateMove(30, 0);
         expect(sortZone.lastIntersectionRatio).toBeCloseTo(0.70);
+        expect(sortZone.isWindowDragging).toBe(false);
+
+        // And the cycle re-exits cleanly below the detach threshold, moving out.
+        await simulateMove(40, 0);
+        expect(sortZone.lastIntersectionRatio).toBeCloseTo(0.60);
         expect(sortZone.isWindowDragging).toBe(true);
+    });
+
+    test('re-entry stays reachable when the window-drag proxy dwarfs the boundary', async () => {
+        const mockOwner = {
+            id   : 'mockOwner2',
+            items: [{
+                id          : 'item2',
+                vdom        : {cls: ['neo-draggable']},
+                wrapperStyle: {}
+            }],
+            vdom           : {},
+            addDomListeners: () => {},
+            getDomRect     : () => Promise.resolve([{x:0, y:0, width:100, height:40}]),
+            on             : () => {}
+        };
+
+        sortZone = Neo.create(DashboardSortZone, {
+            owner             : mockOwner,
+            detachThreshold   : 0.8,
+            reattachThreshold : 0.6,
+            enableProxyToPopup: true
+        });
+
+        // Strip-scale boundary: during window-drag the move payload's proxy embodies the future
+        // vessel and is LARGER than the boundary, so a proxy-area denominator would cap the
+        // ratio at boundaryArea/proxyArea (~0.2 here) and 0.6 could never be reached. The
+        // re-entry test therefore normalizes by the smaller rect: full boundary cover = 1.
+        sortZone.boundaryContainerRect = new Rectangle(0, 0, 314, 49);
+        sortZone.dragProxy = { id: 'proxy2', destroy: () => {} };
+        sortZone.dragPlaceholder = { id: 'placeholder2', wrapperStyle: {}, destroy: () => {} };
+
+        sortZone.lastIntersectionRatio = 1;
+        sortZone.isWindowDragging = false;
+
+        const simulateMove = async (x, y, width, height) => {
+            const proxyRect = new Rectangle(x, y, width, height);
+            await sortZone.onDragMove({
+                clientX: x,
+                clientY: y,
+                proxyRect,
+                screenX: x,
+                screenY: y,
+                path   : []
+            });
+        };
+
+        sortZone.itemRects = [{left:0, top:0, width:100, height:40}];
+        sortZone.indexMap = {0: 0};
+        sortZone.currentIndex = 0;
+        sortZone.isScrolling = false;
+
+        sortZone.fire = (event) => {
+            if (event === 'dragBoundaryExit') sortZone.isWindowDragging = true;
+            if (event === 'dragBoundaryEntry') sortZone.isWindowDragging = false;
+        };
+
+        // In-window phase drives an item-scale DOM proxy: leaving the strip fires the exit
+        // (proxy-normalized, unchanged semantics) and pre-arms re-entry in coverage scale.
+        await simulateMove(300, 60, 100, 40);
+        expect(sortZone.isWindowDragging).toBe(true);
+        expect(sortZone.reattachArmed).toBe(true);
+        expect(sortZone.lastIntersectionRatio).toBe(0);
+
+        // Window-drag phase: the payload proxy is now vessel-sized (320×240 > the boundary).
+        // Far outside — coverage 0, still window-dragging.
+        await simulateMove(400, 200, 320, 240);
+        expect(sortZone.lastIntersectionRatio).toBe(0);
+        expect(sortZone.isWindowDragging).toBe(true);
+
+        // Partial return: the vessel covers ~54% of the strip — rising, but below the threshold.
+        await simulateMove(100, 10, 320, 240);
+        expect(sortZone.lastIntersectionRatio).toBeCloseTo(0.5424, 3);
+        expect(sortZone.isWindowDragging).toBe(true);
+
+        // Full strip cover: min-area coverage reads 1 and re-entry fires. Under a proxy-area
+        // denominator this sample would read 15386/76800 ≈ 0.2 and re-entry would be unreachable.
+        await simulateMove(0, 0, 320, 240);
+        expect(sortZone.lastIntersectionRatio).toBe(1);
+        expect(sortZone.isWindowDragging).toBe(false);
+    });
+
+    test('re-entry fires on placeholder-less zones instead of dying in the layout restore', async () => {
+        const mockOwner = {
+            id   : 'mockOwner3',
+            items: [{
+                id          : 'item3',
+                vdom        : {cls: ['neo-draggable']},
+                wrapperStyle: {}
+            }],
+            vdom           : {},
+            addDomListeners: () => {},
+            getDomRect     : () => Promise.resolve([{x:0, y:0, width:100, height:40}]),
+            on             : () => {}
+        };
+
+        sortZone = Neo.create(DashboardSortZone, {
+            owner             : mockOwner,
+            detachThreshold   : 0.8,
+            reattachThreshold : 0.6,
+            enableProxyToPopup: true
+        });
+
+        sortZone.boundaryContainerRect = new Rectangle(0, 0, 314, 49);
+        sortZone.dragProxy = { id: 'proxy3', destroy: () => {} };
+        // Projection-owned zones (dock tab strips) never create a drag placeholder: their
+        // in-window layout is owned by the committed model projection, so there is nothing to
+        // restore on re-entry — the EVENT is the whole contract. The restore block must not
+        // dereference the absent placeholder ahead of the fire.
+        sortZone.dragPlaceholder = null;
+
+        sortZone.lastIntersectionRatio = 1;
+        sortZone.isWindowDragging = false;
+
+        const simulateMove = async (x, y, width, height) => {
+            const proxyRect = new Rectangle(x, y, width, height);
+            await sortZone.onDragMove({
+                clientX: x,
+                clientY: y,
+                proxyRect,
+                screenX: x,
+                screenY: y,
+                path   : []
+            });
+        };
+
+        sortZone.itemRects = [{left:0, top:0, width:100, height:40}];
+        sortZone.indexMap = {0: 0};
+        sortZone.currentIndex = 0;
+        sortZone.isScrolling = false;
+
+        let entryFired = 0;
+
+        sortZone.fire = (event) => {
+            if (event === 'dragBoundaryExit') sortZone.isWindowDragging = true;
+            if (event === 'dragBoundaryEntry') {
+                entryFired++;
+                sortZone.isWindowDragging = false
+            }
+        };
+
+        // Exit past the strip (item-scale in-window proxy), pre-armed in coverage scale.
+        await simulateMove(300, 60, 100, 40);
+        expect(sortZone.isWindowDragging).toBe(true);
+        expect(sortZone.reattachArmed).toBe(true);
+
+        // Window-drag walk-back to full strip cover with the vessel-sized proxy: the crossing
+        // sample must FIRE the entry — with an unguarded placeholder dereference it throws
+        // before the fire and this await rejects.
+        await simulateMove(400, 200, 320, 240);
+        await simulateMove(0, 0, 320, 240);
+
+        expect(entryFired).toBe(1);
+        expect(sortZone.isWindowDragging).toBe(false);
     });
 
     test('does not move a remote drag visitor into the target when it leaves (#8162)', async () => {
@@ -421,9 +641,9 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
                     draggedItem: item,
                     widgetName : 'item1'
                 } : null,
-                onRemoteDropOut   : draggedItem => calls.push({draggedItem, type: 'dropOut'}),
-                sortGroup         : 'dashboards',
-                suspendWindowDrag : widgetName => {
+                onRemoteDropOut  : draggedItem => calls.push({draggedItem, type: 'dropOut'}),
+                sortGroup        : 'dashboards',
+                suspendWindowDrag: widgetName => {
                     calls.push({type: 'suspend', widgetName});
                     return Promise.resolve()
                 },
@@ -435,9 +655,13 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
                     calls.push({data, type: 'move'});
                     return Promise.resolve()
                 },
+                // Resolves to a real operation because this stub stands in for a target that COMMITS —
+                // `CrossWindowDragTarget.onRemoteDrop` returns the committed operation, or null when it
+                // declines, and source retirement is gated on that answer. Resolving to `undefined`
+                // described a target that took the item without saying so, which no real target does.
                 onRemoteDrop: draggedItem => {
                     calls.push({draggedItem, type: 'drop'});
-                    return Promise.resolve()
+                    return Promise.resolve({type: 'transferItem'})
                 },
                 sortGroup: 'dashboards',
                 windowId : 'target-window'
@@ -476,13 +700,20 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
 
         await new Promise(resolve => setTimeout(resolve, 20));
 
-        expect(calls.map(call => call.type)).toEqual(['suspend', 'move', 'drop', 'dropOut']);
+        // The pinned native sequence: the FIRST move is the continuous hover preview, rendered on
+        // the geometry event itself (per frame, before any dwell elapses); the commit then runs
+        // the landed refresh — suspend, a final move so the preview is current at the drop
+        // instant, drop, and outcome-gated source retirement. Dwell/settle still gate the COMMIT
+        // only; they no longer gate the preview.
+        expect(calls.map(call => call.type)).toEqual(['move', 'suspend', 'move', 'drop', 'dropOut']);
 
         const move = calls.find(call => call.type === 'move').data;
 
         expect(move.draggedItem).toBe(item);
-        expect(move.localX).toBe(100);
-        expect(move.localY).toBe(90);
+        // the anchor is the popup's OUTER top-left corner (150, 130) plus the 8px inset, in the
+        // target's local space — not the popup's centre
+        expect(move.localX).toBe(58);
+        expect(move.localY).toBe(38);
         expect(move.proxyRect.width).toBe(100);
         expect(move.proxyRect.height).toBe(80);
         expect(DragCoordinator.nativeWindowDropCandidates.size).toBe(0)
@@ -554,7 +785,271 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
 
         await new Promise(resolve => setTimeout(resolve, 70));
 
-        expect(calls).toEqual([]);
+        // The single 'move' is the continuous hover preview from the FIRST position event — the
+        // per-frame preview renders before dwell by design. The load-bearing assertion is what
+        // stays ABSENT after the popup leaves before settle: no suspend, no drop, no retirement —
+        // the departure cleared the candidate, so the commit never ran.
+        expect(calls).toEqual(['move']);
         expect(DragCoordinator.nativeWindowDropCandidates.size).toBe(0)
     });
+});
+
+/**
+ * @summary Expanded-layout flex distribution — `flex` is app-supplied, so every CSS spelling arrives.
+ *
+ * The defect these arms pin is that `calculateExpandedLayout` identified flex items with a truthiness
+ * test and then did arithmetic on the raw config. `'none'` is truthy, so `totalFlex += 'none'`
+ * concatenated and the division produced `NaN` — written into `style.width` as `'NaNpx'` with nothing
+ * thrown.
+ *
+ * **Finiteness is necessary and not sufficient.** A mixed numeric/string case concatenates into a
+ * *finite but wrong* total, which every finiteness assertion passes. So the load-bearing check is that
+ * the distributed sizes SUM to the available space — the property the distribution claims — and each
+ * arm asserts the shares themselves, never merely that nothing crashed.
+ */
+test.describe('Neo.draggable.dashboard.SortZone expanded-layout flex distribution (#17353)', () => {
+    let DashboardSortZone;
+
+    test.beforeAll(async () => {
+        DashboardSortZone = (await import('../../../../../src/draggable/dashboard/SortZone.mjs')).default
+    });
+
+    /**
+     * Builds a zone whose geometry makes the arithmetic readable: `count` adjacent `slot`-sized slots
+     * exactly filling the owner on the main axis.
+     *
+     * The owner is sized to `count * slot` **deliberately**, so every inferred offset and gap is zero
+     * and `availableSpace` is precisely what the fixed items leave. That is what lets each arm assert
+     * that the distributed sizes sum to the full span — with a slack owner the sum is a smaller number
+     * nobody can read off the fixture, and an assertion nobody can read is one nobody can falsify.
+     */
+    function layoutZone({flexValues, sortDirection = 'horizontal', slot = 100, cross = 100}) {
+        const
+            isHorizontal = sortDirection === 'horizontal',
+            count        = flexValues.length,
+            span         = count * slot,
+            itemRects    = Array.from({length: count}, (_, i) => ({
+                x     : isHorizontal ? i * slot : 0,
+                y     : isHorizontal ? 0 : i * slot,
+                width : isHorizontal ? slot : cross,
+                height: isHorizontal ? cross : slot
+            })),
+            zone = Neo.create(DashboardSortZone, {
+                owner: {
+                    id   : `flexOwner-${sortDirection}-${count}`,
+                    items: flexValues.map((flex, i) => {
+                        const item = {id: `i${i}`, vdom: {cls: ['neo-draggable']}, wrapperStyle: {}};
+
+                        // Absent is a distinct case from `'none'`: it is the shape most items have,
+                        // and it must stay on the fixed branch after the fix as it was before.
+                        if (flex !== undefined) {
+                            item.flex = flex
+                        }
+
+                        return item
+                    }),
+                    vdom           : {},
+                    addDomListeners: () => {},
+                    getDomRect     : () => Promise.resolve([{x: 0, y: 0, width: span, height: cross}]),
+                    on             : () => {}
+                }
+            });
+
+        zone.adjustItemRectsToParent = true;
+        zone.indexMap                = Object.fromEntries(itemRects.map((_, i) => [i, i]));
+        zone.itemRects               = itemRects;
+        zone.ownerItems              = [...zone.owner.items];
+        zone.ownerRect               = {
+            x     : 0,
+            y     : 0,
+            width : isHorizontal ? span : cross,
+            height: isHorizontal ? cross : span
+        };
+        zone.sortDirection = sortDirection;
+
+        return zone
+    }
+
+    /** The main-axis size each returned style carries, as a number. */
+    const mainSizes = (rects, sortDirection = 'horizontal') =>
+        rects.map(({style}) => parseFloat(sortDirection === 'horizontal' ? style.width : style.height));
+
+    test('a `flex: "none"` item produces a finite size instead of NaN geometry', () => {
+        const
+            zone  = layoutZone({flexValues: ['none', undefined, undefined]}),
+            rects = zone.calculateExpandedLayout();
+
+        // Every emitted number, not just the offending item's: a NaN size poisons `currentPos`, so the
+        // following items' `left` values inherit it. Asserting only the item that carries the bad flex
+        // would pass on a fix that de-NaNs the size and leaves the positions broken.
+        for (const {item, style} of rects) {
+            for (const [prop, value] of Object.entries(style)) {
+                expect(Number.isFinite(parseFloat(value)), `${item.id}.${prop} = ${value}`).toBe(true)
+            }
+        }
+
+        // `flex: none` is CSS for `0 0 auto`, so the item keeps its measured slot rather than growing.
+        expect(mainSizes(rects)).toEqual([100, 100, 100]);
+
+        zone.destroy()
+    });
+
+    test('a `flex: "none"` item is finite on the vertical axis too, where height is the poisoned field', () => {
+        const
+            zone  = layoutZone({flexValues: ['none', undefined], sortDirection: 'vertical'}),
+            rects = zone.calculateExpandedLayout();
+
+        expect(mainSizes(rects, 'vertical')).toEqual([100, 100]);
+        expect(rects.every(({style}) => Number.isFinite(parseFloat(style.top)))).toBe(true);
+
+        zone.destroy()
+    });
+
+    test('every slot still resolves after a window drag has moved the dragged item out of owner.items', () => {
+        // `Container#onDragBoundaryExit` re-parents the dragged widget into its popup before
+        // `startWindowDrag` lays out the rest, so the live `owner.items` is one shorter than the drag
+        // that built `indexMap`: each later slot shifted, and the last read past the end.
+        const zone = layoutZone({flexValues: [1, 1, 1]});
+
+        // A live drag always has a placeholder. Without one, the skip for it would match the
+        // `undefined` a stale index reads, and hide the defect this arm exists for.
+        zone.dragPlaceholder = {id: 'placeholder'};
+        zone.dragComponent   = zone.owner.items[0];
+        zone.owner.items.splice(0, 1);
+
+        const rects = zone.calculateExpandedLayout();
+
+        expect(rects.map(({item}) => item.id)).toEqual(['i1', 'i2']);
+        expect(mainSizes(rects)).toEqual([150, 150]);
+
+        zone.destroy()
+    });
+
+    test('numeric flex distributes the full available space in proportion — the positive control', () => {
+        const
+            zone  = layoutZone({flexValues: [1, 3]}),
+            rects = zone.calculateExpandedLayout(),
+            sizes = mainSizes(rects);
+
+        // No fixed items, so the whole 200px span is distributed 1:3. These are the values the
+        // pre-fix code produced for purely numeric flex, unchanged — the fix must not disable the
+        // flex path while removing the string hazard.
+        expect(sizes).toEqual([50, 150]);
+        expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(200);
+
+        zone.destroy()
+    });
+
+    test('a numeric string mixed with a number distributes correctly — finite was never the whole property', () => {
+        const
+            zone  = layoutZone({flexValues: [2, '3']}),
+            rects = zone.calculateExpandedLayout(),
+            sizes = mainSizes(rects);
+
+        // Pre-fix this produced FINITE garbage, not NaN: `0 + 2` is 2, then `2 + '3'` concatenates to
+        // `'23'`, so the shares came out as 2/23 and 3/23 of the span — under a quarter of the
+        // container, silently. A finiteness assertion passes that. The sum is what does not.
+        expect(sizes).toEqual([80, 120]);
+        expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(200);
+
+        zone.destroy()
+    });
+
+    test('flex items and fixed items share one span without double-counting', () => {
+        const
+            zone  = layoutZone({flexValues: ['none', 1, 1]}),
+            rects = zone.calculateExpandedLayout(),
+            sizes = mainSizes(rects);
+
+        // The fixed item keeps its 100px slot; the remaining 200px splits evenly.
+        expect(sizes).toEqual([100, 100, 100]);
+        expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(300);
+
+        zone.destroy()
+    });
+
+    test('resolveFlexWeight reads the shorthand grow factor', () => {
+        const zone = layoutZone({flexValues: [1]});
+
+        expect(zone.resolveFlexWeight(2)).toBe(2);
+        expect(zone.resolveFlexWeight('2')).toBe(2);
+        expect(zone.resolveFlexWeight(0.5)).toBe(0.5);
+
+        // Shorthands, which this codebase writes routinely. Grow is the FIRST token.
+        expect(zone.resolveFlexWeight('1 1 auto')).toBe(1);
+        expect(zone.resolveFlexWeight('1 1 600px')).toBe(1);
+        expect(zone.resolveFlexWeight('1 1 100%')).toBe(1);
+        expect(zone.resolveFlexWeight('0 1 auto')).toBe(null);   // grow 0 — the common "do not grow" shorthand
+        expect(zone.resolveFlexWeight('0 0 200px')).toBe(null);
+
+        // Keywords, expanded as CSS defines them rather than guessed at.
+        expect(zone.resolveFlexWeight('none')).toBe(null);       // 0 0 auto
+        expect(zone.resolveFlexWeight('initial')).toBe(null);    // 0 1 auto
+        expect(zone.resolveFlexWeight('auto')).toBe(1);          // 1 1 auto
+
+        expect(zone.resolveFlexWeight(0)).toBe(null);            // grows nothing; matches the old falsy path
+        expect(zone.resolveFlexWeight('0')).toBe(null);          // the truthy spelling of the same thing
+        expect(zone.resolveFlexWeight(-1)).toBe(null);
+        expect(zone.resolveFlexWeight(undefined)).toBe(null);    // the routine case: no flex declared
+        expect(zone.resolveFlexWeight(null)).toBe(null);
+        expect(zone.resolveFlexWeight('')).toBe(null);
+        expect(zone.resolveFlexWeight('   ')).toBe(null);
+
+        zone.destroy()
+    });
+
+    test('CSS-equivalent spellings resolve alike — the leading-number scan they refute', () => {
+        const zone = layoutZone({flexValues: [1]});
+
+        // `auto` IS `1 1 auto`. A scan for the first number in the string resolves the pair to null
+        // and 1 respectively, which is the defect @neo-gpt-emmy named on review.
+        expect(zone.resolveFlexWeight('auto')).toBe(zone.resolveFlexWeight('1 1 auto'));
+        // `none` IS `0 0 auto`.
+        expect(zone.resolveFlexWeight('none')).toBe(zone.resolveFlexWeight('0 0 auto'));
+
+        zone.destroy()
+    });
+
+    test('a weight is never invented from a value that does not carry one', () => {
+        const zone = layoutZone({flexValues: [1]});
+
+        // A lone length is a BASIS: CSS grows it by 1. A leading-number scan returns 100 — a
+        // hundredfold error that is finite, plausible, and therefore invisible.
+        expect(zone.resolveFlexWeight('100px')).toBe(1);
+        expect(zone.resolveFlexWeight('50%')).toBe(1);
+
+        // Garbage resolves to fixed rather than to the number it happens to start with.
+        expect(zone.resolveFlexWeight('1oops')).toBe(null);
+        expect(zone.resolveFlexWeight('px')).toBe(null);
+        expect(zone.resolveFlexWeight('1 2 3 4')).toBe(null);
+
+        zone.destroy()
+    });
+
+    test('a bad token anywhere invalidates the declaration, not just a bad first one', () => {
+        const zone = layoutZone({flexValues: [1]});
+
+        // @neo-gpt-emmy's round-2 RA. A browser drops the WHOLE declaration on one invalid token,
+        // so each of these leaves the item not flexible. Validating only position 0 would have read
+        // grow 1 off every one of them — the same invent-a-weight defect one position further along.
+        expect(zone.resolveFlexWeight('1 oops')).toBe(null);      // shrink is not a number or a basis
+        expect(zone.resolveFlexWeight('1 -1 auto')).toBe(null);   // a negative shrink is rejected
+        expect(zone.resolveFlexWeight('-1 1 auto')).toBe(null);   // and so is a negative grow
+        expect(zone.resolveFlexWeight('1 2 3')).toBe(null);       // a bare 3 is not a basis
+        expect(zone.resolveFlexWeight('1 1 none')).toBe(null);    // `none` is not a basis either
+
+        // The valid neighbours, which must survive the same validation.
+        expect(zone.resolveFlexWeight('1 2 3px')).toBe(1);
+        expect(zone.resolveFlexWeight('1 2')).toBe(1);            // <grow> <shrink>
+        expect(zone.resolveFlexWeight('1 auto')).toBe(1);         // <grow> <basis>
+        expect(zone.resolveFlexWeight('1 1 0')).toBe(1);          // unitless zero IS a valid basis
+        expect(zone.resolveFlexWeight('1 0 content')).toBe(1);
+
+        // Non-string, non-number inputs never reach Number()'s coercions.
+        expect(zone.resolveFlexWeight(true)).toBe(null);
+        expect(zone.resolveFlexWeight([2])).toBe(null);
+        expect(zone.resolveFlexWeight({})).toBe(null);
+
+        zone.destroy()
+    })
 });

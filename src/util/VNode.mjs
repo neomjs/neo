@@ -47,6 +47,35 @@ class VNode extends Base {
     }
 
     /**
+     * Unlinks, in place, every `{componentId}` reference whose component has left the registry. The DOM node such a
+     * component rendered stays until an update diffs it away, so the tree mirroring that DOM keeps it: as the vnode
+     * the component last rendered when `retired` holds it, otherwise as a bare node with its id. The strict walkers
+     * then never resolve a name the registry no longer knows, and the next update removes the node, or diffs a new
+     * component with the same id against it. Only the tree's own inline nodes are walked: a live reference is kept,
+     * never followed, since the stored vnode behind it is that component's own to keep clean.
+     * @param {Object} vnode
+     * @param {Object} [retired={}] The vnode a retiring component last rendered, keyed by its id
+     * @returns {Number} The number of references unlinked
+     */
+    static unlinkRetiredReferences(vnode, retired={}) {
+        let childNodes = vnode?.childNodes,
+            unlinked   = 0;
+
+        childNodes?.forEach((child, index) => {
+            if (child?.componentId && !ComponentManager.get(child.componentId)) {
+                child = childNodes[index] = retired[child.componentId] || {id: child.id || child.componentId};
+                unlinked++
+            }
+
+            if (!child?.componentId) {
+                unlinked += VNode.unlinkRetiredReferences(child, retired)
+            }
+        });
+
+        return unlinked
+    }
+
+    /**
      * Search vnode child nodes by id or opts object for a given vdom tree
      * @param {Object} vnode
      * @param {Object|String} opts Either an object containing vdom node attributes or a string based id

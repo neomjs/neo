@@ -54,6 +54,13 @@ class Splitter extends Component {
          */
         dragZoneConfig: null,
         /**
+         * True resizes the selected sibling throughout the pointer gesture. False preserves the
+         * proxy-first interaction and applies the resolved size on drag:end.
+         * @member {Boolean} liveResize_=false
+         * @reactive
+         */
+        liveResize_: false,
+        /**
          * Choose which sibling to resize
          * Valid values: 'next' or 'previous'
          * @member {String} resizeTarget_='next'
@@ -70,6 +77,13 @@ class Splitter extends Component {
     }
 
     /**
+     * Monotonic token which invalidates an asynchronous DragZone start after end, cancel, or destroy.
+     * @member {Number} dragGeneration=0
+     * @protected
+     */
+    dragGeneration = 0
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -80,7 +94,193 @@ class Splitter extends Component {
         me.addDomListeners([
             {'drag:end'  : me.onDragEnd,   scope: me},
             {'drag:start': me.onDragStart, scope: me}
-        ])
+        ]);
+
+        me.createDragZone()
+    }
+
+    /**
+     * Commits one main-thread-resolved size to the layout-owned sibling wrapper.
+     * @param {Number} value
+     * @param {String} axis
+     * @param {String} targetId
+     * @returns {Boolean}
+     * @protected
+     */
+    applyResize(value, axis, targetId) {
+        let me      = this,
+            sibling = targetId
+                ? me.parent?.items.find(item => me.getLayoutElementId(item) === targetId)
+                : me.getResizeSibling();
+
+        if (!sibling || !Number.isFinite(value) || !['height', 'width'].includes(axis)) {
+            return false
+        }
+
+        sibling.wrapperStyle = {
+            ...(sibling.wrapperStyle || {}),
+            flex  : 'none',
+            [axis]: `${value}px`
+        };
+
+        return true
+    }
+
+    /**
+     * Creates and registers the shared gesture controller before the first pointer interaction.
+     * @returns {Neo.draggable.DragZone}
+     * @protected
+     */
+    createDragZone() {
+        let me       = this,
+            vertical = me.direction === 'vertical';
+
+        me.dragZone = Neo.create({
+            module: DragZone,
+            ...me.dragZoneConfig,
+            appName            : me.appName,
+            bodyCursorStyle    : me.getCursorStyle(),
+            boundaryContainerId: me.parentId,
+            dragElement        : me.vdom,
+            moveHorizontal     : vertical,
+            moveVertical       : !vertical,
+            owner              : me,
+            resizeConfig       : me.getResizeConfig(),
+            useProxy           : !me.liveResize,
+            useProxyWrapper    : false,
+            windowId           : me.windowId
+        });
+
+        me.dragZone.on('dragCancel', me.onDragCancel, me);
+
+        return me.dragZone
+    }
+
+    /**
+     * Clears App-Worker presentation state. Transient target geometry is main-thread-owned.
+     * @protected
+     */
+    cleanupResize() {
+        let me = this;
+
+        if (me.parent) {
+            me.parent.disabled = false
+        }
+
+        me.style = {...(me.style || {}), opacity: 1}
+    }
+
+    /**
+     * Destroys the owned DragZone so its main-thread registration cannot outlive the Splitter.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me         = this,
+            {dragZone} = me;
+
+        me.dragGeneration++;
+        me.cleanupResize();
+
+        if (dragZone && !dragZone.isDestroyed) {
+            dragZone.dragProxy && dragZone.dragEnd({cancelled: true});
+            dragZone.destroy()
+        }
+
+        me.dragZone = null;
+
+        super.destroy(...args)
+    }
+
+    /**
+     * Returns the cursor matching the current resize axis.
+     * @returns {String}
+     * @protected
+     */
+    getCursorStyle() {
+        return this.direction === 'vertical' ? 'ew-resize !important' : 'ns-resize !important'
+    }
+
+    /**
+     * Returns the outer DOM node which participates in the parent layout. Components with a custom
+     * VDOM root keep their public id on an inner node and use the top-level VDOM node as a wrapper.
+     * @param {Neo.component.Base} component
+     * @returns {String}
+     * @protected
+     */
+    getLayoutElementId(component) {
+        return component.vdom?.id || component.id
+    }
+
+    /**
+     * Builds the main-thread-only descriptor for the current target and resize axis.
+     * @returns {Object|null}
+     * @protected
+     */
+    getResizeConfig() {
+        let me      = this,
+            parent  = me.parent,
+            sibling = me.getResizeSibling();
+
+        if (!parent || !sibling) return null;
+
+        return {
+            axis        : me.direction === 'vertical' ? 'width' : 'height',
+            parentId    : me.getLayoutElementId(parent),
+            preview     : me.liveResize,
+            resizeNext  : me.resizeTarget === 'next',
+            splitterSize: me.size,
+            targetId    : me.getLayoutElementId(sibling)
+        }
+    }
+
+    /**
+     * Returns the configured sibling target, if the Splitter still has one.
+     * @returns {Neo.component.Base|null}
+     * @protected
+     */
+    getResizeSibling() {
+        let me     = this,
+            parent = me.parent,
+            index  = parent?.indexOf(me);
+
+        return Number.isInteger(index) ? parent.items[me.resizeTarget === 'next' ? index + 1 : index - 1] || null : null
+    }
+
+    /**
+     * Refreshes per-gesture facts while preserving the eagerly registered DragZone identity.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async refreshDragZone() {
+        let me       = this,
+            vertical = me.direction === 'vertical';
+
+        if (!me.dragZone || me.dragZone.isDestroyed) return;
+
+        me.dragZone.set({
+            bodyCursorStyle    : me.getCursorStyle(),
+            boundaryContainerId: me.parentId,
+            dragElement        : me.vdom,
+            moveHorizontal     : vertical,
+            moveVertical       : !vertical,
+            resizeConfig       : me.getResizeConfig(),
+            useProxy           : !me.liveResize,
+            windowId           : me.windowId
+        });
+
+        await me.dragZone.registerZone()
+    }
+
+    /**
+     * Registers only after the complete sibling set exists, closing the first-gesture handshake gap.
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        if (!this.isDestroyed) {
+            await this.refreshDragZone()
+        }
     }
 
     /**
@@ -107,7 +307,31 @@ class Splitter extends Component {
             minHeight: height,
             minWidth : width,
             width
-        })
+        });
+
+        me.dragZone && me.refreshDragZone()
+    }
+
+    /**
+     * Keeps the DragZone embodiment mode aligned with the public interaction mode.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetLiveResize(value, oldValue) {
+        if (this.dragZone) {
+            this.refreshDragZone()
+        }
+    }
+
+    /**
+     * Refreshes the main-thread target descriptor after the selected sibling changes.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetResizeTarget(value, oldValue) {
+        this.dragZone && this.refreshDragZone()
     }
 
     /**
@@ -117,7 +341,8 @@ class Splitter extends Component {
      * @protected
      */
     afterSetSize(value, oldValue) {
-        this[this.direction === 'vertical' ? 'width' : 'height'] = value
+        this[this.direction === 'vertical' ? 'width' : 'height'] = value;
+        this.dragZone && this.refreshDragZone()
     }
 
     /**
@@ -132,7 +357,8 @@ class Splitter extends Component {
         let {dragZone} = this;
 
         if (dragZone) {
-            dragZone.windowId = value
+            dragZone.windowId = value;
+            this.refreshDragZone()
         }
     }
 
@@ -162,95 +388,51 @@ class Splitter extends Component {
      * @param {Object} data
      */
     onDragEnd(data) {
-        let me                       = this,
-            style                    = me.style || {},
-            {parent, parentId, size} = me,
-            resizeNext               = me.resizeTarget === 'next',
-            index, newSize, sibling;
+        let me = this;
 
-        parent.disabled = false;
+        me.dragGeneration++;
 
-        me.dragZone.dragEnd(data);
+        if (!data.cancelled) {
+            me.applyResize(Number(data.resizeSize), data.resizeAxis, data.resizeTargetId)
+        }
 
-        style.opacity = 1;
+        me.cleanupResize();
+        me.dragZone.dragEnd(data)
+    }
 
-        me.style = style;
-
-        me.getDomRect(parentId).then(parentRect => {
-            index   = parent.indexOf(me);
-            sibling = parent.items[resizeNext ? index + 1 :index - 1];
-            style   = sibling.style || {};
-
-            style.flex = 'none';
-
-            if (me.direction === 'vertical') {
-                newSize = data.clientX - data.offsetX - size - parentRect.left;
-
-                if (resizeNext) {
-                    newSize = parentRect.width - newSize -  2 * size
-                } else {
-                    newSize += size
-                }
-
-                newSize = Math.min(Math.max(newSize, 0), parentRect.width - size);
-
-                style.width = `${newSize}px`
-            } else {
-                newSize = data.clientY - data.offsetY - size - parentRect.top;
-
-                if (resizeNext) {
-                    newSize = parentRect.height - newSize -  2 * size
-                } else {
-                    newSize += size
-                }
-
-                newSize = Math.min(Math.max(newSize, 0), parentRect.height - size);
-
-                style.height = `${newSize}px`
-            }
-
-            sibling.style = style
-        })
+    /**
+     * Restores owner and target state when Escape terminates the logical gesture before drag:end.
+     * @param {Object} data
+     * @protected
+     */
+    onDragCancel(data) {
+        this.dragGeneration++;
+        this.cleanupResize()
     }
 
     /**
      * @param data
      */
-    onDragStart(data) {
-        let me                  = this,
-            style               = me.style || {},
-            vertical            = me.direction === 'vertical',
-            {appName, windowId} = me;
+    async onDragStart(data) {
+        let me         = this,
+            generation = ++me.dragGeneration;
 
-        me.parent.disabled = true;
+        await me.refreshDragZone();
 
-        if (!me.dragZone) {
-            me.dragZone = Neo.create({
-                module             : DragZone,
-                appName,
-                bodyCursorStyle    : vertical ? 'ew-resize !important' : 'ns-resize !important',
-                boundaryContainerId: me.parentId,
-                dragElement        : me.vdom,
-                moveHorizontal     : vertical,
-                moveVertical       : !vertical,
-                owner              : me,
-                useProxyWrapper    : false,
-                windowId,
-                ...me.dragZoneConfig
-            })
-        } else {
-            me.dragZone.set({
-                bodyCursorStyle: vertical ? 'ew-resize !important' : 'ns-resize !important',
-                moveHorizontal : vertical,
-                moveVertical   : !vertical
-            })
+        if (me.dragZone.useProxy) {
+            me.parent.disabled = true
         }
 
-        me.dragZone.dragStart(data);
+        await me.dragZone.dragStart(data);
 
-        style.opacity = 0.5;
+        if (generation !== me.dragGeneration || me.isDestroyed) {
+            !me.dragZone.isDestroyed && me.dragZone.dragEnd({cancelled: true});
+            return
+        }
 
-        me.style = style
+        if (me.dragZone.useProxy) {
+            me.style = {...(me.style || {}), opacity: 0.5}
+        }
     }
 }
 

@@ -1,5 +1,4 @@
-import Base      from './Base.mjs';
-import DomAccess from '../DomAccess.mjs';
+import Base from './Base.mjs';
 
 /**
  * @summary Main Thread Addon for rendering Mermaid diagrams with dynamic theme support.
@@ -34,10 +33,25 @@ class Mermaid extends Base {
             'render'
         ],
         /**
-         * @member {String} mermaidPath=Neo.config.basePath+'node_modules/mermaid/dist/mermaid.min.js'
+         * OUR build of mermaid, not the published one.
+         *
+         * Mermaid's published chunks carry vendored UMD wrappers — `fastdom` among them — which hand
+         * any global AMD loader an ANONYMOUS factory and get refused with `Can only have one anonymous
+         * define call per script file`. Monaco's AMD distribution put such a loader on every portal route.
+         *
+         * Switching the entry from the UMD bundle to the published ESM one removed the registration
+         * at LOAD time and left it at first RENDER, because the 30 KB entry lazily imports 206
+         * chunks and ten of them still register. `buildScripts/build/mermaid.mjs` rebuilds the
+         * package with esbuild, substituting the `define` identifier across the whole module graph,
+         * and refuses to emit an artifact that still carries one.
+         *
+         * Pointing at `dist/` rather than `node_modules/` is also what makes the library reachable
+         * in a deployed build, where `node_modules` is not part of the tree. Same shape as
+         * `util.HighlightJs#load` consuming `dist/highlight/`.
+         * @member {String} mermaidPath=Neo.config.basePath+'dist/mermaid.mjs'
          * @protected
          */
-        mermaidPath: Neo.config.basePath + 'node_modules/mermaid/dist/mermaid.min.js',
+        mermaidPath: Neo.config.basePath + 'dist/mermaid.mjs',
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -55,15 +69,39 @@ class Mermaid extends Base {
     }
 
     /**
-     * Loads the Mermaid library if it is not already present.
-     * Initializes the library with `startOnLoad: false` to allow manual control over rendering.
+     * The imported library, held here rather than on `window`.
+     *
+     * A UMD bundle publishes itself as a global; a module export does not, and inventing the global
+     * back would re-create a name any other script on the page can collide with. Same shape as
+     * `util.HighlightJs#hljs`.
+     * @member {Object|null} mermaid=null
+     * @protected
+     */
+    mermaid = null
+
+    /**
+     * Imports the Mermaid library if it is not already loaded.
+     * Initializes it with `startOnLoad: false` to keep rendering under this addon's control.
      * @returns {Promise<void>}
      */
     async loadFiles() {
-        if (window.mermaid) return;
+        let me = this;
 
-        await DomAccess.loadScript(this.mermaidPath);
-        mermaid.initialize({startOnLoad: false})
+        if (me.mermaid) return;
+
+        // Resolved against the DOCUMENT, not against this module. `Neo.config.basePath` is written
+        // for `DomAccess.loadScript`, whose `<script src>` is document-relative; a dynamic import
+        // resolves against the importing module's own URL instead, so a bare `../../` from
+        // `src/main/addon/` lands on `/src/node_modules/...` and 404s. Depth-independent here, so
+        // moving this file cannot silently break the path.
+        //
+        // `webpackIgnore`, so the bundler leaves the specifier alone and it resolves at runtime —
+        // the same treatment `util.HighlightJs#load` gives its library.
+        const path   = new URL(me.mermaidPath, document.baseURI).href,
+              module = await import(/* webpackIgnore: true */ path);
+
+        me.mermaid = module.default;
+        me.mermaid.initialize({startOnLoad: false})
     }
 
     /**
@@ -92,7 +130,13 @@ class Mermaid extends Base {
                     element.textContent = data.code
                 }
 
-                mermaid.run({
+                // AWAITED, and that is the whole point. `mermaid.run` is `(options?) => Promise<void>`
+                // and it REJECTS on a parse error — measured: `Parse error on line 2 … Expecting
+                // 'SEMI', 'NEWLINE'`. Un-awaited inside this `try`, the rejection was unhandled, so
+                // the `catch` below could not fire, the error message never reached the page, and
+                // this `async` method resolved before rendering had finished. The guarantee was
+                // written in code that could not execute.
+                await this.mermaid.run({
                     nodes: [element]
                 })
             } catch (e) {

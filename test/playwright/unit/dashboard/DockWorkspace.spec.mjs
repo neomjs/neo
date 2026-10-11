@@ -1,0 +1,5035 @@
+import {setup} from '../../setup.mjs';
+
+setup({
+    appConfig: {
+        name: 'DashboardDockWorkspaceTest'
+    }
+});
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import '../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
+import '../../../../src/tab/Container.mjs';    // registers the `tab-container` ntype the projection emits
+import Container                from '../../../../src/container/Base.mjs';
+import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
+import DockService              from '../../../../src/ai/client/DockService.mjs';
+import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
+import HeaderActions            from '../../../../src/dashboard/dock/plugin/HeaderActions.mjs';
+import TransactionManager       from '../../../../src/manager/Transaction.mjs';
+import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import WorkspaceSet             from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import Operations               from '../../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
+import DomApiVnodeCreator       from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import VdomHelper               from '../../../../src/vdom/Helper.mjs';
+
+const createDocument = () => ({
+    schema: 'neo.dock.zone.v1',
+    root  : 'root',
+    items : {
+        editor  : {reference: 'Editor',   title: 'Editor'},
+        preview : {reference: 'Preview',  title: 'Preview'},
+        terminal: {reference: 'Terminal', title: 'Terminal'}
+    },
+    nodes: {
+        root         : {type: 'edge-zone', zones: {center: {nodeId: 'root-split'}}},
+        'root-split' : {type: 'split', orientation: 'horizontal', children: ['editor-tabs', 'side-tabs'], sizes: [0.6, 0.4]},
+        'editor-tabs': {type: 'tabs', items: ['editor'],              activeItemId: 'editor'},
+        'side-tabs'  : {type: 'tabs', items: ['preview', 'terminal'], activeItemId: 'preview'}
+    }
+});
+
+const createEmptyDocument = () => ({
+    schema: 'neo.dock.zone.v1',
+    root  : 'root',
+    items : {},
+    nodes : {
+        root        : {type: 'edge-zone', zones: {center: {nodeId: 'empty-tabs'}}},
+        'empty-tabs': {type: 'tabs', items: []}
+    }
+});
+
+const createEdgeDocument = () => ({
+    schema: 'neo.dock.zone.v1',
+    root  : 'root',
+    items : {
+        center   : {reference: 'Center',    title: 'Center'},
+        inspector: {reference: 'Inspector', title: 'Inspector'}
+    },
+    nodes: {
+        root            : {
+            type : 'edge-zone',
+            zones: {
+                center: {nodeId: 'center-tabs'},
+                right : {nodeId: 'inspector-tabs', extent: 0.25, resizable: true}
+            }
+        },
+        'center-tabs'   : {type: 'tabs', items: ['center'], activeItemId: 'center'},
+        'inspector-tabs': {type: 'tabs', items: ['inspector'], activeItemId: 'inspector'}
+    }
+});
+
+/**
+ * A host that projects its OWN header actions through the documented options hook — the seam a real
+ * application uses, exercised end to end rather than through the adapter in isolation.
+ */
+const hostResolverCalls = [];
+
+/** @summary Explicit native admission is a Group operation, even for a view without gesture handlers. */
+const acquireNative = async (workspace, request) => {
+    await workspace.loadTransactionManager();
+    if (!workspace.nativeWindows) {
+        workspace.nativeWindows = TransactionManager.getNativeLifecycle(workspace.topologyGroupId);
+        workspace.nativeWindows.registerSource(workspace.id, {
+            keyFor: workspace.tearOutWorkspaceKey.bind(workspace),
+            open  : workspace.openTearOutVessel.bind(workspace),
+            close : workspace.closeTearOutVessel.bind(workspace)
+        })
+    }
+    return workspace.nativeWindows.acquire(workspace.id, request)
+};
+
+
+class HostActionWorkspace extends DockWorkspace {
+    static config = {
+        className            : 'Test.Unit.Dashboard.DockWorkspace.HostActionWorkspace',
+        enableDockCloseAction: false,
+        enableDockPinAction  : false,
+        layout               : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    // Module-scoped rather than an instance field: a plain class field on a Neo class enters the
+    // config machinery and fails its descriptor lookup. State belongs in `static config`, and a test
+    // probe belongs outside the class entirely.
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {
+            resolveDockHeaderActions: nodeId => {
+                hostResolverCalls.push(nodeId);
+                return [{action: 'pin', iconCls: 'fa fa-thumbtack'}]
+            }
+        }
+    }
+}
+
+/**
+ * A host that owns BOTH engine names while both opt-ins are off. Separate from
+ * {@link HostActionWorkspace} because the name-reservation contract is per-action — `close` and `pin`
+ * each belong to the host exactly while their own flag is off — and one fixture claiming both is the
+ * only way to show the two guards are symmetric rather than one being a special case.
+ */
+class HostBothActionsWorkspace extends DockWorkspace {
+    static config = {
+        className            : 'Test.Unit.Dashboard.DockWorkspace.HostBothActionsWorkspace',
+        enableDockCloseAction: false,
+        enableDockPinAction  : false,
+        layout               : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {
+            resolveDockHeaderActions: () => [
+                {action: 'close', iconCls: 'fa fa-xmark'},
+                {action: 'pin',   iconCls: 'fa fa-thumbtack'}
+            ]
+        }
+    }
+}
+
+/**
+ * The minimal consumer: the document arrives as a config-assigned field, the projection sits at
+ * shell index 0 of the workspace itself, and nothing is overridden.
+ */
+class PlainWorkspace extends DockWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.PlainWorkspace',
+        layout   : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        // The app boot the fixture stands in for: the host window bound into its Group at connect.
+        TransactionManager.bind({windowId: this.windowId, workspaceKey: 'main'});
+        this.add(this.projectDockModel())
+    }
+}
+
+/** @summary A transferable single-stack host using the ordinary projection pipeline. */
+class StackWorkspace extends PlainWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.StackWorkspace'
+    }
+
+    /** @summary Enables the adapter's existing whole-stack affordance. @returns {Object} */
+    getDockProjectionOptions() {
+        return {...super.getDockProjectionOptions(), enableStackDrag: true}
+    }
+
+    /** @summary Supplies a consumer-authored header for the retention control. @param {String} itemId @returns {Object} */
+    resolvePane(itemId) {
+        return {ntype: 'component', header: {text: `Authored ${itemId}`, iconCls: 'fa fa-code'}}
+    }
+}
+
+for (const retainTopology of [false, true]) {
+    test(`stack grips follow retained pane headers across arrival and selection (retain=${retainTopology})`, async () => {
+        const document = {
+            schema: 'neo.dock.zone.v1', root: 'vessel',
+            items : {editor: {reference: 'Editor', title: 'Editor'}},
+            nodes : {
+                vessel: {type: 'edge-zone', zones: {center: {nodeId: 'stack'}}},
+                stack : {type: 'tabs', items: ['editor'], activeItemId: 'editor'}
+            }
+        }, authoredHeader = {text: 'Authored editor', iconCls: 'fa fa-code'},
+            host = Neo.create(StackWorkspace, {dockModel: document});
+
+        const tabs  = () => host.down({dockNodeId: 'stack'}),
+              grips = () => tabs().getTabButtons().map(button =>
+            (Array.isArray(button.text) ? button.text : []).filter(node =>
+                node?.cls?.includes('neo-dock-stack-handle')).map(node => node.id));
+
+        try {
+            await host.ready();
+            expect(grips(), 'the initial projection supplies the positive control').toEqual([['neo-dock-stack-handle-editor']]);
+            expect(tabs().getTabButtons()[0].text[0].text).toBe(authoredHeader.text);
+            const editor = tabs().getCardContainer().items[0],
+                  next   = structuredClone(document);
+
+            next.items.preview = {reference: 'Preview', title: 'Preview'};
+            next.nodes.stack.items.push('preview');
+            next.nodes.stack.activeItemId = 'preview';
+            host.setSilent({dockModel: next});
+            await host.refreshDockWorkspace(null, next, {retainTopology});
+
+            expect(grips(), 'only the newly active pane presents a grip').toEqual([[], ['neo-dock-stack-handle-preview']]);
+            expect(tabs().getCardContainer().items[0]).toBe(editor);
+
+            const selected = structuredClone(next);
+            selected.nodes.stack.activeItemId = 'editor';
+            host.setSilent({dockModel: selected});
+            await host.refreshDockWorkspace(null, selected, {retainTopology});
+
+            expect(grips(), 'selection transfers the sole grip without stacking decorations')
+                .toEqual([['neo-dock-stack-handle-editor'], []]);
+            await host.refreshDockWorkspace(null, selected, {retainTopology});
+            expect(grips(), 'a repair pass over the same projection is idempotent')
+                .toEqual([['neo-dock-stack-handle-editor'], []]);
+
+            const options = host.getDockProjectionOptions.bind(host);
+            host.getDockProjectionOptions = () => ({...options(), enableStackDrag: false});
+            await host.refreshDockWorkspace(null, selected, {retainTopology});
+            expect(grips(), 'removing the opt-in restores ordinary headers').toEqual([[], []]);
+            expect(tabs().getTabBar().sortZone.dockGroupNodeId).toBeNull();
+            expect(editor.header, 'the consumer header survives projection and materialization')
+                .toEqual({...authoredHeader, dockItemId: 'editor'});
+            expect(tabs().getCardContainer().items[0]).toBe(editor)
+        } finally {
+            host.destroy()
+        }
+    })
+}
+
+/**
+ * The mistake this guard exists for: the tear-out lifecycle on, and `getDockProjectionOptions`
+ * replaced rather than extended. Every real host writes this shape by accident, because returning
+ * an object literal is the obvious way to answer a hook.
+ */
+class DroppedOptInsWorkspace extends DockWorkspace {
+    static config = {
+        className                 : 'Test.Unit.Dashboard.DockWorkspace.DroppedOptInsWorkspace',
+        enableDockTearOutLifecycle: true,
+        layout                    : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {onDockActiveIndexChange: () => {}}
+    }
+}
+
+/**
+ * The subtler mistake, and the one a flag-only check would certify: the host writes
+ * `enableDockTearOut` by hand, so the obvious predicate is satisfied while none of the gesture
+ * handlers `super` contributes are present. `apps/workstation` writes the flag by hand, so this is
+ * a shape the codebase already contains rather than an invented one.
+ */
+class HandWrittenFlagWorkspace extends DockWorkspace {
+    static config = {
+        className                 : 'Test.Unit.Dashboard.DockWorkspace.HandWrittenFlagWorkspace',
+        enableDockTearOutLifecycle: true,
+        layout                    : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {enableDockTearOut: true}
+    }
+}
+
+/**
+ * The same override with the lifecycle OFF. Nothing was promised, so nothing was dropped and the
+ * guard must stay silent — a host that never wanted tear-out is not misconfigured.
+ */
+class NoLifecycleWorkspace extends DockWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.NoLifecycleWorkspace',
+        layout   : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {onDockActiveIndexChange: () => {}}
+    }
+}
+
+/**
+ * The correct shape: `super` first, then the host's own additions.
+ */
+class KeptOptInsWorkspace extends DockWorkspace {
+    static config = {
+        className                 : 'Test.Unit.Dashboard.DockWorkspace.KeptOptInsWorkspace',
+        enableDockTearOutLifecycle: true,
+        layout                    : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {
+            ...super.getDockProjectionOptions(),
+            crossWindowSortGroup: 'test-cross-window'
+        }
+    }
+}
+
+/**
+ * Tear-out on and `super` spread, but no cross-window sort group: the window goes out and has no
+ * way back. The shape the Fleet cockpit shipped.
+ */
+class NoSortGroupWorkspace extends DockWorkspace {
+    static config = {
+        className                 : 'Test.Unit.Dashboard.DockWorkspace.NoSortGroupWorkspace',
+        enableDockTearOutLifecycle: true,
+        layout                    : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {...super.getDockProjectionOptions()}
+    }
+}
+
+/**
+ * A blank group registers nothing either: the coordinator and the participation lifecycle both test
+ * the group for truthiness.
+ */
+class BlankSortGroupWorkspace extends NoSortGroupWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.BlankSortGroupWorkspace'
+    }
+
+    getDockProjectionOptions() {
+        return {...super.getDockProjectionOptions(), crossWindowSortGroup: ''}
+    }
+}
+
+/**
+ * A consumer with app chrome ahead of the shell and every hook overridden.
+ */
+class ChromeWorkspace extends DockWorkspace {
+    static config = {
+        className           : 'Test.Unit.Dashboard.DockWorkspace.ChromeWorkspace',
+        dockProjectionConfig: {flex: 1},
+        dockShellIndex      : 1,
+        flipMarkerPrefix    : 'chrome-pane-',
+        layout              : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    beforeRefreshCalls = []
+    preserved          = ['terminal']
+
+    construct(config) {
+        super.construct(config);
+        this.add([{module: Container, cls: ['chrome-bar'], flex: 'none'}, this.projectDockModel()])
+    }
+
+    beforeRefreshDockWorkspace(document, refreshOptions) {
+        this.beforeRefreshCalls.push({document, refreshOptions})
+    }
+
+    getDockProjectionOptions() {
+        return {autoHideRevealOnHover: true}
+    }
+
+    getPreservedItemIds() {
+        return this.preserved
+    }
+
+    getRefreshOptions(descriptor) {
+        return {geometryOnly: descriptor?.operation === 'resizeSplit'}
+    }
+
+    resolvePane(itemId, item) {
+        return {cls: ['custom-pane'], ntype: 'component', text: item.title}
+    }
+}
+
+/**
+ * A consumer whose configured dock-host reference resolves to nothing — the loud-failure control.
+ */
+class BrokenHostWorkspace extends DockWorkspace {
+    static config = {
+        className        : 'Test.Unit.Dashboard.DockWorkspace.BrokenHostWorkspace',
+        dockHostReference: 'gone',
+        layout           : {ntype: 'vbox', align: 'stretch'}
+    }
+}
+
+/**
+ * A consumer mounting the projection into a dedicated dock-host child beside persistent siblings.
+ */
+class HostedWorkspace extends DockWorkspace {
+    static config = {
+        className        : 'Test.Unit.Dashboard.DockWorkspace.HostedWorkspace',
+        dockHostReference: 'dock-host',
+        layout           : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add([{module: Container, cls: ['chrome-bar'], flex: 'none'}, {
+            module   : Container,
+            layout   : {ntype: 'fit'},
+            reference: 'dock-host',
+            items    : [this.projectDockModel(), {module: Container, cls: ['overlay-sibling']}]
+        }])
+    }
+}
+
+/**
+ * The minimal tear-out consumer: platform open/close, optional grant and pane embodiment are
+ * hooks; every admission, document, connection, return and teardown transition stays inherited.
+ */
+class TearOutWorkspace extends DockWorkspace {
+    static config = {
+        className                 : 'Test.Unit.Dashboard.DockWorkspace.TearOutWorkspace',
+        enableDockTearOutLifecycle: true,
+        layout                    : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    /**
+     * `false` leaves the host window unbound, for the arms that admit it after construction.
+     * @member {Boolean} bindHostAtConstruct=true
+     */
+    bindHostAtConstruct = true
+    binds               = []
+    closeRequests       = []
+    closeResult         = true
+    grant               = null
+    lifecycleEvents     = []
+    openDeferred        = null
+    openRequests        = []
+    releases            = []
+
+    construct(config) {
+        // Every instance renders in its own host window: a real window id, unique per arm, so the
+        // Group the fixture binds below is the one this instance resolves — never a sibling arm's.
+        config.windowId ??= `tearout-host-${++TearOutWorkspace.hostSeq}`;
+
+        super.construct(config);
+        // The app boot the fixture stands in for: the host window bound into its Group at connect.
+        this.bindHostAtConstruct && TransactionManager.bind({windowId: this.windowId, workspaceKey: 'main'});
+        this.add(this.projectDockModel())
+    }
+
+    static hostSeq = 0
+
+
+    // Instrument the actual Group observer; the fixture owns no admission state.
+    bindNativeWindowSource() {
+        const previous = this.nativeWindows;
+        super.bindNativeWindowSource();
+        if (!previous && this.nativeWindows) {
+            const native = this.nativeWindows;
+            this.transactionManager.un({bind: native.onBind, release: native.onRelease, scope: native});
+            this.transactionManager.on({bind: this.onTopologyBind, release: this.onTopologyRelease, scope: this})
+        }
+    }
+
+    destroy(...args) {
+        this.transactionManager?.un({bind: this.onTopologyBind, release: this.onTopologyRelease, scope: this});
+        super.destroy(...args)
+    }
+
+    onTopologyBind(data) {
+        const pending = this.nativeWindows.onBind(data);
+
+        this.binds.push(pending);
+        return pending
+    }
+
+    onTopologyRelease(data) {
+        const pending = this.nativeWindows.onRelease(data);
+
+        this.releases.push(pending);
+        return pending
+    }
+
+    admitTearOutConnection(context) {
+        return this.grant ? this.grant(context) : true
+    }
+
+    onDockPaneReturn(data) {
+        if (data.phase !== 'after') return;
+
+        const landed = data.returned && this.getReference(`tearout-pane-${data.itemId}`) === data.pane;
+
+        this.lifecycleEvents.push(`return:${data.returned}:${Boolean(landed)}`)
+    }
+
+    afterTearOutWindowDisconnect() {
+        this.lifecycleEvents.push('disconnect')
+    }
+
+    closeTearOutVessel(vessel) {
+        this.closeRequests.push(vessel);
+        this.onClose?.(vessel);
+        return this.closeResult
+    }
+
+    openTearOutVessel(request) {
+        this.openRequests.push(request);
+
+        return this.openDeferred || {
+            popupHeight: 360,
+            popupWidth : 480,
+            windowName : `tearout-${request.itemId}-${this.id}`
+        }
+    }
+
+    resolvePane(itemId) {
+        return {module: Container, reference: `tearout-pane-${itemId}`}
+    }
+
+    resolveLivePane(itemId) {
+        return this.getReference(`tearout-pane-${itemId}`) || null
+    }
+}
+
+/**
+ * A host that keeps a vessel's semantic Workspace when its window is gone — the Workstation's headless
+ * retention — answering `false` on both release routes and recording what each asked.
+ */
+class RetainingTearOutWorkspace extends TearOutWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.RetainingTearOutWorkspace'
+    }
+
+    releaseAsks = []
+
+    onNativeWindowRelease(data) {
+        this.releaseAsks.push(data);
+        return false
+    }
+
+    afterTearOutWindowDisconnect({expired, pane, recovered}) {
+        this.lifecycleEvents.push(`disconnect:${recovered}:${expired}:${pane?.id ?? null}`)
+    }
+}
+
+/** @summary The additive retention disposition keeps the same consumer-owned pane policy. */
+class ObjectRetainingTearOutWorkspace extends RetainingTearOutWorkspace {
+    static config = {className: 'Test.Unit.Dashboard.DockWorkspace.ObjectRetainingTearOutWorkspace'}
+
+    /** @summary Observes the question and retains ownership through the object disposition. @param {Object} data @returns {Object} */
+    onNativeWindowRelease(data) {
+        super.onNativeWindowRelease(data);
+        return {retained: true, awaitingClosure: false}
+    }
+}
+
+/** @summary Observes the Base native-window wiring without supplying a tear-out lifecycle. */
+class PolicyWorkspace extends DockWorkspace {
+    static config = {className: 'Test.Unit.Dashboard.DockWorkspace.PolicyWorkspace'}
+
+    releases = []
+    detached = []
+
+    /** @summary Records the actual manager delivery while retaining Base handling. @param {Object} data @returns {Promise<Object|Boolean>} */
+    onNativeWindowRelease(data) {
+        const pending = super.onNativeWindowRelease(data);
+        this.releases.push(Promise.resolve(pending));
+        return pending
+    }
+
+    /** @summary Observes the Base render-target detachment. @param {Object} data */
+    onNativeWindowDetached(data) {
+        this.detached.push(data);
+        super.onNativeWindowDetached(data)
+    }
+}
+
+Neo.setupClass(DroppedOptInsWorkspace);
+Neo.setupClass(HandWrittenFlagWorkspace);
+Neo.setupClass(NoLifecycleWorkspace);
+Neo.setupClass(KeptOptInsWorkspace);
+Neo.setupClass(NoSortGroupWorkspace);
+Neo.setupClass(BlankSortGroupWorkspace);
+Neo.setupClass(PlainWorkspace);
+Neo.setupClass(StackWorkspace);
+Neo.setupClass(ChromeWorkspace);
+Neo.setupClass(HostedWorkspace);
+Neo.setupClass(BrokenHostWorkspace);
+Neo.setupClass(TearOutWorkspace);
+Neo.setupClass(RetainingTearOutWorkspace);
+Neo.setupClass(ObjectRetainingTearOutWorkspace);
+Neo.setupClass(PolicyWorkspace);
+Neo.setupClass(HostActionWorkspace);
+Neo.setupClass(HostBothActionsWorkspace);
+
+/**
+ * Records the scheduled projection repair instead of running it. The contract under test is WHAT gets
+ * scheduled and how often, not what a second projection then does — the reconciler's own spec owns that.
+ */
+class RepairWitnessWorkspace extends PlainWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.RepairWitnessWorkspace'
+    }
+
+    repairLog = []
+
+    refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions) {
+        this.repairLog.push(refreshOptions);
+        return Promise.resolve()
+    }
+}
+
+Neo.setupClass(RepairWitnessWorkspace);
+
+/**
+ * The recreate fallback wired (`resolveFreshPane` overridden), so `reload` is offered on every node
+ * with an active item while no pane carries `dockReload()` — the Workstation's shape. Which nodes the
+ * post-settle sweep REACHES is then the only thing deciding whether the action shows.
+ */
+class RecreateFallbackWorkspace extends PlainWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.RecreateFallbackWorkspace'
+    }
+
+    resolveFreshPane(itemId, item) {
+        return this.resolvePane(itemId, item)
+    }
+}
+
+Neo.setupClass(RecreateFallbackWorkspace);
+
+/**
+ * A consumer minting deterministic pane ids from a config — the shape every dock component fixture
+ * uses. Reveal and flow resolve from the same config, so the reveal pane and the flow pane compete
+ * for one id across the pin escape.
+ */
+class FixedIdWorkspace extends RecreateFallbackWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.FixedIdWorkspace'
+    }
+
+    resolvePane(itemId, item) {
+        return {ntype: 'component', id: `fixed-id-pane-${itemId}`, text: item?.title || itemId}
+    }
+}
+
+Neo.setupClass(FixedIdWorkspace);
+
+
+const
+    tabsOf = shell => DockProjectionReconciler.collectProjectedTabs(shell),
+    railOf = shell => {
+        let found = null;
+
+        const visit = component => {
+            if (!component || found) return;
+
+            if (component.dockNodeType === 'edge-rail') {
+                found = component;
+                return
+            }
+
+            component.items?.forEach(visit)
+        };
+
+        visit(shell);
+
+        return found
+    },
+    collect = (config, predicate, out=[]) => {
+        if (config && typeof config === 'object') {
+            predicate(config) && out.push(config);
+            (config.items || []).forEach(item => collect(item, predicate, out))
+        }
+
+        return out
+    };
+
+/**
+ * @summary Contract specs for the engine-owned dock workspace host: the holder contract, the
+ * single mutation path, the atomic deferred re-projection chain, the hooks a consumer owns, the
+ * dock-host indirection, and teardown.
+ */
+test.describe('Neo.dashboard.dock.Workspace', () => {
+    let workspace;
+
+    test.afterEach(() => {
+        workspace?.destroy?.();
+        workspace = null;
+        // Every fixture bound its host into a Group; retire them so no arm inherits another's slots.
+        [...TransactionManager.items].forEach(group => TransactionManager.retireGroup(group.id));
+        TransactionManager.reconnectLeaseMs = 20000
+    });
+
+    for (const [policy, awaitingClosure] of [['retain', false], ['return', true]]) {
+        test(`native ${policy} policy loads the manager and receives release without tear-out handlers`, async () => {
+            const binding = TransactionManager.bind({windowId: `policy-${policy}`}),
+                  set     = Neo.create(WorkspaceSet, {manager: TransactionManager, documentModel: WorkspaceDocument,
+                      getGroupId: () => binding.groupId}), document = createDocument();
+            workspace = Neo.create(PolicyWorkspace, {dockModel: document, windowId: binding.windowId,
+                workspaceSet: set, nativeWindowClosePolicy: policy});
+            set.register('retained', workspace.getDockParticipantSeams('main'));
+            try {
+                expect(workspace.tearOutHandlers).toBeNull();
+                expect(workspace.transactionManagerReady, 'policy alone starts loading').not.toBeNull();
+                await workspace.transactionManagerReady;
+                expect(workspace.nativeWindows).toBe(TransactionManager.getNativeLifecycle(binding.groupId));
+                const releasedBinding = TransactionManager.get(binding.groupId).bindings.get('main');
+                expect(TransactionManager.release(binding.windowId)).toBe(true);
+                expect(workspace.releases).toHaveLength(1);
+                expect(await workspace.releases[0]).toMatchObject({retained: true, awaitingClosure});
+                expect(workspace.detached).toEqual([expect.objectContaining({releasedBinding,
+                    generation: binding.generation, generationToken: binding.generationToken, releasedWindowId: binding.windowId})]);
+                expect(workspace.windowId).toBeNull();
+                expect(workspace.dockModel).toBe(document);
+                expect(set.getDocument('retained')).toBe(document)
+            } finally { workspace.destroy(); set.destroy() }
+        })
+    }
+
+    test('default null policy preserves the unsubscribed single-window flow', async () => {
+        const binding = TransactionManager.bind({windowId: 'policy-default'}),
+              set     = Neo.create(WorkspaceSet, {manager: TransactionManager, documentModel: WorkspaceDocument,
+                  getGroupId: () => binding.groupId}), document = createDocument();
+        workspace = Neo.create(PolicyWorkspace, {dockModel: document, windowId: binding.windowId, workspaceSet: set});
+        set.register('ordinary', workspace.getDockParticipantSeams('main'));
+        try {
+            await Promise.resolve();
+            expect(workspace.nativeWindowClosePolicy).toBeNull();
+            expect(workspace.transactionManagerReady).toBeNull();
+            expect(workspace.nativeWindows).toBeNull();
+            expect(TransactionManager.release(binding.windowId)).toBe(true);
+            expect(workspace.releases).toEqual([]);
+            expect(workspace.detached).toEqual([]);
+            expect(workspace.windowId).toBe(binding.windowId);
+            expect(workspace.dockModel).toBe(document)
+        } finally { workspace.destroy(); set.destroy() }
+    });
+
+    test.describe('Group refresh classification', () => {
+        const geometry = {operation: 'resizeSplit'},
+              itemFlag = {operation: 'setItemLocked'};
+
+        for (const [name, descriptor, expected] of [
+            ['one geometry operation', {operations: [geometry]}, {geometryOnly: true}],
+            ['different geometry operations', {operations: [geometry, {operation: 'resizeEdgeZone'}]}, {geometryOnly: true}],
+            ['item flags', {operations: [itemFlag, itemFlag]}, {retainTopology: true}],
+            ['scalar geometry', geometry, {geometryOnly: true}],
+            ['scalar item flag', itemFlag, {retainTopology: true}],
+            ['mixed classes', {operations: [geometry, itemFlag]}, {}],
+            ['structural operation', {operations: [geometry, {operation: 'moveItem'}]}, {}],
+            ['unknown final operation', {operations: [geometry, {operation: 'futureOperation'}]}, {}],
+            ['unknown first operation', {operations: [{operation: 'futureOperation'}, geometry]}, {}],
+            ['inherited operation name', {operations: [geometry, {operation: 'toString'}]}, {}],
+            ['empty batch', {operation: 'resizeSplit', operations: []}, {}],
+            ['malformed batch', {operation: 'resizeSplit', operations: {}}, {}],
+            ['missing operation', {operations: [geometry, null]}, {}],
+            ['missing descriptor', null, {}]
+        ]) {
+            test(name, () => {
+                const before = structuredClone(descriptor);
+
+                expect(DockWorkspace.prototype.getRefreshOptions(descriptor)).toEqual(expected);
+                expect(descriptor, 'classification does not rewrite committed context').toEqual(before)
+            })
+        }
+
+        test('a real Group resize batch updates geometry without replacing the shell', async () => {
+            const {groupId} = TransactionManager.bind({windowId: 'dock-batch-projection-test', workspaceKey: 'main'});
+            TransactionManager.setHistoryDepth({groupId, depth: 5});
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), topologyGroupId: groupId});
+
+            const set = Neo.create(WorkspaceSet, {
+                documentModel: WorkspaceDocument,
+                getGroupId   : () => groupId,
+                manager      : TransactionManager
+            }),
+                shell = workspace.getDockHost().items[0],
+                split = shell.down({dockNodeId: 'root-split'}),
+                afterRefresh = workspace.afterRefreshDockWorkspace.bind(workspace);
+
+            let outcome;
+
+            workspace.afterRefreshDockWorkspace = context => {
+                outcome = context.result;
+                return afterRefresh(context)
+            };
+
+            try {
+                expect(set.register('main', {
+                    getDocument: () => workspace.dockModel,
+                    setDocument: value => workspace.dockModel = value,
+                    project    : context => workspace.projectDockCommit(context)
+                })).toBe(true);
+                await set.commit('main', [{operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.75, 0.25]}]);
+                await workspace.refreshPromise;
+
+                expect(workspace.dockModel.nodes['root-split'].sizes, 'the Group write really committed').toEqual([0.75, 0.25]);
+                expect(outcome?.landedInPlace, 'the actual reconciler accepted stable topology').toBe(true);
+                expect(workspace.getDockHost().items[0]).toBe(shell);
+                expect(shell.down({dockNodeId: 'root-split'})).toBe(split);
+                expect(split.items.filter(item => item.dockNodeType === 'tabs').map(item => item.flex)).toEqual([0.75, 0.25]);
+                expect(TransactionManager.get(workspace.topologyGroupId).history.count).toBe(1)
+            } finally {
+                set.destroy()
+            }
+        })
+    });
+
+    test.describe('a pane close under a Group chains its focus follow-up onto its OWN refresh', () => {
+        // `handleDockCloseAction` chained focus onto `refreshPromise` at the moment of the call. On
+        // the Group branch that promise belongs to the PREVIOUS refresh — or is still `null` — because
+        // `onDockZoneDocumentChange` returns the write and schedules no projection: `Commit.complete`
+        // queues it as a detached microtask, and `Transaction.write` resolves before it runs.
+        //
+        // Two traps the arms exist to hold down. A `?.` guard alone fixes the throw and leaves the
+        // stale chain. Assigning the chain to `refreshPromise` BEFORE the projection is scheduled
+        // deadlocks, because `projectDockZoneDocument` takes `me.refreshPromise?.catch(…)` as its own
+        // tail — the fix must assign only after the returned promise settles.
+        //
+        // Found by @neo-opus-grace against a live app, reproduced on a real Group by @neo-fable.
+        const stage = async () => {
+            const {groupId} = TransactionManager.bind({windowId: `dock-close-focus-${Neo.getId('t')}`, workspaceKey: 'main'}),
+                  workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), topologyGroupId: groupId}),
+                  set       = Neo.create(WorkspaceSet, {documentModel: WorkspaceDocument, getGroupId: () => groupId, manager: TransactionManager}),
+                  commits   = [],
+                  focus     = [],
+                  projected = {count: 0},
+                  project   = workspace.projectDockCommit.bind(workspace);
+
+            TransactionManager.setHistoryDepth({groupId, depth: 5});
+            // Without this the workspace has no `workspaceSet`, `onDockZoneDocumentChange` takes the
+            // DIRECT branch, and the fixture never reaches the defect at all — it measured the branch
+            // that was already correct.
+            // `workspaceKey` makes the participant lookup direct; without it `onDockZoneDocumentChange`
+            // scans for a participant whose `componentId` matches, which this fixture's registration
+            // does not supply, and the write is rejected before the defect can be reached.
+            workspace.workspaceKey         = 'main';
+            workspace.workspaceSet         = set;
+            workspace.projectDockCommit    = context => {projected.count++; return project(context)};
+
+            // The arms settle on the SAME promise production waits on, captured here rather than
+            // approximated with a sleep. The handler registers its continuation on it before this
+            // capture is awaited, so by the time the arm resumes the follow-up chain is published.
+            const change = workspace.onDockZoneDocumentChange.bind(workspace);
+
+            workspace.onDockZoneDocumentChange = (...args) => {
+                const result = change(...args);
+                commits.push(result);
+                return result
+            };
+            workspace.getPlugin('dock-header-actions').focusDockCloseTarget = data => focus.push({...data, projectionsSoFar: projected.count});
+
+            set.register('main', {
+                getDocument: () => workspace.dockModel,
+                setDocument: value => workspace.dockModel = value,
+                project    : context => workspace.projectDockCommit(context)
+            });
+
+            return {commits, focus, groupId, projected, set, workspace}
+        };
+
+        test('the first close on a statically projected shell does not throw, and focus still runs', async () => {
+            const {commits, focus, groupId, set, workspace} = await stage();
+
+            try {
+                // Facet 1. `refreshPromise` is null until the first commit projects, and the shell here
+                // was projected statically in `construct` — the Workstation idiom. The close itself
+                // always landed; it was the follow-up that died with it.
+                expect(workspace.refreshPromise, 'the precondition the defect needs: no refresh yet').toBe(null);
+
+                const tabs    = tabsOf(workspace.items[0]).get('side-tabs'),
+                      outcome = workspace.getPlugin('dock-header-actions').handleDockCloseAction({dockNodeId: 'side-tabs', tabContainer: tabs});
+
+                expect(outcome?.errors ?? [], 'the close commits').toEqual([]);
+
+                await commits.at(-1);
+                await workspace.refreshPromise;
+
+                expect(focus.length, 'the focus follow-up ran rather than dying with a TypeError').toBe(1)
+            } finally {
+                set.destroy();
+                TransactionManager.retireGroup(groupId)
+            }
+        });
+
+        test('after an earlier commit the follow-up waits for the CLOSE\'s projection, not the previous one', async () => {
+            const {commits, focus, groupId, projected, set, workspace} = await stage();
+
+            try {
+                // Facet 2, and the one a `?.` guard leaves behind: with a settled refresh already in
+                // place the chain resolves immediately, so focus reached the outgoing chrome.
+                await set.commit('main', [{operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.75, 0.25]}]);
+                await workspace.refreshPromise;
+
+                const before = projected.count;
+
+                expect(before, 'an earlier commit really projected').toBeGreaterThan(0);
+
+                workspace.getPlugin('dock-header-actions').handleDockCloseAction({
+                    dockNodeId  : 'side-tabs',
+                    tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
+                });
+
+                await commits.at(-1);
+                await workspace.refreshPromise;
+
+                expect(focus.length, 'focus ran').toBe(1);
+                expect(focus[0].projectionsSoFar, 'focus waited for the close to project, not for the previous refresh')
+                    .toBeGreaterThan(before);
+
+                // AC-2's other half: the published refresh must INCLUDE the follow-up, or a later
+                // commit schedules off a promise that does not cover the focus it has to order after.
+                let settled = false;
+
+                await workspace.refreshPromise.then(() => {settled = focus.length === 1});
+
+                expect(settled, 'refreshPromise covers the follow-up it scheduled').toBe(true)
+            } finally {
+                set.destroy();
+                TransactionManager.retireGroup(groupId)
+            }
+        });
+
+        /**
+         * A REAL observer, with a positive control. The first version used
+         * `globalThis.addEventListener?.('unhandledrejection', …)`, which is `undefined` in this Node
+         * runtime — the optional call installed nothing and the arm asserted an array that could
+         * never be populated. A control that silently does nothing reads as a control that passed.
+         * Found by @neo-gpt-emmy, who also supplied the rejected-projection case below.
+         * @param {Function} body
+         * @returns {Promise<Object[]>} Every rejection nobody handled while `body` ran.
+         */
+        const watchUnhandled = async body => {
+            const seen    = [],
+                  observe = reason => seen.push(reason),
+                  // The runner installs its own `unhandledRejection` handler and fails the test on
+                  // one, so the positive control below would kill the arm that proves the observer
+                  // works. Take the window exclusively and hand it back in `finally`.
+                  borrowed = process.listeners('unhandledRejection');
+
+            process.removeAllListeners('unhandledRejection');
+            process.on('unhandledRejection', observe);
+
+            try {
+                // Positive control FIRST: if this does not arrive, the observer is inert and every
+                // assertion below is vacuous.
+                Promise.reject(new Error('observer-control'));
+                await new Promise(resolve => setImmediate(resolve));
+
+                expect(seen.map(String), 'the observer itself works').toEqual(['Error: observer-control']);
+                seen.length = 0;
+
+                await body();
+
+                // Drain BOTH phases: the refresh chain ends on a `timeout(0)` macrotask, so a
+                // check-phase turn alone closes the window before the rejection is raised and the
+                // arm passes whatever the handler does. Bounded turns, not a fixed sleep.
+                for (let turn = 0; turn < 4; turn++) {
+                    await new Promise(resolve => setImmediate(resolve));
+                    await new Promise(resolve => setTimeout(resolve, 0))
+                }
+
+                return seen
+            } finally {
+                process.off('unhandledRejection', observe);
+                borrowed.forEach(listener => process.on('unhandledRejection', listener))
+            }
+        };
+
+        test('a refused Group write runs no focus and adds no unhandled rejection', async () => {
+            const {commits, focus, groupId, set, workspace} = await stage();
+
+            try {
+                workspace.workspaceKey = 'not-registered';
+
+                const unhandled = await watchUnhandled(async () => {
+                    workspace.getPlugin('dock-header-actions').handleDockCloseAction({
+                        dockNodeId  : 'side-tabs',
+                        tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
+                    });
+                    await Promise.allSettled(commits)
+                });
+
+                expect(focus.length, 'a refused write owes no focus').toBe(0);
+                expect(unhandled, 'and the follow-up adds none of its own').toEqual([])
+            } finally {
+                set.destroy();
+                TransactionManager.retireGroup(groupId)
+            }
+        });
+
+        test('a rejected projection keeps the Group receipt and adds no SECOND, unhandled one', async () => {
+            const {commits, focus, groupId, set, workspace} = await stage();
+
+            try {
+                // Reach the state the defect needs: an earlier commit, so the follow-up takes the
+                // Group branch with a published refresh behind it.
+                await set.commit('main', [{operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.75, 0.25]}]);
+                await workspace.refreshPromise;
+
+                // The projection this close will schedule now fails. Before the repair the assigned
+                // chain was created inside the continuation and never returned, so the trailing catch
+                // did not cover it and this produced a rejection nobody handled.
+                workspace.refreshDockWorkspace = () => Promise.reject(new Error('projection rejected'));
+
+                const unhandled = await watchUnhandled(async () => {
+                    workspace.getPlugin('dock-header-actions').handleDockCloseAction({
+                        dockNodeId  : 'side-tabs',
+                        tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
+                    });
+                    await Promise.allSettled(commits);
+
+                    // Deliberately NOT awaiting `refreshPromise`: `allSettled` would ATTACH a
+                    // handler to the very promise whose unhandledness is under test and mark it
+                    // handled, so the arm would pass with or without the repair.
+                });
+
+                expect(unhandled, 'the follow-up adds no unhandled rejection of its own').toEqual([]);
+                expect(focus.length, 'and a failed projection focuses nothing').toBe(0)
+            } finally {
+                set.destroy();
+                TransactionManager.retireGroup(groupId)
+            }
+        });
+
+        test('control: the direct branch already ordered focus after its own projection', async () => {
+            // No Group, so `onDockZoneDocumentChange` runs `projectDockZoneDocument`, which assigns
+            // `refreshPromise` inside the call. This arm was green before the fix and must stay green:
+            // it is what proves the repair did not buy the Group branch at the direct branch's expense.
+            const workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()}),
+                  focus     = [],
+                  projected = {count: 0},
+                  project   = workspace.projectDockZoneDocument.bind(workspace);
+
+            workspace.projectDockZoneDocument = (...args) => {projected.count++; return project(...args)};
+            workspace.getPlugin('dock-header-actions').focusDockCloseTarget    = data => focus.push({...data, projectionsSoFar: projected.count});
+
+            try {
+                workspace.getPlugin('dock-header-actions').handleDockCloseAction({
+                    dockNodeId  : 'side-tabs',
+                    tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
+                });
+
+                await workspace.refreshPromise;
+
+                expect(focus.length, 'focus ran on the direct branch').toBe(1);
+                expect(focus[0].projectionsSoFar, 'and after its own projection').toBeGreaterThan(0)
+            } finally {
+                workspace.destroy()
+            }
+        })
+    });
+
+    test.describe('#17947 pop-out dispatches the drag terminal, never a second lifecycle', () => {
+        // The whole point of the leaf: a click enters the SAME pair the pointer gesture's terminal
+        // calls. These arms assert the dispatch and its ordering, because "no parallel lifecycle" is
+        // only provable at the call — a handler that re-implemented `openVessel`/`applyOperation`
+        // would satisfy every projection assertion above and still be the thing the ticket forbids.
+        // The stub answers in the REAL seam's grammar: `window.TearOut`'s terminal returns a bare
+        // Boolean, not an envelope. A stub that returned `{document, errors}` here would be a
+        // reconstruction confirming itself — every arm would pass while the production translation
+        // of a refusing terminal went unexercised.
+        const armWorkspace = (calls, {commits=true, exitResult=undefined}={}) => {
+            const ws = Neo.create(PlainWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true
+            });
+
+            ws.tearOutHandlers = {
+                onDockTearOutExit: async data => {
+                    calls.push(['exit', data]);
+                    return exitResult
+                },
+                // Production grammar, and the whole point of the pair below: the real terminal
+                // resolves `true` on a commit AND `retireVessel(...)` on refusal, which is ALSO true
+                // when the retirement succeeds. So the Boolean cannot separate them — it is returned
+                // as `true` in BOTH stub modes here, deliberately. What differs is whether the
+                // document advances, which is the signal the handler must actually read.
+                onDockTearOutTerminal: data => {
+                    calls.push(['terminal', data]);
+
+                    if (commits) {
+                        ws.dockModel = Operations.applyOperation(
+                            ws.dockModel, {operation: 'detachItem', itemId: data.itemId}
+                        ).document
+                    }
+
+                    return true
+                }
+            };
+
+            // No main thread in unit mode; the geometry delta is asserted separately from dispatch.
+            ws.getPlugin('dock-header-actions').measureDockPaneRect = async () => ({height: 200, width: 400, x: 10, y: 20});
+
+            return ws
+        };
+
+        const tabContainerFor = itemId => ({
+            activeIndex: 0,
+            getTabBar  : () => ({sortZoneConfig: {dockItemIds: [itemId]}}),
+            id         : 'live-tabs'
+        });
+
+        test('stable pop-out membership separates explicit opt-out from handler availability', () => {
+            // `tabsOf` yields item IDS, not tab nodes — reading `.headerActions` off one is
+            // always undefined, which made the two `not.toContain` arms below pass vacuously until
+            // the positive arm exposed it. `collect` walks the projection for the real node.
+            const projectedAction = (ws, name) => {
+                const tabs = collect(ws.projectDockModel(), config => config.dockNodeType === 'tabs')[0];
+
+                expect(tabs, 'the fixture must project a tabs node, or these assertions prove nothing').toBeTruthy();
+
+                return (tabs.headerActions || []).find(action => action.action === name)
+            };
+
+            // Default membership is stable, but no handler means the gesture cannot run yet.
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            expect(projectedAction(workspace, 'pop-out')).toMatchObject({action: 'pop-out', hidden: true});
+            workspace.destroy();
+
+            // Explicit false is the public compatibility escape: membership and name ownership end.
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockPopOutAction: false});
+            expect(projectedAction(workspace, 'pop-out')).toBeUndefined();
+            workspace.destroy();
+
+            // One host-owned bundle is sufficient; no second base lifecycle is required.
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace.tearOutHandlers = {
+                onDockTearOutExit    : async () => true,
+                onDockTearOutTerminal: async () => true
+            };
+            expect(workspace.enableDockTearOutLifecycle).toBe(false);
+            expect(workspace.dockPopOutActionActive).toBe(true);
+            expect(projectedAction(workspace, 'pop-out')).toMatchObject({action: 'pop-out', hidden: false})
+        });
+
+        test('the happy path calls exit then terminal, and carries the measured rect', async () => {
+            const calls = [];
+
+            workspace = armWorkspace(calls);
+
+            const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1';
+            await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+
+            expect(calls.map(entry => entry[0])).toEqual(['exit', 'terminal']);
+
+            // `sortZone: null` is the click's signature — the gesture supplies a live zone, a click
+            // has none, and the seam already accepts the difference.
+            expect(calls[0][1]).toMatchObject({itemId, sortZone: null});
+            expect(calls[0][1].proxyRect).toMatchObject({height: 200, width: 400});
+            // The vessel takes its size from `sourceRect` alone, so the measured box must ride there too,
+            // or a click opens the window at the host's fallback size instead of the pane's footprint.
+            expect(calls[0][1].sourceRect, 'the measured box also sizes the vessel').toEqual(calls[0][1].proxyRect);
+            expect(calls[1][1]).toEqual({itemId})
+        });
+
+        test('an admitted vessel whose detach the reducer refuses settles as a refusal, not a Boolean', async () => {
+            const calls = [];
+
+            // The terminal's own refusal route: it retired the vessel it had opened and committed
+            // nothing. That has to reach the caller as the SAME `{document, errors}` envelope the
+            // synchronous rows of the router use — leaking the seam's bare `false` would make a
+            // refusal read as a falsy success to anyone checking `result.errors?.length`.
+            workspace = armWorkspace(calls, {commits: false});
+
+            const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
+                  result = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+
+            expect(calls.map(entry => entry[0])).toEqual(['exit', 'terminal']);
+            expect(result.errors?.[0]).toMatch(/refused by the detach commit/)
+        });
+
+        test('the handler holds NO lifecycle of its own — asserted from its source, not from behaviour', () => {
+            // AC: "no click-specific reintegration branch exists (asserted structurally: one
+            // terminal, one retire path)". Behaviour cannot show this — a handler that duplicated
+            // the vessel/commit/return sequence would pass every behavioural arm in this file and
+            // be exactly what the ticket forbids. Only the source text can witness an ABSENCE.
+            const source = HeaderActions.prototype.handleDockPopOutAction.toString();
+
+            expect(source).toContain('admitDockPopOut');
+            expect(source).toContain('onDockTearOutTerminal');
+
+            for (const forbidden of [
+                'applyOperation',      // it must not commit detachItem itself
+                'applyDockZoneOperation',
+                'openTearOutVessel',   // nor acquire a vessel outside the pair
+                'acquireTearOutVessel',
+                'reintegrateItem',
+                'retireTearOutVessel',
+                'onVesselRetired'
+            ]) {
+                expect(source, `pop-out must reach ${forbidden} only THROUGH the tear-out pair`).not.toContain(forbidden)
+            }
+        });
+
+        // A COMMITTED pop-out is deliberately not asserted from a stub. The real terminal resolves
+        // `true` for a commit and `retireVessel(...)` for a refusal — which is also true when the
+        // retirement succeeds — so any stub that models the outcome with a Boolean teaches the wrong
+        // grammar, and a handler reading that Boolean would report detaches that never happened.
+        // The commit is witnessed against the real lifecycle instead, in the engine tear-out
+        // lifecycle matrix below — the arm that drives a real vessel admission and asserts the
+        // committed document no longer contains the item. What the stubs above are for is dispatch,
+        // ordering, geometry and pre-terminal refusal.
+
+        test('with the lifecycle off, a HOST owns pop-out and the engine re-emits its intent', async () => {
+            // The two questions — may a host own the name, and does the engine intercept the intent —
+            // must agree. They did not: projection freed the name on both configs while the router
+            // intercepted on the action config alone, so a host action named `pop-out` rendered
+            // legally and then vanished into an engine handler that had no pipeline to dispatch into.
+            workspace = Neo.create(PlainWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true   // ...and enableDockTearOutLifecycle deliberately OFF
+            });
+
+            expect(workspace.dockPopOutActionActive, 'the engine does not own it without the lifecycle').toBe(false);
+
+            const intents = [];
+
+            workspace.on('dockHeaderAction', data => intents.push(data));
+
+            const tabContainer = {id: 'host-tabs'};
+
+            workspace.onDockHeaderAction({action: 'pop-out', dockNodeId: 'main-tabs', tabContainer});
+
+            expect(intents).toHaveLength(1);
+            expect(intents[0]).toMatchObject({action: 'pop-out', dockNodeId: 'main-tabs', tabContainer})
+        });
+
+        test('a refused vessel commits NOTHING — terminal is never reached', async () => {
+            const calls = [];
+
+            // Admission-first and fail-closed: `onDockTearOutExit` resolving false is the host
+            // declining the window, and the pane must stay docked with no detach committed.
+            workspace = armWorkspace(calls, {exitResult: false});
+
+            const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
+                  result = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+
+            expect(calls.map(entry => entry[0])).toEqual(['exit']);
+            expect(result.errors?.[0]).toMatch(/refused by the host vessel seam/)
+        });
+
+        test('refuses before dispatch when there is no active item, and when the lifecycle is absent', async () => {
+            const calls = [];
+
+            workspace = armWorkspace(calls);
+
+            const noItem = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({
+                dockNodeId  : 'main-tabs',
+                tabContainer: {activeIndex: null, getTabBar: () => ({sortZoneConfig: {dockItemIds: []}}), id: 'live-tabs'}
+            });
+
+            expect(noItem.errors?.[0]).toMatch(/requires an active item/);
+            expect(calls).toEqual([]);
+
+            // Unreachable through the projection contract — the action is double-gated on the
+            // lifecycle that creates these handlers — but the router is reachable by a host
+            // re-emitting the intent, so it must refuse rather than throw on a missing pipeline.
+            workspace.tearOutHandlers = null;
+
+            const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
+                  noPipe = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+
+            expect(noPipe.errors?.[0]).toMatch(/requires a tear-out handler bundle/);
+            expect(calls).toEqual([])
+        })
+    });
+
+    test('projectDockZoneDocument SERIALIZES: a second projection cannot enter while the first is in flight', async () => {
+    // The invariant every direct caller of `refreshDockWorkspace` leans on, and nothing asserted it.
+    //
+    // `projectDockZoneDocument` chains each pass onto the settled tail of `refreshPromise`, so two
+    // projections issued in one tick run one after the other. A caller that instead assigns
+    // `refreshPromise = this.refreshDockWorkspace()` starts a SECOND pass while the first is still
+    // in flight, and both project a shell — which surfaces as a duplicate header-only shell: tab
+    // headers and close buttons, no panes. A component fixture did exactly that; fixing it removed
+    // the only thing that had ever noticed, so the invariant it now relies on is pinned here.
+    //
+    // ⚠️ The first pass is HELD open on purpose. The obvious version of this arm — fire two real
+    // projections and count overlap — passes with the chaining deleted, because a real refresh
+    // settles inside one macrotask and the second never had the chance to overlap. It witnessed
+    // nothing. Holding the first pass is what makes an unserialized second observable.
+    const workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+    let releaseFirst, entered = [];
+
+    const held = new Promise(resolve => {releaseFirst = resolve});
+
+    workspace.refreshDockWorkspace = async function(...args) {
+        const index = entered.length;
+
+        entered.push(index);
+
+        index === 0 && await held;
+
+        return undefined
+    };
+
+    try {
+        const first  = workspace.projectDockZoneDocument(createDocument()),
+              second = workspace.projectDockZoneDocument(createDocument());
+
+        // Cross two macrotask boundaries with the SAME primitive the chain deferred behind, rather
+        // than a wall-clock constant: the unserialized path waits on one `timeout(0)` before it
+        // enters, so two are enough for it to have entered, and a serialized one still has not.
+        await workspace.timeout(0);
+        await workspace.timeout(0);
+
+        expect(entered.length, 'the second projection must NOT have entered while the first is held').toBe(1);
+
+        releaseFirst();
+        await Promise.all([first, second]);
+
+        expect(entered.length, 'and it runs once the first settles — serialized, not dropped').toBe(2)
+    } finally {
+        releaseFirst();
+        workspace.destroy()
+    }
+});
+
+test('the holder contract: a config-assigned document is readable before any operation', () => {
+        const document = createDocument();
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: document});
+
+        expect(workspace.getDockZoneDocument()).toBe(document);
+        expect(workspace.getDockHost()).toBe(workspace);
+        expect(tabsOf(workspace.items[0]).size).toBe(2)
+    });
+
+    test('a Workspace-backed projection bounds every tab sort zone to the Workspace root without arming tear-out', () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const projectedTabs = tabsOf(workspace.projectDockModel());
+
+        expect(projectedTabs.size).toBe(2);
+
+        projectedTabs.forEach(tabContainer => {
+            expect(tabContainer.headerToolbar.sortZoneConfig).toMatchObject({
+                allowOverdrag      : false,
+                boundaryContainerId: workspace.id,
+                enableProxyToPopup : false
+            })
+        })
+    });
+
+    test('an override that drops the tear-out opt-ins is refused at projection', () => {
+        // The failure this guard replaces was silent AND masked. `dockPopOutActionActive` reads
+        // `tearOutHandlers` on the instance rather than the projection context, so a host that
+        // dropped the options still saw the pop-out button render, the vessel open and the pane
+        // come home — while dragging a tab out was unreachable and a dragged popup lit nothing.
+        // Measured on a real consumer before this arm existed.
+        expect(() => Neo.create(DroppedOptInsWorkspace, {dockModel: createDocument()}))
+            .toThrow(/dropped .*enableDockTearOut.* while enableDockTearOutLifecycle is on/);
+
+        // The subtler shape, and the one a flag-only predicate would have certified: the flag is
+        // written by hand, so `enableDockTearOut === true` holds while none of the gesture handlers
+        // `super` contributes are present. `apps/workstation` writes the flag by hand, so this is a
+        // shape the codebase contains — the check therefore asks what `super` WOULD have given.
+        // The message must NAME what was dropped, which a flag-only predicate could not do: it knew
+        // only one key. Asserted on a handler rather than on the flag, because the flag is the one
+        // thing this host DID supply.
+        expect(() => Neo.create(HandWrittenFlagWorkspace, {dockModel: createDocument()}))
+            .toThrow(/onDockTearOutCancel/);
+
+        // The guard must not fire on a host that never asked for tear-out; the same override with
+        // the lifecycle off promised nothing.
+        workspace = Neo.create(NoLifecycleWorkspace, {dockModel: createDocument()});
+        expect(workspace.enableDockTearOutLifecycle).toBe(false);
+        workspace.destroy();
+
+        // And the correct shape projects, with the opt-ins reaching the zone rather than merely
+        // surviving the guard — `allowOverdrag` is what lets the proxy leave its strip at all, and
+        // `sortGroup` is what registers the zone with the coordinator.
+        workspace = Neo.create(KeptOptInsWorkspace, {dockModel: createDocument()});
+
+        const tabs = collect(workspace.projectDockModel(), config => config.dockNodeType === 'tabs')[0];
+
+        expect(tabs, 'the fixture must project a tabs node, or these assertions prove nothing').toBeTruthy();
+        expect(tabs.headerToolbar.sortZoneConfig).toMatchObject({
+            allowOverdrag     : true,
+            enableProxyToPopup: true,
+            sortGroup         : 'test-cross-window'
+        })
+    });
+
+    test('tear-out without a cross-window sort group is reported once per class', () => {
+        const warn     = console.warn,
+              warnings = [];
+
+        console.warn = (...args) => warnings.push(args.join(' '));
+
+        try {
+            Neo.create(NoSortGroupWorkspace, {dockModel: createDocument()}).destroy();
+            Neo.create(NoSortGroupWorkspace, {dockModel: createDocument()}).destroy();
+            Neo.create(KeptOptInsWorkspace,  {dockModel: createDocument()}).destroy();
+            Neo.create(NoLifecycleWorkspace, {dockModel: createDocument()}).destroy();
+            Neo.create(BlankSortGroupWorkspace, {dockModel: createDocument()}).destroy()
+        } finally {
+            console.warn = warn
+        }
+
+        const reports = warnings.filter(text => text.includes('crossWindowSortGroup'));
+
+        expect(reports, 'one report per class: the missing group and the blank one; a published group or no lifecycle, none').toHaveLength(2);
+        expect(reports[0]).toContain('NoSortGroupWorkspace');
+        expect(reports[0]).toContain('can never be dragged back');
+        expect(reports[1]).toContain('BlankSortGroupWorkspace')
+    });
+
+    test('lock is in the default engine set, and explicit false is still the escape', () => {
+        // Asserted on a workspace that configures NOTHING, which is the only shape that can witness
+        // a default. Every other lock spec passes `enableDockLockAction: true` explicitly, so the
+        // default itself was uncovered and could have been flipped either way unnoticed.
+        //
+        // The `LayoutAdapter` arm pairing `project({})` with `project({enableDockLockAction: false})`
+        // is a different claim and stays true: that is a projector, it takes explicit context, and
+        // an absent key there is not a request. The host-facing default lives here.
+        const projectedAction = (ws, name) => {
+            const tabs = collect(ws.projectDockModel(), config => config.dockNodeType === 'tabs')[0];
+
+            expect(tabs, 'the fixture must project a tabs node, or these assertions prove nothing').toBeTruthy();
+
+            return (tabs.headerActions || []).find(action => action.action === name)
+        };
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+        expect(workspace.enableDockLockAction).toBe(true);
+        expect(projectedAction(workspace, 'lock')).toMatchObject({action: 'lock'});
+        workspace.destroy();
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockLockAction: false});
+        expect(projectedAction(workspace, 'lock')).toBeUndefined();
+        workspace.destroy();
+
+        // The frozen order holds with lock present by default rather than by request.
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const tabs = collect(workspace.projectDockModel(), config => config.dockNodeType === 'tabs')[0];
+
+        expect((tabs.headerActions || []).map(action => action.action))
+            .toEqual(['lock', 'reload', 'pin', 'pop-out', 'maximize', 'close'])
+    });
+
+    test('an action the workspace does not own is re-emitted to the host with its node id', () => {
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createDocument(),
+            enableDockPinAction: false
+        });
+
+        const received     = [],
+              tabContainer = {id: 'live-tabs'};
+
+        workspace.on('dockHeaderAction', data => received.push(data));
+
+        // No close opt-in here on purpose: a host projecting only its OWN actions must still receive
+        // their intent. Swallowing it — which the class did for everything but `close` — is what made
+        // the header slot unusable for anyone else.
+        const result = workspace.onDockHeaderAction({action: 'pin', dockNodeId: 'main-tabs', tabContainer});
+
+        expect(result, 'the workspace still declines to act on an action it does not own').toBeNull();
+        expect(received).toEqual([{
+            action    : 'pin',
+            dockNodeId: 'main-tabs',
+            source    : workspace.id,
+            tabContainer
+        }]);
+
+        // The WIRING, not just the method. Projecting without the close opt-in must still bind the
+        // seam onto every tabs node, which is the half that was conditional.
+        const findTabs = config => config?.dockNodeType === 'tabs'
+            ? config
+            : (config?.items || []).reduce((found, child) => found || findTabs(child), null);
+
+        const tabsNode = findTabs(workspace.projectDockModel());
+
+        expect(tabsNode, 'the projection exposes a tabs node to wire').toBeTruthy();
+        tabsNode.listeners.headerAction({action: 'pin', tabContainer});
+
+        expect(received).toHaveLength(2)
+    });
+
+    test('a host resolver reaches the live toolbar, routes its intent, and survives reprojection', async () => {
+        hostResolverCalls.length = 0;
+        workspace = Neo.create(HostActionWorkspace, {dockModel: createDocument()});
+
+        const received = [];
+        workspace.on('dockHeaderAction', data => received.push(data));
+
+        // `side-tabs` deliberately, not the first node: `editor-tabs` holds ONE item already at
+        // index 0, so the activation below would be a no-op and the identity assertion would hold
+        // across nothing happening.
+        const nodeId       = 'side-tabs',
+              tabContainer = tabsOf(workspace.items[0]).get(nodeId),
+              action       = tabContainer.getAction('pin');
+
+        // The adapter-level arms prove the projection CONFIG carries the action. This proves the
+        // config became a real toolbar item on a live workspace that supplied the resolver through
+        // the documented hook — the layer a host actually touches.
+        expect(action, 'the host action materialized as a live toolbar item').toBeTruthy();
+        expect(hostResolverCalls, 'the resolver is asked per tabs node').toContain(nodeId);
+        expect(workspace.enableDockCloseAction, 'host actions work with the close action OFF').toBe(false);
+
+        // Dispatch the action itself rather than calling the projected listener by hand: the handler
+        // is what a press runs, and it is the part that was previously wired only under the close
+        // opt-in.
+        action.handler({component: action});
+
+        expect(received).toHaveLength(1);
+        expect(received[0]).toMatchObject({action: 'pin', dockNodeId: nodeId, source: workspace.id});
+
+        // AC-5, which the first round asserted by reasoning rather than by evidence: a commit and
+        // reprojection must not REPLACE the action instance, or `actionVisibilityChange` consumers
+        // such as tab Overflow lose the component they are bound to.
+        //
+        // The transition has to be REAL, and the three guards below exist because an identity
+        // assertion is trivially true when nothing happened: the index actually moves, the COMMITTED
+        // document records the new active item, and a fresh refresh is scheduled.
+        const refreshBefore   = workspace.refreshPromise,
+              resolvesForNode = () => hostResolverCalls.filter(id => id === nodeId).length,
+              resolvesBefore  = resolvesForNode();
+
+        expect(tabContainer.activeIndex, 'starts on the first item').toBe(0);
+
+        await tabContainer.set({activeIndex: 1});
+        await workspace.refreshPromise;
+
+        expect(workspace.getDockZoneDocument().nodes[nodeId].activeItemId,
+            'the activation committed to the document, not just the view').toBe('terminal');
+        expect(workspace.refreshPromise,
+            'a reprojection was actually scheduled by that commit').not.toBe(refreshBefore);
+
+        const afterReproject = [...tabsOf(workspace.items[0]).entries()]
+            .find(([id]) => id === nodeId)?.[1]?.getAction('pin');
+
+        expect(afterReproject, 'the action survives reprojection').toBeTruthy();
+        expect(afterReproject, 'and it is the SAME instance, not a rebuilt group').toBe(action);
+
+        // This is what makes the identity assertion mean something. The projection path DID run
+        // again — the resolver was asked a second time for this node — and the retained node kept
+        // its existing action instance anyway. So the stability above is reconciliation winning over
+        // a real re-projection, not an absence of one.
+        //
+        // It is also why `node-static` is the honest contract rather than a convenience: a resolver
+        // returning a DIFFERENT action set on that second call does not take effect, so promising
+        // per-active-item lists would have been a promise the machinery cannot keep.
+        expect(resolvesForNode(),
+            'the projection path really re-ran for this node').toBeGreaterThan(resolvesBefore)
+    });
+
+    test('#17681 owns the reusable tear-out lifecycle on DockWorkspace, not on application hosts', () => {
+        // This surface is split in two, so the ownership claim has to be made twice.
+        // The HOST keeps what only a component can do — resolve, reparent, destroy, record, report;
+        // the choreography that sequences them is engine-owned in `window/TearOut.mjs`. An app that
+        // re-implements either half is the defect this test exists to catch.
+        for (const method of [
+            'applyTearOutOperation',
+            'onDockPaneReturn',
+            'reparentDockPane',
+            'reportDockAdoptionFailure',
+            'resolveLivePane',
+            'settleDockPane'
+        ]) {
+            expect(typeof DockWorkspace.prototype[method], `${method} is an engine-owned host seam`).toBe('function')
+        }
+
+        for (const moved of ['adoptTearOutPane', 'reintegrateTearOutItem', 'reparentTearOutPane', 'resolveTearOutPane',
+            'onTopologyBind', 'onTopologyRelease', 'recordDockPaneOwner', 'acquireTearOutVessel',
+            'clearTearOutAdmission', 'retireTearOutVessel', 'retireTearOutState']) {
+            expect(DockWorkspace.prototype[moved], `${moved} moved to the choreography and left no wrapper`).toBeUndefined()
+        }
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+        expect(workspace.tearOutHandlers).toBeNull();
+        for (const field of ['tearOutAdmissions', 'tearOutConnects', 'tearOutPanes', 'tearOutRetirements']) {
+            expect(field in workspace, field + ' is no longer allocated on any Workspace').toBe(false)
+        }
+        expect(workspace.getDockProjectionOptions()).toEqual({})
+    });
+
+    test.describe('#18164 a pane whose home collapsed comes home anyway', () => {
+        /**
+         * Drives the real detach through `applyTearOutOperation` — the wrapper that records the
+         * placement — and commits it, so reintegration reads exactly the state a closed vessel
+         * leaves behind. Anything less (hand-writing the placement) would test the record I
+         * wrote rather than the one the engine keeps.
+         * @param {String} itemId
+         * @returns {Object} the committed post-detach document
+         */
+        // Placement recording is part of the tear-out lifecycle rather than unconditional state on
+        // every workspace — that IS the declinability contract. These arms exercise the return,
+        // so they opt the lifecycle in explicitly instead of relying on a workspace that declined it.
+        const armed = (document=createDocument()) =>
+                  Neo.create(PlainWorkspace, {dockModel: document, enableDockTearOutLifecycle: true}),
+
+              detach = itemId => {
+                  const result = workspace.applyTearOutOperation({operation: 'detachItem', itemId});
+
+                  expect(result.errors).toEqual([]);
+                  workspace.onDockZoneDocumentChange(result.document);
+
+                  return result.document
+              };
+
+        test('AC-1/AC-4 a pane ALONE in its split child returns to that side, not to the first tabs node', async () => {
+            workspace = armed();
+
+            // `editor` is alone in `editor-tabs`, the left child of a two-child split — the exact
+            // shape the operator's consumer reported, and the common tear-out rather than the rare one.
+            const detached = detach('editor');
+
+            expect(detached.nodes['editor-tabs'], 'the emptied home is gone').toBeUndefined();
+            expect(detached.nodes['root-split'],  'and the split collapsed with it').toBeUndefined();
+
+            expect(await workspace.tearOutHandlers.reintegrateItem('editor', null)).toBe(true);
+
+            const doc     = workspace.dockModel,
+                  splitId = Object.keys(doc.nodes).find(id => doc.nodes[id].type === 'split'),
+                  split   = doc.nodes[splitId];
+
+            expect(split, 'the split was rebuilt').toBeTruthy();
+            expect(split.orientation).toBe('horizontal');
+            expect(doc.nodes[split.children[0]].items, 'back on the LEFT, where it left from').toEqual(['editor']);
+            expect(split.children[1]).toBe('side-tabs');
+
+            // Reading tab order would pass on a wrong zone: `side-tabs` holds the same two items
+            // either way. The node topology is the only witness that distinguishes them.
+            expect(doc.nodes['side-tabs'].items).toEqual(['preview', 'terminal']);
+            expect(WorkspaceDocument.validate(doc)).toEqual([])
+        });
+
+        test('AC-3 a pane with SIBLINGS returns to its own node at its own index', async () => {
+            workspace = armed();
+
+            const detached = detach('preview');
+
+            expect(detached.nodes['side-tabs'], 'the home survived — terminal held it open').toBeTruthy();
+
+            expect(await workspace.tearOutHandlers.reintegrateItem('preview', null)).toBe(true);
+            expect(workspace.dockModel.nodes['side-tabs'].items, 'index 0, not appended').toEqual(['preview', 'terminal'])
+        });
+
+        test('AC-5 the SAME pane instance comes home — asserted on the component id', async () => {
+            workspace = armed();
+
+            const pane   = Neo.create(Container, {}),
+                  paneId = pane.id,
+                  seen   = [];
+
+            // One hook carries both ends of the return now, so the arm filters to the disposition
+            // half — the 'before' beat has no `returned` to assert and would inflate the count.
+            workspace.onDockPaneReturn = data => data.phase === 'after' && seen.push(data);
+
+            detach('editor');
+
+            expect(await workspace.tearOutHandlers.reintegrateItem('editor', pane)).toBe(true);
+
+            // A node moved between documents is necessarily re-created, so DOM identity cannot carry
+            // this. The instance is what survives, and its id is how that is honestly read.
+            expect(seen).toHaveLength(1);
+            expect(seen[0].returned).toBe(true);
+            expect(seen[0].pane.id).toBe(paneId);
+            expect(pane.isDestroyed, 'a returned pane is never settled').toBeFalsy();
+
+            pane.destroy()
+        });
+
+        test('AC-6 an item with NO recorded placement still lands somewhere valid', async () => {
+            workspace = armed();
+
+            const detached = detach('editor');
+
+            // The record is the thing being taken away here: without it there is no home to rebuild,
+            // and the first tabs node in document order is a last resort rather than a placement.
+            workspace.tearOutHandlers.forgetPlacement('editor');
+
+            expect(await workspace.tearOutHandlers.reintegrateItem('editor', null)).toBe(true);
+
+            expect(WorkspaceDocument.findContainingTabsId(workspace.dockModel, 'editor'), 'somewhere beats nowhere').toBeTruthy();
+            expect(WorkspaceDocument.validate(workspace.dockModel)).toEqual([]);
+            expect(detached.nodes['editor-tabs']).toBeUndefined()
+        });
+
+        test('a pane docked into the recorded home while the vessel is open is NOT displaced', async () => {
+            workspace = armed(createEdgeDocument());
+
+            const placement = WorkspaceDocument.captureItemPlacement(workspace.dockModel, 'inspector'),
+                  detached  = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'inspector'});
+
+            expect(detached.errors).toEqual([]);
+            workspace.onDockZoneDocumentChange(detached.document);
+            expect(detached.document.nodes[placement.tabsNodeId], 'the home is gone').toBeUndefined();
+
+            // A vessel window is long-lived, so this interleaving is ordinary: while the pane is
+            // out, something else takes the edge it left. The occupant must survive — losing a pane
+            // the user never touched is strictly worse than the misplacement this seam fixes.
+            const occupied = WorkspaceDocument.clone(workspace.dockModel);
+
+            occupied.items['late']       = {reference: 'Late', title: 'Late'};
+            occupied.nodes['late-right']  = {type: 'tabs', items: ['late'], activeItemId: 'late'};
+            WorkspaceDocument.setZoneNodeId(occupied.nodes[placement.home.parentId], placement.home.slot, 'late-right');
+            workspace.onDockZoneDocumentChange(occupied);
+
+            expect(await workspace.tearOutHandlers.reintegrateItem('inspector', null)).toBe(true);
+
+            const doc = workspace.dockModel;
+
+            expect(WorkspaceDocument.getZoneNodeId(doc.nodes[placement.home.parentId].zones[placement.home.slot]),
+                'the occupant kept the slot').toBe('late-right');
+            expect(doc.nodes['late-right'].items, 'and kept its item').toEqual(['late']);
+            expect(WorkspaceDocument.findContainingTabsId(doc, 'inspector'), 'the returner still landed somewhere').toBeTruthy();
+            expect(WorkspaceDocument.validate(doc)).toEqual([])
+        });
+
+        test('a recorded home that resolves to NOTHING falls back rather than dropping the pane', async () => {
+            workspace = armed();
+
+            detach('editor');
+
+            // Both halves of the record point at nodes that no longer exist — the zone AND the
+            // sibling its split collapsed into. The restore fails closed; the return path must not.
+            Object.assign(workspace.tearOutHandlers.peekPlacement('editor').home, {parentId: 'gone', siblingId: 'gone-too'});
+
+            expect(await workspace.tearOutHandlers.reintegrateItem('editor', null)).toBe(true);
+            expect(WorkspaceDocument.findContainingTabsId(workspace.dockModel, 'editor')).toBeTruthy()
+        })
+    });
+
+    test.describe('#17681 engine tear-out lifecycle matrix', () => {
+        let previousApps;
+
+        const createSortZone = () => {
+            const calls = {ended: 0, started: []};
+
+            return {
+                calls,
+                endWindowDrag  : () => calls.ended++,
+                startWindowDrag: data => calls.started.push(data)
+            }
+        };
+
+        const addWindow = windowId => {
+            const mainView = Neo.create(Container, {});
+
+            Neo.apps[windowId] = {mainView};
+
+            return mainView
+        };
+
+        // The vessel's arrival, as the worker admits it: the carried identity its config registered
+        // with. An identity the carrier holds binds synchronously inside the admission and fires; a
+        // forked one binds after the carrier answered — so the admission is awaited before the host's
+        // async handler promises are. The host observes its Group once the manager it loads on demand
+        // has resolved — a real vessel binds long after that, a unit arm may not.
+        const connectVessel = async (windowId, topologyIdentity) => {
+            await workspace.transactionManagerReady;
+            await TransactionManager.admit({topologyIdentity, windowId});
+            await Promise.all(workspace.binds)
+        };
+
+        const disconnectVessel = async windowId => {
+            TransactionManager.onWindowDisconnect({windowId});
+            await Promise.all(workspace.releases)
+        };
+
+        const beginExit = async itemId => {
+            const zone = createSortZone();
+
+            await workspace.tearOutHandlers.onDockTearOutExit({
+                itemId,
+                proxyRect: {x: 20, y: 30, width: 480, height: 360},
+                sortZone : zone
+            });
+
+            return {request: workspace.openRequests.at(-1), zone}
+        };
+
+        test.beforeEach(() => {
+            previousApps = Neo.apps;
+            Neo.apps     = {}
+        });
+
+        test.afterEach(() => {
+            workspace?.destroy?.();
+            workspace = null;
+            Neo.apps  = previousApps
+        });
+
+        test('#17947 pop-out commits detachItem through the REAL lifecycle, not a stubbed pair', async () => {
+            // The handler arms elsewhere in this file stub `tearOutHandlers` to assert dispatch and
+            // ordering. This one drives the real thing: real admission, real reducer, real committed
+            // document — which is the AC that matters, because dispatching correctly into a broken
+            // pipeline would satisfy every ordering assertion and still detach nothing.
+            workspace = Neo.create(TearOutWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true
+            });
+
+            const tabContainer = {
+                activeIndex: 0,
+                getTabBar  : () => ({sortZoneConfig: {dockItemIds: ['preview']}}),
+                id         : 'popout-tabs'
+            };
+
+            // `measureDockPaneRect` finds no `Neo.main.DomAccess` here and resolves null. That is the
+            // documented degradation — the vessel opens at the host's default geometry rather than a
+            // wrong one — so the commit path is exercised exactly as it is in production.
+            const result = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer});
+
+            expect(result, 'the terminal must return a result, not a refusal envelope').toBeTruthy();
+            expect(result.errors ?? []).toEqual([]);
+
+            await workspace.refreshPromise;
+
+            // The committed document is the witness: the item left the dock through `detachItem`.
+            const committed = workspace.getDockZoneDocument();
+
+            expect(WorkspaceDocument.findOwningEdge(committed, 'preview'), 'a detached item owns no edge').toBeFalsy();
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview'), 'the vessel holds the pane').toBeTruthy()
+        });
+
+        test('#17947 a REDUCER refusal reaches the caller as a refusal, though the terminal resolved TRUE', async () => {
+            // The falsifier this arm exists for: `window.TearOut`'s terminal returns `true` on a
+            // committed detach AND `retireVessel(vessel)` on a reducer refusal — which is ALSO true
+            // when the retirement succeeds. Reading that Boolean as success reports a detach that
+            // never happened.
+            //
+            // The sibling stub arm injects `terminalResult` and therefore certifies a grammar the
+            // production terminal never emits. This one drives the REAL pair: real admission, the
+            // real `TearOut` terminal, the real `applyTearOutOperation` wrapper
+            // (including its placement capture and rollback), and a real vessel retirement whose
+            // success is what makes the Boolean lie.
+            workspace = Neo.create(TearOutWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true
+            });
+
+            // The refusal enters at the reducer — the one seam a refusal actually comes from in
+            // production. Everything above it stays real, which is the point: the wrapper must
+            // reach its verdict from the committed document, not from what the pair returned.
+            workspace.applyDockZoneOperation = descriptor => descriptor?.operation === 'detachItem'
+                ? {document: null, errors: ['detachItem refused by the reducer']}
+                : {document: workspace.dockModel, errors: []};
+
+            // The document seam must never fire on a refusal. Counted rather than inferred from the
+            // document: a sync that ran and committed the SAME document would be invisible to a
+            // content comparison, and it is the call that is forbidden here.
+            const syncs        = [],
+                  realSync     = workspace.onTearOutDocumentChange.bind(workspace),
+                  realTerminal = workspace.tearOutHandlers.onDockTearOutTerminal.bind(workspace.tearOutHandlers);
+
+            workspace.onTearOutDocumentChange = (...args) => {
+                syncs.push(args);
+                return realSync(...args)
+            };
+
+            // Captured so the arm can assert the Boolean was genuinely `true` — without that, a
+            // refusal envelope proves nothing, because a terminal returning `false` would produce
+            // the same envelope for an entirely different reason.
+            let terminalResult;
+
+            workspace.tearOutHandlers.onDockTearOutTerminal = async data => {
+                terminalResult = await realTerminal(data);
+                return terminalResult
+            };
+
+            const tabContainer = {
+                activeIndex: 0,
+                getTabBar  : () => ({sortZoneConfig: {dockItemIds: ['preview']}}),
+                id         : 'popout-tabs'
+            };
+
+            const result = await workspace.getPlugin('dock-header-actions').handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer});
+
+            // The lie, witnessed: the retirement succeeded, so the terminal reports `true`.
+            expect(terminalResult, 'a refusal whose cleanup succeeded still resolves true').toBe(true);
+
+            // And the caller is told the truth anyway.
+            expect(result.errors?.[0]).toMatch(/refused by the detach commit/);
+
+            // Zero document sync, on both readings: the seam never fired, and the item is still
+            // exactly where it was — `wasInTree` was true going in, so this is an observed
+            // non-transition rather than the absence of any evidence.
+            expect(syncs, 'a refused detach commits nothing').toEqual([]);
+            expect(WorkspaceDocument.findContainingTabsId(workspace.getDockZoneDocument(), 'preview'))
+                .toBe('side-tabs');
+
+            // The vessel the refusal opened is retired — once. This is what made the Boolean true,
+            // so an arm that did not assert it would not have reproduced the falsifier at all.
+            expect(workspace.closeRequests.filter(vessel => vessel.itemId === 'preview'))
+                .toHaveLength(1);
+
+            // The rollback half of the real wrapper: a refused detach keeps no placement record,
+            // which is what lets a later attempt capture a fresh one.
+            expect(workspace.tearOutHandlers.peekPlacement('preview'), 'a refused detach records no placement').toBeNull()
+        });
+
+        // A click is asynchronous across two awaits while `destroy()` is synchronous, so the window
+        // between them is reachable in production: the pane is measured through the main thread, and
+        // the host's vessel seam can take arbitrarily long to answer. These two arms drive a REAL
+        // `destroy()` into each gap. The stub harness cannot host them — `destroy()` only nulls
+        // `tearOutHandlers` under `enableDockTearOutLifecycle`, so a stubbed pair would be testing a
+        // teardown that never happens.
+        const popOutTabContainer = () => ({
+            activeIndex: 0,
+            getTabBar  : () => ({sortZoneConfig: {dockItemIds: ['preview']}}),
+            id         : 'popout-tabs'
+        });
+
+        test('#17947 a pop-out whose MEASUREMENT outlives the workspace never asks for a vessel', async () => {
+            const ws = Neo.create(TearOutWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true
+            });
+
+            workspace = null;   // this arm owns the teardown; afterEach must not destroy twice
+
+            // Collected test-side, not read off the instance: `destroy()` clears the harness fields,
+            // so `ws.openRequests` is gone by the time the assertion runs and would read as an empty
+            // observation rather than as an observed absence.
+            const opens = [];
+
+            ws.openTearOutVessel = request => {
+                opens.push(request);
+
+                return {windowName: 'tearout-unreachable'}
+            };
+
+            // Teardown lands inside the FIRST await. Nothing has been admitted yet, so the only
+            // correct outcome is to refuse before the seam is ever called: opening a vessel for a
+            // workspace that is already gone is the orphan this guard exists to prevent.
+            ws.getPlugin('dock-header-actions').measureDockPaneRect = async () => {
+                ws.destroy();
+                return null
+            };
+
+            const result = await ws.getPlugin('dock-header-actions').handleDockPopOutAction({
+                dockNodeId: 'main-tabs', tabContainer: popOutTabContainer()
+            });
+
+            // Settles as an envelope. A rejection here would surface as an unhandled rejection in
+            // production, because the projection listener discards this promise.
+            expect(result, 'the abandoned path must settle, never reject').toBeTruthy();
+            expect(result.errors?.[0]).toMatch(/destroyed before admission/);
+            expect(opens, 'no vessel may be requested for a workspace that is gone').toEqual([])
+        });
+
+        test('#17947 an ADMISSION that lands after teardown closes its vessel exactly once', async () => {
+            const ws = Neo.create(TearOutWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true
+            });
+
+            workspace = null;
+
+            let admitLate, reachedSeam;
+
+            const
+                atSeam   = new Promise(resolve => {reachedSeam = resolve}),
+                admitted = new Promise(resolve => {admitLate = resolve}),
+                opens    = [],
+                closes   = [];
+
+            // Both collected test-side: `destroy()` clears the harness fields, and the close under
+            // test happens on the far side of that teardown — recording into the instance would
+            // either throw or be swept away with it.
+            ws.closeTearOutVessel = vessel => {
+                closes.push(vessel);
+
+                return true
+            };
+
+            // Deterministic, not timed: the seam itself signals that the handler is parked in the
+            // admission await, so the teardown below lands in the gap every run rather than when a
+            // sleep happens to be long enough.
+            ws.openTearOutVessel = request => {
+                opens.push(request);
+                reachedSeam();
+
+                return admitted
+            };
+
+            // The terminal is the ONLY commit seam, so watching it is how "no post-destroy commit"
+            // is observed directly rather than inferred from a document that teardown already took.
+            const
+                terminals    = [],
+                realTerminal = ws.tearOutHandlers.onDockTearOutTerminal;
+
+            ws.tearOutHandlers.onDockTearOutTerminal = data => {
+                terminals.push(data);
+
+                return realTerminal(data)
+            };
+
+            const pending = ws.getPlugin('dock-header-actions').handleDockPopOutAction({
+                dockNodeId: 'main-tabs', tabContainer: popOutTabContainer()
+            });
+
+            await atSeam;
+
+            // The vessel is REAL and open by the time the workspace goes away.
+            ws.destroy();
+
+            admitLate({
+                popupHeight: 360,
+                popupWidth : 480,
+                windowName : 'tearout-late-preview'
+            });
+
+            const result = await pending;
+
+            // Settles as an envelope rather than rejecting: the projection listener discards this
+            // promise, so a rejection here is an unhandled rejection in production.
+            expect(result, 'the abandoned path must settle, never reject').toBeTruthy();
+
+            // The refusal is REAL but its attribution is the seam's, not the workspace's: the
+            // coordinator refuses because its own state was retired underneath it, which arrives at
+            // the handler indistinguishable from a host declining the window. The handler's
+            // "destroyed after admission" branch is therefore not reached on this path — the
+            // admission never resolves truthy for it to check.
+            expect(result.errors?.[0]).toMatch(/refused by the host vessel seam/);
+
+            // No commit and no terminal: whatever the attribution, teardown must not advance the
+            // document. This is the half that is unambiguously contractual.
+            expect(terminals, 'a destroyed workspace reaches no commit seam').toEqual([]);
+
+            // EXACTLY ONCE. The host opened a real OS window on the far side of teardown, so the
+            // only correct outcome is that it is asked to close it — once. `toHaveLength(1)` is the
+            // whole assertion: zero is the orphan this guard exists to prevent, and two is a
+            // double-close of a window the host has already disposed of.
+            //
+            // Measured across BOTH close collectors rather than inferred — the harness seam and the
+            // instance override are each recorded, so a close landing on either is counted.
+            //
+            // Note the attribution above: the coordinator still reports a seam refusal, because
+            // `acquireTearOutVessel` refuses on behalf of a destroyed workspace. The cleanup is the
+            // workspace's own, taken before that refusal is handed back.
+            expect(closes.filter(vessel => vessel.windowName === 'tearout-late-preview'))
+                .toHaveLength(1)
+        });
+
+        test('terminal-first connect lands one admitted live pane, then returns it before observers fire', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const
+                pane            = workspace.getReference('tearout-pane-preview'),
+                {request, zone} = await beginExit('preview');
+
+            expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview')).toMatchObject({windowId: null});
+            expect(workspace.tearOutHandlers.heldPane('preview')).toBe(pane);
+            await workspace.refreshPromise;
+
+            const mainView = addWindow('terminal-first');
+
+            await connectVessel('terminal-first', request.topologyIdentity);
+
+            expect(mainView.items).toContain(pane);
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview').windowId).toBe('terminal-first');
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+
+            await disconnectVessel('terminal-first');
+
+            expect(mainView.items).not.toContain(pane);
+            expect(workspace.getReference('tearout-pane-preview')).toBe(pane);
+            expect(workspace.dockModel.nodes['side-tabs'].items).toEqual(['preview', 'terminal']);
+            expect(workspace.lifecycleEvents).toEqual(['return:true:true', 'disconnect'])
+        });
+
+        test.describe('#18077 #19619 the host loads the geometry stream into its window and into every admitted vessel', () => {
+            let addonLoads, calls, isSharedWorker, originalGetAddon, windowPosition;
+
+            test.beforeEach(() => {
+                originalGetAddon = Neo.currentWorker.getAddon;
+                isSharedWorker   = Neo.currentWorker.isSharedWorker;
+                addonLoads       = [];
+                calls            = [];
+                windowPosition   = {setConfigs: data => {calls.push(data); return Promise.resolve()}};
+
+                // `getAddon` loads an addon into ONE window's Main realm and returns its proxy. Recording
+                // the window it was asked for fails a load that reached the wrong realm. Nothing lists
+                // the addon in `mainThreadAddons`, as the Fleet Manager's widget shell does not.
+                Neo.currentWorker.getAddon = async (name, windowId) => {
+                    if (name !== 'WindowPosition') {
+                        return originalGetAddon(name, windowId)
+                    }
+
+                    addonLoads.push(windowId);
+                    return windowPosition
+                };
+
+                Neo.currentWorker.isSharedWorker = true
+            });
+
+            test.afterEach(() => {
+                Neo.currentWorker.getAddon       = originalGetAddon;
+                Neo.currentWorker.isSharedWorker = isSharedWorker
+            });
+
+            test('a SharedWorker host loads the addon into its own window and opens movement AND resize there', async () => {
+                workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument(), windowId: 'host-window'});
+
+                await expect.poll(() => calls.length, 'the stream opens with nothing in mainThreadAddons').toBe(1);
+                expect(addonLoads, 'loaded into the host window').toEqual(['host-window']);
+                expect(calls[0]).toEqual({observeMovement: true, observeResize: true, windowId: 'host-window'})
+            });
+
+            test('a dock outside a SharedWorker app loads nothing and starts no poll; inside one, every host arms', async () => {
+                Neo.currentWorker.isSharedWorker = false;
+
+                const bare = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'bare-window'});
+
+                bare.destroy();
+
+                // A host running its own admission (no engine lifecycle) docks across windows too.
+                Neo.currentWorker.isSharedWorker = true;
+
+                const plain = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'plain-window'});
+
+                try {
+                    await expect.poll(() => calls.length).toBe(1);
+                    expect(addonLoads, 'the dedicated-worker dock loaded nothing').toEqual(['plain-window']);
+                    expect(calls[0]).toEqual({observeMovement: true, observeResize: true, windowId: 'plain-window'})
+                } finally {
+                    plain.destroy()
+                }
+            });
+
+            test('an admitted vessel loads the addon into its own window before the connection reaches any ownership branch', async () => {
+                workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument(), windowId: 'host-window'});
+
+                const {request, zone} = await beginExit('preview');
+
+                expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
+                await workspace.refreshPromise;
+
+                const mainView = addWindow('vessel-window');
+
+                workspace.afterTearOutWindowConnect = () => calls.push('afterTearOutWindowConnect');
+
+                await connectVessel('vessel-window', request.topologyIdentity);
+
+                expect(addonLoads, 'one load per window, each into its own realm').toEqual(['host-window', 'vessel-window']);
+                expect(calls, 'host at construction, vessel on admission, observers last').toEqual([
+                    {observeMovement: true, observeResize: true, windowId: 'host-window'},
+                    {observeMovement: true, observeResize: true, windowId: 'vessel-window'},
+                    'afterTearOutWindowConnect'
+                ]);
+                expect(mainView.items, 'the pane entered its vessel after the stream opened').toHaveLength(1)
+            });
+        });
+
+        test('connect-first keeps exact admission identity until the detached terminal consumes it', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const
+                pane            = workspace.getReference('tearout-pane-preview'),
+                {request, zone} = await beginExit('preview'),
+                mainView        = addWindow('connect-first');
+
+            await connectVessel('connect-first', request.topologyIdentity);
+
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toMatchObject({windowId: 'connect-first', workspaceKey: 'popup:preview'});
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true, workspaceKey: 'popup:preview'});
+            expect(mainView.items).not.toContain(pane);
+
+            expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
+
+            expect(mainView.items).toContain(pane);
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview').windowId).toBe('connect-first');
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false)
+        });
+
+        test('a worker may connect before platform-open settlement without being misclosed as stale', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            let resolveOpen;
+
+            workspace.openDeferred = new Promise(resolve => {resolveOpen = resolve});
+
+            const zone = createSortZone(),
+                  exit = workspace.tearOutHandlers.onDockTearOutExit({
+                      itemId: 'preview', proxyRect: {}, sortZone: zone
+                  });
+
+            await expect.poll(() => workspace.openRequests.length).toBe(1);
+
+            const
+                request  = workspace.openRequests[0],
+                mainView = addWindow('early-connect');
+
+            await connectVessel('early-connect', request.topologyIdentity);
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true});
+
+            resolveOpen({
+                popupHeight: 360,
+                popupWidth : 480,
+                windowName : `tearout-preview-${workspace.id}`
+            });
+            await exit;
+
+            expect(workspace.closeRequests).toEqual([]);
+            expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
+            expect(mainView.items).toContain(workspace.tearOutHandlers.heldPane('preview'))
+        });
+
+        test('a foreign Group, a stranger token and an unreserved slot never reach product continuation or ownership', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const {request} = await beginExit('preview'),
+                  identity  = request.topologyIdentity,
+                  cases     = [
+                      // Another Group's identity: the manager creates that Group cold and binds the
+                      // window there — never into this host's slot.
+                      ['foreign-group',   {...identity, groupId: 'some-other-group'}],
+                      // A copied pair with the wrong lineage token: the manager forks it away.
+                      ['stranger-token',  {...identity, generationToken: 'not-the-reservation'}],
+                      // A slot this host never reserved is no door into its Group: the presenter forks.
+                      ['unreserved-slot', {...identity, workspaceKey: 'popup:terminal'}]
+                  ];
+
+            for (const [windowId, topologyIdentity] of cases) {
+                addWindow(windowId);
+                await connectVessel(windowId, topologyIdentity)
+            }
+
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: false, windowId: null});
+            expect(TransactionManager.getBinding(identity.groupId, 'popup:preview').windowId,
+                'the reservation still waits for its own vessel').toBeNull();
+            expect(TransactionManager.getBinding(identity.groupId, 'popup:terminal'), 'the unreserved slot stays absent').toBeNull();
+            expect(TransactionManager.findByWindow('unreserved-slot').groupId).not.toBe(identity.groupId);
+
+            await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+        });
+
+        test('two overlapping opens for one item: the older open\'s late failure cannot revoke the replacement reservation, whose vessel is admitted', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const opens = [],
+                  zone  = createSortZone();
+
+            workspace.openTearOutVessel = request => new Promise(resolve => opens.push({request, resolve}));
+
+            // The acquisition method itself, twice for one item while the first platform open is still
+            // pending: the second reservation supersedes the first in the manager and in the host. (The
+            // gesture handler serializes exits; this is the seam an asynchronous host reaches directly.)
+            const first = acquireNative(workspace, {itemId: 'preview', sortZone: zone});
+
+            await expect.poll(() => opens.length).toBe(1);
+
+            const second = acquireNative(workspace, {itemId: 'preview', sortZone: zone});
+
+            await expect.poll(() => opens.length).toBe(2);
+
+            const [s1, s2] = opens.map(open => open.request.topologyIdentity);
+
+            expect(s2.groupId).toBe(s1.groupId);
+            expect(s2.generationToken, 'the slot was reserved again under a fresh lineage').not.toBe(s1.generationToken);
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({generationToken: s2.generationToken});
+
+            // The older platform open fails late and cleans up after itself.
+            opens[0].resolve(null);
+
+            expect(await first, 'the older acquisition reports its failure').toBeNull();
+            expect(TransactionManager.getBinding(s2.groupId, 'popup:preview'), 'the replacement reservation survives the older failure')
+                .toEqual({generation: 0, generationToken: s2.generationToken, windowId: null, workspaceKey: 'popup:preview'});
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview'), 'the replacement admission survives it too').toMatchObject({generationToken: s2.generationToken});
+
+            // The replacement's open succeeds and its child binds the reserved slot.
+            opens[1].resolve({popupHeight: 360, popupWidth: 480, windowName: 'tearout-preview-second'});
+
+            expect(await second).toMatchObject({generationToken: s2.generationToken, windowName: 'tearout-preview-second', workspaceKey: 'popup:preview'});
+
+            addWindow('second-child');
+            await connectVessel('second-child', s2);
+
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true, generationToken: s2.generationToken, windowId: 'second-child'});
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toMatchObject({windowId: 'second-child'})
+        });
+
+        test('a late child presenting an expired reservation forks and never connects; a fresh reservation still admits its child', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            TransactionManager.reconnectLeaseMs = 20;
+
+            try {
+                const {request} = await beginExit('preview'),
+                      identity  = request.topologyIdentity;
+
+                // The reservation runs out its lease with no window binding: the manager frees the slot,
+                // and the host retires the vessel it had opened for it.
+                await expect.poll(() => TransactionManager.getBinding(identity.groupId, 'popup:preview')).toBeNull();
+                await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+                expect(workspace.closeRequests.map(vessel => vessel.itemId)).toEqual(['preview']);
+
+                const lateView = addWindow('late-child');
+
+                await connectVessel('late-child', identity);
+
+                expect(TransactionManager.findByWindow('late-child').groupId, 'the dead lineage forked away').not.toBe(identity.groupId);
+                expect(TransactionManager.getBinding(identity.groupId, 'popup:preview'), 'nothing entered the Group').toBeNull();
+                expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
+                expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+                expect(lateView.items).toEqual([]);
+
+                // Positive control: a fresh exit reserves again, and its own child is admitted.
+                TransactionManager.reconnectLeaseMs = 20000;
+
+                const {request: fresh} = await beginExit('preview');
+
+                addWindow('fresh-child');
+                await connectVessel('fresh-child', fresh.topologyIdentity);
+
+                expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true, windowId: 'fresh-child'});
+
+                await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+            } finally {
+                TransactionManager.reconnectLeaseMs = 20000
+            }
+        });
+
+        test('the host keeps the Group it learned: its own window\'s release and lease expiry change nothing it resolves, and a first boot learns the Group from its accepted binding', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const manager = await workspace.transactionManagerReady,
+                  groupId = workspace.topologyGroupId;
+
+            expect(groupId, 'learned when the manager resolved: the window bound before this instance subscribed').toBeTruthy();
+
+            // A host registers its documents into the Group; that is what keeps the Group alive.
+            manager.registerParticipant({groupId, workspaceKey: 'main', participant: {getDocument: () => workspace.dockModel}});
+            manager.reconnectLeaseMs = 20;
+
+            try {
+                manager.release(workspace.windowId);
+
+                await expect.poll(() => manager.getBinding(groupId, 'main')).toBeNull();
+
+                expect(manager.findByWindow(workspace.windowId), 'the live binding is gone').toBeNull();
+                expect(workspace.topologyGroupId, 'the Group is remembered, not re-derived').toBe(groupId);
+                expect(manager.get(groupId), 'a Group holding a participant survives its last binding').toBeTruthy();
+                expect(manager.participantKeys(groupId)).toEqual(['main']);
+
+                // The host still acts for its Group: a vessel it reserves lands in it.
+                const {request} = await beginExit('preview');
+
+                expect(request.topologyIdentity.groupId).toBe(groupId);
+                await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+            } finally {
+                manager.reconnectLeaseMs = 20000
+            }
+
+            // A first boot: the window's minted identity is accepted by its carrier after construction.
+            const firstBoot = Neo.create(TearOutWorkspace, {bindHostAtConstruct: false, dockModel: createDocument(), windowId: 'first-boot'});
+
+            try {
+                await firstBoot.transactionManagerReady;
+
+                expect(firstBoot.topologyGroupId, 'nothing to learn yet').toBeNull();
+
+                const minted = await manager.admit({topologyIdentity: {}, windowId: 'first-boot'});
+
+                expect(minted.outcome).toBe('minted');
+                expect(firstBoot.topologyGroupId, 'learned from the accepted binding').toBe(minted.groupId)
+            } finally {
+                firstBoot.destroy();
+                manager.retireGroup(manager.findByWindow('first-boot')?.groupId)
+            }
+        });
+
+        test('an async grant cannot publish a connection after its exact admission was retired', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            let releaseGrant;
+
+            workspace.grant = () => new Promise(resolve => {releaseGrant = resolve});
+
+            const {request} = await beginExit('preview'),
+                  mainView  = addWindow('grant-race');
+
+            TransactionManager.admit({topologyIdentity: request.topologyIdentity, windowId: 'grant-race'});
+
+            const connect = workspace.binds.at(-1);
+
+            await expect.poll(() => typeof releaseGrant).toBe('function');
+
+            workspace.nativeWindows.clearAdmission(workspace.id, 'preview', workspace.nativeWindows.getAdmission(workspace.id, 'preview'));
+            releaseGrant(true);
+            await connect;
+
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
+            expect(mainView.items).toEqual([]);
+
+            await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+        });
+
+        test('a refused detach retires the vessel and leaves no placement or pane ownership', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const
+                before          = JSON.stringify(workspace.dockModel),
+                {request, zone} = await beginExit('preview');
+
+            workspace.applyDockZoneOperation = () => ({document: null, errors: ['refused']});
+
+            await workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone});
+
+            expect(JSON.stringify(workspace.dockModel)).toBe(before);
+            expect(workspace.closeRequests).toHaveLength(1);
+            expect(workspace.closeRequests[0]).toMatchObject({itemId: 'preview', workspaceKey: 'popup:preview'});
+            expect(workspace.tearOutHandlers.peekPlacement('preview')).toBeNull();
+            expect(workspace.tearOutHandlers.heldPane('preview')).toBeNull()
+        });
+
+        test('a pre-terminal disconnect retires only provisional ownership with zero document mutation', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const
+                before          = JSON.stringify(workspace.dockModel),
+                {request, zone} = await beginExit('preview');
+
+            addWindow('preterminal-disconnect');
+            await connectVessel('preterminal-disconnect', request.topologyIdentity);
+            await disconnectVessel('preterminal-disconnect');
+
+            expect(JSON.stringify(workspace.dockModel)).toBe(before);
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+            expect(workspace.tearOutHandlers.activeVessel).toBeNull();
+            expect(zone.calls.ended).toBe(1);
+            expect(workspace.lifecycleEvents).toEqual(['disconnect'])
+        });
+
+        test('a lease that runs out closes and ends the in-window embodiment, while explicit close refusal retains authority', async () => {
+            // The clock is the manager's: the reservation's lease, not a per-workspace timer.
+            TransactionManager.reconnectLeaseMs = 1;
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            let observeClose;
+
+            const closed = new Promise(resolve => {observeClose = resolve});
+
+            workspace.onClose = observeClose;
+
+            const {zone} = await beginExit('preview');
+
+            await closed;
+            await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+
+            expect(zone.calls.ended).toBe(1);
+            expect(workspace.tearOutHandlers.activeVessel).toBeNull();
+
+            workspace.destroy();
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+            workspace.closeResult = false;
+
+            const refused = new Promise(resolve => {workspace.onClose = resolve});
+            const second  = await beginExit('preview');
+
+            await refused;
+
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(true);
+            expect(workspace.tearOutHandlers.activeVessel).toBeTruthy();
+            expect(second.zone.calls.ended).toBe(0);
+
+            workspace.closeResult = true;
+            await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+        });
+
+        for (const [disposition, Host] of [['Boolean', RetainingTearOutWorkspace], ['object', ObjectRetainingTearOutWorkspace]]) {
+            test(`a never-bound lease asks the host: ${disposition} retention keeps the live pane, a plain host gets its item back`, async () => {
+                TransactionManager.reconnectLeaseMs = 20;
+                workspace = Neo.create(Host, {dockModel: createDocument()});
+
+                const settled = [], settle = workspace.settleDockPane;
+
+                workspace.settleDockPane = pane => {
+                    settled.push(pane?.id ?? null);
+                    return settle.call(workspace, pane)
+                };
+
+                // The terminal commits a detach and captures the pane, but no window ever binds.
+                const {zone} = await beginExit('preview');
+
+                await workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone});
+
+                const pane     = workspace.tearOutHandlers.heldPane('preview'),
+                      detached = JSON.stringify(workspace.dockModel);
+
+                expect(pane, 'the terminal captured the live pane and nothing adopted it').not.toBeNull();
+                expect(workspace.nativeWindows.getOwner(workspace.id, 'preview'), 'ownership was committed at the terminal, windowless')
+                    .toMatchObject({windowId: null});
+
+                await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+                await expect.poll(() => workspace.lifecycleEvents.length).toBeGreaterThan(0);
+
+                expect(workspace.releaseAsks, 'asked exactly once').toHaveLength(1);
+                expect(workspace.releaseAsks[0], 'with the freed slot and no window, marked as the lease-end route')
+                    .toMatchObject({groupId: workspace.topologyGroupId, workspaceKey: 'popup:preview', windowId: null, expired: true});
+                expect(workspace.lifecycleEvents, 'no return ran, and the hook heard the retention').toEqual(['disconnect:false:true:null']);
+                expect(settled, 'nothing settled the pane').toEqual([]);
+                expect(pane.isDestroyed, 'the same live instance survives the lease').toBeFalsy();
+                expect(workspace.tearOutHandlers.heldPane('preview'), 'and stays with the host').toBe(pane);
+                expect(JSON.stringify(workspace.dockModel), 'the retained route mutates no document').toBe(detached);
+
+                // Control: a host that does not retain gets its item back through the return flow.
+                workspace.destroy();
+                workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+                const control = await beginExit('preview');
+
+                await workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: control.zone});
+                await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+                await expect.poll(() => workspace.lifecycleEvents.includes('disconnect')).toBe(true);
+
+                expect(workspace.lifecycleEvents[0], 'the plain host returned its item home').toMatch(/^return:true/);
+                expect(workspace.tearOutHandlers.heldPane('preview'), 'and released the handle').toBeNull()
+            })
+        }
+
+        test('stale-open close refusal remains tracked and blocks a successor until exact retry succeeds', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+            workspace.closeResult = false;
+
+            // Stale: the admission was replaced while the host was still opening, so the record the
+            // open returns into is no longer the one the acquisition made.
+            workspace.openTearOutVessel = request => {
+                const admission = workspace.nativeWindows.getAdmission(workspace.id, request.itemId);
+
+                workspace.nativeWindows.sources.get(workspace.id).admissions.set(request.itemId, {...admission});
+
+                return {popupHeight: 360, popupWidth: 480, windowName: `stale-preview-${workspace.id}`}
+            };
+
+            const vessel = await acquireNative(workspace, {itemId: 'preview'});
+
+            expect(vessel).toBeNull();
+            expect(workspace.nativeWindows.pendingRetirements(workspace.id).length).toBe(1);
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(true);
+
+            const closeCount = workspace.closeRequests.length;
+
+            expect(await acquireNative(workspace, {itemId: 'preview'})).toBeNull();
+            expect(workspace.closeRequests.length).toBe(closeCount + 1);
+
+            workspace.closeResult = true;
+            expect(await workspace.nativeWindows.retryRetirements(workspace.id, 'preview')).toBe(true);
+            expect(workspace.nativeWindows.pendingRetirements(workspace.id).length).toBe(0);
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false)
+        });
+
+        test('failed reparent rejects loudly, retracts vessel ownership and returns the live pane', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const
+                pane            = workspace.getReference('tearout-pane-preview'),
+                {request, zone} = await beginExit('preview');
+
+            workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone});
+            await workspace.refreshPromise;
+
+            const mainView = addWindow('reparent-failure');
+
+            mainView.add = () => {throw new Error('reparent refused')};
+            workspace.closeResult = false;
+
+            TransactionManager.admit({topologyIdentity: request.topologyIdentity, windowId: 'reparent-failure'});
+            await expect(workspace.binds.at(-1)).rejects.toThrow(/could not enter/);
+            await expect.poll(() => workspace.dockModel.nodes['side-tabs'].items.includes('preview')).toBe(true);
+            await workspace.refreshPromise;
+            await expect.poll(() => workspace.nativeWindows.pendingRetirements(workspace.id).length).toBe(1);
+
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview')).toBeNull();
+            expect(workspace.getReference('tearout-pane-preview')).toBe(pane);
+            expect(pane.isDestroyed).toBeFalsy();
+            expect(workspace.closeRequests).toHaveLength(1);
+
+            workspace.closeResult = true;
+            expect(await workspace.nativeWindows.retryRetirements(workspace.id, 'preview')).toBe(true);
+            expect(workspace.nativeWindows.pendingRetirements(workspace.id).length).toBe(0);
+            expect(workspace.closeRequests).toHaveLength(2)
+        })
+    });
+
+    test('DockService resolves the class as a holder without any service change', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const
+            dockService = Neo.create(DockService, {}),
+            result      = await dockService.executeDockOperation({
+                componentId: workspace.id,
+                descriptor : {operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1}
+            });
+
+        await workspace.refreshPromise;
+
+        expect(result.applied).toBe(true);
+        expect(workspace.getDockZoneDocument().nodes['editor-tabs'].items).toEqual(['editor', 'terminal']);
+
+        dockService.destroy()
+    });
+
+    test('applyDockZoneOperation is the pure reducer: fail-closed result, no self-mutation', () => {
+        const document = createDocument();
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: document});
+
+        const before = JSON.stringify(document),
+              result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'ghost', targetNodeId: 'editor-tabs', index: 0});
+
+        expect(result.errors.length).toBeGreaterThan(0);
+        expect(workspace.getDockZoneDocument()).toBe(document);
+        expect(JSON.stringify(document)).toBe(before)
+    });
+
+    test('the opt-in close action resolves live identity, commits once, preserves its instance and focuses after refresh', async () => {
+        const document = createDocument();
+
+        document.items.terminal.closable = false;
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel            : document,
+            enableDockCloseAction: true
+        });
+
+        const
+            tabs         = tabsOf(workspace.items[0]),
+            side         = tabs.get('side-tabs'),
+            closeAction  = side.getAction('close'),
+            terminalTab  = side.getTabButtons()[1],
+            focusTargets = [],
+            commits      = [],
+            apply        = workspace.applyDockZoneOperation.bind(workspace);
+
+        workspace.applyDockZoneOperation = descriptor => {
+            commits.push(descriptor);
+            return apply(descriptor)
+        };
+        terminalTab.focus = () => focusTargets.push('terminal');
+
+        expect(closeAction).toBeTruthy();
+        expect(closeAction.hidden).toBe(false);
+
+        await side.set({activeIndex: 1});
+        expect(closeAction.hidden, 'explicit false is projected into live availability').toBe(true);
+        await workspace.refreshPromise;
+
+        expect(workspace.getDockZoneDocument().nodes['side-tabs'].activeItemId).toBe('terminal');
+
+        const refused = workspace.onDockHeaderAction({action: 'close', dockNodeId: 'side-tabs', tabContainer: side});
+
+        expect(refused.errors).toEqual(['item "terminal" is not closable']);
+        expect(workspace.getDockZoneDocument().nodes['side-tabs'].activeItemId).toBe('terminal');
+        expect(side.activeIndex).toBe(1);
+        expect(side.getAction('close')).toBe(closeAction);
+        expect(focusTargets).toEqual([]);
+
+        const activationRefresh = workspace.refreshPromise;
+
+        workspace.dockModel = null;
+
+        const noDocument = workspace.onDockHeaderAction({action: 'close', dockNodeId: 'side-tabs', tabContainer: side});
+
+        expect(noDocument.errors).toEqual(['Dock close action requires a committed document']);
+        expect(workspace.refreshPromise).toBe(activationRefresh);
+        expect(focusTargets).toEqual([]);
+
+        workspace.dockModel = document;
+
+        await side.set({activeIndex: 0});
+        expect(closeAction.hidden).toBe(false);
+
+        closeAction.handler({component: closeAction});
+        await workspace.refreshPromise;
+
+        const retainedSide = tabsOf(workspace.items[0]).get('side-tabs');
+
+        expect(commits.map(item => [item.operation, item.itemId])).toEqual([
+            ['setActiveItem', 'terminal'],
+            ['closeItem',     'terminal'],
+            ['closeItem',     'preview']
+        ]);
+        expect(workspace.getDockZoneDocument().nodes['side-tabs'].items).toEqual(['terminal']);
+        expect(retainedSide).toBe(side);
+        expect(retainedSide.getAction('close')).toBe(closeAction);
+        expect(closeAction.hidden).toBe(true);
+        expect(focusTargets).toEqual(['terminal'])
+    });
+
+    test('the opt-in pin action commits §2.7\'s two-step collapse through the write seam and rails the pane', async () => {
+        const document = createEdgeDocument();
+
+        // A PINNED edge pane is the two-step case: the model refuses `autoHidden` on a pinned item,
+        // so the unpin is the collapse's precondition rather than an extra courtesy.
+        document.items.inspector.pinned = true;
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : document,
+            enableDockPinAction: true
+        });
+
+        const
+            tabs      = tabsOf(workspace.items[0]),
+            inspector = tabs.get('inspector-tabs'),
+            pinAction = inspector.getAction('pin'),
+            commits   = [],
+            apply     = workspace.applyDockZoneOperation.bind(workspace);
+
+        workspace.applyDockZoneOperation = descriptor => {
+            commits.push(descriptor);
+            return apply(descriptor)
+        };
+
+        expect(pinAction, 'the engine set projects into the live header').toBeTruthy();
+        expect(pinAction.hidden, 'an edge-owned pinnable pane can collapse').toBe(false);
+
+        // Merely RENDERING the action changes no committed state — the projection is view-only.
+        expect(workspace.getDockZoneDocument().items.inspector).toEqual({
+            reference: 'Inspector', title: 'Inspector', pinned: true
+        });
+
+        pinAction.handler({component: pinAction});
+        await workspace.refreshPromise;
+
+        // Both steps are INDEPENDENT commits and both went through the class's own write seam — the
+        // one `DockService` and `DockSplitter` reach a holder through. A folded single commit would
+        // have shown only one of them here.
+        expect(commits.map(descriptor => [descriptor.operation, descriptor.itemId])).toEqual([
+            ['setItemPinned',     'inspector'],
+            ['setItemAutoHidden', 'inspector']
+        ]);
+
+        const committed = workspace.getDockZoneDocument();
+
+        expect(committed.items.inspector.pinned).toBe(false);
+        expect(committed.items.inspector.autoHidden).toBe(true);
+
+        // The collapse is not merely a flag: the pane leaves its tab flow and the owning edge grows a
+        // rail. `right` is the band `findOwningEdge` named, so the derivation and the result agree.
+        const projected = workspace.projectDockModel(),
+              rails     = collect(projected, config => config.ntype === 'dashboard-dock-rail');
+
+        expect(rails.length).toBe(1);
+        expect(rails[0].edge).toBe('right');
+        expect(rails[0].railItems.map(item => item.dockItemId)).toEqual(['inspector']);
+        expect(tabsOf(projected).get('inspector-tabs'), 'an all-railed band keeps no tab flow').toBeUndefined()
+    });
+
+    test('an UNPINNED pane collapses in a single commit — the second step is a precondition, not a ritual', async () => {
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: true
+        });
+
+        const
+            inspector = tabsOf(workspace.items[0]).get('inspector-tabs'),
+            commits   = [],
+            apply     = workspace.applyDockZoneOperation.bind(workspace);
+
+        workspace.applyDockZoneOperation = descriptor => {
+            commits.push(descriptor);
+            return apply(descriptor)
+        };
+
+        inspector.getAction('pin').handler({component: inspector.getAction('pin')});
+        await workspace.refreshPromise;
+
+        expect(commits.map(descriptor => descriptor.operation)).toEqual(['setItemAutoHidden']);
+        expect(workspace.getDockZoneDocument().items.inspector.autoHidden).toBe(true)
+    });
+
+    /**
+     * `reload` is projected `hidden: true` by the stable-instance rule and revealed only by the
+     * post-settle sweep. A railed item projects no tabs node; pinning it back CREATES one beside the
+     * retained center — a node the reconciler's map (the OLD shell's tabs) never held. The sweep has
+     * to reach it anyway, or the returned pane comes back without the one action the round trip owes it.
+     */
+    test('a pane pinned back from the rail returns with its reload action — the sweep reaches the FRESH node', async () => {
+        const document = createEdgeDocument();
+
+        // Committed auto-hidden: the right band projects a rail and no `inspector-tabs` node.
+        document.items.inspector.autoHidden = true;
+
+        workspace = Neo.create(RecreateFallbackWorkspace, {dockModel: document});
+
+        expect(tabsOf(workspace.items[0]).get('inspector-tabs'), 'an all-railed band keeps no tab flow')
+            .toBeUndefined();
+
+        // The reveal overlay's pin control commits exactly this; the model clears `autoHidden` itself.
+        const descriptor = {operation: 'setItemPinned', itemId: 'inspector', pinned: true},
+              result     = workspace.applyDockZoneOperation(descriptor);
+
+        expect(result.errors, 'the restore is a clean commit').toEqual([]);
+        expect(result.document.items.inspector.autoHidden, 'and it un-hides the item').not.toBe(true);
+
+        workspace.onDockZoneDocumentChange(result.document, descriptor);
+        await workspace.refreshPromise;
+
+        const tabs     = tabsOf(workspace.items[0]),
+              returned = tabs.get('inspector-tabs');
+
+        expect(returned, 'the band is back with a tabs node').toBeTruthy();
+
+        // ONE post-settle sweep ran. It reached the retained node — that is the control — and it
+        // has to reach the node the projection just created.
+        expect(tabs.get('center-tabs').getAction('reload').hidden,
+            'the post-settle sweep reached the retained node').toBe(false);
+        expect(returned.getAction('reload')?.hidden,
+            'the returned node offers reload exactly like a never-railed one').toBe(false)
+    });
+
+    /**
+     * The reveal pane is a SEPARATE materialization of the item: a consumer resolving reveal and flow
+     * from one config mints the same id for both. The refresh that returns the item to flow releases
+     * the cached reveal pane BEFORE it mints the flow pane — otherwise the old rail's teardown
+     * unregisters the id under the live flow pane, the refresh throws mid-teardown, and the post-settle
+     * sweep never runs.
+     */
+    test('the pin escape returns a consumer-fixed-id pane to flow without an id collision, and the refresh settles', async () => {
+        const document = createEdgeDocument();
+
+        document.items.inspector.autoHidden = true;
+
+        workspace = Neo.create(FixedIdWorkspace, {dockModel: document});
+
+        const rail = railOf(workspace.items[0]);
+
+        expect(rail, 'the right band projects a rail').toBeTruthy();
+
+        // Reveal from the rail tab: the overlay materializes the pane from the consumer's config.
+        rail.onTabClick({component: rail.items[0]});
+
+        const revealPane = rail.revealPaneCache.inspector;
+
+        expect(revealPane?.id, 'the reveal pane carries the consumer-minted id').toBe('fixed-id-pane-inspector');
+
+        // The overlay's pin control: commits through the workspace reducer and dismisses the reveal.
+        expect(rail.onRevealPinRequested({itemId: 'inspector'}).errors).toEqual([]);
+
+        await workspace.refreshPromise;
+
+        const tabs     = tabsOf(workspace.items[0]),
+              returned = tabs.get('inspector-tabs'),
+              flowPane = returned?.getCard(0);
+
+        expect(flowPane?.id, 'the flow pane took the id').toBe('fixed-id-pane-inspector');
+        expect(flowPane.isDestroyed, 'and it is alive').toBeFalsy();
+        expect(Neo.get('fixed-id-pane-inspector'), 'registered under it — the only holder').toBe(flowPane);
+        expect(revealPane.isDestroyed, 'the reveal pane was released before the flow pane was minted').toBe(true);
+        expect(returned.getAction('reload')?.hidden, 'and the post-settle sweep ran on the returned node').toBe(false)
+    });
+
+    test('a pin retires only its own item — a rail still holding another auto-hidden item survives', async () => {
+        const
+            document   = createEdgeDocument(),
+            railTabIds = rail => (rail?.items || []).filter(item => item.dockItemId != null).map(item => item.dockItemId);
+
+        document.items.logs = {reference: 'Logs', title: 'Logs'};
+        document.nodes['inspector-tabs'].items.push('logs');
+
+        document.items.inspector.autoHidden = true;
+        document.items.logs.autoHidden      = true;
+
+        workspace = Neo.create(FixedIdWorkspace, {dockModel: document});
+
+        expect(railTabIds(railOf(workspace.items[0])), 'both auto-hidden items rail').toEqual(['inspector', 'logs']);
+
+        expect(railOf(workspace.items[0]).onRevealPinRequested({itemId: 'inspector'}).errors).toEqual([]);
+
+        await workspace.refreshPromise;
+
+        // Awaiting the rail's in-flight release must not make teardown unconditional: the edge
+        // still hosts an auto-hidden item, so the rail stays and loses only the pinned tab.
+        expect(railTabIds(railOf(workspace.items[0])), 'the rail keeps the item that stayed').toEqual(['logs'])
+    });
+
+    /**
+     * The leave paths that bypass the rail (a restored perspective, a transfer) reach the reveal pane
+     * only through the workspace's pre-projection sweep. The state machine's contract names those
+     * transitions `itemCleared`, so the sweep retires the reveal STATE with the pane: an overlay whose
+     * `revealPaneItemId` still named the departed item would short-circuit onto an empty slot the
+     * next time that item is revealed.
+     */
+    test('the pre-projection sweep retires an open reveal with its pane — state, pointer and slot', async () => {
+        const document = createEdgeDocument();
+
+        document.items.inspector.autoHidden = true;
+
+        workspace = Neo.create(FixedIdWorkspace, {dockModel: document});
+
+        const rail = railOf(workspace.items[0]);
+
+        rail.onTabClick({component: rail.items[0]});
+
+        const revealPane = rail.revealPaneCache.inspector,
+              overlay    = rail.revealOverlay;
+
+        expect(rail.revealMachine.state, 'revealed').toBe('revealed-focused');
+        expect(overlay.revealPaneItemId, 'the overlay names the revealed item').toBe('inspector');
+        expect(overlay.paneSlot.items.includes(revealPane), 'and hosts its pane').toBe(true);
+
+        // A restore that un-rails the item: the rail is never asked, only the sweep sees it leave.
+        const restored = structuredClone(workspace.getDockZoneDocument());
+
+        delete restored.items.inspector.autoHidden;
+
+        await workspace.releaseStaleRevealPanes(restored);
+
+        expect(rail.revealPaneCache.inspector, 'the cache forgot the pane').toBeUndefined();
+        expect(revealPane.isDestroyed, 'the pane is destroyed').toBe(true);
+        expect(rail.revealMachine.state, 'the reveal state is idle for the departed item').toBe('idle');
+        expect(overlay.revealPaneItemId, 'the overlay no longer names it').toBeNull();
+        expect(overlay.paneSlot.items, 'and its slot is empty').toHaveLength(0);
+
+        // An item that stays railed is untouched by the same sweep.
+        rail.onTabClick({component: rail.items[0]});
+        await workspace.releaseStaleRevealPanes(workspace.getDockZoneDocument());
+
+        expect(rail.revealPaneCache.inspector, 'a still-railed item keeps its reveal pane').toBeTruthy();
+        expect(rail.revealMachine.state, 'and its reveal').toBe('revealed-focused')
+    });
+
+    test('the pin action refuses fail-closed where the collapse cannot complete, and moves by hidden on ONE instance', async () => {
+        const document = createEdgeDocument();
+
+        // Two items in the same edge band, opposite policies — so the action's availability changes
+        // with the ACTIVE item inside one tabs node, which is what the sync has to get right.
+        document.items.notes = {reference: 'Notes', title: 'Notes', pinnable: false};
+        document.nodes['inspector-tabs'].items.push('notes');
+
+        // A SECOND center item, so activating it drives the workspace's own policy sync over a
+        // center-owned pane. With only one center item the sync never runs there and the assertion
+        // below would only re-read what the adapter computed at projection time.
+        document.items.readme = {reference: 'Readme', title: 'Readme'};
+        document.nodes['center-tabs'].items.push('readme');
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : document,
+            enableDockPinAction: true
+        });
+
+        const
+            tabs       = tabsOf(workspace.items[0]),
+            inspector  = tabs.get('inspector-tabs'),
+            center     = tabs.get('center-tabs'),
+            pinAction  = inspector.getAction('pin'),
+            visibility = [],
+            // The EMITTER of each signal, not just its payload. "The group was not replaced" is a
+            // claim about which instance spoke, and a rebuilt group would announce itself here by
+            // emitting from a different object while the payload looked identical.
+            signalSources = [];
+
+        inspector.getTabBar().on('actionVisibilityChange', data => {
+            visibility.push([data.action, data.component.hidden]);
+            signalSources.push(data.component)
+        });
+
+        // Center-owned: §2.7's fail-safe — main content never rails, so the affordance is not offered.
+        // Asserted BOTH where the adapter computed it and, below, after the workspace recomputes it:
+        // the two derive it independently, and only the switch exercises the workspace's own sync.
+        expect(center.getAction('pin').hidden, 'a center-owned pane cannot collapse').toBe(true);
+
+        await center.set({activeIndex: 1});
+
+        expect(center.getAction('pin').hidden, 'still no collapse after the workspace re-syncs a center pane')
+            .toBe(true);
+
+        expect(pinAction.hidden).toBe(false);
+
+        await inspector.set({activeIndex: 1});
+
+        expect(pinAction.hidden, '`pinnable: false` is refused by the model, so it is not offered').toBe(true);
+        expect(inspector.getAction('pin'), 'the SAME instance moved, the group was not replaced').toBe(pinAction);
+        expect(visibility, 'Overflow gets its signal from the instance, not a rebuilt group')
+            .toEqual([['pin', true]]);
+
+        // And the refusal holds if the intent is dispatched anyway — the model is the authority, not
+        // the hidden flag, which a host could always bypass.
+        const refused = await workspace.onDockHeaderAction({
+            action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: inspector
+        });
+
+        expect(refused.errors).toEqual(['item "notes" is not pinnable']);
+        expect(workspace.getDockZoneDocument().items.notes.autoHidden).toBeUndefined();
+
+        await inspector.set({activeIndex: 0});
+        expect(pinAction.hidden).toBe(false);
+
+        // AC-3's actual boundary. Everything above resolved when the container's own `set()` did,
+        // and the reconciler had not run yet — so a group replacement performed BY reconciliation
+        // was exactly what the identity assertion could not observe. `refreshPromise` is the seam
+        // the workspace chains that work onto, so awaiting it and re-resolving both the container
+        // and the action FROM the refreshed tree is what makes "the same instance" a claim about
+        // the lifetime the retained action actually has.
+        await workspace.refreshPromise;
+
+        const reconciledTabs = tabsOf(workspace.items[0]).get('inspector-tabs');
+
+        expect(reconciledTabs, 'the tabs node is retained across reconciliation').toBe(inspector);
+        expect(reconciledTabs.getAction('pin'), 'and so is the action instance on it')
+            .toBe(pinAction);
+        expect(pinAction.hidden, 'converging on the active item\'s real policy').toBe(false);
+
+        // The load-bearing half, and the reason this counts emitters rather than signals. The refresh
+        // QUEUE replays each pending refresh in order, and the first refresh reconciles chrome to the
+        // document as it stood when it was queued — so its sweep re-hides the action before the
+        // second settles it, and the post-refresh signal COUNT is not 0. Those extra signals are a
+        // property of the queue, not of this action: `close` lags identically, and nothing here
+        // could fix it without changing refresh sequencing for every consumer. What AC-3 actually
+        // claims is that no group was ever rebuilt behind them — every signal, before and after
+        // reconciliation, came from the one retained instance.
+        // Scoped to the PIN action's own signals. The claim is about pin's instance surviving
+        // reconciliation, and an unscoped emitter set silently also asserted that pin is the only
+        // action in this fixture whose visibility ever moves — which it is not: `reload` is enabled
+        // here and the engine now derives a recreate fallback for it, so it legitimately un-hides
+        // during the same refreshes. Measured: the two emitters are `pin` and `reload`, both
+        // visible. Counting them together turned another action's correct behaviour into a failure
+        // of this one.
+        const pinSources = signalSources.filter(component => component === pinAction);
+
+        expect(pinSources.length, 'pin did emit, so the assertion below is not vacuous')
+            .toBeGreaterThan(0);
+        expect(new Set(pinSources).size, 'one emitter across every pin signal, not a rebuilt group')
+            .toBe(1);
+        expect(pinSources[0], 'and it is the instance the assertions above held').toBe(pinAction)
+    });
+
+    /**
+     * AC-5, exercised at the seam it names. The claim is about what `Persistence.capturePerspective`
+     * WRITES, so inferring it from the source document proves nothing: capture normalizes, validates
+     * and fingerprints, and any of those three could have made rendering an action observable in a
+     * saved layout. Rendering is a projection concern and must leave layout truth byte-identical;
+     * the gesture is a model concern and must move exactly the two committed fields §2.7 names.
+     */
+    test('capturing a perspective is unmoved by rendering the action, and moves only pinned/autoHidden on the gesture', async () => {
+        const document = createEdgeDocument();
+
+        document.items.inspector.pinned = true;
+
+        const capture = () => {
+            const {layout, errors} = Persistence.capturePerspective(workspace.getDockZoneDocument(), {
+                layoutId: 'ac5', title: 'AC-5'
+            });
+
+            expect(errors, 'the capture seam itself stays clean').toEqual([]);
+            return layout
+        };
+
+        // Captured from a workspace with the action OFF, then from one with it ON: the difference
+        // between the two runs is precisely "the action was rendered".
+        workspace = Neo.create(PlainWorkspace, {dockModel: document});
+
+        const before = capture();
+
+        workspace.destroy();
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: true
+        });
+
+        workspace.dockModel.items.inspector.pinned = true;
+
+        const tabs      = tabsOf(workspace.items[0]),
+              inspector = tabs.get('inspector-tabs'),
+              pinAction = inspector.getAction('pin');
+
+        expect(pinAction, 'the action really was projected in the second run').toBeTruthy();
+
+        const afterRender = capture();
+
+        expect(JSON.stringify(afterRender), 'rendering an action writes nothing into layout truth')
+            .toBe(JSON.stringify(before));
+
+        // Now the gesture, through the real handler.
+        pinAction.handler({component: pinAction});
+        await workspace.refreshPromise;
+
+        const afterGesture = capture();
+
+        expect(JSON.stringify(afterGesture), 'the gesture is not a no-op — otherwise the diff below is vacuous')
+            .not.toBe(JSON.stringify(before));
+
+        // The diff is exactly §2.7's two committed fields, on the one item, and nothing else.
+        const beforeItem = before.dockZone.items.inspector,
+              afterItem  = afterGesture.dockZone.items.inspector;
+
+        expect({...afterItem, pinned: beforeItem.pinned, autoHidden: beforeItem.autoHidden},
+            'no field outside pinned/autoHidden moved on the captured item')
+            .toEqual({...beforeItem});
+        expect([beforeItem.pinned, beforeItem.autoHidden], 'the captured item started pinned and visible')
+            .toEqual([true, undefined]);
+        expect([afterItem.pinned, afterItem.autoHidden], 'and ends unpinned and auto-hidden')
+            .toEqual([false, true]);
+
+        expect({...afterGesture.dockZone, items: null}, 'and the node tree itself is untouched')
+            .toEqual({...before.dockZone, items: null})
+    });
+
+    test('the pin action reports its own missing preconditions, and stays inert while its opt-in is off', async () => {
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: true
+        });
+
+        const inspector = tabsOf(workspace.items[0]).get('inspector-tabs');
+
+        workspace.dockModel = null;
+
+        expect((await workspace.onDockHeaderAction({
+            action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: inspector
+        })).errors).toEqual(['Dock pin action requires a committed document']);
+
+        workspace.dockModel = createEdgeDocument();
+
+        expect((await workspace.onDockHeaderAction({action: 'pin', dockNodeId: 'inspector-tabs'})).errors)
+            .toEqual(['Dock pin action requires an active item']);
+
+        // With the opt-in off the name belongs to the host again: the intent is re-emitted, not acted
+        // on, and nothing is committed.
+        workspace.destroy();
+
+        const emitted = [];
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: false
+        });
+        workspace.on('dockHeaderAction', data => emitted.push(data.action));
+
+        const offTabs = tabsOf(workspace.items[0]).get('inspector-tabs');
+
+        expect(offTabs.getAction('pin'), 'nothing is projected while the opt-in is off').toBeFalsy();
+        expect(workspace.onDockHeaderAction({
+            action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: offTabs
+        })).toBe(null);
+        expect(emitted).toEqual(['pin']);
+        expect(workspace.getDockZoneDocument().items.inspector.autoHidden).toBeUndefined()
+    });
+
+    /**
+     * "Default off" has to mean behaviorally inert, not merely unprojected. A host legitimately owns
+     * the names `close` and `pin` while their opt-ins are off, and the POLICY SYNC — not the
+     * projection, not the dispatch — is the third seam that has to honor that. It runs on every
+     * active-item change and every reconciliation sweep, so an unguarded sync moves a host's `hidden`
+     * with no gesture involved at all: the action simply drifts under the host's feet.
+     *
+     * `center-tabs` is where the engine's own predicate disagrees loudest. No edge owns a center item
+     * (§2.7 — main content never rails), so the engine would compute `hidden: true` for `pin` and
+     * commit it to an instance it does not own.
+     */
+    test('a host keeps its own close and pin actions while both engine opt-ins are off', () => {
+        const document = createEdgeDocument();
+
+        // Both halves need the engine's predicate to DISAGREE with the host's value, or the arm
+        // passes without exercising anything. `pin` disagrees on a center item for free — no edge
+        // owns it. `close` does not: it hides only on `closable: false`, so the fixture states it.
+        document.items.center.closable = false;
+
+        workspace = Neo.create(HostBothActionsWorkspace, {dockModel: document});
+
+        const tabs        = tabsOf(workspace.items[0]),
+              center      = tabs.get('center-tabs'),
+              pinAction   = center.getAction('pin'),
+              closeAction = center.getAction('close');
+
+        expect(pinAction,   'the host projected `pin` through the documented hook').toBeTruthy();
+        expect(closeAction, 'and `close` beside it').toBeTruthy();
+        expect([closeAction.hidden, pinAction.hidden], 'the host owns their initial visibility')
+            .toEqual([false, false]);
+
+        workspace.dockHeaderActionPolicy.publishDocument(workspace.dockModel);
+
+        expect([closeAction.hidden, pinAction.hidden], 'the published header truth leaves host names alone — nothing binds them')
+            .toEqual([false, false]);
+
+        workspace.onDockActiveIndexChange({dockNodeId: 'center-tabs', tabContainer: center});
+
+        expect([closeAction.hidden, pinAction.hidden], 'and so does an active-item change')
+            .toEqual([false, false]);
+        expect(center.getAction('pin'), 'the same host instances, never replaced').toBe(pinAction)
+    });
+
+    /**
+     * The chrome that emitted an intent is a projection of the document as it stood at the LAST sweep,
+     * and the sweep is deferred behind reconciliation. Between a commit that moves an item to the root
+     * center and the refresh that re-hides its action, the retained action is still visible and still
+     * dispatchable — and collapsing a center item is exactly what §2.7 forbids.
+     *
+     * Committed here through the real write seam rather than by assigning `dockModel`, because the
+     * defect only exists in the window that seam opens: `onDockZoneDocumentChange` advances the model
+     * synchronously and chains the sweep onto `refreshPromise`. Firing before that promise settles is
+     * not a contrived race; it is one click landing inside it.
+     */
+    test('a retained pin action refuses after the model moved its item to the center, before the sweep runs', async () => {
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: true
+        });
+
+        const tabs      = tabsOf(workspace.items[0]),
+              inspector = tabs.get('inspector-tabs'),
+              pinAction = inspector.getAction('pin');
+
+        expect(pinAction.hidden, 'an edge-owned pane can collapse, so the action is live').toBe(false);
+
+        const descriptor = {operation: 'moveItem', itemId: 'inspector', targetNodeId: 'center-tabs'},
+              moved      = workspace.applyDockZoneOperation(descriptor);
+
+        expect(moved.errors, 'the move itself is a clean commit').toEqual([]);
+        workspace.onDockZoneDocumentChange(moved.document, descriptor, inspector);
+
+        // No stale window any more: the commit published the header truth, and the retained action
+        // — bound to its header's active item and that item's edge — re-evaluated at the boundary,
+        // before any reconciliation. The dispatch below still decides from the document, because a
+        // host can always bypass the hidden flag.
+        expect(WorkspaceDocument.findOwningEdge(workspace.dockModel, 'inspector'), 'the model moved it to center')
+            .toBe(null);
+        expect(pinAction.hidden, 'the retained action refuses at the commit boundary').toBe(true);
+
+        const refused = await workspace.onDockHeaderAction({
+            action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: inspector
+        });
+
+        expect(refused.errors, 'dispatch decides from the CURRENT document, not from the chrome')
+            .toEqual(['Dock pin action requires an item owned by an edge zone']);
+        expect(workspace.getDockZoneDocument().items.inspector.autoHidden, 'and commits nothing')
+            .toBeUndefined();
+
+        // Once the refresh settled, the center header agrees with the document on its own.
+        await workspace.refreshPromise;
+
+        expect(tabs.get('center-tabs')?.getAction('pin')?.hidden ?? true,
+            'a center-owned pane offers no collapse').toBe(true)
+    });
+
+    test('tab activation commits with close actions disabled and survives unrelated re-projection', async () => {
+        const document = createDocument();
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel            : document,
+            enableDockCloseAction: false
+        });
+
+        const tabs  = tabsOf(workspace.items[0]),
+            side    = tabs.get('side-tabs'),
+            commits = [],
+            apply   = workspace.applyDockZoneOperation.bind(workspace);
+
+        workspace.applyDockZoneOperation = descriptor => {
+            commits.push(descriptor);
+            return apply(descriptor)
+        };
+
+        expect(side.getAction?.('close')).toBeFalsy();
+
+        await side.set({activeIndex: 1});
+        await workspace.refreshPromise;
+
+        expect(commits).toEqual([{
+            operation : 'setActiveItem',
+            tabsNodeId: 'side-tabs',
+            itemId    : 'terminal'
+        }]);
+        expect(workspace.dockModel.nodes['side-tabs'].activeItemId).toBe('terminal');
+        expect(tabsOf(workspace.items[0]).get('side-tabs')).toBe(side);
+        expect(side.activeIndex).toBe(1);
+
+        const resized = workspace.applyDockZoneOperation({
+            operation  : 'resizeSplit',
+            splitNodeId: 'root-split',
+            sizes      : [0.7, 0.3]
+        });
+
+        workspace.onDockZoneDocumentChange(resized.document, {operation: 'resizeSplit'}, workspace);
+        await workspace.refreshPromise;
+
+        expect(workspace.dockModel.nodes['side-tabs'].activeItemId).toBe('terminal');
+        expect(side.activeIndex).toBe(1);
+        expect(commits).toHaveLength(2)
+    });
+
+    test('a model-ahead close targets live chrome but focuses the model-selected successor', async () => {
+        const document = createDocument();
+
+        document.items.aux = {reference: 'Aux', title: 'Aux'};
+        document.nodes['side-tabs'].items.push('aux');
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel            : document,
+            enableDockCloseAction: true
+        });
+
+        const
+            side       = tabsOf(workspace.items[0]).get('side-tabs'),
+            modelAhead = workspace.applyDockZoneOperation({
+                operation: 'moveItem', itemId: 'preview', targetNodeId: 'side-tabs', index: 2
+            }),
+            focusTargets = [];
+
+        expect(side.getTabBar().sortZoneConfig.dockItemIds).toEqual(['preview', 'terminal', 'aux']);
+        expect(modelAhead.document.nodes['side-tabs'].items).toEqual(['terminal', 'aux', 'preview']);
+
+        // Model commits are synchronous while projection is deferred. Preserve that exact window:
+        // live chrome still targets preview, while semantic successor policy already lives in the
+        // reordered document.
+        workspace.dockModel = modelAhead.document;
+        workspace.getPlugin('dock-header-actions').focusDockCloseTarget = data => focusTargets.push(data.itemId);
+
+        const closed = workspace.onDockHeaderAction({
+            action: 'close', dockNodeId: 'side-tabs', tabContainer: side
+        });
+
+        await workspace.refreshPromise;
+
+        expect(closed.errors).toEqual([]);
+        expect(closed.document.items.preview).toBeUndefined();
+        expect(closed.document.nodes['side-tabs'].activeItemId).toBe('aux');
+        expect(focusTargets).toEqual(['aux'])
+    });
+
+    test('closing a node\'s only item focuses the surviving DockWorkspace root after normalization prunes the tab shell', async () => {
+        const document = createDocument();
+
+        document.nodes['side-tabs'].items        = ['terminal'];
+        document.nodes['side-tabs'].activeItemId = 'terminal';
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel            : document,
+            enableDockCloseAction: true
+        });
+
+        const
+            side         = tabsOf(workspace.items[0]).get('side-tabs'),
+            closeAction  = side.getAction('close'),
+            focusTargets = [];
+
+        workspace.focus = () => focusTargets.push('workspace');
+
+        closeAction.handler({component: closeAction});
+        await workspace.refreshPromise;
+
+        expect(workspace.getDockZoneDocument().nodes['side-tabs']).toBeUndefined();
+        expect(tabsOf(workspace.items[0]).has('side-tabs')).toBe(false);
+        expect(focusTargets).toEqual(['workspace']);
+        expect(workspace.vdom.tabIndex).toBe(-1)
+    });
+
+    test('rapid commits advance the document synchronously and stage one transaction at a time', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const
+            first    = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1}),
+            second   = workspace.applyDockZoneOperation.call({dockModel: first.document}, {operation: 'moveItem', itemId: 'preview', targetNodeId: 'editor-tabs', index: 0}),
+            timeline = [],
+            original = workspace.refreshDockWorkspace.bind(workspace);
+
+        let inFlight = 0;
+
+        workspace.refreshDockWorkspace = async (...args) => {
+            timeline.push(`start:${++inFlight}`);
+            const result = await original(...args);
+
+            timeline.push(`end:${inFlight--}`);
+
+            return result
+        };
+
+        workspace.onDockZoneDocumentChange(first.document, {operation: 'moveItem'});
+        workspace.onDockZoneDocumentChange(second.document, {operation: 'moveItem'});
+
+        // the committed document is truth immediately; the projection follows one tick later
+        expect(workspace.getDockZoneDocument()).toBe(second.document);
+
+        await workspace.refreshPromise;
+
+        expect(timeline).toEqual(['start:1', 'end:1', 'start:1', 'end:1']);
+        expect(workspace.items.length).toBe(1);
+        expect(tabsOf(workspace.items[0]).get('editor-tabs').getTabBar().sortZoneConfig.dockItemIds).toEqual(['preview', 'editor', 'terminal'])
+    });
+
+    test('a deferred first document does not stage a second shell before the workspace mounts', async () => {
+        const
+            allowVdomUpdatesInTests = Neo.config.allowVdomUpdatesInTests,
+            useDomApiRenderer       = Neo.config.useDomApiRenderer,
+            domAccessAlign          = Neo.main.DomAccess.align,
+            enteredRefresh          = Promise.withResolvers();
+
+        Neo.config.allowVdomUpdatesInTests = true;
+        Neo.config.useDomApiRenderer       = true;
+        Neo.main.DomAccess.align           = async () => {};
+        workspace = Neo.create(PlainWorkspace, {
+            appName  : 'DashboardDockWorkspaceTest',
+            dockModel: createEmptyDocument(),
+            windowId : 1
+        });
+
+        const refreshDockWorkspace = workspace.refreshDockWorkspace.bind(workspace);
+
+        workspace.refreshDockWorkspace = (...args) => {
+            enteredRefresh.resolve();
+            return refreshDockWorkspace(...args)
+        };
+
+        try {
+            // Build the first vnode without mounting it. This is the real boot window: the app's
+            // main-view mount is still pending while an async catalog can commit the real document.
+            await workspace.initVnode();
+            expect(workspace.mounted).toBe(false);
+
+            const initialShell = workspace.items[0];
+
+            workspace.onDockZoneDocumentChange(createDocument());
+
+            await enteredRefresh.promise;
+            await Promise.resolve();
+
+            // Reconciler may not insert its hidden staging shell until the initial tree exists in
+            // the DOM. Otherwise initVnode can serialize old + staged shells as the first mount.
+            expect(workspace.items).toHaveLength(1);
+            expect(workspace.items[0]).toBe(initialShell)
+        } finally {
+            workspace.mounted = true;
+            await workspace.refreshPromise?.catch(() => {});
+            Neo.config.allowVdomUpdatesInTests = allowVdomUpdatesInTests;
+            Neo.config.useDomApiRenderer       = useDomApiRenderer;
+            Neo.main.DomAccess.align           = domAccessAlign
+        }
+
+        expect(workspace.items).toHaveLength(1);
+        expect(tabsOf(workspace.items[0]).has('editor-tabs')).toBe(true)
+    });
+
+    test('a staged edge resize transfers fixed dimensions onto retained tab chrome', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createEdgeDocument()});
+
+        const inspector = tabsOf(workspace.items[0]).get('inspector-tabs');
+
+        expect(inspector.width).toBe('25%');
+
+        const result = workspace.applyDockZoneOperation({
+            operation : 'resizeEdgeZone',
+            edgeZoneId: 'root',
+            edge      : 'right',
+            extent    : 0.33
+        });
+
+        workspace.onDockZoneDocumentChange(result.document, {operation: 'resizeEdgeZone'}, workspace);
+        await workspace.refreshPromise;
+
+        const retainedInspector = tabsOf(workspace.items[0]).get('inspector-tabs');
+
+        expect(retainedInspector).toBe(inspector);
+        expect(retainedInspector.width).toBe('33%');
+        expect(retainedInspector.vdom.width).toBe('33%')
+    });
+
+    test('a destroyed workspace drops its pending refresh without throwing', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+        workspace.onDockZoneDocumentChange(result.document);
+
+        const pending = workspace.refreshPromise;
+
+        workspace.destroy();
+        workspace = null;
+
+        await expect(pending).resolves.toBeUndefined()
+    });
+
+    test('a rejected refresh stays observable and never suppresses the next transaction', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        let hookCalls = 0;
+
+        workspace.beforeRefreshDockWorkspace = () => {
+            if (++hookCalls === 1) {
+                throw new Error('chrome sync failed')
+            }
+        };
+
+        const first = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+        workspace.onDockZoneDocumentChange(first.document, {operation: 'moveItem'});
+
+        const firstRefresh = workspace.refreshPromise;
+
+        // the first transaction's failure belongs to whoever awaits its snapshot …
+        await expect(firstRefresh).rejects.toThrow('chrome sync failed');
+
+        // … and the next commit still projects: scheduling chains off the settled tail
+        const second = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'preview', targetNodeId: 'editor-tabs', index: 0});
+
+        workspace.onDockZoneDocumentChange(second.document, {operation: 'moveItem'});
+
+        expect(workspace.refreshPromise).not.toBe(firstRefresh);
+        await workspace.refreshPromise;
+
+        expect(hookCalls).toBe(2);
+        expect(tabsOf(workspace.items[0]).get('editor-tabs').getTabBar().sortZoneConfig.dockItemIds).toEqual(['preview', 'editor', 'terminal'])
+    });
+
+    test('a configured dock host that resolves to no live host rejects loudly, never silently', async () => {
+        workspace = Neo.create(BrokenHostWorkspace, {dockModel: createDocument()});
+
+        const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+        workspace.onDockZoneDocumentChange(result.document);
+
+        // the committed truth advanced …
+        expect(workspace.getDockZoneDocument()).toBe(result.document);
+
+        // … so the missing render target must reject, not settle over frozen chrome
+        await expect(workspace.refreshPromise).rejects.toThrow(/resolved to no live dock host/)
+    });
+
+    test('a null document projects the ledgered empty shell and reconciles every pane away', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        // the ledgered fallback at the projection surface: dockModel === null → empty projection
+        expect(workspace.projectDockModel(null, null, null)).toEqual({ntype: 'container', cls: ['neo-dashboard'], items: []});
+
+        // and through a commit: every pane retires, the shell itself survives
+        workspace.onDockZoneDocumentChange(null);
+        await workspace.refreshPromise;
+
+        expect(workspace.getDockZoneDocument()).toBeNull();
+        expect(workspace.items.length).toBe(1);
+        expect(tabsOf(workspace.items[0]).size).toBe(0)
+    });
+
+    test('the FLIP first-snapshot precedes the consumer chrome hook', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const
+            order    = [],
+            hadMain  = Object.prototype.hasOwnProperty.call(Neo, 'main'),
+            mainNs   = Neo.main = Neo.main || {},
+            hadAddon = Object.prototype.hasOwnProperty.call(mainNs, 'addon'),
+            addonNs  = mainNs.addon = mainNs.addon || {},
+            previous = addonNs.DockFlip;
+
+        addonNs.DockFlip = {
+            captureFirst: () => {order.push('captureFirst')},
+            play        : () => {order.push('play')}
+        };
+
+        workspace.beforeRefreshDockWorkspace = () => {order.push('chromeHook')};
+
+        try {
+            const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+            workspace.onDockZoneDocumentChange(result.document);
+            await workspace.refreshPromise
+        } finally {
+            if (previous === undefined) {
+                delete addonNs.DockFlip
+            } else {
+                addonNs.DockFlip = previous
+            }
+            !hadAddon && delete mainNs.addon;
+            !hadMain  && delete Neo.main
+        }
+
+        expect(order).toEqual(['captureFirst', 'chromeHook', 'play'])
+    });
+
+    test('both FLIP dispatches carry the host windowId — the key generateRemote swaps the destination on', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'flip-realm-7'});
+
+        const
+            payloads = [],
+            hadMain  = Object.prototype.hasOwnProperty.call(Neo, 'main'),
+            mainNs   = Neo.main = Neo.main || {},
+            hadAddon = Object.prototype.hasOwnProperty.call(mainNs, 'addon'),
+            addonNs  = mainNs.addon = mainNs.addon || {},
+            previous = addonNs.DockFlip;
+
+        addonNs.DockFlip = {
+            captureFirst: data => {payloads.push(['captureFirst', data])},
+            play        : data => {payloads.push(['play', data])}
+        };
+
+        try {
+            const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+            workspace.onDockZoneDocumentChange(result.document);
+            await workspace.refreshPromise;
+
+            const hostWindowId = workspace.getDockHost().windowId;
+
+            // a both-undefined match would be vacuous: the routing key must actually exist
+            expect(hostWindowId).not.toBeNull();
+            expect(hostWindowId).toBeDefined();
+
+            expect(payloads).toHaveLength(2);
+
+            for (const [method, data] of payloads) {
+                expect(data.windowId, `${method} routes to the host realm`).toBe(hostWindowId);
+                expect(data.hostId).toBe(workspace.getDockHost().id)
+            }
+        } finally {
+            if (previous === undefined) {
+                delete addonNs.DockFlip
+            } else {
+                addonNs.DockFlip = previous
+            }
+            !hadAddon && delete mainNs.addon;
+            !hadMain  && delete Neo.main
+        }
+    });
+
+    test('a persisted title renders as escaped text, never as markup', async () => {
+        const
+            evil     = '<img src=x onerror="window.__pwned = 1">',
+            document = createDocument();
+
+        document.items.editor.title = evil;
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: document});
+
+        // the default resolution carries the title under `text` — no `html` key exists to persist markup
+        const config = workspace.resolveProjectedPane('editor', document.items.editor);
+
+        expect(config.text).toBe(evil);
+        expect(config.html).toBeUndefined();
+
+        // and the mounted default pane holds it as component text, not markup
+        const findPlaceholder = component => {
+            if (component.cls?.includes?.('neo-dock-workspace-placeholder')) {
+                return component
+            }
+
+            for (const child of component.items || []) {
+                const hit = findPlaceholder(child);
+
+                if (hit) {
+                    return hit
+                }
+            }
+
+            return null
+        };
+
+        const pane = findPlaceholder(workspace.items[0]);
+
+        expect(pane.text).toBe(evil);
+        expect(pane.html ?? null).toBeNull()
+    });
+
+    test('a string cls survives marker decoration as one class, not characters', () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        expect(workspace.decorateFlipMarker({cls: 'custom-pane'}, 'editor').cls).toEqual(['custom-pane', 'dock-flip-item-editor']);
+        expect(workspace.decorateFlipMarker({ntype: 'component'}, 'editor').cls).toEqual(['dock-flip-item-editor'])
+    });
+
+    test('a commit-scoped preserveItemIds merges with the standing owner-held set', async () => {
+        workspace = Neo.create(ChromeWorkspace, {dockModel: createDocument()});
+
+        let preservedSeen = null;
+
+        const reconcile = DockProjectionReconciler.reconcileProjection;
+
+        DockProjectionReconciler.reconcileProjection = options => {
+            preservedSeen = [...options.preserveItemIds];
+            return reconcile.call(DockProjectionReconciler, options)
+        };
+
+        try {
+            const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'preview', targetNodeId: 'editor-tabs', index: 0});
+
+            workspace.getRefreshOptions = () => ({preserveItemIds: ['editor', 'terminal']});
+            workspace.onDockZoneDocumentChange(result.document, {operation: 'moveItem'});
+            await workspace.refreshPromise
+        } finally {
+            DockProjectionReconciler.reconcileProjection = reconcile
+        }
+
+        // the standing hook holds 'terminal'; the commit adds 'editor' and repeats 'terminal' —
+        // the merge deduplicates, standing set first
+        expect(preservedSeen).toEqual(['terminal', 'editor'])
+    });
+
+    test('the reconciler\'s ACTUAL path reaches the FLIP play, never the requested one', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const
+            playArgs  = [],
+            hadMain   = Object.prototype.hasOwnProperty.call(Neo, 'main'),
+            mainNs    = Neo.main = Neo.main || {},
+            hadAddon  = Object.prototype.hasOwnProperty.call(mainNs, 'addon'),
+            addonNs   = mainNs.addon = mainNs.addon || {},
+            previous  = addonNs.DockFlip,
+            reconcile = DockProjectionReconciler.reconcileProjection;
+
+        addonNs.DockFlip = {
+            captureFirst: () => {},
+            play        : config => {playArgs.push(config)}
+        };
+
+        let landInPlace = true;
+
+        DockProjectionReconciler.reconcileProjection = () => ({landedInPlace: landInPlace});
+
+        try {
+            const first = workspace.applyDockZoneOperation({operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.5, 0.5]});
+
+            workspace.onDockZoneDocumentChange(first.document, {operation: 'resizeSplit'});
+            await workspace.refreshPromise;
+
+            landInPlace = false;
+
+            const second = workspace.applyDockZoneOperation({operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.6, 0.4]});
+
+            workspace.onDockZoneDocumentChange(second.document, {operation: 'resizeSplit'});
+            await workspace.refreshPromise
+        } finally {
+            DockProjectionReconciler.reconcileProjection = reconcile;
+            if (previous === undefined) {
+                delete addonNs.DockFlip
+            } else {
+                addonNs.DockFlip = previous
+            }
+            !hadAddon && delete mainNs.addon;
+            !hadMain  && delete Neo.main
+        }
+
+        expect(playArgs.map(config => config.geometryOnly)).toEqual([true, false])
+    });
+
+    test('locking a railed item admits in-place reconciliation, and the refresh pays no staged shell', async () => {
+        const document = createEdgeDocument();
+
+        document.items.inspector.autoHidden = true; // the inspector rides the right edge rail
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: document});
+
+        const descriptor = {operation: 'setItemLocked', itemId: 'inspector', locked: true};
+
+        // The cost, measured on the host first so the pre-fix run prints its own receipt: the staged
+        // transaction issues one host update per phase and leaves a staged sibling until the swap; the
+        // in-place path issues none of those.
+        const
+            host     = workspace.getDockHost(),
+            original = host.promiseUpdate.bind(host);
+
+        let hostUpdates = 0,
+            outcome     = null;
+
+        host.promiseUpdate = (...args) => {
+            hostUpdates++;
+            return original(...args)
+        };
+        workspace.afterRefreshDockWorkspace = ({result}) => outcome = result;
+
+        try {
+            const committed = workspace.applyDockZoneOperation(descriptor);
+
+            expect(committed.errors ?? []).toEqual([]);
+            workspace.onDockZoneDocumentChange(committed.document, descriptor, workspace);
+            await workspace.refreshPromise
+        } finally {
+            host.promiseUpdate = original
+        }
+
+        console.log(`receipt: a railed setItemLocked refresh issued ${hostUpdates} host update(s), landedInPlace=${outcome?.landedInPlace}`);
+
+        // Pre-fix a railed item was the one item whose flag commit was refused the item-only refresh,
+        // because the reconciler could not address the rail; now it is an item-only delta like any other.
+        expect(workspace.getRefreshOptions(descriptor, null), 'a railed item admits retainTopology').toEqual({retainTopology: true});
+        expect(outcome?.landedInPlace, 'the refresh landed in place').toBe(true);
+        expect(workspace.items, 'one shell, no staged sibling').toHaveLength(1)
+    });
+
+    test('the reconcile hook passes only its sanctioned seams; a hostile override cannot displace the identity keys', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        let captured = null;
+
+        const
+            staged    = () => {},
+            overflow  = () => {},
+            hostileFn = () => {throw new Error('hostile')},
+            reconcile = DockProjectionReconciler.reconcileProjection;
+
+        // every class-owned identity key supplied hostilely, beside the three sanctioned seams
+        workspace.getReconcileOptions = () => ({
+            geometryOnly             : true,
+            host                     : {id: 'hostile-host'},
+            nextConfig               : {ntype: 'container', cls: ['hostile']},
+            onProjectionStaged       : staged,
+            placeholders             : new Map([['x', 'hostile']]),
+            preserveItemIds          : ['hostile-item'],
+            prepareItem              : hostileFn,
+            resolveItem              : hostileFn,
+            retainTopology           : true,
+            shellIndex               : 99,
+            waitForOverflowProjection: overflow
+        });
+
+        DockProjectionReconciler.reconcileProjection = options => {
+            captured = options;
+            return reconcile.call(DockProjectionReconciler, options)
+        };
+
+        try {
+            const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+            workspace.onDockZoneDocumentChange(result.document, {operation: 'moveItem'});
+            await workspace.refreshPromise
+        } finally {
+            DockProjectionReconciler.reconcileProjection = reconcile
+        }
+
+        // the sanctioned seams arrive …
+        expect(captured.onProjectionStaged).toBe(staged);
+        expect(captured.retainTopology).toBe(true);
+        expect(captured.waitForOverflowProjection).toBe(overflow);
+
+        // … and every identity key stays class-owned
+        expect(captured.host).toBe(workspace);
+        expect(captured.shellIndex).toBe(0);
+        expect(captured.geometryOnly).toBe(false);
+        expect(captured.nextConfig.cls).not.toContain('hostile');
+        expect(captured.placeholders.get('x')).toBeUndefined();
+        expect(captured.preserveItemIds).not.toContain('hostile-item');
+        expect(captured.resolveItem).not.toBe(hostileFn);
+        expect(captured.prepareItem).not.toBe(hostileFn)
+    });
+
+    test('the post-refresh hook is awaited and receives the outcome and the play promise', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const
+            sequence = [],
+            hadMain  = Object.prototype.hasOwnProperty.call(Neo, 'main'),
+            mainNs   = Neo.main = Neo.main || {},
+            hadAddon = Object.prototype.hasOwnProperty.call(mainNs, 'addon'),
+            addonNs  = mainNs.addon = mainNs.addon || {},
+            previous = addonNs.DockFlip;
+
+        let received = null;
+
+        addonNs.DockFlip = {
+            captureFirst: () => {},
+            play        : () => Promise.resolve('motion-done')
+        };
+
+        workspace.afterRefreshDockWorkspace = async data => {
+            received = data;
+            sequence.push(['played', await data.played]);
+            await workspace.timeout(5);
+            sequence.push(['hook-done'])
+        };
+
+        try {
+            const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+            workspace.onDockZoneDocumentChange(result.document, {operation: 'moveItem'});
+            await workspace.refreshPromise;
+            sequence.push(['refresh-settled'])
+        } finally {
+            if (previous === undefined) {
+                delete addonNs.DockFlip
+            } else {
+                addonNs.DockFlip = previous
+            }
+            !hadAddon && delete mainNs.addon;
+            !hadMain  && delete Neo.main
+        }
+
+        // the refresh AWAITED the hook: it finished before the public promise settled
+        expect(sequence).toEqual([['played', 'motion-done'], ['hook-done'], ['refresh-settled']]);
+        expect(received.document).toBe(workspace.getDockZoneDocument());
+        expect(received.refreshOptions).toEqual({});
+        expect(received.result).toBeTruthy();
+
+        // without a dispatched play the hook still runs, with `played` null
+        workspace.afterRefreshDockWorkspace = data => {received = data};
+
+        const next = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'side-tabs', index: 0});
+
+        workspace.onDockZoneDocumentChange(next.document, {operation: 'moveItem'});
+        await workspace.refreshPromise;
+
+        expect(received.played).toBeNull()
+    });
+
+    test('the add-tab correlation is minted only for a globally absent header', () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const
+            withNewItem = createDocument(),
+            relocated   = createDocument();
+
+        withNewItem.items.notes = {reference: 'Notes', title: 'Notes'};
+        withNewItem.nodes['editor-tabs'].items.push('notes');
+        relocated.nodes['side-tabs'].items = ['terminal'];
+        relocated.nodes['editor-tabs'].items.push('preview');
+
+        expect(workspace.getTabInsertProjectionDescriptor(withNewItem, {operation: 'addTab', itemId: 'notes', tabsNodeId: 'editor-tabs', extra: true}))
+            .toEqual({itemId: 'notes', operation: 'addTab', tabsNodeId: 'editor-tabs'});
+        // an item that already lives in a tabs node relocates by identity — FLIP alone
+        expect(workspace.getTabInsertProjectionDescriptor(relocated, {operation: 'addTab', itemId: 'preview', tabsNodeId: 'editor-tabs'})).toBeNull();
+        expect(workspace.getTabInsertProjectionDescriptor(relocated, {operation: 'moveItem', itemId: 'preview', tabsNodeId: 'editor-tabs'})).toBeNull();
+        expect(workspace.getTabInsertProjectionDescriptor(withNewItem, null)).toBeNull()
+    });
+
+    test('the default resolver renders a titled placeholder stamped with the FLIP marker', () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const config = workspace.resolveProjectedPane('editor', workspace.dockModel.items.editor);
+
+        expect(config.ntype).toBe('component');
+        expect(config.text).toBe('Editor');
+        expect(config.cls).toEqual(['neo-dock-workspace-placeholder', 'dock-flip-item-editor']);
+        // live instances are never stamped — their identity resolves through the document
+        expect(workspace.decorateFlipMarker(workspace, 'editor')).toBe(workspace)
+    });
+
+    test('a consumer owns its panes, chrome sync, preserved ids, projection options and refresh options', async () => {
+        workspace = Neo.create(ChromeWorkspace, {dockModel: createDocument()});
+
+        const
+            shell = workspace.items[1],
+            panes = collect(shell, config => Array.isArray(config.cls) && config.cls.includes('custom-pane'));
+
+        expect(workspace.items[0].cls).toContain('chrome-bar');
+        expect(shell.flex).toBe(1);
+        expect(panes.length).toBe(3);
+        panes.forEach(pane => expect(pane.cls.some(cls => cls.startsWith('chrome-pane-'))).toBe(true));
+
+        let captured      = null,
+            preservedSeen = null;
+
+        const
+            project   = DockLayoutAdapter.project,
+            reconcile = DockProjectionReconciler.reconcileProjection;
+
+        DockLayoutAdapter.project = (model, options) => {
+            captured = options;
+            return project.call(DockLayoutAdapter, model, options)
+        };
+        DockProjectionReconciler.reconcileProjection = options => {
+            preservedSeen = [...options.preserveItemIds];
+            return reconcile.call(DockProjectionReconciler, options)
+        };
+
+        try {
+            const result = workspace.applyDockZoneOperation({operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.5, 0.5]});
+
+            workspace.onDockZoneDocumentChange(result.document, {operation: 'resizeSplit'});
+            await workspace.refreshPromise
+        } finally {
+            DockLayoutAdapter.project                 = project;
+            DockProjectionReconciler.reconcileProjection = reconcile
+        }
+
+        expect(workspace.beforeRefreshCalls.length).toBe(1);
+        expect(workspace.beforeRefreshCalls[0].document.nodes['root-split'].sizes).toEqual([0.5, 0.5]);
+        expect(workspace.beforeRefreshCalls[0].refreshOptions).toEqual({geometryOnly: true});
+        expect(captured.autoHideRevealOnHover).toBe(true);
+        expect(typeof captured.applyDockZoneOperation).toBe('function');
+        expect(typeof captured.onDockZoneDocumentChange).toBe('function');
+        expect(preservedSeen).toEqual(['terminal']);
+        expect(workspace.items.length).toBe(2)
+    });
+
+    test('the projection mounts into the referenced dock host and leaves its siblings alone', async () => {
+        workspace = Neo.create(HostedWorkspace, {dockModel: createDocument()});
+
+        const
+            host    = workspace.getReference('dock-host'),
+            sibling = host.items[1];
+
+        expect(workspace.getDockHost()).toBe(host);
+        expect(tabsOf(host.items[0]).size).toBe(2);
+
+        const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+        workspace.onDockZoneDocumentChange(result.document);
+        await workspace.refreshPromise;
+
+        expect(host.items.length).toBe(2);
+        expect(host.items[1]).toBe(sibling);
+        expect(workspace.items.length).toBe(2);
+        expect(tabsOf(host.items[0]).get('editor-tabs').getTabBar().sortZoneConfig.dockItemIds).toEqual(['editor', 'terminal'])
+    });
+
+    test('a cross-zone release over another zone commits exactly one semantic operation', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const commits = [],
+              apply   = workspace.applyDockZoneOperation.bind(workspace);
+
+        // two zones side by side: editor-tabs on the left, side-tabs on the right
+        workspace.getDomRect = async ids => ids.map((id, index) => ({x: index * 500, y: 0, width: 500, height: 600}));
+        workspace.applyDockZoneOperation = descriptor => {
+            commits.push(descriptor);
+            return apply(descriptor)
+        };
+
+        // `terminal` leaves side-tabs; the only other zone is editor-tabs, whose rect starts at x=0
+        await workspace.onDockCrossZoneDrop({clientX: 250, clientY: 300, itemId: 'terminal', sourceNodeId: 'side-tabs'});
+        await workspace.refreshPromise;
+
+        expect(commits.length).toBe(1);
+        expect(commits[0].itemId).toBe('terminal');
+        expect(workspace.getDockZoneDocument().nodes['side-tabs'].items).toEqual(['preview']);
+
+        // a release over no zone commits nothing
+        await workspace.onDockCrossZoneDrop({clientX: 5000, clientY: 5000, itemId: 'preview', sourceNodeId: 'side-tabs'});
+
+        expect(commits.length).toBe(1)
+    });
+
+    test('destroy tears down the producer and the refresh chain with the workspace', () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const producer = workspace.dockPreviewProducer;
+
+        expect(producer).toBeTruthy();
+
+        workspace.destroy();
+        workspace = null;
+
+        expect(producer.isDestroyed).toBe(true)
+    });
+
+    test('a statically projected shell presents committed truth from the first paint and mount schedules no sweep', async () => {
+        const document = createDocument();
+
+        document.items.preview.closable = false;
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: document, enableDockCloseAction: true, enableDockReloadAction: true});
+
+        const side  = tabsOf(workspace.items[0]).get('side-tabs'),
+              items = side.getTabBar()?.getActionItems() || [];
+
+        // The projection published the header truth before the chrome constructed, so the actions
+        // bound to it are right at their first run — no mount-time correction is owed or scheduled.
+        expect(['close', 'reload'].map(name => items.filter(item => item.action === name).length), 'one of each').toEqual([1, 1]);
+        expect(side.getAction('close').hidden, 'an unclosable active item hides close from the first paint').toBe(true);
+
+        workspace.refreshPromise = null;
+
+        expect(workspace.afterSetMounted(true, false), 'a shell already present schedules nothing').toBe(null)
+    });
+
+    test.describe('#18143 a failed projection is observable and repaired exactly once', () => {
+        const failure = recovery => Object.assign(
+            new Error('util.VNode.getVnode: Component not found for id: neo-tab-header-button-10'),
+            {isDockProjectionFailure: true, projectionRecovery: recovery}
+        );
+
+        test('it warns, fires dockProjectionFailed, and schedules ONE repair carrying the retry flag', async () => {
+            workspace = Neo.create(RepairWitnessWorkspace, {dockModel: createDocument()});
+
+            const events = [];
+
+            workspace.on('dockProjectionFailed', event => events.push(event));
+
+            const error  = failure('retired-staged'),
+                  result = workspace.onDockProjectionFailed(error, createDocument(), null, {});
+
+            // null is the caller's signal that this cycle is over and handled — the maximize sync and
+            // the FLIP must not run over a shell the committed document does not describe.
+            expect(result, 'the caller is told the cycle was handled').toBe(null);
+
+            expect(events.length, 'the failure reaches consumers as an event').toBe(1);
+            expect(events[0]).toMatchObject({component: workspace, error, isRetry: false, recovery: 'retired-staged'});
+
+            await workspace.refreshPromise;
+
+            expect(workspace.repairLog.length, 'exactly one repair is scheduled').toBe(1);
+            expect(workspace.repairLog[0].isDockProjectionRetry, 'the repair is marked so it cannot recurse').toBe(true)
+        });
+
+        test('a failure DURING the repair surfaces without scheduling a third attempt', async () => {
+            workspace = Neo.create(RepairWitnessWorkspace, {dockModel: createDocument()});
+
+            const events = [];
+
+            workspace.on('dockProjectionFailed', event => events.push(event));
+
+            workspace.onDockProjectionFailed(failure('completed-swap'), createDocument(), null, {isDockProjectionRetry: true});
+
+            await workspace.refreshPromise;
+
+            // The hot-loop guard: a deterministic fault would otherwise re-project forever, and the
+            // symptom of that is far worse than the stranded shell this whole path exists to fix.
+            expect(events.length, 'the second failure is still reported').toBe(1);
+            expect(events[0].isRetry, 'and is reported AS a retry').toBe(true);
+            expect(workspace.repairLog, 'no third attempt is scheduled').toEqual([])
+        });
+
+        test('an error that is not the transaction\'s own failure keeps its loud path', () => {
+            workspace = Neo.create(RepairWitnessWorkspace, {dockModel: createDocument()});
+
+            const foreign = new Error('a bug in the projection inputs');
+
+            // Only the typed failure is recoverable this way. Swallowing anything else would turn a
+            // genuine projection bug into a silent re-projection loop.
+            expect(() => workspace.onDockProjectionFailed(foreign, createDocument(), null, {})).toThrow(foreign);
+            expect(workspace.repairLog).toEqual([])
+        })
+    });
+
+    test.describe('a projection repair joins the refresh tail and stands down behind a newer commit', () => {
+        /**
+         * A projecting host that counts refreshes in flight and hands out one live pane per item (the
+         * Workstation's cache shape), so a repair running beside a later commit, or re-projecting a
+         * stale snapshot over it, shows on the count and on the shell.
+         */
+        class RepairTailWorkspace extends PlainWorkspace {
+            static config = {
+                className: 'Test.Unit.Dashboard.DockWorkspace.RepairTailWorkspace'
+            }
+
+            failures    = []
+            inFlight    = 0
+            maxInFlight = 0
+            paneCache   = {}
+            refreshLog  = []
+
+            construct(config) {
+                super.construct(config);
+                this.on('dockProjectionFailed', ({isRetry, recovery}) => this.failures.push({isRetry, recovery}))
+            }
+
+            resolvePane(itemId) {
+                const cached = this.paneCache[itemId];
+
+                return cached && !cached.isDestroyed ? cached : (this.paneCache[itemId] = Neo.create(Container, {dockItemId: itemId}))
+            }
+
+            async refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions={}) {
+                this.refreshLog.push(`${document ? document.nodes['side-tabs'].items.join('+') : 'null'}${refreshOptions.isDockProjectionRetry ? ' (repair)' : ''}`);
+                this.maxInFlight = Math.max(this.maxInFlight, ++this.inFlight);
+
+                try {
+                    return await super.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
+                } finally {
+                    this.inFlight--
+                }
+            }
+        }
+
+        Neo.setupClass(RepairTailWorkspace);
+
+        /**
+         * The first projection fails with the reconciler's typed failure; every later one suspends on one
+         * macrotask first. In the App worker every `host.promiseUpdate()` inside a projection is a
+         * VDom-worker round-trip; unit mode resolves updates synchronously, so this stands in for it —
+         * without it no projection here ever leaves the microtask queue and nothing can overlap.
+         * @returns {Function} Restores the reconciler.
+         */
+        const failOnce = workspace => {
+            const reconcile = DockProjectionReconciler.reconcileProjection;
+            let   armed     = true;
+
+            DockProjectionReconciler.reconcileProjection = async function(projection) {
+                if (armed) {
+                    armed = false;
+                    throw Object.assign(new Error('injected: the projection in flight fails'), {isDockProjectionFailure: true, projectionRecovery: 'retired-staged'})
+                }
+
+                await workspace.timeout(0);
+
+                return reconcile.call(this, projection)
+            };
+
+            return () => { DockProjectionReconciler.reconcileProjection = reconcile }
+        };
+
+        const sideItems = workspace => tabsOf(workspace.items[0]).get('side-tabs').getCardContainer().items.map(pane => pane.dockItemId);
+
+        const withoutTerminal = () => {
+            const document = createDocument();
+
+            document.nodes['side-tabs'].items = ['preview'];
+
+            return document
+        };
+
+        test('a commit that lands during a failing refresh keeps its place on the tail: the repair runs in line and stands down behind it', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument()});
+
+            const terminal = workspace.paneCache.terminal,
+                  restore  = failOnce(workspace);
+
+            try {
+                const away = workspace.onDockZoneDocumentChange(withoutTerminal()),  // fails its projection
+                      back = workspace.onDockZoneDocumentChange(createDocument());   // lands while `away` is in flight
+
+                await Promise.all([away, back]);
+                // The stand-down resolves the chain rather than leaving it pending — the tear-out hand-off
+                // and the close follow-up await this field, and would wedge on a repair that never settled.
+                await workspace.refreshPromise
+            } finally {
+                restore()
+            }
+
+            expect(workspace.failures, 'the injected failure is the only one').toEqual([{isRetry: false, recovery: 'retired-staged'}]);
+            expect(workspace.maxInFlight, 'never two projections over one host').toBe(1);
+            expect(workspace.refreshLog, 'the failed snapshot is projected once, and never as a repair').toEqual(['preview', 'preview+terminal']);
+            expect(sideItems(workspace), 'the shell presents the newer document').toEqual(['preview', 'terminal']);
+            expect(workspace.paneCache.terminal, 'through the same live pane').toBe(terminal)
+        });
+
+        test('with no newer commit the repair still runs, chained, and lands the failed document', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument()});
+
+            const restore = failOnce(workspace);
+
+            try {
+                await workspace.onDockZoneDocumentChange(withoutTerminal());
+                await workspace.refreshPromise
+            } finally {
+                restore()
+            }
+
+            expect(workspace.failures).toEqual([{isRetry: false, recovery: 'retired-staged'}]);
+            expect(workspace.refreshLog, 'one failed attempt, one repair').toEqual(['preview', 'preview (repair)']);
+            expect(workspace.maxInFlight).toBe(1);
+            expect(sideItems(workspace), 'the repair landed the document').toEqual(['preview'])
+        });
+
+        test('the close follow-up focuses exactly once when the close projection fails and is repaired', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument(), enableDockCloseAction: true});
+
+            const side = tabsOf(workspace.items[0]).get('side-tabs');
+
+            workspace.getPlugin('dock-header-actions').focusDockCloseTarget = ({itemId}) => workspace.refreshLog.push(`focus ${itemId}`);
+
+            await side.set({activeIndex: 1});
+            await workspace.refreshPromise;
+
+            workspace.refreshLog = [];
+
+            const restore = failOnce(workspace);
+
+            try {
+                const result = workspace.onDockHeaderAction({action: 'close', dockNodeId: 'side-tabs', tabContainer: side});
+
+                expect(result.errors).toEqual([]);
+                // The close chained its focus onto its own refresh, and the failing cycle chained the repair
+                // after that: reading the field once observes the follow-up, reading it again the repair.
+                await workspace.refreshPromise;
+                await workspace.refreshPromise
+            } finally {
+                restore()
+            }
+
+            expect(workspace.failures).toEqual([{isRetry: false, recovery: 'retired-staged'}]);
+            // The follow-up is chained onto the close's own refresh, so it runs after the failed attempt and
+            // before the repair, once — the same order as before the repair joined the tail.
+            expect(workspace.refreshLog, 'one focus, on the successor, between the attempt and its repair').toEqual(['preview', 'focus preview', 'preview (repair)']);
+            expect(sideItems(workspace)).toEqual(['preview'])
+        });
+
+        test('a re-projection of the same committed document during a failing refresh waits for its turn: the repair cannot stand down, so the chain is what serializes it', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument()});
+
+            const document = withoutTerminal(),
+                  restore  = failOnce(workspace);
+
+            try {
+                // The same object twice — the plain branch re-projects an identical document — so the
+                // scheduled document never moves on and the repair runs; only its place in the chain keeps
+                // it from running beside the re-projection.
+                await Promise.all([workspace.onDockZoneDocumentChange(document), workspace.onDockZoneDocumentChange(document)]);
+                await workspace.refreshPromise
+            } finally {
+                restore()
+            }
+
+            expect(workspace.failures).toEqual([{isRetry: false, recovery: 'retired-staged'}]);
+            expect(workspace.maxInFlight, 'never two projections over one host').toBe(1);
+            expect(workspace.refreshLog, 'the re-projection, then the repair, in line').toEqual(['preview', 'preview', 'preview (repair)']);
+            expect(sideItems(workspace)).toEqual(['preview'])
+        });
+
+        test('a clear that lands during a failing refresh is a newer commit too: the repair stands down and the host stays clear', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument()});
+
+            const restore = failOnce(workspace);
+
+            try {
+                // `null` is the holder contract's clear, scheduled through the same funnel as a document —
+                // so it is the newer commit the failed snapshot must not re-project over, and the one value
+                // a field that starts out `null` cannot tell apart from "nothing scheduled yet".
+                const away = workspace.onDockZoneDocumentChange(withoutTerminal()),  // fails its projection
+                      clear = workspace.onDockZoneDocumentChange(null);               // lands while `away` is in flight
+
+                await Promise.all([away, clear]);
+                await workspace.refreshPromise
+            } finally {
+                restore()
+            }
+
+            expect(workspace.failures).toEqual([{isRetry: false, recovery: 'retired-staged'}]);
+            expect(workspace.maxInFlight, 'never two projections over one host').toBe(1);
+            expect(workspace.refreshLog, 'the failed snapshot once, then the clear, and no repair over it').toEqual(['preview', 'null']);
+            expect(workspace.dockModel, 'the committed truth is the clear').toBe(null);
+            expect(workspace.down({dockNodeId: 'side-tabs'}), 'no tabs node of the cleared document survives').toBe(null)
+        })
+    });
+
+    test.describe('#18153 the engine resolves its own tear-out pane', () => {
+        // The resolution lives behind the choreography, and the choreography only exists
+        // under `enableDockTearOutLifecycle` — so these arms arm it, rather than asserting against a
+        // workspace that declined the whole concern.
+        const armed = () => Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockTearOutLifecycle: true});
+
+        test('a workspace that overrides nothing resolves the live projected pane', () => {
+            workspace = armed();
+
+            const pane = workspace.tearOutHandlers.peekPane('editor');
+
+            // Before this default the hook returned null, and the decline was not survivable:
+            // `capturePane` stores nothing, the reparent finds no pane and returns false, and
+            // `compensateFailedAdoption` CLOSES the vessel the consumer was just asked to open.
+            expect(pane, 'the engine finds the projected pane without a consumer hook').toBeTruthy();
+            expect(pane.dockItemId, 'and it is the pane for the requested item').toBe('editor')
+        });
+
+        test('it returns the PANE, never the tab header button that carries the same identity', () => {
+            workspace = armed();
+
+            // LayoutAdapter stamps dockItemId on the header it builds from the pane's own config, so
+            // the button carries the identity structurally too. An unqualified down() can return it,
+            // and a header button reparented into a vessel would look like a success.
+            const host    = workspace.getDockHost(),
+                  matches = host?.down({dockItemId: 'editor'}, false) || [],
+                  buttons = matches.filter(component => component.ntype === 'tab-header-button');
+
+            expect(matches.length, 'the identity is stamped on more than one component').toBeGreaterThan(1);
+            expect(buttons.length, 'and one of them is a tab header button — the arm is not vacuous').toBeGreaterThan(0);
+
+            expect(workspace.tearOutHandlers.peekPane('editor').ntype,
+                'the resolver skips the button').not.toBe('tab-header-button')
+        });
+
+        test('capturePane retains a handle, which is what makes the vessel survivable', () => {
+            workspace = armed();
+
+            workspace.tearOutHandlers.capturePane('editor');
+
+            // The whole failure chain starts here: an empty handle map is what makes the reparent
+            // fail and the engine close its own vessel.
+            expect(workspace.tearOutHandlers.heldPane('editor'), 'the handle map is populated').toBeTruthy();
+            expect(workspace.tearOutHandlers.releasePane('editor'), 'and the pane is releasable for return').toBeTruthy()
+        });
+
+        test('an unknown itemId still resolves to null rather than an arbitrary component', () => {
+            workspace = armed();
+
+            expect(workspace.tearOutHandlers.peekPane('no-such-item')).toBeNull()
+        });
+
+        test('a projection PLACEHOLDER is never torn out, however it carries the identity', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            // LayoutAdapter.createPlaceholder mints ntype 'dashboard-panel' carrying the same
+            // dockItemId, so it passes an exclusion that only names the header button. A placeholder
+            // exists exactly when a pane could NOT be materialized — the ordinary state for a host
+            // that writes no resolvePane — so tearing one out opens a vessel holding a titled
+            // blank and loses the pane, silently. The hook is `resolvePane`, not `resolveFreshPane`:
+            // the recreate hook now delegates to it, so writing no recreate hook no longer implies
+            // an unresolvable pane.
+            // The standalone predicate is folded into `resolveLivePane`, so the exclusion is
+            // exercised where it actually runs: through the engine resolver, over a stubbed dock
+            // host that offers exactly one component carrying the identity. Testing the predicate
+            // alone would have certified a method the tear-out path no longer calls.
+            const admits = component => Boolean(DockWorkspace.prototype.resolveLivePane.call(
+                {getDockHost: () => ({down: () => [component]})}, 'editor'
+            ));
+
+            expect(admits({cls: ['neo-dashboard-dock-placeholder'], ntype: 'dashboard-panel'}),
+                'a placeholder is not a tear-out candidate').toBe(false);
+
+            expect(admits({data: {missingReference: true}, ntype: 'dashboard-panel'}),
+                'nor is one identified by its unresolved reference').toBe(false);
+
+            expect(admits({ntype: 'tab-header-button'}),
+                'the header button stays excluded').toBe(false);
+
+            expect(admits({cls: ['neo-panel'], ntype: 'dashboard-panel'}),
+                'a real pane still qualifies — the guard is not simply refusing everything').toBe(true)
+        });
+
+        test('the held handle wins, so adoption still finds the pane after the detach re-projection', () => {
+            workspace = armed();
+
+            const treePane = workspace.tearOutHandlers.peekPane('editor');
+
+            expect(treePane, 'the pane is in the tree before the detach').toBeTruthy();
+
+            // The held handle is a DISTINCT instance on purpose. My first version of this arm
+            // detached the pane to simulate the re-projection and passed against the unfixed
+            // engine — `pane.parent` was undefined, so `remove` silently did nothing and the tree
+            // still answered. A control that quietly does nothing reads exactly like a control that
+            // passed. Asserting the handle wins over a live tree answer cannot no-op.
+            const held = Neo.create(Container, {items: []});
+
+            // Injected through the REAL capture path rather than by writing the handle map: the
+            // host resolver answers with the distinct instance for exactly one capture, then goes
+            // back to the tree. Hand-writing the record would test the one I wrote, not the one the
+            // choreography keeps — and the map is no longer the host's to write anyway.
+            const treeResolver = workspace.resolveLivePane.bind(workspace);
+
+            workspace.resolveLivePane = () => held;
+            workspace.tearOutHandlers.capturePane('editor');
+            workspace.resolveLivePane = treeResolver;
+
+            // The sequence is capture -> re-project -> adopt: the capture stores the pane while it
+            // is still in the tree, the detach re-projection removes it, adoption runs afterwards.
+            // A tree-only resolver therefore succeeds at capture and returns null when it matters —
+            // measured on a real consumer as adopted=NULL with the vessel window open.
+            expect(workspace.tearOutHandlers.peekPane('editor'), 'the held handle answers first').toBe(held);
+            expect(workspace.tearOutHandlers.peekPane('editor')).not.toBe(treePane);
+
+            expect(workspace.tearOutHandlers.releasePane('editor'), 'and it is releasable for return').toBe(held);
+
+            held.destroy()
+        });
+
+        test('pop-out is bound like every sibling action, so a capability or active-item change reaches the retained instance', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockPopOutAction: true});
+
+            const side   = tabsOf(workspace.items[0]).get('side-tabs'),
+                  popOut = side.getAction('pop-out');
+
+            // pop-out was the one engine action with no sync. Its hidden state was projected once and
+            // then lived on a RETAINED instance, so it was correct at boot and silently gone after the
+            // first commit — measured on a real consumer as the control disappearing from the header
+            // after one addTab plus one close. Bound, the same instance follows the published truth.
+            expect(popOut, 'projected once').toBeTruthy();
+            expect(popOut.hidden, 'no vessel can open in this rig, so it is withheld').toBe(true);
+
+            workspace.stateProvider.setData('dock.popOutAvailable', true);
+
+            expect(popOut.hidden, 'the capability reaches the retained instance').toBe(false);
+            expect(side.getAction('pop-out'), 'the same instance, the group was not replaced').toBe(popOut);
+
+            workspace.stateProvider.setData('dock.nodes.side-tabs.activeItemId', null);
+
+            expect(popOut.hidden, 'and so does the header presenting no item').toBe(true)
+        });
+
+        test('a destroyed handle does not shadow the tree', () => {
+            workspace = armed();
+
+            // A stale handle must not win over a live pane, or a re-created pane would be
+            // unreachable behind a corpse. Captured ALIVE and then destroyed, which is the only way
+            // this state actually arises — a handle that was never live could never have been held.
+            const treeResolver = workspace.resolveLivePane.bind(workspace),
+                  doomed       = Neo.create(Container, {});
+
+            workspace.resolveLivePane = () => doomed;
+            workspace.tearOutHandlers.capturePane('editor');
+            workspace.resolveLivePane = treeResolver;
+            doomed.destroy();
+
+            const resolved = workspace.tearOutHandlers.peekPane('editor');
+
+            expect(resolved, 'the tree answers instead').toBeTruthy();
+            expect(resolved.isDestroyed).toBeFalsy()
+        });
+
+        test('a failed adoption is reported on the lifecycle channel, not thrown into a listener', async () => {
+            workspace = armed();
+            await workspace.transactionManagerReady;
+
+            const events = [];
+
+            workspace.on('dockTearOutAdoptionFailed', event => events.push(event));
+
+            await workspace.tearOutHandlers.compensateFailedAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
+
+            // Both failing paths throw AFTER compensating, and neither throw reaches anyone:
+            // onWindowConnect is registered as a worker event listener, so its async throw becomes
+            // a rejected promise the emitter drops — a vessel could die leaving nothing but an
+            // unattributed unhandled rejection. Reporting from the shared compensation path means
+            // the signal fires once, wherever the failure originated.
+            expect(events.length, 'the failure reaches consumers exactly once').toBe(1);
+            expect(events[0]).toMatchObject({component: workspace, itemId: 'editor', reintegrated: true})
+        });
+
+        test('`reintegrated` reports the RETURN, not that a pane handle existed', async () => {
+            workspace = armed();
+            await workspace.transactionManagerReady;
+
+            const events = [],
+                  pane   = Neo.create(Container, {});
+
+            const treeResolver = workspace.resolveLivePane.bind(workspace);
+
+            workspace.resolveLivePane = () => pane;
+            workspace.tearOutHandlers.capturePane('editor');
+            workspace.resolveLivePane = treeResolver;
+
+            workspace.on('dockTearOutAdoptionFailed', event => events.push(event));
+
+            // The distinguishing case, and the one a handle check cannot see: a held pane whose
+            // return then FAILS. `!!pane` answers true here — and a failed adoption is precisely
+            // when a pane was held, so the field would have read `true` on every firing it has.
+            workspace.tearOutHandlers.reintegrateItem = async () => false;
+
+            await workspace.tearOutHandlers.compensateFailedAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
+
+            expect(events.length).toBe(1);
+            expect(events[0].pane, 'the pane is still reported — it was held').toBeTruthy();
+            expect(events[0].reintegrated, 'but it did not come home, and the field says so').toBe(false);
+
+            pane.destroy()
+        });
+
+        test('without the capability the pop-out action does not render, rather than rendering and declining', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockTearOutLifecycle: true});
+
+            const {useSharedWorkers} = Neo.config;
+
+            try {
+                Neo.config.useSharedWorkers = true;
+                expect(workspace.canOpenTearOutVessel, 'a shared-worker realm can produce a vessel').toBe(true);
+                expect(workspace.dockPopOutActionActive, 'so the action is offered').toBe(true);
+
+                Neo.config.useSharedWorkers = false;
+                // The engine's own opener declines without a shared worker, because a vessel adopts
+                // a LIVE pane from this app worker. Offering the action anyway is the exact silence
+                // this seam removes: the user clicks and nothing happens, with no signal.
+                expect(workspace.canOpenTearOutVessel).toBe(false);
+                expect(workspace.dockPopOutActionActive, 'the action is withheld, not rendered-and-inert').toBe(false)
+            } finally {
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('a host that overrides ONLY the opener still gets the action', () => {
+            class OpenerOnlyWorkspace extends PlainWorkspace {
+                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.OpenerOnlyWorkspace'}
+
+                openTearOutVessel({itemId}) {return {windowName: `own-${itemId}`}}
+            }
+
+            Neo.setupClass(OpenerOnlyWorkspace);
+
+            workspace = Neo.create(OpenerOnlyWorkspace, {dockModel: createDocument(), enableDockTearOutLifecycle: true});
+
+            const {useSharedWorkers} = Neo.config;
+
+            try {
+                Neo.config.useSharedWorkers = false;
+
+                // The shared worker is the ENGINE opener's requirement, not the feature's. A host
+                // with its own transport can open a vessel without one, and demanding the config
+                // from it would withhold an action that works. The component pop-out fixture is
+                // exactly this shape and caught the first version of this gate in CI.
+                expect(workspace.canOpenTearOutVessel, 'its own opener is the capability').toBe(true);
+                expect(workspace.dockPopOutActionActive).toBe(true)
+            } finally {
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('a host with its own transport states the capability beside its opener', () => {
+            class TransportWorkspace extends PlainWorkspace {
+                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.TransportWorkspace'}
+
+                // The pair is the point: whoever answers "I can open a vessel" is whoever implements
+                // opening one, so the capability cannot drift from the implementation. Stated, never
+                // inferred from prototype identity — a host that overrides the opener without meaning
+                // to claim the capability must not be silently opted in.
+                get canOpenTearOutVessel() {return true}
+
+                openTearOutVessel({itemId}) {return {windowName: `native-${itemId}`}}
+            }
+
+            Neo.setupClass(TransportWorkspace);
+
+            workspace = Neo.create(TransportWorkspace, {dockModel: createDocument(), enableDockTearOutLifecycle: true});
+
+            const {useSharedWorkers} = Neo.config;
+
+            try {
+                Neo.config.useSharedWorkers = false;
+                expect(workspace.dockPopOutActionActive, 'a native transport keeps the action without shared workers').toBe(true)
+            } finally {
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('a failed adoption returns the item to the document, not only the pane handle', async () => {
+            workspace = armed();
+            await workspace.transactionManagerReady;
+
+            const pane = workspace.tearOutHandlers.peekPane('editor');
+
+            expect(pane, 'the fixture must project the pane, or this proves nothing').toBeTruthy();
+
+            workspace.tearOutHandlers.capturePane('editor');
+
+            // Commit the detach the tear-out gesture commits, so the item is out of every tabs node
+            // exactly as it is when an adoption then fails.
+            const detached = workspace.applyDockZoneOperation({itemId: 'editor', operation: 'detachItem'});
+
+            expect(detached.errors, 'the detach must commit, or the compensation has nothing to undo').toEqual([]);
+            workspace.onDockZoneDocumentChange(detached.document);
+
+            expect(WorkspaceDocument.findContainingTabsId(workspace.dockModel, 'editor'),
+                'the item is genuinely out of the tree at this point').toBeFalsy();
+
+            // The vessel died. `compensateFailedAdoption` is what must put it back — the user
+            // is left with a pane that vanished from the shell otherwise.
+            workspace.tearOutHandlers.compensateFailedAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
+
+            await workspace.refreshPromise;
+
+            expect(WorkspaceDocument.findContainingTabsId(workspace.dockModel, 'editor'),
+                'the item is back in a tabs node').toBeTruthy();
+            expect(workspace.dockModel.items.editor, 'and its record survived the round trip').toBeTruthy()
+        });
+
+        test('a rail tab is not the pane either, and the whole button category is refused', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            // `interaction/Rail#createTabConfig` mints a Button carrying the pane's dockItemId so a
+            // click resolves the item without id bookkeeping — it cleared an exclusion that named
+            // only the header button and the placeholder. Naming stand-ins one at a time lost twice,
+            // so the guard refuses the CATEGORY: a dock pane is never a button.
+            const admits = component => Boolean(DockWorkspace.prototype.resolveLivePane.call(
+                {getDockHost: () => ({down: () => [component]})}, 'editor'
+            ));
+
+            expect(admits({cls: ['neo-dashboard-dock-rail-tab', 'neo-button'], ntype: 'button'}),
+                'a rail tab is refused').toBe(false);
+
+            expect(admits({cls: ['neo-button'], ntype: 'button'}),
+                'and so is any other button carrying the identity').toBe(false);
+
+            expect(admits({cls: ['neo-panel'], ntype: 'dashboard-panel'}),
+                'while a real pane is untouched by the widening').toBe(true)
+        });
+
+        test('the engine opens its own vessel: the item as content in the URL, the reserved slot as the carrier', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const opens              = [],
+                  {useSharedWorkers} = Neo.config,
+                  MainStub           = {
+                      getByPath    : () => Promise.resolve('https://example.test/app/index.html?existing=keep'),
+                      getWindowData: () => Promise.resolve({innerHeight: 800, outerHeight: 860, screenLeft: 40, screenTop: 20}),
+                      windowOpen   : data => { opens.push(data); return Promise.resolve(true) }
+                  },
+                  originalMain   = Neo.Main;
+
+            Neo.Main         = MainStub;
+            Neo.config.useSharedWorkers = true;
+
+            try {
+                const identity = {generationToken: 'lineage-7', groupId: 'group-a', workspaceKey: 'popup:editor'},
+                      vessel   = await workspace.openTearOutVessel({itemId: 'editor', proxyRect: {height: 500, width: 640, x: 100, y: 60}, topologyIdentity: identity});
+
+                expect(opens.length, 'the engine opened a window without any consumer hook').toBe(1);
+
+                const url = new URL(opens[0].url);
+
+                // Content in the URL, identity in the carrier: the item is the one parameter the vessel
+                // needs to render; whom it belongs to travels through `Main.windowOpen`.
+                expect(url.searchParams.get('tearout')).toBe('editor');
+                expect([...url.searchParams.keys()].sort(), 'no owner, flow or admission in the URL').toEqual(['existing', 'tearout']);
+                expect(url.searchParams.get('existing'), 'the host document\'s own params survive').toBe('keep');
+                expect(opens[0].topologyIdentity, 'the reserved slot rides the staged-open carrier').toEqual(identity);
+
+                // The proxy rect is where the user let go, offset into screen space.
+                expect(opens[0].windowFeatures).toContain('width=640');
+                expect(opens[0].windowFeatures).toContain('height=500');
+
+                expect(vessel).toMatchObject({windowName: 'neo-dock-tearout-editor'})
+            } finally {
+                Neo.Main = originalMain;
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('a vessel re-torn from a vessel does not inherit the parent\'s item', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const opens              = [],
+                  {useSharedWorkers} = Neo.config,
+                  originalMain       = Neo.Main;
+
+            // The host document ALREADY names an item — the case a re-tear produces.
+            Neo.Main = {
+                getByPath    : () => Promise.resolve('https://example.test/i.html?tearout=preview'),
+                getWindowData: () => Promise.resolve({innerHeight: 800, outerHeight: 860, screenLeft: 0, screenTop: 0}),
+                windowOpen   : data => { opens.push(data); return Promise.resolve(true) }
+            };
+            Neo.config.useSharedWorkers = true;
+
+            try {
+                const identity = {generationToken: 'lineage-9', groupId: 'group-a', workspaceKey: 'popup:terminal'};
+
+                await workspace.openTearOutVessel({itemId: 'terminal', topologyIdentity: identity});
+
+                const url = new URL(opens[0].url);
+
+                // Without the strip, the vessel would render the PARENT's pane — a wrong pane in a real
+                // window, which reads as a success. Its owner was never in the URL to inherit.
+                expect(url.searchParams.getAll('tearout')).toEqual(['terminal']);
+                expect(opens[0].topologyIdentity).toEqual(identity)
+            } finally {
+                Neo.Main = originalMain;
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('a host override is the ONLY opener that runs — the engine default does not also fire', async () => {
+            class HostOpenerWorkspace extends PlainWorkspace {
+                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.HostOpenerWorkspace'}
+
+                hostOpens = []
+
+                openTearOutVessel(request) {
+                    this.hostOpens.push(request);
+                    return {windowName: `host-${request.itemId}`}
+                }
+            }
+
+            Neo.setupClass(HostOpenerWorkspace);
+
+            // A host that runs no lifecycle still reserves its vessel's slot in its window's Group,
+            // so the window is bound the way its app registration binds it.
+            workspace = Neo.create(HostOpenerWorkspace, {dockModel: createDocument(), windowId: 'host-opener-window'});
+            TransactionManager.bind({windowId: 'host-opener-window', workspaceKey: 'main'});
+
+            const opens              = [],
+                  {useSharedWorkers} = Neo.config,
+                  originalMain       = Neo.Main;
+
+            // Shared workers ON, so the ENGINE default would happily open a window here. That is the
+            // whole point of the arm: the risk is not that a host override fails, it is that the
+            // engine adds a second vessel behind it — two windows for one gesture, one of them
+            // holding nothing, and neither owner aware of the other.
+            Neo.Main = {
+                getByPath    : () => Promise.resolve('https://example.test/app/index.html'),
+                getWindowData: () => Promise.resolve({innerHeight: 800, outerHeight: 860, screenLeft: 0, screenTop: 0}),
+                windowOpen   : data => { opens.push(data); return Promise.resolve(true) }
+            };
+            Neo.config.useSharedWorkers = true;
+
+            try {
+                const vessel = await acquireNative(workspace, {itemId: 'editor'});
+
+                expect(workspace.hostOpens, 'the host opener ran exactly once').toHaveLength(1);
+                expect(vessel).toMatchObject({windowName: 'host-editor'});
+
+                // Witnessed on the WINDOW, not on which method was called: `Neo.Main.windowOpen` is
+                // the only thing the engine default does that a host cannot undo, so an empty
+                // collector is the honest statement that no second vessel exists.
+                expect(opens, 'the engine opened nothing of its own').toEqual([])
+            } finally {
+                Neo.Main = originalMain;
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('a destroyed workspace fires no pending admission expiry and closes the vessel it opened, lifecycle opt-in or not', async () => {
+            const closes = [];
+
+            class ShortWindowOpenerWorkspace extends PlainWorkspace {
+                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.ShortWindowOpenerWorkspace'}
+
+                openTearOutVessel(request) {
+                    return {windowName: `short-${request.itemId}`}
+                }
+
+                closeTearOutVessel(vessel) {
+                    closes.push(vessel);
+                    return true
+                }
+            }
+
+            Neo.setupClass(ShortWindowOpenerWorkspace);
+
+            // The lifecycle opt-in is OFF here (the default) — while `acquireTearOutVessel` reserves a
+            // slot whose lease runs in the manager regardless.
+            TransactionManager.reconnectLeaseMs = 20;
+            workspace = Neo.create(ShortWindowOpenerWorkspace, {dockModel: createDocument(), windowId: 'short-opener-window'});
+            TransactionManager.bind({windowId: 'short-opener-window', workspaceKey: 'main'});
+
+            const
+                {useSharedWorkers} = Neo.config,
+                originalMain       = Neo.Main;
+
+            Neo.Main = {
+                getByPath    : () => Promise.resolve('https://example.test/app/index.html'),
+                getWindowData: () => Promise.resolve({innerHeight: 800, outerHeight: 860, screenLeft: 0, screenTop: 0}),
+                windowOpen   : () => Promise.resolve(true)
+            };
+            Neo.config.useSharedWorkers = true;
+
+            try {
+                expect(workspace.enableDockTearOutLifecycle, 'the lifecycle opt-in is off').toBe(false);
+
+                await acquireNative(workspace, {itemId: 'editor'});
+
+                const admission = workspace.nativeWindows.getAdmission(workspace.id, 'editor');
+
+                expect(TransactionManager.getBinding(workspace.topologyGroupId, 'popup:editor'),
+                    'the slot is reserved in the manager, its lease running').toMatchObject({windowId: null});
+                expect(admission?.windowName, 'and the admission holds the vessel the host opened').toBe('short-editor');
+
+                workspace.destroy();
+                workspace = null;
+
+                // The lease runs out after the instance is gone. The manager's event finds no listener
+                // on this workspace — nothing fires into a destroyed instance — and waiting past the
+                // lease inside THIS arm makes it the test that would be charged if it did.
+                await new Promise(resolve => setTimeout(resolve, 60));
+
+                // The admission is one ownership unit: its record and the native vessel it opened
+                // retire together, and the vessel exactly once.
+                expect(closes.map(vessel => vessel.windowName), 'the opened vessel was closed exactly once').toEqual(['short-editor'])
+            } finally {
+                TransactionManager.reconnectLeaseMs = 20000;
+                Neo.Main = originalMain;
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('without useSharedWorkers there is no vessel to open, and none is attempted', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const opens              = [],
+                  {useSharedWorkers} = Neo.config,
+                  originalMain       = Neo.Main;
+
+            Neo.Main = {windowOpen: data => { opens.push(data); return Promise.resolve(true) }};
+            Neo.config.useSharedWorkers = false;
+
+            try {
+                // A live pane cannot be served to a second window without a shared worker, so
+                // opening one would produce an empty vessel — worse than not opening it.
+                expect(await workspace.openTearOutVessel({itemId: 'editor'})).toBeNull();
+                expect(opens, 'no window is opened').toEqual([])
+            } finally {
+                Neo.Main = originalMain;
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        })
+    });
+});
+
+/**
+ * A host that parks panes per commit, the way a real consumer's `getRefreshOptions` override does —
+ * the shape a sibling projection has to combine with rather than replace.
+ */
+class ParkingWorkspace extends PlainWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.ParkingWorkspace'
+    }
+
+    projectionLog = []
+
+    getRefreshOptions(descriptor, source) {
+        const options = super.getRefreshOptions(descriptor, source),
+              parked  = descriptor?.preserveItemIds;
+
+        return Array.isArray(parked) && parked.length > 0 ? {...options, preserveItemIds: parked} : options
+    }
+
+    refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions) {
+        this.projectionLog.push(refreshOptions);
+        return Promise.resolve()
+    }
+}
+
+Neo.setupClass(ParkingWorkspace);
+
+test.describe('projectDockZoneDocument — the commit\'s parked panes and a sibling\'s owned panes both survive', () => {
+    test('preserveItemIds is the union of both sides, while every other option stays the caller\'s to override', async () => {
+        const workspace = Neo.create(ParkingWorkspace, {dockModel: createDocument()});
+
+        await workspace.projectDockZoneDocument(createDocument(), {operation: 'moveItem', preserveItemIds: ['parked']}, workspace, {
+            geometryOnly: true, preserveItemIds: ['sibling']
+        });
+
+        const options = workspace.projectionLog.at(-1);
+
+        // The defect this guards: a plain spread lets the caller's list REPLACE the commit's, so the
+        // parked pane is destroyed rather than preserved. Both ids name panes that must outlive this
+        // projection, and the reconciler downstream already treats the list as additive.
+        expect([...options.preserveItemIds].sort()).toEqual(['parked', 'sibling']);
+
+        // Only the id set is additive; ordinary options remain last-writer-wins.
+        expect(options.geometryOnly).toBe(true);
+
+        workspace.destroy()
+    });
+
+    test('neither side naming an id leaves no preserveItemIds at all, matching what getRefreshOptions emits', async () => {
+        const workspace = Neo.create(ParkingWorkspace, {dockModel: createDocument()});
+
+        await workspace.projectDockZoneDocument(createDocument(), {operation: 'moveItem'}, workspace, {preserveItemIds: []});
+
+        expect(workspace.projectionLog.at(-1)).not.toHaveProperty('preserveItemIds');
+
+        workspace.destroy()
+    })
+});
+
+/**
+ * A host whose `tearOutWindowName` override reads its own config, which `destroy()` deletes.
+ */
+class PrefixedWorkspace extends PlainWorkspace {
+    static config = {
+        className   : 'Test.Unit.Dashboard.DockWorkspace.PrefixedWorkspace',
+        vesselPrefix: null
+    }
+
+    tearOutWindowName(itemId) {
+        return `${this.vesselPrefix}-${itemId}`
+    }
+}
+
+Neo.setupClass(PrefixedWorkspace);
+
+test.describe('Neo.dashboard.dock.Workspace#closeTearOutVessel (engine default)', () => {
+    test('the default closes a vessel it opened through the shared routine and returns the platform answer', async () => {
+        const
+            workspace     = Neo.create(PlainWorkspace, {dockModel: createDocument()}),
+            originalClose = Neo.Main.windowClose,
+            calls         = [];
+
+        let answer = true;
+
+        Neo.Main.windowClose    = async data => {calls.push(data); return answer};
+        // Nothing is admitted, so the vessel has no route and closes by the name this workspace opened it under.
+        workspace.nativeWindows = {getAdmission: () => null, getConnection: () => null, getOwner: () => null};
+
+        try {
+            const vessel = {itemId: 'preview', windowName: workspace.tearOutWindowName('preview')};
+
+            expect(vessel.windowName, 'the name openTearOutVessel mints').toBe('neo-dock-tearout-preview');
+            await expect(workspace.closeTearOutVessel(vessel)).resolves.toBe(true);
+
+            answer = false;
+            await expect(workspace.closeTearOutVessel(vessel), 'a refused close stays a refusal').resolves.toBe(false);
+            await expect(workspace.closeTearOutVessel({itemId: 'preview', windowName: 'tearout-preview'}), 'a foreign name refuses').resolves.toBe(false);
+
+            expect(calls).toEqual(Array(2).fill({names: ['neo-dock-tearout-preview'], windowId: workspace.windowId}))
+        } finally {
+            Neo.Main.windowClose    = originalClose;
+            workspace.nativeWindows = null;
+            workspace.destroy()
+        }
+    });
+
+    test('a close whose workspace is destroyed during the lazy import closes by the name the live workspace resolved', async () => {
+        const
+            originalClose = Neo.Main.windowClose,
+            calls         = [],
+            created       = [],
+            vessel        = {itemId: 'preview', windowName: 'owned-preview'},
+            retire        = workspace => {
+                workspace.nativeWindows = null;
+                workspace.destroy()
+            },
+            create        = async () => {
+                const workspace = Neo.create(PrefixedWorkspace, {dockModel: createDocument(), vesselPrefix: 'owned'});
+
+                created.push(workspace);
+                await workspace.ready();
+                workspace.nativeWindows = {getAdmission: () => null, getConnection: () => null, getOwner: () => null};
+
+                return workspace
+            };
+
+        Neo.Main.windowClose = async data => {calls.push(data); return true};
+
+        try {
+            const live = await create();
+
+            await expect(live.closeTearOutVessel(vessel), 'the live counterpart').resolves.toBe(true);
+
+            const
+                torn         = await create(),
+                tornWindowId = torn.windowId,
+                closing      = torn.closeTearOutVessel(vessel);
+
+            // The import yields before the routine runs, so the workspace retires inside that gap.
+            retire(torn);
+
+            await expect(closing, 'the counterpart destroyed in the import gap').resolves.toBe(true);
+            expect(calls).toEqual([
+                {names: ['owned-preview'], windowId: live.windowId},
+                {names: ['owned-preview'], windowId: tornWindowId}
+            ])
+        } finally {
+            Neo.Main.windowClose = originalClose;
+            created.filter(workspace => !workspace.isDestroyed).forEach(retire)
+        }
+    })
+});

@@ -35,7 +35,7 @@ class Abstract extends Base {
         /**
          * Additional namespaces to load theme files for.
          * @member {String[]|null} additionalThemeFiles=null
-         * @example ['AgentOSStrategy.view.Viewport']
+         * @example ['Workstation.view.Viewport']
          */
         additionalThemeFiles: null,
         /**
@@ -244,6 +244,8 @@ class Abstract extends Base {
                 // this component's own pending update cycle might be skipped or not yet triggered.
                 // We explicitly execute the callbacks here to ensure those pending promises are resolved immediately
                 // upon mount, preventing deadlocks where code awaits a VDOM update that effectively already happened.
+                // No flight collected that render, so the mount claims the promises itself.
+                VDomUpdate.claimPromiseCallbacks(me.id);
                 VDomUpdate.executeCallbacks(me.id, {
                     deltas: [],
                     vnode : me.vnode
@@ -258,6 +260,16 @@ class Abstract extends Base {
                 }
             }
         }
+    }
+
+    /**
+     * Triggered after the parentComponent config got changed
+     * @param {Neo.component.Base|null} value
+     * @param {Neo.component.Base|null} oldValue
+     * @protected
+     */
+    afterSetParentComponent(value, oldValue) {
+        ComponentManager.onParentComponentChange(this, oldValue)
     }
 
     /**
@@ -442,7 +454,7 @@ class Abstract extends Base {
      * @param {Object} data
      */
     onScrollCapture(data) {
-        let me    = this,
+        let me = this,
             vnode;
 
         if (me.vnode) {
@@ -451,7 +463,7 @@ class Abstract extends Base {
             // Fast Path 1: Target is the root node itself
             if (me.vnode.id === targetId) {
                 vnode = me.vnode;
-            } 
+            }
             // Fast Path 2: Target is the logical vnode root (e.g. GridBody scroll container)
             else if (me.id === targetId) {
                 // me.getVnodeRoot() returns the node assigned me.id by ensureStableIds
@@ -459,7 +471,7 @@ class Abstract extends Base {
                 if (vnodeRoot && vnodeRoot.id === targetId) {
                     vnode = vnodeRoot;
                 }
-            } 
+            }
             // Fast Path 3: Target is the designated items container
             else if (me.getVnodeItemsRoot) {
                 let itemsRoot = me.getVnodeItemsRoot();

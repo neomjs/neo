@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     --neo-app-content-sections-bg             : var(--sem-color-bg-neutral-default);
     --neo-app-content-sections-btn-bg         : var(--sem-color-bg-neutral-default);
     --neo-app-content-sections-btn-disabled-bg: var(--sem-color-bg-neutral-disabled);

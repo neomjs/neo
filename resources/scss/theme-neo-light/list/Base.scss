@@ -1,5 +1,5 @@
 
-:root .neo-theme-neo-light { // .neo-list-container
+:where(.neo-theme-neo-light) { // .neo-list-container
     --list-scrollbar-color-scheme        : light;
     --list-container-background-color    : #fff;
     --list-container-border              : none;

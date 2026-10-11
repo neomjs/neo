@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-table-container
+:where(.neo-theme-neo-light) { // .neo-table-container
     --table-container-border-color              : #ddd;
     --table-container-cell-background-color     : #fff;
     --table-container-cell-background-color-even: #f2f2f2;

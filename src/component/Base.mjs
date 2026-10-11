@@ -6,6 +6,7 @@ import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
 import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
+import VDomUpdate       from '../manager/VDomUpdate.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
@@ -13,7 +14,8 @@ import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 const
     addUnits          = value => value == null ? value : isNaN(value) ? value : `${value}px`,
     closestController = Symbol.for('closestController'),
-    lengthRE          = /^\d+\w+$/;
+    // A number with a unit made of letters: `%` has no px value without an axis and a containing block
+    lengthRE          = /^\d*\.?\d+[a-z]+$/i;
 
 /**
  * @typedef {Object} ComponentReferenceConfig
@@ -67,15 +69,17 @@ class Component extends Abstract {
          */
         ntype: 'component',
         /**
-         * The default alignment specification to position this Component relative to some other
-         * Component, or Element or Rectangle. Only applies in case floating = true.
+         * The default alignment specification to position this Component relative to another
+         * Component/Element id, or to a JSON-safe viewport Rectangle `{x,y,width,height}`. A zero-size
+         * Rectangle is a point target (for example a context-menu pointer coordinate). Live DOM objects
+         * never cross the worker boundary. Only applies in case floating = true.
          * @member {Object|String} align_={[isDescriptor]: true, merge: 'deep', value: {edgeAlign: 't-b',constrainTo: 'document.body'}}
          * @reactive
          */
         align_: {
             [isDescriptor]: true,
             merge         : 'deep',
-            value: {
+            value         : {
                 edgeAlign  : 't-b',
                 constrainTo: 'document.body'
             }
@@ -86,7 +90,13 @@ class Component extends Abstract {
          */
         baseCls: [],
         /**
-         * manager.Focus will change this flag on focusin & out dom events
+         * True while DOM focus is inside this component's subtree; {@link Neo.manager.Focus} writes it. It answers
+         * whether, never where: focus moving inside the subtree leaves it unchanged, and one node can hold DOM focus
+         * for many items — a grid View does for its cells — so moving between those is no focus event at all.
+         *
+         * It is App-Worker state. It is set when the worker handles the focusin, and cleared
+         * {@link Neo.manager.Focus#maxFocusInOutGap} after a focusout that no focusin makes a move, so a read in the
+         * same tick as a gesture sees the state before it.
          * @member {Boolean} containsFocus_=false
          * @protected
          * @reactive
@@ -113,10 +123,23 @@ class Component extends Abstract {
          */
         dropZoneConfig: null,
         /**
-         * True to mount this component into the viewport outside of the document flow
-         * @member {Boolean} floating
+         * True to mount this component into the viewport outside of the document flow.
+         *
+         * Runtime-capable: flipping it on a live component moves it in and out of the fixed-position
+         * layer through `neo-floating` — aligned on the way in and released on the way out while mounted.
+         * It does NOT change which node owns the component in the DOM: `parentId` is the config that
+         * roots a component elsewhere (`document.body`, typically), and callers that need both set both.
+         * @member {Boolean} floating_=false
+         * @reactive
          */
-        floating: false,
+        floating_: false,
+        /**
+         * A floating component that mounts moves focus into its first focusable item: a popup takes the caret
+         * with it. False mounts it without taking focus, for a surface that only previews content, like a submenu
+         * shown because the pointer rests on its parent item.
+         * @member {Boolean} focusOnMount=true
+         */
+        focusOnMount: true,
         /**
          * Internal flag which will get set to true on mount
          * @member {Boolean} hasBeenMounted=false
@@ -192,6 +215,18 @@ class Component extends Abstract {
          * @reactive
          */
         minWidth_: null,
+        /**
+         * Declares part of this component's DOM as a native HTML5 drag source, so a drag can carry
+         * a `DataTransfer` payload into content the synthetic drag pipeline cannot reach — an
+         * embedded iframe, another window's foreign document, the OS. The declaration is pure JSON:
+         * a `delegate` selector for the draggable nodes, a `types` map of mime type to attribute
+         * template (`'{data-record-id}'` reads that attribute off the source node at drag time),
+         * and an optional `effectAllowed`. Requires the `NativeDragSource` main-thread addon; see
+         * its class docs for the payload contract and the partition with the synthetic pipeline.
+         * @member {Object|null} nativeDragZone_=null
+         * @reactive
+         */
+        nativeDragZone_: null,
         /**
          * Array of Plugin Modules and / or config objects
          * @member {Array|null} plugins_=null
@@ -316,6 +351,43 @@ class Component extends Abstract {
          */
         _vdom: {}
     }
+
+    /**
+     * Monotonic guard for {@link #registerNativeDragZone}'s mount-gated sends: a pending send
+     * whose generation no longer matches was superseded (reset, replaced, or moved) and drops.
+     * @member {Number} nativeDragZoneGeneration=0
+     * @protected
+     */
+    nativeDragZoneGeneration = 0
+
+    /**
+     * The windowId whose main thread currently holds this component's native drag registration —
+     * the realm {@link #retireNativeDragZone} must address, which after a window transfer is not
+     * the current `windowId`. `null` = not registered.
+     * @member {Number|null} nativeDragZoneWindowId=null
+     * @protected
+     */
+    nativeDragZoneWindowId = null
+
+    /**
+     * Whether an owner withholds this component's DOM while its own `hidden` is false. A container
+     * that layers a second presence axis over a child's availability — `Neo.toolbar.Base` withdrawing
+     * a focus-gated action, see `applyContextualActionState` — stamps `vdom.removeDom` and raises this
+     * flag together; {@link #show} then leaves the marker in place on every path that un-hides the
+     * child, including the second `show()` a batched `set()` runs after its silent pass. The owner
+     * drops the flag and restores the marker to what `hidden` says.
+     * @member {Boolean} domWithheld=false
+     */
+    domWithheld = false
+
+    /**
+     * The mount attempt a `document.body`-rooted {@link #show} started, from the call until its
+     * `initVnode(true)` promise settles: theme deferral and the main-thread insert included, which
+     * `isVnodeInitializing` does not span. `null` while none is in the air.
+     * @member {Promise|null} mountFlight=null
+     * @protected
+     */
+    mountFlight = null
 
     /**
      * @param {Object} config
@@ -461,6 +533,46 @@ class Component extends Abstract {
     }
 
     /**
+     * Triggered after the floating config got changed
+     *
+     * `getBaseClass()` already contributes `neo-floating` to every `cls` write, which covers the
+     * component that is born floating. What it cannot do is notice a flip: nothing writes `cls` when
+     * only `floating` changes, so the config and the rendered class used to diverge silently — the
+     * component reported `floating: true` and kept `position: static`. Toggling here is that write.
+     *
+     * Aligning but not focusing is deliberate. `afterSetMounted` does both because a floating widget
+     * *appearing* is a popup, and a popup takes the caret with it. A component that was already on
+     * screen and merely changed how it is positioned is not that event, and pulling focus out of
+     * whatever the user was typing in would be a surprise the caller never asked for.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetFloating(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.toggleCls('neo-floating', value);
+
+            if (me.mounted) {
+                if (value) {
+                    me.alignTo()
+                } else {
+                    // `align()` wrote a transform and position into the element and registered it for
+                    // resyncs. A subject that stays in the document is released by nothing else.
+                    const {left, top, transform} = me.vdom.style || {};
+
+                    Neo.main.DomAccess.unalign({
+                        id      : me.id,
+                        style   : {left: addUnits(left), top: addUnits(top), transform},
+                        windowId: me.windowId
+                    })
+                }
+            }
+        }
+    }
+
+    /**
      * Triggered after the height config got changed
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
@@ -601,7 +713,68 @@ class Component extends Abstract {
     }
 
     /**
+     * Triggered after the nativeDragZone config got changed.
+     *
+     * A reset retires first — in the realm that actually holds the registration — and every set
+     * issues a fresh, generation-guarded registration. See {@link #registerNativeDragZone} for the
+     * mount gating and {@link #retireNativeDragZone} for why pending sends cannot fire stale.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetNativeDragZone(value, oldValue) {
+        let me = this;
+
+        oldValue && me.retireNativeDragZone();
+        value    && me.registerNativeDragZone()
+    }
+
+    /**
+     * Issues this component's {@link #nativeDragZone} declaration to the main-thread addon,
+     * gated on the mount: the addon scopes matches to the LIVE DOM subtree, so registering
+     * earlier could match nothing — and the gate doubles as the boot-order guard against the
+     * addon's own remote registration. The send is generation-checked, so a declaration reset,
+     * replaced, or moved between the listener attaching and the mount firing is dropped instead
+     * of resurrecting stale state. Records the realm it registered with, for the retire side.
+     * @protected
+     */
+    registerNativeDragZone() {
+        let me   = this,
+            gen  = ++me.nativeDragZoneGeneration,
+            send = () => {
+                if (gen === me.nativeDragZoneGeneration && me.nativeDragZone) {
+                    me.nativeDragZoneWindowId = me.windowId;
+                    Neo.main?.addon?.NativeDragSource?.register({...me.nativeDragZone, ownerId: me.id, windowId: me.windowId})
+                }
+            };
+
+        me.mounted ? send() : me.on('mounted', send, me, {once: true})
+    }
+
+    /**
+     * Retires this component's native drag registration in the realm that HOLDS it — after a
+     * window transfer that is the old window, not the current one — and invalidates any pending
+     * mount-gated send by bumping the generation. Never-registered declarations (a pre-mount
+     * reset) skip the remote call entirely.
+     * @protected
+     */
+    retireNativeDragZone() {
+        let me = this;
+
+        me.nativeDragZoneGeneration++;
+
+        if (me.nativeDragZoneWindowId !== null) {
+            Neo.main?.addon?.NativeDragSource?.unregister({ownerId: me.id, windowId: me.nativeDragZoneWindowId});
+            me.nativeDragZoneWindowId = null
+        }
+    }
+
+    /**
      * Triggered after the mounted config got changed
+     *
+     * A mount is confirmed after a round trip, so `mounted` can be written on a component its owner has destroyed
+     * in the meantime. Its node still exists until the removal arrives: a floating component must not align to,
+     * or take focus into, a node that is about to go — the focus would be lost to the document body with it.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -615,11 +788,11 @@ class Component extends Abstract {
             if (value) { // mount
                 me.hasBeenMounted = true;
 
-                if (me.floating) {
+                if (me.floating && !me.isDestroyed) {
                     me.alignTo();
 
                     // Focus will be pushed into the first input field or other focusable item
-                    me.focus(me.id, true)
+                    me.focusOnMount && me.focus(me.id, true)
                 }
 
                 me.fire('mounted', me.id);
@@ -640,24 +813,29 @@ class Component extends Abstract {
     }
 
     /**
-     * Triggered after the responsive config got changed
+     * Triggered after the responsive config got changed. The first value imports the Responsive plugin, which reads
+     * `responsive` on every resize, so later values need no plugin of their own.
      * @param {Object} value
      * @param {Object} oldValue
      * @protected
      */
     async afterSetResponsive(value, oldValue) {
         if (value && !this.getPlugin('responsive')) {
-            let me      = this,
-                module  = await me.trap(import(`../../src/plugin/Responsive.mjs`)),
-                plugins = me.plugins || [];
+            let me     = this,
+                module = await me.trap(import(`../../src/plugin/Responsive.mjs`));
 
-            plugins.push({
-                module : module.default,
-                appName: me.appName,
-                value
-            });
+            // Values set before the import settles all passed the lookup above, so admission is decided here
+            if (!me.getPlugin('responsive')) {
+                let plugins = me.plugins || [];
 
-            me.plugins = plugins
+                plugins.push({
+                    module : module.default,
+                    appName: me.appName,
+                    value
+                });
+
+                me.plugins = plugins
+            }
         }
     }
 
@@ -734,23 +912,27 @@ class Component extends Abstract {
 
     /**
      * Triggered after the theme config got changed
+     * @summary Keeps a local theme carrier unless the logical parent is also the physical DOM parent.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetTheme(value, oldValue) {
         if (value || oldValue !== undefined) {
-            let me          = this,
-                {cls}       = me,
-                needsUpdate = false;
+            let me            = this,
+                {cls, parent} = me,
+                inheritsTheme = value === parent?.theme && me.parentId === parent?.id,
+                needsUpdate   = false;
 
             if (oldValue && cls.includes(oldValue)) {
                 NeoArray.remove(cls, oldValue);
                 needsUpdate = true
             }
 
-            // We do not need to add a DOM based CSS selector, in case the theme is already inherited
-            if (value !== me.parent?.theme) {
+            // `parentComponent` can preserve logical focus / controller ancestry while `parentId`
+            // roots a floating embodiment elsewhere. CSS inheritance crosses only the physical DOM
+            // edge, so omit the local carrier exclusively when both parent roles are the same component.
+            if (!inheritsTheme) {
                 value && NeoArray.add(cls, value);
                 needsUpdate = true
             }
@@ -778,16 +960,22 @@ class Component extends Abstract {
      * @protected
      */
     afterSetTooltip(value, oldValue) {
+        let me = this;
+
         oldValue?.destroy?.();
 
         if (value) {
             if (Neo.ns('Neo.tooltip.Base')) {
-                this.createTooltip(value)
+                me.createTooltip(value)
             } else {
                 import('../tooltip/Base.mjs').then(() => {
-                    this.createTooltip(value)
+                    me.createTooltip(value)
                 })
             }
+        } else if (oldValue) {
+            // Retiring a tooltip: an own instance is destroyed above; a shared-tooltip owner must
+            // also leave the singleton's delegate set, or hovering it would open an empty tooltip.
+            me.removeCls('neo-uses-shared-tooltip')
         }
     }
 
@@ -833,10 +1021,22 @@ class Component extends Abstract {
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
 
-        let controller = this.controller;
+        let me         = this,
+            controller = me.controller;
 
         if (controller) {
             controller.windowId = value
+        }
+
+        /*
+            A native drag source is registered with ONE window's main thread. Moving the component
+            (a dock tear-out, a window transfer) must retire the registration in the realm that
+            holds it and re-issue it in the new one — waiting for the new mount, exactly like the
+            first registration did.
+        */
+        if (oldValue && me.nativeDragZone) {
+            me.retireNativeDragZone();
+            me.registerNativeDragZone()
         }
     }
 
@@ -1167,7 +1367,11 @@ class Component extends Abstract {
             })
         } else {
             me._tooltip = value;
-            Neo.tooltip.Base.createSingleton(me.app);
+
+            // The shared instance delegates from the app's main view. The unit harness runs without
+            // one, so the singleton is skipped there and the config stays readable on the owner —
+            // the same deliberate no-op `updateVdom()` takes in unit-test mode.
+            !Neo.config.unitTestMode && Neo.tooltip.Base.createSingleton(me.app);
             me.addCls('neo-uses-shared-tooltip');
             me.update()
         }
@@ -1180,11 +1384,14 @@ class Component extends Abstract {
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
-        let me                 = this,
-            {parent, parentId} = me,
+        let me                            = this,
+            {id, parent, parentId, vnode} = me,
             parentVdom;
 
         me.revertFocus();
+
+        // the main thread holds the registration, so nothing else would retire it with the component
+        me.nativeDragZone && me.retireNativeDragZone();
 
         me.controller = null; // triggers destroy()
 
@@ -1205,7 +1412,24 @@ class Component extends Abstract {
             }
         }
 
+        // Destruction is a complete render-flight cancellation boundary:
+        // 1. Settle every promise parked on this component's flight (the initiator's public
+        //    promiseUpdate AND merged children) with the house destroy sentinel — and remove the
+        //    callback entry itself, or it leaks forever (executeCallbacks never fires for a dead
+        //    owner).
+        // 2. Release the in-flight registry entry: a lingering one makes every ancestor update
+        //    yield to it forever (nothing can ever settle it — the reply targets a dead
+        //    component), silently freezing the ancestor's delta stream.
+        // 3. Re-trigger ancestors already queued behind this component — exactly once.
+        VDomUpdate.rejectCallbacks(me.id, Neo.isDestroyed);
+        VDomUpdate.unregisterInFlightUpdate(me.id);
+        VDomUpdate.triggerPostUpdates(me.id);
+
         super.destroy();
+
+        // The parent's stored vnode must stop naming a component the registry no longer knows, while the
+        // DOM node stays until the parent's next update removes it: kept as the vnode it last rendered
+        updateParentVdom && parent?.vnode && VNodeUtil.unlinkRetiredReferences(parent.vnode, {[id]: vnode});
 
         // We do want to prevent delayed calls after a component instance got destroyed.
         me.onFocusLeave = Neo.emptyFn;
@@ -1227,9 +1451,12 @@ class Component extends Abstract {
      * @param {String} id=this.id
      * @param {Boolean} children=false
      * @param {Boolean} preventScroll
+     * @param {String} [modality] 'pointer' | 'keyboard' — optional input modality carried across the
+     * worker→main focus seam so DomAccess can suppress the accidental ring on a pointer / programmatic
+     * focus while a keyboard focus keeps its intentional ring. Undefined preserves user-agent behavior.
      */
-    focus(id=this.id, children=false, preventScroll) {
-        Neo.main.DomAccess.focus({children, id, preventScroll, windowId: this.windowId})
+    focus(id=this.id, children=false, preventScroll, modality) {
+        Neo.main.DomAccess.focus({children, id, modality, preventScroll, windowId: this.windowId})
     }
 
     /**
@@ -1280,6 +1507,49 @@ class Component extends Abstract {
      */
     async getDomRect(id=this.id, windowId=this.windowId) {
         let result = await this.trap(Neo.main.DomAccess.getBoundingClientRect({id, windowId}));
+
+        if (Array.isArray(result)) {
+            return result.map(rect => Rectangle.clone(rect))
+        }
+
+        return Rectangle.clone(result)
+    }
+
+    /**
+     * @summary Convenience shortcut for transform-immune layout-box metrics.
+     *
+     * Mirrors {@link #getDomRect}, but resolves the LAYOUT box via `Neo.main.DomAccess.getLayoutRect()`:
+     * ancestor transforms (FLIP presentation windows, animated overlays) never distort the result,
+     * so the returned sizes are safe to persist into layout state. Nodes without a generated box
+     * (`display: none`, detached subtrees) resolve to the zero shape — matching
+     * `getBoundingClientRect()` — never to phantom specified sizes. Coordinates are
+     * offset-parent-relative — use {@link #getDomRect} when viewport space is required.
+     * @param {String[]|String} id=this.id
+     * @param {String} windowId=this.windowId
+     * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
+     */
+    async getLayoutRect(id=this.id, windowId=this.windowId) {
+        let result = await this.trap(Neo.main.DomAccess.getLayoutRect({id, windowId}));
+
+        if (Array.isArray(result)) {
+            return result.map(rect => Rectangle.clone(rect))
+        }
+
+        return Rectangle.clone(result)
+    }
+
+    /**
+     * @summary Convenience shortcut for the layout boxes nodes would have with inline style properties released.
+     *
+     * The read for a size the caller writes itself: a node carrying an inline `height` answers
+     * {@link #getDomRect} and {@link #getLayoutRect} with the written value, never with its content's.
+     * @param {String[]|String} id=this.id
+     * @param {String[]} properties=['height'] CSS property names, spelled as in a style attribute
+     * @param {String} windowId=this.windowId
+     * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
+     */
+    async getNaturalRect(id=this.id, properties=['height'], windowId=this.windowId) {
+        let result = await this.trap(Neo.main.DomAccess.getNaturalRect({id, properties, windowId}));
 
         if (Array.isArray(result)) {
             return result.map(rect => Rectangle.clone(rect))
@@ -1340,32 +1610,34 @@ class Component extends Abstract {
     }
 
     /**
-     * Walks up the vdom tree and returns the closest theme found
+     * @summary Returns the closest theme: this component's own, then the nearest ancestor's along
+     * the component chain, then the window's or app's default.
+     *
+     * The inherited theme travels as a config (`container.Base#afterSetTheme` propagates it), and a
+     * child inside a themed scope carries no theme class of its own by design, so the theme config
+     * is the first thing to read at every level; a class is read as well, for a component that
+     * carries a theme class without the config. The walk follows components, not vdom nodes: a
+     * parent's vdom holds its children as component references whose `cls` says nothing about the
+     * theme, so a vdom walk sees a nested scope as empty and answers the app default instead.
      * @returns {String}
      */
     getTheme() {
         let me         = this,
             themeMatch = 'neo-theme-',
-            mainView, parentNodes;
+            component  = me;
 
-        for (const item of me.cls || []) {
-            if (item.startsWith(themeMatch)) {
-                return item
+        while (component) {
+            if (component.theme) {
+                return component.theme
             }
-        }
 
-        mainView = me.app?.mainView;
-
-        if (mainView) {
-            parentNodes = VDomUtil.getParentNodes(mainView.vdom, me.id);
-
-            for (const node of parentNodes || []) {
-                for (const item of node.cls || []) {
-                    if (item.startsWith(themeMatch)) {
-                        return item
-                    }
+            for (const item of component.cls || []) {
+                if (item.startsWith(themeMatch)) {
+                    return item
                 }
             }
+
+            component = component.parent
         }
 
         return (Neo.windowConfigs?.[me.windowId] || Neo.config).themes?.[0]
@@ -1386,8 +1658,11 @@ class Component extends Abstract {
                 if (me.parentId !== 'document.body') {
                     me.vdom.removeDom = true;
                     me.parent.updateDepth = 2;
+                    // This child changed silently, so a sibling's update merging into the cycle must not make it sparse
+                    me.parent.denseUpdate = true;
                     me.parent.update()
-                } else {
+                } else if (!me.mountFlight) {
+                    // A node still in its mount flight does not exist yet: the flight unmounts it when it lands
                     me.unmount()
                 }
             }
@@ -1432,8 +1707,10 @@ class Component extends Abstract {
     }
 
     /**
+     * Converts a CSS length to px, asking the main thread for any unit other than px. A percentage, or anything that is
+     * not a length, comes back unchanged.
      * @param {Number|String} value
-     * @returns {Promise<number>}
+     * @returns {Promise<Number|String>}
      */
     async measure(value) {
         if (value != null) {
@@ -1577,13 +1854,27 @@ class Component extends Abstract {
      */
 
     /**
-     * Triggered by manager.Focus
+     * Triggered by manager.Focus on the closest component the old and new focus paths share
      * @name onFocusMove
      * @function
      * @param {Object} opts
-     * @param {Array}  opts.newPath dom element ids upwards
-     * @param {Array}  opts.oldPath dom element ids upwards
+     * @param {Neo.component.Base} opts.component This component
+     * @param {Array}  opts.path dom element infos upwards, of the element focus moved TO
+     * @param {Array}  opts.oldPath dom element infos upwards, of the element focus moved FROM
      */
+
+    /**
+     * Swap classes on the vdomRoot inside a single vdom update.
+     * You can pass single items or an array of items to remove or to add.
+     * @param {String|String[]} removeItems
+     * @param {String|String[]} addItems
+     */
+    removeAddCls(removeItems, addItems) {
+        let {cls} = this;
+
+        NeoArray.removeAdd(cls, removeItems, addItems);
+        this.cls = cls
+    }
 
     /**
      * Remove a cls from the vdomRoot
@@ -1640,20 +1931,30 @@ class Component extends Abstract {
      * Show the component.
      * hideMode: 'removeDom'  uses vdom removeDom.
      * hideMode: 'visibility' uses css visibility.
+     * While {@link #domWithheld} is set, the `removeDom` marker stays: the owner holding the DOM back
+     * decides presence, and this call only records the consumer's `hidden: false`.
+     * A component rooted at `document.body` mounts in one flight at a time, which lands on the latest `hidden`.
      */
     show() {
         let me = this;
 
         if (me.hideMode !== 'visibility') {
-            delete me.vdom.removeDom;
+            if (!me.domWithheld) {
+                delete me.vdom.removeDom
+            }
 
             if (me.silentVdomUpdate) {
                 me.needsVdomUpdate = true
             } else if (me.parentId !== 'document.body') {
                 me.parent.updateDepth = -1;
                 me.parent.update()
-            } else {
-                !me.mounted && me.initVnode(true)
+            } else if (!me.mounted && !me.mountFlight) {
+                // One mount flight at a time: a second one would insert a second node with this id,
+                // and a hide() while it flies is read when it lands. The latch clears first, so a
+                // show() or hide() arriving at the landing takes the ordinary path.
+                me.mountFlight = me.initVnode(true)
+                    .finally(() => {me.mountFlight = null})
+                    .then(() => !me.isDestroyed && me.mounted && me._hidden && me.unmount())
             }
         } else {
             let style = me.style;

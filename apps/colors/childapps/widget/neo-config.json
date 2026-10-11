@@ -6,5 +6,6 @@
     "mainPath"            : "./Main.mjs",
     "mainThreadAddons"    : ["AmCharts", "DragDrop", "Navigator", "Stylesheet"],
     "themes"              : ["neo-theme-dark"],
+    "useAiClient"         : true,
     "useSharedWorkers"    : true
 }

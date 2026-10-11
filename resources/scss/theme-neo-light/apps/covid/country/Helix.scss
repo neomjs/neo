@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-helix.covid-country-helix
+:where(.neo-theme-neo-light) { // .neo-helix.covid-country-helix
     --covid-helix-background-color             : #fff;
     --covid-helix-border-color                 : #ddd;
     --covid-helix-item-border-color            : rgba(73,120,184,.5);

@@ -22,23 +22,22 @@ import Instance       from '../../../../src/manager/Instance.mjs';
 import TreeStore      from '../../../../src/data/TreeStore.mjs';
 import TreeModel      from '../../../../src/data/TreeModel.mjs';
 
-test.describe('Neo.data.TreeStore valueBanding', () => {
-    let store, TestModel;
-
-    class TestTreeModel extends TreeModel {
-        static config = {
-            className: 'Test.Unit.Data.TreeStoreValueBanding.TestTreeModel',
-            fields: [
-                { name: 'id', type: 'String' },
-                { name: 'name', type: 'String' },
-                { name: 'department', type: 'String' }
-            ]
-        }
+// Once per worker process: a `beforeAll` re-ran per group of this describe, and unitTestMode refuses a taken namespace.
+class TestTreeModel extends TreeModel {
+    static config = {
+        className: 'Test.Unit.Data.TreeStoreValueBanding.TestTreeModel',
+        fields   : [
+            { name: 'id', type: 'String' },
+            { name: 'name', type: 'String' },
+            { name: 'department', type: 'String' }
+        ]
     }
+}
 
-    test.beforeAll(() => {
-        TestModel = Neo.setupClass(TestTreeModel);
-    });
+const TestModel = Neo.setupClass(TestTreeModel);
+
+test.describe('Neo.data.TreeStore valueBanding', () => {
+    let store;
 
     test.afterEach(() => {
         store?.destroy();
@@ -69,7 +68,7 @@ test.describe('Neo.data.TreeStore valueBanding', () => {
 
         // Expand '1' (Root A)
         store.expand('1');
-        // Projection: 
+        // Projection:
         // 1 (Sales)   -> true
         // 1-1 (Sales) -> true
         // 1-2 (HR)    -> false
@@ -122,7 +121,7 @@ test.describe('Neo.data.TreeStore valueBanding', () => {
         // Collapse All
         store.collapseAll();
         expect(store.count).toBe(2);
-        
+
         bands1 = store.valueBandsMap.get('1');
         expect(bands1.department).toBe(true);
 

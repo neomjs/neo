@@ -1,0 +1,790 @@
+import DockTopologyDiff       from '../../dashboard/dock/model/TopologyDiff.mjs';
+import DockTopologyReconciler from '../../dashboard/dock/model/TopologyReconciler.mjs';
+import Operations             from '../../dashboard/dock/model/Operations.mjs';
+import Persistence            from '../../dashboard/dock/model/Persistence.mjs';
+import PerspectiveLibrary     from '../../dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import PerspectiveState       from '../../dashboard/dock/projection/PerspectiveState.mjs';
+import Service                from './Service.mjs';
+
+/**
+ * @summary Registers the JSON-RPC method prefixes one DockService instance answers.
+ * @param {Object} serviceMap Mutable Client prefix map.
+ * @param {DockService} service Owning service instance.
+ * @returns {Object} The same map after registration.
+ */
+export function registerDockServiceMethods(serviceMap, service) {
+    return Object.assign(serviceMap, {
+        capture_perspective   : service,
+        diff_dock_topology    : service,
+        execute_dock_operation: service,
+        get_dock_topology     : service,
+        list_perspectives     : service,
+        restore_perspective   : service
+    })
+}
+
+/**
+ * Handles dock-layout Neural Link requests: topology readout, semantic operation execution and
+ * the perspective tool trio (capture / list / restore) against a live dockZone.v1 document
+ * holder (contract of record: learn/agentos/DockZoneModel.md and the docking
+ * design tier built on it).
+ *
+ * The service never mutates layout state outside the landed commit path: operations dispatch
+ * through `Operations.applyOperation()` (or the holder's own `applyDockZoneOperation`
+ * override when present), and successful documents commit back exactly the way
+ * `DockSplitter.commitResizeOperation()` does — including the `onDockZoneDocumentChange`
+ * notification hook. Policy rejections (e.g. `pinnable: false`) therefore surface as the
+ * executor's structured `errors`, never get bypassed.
+ *
+ * Perspective verbs consume the executable substrate directly. Capture scope selects one of two
+ * schemas: single-workspace layouts stay in `PerspectiveLibrary`; keyed topology records stay in a
+ * separate topology collection. Restore routes by the stored schema before state moves, and keyed
+ * topologies commit through one atomic holder seam.
+ * @class Neo.ai.client.DockService
+ * @extends Neo.ai.client.Service
+ */
+class DockService extends Service {
+    static config = {
+        /**
+         * @member {String} className='Neo.ai.client.DockService'
+         * @protected
+         */
+        className: 'Neo.ai.client.DockService'
+    }
+
+    /**
+     * The dockZone.v1 semantic operation vocabulary — read by reference from the executor's
+     * exported SSOT, never mirrored. The tool contract stays fail-closed against exactly
+     * this set: unknown operations are rejected with the vocabulary enumerated.
+     * @member {ReadonlyArray<String>} operations
+     * @static
+     */
+    static operations = Operations.operations
+
+    /**
+     * @summary Resolves one topology by product name first, then technical layout id.
+     * @param {Object|null} collection A `neo.dock.topologyCollection.v1` candidate.
+     * @param {String} name
+     * @returns {{layoutId:String, topology:Object}|null}
+     * @static
+     */
+    static resolveTopologyEntry(collection, name) {
+        const topologies = collection?.topologies;
+
+        if (!topologies || typeof topologies !== 'object' || Array.isArray(topologies)) {
+            return null
+        }
+
+        for (const [layoutId, topology] of Object.entries(topologies)) {
+            if (topology?.perspectiveName === name) {
+                return {layoutId, topology}
+            }
+        }
+
+        return Object.hasOwn(topologies, name)
+            ? {layoutId: name, topology: topologies[name]}
+            : null
+    }
+
+    /**
+     * @summary Returns plain topology summaries without exposing held records.
+     * @param {Object|null} collection
+     * @returns {Object[]}
+     * @static
+     */
+    static listTopologies(collection) {
+        return Object.entries(collection?.topologies || {}).map(([layoutId, topology]) => ({
+            layoutId,
+            perspectiveName: topology?.perspectiveName ?? null,
+            revision       : topology?.revision ?? null,
+            schema         : topology?.schema ?? null,
+            title          : topology?.title ?? null
+        }))
+    }
+
+    /**
+     * @summary Atomically stores one topology in the holder's separate collection.
+     *
+     * Name and technical-id collisions require the caller's explicit `replace` decision, matching
+     * the single-workspace perspective library. A holder without a `topologyCollection` field still
+     * captures successfully but reports `saved: false`; the Group leaf supplies the durable owner.
+     * @param {Object} holder
+     * @param {Object} topology
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.replace=false]
+     * @returns {{saved:Boolean,collision:(Object|null),errors:String[]}}
+     * @static
+     */
+    static storeTopology(holder, topology, {replace=false}={}) {
+        if (!('topologyCollection' in holder)) {
+            return {saved: false, collision: null, errors: []}
+        }
+
+        const current       = holder.topologyCollection ?? Persistence.createTopologyCollection().collection,
+              currentErrors = Persistence.validateTopologyCollection(current);
+
+        if (currentErrors.length) {
+            return {saved: false, collision: null, errors: currentErrors}
+        }
+
+        const name       = topology.perspectiveName ?? topology.layoutId,
+              byName     = DockService.resolveTopologyEntry(current, name),
+              byId       = DockService.resolveTopologyEntry(current, topology.layoutId),
+              collisions = [byName, byId]
+                  .filter(Boolean)
+                  .filter((entry, index, entries) =>
+                      entry.layoutId !== topology.layoutId &&
+                      entries.findIndex(other => other.layoutId === entry.layoutId) === index);
+
+        if (collisions.length && !replace) {
+            const holderEntry = collisions[0];
+
+            return {
+                saved    : false,
+                collision: {
+                    holderLayoutId: holderEntry.layoutId,
+                    holderTitle   : holderEntry.topology?.title ?? null,
+                    name
+                },
+                errors: []
+            }
+        }
+
+        const topologies = {...current.topologies};
+
+        collisions.forEach(entry => delete topologies[entry.layoutId]);
+        topologies[topology.layoutId] = topology;
+
+        const created = Persistence.createTopologyCollection(topologies, {
+            activeLayoutId: topology.layoutId,
+            metadata      : current.metadata,
+            ...(Object.hasOwn(current, 'revision') && {revision: current.revision})
+        });
+
+        if (created.errors.length) {
+            return {saved: false, collision: null, errors: created.errors}
+        }
+
+        holder.topologyCollection = created.collection;
+        return {saved: true, collision: null, errors: []}
+    }
+
+    /**
+     * Resolves a live dock-document holder — a component that carries a `dockZoneDocument`,
+     * exposes `getDockZoneDocument()` (the canonical workspace shape), or provides its own
+     * `applyDockZoneOperation` override. v1 deliberately requires the holder's
+     * own component id (agents locate it via `find_instances` / `get_component_tree` first);
+     * no parent-chain guessing, so a wrong id fails loudly instead of resolving surprisingly.
+     * @param {String} componentId The dock workspace / holder component id
+     * @returns {Neo.component.Base} The holder
+     */
+    resolveHolder(componentId) {
+        const component = Neo.getComponent(componentId);
+
+        if (!component) {
+            throw new Error(`Component not found: ${componentId}`)
+        }
+
+        if (
+            !component.dockZoneDocument &&
+            typeof component.getDockZoneDocument !== 'function' &&
+            typeof component.applyDockZoneOperation !== 'function'
+        ) {
+            throw new Error(
+                `Component ${componentId} holds no dock document: expected a component carrying ` +
+                '`dockZoneDocument`, `getDockZoneDocument()` or `applyDockZoneOperation` ' +
+                '(the dock workspace container)'
+            )
+        }
+
+        return component
+    }
+
+    /**
+     * @summary The names a holder's `activePerspective` accepts, through the same facade the
+     * persistence libraries take. A holder without it declares nothing.
+     * @param {Neo.component.Base} holder The resolved dock-document holder
+     * @returns {String[]}
+     */
+    static declaredPerspectives(holder) {
+        return holder.declaredPerspectives?.() ?? []
+    }
+
+    /**
+     * Reads the holder's current dock document through the v1 holder contract:
+     * `getDockZoneDocument()` (the canonical workspace accessor — read-path twin of the
+     * `applyDockZoneOperation` write seam) first, then the plain `dockZoneDocument` field.
+     * Keeps the topology readable BEFORE any operation has run on holders that own their
+     * document state internally (e.g. the `examples/dashboard/dock` MainContainer's `dockModel`).
+     * @param {Neo.component.Base} holder The resolved dock-document holder
+     * @returns {Object|null} The current dockZone.v1 document
+     */
+    readDocument(holder) {
+        return holder.getDockZoneDocument?.() ?? holder.dockZoneDocument ?? null
+    }
+
+    /**
+     * Serializes the holder's current dockZone.v1 document — the layout topology in the exact
+     * JSON-first shape the persistence wrapper stores (no live references by contract).
+     * @param {Object} params
+     * @param {String} params.componentId The dock workspace / holder component id
+     * @returns {Object} `{document, operations}` — the topology plus the executable vocabulary
+     */
+    async getDockTopology({componentId}) {
+        const holder = this.resolveHolder(componentId);
+
+        return {
+            document  : this.readDocument(holder),
+            operations: DockService.operations
+        }
+    }
+
+    /**
+     * Computes a semantic, snapshot-stable diff between a supplied before-document and the
+     * holder's current live dock document.
+     * @param {Object} params
+     * @param {String} params.componentId     The dock workspace / holder component id
+     * @param {Object} params.beforeDocument  The earlier dockZone.v1 document to compare against
+     * @param {Number} [params.sizeEpsilon]   Optional tolerance on both split size fractions and
+     * edge-zone extents — one knob for both, since they are the same quantity under the same
+     * document contract. Tightening it for splits tightens it for rails.
+     * @returns {Object} The {@link Neo.dashboard.dock.model.TopologyDiff#diffDockDocuments} result
+     */
+    async diffDockTopology({componentId, beforeDocument, sizeEpsilon}) {
+        const holder = this.resolveHolder(componentId);
+
+        return DockTopologyDiff.diffDockDocuments(beforeDocument, this.readDocument(holder), {sizeEpsilon})
+    }
+
+    /**
+     * Captures the holder's CURRENT layout as a named saved-layout record through the landed
+     * scope producers, and stores it when the holder exposes a perspective store — the capture
+     * verb of the perspective tool trio.
+     *
+     * `captureScope` validates against {@link Neo.dashboard.dock.model.Persistence#CAPTURE_SCOPES}:
+     * `window` (the default) captures the holder's own document through
+     * `Persistence.capturePerspective()` (fingerprint-coherent by construction) — its perspective
+     * document when it offers one, so a pane away in a vessel is recorded in its home rather than as
+     * closed ({@link Neo.dashboard.dock.Workspace#getPerspectiveDocument}); `topology`
+     * captures the whole multi-window workspace through
+     * `Persistence.captureTopologyPerspective()` over the holder's topology read seam —
+     * `getDockTopologyWorkspaces()`, returning documents keyed by semantic workspace identity.
+     * A holder without that seam refuses topology capture with the missing seam declared —
+     * never a silent downgrade to window scope.
+     * @param {Object} params
+     * @param {String}  params.componentId       The dock workspace / holder component id
+     * @param {String}  params.layoutId          Stable technical id for the record
+     * @param {String} [params.perspectiveName]  Product-facing name (resolves first on load)
+     * @param {String} [params.title]            Display title
+     * @param {String} [params.captureScope]     'window' (default) | 'topology' — the CAPTURE_SCOPES SSOT
+     * @param {Boolean} [params.replace]         Explicit collision decision for the store
+     * @returns {Object} `{captured, stored, collision, errors, layout, topology}` — exactly one
+     * record is non-null on success.
+     */
+    async capturePerspective({componentId, layoutId, perspectiveName, title, captureScope = 'window', replace = false}) {
+        if (!Persistence.CAPTURE_SCOPES.includes(captureScope)) {
+            return {
+                captured : false,
+                collision: null,
+                errors   : [`unknown captureScope "${captureScope}" — the vocabulary is: ${Persistence.CAPTURE_SCOPES.join(', ')}`],
+                layout   : null,
+                topology : null,
+                stored   : false
+            }
+        }
+
+        const holder   = this.resolveHolder(componentId),
+              metadata = {
+                  layoutId,
+                  // the declared origin rides the accepted-write identity, so a capture taken
+                  // before a projection still names the perspective it was taken under
+                  metadata: {source: 'neural-link-capture', ...holder.perspectiveProvenance?.()},
+                  // the wrapper requires a display title; a capture must not refuse over a
+                  // missing label — the name (or id) is the honest default
+                  title   : title ?? perspectiveName ?? layoutId,
+                  // the writer keys on own-property presence: an own `perspectiveName: undefined`
+                  // would fail field validation, so the key only exists when a name was given
+                  ...(perspectiveName !== undefined && {perspectiveName})
+              };
+
+        let produced;
+
+        if (captureScope === 'topology') {
+            if (typeof holder.getDockTopologyWorkspaces !== 'function') {
+                return {
+                    captured : false,
+                    collision: null,
+                    errors   : [
+                        `Component ${componentId} exposes no getDockTopologyWorkspaces() seam — topology ` +
+                        'capture needs documents keyed by the holder\'s registered workspace identities'
+                    ],
+                    layout  : null,
+                    stored  : false,
+                    topology: null
+                }
+            }
+
+            produced = Persistence.captureTopologyPerspective(holder.getDockTopologyWorkspaces(), metadata)
+        } else {
+            produced = Persistence.capturePerspective(holder.getPerspectiveDocument?.() ?? this.readDocument(holder), metadata)
+        }
+
+        if (produced.errors.length) {
+            return {captured: false, collision: null, errors: produced.errors, layout: null, stored: false, topology: null}
+        }
+
+        if (captureScope === 'topology') {
+            const {topology} = produced,
+                  saved      = DockService.storeTopology(holder, topology, {replace});
+
+            return {
+                captured : true,
+                collision: saved.collision,
+                errors   : saved.errors,
+                layout   : null,
+                stored   : saved.saved,
+                topology
+            }
+        }
+
+        const {layout} = produced,
+              store    = holder.perspectiveStore;
+
+        if (typeof store?.savePerspective !== 'function') {
+            // capture still succeeds — the agent holds the record; storing needs the holder's
+            // perspective surface, and its absence is declared, never silently absorbed
+            return {captured: true, collision: null, errors: [], layout, stored: false, topology: null}
+        }
+
+        const saved = store.savePerspective(layout, {replace});
+
+        return {
+            captured : true,
+            collision: saved.collision,
+            errors   : saved.errors,
+            layout,
+            stored   : saved.saved,
+            topology : null
+        }
+    }
+
+    /**
+     * Lists the holder's declared perspectives beside its stored single-workspace perspectives and
+     * keyed topologies, never combining the three. The key is the discriminator: `declared` names are
+     * the values `activePerspective` accepts and have no record to summarize, so they come with the
+     * published `dock.perspective` facts instead; stored records keep their summaries. Fail-closed only
+     * when no surface exists.
+     * @param {Object} params
+     * @param {String} params.componentId The dock workspace / holder component id
+     * @returns {Object} `{declared, perspective, perspectives, topologies, activeLayoutId, activeTopologyLayoutId, errors}`
+     * — `perspective` is `{active, modified, pending}` for a declaring holder, else `null`
+     */
+    async listPerspectives({componentId}) {
+        const holder        = this.resolveHolder(componentId),
+              store         = holder.perspectiveStore,
+              collection    = holder.topologyCollection,
+              declared      = DockService.declaredPerspectives(holder),
+              perspective   = declared.length ? PerspectiveState.read(holder) : null,
+              hasLayouts    = typeof store?.list === 'function',
+              hasTopologies = collection !== undefined && collection !== null;
+
+        if (!hasLayouts && !hasTopologies && !declared.length) {
+            return {
+                activeLayoutId        : null,
+                activeTopologyLayoutId: null,
+                declared,
+                errors                : [`Component ${componentId} declares no perspectives and exposes no perspective or topology store — nothing to list`],
+                perspective,
+                perspectives          : null,
+                topologies            : null
+            }
+        }
+
+        const topologyErrors = hasTopologies ? Persistence.validateTopologyCollection(collection) : [];
+
+        if (topologyErrors.length) {
+            return {
+                activeLayoutId        : hasLayouts ? store.collection?.activeLayoutId ?? null : null,
+                activeTopologyLayoutId: null,
+                declared,
+                errors                : topologyErrors,
+                perspective,
+                perspectives          : hasLayouts ? store.list() : [],
+                topologies            : null
+            }
+        }
+
+        return {
+            activeLayoutId        : hasLayouts ? store.collection?.activeLayoutId ?? null : null,
+            activeTopologyLayoutId: hasTopologies ? collection.activeLayoutId : null,
+            declared,
+            errors                : [],
+            perspective,
+            perspectives          : hasLayouts ? store.list() : [],
+            topologies            : hasTopologies ? DockService.listTopologies(collection) : []
+        }
+    }
+
+    /**
+     * Restores a name after read-only lookup across the declared list and the separate layout and
+     * topology collections. A name present in more than one is ambiguous and fails closed. A declared
+     * name takes the holder's accepted `activePerspective` write; `layout.v1` prefers the holder's
+     * switch seam, while `topology.v1` uses keyed reconciliation plus one atomic commit. Neither
+     * active pointer advances before the corresponding document commit succeeds.
+     * @param {Object} params
+     * @param {String} params.componentId The dock workspace / holder component id
+     * @param {String} params.name        A declared perspective name, a record's product name or its technical layoutId
+     * @param {Object} [context] Current Neural Link caller, when invoked remotely.
+     * @returns {Object} Layout: `{switched, schema, captureScope, errors, document}`; a declared name
+     * adds `source: 'declared'`. Topology adds `{workspaces, restored, unrestored, displaced}`.
+     */
+    async restorePerspective({componentId, name}, context) {
+        const holder            = this.resolveHolder(componentId),
+              store             = holder.perspectiveStore,
+              collection        = holder.topologyCollection,
+              declared          = DockService.declaredPerspectives(holder).includes(name),
+              hasLayoutReader   = typeof store?.getPerspective === 'function',
+              hasTopologyReader = collection !== undefined && collection !== null;
+
+        if (!hasLayoutReader && !hasTopologyReader && !declared) {
+            return {
+                captureScope: null,
+                document    : this.readDocument(holder),
+                errors      : [
+                    `Component ${componentId} declares no perspective named "${name}" and exposes no perspective store ` +
+                    'with a read-only getPerspective() seam and no topology collection — schema must be inspected before state moves'
+                ],
+                schema  : null,
+                switched: false
+            }
+        }
+
+        const layoutEntry   = hasLayoutReader ? store.getPerspective(name) : null,
+              topologyEntry = hasTopologyReader ? DockService.resolveTopologyEntry(collection, name) : null,
+              sources       = [declared && 'the declared list', layoutEntry && 'the layout collection', topologyEntry && 'the topology collection'].filter(Boolean);
+
+        if (sources.length > 1) {
+            return {
+                captureScope: null,
+                document    : this.readDocument(holder),
+                errors      : [`perspective name "${name}" is ambiguous across ${sources.join(' and ')}`],
+                schema      : null,
+                switched    : false
+            }
+        }
+
+        if (declared) {
+            return this.restoreDeclaredPerspective({holder, name}, context)
+        }
+
+        if (topologyEntry) {
+            return this.restoreTopologyPerspective({collection, holder, name, record: topologyEntry.topology}, context)
+        }
+
+        if (!layoutEntry) {
+            return {
+                captureScope: null,
+                document    : this.readDocument(holder),
+                errors      : [`no perspective named "${name}"`],
+                schema      : null,
+                switched    : false
+            }
+        }
+
+        if (layoutEntry.layout?.schema !== Persistence.LAYOUT_SCHEMA) {
+            return {
+                captureScope: null,
+                document    : this.readDocument(holder),
+                errors      : [`perspective "${name}" is not a ${Persistence.LAYOUT_SCHEMA} record`],
+                schema      : layoutEntry.layout?.schema ?? null,
+                switched    : false
+            }
+        }
+
+        if (holder.topologyGroupId && holder.workspaceSet) {
+            const restored = Persistence.restoreSavedLayout(layoutEntry.layout);
+            const selected = PerspectiveLibrary.selectSavedLayout(store.collection, layoutEntry.layoutId);
+            const errors = [...restored.errors, ...selected.errors];
+            if (!errors.length && Neo.manager.Transaction.findBatch(this.transactionOwner(context))) {
+                errors.push('perspective restore requires a completed batch')
+            }
+            if (errors.length) return {captureScope: 'window', document: this.readDocument(holder),
+                errors, schema: Persistence.LAYOUT_SCHEMA, switched: false};
+
+            const result = await this.executeDockOperation({componentId,
+                descriptor: {operation: 'applyDocument', document: restored.document}}, context);
+            if (result.applied) store.collection = selected.collection;
+            return {captureScope: 'window', document: this.readDocument(holder),
+                errors: result.errors, schema: Persistence.LAYOUT_SCHEMA, switched: result.applied}
+        }
+
+        // window scope: the holder's own switch seam rides its full commit loop
+        if (typeof holder.activatePerspective === 'function') {
+            const verdict = await holder.activatePerspective(name);
+
+            return {
+                captureScope: 'window',
+                document    : this.readDocument(holder),
+                errors      : verdict.errors,
+                schema      : Persistence.LAYOUT_SCHEMA,
+                switched    : verdict.switched
+            }
+        }
+
+        if (typeof store.loadPerspective !== 'function') {
+            return {
+                captureScope: 'window',
+                document    : this.readDocument(holder),
+                errors      : [`Component ${componentId}'s perspective store exposes no loadPerspective() seam`],
+                schema      : Persistence.LAYOUT_SCHEMA,
+                switched    : false
+            }
+        }
+
+        const {document, errors} = store.loadPerspective(name);
+
+        if (errors.length) {
+            return {captureScope: 'window', document: this.readDocument(holder), errors, schema: Persistence.LAYOUT_SCHEMA, switched: false}
+        }
+
+        // the same commit semantics executeDockOperation uses for plain holders
+        if (typeof holder.getDockZoneDocument !== 'function') {
+            holder.dockZoneDocument = document
+        }
+
+        if (typeof holder.onDockZoneDocumentChange === 'function') {
+            await holder.onDockZoneDocumentChange(document, {name, operation: 'restorePerspective'}, this)
+        }
+
+        return {captureScope: 'window', document, errors: [], schema: Persistence.LAYOUT_SCHEMA, switched: true}
+    }
+
+    /**
+     * @summary Selects a declared perspective through the holder's accepted `activePerspective`
+     * write — the path the UI takes, so the carried identity and provenance are identical — or
+     * re-applies its baseline when it is already selected, and reports the settled request. Under a
+     * Group a remote caller is fenced against the live document owners first and an open batch refuses.
+     * @param {Object} config
+     * @param {Neo.dashboard.dock.Workspace} config.holder The resolved declaring workspace
+     * @param {String} config.name The declared perspective name
+     * @param {Object} [context] Current Neural Link caller, when invoked remotely.
+     * @returns {Promise<Object>} `{switched, source, schema, captureScope, errors, document}`
+     * @protected
+     */
+    async restoreDeclaredPerspective({holder, name}, context) {
+        const verdict = errors => ({
+            captureScope: 'window',
+            document    : this.readDocument(holder),
+            errors,
+            schema      : null,
+            source      : 'declared',
+            switched    : !errors.length
+        });
+
+        const select = () => {
+            if (holder.activePerspective === name) return holder.resetPerspective();
+            holder.activePerspective = name;
+            return holder.perspectiveSelection.pending
+        };
+
+        try {
+            if (context && holder.topologyGroupId) {
+                if (Neo.manager.Transaction.findBatch(this.transactionOwner(context))) {
+                    return verdict(['perspective restore requires a completed batch'])
+                }
+                return verdict((await this.client.services.instance.withGroupWrite(holder.topologyGroupId, context, select)).errors)
+            }
+            return verdict((await select()).errors)
+        } catch (error) {
+            return verdict([error.message])
+        }
+    }
+
+    /**
+     * @summary Reconciles one keyed topology against registered workspaces and commits the
+     * complete result once. The activated topology-collection candidate validates before commit;
+     * its active pointer is assigned only after the workspace write succeeds.
+     * @param {Object} config
+     * @param {Neo.component.Base} config.holder The resolved dock-document holder
+     * @param {String} config.name               The perspective name being restored
+     * @param {Object} config.record             The stored `neo.dock.topology.v1` record
+     * @param {Object} config.collection         The containing topology collection
+     * @param {Object} [context] Current Neural Link caller.
+     * @returns {Promise<Object>} `{switched, schema, errors, document, workspaces, restored, unrestored, displaced}`
+     * @protected
+     */
+    async restoreTopologyPerspective({collection, holder, name, record}, context) {
+        const missing = ['getDockTopologyWorkspaces', 'commitDockTopologyWorkspaces']
+            .filter(seam => typeof holder[seam] !== 'function');
+
+        const refusal = (errors, reconcileResult = null) => ({
+            displaced    : reconcileResult?.displaced    ?? [],
+            document     : this.readDocument(holder),
+            errors,
+            restored     : reconcileResult?.restored     ?? [],
+            schema       : Persistence.TOPOLOGY_SCHEMA,
+            switched     : false,
+            unmatchedLive: reconcileResult?.unmatchedLive ?? [],
+            unrestored   : reconcileResult?.unrestored   ?? [],
+            workspaces   : null
+        });
+
+        if (missing.length) {
+            return refusal([
+                `Component ${holder.id} cannot restore a topology perspective: missing holder seam(s) ` +
+                `${missing.join(', ')} — a topology record commits all keyed workspaces atomically or not at all`
+            ])
+        }
+
+        const result           = DockTopologyReconciler.reconcile(record, holder.getDockTopologyWorkspaces()),
+              collectionErrors = Persistence.validateTopologyCollection(collection);
+
+        if (collectionErrors.length || result.errors.length) {
+            return refusal([...new Set([...collectionErrors, ...result.errors])], result)
+        }
+
+        const activated = Persistence.createTopologyCollection(collection.topologies, {
+            activeLayoutId: record.layoutId,
+            metadata      : collection.metadata,
+            ...(Object.hasOwn(collection, 'revision') && {revision: collection.revision})
+        });
+
+        if (activated.errors.length) {
+            return refusal(activated.errors, result)
+        }
+
+        const run = () => holder.commitDockTopologyWorkspaces(result.workspaces, {
+            name,
+            operation: 'restorePerspective',
+            provenance: context ? {agentId: context.agentId, sessionId: context.sessionId} : {origin: 'human'}
+        });
+        let commit;
+        try {
+            if (context && (this.client?.transactionService?.openTxId({id: context}) ||
+                Neo.manager.Transaction.findBatch(this.transactionOwner(context)))) {
+                return refusal(['perspective restore requires a completed batch'], result)
+            }
+            commit = context && holder.topologyGroupId
+                ? await this.client.services.instance.withGroupWrite(holder.topologyGroupId, context, run)
+                : await run()
+        } catch (error) {
+            return refusal([error.message], result)
+        }
+
+        if (commit?.errors?.length) {
+            return refusal(commit.errors, result)
+        }
+
+        holder.topologyCollection = activated.collection;
+
+        return {
+            displaced    : result.displaced,
+            document     : this.readDocument(holder),
+            errors       : [],
+            restored     : result.restored,
+            schema       : Persistence.TOPOLOGY_SCHEMA,
+            switched     : true,
+            unmatchedLive: result.unmatchedLive,
+            unrestored   : result.unrestored,
+            workspaces   : result.workspaces
+        }
+    }
+
+    /**
+     * Applies one semantic dock operation to the holder's document through the landed commit
+     * path and returns the post-operation state, so agents can verify without a second call.
+     * @param {Object} params
+     * @param {String} params.componentId The dock workspace / holder component id
+     * @param {Object} params.descriptor  `{operation, ...}` — the `Operations.applyOperation()` shape
+     * @param {Object|null} [context] The Bridge-stamped agent writer pair (2nd dispatch arg); null/undefined = legacy.
+     * @returns {Object} `{applied, errors, document}` — `applied: false` carries the executor's errors
+     */
+    async executeDockOperation({componentId, descriptor}, context) {
+        const operation = descriptor?.operation;
+
+        if (!operation || !DockService.operations.includes(operation)) {
+            throw new Error(
+                `Unknown dock operation: ${operation}. ` +
+                `The dockZone.v1 vocabulary is: ${DockService.operations.join(', ')}`
+            )
+        }
+
+        const holder = this.resolveHolder(componentId);
+        let result;
+
+        if (holder.topologyGroupId && holder.workspaceSet) {
+            const manager = Neo.manager.Transaction, groupId = holder.topologyGroupId;
+            const workspaceKey = manager.participantKeys(groupId)
+                .find(key => manager.getParticipant(groupId, key)?.componentId === componentId);
+            if (!workspaceKey) return {applied: false, errors: ['dock participant not registered']};
+            try {
+                if (context && this.client?.transactionService?.openTxId({id: context})) {
+                    throw new Error('mixed-dock-non-dock-batch')
+                }
+                const owner = this.transactionOwner(context), batch = manager.findBatch(owner);
+                if (batch) {
+                    if (batch.groupId !== groupId) throw new Error('cross-group-batch');
+                    manager.stageBatch({groupId, owner, changes: [{workspaceKey, input: {operations: [descriptor]}}],
+                        descriptor: {workspaceKey, operations: [descriptor]}});
+                    return {applied: false, staged: true, groupId, transactionId: batch.id, errors: []}
+                }
+                const run = () => holder.workspaceSet.commit(workspaceKey, [descriptor], {
+                    provenance: context ? {agentId: context.agentId, sessionId: context.sessionId} : {origin: 'human'}
+                });
+                const transaction = context
+                    ? await this.client.services.instance.withGroupWrite(groupId, context, run)
+                    : await run();
+                return {applied: true, document: this.readDocument(holder), errors: [], groupId,
+                    transactionId: transaction.transactionId}
+            } catch (error) {
+                return {applied: false, document: this.readDocument(holder), errors: [error.message]}
+            }
+        }
+
+        try {
+            if (typeof holder.applyDockZoneOperation === 'function') {
+                result = holder.applyDockZoneOperation(descriptor, this) || null
+            } else {
+                result = Operations.applyOperation(this.readDocument(holder), descriptor)
+            }
+        } catch (e) {
+            // the reducer contract assumes a well-formed document; a malformed holder document
+            // (or a throwing holder override) surfaces as structured errors, never a raw RPC crash
+            return {
+                applied : false,
+                document: this.readDocument(holder),
+                errors  : [`Dock operation failed before commit: ${e.message}`]
+            }
+        }
+
+        if (!result) {
+            return {
+                applied : false,
+                document: this.readDocument(holder),
+                errors  : ['The holder\'s applyDockZoneOperation() returned no result.']
+            }
+        }
+
+        if (!result.errors?.length && result.document) {
+            // Holders exposing `getDockZoneDocument()` own their document state internally and
+            // sync it inside `onDockZoneDocumentChange` (e.g. MainContainer advances `dockModel`
+            // there); writing `dockZoneDocument` onto them would create a stray divergent field.
+            if (typeof holder.getDockZoneDocument !== 'function') {
+                holder.dockZoneDocument = result.document
+            }
+
+            if (typeof holder.onDockZoneDocumentChange === 'function') {
+                holder.onDockZoneDocumentChange(result.document, descriptor, this)
+            }
+
+        }
+
+        return {
+            applied : !result.errors?.length,
+            document: result.document || this.readDocument(holder),
+            errors  : result.errors || []
+        }
+    }
+}
+
+export default Neo.setupClass(DockService);

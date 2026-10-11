@@ -1,0 +1,7 @@
+[
+    {
+        "file": "buildScripts/util/check-content-logical-identity.mjs",
+        "literal": "resources/content/archive",
+        "count": 1
+    }
+]

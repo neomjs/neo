@@ -1,0 +1,46 @@
+name: Content Root Derivation Lint
+
+# CI mirror of the `.husky/pre-commit` guard, so `git commit --no-verify` cannot bypass it.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'apps/**/*.mjs'
+      - 'buildScripts/**/*.mjs'
+      - 'src/**/*.mjs'
+      - 'buildScripts/util/check-content-root-derivations-baseline.json'
+      - '.github/workflows/content-root-derivation-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'apps/**/*.mjs'
+      - 'buildScripts/**/*.mjs'
+      - 'src/**/*.mjs'
+      - 'buildScripts/util/check-content-root-derivations-baseline.json'
+      - '.github/workflows/content-root-derivation-lint.yml'
+
+concurrency:
+  group: content-root-derivation-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # The guard parses with acorn, so comments are not literals.
+      # --ignore-scripts skips the heavy prepare lifecycle (Husky + generated local configs).
+      - name: Install dependencies (acorn — the literal parser)
+        run: npm ci --ignore-scripts
+
+      - name: Check no new path into resources/content
+        run: node ./buildScripts/util/check-content-root-derivations.mjs

@@ -1,0 +1,52 @@
+name: Consumer Runtime Build
+
+# The only check that builds this package from OUTSIDE itself.
+#
+# Every other build check runs where the repository IS the workspace, which is precisely the case in
+# which consumer-owned dynamic contexts are never exercised. Five defects of that shape landed
+# across #17881, #17868, #17907, and the two the #17882 review found, each invisible to a green
+# suite here. A guard that reasons about relative paths would have missed the one that mattered — the
+# optional-root failure was found by a physical build a minute after a simulated one reported every
+# root correct — so this packs, installs and compiles for real.
+#
+# PR-only, and path-filtered to what an installed copy compiles and what compiles it: every tree the
+# App worker reaches (`src`, `apps`, `examples`, `docs/app`), the build scripts, and the packaging
+# rules. Any shipped module can hold a specifier that resolves only while this repository is the root.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'apps/**'
+      - 'docs/app/**'
+      - 'examples/**'
+      - 'src/**'
+      - 'buildScripts/**'
+      - '.github/workflows/consumer-runtime-build.yml'
+      - '.npmignore'
+      - 'package.json'
+
+concurrency:
+  group: consumer-runtime-build-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # The guard resolves webpack from the FIXTURE, not from here, so the framework's own install is
+      # needed only for `npm pack` to run against a complete tree.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build Data, Canvas and App workers and Main from an installed copy, under an `apps/` ancestor
+        run: node buildScripts/util/check-consumer-runtime-build.mjs

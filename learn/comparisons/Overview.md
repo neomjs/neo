@@ -6,7 +6,7 @@ This section provides detailed comparisons between Neo.mjs and popular JavaScrip
 you understand why Neo.mjs is classified as an **Application Engine** and how its multi-threaded, worker-based
 architecture differs fundamentally from the single-threaded design of traditional libraries and frameworks.
 
-We aim to compare these frameworks from a **technical, objective, and constructive perspective**, focusing on how
+We aim to compare Neo.mjs with these frameworks from a **technical, objective, and constructive perspective**, focusing on how
 different architectural choices and design philosophies address common web development challenges. Please note that
 these comparison documents were generated with the assistance of a large language model (Gemini).
 
@@ -19,7 +19,7 @@ Each comparison article will focus on:
 
 ### Architectural Snapshot
 
-The table below offers a high-level architectural comparison of the frameworks discussed in this section. It is designed
+The table below offers a high-level architectural comparison of Neo.mjs and the frameworks discussed in this section. It is designed
 to provide a quick snapshot of their core differences. For a deeper understanding, please refer to the detailed comparison
 articles.
 
@@ -35,12 +35,12 @@ articles.
 
 ### Available Comparisons
 
-*   [Neo.mjs vs. React](/learn/comparisons/NeoVsReact.md)
-*   [Neo.mjs vs. Angular](/learn/comparisons/NeoVsAngular.md)
-*   [Neo.mjs vs. Vue.js](/learn/comparisons/NeoVsVue.md)
-*   [Neo.mjs vs. Solid.js](/learn/comparisons/NeoVsSolid.md)
-*   [Neo.mjs vs. Next.js](/learn/comparisons/NeoVsNextJs.md)
-*   [Neo.mjs vs. Ext.js](/learn/comparisons/NeoVsExtJs.md)
+*   [Neo.mjs vs. React](NeoVsReact.md)
+*   [Neo.mjs vs. Angular](NeoVsAngular.md)
+*   [Neo.mjs vs. Vue.js](NeoVsVue.md)
+*   [Neo.mjs vs. Solid.js](NeoVsSolid.md)
+*   [Neo.mjs vs. Next.js](NeoVsNextJs.md)
+*   [Neo.mjs vs. Ext.js](NeoVsExtJs.md)
 
 If you have feedback on any of our comparisons or would like to see a new one, please feel free to open an issue on our
 [GitHub repository](https://github.com/neomjs/neo/issues).

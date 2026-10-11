@@ -85,6 +85,27 @@ class DeltaUpdates extends Base {
     nativeMoveBefore = null
 
     /**
+     * Parents that received a `moveBefore()` during the current delta batch and still need their box
+     * tree rebuilt once, collected by {@link #moveNode} and drained by {@link #flushLayoutHeals}.
+     *
+     * The rebuild is deferred rather than run per move because its cost scales with the parent's child
+     * count: doing it inside the loop makes reordering N siblings O(N²). Measured on a 590-item helix
+     * sort, the per-move form cost 8137ms of blocked main thread against 18ms for the same reorder
+     * without it.
+     * @member {Set|null} pendingLayoutHeals=null
+     * @protected
+     */
+    pendingLayoutHeals = null
+    /**
+     * The id of the node {@link #removeNode} is removing, for the duration of its `remove()` call. A
+     * browser that blurs a removed node fires `focusout` synchronously inside that call, and
+     * `Neo.main.DomEvents` stamps the event with this id.
+     * @member {String|null} removingNodeId=null
+     * @protected
+     */
+    removingNodeId = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -127,8 +148,8 @@ class DeltaUpdates extends Base {
     /**
      * Changes the tag name (nodeName) of an existing HTMLElement in the DOM.
      * This operation is performed by creating a new HTML element with the desired `nodeName`,
-     * meticulously copying all attributes and the `innerHTML` from the original `node` to the new one,
-     * and then seamlessly replacing the original `node` with the newly created element within its parent.
+     * preserving attributes, live control properties, and child-node identity from the original `node`,
+     * and then replacing the original `node` with the newly created element within its parent.
      *
      * @param {HTMLElement} node     The existing DOM HTMLElement whose tag name needs to be changed.
      * @param {String}      nodeName The new tag name (e.g., 'div', 'span', 'p') for the element.
@@ -154,8 +175,10 @@ class DeltaUpdates extends Base {
                 clone.value = node.value
             }
 
-            if (node.checked !== undefined && node.checked !== clone.checked) {
-                clone.checked = node.checked
+            for (const key of voidAttributes) {
+                if (node[key] !== undefined && node[key] !== clone[key]) {
+                    clone[key] = node[key]
+                }
             }
 
             if (node.selectedIndex !== undefined && node.selectedIndex !== clone.selectedIndex) {
@@ -612,32 +635,14 @@ class DeltaUpdates extends Base {
                     // Chromium (observed in 146 & 149) can leave the parent's box-tree sibling chain
                     // stale after moveBefore(): the DOM order updates, but one neighbor keeps
                     // rendering at its pre-move slot — and structural child-list changes do NOT
-                    // re-dirty it. Rebuilding the parent's boxes synchronously (no paint happens
-                    // in between) restores the layout while keeping what moveBefore preserves:
-                    // iframes and canvas survive display toggles (unlike the insertBefore fallback,
-                    // which reloads iframes); only CSS-animation continuity inside the parent resets.
-                    // The toggle also zeroes the parent's own scroll state, so it gets captured and
-                    // restored alongside focus. Boundary: scrolled DESCENDANTS inside the parent
-                    // reset too and are not walked here (subtree-scan cost on every move) — tracked
-                    // with the heal-gating follow-up.
-                    const
-                        activeElement = document.activeElement,
-                        containsFocus = activeElement && parentNode.contains(activeElement),
-                        displayValue  = parentNode.style.display,
-                        {scrollLeft, scrollTop} = parentNode;
-
-                    parentNode.style.display = 'none';
-                    void parentNode.offsetHeight;
-                    parentNode.style.display = displayValue;
-
-                    if (scrollLeft || scrollTop) {
-                        parentNode.scrollLeft = scrollLeft;
-                        parentNode.scrollTop  = scrollTop
-                    }
-
-                    if (containsFocus && document.activeElement !== activeElement) {
-                        activeElement.focus()
-                    }
+                    // re-dirty it. The parent's boxes therefore need one rebuild, which
+                    // flushLayoutHeals() performs at the end of the batch.
+                    //
+                    // Deferred rather than done here: the rebuild costs O(parent's children), so
+                    // running it per move makes an N-sibling reorder O(N²). Batching is sound because
+                    // no paint occurs between deltas within a single update() task, making the
+                    // intermediate rebuilds unobservable — only the final box tree is ever displayed.
+                    (this.pendingLayoutHeals ||= new Set()).add(parentNode)
                 } else {
                     const
                         activeElement = document.activeElement,
@@ -656,6 +661,75 @@ class DeltaUpdates extends Base {
                 }
             }
         }
+    }
+
+    /**
+     * @summary Rebuilds the box tree of every parent that received a `moveBefore()` in this batch.
+     *
+     * `moveBefore()` can leave a parent's box-tree sibling chain stale in Chromium, and a structural
+     * child-list change does not re-dirty it. Toggling `display` forces the rebuild while keeping what
+     * `moveBefore` preserves — iframes and canvas survive it, unlike the `insertBefore` fallback which
+     * reloads iframes; only CSS-animation continuity inside the parent resets.
+     *
+     * Runs once per parent per batch rather than once per move. The toggle's cost scales with the
+     * parent's child count, so the per-move form made an N-sibling reorder O(N²) — measurably 8137ms
+     * for a 590-item reorder against 18ms without it. Deferring is safe because no paint happens
+     * between deltas inside one `update()` task, so every intermediate box tree was already invisible.
+     *
+     * Skipped entirely for a parent whose subtree is mid-transition, because `display: none` cancels
+     * running transitions rather than pausing them — see the gate's own reasoning below.
+     *
+     * The toggle zeroes the parent's own scroll position and can drop focus, so both are captured
+     * immediately before it and restored after. Boundary, unchanged from the per-move form: scrolled
+     * DESCENDANTS inside the parent also reset and are not walked here, since that would reintroduce a
+     * subtree scan.
+     * @protected
+     */
+    flushLayoutHeals() {
+        const parents = this.pendingLayoutHeals;
+
+        if (!parents) return;
+
+        // Cleared first: a throw inside the loop must not strand this batch's parents into the next one.
+        this.pendingLayoutHeals = null;
+
+        parents.forEach(parentNode => {
+            // A parent moved into and out of the document within the same batch has no boxes to heal.
+            if (!parentNode.isConnected) return;
+
+            const
+                activeElement           = document.activeElement,
+                containsFocus           = activeElement && parentNode.contains(activeElement),
+                displayValue            = parentNode.style.display,
+                {scrollLeft, scrollTop} = parentNode;
+
+            // Setting `display: none` CANCELS every running CSS transition and animation in the subtree
+            // — an element with no box has no running transitions to resume. So a parent whose children
+            // are mid-flight cannot be healed this way without destroying the motion outright, which is
+            // exactly what it did: a sorted 590-item helix reordered and snapped instead of animating.
+            //
+            // The two harms are not symmetric. The cancellation is certain and plainly visible; the
+            // staleness this heals is a Chromium sibling-chain artifact that has never been reported
+            // under animation, and a subtree that is animating is being repainted every frame anyway.
+            // Skipping while animating therefore trades a guaranteed regression for a hypothetical one.
+            //
+            // It also costs the grid case nothing, which is where the heal came from: a column drag
+            // reorders siblings that carry no transitions, so this gate never fires there.
+            if (parentNode.getAnimations?.({subtree: true}).length > 0) return;
+
+            parentNode.style.display = 'none';
+            void parentNode.offsetHeight;
+            parentNode.style.display = displayValue;
+
+            if (scrollLeft || scrollTop) {
+                parentNode.scrollLeft = scrollLeft;
+                parentNode.scrollTop  = scrollTop
+            }
+
+            if (containsFocus && document.activeElement !== activeElement) {
+                activeElement.focus()
+            }
+        })
     }
 
     /**
@@ -706,7 +780,9 @@ class DeltaUpdates extends Base {
         const node = DomAccess.getElement(id);
 
         if (node) {
+            this.removingNodeId = id;
             node.remove();
+            this.removingNodeId = null
         }
         // Potentially a vtype: 'text' node or a Fragment (wrapped between 2 comments)
         else if (parentId) {
@@ -949,8 +1025,8 @@ class DeltaUpdates extends Base {
     validateDeltaGrammarBatch(deltas) {
         const
             {checkStructuralUniqueness, validateBatch} = this.deltaGrammar,
-            validation = validateBatch(deltas, {useDomApiRenderer: NeoConfig.useDomApiRenderer}),
-            context    = {
+            validation                                 = validateBatch(deltas, {useDomApiRenderer: NeoConfig.useDomApiRenderer}),
+            context                                    = {
                 deltas,
                 useDomApiRenderer: NeoConfig.useDomApiRenderer
             };
@@ -1039,41 +1115,48 @@ class DeltaUpdates extends Base {
             me.countDeltasPer250ms += len
         }
 
-        while (i < len) {
-            const delta = deltas[i];
+        try {
+            while (i < len) {
+                const delta = deltas[i];
 
-            // Batching optimization for sequential insertNode operations
-            if (delta.action === 'insertNode' && i < len - 1) {
-                let j     = i + 1,
-                    batch = [delta];
+                // Batching optimization for sequential insertNode operations
+                if (delta.action === 'insertNode' && i < len - 1) {
+                    let j     = i + 1,
+                        batch = [delta];
 
-                while (j < len) {
-                    const
-                        nextDelta = deltas[j],
-                        prevDelta = deltas[j - 1];
+                    while (j < len) {
+                        const
+                            nextDelta = deltas[j],
+                            prevDelta = deltas[j - 1];
 
-                    if (
-                        nextDelta.action === 'insertNode' &&
-                        nextDelta.parentId === delta.parentId &&
-                        nextDelta.index === prevDelta.index + 1 // Ensure sequential indices
-                    ) {
-                        batch.push(nextDelta);
-                        j++
-                    } else {
-                        break
+                        if (
+                            nextDelta.action === 'insertNode' &&
+                            nextDelta.parentId === delta.parentId &&
+                            nextDelta.index === prevDelta.index + 1 // Ensure sequential indices
+                        ) {
+                            batch.push(nextDelta);
+                            j++
+                        } else {
+                            break
+                        }
+                    }
+
+                    if (batch.length > 1) {
+                        me.insertNodeBatch(batch);
+                        i = j; // Skip the processed batch
+                        continue
                     }
                 }
 
-                if (batch.length > 1) {
-                    me.insertNodeBatch(batch);
-                    i = j; // Skip the processed batch
-                    continue
-                }
+                // Fallback for non-batched operations
+                me[delta.action || 'updateNode'](delta);
+                i++
             }
-
-            // Fallback for non-batched operations
-            me[delta.action || 'updateNode'](delta);
-            i++
+        } finally {
+            // In `finally` deliberately: a delta that throws mid-batch would otherwise leave an
+            // already-moved parent rendering from a stale sibling chain until some unrelated later
+            // batch happened to heal it. The moves that did land still need their one rebuild.
+            me.flushLayoutHeals()
         }
 
         // The ledger mirrors what reached the DOM: commit only after the batch applied.

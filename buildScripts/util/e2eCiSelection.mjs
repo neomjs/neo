@@ -1,0 +1,199 @@
+import {readdirSync}              from 'fs';
+import {join}                     from 'path';
+import {selectExternalBrainSpecs} from '../../test/playwright/externalBrainSelection.mjs';
+import isEntryModule              from './isEntryModule.mjs';
+
+/**
+ * @summary The one place that decides which e2e specs the CI tier runs, and the one place that
+ * reports what that decision covered.
+ *
+ * @description Both halves live here on purpose. The workflow previously carried the spec paths in
+ * its run step and re-derived the counts in a separate arithmetic reporter, so the two could drift
+ * and the summary could describe a selection nobody ran. `--paths` and `--summary` now read the same
+ * constants, and {@link assertSelectionFloor} fails the job if the executed population shrinks
+ * below what this file declares — a new exclusion has to be written down here to take effect.
+ *
+ * Three populations are excluded, and they are not the same kind of thing:
+ *
+ * - **Brain-dependent** — removed by `testIgnore` in `playwright.config.e2e.mjs`, which deselects
+ *   rather than skips: no reporter can name them, and a run missing four fifths of the tier still
+ *   prints `Skipped: 0`. That invisibility is why this file reports the fraction at all.
+ * - **GPU** — specs booting the workstation app, which inherits animated OffscreenCanvas work no
+ *   hosted runner can composite.
+ * - **Observed failures** — arms that fail for reasons NOT established here. They carry an owner
+ *   rather than a diagnosis, because naming an unverified cause is worse than admitting one is
+ *   missing.
+ *
+ * An exclusion's `kind` is about the CAUSE, and it has three values because two were not enough.
+ * `cause` and `observed` split "we know why" from "we do not", and both were honest — but an entry
+ * marked `cause` was quietly claiming its reason covered EVERY failing arm in that file, and one of
+ * them did not: it explained 8 of 11, while 3 arms needing nothing it mentioned failed anyway.
+ * `partial` exists so a real-but-incomplete diagnosis cannot present itself as a complete one,
+ * which is the same false reassurance as an undeclared exclusion wearing better clothes.
+ */
+
+/**
+ * Spec paths the CI tier executes, relative to the repository root. Directories expand to every
+ * spec beneath them; individual files are named where a sibling in the same directory is excluded.
+ * @member {String[]} RUN_PATHS
+ */
+export const RUN_PATHS = [
+    'test/playwright/e2e/colors',
+    'test/playwright/e2e/core',
+    'test/playwright/e2e/dashboard',
+    'test/playwright/e2e/grid',
+    'test/playwright/e2e/portal',
+    'test/playwright/e2e/rendering/GraphScene.spec.mjs',
+    'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
+    'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs',
+    'test/playwright/e2e/table'
+];
+
+/**
+ * Specs deliberately outside {@link RUN_PATHS}, each with the reason it is out and who owns getting
+ * it back. `cause` is stated only where it was verified; `observed` records a failure whose cause is
+ * NOT established, which is a different and more honest claim.
+ * @member {Object[]} EXCLUSIONS
+ */
+export const EXCLUSIONS = [{
+    path  : 'test/playwright/e2e/rendering/LivePreviewMultiWindow.spec.mjs',
+    kind  : 'cause',
+    reason: 'parameterised over Dev, Dist Dev and Dist Prod. The 8 Dist arms need built bundles this job does not produce, and that is verified. The 4 Dev arms pass hosted; the 3 that visit `#/learn/benefits/body/FormsEngine` had failed because its code fences waited on a highlight bundle this job did not build',
+    owner : 'this tier — the Dist half needs a production build this job does not run'
+}];
+
+/**
+ * Arms that ARE selected but skip themselves under `NEO_TEST_SKIP_CI`. Declared here as well as at
+ * their call site so the job summary can name them: a quarantine that appears only as an anonymous
+ * skip in a test log is the silent quarantine this file exists to prevent, and an owner is what
+ * separates a debt marker from an abandonment.
+ * @member {Object[]} QUARANTINES
+ */
+export const QUARANTINES = [];
+
+/**
+ * @summary Walks a directory for spec files.
+ * @param {String} dir
+ * @returns {String[]}
+ */
+function walk(dir) {
+    return readdirSync(dir, {withFileTypes: true}).flatMap(entry => entry.isDirectory()
+        ? walk(join(dir, entry.name))
+        : entry.name.endsWith('.spec.mjs') ? [join(dir, entry.name)] : [])
+}
+
+/**
+ * @summary Counts every population the reader needs to tell a partial green from a whole one.
+ * @param {String} [root=process.cwd()]
+ * @returns {{brainFree: Number, executed: Number, gpu: Number, ignored: Number, total: Number}}
+ */
+export function populations(root = process.cwd()) {
+    const e2e             = join(root, 'test/playwright/e2e'),
+          {ignore, total} = selectExternalBrainSpecs(e2e),
+          isIgnored       = file => ignore.some(pattern => pattern.test(file)),
+          // Only the Brain-FREE workstation specs; the rest are already deselected, and counting
+          // them again reports a negative coverage.
+          gpu             = walk(join(e2e, 'workstation')).filter(file => !isIgnored(file)).length,
+          // Counted through the SAME ignore set Playwright applies, because a directory in
+          // RUN_PATHS names Brain-dependent specs the config will deselect. Counting what the paths
+          // name rather than what the run selects reported 52 against an expected 14 — two
+          // different notions of "selected", which is the defect this file exists to remove.
+          executed        = RUN_PATHS.flatMap(path => path.endsWith('.spec.mjs')
+              ? [join(root, path)]
+              : walk(join(root, path))).filter(file => !isIgnored(file)).length;
+
+    return {brainFree: total - ignore.length, executed, gpu, ignored: ignore.length, total}
+}
+
+/**
+ * @summary Refuses a run whose executed population is smaller than this file declares.
+ * @description Without it, a path typo or a directory rename shrinks coverage silently and the job
+ * still reports green — the failure mode a coverage line alone cannot catch, because it would
+ * faithfully report the smaller number.
+ * @param {String} [root=process.cwd()]
+ * @returns {Number} The executed spec-file count.
+ * @throws {Error} When fewer specs are selected than declared.
+ */
+export function assertSelectionFloor(root = process.cwd()) {
+    const {brainFree, executed, gpu} = populations(root),
+          expected                   = brainFree - gpu - EXCLUSIONS.length;
+
+    if (executed !== expected) {
+        throw new Error(`e2e CI selection: expected ${expected} spec files (${brainFree} Brain-free ` +
+            `− ${gpu} GPU − ${EXCLUSIONS.length} excluded) but RUN_PATHS resolves ${executed}. ` +
+            'Either a path is stale or an exclusion is undeclared; both are silent coverage loss.')
+    }
+
+    return executed
+}
+
+/**
+ * @summary Renders the job-summary markdown.
+ * @param {String} [root=process.cwd()]
+ * @returns {String}
+ */
+export function summary(root = process.cwd()) {
+    const {brainFree, executed, gpu, ignored, total} = populations(root);
+
+    return [
+        '### e2e (engine tier) coverage',
+        '',
+        `This job selected **${executed} of ${total}** e2e spec files.`,
+        '',
+        `- **${ignored}** need an external \`neo-agent-brain\` checkout. \`testIgnore\` DESELECTS them, so they cannot appear as skips in any report — a run missing them still prints \`Skipped: 0\`.`,
+        `- **${gpu}** boot the workstation app, which inherits animated OffscreenCanvas work a hosted runner cannot composite.`,
+        ...EXCLUSIONS.map(entry => `- \`${entry.path.replace('test/playwright/e2e/', '')}\` — ` +
+            ({cause: '', observed: '**cause not established.** ', partial: '**cause covers only part of the failures.** '}[entry.kind]) +
+            `${entry.reason}. Owner: ${entry.owner}.`),
+        '',
+        // Rendered only when the list has entries. An empty heading reads as "nothing to declare
+        // here", which is the same reassurance an undeclared quarantine would give.
+        ...(QUARANTINES.length ? [
+            'Selected but quarantined — these run in the tier and skip themselves, so they appear as skips rather than coverage:',
+            ...QUARANTINES.map(entry => `- \`${entry.path.replace('test/playwright/e2e/', '')}\` — ${entry.reason}. Owner: ${entry.owner}.`),
+            ''
+        ] : ['No arm in this tier is quarantined. Skips still in the log come from `test.fixme` contracts — rows declared but not yet written — which are a spec\'s own debt rather than a failure this job suppressed.', '']),
+        // `total - executed`, never a sum of the named classes. The sum was `ignored + gpu`, which
+        // omitted EXCLUSIONS and reported 89 where the header two paragraphs above said 14 of 105 —
+        // a guard whose only job is accurate counting, contradicting itself. A corrected sum would
+        // have the same defect one exclusion class later; a subtraction from the selected count
+        // cannot drift, because both operands are the ones the header already stands behind.
+        `**Selected is not executed.** This line reports what the job SELECTED; whether those specs ran and passed is the job's own status, because a provisioning failure reaches this summary too. A green check certifies the ${executed} selected files only — any skip inside them is accounted for above, while the ${total - executed} excluded files appear nowhere in the run at all.`
+    ].join('\n')
+}
+
+/**
+ * @summary One line stating what the run covers, for the job LOG rather than the step summary.
+ *
+ * The summary is the complete account and lives where a reader has to go looking for it. This is the
+ * same arithmetic in one line, printed beside the work, so the number a reader meets first is the
+ * accurate one. Both come from {@link populations}, so they cannot disagree.
+ * @param {String} [root=process.cwd()]
+ * @returns {String}
+ */
+export function coverageLine(root = process.cwd()) {
+    const {executed, total} = populations(root);
+
+    return `e2e coverage: ${executed} of ${total} spec files selected, ${total - executed} excluded. ` +
+        `Excluded files are DESELECTED, not skipped — no reporter below can name them. ` +
+        `The job summary lists every exclusion class and its owner.`
+}
+
+if (isEntryModule(import.meta.url)) {
+    const mode = process.argv[2];
+
+    if (mode === '--coverage-line') {
+        console.log(coverageLine());
+        process.exit(0)
+    }
+
+    if (mode === '--paths') {
+        assertSelectionFloor();
+        process.stdout.write(RUN_PATHS.join(' '))
+    } else if (mode === '--summary') {
+        process.stdout.write(summary() + '\n')
+    } else {
+        console.error('usage: e2eCiSelection.mjs --paths | --summary');
+        process.exit(2)
+    }
+}

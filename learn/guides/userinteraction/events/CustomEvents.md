@@ -1,6 +1,6 @@
 # Custom Events
 
-As you read in the <a href="#/learn/Events">Getting Started > Events</a> topic, components, stores, and many other objects fire events.
+As you read in the <a href="#/learn/gettingstarted/Events">Getting Started > Events</a> topic, components, stores, and many other objects fire events.
 
 ```javascript live-preview
 import Container from '../container/Base.mjs';
@@ -15,7 +15,7 @@ class MainView extends Container {
             module   : TextField,
             listeners: {
                 change    : data => Neo.Main.log({value:data.value}), // Neo.Main.log logs to the main thread console
-                focusEnter: data => Neo.Main.log({value: `Entering ${data.component.labelText}`}) 
+                focusEnter: data => Neo.Main.log({value: `Entering ${data.component.labelText}`})
             }
         },
 
@@ -33,7 +33,7 @@ MainView = Neo.setupClass(MainView);
 
 ### In-line
 
-The event listener function can be coded in-line. Normally you want event handlers to be in a view's 
+The event listener function can be coded in-line. Normally you want event handlers to be in a view's
 controller, but for very simple situation it can be convenient to use this syntax.
 
 ```javascript live-preview
@@ -60,7 +60,7 @@ MainView = Neo.setupClass(MainView);
 ### As a view method
 
 You can also use the `up.` qualifier to specify a method in the component's parent view. Like the
-in-line syntax you saw above, using the `up.` syntax might be convenient for simple classees, 
+in-line syntax you saw above, using the `up.` syntax might be convenient for simple classees,
 or when you simply haven't gotten around to defining a view's controller.
 
 ```javascript live-preview
@@ -75,7 +75,7 @@ class MainView extends Container {
         items: [{
             module   : TextField,
             labelText: 'Name',
-            listeners: { 
+            listeners: {
                 change: 'up.foo'
             }
         }]
@@ -91,7 +91,7 @@ MainView = Neo.setupClass(MainView);
 
 Despite the examples above, the most correct way of setting up event handlers is to use a controller.
 Any view class can specify a controller &mdash; wWhen the view is created a controller instance is
-also created. 
+also created.
 
 ```javascript live-preview
 import Controller from '../controller/Component.mjs';
@@ -119,7 +119,7 @@ class MainView extends Container {
         items: [{
             module   : TextField,
             labelText: 'Name',
-            listeners: { 
+            listeners: {
                 change: 'foo'
             }
         }]
@@ -161,7 +161,7 @@ class MainView extends Container {
         items: [{
             module   : TextField,
             labelText: 'Name',
-            listeners: { 
+            listeners: {
                 change: 'foo'
             }
         }]
@@ -215,7 +215,7 @@ MainView = Neo.setupClass(MainView);
 
 Events and binding are similar concepts &mdash; both are a way to detect, and react to, some kind of action or change.
 
-Events are fired for user actions, such as a button click event, a component receiving focus, or a field value changing. 
+Events are fired for user actions, such as a button click event, a component receiving focus, or a field value changing.
 Non-visual classes can also fire an event; for example, a `Neo.data.Store` fires a `load` event, and other events
 relating to changes to the store. The event handler if a function run when the event fires.
 
@@ -223,18 +223,18 @@ A binding detects a changed view model value, and assigns it to a property.
 
 ### When to use an event
 
-Events and event handlers are used when you need to run non-trivial logic in response to the event. For example, you 
-might have a Save button, and in its click event handler you'd write logic to make a backend call. 
+Events and event handlers are used when you need to run non-trivial logic in response to the event. For example, you
+might have a Save button, and in its click event handler you'd write logic to make a backend call.
 
 Events can be fired for a state change, such as an input field's value changing, or something like a user event,
 like a button click or component focus.
 
 ### When to use a binding
 
-A binding is a way to keep properties in sync with values in the view model hierarchy. For example, button text, 
-field values, or store properties, can simultaneously reflect the same view model property. That's pretty handy, 
+A binding is a way to keep properties in sync with values in the view model hierarchy. For example, button text,
+field values, or store properties, can simultaneously reflect the same view model property. That's pretty handy,
 but keep in mind that a class can define a property as a _lifecycle property_. That means that updating a property
-can may result in complex logic being triggered. Furthermore, a _two way binding_ means a change to a property 
+can may result in complex logic being triggered. Furthermore, a _two way binding_ means a change to a property
 will automatically be reflected in the view model.
 
 ### A simple comparison
@@ -247,7 +247,7 @@ import Component from '../component/Base.mjs';
 import Container from '../container/Base.mjs';
 import TextField from '../form/field/Text.mjs';
 
-class MainView extends Container {    
+class MainView extends Container {
     static config = {
         className: 'Guides.events7.MainView',
         layout   : {ntype:'vbox', align:'start'},
@@ -271,7 +271,7 @@ class MainView extends Container {
         }, {
             module   : Component,
             reference: 'foo'
-        }]        
+        }]
     }
     onTextChange(data) {
         this.getReference('foo').html = `${this.getReference('textFieldOne').value} ${this.getReference('textFieldTwo').value}`
@@ -285,7 +285,7 @@ import Component from '../component/Base.mjs';
 import Container from '../container/Base.mjs';
 import TextField from '../form/field/Text.mjs';
 
-class MainView extends Container {    
+class MainView extends Container {
     static config = {
         className: 'Guides.events8.MainView',
         model: {
@@ -318,14 +318,14 @@ MainView = Neo.setupClass(MainView);
 
 ##How are events set up?
 
-The details don't really matter, but in case you're curious: 
-Neo.mjs has a `Neo.core.Observable` class that can be mixed into any class. It maintains 
-a `listeners` object map that's a key-value pair, where the key is the event name, and 
-the value is an array of function references. The first time a listener is added, an 
-entry is added to the map using the event name as the key, and the event handler added 
-as the first item in the associated array. If another listener is added for the same 
-event, a second item is added to the array. If a new event is added, a new entry is 
-added. Etc. When the event is fired, Neo.mjs looks up the map entry for the event name, 
+The details don't really matter, but in case you're curious:
+Neo.mjs has a `Neo.core.Observable` class that can be mixed into any class. It maintains
+a `listeners` object map that's a key-value pair, where the key is the event name, and
+the value is an array of function references. The first time a listener is added, an
+entry is added to the map using the event name as the key, and the event handler added
+as the first item in the associated array. If another listener is added for the same
+event, a second item is added to the array. If a new event is added, a new entry is
+added. Etc. When the event is fired, Neo.mjs looks up the map entry for the event name,
 then runs each function in the array, passing whatever data is specified in the call to `fire()`.
 
 <img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/gettingStarted/events/ObservableInMemory.png"></img>

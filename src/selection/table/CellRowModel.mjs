@@ -1,5 +1,6 @@
-import CellModel from './CellModel.mjs';
-import NeoArray  from '../../util/Array.mjs';
+import {isDescriptor} from '../../core/ConfigSymbols.mjs';
+import CellModel      from './CellModel.mjs';
+import NeoArray       from '../../util/Array.mjs';
 
 /**
  * @class Neo.selection.table.CellRowModel
@@ -23,10 +24,18 @@ class CellRowModel extends CellModel {
          */
         cls: 'neo-selection-cellrowmodel',
         /**
-         * @member {String[]} selectedRowIds=[]
+         * The row ids this model holds selected — a descriptor, so the default is per instance and the
+         * in-place writes land ({@link Neo.selection.grid.BaseModel#selectedRows_} says why).
+         * @member {String[]} selectedRowIds_=[]
          * @protected
+         * @reactive
          */
-        selectedRowIds: []
+        selectedRowIds_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : []
+        }
     }
 
     /**

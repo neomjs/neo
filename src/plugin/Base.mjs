@@ -49,6 +49,11 @@ class Plugin extends Base {
             }, me, {once: true})
         }
 
+        // Deliberately NOT `{once: true}`, unlike `constructed` six lines up. Bounding this was
+        // measured and reverted: `component/SplitterHeavyContent` remounts on purpose and went red
+        // with `compareAttributes` reading `aria-colcount` off undefined, so a plugin re-applying on
+        // remount is load-bearing for vdom structure. A duplicate-registration problem in an
+        // override is the override's to make idempotent, not this subscription's to bound.
         if (owner.mounted) {
             me.onOwnerMounted();
         } else {
@@ -64,6 +69,23 @@ class Plugin extends Base {
      */
     afterSetWindowId(value, oldValue) {
         value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
+    }
+
+    /**
+     * A plugin destroyed while its owner lives leaves the owner's `plugins`, so `getPlugin()` stops finding it. An
+     * owner being destroyed destroys every plugin it holds.
+     * @param {Array} args
+     */
+    destroy(...args) {
+        let me      = this,
+            {owner} = me;
+
+        // A plugin created with an owner, rather than through its plugins config, is not listed there
+        if (!owner.isDestroying && !owner.isDestroyed && owner.plugins?.includes(me)) {
+            owner.plugins = owner.plugins.filter(plugin => plugin !== me)
+        }
+
+        super.destroy(...args)
     }
 
     /**

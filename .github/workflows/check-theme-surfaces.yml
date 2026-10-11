@@ -1,0 +1,41 @@
+name: Workstation Theme Guard
+
+# The path list is the enforcement half of the Workstation theme contract.
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'resources/scss/theme-neo-dark/apps/workstation/**'
+      - 'resources/scss/theme-neo-light/apps/workstation/**'
+      - 'resources/scss/src/apps/workstation/**'
+      - 'buildScripts/util/check-theme-surfaces.mjs'
+      - '.github/workflows/check-theme-surfaces.yml'
+      - 'package.json'
+  push:
+    branches: [dev]
+    paths:
+      - 'resources/scss/theme-neo-dark/apps/workstation/**'
+      - 'resources/scss/theme-neo-light/apps/workstation/**'
+      - 'resources/scss/src/apps/workstation/**'
+      - 'buildScripts/util/check-theme-surfaces.mjs'
+      - '.github/workflows/check-theme-surfaces.yml'
+      - 'package.json'
+
+concurrency:
+  group: check-theme-surfaces-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Check Workstation skin parity and token-only views
+        run: npm run check-theme-surfaces

@@ -439,4 +439,85 @@ test.describe('State Provider Nested Data Configs', () => {
 
         component.destroy();
     });
+
+    test.describe('Enumeration across the provider chain', () => {
+        /**
+         * @summary Creates a parent and a child component, each owning a provider with the given data.
+         * @param {Object} parentData
+         * @param {Object} childData
+         * @returns {Object} The two components and their providers
+         */
+        function createChain(parentData, childData) {
+            const
+                parentComponent = Neo.create(MockComponent, {stateProvider: {data: parentData}}),
+                childComponent  = Neo.create(MockComponent, {parentComponent, stateProvider: {data: childData}});
+
+            return {
+                childComponent,
+                childProvider : childComponent.getStateProvider(),
+                parentComponent,
+                parentProvider: parentComponent.getStateProvider()
+            }
+        }
+
+        test('an object inherited from the parent enumerates in the child scope as it reads', () => {
+            const
+                {childComponent, childProvider, parentComponent} = createChain({user: {name: 'Parent', role: 'admin'}}, {prefix: 'User:'}),
+                data = childProvider.getHierarchyData();
+
+            expect(data.user.name).toBe('Parent');
+            expect(Object.keys(data.user).sort()).toEqual(['name', 'role']);
+            expect({...data.user}).toEqual({name: 'Parent', role: 'admin'});
+            expect(proxyToObject(data.user)).toEqual({name: 'Parent', role: 'admin'});
+            expect(Object.keys(data).sort()).toEqual(['prefix', 'user']);
+
+            childComponent.destroy();
+            parentComponent.destroy()
+        });
+
+        test('keys under one path merge across the chain', () => {
+            const
+                {childComponent, childProvider, parentComponent} = createChain({user: {name: 'Parent'}}, {user: {nickname: 'P'}}),
+                data = childProvider.getHierarchyData();
+
+            expect(Object.keys(data.user).sort()).toEqual(['name', 'nickname']);
+            expect(proxyToObject(data.user)).toEqual({name: 'Parent', nickname: 'P'});
+
+            childComponent.destroy();
+            parentComponent.destroy()
+        });
+
+        test('a key declared on both levels enumerates once and reads the closest value', () => {
+            const
+                {childComponent, childProvider, parentComponent} = createChain({user: {name: 'Parent', role: 'admin'}}, {user: {name: 'Child'}}),
+                data = childProvider.getHierarchyData();
+
+            expect(Object.keys(data.user).sort()).toEqual(['name', 'role']);
+            expect(proxyToObject(data.user)).toEqual({name: 'Child', role: 'admin'});
+
+            childComponent.destroy();
+            parentComponent.destroy()
+        });
+
+        test('an effect enumerating the child scope re-runs when the parent gains a key', () => {
+            const {childComponent, childProvider, parentComponent, parentProvider} = createChain({user: {name: 'Parent'}}, {prefix: 'User:'});
+            let effectRunCount = 0;
+
+            childProvider.createBinding(childComponent.id, 'userName', data => {
+                effectRunCount++;
+                return Object.keys(data).sort().join(',')
+            });
+
+            expect(childComponent.userName).toBe('prefix,user');
+            expect(effectRunCount).toBe(1);
+
+            parentProvider.setData('theme', 'dark');
+
+            expect(childComponent.userName).toBe('prefix,theme,user');
+            expect(effectRunCount).toBe(2);
+
+            childComponent.destroy();
+            parentComponent.destroy()
+        })
+    })
 });

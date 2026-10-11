@@ -22,6 +22,9 @@
     height            : var(--button-height);
     justify-content   : center;
     margin            : var(--button-margin);
+    // A square minimum is a THEME's density decision, but WHICH element gets one is not — it is
+    // every button, in every theme, so the rule belongs here and only its value varies.
+    min-width         : var(--button-min-width);
     padding           : var(--button-padding);
     position          : relative;
     text-decoration   : none; // for url buttons => links
@@ -29,6 +32,14 @@
     user-select       : none;
     white-space       : nowrap;
     -webkit-appearance: button;
+
+    // A floating button must keep the `.neo-floating` fixed positioning. The `.neo-button` `position:
+    // relative` above otherwise wins the cascade (equal single-class specificity, later source order) and
+    // pins the button to its offsetParent instead of the viewport — so `alignTo`'s computed left/top land
+    // it at the wrong coordinates. This higher-specificity compound selector restores `position: fixed`.
+    &.neo-floating {
+        position: fixed;
+    }
 
     .neo-button-badge {
         background-color: var(--button-badge-background-color);
@@ -275,9 +286,15 @@
     }
 
     &.neo-button-tertiary {
-        background-color: var(--button-tertiary-background-color);
-        background-image: var(--button-tertiary-background-image);
-        border          : var(--button-tertiary-border);
+        background-color     : var(--button-tertiary-background-color);
+        background-image     : var(--button-tertiary-background-image);
+        border               : var(--button-tertiary-border);
+        // A tertiary button reads as a link, so whether it is underlined is a theme's call while the
+        // element that carries the underline is not. All three land together: `text-decoration` alone
+        // would leave a theme valuing `underline` with an uncontrolled colour and offset.
+        text-decoration      : var(--button-tertiary-text-decoration);
+        text-decoration-color: var(--button-tertiary-text-decoration-color);
+        text-underline-offset: var(--button-tertiary-text-underline-offset);
 
         .neo-button-badge {
             background-color: var(--button-tertiary-badge-background-color);
@@ -343,8 +360,17 @@
     &.neo-button {
         background-color: var(--button-background-color-disabled);
         border          : var(--button-border-disabled);
+        color           : inherit;
         cursor          : default;
         opacity         : var(--button-opacity-disabled);
+
+        // Projecting the native disabled attribute (src/button/Base.mjs) activates the UA
+        // button:disabled cascade, dormant for as long as this class was the only disabled
+        // authority. Chromium exposed both sides of the gap: native-disabled painted GrayText,
+        // while class-only retained the platform button color. Keep every root paint axis here:
+        // background, border and opacity use disabled tokens; color inherits because the child
+        // glyph/text nodes own themed colors. The attribute therefore adds semantics, never paint.
+        // Witnessed cross-platform by the render-equivalence assertion in the component spec.
 
         .neo-button-glyph {
             color: var(--button-glyph-color-disabled);

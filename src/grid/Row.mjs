@@ -34,6 +34,8 @@ import NeoArray  from '../util/Array.mjs';
  * -   **Cell Rendering:** Generates the VDOM for all cells in the row based on the columns config.
  * -   **Granular Updates:** When a bound record changes, only this specific Row instance updates its VDOM, avoiding a full Grid re-render.
  * -   **Component Management:** Manages the lifecycle of cell components (e.g., Sparklines, Widgets) defined in `Neo.grid.column.Component`.
+ * -   **Edit Projection:** Embeds the editor of `Neo.grid.plugin.CellEditing`'s active session into the cell rendering that
+ *     session's record and column, on every render — the Row, not the plugin, decides where an edit is visible.
  *
  * @class Neo.grid.Row
  * @extends Neo.component.Base
@@ -83,12 +85,7 @@ class Row extends Component {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-
-        if (this.components) {
-            for (const key in this.components) {
-                this.components[key].mounted = value
-            }
-        }
+        this.forwardToCells('mounted', value)
     }
 
     /**
@@ -99,10 +96,36 @@ class Row extends Component {
      */
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
+        this.forwardToCells('theme', value)
+    }
 
-        if (this.components) {
-            for (const key in this.components) {
-                this.components[key].theme = value
+    /**
+     * Triggered after the windowId config got changed. A pooled cell that was created in one
+     * window must follow the row into the next one: a canvas cell re-transfers its node to the
+     * main thread of the window it believes it is in, and only the current id reaches a node.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+        value && this.forwardToCells('windowId', value)
+    }
+
+    /**
+     * Relays one lifecycle config to every cell component this row owns. A row is a component,
+     * not a container, so the cascade `container.Base` performs for its items is done here by hand
+     * for the configs a pooled cell depends on: `mounted`, `theme` and `windowId`.
+     * @param {String} key
+     * @param {*} value
+     * @protected
+     */
+    forwardToCells(key, value) {
+        const {components} = this;
+
+        if (components) {
+            for (const cellKey in components) {
+                components[cellKey][key] = value
             }
         }
     }
@@ -121,14 +144,15 @@ class Row extends Component {
      * @returns {Object} VDOM object for the cell
      */
     applyRendererOutput({cache, cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
-        let me                     = this,
-            {colspanField, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache,
-            cellCls                = ['neo-grid-cell'],
-            colspan                = record[colspanField],
-            {dataField}            = column,
-            recordId               = gridBody.getRecordId(record),
-            logicalCellId          = gridBody.getLogicalCellId(record, dataField),
-            fieldValue             = record.get(dataField),
+        let {colspanField, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache;
+
+        let me            = this,
+            cellCls       = ['neo-grid-cell'],
+            colspan       = record[colspanField],
+            {dataField}   = column,
+            recordId      = gridBody.getRecordId(record),
+            logicalCellId = gridBody.getLogicalCellId(record, dataField),
+            fieldValue    = record.get(dataField),
             cellConfig, rendererOutput;
 
         if (fieldValue === null || fieldValue === undefined) {
@@ -156,20 +180,20 @@ class Row extends Component {
             dataField,
             gridContainer,
             record,
-            row: me,
+            row      : me,
             rowIndex,
             silent,
             store,
-            value: fieldValue
+            value    : fieldValue
         };
 
-        rendererOutput = column.renderer.call(column.rendererScope || column, rendererConfig);
+        rendererOutput = column.renderer.call(column.rendererScope || gridContainer, rendererConfig);
 
         if (column.cellCls) {
             let extraCls = column.cellCls;
 
             if (Neo.typeOf(extraCls) === 'Function') {
-                extraCls = extraCls.call(column.rendererScope || column, rendererConfig)
+                extraCls = extraCls.call(column.rendererScope || gridContainer, rendererConfig)
             }
 
             if (extraCls) {
@@ -259,6 +283,11 @@ class Row extends Component {
             cellConfig['aria-selected'] = true
         }
 
+        // Only a grid that edits has cells to tell apart: while its editing is on, the others are read-only
+        if (editsCells && !column.editable) {
+            cellConfig['aria-readonly'] = true
+        }
+
         if (column.width) {
             cellConfig.style.width = `${column.width}px`
         }
@@ -275,6 +304,23 @@ class Row extends Component {
             }
         } else {
             cellConfig.cn = rendererOutput
+        }
+
+        // The cell of the active edit embeds its editor instead of the value, unless a lock change holds it. The
+        // editor's parent follows the Row rendering it, so a pool rebinding that drops the cell unmounts the editor,
+        // and the next render embeds it again.
+        if (
+            cache.editSession?.dataField === dataField &&
+            cache.editSession.recordId === recordId &&
+            !cache.editSession.held
+        ) {
+            let {editor} = cache.editSession;
+
+            editor.parentId !== me.id && (editor.parentId = me.id);
+
+            delete cellConfig.html;
+            delete cellConfig.text;
+            cellConfig.cn = [editor.createVdomReference()]
         }
 
         return cellConfig
@@ -309,16 +355,21 @@ class Row extends Component {
      * @param {Boolean} [recycle=true] True to attempt reusing existing cell VDOMs.
      */
     createVdom(silent=false, recycle=true) {
-        let me               = this,
-            record           = me.record,
-            rowIndex         = me.rowIndex,
-            gridBody         = me.parent, // The Row is an item of Body
-            gridContainer    = gridBody.gridContainer,
-            vdom             = me.vdom,
-            {columns}        = gridContainer,
+        let me            = this,
+            record        = me.record,
+            rowIndex      = me.rowIndex,
+            gridBody      = me.parent, // The Row is an item of Body
+            gridContainer = gridBody.gridContainer,
+            vdom          = me.vdom,
+            {columns}     = gridContainer,
             cellConfig, column, columnPosition, i, isMounted, lastColumnIndex, oldCn, poolIndex, poolSize, pooledCells;
 
         if (!record) {
+            // Only the record claim goes, never the `data` object: `rowId` identifies the pool
+            // SLOT, which the row still is once its record is gone, and pooled updates need it.
+            // Staged either way — under `silent`, nothing below reaches the browser from here.
+            delete vdom.data?.recordId;
+
             vdom.style = {display: 'none'};
             !silent && me.update();
             return
@@ -326,12 +377,18 @@ class Row extends Component {
 
         let {
                 cellPoolSize, columnPositions, colspanField, highlightModifiedCells,
-                mountedColumns, rowHeight, selectedRecordField, selectedCells,
-                selectionModel, store
-            }            = gridBody,
-            recordId     = gridBody.getRecordId(record),
-            countColumns = columns.getCount(),
-            cache        = {colspanField, columnPositions, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
+                mountedColumns, rowHeight, store
+            }              = gridBody,
+            // selection is the View's: a row paints its projection and never holds or mutates it
+            view           = gridContainer?.view,
+            selectedCells  = view?.selectedCells ?? [],
+            selectionModel = view?.selectionModel ?? null,
+            recordId       = gridBody.getRecordId(record),
+            countColumns   = columns.getCount(),
+            cellEditing    = gridContainer.getPlugin('grid-cell-editing'),
+            editSession    = cellEditing?.session ?? null,
+            editsCells     = !!cellEditing && !cellEditing.disabled,
+            cache          = {colspanField, columnPositions, editSession, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
 
         Object.assign(vdom, {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
@@ -379,11 +436,7 @@ class Row extends Component {
             rowCls.push('neo-even')
         }
 
-        let selectedRows = gridBody.selectedRows;
-
-        if (selectedRows && record[selectedRecordField]) {
-            NeoArray.add(selectedRows, recordId)
-        }
+        let selectedRows = gridContainer?.view?.selectedRows;
 
         if (selectedRows?.includes(recordId)) {
             rowCls.push('neo-selected');
@@ -577,9 +630,10 @@ class Row extends Component {
     }
 
     /**
-     *
+     * @param {Boolean} [updateParentVdom=false]
+     * @param {Boolean} [silent=false]
      */
-    destroy() {
+    destroy(updateParentVdom=false, silent=false) {
         let me = this;
 
         if (me.components) {
@@ -588,7 +642,7 @@ class Row extends Component {
             }
         }
 
-        super.destroy()
+        super.destroy(updateParentVdom, silent)
     }
 
     /**
@@ -626,7 +680,7 @@ class Row extends Component {
     }
 
     /**
-     * Updates the content of this Row instance to display a new record.
+     * @summary Updates this pooled row to display a record, refreshing cells when the record instance changes.
      *
      * This is the core method of the Row Pooling architecture. It is called by `Neo.grid.Body`
      * during scrolling or rendering. It updates the internal state (`record`, `rowIndex`)
@@ -635,7 +689,7 @@ class Row extends Component {
      * @param {Object} data
      * @param {Boolean} [data.force=false] True to force a VDOM update even if record and rowIndex are unchanged.
      * @param {Object} data.record The new record to display.
-     * @param {Boolean} [data.recycle=true] True to attempt reusing existing cell VDOMs (performance optimization).
+     * @param {Boolean} [data.recycle=true] True to reuse cell VDOMs only while retaining the same record instance.
      * @param {Number} data.rowIndex The new row index.
      * @param {Boolean} [data.silent=false] True to prevent an immediate VDOM update (useful for batching).
      */
@@ -648,6 +702,7 @@ class Row extends Component {
             return
         }
 
+        recycle     = recycle && me.record === record;
         me.record   = record;
         me.rowIndex = rowIndex;
 

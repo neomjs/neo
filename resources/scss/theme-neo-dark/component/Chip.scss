@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-chip
+:where(.neo-theme-neo-dark) { // .neo-chip
     --chip-align-items             : center;
     --chip-border                  : 1px solid var(--sem-color-border-default);
     --chip-border-color-focus      : var(--sem-color-border-focus);

@@ -42,10 +42,14 @@ class FormContainer extends Container {
             labelText    : 'Write your article (in markdown)',
             name         : 'body'
         }, {
-            module       : TextField, // todo: ChipField
+            module       : ChipField,
+            displayField : 'name',
             labelPosition: 'inline',
             labelText    : 'Enter Tags',
-            name         : 'tags'
+            name         : 'tags',
+            reference    : 'tags',
+            store        : [],
+            valueField   : 'id'
         }, {
             module: Toolbar,
             items : ['->', {

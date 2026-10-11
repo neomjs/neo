@@ -5,20 +5,21 @@ import envinfo         from 'envinfo';
 import fs              from 'fs-extra';
 import inquirer        from 'inquirer';
 import path            from 'path';
+import {createRequire} from 'node:module';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const __dirname   = path.resolve(),
       cwd         = process.cwd(),
-      cpOpts      = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
+      cpOpts      = {env: process.env, cwd: cwd, stdio: 'inherit'},
       requireJson = path => JSON.parse(fs.readFileSync((path))),
       packageJson = requireJson(path.resolve(cwd, 'package.json')),
       neoPath     = packageJson.name.includes('neo.mjs') ? './' : './node_modules/neo.mjs/',
       program     = new Command(),
       webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
+      webpackJson = createRequire(path.join(cwd, 'package.json')).resolve('webpack/package.json'),
+      webpack     = path.resolve(path.dirname(webpackJson), requireJson(webpackJson).bin.webpack),
       programName = `${packageJson.name} buildThreads`,
       questions   = [];
-
-let webpack = './node_modules/.bin/webpack';
 
 program
     .name(programName)
@@ -31,7 +32,7 @@ program
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
-        console.log(chalk.cyan(packageJson.bugs.url));
+        console.log(chalk.cyan(requireJson(path.resolve(neoPath, 'package.json')).bugs.url));
     })
     .parse(process.argv);
 
@@ -59,7 +60,7 @@ if (programOpts.info) {
     if (!programOpts.noquestions) {
         if (!programOpts.threads) {
             questions.push({
-                type   : 'list',
+                type   : 'select',
                 name   : 'threads',
                 message: 'Please choose the threads to build:',
                 choices: ['all', 'app', 'canvas', 'data', 'main', 'service', 'task', 'vdom'],
@@ -69,7 +70,7 @@ if (programOpts.info) {
 
         if (!programOpts.env) {
             questions.push({
-                type   : 'list',
+                type   : 'select',
                 name   : 'env',
                 message: 'Please choose the environment:',
                 choices: ['all', 'dev', 'prod'],
@@ -84,40 +85,26 @@ if (programOpts.info) {
               insideNeo = programOpts.framework || false,
               startDate = new Date();
 
-        if (path.sep === '\\') {
-            webpack = path.resolve(webpack).replace(/\\/g,'/');
-        }
-
+        /**
+         * @summary Builds selected threads with the resolved webpack entry and literal arguments.
+         * @param {String} tPath Configuration filename prefix for one environment.
+         */
         function parseThreads(tPath) {
-            let childProcess;
+            for (const worker of ['main', 'app', 'canvas', 'data', 'service', 'task', 'vdom']) {
+                if (threads !== 'all' && threads !== worker) continue;
 
-            if (threads === 'all' || threads === 'main') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.main.mjs`], cpOpts);
-                childProcess.status && process.exit(childProcess.status);
-            }
-            if (threads === 'all' || threads === 'app') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.appworker.mjs`, `--env insideNeo=${insideNeo}`], cpOpts);
-                childProcess.status && process.exit(childProcess.status);
-            }
-            if (threads === 'all' || threads === 'canvas') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=canvas`], cpOpts);
-                childProcess.status && process.exit(childProcess.status);
-            }
-            if (threads === 'all' || threads === 'data') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=data`], cpOpts);
-                childProcess.status && process.exit(childProcess.status);
-            }
-            if (threads === 'all' || threads === 'service') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=service`], cpOpts);
-                childProcess.status && process.exit(childProcess.status);
-            }
-            if (threads === 'all' || threads === 'task') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=task`], cpOpts);
-                childProcess.status && process.exit(childProcess.status);
-            }
-            if (threads === 'all' || threads === 'vdom') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=vdom`], cpOpts);
-                childProcess.status && process.exit(childProcess.status);
+                const suffix = worker === 'main' ? 'main' : worker === 'app' ? 'appworker' : 'worker',
+                      args   = [webpack, '--config', `${tPath}.${suffix}.mjs`];
+
+                if (worker !== 'main') {
+                    args.push('--env', `insideNeo=${insideNeo}`);
+                    worker !== 'app' && args.push(`worker=${worker}`)
+                }
+
+                const childProcess = spawnSync(process.execPath, args, cpOpts);
+
+                if (childProcess.error) throw childProcess.error;
+                if (childProcess.status !== 0) process.exit(childProcess.status ?? 1)
             }
         }
 

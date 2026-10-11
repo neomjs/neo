@@ -27,6 +27,7 @@ class ContentBox extends Base {
          */
         header_: null,
         /**
+         * A hash route, or an absolute URL, which opens in a new tab
          * @member {String|null} route_=null
          * @reactive
          */
@@ -73,13 +74,23 @@ class ContentBox extends Base {
     }
 
     /**
-     * Triggered after the route config got changed
+     * Triggered after the route config got changed.
+     * An absolute URL gets `target: '_blank'`, the way `Neo.button.Base` applies its `urlTarget` to a `url`.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetRoute(value, oldValue) {
-        this.vdom.href = value;
+        let {vdom} = this;
+
+        vdom.href = value;
+
+        if (value?.startsWith('http')) {
+            vdom.target = '_blank'
+        } else {
+            delete vdom.target
+        }
+
         this.update()
     }
 }

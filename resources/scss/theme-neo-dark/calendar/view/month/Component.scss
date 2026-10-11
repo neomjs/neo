@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-calendar-monthcomponent
+:where(.neo-theme-neo-dark) { // .neo-calendar-monthcomponent
     --c-m-background-color        : var(--sem-color-bg-neutral-default);
     --c-m-border-color            : var(--sem-color-border-default);
     --c-m-day-name-color          : var(--sem-color-text-neutral-subdued);

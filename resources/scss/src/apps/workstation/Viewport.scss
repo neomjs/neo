@@ -1,0 +1,487 @@
+// The token bridge must OUT-RANK the theme on EVERY element the theme can declare on.
+//
+// Workstation owns its palette (`--workstation-*`, defined globally per skin under
+// `:root .neo-theme-*`), but generic grid/tab primitives read Neo's own token names. The block
+// below is the bridge between the two, and its scope decides who gets styled: every boot mode
+// carries `.workstation-viewport`, while only the default mode mounts `.workstation-workspace`.
+//
+// A `?popout=` vessel never mounts the root `Workstation.view.Workspace`: its document is owned by a
+// `PopupWorkspace`, projected under `.workstation-vessel-dock-host`. While the bridge sat on `.workstation-workspace`,
+// that vessel inherited the palette but not the mapping, so every grid/tab token fell back to its
+// stock Neo default: cell backgrounds resolved to the ground colour, the pane dissolved into its
+// own backdrop, and the result read as unstyled text on a default background even though the
+// theme class and every component stylesheet were present. Bridging at the viewport keeps the
+// layering honest — global palette → viewport bridge → component consumption — and the vessel
+// inherits it without mounting the root workspace.
+//
+// WHY THE SELECTOR IS SHAPED LIKE THE THEME'S OWN.
+// `.workstation-viewport` alone is (0,1,0) and loses to the theme's (0,2,0) `:root .neo-theme-*`
+// on the very element it sits on, because the engine stamps the skin class onto the viewport too:
+// `div.workstation-viewport.neo-viewport.neo-theme-neo-dark`. The earlier workspace scope was
+// never in that contest — `:root .neo-theme-*` does not match `.workstation-workspace` at boot, so
+// the bridge was the only matching declaration and won by default. Moving here bought the vessel
+// its reachability and silently handed the contest to the theme: measured before this fix, 21 of
+// the 23 contested tokens resolved to theme values. The active-tab indicator painted `#FFFFFF` instead
+// of the instrument's mint, grid borders painted `--purple-800`, and
+// `--grid-header-button-justify-content` lost `flex-end` to `start` — so one loss was layout, not
+// colour. The two tokens no theme declares (`--grid-cell-progress-*`) resolved correctly
+// throughout: the bridge was well-formed, only out-ranked.
+//
+// Raising the viewport rule alone is NOT enough, and that is the part worth remembering. Which
+// elements carry a skin class is runtime state, not structure. At boot only the viewport and body
+// do; `.neo-grid-container` carries one from the start, and after a runtime skin switch
+// `.workstation-workspace` acquires one too. For an inherited custom property the NEAREST
+// declaring ancestor wins outright — specificity never enters that comparison — so any single
+// pinned element is one re-render away from being shadowed again — which is how the move to the
+// viewport cured the vessel and broke the workspace in the same edit.
+//
+// So the bridge mirrors the theme's own reach instead of guessing an element: the app viewport,
+// and every skin-carrying element inside it. `[class*="neo-theme-"]` is precisely the set
+// `:root .neo-theme-*` can match, so the two rules are always evaluated on the same elements and
+// this one is (0,3,0) against the theme's (0,2,0) — a deterministic win on each of them, with no
+// per-skin duplication. The theme layer is NOT the home for this: emitted there it would tie the
+// theme's own (0,2,0) and resolve on load order, and an equal-specificity load-order tie is not a
+// contract — CSS is emitted per source file, so no readable source order decides it.
+:root .workstation-viewport[class*="neo-theme-"],
+:root .workstation-viewport [class*="neo-theme-"] {
+    // Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
+    // palette in both skins instead of leaking their default blue/purple values.
+    --grid-container-border-color              : var(--workstation-line);
+    --grid-container-cell-background-color     : var(--workstation-panel);
+    --grid-container-cell-background-color-even: var(--workstation-panel-2);
+    --grid-container-color                     : var(--workstation-ink-dim);
+    --grid-container-header-cell-border-bottom : 1px solid var(--workstation-line);
+    --grid-cell-background-color-hover         : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
+    --grid-cell-progress-active-color          : var(--workstation-signal);
+    --grid-cell-progress-track-color           : var(--workstation-line);
+    --tab-button-background-color              : transparent;
+    --tab-button-background-color-active       : color-mix(in srgb, var(--workstation-signal) 12%, transparent);
+    --tab-button-background-color-hover        : color-mix(in srgb, var(--workstation-signal) 8%, transparent);
+    --tab-button-glyph-color                   : var(--workstation-ink-dim);
+    --tab-button-text-color                    : var(--workstation-ink-dim);
+    --tab-indicator-background-color-active    : var(--workstation-signal);
+    --tab-strip-background-color               : var(--workstation-panel-2);
+
+    // Pane-header action chrome. The engine sizes these; the instrument colours them.
+    // An action and a tab share one strip, so they share one hover language: the same signal wash
+    // as `--tab-button-background-color-hover` above, and the same resting ink as the tab labels.
+    // Size and radius stay theme-owned — those are density decisions, not identity.
+    --tab-header-action-background-color-active: color-mix(in srgb, var(--workstation-signal) 12%, transparent);
+    --tab-header-action-background-color-hover : color-mix(in srgb, var(--workstation-signal) 8%, transparent);
+    --tab-header-action-glyph-color            : var(--workstation-ink-dim);
+    --tab-header-action-glyph-color-active     : var(--workstation-signal);
+    --tab-header-action-glyph-color-hover      : var(--workstation-signal);
+    // The inline variant's band. The neo themes paint a flat semantic surface with a hairline; this
+    // instrument keeps its own two-panel ramp so the header stays inside its blue-slate palette —
+    // `background-image` covers the `background-color` the header rule sets below.
+    --tab-header-inline-background-image       : linear-gradient(
+        180deg,
+        var(--workstation-panel-2),
+        var(--workstation-panel)
+    );
+}
+
+.workstation-viewport.neo-viewport {
+    background: var(--workstation-ground);
+}
+
+// A staged pane and its committed host share a viewport during the node move. Overlay the staged
+// chrome so the host can mount at full width; the owner removes this class after projection settles.
+.workstation-viewport.workstation-vessel-handover {
+    position: relative;
+
+    > .workstation-vessel-provisional-chrome {
+        inset   : 0;
+        position: absolute;
+        z-index : 1;
+    }
+}
+
+// A committed vessel mounts its PopupWorkspace directly in the popup viewport, a column flex box sized to
+// the window. Without `min-height: 0` the host keeps its automatic minimum, grows to its content and
+// never scrolls: a popped-out grid neither scrolls nor virtualizes. The host positions the preview, which
+// the engine's sheet makes absolute.
+.workstation-popout-host > .workstation-vessel-dock-host {
+    min-height: 0;
+    min-width : 0;
+    position  : relative;
+}
+
+// Keep target affordances legible beneath the drag proxy a converted vessel shows in the target window
+// (the dragged tab's header). The class is Workstation-owned so generic drag proxies keep their own skin.
+.workstation-vessel-dragproxy {
+    opacity: .7;
+}
+
+// Terminal presentation for a vessel whose stack was just adopted home: the workspace applies this
+// to the vessel's VIEWPORT the moment the documents transfer, and the window closes shortly after.
+// The overlay fades IN over the un-projected content (a body-opacity fade would flash the html
+// underlay), covers any residual gesture artifacts, and holds the theme ground until the OS close —
+// the exit reads as deliberate instead of a raw content yank. Two placement constraints, both
+// load-bearing: it lives in THIS sheet because the `?popout=` vessel never loads `Workspace.css`
+// (sheet gate above), and it anchors on `.workstation-viewport` because retheming fans to each
+// vessel's mainView while `document.body` keeps its BOOT theme — only the viewport resolves the
+// LIVE `--workstation-ground`. Motion comes from the vocabulary (`--ease-in-soft`: exits), at the
+// `--motion-panel` tier: the vessel's post-adoption lifetime is bounded (~450ms — the fast-path
+// projection shortened it), and the fade must COMPLETE and hold before the OS close; the stage
+// tier measures ~0.66 opacity at window death. Reduced-motion collapse inherited.
+.workstation-viewport.workstation-vessel-departing::after {
+    animation : workstation-vessel-depart var(--motion-panel) var(--ease-in-soft) forwards;
+    background: var(--workstation-ground);
+    content   : '';
+    inset     : 0;
+    opacity   : 0;
+    position  : fixed;
+    z-index   : 9999;
+}
+
+@keyframes workstation-vessel-depart {
+    to {
+        opacity: 1;
+    }
+}
+
+// Pane SKIN — everything a pane keeps when it is torn out of the workspace.
+//
+// The token bridge above made a vessel-hosted pane resolve the right colours; these rules are
+// what make it look like a Workstation pane rather than a stock Neo one.
+//
+// CROSS-WINDOW CSS HAS TWO INDEPENDENT REACHABILITY GATES, and a fix that closes one reads as
+// complete while the other stays open:
+//   1. SHEET — the owning component's generated stylesheet must LOAD in that window. A `?popout=`
+//      vessel mounts no `Workspace`, so `Workspace.css` never enters its sheet set at all.
+//   2. SELECTOR — a rule in a loaded sheet must MATCH the transferred consumer.
+// Re-scoping a selector cannot repair a rule that stays in an unloaded sheet: it is then correct
+// and unreachable. This block previously contained a rule already scoped `.workstation-viewport`
+// while still sitting in `Workspace.scss` — gate 2 passed, gate 1 never did, and it could not match
+// in a vessel under any circumstances.
+//
+// The split rule, and it is mechanical rather than aesthetic: **would this need to apply to a pane
+// that has been torn out?** Yes → here, the sheet both boot modes load. No → `.workstation-workspace`
+// in `Workspace.scss`, which keeps the gradient backdrop, the dock zones/splitters/rails, and the
+// tourbar/statusbar. A vessel must not inherit those; a bare pane host is not a dense composition.
+//
+// The consumer is decided from the pane the vessel ACTUALLY hosts, not from a convenient stand-in.
+// A resident pane renders as `.workstation-pane.workstation-placeholder.workstation-pane-<id>`
+// wrapping `.workstation-resident-*` children (`Workspace.mjs` pane factory); the data panes render
+// as `.workstation-data-pane` (`FeedPane`/`ScalePane`), with `.workstation-heat-*` on ScalePane's
+// grid cells. Those are the classes a torn-out pane carries, so those are the rules that travel.
+.workstation-viewport {
+    // Grouped with `.neo-dashboard-dock-edge-band` in the workspace block. The band is chrome and
+    // stayed; this half is pane skin, so the pair split rather than moved together. A tab
+    // container that IS an edge band stays out: its drag axis carries the engine's
+    // `min-inline/block-size` floor vars (the splitter's inward resize bound), and a physical
+    // zero here out-cascades them; its cross axis is zeroed by the workspace's band rule.
+    .neo-tab-container:not(.neo-dashboard-dock-edge-band) {
+        min-height: 0;
+        min-width : 0;
+    }
+
+    // The pane owns Workstation's visible border and radius. The generic tab body stays a
+    // layout/overflow wrapper, not a second square opaque frame around the live pane.
+    .neo-tab-container > .neo-tab-body-container {
+        background: transparent;
+        border    : 0;
+    }
+
+    // `background-color`, not the `background` shorthand: the inline variant paints its band
+    // through `background-image` (`src/tab/Container.scss`), and the shorthand's implicit
+    // `background-image: none` fought a rule it cannot out-rank — (0,2,0) here against the engine's
+    // (0,3,0) `.neo-tab-container.neo-tab-container-inline > .neo-tab-header-toolbar`. Naming the
+    // longhand makes the two layers additive instead of silently contested: this sets the ground,
+    // `--tab-header-inline-background-image` above sets the band that sits on it.
+    .neo-tab-header-toolbar {
+        background-color: var(--workstation-panel-2);
+        border-bottom   : 1px solid var(--workstation-line);
+    }
+
+    .neo-tab-header-button.pressed {
+        .neo-button-glyph,
+        .neo-button-text {
+            color: var(--workstation-ink);
+        }
+    }
+
+    // Theme classes live on the grid primitives themselves, so inherited variables alone cannot
+    // out-rank their light-skin defaults — which is why these must travel with the pane and not
+    // merely be reachable from it.
+    .neo-grid-header-button {
+        --grid-header-button-background-color      : var(--workstation-panel-2);
+        --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+        --grid-header-button-background-image      : none;
+        --grid-header-button-color                 : var(--workstation-ink);
+        --grid-header-button-color-hover           : var(--workstation-ink);
+        --grid-header-button-glyph-color           : var(--workstation-ink-dim);
+        --grid-header-button-glyph-color-hover     : var(--workstation-signal);
+        --grid-header-button-justify-content       : flex-end;
+        --grid-header-button-padding               : 0 10px;
+
+        // Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
+        // column). Keep the glyph on the physical right edge without participating in flex.
+        .neo-button-glyph {
+            position: absolute;
+            right   : 10px;
+        }
+    }
+}
+
+// Already scoped to the viewport, but it lived in `Workspace.scss` — gate 2 satisfied, gate 1 not.
+// Moving the FILE is what makes it reachable; the selector never needed changing.
+.workstation-viewport .neo-button.workstation-row-action {
+    --button-background-color       : color-mix(in srgb, var(--workstation-signal) 8%, var(--workstation-panel-2));
+    --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 20%, var(--workstation-panel-2));
+    --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 14%, var(--workstation-panel-2));
+    --button-border                 : 1px solid color-mix(in srgb, var(--workstation-signal) 34%, var(--workstation-line));
+    --button-border-active          : 1px solid var(--workstation-signal);
+    --button-border-hover           : 1px solid color-mix(in srgb, var(--workstation-signal) 62%, var(--workstation-line));
+    --button-glyph-color            : var(--workstation-signal);
+    --button-glyph-color-active     : var(--workstation-signal);
+    --button-glyph-color-hover      : var(--workstation-signal);
+    --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 28%, transparent);
+    --button-text-color             : var(--workstation-ink-dim);
+    --button-text-color-active      : var(--workstation-ink);
+    --button-text-color-hover       : var(--workstation-ink);
+    border-radius: 6px;
+    font-family  : var(--workstation-font-mono);
+    height       : 30px;
+}
+
+// `FeedPane` / `ScalePane` root. A torn-out data pane keeps its own frame, and the sparkline
+// cell-fit contract travels with it — a canvas that escapes its cell in the workspace escapes it
+// in a vessel too.
+.workstation-data-pane {
+    background: var(--workstation-panel);
+    border    : 1px solid var(--workstation-line-soft);
+    border-radius: 8px;
+    min-height   : 0;
+    min-width    : 0;
+    overflow     : hidden;
+
+    .neo-grid-header-toolbar {
+        background: var(--workstation-panel-2);
+    }
+
+    // The Sparkline component's intrinsic canvas is 300x150. Workstation must load an
+    // explicit cell-fit contract instead of letting that size escape.
+    .neo-sparkline-wrapper {
+        contain: strict;
+        height : 100%;
+        min-width: 0;
+        position: relative;
+        width   : 100%;
+
+        .neo-sparkline-canvas {
+            height  : 100%;
+            left    : 0;
+            position: absolute;
+            top     : 0;
+            width   : 100%;
+        }
+    }
+}
+
+// One rendered frame on its own layer re-rasters a pane a transfer just landed in a vessel
+// (`PopupWorkspace#repaintLandedPane`).
+.workstation-pane-repaint {
+    will-change: transform;
+}
+
+// The resident pane — the class the reported vessel actually hosts. Its root and its card
+// children are the skin whose absence read as "raw stacked text" on the operator's frame.
+//
+// The pane is also the card's size-query container. The card sizes its type and padding from
+// container units, and the card cannot query itself — its own padding needs an ancestor
+// container, so the reference lives here. `size` (not `inline-size`) because the defect axis
+// is height: the dock hands short panes MORE width than tall ones, so width-keyed units would
+// invert the correction. Size containment is safe — the dock (or a tear-out vessel) imposes
+// the pane's box; it never auto-sizes from content.
+.workstation-placeholder {
+    background:
+        radial-gradient(circle at 82% 16%, color-mix(in srgb, var(--workstation-signal) 16%, transparent), transparent 38%),
+        linear-gradient(145deg, var(--workstation-panel), color-mix(in srgb, var(--workstation-signal) 5%, var(--workstation-panel-2)));
+    border        : 1px solid var(--workstation-line-soft);
+    border-radius : 8px;
+    container: workstation-pane / size;
+    overflow : hidden;
+    padding  : 0;
+    position : relative;
+
+    &::after {
+        background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--workstation-signal) 55%, transparent), transparent);
+        content   : '';
+        height    : 1px;
+        left      : 8%;
+        position  : absolute;
+        right     : 8%;
+        top       : 0;
+    }
+}
+
+// Card sizing is keyed to the PANE (cqh against `.workstation-placeholder`), never the viewport:
+// two panes of different height in one window must resolve different type sizes. Each fluid
+// track is calibrated so a 436px pane reproduces the pre-container rendered values (the design
+// reference the tall cards already had) while a 188px pane walks toward the clamp minimum.
+// Without a container ancestor the units fall back to small-viewport units, which is the old
+// behavior — degradation, not breakage.
+.workstation-resident-card {
+    box-sizing    : border-box;
+    display       : flex;
+    flex-direction: column;
+    height        : 100%;
+    min-height    : 0;
+    // The card's own box is a paint boundary: between disclosure tiers a transient layout may
+    // hand the stack less room than its clamp minimums, and the escape hatch must be clipping
+    // at THIS box — not painting over the pane below (#16716's title-below-card finding). The
+    // tiers keep settled states out of this branch; clip only owns the transients.
+    overflow: clip;
+    padding : clamp(12px, 2px + 5cqh, 24px);
+    position: relative;
+}
+
+// The text rows share the wave's rule: none of them may flex-collapse toward 0 — every
+// disappearance in this card is a declared tier below, never slack math.
+.workstation-resident-kicker,
+.workstation-resident-icon,
+.workstation-resident-metric,
+.workstation-resident-title {
+    flex-shrink: 0;
+}
+
+.workstation-resident-kicker {
+    align-items   : center;
+    color  : var(--workstation-ink-dim);
+    display: flex;
+    font-family   : var(--workstation-font-mono);
+    font-size     : 10px;
+    font-weight   : 700;
+    gap           : 7px;
+    letter-spacing: .13em;
+
+    span {
+        background   : var(--workstation-state-ok);
+        border-radius: 50%;
+        box-shadow   : 0 0 12px color-mix(in srgb, var(--workstation-state-ok) 72%, transparent);
+        height: 6px;
+        width : 6px;
+    }
+}
+
+.workstation-resident-icon {
+    color    : color-mix(in srgb, var(--workstation-signal) 72%, var(--workstation-ink));
+    font-size: clamp(18px, 12px + 2.6cqh, 30px);
+    margin : auto 0 8px;
+    opacity: .82;
+}
+
+.workstation-resident-metric {
+    color         : var(--workstation-ink);
+    font-family   : var(--workstation-font-mono);
+    font-size     : clamp(24px, 12px + 8cqh, 58px);
+    font-weight   : 800;
+    letter-spacing: -.06em;
+    line-height   : .95;
+    text-shadow   : 0 0 28px color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+}
+
+.workstation-resident-title {
+    color         : var(--workstation-ink);
+    font-family   : var(--workstation-font-sans);
+    font-size     : clamp(11px, 9px + 1.2cqh, 16px);
+    font-weight   : 650;
+    letter-spacing: .02em;
+    margin-top    : 8px;
+}
+
+.workstation-resident-footer {
+    align-items   : center;
+    border-top    : 1px solid var(--workstation-line-soft);
+    color  : var(--workstation-ink-faint);
+    display: flex;
+    font-family   : var(--workstation-font-mono);
+    font-size     : 9px;
+    gap           : 8px;
+    justify-content: space-between;
+    margin-top    : 14px;
+    padding-top   : 9px;
+    text-transform: uppercase;
+
+    strong {
+        color         : var(--workstation-state-ok);
+        font-size     : 9px;
+        letter-spacing: .12em;
+    }
+}
+
+.workstation-resident-wave {
+    align-items: end;
+    display: flex;
+    // A declared 15px element must never silently resolve to 0 — with negative slack, flex
+    // shrinks the only shrinkable child to nothing. The floor makes a too-short card overflow
+    // loudly instead; the disclosure thresholds below keep that state unreachable.
+    flex-shrink: 0;
+    gap    : 3px;
+    height : 15px;
+    margin-top : 9px;
+
+    i {
+        background   : color-mix(in srgb, var(--workstation-signal) 68%, var(--workstation-line));
+        border-radius: 2px;
+        display: block;
+        height : 40%;
+        width  : 8px;
+
+        &:nth-child(2), &:nth-child(5) {height: 78%}
+        &:nth-child(3) {height: 100%}
+        &:nth-child(4) {height: 62%}
+        &:nth-child(6) {height: 28%}
+    }
+}
+
+// Progressive disclosure: a genuinely short pane DROPS trim, by rule, instead of letting flex
+// shrink it toward invisibility. Thresholds come from the card's fit arithmetic at clamp
+// minimums — wave visible needs ~167px (padding 24 + fixed rows 78.5 + minimum fluid type
+// ~64.5), footer-without-wave needs ~141px — each threshold sits a guard band above its
+// break-even so the flex-shrink floor above can never be asked to absorb negative slack.
+@container workstation-pane (max-height: 170px) {
+    .workstation-resident-wave {display: none}
+}
+
+@container workstation-pane (max-height: 145px) {
+    .workstation-resident-footer {display: none}
+}
+
+// The ladder continues below the trim tiers, so a pane shorter than the card's content
+// keeps a DECLARED presentation instead of shedding children to slack math or painting past its
+// box. Same fit arithmetic as above, at clamp minimums (padding 24 + kicker 12 + icon 26 +
+// metric 22.8 + title 21): icon visible needs ~106 → 118; title-without-icon ~80 → 92; the
+// compact chip re-pads to 6px 12px and keeps the metric alone — the number IS the card on
+// camera — (~35 → engaged at 64); below 40 the card yields to the pane's shell (gradient +
+// signal line) as the declared empty state, and padding drops to 0 so the box-model floor
+// (2×12px padding) can never make the card taller than its own pane.
+@container workstation-pane (max-height: 118px) {
+    .workstation-resident-icon {display: none}
+}
+
+@container workstation-pane (max-height: 92px) {
+    .workstation-resident-title {display: none}
+}
+
+@container workstation-pane (max-height: 64px) {
+    .workstation-resident-card {
+        justify-content: center;
+        padding        : 6px 12px;
+    }
+
+    .workstation-resident-kicker {display: none}
+}
+
+@container workstation-pane (max-height: 40px) {
+    .workstation-resident-card   {padding: 0}
+    .workstation-resident-metric {display: none}
+}
+
+// ScalePane's grid CELL classes — they ride the pane's own grid, so they travel with it.
+.workstation-heat-0 {background: color-mix(in srgb, var(--workstation-panel-2) 92%, var(--workstation-signal))}
+.workstation-heat-1 {background: color-mix(in srgb, var(--workstation-panel-2) 84%, var(--workstation-signal))}
+.workstation-heat-2 {background: color-mix(in srgb, var(--workstation-panel-2) 76%, var(--workstation-signal))}
+.workstation-heat-3 {background: color-mix(in srgb, var(--workstation-panel-2) 66%, var(--workstation-signal))}

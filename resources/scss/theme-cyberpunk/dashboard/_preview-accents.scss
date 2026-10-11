@@ -1,0 +1,10 @@
+// Cyberpunk already owns a complete cyan/red signal vocabulary in Global.scss. Keep the dock
+// values byte-aligned with that palette rather than inventing a second neon family.
+@mixin preview-accents {
+    --agent-dock-preview-accept      : #00d2ff;
+    --agent-dock-preview-accept-fill : rgba(0, 210, 255, 0.20);
+    --agent-dock-preview-reject      : #ff4757;
+    --agent-dock-preview-reject-fill : rgba(255, 71, 87, 0.16);
+    --agent-dock-preview-signal      : #00d2ff;
+    --agent-dock-preview-signal-fill : rgba(0, 210, 255, 0.18);
+}

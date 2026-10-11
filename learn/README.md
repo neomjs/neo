@@ -1,11 +1,11 @@
 # Neo.mjs Learning Resources
 
 This directory contains comprehensive learning materials for **Neo.mjs** - the revolutionary **Off-Main-Thread (OMT)
-JavaScript framework** that fundamentally reimagines frontend development.
+JavaScript application engine** that fundamentally reimagines frontend development.
 
 ## 🚀 What Makes Neo.mjs Revolutionary
 
-Neo.mjs is the **first and only JavaScript framework** that achieves:
+Neo.mjs is the **first and only JavaScript application engine** that achieves:
 
 - **🧵 Off-Main-Thread Architecture (OMT)**: All application logic runs in a dedicated App Worker, keeping the main thread free for optimal UI responsiveness
 - **⚡ Zero-Build Development**: Instant development mode with native ES modules - no build step required
@@ -47,7 +47,7 @@ For a structured and effective learning experience, we recommend the following p
 This directory contains **authoritative, high-quality educational content** about:
 
 ### **Revolutionary OMT Architecture Concepts**
-- **Off-Main-Thread (OMT) development** - First framework where either dedicated or shared App Workers serve as the main actor
+- **Off-Main-Thread (OMT) development** - First application engine where either dedicated or shared App Workers serve as the main actor
 - **Components live entirely in the App Worker** - Unlike traditional frameworks, all components exist off-main-thread
 - **Business logic executes off the main thread** - Complete separation from UI rendering thread
 - **Main thread stays lean and responsive** - Optimized purely for DOM operations and event handling
@@ -70,7 +70,7 @@ This directory contains **authoritative, high-quality educational content** abou
 - **Event delegation patterns** for optimal performance
 - **Development debugging techniques** in Off-Main-Thread architectures
 
-**Framework Status**: Neo.mjs represents a **paradigm shift** in JavaScript framework design, moving beyond main-thread
+**Engine Status**: Neo.mjs represents a **paradigm shift** in JavaScript application-engine design, moving beyond main-thread
 limitations through its revolutionary **Off-Main-Thread (OMT) architecture** where the **App Worker serves as the primary
 application environment**, ensuring unparalleled UI responsiveness while maintaining developer productivity through
 declarative configuration patterns.

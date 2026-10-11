@@ -7,9 +7,15 @@ https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md
 
 **Does this PR resolve an issue?** (Required)
 
-Closes #
+Resolves #
 
-<!-- If this PR doesn't close an issue, please explain why: -->
+<!-- Exactly one issue, and this PR must fully deliver it. -->
+
+<!-- Only finishing part of it? Please don't open a second issue for your part. Say so on the
+     issue and a maintainer will sort the scope out with you, so this line ends up naming one
+     issue you fully deliver. -->
+
+<!-- If this PR doesn't resolve an issue, please explain why: -->
 
 <!-- PRs without issue references may be closed. Please create an issue first if one doesn't exist. -->
 

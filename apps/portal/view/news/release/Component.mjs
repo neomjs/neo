@@ -18,12 +18,14 @@ class Component extends ContentComponent {
     }
 
     /**
+     * @summary Resolves a release-note path against the base the notes are served from
+     * (`releaseNotesBasePath` in the Portal's `neo-config.json`).
      * @param {Object} record
      * @param {String} record.path
      * @returns {String|null}
      */
     getContentPath({path}) {
-        return path ? Neo.config.basePath + path : null
+        return path ? Neo.config.basePath + Neo.config.releaseNotesBasePath + path : null
     }
 }
 

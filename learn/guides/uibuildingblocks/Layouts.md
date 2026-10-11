@@ -9,7 +9,7 @@ powerful and flexible way to control the positioning, sizing, and alignment of c
 ### How Layouts Work
 
 Every container component (any class extending `Neo.container.Base`) can have a `layout` config. This config defines
-how the container's `items` (its child components) are arranged. When you set a `layout` on a container, the framework
+how the container's `items` (its child components) are arranged. When you set a `layout` on a container, the engine
 automatically handles the positioning and sizing of its children, adapting to different screen sizes and dynamic content.
 
 ### The `layout` Config
@@ -162,7 +162,7 @@ hidden.
 **Key Properties for Card Layouts:**
 
 -   `activeIndex_`: This is the most important config. Changing its value activates a different child component (card).
-    The framework automatically handles showing the new card and hiding the old one.
+    The engine automatically handles showing the new card and hiding the old one.
 
 -   `removeInactiveCards`: A boolean (default `true`). If `true`, the DOM elements of inactive cards are removed from the
     document flow, keeping only their instances and VDOM trees. This is useful for performance, especially with many

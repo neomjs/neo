@@ -119,6 +119,8 @@ class Provider extends Base {
          * Each formula is a function that receives a `data` argument, which is a hierarchical proxy
          * allowing access to data from the current provider and all its parent providers.
          * Changes to dependencies (accessed via `data.propertyName`) will automatically re-run the formula.
+         * A formula that reads a key which does not exist yet re-runs once that key gets created on this
+         * provider or on one of its parents.
          * @member {Object|null} formulas_=null
          * @example
          *     data: {
@@ -161,7 +163,31 @@ class Provider extends Base {
          *     }
          * @reactive
          */
-        stores_: null,
+        stores_: {
+            [isDescriptor]: true,
+            /**
+             * Compares provider store maps by key and instance identity.
+             * @summary Allows same-id replacement instances to commit while suppressing identical mappings.
+             * @param {Object|null} value
+             * @param {Object|null} oldValue
+             * @returns {Boolean}
+             */
+            isEqual(value, oldValue) {
+                if (value === oldValue) {
+                    return true
+                }
+
+                if (!value || !oldValue) {
+                    return false
+                }
+
+                const keys = Object.keys(value);
+
+                return keys.length === Object.keys(oldValue).length
+                    && keys.every(key => value[key] === oldValue[key])
+            },
+            value: null
+        },
         /**
          * @member {String|null} windowId=null
          */
@@ -179,10 +205,40 @@ class Provider extends Base {
      */
     #dataConfigs = {}
     /**
+     * Counts the data properties created on this provider: the plain mirror of `#dataKeyVersion`,
+     * so that a bump never registers a read.
+     * @member {Number} #dataKeyCount=0
+     * @private
+     */
+    #dataKeyCount = 0
+    /**
+     * Changes whenever a data property gets created on this provider. An effect that looked a path
+     * up here while it was absent depends on it and re-runs once the key exists (see `#findDataOwner`).
+     * @member {Neo.core.Config} #dataKeyVersion=new Config(0)
+     * @private
+     */
+    #dataKeyVersion = new Config(0)
+    /**
      * @member {Map} #formulaEffects=new Map()
      * @private
      */
     #formulaEffects = new Map()
+    /**
+     * Tracks store instances THIS provider created from `stores` descriptors (class / config
+     * shapes). Passed-in instances are never added: the provider shares those, it does not own
+     * them. Owned instances get destroyed with the provider.
+     * @member {Set} #ownedStores=new Set()
+     * @private
+     */
+    #ownedStores = new Set()
+    /**
+     * Bumped on every reactive `stores` replacement and suffixed into generated provider-store ids.
+     * A fresh generation keeps implicit ids unique; explicit caller-provided ids remain unchanged
+     * and replacement identity is detected by the `stores` config's reference comparator.
+     * @member {Number} #storesGeneration=0
+     * @private
+     */
+    #storesGeneration = 0
     /**
      * Tracks provider-owned Record field bindings by StateProvider data path.
      * @member {Map} #recordDataBindings=new Map()
@@ -276,10 +332,30 @@ class Provider extends Base {
      * @protected
      */
     beforeSetStores(value, oldValue) {
+        const me = this;
+
+        // reactive replacement (or null-removal): an owned instance the provider no longer hosts
+        // gets destroyed NOW — deferring it to provider destroy would leak a live, registered
+        // store nothing can resolve anymore. Passed-in instances stay externally owned.
+        // ORDER MATTERS: this runs BEFORE the new value instantiates, freeing explicit ids for safe
+        // reuse while the generation bump gives implicit same-key replacements a fresh predictable id.
+        if (oldValue) {
+            const reusedInstances = new Set(
+                Object.values(value || {}).filter(storeValue => Neo.typeOf(storeValue) === 'NeoInstance')
+            );
+
+            me.#storesGeneration++;
+
+            Object.values(oldValue).forEach(store => {
+                if (me.#ownedStores.has(store) && !reusedInstances.has(store)) {
+                    me.#ownedStores.delete(store);
+                    store.destroy()
+                }
+            })
+        }
+
         if (value) {
-            const
-                me       = this,
-                storeIds = {};
+            const storeIds = {};
 
             Object.entries(value).forEach(([key, storeValue]) => {
                 const storeId = me.getProviderStoreId(key, storeValue);
@@ -290,6 +366,8 @@ class Provider extends Base {
             });
 
             Object.entries(value).forEach(([key, storeValue]) => {
+                const providerCreates = Neo.typeOf(storeValue) !== 'NeoInstance';
+
                 storeValue = me.normalizeProviderStoreConfig(key, storeValue, storeIds);
 
                 // support mapping string based listeners into the stateProvider instance
@@ -297,7 +375,9 @@ class Provider extends Base {
                     me.bindCallback(listener, listenerKey, me, storeValue.listeners)
                 })
 
-                value[key] = ClassSystemUtil.beforeSetInstance(storeValue)
+                value[key] = ClassSystemUtil.beforeSetInstance(storeValue);
+
+                providerCreates && me.#ownedStores.add(value[key])
             })
         }
 
@@ -314,18 +394,21 @@ class Provider extends Base {
      * @protected
      */
     getProviderStoreId(key, storeValue) {
-        const type = Neo.typeOf(storeValue);
+        const
+            type       = Neo.typeOf(storeValue),
+            generation = this.#storesGeneration,
+            baseId     = generation > 0 ? `${this.id}__${key}__${generation}` : `${this.id}__${key}`;
 
         if (type === 'NeoInstance') {
             return storeValue.id
         }
 
         if (type === 'Object') {
-            return storeValue.id || `${this.id}__${key}`
+            return storeValue.id || baseId
         }
 
         if (type === 'NeoClass') {
-            return `${this.id}__${key}`
+            return baseId
         }
 
         return null
@@ -395,9 +478,18 @@ class Provider extends Base {
                     hierarchicalData = me.getHierarchyData(),
                     newValue         = Neo.isFunction(formatter) ? formatter.call(me, hierarchicalData) : hierarchicalData[formatter];
 
-                component._skipTwoWayPush = configKey;
-                component[configKey] = newValue;
-                delete component._skipTwoWayPush
+                // The formatter's reads are this effect's dependencies; the writes below are not.
+                // A config's afterSet hooks read other configs of the component on the way to the
+                // DOM, and tracking those would re-run the formatter on every unrelated write.
+                EffectManager.pauseTracking();
+
+                try {
+                    component._skipTwoWayPush = configKey;
+                    component[configKey] = newValue;
+                    delete component._skipTwoWayPush
+                } finally {
+                    EffectManager.resumeTracking()
+                }
             }
         });
 
@@ -452,7 +544,9 @@ class Provider extends Base {
     }
 
     /**
-     * Destroys the state provider and cleans up all associated effects.
+     * Destroys the state provider and cleans up all associated effects, plus every store instance
+     * the provider itself created from a `stores` descriptor (passed-in instances stay alive —
+     * shared, not owned).
      */
     destroy() {
         const me = this;
@@ -464,6 +558,9 @@ class Provider extends Base {
 
         me.#bindingEffects.forEach(effect => effect.destroy());
         me.#bindingEffects.clear();
+
+        me.#ownedStores.forEach(store => store.destroy());
+        me.#ownedStores.clear();
 
         super.destroy()
     }
@@ -513,19 +610,48 @@ class Provider extends Base {
      * @returns {{owner: Neo.state.Provider, propertyName: String}|null}
      */
     getOwnerOfDataProperty(path) {
-        let me = this;
+        return this.#findDataOwner(path, true)
+    }
+
+    /**
+     * Walks the parent chain for the provider owning a data path.
+     * A miss at a level reads that provider's `#dataKeyVersion`: an active effect which read a path
+     * that does not exist yet depends on the key set of every provider it looked in, so it re-runs
+     * when the key gets created on any of them (see `#createDataConfig`).
+     * @param {String}  path
+     * @param {Boolean} track `false` on the write path: a write's owner lookup is not a read
+     * @returns {{owner: Neo.state.Provider, propertyName: String}|null}
+     * @private
+     */
+    #findDataOwner(path, track) {
+        const me = this;
 
         if (me.#dataConfigs[path]) {
             return {owner: me, propertyName: path}
         }
 
-        // Check for parent ownership
-        const parent = me.getParent();
-        if (parent) {
-            return parent.getOwnerOfDataProperty(path)
-        }
+        track && me.#dataKeyVersion.get();
 
-        return null
+        const parent = me.getParent();
+
+        return parent ? parent.#findDataOwner(path, track) : null
+    }
+
+    /**
+     * The single creation point for a data property's Config. Bumping `#dataKeyVersion` re-runs
+     * exactly the effects that read this provider's key set while the path was absent.
+     * @param {String} path
+     * @param {*}      value
+     * @returns {Neo.core.Config}
+     * @private
+     */
+    #createDataConfig(path, value) {
+        const config = new Config(value);
+
+        this.#dataConfigs[path] = config;
+        this.#dataKeyVersion.set(++this.#dataKeyCount);
+
+        return config
     }
 
     /**
@@ -592,20 +718,35 @@ class Provider extends Base {
     }
 
     /**
-     * Returns the top-level data keys for a given path within this provider's data.
+     * Returns the top-level data keys for a given path across the parent chain: the keys a read
+     * through the hierarchical data proxy resolves, so an enumeration (`Object.keys`, spread,
+     * `JSON.stringify`) sees the same object a named read sees. A key declared on several levels
+     * appears once; its value still resolves to the closest provider (see `getOwnerOfDataProperty`).
      * @param {String} path The path to get keys for (e.g., 'user.address').
      * @returns {String[]}
      */
     getTopLevelDataKeys(path) {
-        const
-            keys       = new Set(),
-            pathPrefix = path ? `${path}.` : '';
+        const keys = new Set();
+
+        this.#collectTopLevelDataKeys(path ? `${path}.` : '', keys);
+
+        return Array.from(keys)
+    }
+
+    /**
+     * Adds this provider's top-level keys below a path prefix, then its parent's. An enumeration
+     * depends on the key set of every provider it reads, so it re-runs when any of them gains a key
+     * (see `#createDataConfig`).
+     * @param {String}      pathPrefix `''` for the root, otherwise the path with a trailing dot
+     * @param {Set<String>} keys
+     * @private
+     */
+    #collectTopLevelDataKeys(pathPrefix, keys) {
+        this.#dataKeyVersion.get();
 
         for (const fullPath in this.#dataConfigs) {
             if (fullPath.startsWith(pathPrefix)) {
-                const
-                    relativePath = fullPath.substring(pathPrefix.length),
-                    topLevelKey  = relativePath.split('.')[0];
+                const topLevelKey = fullPath.substring(pathPrefix.length).split('.')[0];
 
                 if (topLevelKey) {
                     keys.add(topLevelKey)
@@ -613,11 +754,11 @@ class Provider extends Base {
             }
         }
 
-        return Array.from(keys)
+        this.getParent()?.#collectTopLevelDataKeys(pathPrefix, keys)
     }
 
     /**
-     * This is the core method for setting data, providing a single entry point for all data modifications.
+     * @summary Applies local or hierarchical data updates and notifies reactive parent paths.
      * It handles multiple scenarios:
      * 1.  **Object-based updates:** If `key` is an object, it recursively calls itself for each key-value pair.
      * 2.  **Data Records:** If `value` is a `Neo.data.Record`, it is treated as an atomic value and set directly.
@@ -630,7 +771,7 @@ class Provider extends Base {
      *
      * @param {Object|String} key The property to set, or an object of key-value pairs.
      * @param {*} value The new value.
-     * @param {Neo.state.Provider} [originStateProvider] The provider to start the search from for hierarchical updates.
+     * @param {Neo.state.Provider} [originStateProvider] Enables hierarchical owner lookup; absent updates stay local.
      * @protected
      */
     internalSetData(key, value, originStateProvider) {
@@ -655,7 +796,7 @@ class Provider extends Base {
         }
 
         const
-            ownerDetails   = me.getOwnerOfDataProperty(key),
+            ownerDetails   = originStateProvider && me.#findDataOwner(key, false),
             targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me);
 
         me.#setConfigValue(targetProvider, key, value, null);
@@ -742,7 +883,7 @@ class Provider extends Base {
             if (me.#dataConfigs[fullPath]) {
                 me.#dataConfigs[fullPath].set(value)
             } else {
-                me.#dataConfigs[fullPath] = new Config(value)
+                me.#createDataConfig(fullPath, value)
             }
 
             me.#syncRecordDataValue(fullPath, value);
@@ -788,10 +929,7 @@ class Provider extends Base {
             oldValue  = currentConfig.get();
             hasChange = currentConfig.set(newValue)
         } else {
-            currentConfig = new Config(newValue);
-            provider.#dataConfigs[path] = currentConfig;
-            // Trigger all binding effects to re-evaluate their dependencies
-            provider.#bindingEffects.forEach(effect => effect.run())
+            currentConfig = provider.#createDataConfig(path, newValue)
         }
 
         if (hasChange) {

@@ -77,6 +77,8 @@ class Wrapper extends BaseContainer {
      * the lowest common ancestor (this Wrapper). The vdom diff then sees the move as a move and keeps
      * the DOM node alive — an uncoordinated remove + add pair diffs the two toolbars independently,
      * which destroys the node on the source side before the target side can adopt it.
+     *
+     * Each button takes its column's `locked` as it is placed, so its region class follows a runtime lock change.
      * @param {Object[]} lockedStartColumns
      * @param {Object[]} centerColumns
      * @param {Object[]} lockedEndColumns
@@ -90,6 +92,8 @@ class Wrapper extends BaseContainer {
                 let btn = me.getButton(col.dataField);
 
                 if (btn) {
+                    btn.locked = col.locked;
+
                     if (btn.parentId !== toolbar.id) {
                         toolbar.insert(targetIndex, btn)
                     } else {
@@ -179,9 +183,6 @@ class Wrapper extends BaseContainer {
                 me.headerStart.items = lockedStartButtons;
                 me.headerStart.createItems()
             }
-        } else if (me.headerStart) {
-            me.headerStart.destroy();
-            me.headerStart = null
         }
 
         // --- End (Right) ---
@@ -201,9 +202,26 @@ class Wrapper extends BaseContainer {
                 me.headerEnd.items = lockedEndButtons;
                 me.headerEnd.createItems()
             }
-        } else if (me.headerEnd) {
-            me.headerEnd.destroy();
-            me.headerEnd = null
+        }
+
+        // A region that emptied at runtime still holds the button of the column that just left it, and destroying
+        // the toolbar would take the button along: the column kept its instance and lost its header and every
+        // cell. So the buttons move first, while every toolbar they may go to exists, and the emptied one goes after.
+        let startEmptied = me.headerStart && lockedStartColumns.length === 0,
+            endEmptied   = me.headerEnd   && lockedEndColumns.length   === 0;
+
+        if (startEmptied || endEmptied) {
+            me.applyColumnButtonOrder(lockedStartColumns, centerColumns, lockedEndColumns);
+
+            if (startEmptied) {
+                me.headerStart.destroy();
+                me.headerStart = null
+            }
+
+            if (endEmptied) {
+                me.headerEnd.destroy();
+                me.headerEnd = null
+            }
         }
 
         // Assemble the header toolbars into the wrapper in left-to-right order.

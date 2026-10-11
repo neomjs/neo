@@ -1,7 +1,7 @@
 # Todo List
 
 This tutorial guides you through creating the same simple Todo List application using three different coding styles
-available in Neo.mjs. This will help you understand the flexibility of the framework and choose the approach that best
+available in Neo.mjs. This will help you understand the flexibility of the engine and choose the approach that best
 fits your project or personal preference.
 
 ## 1. HTML Style

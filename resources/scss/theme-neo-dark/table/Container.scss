@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-table-container
+:where(.neo-theme-neo-dark) { // .neo-table-container
     --table-container-border-color              : var(--sem-color-border-default);
     --table-container-cell-background-color     : var(--sem-color-surface-neutral-default);
     --table-container-cell-background-color-even: var(--sem-color-surface-neutral-highlighted);

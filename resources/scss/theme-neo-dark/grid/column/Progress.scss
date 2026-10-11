@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-grid-cell
+:where(.neo-theme-neo-dark) { // .neo-grid-cell
     --grid-cell-progress-active-color : var(--sem-color-surface-primary-default);
     --grid-cell-progress-border-radius: 2px;
     --grid-cell-progress-height       : 10px;

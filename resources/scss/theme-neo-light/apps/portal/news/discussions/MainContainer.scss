@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     --portal-discussion-tree-state-answered-bg : #8250df;
     --portal-discussion-tree-state-closed-bg   : #8250df;
     --portal-discussion-tree-state-icon-color  : #ffffff;

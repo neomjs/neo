@@ -1,0 +1,235 @@
+import {setup} from '../../setup.mjs';
+
+const appName = 'CollectionSortTransitivityTest';
+
+setup({
+    appConfig: {
+        name: appName
+    }
+});
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import Collection     from '../../../../src/collection/Base.mjs';
+import Sorter         from '../../../../src/collection/Sorter.mjs';
+
+/**
+ * `5 > 'abc'` and `5 < 'abc'` are both false, so a comparator built on the relational operators alone
+ * reports a TIE for any number against a non-coercing string while still ordering two numbers. That is
+ * intransitive, and `Array.prototype.sort` is specified only for a consistent comparator — so the emitted
+ * order becomes a function of the element count and the engine's algorithm rather than of the data.
+ *
+ * These arms assert the PROPERTY, not one permutation. A permutation assertion passes on the day V8's
+ * sort happens to agree with it and says nothing about the relation, which is the thing that was broken.
+ */
+
+/**
+ * The mixed population every arm below is checked against.
+ *
+ * Its first version held only one convertible string and missed two whole cycle families, which is the
+ * lesson worth keeping: an exhaustive check over a population chosen from the hypothesis proves only
+ * that the hypothesis is self-consistent. These values are chosen from the BOUNDARIES instead —
+ * `'!'` sorts below every digit as text, `'2'` above `'10'` as text but below it as a number, `'5'`
+ * is numerically equal to `5` without being it, `'05'` is numerically equal to `'5'` without being it,
+ * and `''` converts to 0 while `undefined` does not convert at all.
+ */
+const values = [5, 1, 20, 0, 'abc', 'zz', '!', '10', '2', '9', '100', '5', '05', '', NaN, null, undefined];
+
+/**
+ * Exhaustively checks that `compare` is a consistent ordering over `population`: antisymmetric across
+ * every pair and transitive across every triple. Reports the offending operands, because a bare
+ * "expected 1 to be -1" on a triple loop is unusable.
+ * @param {Function} compare
+ * @param {Array} population
+ */
+function assertConsistentOrdering(compare, population) {
+    for (const a of population) {
+        for (const b of population) {
+            // Summed rather than negated: `-0` is not `0` under `Object.is`, so the obvious
+            // `toBe(-compare(b, a))` reds on every genuine tie. The sum is the property anyway.
+            expect(compare(a, b) + compare(b, a), `antisymmetry: ${String(a)} vs ${String(b)}`).toBe(0);
+
+            for (const c of population) {
+                if (compare(a, b) <= 0 && compare(b, c) <= 0) {
+                    expect(
+                        compare(a, c) <= 0,
+                        `transitivity: ${String(a)} <= ${String(b)} <= ${String(c)}, so ${String(a)} <= ${String(c)}`
+                    ).toBe(true);
+                }
+            }
+        }
+    }
+}
+
+test.describe('Neo.collection sorting is a consistent ordering (#19027)', () => {
+    test('the shared rule is antisymmetric and transitive over mixed types, in BOTH directions', () => {
+        assertConsistentOrdering((a, b) => Sorter.compareValues(a, b,  1), values);
+        assertConsistentOrdering((a, b) => Sorter.compareValues(a, b, -1), values);
+    });
+
+    test('a tie means the operands share a basis for being equal', () => {
+        // The defect was the INCOHERENT tie — operands with no common basis reported equal, e.g. 5 and
+        // 'abc'. Equal numeric value is a coherent one, so 5, '5' and '05' tie and a stable sort keeps
+        // their input order.
+        const coherentlyEqual = (a, b) => {
+            if (a == null || b == null) return a == null && b == null;
+
+            const na = Number(a),
+                  nb = Number(b);
+
+            return Number.isNaN(na) || Number.isNaN(nb) ? String(a) === String(b) : na === nb
+        };
+
+        for (const a of values) {
+            for (const b of values) {
+                expect(
+                    Sorter.compareValues(a, b, 1) === 0,
+                    `tie: ${String(a)} vs ${String(b)}`
+                ).toBe(coherentlyEqual(a, b));
+            }
+        }
+    });
+
+    test('a number sorts before a non-coercing string, and that rank FOLLOWS the direction', () => {
+        // Unlike the nullish rule, which is about absence and therefore sinks both ways. Both operands
+        // here are present values, so the pair is an ordering question and flips with the ordering.
+        expect(Sorter.compareValues(5, 'abc',  1)).toBe(-1);
+        expect(Sorter.compareValues('abc', 5,  1)).toBe( 1);
+        expect(Sorter.compareValues(5, 'abc', -1)).toBe( 1);
+        expect(Sorter.compareValues('abc', 5, -1)).toBe(-1);
+    });
+
+    test('nullish still sinks on ASC and DESC alike — the February rule is untouched', () => {
+        expect(Sorter.compareValues(null, 'Acme',       1)).toBe(1);
+        expect(Sorter.compareValues(null, 'Acme',      -1)).toBe(1);
+        expect(Sorter.compareValues(undefined, 5,       1)).toBe(1);
+        expect(Sorter.compareValues(undefined, 5,      -1)).toBe(1);
+        expect(Sorter.compareValues('Acme', null,       1)).toBe(-1);
+        expect(Sorter.compareValues('Acme', null,      -1)).toBe(-1);
+    });
+
+    test('a convertible string is compared by value against a number AND against another string', () => {
+        expect(Sorter.compareValues('10', 5,   1)).toBe( 1);  // ten is greater than five
+        expect(Sorter.compareValues(5,   '10', 1)).toBe(-1);
+        expect(Sorter.compareValues('',  5,   1)).toBe(-1);  // '' converts to 0
+
+        // The half the relational operators could not give consistently: two convertible strings
+        // compare as numbers too. Text order would read '10' before '9', and the same string then
+        // orders numerically against a number and lexically against a string — which is the cycle.
+        expect(Sorter.compareValues('10', '9',  1)).toBe( 1);  // ten > nine; text order says -1
+        expect(Sorter.compareValues('100','20', 1)).toBe( 1);  // and agrees here, for the wrong reason
+    });
+
+    test('one value, however it was written', () => {
+        expect(Sorter.compareValues(5, '5',    1)).toBe(0);
+        expect(Sorter.compareValues('05', '5', 1)).toBe(0);
+        expect(Sorter.compareValues(5, 5,      1)).toBe(0);
+
+        // A stable sort then keeps their input order rather than inventing one.
+        const emitted = [{v: '5'}, {v: 5}, {v: 1}].sort((a, b) => Sorter.compareValues(a.v, b.v, 1));
+
+        expect(emitted.map(item => item.v)).toEqual([1, '5', 5]);
+    });
+
+    test('NaN is a number that does not convert, so it is ordered as text rather than tied to every string', () => {
+        // Found by @neo-gpt on the repartitioned shape. Left to the relational operators, `NaN > x`
+        // and `NaN < x` are both false against every string, so it tied with all of them at once
+        // while they still ordered among themselves — the original defect, one type later.
+        expect(Sorter.compareValues(NaN, 'abc', 1)).toBe(-1);  // 'NaN' precedes 'abc' as text
+        expect(Sorter.compareValues('zz', NaN,  1)).toBe( 1);
+        expect(Sorter.compareValues('zz', 'abc', 1)).toBe(1);  // and these still order, which is the point
+        expect(Sorter.compareValues(NaN, NaN,   1)).toBe( 0);
+
+        // It sits between the numbers and any string starting past `N`.
+        const emitted = [5, 'abc', NaN, 'zz', null].sort((a, b) => Sorter.compareValues(a, b, 1));
+
+        expect(emitted.map(String)).toEqual(['5', 'NaN', 'abc', 'zz', 'null']);
+    });
+
+    test('the three cycles this contract exists to remove', () => {
+        // Found by @neo-gpt reviewing the first shape of this fix, which removed one cycle family and
+        // left two. Each triple is asserted as a chain rather than as an emitted permutation: a cycle
+        // is a property of the comparator, and sorting it would only show one engine's opinion of it.
+        const chain = (x, y, z) => [
+            Math.sign(Sorter.compareValues(x, y, 1)),
+            Math.sign(Sorter.compareValues(y, z, 1)),
+            Math.sign(Sorter.compareValues(x, z, 1))
+        ];
+
+        // A cycle is three comparisons that agree in direction; a consistent order never produces one.
+        for (const [x, y, z] of [[20, '!', '10'], [5, '2', '10'], [5, 'abc', 1]]) {
+            const [xy, yz, xz] = chain(x, y, z);
+
+            expect(
+                xy < 0 && yz < 0 ? xz < 0 : true,
+                `${String(x)} < ${String(y)} < ${String(z)} must imply ${String(x)} < ${String(z)}`
+            ).toBe(true);
+
+            expect(
+                xy > 0 && yz > 0 ? xz > 0 : true,
+                `${String(x)} > ${String(y)} > ${String(z)} must imply ${String(x)} > ${String(z)}`
+            ).toBe(true);
+        }
+    });
+
+    test('BOTH collection sort paths emit the same order — the drift that caused this bug class', () => {
+        // `doSort` routes through Sorter.compareValues for plain sorters and through `defaultSortBy`
+        // once any sorter carries a custom `sortBy`. The February repair reached one path and not the
+        // other, so the two are asserted against each other rather than each against a literal.
+        const items = () => [
+            {id: 1, v: 5},
+            {id: 2, v: 'abc'},
+            {id: 3, v: 1},
+            {id: 4, v: 'zz'},
+            {id: 5, v: null},
+            {id: 6, v: '10'}
+        ];
+
+        const plain = Neo.create(Collection, {
+            items  : items(),
+            sorters: [{direction: 'ASC', property: 'v'}]
+        });
+
+        const viaDefaultSortBy = Neo.create(Collection, {
+            items  : items(),
+            sorters: [
+                // A no-op custom sorter flips `doSort` onto the `defaultSortBy` path for the real one.
+                {direction: 'ASC', property: 'id', sortBy: () => 0},
+                {direction: 'ASC', property: 'v'}
+            ]
+        });
+
+        expect(viaDefaultSortBy.getRange().map(item => item.id))
+            .toEqual(plain.getRange().map(item => item.id));
+    });
+
+    test('the emitted order is actually ordered — the observable payoff', () => {
+        // [5, 'abc', 1] used to come back unchanged, and an eleven-element input ordered only its tail.
+        const collection = Neo.create(Collection, {
+            items  : [{id: 1, v: 5}, {id: 2, v: 'abc'}, {id: 3, v: 1}],
+            sorters: [{direction: 'ASC', property: 'v'}]
+        });
+
+        expect(collection.getRange().map(item => item.v)).toEqual([1, 5, 'abc']);
+
+        collection.sorters = [{direction: 'DESC', property: 'v'}];
+        expect(collection.getRange().map(item => item.v)).toEqual(['abc', 5, 1]);
+    });
+
+    test('the order does not depend on the element count', () => {
+        // The old comparator ordered only part of an eleven-element input. Sorting the same population
+        // twice at different lengths must agree on the overlap.
+        const build = vs => Neo.create(Collection, {
+            items  : vs.map((v, index) => ({id: index, v})),
+            sorters: [{direction: 'ASC', property: 'v'}]
+        }).getRange().map(item => item.v);
+
+        const short = build([5, 'abc', 1]),
+              long  = build([5, 'abc', 1, 9, 'zz', 3, 7, 'mm', 2, 8, 4]);
+
+        expect(short).toEqual([1, 5, 'abc']);
+        expect(long.filter(v => typeof v === 'number')).toEqual([1, 2, 3, 4, 5, 7, 8, 9]);
+        expect(long.slice(-3)).toEqual(['abc', 'mm', 'zz']);
+    });
+});

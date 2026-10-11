@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-grid-header-button
+:where(.neo-theme-neo-light) { // .neo-grid-header-button
     --grid-header-button-background-color        : #5d83a7;
     --grid-header-button-background-color-hover  : #6d93b7;
     --grid-header-button-background-image        : none;

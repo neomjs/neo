@@ -52,7 +52,7 @@ export default defineComponent({
                     id          : 'email-grid',
                     store       : EmailsStore,
                     wrapperStyle: {height: '100%', width: '100%'},
-                    body: {
+                    viewConfig  : {
                         selectionModel: {
                             module   : RowModel,
                             listeners: {selectionChange: onSelectionChange}

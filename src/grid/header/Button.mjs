@@ -123,26 +123,19 @@ class Button extends BaseButton {
      */
     afterSetIsSorted(value, oldValue) {
         let me        = this,
-            {cls}     = me,
             container = me.up('grid-container');
 
         switch (value) {
             case null:
-                NeoArray.add(cls, 'neo-sort-hidden');
+                me.addCls('neo-sort-hidden');
                 break
             case 'ASC':
-                NeoArray.remove(cls, 'neo-sort-desc');
-                NeoArray.remove(cls, 'neo-sort-hidden');
-                NeoArray.add(cls, 'neo-sort-asc');
+                me.removeAddCls(['neo-sort-desc', 'neo-sort-hidden'], 'neo-sort-asc');
                 break
             case 'DESC':
-                NeoArray.remove(cls, 'neo-sort-asc');
-                NeoArray.remove(cls, 'neo-sort-hidden');
-                NeoArray.add(cls, 'neo-sort-desc');
+                me.removeAddCls(['neo-sort-asc', 'neo-sort-hidden'], 'neo-sort-desc');
                 break
         }
-
-        me.cls = cls;
 
         // testing check until all example grids have a store
         if (!container || !container.store) {

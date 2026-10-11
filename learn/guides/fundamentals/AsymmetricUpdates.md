@@ -29,7 +29,7 @@ However, in a multi-threaded environment like Neo.mjs, sending large VDOM trees 
 
 ## The Solution: Scoped Updates (Depth 1)
 
-By default, Neo.mjs uses **Scoped Updates**. When you change a reactive config on a component, the framework calculates the VDOM diff **only for that specific component**, ignoring its children.
+By default, Neo.mjs uses **Scoped Updates**. When you change a reactive config on a component, the engine calculates the VDOM diff **only for that specific component**, ignoring its children.
 
 ### How it Works
 
@@ -129,7 +129,7 @@ toolbar.update();
 
 1.  `setSilent` flags the components as `needsVdomUpdate` but does not trigger the `updateVdom` scheduler.
 2.  `toolbar.update()` starts the cycle for the parent.
-3.  The framework recursively collects `mergedChildIds`.
+3.  The engine recursively collects `mergedChildIds`.
 4.  It generates a **disjoint payload** for the Toolbar and one for each Button.
 5.  It sends a single `updateBatch` message containing all 4 payloads.
 6.  The VDOM worker processes them sequentially and returns a single set of deltas.
@@ -213,7 +213,7 @@ Implementing disjoint updates in a high-performance, multi-threaded, multi-windo
 
 ### 1. The Lazy Snapshot (Avoiding "Ghost Content")
 
-When a component triggers an update (e.g., `header.hidden = true`), the framework must decide *when* to calculate the VDOM diff.
+When a component triggers an update (e.g., `header.hidden = true`), the engine must decide *when* to calculate the VDOM diff.
 If we snapshot the VDOM synchronously at the moment of the trigger, we risk missing subsequent changes that happen in the same execution tick (e.g., a synchronous `remove()` call).
 
 **Solution:** The VDOM lifecycle uses a **Lazy Snapshot** model.

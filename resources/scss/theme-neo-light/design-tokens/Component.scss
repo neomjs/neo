@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     --cmp-breadcrumb-arrow                      : var(--sem-color-fg-neutral-default);
     --cmp-breadcrumb-currentpage                : var(--sem-color-fg-primary-base);
     --cmp-breadcrumb-gap                        : var(--sem-spacing-xxsmall);

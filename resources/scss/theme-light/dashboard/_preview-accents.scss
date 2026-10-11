@@ -1,0 +1,10 @@
+// Shared by the two dashboard values sheets. These colors come from the legacy light theme's
+// established control and danger vocabulary.
+@mixin preview-accents {
+    --agent-dock-preview-accept      : #1c60a0;
+    --agent-dock-preview-accept-fill : rgba(28, 96, 160, 0.14);
+    --agent-dock-preview-reject      : #410808;
+    --agent-dock-preview-reject-fill : rgba(230, 173, 173, 0.45);
+    --agent-dock-preview-signal      : #1c60a0;
+    --agent-dock-preview-signal-fill : rgba(28, 96, 160, 0.14);
+}

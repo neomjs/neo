@@ -6,7 +6,7 @@ By default, Neo.mjs will attach DOM event listeners for all common events to the
 You can the see the full list of event names inside:
 <a href='https://github.com/neomjs/neo/blob/dev/src/manager/DomEvent.mjs' target='_blank'>manager.DomEvent</a>.
 
-When subscribing to DOM events, the framework will automatically ensure that delegated events arrive
+When subscribing to DOM events, the engine will automatically ensure that delegated events arrive
 inside the Components where you subscribed to them.
 
 An example: A typical Neo.mjs App will only have one global click listener.
@@ -23,7 +23,7 @@ The following examples will showcase how you can easily subscribe to DOM events 
 
 While we already have a fully polished
 <a href='https://github.com/neomjs/neo/blob/dev/src/button/Base.mjs' target='_blank'>button.Base</a>
-class inside the framework which you should use, the following examples will manually create
+class inside Neo.mjs which you should use, the following examples will manually create
 Button tags to showcase how you can subscribe to click events.
 
 ### Inline
@@ -104,7 +104,7 @@ MainView = Neo.setupClass(MainView);
 When creating Apps it often makes the most sense to move handler methods inside a ViewController.
 This ensures a strict separation of your view definitions and business logic.
 
-You can define the handlers as strings and the framework will check the ViewController hierarchy
+You can define the handlers as strings and the engine will check the ViewController hierarchy
 to find the closest match.
 
 A good use case would be a form submit Button, where a click will trigger a communication to the backend.

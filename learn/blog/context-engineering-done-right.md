@@ -11,7 +11,7 @@ We argued that for AI to be a true partner, it needs a development environment t
 for collaboration. We launched this vision with a local AI Knowledge Base and a formal AI Agent Protocol (`AGENTS.md`),
 powered by a suite of simple shell scripts.
 
-November 9, 2025, with the release of **[Neo.mjs v11.0.0](https://github.com/neomjs/neo/blob/dev/.github/RELEASE_NOTES/v11.0.0.md)**,
+November 9, 2025, with the release of **[Neo.mjs v11.0.0](https://github.com/neomjs/neo/releases/tag/11.0.0)**,
 we are taking a giant leap forward.
 
 - **388 resolved tickets**
@@ -1878,7 +1878,7 @@ Ready to explore the AI-native workflow?
 - [Codebase Overview](https://github.com/neomjs/neo/blob/dev/learn/guides/fundamentals/CodebaseOverview.md) - What agents read at startup
 - [MCP Server Source Code](https://github.com/neomjs/neo/tree/dev/ai/mcp/server) - The full source code for all three MCP servers.
 - [Agent Protocol (AGENTS.md)](https://github.com/neomjs/neo/blob/dev/AGENTS.md) - The behavioral rules (inside the context window of each session)
-- [Agent Startup (AGENTS_STARTUP.md)](https://github.com/neomjs/neo/blob/dev/AGENTS_STARTUP.md) - Session initialization
+- [Agent Startup (AGENTS_STARTUP.md)](https://github.com/neomjs/neo/blob/83e0c2fc78d047510ba0b8fb81fb46347f5c2e81/AGENTS_STARTUP.md) - Session initialization
 
 ---
 

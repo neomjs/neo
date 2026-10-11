@@ -22,13 +22,14 @@ import Container          from '../../../../src/container/Base.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 import VDomUpdate         from '../../../../src/manager/VDomUpdate.mjs';
+import VNodeUtil          from '../../../../src/util/VNode.mjs';
 
 class RaceChildComponent extends Component {
     static config = {
         className: 'Test.RaceChildComponent',
-        ntype: 'test-race-child',
-        hideMode: 'removeDom', // Crucial for reproduction
-        _vdom: {tag: 'div', cls: ['child']}
+        ntype    : 'test-race-child',
+        hideMode : 'removeDom', // Crucial for reproduction
+        _vdom    : {tag: 'div', cls: ['child']}
     }
 }
 RaceChildComponent = Neo.setupClass(RaceChildComponent);
@@ -43,7 +44,7 @@ class RaceContainer extends Container {
 RaceContainer = Neo.setupClass(RaceContainer);
 
 /**
- * @summary Regression tests for VDOM Update Race Conditions (Ticket #8814).
+ * @summary Regression tests for VDOM update race conditions.
  *
  * These tests reproduce scenarios where concurrent updates between Parent and Child components
  * previously led to duplicate DOM nodes or state inconsistencies.
@@ -55,11 +56,19 @@ RaceContainer = Neo.setupClass(RaceContainer);
  * 4. Reverse Race: Parent starts update *after* child, risking overwrite.
  */
 test.describe('VdomLifecycle Race Condition', () => {
-    let testIdCounter = 0;
-    const getUniqueId = (prefix) => `${prefix}-${Date.now()}-${testIdCounter++}`;
-    let createdComponentIds = [];
+    // Four tests below replace Neo.applyDeltas with closures over their OWN capturedDeltas array.
+    // Playwright reuses a worker across spec files, so an unrestored override runs this file's
+    // fixture against a later spec's components — the tell is a stack frame from here surfacing
+    // in an unrelated suite. Captured once here, restored after every test.
+    const realApplyDeltas = Neo.applyDeltas;
+
+    let   testIdCounter       = 0;
+    const getUniqueId         = (prefix) => `${prefix}-${Date.now()}-${testIdCounter++}`;
+    let   createdComponentIds = [];
 
     test.afterEach(() => {
+        Neo.applyDeltas = realApplyDeltas;
+
         createdComponentIds.forEach(id => {
             const cmp = Neo.getComponent(id);
             if (cmp) {
@@ -67,6 +76,151 @@ test.describe('VdomLifecycle Race Condition', () => {
             }
         });
         createdComponentIds = [];
+    });
+
+    test('a child removed silently leaves the stored vnode walkable, and the next update removes its DOM node', async () => {
+        const removed = [];
+
+        Neo.applyDeltas = async (windowId, deltas) => {
+            [deltas].flat().forEach(delta => delta.action === 'removeNode' && removed.push(delta.id))
+        };
+
+        const
+            containerId = getUniqueId('silent-retire-container'),
+            leaverId    = getUniqueId('silent-retire-leaver'),
+            keeperId    = getUniqueId('silent-retire-keeper');
+
+        createdComponentIds.push(containerId);
+
+        const container = Neo.create(RaceContainer, {
+            appName,
+            id   : containerId,
+            items: [
+                {module: RaceChildComponent, id: leaverId, hidden: false},
+                {module: RaceChildComponent, id: keeperId, hidden: false}
+            ]
+        });
+
+        await container.initVnode(true);
+        container.mounted = true;
+        await container.promiseUpdate();
+
+        removed.length = 0;
+        container.removeAt(0, true, true);
+
+        expect(Neo.getComponent(leaverId), 'the leaver is retired').toBeFalsy();
+        expect(() => VNodeUtil.createMap(container.vnode), 'before any update, the stored vnode still walks').not.toThrow();
+        expect(VNodeUtil.createMap(container.vnode).has(keeperId), 'the surviving child is still mapped').toBe(true);
+        expect(removed, 'a silent removal leaves the DOM to the next update').toEqual([]);
+
+        await container.promiseUpdate();
+
+        expect(removed, 'which removes the leaver\'s DOM node').toEqual([leaverId])
+    });
+
+    test('a child taking a silently removed child\'s id before the next update is diffed against the DOM node it finds', async () => {
+        const structural = [];
+
+        Neo.applyDeltas = async (windowId, deltas) => {
+            [deltas].flat().forEach(delta => ['insertNode', 'moveNode', 'removeNode'].includes(delta.action) && structural.push(delta))
+        };
+
+        const
+            containerId = getUniqueId('silent-reuse-container'),
+            childId     = getUniqueId('silent-reuse-child'),
+            // A fixed inner id, the way a grid row names its cells
+            childConfig = html => ({module: RaceChildComponent, id: childId, hidden: false, vdom: {cls: ['child'], cn: [{tag: 'span', id: `${childId}__label`, html}]}});
+
+        createdComponentIds.push(containerId);
+
+        const container = Neo.create(RaceContainer, {appName, id: containerId, items: [childConfig('first')]});
+
+        await container.initVnode(true);
+        container.mounted = true;
+        await container.promiseUpdate();
+
+        structural.length = 0;
+        container.removeAt(0, true, true);
+        container.add(childConfig('second'), true);
+
+        await container.promiseUpdate();
+
+        expect(structural, 'nothing inserted over the node already there, nor removed from under the newcomer').toEqual([]);
+        expect(Neo.getComponent(childId).mounted, 'the newcomer is mounted on that node').toBe(true)
+    });
+
+    /**
+     * A child retired silently — destroyed without an update of its own, the way a projection
+     * transaction retires a leaver's tab button — leaves its DOM node to its parent's next update.
+     * A parent flight that collected its payload while the child was alive and lands after the
+     * destroy still names the child by reference, and must neither fail on it nor drop its node.
+     *
+     * The in-process helper answers in microtasks, so the destroy below could never fall between
+     * collection and landing on its own; one macrotask of latency is the smallest honest stand-in
+     * for the worker round trip the real app pays.
+     */
+    test('a child retired while its parent flight is in the air does not fail that flight, and the next update removes its DOM node', async () => {
+        const removed = [];
+
+        Neo.applyDeltas = async (windowId, deltas) => {
+            [deltas].flat().forEach(delta => delta.action === 'removeNode' && removed.push(delta.id))
+        };
+
+        const
+            containerId = getUniqueId('race-retire-container'),
+            leaverId    = getUniqueId('race-retire-leaver'),
+            keeperId    = getUniqueId('race-retire-keeper');
+
+        createdComponentIds.push(containerId);
+
+        const container = Neo.create(RaceContainer, {
+            appName,
+            id   : containerId,
+            items: [
+                {module: RaceChildComponent, id: leaverId, hidden: false, text: 'leaves'},
+                {module: RaceChildComponent, id: keeperId, hidden: false, text: 'stays'}
+            ]
+        });
+
+        await container.initVnode(true);
+        container.mounted = true;
+        await container.promiseUpdate();
+
+        const originalUpdateBatch = VdomHelper.updateBatch;
+
+        VdomHelper.updateBatch = async data => {
+            await new Promise(resolve => setTimeout(resolve, 10));
+            return originalUpdateBatch.call(VdomHelper, data)
+        };
+
+        try {
+            // Depth 1: the children ride the payload as references, exactly the shape that lands stale.
+            container.updateDepth = 1;
+
+            const flight = container.promiseUpdate();
+
+            // Past the collection yield, before the deferred landing.
+            await new Promise(resolve => setTimeout(resolve, 3));
+            expect(container.isVdomUpdating, 'the parent flight is in the air').toBe(true);
+
+            container.remove(container.items[0], true, true);
+            expect(Neo.getComponent(leaverId), 'the leaver is retired').toBeFalsy();
+
+            // Pre-fix: the landing walk resolves the leaver's reference through the registry, throws
+            // "Component not found", and the flight rejects — a transaction awaiting it fails with it.
+            await flight;
+
+            expect(container.isVdomUpdating).toBe(false);
+            expect(JSON.stringify(container.vnode), 'the adopted vnode names no retired child').not.toContain(`"componentId":"${leaverId}"`);
+            expect(VNodeUtil.createMap(container.vnode).has(keeperId), 'the surviving child is still mapped').toBe(true);
+            expect(removed, 'the flight collected the leaver alive, so its DOM node is still there').toEqual([]);
+
+            await container.promiseUpdate();
+
+            expect(removed, 'and the next update removes it').toEqual([leaverId])
+        } finally {
+            VdomHelper.updateBatch = originalUpdateBatch
+        }
     });
 
     /**
@@ -95,23 +249,23 @@ test.describe('VdomLifecycle Race Condition', () => {
         };
 
         const containerId = getUniqueId('test-container');
-        const child1Id = getUniqueId('child-1');
-        const child2Id = getUniqueId('child-2');
+        const child1Id    = getUniqueId('child-1');
+        const child2Id    = getUniqueId('child-2');
         createdComponentIds.push(containerId); // Cleanup tracking
 
         const container = Neo.create(RaceContainer, {
             appName,
-            id: containerId,
+            id   : containerId,
             items: [{
                 module: RaceChildComponent,
-                id: child1Id,
+                id    : child1Id,
                 hidden: true,
-                text: 'Child 1'
+                text  : 'Child 1'
             }, {
                 module: RaceChildComponent,
-                id: child2Id,
+                id    : child2Id,
                 hidden: true,
-                text: 'Child 2'
+                text  : 'Child 2'
             }]
         });
 
@@ -144,6 +298,114 @@ test.describe('VdomLifecycle Race Condition', () => {
     });
 
     /**
+     * The in-flight registry reports a scope the payload no longer has.
+     *
+     * The depth is registered ONCE, when the cycle starts; the payload is built from
+     * `component.updateDepth` read LIVE after a macrotask yield. Between those two reads sits
+     * `Component#show()`, which sets `parent.updateDepth = -1` and calls `parent.update()` — so a
+     * header-action button becoming visible escalates its parent's depth mid-flight. That escalation
+     * is correct and these arms must never narrow it: a floating widget mounting into its parent
+     * needs the full tree.
+     *
+     * `isParentUpdating` and `hasUpdateCollision` both consult the REGISTERED depth, so every
+     * consumer of the collision contract is answered from a scope the payload no longer has. **That
+     * incoherence is the whole claim.** What it goes on to cause is not asserted here — a second
+     * overlapping flight was hypothesised and measured NOT to occur, because something further down
+     * still queues the sibling write, and the duplicate-render defect that hypothesis named was
+     * separate and separately cured.
+     *
+     * Reaching the window deterministically needs a SECOND cycle: `getVdomUpdatePayload` resets the
+     * depth to the config default by writing `_updateDepth`, so a container that has ever been at -1
+     * stays there until one payload is collected. The first drain below is what makes the window
+     * exist at all.
+     */
+    test.describe('a depth escalation arriving mid-flight', () => {
+        /**
+         * Opens a real second cycle and returns once it is genuinely in flight at depth 1.
+         * Returns false when the window could not be entered, so a caller can refuse to report a
+         * verdict it never observed.
+         */
+        const openSecondCycleAtDepthOne = async (container, child) => {
+            child.text = `${child.text} drain`;
+            await container.promiseUpdate();
+            await new Promise(resolve => setTimeout(resolve, 40));
+
+            child.text = `${child.text} again`;
+            container.update();
+
+            for (let i = 0; i < 40 && !container.isVdomUpdating; i++) {
+                await new Promise(resolve => setTimeout(resolve, 0))
+            }
+
+            return container.isVdomUpdating && VDomUpdate.getInFlightUpdateDepth(container.id) === 1
+        };
+
+        const buildContainer = async (containerId, hiddenId, siblingId) => {
+            const container = Neo.create(RaceContainer, {
+                appName,
+                id   : containerId,
+                items: [
+                    {module: RaceChildComponent, id: hiddenId,  hidden: true, text: 'Hidden'},
+                    {module: RaceChildComponent, id: siblingId, text: 'Sibling'}
+                ]
+            });
+
+            await container.initVnode(true);
+            container.mounted = true;
+            await new Promise(resolve => setTimeout(resolve, 40));
+
+            return container
+        };
+
+        test('reaches the collision check, while leaving the payload scope exactly as show() set it', async () => {
+            const containerId = getUniqueId('escalation-container');
+            createdComponentIds.push(containerId);
+
+            const container = await buildContainer(containerId, getUniqueId('hidden'), getUniqueId('sibling')),
+                  opened    = await openSecondCycleAtDepthOne(container, container.items[1]);
+
+            expect(opened, 'the depth-1 flight must be open, or this arm witnesses nothing').toBe(true);
+
+            // The real path: `hidden = false` runs Component#show().
+            container.items[0].hidden = false;
+
+            // The escalation itself is untouched. A floating widget mounting through show() still
+            // gets the full tree — narrowing this is the regression this arm exists to forbid.
+            expect(container.updateDepth, 'show() must still widen the payload to the full tree').toBe(-1);
+
+            // ...and the collision check now knows about it.
+            expect(
+                VDomUpdate.getInFlightUpdateDepth(containerId),
+                'the registered depth must track the scope the payload will be built from'
+            ).toBe(-1);
+
+            await new Promise(resolve => setTimeout(resolve, 60))
+        });
+
+        // A sibling arm lived here and was removed: it passed with the fix disabled, because
+        // `update()` tries `mergeIntoParentUpdate` BEFORE `isParentUpdating`, so in a plain
+        // container the sibling is absorbed by the merge and never reaches the collision check at
+        // all. It therefore witnessed nothing about this defect. The DOM-level consequence is
+        // covered at the component tier, where a real tab bar reaches the check; keeping a green
+        // arm here that cannot fail would have been worse than having none.
+
+        test('never narrows a flight: a reset written during collection cannot lower the record', () => {
+            const containerId = getUniqueId('escalation-guard');
+
+            VDomUpdate.registerInFlightUpdate(containerId, -1);
+
+            VDomUpdate.escalateInFlightUpdate(containerId, 1);
+            expect(VDomUpdate.getInFlightUpdateDepth(containerId), '-1 absorbs').toBe(-1);
+
+            VDomUpdate.unregisterInFlightUpdate(containerId);
+
+            // A component that is not in flight must not gain an entry.
+            VDomUpdate.escalateInFlightUpdate(containerId, -1);
+            expect(VDomUpdate.getInFlightUpdateDepth(containerId), 'no entry is created').toBeUndefined()
+        })
+    });
+
+    /**
      * Verifies that two siblings updating strictly their own internal structure (Depth 1)
      * do not cause conflicts or trigger unnecessary parent updates that lead to duplication.
      */
@@ -159,23 +421,23 @@ test.describe('VdomLifecycle Race Condition', () => {
         };
 
         const containerId = getUniqueId('test-container');
-        const child1Id = getUniqueId('child-1');
-        const child2Id = getUniqueId('child-2');
+        const child1Id    = getUniqueId('child-1');
+        const child2Id    = getUniqueId('child-2');
         createdComponentIds.push(containerId);
 
         const container = Neo.create(RaceContainer, {
             appName,
-            id: containerId,
+            id   : containerId,
             items: [{
                 module: RaceChildComponent,
-                id: child1Id,
+                id    : child1Id,
                 hidden: true, // Start hidden to mimic prev setup
-                text: 'Child 1'
+                text  : 'Child 1'
             }, {
                 module: RaceChildComponent,
-                id: child2Id,
+                id    : child2Id,
                 hidden: true, // Start hidden
-                text: 'Child 2'
+                text  : 'Child 2'
             }]
         });
 
@@ -227,18 +489,18 @@ test.describe('VdomLifecycle Race Condition', () => {
         };
 
         const containerId = getUniqueId('test-container');
-        const child1Id = getUniqueId('child-1');
-        const child2Id = getUniqueId('child-2'); // Add second child to match structure if needed, or stick to 1
+        const child1Id    = getUniqueId('child-1');
+        const child2Id    = getUniqueId('child-2'); // Add second child to match structure if needed, or stick to 1
         createdComponentIds.push(containerId);
 
         const container = Neo.create(RaceContainer, {
             appName,
-            id: containerId,
+            id   : containerId,
             items: [{
                 module: RaceChildComponent,
-                id: child1Id,
+                id    : child1Id,
                 hidden: true,
-                text: 'Child 1'
+                text  : 'Child 1'
             }]
         });
 
@@ -249,10 +511,10 @@ test.describe('VdomLifecycle Race Condition', () => {
         // Ensure visible
         child1.hidden = false;
         await container.promiseUpdate();
-        
+
         // Wait for any potential late-arriving deltas or queued updates to clear
         await new Promise(resolve => setTimeout(resolve, 50));
-        
+
         capturedDeltas.length = 0;
 
         // Parent updates its own property (e.g. style) - Depth 1
@@ -289,17 +551,17 @@ test.describe('VdomLifecycle Race Condition', () => {
         };
 
         const containerId = getUniqueId('test-container');
-        const child1Id = getUniqueId('child-1');
+        const child1Id    = getUniqueId('child-1');
         createdComponentIds.push(containerId);
 
         const container = Neo.create(RaceContainer, {
             appName,
-            id: containerId,
+            id   : containerId,
             items: [{
                 module: RaceChildComponent,
-                id: child1Id,
+                id    : child1Id,
                 hidden: true,
-                text: 'Child 1'
+                text  : 'Child 1'
             }]
         });
 

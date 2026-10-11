@@ -42,22 +42,22 @@ class HelixModel extends Model {
     onContainerClick() {
         let me       = this,
             {view}   = me,
-            oldItems = [...me.items],
-            deltas   = [];
+            oldItems = [...me.items];
 
+        // Same correction as GalleryModel.onContainerClick, for the same reason: the previous
+        // Neo.applyDeltas list wrote the DOM and left the vdom still annotated, so the two trees
+        // disagreed about what was selected. deannotateItem removes both neo-selected and
+        // aria-selected, and the differ carries it.
         me.items.forEach(item => {
-            deltas.push({
-                id : view.getItemVnodeId(item),
-                cls: {
-                    add   : [],
-                    remove: ['neo-selected']
-                }
-            });
+            me.deannotateItem(view.getVdomChild(me.getItemVdomId(item)))
         });
 
         me.items.splice(0, me.items.length);
 
-        Neo.applyDeltas(view.windowId, deltas).then(() => {
+        // Same ordering contract as GalleryModel.onContainerClick: settle the DOM, then fire. The
+        // event carried a DOM-is-current guarantee under the old applyDeltas().then(...) shape, and
+        // a synchronous fire after a void update() would silently withdraw it.
+        view.promiseUpdate().then(() => {
             me.fire('selectionChange', me.items, oldItems)
         })
     }
@@ -216,6 +216,21 @@ class HelixModel extends Model {
     }
 
     /**
+     * @summary Resolves a tracked record id to the prefixed vnode id the view's items actually carry.
+     *
+     * {@link Neo.selection.HelixModel#select select()} tracks the **logical** record id, while
+     * `Helix#createItem` keys each item node as `getItemVnodeId(recordId)` → `${view.id}__${recordId}`.
+     * The base implementation is identity, which resolves nothing against this view.
+     *
+     * @param {String} item Tracked record id
+     * @returns {String}
+     * @protected
+     */
+    getItemVdomId(item) {
+        return this.view?.getItemVnodeId(item) ?? item
+    }
+
+    /**
      * @param {String} itemId
      * @param {Boolean} [toggleSelection=true]
      */
@@ -259,6 +274,8 @@ class HelixModel extends Model {
                             remove: ['neo-selected']
                         }
                     });
+
+                    me.deannotateItem(view.getVdomChild(view.getItemVnodeId(item)))
                 }
             });
 
@@ -272,6 +289,14 @@ class HelixModel extends Model {
                 remove: isSelected ? ['neo-selected'] : []
             }
         });
+
+        // The delta reaches the DOM immediately; this puts the SAME annotation on the vdom, which is what
+        // `restoreSelection` reads after a rebuild. Without it the vdom never carries the selection, so
+        // `aria-selected` is absent until a restore INVENTS it — and a sort that introduces ARIA for the
+        // first time has not preserved anything. One annotation owner, both paths, both directions.
+        const node = view.getVdomChild(view.getItemVnodeId(itemId));
+
+        isSelected ? me.deannotateItem(node) : me.annotateItem(node);
 
         NeoArray[isSelected ? 'remove' : 'add'](items, itemId);
 

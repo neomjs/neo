@@ -1,0 +1,704 @@
+import {setup} from '../../setup.mjs';
+
+setup({
+    appConfig: {
+        name: 'DashboardDockTearOutTest'
+    },
+    // The machine touches no platform facade: every effect is a seam, so both mocks stay disabled.
+    mockLocalStorage: false,
+    mockMain        : false
+});
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import TearOut        from '../../../../src/dashboard/dock/window/TearOut.mjs';
+
+/**
+ * @summary A subclass that observes the internal retirement every gesture terminal dispatches.
+ */
+class ObservedTearOut extends TearOut {
+    static config = {className: 'Test.Unit.DockTearOut.Observed'}
+
+    /** @summary Records the vessel, then retires it as the base would. @param {Object} vessel @returns {Boolean|Promise<Boolean>} */
+    retireVessel(vessel) {
+        (this.observedRetirements ??= []).push(vessel);
+        return super.retireVessel(vessel)
+    }
+}
+
+Neo.setupClass(ObservedTearOut);
+
+/**
+ * @summary A subclass whose internal retirement comes from `Neo.overwrites`, applied at class setup.
+ */
+class OverwrittenTearOut extends TearOut {
+    static config = {className: 'Test.Unit.DockTearOut.Overwritten'}
+}
+
+const previousOverwrites = Neo.overwrites;
+
+Neo.overwrites = {Test: {Unit: {DockTearOut: {Overwritten: {
+    retireVessel(vessel) {
+        this.overwrittenRetirement = vessel;
+        return false
+    }
+}}}}};
+
+try {
+    Neo.setupClass(OverwrittenTearOut)
+} finally {
+    Neo.overwrites = previousOverwrites
+}
+
+/**
+ * @summary The tear-out admission machine, driven end-to-end through its injected seams.
+ *
+ * Every witness here is a choreography-contract pin: admission fails CLOSED (a blocked popup
+ * degrades the gesture to its in-window fallback — the base armed the detached state before the
+ * exit event, so the machine must actively end it), the model commits exactly once at the
+ * detached terminal (never at a boundary), re-entry/cancel retire the vessel with zero mutation,
+ * and a committed tear-out KEEPS its vessel while a refused commit retires it. The seams are the
+ * assertion surface — the machine exposes nothing else.
+ */
+test.describe('Neo.dashboard.dock.window.TearOut', () => {
+    const harness = ({
+        admit = true, closeResult = true, commitErrors = [], commitThrows = false, openResult = null,
+        commitReturn = null, refresh = null, cls = TearOut, publish = null
+    } = {}) => {
+        const calls = {applied: [], closed: [], ended: 0, opened: [], published: [], returns: [], started: [], synced: []};
+
+        const sortZone = {
+            endWindowDrag  : () => calls.ended++,
+            startWindowDrag: data => calls.started.push(data)
+        };
+
+        const handlers = Neo.create(cls, {
+            applyOperation  : operation => {
+                calls.applied.push(operation);
+                if (commitThrows) throw new Error('host reducer exploded');
+                return commitErrors.length
+                    ? {document: null, errors: commitErrors}
+                    : {document: {committed: true, detached: operation.itemId}, errors: []}
+            },
+            closeVessel     : vessel => {
+                calls.closed.push(vessel);
+                return typeof closeResult === 'function' ? closeResult(vessel) : closeResult
+            },
+            onDocumentChange: (document, operation) => {
+                calls.synced.push({document, operation});
+                return publish ? publish(document, operation) : undefined
+            },
+            openVessel      : async request => {
+                calls.opened.push(request);
+                if (openResult) return openResult(request);
+                return admit ? {popupHeight: 480, popupWidth: 640, windowName: `vessel-${request.itemId}`} : null
+            },
+
+            // The return path's seams. `awaitRefresh` defaults to an ALREADY-SETTLED promise on
+            // purpose: that is the production shape when no projection is pending, and it is the
+            // condition under which awaiting only the refresh witnesses nothing at all.
+            awaitRefresh: () => refresh ? refresh() : Promise.resolve(),
+            commitReturn: document => {
+                calls.published.push(document);
+                return commitReturn ? commitReturn(document) : undefined
+            },
+            findContainingTabsId   : () => null,
+            getDocument            : () => ({items: {graph: {}}, nodes: {'tabs-1': {type: 'tabs', items: []}}}),
+            onAdoptionFailed       : () => {},
+            onPaneAdopted          : () => {},
+            onPaneReturn           : data => calls.returns.push(data),
+            reparentPane           : () => true,
+            resolvePane            : () => null,
+            resolveReturnDescriptor: (document, itemId) => ({operation: 'restoreTab', itemId, tabsNodeId: 'tabs-1'}),
+            settlePane             : () => {}
+        });
+
+        return {calls, handlers, sortZone}
+    };
+
+    const exitData = (sortZone, itemId = 'graph') => ({itemId, proxyRect: {x: 5, y: 6, width: 640, height: 430}, sortZone});
+
+    test('failed admission fails CLOSED: embodiment ended, pointer-follow never engaged, and a later terminal commits nothing', async () => {
+        const {calls, handlers, sortZone} = harness({admit: false});
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(calls.opened).toHaveLength(1);           // the host WAS asked (Boolean windowOpen is its check)
+        expect(calls.ended).toBe(1);                    // the base armed the detached state pre-event — degrade must end it
+        expect(calls.started).toHaveLength(0);          // the OS pointer-follow never engages without a vessel
+
+        handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+
+        expect(calls.applied, 'no admitted vessel = nothing to commit').toHaveLength(0);
+        expect(calls.closed).toHaveLength(0)
+    });
+
+    test('an admitted vessel engages the pointer-follow with the vessel geometry + the original gesture data', async () => {
+        const {calls, handlers, sortZone} = harness();
+        const data                        = exitData(sortZone);
+
+        await handlers.onDockTearOutExit(data);
+
+        // `gestureToken` is the pair's own correlation id, echoed unread by the host; `sourceRect`
+        // is the card body the zone measured at arming, null when it did not
+        expect(calls.opened[0]).toEqual({
+            gestureToken: 1, itemId: 'graph', proxyRect: data.proxyRect, sortZone, sourceRect: null
+        });
+        expect(calls.ended).toBe(0);
+        expect(calls.started).toEqual([{
+            dragData: data, popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'
+        }])
+    });
+
+    test('the detached terminal commits detachItem EXACTLY once, syncs the committed document, and the vessel STAYS', async () => {
+        const {calls, handlers, sortZone} = harness();
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+        handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+
+        expect(calls.applied).toEqual([{operation: 'detachItem', itemId: 'graph'}]);
+        expect(calls.synced).toEqual([{
+            document : {committed: true, detached: 'graph'},
+            operation: {operation: 'detachItem', itemId: 'graph'}
+        }]);
+        expect(calls.closed, 'a committed tear-out keeps its vessel — it owns the item now').toHaveLength(0);
+
+        // the slot is consumed: a duplicate terminal (stale event) commits nothing further
+        handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+        expect(calls.applied).toHaveLength(1)
+    });
+
+    test('a composed remote terminal retires the exact active vessel once without model mutation', async () => {
+        const {calls, handlers, sortZone} = harness();
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(handlers.retireActiveVessel({itemId: 'inbox', windowName: 'vessel-graph'}),
+            'other-item retirement is inert').toBe(false);
+        expect(handlers.retireActiveVessel({itemId: 'graph', windowName: 'vessel-imposter'}),
+            'same-item wrong-window retirement is inert').toBe(false);
+        expect(handlers.retireActiveVessel({itemId: 'graph', windowName: 'vessel-graph'})).toBe(true);
+        expect(handlers.retireActiveVessel({itemId: 'graph', windowName: 'vessel-graph'}),
+            'duplicate retirement is inert').toBe(false);
+
+        handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+        handlers.onDockTearOutCancel({itemId: 'graph', sortZone});
+
+        expect(calls.applied).toHaveLength(0);
+        expect(calls.closed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}])
+    });
+
+    test('a model refusal at the terminal retires the vessel instead of syncing — no window survives showing a still-docked item', async () => {
+        const {calls, handlers, sortZone} = harness({commitErrors: ['item "graph" is not in the tree']});
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+        handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+
+        expect(calls.applied).toHaveLength(1);
+        expect(calls.synced).toHaveLength(0);
+        expect(calls.closed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}])
+    });
+
+    test('a THROWING host reducer lands on the refusal path — vessel retired, no sync, no propagated throw (the orphan guard)', async () => {
+        const {calls, handlers, sortZone} = harness({commitThrows: true});
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        // a throw is a host bug, but it must normalize to the refusal path: an uncaught throw
+        // here would skip closeVessel and orphan the window — the exact class the machine prevents
+        expect(() => handlers.onDockTearOutTerminal({itemId: 'graph', sortZone})).not.toThrow();
+
+        expect(calls.applied).toHaveLength(1);
+        expect(calls.synced).toHaveLength(0);
+        expect(calls.closed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}])
+    });
+
+    test('re-entry retires the vessel with ZERO model mutation and resumes the in-window embodiment', async () => {
+        const {calls, handlers, sortZone} = harness();
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+        handlers.onDockTearOutEntry({itemId: 'graph', sortZone});
+
+        expect(calls.closed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}]);
+        expect(calls.ended).toBe(1);
+        expect(calls.applied).toHaveLength(0);
+
+        // entry without a vessel (nothing admitted) still resumes the embodiment, retires nothing
+        handlers.onDockTearOutEntry({itemId: 'graph', sortZone});
+        expect(calls.closed).toHaveLength(1);
+        expect(calls.ended).toBe(2)
+    });
+
+    test('cancel while detached retires the vessel with zero mutation — base cleanup owns the embodiment teardown', async () => {
+        const {calls, handlers, sortZone} = harness();
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+        handlers.onDockTearOutCancel({itemId: 'graph', sortZone});
+
+        expect(calls.closed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}]);
+        expect(calls.applied).toHaveLength(0);
+        expect(calls.ended, 'cancel ends the drag — no embodiment to resume').toBe(0)
+    });
+
+    for (const [terminal, terminate] of [
+        ['cancel',   (handlers, sortZone) => handlers.onDockTearOutCancel({itemId: 'graph', sortZone})],
+        ['re-entry', (handlers, sortZone) => handlers.onDockTearOutEntry({itemId: 'graph', sortZone})],
+        ['release',  (handlers, sortZone) => handlers.onDockTearOutTerminal({itemId: 'graph', sortZone})]
+    ]) {
+        test(`a deferred vessel admission resolving after ${terminal} is retired and never published`, async () => {
+            let resolveOpen;
+
+            const {calls, handlers, sortZone} = harness({
+                openResult: () => new Promise(resolve => resolveOpen = resolve)
+            });
+
+            const admission = handlers.onDockTearOutExit(exitData(sortZone));
+
+            expect(terminate(handlers, sortZone), 'the terminal invalidates provisional authority').toBe(false);
+
+            resolveOpen({generation: 17, popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'});
+
+            await expect(admission).resolves.toBe(false);
+            expect(calls.started, 'a dead gesture can never start pointer-follow').toHaveLength(0);
+            expect(calls.closed, 'the late physical result is cleanup-only authority').toEqual([{
+                itemId: 'graph', windowName: 'vessel-graph'
+            }]);
+            expect(calls.applied, 'no terminal may adopt a late admission').toHaveLength(0);
+            expect(handlers.activeVessel).toBeNull()
+        })
+    }
+
+    // A pointer drag crosses the windows of its group: a claimed window retires the vessel and leaving it
+    // opens a fresh one. A fast hand can leave that window before the first vessel was even admitted, and
+    // the exit fires once per crossing.
+    for (const comesBack of [false, true]) {
+        test(`an exit while the previous admission is pending waits for it, ${comesBack ? 'and stands down once the drag came back in' : 'then admits a fresh vessel'}`, async () => {
+            let attempt = 0,
+                resolveOpen;
+
+            const {calls, handlers, sortZone} = harness({
+                openResult: request => ++attempt === 1
+                    ? new Promise(resolve => resolveOpen = resolve)
+                    : {gestureToken: request.gestureToken, popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'}
+            });
+
+            sortZone.isWindowDragging = true;
+
+            const first = handlers.onDockTearOutExit(exitData(sortZone));
+
+            // a window of the group claims the pointer, then the hand leaves it before the admission settles
+            handlers.onDockTearOutEntry({itemId: 'graph', sortZone});
+
+            const second = handlers.onDockTearOutExit(exitData(sortZone));
+
+            sortZone.isWindowDragging = !comesBack;
+            resolveOpen({gestureToken: 1, popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'});
+
+            await expect(first).resolves.toBe(false);
+            expect(calls.closed, 'the first vessel, admitted after the claim, retires').toHaveLength(1);
+
+            if (comesBack) {
+                await expect(second).resolves.toBe(false);
+                expect(calls.opened, 'a drag back inside acquires nothing').toHaveLength(1);
+                expect(handlers.activeVessel).toBeNull()
+            } else {
+                await expect(second, 'the second crossing waits instead of being refused').resolves.toBe(true);
+                expect(calls.opened).toHaveLength(2);
+                expect(calls.started).toHaveLength(1);
+                expect(handlers.activeVessel).toEqual({itemId: 'graph', windowName: 'vessel-graph'})
+            }
+        })
+    }
+
+    test('an externally retired pending admission stays dead and a successor exit admits fresh', async () => {
+        let attempt = 0,
+            resolveOpen;
+
+        const {calls, handlers, sortZone} = harness({
+            openResult: request => ++attempt === 1
+                ? new Promise(resolve => resolveOpen = resolve)
+                : {
+                    gestureToken: request.gestureToken,
+                    popupHeight : 480,
+                    popupWidth  : 640,
+                    windowName  : 'vessel-graph'
+                }
+        });
+
+        const first = handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(handlers.onVesselRetired({
+            gestureToken: 1,
+            itemId      : 'graph',
+            windowName  : 'vessel-graph'
+        })).toBe(true);
+
+        resolveOpen({gestureToken: 1, windowName: 'vessel-graph'});
+
+        await expect(first).resolves.toBe(false);
+        expect(calls.closed, 'the already-dead physical generation is not closed by semantic name').toHaveLength(0);
+        expect(handlers.activeVessel).toBeNull();
+
+        await expect(handlers.onDockTearOutExit(exitData(sortZone))).resolves.toBe(true);
+        expect(calls.started).toHaveLength(1);
+        expect(handlers.activeVessel).toEqual({itemId: 'graph', windowName: 'vessel-graph'})
+    });
+
+    test('a retirement presenting a superseded lineage token clears nothing; the live vessel survives it', async () => {
+        // The host's admission carries the slot's lineage token; a successor admission for the same
+        // item shares the window name, never the token. A stale retirement — the old generation's
+        // disconnect arriving after its successor bound — must not clear the successor's vessel.
+        const {handlers, sortZone} = harness({
+            openResult: () => ({generationToken: 'lineage-2', popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph', workspaceKey: 'popup:graph'})
+        });
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(handlers.activeVessel).toEqual({
+            generationToken: 'lineage-2', itemId: 'graph', windowName: 'vessel-graph', workspaceKey: 'popup:graph'
+        });
+
+        expect(handlers.onVesselRetired({generationToken: 'lineage-1', itemId: 'graph', windowName: 'vessel-graph'}),
+            'the superseded lineage names no vessel this machine holds').toBe(false);
+        expect(handlers.activeVessel, 'the live vessel survives the stale retirement').toMatchObject({generationToken: 'lineage-2'});
+
+        expect(handlers.onVesselRetired({generationToken: 'lineage-2', itemId: 'graph', windowName: 'vessel-graph'}),
+            'the exact lineage retires it').toBe(true);
+        expect(handlers.activeVessel).toBeNull()
+    });
+
+    test('a close request presenting a superseded lineage token closes nothing; the exact lineage closes it', async () => {
+        // The dispose retry of a conversion carries the lineage its first call addressed. A successor
+        // admitted under the same name while that retry waited must not be the one it closes.
+        const {calls, handlers, sortZone} = harness({
+            openResult: () => ({generationToken: 'lineage-2', popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph', workspaceKey: 'popup:graph'})
+        });
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(handlers.retireActiveVessel({generationToken: 'lineage-1', itemId: 'graph', windowName: 'vessel-graph'}),
+            'a close bound to the old generation names no vessel this machine holds').toBe(false);
+        expect(handlers.activeVessel, 'the successor survives the stale close').toMatchObject({generationToken: 'lineage-2'});
+        expect(calls.closed).toHaveLength(0);
+
+        expect(handlers.retireActiveVessel({generationToken: 'lineage-2', itemId: 'graph', windowName: 'vessel-graph'}),
+            'the exact lineage closes it').toBe(true);
+        expect(calls.closed).toHaveLength(1);
+        expect(calls.closed[0]).toMatchObject({generationToken: 'lineage-2', itemId: 'graph', windowName: 'vessel-graph'});
+        expect(handlers.activeVessel).toBeNull()
+    });
+
+    test('an explicit close refusal retains the active vessel and coalesces one in-flight retirement', async () => {
+        let resolveClose,
+            attempt = 0;
+
+        const closeResult                 = new Promise(resolve => resolveClose = resolve),
+              {calls, handlers, sortZone} = harness({
+                  closeResult: () => ++attempt === 1 ? closeResult : true
+              });
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        const first  = handlers.onDockTearOutCancel({itemId: 'graph', sortZone}),
+              second = handlers.onDockTearOutCancel({itemId: 'graph', sortZone});
+
+        expect(calls.closed).toHaveLength(1);
+
+        resolveClose(false);
+
+        await expect(first).resolves.toBe(false);
+        await expect(second).resolves.toBe(false);
+
+        // Refusal preserves the private slot, so a later exact retry remains possible.
+        expect(handlers.activeVessel).toEqual({itemId: 'graph', windowName: 'vessel-graph'});
+        expect(handlers.retireActiveVessel({itemId: 'graph', windowName: 'vessel-graph'})).toBe(true);
+        expect(calls.closed).toHaveLength(2);
+        expect(handlers.activeVessel).toBeNull()
+    });
+
+    test('an externally observed exact disconnect clears a retained refusal without closing again', async () => {
+        const {calls, handlers, sortZone} = harness({closeResult: false});
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+        expect(handlers.onDockTearOutCancel({itemId: 'graph', sortZone})).toBe(false);
+
+        expect(handlers.onVesselRetired({itemId: 'other', windowName: 'vessel-graph'})).toBe(false);
+        expect(handlers.onVesselRetired({itemId: 'graph', windowName: 'vessel-graph'})).toBe(true);
+        expect(handlers.activeVessel).toBeNull();
+        expect(calls.closed).toHaveLength(1)
+    });
+
+    test('the hysteresis re-crossing arc: exit → entry → exit → terminal yields two vessels, ONE commit, one retirement', async () => {
+        const {calls, handlers, sortZone} = harness();
+
+        await handlers.onDockTearOutExit(exitData(sortZone));    // vessel 1 admitted
+        handlers.onDockTearOutEntry({itemId: 'graph', sortZone}); // vessel 1 retired, zero mutation
+        await handlers.onDockTearOutExit(exitData(sortZone));    // vessel 2 admitted
+        handlers.onDockTearOutTerminal({itemId: 'graph', sortZone}); // vessel 2 commits + stays
+
+        expect(calls.opened).toHaveLength(2);
+        expect(calls.closed).toHaveLength(1);
+        expect(calls.applied).toEqual([{operation: 'detachItem', itemId: 'graph'}]);
+        expect(calls.synced).toHaveLength(1)
+    });
+
+    test('a host that answers by IDENTITY adopts even when this machine can see no pane', () => {
+        // The regression this pins was caught by a real pop-out e2e, not here, and e2e does not run
+        // in the PR matrix — so the guard belongs at this tier or it does not exist.
+        //
+        // Adoption used to resolve the pane itself and refuse when it found none. `apps/workstation`
+        // answers by identity: it promotes an already-staged vessel embodiment, and otherwise reads
+        // its own `paneCache` — neither reachable from the projected tree this machine searches. The
+        // refusal therefore compensated, closed the just-opened vessel, and the user saw a pop-out
+        // that opened a window and killed it. The pane is OFFERED; only the host's `false` refuses.
+        const adopted = [];
+
+        const handlers = Neo.create(TearOut, {
+            applyOperation         : () => ({document: {}, errors: []}),
+            awaitRefresh           : () => Promise.resolve(),
+            closeVessel            : () => true,
+            commitReturn           : () => {},
+            findContainingTabsId   : () => null,
+            getDocument            : () => ({items: {}, nodes: {}}),
+            onAdoptionFailed       : () => {},
+            onDocumentChange       : () => {},
+            onPaneAdopted          : (itemId, entry) => adopted.push({itemId, entry}),
+            onPaneReturn           : () => {},
+            openVessel             : async () => null,
+            resolvePane            : () => null,          // this machine can see nothing
+            reparentPane           : () => true,          // the host answers by identity anyway
+            resolveReturnDescriptor: () => null,
+            settlePane             : () => {}
+        });
+
+        expect(() => handlers.adoptPane('commits', {}, {windowId: 'vessel-win'}),
+            'a host that says yes must not be overruled by a null lookup').not.toThrow();
+
+        expect(adopted.at(-1), 'and the window binding still merges into the ownership record')
+            .toMatchObject({itemId: 'commits', entry: {windowId: 'vessel-win'}});
+
+        expect(handlers.reparentAdopted('commits', {windowId: 'vessel-win'}),
+            'the connect-race partner offers the pane the same way').toBe(true);
+    });
+
+    test('control: a host that REFUSES still compensates, so the offer is not a blanket admission', () => {
+        const closed = [];
+
+        const handlers = Neo.create(TearOut, {
+            applyOperation         : () => ({document: {}, errors: []}),
+            awaitRefresh           : () => Promise.resolve(),
+            closeVessel            : vessel => {closed.push(vessel); return true},
+            commitReturn           : () => {},
+            findContainingTabsId   : () => null,
+            getDocument            : () => ({items: {}, nodes: {}}),
+            onAdoptionFailed       : () => {},
+            onDocumentChange       : () => {},
+            onPaneAdopted          : () => {},
+            onPaneReturn           : () => {},
+            openVessel             : async () => null,
+            resolvePane            : () => null,
+            reparentPane           : () => false,         // the host itself declines
+            resolveReturnDescriptor: () => null,
+            settlePane             : () => {}
+        });
+
+        expect(() => handlers.adoptPane('commits', {}, {windowId: 'vessel-win'})).toThrow(/could not enter its admitted vessel/);
+        expect(closed, 'the vessel the host refused is retired').toHaveLength(1);
+        expect(handlers.reparentAdopted('commits', {windowId: 'vessel-win'})).toBe(false)
+    });
+
+    test.describe('the return waits for its PUBLICATION, not only for the refresh', () => {
+        // The defect these pin: `settle()` published without awaiting, then awaited a refresh that
+        // — already settled — resolved immediately, so the return reported `returned: true` against
+        // a publication that had not landed and could still refuse. The
+        // already-settled refresh is the default here for exactly that reason: it is the condition
+        // under which the second barrier witnesses nothing, so these arms fail if the first is dropped.
+
+        test('a DELAYED publication holds the return pending — the settled refresh cannot stand in for it', async () => {
+            let release;
+
+            const {calls, handlers} = harness({commitReturn: () => new Promise(resolve => {release = resolve})});
+
+            let settled = false;
+
+            const pending = handlers.reintegrateItem('graph', null).then(result => {
+                settled = true;
+                return result
+            });
+
+            // Two microtask turns: enough for the already-settled `awaitRefresh` to have resolved
+            // several times over, which is precisely what the defect rode on.
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(calls.published, 'the host WAS asked to publish').toHaveLength(1);
+            expect(settled, 'the return must NOT have reported while publication is in flight').toBe(false);
+            expect(calls.returns.some(entry => entry.phase === 'after'),
+                'and no after-report may exist yet').toBe(false);
+
+            release();
+
+            expect(await pending, 'once publication lands, the return succeeds').toBe(true);
+            expect(calls.returns.at(-1)).toMatchObject({phase: 'after', returned: true})
+        });
+
+        test('a REFUSED publication fails the return rather than reporting success', async () => {
+            const {calls, handlers} = harness({commitReturn: () => Promise.resolve(false)});
+
+            expect(await handlers.reintegrateItem('graph', null)).toBe(false);
+            expect(calls.returns.at(-1)).toMatchObject({phase: 'after', returned: false})
+        });
+
+        test('a publication that THROWS synchronously is a failed return, not an escaped throw', async () => {
+            const {calls, handlers} = harness({
+                commitReturn: () => { throw new Error('host publication exploded') }
+            });
+
+            // Before the repair this throw left `settle()` entirely, past the failure report the
+            // caller depends on — a rejected promise where a `false` was owed.
+            expect(await handlers.reintegrateItem('graph', null)).toBe(false);
+            expect(calls.returns.at(-1)).toMatchObject({phase: 'after', returned: false});
+            expect(calls.returns.at(-1).error, 'the cause travels with the failure').toBeTruthy()
+        });
+
+        test('control: a synchronous publication still succeeds, so the barrier is not simply refusing', async () => {
+            const {calls, handlers} = harness();
+
+            expect(await handlers.reintegrateItem('graph', null)).toBe(true);
+            expect(calls.published).toHaveLength(1);
+            expect(calls.returns.at(-1)).toMatchObject({phase: 'after', returned: true})
+        });
+    });
+
+    test('a terminal for a DIFFERENT item than the admitted vessel commits nothing (stale-identity guard)', async () => {
+        const {calls, handlers, sortZone} = harness();
+
+        await handlers.onDockTearOutExit(exitData(sortZone, 'graph'));
+        handlers.onDockTearOutTerminal({itemId: 'inbox', sortZone});
+
+        expect(calls.applied).toHaveLength(0);
+        expect(calls.synced).toHaveLength(0)
+    });
+
+    test.describe('extension reaches the behavior a gesture runs', () => {
+        test('a subclass override of the internal retirement runs when re-entry retires the vessel', async () => {
+            const {calls, handlers, sortZone} = harness({cls: ObservedTearOut});
+
+            await handlers.onDockTearOutExit(exitData(sortZone));
+            await handlers.onDockTearOutEntry({itemId: 'graph', sortZone});
+
+            expect(handlers.observedRetirements, 'the entry dispatched through the instance').toEqual([{itemId: 'graph', windowName: 'vessel-graph'}]);
+            expect(calls.closed, 'and the base retirement still closed the vessel').toHaveLength(1);
+            expect(handlers.activeVessel).toBeNull()
+        });
+
+        test('a Neo.overwrites entry replaces the internal retirement a cancel dispatches', async () => {
+            const {calls, handlers, sortZone} = harness({cls: OverwrittenTearOut});
+
+            await handlers.onDockTearOutExit(exitData(sortZone));
+
+            expect(handlers.onDockTearOutCancel({itemId: 'graph', sortZone}), 'the overwrite answered the cancel').toBe(false);
+            expect(handlers.overwrittenRetirement).toEqual({itemId: 'graph', windowName: 'vessel-graph'});
+            expect(calls.closed, 'the base retirement never ran').toHaveLength(0);
+            expect(handlers.activeVessel, 'a refused retirement keeps the slot').toEqual({itemId: 'graph', windowName: 'vessel-graph'})
+        });
+
+        test('control: the unextended class closes through its own retirement', async () => {
+            const {calls, handlers, sortZone} = harness();
+
+            await handlers.onDockTearOutExit(exitData(sortZone));
+
+            expect(handlers.onDockTearOutCancel({itemId: 'graph', sortZone})).toBe(true);
+            expect(calls.closed).toHaveLength(1)
+        })
+    });
+
+    test.describe('destruction', () => {
+        test('releases held panes without destroying them, and a late admission revives nothing', async () => {
+            let resolveOpen;
+
+            const pane = {destroyed: false, isDestroyed: false, destroy() {this.destroyed = true}};
+
+            const {calls, handlers, sortZone} = harness({
+                openResult: () => new Promise(resolve => resolveOpen = resolve)
+            });
+
+            handlers.resolvePane = () => pane;
+
+            expect(handlers.capturePane('graph')).toBe(true);
+
+            const exit = handlers.onDockTearOutExit(exitData(sortZone));
+
+            handlers.destroy();
+            resolveOpen({popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'});
+
+            expect(await exit, 'a destroyed owner admits nothing').toBe(false);
+            expect(calls.started, 'pointer-follow never engages for a dead owner').toHaveLength(0);
+            expect(calls.closed, 'the window belongs to the Group, not to this destructor').toHaveLength(0);
+            expect(pane.destroyed, 'a borrowed pane survives its holder').toBe(false);
+            expect(handlers.isDestroyed).toBe(true)
+        });
+
+        test('control: the same admission without destruction engages pointer-follow', async () => {
+            let resolveOpen;
+
+            const {calls, handlers, sortZone} = harness({
+                openResult: () => new Promise(resolve => resolveOpen = resolve)
+            });
+
+            const exit = handlers.onDockTearOutExit(exitData(sortZone));
+
+            resolveOpen({popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'});
+
+            expect(await exit).toBe(true);
+            expect(calls.started).toHaveLength(1)
+        });
+
+        // The terminal awaits an asynchronous publication. A destruction inside that wait must leave the
+        // owner dead: no answer, no revived slot, no retirement.
+        for (const outcome of ['refused', 'rejected', 'admitted']) {
+            test(`a publication ${outcome} after destruction reports false and revives nothing`, async () => {
+                let settle;
+
+                const {calls, handlers, sortZone} = harness({
+                    publish: () => new Promise((resolve, reject) => settle = {resolve, reject})
+                });
+
+                await handlers.onDockTearOutExit(exitData(sortZone));
+
+                const terminal = handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+
+                handlers.destroy();
+
+                outcome === 'rejected'
+                    ? settle.reject(new Error('the Group refused the publication'))
+                    : settle.resolve(outcome === 'admitted');
+
+                expect(await terminal, 'a dead owner reports no commit').toBe(false);
+                expect(Object.hasOwn(handlers, 'activeVessel'), 'no slot is recreated on the dead owner').toBe(false);
+                expect(calls.closed, 'no retirement runs for a dead owner').toHaveLength(0)
+            })
+        }
+
+        for (const outcome of ['refused', 'admitted']) {
+            test(`control: a live owner's ${outcome} publication ${outcome === 'refused' ? 'retires the vessel once' : 'reports the commit'}`, async () => {
+                let settle;
+
+                const {calls, handlers, sortZone} = harness({
+                    publish: () => new Promise(resolve => settle = resolve)
+                });
+
+                await handlers.onDockTearOutExit(exitData(sortZone));
+
+                const terminal = handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+
+                settle(outcome === 'admitted');
+
+                expect(await terminal).toBe(true);
+                expect(calls.closed).toHaveLength(outcome === 'refused' ? 1 : 0);
+                expect(handlers.activeVessel).toBeNull()
+            })
+        }
+    })
+});

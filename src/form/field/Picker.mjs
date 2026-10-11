@@ -5,7 +5,10 @@ import Text          from './Text.mjs';
 
 /**
  * The abstract picker field provides an arrow down trigger which opens a floating container to provide
- * more data selection options
+ * more data selection options. The field and picker form one focus/pointer interaction island: while
+ * visible, one listener on the owning app main view dismisses the picker on outside pointer input even
+ * when the target is non-focusable and browser focus remains on the field.
+ *
  * @class Neo.form.field.Picker
  * @extends Neo.form.field.Text
  * @abstract
@@ -37,6 +40,7 @@ class Picker extends Text {
          * @member {Object} keys
          */
         keys: {
+            Down  : 'onKeyDownDown',
             Enter : 'onKeyDownEnter',
             Escape: 'onKeyDownEscape'
         },
@@ -73,6 +77,12 @@ class Picker extends Text {
          */
         pickerWidth: null,
         /**
+         * True opens the closed picker on Enter. A host whose Enter means something else turns it off and keeps the
+         * key: {@link Neo.grid.plugin.CellEditing} commits on it.
+         * @member {Boolean} showPickerOnEnter=true
+         */
+        showPickerOnEnter: true,
+        /**
          * @member {Boolean} showPickerOnFocus=false
          * @protected
          */
@@ -86,6 +96,19 @@ class Picker extends Text {
             module: PickerTrigger
         }]
     }
+
+    /**
+     * The exact listener config attached to the owning app's main view while the picker is visible.
+     * @member {Object|null} outsidePointerListener=null
+     * @protected
+     */
+    outsidePointerListener = null
+    /**
+     * The main view currently carrying `outsidePointerListener`.
+     * @member {Neo.component.Base|null} outsidePointerListenerOwner=null
+     * @protected
+     */
+    outsidePointerListenerOwner = null
 
     /**
      * @param {Object} config
@@ -112,6 +135,10 @@ class Picker extends Text {
             this.picker.hide()
         }
 
+        if (value === false && oldValue !== undefined) {
+            this.syncOutsidePointerListener(false)
+        }
+
         super.afterSetMounted(value, oldValue)
     }
 
@@ -130,6 +157,10 @@ class Picker extends Text {
     }
 
     /**
+     * The picker floats on the document body, and belongs to this field: `parentComponent` puts it into the field's
+     * component tree, which is the tree {@link Neo.manager.Focus} reads. Focus moving between the input and the
+     * picker is then a move inside the field — the field and every ancestor keep `containsFocus`, and none of them
+     * sees a `focusLeave` until focus leaves both.
      * @returns {Neo.container.Base}
      */
     createPicker() {
@@ -139,44 +170,27 @@ class Picker extends Text {
             pickerComponent = me.createPickerComponent();
 
         me.picker =  Neo.create({
-            module   : Container,
-            parentId : 'document.body',
-            floating : true,
-            align    : {
-                edgeAlign : pickerWidth ? 't0-b0' : 't-b',
-                matchSize : !pickerWidth,
-                axisLock  : true,
-                target    : me.getInputWrapperId()
+            module  : Container,
+            parentId: 'document.body',
+            floating: true,
+            align   : {
+                edgeAlign: pickerWidth ? 't0-b0' : 't-b',
+                matchSize: !pickerWidth,
+                axisLock : true,
+                target   : me.getInputWrapperId()
             },
-            appName  : me.appName,
-            cls      : ['neo-picker-container', 'neo-container'],
-            height   : me.pickerHeight,
-            hidden   : true,
-            id       : me.getPickerId(),
-            items    : pickerComponent ? [pickerComponent] : [],
-            maxHeight: me.pickerMaxHeight,
-            theme    : me.theme,
-            width    : pickerWidth,
-            windowId : me.windowId,
-            ...me.pickerConfig,
-
-            // scoped to the field instance
-            onFocusLeave: data => {
-                let insideField = false,
-                    item;
-
-                for (item of data.oldPath) {
-                    if (item.id === me.id) {
-                        insideField = true;
-                        break
-                    }
-                }
-
-                if (!insideField) {
-                    me.hidePicker();
-                    super.onFocusLeave(data)
-                }
-            }
+            appName        : me.appName,
+            cls            : ['neo-picker-container', 'neo-container'],
+            height         : me.pickerHeight,
+            hidden         : true,
+            id             : me.getPickerId(),
+            items          : pickerComponent ? [pickerComponent] : [],
+            maxHeight      : me.pickerMaxHeight,
+            parentComponent: me,
+            theme          : me.theme,
+            width          : pickerWidth,
+            windowId       : me.windowId,
+            ...me.pickerConfig
         });
 
         me.picker.on('hiddenChange', me.onPickerHiddenChange, me);
@@ -197,6 +211,8 @@ class Picker extends Text {
      */
     destroy(...args) {
         let {picker} = this;
+
+        this.syncOutsidePointerListener(false);
 
         if (picker?.hidden === false) {
             picker.unmount()
@@ -222,11 +238,35 @@ class Picker extends Text {
     }
 
     /**
+     * @summary Tests whether a serialized DOM path belongs to the field or its floating picker.
+     * @param {Object[]} [path]
+     * @returns {Boolean}
+     * @protected
+     */
+    isInteractionPath(path=[]) {
+        const ids = new Set(path.map(item => item.id).filter(Boolean));
+
+        return ids.has(this.id) || ids.has(this.picker?.id)
+    }
+
+    /**
      *
      */
     async hidePicker() {
         if (this.picker) {
             this.picker.hidden = true
+        }
+    }
+
+    /**
+     * Hides the picker when pointer input lands outside its field/picker interaction island.
+     * @param {Object} data
+     * @param {Object[]} [data.path]
+     * @protected
+     */
+    onAppMouseDown(data) {
+        if (this.picker?.hidden === false && !this.isInteractionPath(data.path)) {
+            this.hidePicker()
         }
     }
 
@@ -243,25 +283,14 @@ class Picker extends Text {
     }
 
     /**
+     * Focus left the field and its picker. The field owns its picker (`parentComponent`), so focus moving between
+     * the input and the floating picker is a move inside the field, and never arrives here.
      * @param {Object} data
      * @protected
      */
     onFocusLeave(data) {
-        let me           = this,
-            insidePicker = false,
-            item;
-
-        for (item of data.oldPath) {
-            if (item.id === me.getPickerId()) {
-                insidePicker = true;
-                break
-            }
-        }
-
-        if (!insidePicker) {
-            me.hidePicker();
-            super.onFocusLeave(data)
-        }
+        this.hidePicker();
+        super.onFocusLeave(data)
     }
 
     /**
@@ -272,13 +301,26 @@ class Picker extends Text {
     }
 
     /**
+     * Alt+ArrowDown opens the closed picker: the key the WAI-ARIA combobox and date-picker patterns name, and the one
+     * that is free everywhere. Plain ArrowDown steps the focused segment of a date or time input, and Enter may belong
+     * to the field's host ({@link #showPickerOnEnter}). The picker takes focus as it mounts, and `main.DomEvents` cancels
+     * the combination's native default on picker inputs.
+     * @param {Object} data
+     * @protected
+     */
+    onKeyDownDown(data) {
+        data.altKey && !this.pickerIsMounted && this.showPicker()
+    }
+
+    /**
+     * Opens the closed picker, unless {@link #showPickerOnEnter} leaves Enter to the field's host.
      * @param {Object} data
      * @param {Function} [callback]
      * @param {Object} [callbackScope]
      * @protected
      */
     onKeyDownEnter(data, callback, callbackScope) {
-        !this.pickerIsMounted && this.showPicker(callback, callbackScope)
+        !this.pickerIsMounted && this.showPickerOnEnter && this.showPicker(callback, callbackScope)
     }
 
     /**
@@ -305,7 +347,10 @@ class Picker extends Text {
      * @protected
      */
     onPickerHiddenChange(data) {
-        this.pickerIsMounted = !data.value
+        const visible = !data.value;
+
+        this.pickerIsMounted = visible;
+        this.syncOutsidePointerListener(visible)
     }
 
     /**
@@ -321,6 +366,29 @@ class Picker extends Text {
      */
     showPicker() {
         this.getPicker().hidden = false
+    }
+
+    /**
+     * Adds or removes one retained `mousedown` config on the owning app main view.
+     * @param {Boolean} attach
+     * @protected
+     */
+    syncOutsidePointerListener(attach) {
+        let me    = this,
+            owner = me.outsidePointerListenerOwner;
+
+        if (attach && !owner) {
+            owner = me.app?.mainView;
+
+            if (owner) {
+                me.outsidePointerListener ||= {mousedown: me.onAppMouseDown, scope: me};
+                owner.addDomListeners(me.outsidePointerListener);
+                me.outsidePointerListenerOwner = owner
+            }
+        } else if (!attach && owner) {
+            owner.removeDomListeners(me.outsidePointerListener);
+            me.outsidePointerListenerOwner = null
+        }
     }
 
     /**
@@ -347,6 +415,7 @@ class Picker extends Text {
             pickerIsMounted  : me.pickerIsMounted,
             pickerMaxHeight  : me.pickerMaxHeight,
             pickerWidth      : me.pickerWidth,
+            showPickerOnEnter: me.showPickerOnEnter,
             showPickerOnFocus: me.showPickerOnFocus
         }
     }

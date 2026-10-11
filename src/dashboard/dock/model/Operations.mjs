@@ -1,0 +1,858 @@
+import Base              from '../../../core/Base.mjs';
+import WorkspaceDocument from './WorkspaceDocument.mjs';
+
+/**
+ * @class Neo.dashboard.dock.model.Operations
+ * @extends Neo.core.Base
+ *
+ * @summary The semantic operation vocabulary and reducer dispatch over committed dock-zone documents.
+ *
+ * Split out of the former monolithic zone model per the graduated v13.2 DockLayouts
+ * architecture: `model.WorkspaceDocument` owns the committed-document contract, `model.Operations`
+ * owns the semantic reducer vocabulary, `model.Persistence` owns saved-layout envelopes,
+ * and `persistence.PerspectiveLibrary` is the sole collection/perspective authority.
+ * Return shape for every operation and envelope helper: `{document|layout, errors}` —
+ * fail-closed, the input is never partially mutated.
+ */
+class Operations extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.dashboard.dock.model.Operations'
+         * @protected
+         */
+        className: 'Neo.dashboard.dock.model.Operations'
+    }
+
+    /**
+     * Dispatch table for `applyOperation()` — operation name → executor. THE single source of
+     * the dockZone.v1 semantic vocabulary: `operations` derives from these keys, so an
+     * operation cannot exist in dispatch without being exported, nor be exported without
+     * dispatching — the two directions cannot diverge by construction. Handlers share the
+     * executor signature `(document, descriptor)` and the fail-closed `{document, errors}`
+     * result contract. The `addTab` entry carries the contract's "addTab or moveItem"
+     * downgrade: a `tab-*` descriptor dispatches as a move when its item already lives
+     * in the tree.
+     * @member {Object} operationHandlers
+     * @protected
+     * @static
+     */
+    static operationHandlers = Object.freeze({
+        addItem: (document, descriptor) => Operations.addItem(document, descriptor),
+        addTab : (document, descriptor) =>
+            WorkspaceDocument.findContainingTabsId(document, descriptor.itemId)
+                ? Operations.moveItem(document, {itemId: descriptor.itemId, targetNodeId: descriptor.tabsNodeId, index: descriptor.index})
+                : Operations.addTab(document, descriptor),
+        applyDocument    : (document, descriptor) => Operations.applyDocument(document, descriptor),
+        restoreTab       : (document, descriptor) => Operations.restoreTab(document, descriptor),
+        setActiveItem    : (document, descriptor) => Operations.setActiveItem(document, descriptor),
+        moveItem         : (document, descriptor) => Operations.moveItem(document, descriptor),
+        splitNode        : (document, descriptor) => Operations.splitNode(document, descriptor),
+        moveNode         : (document, descriptor) => Operations.moveNode(document, descriptor),
+        resizeSplit      : (document, descriptor) => Operations.resizeSplit(document, descriptor),
+        resizeEdgeZone   : (document, descriptor) => Operations.resizeEdgeZone(document, descriptor),
+        detachItem       : (document, descriptor) => Operations.detachItem(document, descriptor),
+        closeItem        : (document, descriptor) => Operations.closeItem(document, descriptor),
+        setItemLocked    : (document, descriptor) => Operations.setItemLocked(document, descriptor),
+        setItemPinned    : (document, descriptor) => Operations.setItemPinned(document, descriptor),
+        setItemAutoHidden: (document, descriptor) => Operations.setItemAutoHidden(document, descriptor),
+        // transferItem / transferNode are TWO-document operations; their single-document dispatch is a
+        // fail-closed redirect so each still joins the derived `operations` vocabulary without a
+        // hand-listed entry. Execute them through the matching two-document Operations method.
+        transferItem: document => ({document, errors: ['transferItem is a two-document operation; call Operations.transferItem(sourceDocument, targetDocument, descriptor)']}),
+        transferNode: document => ({document, errors: ['transferNode is a two-document operation; call Operations.transferNode(sourceDocument, targetDocument, descriptor)']})
+    })
+
+    /**
+     * What each operation can change, declared beside the reducer that implements it — the only
+     * place that can answer honestly, because the reducer IS what touched the document.
+     *
+     * - `topology`   — may restructure nodes, zones or splits. The full staged transaction.
+     * - `geometry`   — moves a boundary; every node and item survives in place.
+     * - `itemFlags`  — writes only `document.items[id].<flag>`; the node tree is byte-identical.
+     *
+     * The classes are verifiable rather than asserted: `setItemLocked`, `setItemPinned` and
+     * `setItemAutoHidden` each clone the document and assign exactly one item field, touching
+     * `nodes` nowhere — which is what makes an item-only refresh sound for them.
+     *
+     * **An operation with no entry here is treated as `topology`**, so a vocabulary that grows
+     * without updating this map degrades to today's behaviour rather than to a wrong fast path.
+     * The completeness of the map against {@link #operationHandlers} is a test obligation, not a
+     * structural guarantee — the pairing spec asserts every dispatch key carries a class.
+     * @member {Object} operationChangeClass
+     * @protected
+     * @static
+     */
+    static operationChangeClass = Object.freeze({
+        addItem       : 'topology',
+        addTab        : 'topology',
+        applyDocument : 'topology',
+        setActiveItem : 'topology',
+        moveItem      : 'topology',
+        splitNode     : 'topology',
+        moveNode      : 'topology',
+        resizeSplit   : 'geometry',
+        resizeEdgeZone: 'geometry',
+        detachItem    : 'topology',
+        closeItem     : 'topology',
+        setItemLocked : 'itemFlags',
+        // Pinned and auto-hidden write one item field each, exactly like `setItemLocked` — but they
+        // are the two operations that MOVE a pane between the shell and an edge rail, and the rail
+        // is projected outside the shell. They are placement changes wearing an item flag, so they
+        // take the full transaction. `setItemLocked` is the only one of the three that is genuinely
+        // placement-neutral, which is what lets it keep the item-only path.
+        setItemPinned    : 'topology',
+        setItemAutoHidden: 'topology',
+        // Structural on BOTH branches, which is why the name alone does not settle it: it delegates
+        // to `addTab` when the home node survives, and otherwise mints a node outright
+        // (`doc.nodes[nodeId] = {type: 'tabs', …}`, id-collision-safe via `WorkspaceDocument.genId`).
+        restoreTab  : 'topology',
+        transferItem: 'topology',
+        transferNode: 'topology'
+    })
+
+    /**
+     * @summary The change-class of an operation name, defaulting to the safe `topology`.
+     *
+     * Own-key lookup only, for the same reason {@link #applyOperation} uses one: an inherited
+     * name must resolve like any unknown operation rather than to a prototype member.
+     * @param {String} operation
+     * @returns {String} `topology` | `geometry` | `itemFlags`
+     * @static
+     */
+    static changeClassFor(operation) {
+        return Object.hasOwn(Operations.operationChangeClass, operation)
+            ? Operations.operationChangeClass[operation]
+            : 'topology'
+    }
+
+    /**
+     * The semantic operation vocabulary — derived from the dispatch table's keys, never
+     * hand-listed, so vocabulary and dispatch agree in both directions by construction.
+     * Consumers that enumerate, validate, or advertise executable operations read this
+     * export (the Neural Link service tier reads it by reference). Prose surfaces (e.g.
+     * OpenAPI tool descriptions) remain manual mirrors with NO mechanical guard — they
+     * update by review discipline.
+     * @member {ReadonlyArray<String>} operations
+     * @static
+     */
+    static operations = Object.freeze(Object.keys(Operations.operationHandlers))
+
+    /**
+     * @summary Re-applies a whole candidate document through the shared fail-closed commit — the
+     * generic reverse of any forward operation: the document IS the state, so the honest inverse
+     * of a mutation (or a mutation burst) is the pre-mutation document, normalized + validated
+     * exactly like any forward commit. A missing candidate fails closed with the original returned
+     * untouched; a candidate failing validation never commits, per the `commit()` contract.
+     * @param {Object} document the committed dock-zone document
+     * @param {Object} descriptor {document: Object} the candidate document to commit
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static applyDocument(document, descriptor = {}) {
+        return descriptor.document
+            ? WorkspaceDocument.commit(document, descriptor.document)
+            : {document, errors: ['applyDocument requires a candidate document']}
+    }
+
+    /**
+     * @summary Creates a JSON item record, optionally placing it through `addTab` or `splitNode`.
+     * Omitted placement leaves a catalog-only item. The descriptor carries the record so queued
+     * Group writes can reduce against current committed state without replacing unrelated changes.
+     * Validation or placement failure returns the original document without the staged record.
+     * @param {Object} document
+     * @param {Object} args {itemId, item, target?} — existing item schema and placement descriptor
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static addItem(document, {itemId, item, target} = {}) {
+        const fail = errors => ({document, errors});
+
+        if (typeof itemId !== 'string' || !itemId) return fail(['addItem requires a non-empty itemId']);
+        if (Object.hasOwn(document.items || {}, itemId) || Object.hasOwn(Object.prototype, itemId)) {
+            return fail([`item "${itemId}" already exists or is reserved`])
+        }
+        if (!WorkspaceDocument.isJsonRecord(item)) return fail(['addItem item must be a JSON record']);
+
+        const invalid = WorkspaceDocument.findNonJsonValue(item, 'item') ||
+            WorkspaceDocument.findUnexpectedKey(item, WorkspaceDocument.dockZoneItemKeys, 'item');
+        if (invalid) return fail([`${invalid.path}: ${invalid.reason}`]);
+        if (target !== undefined && (!WorkspaceDocument.isJsonRecord(target) || !['addTab', 'splitNode'].includes(target.operation))) {
+            return fail(['addItem target must be an addTab or splitNode descriptor'])
+        }
+
+        const working = WorkspaceDocument.clone(document);
+        working.items ||= {};
+        working.items[itemId] = WorkspaceDocument.clone(item);
+
+        const result = target === undefined
+            ? WorkspaceDocument.commit(document, working)
+            : Operations.applyOperation(working, {...target, itemId});
+
+        return result.errors.length ? fail(result.errors) : result
+    }
+
+    /**
+     * @summary Inserts `itemId` into the target tabs node at `index` (relocating it if already in
+     * the tree) and makes it the active tab.
+     * @param {Object} document
+     * @param {Object} args {itemId, tabsNodeId, index}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static addTab(document, {itemId, tabsNodeId, index} = {}) {
+        if (!document.items?.[itemId])           return {document, errors: [`unknown item "${itemId}"`]};
+        if (document.nodes?.[tabsNodeId]?.type !== 'tabs') return {document, errors: [`"${tabsNodeId}" is not a tabs node`]};
+
+        let doc = WorkspaceDocument.clone(document);
+
+        WorkspaceDocument.detachFromTabs(doc, itemId);
+
+        let node = doc.nodes[tabsNodeId],
+            at   = Number.isInteger(index) ? Math.max(0, Math.min(index, node.items.length)) : node.items.length;
+
+        node.items.splice(at, 0, itemId);
+        node.activeItemId = itemId;
+
+        return WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary Returns `itemId` to `tabsNodeId` at `index`, REBUILDING that node from `home` when
+     * the detach removed it.
+     *
+     * `addTab` requires its target to exist, which is the one thing a returning pane cannot count
+     * on: a pane alone in its zone empties the node on the way out, the node is dropped on commit,
+     * and a two-child split collapses behind it. That is the common tear-out, not the rare one — a
+     * pane with siblings is the case whose home survives.
+     *
+     * Distinct from `addTab` because the precondition is inverted, so neither has to carry the
+     * other's branch: this one only reaches its rebuild path when the node is absent, and delegates
+     * verbatim when it is present.
+     * @param {Object} document
+     * @param {Object} args {home, index, itemId, tabsNodeId}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static restoreTab(document, {home, index, itemId, tabsNodeId} = {}) {
+        if (!document.items?.[itemId]) return {document, errors: [`unknown item "${itemId}"`]};
+
+        if (document.nodes?.[tabsNodeId]?.type === 'tabs') {
+            return Operations.addTab(document, {itemId, index, tabsNodeId})
+        }
+
+        if (!tabsNodeId) return {document, errors: ['restoreTab requires a tabsNodeId']};
+
+        let doc = WorkspaceDocument.clone(document),
+            // Reuse the recorded id when nothing has claimed it, so a round trip leaves the document
+            // it started from rather than one that merely looks like it.
+            nodeId = doc.nodes[tabsNodeId] ? WorkspaceDocument.genId(doc, tabsNodeId) : tabsNodeId,
+            errors;
+
+        WorkspaceDocument.detachFromTabs(doc, itemId);
+
+        doc.nodes[nodeId] = {activeItemId: itemId, items: [itemId], type: 'tabs'};
+
+        errors = WorkspaceDocument.restoreNodeHome(doc, nodeId, home);
+
+        return errors.length > 0 ? {document, errors} : WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary A return descriptor that NEVER resurrects a node — the append policy.
+     *
+     * The counterpart to {@link #restoreTab}, and the difference is the whole choice: `restoreTab`
+     * re-mints the remembered parent/slot when the home node is gone, buying the exact position back
+     * at the price of a node the user watched collapse. This one keeps the exact index only while the
+     * recorded home is still a live tabs node, and otherwise appends to the first surviving one.
+     *
+     * It lives here rather than in either consumer because both shipped hosts hold this contract and
+     * were carrying identical copies of it — and because "where does a returning item belong in this
+     * document" is a document question.
+     * @param {Object} document
+     * @param {String} itemId
+     * @param {Object|null} placement The recorded `{tabsNodeId, index}`, or null.
+     * @returns {Object|null} An `addTab` descriptor, or null when the document has no tabs node.
+     */
+    static appendingReturnDescriptor(document, itemId, placement) {
+        const storedHome = placement && document?.nodes?.[placement.tabsNodeId]?.type === 'tabs'
+                  ? placement.tabsNodeId
+                  : null,
+              tabsNodeId = storedHome
+                  || Object.entries(document?.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0];
+
+        return tabsNodeId
+            ? {operation: 'addTab', itemId, tabsNodeId, ...(storedHome ? {index: placement.index} : {})}
+            : null
+    }
+
+    /**
+     * @summary The document with every recorded home folded back in: what it becomes once each pane
+     * that is away has returned.
+     *
+     * A document spells a pane that is away exactly like a closed one — a catalog record, no
+     * placement — so a record of it restores a window without the pane, and only the recorded homes
+     * tell the two apart. The fold asks the return's two questions per pane — its recorded home, then
+     * the host's answer for a home that is gone — and leaves a pane the document already places, or
+     * one the reducer refuses, as it is.
+     * @param {Object} document
+     * @param {Object|null} placements Recorded homes, keyed by item id.
+     * @param {Function} resolveDescriptor The host's return policy: `(document, itemId, placement|null) => Object|null`.
+     * @returns {Object} A new document value, or the input when nothing folds.
+     * @static
+     */
+    static foldPlacements(document, placements, resolveDescriptor) {
+        return Object.entries(placements || {}).reduce((folded, [itemId, placement]) => {
+            const fold = home => {
+                const descriptor = resolveDescriptor(folded, itemId, home),
+                      result     = descriptor && Operations.applyOperation(folded, descriptor);
+
+                return result?.errors.length === 0 ? result.document : null
+            };
+
+            return WorkspaceDocument.findContainingTabsId(folded, itemId) ? folded : fold(placement) ?? fold(null) ?? folded
+        }, document)
+    }
+
+    /**
+     * @summary Relocates an unlocked in-tree `itemId` into the target tabs node at `index`.
+     *
+     * Locked items fail closed as sources; the target may still contain locked peers.
+     * @param {Object} document
+     * @param {Object} args {itemId, targetNodeId, index}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static moveItem(document, {itemId, targetNodeId, index} = {}) {
+        if (!WorkspaceDocument.findContainingTabsId(document, itemId)) {
+            return {document, errors: [`item "${itemId}" is not in the tree`]}
+        }
+
+        if (document.items[itemId].locked === true) {
+            return {document, errors: [`item "${itemId}" is locked`]}
+        }
+
+        return Operations.addTab(document, {itemId, tabsNodeId: targetNodeId, index})
+    }
+
+    /**
+     * @summary Commits one tabs node's active item through the semantic reducer.
+     *
+     * Projection events carry both the semantic tabs-node id and the selected item id. Membership
+     * is validated against the committed document so a stale projected tab cannot redirect
+     * activation into another stack. An already-active item is a successful byte-identical no-op.
+     * @param {Object} document
+     * @param {Object} args {tabsNodeId, itemId}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static setActiveItem(document, {tabsNodeId, itemId} = {}) {
+        let tabs = document.nodes?.[tabsNodeId];
+
+        if (!tabs) {
+            return {document, errors: [`unknown tabs node "${tabsNodeId}"`]}
+        }
+
+        if (tabs.type !== 'tabs') {
+            return {document, errors: [`"${tabsNodeId}" is not a tabs node`]}
+        }
+
+        if (!(tabs.items || []).includes(itemId)) {
+            return {document, errors: [`item "${itemId}" is not a member of tabs node "${tabsNodeId}"`]}
+        }
+
+        if (tabs.activeItemId === itemId) {
+            return {document, errors: []}
+        }
+
+        let doc = WorkspaceDocument.clone(document);
+
+        doc.nodes[tabsNodeId].activeItemId = itemId;
+
+        return WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary Splits `targetNodeId` against a new pane holding `itemId`.
+     *
+     * Wraps `itemId` in a fresh single-tab node and replaces `targetNodeId` in its parent with a new
+     * `split` whose children are `[new, target]` (leading) or `[target, new]` (trailing). When
+     * `targetNodeId` is the root, the new split becomes the root.
+     *
+     * The leading/trailing side comes from an explicit `position` (`before` / `after`) when given;
+     * otherwise it is derived from the descriptor's `edge` — `top` / `left` lead (before), `bottom` /
+     * `right` trail (after) — so a `PreviewContract.previewToOperation()` edge descriptor places correctly.
+     * @param {Object} document
+     * @param {Object} args {itemId, targetNodeId, orientation, position, sizes, edge}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static splitNode(document, {edge, itemId, orientation, position, sizes, targetNodeId} = {}) {
+        if (!document.items?.[itemId])     return {document, errors: [`unknown item "${itemId}"`]};
+        if (!document.nodes?.[targetNodeId]) return {document, errors: [`unknown target node "${targetNodeId}"`]};
+        if (orientation !== 'horizontal' && orientation !== 'vertical') {
+            return {document, errors: [`invalid split orientation "${orientation}"`]}
+        }
+
+        let doc = WorkspaceDocument.clone(document);
+
+        WorkspaceDocument.detachFromTabs(doc, itemId);
+
+        let newTabsId  = WorkspaceDocument.genId(doc, `tabs-${itemId}`),
+            newSplitId = WorkspaceDocument.genId(doc, `split-${targetNodeId}`),
+            ratio      = (Array.isArray(sizes) && sizes.length === 2) ? sizes : [0.5, 0.5],
+            // Edge descriptors encode the side in `edge`, not `position`: top / left lead (before),
+            // bottom / right trail (after). An explicit `position` always wins.
+            atPosition = position || ((edge === 'top' || edge === 'left') ? 'before' : 'after');
+
+        // Resolve the target's parent BEFORE inserting the new split — otherwise the new split
+        // (which references the target) would be found as the target's own parent.
+        let parentSlot = WorkspaceDocument.findParentSlot(doc, targetNodeId);
+
+        doc.nodes[newTabsId] = {type: 'tabs', items: [itemId], activeItemId: itemId};
+        doc.nodes[newSplitId] = {
+            type    : 'split',
+            orientation,
+            children: atPosition === 'before' ? [newTabsId, targetNodeId] : [targetNodeId, newTabsId],
+            // `sizes` maps positionally to `children` in their final order; the caller
+            // (PreviewContract.previewToOperation) supplies them already in that order.
+            sizes   : ratio
+        };
+
+        if (!parentSlot) {
+            doc.root = newSplitId
+        } else if (typeof parentSlot.slot === 'number') {
+            doc.nodes[parentSlot.parentId].children[parentSlot.slot] = newSplitId
+        } else {
+            WorkspaceDocument.setZoneNodeId(doc.nodes[parentSlot.parentId], parentSlot.slot, newSplitId)
+        }
+
+        return WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary Updates an existing split node's normalized child sizes.
+     *
+     * Resizable splitter affordances can pass pixel-derived or ratio-derived positive values. This
+     * operation normalizes them to the persisted dock-zone ratio contract and commits through the
+     * same fail-closed path as the rest of the semantic model.
+     * @param {Object} document
+     * @param {Object} args {splitNodeId, sizes}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static resizeSplit(document, {splitNodeId, sizes} = {}) {
+        let split = document.nodes?.[splitNodeId];
+
+        if (!split) {
+            return {document, errors: [`unknown split node "${splitNodeId}"`]}
+        }
+
+        if (split.type !== 'split') {
+            return {document, errors: [`"${splitNodeId}" is not a split node`]}
+        }
+
+        let normalized = WorkspaceDocument.normalizeSplitSizes(sizes, (split.children || []).length, splitNodeId);
+
+        if (normalized.errors.length) {
+            return {document, errors: normalized.errors}
+        }
+
+        let doc = WorkspaceDocument.clone(document);
+
+        doc.nodes[splitNodeId].sizes = normalized.sizes;
+
+        return WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary Commits one normalized extent onto a resizable nested edge-zone descriptor.
+     *
+     * Runtime pixels and CSS constraints stay outside the document. The interaction layer converts
+     * its final CSS-bounded geometry into this normalized fraction; the reducer validates only the
+     * durable semantic domain and the descriptor's explicit resize permission.
+     * @param {Object} document
+     * @param {Object} args {edgeZoneId, edge, extent}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static resizeEdgeZone(document, {edgeZoneId, edge, extent} = {}) {
+        let edgeZone   = document.nodes?.[edgeZoneId],
+            descriptor = edgeZone?.zones?.[edge];
+
+        if (!edgeZone) {
+            return {document, errors: [`unknown edge-zone node "${edgeZoneId}"`]}
+        }
+
+        if (edgeZone.type !== 'edge-zone') {
+            return {document, errors: [`"${edgeZoneId}" is not an edge-zone node`]}
+        }
+
+        if (!['top', 'right', 'bottom', 'left'].includes(edge)) {
+            return {document, errors: [`edge "${edge}" is not resizable`]}
+        }
+
+        if (!WorkspaceDocument.isJsonRecord(descriptor) || !WorkspaceDocument.getZoneNodeId(descriptor)) {
+            return {document, errors: [`edge-zone "${edgeZoneId}" has no valid "${edge}" descriptor`]}
+        }
+
+        if (descriptor.resizable !== true) {
+            return {document, errors: [`edge-zone "${edgeZoneId}" edge "${edge}" is not resizable`]}
+        }
+
+        if (typeof extent !== 'number' || !Number.isFinite(extent) || extent <= 0 || extent >= 1) {
+            return {document, errors: ['extent must be a finite number between 0 and 1']}
+        }
+
+        if (descriptor.extent === extent) {
+            return {document, errors: []}
+        }
+
+        let doc = WorkspaceDocument.clone(document);
+
+        doc.nodes[edgeZoneId].zones[edge].extent = extent;
+
+        return WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary Removes an unlocked `itemId` from the tree but preserves its catalog record (for
+     * popup/window ownership), per the contract's `detachItem`. Locked items fail closed.
+     * @param {Object} document
+     * @param {Object} args {itemId}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static detachItem(document, {itemId} = {}) {
+        if (!WorkspaceDocument.findContainingTabsId(document, itemId)) {
+            return {document, errors: [`item "${itemId}" is not in the tree`]}
+        }
+
+        if (document.items[itemId].locked === true) {
+            return {document, errors: [`item "${itemId}" is locked`]}
+        }
+
+        let doc = WorkspaceDocument.clone(document);
+
+        WorkspaceDocument.detachFromTabs(doc, itemId);
+
+        return WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary Removes an unlocked, closeable `itemId` from the tree and catalog. When the item
+     * was active, activates the item at its former index or the preceding item; closing a
+     * non-active item preserves the surviving activation. Locked and explicit `closable:false`
+     * items fail closed.
+     * @param {Object} document
+     * @param {Object} args {itemId}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static closeItem(document, {itemId} = {}) {
+        let item = document.items?.[itemId];
+
+        if (!item) return {document, errors: [`unknown item "${itemId}"`]};
+        if (item.locked === true) return {document, errors: [`item "${itemId}" is locked`]};
+        if (item.closable === false) return {document, errors: [`item "${itemId}" is not closable`]};
+
+        let tabsNodeId  = WorkspaceDocument.findContainingTabsId(document, itemId),
+            closedIndex = tabsNodeId ? document.nodes[tabsNodeId].items.indexOf(itemId) : -1,
+            wasActive   = tabsNodeId ? document.nodes[tabsNodeId].activeItemId === itemId : false,
+            doc         = WorkspaceDocument.clone(document);
+
+        WorkspaceDocument.detachFromTabs(doc, itemId);
+
+        if (wasActive && tabsNodeId && doc.nodes[tabsNodeId]?.type === 'tabs') {
+            let node = doc.nodes[tabsNodeId];
+
+            // When the closed item owned activation, the item now occupying its slot wins;
+            // closing the last item falls back to its preceding sibling. A surviving active item
+            // is left untouched. This is semantic model policy, not a projected-index guess.
+            node.activeItemId = node.items[Math.min(closedIndex, node.items.length - 1)] ?? null
+        }
+
+        delete doc.items[itemId];
+
+        return WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary Updates an item's committed lock state when its policy permits locking or unlocking.
+     *
+     * Lock is the model boundary beneath the Workspace presentation: while true, close, detach,
+     * and source moves fail closed even when stale chrome or a programmatic descriptor bypasses
+     * the projected inert and drag-source affordances. An absent value reads as unlocked, matching
+     * the additive boolean-state precedent of pinned and autoHidden. `lockable:false` refuses both
+     * directions deliberately: it is permanent item policy, not merely a lock-button visibility hint.
+     * @param {Object} document
+     * @param {Object} args {itemId, locked}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static setItemLocked(document, {itemId, locked} = {}) {
+        let item = document.items?.[itemId];
+
+        if (!item) return {document, errors: [`unknown item "${itemId}"`]};
+        if (typeof locked !== 'boolean') return {document, errors: ['locked must be a boolean']};
+        if (item.lockable === false) return {document, errors: [`item "${itemId}" is not lockable`]};
+
+        let doc = WorkspaceDocument.clone(document);
+
+        doc.items[itemId].locked = locked;
+
+        return WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary Updates an item's persisted pin state when its policy permits pinning.
+     * @param {Object} document
+     * @param {Object} args {itemId, pinned}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static setItemPinned(document, {itemId, pinned} = {}) {
+        let item = document.items?.[itemId];
+
+        if (!item) return {document, errors: [`unknown item "${itemId}"`]};
+        if (typeof pinned !== 'boolean') return {document, errors: ['pinned must be a boolean']};
+        if (item.pinnable === false) return {document, errors: [`item "${itemId}" is not pinnable`]};
+
+        let doc = WorkspaceDocument.clone(document);
+
+        doc.items[itemId].pinned = pinned;
+
+        if (pinned) {
+            doc.items[itemId].autoHidden = false
+        }
+
+        return WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary Updates an item's persisted auto-hide/collapsed state when its policy permits it.
+     * @param {Object} document
+     * @param {Object} args {itemId, autoHidden}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static setItemAutoHidden(document, {itemId, autoHidden} = {}) {
+        let item = document.items?.[itemId];
+
+        if (!item) return {document, errors: [`unknown item "${itemId}"`]};
+        if (typeof autoHidden !== 'boolean') return {document, errors: ['autoHidden must be a boolean']};
+        if (item.pinnable === false) return {document, errors: [`item "${itemId}" is not pinnable`]};
+        if (autoHidden && item.pinned === true) return {document, errors: [`item "${itemId}" is pinned and cannot be autoHidden`]};
+
+        let doc = WorkspaceDocument.clone(document);
+
+        doc.items[itemId].autoHidden = autoHidden;
+
+        return WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary Applies an operation descriptor (the shape `PreviewContract.previewToOperation()` emits)
+     * to the document, dispatching through {@link #operationHandlers} — the table whose keys ARE
+     * the exported vocabulary, so dispatch and `operations` cannot diverge.
+     *
+     * A `tab-*` descriptor (`operation: 'addTab'`) is dispatched as a move when its item already
+     * lives in the tree — the contract's "addTab or moveItem" downgrade, carried by the table's
+     * `addTab` entry.
+     * @param {Object} document
+     * @param {Object} descriptor {operation, ...}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static applyOperation(document, descriptor = {}) {
+        // Own-key lookup only: inherited names ('constructor', '__proto__', …) must reject
+        // exactly like any unknown operation, never resolve to a prototype member.
+        const handler = Object.hasOwn(Operations.operationHandlers, descriptor.operation)
+            ? Operations.operationHandlers[descriptor.operation]
+            : null;
+
+        return handler
+            ? handler(document, descriptor)
+            : {document, errors: [`unknown operation "${descriptor.operation}"`]}
+    }
+
+    /**
+     * @summary Atomically transfers `itemId` out of `sourceDocument` and into `targetDocument` in one
+     * commit-or-neither step: the item is removed from the source tree + catalog and placed into the
+     * target through the nested `target` placement descriptor. The item record travels verbatim — no
+     * re-instantiation semantics enter the executor, which operates on documents only.
+     *
+     * Fail-closed and atomic: a validation error on EITHER document returns BOTH inputs untouched plus
+     * a non-empty `errors` array, so a half-transferred item — removed here but not placed there, the
+     * contract's named violation — can never commit. The nested `target` is dispatched through the
+     * landed single-document placement path (`addTab` / `restoreTab` / `splitNode` via {@link #applyOperation}), so
+     * no second placement grammar is introduced.
+     *
+     * The executor is document-centric: `sourceWorkspaceId` / `targetWorkspaceId` are the caller's
+     * (adapter-tier) resolution keys, used here only to reject a same-workspace transfer — that is a
+     * `moveItem`, not a transfer.
+     * @param {Object} sourceDocument the committed dock-zone document the item leaves
+     * @param {Object} targetDocument the committed dock-zone document the item joins
+     * @param {Object} descriptor {itemId, sourceWorkspaceId, targetWorkspaceId, target}
+     * @returns {{sourceDocument:Object, targetDocument:Object, errors:String[]}}
+     * @static
+     */
+    static transferItem(sourceDocument, targetDocument, {itemId, sourceWorkspaceId, targetWorkspaceId, target} = {}) {
+        let fail   = errors => ({sourceDocument, targetDocument, errors}),
+            record = sourceDocument?.items?.[itemId];
+
+        // Preconditions checked against BOTH documents before any mutation (fail-closed).
+        if (!record)                         return fail([`unknown item "${itemId}"`]);
+        if (record.movable === false)        return fail([`item "${itemId}" is not movable`]);
+        if (targetDocument?.items?.[itemId]) return fail([`item "${itemId}" already exists in the target document`]);
+        if (sourceWorkspaceId !== undefined && sourceWorkspaceId === targetWorkspaceId) {
+            return fail(['transferItem requires distinct source and target workspaces'])
+        }
+        if (!target || !['addTab', 'restoreTab', 'splitNode'].includes(target.operation)) {
+            return fail(['transferItem target must be an addTab, restoreTab or splitNode descriptor'])
+        }
+
+        // Source side: drop from the tree (a no-op for an already-detached item) + catalog, then
+        // normalize + validate through the shared fail-closed commit.
+        let sourceWorking = WorkspaceDocument.clone(sourceDocument);
+
+        WorkspaceDocument.detachFromTabs(sourceWorking, itemId);
+        delete sourceWorking.items[itemId];
+
+        let sourceResult = WorkspaceDocument.commit(sourceDocument, sourceWorking);
+
+        // Target side: insert the verbatim record into the catalog, then place it through the landed
+        // single-document dispatch (which normalizes + validates the target tree). The transfer's
+        // `itemId` overrides any id the caller left in the nested descriptor.
+        let targetWorking = WorkspaceDocument.clone(targetDocument);
+
+        targetWorking.items[itemId] = WorkspaceDocument.clone(record);
+
+        let targetResult = Operations.applyOperation(targetWorking, {...target, itemId}),
+            errors       = [...sourceResult.errors, ...targetResult.errors];
+
+        // Commit-or-neither: any error on either side rolls the whole transfer back to both inputs.
+        if (errors.length) {
+            return fail(errors)
+        }
+
+        return {sourceDocument: sourceResult.document, targetDocument: targetResult.document, errors: []}
+    }
+
+    /**
+     * @summary Re-parents the subtree rooted at `nodeId` to `targetNodeId` within one document — the
+     * grouped-drag move. The dock tree already models a group as a `tabs` node, so grouped drag moves
+     * a NODE, not N items. A `{kind: 'tab-into'}` placement merges the moved tabs node's items into the
+     * target tabs node in order; otherwise a split placement (`{orientation, position|edge, sizes}`)
+     * wraps the target + the subtree in a new split. `normalizeTree` restores invariants (collapsing
+     * the emptied source slot) afterward.
+     *
+     * Fail-closed: unknown node/target, moving the root, moving a node onto itself, an invalid
+     * placement, or moving a node into its OWN subtree (the cycle guard, via the reachable-set walk
+     * rooted at `nodeId`) all return the document untouched + errors.
+     * @param {Object} document
+     * @param {Object} args {nodeId, targetNodeId, placement}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static moveNode(document, {nodeId, targetNodeId, placement = {}} = {}) {
+        let nodes = document?.nodes || {};
+
+        if (!nodes[nodeId])           return {document, errors: [`unknown node "${nodeId}"`]};
+        if (!nodes[targetNodeId])     return {document, errors: [`unknown target node "${targetNodeId}"`]};
+        if (nodeId === targetNodeId)  return {document, errors: [`cannot move node "${nodeId}" onto itself`]};
+        if (nodeId === document.root) return {document, errors: ['cannot move the root node']};
+
+        // cycle guard: the target must not live inside the moved subtree (walk rooted AT nodeId)
+        if (WorkspaceDocument.reachableNodeIds({nodes, root: nodeId}).has(targetNodeId)) {
+            return {document, errors: [`cannot move node "${nodeId}" into its own subtree`]}
+        }
+
+        let doc = WorkspaceDocument.clone(document);
+
+        WorkspaceDocument.detachNode(doc, nodeId);
+
+        let errors = WorkspaceDocument.attachNode(doc, nodeId, targetNodeId, placement);
+
+        return errors.length ? {document, errors} : WorkspaceDocument.commit(document, doc)
+    }
+
+    /**
+     * @summary Atomically transfers the subtree rooted at `nodeId` out of `sourceDocument` and into
+     * `targetDocument` in one commit-or-neither step — the cross-window grouped-drag transfer. It is
+     * the two-document sibling of `moveNode`: `transferItem` atomicity applied to a whole subtree. The
+     * subtree's nodes and all its member item records travel verbatim, and it re-homes at
+     * `target.targetNodeId` per `target.placement` (the `moveNode` attach grammar). Reuses the landed
+     * atomic path — no second atomicity implementation.
+     *
+     * Fail-closed and atomic: any error on either document returns BOTH inputs untouched + a non-empty
+     * `errors` array. A node-id or member-item-id already present in the target, an unmovable member,
+     * the root node, a same-workspace transfer, or a placement failure all reject with nothing committed.
+     * @param {Object} sourceDocument the committed dock-zone document the subtree leaves
+     * @param {Object} targetDocument the committed dock-zone document the subtree joins
+     * @param {Object} descriptor {nodeId, sourceWorkspaceId, targetWorkspaceId, target:{targetNodeId, placement}}
+     * @returns {{sourceDocument:Object, targetDocument:Object, errors:String[]}}
+     * @static
+     */
+    static transferNode(sourceDocument, targetDocument, {nodeId, sourceWorkspaceId, targetWorkspaceId, target} = {}) {
+        let fail        = errors => ({sourceDocument, targetDocument, errors}),
+            sourceNodes = sourceDocument?.nodes || {};
+
+        if (!sourceNodes[nodeId])           return fail([`unknown node "${nodeId}"`]);
+        if (nodeId === sourceDocument.root) return fail(['cannot transfer the root node']);
+        if (sourceWorkspaceId !== undefined && sourceWorkspaceId === targetWorkspaceId) {
+            return fail(['transferNode requires distinct source and target workspaces'])
+        }
+        if (!target || !targetDocument?.nodes?.[target.targetNodeId]) {
+            return fail(['transferNode target must name an existing target node'])
+        }
+
+        // The subtree: its node ids + the member item ids its tabs nodes carry.
+        let subtreeNodeIds = WorkspaceDocument.reachableNodeIds({nodes: sourceNodes, root: nodeId}),
+            memberItemIds  = [];
+
+        subtreeNodeIds.forEach(id => {
+            if (sourceNodes[id].type === 'tabs') memberItemIds.push(...(sourceNodes[id].items || []))
+        });
+
+        // Preconditions across BOTH documents before any mutation: no node-id or member-id may already
+        // exist in the target, and every member must be movable.
+        for (const id of subtreeNodeIds) {
+            if (targetDocument.nodes?.[id]) return fail([`node "${id}" already exists in the target document`])
+        }
+        for (const itemId of memberItemIds) {
+            if (sourceDocument.items?.[itemId]?.movable === false) return fail([`item "${itemId}" is not movable`]);
+            if (targetDocument.items?.[itemId])                    return fail([`item "${itemId}" already exists in the target document`])
+        }
+
+        // Source side: unlink the subtree, drop its nodes + member records, normalize + validate.
+        let sourceWorking = WorkspaceDocument.clone(sourceDocument);
+
+        WorkspaceDocument.detachNode(sourceWorking, nodeId);
+        subtreeNodeIds.forEach(id => delete sourceWorking.nodes[id]);
+        memberItemIds.forEach(itemId => delete sourceWorking.items[itemId]);
+
+        let sourceResult = WorkspaceDocument.commit(sourceDocument, sourceWorking);
+
+        // Target side: graft the member records + subtree nodes verbatim, then attach the subtree root
+        // through the shared moveNode placement grammar; normalize + validate.
+        let targetWorking = WorkspaceDocument.clone(targetDocument);
+
+        memberItemIds.forEach(itemId => targetWorking.items[itemId] = WorkspaceDocument.clone(sourceDocument.items[itemId]));
+        subtreeNodeIds.forEach(id => targetWorking.nodes[id] = WorkspaceDocument.clone(sourceDocument.nodes[id]));
+
+        let attachErrors = WorkspaceDocument.attachNode(targetWorking, nodeId, target.targetNodeId, target.placement || {}),
+            targetResult = attachErrors.length
+                ? {document: targetDocument, errors: attachErrors}
+                : WorkspaceDocument.commit(targetDocument, targetWorking),
+            errors       = [...sourceResult.errors, ...targetResult.errors];
+
+        // Commit-or-neither: any error on either side rolls the whole transfer back to both inputs.
+        if (errors.length) {
+            return fail(errors)
+        }
+
+        return {sourceDocument: sourceResult.document, targetDocument: targetResult.document, errors: []}
+    }
+}
+
+export default Neo.setupClass(Operations);

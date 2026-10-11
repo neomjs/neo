@@ -32,5 +32,5 @@ You must preserve the codebase's existing formatting style (specifically Neo.mjs
 - **Revert and Retry:** If you detect formatting noise (e.g., hundreds of lines changed for a 1-line logic fix), you MUST revert the file to HEAD and re-apply the logic change using targeted replacements.
 
 ## 4. PRE-DECISION SUNSET GATE (ANTI-PREMATURE-HALT)
-You may NEVER execute `session-sunset` autonomously based on "work cycle completion" or "PR awaiting merge gate". The ONLY autonomous trigger is context utilization ≥75% with measurable forgetfulness signal. All other sunset triggers REQUIRE explicit human confirmation (`/sunset` or chat directive) before execution. Drafting handover comments, clearing inbox, or running `sync_all` are NOT sunset rituals — they are routine end-of-task operations and do NOT entail session termination.
+You may NEVER execute `session-sunset` autonomously based on "work cycle completion" or "PR awaiting merge gate". The ONLY autonomous trigger is context utilization ≥75% with measurable forgetfulness signal. All other sunset triggers REQUIRE explicit human confirmation (`/sunset` or chat directive) before execution. Drafting handover comments and clearing inbox are NOT sunset rituals — they are routine end-of-task operations and do NOT entail session termination.
 </user_rules>

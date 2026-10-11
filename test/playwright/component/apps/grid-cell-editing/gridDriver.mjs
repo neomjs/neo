@@ -1,0 +1,97 @@
+/**
+ * @module test/playwright/component/apps/grid-cell-editing/gridDriver
+ * @summary Drives `#grid-cell-editing-pooled` from inside the App Worker: one store, column or edit operation per
+ * import, named by the module's own `action` query parameter.
+ *
+ * A spec cannot sort, filter or lock a column by pointer without ending the edit it wants to observe: a header click
+ * moves focus, and focus leaving the editor commits. `Neo.worker.App.loadModule()` imports this module where the grid
+ * lives, so each operation runs in the order the spec asks for it. The caller adds a counter to the query, which makes
+ * every call a new module URL, evaluated again.
+ *
+ * `rowModel` swaps the View's cell-selecting model for the grid's default one, which selects rows and no cells.
+ * `setLocked` writes `locked` on the column the `field` parameter names, from the `locked` parameter (`start`, `end`,
+ * or empty for none): `c0` and `c39` are the only columns of their locked regions, so unlocking one empties its region.
+ *
+ * Store actions target record 3 and column actions target `c3`, the cell the arms edit. `optOutEdited` and
+ * `optOutEnd` take `c3` and the locked `c39` out of suspension, for the arms that need an opted-out column under a lock
+ * change or in a locked body. `updateEdited` also writes `c4`, so the row's repaint is visible while the edited cell
+ * itself shows the editor. `startUpdates` writes `c4` every 4 ms until `stopUpdates`: a stream of row repaints, each a
+ * render that covers the editor. `logEvents` records, in order, every record write (`commit:<fields>`) and every
+ * selection change (`select`) into `grid.driverEventLog`, which a spec reads through `Neo.worker.App.getConfigs()`.
+ * It also snapshots column selection at each write in `driverColumnsAtCommit`, since ColumnModel emits no
+ * selectionChange event: the snapshot proves whether a commit preceded its navigation.
+ * `lockInFlight` locks `c3` to the end while a held center-body flight is in the air, so the lock change's renders
+ * defer behind it. `editingOff` and `editingOn` set the grid's `cellEditing` config, and `logCancels` records the
+ * `reason` of every `cellEditCancel` into `grid.driverCancelLog`.
+ */
+import RowModel from '../../../../../src/selection/grid/RowModel.mjs';
+
+const {searchParams}   = new URL(import.meta.url),
+      grid             = Neo.getComponent('grid-cell-editing-pooled'),
+      {columns, store} = grid;
+
+/**
+ * Puts a forced center-body render in the air and holds its flight 300 ms, once, so whatever the caller does in the
+ * same tick meets an in-flight body and its renders defer behind it.
+ */
+const holdCenterFlight = () => {
+    const {Helper} = Neo.vdom,
+          update   = Helper.updateBatch;
+
+    Helper.updateBatch = async data => {
+        const response = await update.call(Helper, data);
+
+        if (data.updates?.[grid.body.id]) {
+            Helper.updateBatch = update;
+            await new Promise(resolve => setTimeout(resolve, 300))
+        }
+
+        return response
+    };
+
+    grid.body.createViewData(false, true)
+};
+
+const actions = {
+    cancel      : () => grid.getPlugin('grid-cell-editing').cancelEdit(),
+    clearFilter : () => store.clearFilters(),
+    editingOff  : () => {grid.cellEditing = false},
+    editingOn   : () => {grid.cellEditing = true},
+    filterOut   : () => {store.filters = [{property: 'c3', operator: 'like', value: 'r1'}]},
+    hold        : () => grid.getPlugin('grid-cell-editing').holdEdit(),
+    lockEnd     : () => {columns.get('c3').locked = 'end'},
+    lockInFlight: () => {holdCenterFlight(); columns.get('c3').locked = 'end'},
+    lockStart   : () => {columns.get('c3').locked = 'start'},
+    logCancels  : () => {
+        const log = grid.driverCancelLog = [];
+
+        grid.on('cellEditCancel', ({reason}) => log.push(reason))
+    },
+    logEvents   : () => {
+        const log = grid.driverEventLog = [];
+
+        store.on('recordChange', ({fields}) => {
+            grid.driverColumnsAtCommit = [...grid.view.selectionModel.selectedColumns];
+            log.push(`commit:${fields.map(({name}) => name).join()}`)
+        });
+        grid.view.selectionModel.on('selectionChange', () => log.push('select'))
+    },
+    optOutEdited: () => {columns.get('c3').cancelEditOnProjectionLoss = true},
+    optOutEnd   : () => {columns.get('c39').cancelEditOnProjectionLoss = true},
+    release     : () => grid.getPlugin('grid-cell-editing').releaseEdit(),
+    remove      : () => store.remove(3),
+    rowModel    : () => {grid.view.selectionModel = RowModel},
+    setLocked   : () => {columns.get(searchParams.get('field')).locked = searchParams.get('locked') || null},
+    sortAsc     : () => store.sort({property: 'id', direction: 'ASC'}),
+    sortDesc    : () => store.sort({property: 'id', direction: 'DESC'}),
+    startUpdates: () => {
+        let count = 0;
+        globalThis.gridDriverUpdates = setInterval(() => store.get(3).set({c4: `pushed ${++count}`}), 4)
+    },
+    stopUpdates : () => clearInterval(globalThis.gridDriverUpdates),
+    unlock      : () => {columns.get('c3').locked = null},
+    updateEdited: () => store.get(3).set({c3: 'pushed', c4: 'pushed'}),
+    updateOther : () => store.get(3).set({c4: 'pushed'})
+};
+
+actions[searchParams.get('action')]()

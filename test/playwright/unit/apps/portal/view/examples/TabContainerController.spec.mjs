@@ -7,10 +7,19 @@ setup({
 });
 
 import {test, expect}         from '@playwright/test';
+import fs                     from 'node:fs';
+import path                   from 'node:path';
+import {fileURLToPath}        from 'node:url';
 import Neo                    from '../../../../../../../src/Neo.mjs';
 import * as core              from '../../../../../../../src/core/_export.mjs';
+import ExamplesStore          from '../../../../../../../apps/portal/store/Examples.mjs';
 import ExamplesTabContainer   from '../../../../../../../apps/portal/view/examples/TabContainer.mjs';
 import TabContainerController from '../../../../../../../apps/portal/view/examples/TabContainerController.mjs';
+
+const
+    directory = path.dirname(fileURLToPath(import.meta.url)),
+    repoRoot  = path.resolve(directory, '../../../../../../../'),
+    dataRoot  = path.join(repoRoot, 'apps/portal/resources/data');
 
 /**
  * The examples tab routes resolve `activeIndex` through the controller's `tabItems` array.
@@ -20,7 +29,7 @@ import TabContainerController from '../../../../../../../apps/portal/view/exampl
 test.describe('Portal.view.examples.TabContainerController — route → activeIndex', () => {
     function createController() {
         const component = {
-            activeIndex   : null,
+            activeIndex  : null,
             isConstructed: true,
             on           : () => {}
         };
@@ -82,5 +91,100 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
         expect(controller.component.activeIndex).toBe(3);
 
         controller.destroy()
+    });
+
+    test('keeps real example-registry ids unique without aligning environment-local numbering', () => {
+        // These four tracked files are the build authority. `dist/**` copies are ignored generated
+        // output and do not exist in a fresh checkout, so they are verified through the owning build
+        // receipt rather than a conditional unit arm that would pass vacuously when they are absent.
+        const registryFiles = [
+            'examples_devmode.json',
+            'examples_dist_dev.json',
+            'examples_dist_esm.json',
+            'examples_dist_prod.json'
+        ];
+        const registries = Object.fromEntries(registryFiles.map(file => [
+            file,
+            JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8'))
+        ]));
+
+        Object.entries(registries).forEach(([file, records]) => {
+            const ids = records.map(record => record.id);
+
+            expect(new Set(ids).size, `${file}: every record id is unique`).toBe(ids.length)
+        });
+
+        // Cross-file id equality is deliberately NOT an invariant. Pin the three clean siblings so
+        // this one-file repair cannot drift into "aligning" their environment-local ids.
+        expect(Object.fromEntries(Object.entries(registries).map(([file, records]) => [
+            file,
+            records.find(record => record.name === 'Calendar')?.id
+        ]))).toEqual({
+            'examples_devmode.json'  : 22,
+            'examples_dist_dev.json' : 22,
+            'examples_dist_esm.json' : 21,
+            'examples_dist_prod.json': 26
+        });
+
+        const productionIds = registries['examples_dist_prod.json']
+            .map(record => record.id)
+            .sort((a, b) => a - b);
+
+        expect(productionIds, 'dist/prod keeps the shift-created 1–28 sequence contiguous')
+            .toEqual(Array.from({length: 28}, (unused, index) => index + 1));
+
+        const productionStore = Neo.create(ExamplesStore, {
+            data: registries['examples_dist_prod.json']
+        });
+
+        expect(productionStore.count, 'all 28 shipped rows survive the keyed Store load').toBe(28);
+        expect(productionStore.get(26)?.name, 'Calendar remains reachable by its repaired id').toBe('Calendar');
+
+        productionStore.destroy()
+    });
+
+    test('reveals DockDemo with 13.2 as the first live card, beside the visible DevIndex flagship', () => {
+        const registries = [{
+            file       : 'examples_devmode.json',
+            devIndexUrl: 'https://neomjs.com/devindex/',
+            dockDemoUrl: 'examples/dashboard/choreography/index.html'
+        }, {
+            file       : 'examples_dist_dev.json',
+            devIndexUrl: 'https://neomjs.com/devindex/dist/development/apps/devindex/',
+            dockDemoUrl: 'dist/development/examples/dashboard/choreography/index.html'
+        }, {
+            file       : 'examples_dist_esm.json',
+            devIndexUrl: 'https://neomjs.com/devindex/',
+            dockDemoUrl: 'dist/esm/examples/dashboard/choreography/index.html'
+        }, {
+            file       : 'examples_dist_prod.json',
+            devIndexUrl: 'https://neomjs.com/devindex/dist/production/apps/devindex/',
+            dockDemoUrl: 'dist/production/examples/dashboard/choreography/index.html'
+        }];
+
+        registries.forEach(({file, devIndexUrl, dockDemoUrl}) => {
+            const
+                records   = JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8')),
+                dockDemo  = records.find(record => record.name === 'Dock Layouts'),
+                devIndex  = records.find(record => record.name === 'GitHub Meritocracy Index'),
+                firstSeen = records.find(record => !record.hidden);
+
+            expect(records[0], `${file}: DockDemo stays top-ranked`).toBe(dockDemo);
+            expect(dockDemo).toMatchObject({
+                id           : 28,
+                sharedWorkers: true,
+                sourceUrl    : 'examples/dashboard/choreography',
+                url          : dockDemoUrl
+            });
+            // Registries reach the site only inside a release package, so the reveal ships with the release that contains the app
+            expect(firstSeen, `${file}: DockDemo is the first live card`).toBe(dockDemo);
+            // DevIndex left the engine's build: each row links out to its deployed site, at the entry that site serves
+            // for the row's environment, and at the site root while the site has none
+            expect(devIndex, `${file}: DevIndex entry`).toMatchObject({
+                sourceUrl: 'https://github.com/neomjs/devindex',
+                url      : devIndexUrl
+            });
+            expect(devIndex.hidden ?? false).toBe(false)
+        })
     })
 });

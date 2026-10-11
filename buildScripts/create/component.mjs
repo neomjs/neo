@@ -83,7 +83,7 @@ if (programOpts.info) {
 
     if (!programOpts.baseClass) {
         questions.push({
-            type   : 'list',
+            type   : 'select',
             name   : 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
             default: guessBaseClass(programOpts.className || answers.className),
@@ -106,7 +106,7 @@ if (programOpts.info) {
 
     if (!programOpts.singleton) {
         questions.push({
-            type   : 'list',
+            type   : 'select',
             name   : 'singleton',
             message: 'Singleton?',
             default: 'no',

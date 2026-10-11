@@ -49,7 +49,7 @@ test.describe('Grid Locked Columns', () => {
         const data = [];
         for (let i = 0; i < 5; i++) {
             data.push({
-                id: i,
+                id  : i,
                 col1: `C1-${i}`,
                 col2: `C2-${i}`,
                 col3: `C3-${i}`,
@@ -61,7 +61,7 @@ test.describe('Grid Locked Columns', () => {
         store = Neo.create(Store, {
             keyProperty: 'id',
             data,
-            model: {
+            model      : {
                 fields: [
                     {name: 'id',   type: 'Integer'},
                     {name: 'col1', type: 'String'},
@@ -145,7 +145,7 @@ test.describe('Grid Locked Columns', () => {
         await grid.timeout(50);
 
         const expectedOrderAfterLock = ['col3', 'col4', 'col1', 'col5', 'col2'];
-        const actualOrderAfterLock = grid.columns.items.map(col => col.dataField);
+        const actualOrderAfterLock   = grid.columns.items.map(col => col.dataField);
         expect(actualOrderAfterLock).toEqual(expectedOrderAfterLock);
 
         // Now unlock 'col4'
@@ -156,7 +156,7 @@ test.describe('Grid Locked Columns', () => {
         await grid.timeout(50);
 
         const expectedOrderAfterUnlock = ['col3', 'col1', 'col4', 'col5', 'col2'];
-        const actualOrderAfterUnlock = grid.columns.items.map(col => col.dataField);
+        const actualOrderAfterUnlock   = grid.columns.items.map(col => col.dataField);
         expect(actualOrderAfterUnlock).toEqual(expectedOrderAfterUnlock);
 
         // Change 'col5' to locked: 'end'
@@ -169,8 +169,19 @@ test.describe('Grid Locked Columns', () => {
         await grid.timeout(50);
 
         const expectedOrderAfterEnd = ['col3', 'col1', 'col4', 'col5', 'col2'];
-        const actualOrderAfterEnd = grid.columns.items.map(col => col.dataField);
+        const actualOrderAfterEnd   = grid.columns.items.map(col => col.dataField);
         expect(actualOrderAfterEnd).toEqual(expectedOrderAfterEnd);
+    });
+
+    test('a lock change that fails releases the open edit it held', async () => {
+        const calls  = [],
+              plugin = {session: {}, holdEdit: async () => {calls.push('hold')}, releaseEdit: () => calls.push('release')};
+
+        grid.getPlugin = ntype => ntype === 'grid-cell-editing' ? plugin : null;
+        grid.headerToolbar.passSizeToBody = () => Promise.reject(new Error('measurement failed'));
+
+        await expect(grid.onColumnLockChange(grid.columns.get('col1'))).rejects.toThrow('measurement failed');
+        expect(calls).toEqual(['hold', 'release'])
     });
 
     test('Header toolbars are synchronized with column collection order across regions', async () => {
@@ -202,6 +213,29 @@ test.describe('Grid Locked Columns', () => {
         expect(grid.getButton('col1')).toBeDefined();
     });
 
+    test('A re-homed header button carries its new region\'s locked class, and every other button keeps its own', async () => {
+        // The header seams and a locked button's stacking key on this class, so it has to follow the region
+        const regionOf = () => Object.fromEntries(grid.columns.items.map(({dataField}) => {
+            const {cls} = grid.getButton(dataField);
+
+            return [dataField, cls.includes('neo-locked-start') ? 'start' : cls.includes('neo-locked-end') ? 'end' : null]
+        }));
+
+        expect(regionOf()).toEqual({col1: null, col2: 'end', col3: 'start', col4: 'start', col5: null});
+
+        for (const [dataField, locked, expected] of [
+            ['col1', 'start', {col1: 'start', col2: 'end', col3: 'start', col4: 'start', col5: null}],
+            ['col1', 'end',   {col1: 'end',   col2: 'end', col3: 'start', col4: 'start', col5: null}],
+            ['col2', null,    {col1: 'end',   col2: null,  col3: 'start', col4: 'start', col5: null}],
+            ['col1', null,    {col1: null,    col2: null,  col3: 'start', col4: 'start', col5: null}]
+        ]) {
+            grid.columns.get(dataField).locked = locked;
+            await grid.timeout(50);
+
+            expect(regionOf(), `${dataField} → ${locked}`).toEqual(expected)
+        }
+    });
+
     test('ScrollManager row addons are re-synced on lock state change', async () => {
         const {scrollManager} = grid;
 
@@ -220,6 +254,102 @@ test.describe('Grid Locked Columns', () => {
         expect(pinningCalled).toBe(true);
         expect(hoverSyncActive).toBe(grid.hasLockedColumns);
         expect(hoverSyncActive).toBe(true);
+    });
+
+    test('a late initial windowId owns every ScrollManager addon registration', async () => {
+        const
+            {scrollManager}  = grid,
+            originalGetAddon = Neo.currentWorker.getAddon,
+            getAddonCalls    = [],
+            registrations    = [],
+            targetAddons     = new Set([
+                'GridDragScroll',
+                'GridRowScrollPinning',
+                'GridHorizontalScrollSync'
+            ]),
+            windowId         = 'grid-late-window';
+
+        grid.mounted = false;
+
+        Neo.currentWorker.getAddon = async (name, targetWindowId) => {
+            getAddonCalls.push({name, windowId: targetWindowId});
+
+            return {
+                register: data => registrations.push({data, name}),
+                unregister() {}
+            }
+        };
+
+        try {
+            expect(scrollManager.windowId).toBeNull();
+
+            grid.windowId = windowId;
+
+            expect(scrollManager.windowId).toBe(windowId);
+
+            grid.mounted = true;
+            await grid.timeout(0);
+
+            expect(getAddonCalls.filter(({name}) => targetAddons.has(name))).toEqual([
+                {name: 'GridDragScroll',           windowId},
+                {name: 'GridRowScrollPinning',     windowId},
+                {name: 'GridHorizontalScrollSync', windowId}
+            ]);
+            expect(registrations
+                .filter(({name}) => targetAddons.has(name))
+                .map(({data, name}) => ({name, windowId: data.windowId}))).toEqual([
+                {name: 'GridDragScroll',           windowId},
+                {name: 'GridRowScrollPinning',     windowId},
+                {name: 'GridHorizontalScrollSync', windowId}
+            ])
+        } finally {
+            Neo.currentWorker.getAddon = originalGetAddon
+        }
+    });
+
+    test('a cross-window remount retires old-realm addon registrations before adopting the new realm', async () => {
+        const
+            originalGetAddon = Neo.currentWorker.getAddon,
+            events           = [],
+            targetAddons     = new Set([
+                'GridDragScroll',
+                'GridRowScrollPinning',
+                'GridHorizontalScrollSync'
+            ]),
+            oldWindowId      = 'grid-window-old',
+            newWindowId      = 'grid-window-new';
+
+        grid.mounted = false;
+
+        Neo.currentWorker.getAddon = async name => ({
+            register  : data => targetAddons.has(name) && events.push({action: 'register', name, windowId: data.windowId}),
+            unregister: data => targetAddons.has(name) && events.push({action: 'unregister', name, windowId: data.windowId})
+        });
+
+        try {
+            grid.windowId = oldWindowId;
+            grid.mounted  = true;
+            await grid.timeout(0);
+
+            events.length = 0;
+            grid.mounted  = false;
+            await grid.timeout(0);
+
+            grid.windowId = newWindowId;
+            grid.mounted  = true;
+            await grid.timeout(0);
+
+            expect(events).toEqual([
+                {action: 'unregister', name: 'GridDragScroll',           windowId: oldWindowId},
+                {action: 'unregister', name: 'GridRowScrollPinning',     windowId: oldWindowId},
+                {action: 'unregister', name: 'GridHorizontalScrollSync', windowId: oldWindowId},
+                {action: 'register',   name: 'GridDragScroll',           windowId: newWindowId},
+                {action: 'register',   name: 'GridRowScrollPinning',     windowId: newWindowId},
+                {action: 'register',   name: 'GridHorizontalScrollSync', windowId: newWindowId}
+            ])
+        } finally {
+            Neo.currentWorker.getAddon = originalGetAddon
+        }
     });
 
     test('responsiveLockPolicy applies matching breakpoint lock states through column setters', async () => {
@@ -314,7 +444,7 @@ test.describe('Grid Locked Columns', () => {
     });
 
     test('onResize evaluates responsiveLockPolicy before the sizing refresh', async () => {
-        let bodyUpdated    = false,
+        let bodyUpdated     = false,
             headerRefreshed = false,
             passSilentArgs  = [];
 
@@ -368,7 +498,7 @@ test.describe('Grid Locked Columns', () => {
 
         // Expected sorted order: start -> unlocked -> end
         const expectedOrder = ['newCol3', 'newCol1', 'newCol2'];
-        const actualOrder = grid.columns.items.map(col => col.dataField);
+        const actualOrder   = grid.columns.items.map(col => col.dataField);
 
         expect(actualOrder).toEqual(expectedOrder);
     });

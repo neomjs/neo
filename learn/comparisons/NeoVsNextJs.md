@@ -1,6 +1,6 @@
 # Neo.mjs vs Next.js
 
-Neo.mjs and Next.js are both powerful JavaScript frameworks, but they operate with fundamentally different architectural
+Neo.mjs and Next.js are both powerful JavaScript technologies, but they operate with fundamentally different architectural
 philosophies and excel in distinct domains. This document aims to clarify their core strengths and illustrate how they
 can be used in complementary ways, rather than as direct competitors.
 

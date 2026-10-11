@@ -1,6 +1,8 @@
-import RecordFactory from './RecordFactory.mjs';
-import Store         from './Store.mjs';
-import TreeModel     from './TreeModel.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import PathNormalizer  from './normalizer/Path.mjs';
+import RecordFactory   from './RecordFactory.mjs';
+import Store           from './Store.mjs';
+import TreeModel       from './TreeModel.mjs';
 
 const
     isFiltered    = Symbol.for('isFiltered'),
@@ -53,6 +55,14 @@ class TreeStore extends Store {
          */
         model: TreeModel,
         /**
+         * The normalizer backing `materializePath()`. Left unset, it is created on first use, so a
+         * store that never materializes a path never pays for one. Provide a config to change the
+         * path grammar, e.g. `pathNormalizer: {separator: '.'}`.
+         * @member {Object|Neo.data.normalizer.Path|null} pathNormalizer_=null
+         * @reactive
+         */
+        pathNormalizer_: null,
+        /**
          * If true, expanding a node will automatically collapse its siblings.
          * @member {Boolean} singleExpand=false
          */
@@ -73,6 +83,90 @@ class TreeStore extends Store {
      * @private
      */
     #childrenMap = new Map()
+
+    /**
+     * @summary Inserts a node into a parent's child array, resolving membership by key.
+     *
+     * `#allRecordsMap` is keyed, so re-adding a node overwrites its entry. `#childrenMap` holds arrays,
+     * where membership has to be scanned for — and scanning by object identity is a membership test an
+     * equal-but-distinct literal can never satisfy, which is the ordinary shape for anything re-read
+     * from a config, a fixture or an API. Identity-scanning therefore appended the new literal beside
+     * the object it had just replaced: the child array held a stale node and a live one under the same
+     * key, `getCount()` reported one child while `getChildren()` returned two, and `updateSiblingStats()`
+     * published the array's length as `siblingCount` — a level with a single node announcing "1 of 2" to
+     * a screen reader while the rendered tree looked entirely correct.
+     *
+     * Resolving by key keeps both maps pointing at the same record: an existing key is replaced in place,
+     * so the re-added field values win and the stale object stops being reachable through `getChildren()`.
+     * Re-adding the exact same reference stays a no-op, and `affectedParents` grows only when the array
+     * actually changed, so `updateSiblingStats()` runs for a replacement and not for a no-op.
+     *
+     * **Why the caller hands over the previous record rather than letting this scan for the key.**
+     * Ingestion is already O(N) over a level, so a per-node key scan makes a bulk load O(N²) — with a
+     * record getter on every comparison rather than a reference check. Measured over 20k flat siblings,
+     * that is the difference between 0.5s and 11.6s, in the one class whose whole premise is 50k-record
+     * ingestion. A key absent from `#allRecordsMap` cannot be in any child array, so the common path —
+     * ingesting a genuinely new node — never scans at all, and only a real re-add pays for the lookup.
+     *
+     * @param {String|Number} parentId The child array to insert into. Root-level nodes live under 'root'.
+     * @param {Object|Neo.data.Record} data
+     * @param {Object|Neo.data.Record|undefined} existing What this key resolved to BEFORE the current
+     * ingestion overwrote it; `undefined` for a key the Structural Layer has never held.
+     * @param {Set} affectedParents Collects the parents whose derived stats need recalculating.
+     * @private
+     */
+    #addChild(parentId, data, existing, affectedParents) {
+        let me       = this,
+            siblings = me.#childrenMap.get(parentId),
+            index    = -1;
+
+        if (!siblings) {
+            siblings = [];
+            me.#childrenMap.set(parentId, siblings)
+        }
+
+        if (existing) {
+            index = siblings.indexOf(existing);
+
+            // `hydrateRecord()` heals both maps in step, so identity resolves the entry in practice.
+            // The key scan is the fallback for a node whose two map entries have drifted apart —
+            // without it, a drifted entry would silently duplicate exactly as it used to.
+            if (index < 0) {
+                let key = me.getKey(data);
+
+                index = siblings.findIndex(sibling => me.getKey(sibling) === key)
+            }
+        }
+
+        if (index > -1) {
+            // Same reference: the node is already parented here, so nothing derived can have changed.
+            if (siblings[index] === data) {
+                return
+            }
+
+            siblings[index] = data
+        } else {
+            siblings.push(data)
+        }
+
+        affectedParents.add(parentId)
+    }
+
+    /**
+     * Triggered before the pathNormalizer config gets changed.
+     * Instantiates a config object, defaulting to `Neo.data.normalizer.Path`. A falsy value stays
+     * falsy on purpose: the normalizer is created on first `materializePath()` call, not eagerly for
+     * every store.
+     * @param {Object|Neo.data.normalizer.Path|null} value
+     * @param {Object|Neo.data.normalizer.Path|null} oldValue
+     * @protected
+     * @returns {Neo.data.normalizer.Path|null}
+     */
+    beforeSetPathNormalizer(value, oldValue) {
+        oldValue?.destroy();
+
+        return value ? ClassSystemUtil.beforeSetInstance(value, PathNormalizer) : value
+    }
 
     /**
      * @summary Overrides `clear` to prevent memory leaks and split-brain states.
@@ -186,7 +280,7 @@ class TreeStore extends Store {
      *
      * Iterates through the entire structural layer, silently setting `collapsed = true`
      * on all non-leaf nodes. The visible projection (`_items`) is then completely
-     * re-calculated from the roots, and a single `load` event is fired to trigger a UI refresh.
+     * re-calculated from the roots, and a single `load` event is fired to trigger a forced UI refresh.
      * This avoids the O(N^2) cost of triggering individual `splice` operations.
      *
      * @param {Boolean} [silent=false] True to prevent firing the 'load' event
@@ -216,7 +310,10 @@ class TreeStore extends Store {
         me.calcValueBands();
 
         if (!silent && me[updatingIndex] === 0) {
-            me.fire('load', {items: me._items})
+            me.fire('load', {
+                forceViewData: true,
+                items        : me._items
+            })
         }
     }
 
@@ -263,6 +360,15 @@ class TreeStore extends Store {
                 me.collectVisibleDescendants(children[i], resultArr)
             }
         }
+    }
+
+    /**
+     * Releases the lazily created path normalizer alongside the store.
+     */
+    destroy() {
+        this.pathNormalizer?.destroy();
+
+        super.destroy()
     }
 
     /**
@@ -441,7 +547,7 @@ class TreeStore extends Store {
      *
      * Iterates through the entire structural layer, silently setting `collapsed = false`
      * on all non-leaf nodes. The visible projection (`_items`) is then completely
-     * re-calculated from the roots, and a single `load` event is fired to trigger a UI refresh.
+     * re-calculated from the roots, and a single `load` event is fired to trigger a forced UI refresh.
      * This avoids the O(N^2) cost of triggering individual `splice` operations.
      *
      * @param {Boolean} [silent=false] True to prevent firing the 'load' event
@@ -471,7 +577,10 @@ class TreeStore extends Store {
         me.calcValueBands();
 
         if (!silent && me[updatingIndex] === 0) {
-            me.fire('load', {items: me._items})
+            me.fire('load', {
+                forceViewData: true,
+                items        : me._items
+            })
         }
     }
 
@@ -625,6 +734,41 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary Returns the direct children of a node, regardless of expansion state.
+     *
+     * **Why this is not a scan of `items`:** `items` is the Projection Layer — it holds only the
+     * currently visible nodes, so `find('parentId', key)` silently returns nothing for a collapsed
+     * branch, and `collapsed` defaults to `true`. This reads the Structural Layer (`#childrenMap`)
+     * directly instead.
+     *
+     * **Cost:** an O(1) lookup of the child array, then O(k) to hydrate and copy its k entries — not
+     * O(1) overall.
+     *
+     * **Visibility vs order — they behave differently, and only one is independent:**
+     * - *Independent:* expansion and filtering. A collapsed or filtered-out branch still returns its
+     *   children, because visibility is a property of the projection, not of the hierarchy.
+     * - *NOT independent:* order. `doSort()` reorders the child arrays in the Structural Layer itself,
+     *   so the returned sibling order follows the store's current sort. That is the intended contract —
+     *   it is how a level-at-a-time consumer inherits ordering it never has to implement.
+     *
+     * Consumers rendering one level at a time — a cascading menu, a breadcrumb, a column browser —
+     * need exactly this: a branch's children without expanding the branch as a side effect.
+     * `collectAllDescendants()` is the wrong tool for them, since it returns the entire subtree.
+     *
+     * Records are hydrated on the way out, so Turbo Mode (`autoInitRecords: false`) callers receive
+     * real records rather than the raw objects held in the map.
+     *
+     * @param {String|Number} [parentId='root'] The parent node key. Root-level nodes live under 'root'.
+     * @returns {Object[]} A new array of the direct child records; empty when the node has none.
+     */
+    getChildren(parentId='root') {
+        let me       = this,
+            children = me.#childrenMap.get(parentId) || [];
+
+        return children.map(item => me.hydrateRecord(item))
+    }
+
+    /**
      * @summary Calculates the target flat array index for a newly added node.
      *
      * **Architectural Mechanics:**
@@ -690,6 +834,20 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary The tree ingests RAW rows: its structural layer annotates `depth`, `isLeaf`,
+     * `childCount` and `collapsed` inside {@link #splice} before a record exists, and
+     * {@link #hydrateRecord} materializes records lazily with those annotations in place. The base
+     * store's eager pre-splice hydration would freeze a record before the annotation and leave the
+     * hierarchy fields at their defaults, so the rows pass through untouched here.
+     * @param {Object[]} items The raw rows (or records) passed to `add` / `insert`
+     * @returns {Object[]} The same rows
+     * @protected
+     */
+    prepareAddedItems(items) {
+        return items
+    }
+
+    /**
      * Extends the base Store's hydrateRecord to also update the TreeStore's internal maps.
      * This acts as the Single Source of Truth for "Soft Hydration" in Turbo Mode, ensuring
      * that when a raw data object becomes a Record, the TreeStore doesn't suffer from a split-brain.
@@ -729,6 +887,54 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary Creates every node a path addresses that does not exist yet, and returns its leaf.
+     *
+     * Plugin and module architectures address hierarchy by path — `'A/B/C'` — without knowing which
+     * siblings exist or which contributor already created the intermediate groups. This method is the
+     * idempotent entry point for that shape: missing ancestors are synthesized, existing ones are
+     * reused, and the whole path is ingested in a single mutation.
+     *
+     * Two contributors declaring `'Group/A'` and `'Group/B'` converge on **one** `Group` node in
+     * either order, because ancestor identity is the path prefix rather than an insertion artifact.
+     * Re-materializing a path that already exists is a no-op that still returns the leaf, so callers
+     * need no "does this exist yet" branch of their own.
+     *
+     * **Ordering matters and is handled here.** `splice()` resolves `depth` from the parent record and
+     * re-parents a node whose parent it cannot find to `'root'` — silently, and without re-adopting it
+     * when the parent arrives later. Emitting ancestors before descendants in one call is what keeps
+     * that path from being reachable.
+     *
+     * The Structural Layer keeps ownership of `depth`, `childCount`, `siblingIndex` and `siblingCount`;
+     * this method writes none of them, so an incremental materialization maintains the same ARIA
+     * invariants as a bulk load and fires the store's normal `mutate` event rather than rebuilding.
+     *
+     * @example
+     *     store.materializePath('View/Tools/Inspect', {iconCls: 'fa fa-search'});
+     *     // creates 'View', 'View/Tools' and the 'View/Tools/Inspect' leaf
+     *
+     * @param {String} path Separator-delimited, e.g. `'A/B/C'`. A segment may contain the separator
+     * when escaped: `'a\\/b/c'` is the two-level path `a/b` → `c`.
+     * @param {Object} [data={}] Fields for the leaf record. The key and `parentId` always derive from
+     * the path, so supplying them here has no effect.
+     * @returns {Object|null} The leaf record, whether it was just created or already present.
+     * @see Neo.data.normalizer.Path
+     */
+    materializePath(path, data={}) {
+        let me = this,
+            records;
+
+        if (!me.pathNormalizer) {
+            me.pathNormalizer = {keyProperty: me.getKeyProperty()}
+        }
+
+        records = me.pathNormalizer.materialize(path, data, id => me.#allRecordsMap.has(id));
+
+        records.length > 0 && me.add(records);
+
+        return me.get(path)
+    }
+
+    /**
      * @summary Rebuilds the Projection Layer's internal indexing arrays and map to match the flat `_items` array.
      *
      * This method is an architectural requirement when performing bulk projections (like `expandAll`,
@@ -738,12 +944,12 @@ class TreeStore extends Store {
      *
      * Consequently, it must also manually synchronize the internal `map`
      * to reflect the newly calculated flat projection, guaranteeing O(1) lookup integrity for the VDOM rendering loop.
-     * 
+     *
      * **Turbo Mode Consistency:**
-     * In **Turbo Mode** (`autoInitRecords: false`), bulk projections deal with raw data objects. 
+     * In **Turbo Mode** (`autoInitRecords: false`), bulk projections deal with raw data objects.
      * However, UI interactions (like Grid selections) rely on `SelectionModel` resolving DOM
      * `data-record-id` values (which fallback to `internalId`) back to records via `store.get()`.
-     * To prevent `store.get()` from failing, this method explicitly invokes `getInternalId` to 
+     * To prevent `store.get()` from failing, this method explicitly invokes `getInternalId` to
      * force generation of internal IDs on raw objects and perfectly synchronizes the `internalIdMap`.
      *
      * @private
@@ -875,9 +1081,10 @@ class TreeStore extends Store {
      * @param {Number|null} index
      * @param {Number|Object[]} [removeCountOrToRemoveArray]
      * @param {Object|Object[]} [toAddArray]
+     * @param {Boolean} [silent=false] The unfiltered projection's event-free write, forwarded to the Collection
      * @returns {Object} An object containing the addedItems & removedItems arrays
      */
-    splice(index, removeCountOrToRemoveArray, toAddArray) {
+    splice(index, removeCountOrToRemoveArray, toAddArray, silent=false) {
         let me              = this,
             affectedParents = new Set(),
             visibleToRemove = [],
@@ -970,6 +1177,11 @@ class TreeStore extends Store {
                         data.collapsed = true
                     }
 
+                    // Captured before the overwrite: this is both the node a re-add replaces and the
+                    // proof that the key is in the hierarchy at all, which is what keeps `#addChild()`
+                    // from scanning a level per ingested node.
+                    let existing = me.#allRecordsMap.get(key);
+
                     me.#allRecordsMap.set(key, data);
 
                     if (!me.#childrenMap.has(parentId)) {
@@ -984,10 +1196,7 @@ class TreeStore extends Store {
                         }
                     }
 
-                    if (!me.#childrenMap.get(parentId).includes(data)) {
-                        me.#childrenMap.get(parentId).push(data);
-                        affectedParents.add(parentId)
-                    }
+                    me.#addChild(parentId, data, existing, affectedParents);
 
                     // Identify nodes that need their flat visible descendants calculated
                     if (parentId === 'root' || !me.#allRecordsMap.has(parentId)) {
@@ -996,6 +1205,13 @@ class TreeStore extends Store {
                         // Auto-heal disconnected branches by reparenting them to 'root'
                         if (parentId !== 'root') {
                             data.parentId = 'root';
+
+                            // The re-parenting carries its own derived invariant. `depth` was resolved
+                            // against the declared parent above — and that parent is precisely the one
+                            // that turned out to be absent, so the value it produced describes a level
+                            // this node no longer sits on. A root-level node is at depth 0.
+                            data.depth = 0;
+
                             let siblings = me.#childrenMap.get(parentId);
                             if (siblings) {
                                 let idx = siblings.indexOf(data);
@@ -1003,13 +1219,8 @@ class TreeStore extends Store {
                                     siblings.splice(idx, 1)
                                 }
                             }
-                            if (!me.#childrenMap.has('root')) {
-                                me.#childrenMap.set('root', [])
-                            }
-                            if (!me.#childrenMap.get('root').includes(data)) {
-                                me.#childrenMap.get('root').push(data);
-                                affectedParents.add('root')
-                            }
+
+                            me.#addChild('root', data, existing, affectedParents)
                         }
                     } else {
                         let parentNode = me.#allRecordsMap.get(parentId);
@@ -1040,7 +1251,31 @@ class TreeStore extends Store {
             }
         }
 
-        // --- 3. Synchronize ARIA Stats ---
+        // --- 3. Re-apply the active sort to levels the projection will not touch ---
+        //
+        // A mutation with a visible delta reaches `super.splice()` below, and the Collection's own
+        // sort re-orders every structural level on the way through. A mutation confined to a
+        // collapsed branch never gets there, so its children would keep insertion order while
+        // `getChildren()` documents that order follows the store's active sort — the tree renders
+        // correctly on expansion and reports the wrong order until then.
+        //
+        // This must precede `updateSiblingStats`, which assigns `siblingIndex` by array position:
+        // sorting afterwards would leave the ARIA indices describing the pre-sort order.
+        // `autoSort` is half the predicate, not a detail: every sort trigger in `Collection.Base` is
+        // guarded by `autoSort && sorters.length`, so a store that configured sorters and disabled
+        // automatic sorting keeps declaration order by design. Sorting on `sorters.length` alone
+        // would impose an order the consumer explicitly opted out of — and only on the hidden path,
+        // which is a fresh divergence between hidden and visible in the opposite direction from the
+        // one this block exists to close.
+        if (me.autoSort && me.sorters?.length > 0 && visibleToAdd.length < 1 && visibleToRemove.length < 1) {
+            for (const pid of affectedParents) {
+                const siblings = me.#childrenMap.get(pid);
+
+                siblings?.length > 1 && me.sortArray(siblings)
+            }
+        }
+
+        // --- 3b. Synchronize ARIA Stats ---
         for (const pid of affectedParents) {
             me.updateSiblingStats(pid)
         }
@@ -1050,8 +1285,9 @@ class TreeStore extends Store {
         if (me[isFiltered]) {
             me.filter();
 
-            // Collection fires mutate if added or removed items > 0
-            if (toAddArray || removeCountOrToRemoveArray) {
+            // Collection fires mutate if added or removed items > 0 — unless this is the
+            // projection's own event-free write
+            if (!silent && (toAddArray || removeCountOrToRemoveArray)) {
                 me.fire('mutate', {
                     addedItems     : toAddArray || [],
                     preventBubbleUp: me.preventBubbleUp,
@@ -1066,12 +1302,13 @@ class TreeStore extends Store {
 
         // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
         if (visibleToRemove.length > 0 || visibleToAdd.length > 0 || index === 0 && removeCountOrToRemoveArray === me.count) {
-            return super.splice(insertIndex, visibleToRemove, visibleToAdd)
+            return super.splice(insertIndex, visibleToRemove, visibleToAdd, silent)
         }
 
         // Fallback Mutation Event: If we added/removed hidden nodes, the visible array didn't change,
         // so we skipped super.splice(). We must manually fire 'mutate' to keep systems like Store.count in sync.
-        if (toAddArray || removeCountOrToRemoveArray) {
+        // The projection's own write (`silent`) fires nothing on this exit either.
+        if (!silent && (toAddArray || removeCountOrToRemoveArray)) {
             me.fire('mutate', {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,

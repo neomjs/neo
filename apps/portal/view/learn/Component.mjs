@@ -12,6 +12,12 @@ class Component extends ContentComponent {
          */
         className: 'Portal.view.learn.Component',
         /**
+         * Relative Markdown links inside a guide are rewritten onto the learn route, so the same
+         * authored link works for a GitHub reader and inside the app.
+         * @member {String} contentRoute='#/learn/'
+         */
+        contentRoute: '#/learn/',
+        /**
          * @member {String} issuesUrl='#/news/tickets/'
          */
         issuesUrl: '#/news/tickets/'

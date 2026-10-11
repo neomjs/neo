@@ -11,35 +11,22 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../src/Neo.mjs';
+import * as core         from '../../../../src/core/_export.mjs';
+import UnitTestWebSocket from './UnitTestWebSocket.mjs';
 
 const lock = (agentId, sessionId, subtreePath) => ({agentId, sessionId, subtreePath});
 
 test.describe('Neo.ai.Client - agent disconnect lock release', () => {
-    let client, originalWebSocket;
+    let client, originalCurrentWorker, originalWebSocket, originalWorker;
 
     test.beforeAll(() => {
-        originalWebSocket = globalThis.WebSocket;
+        originalCurrentWorker = Neo.currentWorker;
+        originalWebSocket     = globalThis.WebSocket;
+        originalWorker        = Neo.worker;
 
-        globalThis.WebSocket = class UnitTestWebSocket {
-            static CLOSED     = 3
-            static CLOSING    = 2
-            static CONNECTING = 0
-            static OPEN       = 1
-
-            readyState = UnitTestWebSocket.OPEN
-
-            constructor(serverAddress) {
-                this.serverAddress = serverAddress
-            }
-
-            close() {
-                this.readyState = UnitTestWebSocket.CLOSED
-            }
-
-            send() {}
-        };
+        globalThis.WebSocket = UnitTestWebSocket;
 
         Neo.currentWorker = {
             on: () => {}
@@ -54,14 +41,15 @@ test.describe('Neo.ai.Client - agent disconnect lock release', () => {
 
     test.afterAll(() => {
         globalThis.WebSocket = originalWebSocket
+        Neo.currentWorker    = originalCurrentWorker;
+        Neo.worker           = originalWorker
     });
 
     test.beforeEach(async () => {
         const {default: Client} = await import('../../../../src/ai/Client.mjs');
 
-        client             = Neo.ai.Client || Neo.create(Client, {appName});
-        client.writeGuard  = Neo.create('Neo.ai.WriteGuard');
-        client.isConnected = false
+        client            = Neo.ai.Client || Neo.create(Client, {appName});
+        client.writeGuard = Neo.create('Neo.ai.WriteGuard')
     });
 
     test('onSocketMessage releases the disconnected writer and frees the held subtree', async () => {
@@ -88,7 +76,9 @@ test.describe('Neo.ai.Client - agent disconnect lock release', () => {
         const result = client.handleAgentDisconnected({agentId: 'neo-opus-ada', sessionId: 'sess-1'});
 
         expect(result.released).toBe(1);
-        expect(client.writeGuard.heldLocks()).toEqual([lock('neo-opus-ada', 'sess-2', ['root', 'b'])])
+        expect(client.writeGuard.heldLocks()).toEqual([
+            expect.objectContaining(lock('neo-opus-ada', 'sess-2', ['root', 'b']))
+        ])
     });
 
     test('an unknown disconnected writer is a no-op', () => {
@@ -97,7 +87,9 @@ test.describe('Neo.ai.Client - agent disconnect lock release', () => {
         const result = client.handleAgentDisconnected({agentId: 'neo-opus-vega', sessionId: 'sess-2'});
 
         expect(result.released).toBe(0);
-        expect(client.writeGuard.heldLocks()).toEqual([lock('neo-opus-ada', 'sess-1', ['root', 'panel'])])
+        expect(client.writeGuard.heldLocks()).toEqual([
+            expect.objectContaining(lock('neo-opus-ada', 'sess-1', ['root', 'panel']))
+        ])
     });
 
     test('half-stamped disconnect frames fail closed and do not sweep broad selectors', () => {
@@ -117,9 +109,9 @@ test.describe('Neo.ai.Client - agent disconnect lock release', () => {
         }
 
         expect(client.writeGuard.heldLocks()).toEqual([
-            lock('neo-opus-ada',  'sess-1', ['root', 'a']),
-            lock('neo-opus-ada',  'sess-2', ['root', 'b']),
-            lock('neo-opus-vega', 'sess-1', ['root', 'c'])
+            expect.objectContaining(lock('neo-opus-ada',  'sess-1', ['root', 'a'])),
+            expect.objectContaining(lock('neo-opus-ada',  'sess-2', ['root', 'b'])),
+            expect.objectContaining(lock('neo-opus-vega', 'sess-1', ['root', 'c']))
         ])
     });
 

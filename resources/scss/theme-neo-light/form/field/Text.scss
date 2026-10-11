@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-textfield
+:where(.neo-theme-neo-light) { // .neo-textfield
     --textfield-border-color                   : #ddd;
     --textfield-border-color-active            : #1c60a0;
     --textfield-border-color-alert             : darkorange;

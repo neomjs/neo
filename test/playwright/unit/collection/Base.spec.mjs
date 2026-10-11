@@ -23,6 +23,9 @@ import InstanceManager from '../../../../src/manager/Instance.mjs';
  * Ensuring the stability of Neo.collection.Base is critical as it is the foundation
  * for all data stores and collections within the framework.
  */
+// `describe.serial` is REQUIRED: `collection` is created by 'Create collection' and mutated in
+// sequence by the later arms (Modify inserts, Sort re-sorts the modified state, Clone/Filter read
+// it), so the arms share one evolving instance rather than each building its own.
 test.describe.serial('Neo.collection.Base', () => {
     let collection, collection2, collection3;
 

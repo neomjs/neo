@@ -1,0 +1,7 @@
+{
+    "appPath"    : "test/playwright/component/apps/calendar-month/app.mjs",
+    "basePath"   : "../../../../../",
+    "environment": "development",
+    "locale"     : "en-US",
+    "mainPath"   : "./Main.mjs"
+}

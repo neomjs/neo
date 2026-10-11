@@ -14,7 +14,8 @@ class HighlightJs extends Base {
          */
         className: 'Neo.util.HighlightJs',
         /**
-         * @member {Boolean} debug=false
+         * Selects the unminified bundle. `build-highlightjs` generates both variants in the installed Engine.
+         * @member {Boolean} debug=true
          */
         debug: true,
         /**
@@ -43,6 +44,17 @@ class HighlightJs extends Base {
      */
     afterSetWindowId(value, oldValue) {
         value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
+    }
+
+    /**
+     * @summary The `Neo.config.basePath`-relative bundle {@link #load} imports, chosen by `debug`.
+     *
+     * `unit/util/HighlightJs.spec.mjs` checks both loader paths with isolated module stand-ins.
+     * The consumer-build guard verifies both real files after generation in the installed Engine.
+     * @returns {String}
+     */
+    getBundlePath() {
+        return 'dist/highlight/highlight.custom' + (this.debug ? '' : '.min') + '.js'
     }
 
     /**
@@ -100,8 +112,7 @@ class HighlightJs extends Base {
      */
     async load() {
         if (!this.hljs) {
-            let path   = Neo.config.basePath + 'dist/highlight/highlight.custom' + (this.debug ? '' : '.min') + '.js',
-                module = await import(/* webpackIgnore: true */ path);
+            let module = await import(/* webpackIgnore: true */ Neo.config.basePath + this.getBundlePath());
 
             this.hljs = module.default
         }

@@ -2,7 +2,7 @@
     "appPath"         : "examples/component/wrapper/googleMaps/app.mjs",
     "basePath"        : "../../../../",
     "environment"     : "development",
-    "googleMapsApiKey": "AIzaSyCRj-EPE3H7PCzZtYCmDzln6sj7uPCGohA",
+    "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY",
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["GoogleMaps", "Stylesheet"]
 }

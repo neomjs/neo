@@ -14,13 +14,23 @@
     }
 
     .neo-chip-close-button {
+        background: none;
+        border    : 0;
         color     : var(--chip-close-button-color);
         cursor    : pointer;
+        font-size : inherit;
+        line-height: 1;
         margin    : 0 calc(15px / 2);
+        padding   : 0;
         transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
 
         &:hover {
             color: var(--chip-close-button-color-hover);
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--chip-border-color-focus);
+            outline-offset: 1px;
         }
     }
 

@@ -1,0 +1,7 @@
+// Values for the cross-window pane placeholder; the paint and the rationale live in
+// `src/dashboard/dock/window/VesselPlaceholder.scss`. `:where()` contributes zero specificity, so
+// an application projection always wins. Ground is this theme's `--dock-preview-ground` made opaque.
+:where(.neo-theme-dark) {
+    --dock-vessel-placeholder-ground: #3c3f41;
+    --dock-vessel-placeholder-ink   : #e0e0e0;
+}

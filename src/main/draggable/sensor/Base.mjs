@@ -57,7 +57,14 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggers a custom event on the target element
+     * Triggers a custom event on the target element.
+     *
+     * A gesture's own side effects can remove or replace the source node mid-drag (sort
+     * visuals lift the dragged item, an overflow plugin re-collapses the toolbar, a live
+     * re-render swaps DOM nodes): dispatching on a detached node swallows the event —
+     * nothing bubbles, so the document-level drag owner never hears the move stream (or
+     * the release). The document carries the dispatch for exactly that case; consumers
+     * read `event.detail`, never the dispatch target.
      * @param {HTMLElement} element - Element to trigger event on
      * @param {Object} sensorEvent - Sensor event to trigger
      * @returns {Event}
@@ -66,7 +73,7 @@ class Base extends CoreBase {
         const event = document.createEvent('Event');
         event.detail = sensorEvent;
         event.initEvent(sensorEvent.type, true, true);
-        element.dispatchEvent(event);
+        (element?.isConnected ? element : document).dispatchEvent(event);
         this.lastEvent = sensorEvent;
 
         return sensorEvent

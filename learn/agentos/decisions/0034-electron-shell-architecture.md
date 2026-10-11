@@ -1,0 +1,528 @@
+# ADR 0034: Electron Shell Architecture — Process Model, Window Topology, Security Posture, Distribution
+
+> Architectural Decision Record settling the six load-bearing questions every Electron-shell leaf
+> inherits (epic #13377): how the packaged shell BOOTSTRAPS the bundled local Agent OS plane —
+> the cockpit itself always connects over the authenticated fleet wire (ADR 0038) — and what its
+> window/app lifecycle means for the organism, under which constraints Chromium shares Neo's
+> SharedWorkers across OS windows (verified empirically, not asserted), the fail-closed renderer
+> security contract, the dock/OS-window fusion mapping, the distribution channel, and dev/prod
+> parity. Everything here is **additive on ADR 0020 §3** (the shell decision itself — Electron,
+> decided) and consumes the landed window-manager substrate as boundaries — it reopens nothing.
+
+| Attribute | Value |
+|---|---|
+| **Status** | Accepted — 2026-07-10 (#14786; PR #14924 merged to `dev`). |
+| **After the split** | The Electron shell ships from [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution) (`harness/`, #17810), and the local plane it bootstraps from [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) (#17806). The Engine keeps this record as history. |
+| **Amended** | 2026-08-08 (#16747, [ADR 0038](0038-fm-client-topology.md) — the FM client topology, graduated from D#16720): §2.1's hosting frame and §2.6.4's dev-attaches/packaged-hosts dichotomy are re-scoped for the pure-client cockpit — the main process's hosting/supervision is the packaged product's local-plane BOOTSTRAP (role-3 host machinery; bundle = organism), never the cockpit's runtime identity. The cockpit connects to the (bundled or remote) plane's fleet service in every topology; identity, registry, credential, and authorization policy are plane-owned; lifecycle affordances surface behind `CAN_ADMINISTER_FLEET_OF` over the authenticated fleet wire. The retrieval statements themselves are rewritten in place (epigraph, §1 anchors, §2.1 heading + settled frame + binding 1, §2.6.4) with provenance brackets; ADR 0038 §3.3 is the canonical statement. |
+| **Author** | @neo-opus-vega (Vega, Claude Fable 5, Claude Code) — #13377 epic steward. |
+| **Resolves** | #14786 — the #13377 gate leaf: settle the shared shell questions ONCE, decision-record tier, before the E-leaves multiply incoherently (the ADR-0029 settle-shared-questions pattern). |
+| **Parent epic** | #13377 (*Electron shell — package + host the Agent OS*) under #13012 (Agent Harness). |
+| **Depends on** | **ADR 0020** (the embodiment vessel — extended, never superseded; §3 fixes the shell decision, the in-process target + child-process fallback, source-tree discipline, and PATs-Brain-side); **ADR 0029** (docking design — its §2.1 state-class table, window-manager boundaries, and semantic-restore rules are consumed, not reopened). |
+| **Connects to** | #13033 (build-root leaf, owner @neo-opus-ada — its live Contract Ledger is consumed AS-IS; §5 maps the refinement leaves that follow it) · #13025 / #13028 (landed window-manager leaves, consumed as boundaries) · #13446 (NL window ops — gains an Electron backend per §2.4) · #14793 (native-shell UX spec — consumes §2.1's lifecycle decisions) · #14230 (fork-path onboarding — stays the contributor door per §2.5). |
+| **Empirical anchor** | Carried as a **live regression in the real native app** — `cd harness && npm run smoke` (the harness IS the runnable Electron vessel; its own `package.json` pins Electron 43.1.0) emits a JSON verdict with `sharedHeapEvidence: true` + `popupMaterialized: true` at Chromium 150.0.7871.47 · darwin 25.5.0: SharedWorker sharing proven in the shipped app, not a throwaway. The negative-case findings that fixed the architecture (`file://` kills sharing; per-window partitions) are recorded in §2.2 + §6. Re-run trigger: every Electron major bump BEFORE adoption (`harness/ npm run smoke`); owner: the §5 E2 leaf owner. (The redundant one-off spike — a duplicate Electron project — was removed from the tree; #15043 — the superseded `spike/14786-electron-sharedworker` branch is being retired separately, operator-gated.) |
+| **Implemented by** | the §5 decomposition — one Contract-Ledgered leaf per row, mapped on the #13377 epic; each cites its section here as upstream contract. |
+| **Anti-anchor for** | **file:// harness loading** (falsified: kills worker sharing, §2.2); **a second window manager** (Electron materializes, the Neo window substrate owns semantics); **serialize-and-recreate across BrowserWindows** (components exist once in the shared App-Worker heap — ADR 0029); **a Brain-daemon fork** (one lifecycle owner, §2.1); **per-window session partitions** (§2.2); **credential or token bytes in renderer-readable state** outside the credential window (§2.3, item 9); **auto-spawning OS windows on perspective restore** (ADR 0029's rule, re-bound §2.4). |
+
+---
+
+## 1. Context
+
+ADR 0020 §3 decided the shell (operator, 2026-06-12): **Electron — always Chromium + always
+Node.js**, Tauri retired, the packaged product **bootstrapping the local Agent OS plane from the
+Electron main** (in-process as the target arm, **child-process supervision as the sanctioned
+fallback**) while the cockpit's runtime identity stays a pure client of the plane's fleet wire
+(ADR 0038), and web-served mode staying the dev convenience. The #13377 epic added the decisive boundary (operator correction, 2026-06-15):
+**Electron is the shell only — it does not own the additional windows.** Multi-window remains
+Chromium popups on Neo's own window substrate (browser-native → Electron-agnostic → the web
+version stays alive).
+
+What no record settles is everything a *packaged* shell adds on top of those two anchors: the exact
+constraints under which Chromium shares Neo's SharedWorkers across OS windows (the whole
+architecture rides this — asserted often, verified never), what last-window-close means when the
+shell bootstraps the bundled plane, the renderer security contract, how `window.open` popups materialize, what
+artifact a stranger downloads, and how the packaged boot path stays identical to `npm run dev`.
+Six questions, named by #14786; made implicitly per-leaf, they diverge — the access-ban lesson
+(disconnected surfaces, no coherent shell) repeats at the OS level. This record settles them once.
+
+## 2. Decision
+
+### §2.1 Process model — the shell bootstraps the bundled plane, one bootstrap supervisor (Q1)
+
+**Settled frame (carrying ADR 0020 §3 as amended, not re-deciding it):** the packaged app boots
+the whole organism — **the cockpit always connects over the authenticated fleet wire; packaged
+mode additionally BOOTSTRAPS the bundled local plane** from the Electron main (orchestrator + MCP
+servers in-process as the target arm, or supervised as a child process as the sanctioned
+fallback). Which arm wins is **#13033's spike outcome and stays that leaf's property**; this ADR
+binds what is true in EITHER arm:
+
+1. **One bootstrap supervisor.** The main process is the single bootstrap authority for the
+   bundled plane's start/stop/restart — whether that means in-process module lifecycles or
+   child-process supervision. No second supervisor, no daemon fork: a packaged install and an
+   externally-run daemon topology never manage the same plane state concurrently. **Dev and
+   packaged share ONE wire-only client contract:** dev connects to an externally-run plane;
+   packaged bootstraps the bundled plane and connects (ADR 0038 §2.7).
+2. **Restart affordances settle-or-reject.** Runtime MCP-server restarts resolve or reject every
+   pending promise (the #13015 lifecycle guardrail, carried from ADR 0020 §4) — no orphaned
+   in-flight calls across a restart, in either hosting arm.
+3. **Data-root resolution moves to the app tier.** The Memory Core owns SQLite/Chroma paths under
+   `.neo-ai-data/`; a packaged app resolves that root against the OS user-data directory
+   (`app.getPath('userData')`), a repo checkout resolves it repo-relative. The resolution seam is
+   ONE injectable path — Brain services never hardcode either root.
+4. **Port discipline.** Brain-side listeners (NL WebSocket, MCP HTTP, the fleet dev transport) bind
+   loopback-only in the packaged app (§2.3) with ports chosen/managed by the lifecycle owner, so
+   two installs (or install + dev repo) fail loudly at boot instead of silently cross-talking.
+5. **App lifecycle: the organism outlives its windows.** The shell suppresses Electron's default
+   quit-on-`window-all-closed` (that default silently empties a multi-window
+   app). Closing the last window leaves the Brain running with the tray as its handle; **Brain
+   teardown happens ONLY on explicit quit** (tray/app-menu). The cockpit window itself is hidden
+   on close, never destroyed while the app runs: SharedWorker lifetime is client-scoped, so
+   destroying the last window would kill the App-Worker heap (stores, undo state, live UI) while
+   the tray still claims the institution is running. The UX surface of these semantics (tray
+   triad, first-run, window defaults) is #14793's spec; the SEMANTICS are bound here.
+
+**Falsifier:** if #13033's spike shows in-process hosting cannot satisfy settle-or-reject restarts
+(e.g. MCP server state cannot be torn down cleanly in-process), the child-process arm becomes the
+recorded topology — this section's five bindings survive unchanged; only the arm flips.
+
+*[Statements above amended in place 2026-08-08 — ADR 0038 §3.3 (#16747, from D#16720). Previously
+the frame read "the Electron main process hosts the Agent OS in-process as the target topology"
+and binding 1 kept attach-to-external as a dev-mode-only capability. The #13033 hosting-arm
+decision is unchanged; identity, registry, credential, and authorization policy are plane-owned
+(role-3 host machinery; bundle = organism, Body-first first-render); binding 2's settle-or-reject
+semantics stay plane-side contracts whose affordances surface behind `CAN_ADMINISTER_FLEET_OF`;
+attach-or-own as cockpit identity is retired (C5 #16746, blast-radius inventory first).]*
+
+### §2.2 Window topology — the SharedWorker constraint set, verified (Q2)
+
+Neo boots **separate SharedWorker identities per role** — App, VDom, Data, Canvas (as configured)
+— and same-origin windows share EACH of those identities. That per-worker sharing is what the
+multi-window architecture rides, and inside Electron it survives **only under specific, now-named
+constraints** — established empirically and now guarded as a live regression by the harness
+smoke (`cd harness && npm run smoke` → `sharedHeapEvidence: true`); the findings are the table below:
+
+| Constraint | Empirical basis |
+|---|---|
+| **C1 — Real origin required, with the full privilege set.** The harness MUST be served from a standard-scheme origin: a custom privileged scheme (`app://` via `protocol.registerSchemesAsPrivileged([{scheme, privileges: {standard: true, secure: true, supportFetchAPI: true}}])` + `protocol.handle`) or localhost HTTP. **`supportFetchAPI: true` is normative** — `data.Store` `url` seeds and every fetch-consuming surface depend on it (the harness smoke's working privilege set includes it; the fetch smoke consumes it). **`file://` loading silently isolates every window's workers** — the app renders, boots, and shares nothing. | `file2win`/`filepopup` = ISOLATED; `app2win`/`http2win` = SHARED; `fetchsmoke` = `fetchOk: true` |
+| **C2 — One session partition, positively verified.** SharedWorker scope is partition-bound: with origin, page URL, and preload held constant and ONLY the partition varied, the second window reports a FRESH worker (count 1) — on both sharing origins. Every harness window lives in the default (or one named) partition. | `partitionapp` + `partitionhttp` = both windows report (1, 1) |
+| **C3 — The popup path is preserved.** `window.open()` — issued on the main thread by `Neo.Main.windowOpen()`, which opens the `about:blank` staging realm and then replaces it with the document (§2.3.2) — joins the same workers when the shell allows it via `setWindowOpenHandler({action: 'allow', overrideBrowserWindowOptions})`. The popup materializes as an Electron-managed `BrowserWindow`; the same-origin `window.opener` relationship survives. | `apppopup`/`httppopup` = SHARED |
+| **C4 — Secure defaults cost nothing.** All of the above holds under `contextIsolation: true`, sandbox on, `nodeIntegration: false` — worker topology and the §2.3 security posture are decoupled. | entire matrix ran on default secure flags |
+| **C5 — Worker identity is `(origin, URL)` per worker.** The packaged origin must be *stable* across windows and app restarts (one canonical `app://` host + path scheme), or windows resolve different identities for the SAME worker role. | phase-scoped worker URLs isolate by construction |
+| **C6 — Protocol handlers are session-specific.** `protocol.handle` on the default session does not serve other partitions; a window in a `persist:` partition cannot even LOAD `app://` without its own registration. Operationally this reinforces C2: one partition, one registration. | the `partitionapp` control required `session.fromPartition(...).protocol.handle` before window B loaded at all |
+
+**The seam, restated under the shell-only boundary — who owns what:**
+
+| Concern | Owner (current source) | In the shell |
+|---|---|---|
+| Popup creation | `Neo.Main.windowOpen()` (main thread) owns the actual `window.open(url, name, features)` call; App-Worker code (e.g. `dashboard.Container.openWidgetInPopup()`) reaches it as a remote method | unchanged — the same call, materialized per C3 |
+| Window observation + choreography | `Neo.manager.Window` (App Worker) — connected-window registry, geometry, `getWindowAt(x, y)`, with `main.addon.WindowPosition` | unchanged — gains precision via the §2.4 enhancement points |
+| Detach semantics | `DockZoneModel.detachItem()` — catalog/tree state only | unchanged |
+
+The shell's contribution is exactly two enhancement classes: **materialization** (the
+`setWindowOpenHandler` path turning the main-thread `window.open` into a real `BrowserWindow`
+without browser popup ceremony) and **OS chrome control** (exact spawn-at-position, native
+move/resize events, frame options — the enhancement points #13025/#13028/#13030 named and
+#13446's NL window ops consume). The shell never grows placement policy, z-order arbitration, or
+window state of its own.
+
+**Falsifier:** a future Electron major changing SharedWorker scoping or protocol/session semantics
+— the harness smoke is the re-run gate (§6); the E2 leaf owner runs it on every major bump before
+adoption.
+
+### §2.3 Security posture — fail-closed everywhere, credentials never renderer-readable outside the credential window (Q3)
+
+1. **Renderer flags:** `contextIsolation: true`, sandbox **on**, `nodeIntegration: false` for every
+   window — including popups (enforced centrally in the `setWindowOpenHandler` override). §2.2 C4
+   proves this costs the architecture nothing; there is no worker-topology excuse for weakening it.
+2. **Fail-closed window policy:** `setWindowOpenHandler` ALLOWS only same-origin harness URLs (an
+   explicit origin/path allowlist) and DENIES everything else; `will-navigate` denies any
+   off-origin navigation in every window. The allow path IS the C3 popup contract; everything else
+   fails closed.
+   **The staging realm** *(amended 2026-09-26, #19237 — for
+   neomjs/neo-agent-institution#229)*: the one non-document the window policy admits is
+   `about:blank`. `Neo.Main.windowOpen` opens every same-origin popup there first, writes the
+   child's one-time route into that realm's `sessionStorage`, then replaces its location with the
+   document, so the child's `getWindowData()` handshake never races the write. The realm is bounded
+   three ways: it holds no content; the preload's capabilities refuse it, because §2.3.4 validates
+   the sender document; and `will-navigate` still admits only harness documents, so its one exit is
+   one. The shell's popup admission follows the engine's staging contract, and a change to either
+   re-reads the other. A handler that admits documents alone refuses every product popup, and does
+   so silently (`windowOpen` resolves `false`).
+   **The external hand-off** *(amended 2026-10-03, #19380 — for
+   neomjs/neo-agent-institution#493)*: a denied window-open whose URL is `https:` on an allowlisted
+   host and carries no credentials is handed to the system browser with `shell.openExternal`; the
+   in-app window stays denied. The allowlist is `github.com`, the one host the cockpit's citations
+   and merge-queue rows link to; an addition amends this paragraph. `will-navigate` is unchanged —
+   same-window off-origin navigation stays denied — so nothing foreign ever renders inside the
+   shell: the policy still decides what the shell SHOWS, and the hand-off decides only where an
+   operator's own click on a pull request lands. A URL the hand-off refuses opens nothing, as
+   before.
+3. **Permissions and content:** a `setPermissionRequestHandler` that denies by default with a
+   named, minimal allowlist (empty until a leaf needs one — additions amend this section); a
+   restrictive CSP served by the `app://` handler for every document; no remote documents,
+   scripts, styles, fonts, frames, or media inside harness windows. Passive images are the sole
+   exception and remain origin-allowlisted: `github.com` + `avatars.githubusercontent.com` for the
+   current roster-avatar source. Any additional image origin amends this section first.
+4. **IPC discipline:** one minimal `contextBridge` preload exposing named, capability-shaped
+   affordances — never `ipcRenderer` raw, never Node. Main-process handlers validate
+   `event.senderFrame` origin against the packaged origin before acting. The Brain-side
+   `FleetControlBridge` allowlist choke-point (`FLEET_WIRE_METHODS`) is the in-repo model for this
+   capability-allowlist discipline.
+5. **Brain endpoints bind loopback TCP** (`127.0.0.1`), never `0.0.0.0`, never unix sockets —
+   renderer `WebSocket`/`fetch` cannot reach unix sockets, and the NL/MCP endpoints must stay
+   reachable from the harness renderer and local tooling alike. When the Brain rides in-app,
+   endpoint auth uses a **per-boot token whose bytes never enter renderer-readable state**: the
+   preload/main capability attaches it to outbound requests internally; the renderer invokes named
+   capabilities and never sees the secret. Loopback alone does not authenticate against other
+   local processes.
+6. **Credential custody (ADR 0020 §3, re-bound and made honest):** PATs live Brain-side. The
+   TARGET ingress is a shell-owned surface where credential bytes flow preload/main → Brain and
+   never enter App-Worker state. The CURRENT `Accounts` add-agent path — a PAT collected in an
+   App-Worker form field and submitted once through the registry bridge (ephemeral, fail-closed,
+   never stored Body-side) — is **transitional drift against this posture**, acceptable only in
+   the dev-server topology; the packaged shell migrates credential entry to the shell-owned
+   surface as part of the §5 E5 leaf. The Add-Peer **curated-intent boundary** (Body submits
+   `{harnessType, id, repo/account facts}` — never command/args/env) is the design contract that
+   surface implements.
+7. **Whole-Brain health is a named read affordance from the lifecycle owner** *(amended
+   2026-08-03, #16051 — the PR #16050 Drop+Supersede consequence)*: the preload exposes ONE
+   additional capability, `brainHealth()` → `ipcRenderer.invoke('brain-health')`, answered by a
+   main-process handler that binds the **app-lifecycle owner's** surface (`appLifecycle.brainState`
+   plus a retained cause) and validates the sender per §2.3.4 before answering.
+   **Pull-shaped by design:** a renderer-initiated request/response keeps the audited surface
+   bounded, adds no unsolicited main→renderer event channel, and cannot leak listeners across
+   renderer generations (a dead renderer is itself a degrade source). An unpolled or unanswerable
+   affordance claims nothing — the fail-closed shape of this posture — where a push channel
+   invites silence to read as health. **The consumer obligation is symmetric:** a surface
+   rendering this affordance re-reads it for as long as it renders — a single mount-time read
+   re-imports silence-as-health through the consumer. The re-read interval is leaf property; the
+   obligation is not.
+   **Payload:** plain data — `{state, cause: {source, detail, observedAt} | null}`, `state` from
+   `BRAIN_STATES`. No credential bytes (§2.3.5/.6 untouched), no window or Node references.
+   **Producer contract:** the cause is produced where the fault is observed — the
+   `watchBrainChild` termination edge carries the owned child's identity + termination summary;
+   the cockpit-gone, render-process-gone, and boot-not-ready degrade sites name themselves. ONE
+   bounded record under **severity-tiered first-cause-wins**: within a tier the first cause of a
+   degraded episode is retained, and an owned-child fault supersedes a window-scoped cause —
+   never the reverse — encoding the child-fault primacy `settleBrainBoot` already votes
+   (`up && !brainFaulted`). The record clears on re-entry to `running` AND on transition to
+   `stopped` — an explicit quit/teardown must never render as impairment. Never accumulated
+   main-side.
+   **Failure semantics:** an invoke rejection or an absent `neoShell` is TRANSPORT truth and maps
+   to the consumer's transport surface — never daemon truth.
+   **Ownership boundary:** whole-Brain health never routes through `FleetControlBridge` /
+   `FLEET_WIRE_METHODS` — per-agent process rows answer "which agents run", not "is the organism
+   impaired" (§4, rejected shapes). The fleet allowlist is the discipline model (§2.3.4), never
+   the transport.
+   **Witness obligation:** the consuming leaf's evidence is a shell-transition-driven witness —
+   the lifecycle owner's transition drives the rendered banner; hand-assigned consumer state
+   witnesses a pass-through and is not wiring evidence.
+8. **Plane attach is a named broker** *(amended 2026-09-25, #19228 — for
+   neomjs/neo-agent-institution#211; #19233 — for neomjs/neo-agent-institution#223; 2026-10-02,
+   #19362 — for neomjs/neo-agent-institution#446)*: a
+   packaged shell that a Finder double-click starts has no environment, so it needs its own
+   record of the plane it attaches to, and the cockpit needs a way to create one. The preload exposes three capabilities, all answered by main-process handlers
+   that validate the sender per §2.3.4:
+   - `planeStatus()` → `ipcRenderer.invoke('shell-plane-status')`, pull-shaped like §2.3.7:
+     `{packaged, configured, planeBase, attached}` — plain data, no credential bytes.
+   - `attachPlane({planeBase})` → `ipcRenderer.invoke('shell-plane-attach', {planeBase})`: main
+     validates the base (https, or plain http on loopback only, never credentials in the URL),
+     collects the PAT in the credential window (item 9), checks it against the plane — an
+     authenticated `initialize`, then `list_permissions` in that session for the identity the
+     plane names for it — stores both, and relaunches the shell. The reply is
+     `{ok, reason, relaunching}` and never carries the PAT.
+   - `verifyPlane()` → `ipcRenderer.invoke('shell-plane-verify')`, pull-shaped like §2.3.7: main
+     probes the record this shell launched its fleet child with, by the exchange `attachPlane`
+     uses, and answers `{cause}` — `plane-credential-refused` when the plane refuses the stored
+     PAT, `plane-identity-changed` when it admits it as another account, else `null`. The reply
+     never carries the PAT, and a plane the environment supplied instead of the record is never
+     probed. The cockpit asks once per failed roster-read episode, so a PAT that expires
+     mid-session reads as the credential it is, not as a transport failure, and the banner offers
+     Connect instead of Reconnect.
+
+   **Custody is ADR 0038's, not new:** the record is the client connection profile of
+   [ADR 0038 §2.1](0038-fm-client-topology.md) — endpoint plus the client's credential, encrypted
+   at rest by Electron `safeStorage` (the OS keychain) or not stored at all, and the identity the
+   plane named for that credential, which is plain data — and the broker is the
+   row-2 connection broker of its §2.5.1 ledger: typed requests, zero credential-read capability.
+   **Which PAT:** the viewer's own plane credential, under the custody and persistence of §2.5.1
+   row 1 — not item 6's seat PATs, which stay Brain-side. Until #17 it reaches the plane on two
+   routes only: as the fleet child's `planeBearer`, and from main in this item's own probes
+   (`attachPlane`, `verifyPlane`), which present it to the plane's MCP route and hand it to no
+   renderer. It never reaches the plane as the fleet-surface admission mint.
+   **Transitional seam:** until neomjs/neo-agent-institution#17 retires the shell's own fleet
+   child, main hands the stored record to that child as `NEO_FLEET_PLANE_BASE` +
+   `NEO_FLEET_PLANE_BEARER` in its environment — never an argument, never a log line — and a value
+   already set in the process env wins, so the stored bearer never follows a plane base set
+   elsewhere. The stored bearer brings its identity as `NEO_AGENT_IDENTITY`, over an inherited
+   value: the child claims that identity, and the plane admits the child only when the claim is the
+   bearer's subject, which an identity left by whatever launched the shell is not. An env-supplied
+   bearer keeps the env's identity. After #17 the same record feeds the pure-client wire.
+   **Ownership boundary:** plane configuration never routes through `FleetControlBridge` /
+   `FLEET_WIRE_METHODS`; it is the shell's boot input, not a fleet verb.
+9. **The credential window is the one renderer that holds a credential** *(amended 2026-09-26,
+   #19238 — for neomjs/neo-agent-institution#227)*: every credential the packaged shell
+   collects — plane attach (item 8) and the credential-bearing Fleet verbs — is typed or pasted
+   into a native password field, in a sandboxed, context-isolated window of its own. Its document
+   carries no script (`default-src 'none'`); a preload that belongs to that window alone hands the
+   value to main once, on submit, over the window's own `webContents.ipc`, and main destroys the
+   window on every settle path (submit, cancel, close, renderer gone). After submit only main
+   holds it; the cockpit's renderer and the App Worker never do (items 5–6 are unchanged).
+   **Why a native field:** the platform gives it what an emulated one lacks. On macOS, Chromium
+   holds Secure Event Input only while a native password field has focus, so typed keys stay
+   invisible to processes with Input Monitoring — measured on Electron 43.1.0: `ioreg` names the
+   window's own main process as the secure-input holder while the field has focus, and no holder
+   once the window settles. The caret, selection, undo and ⌘V through the Edit menu come with it.
+10. **The first-run setup broker is a named broker** *(amended 2026-10-02, #19366 — for
+    neomjs/neo-agent-institution#384; 2026-10-03, #19377 — the effect channel is wired,
+    neomjs/neo-agent-institution#440)*: the cockpit's setup card projects the first-run recipe
+    (ADR 0041) inline, and only the shell's main process has host authority to evaluate it, record
+    a consent, keep a credential and run a host effect. The preload exposes six capabilities, each
+    `ipcRenderer.invoke('shell-setup-<name>')`. Every handler validates the sender per §2.3.4 — an
+    untrusted sender rejects the invoke — and answers one envelope shape: `{ok: true, …}` with the
+    named result, or a named refusal `{ok: false, reason, …}`; a browser boot refuses
+    `not-packaged`, a boot without a Brain root `no-brain-root` — never a missing handler:
+    - `setupEvaluate({target})` → `{ok: true, evaluation}`, the recipe's live evaluation for the
+      run's target in the CLI's `--json` shape, nested as it comes:
+      `evaluation = {runId, recordPath, recipeVersion, target, binding, bindingReason, steps, terminal}`.
+    - `setupProbe()` → `{ok: true, probe}`, the placement probe's JSON; `setupPresets()` →
+      `{ok: true, presets}`, the preset table. Both are main's reads; what the renderer holds of
+      them is a projection of main's last answer, never a budget or a table of its own.
+    - `setupAnswer({stepId, answer})` → `{ok: true, evaluation}`: one consent for a CHOICE question
+      (the preset, the advanced fold), answered with the re-evaluated run. A credential question is
+      refused on this route, so no renderer-supplied path is ever admitted as a credential
+      reference.
+    - `setupCredential({stepId})` → `{ok: true, evaluation, path}`: the credential window of item 9
+      hands the value to main (item 9's private handoff is unchanged); main keeps it as an
+      owner-only file under the host setup root's `credentials/` and records the file's PATH as the
+      consent (ADR 0041: the record holds references, never secrets). The reply names the path. A
+      canceled window refuses `canceled`.
+    - `setupEffect({effectId, newAttempt})` → `{ok: true, evaluation}`: the shell runs the one
+      consented host effect through the Brain's shared effect orchestration (the CLI's own
+      module) — its settle pass first, then the named effect in the recipe's order rules, where an
+      earlier effect that is not `ok` halts it — and answers with the re-evaluated run. An effect
+      that ran answers the run whatever came of it: its receipt moved, and its row carries the
+      outcome and the reason (a witness written whose recall has not landed; a write the plane
+      refused). Only a report that moved nothing (the preset's env set, the credential
+      composition, a halt behind an unsettled effect) writes nothing and answers
+      `{ok: false, reason, effectId}` in the orchestration's words; the card shows it as the
+      shell's word on that effect. `newAttempt: true` is the operator's explicit consent to write
+      the first-run witness again: admitted only for `effectId: 'verify'`, and only when the
+      Brain's evaluated row names a new attempt as its exit; anywhere else it is refused by name
+      and nothing runs. Its stated cost is a possible second row on the plane. Neither main nor
+      the card reads a reason sentence to decide. Only a shell that cannot run effects at all
+      (`not-packaged`, `no-brain-root`) turns the card's row into the operator's instruction: run
+      the CLI on the host, then re-check. No second implementation of the effects exists in main.
+
+    Across these six channels no credential value crosses the IPC in either direction; the window
+    of item 9 remains the one renderer that holds one.
+
+    **Custody:** the record is ADR 0041's one host record per run under the host state root
+    (`NEO_HOST_STATE_ROOT` / `NEO_HOST_SETUP_RECORD_ROOT`, the CLI's names). Within the shell the
+    broker is the run's writer and its record operations are serialized — a consent's file write and
+    its acceptance are one operation, so two answers or two windows landing together never lose a
+    consent or bind a path to another window's value. Every operation starts from the record on
+    disk, never from a copy the broker kept: an effect whose acknowledgement write the host
+    rejected is found `pending` by the next request and settled by observation (ADR 0041), and a
+    record the broker cannot read refuses the operation. This is broker-local ordering, not a
+    cross-process exclusion: the CLI and the shell are not expected to drive one run at the same
+    time, and the record's digest-checked receipts make a crossed write visible as
+    `reconcile-required`, never as a replay. The renderer holds no credential value, no path it did
+    not receive from main, and no stored status: every row it shows is main's fresh evaluation, and
+    a read that fails turns every row `unknown` with the read's reason.
+11. **Moving the seat root is a named broker** *(amended 2026-10-06, #19428 — for
+    neomjs/neo-agent-institution#573 and neomjs/neo-agent-institution#582)*: a packaged shell
+    keeps its agents' seats under one recorded root (`seat-root.json` under Electron `userData`,
+    written by the first launch's choice), and only main has the host authority to move them: the
+    Brain's dry run, a consent that persists the move's inputs, a relaunch, and the transition the
+    next boot settles before the Fleet child (#573). The preload exposes three capabilities, each
+    `ipcRenderer.invoke('shell-seat-root-<name>')`. Every handler validates the sender per
+    §2.3.4 — an untrusted sender rejects the invoke. The answers are the transition's own DTOs,
+    unwrapped. A consent refusal is `{state: 'refused', code, reason}`: the view decides on `code`
+    and shows `reason`, the sentence, and never decides on it. A shell that cannot run the move
+    refuses the plan and the consent the same way, with code `not-packaged` or `no-brain-root`.
+    - `seatRootStatus()` → pull-shaped like §2.3.7: `{packaged, root, pending, outcome}`.
+      `root` is the record (`{root, origin, recordedAt}`), `null` when there is none, or
+      `{unreadable: reason}` when it exists and cannot be read. `pending` is a consented move's
+      inputs (`{from, to, archive, rows, outOfScope, consentedAt}`), `null`, or
+      `{unreadable: reason}` the same way; a committed move keeps them, since every later boot
+      resumes its retirement from them. `outcome` is this boot's settlement,
+      `{state: 'none' | 'committed' | 'refused' | 'held', reason?, retirement?}`, which main keeps
+      in memory, so an unreadable record never hides it. The status answers while the Fleet boot is
+      held, since a held move is when the operator needs it.
+    - `seatRootPlan()` → the Brain's dry run for moving the recorded root to the root the Brain
+      resolves without a recorded override:
+      `{state: 'planned' | 'refused', reason?, from, to, rows, fingerprint}`, each row
+      `{id, seatHome, destination, state, materialized, reason?}`. The Brain's refusal carries
+      `reason` alone. The shell refuses with a code before asking the Brain: `no-seat-root` when
+      no root is recorded, `nothing-to-move` when the recorded root already is that root.
+    - `seatRootConsent({fingerprint})` → main re-plans and consents only to the plan the operator
+      saw: the fingerprint is the one value the renderer supplies, and the roots, rows, archive and
+      move id stay main's. It persists the move's inputs and relaunches, answering
+      `{state: 'consented'}`. Otherwise it writes nothing and refuses with a code: `plan-changed`
+      (the seats changed since the plan was shown), `already-consented`, `no-seat-root`,
+      `plan-refused` or `nothing-to-move`.
+
+    **Custody:** the move's inputs are one owner-only file beside the root record
+    (`seat-root-move.json`), written only through the consent channel. The boot that settles the
+    move reads it, and deletes it when it refuses the move (#573); the root record changes only as
+    the transition's commit. No credential crosses these channels and no credential window is
+    involved. The renderer holds no root, row or fingerprint it did not receive from main and no
+    state of its own. It shows main's latest answer; an invoke that rejects or a read that fails
+    shows `unknown`, and the view offers no consent on an unknown status.
+
+**Falsifier:** any leaf needing a renderer capability the preload cannot express through a named,
+allowlisted intent amends THIS section first (ADR-0005 lifecycle) — it never flips a window to
+`nodeIntegration: true`, widens the window allowlist, or moves secret bytes into renderer state
+as a leaf-local decision.
+
+### §2.4 Dock/OS-window fusion — same semantics, richer vessel (Q4)
+
+`detachItem` → OS window today spawns a browser popup; **inside the shell it stays exactly that
+call chain** — App-Worker intent → `Neo.Main.windowOpen()` → `window.open` — materialized by
+Electron per §2.2 C3 as a real `BrowserWindow`. The mapping, named:
+
+| Layer | Owner | In the shell |
+|---|---|---|
+| Detach semantics (`detachItem`, catalog membership, placement hints) | `dockZone.v1` + ADR 0029 §2.1 | unchanged — worker-owned shared truth |
+| Popup issuing | `Neo.Main.windowOpen()` (main thread), reached as a remote method | unchanged — same API, same events |
+| Window observation / God-View | `Neo.manager.Window` + `main.addon.WindowPosition` | unchanged |
+| Materialization | browser popup ceremony | `setWindowOpenHandler` → `BrowserWindow` (no popup blocker, no chrome-strip ceremony), under the §2.3.2 allowlist |
+| OS affordances | unavailable | exact spawn-at-position, native move/resize events, frame control — consumed via the #13446 NL window-op backend and the #13025/#13028/#13030 enhancement points |
+
+The **embodiment vessel contract (ADR 0020) is extended, never superseded**: a docked pane
+detaches into a real OS window and returns as the same live heap object (ADR 0029's
+no-serialize-and-recreate anti-anchor re-bound here). **ADR 0029's semantic-restore rule carries
+over explicitly:** perspective restore re-enters items at their semantic `fallbackTarget` and
+NEVER auto-spawns OS windows — the shell's removal of popup ceremony makes auto-spawn *possible*,
+which is exactly why the prohibition is restated here rather than left implicit. What changes in
+the shell is vessel *quality* — frameless windows, precise placement, native drag events — never
+vessel *semantics*.
+
+**Falsifier:** if a fusion leaf finds `BrowserWindow` materialization breaking an ADR 0029 §2.1
+state-class boundary (e.g. render-projection state needing main-process persistence), that leaf
+amends ADR 0029 and this section together, before implementation.
+
+### §2.5 Distribution — signed installers for strangers, the repo for contributors (Q5)
+
+1. **Artifact:** platform-native installers — macOS `dmg` (signed + notarized), Windows `exe`
+   (signed), Linux `AppImage` — built by an electron-builder-class pipeline from the packaging
+   root (own `package.json`, wraps BUILT Body + Brain; ADR 0020 §3 source-tree discipline). "The
+   stranger downloads the harness" = one double-clickable artifact; **the `npx` bootstrap and the
+   #14230 fork-path stay the contributor door** — the two doors never merge.
+2. **Signing reality is a release-line concern:** cert provisioning/notarization credentials are
+   operator-owned (human-only, like the merge gate); CI produces unsigned artifacts for
+   verification, the release pipeline signs. No leaf embeds signing material in repo tooling.
+3. **Two-speed updates, decoupled by design:** the SHELL updates rarely (Electron/Chromium security
+   cadence — autoUpdater-class mechanism, its own channel); the ORGANISM (harness app + Brain)
+   ships with the shell version it was packaged with and updates by shipping a new package. No
+   self-mutating installed app in v1: partial in-place organism updates (pulling new Brain/Body
+   into an installed shell) are explicitly deferred — they reintroduce the drift matrix
+   (shell×organism version pairs) that packaged-together avoids, and nothing in H1 needs them.
+4. **Update cadence ≠ repo release cadence:** packaged releases cut from the release line
+   (`main`), on their own schedule, versioned independently of npm releases.
+
+**Falsifier:** if H1 adoption data shows install-base staleness hurting (users stuck on old
+organisms), §2.5.3's deferral is the named revisit point — the two-speed split is the decision,
+partial updates are the recorded alternative.
+
+### §2.6 Dev/prod parity — one harness root, two origins, identical topology (Q6)
+
+1. **One boot path — the shell resolves the SAME source graph the dev http origin serves** (from
+   the repo root through an explicit renderer-content allowlist), and the harness window loads the
+   **zero-build SOURCE app** (dev mode), not
+   a minified bundle. *Amended 2026-07-10 (operator decision, #13033 slice 1):* the Neural Link
+   is a first-class consumer of the harness — its possession depth (`inspect_class`,
+   `get_method_source`, `patch_code`) requires real source ESM, which minified `dist` output
+   destroys. Parity is therefore the source graph, not unrestricted filesystem exposure: no
+   packaged-only entry file, no dev-only worker wiring; `neo-config` + worker URLs resolve
+   identically on either origin, and the explicitly required `dist/development/css/*` assets stay
+   reachable within the same root (#13033's build-root remains the substrate this section binds).
+2. **Parity is achievable BECAUSE of C1:** both origins are standard-scheme with fetch support
+   (`supportFetchAPI` normative — JSON seeds via `data.Store` `url` behave identically), so every
+   SharedWorker identity the app boots (App/VDom/Data/Canvas) shares the same way dev↔packaged.
+   The harness smoke's http/app rows agreeing — including the fetch smoke — is the empirical parity floor.
+3. **Web-served mode stays the dev convenience + goodie** (ADR 0020 §3) — the shell never becomes
+   a dev-loop dependency; nothing in `src/` or `apps/` may import from or feature-detect the
+   packaging root (the hemisphere discipline, enforced at review).
+4. **Brain parity:** ONE wire-only client contract in both arms — dev connects to an externally-run
+   plane; packaged BOOTSTRAPS the bundled plane per §2.1 and connects over the same authenticated
+   fleet wire. The seam that makes both true is §2.1.3's injectable data-root + §2.1.4's managed
+   ports — the SAME Brain code, one bootstrap supervisor per plane, never two supervisors on one
+   plane's state. *[Amended in place 2026-08-08 — ADR 0038 §3.3 (#16747); previously "dev attaches
+   to externally-run daemons; packaged hosts per §2.1 … two lifecycle owners, never both at once".]*
+
+**Falsifier:** any leaf introducing a `process.versions.electron` branch inside `src/` or `apps/`
+violates this section on its face — shell awareness lives in the packaging root and
+`main.addon.*` enhancement points only.
+
+## 3. Consequences
+
+- Every #13377 E-leaf cites its §2 section as upstream contract; changing a §2 decision amends
+  this ADR first (ADR-0005 lifecycle), never lands leaf-local.
+- #13033 implements against §2.1/§2.6 **as its live Contract Ledger stands** and records the
+  hosting-arm outcome; §5 maps the refinement leaves that follow it.
+- The `app://` scheme handler (with C1's full privilege set + §2.3.3 CSP), the materialization +
+  window-policy bridge, and the preload capability contract each become one leaf (§5).
+- The harness smoke is the regression gate: **the E2 leaf owner re-runs `cd harness && npm run smoke` on every Electron
+  major bump** before adoption (§2.2 falsifier; the smoke's JSON verdict + pinned versions make drift visible).
+- Web portability is structurally guaranteed: because the shell only materializes and decorates,
+  removing it leaves a working web app — the boundary that keeps the future web version alive.
+
+## 4. Prior art & rejected shapes
+
+- **Tauri / WebKitGTK** — retired at ADR 0020 (worker-topology determinism + Node-in-process beat
+  binary-size aesthetics).
+- **Electron owning the windows** — rejected (operator, 2026-06-15); would fork window management
+  into a web arm and a shell arm and kill web portability.
+- **`file://` + `loadFile()` packaging** — the naive Electron default, **empirically falsified**
+  (§2.2 C1): boots, renders, silently loses worker sharing.
+- **Localhost HTTP as the packaged origin** — works (verified), rejected operationally: port
+  collisions, firewall prompts, and any local process gaining harness-origin access for free.
+- **Unix sockets for Brain endpoints** — unreachable from renderer WebSocket/fetch; loopback TCP
+  + non-renderer-readable per-boot token instead (§2.3.5).
+- **Serialize-and-recreate popout state** — rejected at ADR 0029; re-bound here because Electron
+  makes it *tempting* (BrowserWindows feel ownable from main).
+- **Renderer-readable bearer tokens** — rejected during review of this record: a token the
+  renderer can read still crosses the boundary; capability-internal attachment replaced it.
+- **Per-agent fleet rows as whole-Brain health** — rejected in PR #16050's Drop+Supersede review:
+  `fleetRuntimeStatus()` composes per-agent process truth and cannot produce the organism's
+  impairment state; the fields it "fed" had no writer at all. Whole-Brain health crosses from the
+  lifecycle owner via §2.3.7 — never inferred from fleet rows.
+
+## 5. Decomposition — the E-leaf gate (map lives on the #13377 epic)
+
+| Leaf | Scope | Upstream contract |
+|---|---|---|
+| E1 — build root (#13033, exists, owner @neo-opus-ada) | **as its live Contract Ledger stands:** packaging root + main entry, hosting-arm spike, Agent-OS boot, first harness window, popup windows joining the shared workers, and the window-management bridge enhancement points | §2.1, §2.6 (frame only — the leaf's ledger is consumed unchanged) |
+| E2 — origin + scheme hardening (post-E1) | `app://` privileged scheme with C1's FULL privilege set (`supportFetchAPI` normative), stable origin, CSP delivery, the fetch/JSON smoke, harness-smoke re-run ownership | §2.2 C1/C5/C6, §2.3.3, §2.6 |
+| E3 — window policy + materialization hardening (post-E1) | fail-closed `setWindowOpenHandler` allowlist + the allowlisted external hand-off to the system browser, `will-navigate` denial, secure-flag enforcement on popups, OS-chrome enhancement points, #13446 NL backend | §2.2 C3, §2.3.1–.4, §2.4 |
+| E4 — Brain lifecycle service | start/stop/restart with settle-or-reject, port management, data-root injection | §2.1.1–.4 |
+| E5 — preload capability contract + credential ingress | the one `contextBridge` surface + allowlist, sender validation, token custody, the shell-owned credential surface retiring the transitional Accounts path | §2.3.4–.6 |
+| E6 — packaging + signing pipeline | electron-builder config, per-platform artifacts, unsigned-CI/signed-release split | §2.5 |
+| E7 — update channel | shell autoUpdater wiring, two-speed policy | §2.5.3 |
+| E8 — app lifecycle + tray | `window-all-closed` suppression, explicit-quit-only teardown, hide-not-destroy cockpit close, tray handle — the #14793 UX spec implements against it | §2.1.5 |
+
+E2–E8 are filed on demand under #13377 (epic bodies never enumerate subs — ADR 0020 §6); each
+carries its own Contract Ledger and cites this table row. E2/E3 refine what E1 lands — they never
+reopen its ledger.
+
+## 6. Verification
+
+- **Empirical:** the harness's own smoke — `cd harness && npm run smoke` — boots two windows on
+  the `app://` origin and proves the popup joins the SAME shared workers (`sharedHeapEvidence: true`,
+  `popupMaterialized: true`), pinned Electron 43.1.0 / Chromium 150.0.7871.47 / darwin 25.5.0.
+  Its popup opens through `Neo.Main.windowOpen`, so every run crosses the §2.3.2 staging realm the
+  product's popups take. The
+  negative cases that fixed the architecture (`file://` kills sharing; per-window partitions) are
+  recorded in §2.2 — one-time discovery, not a standing runnable.
+  Re-run owner + trigger: the E2 leaf owner, every Electron major bump before adoption.
+- **Authority chain:** ADR 0020 §3 (shell decision, hosting arms, source discipline, PATs) ·
+  #13377 epic body (shell-only boundary, operator 2026-06-15; cites this record as design
+  authority) · ADR 0029 §2.1 (state classes, window-manager boundaries, semantic restore) ·
+  `Neo.Main.windowOpen` / `Neo.manager.Window` / `DockZoneModel.detachItem` ownership verified
+  at source during review cycle 2.
+- **AC mapping (#14786):** six questions → §2.1–§2.6, each with named constraints + falsifiers;
+  anti-anchor row carries the three ticket-named minimums (no serialize-and-recreate, no second
+  window manager, no Brain-daemon fork) plus the review-added ones; the SharedWorker constraint
+  set verified by the harness smoke, not asserted; #13377 cites this ADR (updated with the
+  resolving PR, status-honest as Proposed until merge).

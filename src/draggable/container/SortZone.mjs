@@ -1,5 +1,4 @@
 import DragZone  from './DragZone.mjs';
-import NeoArray  from '../../util/Array.mjs';
 import Rectangle from '../../util/Rectangle.mjs';
 import VDomUtil  from '../../util/VDom.mjs';
 
@@ -64,9 +63,18 @@ class SortZone extends DragZone {
         /**
          * A CSS selector to identify the drag handle within a component.
          * If specified, the drag is initiated on this element, but the owning component is dragged.
+         * A distinct descendant handle must carry `neo-draggable` itself; the item root is not marked.
+         * Root handles and the legacy `.neo-draggable` selector keep the item root marked.
          * @member {String|null} dragHandleSelector=null
          */
         dragHandleSelector: null,
+        /**
+         * The dragged item while the gesture holds its focus: a mouse-down on a focusable item focuses it, and
+         * hiding the original at drag start moves the browser's focus to the body. The terminal hands it back.
+         * @member {Neo.component.Base|null} dragFocusOwner=null
+         * @protected
+         */
+        dragFocusOwner: null,
         /**
          * @member {Boolean} enableProxyToPopup=false
          */
@@ -100,6 +108,13 @@ class SortZone extends DragZone {
          */
         itemRects: null,
         /**
+         * `owner.items` as the drag started. `indexMap` values index into this array, so every slot still
+         * resolves after the dragged item has left `owner.items`, as it does when a window drag starts.
+         * @member {Neo.component.Base[]|null} ownerItems=null
+         * @protected
+         */
+        ownerItems: null,
+        /**
          * @member {Array|null} itemStyles=null
          * @protected
          */
@@ -114,6 +129,12 @@ class SortZone extends DragZone {
          * @protected
          */
         ownerRect: null,
+        /**
+         * Optional local sorting boundary, distinct from the outer drag/tear-out boundary.
+         * @member {Neo.util.Rectangle|null} sortBoundaryRect=null
+         * @protected
+         */
+        sortBoundaryRect: null,
         /**
          * @member {Object} ownerStyle=null
          * @protected
@@ -167,7 +188,13 @@ class SortZone extends DragZone {
          * @member {Number} startIndex=-1
          * @protected
          */
-        startIndex: -1
+        startIndex: -1,
+        /**
+         * True keeps the owner's full box during a drag and derives local sorting bounds from the
+         * rendered sortable-item union.
+         * @member {Boolean} useItemSortBoundary=false
+         */
+        useItemSortBoundary: false
     }
 
     /**
@@ -202,6 +229,30 @@ class SortZone extends DragZone {
      * @protected
      */
     isWindowDragging = false
+    /**
+     * Schmitt-trigger arming for the window-boundary re-entry: `false` from the moment a
+     * boundary-exit fires until the intersection ratio has dropped BELOW {@link #reattachThreshold}
+     * at least once. The exit fires just under {@link #detachThreshold}, which is INSIDE the
+     * reattach zone — so without arming, a single post-exit sample with a positive delta (pointer
+     * jitter, or the exit choreography's own geometry side effects) reads as "moving in above the
+     * threshold" and fires a false `dragBoundaryEntry`, whose handler closes the newborn popup.
+     * Re-entry must be EARNED: leave first, then return.
+     * @member {Boolean} reattachArmed=false
+     * @protected
+     */
+    reattachArmed = false
+    /**
+     * `{width, height}` of the proxy rect from the previous window-drag sample. The move stream
+     * swaps proxy IDENTITY mid-gesture — the in-window DOM proxy until the vessel grant lands,
+     * the future vessel's dimensions afterwards (see {@link Neo.main.addon.DragDrop#onDragMove}) —
+     * and an intersection ratio compared across that discontinuity manufactures "moving in" plus
+     * a threshold cross in a single sample: a false re-entry that retires a vessel which may not
+     * have connected yet. A dims change is therefore a geometry RESEED, not a movement:
+     * {@link #reattachArmed} must be re-earned in the new scale before any entry can fire.
+     * @member {Object|null} lastProxyDims=null
+     * @protected
+     */
+    lastProxyDims = null
 
     /**
      * Appends one event to the active drag trace. Events carry where the drag logic
@@ -241,26 +292,65 @@ class SortZone extends DragZone {
     }
 
     /**
-     * Toggles the neo-draggable cls on items inside our owner.
-     * @param {Boolean} draggable
+     * Applies the optional handle-selector membership contract to every marking/insertion/snapshot
+     * path inherited from the container DragZone.
+     * @param {*} item
+     * @returns {Boolean}
      */
-    adjustItemCls(draggable) {
-        let me = this;
+    isDraggableItem(item) {
+        let admitted = super.isDraggableItem(item);
 
-        if (me.dragHandleSelector) {
-            const handleCls     = me.dragHandleSelector.startsWith('.') ? me.dragHandleSelector.substring(1) : me.dragHandleSelector;
-            const sortableItems = me.owner.items.filter(item =>
-                typeof item !== 'string' && VDomUtil.find(item.vdom, {cls: handleCls})
-            );
-
-            sortableItems.forEach(item => {
-                const wrapperCls = item.wrapperCls || [];
-                NeoArray.toggle(wrapperCls, 'neo-draggable', draggable);
-                item.wrapperCls = wrapperCls
-            });
-        } else {
-            super.adjustItemCls(draggable)
+        if (!admitted || !this.dragHandleSelector) {
+            return admitted
         }
+
+        let handleCls = this.dragHandleSelector.startsWith('.')
+            ? this.dragHandleSelector.substring(1)
+            : this.dragHandleSelector;
+
+        return Boolean(VDomUtil.find(item.vdom, {cls: handleCls}))
+    }
+
+    /**
+     * @summary Leaves a distinct descendant handle as the native target instead of marking its body.
+     * Whole-item mode and the legacy marker selector keep their behavior; a root handle (such as a
+     * tab header button) still receives the marker. Descendant handles keep their authored marker.
+     * @param {*} item
+     * @returns {Boolean}
+     * @protected
+     */
+    isItemRootDragTarget(item) {
+        if (!this.isDraggableItem(item)) return false;
+
+        const selector = this.dragHandleSelector;
+
+        if (!selector || selector === '.neo-draggable') return true;
+
+        const handleCls = selector.startsWith('.') ? selector.substring(1) : selector,
+              cls       = item.vdom.cls;
+
+        return Array.isArray(cls) ? cls.includes(handleCls) : cls === handleCls
+    }
+
+    /**
+     * Returns the union of non-zero rendered sortable-item rectangles.
+     * @param {Neo.util.Rectangle[]} rects
+     * @returns {Neo.util.Rectangle|null}
+     * @protected
+     */
+    getSortBoundaryRect(rects) {
+        let rendered = rects.filter(rect => rect && rect.width > 0 && rect.height > 0);
+
+        if (rendered.length === 0) {
+            return null
+        }
+
+        let left   = Math.min(...rendered.map(rect => rect.left)),
+            top    = Math.min(...rendered.map(rect => rect.top)),
+            right  = Math.max(...rendered.map(rect => rect.right)),
+            bottom = Math.max(...rendered.map(rect => rect.bottom));
+
+        return new Rectangle(left, top, right - left, bottom - top)
     }
 
     /**
@@ -268,16 +358,28 @@ class SortZone extends DragZone {
      * @returns {Boolean} true if the method processing should stop
      */
     checkWindowBoundary(data) {
-        let me = this,
+        let me          = this,
             {proxyRect} = data;
 
         if (proxyRect && me.boundaryContainerRect) {
             const
-                boundaryRect      = me.boundaryContainerRect,
-                intersection      = Rectangle.getIntersection(proxyRect, boundaryRect),
-                proxyArea         = proxyRect.width * proxyRect.height,
-                intersectionArea  = intersection ? intersection.width * intersection.height : 0,
-                intersectionRatio = proxyArea > 0 ? intersectionArea / proxyArea : 0,
+                boundaryRect     = me.boundaryContainerRect,
+                intersection     = Rectangle.getIntersection(proxyRect, boundaryRect),
+                proxyArea        = proxyRect.width * proxyRect.height,
+                intersectionArea = intersection ? intersection.width * intersection.height : 0,
+                // During window-drag the move payload's proxy embodies the FUTURE VESSEL
+                // (popupWidth × popupHeight, src/main/addon/DragDrop.mjs), which can dwarf a
+                // strip-scale boundary; a proxy-area denominator then caps the ratio at
+                // boundaryArea/proxyArea and reattachThreshold becomes unreachable. Normalizing
+                // by the smaller rect keeps same-scale gestures byte-identical (min === proxy
+                // area) while re-entry reads "the returning proxy substantially covers the
+                // boundary". The exit test below stays proxy-normalized.
+                boundaryArea      = boundaryRect.width * boundaryRect.height,
+                minArea           = Math.min(proxyArea, boundaryArea),
+                coverageRatio     = minArea > 0 ? intersectionArea / minArea : 0,
+                intersectionRatio = me.isWindowDragging
+                    ? coverageRatio
+                    : (proxyArea > 0 ? intersectionArea / proxyArea : 0),
                 isMovingIn        = intersectionRatio > me.lastIntersectionRatio,
                 isMovingOut       = intersectionRatio < me.lastIntersectionRatio;
 
@@ -285,7 +387,15 @@ class SortZone extends DragZone {
 
             if (!me.isWindowDragging) {
                 if (isMovingOut && intersectionRatio < me.detachThreshold) {
-                    me.isWindowDragging = true; // Set flag to prevent re-entry
+                    me.isWindowDragging = true; // window-drag phase begins
+                    // Re-entry must be earned: the ratio has to sit below reattachThreshold before a
+                    // return counts. A slow exit (crossing at ~detachThreshold) starts UNarmed; a
+                    // single-move fling that already landed below reattachThreshold is pre-armed.
+                    // From the next sample on this branch reads the min-area coverage scale, so the
+                    // arming test and the direction baseline both seed in that scale here.
+                    me.reattachArmed         = coverageRatio < me.reattachThreshold;
+                    me.lastIntersectionRatio = coverageRatio;
+                    me.lastProxyDims         = {height: proxyRect.height, width: proxyRect.width};
 
                     me.fire('dragBoundaryExit', {
                         draggedItem: me.dragComponent,
@@ -295,30 +405,61 @@ class SortZone extends DragZone {
                     return true // Stop further processing in onDragMove
                 }
             } else if (me.isWindowDragging) {
-                if (isMovingIn && intersectionRatio > me.reattachThreshold) {
-                    // Restore layout
-                    me.dragPlaceholder.wrapperStyle = {
-                        ...me.dragPlaceholder.wrapperStyle,
-                        visibility: 'visible'
-                    };
+                // A proxy-dims change mid-window-drag is the move stream swapping proxy IDENTITY
+                // (in-window DOM proxy → granted vessel dimensions): the ratio delta against the
+                // previous sample is a geometry artifact, not movement, and evaluating entry on it
+                // retires a vessel that may not have connected yet. Reseed, re-earn the arming in
+                // the new scale, and resume entry evaluation from the next sample. A null record
+                // (window-drag entered without a boundary exit, e.g. a mid-drag conversion) seeds
+                // silently.
+                if (!me.lastProxyDims) {
+                    me.lastProxyDims = {height: proxyRect.height, width: proxyRect.width}
+                } else if (me.lastProxyDims.width !== proxyRect.width || me.lastProxyDims.height !== proxyRect.height) {
+                    me.lastProxyDims = {height: proxyRect.height, width: proxyRect.width};
+                    me.reattachArmed = intersectionRatio < me.reattachThreshold;
+                    return true
+                }
 
-                    // Re-applying the current state:
-                    me.itemRects.forEach((rect, index) => {
-                        let mappedIndex = me.indexMap[index];
-                        if (mappedIndex !== -1) {
-                            let item = me.owner.items[mappedIndex];
+                // The exit fires just UNDER detachThreshold — inside the reattach zone — so the raw
+                // direction test alone would let one post-exit positive-delta sample (pointer jitter,
+                // exit-choreography geometry side effects) fire a false re-entry that closes the
+                // newborn popup ~2ms after birth. Arm re-entry only once the drag has demonstrably
+                // LEFT the reattach zone since the exit.
+                if (intersectionRatio < me.reattachThreshold) {
+                    me.reattachArmed = true
+                }
 
-                            if (item !== me.dragPlaceholder && item !== me.dragComponent) {
-                                item.wrapperStyle = {
-                                    ...item.wrapperStyle,
-                                    height: `${rect.height}px`,
-                                    left  : `${rect.left}px`,
-                                    top   : `${rect.top}px`,
-                                    width : `${rect.width}px`
+                if (me.reattachArmed && isMovingIn && intersectionRatio > me.reattachThreshold) {
+                    // The layout restore is the wrapperStyle-managed zone family's concern, and
+                    // the placeholder is its marker. Projection-owned zones (dock tab strips)
+                    // never captured an in-window layout — for them the restore is semantically
+                    // a no-op, and the EVENT below is the whole re-entry contract. An unguarded
+                    // dereference here dies inside the DOM-event dispatch, so the fire is never
+                    // reached and the gesture is stuck in window-drag with no visible error.
+                    if (me.dragPlaceholder) {
+                        me.dragPlaceholder.wrapperStyle = {
+                            ...me.dragPlaceholder.wrapperStyle,
+                            visibility: 'visible'
+                        };
+
+                        // Re-applying the current state:
+                        me.itemRects.forEach((rect, index) => {
+                            let mappedIndex = me.indexMap[index];
+                            if (mappedIndex !== -1) {
+                                let item = me.owner.items[mappedIndex];
+
+                                if (item && item !== me.dragPlaceholder && item !== me.dragComponent) {
+                                    item.wrapperStyle = {
+                                        ...item.wrapperStyle,
+                                        height: `${rect.height}px`,
+                                        left  : `${rect.left}px`,
+                                        top   : `${rect.top}px`,
+                                        width : `${rect.width}px`
+                                    }
                                 }
                             }
-                        }
-                    });
+                        })
+                    }
 
                     me.fire('dragBoundaryEntry', {
                         draggedItem: me.dragComponent,
@@ -353,7 +494,30 @@ class SortZone extends DragZone {
     }
 
     /**
-     * Drag:end entry point. The drag listeners fan out across the owner and its child items, so one
+     * Cancels an active sort without applying its transient index. The normal end pipeline still
+     * owns placeholder/proxy/layout cleanup, while `cancelled` makes every commit branch fail shut.
+     * @param {Object} data The `drag:cancel` event data.
+     */
+    async onDragCancel(data={}) {
+        let me = this;
+
+        if (!me.dragComponent || me.dragEndActive) {
+            return
+        }
+
+        me.currentIndex     = me.startIndex;
+        me.isOverDragging   = false;
+        me.isWindowDragging = false;
+        me.lastProxyDims    = null;
+        me.reattachArmed    = false;
+
+        me.fire('dragCancel', data);
+
+        await me.onDragEnd({...data, cancelled: true})
+    }
+
+    /**
+     * @summary Drag:end entry point. The drag listeners fan out across the owner and its child items, so one
      * native release can deliver multiple drag:end events. This entry latches synchronously and routes
      * exactly one delivery into {@link #processDragEnd} — without it, the async drop pipeline runs
      * twice (double traces, double layout refreshes, double lock verdicts in grids).
@@ -371,7 +535,9 @@ class SortZone extends DragZone {
         try {
             await me.processDragEnd(data)
         } finally {
-            me.dragEndActive = false
+            if (!me.isDestroying && !me.isDestroyed) {
+                me.dragEndActive = false
+            }
         }
     }
 
@@ -412,8 +578,8 @@ class SortZone extends DragZone {
                         // Only move DOM if not window dragging or if it's a remote drag being finalized locally
                         if (!me.isRemoteDragging || (me.isRemoteDragging && !me.isWindowDragging)) {
                              deltas.push({
-                                action  : 'moveNode',
-                                id      : component.id,
+                                action: 'moveNode',
+                                id    : component.id,
                                 index,    // Visually correct index (where placeholder is)
                                 parentId: owner.getVdomItemsRoot().id
                             })
@@ -467,7 +633,7 @@ class SortZone extends DragZone {
                 me.dragComponent.wrapperStyle = style;
             }
 
-            if (!me.isWindowDragging && !me.isRemoteDragging && me.startIndex !== me.currentIndex) {
+            if (!data.cancelled && !me.isWindowDragging && !me.isRemoteDragging && me.startIndex !== me.currentIndex) {
                 let fromIndex, toIndex;
 
                 if (me.dragPlaceholder) {
@@ -480,9 +646,13 @@ class SortZone extends DragZone {
                 }
 
                 me.traceEvent({t: 'end', from: fromIndex, to: toIndex});
-                me.moveTo(fromIndex, toIndex);
+
+                // A committed cross-container drop can re-project the workspace and destroy the
+                // source owner while this latch completes — the local reorder is moot then, and
+                // calling into a destroyed owner chain throws.
+                me.owner?.isDestroyed || me.moveTo(fromIndex, toIndex);
             } else {
-                me.traceEvent({t: 'end', from: me.startIndex, to: me.currentIndex, noop: true});
+                me.traceEvent({t: data.cancelled ? 'cancel' : 'end', from: me.startIndex, to: me.currentIndex, noop: true});
             }
 
             // activeTrace stays set until the next onDragStart replaces it: subclasses record
@@ -499,11 +669,18 @@ class SortZone extends DragZone {
                 lastInBoundY    : null,
                 ownerRect       : null,
                 scrollLeft      : 0,
+                sortBoundaryRect: null,
                 startIndex      : -1,
                 sortableItems   : null
             });
 
             await me.timeout(30);
+
+            // The item is visible again: give focus back where a click on it would have left it, without a ring
+            if (me.dragFocusOwner) {
+                me.dragFocusOwner.isDestroyed || me.dragFocusOwner.focus(me.dragFocusOwner.id, false, true, 'pointer');
+                me.dragFocusOwner = null
+            }
 
             me.dragEnd(data) // we do not want to trigger the super class call here
         }
@@ -543,6 +720,7 @@ class SortZone extends DragZone {
         let {clientX, clientY} = data,
             index              = me.currentIndex,
             {itemRects}        = me,
+            localBoundary      = me.sortBoundaryRect || me.boundaryContainerRect,
             maxItems           = itemRects.length - 1,
             // itemRects leave viewport space through EITHER conversion mechanism: the
             // adjustItemRectsToParent flag (parent-managed) or a subclass-provided
@@ -559,13 +737,13 @@ class SortZone extends DragZone {
 
         if (me.sortDirection === 'horizontal') {
             delta               = clientX - ownerX + me.scrollLeft - me.offsetX - itemRects[index].left;
-            isOverDraggingEnd   = clientX > me.boundaryContainerRect.right;
-            isOverDraggingStart = clientX < me.boundaryContainerRect.left;
+            isOverDraggingEnd   = clientX > localBoundary.right;
+            isOverDraggingStart = clientX < localBoundary.left;
             itemHeightOrWidth   = 'width'
         } else {
             delta               = clientY - ownerY + me.scrollTop - me.offsetY - itemRects[index].top;
-            isOverDraggingEnd   = clientY > me.boundaryContainerRect.bottom;
-            isOverDraggingStart = clientY < me.boundaryContainerRect.top;
+            isOverDraggingEnd   = clientY > localBoundary.bottom;
+            isOverDraggingStart = clientY < localBoundary.top;
             itemHeightOrWidth   = 'height'
         }
 
@@ -668,11 +846,11 @@ class SortZone extends DragZone {
      * @param {Object} data - The drag start event data.
      */
     async onDragStart(data) {
-        let me         = this,
+        let me                                                                       = this,
             {adjustItemRectsToParent, dragHandleSelector, ignoreDragSelector, owner} = me,
-            itemStyles = me.itemStyles = [],
-            {layout}   = owner,
-            ownerStyle = owner.style || {},
+            itemStyles                                                               = me.itemStyles = [],
+            {layout}                                                                 = owner,
+            ownerStyle                                                               = owner.style || {},
             draggedItem, index, indexMap, itemStyle, rect, sortableItems;
 
         if (owner.dragResortable) {
@@ -695,7 +873,7 @@ class SortZone extends DragZone {
 
                 for (let i = handleIndex; i < data.path.length; i++) {
                     const potentialItemNode = data.path[i];
-                    const component = Neo.getComponent(potentialItemNode.id);
+                    const component         = Neo.getComponent(potentialItemNode.id);
 
                     if (component && owner.items.includes(component)) {
                         draggedItem = component;
@@ -707,18 +885,16 @@ class SortZone extends DragZone {
                     return
                 }
 
-                sortableItems = owner.items.filter(item => VDomUtil.find(item.vdom, {
-                    cls: dragHandleSelector.startsWith('.') ? dragHandleSelector.substring(1) : dragHandleSelector
-                }));
+                sortableItems = me.getDraggableItems(owner.items);
                 index         = sortableItems.indexOf(draggedItem);
-
-                if (index < 0) {
-                    return
-                }
             } else {
                 draggedItem   = Neo.getComponent(data.path[0].id);
-                sortableItems = owner.items;
-                index         = owner.indexOf(draggedItem.id)
+                sortableItems = me.getDraggableItems(owner.items);
+                index         = sortableItems.indexOf(draggedItem)
+            }
+
+            if (index < 0) {
+                return
             }
 
             indexMap = {};
@@ -729,6 +905,7 @@ class SortZone extends DragZone {
                 dragProxyConfig        : me.getDragProxyConfig(),
                 indexMap,
                 lastIntersectionRatio  : 1,
+                ownerItems             : [...owner.items],
                 ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, position: ownerStyle.position, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
                 scrollLeft             : owner.scrollLeft || 0, // absolute owner scroll; subclasses snapshot itemRects in owner-content space
@@ -737,7 +914,8 @@ class SortZone extends DragZone {
                 startIndex             : index
             });
 
-            me.dragComponent = draggedItem;
+            me.dragComponent  = draggedItem;
+            me.dragFocusOwner = draggedItem.containsFocus ? draggedItem : null;
 
             sortableItems.forEach((item, i) => {
                 indexMap[i] = owner.items.indexOf(item);
@@ -751,31 +929,21 @@ class SortZone extends DragZone {
             const itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
 
             me.ownerRect = itemRects.shift();
+            me.sortBoundaryRect = me.useItemSortBoundary ? me.getSortBoundaryRect(itemRects) : null;
 
             // Calculate real owner dimensions based on first and last item rects (accounting for padding)
-            if (itemRects.length > 0) {
+            if (!me.useItemSortBoundary && itemRects.length > 0) {
                 const firstItemRect = itemRects[0];
                 const lastItemRect  = itemRects[itemRects.length - 1];
 
-                if (me.sortDirection === 'horizontal') {
-                    if (firstItemRect.x > me.ownerRect.x) {
-                        me.ownerRect.x = firstItemRect.x
-                    }
-                    if (firstItemRect.y > me.ownerRect.y) {
-                        me.ownerRect.y = firstItemRect.y
-                    }
-                    me.ownerRect.width  = (lastItemRect.x + lastItemRect.width)  - me.ownerRect.x;
-                    me.ownerRect.height = (lastItemRect.y + lastItemRect.height) - me.ownerRect.y
-                } else {
-                    if (firstItemRect.x > me.ownerRect.x) {
-                        me.ownerRect.x = firstItemRect.x
-                    }
-                    if (firstItemRect.y > me.ownerRect.y) {
-                        me.ownerRect.y = firstItemRect.y
-                    }
-                    me.ownerRect.width  = (lastItemRect.x + lastItemRect.width)  - me.ownerRect.x;
-                    me.ownerRect.height = (lastItemRect.y + lastItemRect.height) - me.ownerRect.y
+                if (firstItemRect.x > me.ownerRect.x) {
+                    me.ownerRect.x = firstItemRect.x
                 }
+                if (firstItemRect.y > me.ownerRect.y) {
+                    me.ownerRect.y = firstItemRect.y
+                }
+                me.ownerRect.width  = (lastItemRect.x + lastItemRect.width)  - me.ownerRect.x;
+                me.ownerRect.height = (lastItemRect.y + lastItemRect.height) - me.ownerRect.y
             }
 
             owner.style = {

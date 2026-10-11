@@ -1,0 +1,548 @@
+import {setup} from '../../setup.mjs';
+
+setup({
+    appConfig: {
+        name: 'DashboardDockVesselParkTest'
+    },
+    mockLocalStorage: false,
+    mockMain        : false
+});
+
+import {test, expect}  from '@playwright/test';
+import Neo             from "../../../../src/Neo.mjs";
+import * as core       from "../../../../src/core/_export.mjs";
+import VesselPark      from '../../../../src/dashboard/dock/window/VesselPark.mjs';
+import {execFileSync}  from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+
+const owners      = new Set();
+const createOwner = (config={}) => {
+    const owner = Neo.create(VesselPark, {...config});
+    owners.add(owner);
+    return owner
+};
+
+test.afterEach(() => {
+    owners.forEach(owner => owner.destroy());
+    owners.clear()
+});
+
+/**
+ * @summary The native title-bar drop's park machine, driven end-to-end through its injected seams.
+ *
+ * Every witness is a contract pin: a park PARKS and never closes (the activation wall is structural —
+ * the machine has no acquisition seam, and the ledger witness proves a full sequence touches only the
+ * three injected seams), commit disposes exactly once with every other outcome failing toward restore
+ * at the park origin, and stale events (duplicate convert-in, slotless terminal, mismatched itemId)
+ * are silent no-ops. The seams are the assertion surface.
+ */
+test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
+    test('a pre-import Neo overwrite controls the internal restore path', () => {
+        const result = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', `
+            await import('./src/Neo.mjs');
+            await import('./src/core/_export.mjs');
+            const {setup} = await import('./test/playwright/setup.mjs');
+            setup({appConfig: {name: 'VesselParkOverwriteTest'}});
+            Neo.overwrites = {};
+            Neo.ns('Neo.dashboard.dock.window.VesselPark', true, Neo.overwrites).restore = () => false;
+            const {default: VesselPark} = await import('./src/dashboard/dock/window/VesselPark.mjs');
+            let calls = 0;
+            const owner = Neo.create(VesselPark, {
+                parkVessel: () => true, disposeVessel: () => true,
+                reshowVessel: () => { calls++; return true; }
+            });
+            owner.onConversionIn({itemId: 'pane', windowName: 'window'});
+            const restored = owner.onGestureTerminal({itemId: 'pane', outcome: 'cancelled'});
+            const retained = owner.parkedVessel?.windowName;
+            owner.destroy();
+            process.stdout.write(JSON.stringify({
+                registered: VesselPark === Neo.dashboard.dock.window.VesselPark,
+                restored, retained, calls
+            }));
+        `], {cwd: fileURLToPath(new URL('../../../../', import.meta.url)), encoding: 'utf8'}));
+
+        expect(result).toEqual({registered: true, restored: false, retained: 'window', calls: 0})
+    });
+
+    test('a subclass can specialize the restore its terminal recovery runs', () => {
+        const audited = [], reshown = [];
+
+        class AuditedPark extends VesselPark {
+            static config = {className: 'Test.Unit.Dashboard.VesselPark.AuditedPark'}
+
+            /** @summary Records each restore before the inherited re-show. */
+            restore(vessel) {
+                audited.push(vessel.windowName);
+                return super.restore(vessel)
+            }
+        }
+        Neo.setupClass(AuditedPark);
+        const owner = Neo.create(AuditedPark, {
+            parkVessel  : () => true, disposeVessel: () => true,
+            reshowVessel: data => { reshown.push(data); return true }
+        });
+        owners.add(owner);
+
+        owner.onConversionIn({itemId: 'pane', windowName: 'window'});
+        expect(owner.onGestureTerminal({itemId: 'pane', outcome: 'cancel'})).toBe(true);
+        expect(audited).toEqual(['window']);
+        expect(reshown).toEqual([{itemId: 'pane', windowName: 'window', rect: null}]);
+        expect(owner.parkedVessel).toBeNull()
+    });
+
+    test('owners keep independent gesture state and destruction actuates no window', () => {
+        let   effects = 0;
+        const config  = {parkVessel: () => true, reshowVessel: () => { effects++; return true }, disposeVessel: () => { effects++; return true }};
+        const a       = createOwner(config), b = createOwner(config);
+
+        a.onConversionIn({itemId: 'a', windowName: 'a-window'});
+        expect(b.parkedVessel).toBeNull();
+        b.onConversionIn({itemId: 'b', windowName: 'b-window'});
+        a.destroy();
+        expect(a.parkedVessel).toBeNull();
+        expect(b.parkedVessel.windowName).toBe('b-window');
+        expect(effects).toBe(0)
+    });
+
+    for (const terminal of ['cancel', 'committed']) {
+        test(`destroy during park fences a queued ${terminal} and late admission`, async () => {
+            let resolvePark, effects = 0;
+            const owner = createOwner({
+                parkVessel   : () => new Promise(resolve => resolvePark = resolve),
+                reshowVessel : () => { effects++; return true },
+                disposeVessel: () => { effects++; return true }
+            });
+            const admission = owner.onConversionIn({itemId: 'pane', windowName: 'window'});
+            const queued    = owner.onGestureTerminal({itemId: 'pane', outcome: terminal});
+
+            owner.destroy();
+            resolvePark(true);
+            expect(await admission).toBe(false);
+            expect(await queued).toBe(false);
+            expect(owner.parkedVessel).toBeNull();
+            expect(owner.transition).toBeNull();
+            expect(effects).toBe(0)
+        })
+    }
+
+    for (const phase of ['park', 'restore', 'dispose']) {
+        test(`a synchronous ${phase} effect cannot resurrect the owner it destroys`, () => {
+            let owner;
+            const effect = current => {
+                if (phase === current) owner.destroy();
+                return true
+            };
+            owner = createOwner({parkVessel: () => effect('park'), reshowVessel: () => effect('restore'), disposeVessel: () => effect('dispose')});
+            const admitted = owner.onConversionIn({itemId: 'pane', windowName: 'window'});
+            const result   = phase === 'park' ? admitted
+                : owner.onGestureTerminal({itemId: 'pane', outcome: phase === 'restore' ? 'cancelled' : 'committed'});
+
+            expect(result).toBe(false);
+            expect(owner.isDestroyed).toBe(true);
+            expect(owner.parkedVessel).toBeNull();
+            expect(owner.transition).toBeNull()
+        })
+    }
+
+    for (const phase of ['restore', 'dispose']) {
+        test(`destroy fences an in-flight ${phase} completion`, async () => {
+            let resolveEffect;
+            const pending = () => new Promise(resolve => resolveEffect = resolve);
+            const owner   = createOwner({parkVessel: () => true, reshowVessel: phase === 'restore' ? pending : () => true, disposeVessel: phase === 'dispose' ? pending : () => true});
+            owner.onConversionIn({itemId: 'pane', windowName: 'window'});
+            const result = owner.onGestureTerminal({itemId: 'pane', outcome: phase === 'restore' ? 'cancelled' : 'committed'});
+
+            owner.destroy();
+            resolveEffect(true);
+            expect(await result).toBe(false);
+            expect(owner.parkedVessel).toBeNull();
+            expect(owner.transition).toBeNull()
+        })
+    }
+
+    const harness = () => {
+        const calls = {disposed: [], parked: [], reshown: []};
+
+        const handlers = createOwner({
+            disposeVessel: vessel => {
+                calls.disposed.push(vessel);
+                return true
+            },
+            parkVessel: vessel => {
+                calls.parked.push(vessel);
+                return true
+            },
+            reshowVessel: vessel => {
+                calls.reshown.push(vessel);
+                return true
+            }
+        });
+
+        return {calls, handlers}
+    };
+
+    const rect   = (x, y, width, height) => ({x, y, width, height});
+    const inData = (overrides = {}) => ({
+        itemId    : 'graph',
+        sourceRect: rect(500, 120, 640, 480),
+        windowName: 'vessel-graph',
+        ...overrides
+    });
+
+    test('conversion-in PARKS with the vessel identity and never touches dispose — the slot records the origin anchor', () => {
+        const {calls, handlers} = harness();
+
+        handlers.onConversionIn(inData());
+
+        expect(calls.parked).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}]);
+        expect(calls.disposed, 'parking must NEVER close — the one-way activation door').toHaveLength(0);
+        expect(handlers.parkedVessel).toEqual({
+            itemId           : 'graph',
+            preConversionRect: rect(500, 120, 640, 480),
+            windowName       : 'vessel-graph'
+        })
+    });
+
+    test('a duplicate conversion-in with a live slot is a stale re-fire: parked exactly once', () => {
+        const {calls, handlers} = harness();
+
+        handlers.onConversionIn(inData());
+        handlers.onConversionIn(inData({windowName: 'vessel-imposter'}));
+
+        expect(calls.parked).toHaveLength(1);
+        expect(handlers.parkedVessel.windowName, 'the first vessel holds the slot').toBe('vessel-graph')
+    });
+
+    test('a terminal with no slot is a stale event: zero seam calls', () => {
+        const {calls, handlers} = harness();
+
+        expect(handlers.onGestureTerminal({itemId: 'graph', outcome: 'rejected'})).toBe(false);
+        expect(calls.reshown).toHaveLength(0);
+        expect(calls.disposed).toHaveLength(0)
+    });
+
+    test('the commit terminal disposes EXACTLY once — a duplicate terminal disposes nothing further, and re-show never fires', () => {
+        const {calls, handlers} = harness();
+
+        handlers.onConversionIn(inData());
+        handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'});
+
+        expect(calls.disposed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}]);
+        expect(calls.reshown).toHaveLength(0);
+        expect(handlers.parkedVessel).toBeNull();
+
+        handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'});
+        expect(calls.disposed, 'strict-success clear — stale duplicate commits nothing').toHaveLength(1)
+    });
+
+    test('a committed close refusal retains exact retry authority and coalesces one async disposition', async () => {
+        let resolveClose,
+            attempt = 0;
+
+        const pending  = new Promise(resolve => resolveClose = resolve),
+              calls    = [],
+              handlers = createOwner({
+                  disposeVessel: vessel => {
+                      calls.push(vessel);
+                      return ++attempt === 1 ? pending : true
+                  },
+                  parkVessel  : () => true,
+                  reshowVessel: () => true
+              });
+
+        handlers.onConversionIn(inData());
+
+        const first  = handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'}),
+              second = handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'});
+
+        expect(second).toBe(first);
+        expect(calls).toHaveLength(1);
+
+        resolveClose(false);
+
+        await expect(first).resolves.toBe(false);
+        expect(handlers.parkedVessel?.itemId, 'refusal keeps the sole retry authority').toBe('graph');
+
+        expect(handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'})).toBe(true);
+        expect(calls).toHaveLength(2);
+        expect(handlers.parkedVessel).toBeNull()
+    });
+
+    test('every non-commit outcome RESTORES at the pre-park rect and never disposes — cancel, reject, and unknown alike', () => {
+        for (const outcome of ['cancelled', 'rejected', 'terminal-detached', undefined]) {
+            const {calls, handlers} = harness();
+
+            handlers.onConversionIn(inData());
+            handlers.onGestureTerminal({itemId: 'graph', outcome});
+
+            expect(calls.disposed, `outcome "${outcome}" must never dispose`).toHaveLength(0);
+            expect(calls.reshown, `outcome "${outcome}" restores the window`).toEqual([{
+                itemId    : 'graph',
+                rect      : rect(500, 120, 640, 480),
+                windowName: 'vessel-graph'
+            }]);
+            expect(handlers.parkedVessel).toBeNull()
+        }
+    });
+
+    test('a terminal for a DIFFERENT itemId is stale: the parked vessel survives untouched', () => {
+        const {calls, handlers} = harness();
+
+        handlers.onConversionIn(inData());
+        handlers.onGestureTerminal({itemId: 'other-item', outcome: 'committed'});
+
+        expect(calls.disposed).toHaveLength(0);
+        expect(calls.reshown).toHaveLength(0);
+        expect(handlers.parkedVessel?.itemId).toBe('graph')
+    });
+
+    test('the full ledger — park, refused restore, park again, commit — touches ONLY the three injected seams, dispose count exactly 1', () => {
+        const {calls, handlers} = harness();
+        const midRect           = rect(700, 200, 640, 480);
+
+        handlers.onConversionIn(inData());                                   // dropped over the target: park
+        handlers.onGestureTerminal({itemId: 'graph', outcome: 'rejected'});  // refused: the same window back, no reopen
+        handlers.onConversionIn(inData({sourceRect: midRect}));              // dropped again: park again
+        handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'}); // admitted: dispose
+
+        // The activation-wall AC at contract tier: the machine exposes NO acquisition surface, so
+        // the complete ledger of platform effects across the sequence is exactly these calls —
+        // zero window opens are possible by construction.
+        expect(calls.parked).toHaveLength(2);
+        expect(calls.reshown).toEqual([{
+            itemId: 'graph', rect: rect(500, 120, 640, 480), windowName: 'vessel-graph'
+        }]);
+        expect(calls.disposed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}]);
+        expect(handlers.parkedVessel).toBeNull()
+    });
+
+    test('async park admission publishes no slot until strict true; false remains source-owned', async () => {
+        let resolvePark;
+
+        const pending  = new Promise(resolve => resolvePark = resolve),
+              calls    = [],
+              handlers = createOwner({
+                  disposeVessel: () => true,
+                  parkVessel   : vessel => {
+                      calls.push(vessel);
+                      return pending
+                  },
+                  reshowVessel: () => true
+              }),
+              admission = handlers.onConversionIn(inData());
+
+        expect(calls).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}]);
+        expect(handlers.parkedVessel, 'dispatch is not admission').toBeNull();
+        expect(handlers.transition?.phase).toBe('parking');
+
+        resolvePark(false);
+
+        await expect(admission).resolves.toBe(false);
+        expect(handlers.parkedVessel).toBeNull();
+        expect(handlers.transition).toBeNull()
+    });
+
+    test('async re-show refusal retains the exact parked vessel for a later strict-success retry', async () => {
+        let allowRestore = false;
+
+        const calls    = [],
+              handlers = createOwner({
+                  disposeVessel: () => true,
+                  parkVessel   : () => true,
+                  reshowVessel : async vessel => {
+                      calls.push(vessel);
+                      return allowRestore
+                  }
+              });
+
+        expect(handlers.onConversionIn(inData())).toBe(true);
+
+        await expect(handlers.onGestureTerminal({itemId: 'graph', outcome: 'rejected'})).resolves.toBe(false);
+        expect(handlers.parkedVessel?.windowName).toBe('vessel-graph');
+
+        allowRestore = true;
+
+        await expect(handlers.onGestureTerminal({itemId: 'graph', outcome: 'rejected'})).resolves.toBe(true);
+        expect(calls).toHaveLength(2);
+        expect(calls[1].rect).toEqual(rect(500, 120, 640, 480));
+        expect(handlers.parkedVessel).toBeNull()
+    });
+
+    test('synchronous platform throws normalize to refusal and preserve recoverable ownership', () => {
+        const parkThrows = createOwner({
+            disposeVessel: () => true,
+            parkVessel   : () => { throw new Error('park failed') },
+            reshowVessel : () => true
+        });
+
+        expect(() => parkThrows.onConversionIn(inData())).not.toThrow();
+        expect(parkThrows.parkedVessel).toBeNull();
+
+        const restoreThrows = createOwner({
+            disposeVessel: () => true,
+            parkVessel   : () => true,
+            reshowVessel : () => { throw new Error('move failed') }
+        });
+
+        expect(restoreThrows.onConversionIn(inData())).toBe(true);
+        expect(() => restoreThrows.onGestureTerminal({itemId: 'graph', outcome: 'cancelled'})).not.toThrow();
+        expect(restoreThrows.parkedVessel?.itemId).toBe('graph')
+    });
+
+    test('a terminal arriving during async park settles that generation, then disposes exactly once', async () => {
+        let resolvePark;
+
+        const pending  = new Promise(resolve => resolvePark = resolve),
+              disposed = [],
+              handlers = createOwner({
+                  disposeVessel: vessel => {
+                      disposed.push(vessel);
+                      return true
+                  },
+                  parkVessel  : () => pending,
+                  reshowVessel: () => true
+              });
+
+        handlers.onConversionIn(inData());
+
+        const first  = handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'}),
+              second = handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'});
+
+        expect(disposed).toHaveLength(0);
+
+        resolvePark(true);
+
+        await expect(first).resolves.toBe(true);
+        await expect(second).resolves.toBe(true);
+        expect(disposed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}]);
+        expect(handlers.parkedVessel).toBeNull()
+    });
+
+    test('false-after-physical-park still runs the queued terminal compensation exactly once', async () => {
+        for (const outcome of ['committed', 'rejected']) {
+            let resolvePark;
+
+            const pending  = new Promise(resolve => resolvePark = resolve),
+                  calls    = {disposed: [], reshown: []},
+                  handlers = createOwner({
+                      disposeVessel: vessel => {
+                          calls.disposed.push(vessel);
+                          return true
+                      },
+                      parkVessel  : () => pending,
+                      reshowVessel: vessel => {
+                          calls.reshown.push(vessel);
+                          return true
+                      }
+                  });
+
+            handlers.onConversionIn(inData());
+            const terminal = handlers.onGestureTerminal({itemId: 'graph', outcome});
+
+            // Models Main's normal terminal race: the native move happened, but generation reset
+            // makes the pointer-follow admission resolve false after the effect.
+            resolvePark(false);
+
+            await expect(terminal).resolves.toBe(true);
+
+            if (outcome === 'committed') {
+                expect(calls.disposed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}]);
+                expect(calls.reshown).toHaveLength(0)
+            } else {
+                expect(calls.disposed).toHaveLength(0);
+                expect(calls.reshown).toEqual([{
+                    itemId    : 'graph',
+                    rect      : rect(500, 120, 640, 480),
+                    windowName: 'vessel-graph'
+                }])
+            }
+        }
+    });
+
+    test('external tear-out retirement clears a pending park generation without a late resurrection', async () => {
+        let resolvePark;
+
+        const pending  = new Promise(resolve => resolvePark = resolve),
+              handlers = createOwner({
+                  disposeVessel: () => true,
+                  parkVessel   : () => pending,
+                  reshowVessel : () => true
+              }),
+              admission = handlers.onConversionIn(inData());
+
+        expect(handlers.onVesselRetired({itemId: 'other'})).toBe(false);
+        expect(handlers.onVesselRetired({itemId: 'graph'})).toBe(true);
+        expect(handlers.transition).toBeNull();
+
+        resolvePark(true);
+
+        await expect(admission).resolves.toBe(false);
+        expect(handlers.parkedVessel).toBeNull();
+        expect(handlers.onVesselRetired({itemId: 'graph'}), 'duplicate retirement is inert').toBe(false)
+    });
+
+    test('external retirement invalidates a queued terminal before its late park settlement can dispose', async () => {
+        let resolvePark;
+
+        const pending  = new Promise(resolve => resolvePark = resolve),
+              disposed = [],
+              handlers = createOwner({
+                  disposeVessel: vessel => {
+                      disposed.push(vessel);
+                      return true
+                  },
+                  parkVessel  : () => pending,
+                  reshowVessel: () => true
+              });
+
+        handlers.onConversionIn(inData());
+        const terminal = handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'});
+
+        expect(handlers.onVesselRetired({itemId: 'graph', retirement: true})).toBe(true);
+        resolvePark(true);
+
+        await expect(terminal).resolves.toBe(false);
+        expect(disposed).toEqual([]);
+        expect(handlers.parkedVessel).toBeNull()
+    });
+
+    test('external retirement clears only after strict close settlement; refusal preserves recovery truth', async () => {
+        let resolveRetirement;
+
+        const retirement = new Promise(resolve => resolveRetirement = resolve),
+              handlers   = createOwner({
+                  disposeVessel: () => true,
+                  parkVessel   : () => true,
+                  reshowVessel : () => true
+              });
+
+        handlers.onConversionIn(inData());
+        const settlement = handlers.onVesselRetired({itemId: 'graph', retirement});
+
+        expect(handlers.transition?.phase).toBe('retiring');
+        expect(handlers.parkedVessel?.itemId).toBe('graph');
+        expect(handlers.onGestureTerminal({itemId: 'other', outcome: 'committed'})).toBe(false);
+        expect(handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'})).toBe(settlement);
+
+        resolveRetirement(false);
+
+        await expect(settlement).resolves.toBe(false);
+        expect(handlers.parkedVessel?.itemId, 'a refused close cannot erase recovery authority').toBe('graph');
+
+        expect(handlers.onVesselRetired({itemId: 'graph', retirement: true})).toBe(true);
+        expect(handlers.parkedVessel).toBeNull()
+    });
+
+    test('config validation fails LOUD: missing or non-function seams throw', () => {
+        const seams = {
+            disposeVessel: () => {},
+            parkVessel   : () => {},
+            reshowVessel : () => {}
+        };
+
+        expect(() => createOwner()).toThrow(/required function seams/);
+        expect(() => createOwner({...seams, parkVessel: undefined})).toThrow(/required function seams/);
+        expect(() => createOwner({...seams, reshowVessel: 'hide'})).toThrow(/required function seams/);
+        expect(() => createOwner({...seams, disposeVessel: null})).toThrow(/required function seams/)
+    })
+});

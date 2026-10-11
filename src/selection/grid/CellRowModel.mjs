@@ -20,7 +20,12 @@ class CellRowModel extends CellModel {
          * @member {String} cls='neo-selection-cellrowmodel'
          * @protected
          */
-        cls: 'neo-selection-cellrowmodel'
+        cls: 'neo-selection-cellrowmodel',
+        /**
+         * @member {Boolean} selectsRows=true
+         * @protected
+         */
+        selectsRows: true
     }
 
     /**
@@ -36,7 +41,7 @@ class CellRowModel extends CellModel {
             logicalId = view.getLogicalCellId(record, dataField);
 
             if (me.hasAnnotations(record)) {
-                me.updateAnnotations(record)
+                me.updateAnnotations(record, !me.isSelected(logicalId))
             } else {
                 me[me.isSelected(logicalId) ? 'deselectRow' : 'selectRow'](view.getRecordId(record), true)
             }

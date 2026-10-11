@@ -21,6 +21,17 @@ class Column extends Base {
          */
         className: 'Neo.grid.column.Base',
         /**
+         * What an open edit of this column does when pooling takes its cell out of the DOM — the row out of the row
+         * pool, or the column out of the mounted window.
+         *
+         * False, the default, suspends it: the editor and its draft live on in the App Worker, and the render that
+         * shows the cell again embodies them. True is for an editor that cannot be suspended, one holding state only
+         * its DOM has: the edit is cancelled instead, the draft discarded, and the grid fires `cellEditCancel` with
+         * `reason: 'projectionLoss'` — never silently.
+         * @member {Boolean} cancelEditOnProjectionLoss=false
+         */
+        cancelEditOnProjectionLoss: false,
+        /**
          * Additional CSS classes to add to the cell.
          * These classes are appended to the default ones (e.g. 'neo-grid-cell').
          * @member {Function|String|String[]|null} cellCls=null
@@ -40,6 +51,19 @@ class Column extends Base {
          * @reactive
          */
         dataField_: null,
+        /**
+         * True lets `Neo.grid.plugin.CellEditing` edit this column's cells. Turning it off while one of them is
+         * being edited cancels that edit.
+         * @member {Boolean} editable_=false
+         * @reactive
+         */
+        editable_: false,
+        /**
+         * The field config a cell editor is created from, e.g. `{module: NumberField, maxValue: 100}`.
+         * `null` edits with a `Neo.form.field.Text`.
+         * @member {Object|null} editor=null
+         */
+        editor: null,
         /**
          * @member {String} hideMode_='removeDom'
          */
@@ -62,9 +86,13 @@ class Column extends Base {
          */
         renderer_: 'cellRenderer',
         /**
-         * Scope to execute the column renderer.
-         * Defaults to the grid.Body.
-         * You can pass the strings 'this' or 'me'
+         * Scope to execute the column renderer and a function `cellCls` in.
+         *
+         * Three sources can name it, and this config is the first: an instance set here wins. A `renderer` string
+         * resolves against an instance and records it here — `'up.name'` the ancestor that defines the method,
+         * a plain name the column itself, which is what the default `cellRenderer` and every subclass override of
+         * it need to reach their own configs. A `renderer` function names no instance and runs on the grid
+         * Container. The strings `'this'` and `'me'` mean the column, as {@link Neo.grid.column.Component} sets.
          * @member {Neo.core.Base|String|null} rendererScope=null
          */
         rendererScope: null,
@@ -114,6 +142,17 @@ class Column extends Base {
             if (button) {
                 button.dataField = value
             }
+        }
+    }
+
+    /**
+     * Triggered after the editable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetEditable(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.parent?.onColumnEditableChange(this)
         }
     }
 
@@ -191,8 +230,19 @@ class Column extends Base {
      * @protected
      */
     beforeSetRenderer(value, oldValue) {
+        let me          = this,
+            {fn, scope} = resolveCallback(value, me);
+
+        // A name is resolved against an instance, and that instance is the one the method must run on: `up.name`
+        // names an ancestor, a plain name names the column itself — `cellRenderer` and every subclass override of
+        // it read their own configs. A function carries no such instance and falls through to the grid Container.
+        // An explicit rendererScope stays the author's choice, whichever of the two configs is applied first.
+        if (Neo.isString(value) && fn && !me.rendererScope) {
+            me.rendererScope = scope
+        }
+
         // If no fn is found inside the parent tree, return the plain value for view controllers to match
-        return resolveCallback(value, this).fn || value
+        return fn || value
     }
 
     /**

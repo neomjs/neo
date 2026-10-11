@@ -152,7 +152,7 @@ The engine merges the subclass descriptor *on top* of the parent's descriptor. T
 
 When defining complex nested structures in `static config`, you must be careful about shared object references.
 
-By default, `Neo.mjs` config objects are shared across all instances of a class. If the framework modifies these objects (e.g., merging configs), it can affect other instances (Prototype Pollution).
+By default, `Neo.mjs` config objects are shared across all instances of a class. If the engine modifies these objects (e.g., merging configs), it can affect other instances (Prototype Pollution).
 
 To prevent this, **always** use `clone: 'deep'` when using the Structural Injection Pattern with object-based items.
 

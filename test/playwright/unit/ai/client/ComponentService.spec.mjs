@@ -1,12 +1,81 @@
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../../src/Neo.mjs';
+import * as core        from '../../../../../src/core/_export.mjs';
 import ComponentService from '../../../../../src/ai/client/ComponentService.mjs';
+
+test.describe('Neo.ai.client.ComponentService.serializeComponent', () => {
+    let originalGetDirectChildren, service;
+
+    test.beforeEach(() => {
+        originalGetDirectChildren = Neo.manager.Component.getDirectChildren;
+        service                   = Neo.create(ComponentService)
+    });
+
+    test.afterEach(() => {
+        Neo.manager.Component.getDirectChildren = originalGetDirectChildren;
+        service.destroy()
+    });
+
+    test('depth 2 contains direct children once, never the flattened descendant closure', () => {
+        const
+            root         = {className: 'Root', id: 'root'},
+            child        = {className: 'Child', id: 'child'},
+            grandchild   = {className: 'Grandchild', id: 'grandchild'},
+            childrenById = new Map([
+                ['root', [child]],
+                ['child', [grandchild]]
+            ]);
+
+        Neo.manager.Component.getDirectChildren = id => childrenById.get(id) || [];
+
+        expect(service.serializeComponent({component: root, maxDepth: 2})).toEqual({
+            className: 'Root',
+            id       : 'root',
+            items    : [{className: 'Child', id: 'child'}]
+        });
+        expect(service.serializeComponent({component: root, maxDepth: 3})).toEqual({
+            className: 'Root',
+            id       : 'root',
+            items    : [{
+                className: 'Child',
+                id       : 'child',
+                items    : [{className: 'Grandchild', id: 'grandchild'}]
+            }]
+        })
+    });
+});
+
+test.describe('Neo.ai.client.ComponentService.queryComponent', () => {
+    let originalFind, service;
+
+    test.beforeEach(() => {
+        originalFind = Neo.manager.Component.find;
+        service      = Neo.create(ComponentService)
+    });
+
+    test.afterEach(() => {
+        Neo.manager.Component.find = originalFind;
+        service.destroy()
+    });
+
+    test('returnProperties reads dotted paths like its sibling readers, and keeps an unresolvable one as null', () => {
+        const component = {className: 'Tree', id: 'tree', store: {count: 3, id: 'tree-store'}};
+
+        Neo.manager.Component.find = () => [component];
+
+        expect(service.queryComponent({selector: {}, returnProperties: ['id', 'store.id', 'store.count', 'store.missing']}))
+            .toEqual({components: [{
+                className : 'Tree',
+                id        : 'tree',
+                properties: {id: 'tree', 'store.id': 'tree-store', 'store.count': 3, 'store.missing': null}
+            }]})
+    });
+});
 
 /**
  * @summary Tests for the pure child-surface differ behind verify_component_consistency
  */
-test.describe.serial('Neo.ai.client.ComponentService.diffChildSurfaces', () => {
+test.describe('Neo.ai.client.ComponentService.diffChildSurfaces', () => {
     test('Consistent surfaces produce no mismatches', () => {
         const result = ComponentService.diffChildSurfaces({
             componentId: 'container-1',
@@ -58,9 +127,37 @@ test.describe.serial('Neo.ai.client.ComponentService.diffChildSurfaces', () => {
         expect(result.mismatches).toEqual([{type: 'dom-root-missing'}]);
         expect(result.counts.dom).toBe(null)
     });
+
+    test('a vdom node withheld from the DOM is consistent when absent, and listed as withheld (#19282)', () => {
+        const result = ComponentService.diffChildSurfaces({
+            componentId: 'container-1',
+            domIds     : ['a', 'c'],
+            itemIds    : ['a', 'b', 'c'],
+            vdomIds    : ['a', 'b', 'c'],
+            withheldIds: ['b']
+        });
+
+        expect(result.consistent).toBe(true);
+        expect(result.mismatches).toEqual([]);
+        expect(result.withheldIds).toEqual(['b']);
+        expect(result.counts).toEqual({dom: 2, items: 3, vdom: 3})
+    });
+
+    test('a withheld vdom node that is still rendered is its own mismatch, reported once (#19282)', () => {
+        const result = ComponentService.diffChildSurfaces({
+            componentId: 'container-1',
+            domIds     : ['a', 'b', 'c'],
+            itemIds    : ['a', 'b', 'c'],
+            vdomIds    : ['a', 'b', 'c'],
+            withheldIds: ['b']
+        });
+
+        expect(result.consistent).toBe(false);
+        expect(result.mismatches).toEqual([{type: 'withheld-node-rendered', ids: ['b']}])
+    });
 });
 
-test.describe.serial('Neo.ai.client.ComponentService.observeMotion', () => {
+test.describe('Neo.ai.client.ComponentService.observeMotion', () => {
     const originalNow = Date.now;
 
     let originalGetComponent, originalMain, now, service;
@@ -155,8 +252,8 @@ test.describe.serial('Neo.ai.client.ComponentService.observeMotion', () => {
 
         Neo.getComponent = id => id === 'toolbar-1' ? {
             id,
-            windowId   : 'win-c',
-            getDomRect : async ids => {
+            windowId  : 'win-c',
+            getDomRect: async ids => {
                 calls.push(ids);
 
                 return {left: 1, top: 2, width: 3, height: 4}

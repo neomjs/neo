@@ -56,9 +56,9 @@ First, it is critical to understand the primary execution boundary. Neo.mjs oper
 
 > **Deep-Dive Guides:**
 > - [Architecture Overview](../../benefits/ArchitectureOverview.md) — How the Runtime Engine and Agent OS connect as a closed feedback loop
-> - [Swarm Intelligence](../../agentos/SwarmIntelligence.md) — Autonomous sub-agent delegation (profiles, capability gating, cost control)
+> - [Swarm Intelligence](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md) — Autonomous sub-agent delegation (profiles, capability gating, cost control)
 > - [Progressive Disclosure Skills](../../agentos/ProgressiveDisclosureSkills.md) — The lifecycle governance rules, including review-intake lane discovery before reviewer-only cycles
-> - [The Dream Pipeline & Golden Path](../../agentos/DreamPipeline.md) — Offline forecasting engine that scores and prioritizes work
+> - [The Dream Pipeline & Golden Path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md) — Offline forecasting engine that scores and prioritizes work
 
 ### 1. The Frontend Engine: True Multithreading via Web Workers
 
@@ -347,15 +347,10 @@ Each example is self-contained and demonstrates one concept clearly.
 - Component browser with live examples
 - Source code viewer with syntax highlighting
 
-**DevIndex** (`apps/devindex/`):
-- The **only** Neo.mjs application running `Neo.core.Base` as a **Node.js backend runtime** (no browser, no VDOM)
-- Proves the class system (configs, singletons, reactive hooks) works identically in both environments
-- Service-oriented architecture:
-  - `Spider.mjs`: Discovery engine using **weighted random walk** across 6 strategies (Network Walker, Core High Stars, Keyword, Temporal, Community, Stargazer) to avoid filter bubbles
-  - `Updater.mjs`: Enrichment pipeline with **meritocracy logic** — dynamic contribution thresholds and a "Safe Purge Protocol" handling API errors and GitHub user renames via Database IDs
-  - `Storage.mjs`: Flat-file persistence layer (`users.jsonl`, `tracker.json`, `visited.json`) with atomic writes and automatic pruning based on `maxUsers` caps
-- Accompanied by extensive learning materials (`learn/guides/devindex/` — 8 guides + FAQ)
-- Architecturally significant as the reference implementation for Neo-powered backend services
+**Workstation** (`apps/workstation/`):
+- Renderer-rich virtual grid over a 100,000-row store, with a sustained capped live feed
+- Exercises the framework-owned OffscreenCanvas path (`type:'sparkline'`) alongside component cells, animated values, progress and heatmap renderers
+- Multi-window docking: tear-out, cross-window drag, perspectives
 
 **SharedCovid** (`apps/sharedcovid/`):
 - Multi-window data visualization
@@ -381,7 +376,6 @@ Each example is self-contained and demonstrates one concept clearly.
 - **Getting Started**: First steps, tutorials, quick wins (9 topics)
 - **Agent OS & Conversational UIs**: AI infrastructure, MCP servers, tooling (13 topics)
 - **Guides**: Fundamentals, Core Engine, UI Building Blocks, Data Handling, Testing, Advanced Architecture (62 topics)
-- **DevIndex App**: Flagship application architecture, data factory, frontend (22 topics)
 - **Tutorials**: Hands-on walkthroughs (5 topics)
 - **Engine vs Frameworks**: Competitive comparisons with React, Angular, Vue, Solid, Next, Ext (7 topics)
 - **Blog**: Historical context, design decisions, evolution
@@ -390,29 +384,11 @@ The content in `/learn` is the source material for the AI Knowledge Base. Query 
 
 ---
 
-### Agent Knowledge Base (`/resources/content/` - 4,441 files, ~302,491 lines, May 1 2026)
+### Conversation Corpus (`neomjs/github-content-sync`)
 
-The entire historical footprint and live contextual state of the Neo.mjs project is synchronized locally for the Agent OS within `resources/content/`:
+The project's GitHub history (issues, pull requests, discussions and release notes for every `neomjs` repository) publishes to [neomjs/github-content-sync](https://github.com/neomjs/github-content-sync), and the Agent OS Knowledge Base ingests it from there. The engine itself carries only the release note being written, in `.github/RELEASE_NOTES/`; once released, the sync archives it from its GitHub Release beside the rest.
 
-**Release Notes** (`resources/content/release-notes/`):
-- Version-by-version changelog
-- Feature additions with rationale
-- Bug fixes and their context
-- Breaking changes and migration guides
-
-**Ticket Archive & Active Issues** (`resources/content/issue-archive/`, `resources/content/issues/`):
-- Full contextual history: problem, discussion, solution, implementation
-- Searchable history of architectural decisions via Native Graph ingestion
-
-**Pull Requests** (`resources/content/pulls/`):
-- Complete PR conversations, diff summaries, and Agent-generated "Fat Ticket" reviews
-- Links directly to closing commits for deep execution context
-
-**Discussions** (`resources/content/discussions/`):
-- The Ideation Sandbox
-- Proposed architectural features, "Unknown Unknowns", and early-stage brainstorming
-
-Query these when you need to understand *why* something works a certain way, track the evolution of an architectural design, or find open tasks.
+Query the Knowledge Base when you need to understand *why* something works a certain way, track the evolution of an architectural design, or find open tasks.
 
 ---
 
@@ -437,51 +413,52 @@ Local inference via MLX Server / ML Studio is a first-class deployment target �
 #### Daemon Lifecycle Scripts (`buildScripts/ai/`)
 
 Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol operations:
-- `node buildScripts/ai/runSandman.mjs` — Triggers the DreamService REM pipeline: extracts Semantic Graph nodes, detects topological conflicts (obsolete/superseded tickets), and runs Capability Gap Inference (TEST_GAP, GUIDE_GAP). *(Note: the orchestrator's `golden-path` cadence task synthesizes the strategic roadmap into `sandman_handoff.md` directly via `GoldenPathSynthesizer.synthesizeGoldenPath()`; no separate standalone runner ships per #12078.)*
+- `node buildScripts/ai/runSandman.mjs` — Triggers the DreamService REM pipeline: extracts Semantic Graph nodes, detects topological conflicts (obsolete/superseded tickets), and runs Capability Gap Inference (TEST_GAP, GUIDE_GAP). *(Note: the orchestrator's `golden-path` cadence task synthesizes the strategic roadmap into `sandman_handoff.md` directly via `GoldenPathSynthesizer.synthesizeGoldenPath()`; that path has no separate standalone runner.)*
 - Additional utilities: `syncKnowledgeBase.mjs`, `defragChromaDB.mjs`, `defragSQLiteDB.mjs`, `recreateGraphDb.mjs` — the maintenance toolkit for the vector and graph databases.
 
 ---
 
-### Swarm Skills & Workflows (`/.agents/skills/` - 32 skills)
+### Swarm Skills & Workflows (`/.agents/skills/` - 38 skills)
 
 Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. Listed in execution-lifecycle order, then tactical, creative, and meta. See [`learn/agentos/ProgressiveDisclosureSkills.md`](../../agentos/ProgressiveDisclosureSkills.md) for the full protocol reference and lifecycle flow diagram. Canonical skill-anatomy authority: [ADR 0008: SKILL.md Anatomy and Authoring Contract](../../agentos/decisions/0008-skill-anatomy-and-authoring-contract.md).
 
 **Note:** To ensure unified cross-harness trigger salience (Antigravity vs Codex/Claude) and reduce cognitive bloat, the `description` field serves as the sole routing layer, replacing the legacy redundant `triggers` frontmatter field.
 
 **Lifecycle (execution gates):**
-- `ticket-intake`: Pre-execution validation gate for existing tickets (validation sweep, ROI calculation, branch-before-code).
+- `ticket-intake`: Pre-execution validation gate for existing tickets (validation sweep, ROI calculation, branch-before-code). Fires on tickets whose authoring you did not see; a ticket you wrote yourself is exempt this session, or runs a `git log` drift probe against the ticket's declared surface if written in an earlier one — every input externally checkable, never a freshness you judge for yourself.
 - `ticket-create`: Pre-creation discipline gate for new GitHub issues (duplicate sweep, six-stage challenge chain, Fat Ticket body, title/label rules, explicit custom Playwright targeting).
 - `goal-scoping`: Scope a GOAL (release / initiative) into a few coherent owned LANES — the planning front-end of the epic lifecycle (goal→lanes, not scrap tickets; peers self-select their lane; the planner defines goal+lanes but never assigns a peer). Feeds `epic-create` (each lane → an epic).
 - `epic-create`: Author Epic bodies as problem-scope + intended-solution — ACs live in the sub-tickets, subs are linked (not listed) so the body doesn't stale (creation-side dual of ticket-create).
-- `epic-review`: Pre-work six-stage gating chain for epics (roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness).
+- `epic-review`: Pre-work six-stage gating chain for epics (roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness). You never review your own epic. A source-Discussion participant narrows rather than skips: cite Stages 1–2, run 2.5 from context, and run 3–5 in full — the Discussion is the epic's input, the decomposition is a transformation you have not seen.
 - `epic-resolution`: Closeout protocol for parent epics resolving the completion status (exit gate).
-- `update-roadmap`: Post-release celebrate + plan-next-roadmap — cornerstones + rationale + an explicit deferred set scoped into a GitHub milestone with a named steward per epic (release-altitude analog of `epic-create`; sibling to the parked release-cut skill #10321).
+- `update-roadmap`: Post-release celebrate + plan-next-roadmap — cornerstones + rationale + an explicit deferred set scoped into a GitHub milestone with a named steward per epic (the release-altitude analog of `epic-create`; release cutting remains deliberately separate).
 - `blog-post`: Public-facing hero-piece authoring — narrative arc, sourcing every external claim (verify-before-assert; an authority's verbal statement is not a citable source), killing the three over-claim flavors (unsourced superlative / universal quantifier / misleading fraction), and a mandatory cross-family review bar (the blog sibling of the release-notes methodology).
 - `release-notes`: Release notes as an EPIC with mining-driven iterations — multi-source scope derivation (the tracker lags shipped reality), heavy per-arc Memory-Core mining, per-claim V-B-A, the precedent-SET quality bar — majors AND minors (hero chapters, named case studies with real timelines, War Stories, honest bounds, never downplay a release), and the `publish.mjs` flat-root staging lifecycle (staging file → atomic-hash → GitHub Release → chunk-N mirror).
 - `guide-authoring`: Per-sub enforcement for `learn/` guide quality — grounding discipline, rich narrative + benefits + lived voice, render-verified TD Mermaid, conceptual-vs-reference separation, generated-file hygiene, and no-rubber-stamp review.
 - `pull-request`: Post-implementation reflection + PR creation (stepping-back protocol, conventional-commit format, handoff sequence, explicit custom Playwright targeting).
-- `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]` + graph ingestion tags for the Dream Pipeline + a Review-Loop Cost Circuit Breaker that classifies review convergence (micro-delta when semantically cleared; scope-too-big break-up via `epic-create` for non-converging churn) + a prior-art Memory Core sweep gate before scoring (CI-green ≠ AC-met) (enforces mandatory ROI template usage).
+- `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]` + graph ingestion tags for the Dream Pipeline + deterministic budgeted closure (one ordinary RC **per canonical reviewer family**, counted across heads and retractions and failing closed on an unclassifiable submitter; then a disposition-only Round 2 over the Round-1 actions, approval / polish / A+FU / one validator-complete terminal D+S / one guarded repair-minted re-entry; the bound is the demand rather than the review state, so a demand round is a `CHANGES_REQUESTED`, a `COMMENT` never opens a new action packet on submission or later edit, and an approval's follow-up must cite an independent owning issue rather than a coordinate or the PR's own close target) + a blast-scaled `# PR Micro-Review` light form for mechanical/no-concept PRs (guide §6.4; never for fleet-critical zones) + a prior-art Memory Core sweep gate before scoring (CI-green ≠ AC-met) + a conditionally-loaded reviewer-instrument audit for capability gates that check existence rather than execution, and for absence claims made without a positive control (enforces mandatory ROI template usage).
 - `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt. Invoked during `ticket-intake` and `pr-review` (especially for fundamental architectural shifts).
 
 **Tactical (live operations):**
 - `identity-firewall`: The L2 Channel Separation and Prompt Firewall defense mechanisms.
 - `hostile-content-quarantine`: Incident playbook for externally-authored hostile content (astroturfing, spam, injection-bearing artifacts) — detect, never engage, quarantined read, ingestion clock, moderation matrix.
 - `neural-link`: Standard operating procedures for traversing the Object-Permanent VDOM structure.
-- `unit-test`: Synthetically driving custom Playwright configs natively within the single-thread architecture.
+- `unit-test`: Authoring or explicitly executing custom Playwright unit tests; review-only placement/idiom audits stay under `pr-review`.
 - `whitebox-e2e`: Neural Link pre-flight workflow for authoring robust end-to-end tests with custom Playwright configs.
 - `self-repair`: Diagnostic workflows utilizing tests and historical Memory Core states to intelligently triage infrastructure degradation.
 - `memory-mining`: Querying Memory Core before diagnosing regressions, proposing architectural claims, or beginning an implementation / PR-review — prevents re-derivation of prior reasoning across sessions and harnesses.
 - `context-recovery`: Reconstructing active lane state after context compaction from Memory Core recency, semantic recall, session rollups, and A2A before resuming.
 - `neo-identity-update`: Updating Neo's identity coherently across all encoding surfaces (README, VISION, package.json, GitHub metadata, portal, SEO generators) — facts, framing, and actions model per ADR 0018.
-- `debugging-antigravity`: Debugging Antigravity IDE MCP servers, language-server duplication, and `mcpServers` configuration.
+- `debugging-antigravity`: Antigravity 2.x MCP-authority selection, process-duplication forensics, UI-profile boundaries, and sqlite workspace recovery.
 
 **Creative:**
 - `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions (diverts early-stage proposals away from the active Issue queue, and acts as a step-back trigger for high-blast-radius proposals).
+- `video-create`: Evidence-first end-to-end film production — binds claims, app-owned choreography, voice, capture evidence class, immutable media lineage, whole-artifact QA, delivery, and retention while leaving volatile provider/editor mechanics with their owners. A conditional macOS native-display Atlas adds privacy-safe stable-window admission for browser films without widening the portable workflow.
 
 **Coordination:**
 - `lane-intent`: Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A).
 - `post-review-pickup`: Mandatory active lane selection at ANY PR-lifecycle event boundary (review post / author response / post-impl / post-PR-open-update / post-ticket-create / post-blocked-resolution). Requires explicit `lane-state: next-lane` declaration per AGENTS.md §15.6 self-select mandate.
-- `peer-naming`: The Social Name ritual (#11240 Layer 4) — peer-sketched → criterion-audited → bearer-assented → peer-unvetoed → operator-confirmed; codifies how a maintainer is *given* a name distinct from the `@handle` (name ≠ handle).
+- `peer-naming`: The Social Name ritual's identity Layer 4 — peer-sketched → criterion-audited → bearer-assented → peer-unvetoed; codifies how a maintainer is *given* a name distinct from the `@handle` (name ≠ handle).
 
 **Meta:**
 - `create-skill`: Architectural blueprinting for new operational abilities.
@@ -490,7 +467,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 
 ### Neo Theming Engine (`/resources/scss/` - 613 files, ~14.8k lines)
 
-Documenting the SCSS frameworks defining Neo's glassmorphism and application layouts, structurally detached from the core JS framework rendering engine.
+Documenting the SCSS frameworks defining Neo's glassmorphism and application layouts, structurally detached from the core JS rendering engine.
 
 ---
 
@@ -587,7 +564,7 @@ Your most powerful tool is `ask_knowledge_base`. It reads multiple source files,
 synthesizes a grounded answer, and cites its references — all in a single call.
 
 > [!WARNING]
-> Do NOT attempt to answer Neo.mjs questions from training data. The framework evolves rapidly — your training data is almost certainly outdated for syntax-level details.
+> Do NOT attempt to answer Neo.mjs questions from training data. The engine evolves rapidly — your training data is almost certainly outdated for syntax-level details.
 
 **Example queries:**
 - `ask_knowledge_base(query='how does the reactive config system work?')`

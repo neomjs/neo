@@ -1,0 +1,186 @@
+import {test, expect} from '@playwright/test';
+import path           from 'node:path';
+
+/**
+ * The consumer runtime-build guard fails when installed Data/Main contexts resolve framework
+ * modules instead of consumer-owned modules, or fail outright on an optional consumer root, when the
+ * Canvas worker loses the package's own renderers, and when the App worker's compile of the shipped
+ * apps errors or reaches none of them.
+ *
+ * Only the rule logic is exercised here. The guard's expensive half — `npm pack`, install into a
+ * fixture nested under an `apps/` ancestor, and seven real webpack compiles — is what the CI workflow
+ * runs, and it cannot be meaningfully faked: a simulated layout is exactly the instrument that
+ * reported every root correct while the physical build failed on two of them. So this spec asserts
+ * the failure DIRECTIONS, and the workflow asserts the behaviour.
+ */
+test.describe('check-consumer-runtime-build — rule logic', () => {
+    let APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts;
+
+    const runtimeFiles = [
+        'dist/marked.mjs', 'dist/mermaid.mjs', 'dist/parse5.mjs',
+        'dist/highlight/highlight.custom.js', 'dist/highlight/highlight.custom.min.js',
+        'dist/monaco/codicon.ttf', 'dist/monaco/css.worker.mjs', 'dist/monaco/editor.css',
+        'dist/monaco/editor.mjs', 'dist/monaco/editor.worker.mjs', 'dist/monaco/html.worker.mjs',
+        'dist/monaco/json.worker.mjs', 'dist/monaco/ts.worker.mjs'
+    ];
+
+    const APP_VIEW         = './node_modules/neo.mjs/apps/portal/view/news/tickets/Component.mjs',
+          APP_MARKED       = './node_modules/neo.mjs/dist/marked.mjs',
+          ENGINE_RENDERER  = './node_modules/neo.mjs/src/canvas/Header.mjs',
+          GRAPH_SCENE      = './node_modules/neo.mjs/src/canvas/GraphScene.mjs',
+          PROBE_RENDERER   = './apps/probe/canvas/ProbeRenderer.mjs',
+          CONSUMER         = './apps/probe/data/ConsumerOnly.mjs',
+          ROOT_ONLY        = './RootOnly.mjs',
+          UNRELATED        = './client/src/Unrelated.mjs',
+          healthy          = {mode: 'development', moduleNames: [CONSUMER, './src/worker/Data.mjs'], errors: []},
+          workspace        = path.join(path.sep, 'fixture'),
+          packageContext   = {context: path.join(workspace, 'node_modules/neo.mjs/src/main/addon'), regExpSource: '^\\.\\/.*\\.mjs$'},
+          emptyContext     = {...packageContext, regExpSource: '(?!)'},
+          workspaceContext = {context: path.join(workspace, 'src/main/addon'), regExpSource: '^\\.\\/.*\\.mjs$'};
+
+    test.beforeAll(async () => {
+        ({APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts} = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
+    });
+
+    test('a complete installed dependency build satisfies every runtime address', () => {
+        expect(findMissingBrowserArtifacts([...runtimeFiles, 'dist/unrelated.mjs'])).toEqual([])
+    });
+
+    test('each missing runtime artifact fails independently, including CSS, font and worker files', () => {
+        for (const missing of runtimeFiles) {
+            expect(findMissingBrowserArtifacts(runtimeFiles.filter(file => file !== missing)), missing)
+                .toEqual([missing])
+        }
+    });
+
+    test('source files, directories and another install cannot satisfy generated runtime addresses', () => {
+        expect(findMissingBrowserArtifacts([
+            'src/Neo.mjs', 'dist', 'dist/highlight', 'dist/monaco',
+            ...runtimeFiles.map(file => `other-install/${file}`)
+        ])).toEqual(runtimeFiles)
+    });
+
+    test('a build resolving only the consumer\'s modules passes', () => {
+        expect(collectConsumerBuildFailures(healthy)).toEqual([])
+    });
+
+    test('a missing consumer module fails — the context resolved somewhere else', () => {
+        const failures = collectConsumerBuildFailures({...healthy, moduleNames: ['./src/worker/Data.mjs']});
+
+        expect(failures).toHaveLength(1);
+        expect(failures[0]).toContain('ConsumerOnly.mjs is absent, expected present')
+    });
+
+    test('a root-level Node script reaching a worker bundle fails', () => {
+        const failures = collectConsumerBuildFailures({...healthy, moduleNames: [CONSUMER, ROOT_ONLY]});
+
+        expect(failures).toHaveLength(1);
+        expect(failures[0]).toContain('RootOnly.mjs is present, expected absent')
+    });
+
+    test('an unrelated application tree reaching a worker bundle fails', () => {
+        const failures = collectConsumerBuildFailures({...healthy, moduleNames: [CONSUMER, UNRELATED]});
+
+        expect(failures).toHaveLength(1);
+        expect(failures[0]).toContain('Unrelated.mjs is present, expected absent')
+    });
+
+    test('a resolution error fails even when every module expectation holds', () => {
+        // The optional-root regression: the graph can be correct while an absent root fails the build.
+        const failures = collectConsumerBuildFailures({...healthy, errors: ["Module not found: Error: Can't resolve '../../../../examples'"]});
+
+        expect(failures).toHaveLength(1);
+        expect(failures[0]).toContain("Can't resolve '../../../../examples'")
+    });
+
+    test('every violation is reported, not just the first', () => {
+        const failures = collectConsumerBuildFailures({mode: 'production', moduleNames: [ROOT_ONLY, UNRELATED], errors: ['boom']});
+
+        // one error + missing consumer module + two forbidden modules
+        expect(failures).toHaveLength(4);
+        failures.forEach(failure => expect(failure).toContain('[production]'))
+    });
+
+    test('an absent workspace root keeps one live package context plus one empty WS fallback', () => {
+        expect(collectMainContextFailures(
+            {mode: 'development/main-absent', contextModules: [packageContext, emptyContext]},
+            workspace,
+            'absent'
+        )).toEqual([])
+    });
+
+    test('an absent workspace root fails if the WS fallback can expose package addons', () => {
+        const failures = collectMainContextFailures(
+            {mode: 'development/main-absent', contextModules: [packageContext]},
+            workspace,
+            'absent'
+        );
+
+        expect(failures).toHaveLength(1);
+        expect(failures[0]).toContain('matches-nothing package fallbacks')
+    });
+
+    test('a present workspace root must stay live instead of falling back to an empty package context', () => {
+        expect(collectMainContextFailures(
+            {mode: 'production/main-present', contextModules: [packageContext, workspaceContext]},
+            workspace,
+            'present'
+        )).toEqual([]);
+
+        const failures = collectMainContextFailures(
+            {mode: 'production/main-present', contextModules: [packageContext, emptyContext]},
+            workspace,
+            'present'
+        );
+
+        expect(failures).toHaveLength(2);
+        expect(failures[0]).toContain('live workspace roots');
+        expect(failures[1]).toContain('empty package fallbacks')
+    });
+
+    test('an App compile that reached the shipped apps and the bundled marked passes', () => {
+        expect(collectConsumerBuildFailures(
+            {mode: 'development/app', moduleNames: [APP_VIEW, APP_MARKED], errors: []},
+            APP_EXPECTATIONS
+        )).toEqual([])
+    });
+
+    test('an App compile that reached no shipped app fails, however clean its error list', () => {
+        const failures = collectConsumerBuildFailures(
+            {mode: 'development/app', moduleNames: ['./node_modules/neo.mjs/src/worker/App.mjs'], errors: []},
+            APP_EXPECTATIONS
+        );
+
+        expect(failures).toHaveLength(2);
+        expect(failures[0]).toContain('tickets/Component.mjs is absent, expected present');
+        expect(failures[1]).toContain('dist/marked.mjs is absent, expected present')
+    });
+
+    test('a Canvas compile reaching the engine renderers and the consumer renderer passes, concatenated or not', () => {
+        expect(collectConsumerBuildFailures(
+            {mode: 'production/canvas', moduleNames: [`${ENGINE_RENDERER} + 1 modules`, GRAPH_SCENE, PROBE_RENDERER], errors: []},
+            CANVAS_EXPECTATIONS
+        )).toEqual([])
+    });
+
+    test('a Canvas compile whose renderer root left the package fails on the engine renderers (#19163)', () => {
+        const failures = collectConsumerBuildFailures(
+            {mode: 'production/canvas', moduleNames: [PROBE_RENDERER], errors: []},
+            CANVAS_EXPECTATIONS
+        );
+
+        expect(failures).toHaveLength(2);
+        expect(failures[0]).toContain('src/canvas/Header.mjs is absent, expected present');
+        expect(failures[1]).toContain('src/canvas/GraphScene.mjs is absent, expected present')
+    });
+
+    test('a Canvas compile without the graph-scene renderer fails on it alone', () => {
+        const failures = collectConsumerBuildFailures(
+            {mode: 'production/canvas', moduleNames: [ENGINE_RENDERER, PROBE_RENDERER], errors: []},
+            CANVAS_EXPECTATIONS
+        );
+
+        expect(failures).toHaveLength(1);
+        expect(failures[0]).toContain('src/canvas/GraphScene.mjs is absent, expected present')
+    })
+});

@@ -1,0 +1,455 @@
+/**
+ * @summary Workstation's flagship-film screenplay v2 — the `neo.tour.script.v1` narrative
+ * authority for the 90–150s recorded journey, with narration captions as the spoken-text draft,
+ * and the RUNNABLE screenplay the Workstation's own "Start film tour" plays.
+ *
+ * Authority chain, stated so no consumer confuses the layers:
+ * - `test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs` is the WITNESS authority
+ *   for the gestures themselves — a take that cannot pass the spec is not a take.
+ * - THIS file is the NARRATIVE authority: show-order, pacing budget, the narration draft each
+ *   beat speaks over the witnessed gesture — and the executable steps that drive it. One script,
+ *   two consumers today: the viewer's in-app tour and the whitebox replay. The recorded take is
+ *   the film epic's next step and will consume this same script.
+ * - The approved narration is whole and runs at its own rate (the operator's brief, 2026-10-10:
+ *   a 1:30–2:30 film, nothing trimmed): these captions are the working screenplay, the cut places
+ *   each line at its cue, and the PICTURE is sized to carry the lines — by hand-tempo gestures and
+ *   more scenes, never by a held frame.
+ *
+ * Show-order: the film opens on the committed tear-out. The room is alive for a breath — its first
+ * motion a real splitter drag — then a live pane leaves the window and a real vessel is born
+ * mid-gesture and stays — the most exciting thing the engine does comes first, before any tour of
+ * the room; then the journey (one drag: out, back over the room, out again, into the first window,
+ * out once more, and in to stay — the change of mind and the compose inside one gesture, the
+ * engine keeping one rule for every window of the group), the return home, the rail beat (a pane
+ * folds into its edge rail, is revealed, and comes back), the resize (the main boundary follows a
+ * real pointer drag, both panes re-flowing live, and commits once on release), the drop-zone
+ * showcase that puts the travelled pane wherever the viewer likes, perspectives with undo/redo,
+ * and the living close. The picture sets the pace: every pointer walk runs at hand tempo (a sample
+ * every 33 ms, the leg's `moveSteps` sized to about a second of travel), a hold inside a gesture
+ * and a cue-free reading beat are each at most 1.5 s, and no gesture or beat is stretched to fit a
+ * line. The tear-out leaves Audit behind, and Audit holds `right-top-tabs` as the stored home the
+ * stack comes back to.
+ *
+ * How the window scenes run from a button: a vessel birth is `Neo.Main.windowOpen`, which the
+ * browser permits only inside a user gesture. The screenplay therefore places a `gate` cue before
+ * every beat that opens a window: the viewer's click on **Continue** is the activation the birth
+ * needs, and the tour's host settlement holds the next beat until that click. Replay and take
+ * modes resolve gates without a viewer (`autoGates`), because Playwright's real pointer carries
+ * its own activation. A gate covers one activation: the journey births further windows inside the
+ * same held drag, and those rest on the site's one-time pop-up permission (docking design record
+ * §2.8.6) — the take's browser has it, the headless witnesses grant it by launch flag, and a viewer
+ * who has not allowed it sees the in-window degrade. The dense tour (`denseWorkstation.mjs`) stays
+ * the no-window fallback.
+ *
+ * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
+ * real duration and the cut re-paces around them. The scenes sum to exactly 91s inside the
+ * 90–150s envelope, 1s above the `minSeconds` floor: a budget edit trades seconds within the 91s
+ * sum, and captured gesture durations plus the edit-layer cut-in re-pace upward from there. A
+ * `pause` step's `ms` is a floor the runner waits while the host performs the cue, not a wait
+ * after it: a cue's picture time is its gesture, and a cue-free `pause` after an instant document
+ * operation is the only time a viewer gets to read that outcome. The headless film witness's beat
+ * log is the clock these options are measured against before any take.
+ *
+ * Claim discipline (revalidated against the current witnesses at authoring time):
+ * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 2, 3, 4, 9)
+ * - zero-mutation return       → the journey's `main` hop retires the vessel mid-gesture with the
+ *                                committed document byte-identical (scene 3)
+ * - mid-gesture window birth   → `proof.born` before pointer-up; the journey births three
+ *                                generations under one pointer-down (scenes 2, 3)
+ * - exactly-one-claim          → `claimCount: 1` + single rendered preview, twice in one gesture (scene 3)
+ * - atomic return + self-close → `phaseOrder` `documents-adopted → … → topology-exited` (scene 4)
+ * - rail round trip            → `collapsed` / `revealed` / `restored` receipts, the pane home
+ *                                in its own node afterwards (scene 5)
+ * - live-preview resize        → `previewTracked` while `documentUnchangedDuringPreview`, then
+ *                                `committedOnce` at the requested proportion — the receipt carries
+ *                                the value, the document tier runs no cues (scene 6)
+ * - preview determinism        → two-take beat-log equality + painted-dwell rect witnesses (scene 7)
+ * - perspective restore        → store-backed capture/restore with exact-baseline document
+ *                                fidelity, fail-closed on unknown names (scene 8)
+ * - undo/redo round-trip       → one dock mutation walked back and replayed on the Group cursor (scene 8)
+ * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 9)
+ * Narration makes NO cross-platform, default-selection, or portability claims, and carries no
+ * competitive comparisons — captions inherit the spec's macOS-headed claim boundary.
+ *
+ * Format decision (recorded): the film is a DIALOGUE — one voice invites the gesture, the other
+ * says what the engine did, each line bound to a scene/cue id on the film epic so a re-ordered
+ * beat carries its words with it. The `narration` field here stays the single-voice caption
+ * draft the cut's captions derive from; the spoken lines live with the epic's dialogue draft.
+ *
+ * The N-window density beat (Fleet cockpit, three windows, live mailbox migration) is an
+ * EDIT-LAYER cut-in sourced from its own witness spec — it is not part of this tour's runtime
+ * and deliberately absent from the scene list below.
+ */
+
+/**
+ * The film-paced gesture options every real-pointer cue shares: a bowed path sampled at ~30 fps
+ * with the synthetic cursor visible, and a birth gate wide enough for a vsync-limited boot.
+ * Data only — the executors read these as plain options.
+ * @type {Object}
+ */
+const filmPace = Object.freeze({birthAttempts: 240, curve: 0.18, moveDelay: 33, moveSteps: 24, showCursor: true});
+
+/**
+ * The surface-cue vocabulary the screenplay uses. `TourController#executeCue` must handle every
+ * entry; the unit spec asserts the two lists agree so a renamed cue cannot ship as a silent no-op.
+ * @type {ReadonlyArray<String>}
+ */
+export const filmCueTypes = Object.freeze([
+    'scroll', 'canvas-update', 'cross-zone-showcase', 'rail', 'resize', 'gate', 'tear-out',
+    'journey', 'native-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo',
+    'grid-drag-scroll', 'vessel-resize'
+]);
+
+/**
+ * The flagship-film screenplay. Scene ids are stable anchors for the cut, the caption
+ * renderer, the dialogue's cue bindings and the take QA checklist. Every scene carries runnable
+ * `steps`; `narration` is the spoken draft and `beats` name what each step shows.
+ * @type {Object}
+ */
+export const fiveBeatFilmScript = Object.freeze({
+    schema: 'neo.tour.script.v1',
+    id    : 'workstation-flagship-film-v2',
+    title : 'The content never stops living',
+
+    envelope : {maxSeconds: 150, minSeconds: 90},
+    workspace: {height: 1440, width: 2560},
+
+    scenes: [{
+        id           : 'film-cold-open',
+        title        : 'The room is alive',
+        targetSeconds: 3,
+        narration    : 'A living workspace: twenty panes, a hundred-thousand-row grid, streaming feeds. Nothing stops moving. Now take one outside.',
+        beats        : ['dense opening topology', 'the real boundary follows the first drag', 'feed heartbeat visibly advancing'],
+        steps        : [{
+            type   : 'topology-assert',
+            caption: 'all twenty panes are live; the heavy group deliberately overflows',
+            expect : [
+                {path: 'nodes.scale-tabs.items', equals: ['scale']},
+                {path: 'nodes.heavy-tabs.items.0', equals: 'alerts'},
+                {path: 'nodes.heavy-tabs.items.11', equals: 'files'},
+                {path: 'items.graph.autoHidden', equals: true},
+                {path: 'items.inspector.autoHidden', equals: true}
+            ]
+        }, {
+            // The film's first motion is a real drag: the main boundary follows the pointer from the
+            // shipped 60/40 to 52/48 with both panes re-flowing live, and the release commits the
+            // proportion. The receipt carries the vector (the document tier runs no cues).
+            type   : 'pause',
+            ms     : 800,
+            cue    : {type: 'resize', splitNodeId: 'split-main', sizes: [0.52, 0.48], options: {moveDelay: 33, moveSteps: 48, showCursor: true}},
+            caption: 'the first motion: the real boundary follows the pointer to 52/48 and the document keeps the proportion'
+        }, {
+            type   : 'pause',
+            ms     : 900,
+            cue    : {type: 'canvas-update'},
+            caption: 'the feed heartbeat advances; a visible sparkline repaints in the Canvas Worker'
+        }]
+    }, {
+        id           : 'film-tear-out',
+        title        : 'A window is born mid-gesture',
+        targetSeconds: 10,
+        narration    : 'Drag a live pane past the window’s edge. A real window is born — mid-gesture, while the pointer is still down — and it stays. The pane inside it is the same live instance. The grid never reloaded. The feed never paused.',
+        beats        : ['the viewer opens the door: one click is the browser’s permission', 'boundary exit births the vessel before pointer-up', 'pane identity preserved across the window boundary', 'living content uninterrupted'],
+        steps        : [{
+            type   : 'pause',
+            ms     : 0,
+            cue    : {type: 'gate', prompt: 'Continue — then watch Metrics leave the window'},
+            caption: 'A real window is about to be born mid-gesture and stay. Your click is the browser’s permission to open it.'
+        }, {
+            // Metrics leaves a two-tab group: Audit stays behind, so `right-top-tabs` — the stored
+            // home the stack return aims at — survives the departure (a tabs node emptied by its
+            // last pane is removed, and the return then aims at whichever tabs node comes first;
+            // measured on 2026-09-23 as the return that never settled).
+            type   : 'pause',
+            ms     : 1200,
+            cue    : {type: 'tear-out', itemId: 'metrics', sourceNodeId: 'right-top-tabs', options: filmPace},
+            caption: 'boundary exit births the vessel before pointer-up; the same live pane rides along'
+        }, {
+            type   : 'pause',
+            ms     : 1000,
+            caption: 'the committed vessel reads as a window — one breath, then on'
+        }]
+    }, {
+        id           : 'film-journey',
+        title        : 'One drag, every boundary',
+        targetSeconds: 18,
+        narration    : 'Now take Commits. Out — a window is born under the pointer. Back over the room — it folds back into its tab; nothing happened. Out again. Into Metrics’ window — it takes the drag as its own tab, the zones glow. Out once more. And in, to stay. One drag. Nothing reloads.',
+        beats        : ['the viewer opens the door: one click is the activation for the journey’s first window; the births that follow inside the same drag rest on the site’s one-time pop-up permission', 'out: a vessel is born under the pointer', 'back over main: the vessel retires, the tab proxy resumes, the document is untouched', 'out again: a window again', 'over Metrics’ window: it carries the drag as its tab-header proxy, its zones glow', 'out once more: a window again', 'the drop composes A+B in Metrics’ window'],
+        steps        : [{
+            type   : 'pause',
+            ms     : 0,
+            cue    : {type: 'gate', prompt: 'Continue — Commits leaves, comes back, leaves again, and joins Metrics'},
+            caption: 'One pane is about to cross every boundary under one pointer-down. Your click opens its first window; the windows that follow in the same drag need this site allowed to open pop-ups.'
+        }, {
+            // Six hops under one pointer-down, one rule for every window of the group: inside a
+            // window the drag is that window's tab-header proxy, outside every window it is a vessel.
+            // Commits is the only tab of `right-bottom-tabs`: its vacated slot stays while the pane is
+            // away, so the return hop re-arms on it (measured 2026-10-10 in the film witness). A born
+            // hold reads as "that is a window", a dwell over Metrics' window as "it answers like the
+            // room does"; both stay inside the picture's bounds.
+            type: 'pause',
+            ms  : 1400,
+            cue : {
+                type        : 'journey',
+                itemId      : 'commits',
+                sourceNodeId: 'right-bottom-tabs',
+                targetItemId: 'metrics',
+                hops        : ['desktop', 'main', 'desktop', 'target', 'desktop', 'target'],
+                options     : {...filmPace, birthDwellMs: 1500, dwellDelay: 1000}
+            },
+            caption: 'out, back, out again, into Metrics’ window, out once more, and in: one drag, the same live pane, three windows born and retired under the hand'
+        }, {
+            type   : 'pause',
+            ms     : 1000,
+            caption: 'two windows compose — a breath before the stack comes home'
+        }]
+    }, {
+        id           : 'film-reintegration',
+        title        : 'The stack comes home as one',
+        targetSeconds: 12,
+        narration    : 'Bring the whole window home — as one. The commit is atomic. And the emptied window closes itself — after the document lands, never before.',
+        beats        : ['native frame crosses live targets', 'stored-home acquisition', 'atomic transferNode commit', 'vessel self-close strictly after adoption'],
+        steps        : [{
+            // Every sample also pays a window move's round trip, so sixteen per leg is about a
+            // second of travel through each of the three targets.
+            type: 'pause',
+            ms  : 1200,
+            cue : {type: 'native-return', ownerItemId: 'metrics', previewNodeId: 'heavy-tabs',
+                options: {attempts: 240, moveDelay: 33, moveSteps: 16}},
+            caption: 'the native window crosses the animated targets; both panes return before the empty vessel closes'
+        }, {
+            type   : 'topology-assert',
+            caption: 'both panes are back in the main catalog with their identities intact',
+            expect : [
+                {path: 'items.metrics.title', equals: 'System Metrics'},
+                {path: 'items.commits.title', equals: 'Commit Stream'}
+            ]
+        }, {
+            type   : 'pause',
+            ms     : 1000,
+            caption: 'adoption and closure are settled; the room is whole again'
+        }]
+    }, {
+        id           : 'film-rails',
+        title        : 'Fold a pane away, reach it in one click',
+        targetSeconds: 8,
+        narration    : 'Fold the metrics away into the edge rail — the layout closes over the gap. One click on the rail reveals them, elevated over the room; pin them, and they are back where they lived.',
+        beats        : ['the header\'s pin folds the pane into its edge rail', 'the rail tab reveals it as an elevated pane', 'the reveal\'s pin brings it home'],
+        steps        : [{
+            // Metrics is the right group's active tab after the return, so its handle is rendered;
+            // the group keeps Audit and Commits while Metrics is away, so the pin back finds the
+            // strip it came from. The cursor walks the three clicks; the reveal stays open long
+            // enough to read before the pin.
+            type   : 'pause',
+            ms     : 800,
+            cue    : {type: 'rail', itemId: 'metrics', sourceNodeId: 'right-top-tabs', options: {moveDelay: 33, moveSteps: 24, revealDelay: 1200, showCursor: true}},
+            caption: 'the pin folds Metrics into the right rail; the rail tab reveals it; the reveal\'s pin brings it home'
+        }, {
+            type   : 'topology-assert',
+            caption: 'Metrics is home again, in flow',
+            expect : [{path: 'items.metrics.title', equals: 'System Metrics'}]
+        }]
+    }, {
+        id           : 'film-resize',
+        title        : 'Give the busy group room',
+        targetSeconds: 4,
+        narration    : 'Drag the boundary. Both sides follow the pointer live — the grid gives, the group takes — and the layout settles the moment you let go.',
+        beats        : ['the main boundary follows a real pointer drag', 'both panes re-flow live while the document waits', 'one commit on release; the layout settles'],
+        steps        : [{
+            // The main split's boundary moves left: the hundred-thousand-row grid gives the twelve-tab
+            // group the room the cold open denied it. The preview IS the picture — both panes re-flow
+            // on the main thread while the committed document waits for the release — so the travel
+            // is sampled at hand tempo with the cursor visible, and the release commits once.
+            type   : 'pause',
+            ms     : 800,
+            cue    : {type: 'resize', splitNodeId: 'split-main', sizes: [0.42, 0.58], options: {moveDelay: 33, moveSteps: 48, showCursor: true}},
+            caption: 'the boundary follows the pointer; both panes re-flow live; one commit on release'
+        }, {
+            // The proportion lives in the cue's receipt (`sizesAfter`, asserted by the film witness),
+            // not here: the document tier runs the screenplay without cues, so a topology assert
+            // can only pin what holds in both tiers — the boundary moved, the room's order did not.
+            type   : 'topology-assert',
+            caption: 'the layout settled: the boundary moved, the room\'s order did not',
+            expect : [{path: 'nodes.split-main.children', equals: ['scale-tabs', 'heavy-tabs']}]
+        }]
+    }, {
+        id           : 'film-showcase',
+        title        : 'Every target answers the pointer',
+        targetSeconds: 12,
+        narration    : 'Put it wherever you like. Drag the pane that just travelled: every target answers — an edge preview here, a merge preview there. Release commits exactly what you saw. Escape cancels, and the document is untouched.',
+        beats        : ['cross-zone drag with two dwells', 'edge-bottom preview hugs its zone', 'tab-into preview fills its target', 'commit equals the active preview'],
+        steps        : [{
+            // Metrics is the stack's owner and the group's active tab after the return, so its
+            // handle is always rendered and sits inside the executor's 48 px window-edge margin;
+            // Commits came home as the group's last tab, against that edge (refused on
+            // 2026-09-23: "source tab violates the 48px window-edge margin"). The drop-zone
+            // showcase is the viewer putting the travelled pane wherever they like — here, the
+            // feed's band.
+            type: 'pause',
+            ms  : 1600,
+            cue : {
+                type        : 'cross-zone-showcase',
+                itemId      : 'metrics',
+                sourceNodeId: 'right-top-tabs',
+                terminal    : 'commit',
+                dwells      : [{
+                    targetNodeId : 'scale-tabs',
+                    placementKind: 'edge-bottom'
+                }, {
+                    targetNodeId : 'bottom-tabs',
+                    placementKind: 'tab-into'
+                }],
+                // Each preview is held long enough to read the choice it offers — a hold inside a
+                // gesture, bounded by the same 1.5 s the morph's born hold keeps.
+                options: {
+                    dwellDelay: 1500,
+                    moveDelay : 33,
+                    moveSteps : 30,
+                    showCursor: true
+                }
+            },
+            caption: 'Metrics crosses the matrix split preview, then joins the feed through the live bottom target'
+        }]
+    }, {
+        id           : 'film-perspectives-undo',
+        title        : 'Arrangements are data; operations are transactions',
+        targetSeconds: 14,
+        narration    : 'Save this arrangement as a perspective. Tear the room apart — one click restores it, same instances, same living content. And every dock operation is a transaction: undo walks it back. Redo replays it.',
+        beats        : ['capture perspective', 'disruptive rearrangement', 'restore: topology returns, instances persist', 'undo/redo round-trip on a dock mutation'],
+        steps        : [{
+            // Every operation in this scene is a document transaction, instant by nature; the
+            // viewer's time is the reading beat after each outcome (1.5 s, the cap), so the scene
+            // runs at the tempo of a hand that clicks, looks, and clicks again.
+            type   : 'pause',
+            ms     : 1000,
+            cue    : {type: 'perspective-capture', name: 'film-baseline', title: 'Film baseline'},
+            caption: 'the arrangement is captured as a perspective — data, not a screenshot'
+        }, {
+            type      : 'op',
+            caption   : 'tear the room apart: Security becomes its own split below the matrix',
+            descriptor: {operation: 'splitNode', itemId: 'security', targetNodeId: 'scale-tabs', orientation: 'vertical', edge: 'bottom', sizes: [0.72, 0.28]},
+            expect    : [{path: 'nodes.split-scale-tabs-0.children', equals: ['scale-tabs', 'tabs-security-0']}]
+        }, {
+            // The torn room is an outcome the viewer reads before it is undone: one cue-free
+            // reading beat, at the cap.
+            type   : 'pause',
+            ms     : 1500,
+            caption: 'the room torn apart — a beat to read it before the restore'
+        }, {
+            // Cue effects are witnessed through their receipts (each carries the tabs membership
+            // it produced), never through a following `topology-assert`: the document-tier replay
+            // in `spec` mode executes no cues, and the screenplay must run there unchanged.
+            type   : 'pause',
+            ms     : 1500,
+            cue    : {type: 'perspective-restore', name: 'film-baseline'},
+            caption: 'one restore: the topology returns, the instances never moved'
+        }, {
+            type      : 'op',
+            caption   : 'one dock mutation: Security joins the matrix group',
+            descriptor: {operation: 'addTab', itemId: 'security', tabsNodeId: 'scale-tabs'},
+            expect    : [{path: 'nodes.scale-tabs.activeItemId', equals: 'security'}]
+        }, {
+            // The mutation is read before it is walked back; without this beat the undo lands on
+            // the same frame as the mutation and the viewer never sees what it undoes.
+            type   : 'pause',
+            ms     : 1500,
+            caption: 'Security sits in the matrix group — a beat to read the mutation before it is walked back'
+        }, {
+            type   : 'pause',
+            ms     : 1500,
+            cue    : {type: 'undo'},
+            caption: 'undo walks the transaction back — the heavy group holds Security again'
+        }, {
+            type   : 'pause',
+            ms     : 1500,
+            cue    : {type: 'redo'},
+            caption: 'redo replays it — Security is in the matrix group once more'
+        }]
+    }, {
+        id           : 'film-signature',
+        title        : 'It never left',
+        targetSeconds: 10,
+        narration    : 'A hundred thousand rows still cross their midpoint. Same instances, end to end. Heartbeats monotonic through every transition. The content never stopped living — because it never left.',
+        beats        : ['the matrix and the feed come back in front', 'the matrix leaves the room in a window of its own', 'the window grows beside the room', 'the hundred-thousand-row matrix crosses its midpoint', 'one flick: the grid\'s momentum carries the rows on into the canvas columns', 'final topology readout: the room whole, the matrix in its own window', 'identity equality end-to-end', 'monotonic heartbeat close'],
+        steps        : [{
+            // The showcase left Metrics in front of the feed and the redo left Security in front
+            // of the matrix: the close is about both panes, so both come back in front first —
+            // committed document operations, a no-op where the tab is already active.
+            type      : 'op',
+            caption   : 'the hundred-thousand-row matrix comes back in front of its group',
+            descriptor: {operation: 'setActiveItem', tabsNodeId: 'scale-tabs', itemId: 'scale'},
+            expect    : [{path: 'nodes.scale-tabs.activeItemId', equals: 'scale'}]
+        }, {
+            type      : 'op',
+            caption   : 'the live feed comes back in front of its group',
+            descriptor: {operation: 'setActiveItem', tabsNodeId: 'bottom-tabs', itemId: 'feed'},
+            expect    : [{path: 'nodes.bottom-tabs.activeItemId', equals: 'feed'}]
+        }, {
+            // The matrix at three hundred pixels of pane can show neither its rows nor its canvas
+            // columns at scale. The close takes it out of the room the way a desktop user would: a
+            // window born under the hand, the same instance riding along, then grown beside the
+            // room — the film's one window resize.
+            type   : 'pause',
+            ms     : 0,
+            cue    : {type: 'gate', prompt: 'Continue — the matrix leaves the room and grows into a window of its own'},
+            caption: 'One more window is about to be born under the hand. Your click is the browser’s permission to open it.'
+        }, {
+            type   : 'pause',
+            ms     : 1200,
+            cue    : {type: 'tear-out', itemId: 'scale', sourceNodeId: 'scale-tabs', options: filmPace},
+            caption: 'the matrix leaves the room: a window is born under the hand, the same hundred thousand rows riding along'
+        }, {
+            type   : 'pause',
+            ms     : 1000,
+            cue    : {type: 'vessel-resize', itemId: 'scale', frame: {anchor: 'right-of-main', gap: 24, width: 900}, options: {moveDelay: 33, moveSteps: 16}},
+            caption: 'the window grows beside the room — the matrix gets the space it never had in its pane'
+        }, {
+            type   : 'pause',
+            ms     : 1400,
+            cue    : {type: 'scroll', index: 50000},
+            caption: 'a hundred thousand rows cross their midpoint — and the rest of the room keeps breathing'
+        }, {
+            // A throw, not a walk: one stroke at the film's rhythm that winds up and whips (the
+            // distance eased in, so the last hundred milliseconds carry the speed), then the grid's
+            // own drag-scroll carries the rows on under momentum for seconds (the velocity over the
+            // last hundred milliseconds, friction 0.95). The x axis stops at the matrix's right room
+            // with the sparkline column — the framework's OffscreenCanvas path — in view; the y axis
+            // runs far past the hand. The receipt's travel judges both.
+            type: 'pause',
+            ms  : 800,
+            cue : {
+                type   : 'grid-drag-scroll',
+                paneId : 'scale',
+                anchor : {x: 0.8, y: 0.85},
+                deltaX : -360,
+                deltaY : -480,
+                strokes: 1,
+                options: {attempts: 300, curve: 'throw', moveDelay: 33, moveSteps: 24, showCursor: true}
+            },
+            caption: 'one flick — the grid\'s own momentum carries the rows on past the hand, the canvas columns at the right edge in view'
+        }, {
+            // The film ends on the title: one app, many windows — the room breathing and the matrix
+            // streaming in a window of its own, side by side. (A vessel holding one item torn out
+            // alone has no scripted road home; the ticket records the roads measured and refused.)
+            type   : 'topology-assert',
+            caption: 'final readout: the main split intact, every travelled pane still here, the matrix keeping its seat in the room from its own window',
+            expect : [
+                // the main split's proportion differs by tier after the resize beat (the document
+                // tier runs no cues), so the readout pins its order; the witness pins the proportion
+                {path: 'nodes.split-main.children', equals: ['scale-tabs', 'heavy-tabs']},
+                // the matrix's stored home survives its departure (Security stays in the group, so
+                // the tabs node is not removed with its last pane — the road back exists), the feed
+                // stays in front; the membership differs by tier, the document tier never tore it out
+                {path: 'nodes.scale-tabs.type', equals: 'tabs'},
+                {path: 'nodes.bottom-tabs.activeItemId', equals: 'feed'},
+                {path: 'items.metrics.title', equals: 'System Metrics'},
+                {path: 'items.commits.title', equals: 'Commit Stream'},
+                {path: 'items.traces.title', equals: 'Distributed Trace Explorer'}
+            ]
+        }, {
+            type   : 'pause',
+            ms     : 2000,
+            caption: 'the living close: heartbeats monotonic through every transition — the content never left'
+        }]
+    }]
+});

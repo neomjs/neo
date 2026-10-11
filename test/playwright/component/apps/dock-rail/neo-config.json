@@ -1,0 +1,7 @@
+{
+    "appPath"    : "test/playwright/component/apps/dock-rail/app.mjs",
+    "basePath"   : "../../../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-neo-dark", "neo-theme-neo-light"]
+}

@@ -26,6 +26,19 @@ class MainContainerController extends Component {
     }
 
     /**
+     * The measured variant: the owner drops its fixed itemHeight and the plugin measures the rows from
+     * the rendered cards; back to 200px restores the shipped fixed rows. The owner's itemHeight is
+     * written first — the plugin's switch re-reads it.
+     * @param {Object} data
+     */
+    changeMeasureItemHeight(data) {
+        let list = this.getReference('list');
+
+        list.itemHeight = data.value ? null : 200;
+        list.getPlugin('list-animate').measureItemHeight = data.value
+    }
+
+    /**
      * @param {Object} data
      */
     changeNameFilter(data) {

@@ -7,26 +7,57 @@
  * to maintain a clean, linear, and atomic git history on the production branch. It bridges the gap
  * between local development artifacts and remote GitHub infrastructure.
  *
- * The workflow consists of 6 key stages:
+ * The workflow consists of 5 key stages, plus an explicit Brain-side handoff:
  * 1. **Pre-flight Checks**: Validates environment state (branch, auth, versioning).
  * 2. **Preparation**: Generates build artifacts and prepares the dev branch.
  * 3. **Atomic Squash**: Uses low-level git plumbing (`commit-tree`) to graft the dev state onto main
  *    as a single commit, avoiding merge conflicts and preserving history cleanliness.
  * 4. **Documentation**: Finalizes release notes with the production commit hash.
- * 5. **Distribution**: Triggers the GitHub Release (which cascades to npm) and updates the AI Knowledge Base.
- * 6. **Synchronization**: Syncs the latest GitHub state back to local markdown files and archives tickets.
+ * 5. **Distribution**: Triggers the GitHub Release (which cascades to npm).
  *
- * @keywords Release Automation, Git Plumbing, Local-First, Knowledge Base, GitHub Sync, CI/CD
+ * The release note is authored at `.github/RELEASE_NOTES/v<version>.md` and stamped with its GitHub
+ * Release frontmatter in Step 2. The engine keeps only the notes it has not released: the release
+ * commit drops the older ones by version alone, reading nothing from the conversation corpus. Each
+ * reaches the site through two separate steps: the content sync archives its GitHub Release into
+ * `neomjs/github-content-sync`, and Pages serves the corpus commit its pin names.
+ * The Knowledge Base upload is Brain-side lifecycle work in the
+ * `neo-agent-brain` repository, whose release runbook is the next step after this script
+ * finishes. The boundary is deliberate: this script imports and spawns nothing from the Brain, so
+ * the Engine can be released from an Engine-only checkout.
+ *
+ * @keywords Release Automation, Git Plumbing, Local-First, CI/CD, Engine-Brain Boundary
  */
 
-import {execSync}       from 'child_process';
-import fs               from 'fs-extra';
-import path             from 'path';
-import {GH_SyncService} from '../../ai/services.mjs';
+import {execSync} from 'child_process';
+import fs         from 'fs-extra';
+import path       from 'path';
+import semver     from 'semver';
+import {
+    getReleaseNoteParts,
+    stampReleaseNote
+} from './releaseNoteFrontmatter.mjs';
 
 const root = path.resolve();
 
 // --- Helper Functions ---
+
+/**
+ * @summary Removes every note older than the version being released from `.github/RELEASE_NOTES`, so the
+ * release commit carries only the notes not yet released. The version comparison is the whole trigger: the
+ * corpus copy is the content sync's and the Pages pin's to deliver, and this script never reads it.
+ * @param {String} version The version being released.
+ */
+function dropReleasedNotes(version) {
+    const dir = path.join(root, '.github/RELEASE_NOTES');
+
+    for (const file of fs.readdirSync(dir)) {
+        const noteVersion = /^v(.+)\.md$/.exec(file)?.[1];
+
+        if (noteVersion && semver.valid(noteVersion) && semver.lt(noteVersion, version)) {
+            fs.removeSync(path.join(dir, file))
+        }
+    }
+}
 
 function runCommand(command, errorMessage) {
     try {
@@ -79,12 +110,12 @@ async function main() {
 
     // Verify Release Notes
     // The user is expected to have manually bumped the version in package.json before running this script.
-    const newVersion = getPackageVersion();
-    const releaseNotePath = path.join(root, `resources/content/release-notes/v${newVersion}.md`);
+    const newVersion      = getPackageVersion();
+    const releaseNotePath = path.join(root, `.github/RELEASE_NOTES/v${newVersion}.md`);
 
     if (!fs.existsSync(releaseNotePath)) {
         console.error(`❌ Error: Release note file not found: ${releaseNotePath}`);
-        console.error(`Please create 'resources/content/release-notes/v${newVersion}.md' before proceeding.`);
+        console.error(`Please create '.github/RELEASE_NOTES/v${newVersion}.md' before proceeding.`);
         process.exit(1);
     }
 
@@ -94,6 +125,11 @@ async function main() {
     // --- 2. Prepare (Dev) ---
 
     console.log('📦 Step 2: Preparing Release Artifacts...');
+
+    dropReleasedNotes(newVersion);
+
+    // The release index dates a release by its note's frontmatter, so the note is stamped before prepare rebuilds it
+    fs.writeFileSync(releaseNotePath, stampReleaseNote(fs.readFileSync(releaseNotePath, 'utf-8'), {publishedAt: new Date(), version: newVersion}));
 
     // Run prepare script
     runCommand('node buildScripts/release/prepare.mjs', 'Failed to run prepareRelease.mjs');
@@ -159,7 +195,7 @@ async function main() {
     runCommand('git checkout dev', 'Failed to checkout dev');
 
     const noteContent = fs.readFileSync(releaseNotePath, 'utf-8');
-    const atomicLog = `\n\nAll changes delivered in 1 atomic commit: [${mainCommitHash.substring(0, 7)}](https://github.com/neomjs/neo/commit/${mainCommitHash})`;
+    const atomicLog   = `\n\nAll changes delivered in 1 atomic commit: [${mainCommitHash.substring(0, 7)}](https://github.com/neomjs/neo/commit/${mainCommitHash})`;
 
     if (!noteContent.includes('All changes delivered in 1 atomic commit:')) {
         fs.appendFileSync(releaseNotePath, atomicLog);
@@ -178,27 +214,20 @@ async function main() {
     console.log('\n🚀 Step 5: Creating GitHub Release...');
 
     // Parse release notes to extract title and body (removing frontmatter)
-    let releaseTitle = `v${newVersion}`;
-    let releaseBodyPath = releaseNotePath;
-    const tempBodyPath = path.join(root, 'temp_release_body.md');
-    let tempFileCreated = false;
+    let   releaseTitle    = `v${newVersion}`;
+    let   releaseBodyPath = releaseNotePath;
+    const tempBodyPath    = path.join(root, 'temp_release_body.md');
+    let   tempFileCreated = false;
 
     try {
-        let noteContent = fs.readFileSync(releaseNotePath, 'utf-8');
+        const {body, title} = getReleaseNoteParts(fs.readFileSync(releaseNotePath, 'utf-8'));
 
-        // 1. Remove Frontmatter
-        noteContent = noteContent.replace(/^---[\s\S]+?---\s*/, '');
-
-        // 2. Extract Title (first H1)
-        const titleMatch = noteContent.match(/^#\s+(.+)$/m);
-        if (titleMatch) {
-            releaseTitle = titleMatch[1].trim();
-            // 3. Remove Title from body
-            noteContent = noteContent.replace(/^#\s+.+$/m, '').trim();
+        if (title) {
+            releaseTitle = title
         }
 
         // Write cleaned body to temp file
-        fs.writeFileSync(tempBodyPath, noteContent);
+        fs.writeFileSync(tempBodyPath, body);
         releaseBodyPath = tempBodyPath;
         tempFileCreated = true;
 
@@ -216,60 +245,9 @@ async function main() {
 
     console.log('✅ Release created! GitHub Actions will now publish to npm.');
 
-    // The release note is now the GitHub release body. Step 6's GH_SyncService.runFullSync() re-materializes
-    // it under resources/content/release-notes/chunk-N/ (with frontmatter) via the ordinal-100 bucketing.
-    // Remove the top-level staging copy here so it does not linger as a duplicate of the chunked record —
-    // the broad `git add .` in Step 6 stages this removal alongside the archive moves.
-    if (fs.existsSync(releaseNotePath)) {
-        fs.removeSync(releaseNotePath);
-        console.log(`🧹 Removed top-level staging release note: ${path.relative(root, releaseNotePath)}`);
-    }
-
-
-    // --- 5.5 Upload Knowledge Base ---
-
-    console.log('\n🧠 Step 5.5: Uploading Knowledge Base...');
-    runCommand('node ai/scripts/maintenance/uploadKnowledgeBase.mjs', 'Failed to upload knowledge base');
-
-
-    // --- 6. Post-Release Cleanup ---
-
-    console.log('\n🧹 Step 6: Post-Release Cleanup (Sync & Archive)...');
-
-    console.log('Waiting 10 seconds for release propagation...');
-    await new Promise(resolve => setTimeout(resolve, 10000));
-
-    console.log('🔄 Running GH Sync Service...');
-    try {
-        await GH_SyncService.runFullSync();
-        console.log('✅ Sync complete.');
-
-        // Regenerate ticket index to reflect moves (active -> archive)
-        console.log('🔄 Regenerating Ticket Index...');
-        runCommand('node buildScripts/docs/index/tickets.mjs', 'Failed to regenerate ticket index');
-    } catch (error) {
-        console.error('❌ Sync Service failed:', error);
-        // Don't exit, try to commit what we have
-    }
-
-    // Commit Archived Tickets
-    //
-    // `GH_SyncService.runFullSync()` above writes archived items to the universal
-    // ordinal-100 chunked shape (`resources/content/archive/{type}/v*/chunk-N/`).
-    // The `git add .` below is intentionally broad to capture the archive/ moves plus
-    // the `_index.json` / `.sync-metadata.json` updates produced by the sync.
-    console.log('💾 Committing archived tickets...');
-    const status = runCommandWithOutput('git status --porcelain');
-
-    if (status) {
-        runCommand('git add .', 'Failed to stage archive changes');
-        runCommand(`git commit --no-verify -m "chore: Archive tickets for v${newVersion}"`, 'Failed to commit archive changes');
-        runCommand('git push origin dev', 'Failed to push archive changes');
-    } else {
-        console.log('No changes to archive.');
-    }
-
-    console.log('\n✨ Release Workflow Complete! ✨');
+    console.log('\n✨ Engine Release Complete! ✨');
+    console.log('\nNext runbook step — run the Brain-side content lifecycle (Knowledge Base upload)');
+    console.log('from the neo-agent-brain checkout.\n');
 }
 
 main().catch(error => {

@@ -1,10 +1,10 @@
-import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Component from '../component/Base.mjs';
-import Collection from '../collection/Base.mjs';
-import Performance from '../util/Performance.mjs';
-import Row from './Row.mjs';
-import RowModel from '../selection/grid/RowModel.mjs';
-import VDomUtil from '../util/VDom.mjs';
+import Component       from '../component/Base.mjs';
+import Collection      from '../collection/Base.mjs';
+import Performance     from '../util/Performance.mjs';
+import Row             from './Row.mjs';
+import VDomUtil        from '../util/VDom.mjs';
+import VNodeUtil       from '../util/VNode.mjs';
+import {isDescriptor}  from '../core/ConfigSymbols.mjs';
 
 /**
  * @summary Manages the scrollable viewport and row rendering for the Grid.
@@ -141,18 +141,51 @@ class GridBody extends Component {
          */
         keys: {},
         /**
-         * Stores the indexes of the first & last mounted columns, including bufferColumnRange
+         * Stores the indexes of the first & last mounted columns, including bufferColumnRange.
+         *
+         * **Assign this, never write it by index** — unlike its three sibling windows. It is the
+         * only one of the four with an `afterSet` hook, and {@link #afterSetMountedColumns} calls
+         * `createViewData()`, so the assignment IS the repaint trigger. An index-write would move
+         * the value and skip the render, leaving the painted columns behind the mounted range.
+         *
+         * The descriptor matches the siblings for the same two reasons they carry it: a mutable
+         * default needs `clone` to be per-instance, and `cloneOnGet: 'none'` avoids copying the
+         * array on every read — it is read per row and per cell during render
+         * ({@link Neo.grid.Row}) and three times per `createViewData()`, and the copy protected
+         * nothing because nothing mutates it through the reference.
          * @member {Number[]} mountedColumns_=[0,0]
          * @protected
          * @reactive
          */
-        mountedColumns_: [0, 0],
+        mountedColumns_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : [0, 0]
+        },
         /**
-         * Stores the indexes of the first & last mounted rows, including bufferRowRange
-         * @member {Number[]} mountedRows=[0,0]
+         * Stores the indexes of the first & last mounted rows, including bufferRowRange.
+         *
+         * Reactive, and both descriptor keys are behaviour-critical rather than tuning:
+         *
+         * `clone: 'shallow'` gives each body its own array. A non-reactive config has no clone
+         * path at all, so every grid on a page would share one window and the last body to
+         * measure would decide what all the others believe is mounted.
+         *
+         * `cloneOnGet: 'none'` is what makes an index-write land. The engine's default copies
+         * arrays on every read, so `me.mountedRows[0] = x` would write into a discarded copy and
+         * the window would never move — silently, and in the same direction as the bug above.
+         *
+         * @member {Number[]} mountedRows_=[0,0]
          * @protected
+         * @reactive
          */
-        mountedRows: [0, 0],
+        mountedRows_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : [0, 0]
+        },
         /**
          * Optional config values for Neo.grid.plugin.AnimateRows
          * @member {Object} pluginAnimateRowsConfig=null
@@ -182,15 +215,6 @@ class GridBody extends Component {
          */
         scrollTop_: 0,
         /**
-         * @member {Neo.selection.Model} selectionModel_=null
-         * @reactive
-         */
-        selectionModel_: null,
-        /**
-         * @member {String} selectedRecordField='annotations.selected'
-         */
-        selectedRecordField: 'annotations.selected',
-        /**
          * @member {Number} startIndex_=0
          * @reactive
          */
@@ -210,17 +234,31 @@ class GridBody extends Component {
          */
         stripedRows_: true,
         /**
-         * Stores the indexes of the first & last painted columns
-         * @member {Number[]} visibleColumns=[0,0]
+         * Stores the indexes of the first & last painted columns.
+         * Written through by index; see `mountedRows_` for why both descriptor keys are required.
+         * @member {Number[]} visibleColumns_=[0,0]
          * @protected
+         * @reactive
          */
-        visibleColumns: [0, 0],
+        visibleColumns_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : [0, 0]
+        },
         /**
-         * Stores the indexes of the first & last visible rows, excluding bufferRowRange
-         * @member {Number[]} visibleRows=[0,0]
+         * Stores the indexes of the first & last visible rows, excluding bufferRowRange.
+         * Written through by index; see `mountedRows_` for why both descriptor keys are required.
+         * @member {Number[]} visibleRows_=[0,0]
          * @protected
+         * @reactive
          */
-        visibleRows: [0, 0],
+        visibleRows_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : [0, 0]
+        },
         /**
          * @member {String[]|null} wrapperCls=null
          * @reactive
@@ -238,7 +276,7 @@ class GridBody extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            { tabIndex: '-1', cn: [] }
+            { cn: [] }
     }
 
     /**
@@ -247,11 +285,29 @@ class GridBody extends Component {
      */
     #initialTotalSize = 0
     /**
+     * The merged arguments of every {@link #createViewData} call deferred while this body's update is in flight. They
+     * collapse into one run, which must keep the strongest intent of them all: forced if any caller forced, and
+     * rendering if any caller asked to render.
+     * @member {Object|null} #deferredViewData=null
+     */
+    #deferredViewData = null
+    /**
      * Internal cache for the last mountedColumns state.
      * Used to detect horizontal scrolling/resizing to force row updates.
      * @member {Number[]|null} #lastMountedColumns=null
      */
     #lastMountedColumns = null
+    /**
+     * The visible count the `scrollEdge` event was last fired for; `null` while the visible window is
+     * away from the edge. The key is the visible count alone, never the total behind a filter: an
+     * append a filter hides entirely moved nothing the viewport can reach, and re-arming on it would
+     * let a consumer walk hidden data window by window with no gesture. Cleared again when the body
+     * mounts: a store load reaching an unmounted body still runs the window calculator with the
+     * geometry it last measured, so an edge announced there was announced to no viewport. See
+     * {@link #updateMountedAndVisibleRows} and {@link #afterSetMounted}.
+     * @member {Number|null} #scrollEdgeAnnouncedFor=null
+     */
+    #scrollEdgeAnnouncedFor = null
     /**
      * @member {Object[]} items=[]
      */
@@ -261,32 +317,6 @@ class GridBody extends Component {
      * @member {Number|null} rowPoolSize=null
      */
     rowPoolSize = null
-
-    /**
-     * @member {String[]} selectedCells
-     */
-    get selectedCells() {
-        let { selectionModel } = this;
-
-        if (selectionModel?.ntype?.includes('cell')) {
-            return selectionModel.items
-        }
-
-        return []
-    }
-
-    /**
-     * @member {String[]} selectedRows
-     */
-    get selectedRows() {
-        let { selectionModel } = this;
-
-        if (selectionModel?.ntype?.includes('row')) {
-            return selectionModel.selectedRows
-        }
-
-        return []
-    }
 
     /**
      * @param config
@@ -429,12 +459,7 @@ class GridBody extends Component {
      */
     afterSetBufferColumnRange(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
-
-            me.skipCreateViewData = true;
-            me.updateMountedAndVisibleColumns(true);
-            me.skipCreateViewData = false;
-            me.createViewData()
+            this.refreshColumns(true)
         }
     }
 
@@ -467,17 +492,10 @@ class GridBody extends Component {
      */
     afterSetContainerWidth(value, oldValue) {
         if (value > 0) {
-            let me = this;
-
-            // updateMountedAndVisibleColumns only re-renders rows as a side effect of mountedColumns
-            // *changing*. A width-invariant region — e.g. a single-column locked-end body whose
-            // mounted range is always [0, 0] regardless of width — would otherwise never render its
-            // rows once measured. Recompute with the row render suppressed, then fire exactly one
-            // explicit createViewData (mirroring the afterSetBufferColumnRange pattern above).
-            me.skipCreateViewData = true;
-            me.updateMountedAndVisibleColumns();
-            me.skipCreateViewData = false;
-            me.createViewData()
+            // A width-invariant region — e.g. a single-column locked-end body whose mounted range is
+            // always [0, 0] regardless of width — would never render its rows once measured if we
+            // relied on the mounted-range side effect. refreshColumns() guarantees the repaint.
+            this.refreshColumns()
         }
     }
 
@@ -493,13 +511,18 @@ class GridBody extends Component {
     }
 
     /**
-     * Triggered after the mounted config got changed
+     * Triggered after the mounted config got changed. A body that mounts re-arms its scroll edge:
+     * whatever was announced while it was unmounted, its next layout at the edge announces again.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
+
+        if (value) {
+            this.#scrollEdgeAnnouncedFor = null
+        }
 
         if (oldValue !== undefined) {
             let i = 0, len = this.items.length, item;
@@ -550,21 +573,6 @@ class GridBody extends Component {
      */
     afterSetScrollTop(value, oldValue) {
         // Controlled externally by Grid.Container.syncBodies()
-    }
-
-    /**
-     * Triggered after the selectionModel config got changed
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @protected
-     */
-    afterSetSelectionModel(value, oldValue) {
-        // The single model is owned + registered by grid.View; bodies are render/event delegates that
-        // never register as its view. A POST-construction (dynamic) body.selectionModel swap forwards up
-        // so grid.View re-hoists the one instance across all bodies. Gated on vnodeInitialized so it
-        // never fires during construction (where forwarding re-enters processConfigs and recurses);
-        // initial sharing is driven by grid.Container.applyViewSelectionModel().
-        this.vnodeInitialized && this.gridContainer?.applyViewSelectionModel?.(value)
     }
 
     /**
@@ -661,15 +669,13 @@ class GridBody extends Component {
     }
 
     /**
-     * Triggered before the selectionModel config gets changed.
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @protected
+     * A body configures, instantiates, holds and exposes no selection model: the grid's one model is
+     * {@link Neo.grid.View#selectionModel}, and a row paints the View's projected selection. The
+     * setter is the migration guard — a leftover `body: {selectionModel}` fails loudly here.
+     * @param {*} value
      */
-    beforeSetSelectionModel(value, oldValue) {
-        // grid.View owns the single model's lifecycle (including destroy on swap); a body only
-        // instantiates a config into an instance and holds the shared reference — it never destroys.
-        return ClassSystemUtil.beforeSetInstance(value, RowModel)
+    set selectionModel(value) {
+        throw new Error('grid.Body carries no selection model: configure it on the View — grid.Container#viewConfig.selectionModel, or grid.view.selectionModel at runtime')
     }
 
     /**
@@ -713,10 +719,19 @@ class GridBody extends Component {
         } else if (delta < 0) {
             // Self-Healing: Destroy excess rows to free memory and VDOM overhead.
             // This restores performance if the buffer is reduced after being large.
+            const retired = {};
+
             for (i = current - 1; i >= needed; i--) {
-                me.items[i].destroy();
-                me.items.pop()
+                const row = me.items.pop();
+
+                retired[row.id] = row.vnode;
+                row.destroy()
             }
+
+            // The whole contraction leaves the stored vnode in one walk, each row kept as the vnode it
+            // last rendered, so this body's next update removes their DOM nodes. No row edits the vdom
+            // itself: the `cn` rebuild below drops every retired reference anyway.
+            me.vnode && VNodeUtil.unlinkRetiredReferences(me.vnode, retired)
         }
 
         // Fixed-DOM-Order Strategy:
@@ -765,7 +780,15 @@ class GridBody extends Component {
         }
 
         if (me.isVdomUpdating) {
+            let pending = me.#deferredViewData;
+
+            // registerPreUpdate() keeps one callback per id, so a later deferral must not drop an earlier one's intent
+            me.#deferredViewData = {force: force || !!pending?.force, silent: silent && (pending?.silent ?? true)};
+
             Neo.manager.VDomUpdate.registerPreUpdate(me.id, () => {
+                let {force, silent} = me.#deferredViewData;
+
+                me.#deferredViewData = null;
                 me.createViewData(silent, force)
             });
             return
@@ -835,6 +858,9 @@ class GridBody extends Component {
         me.gridContainer.isLoading = false;
 
         me.updateScrollHeight(true); // silent
+
+        // A pass can take the open edit's cell out of the DOM, and only the editing plugin knows what that means
+        me.gridContainer.getPlugin('grid-cell-editing')?.onBodyRender();
 
         if (me.isScrolling) {
             Performance.markEnd('grid.createViewData:' + me.id)
@@ -1080,8 +1106,11 @@ class GridBody extends Component {
             return record
         }
 
-        // Check if nodeId is a recordId (internalId or PK)
-        record = me.store.get(nodeId);
+        // Check if nodeId is a recordId (internalId or PK). A DOM dataset delivers every id as a string,
+        // so an integer-keyed store gets its number back.
+        record = me.store.get(nodeId) ||
+            (me.store.getKeyType()?.startsWith('int') && /^-?\d+$/.test(nodeId) ? me.store.get(Number(nodeId)) : null);
+
         if (record) return record;
 
         parentNodes = VDomUtil.getParentNodes(me.vdom, nodeId);
@@ -1110,16 +1139,9 @@ class GridBody extends Component {
      * @returns {Neo.data.Model|null}
      */
     getRecordFromLogicalId(logicalId) {
-        let me = this,
-            dataField = me.getDataField(logicalId),
-            recordId = logicalId.substring(0, logicalId.length - dataField.length - 2),
-            record = me.getRecord(recordId); // Uses the new robust getRecord()
+        let dataField = this.getDataField(logicalId);
 
-        if (!record) {
-            record = me.store.get(parseInt(recordId))
-        }
-
-        return record
+        return this.getRecord(logicalId.substring(0, logicalId.length - dataField.length - 2))
     }
 
     /**
@@ -1205,17 +1227,29 @@ class GridBody extends Component {
 
 
     /**
+     * Whether a DOM event happened inside a cell editor (`neo-grid-editor`, the class the Main thread and the
+     * selection models also key on). Such a pointer event belongs to the editor: it neither focuses the View nor
+     * reaches cell or row listeners, so a click in the input places the caret instead of selecting a cell.
+     * @param {Object} data
+     * @param {Object[]} data.path
+     * @returns {Boolean}
+     */
+    isEditorEvent({path}) {
+        return path.some(node => node.cls?.includes('neo-grid-editor'))
+    }
+
+    /**
      * @param {Object} data
      */
     onCellClick(data) {
-        this.fireCellEvent(data, 'cellClick')
+        !this.isEditorEvent(data) && this.fireCellEvent(data, 'cellClick')
     }
 
     /**
      * @param {Object} data
      */
     onCellDoubleClick(data) {
-        this.fireCellEvent(data, 'cellDoubleClick')
+        !this.isEditorEvent(data) && this.fireCellEvent(data, 'cellDoubleClick')
     }
 
     /**
@@ -1229,9 +1263,18 @@ class GridBody extends Component {
      * @param {Object} data
      */
     onRowClick(data) {
-        let me = this;
+        let me     = this,
+            {view} = me.gridContainer;
 
-        me.focus(me.vdom.id, false, true);
+        if (me.isEditorEvent(data)) {
+            return
+        }
+
+        // Focus the View, not this physical body: a row activation in ANY body resolves to one
+        // View-owned focus state (bodies are render/event delegates). preventScroll keeps the
+        // row-click from moving the scroll position; the View's `keys` still catch Up/Down from here.
+        // 'pointer' modality suppresses the accidental focus ring — a click is not a keyboard focus.
+        view.focus(view.id, false, true, 'pointer');
         me.fireRowEvent(data, 'rowClick')
     }
 
@@ -1239,7 +1282,7 @@ class GridBody extends Component {
      * @param {Object} data
      */
     onRowDoubleClick(data) {
-        this.fireRowEvent(data, 'rowDoubleClick')
+        !this.isEditorEvent(data) && this.fireRowEvent(data, 'rowDoubleClick')
     }
 
 
@@ -1254,11 +1297,21 @@ class GridBody extends Component {
     /**
      * @param {Object}   data
      * @param {Object[]} data.items
+     * @param {Boolean}  [data.forceViewData] True when rows must refresh even if record identity is stable.
      * @param {Boolean}  [data.postChunkLoad]
      * @param {Number}   [data.total]
      * @protected
+     *
+     * The scroll-to-top nudge is a detached dispatch: it fires 50ms after the mount check, so by
+     * the time the message is sent the body may be destroyed (`core.Base#destroy` rejects pending
+     * timeouts with `Neo.isDestroyed`) or the destination window may be gone (`worker.Base`
+     * rejects with `code: 'NEO_DEAD_PORT'`). Both are expected outcomes of a scroll into somewhere
+     * that no longer exists, not failures to report — and because a store load runs on every
+     * collection mutation, leaving either unhandled turns a ticking feed into one uncaught
+     * rejection per tick. Anything else IS a live failure, and this chain has no caller to
+     * propagate to, so the console is the honest terminal surface.
      */
-    onStoreLoad({ items, postChunkLoad, total }) {
+    onStoreLoad({ forceViewData, items, postChunkLoad, total }) {
         let me = this,
             { windowId } = me;
 
@@ -1266,21 +1319,24 @@ class GridBody extends Component {
         // Render the entire chunk for immediate scrollability
         if (total && items.length < total) {
             me.#initialTotalSize = total;
-            me.createViewData();
+            me.createViewData(false, forceViewData === true);
             me.#initialTotalSize = 0
         } else {
-            me.createViewData()
+            me.createViewData(false, forceViewData === true)
         }
 
         if (me.mounted && !postChunkLoad) {
-            me.timeout(50).then(() => {
-                Neo.main.DomAccess.scrollTo({
+            me.timeout(50)
+                .then(() => Neo.main.DomAccess.scrollTo({
                     direction: 'top',
                     id: me.gridContainer.view.id,
                     value: 0,
                     windowId
+                }))
+                .catch(reason => {
+                    reason !== Neo.isDestroyed && !Neo.currentWorker?.isDeparture?.(reason, windowId) &&
+                        console.error('grid.Body: scroll-to-top dispatch failed', {reason, windowId})
                 })
-            })
         }
     }
 
@@ -1291,33 +1347,24 @@ class GridBody extends Component {
      * @param {Object}         data.record
      */
     onStoreRecordChange({ fields, record }) {
-        let me = this,
-            fieldNames = fields.map(field => field.name),
-            rowIndex = me.store.indexOf(record),
-            { mountedRows, selectionModel } = me,
-            poolSize = me.items.length,
-            itemIndex, recordId, row;
+        let me              = this,
+            fieldNames      = fields.map(field => field.name),
+            rowIndex        = me.store.indexOf(record),
+            { mountedRows } = me,
+            poolSize        = me.items.length,
+            itemIndex, row;
 
         if (fieldNames.includes(me.colspanField)) {
             me.createViewData()
         } else {
+            // the record's selection flag is the View's to follow (grid.View#onStoreRecordChange),
+            // once per grid; a body only repaints the row it renders
             if (rowIndex >= mountedRows[0] && rowIndex <= mountedRows[1]) {
                 itemIndex = rowIndex % poolSize;
                 row = me.items[itemIndex];
 
                 if (row) {
                     row.createVdom(false, false)
-                }
-
-                for (let i = 0, len = fields.length; i < len; i++) {
-                    let field = fields[i];
-                    if (field.name === me.selectedRecordField) {
-                        if (selectionModel.ntype === 'selection-grid-rowmodel') {
-                            recordId = me.getRecordId(record);
-
-                            selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)
-                        }
-                    }
                 }
             }
         }
@@ -1439,6 +1486,34 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary Recomputes the mounted/visible column range and repaints the rows EXACTLY once.
+     *
+     * `mountedColumns` is used as the "did the columns change?" proxy in TWO places, and a pure
+     * width change (a column resize) satisfies neither — the mounted range stays equal, and
+     * `core.Config` only notifies on `!isEqual` while `core.Compare` deep-compares arrays:
+     *
+     * 1. {@link #updateMountedAndVisibleColumns} repaints rows only as a *side effect* of the range
+     *    changing (see {@link #afterSetMountedColumns}), so nothing renders at all.
+     * 2. {@link #createViewData} auto-detects a column change the same way; without it, `recycle`
+     *    stays true and the recycled cells keep the geometry that was just replaced.
+     *
+     * This closes both: the incidental render is suppressed, the range recomputed, and exactly one
+     * explicit `createViewData()` fired — with `force` propagated so a geometry change actually
+     * re-applies `columnPositions` instead of recycling past it.
+     * @param {Boolean} [force=false] True when column GEOMETRY changed (widths / positions), not
+     * merely the mounted range. Forwarded to both {@link #updateMountedAndVisibleColumns} and
+     * {@link #createViewData}, where it disables cell recycling.
+     */
+    refreshColumns(force = false) {
+        let me = this;
+
+        me.skipCreateViewData = true;
+        me.updateMountedAndVisibleColumns(force);
+        me.skipCreateViewData = false;
+        me.createViewData(false, force)
+    }
+
+    /**
      * @param {Boolean} [force=false]
      */
     updateMountedAndVisibleColumns(force = false) {
@@ -1527,7 +1602,24 @@ class GridBody extends Component {
         }
 
         me.mountedRows[0] = mountedStart; // update the array inline
-        me.mountedRows[1] = mountedEnd
+        me.mountedRows[1] = mountedEnd;
+
+        // The scroll edge: the visible window reached the store's last `bufferRowRange` rows.
+        // Announced once per entry and re-armed only by a change of the VISIBLE count, so a viewport
+        // parked at the edge stays quiet on every further tick, an append that leaves it at the new
+        // edge announces again, and a store shorter than one window announces on its first layout.
+        // An append a filter hides entirely does NOT re-arm it: nothing the viewport can reach
+        // moved, and announcing on the hidden total would let a consumer walk hidden data window by
+        // window with no gesture. The total travels on the event as information. A consumer loading
+        // a remote corpus window by window requests the next one here.
+        if (countRecords > 0 && endIndex + bufferRowRange >= countRecords) {
+            if (me.#scrollEdgeAnnouncedFor !== countRecords) {
+                me.#scrollEdgeAnnouncedFor = countRecords;
+                me.fire('scrollEdge', {count: countRecords, endIndex, startIndex, total: store.allItems?.getCount?.() ?? countRecords})
+            }
+        } else {
+            me.#scrollEdgeAnnouncedFor = null
+        }
     }
 
     /**
@@ -1552,16 +1644,32 @@ class GridBody extends Component {
 
         return {
             ...super.toJSON(),
-            animatedRowSorting: me.animatedRowSorting,
-            bufferColumnRange: me.bufferColumnRange,
-            bufferRowRange: me.bufferRowRange,
-            colspanField: me.colspanField,
+            animatedRowSorting    : me.animatedRowSorting,
+            bufferColumnRange     : me.bufferColumnRange,
+            bufferRowRange        : me.bufferRowRange,
+            colspanField          : me.colspanField,
             highlightModifiedCells: me.highlightModifiedCells,
-            rowHeight: me.rowHeight,
-            selectedRecordField: me.selectedRecordField,
-            selectionModel: me.selectionModel?.toJSON()
+            rowHeight             : me.rowHeight
         }
     }
 }
+
+/**
+ * Fires when the visible window reaches the store's last `bufferRowRange` rows — once per entry,
+ * re-armed only by a change of the visible count (see {@link Neo.grid.Body#updateMountedAndVisibleRows}).
+ * A consumer that loads a remote corpus window by window requests the next window here; a store
+ * shorter than one window announces on its first layout, an empty store never does, and an appended
+ * window a filter hides entirely does not announce again: nothing the viewport can reach moved, and
+ * a consumer that wants hidden data to count must look at `total` itself. A body that mounts re-arms:
+ * if it is at its edge on its next layout, it announces again, whatever was announced while it was
+ * unmounted (a store load reaching a hidden body runs the calculator with its last geometry).
+ * @event scrollEdge
+ * @param {Object} data
+ * @param {Number} data.count      The store's visible count the edge was announced for.
+ * @param {Number} data.endIndex   The visible window's end (exclusive).
+ * @param {Number} data.startIndex The visible window's start.
+ * @param {Number} data.total      The store's total behind its filters.
+ * @returns {Object}
+ */
 
 export default Neo.setupClass(GridBody);

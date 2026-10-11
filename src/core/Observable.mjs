@@ -90,6 +90,10 @@ class Observable extends Base {
         }
 
         if (nameObject) {
+            // parse a COPY: mutating the caller's object would silently break shared-object
+            // usage like `subject.on(listeners)` followed by `otherSubject.un(listeners)`
+            name = {...name};
+
             if (name.hasOwnProperty('delay')) {
                 delay = name.delay;
                 delete name.delay
@@ -179,9 +183,9 @@ class Observable extends Base {
      * @protected
      */
     afterSetListeners(value, oldValue) {
-        let me           = this,
-            oldConfig    = oldValue || {},
-            newConfig    = value    || {},
+        let me        = this,
+            oldConfig = oldValue || {},
+            newConfig = value    || {},
             // delay/once/order/scope sit at the config top level and apply to EVERY event entry, so
             // they must travel with each per-event slice — and a change to any of them changes every
             // event's effective registration (→ full re-bind).
@@ -336,6 +340,10 @@ class Observable extends Base {
         }
 
         if (Neo.isObject(name)) {
+            // parse a COPY: mutating the caller's object would silently break shared-object
+            // usage like `subject.on(listeners)` followed by `otherSubject.un(listeners)`
+            name = {...name};
+
             if (name.scope) {
                 scope = name.scope;
                 delete name.scope;

@@ -19,7 +19,7 @@ const appName = 'AppContentCrossLinkTest';
 const renderTicketRefs = (instance, content) => Markdown.prototype.modifyMarkdown.call(instance, content);
 
 /**
- * #12209 — cross-link URLs are a per-content-type config, not a framework-base assumption.
+ * Cross-link URLs are a per-content-type config, not a framework-base assumption.
  *
  * Before: `Neo.app.content.Component` (a generic src/ content class) hard-coded
  * `issuesUrl: '#/news/tickets/'`, so every consuming portal view inherited the portal-app route.

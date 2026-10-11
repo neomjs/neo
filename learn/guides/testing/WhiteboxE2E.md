@@ -29,12 +29,16 @@ Inside your application directory (`examples/yourApp/`), you must ensure your `n
 You MUST specify the E2E specific playwright config (`playwright.config.e2e.mjs`) when running these tests to ensure valid timeouts and environments.
 
 ```bash
-npx playwright test test/playwright/e2e/YourTestNL.spec.mjs -c test/playwright/playwright.config.e2e.mjs
+npx playwright test test/playwright/e2e/<domain>/YourTestNL.spec.mjs -c test/playwright/playwright.config.e2e.mjs
 ```
 
 ## Connecting the Neural Link (Fixtures)
 
 Whitebox E2E tests are located in `test/playwright/e2e/`. Instead of manually establishing WebSocket connections, the Neo.mjs team provides a powerful Playwright fixture called `neuralLink`.
+
+The fixture connects to a Bridge already listening on `aiConfig.port`, and spawns one when none is. You never need a Bridge running first — the fixture supplies the working directory a spawn requires, by walking up from its own location to the package that declares the Bridge npm script.
+
+It deliberately does not use `process.cwd()`. Playwright resolves `testDir` from the config file and never changes directory, so `npx playwright test -c /abs/path/config.mjs` invoked from anywhere is a valid run whose worker cwd is that anywhere. Where no ancestor declares the script, the fixture leaves the working directory unset and the spawn refuses by name, rather than starting `npm` somewhere it cannot resolve.
 
 ### Core Connection Boilerplate
 When tests launch, you can use the `neuralLink` parameter injected by Playwright. This abstracts away the internal component architecture and exposes a simple SDK.
@@ -63,7 +67,7 @@ test.describe('Grid BigData App (Neural Link)', () => {
         const nlApp = await neuralLink.connectToApp('Neo.examples.grid.bigData');
 
         // Full Applications use their named string identifier:
-        // const nlApp = await neuralLink.connectToApp('DevIndex');
+        // const nlApp = await neuralLink.connectToApp('Workstation');
 
         // Tests go here...
     });
@@ -140,17 +144,41 @@ await nlApp.simulateEvent([
 ]);
 ```
 
-**`simulateEvent` drives discrete events (click / key / input) — it does NOT drive a pointer drag-and-drop.** Neo's drag pipeline (grid column reordering, including locked-column / multi-region grids) is armed by a mouse-based drag sensor that requires a *real, time-spread* pointer gesture: it only fires `drag:start` once the pointer crosses its distance + delay thresholds, so a synthetic single event never arms it. To drive a column drag in an e2e, use Playwright's native mouse with a **stepped** move — the `{steps}` cadence generates the intermediate `mousemove` events the sensor needs:
+`simulateEvent` is the raw escape hatch for caller-authored event sequences. For a complete
+drag gesture, use `driveDrag`: Engine resolves live node/window geometry, reads the source
+window's live Mouse-sensor thresholds, dispatches one atomic source-document gesture, and returns
+a receipt distinguishing raw event dispatch from correlated `drag:start` / `drag:move` /
+`drag:end` observations:
 
 ```javascript
-// Real pointer-drag that arms the Mouse sensor (a synthetic single event does NOT):
+const receipt = await nlApp.driveDrag({
+    source     : {targetId: splitterId, windowId},
+    destination: {deltaX: 60, deltaY: 0},
+    steps      : 8,
+    durationMs : 160
+});
+
+expect(receipt).toMatchObject({success: true, phase: 'complete', released: true});
+expect(receipt.observed.moveCount).toBeGreaterThan(0);
+```
+
+The physical receipt deliberately says nothing about the component's semantic outcome. Assert the
+grid order, splitter size, or dock document separately through Neural Link.
+
+Use Playwright's native mouse when the test must **hold** the pointer down, inspect mid-gesture
+state, press Escape, or interleave application-specific readiness waits. `driveDrag` owns a whole
+transaction; it is not a pause/resume API. A native stepped move remains the right pattern for those
+interactive assertions:
+
+```javascript
+// Held pointer-drag for mid-interaction assertions:
 await page.mouse.move(startX, startY);
 await page.mouse.down();
 await page.mouse.move(targetX, targetY, { steps: 60 });
 await page.mouse.up();
 ```
 
-See `test/playwright/e2e/GridColumnCrossBodyDnD.spec.mjs` for a worked locked-column drag (in-region landing + cross-region re-home) that pairs the gesture with Neural Link worker assertions.
+See `test/playwright/e2e/grid/ColumnCrossBodyDnD.spec.mjs` for a worked locked-column drag (in-region landing + cross-region re-home) that pairs the gesture with Neural Link worker assertions.
 
 ### Topology, Nodes, & Namespaces
 Get a bird's eye view of the entire runtime environment, discovering connected workers or resolving the class hierarchy.

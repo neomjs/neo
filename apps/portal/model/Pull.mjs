@@ -29,7 +29,7 @@ class Pull extends Model {
             type        : 'Boolean',
             defaultValue: true
         }, {
-            name: 'contentDir', // "resources/content/pulls/chunk-N" — base dir for leaf path reconstruction
+            name: 'contentDir', // "pulls/chunk-N" — corpus-relative base dir for leaf path reconstruction
             type: 'String'
         }, {
             name: 'filePrefix', // "pr-" — leaf file prefix for path reconstruction
@@ -46,10 +46,10 @@ class Pull extends Model {
             type        : 'String',
             defaultValue: null
         }, {
-            name: 'path', // "resources/content/pulls/chunk-N/pr-1234.md"
+            name: 'path', // "pulls/chunk-N/pr-1234.md", relative to the corpus base
             type: 'String'
         }, {
-            name: 'title', // "fix(build): bypass hooks for data sync commits (#11590)" — ticket-ref-ok: illustrative PR-title sample, not a tracking ref
+            name: 'title', // e.g. "fix(build): bypass hooks for data sync commits (#11590)" [not-ticket-ref: illustrative PR-title sample]
             type: 'String'
         }, {
             // Computed field for TreeList display

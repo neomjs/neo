@@ -1,0 +1,8 @@
+{
+    "appPath"         : "examples/dashboard/crossWindowWitness/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Stylesheet"],
+    "useAiClient"     : true
+}

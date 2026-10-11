@@ -88,7 +88,10 @@ class Button extends BaseButton {
         renderer_: 'cellRenderer',
         /**
          * Scope to execute the column renderer.
-         * Defaults to the matching table.Container
+         *
+         * An instance set here wins. A `renderer` string resolves against an instance and records it here:
+         * `'up.name'` the ancestor that defines the method, a plain name the view controller that defines it or
+         * else the column. A `renderer` function names no instance and runs on the matching table.Container.
          * @member {Neo.core.Base|null} rendererScope=null
          */
         rendererScope: null,
@@ -126,26 +129,19 @@ class Button extends BaseButton {
      */
     afterSetIsSorted(value, oldValue) {
         let me        = this,
-            {cls}     = me,
             container = me.up('table-container');
 
         switch (value) {
             case null:
-                NeoArray.add(cls, 'neo-sort-hidden');
+                me.addCls('neo-sort-hidden');
                 break
             case 'ASC':
-                NeoArray.remove(cls, 'neo-sort-desc');
-                NeoArray.remove(cls, 'neo-sort-hidden');
-                NeoArray.add(cls, 'neo-sort-asc');
+                me.removeAddCls(['neo-sort-desc', 'neo-sort-hidden'], 'neo-sort-asc');
                 break
             case 'DESC':
-                NeoArray.remove(cls, 'neo-sort-asc');
-                NeoArray.remove(cls, 'neo-sort-hidden');
-                NeoArray.add(cls, 'neo-sort-desc');
+                me.removeAddCls(['neo-sort-asc', 'neo-sort-hidden'], 'neo-sort-desc');
                 break
         }
-
-        me.cls = cls;
 
         // testing check until all example tables have a store
         if (!container || !container.store) {
@@ -232,7 +228,16 @@ class Button extends BaseButton {
      * @protected
      */
     beforeSetRenderer(value, oldValue) {
-        return resolveCallback(value, this).fn
+        let me          = this,
+            {fn, scope} = resolveCallback(value, me);
+
+        // A name resolves against the instance its method must run on, a function against none.
+        // An explicit rendererScope stays the author's.
+        if (Neo.isString(value) && fn && !me.rendererScope) {
+            me.rendererScope = scope
+        }
+
+        return fn
     }
 
     /**

@@ -22,6 +22,32 @@ import VdomHelper     from '../../../../../src/vdom/Helper.mjs';
 
 test.describe('Neo.manager.DomEvent Delegation Verification', () => {
 
+    test('an ID-only navigation path does not match an ancestor listener', () => {
+        const path          = [{id: 'submenu'}],
+              componentPath = ['submenu', 'root-menu'];
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '#submenu', vnodeId: 'submenu'
+        }, path, componentPath)).toBe('submenu');
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '#root-menu', vnodeId: 'root-menu'
+        }, path, componentPath)).toBe(false)
+    });
+
+    test('an ID selector cannot match a class with the same name', () => {
+        const path          = [{id: 'submenu', cls: ['root-menu']}],
+              componentPath = ['submenu', 'root-menu'];
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '#root-menu', vnodeId: 'root-menu'
+        }, path, componentPath)).toBe(false);
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '.root-menu', vnodeId: 'root-menu'
+        }, path, componentPath)).toBe('submenu')
+    });
+
     test('should verify delegation via Physical Path (Phase 1)', async () => {
         const container = Neo.create(Container, {
             appName,

@@ -1,0 +1,6 @@
+{
+    "appPath"    : "test/playwright/component/apps/buffered-list/app.mjs",
+    "basePath"   : "../../../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

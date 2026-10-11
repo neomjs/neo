@@ -6,36 +6,49 @@ setup({
     }
 });
 
-import {test, expect}    from '@playwright/test';
-import Neo               from '../../../../src/Neo.mjs';
-import * as core         from '../../../../src/core/_export.mjs';
-import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockSplitter      from '../../../../src/dashboard/DockSplitter.mjs';
-import DockZoneModel     from '../../../../src/dashboard/DockZoneModel.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import '../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
+import Component          from '../../../../src/component/Base.mjs';
+import DockLayoutAdapter  from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockRail           from '../../../../src/dashboard/dock/interaction/Rail.mjs';
+import DockSplitter       from '../../../../src/dashboard/dock/interaction/DockSplitter.mjs';
+import DockTabContainer   from '../../../../src/dashboard/dock/interaction/TabContainer.mjs';
+import DockTabEnterButton from '../../../../src/dashboard/dock/interaction/TabEnterButton.mjs';
+import Operations         from '../../../../src/dashboard/dock/model/Operations.mjs';
+import '../../../../src/dashboard/Panel.mjs'; // registers the `dashboard-panel` ntype the projected items use
+import TabContainer      from '../../../../src/tab/Container.mjs';
+import TabOverflowPlugin from '../../../../src/tab/plugin/Overflow.mjs';
+
+class MountableMenuList extends Neo.core.Base {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockLayoutAdapter.MountableMenuList',
+        hidden_  : true,
+        mounted_ : false
+    }
+}
+MountableMenuList = Neo.setupClass(MountableMenuList);
 
 const createModel = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         strategy: {
-            componentRef: 'strategy',
-            title       : 'Strategy',
-            kind        : 'panel'
+            reference: 'strategy',
+            title    : 'Strategy',
         },
         swarm: {
-            componentRef: 'swarm',
-            title       : 'Swarm',
-            kind        : 'panel'
+            reference: 'swarm',
+            title    : 'Swarm',
         },
         terminal: {
-            componentRef: 'terminal',
-            title       : 'Terminal',
-            kind        : 'terminal'
+            reference: 'terminal',
+            title    : 'Terminal',
         },
         missing: {
-            componentRef: 'missing',
-            title       : 'Missing',
-            kind        : 'panel'
+            reference: 'missing',
+            title    : 'Missing',
         }
     },
     nodes: {
@@ -70,36 +83,32 @@ const createModel = () => ({
 });
 
 const createEdgeZoneModel = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         strategy: {
-            componentRef: 'strategy',
-            title       : 'Strategy',
-            kind        : 'panel'
+            reference: 'strategy',
+            title    : 'Strategy',
         },
         swarm: {
-            componentRef: 'swarm',
-            title       : 'Swarm',
-            kind        : 'panel'
+            reference: 'swarm',
+            title    : 'Swarm',
         },
         terminal: {
-            componentRef: 'terminal',
-            title       : 'Terminal',
-            kind        : 'terminal'
+            reference: 'terminal',
+            title    : 'Terminal',
         },
         inspector: {
-            componentRef: 'inspector',
-            title       : 'Inspector',
-            kind        : 'inspector'
+            reference: 'inspector',
+            title    : 'Inspector',
         }
     },
     nodes: {
         root: {
             type : 'edge-zone',
             zones: {
-                center: 'main-tabs',
-                right : 'side-split'
+                center: {nodeId: 'main-tabs'},
+                right : {nodeId: 'side-split', extent: 0.3, resizable: true}
             }
         },
         'main-tabs': {
@@ -128,15 +137,61 @@ const createEdgeZoneModel = () => ({
 
 const getProjectedChildren = splitConfig => splitConfig.items.filter(item => item.dockNodeType !== 'splitter');
 
+/**
+ * Edge-zone model whose right zone is a TABS node directly (the FM cockpit's secondary-rail
+ * shape): both band items start auto-hidden, so the band's projected tab flow is empty and
+ * only the rail carries them.
+ * @returns {Object}
+ */
+const createTabsBandModel = () => ({
+    schema: 'neo.dock.zone.v1',
+    root  : 'root',
+    items : {
+        strategy: {reference: 'strategy', title: 'Strategy'},
+        detail  : {reference: 'detail',   title: 'Detail',   autoHidden: true},
+        operator: {reference: 'operator', title: 'Operator', autoHidden: true}
+    },
+    nodes: {
+        root       : {
+            type : 'edge-zone',
+            zones: {
+                center: {nodeId: 'main-tabs'},
+                right : {nodeId: 'tool-tabs', extent: 0.25, resizable: true}
+            }
+        },
+        'main-tabs': {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'},
+        'tool-tabs': {type: 'tabs', items: ['detail', 'operator'], activeItemId: 'detail'}
+    }
+});
+
 const getProjectedSplitters = splitConfig => splitConfig.items.filter(item => item.dockNodeType === 'splitter');
 
-test.describe('Neo.dashboard.DockLayoutAdapter', () => {
+/**
+ * Every projected tabs node anywhere in a projection, keyed by its `dockNodeId` — so a test can
+ * address one tabs header without hand-walking the row/band/split nesting that surrounds it.
+ * @param {Object} config
+ * @returns {Map<String,Object>}
+ */
+const collectProjectedTabsById = config => {
+    const found = new Map();
+
+    (function walk(node) {
+        if (!node || typeof node !== 'object') return;
+
+        node.dockNodeType === 'tabs' && found.set(node.dockNodeId, node);
+        (Array.isArray(node.items) ? node.items : []).forEach(walk)
+    })(config);
+
+    return found
+};
+
+test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test('projects split nodes to existing hbox and vbox layout primitives', () => {
         let model  = createModel(),
             result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => componentRef === 'missing' ? null : {
+                resolveComponentRef: reference => reference === 'missing' ? null : {
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 }
             }),
             rootChildren = getProjectedChildren(result),
@@ -151,11 +206,282 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(sideChildren.map(item => item.flex)).toEqual([0.55, 0.45]);
     });
 
+    test('projects the stable default Dock action rail and keeps capability in action state', () => {
+        const
+            model       = createModel(),
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
+            hidden      = getProjectedChildren(DockLayoutAdapter.project(model, {
+                enableDockMaximizeAction: true,
+                resolveComponentRef     : resolvePane
+            }))[0],
+            available   = getProjectedChildren(DockLayoutAdapter.project(model, {
+                dockPopOutActionAvailable: true,
+                enableDockMaximizeAction : true,
+                resolveComponentRef      : resolvePane
+            }))[0],
+            optedOut   = getProjectedChildren(DockLayoutAdapter.project(model, {
+                enableDockCloseAction   : false,
+                enableDockMaximizeAction: false,
+                enableDockPinAction     : false,
+                enableDockPopOutAction  : false,
+                enableDockReloadAction  : false,
+                resolveComponentRef     : resolvePane
+            }))[0];
+
+        expect(hidden.headerActions.map(action => action.action))
+            .toEqual(['reload', 'pin', 'pop-out', 'maximize', 'close']);
+        expect(hidden.headerActions.some(action => action.action === 'lock')).toBe(false);
+        expect(hidden.headerActions.find(action => action.action === 'reload').hidden).toBe(true);
+        expect(hidden.headerActions.find(action => action.action === 'pop-out').hidden).toBe(true);
+        expect(hidden.headerActions.find(action => action.action === 'pin')).toMatchObject({
+            iconCls: 'fa fa-thumbtack-slash',
+            vdom   : {'aria-label': 'unpin'}
+        });
+        expect(hidden.headerActions.slice(0, -1).every(action => action.contextual === undefined)).toBe(true);
+        expect(hidden.headerActions.at(-1)).toMatchObject({action: 'close', contextual: false});
+        expect(hidden.vdom.tabIndex).toBe(-1);
+
+        expect(available.headerActions.map(action => action.action))
+            .toEqual(['reload', 'pin', 'pop-out', 'maximize', 'close']);
+        expect(available.headerActions.find(action => action.action === 'pop-out').hidden).toBe(false);
+
+        expect(optedOut.headerActions, 'explicit false retains the public compatibility escape').toBeUndefined();
+        expect(optedOut.vdom).toBeUndefined()
+    });
+
+    test('the maximize toggle is opt-in: a workspace maximize plugin contributes it, nothing else does', () => {
+        const
+            model       = createModel(),
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
+            absent      = getProjectedChildren(DockLayoutAdapter.project(model, {
+                resolveComponentRef: resolvePane
+            }))[0],
+            hostOwned   = getProjectedChildren(DockLayoutAdapter.project(model, {
+                resolveComponentRef     : resolvePane,
+                resolveDockHeaderActions: () => [{action: 'maximize', iconCls: 'fa fa-expand'}]
+            }))[0];
+
+        expect(absent.headerActions.map(action => action.action))
+            .toEqual(['reload', 'pin', 'pop-out', 'close']);
+        expect(hostOwned.headerActions.filter(action => action.action === 'maximize'),
+            'without the flag the name is the host\'s to take').toHaveLength(1)
+    });
+
+    test('routes default-rail and active-index intents through the tabs-node owner', () => {
+        const
+            model         = createModel(),
+            intents       = [],
+            activeChanges = [],
+            projected     = DockLayoutAdapter.project(model, {
+                onDockActiveIndexChange: data => activeChanges.push(data),
+                onDockHeaderAction     : data => intents.push(data),
+                resolveComponentRef    : reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            main          = getProjectedChildren(projected)[0],
+            tabContainer  = {id: 'live-tabs'};
+
+        main.listeners.headerAction({action: 'custom', tabContainer});
+        main.listeners.headerAction({action: 'close', tabContainer});
+        main.listeners.activeIndexChange({item: {id: 'live-card'}, value: 0});
+
+        expect(intents).toEqual([
+            {action: 'custom', dockNodeId: 'main-tabs', tabContainer},
+            {action: 'close',  dockNodeId: 'main-tabs', tabContainer}
+        ]);
+        expect(activeChanges).toEqual([{dockNodeId: 'main-tabs', item: {id: 'live-card'}, tabContainer: null, value: 0}])
+    });
+
+    test('projects host actions before the default rail and keeps close persistent and last', () => {
+        const
+            model       = createModel(),
+            intents     = [],
+            seenNodeIds = [],
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
+            projected   = DockLayoutAdapter.project(model, {
+                enableDockMaximizeAction: true,
+                onDockHeaderAction      : data => intents.push(data),
+                resolveComponentRef     : resolvePane,
+                resolveDockHeaderActions: nodeId => {
+                    seenNodeIds.push(nodeId);
+                    return nodeId === 'main-tabs' ? [{action: 'filter', iconCls: 'fa fa-filter'}] : []
+                }
+            }),
+            main        = getProjectedChildren(projected)[0],
+            tabContainer = {id: 'live-tabs'};
+
+        expect(main.headerActions.map(action => action.action))
+            .toEqual(['filter', 'reload', 'pin', 'pop-out', 'maximize', 'close']);
+        expect(main.headerActions[0].contextual).toBeUndefined();
+        expect(main.headerActions.at(-1).contextual).toBe(false);
+        expect(new Set(seenNodeIds).size, 'asked once per node, not once per item').toBe(seenNodeIds.length);
+
+        main.listeners.headerAction({action: 'filter', tabContainer});
+        expect(intents).toEqual([{action: 'filter', dockNodeId: 'main-tabs', tabContainer}])
+    });
+
+    test('reserves every default action name and keeps lock reservation opt-in', () => {
+        const
+            model       = createModel(),
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
+            project     = (actions, extra={}) => () => DockLayoutAdapter.project(model, {
+                enableDockMaximizeAction: true,
+                resolveComponentRef     : resolvePane,
+                resolveDockHeaderActions: () => actions,
+                ...extra
+            });
+
+        expect(project([{iconCls: 'fa fa-x'}])).toThrow(/requires a semantic `action` name/);
+
+        const defaultFlags = {
+            close    : 'enableDockCloseAction',
+            maximize : 'enableDockMaximizeAction',
+            pin      : 'enableDockPinAction',
+            'pop-out': 'enableDockPopOutAction',
+            reload   : 'enableDockReloadAction'
+        };
+
+        for (const [name, flag] of Object.entries(defaultFlags)) {
+            expect(project([{action: name}])).toThrow(new RegExp(`"${name}" is reserved by ${flag}`));
+
+            const hostOwned = collectProjectedTabsById(project([{action: name}], {[flag]: false})())
+                .get('main-tabs');
+
+            expect(hostOwned.headerActions.filter(action => action.action === name),
+                `explicit false frees ${name} for the host`).toHaveLength(1)
+        }
+
+        const hostLock = collectProjectedTabsById(project([{action: 'lock'}])()).get('main-tabs');
+
+        expect(hostLock.headerActions.map(action => action.action))
+            .toEqual(['lock', 'reload', 'pin', 'pop-out', 'maximize', 'close']);
+        expect(project([{action: 'lock'}], {enableDockLockAction: true}))
+            .toThrow(/"lock" is reserved by enableDockLockAction/);
+
+        const prototypeName = collectProjectedTabsById(project([{action: 'constructor'}])()).get('main-tabs');
+
+        expect(prototypeName.headerActions.map(action => action.action))
+            .toEqual(['constructor', 'reload', 'pin', 'pop-out', 'maximize', 'close'])
+    });
+
+    test('pin and pop-out keep stable slots while capability and policy change their state', () => {
+        const model = createEdgeZoneModel();
+
+        model.items.inspector.pinnable = false;
+
+        const
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
+            result      = DockLayoutAdapter.project(model, {
+                dockPopOutActionAvailable: true,
+                enableDockMaximizeAction : true,
+                resolveComponentRef      : resolvePane,
+                resolveDockHeaderActions : nodeId => nodeId === 'terminal-tabs' ? [{action: 'diagnose'}] : []
+            }),
+            tabs          = collectProjectedTabsById(result),
+            centerTab     = tabs.get('main-tabs'),
+            terminalTabs  = tabs.get('terminal-tabs'),
+            inspectorTabs = tabs.get('inspector-tabs');
+
+        // The frozen order, with a host action present: host actions, then the engine set, then close.
+        expect(terminalTabs.headerActions.map(action => action.action))
+            .toEqual(['diagnose', 'reload', 'pin', 'pop-out', 'maximize', 'close']);
+        expect(centerTab.headerActions.map(action => action.action))
+            .toEqual(['reload', 'pin', 'pop-out', 'maximize', 'close']);
+
+        // Right-band-owned, pinnable, active — the one case where the gesture can complete.
+        expect(terminalTabs.headerActions.find(action => action.action === 'pin'))
+            .toMatchObject({action: 'pin', hidden: false});
+        expect(terminalTabs.headerActions.find(action => action.action === 'pop-out').hidden).toBe(false);
+
+        // Focus-gated like a host action, NOT like close. `close` opts out with `contextual: false`
+        // because it must stay reachable on an unfocused pane; the engine set inherits the tab
+        // header's `showOnFocus` default, and carrying close's opt-out would leave a permanently
+        // visible control on every header.
+        expect(terminalTabs.headerActions.find(action => action.action === 'pin').contextual,
+            'pin inherits the header focus gate').toBeUndefined();
+        expect(terminalTabs.headerActions[0].contextual, 'the host action is gated too').toBeUndefined();
+        expect(terminalTabs.headerActions.at(-1).contextual, 'close is the one deliberate exemption').toBe(false);
+
+        // Center-owned: §2.7 never rails main content, so the affordance must not offer it.
+        expect(centerTab.headerActions.find(action => action.action === 'pin').hidden,
+            'a center-owned active item cannot collapse').toBe(true);
+
+        // Policy-refused: `setItemAutoHidden` rejects `pinnable: false`, so offering it would be a lie.
+        expect(inspectorTabs.headerActions.find(action => action.action === 'pin').hidden).toBe(true);
+
+        const noPopOut = collectProjectedTabsById(DockLayoutAdapter.project(model, {
+            resolveComponentRef: resolvePane
+        })).get('terminal-tabs');
+
+        expect(noPopOut.headerActions.find(action => action.action === 'pop-out').hidden).toBe(true)
+    });
+
+    test('threads the maximize icon and routes its default-rail intent', () => {
+        const
+            model       = createModel(),
+            intents     = [],
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
+            projected   = DockLayoutAdapter.project(model, {
+                dockMaximizeIconCls     : 'fa fa-expand',
+                enableDockMaximizeAction: true,
+                onDockHeaderAction      : data => intents.push(data),
+                resolveComponentRef     : resolvePane
+            }),
+            main        = getProjectedChildren(projected)[0],
+            maximize    = main.headerActions.find(action => action.action === 'maximize');
+
+        expect(maximize.contextual).toBeUndefined();
+        expect(maximize.iconCls).toBe('fa fa-expand');
+
+        // Intent arrives like any other action, with its tabs node identified.
+        const tabContainer = {id: 'live-tabs'};
+
+        main.listeners.headerAction({action: 'maximize', tabContainer});
+        expect(intents).toEqual([{action: 'maximize', dockNodeId: 'main-tabs', tabContainer}])
+    });
+
+    test('keeps lock opt-in ahead of the stable default rail', () => {
+        const
+            model       = createModel(),
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
+            enabled     = DockLayoutAdapter.project(model, {
+                enableDockLockAction    : true,
+                enableDockMaximizeAction: true,
+                resolveComponentRef     : resolvePane
+            }),
+            enabledMain = getProjectedChildren(enabled)[0];
+
+        expect(enabledMain.headerActions.map(action => action.action))
+            .toEqual(['lock', 'reload', 'pin', 'pop-out', 'maximize', 'close']);
+
+        expect(enabledMain.headerActions[1].contextual).toBeUndefined();
+        expect(enabledMain.headerActions[1].hidden).toBe(true);
+        expect(enabledMain.headerActions[1].iconCls).toBe('fa fa-rotate-right');
+    });
+
+    test('split children release the flexbox min-content floor: committed sizes stay the sole geometry authority', () => {
+        let result = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: reference => ({
+                    ntype    : 'dashboard-panel',
+                    reference
+                })
+            }),
+            rootChildren = getProjectedChildren(result),
+            sideChildren = getProjectedChildren(rootChildren[1]);
+
+        // without the release, a zone's min-content height/width caps the flex
+        // distribution and the rendered split silently deviates from the document —
+        // every DIRECT split child (tabs zones AND nested splits) carries the release
+        [...rootChildren, ...sideChildren].forEach(child => {
+            expect(child.style.minHeight).toBe(0);
+            expect(child.style.minWidth).toBe(0)
+        })
+    });
+
     test('projects resize splitter affordances between adjacent split children', () => {
         let result = DockLayoutAdapter.project(createModel(), {
-                resolveComponentRef: componentRef => ({
+                resolveComponentRef: reference => ({
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 })
             }),
             rootSplitter = getProjectedSplitters(result)[0],
@@ -201,11 +527,11 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
     });
 
     test('creates resizeSplit operation descriptors from splitter affordance metadata', () => {
-        let model    = createModel(),
-            result   = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({
+        let model  = createModel(),
+            result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: reference => ({
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 })
             }),
             sizes    = [3, 1],
@@ -222,7 +548,7 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             splitNodeId: 'root'
         });
 
-        resized = DockZoneModel.applyOperation(model, descriptor);
+        resized = Operations.applyOperation(model, descriptor);
 
         expect(resized.errors).toEqual([]);
         expect(resized.document.nodes.root.sizes).toEqual([0.75, 0.25]);
@@ -231,28 +557,192 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
 
     test('projects tab nodes to tab.Container-compatible configs', () => {
         let result = DockLayoutAdapter.project(createModel(), {
-            resolveComponentRef: componentRef => ({
+            resolveComponentRef: reference => ({
                 ntype    : 'dashboard-panel',
-                reference: componentRef
+                reference
             })
         });
 
-        expect(result.items[0].ntype).toBe('tab-container');
+        expect(result.items[0].module, 'the dock\'s own tab container, a tab.Container that binds its lock state').toBe(DockTabContainer);
         expect(result.items[0].activeIndex).toBe(1);
         expect(result.items[0].items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
         expect(result.items[0].items.map(item => item.data.dockItemId)).toEqual(['strategy', 'swarm']);
     });
 
+    test('the dockItemId stamp reaches header CONFIGS and live header BUTTONS, order-agnostic (#15517)', () => {
+        let result = DockLayoutAdapter.project(createModel(), {
+            resolveComponentRef: reference => reference === 'missing' ? null : ({
+                ntype    : 'dashboard-panel',
+                reference
+            })
+        });
+
+        // config level: resolver-returned plain configs carry the stamp in their header
+        expect(result.items[0].items.map(item => item.header.dockItemId)).toEqual(['strategy', 'swarm']);
+
+        // the placeholder path (absent resolver) carries it too — locate by the stamped node id,
+        // agnostic to the interleaved splitter positions
+        const sideSplit   = result.items.find(item => item.dockNodeType === 'split'),
+              missingTabs = sideSplit.items.find(item => item.dockNodeId === 'missing-tabs');
+
+        expect(missingTabs.items[0].header.dockItemId).toBe('missing');
+
+        // button level: a real tab.Container built from the projection carries the stamp on
+        // every header BUTTON instance — and it follows the button, not the position
+        const tabContainer = Neo.create({
+            module: TabContainer,
+            ...result.items[0]
+        });
+        let buttons = tabContainer.getTabBar().items;
+
+        expect(buttons.map(button => button.dockItemId)).toEqual(['strategy', 'swarm']);
+
+        // non-1:1 order: reorder the buttons — the stamp stays with ITS button
+        const moved = buttons[1];
+
+        tabContainer.getTabBar().remove(moved, false);
+        tabContainer.getTabBar().insert(0, moved);
+        buttons = tabContainer.getTabBar().items;
+
+        expect(buttons[0]).toBe(moved);
+        expect(buttons[0].dockItemId).toBe('swarm');
+        expect(buttons[1].dockItemId).toBe('strategy');
+
+        tabContainer.destroy()
+    });
+
+    test('a transient addTab correlation decorates only the exact target header without mutating the model', () => {
+        let model    = createModel(),
+            snapshot = JSON.parse(JSON.stringify(model)),
+            result   = DockLayoutAdapter.project(model, {
+                resolveComponentRef: reference => ({
+                    ntype    : 'dashboard-panel',
+                    reference
+                }),
+                tabInsertDescriptor: {operation: 'addTab', itemId: 'swarm', tabsNodeId: 'main-tabs'}
+            }),
+            mainTabs = result.items[0],
+            headers  = mainTabs.items.map(item => item.header);
+
+        expect(headers[0].module).toBeUndefined();
+        expect(headers[0].cls).toBeUndefined();
+        expect(headers[1].module).toBe(DockTabEnterButton);
+        expect(headers[1].cls).toEqual([
+            'neo-dashboard-dock-tab-enter',
+            'dock-tab-enter-item-swarm'
+        ]);
+        expect(model).toEqual(snapshot);
+
+        const unrelated = DockLayoutAdapter.project(model, {
+            resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference}),
+            tabInsertDescriptor: {operation: 'addTab', itemId: 'swarm', tabsNodeId: 'terminal-tabs'}
+        });
+
+        expect(unrelated.items[0].items.every(item => item.header.module === undefined)).toBe(true)
+    });
+
+    test('an absent-item resolver can reuse the adapter-owned metadata and addTab decoration', () => {
+        const
+            item   = {reference: 'Swarm', title: 'Swarm'},
+            config = DockLayoutAdapter.decorateProjectedItem(
+                {ntype: 'component'},
+                'swarm',
+                item,
+                {
+                    nodeId             : 'main-tabs',
+                    tabInsertDescriptor: {operation: 'addTab', itemId: 'swarm', tabsNodeId: 'main-tabs'}
+                }
+            );
+
+        expect(config.dockItemId).toBe('swarm');
+        expect(config.data).toEqual({dockItemId: 'swarm'});
+        // The projected pane resolves through the engine's own lookup — this is what puts data-ref
+        // on the pane root. A record that NAMES a reference keeps it; the two arms discriminate,
+        // because a default that silently overwrote the authored name would pass the second alone.
+        expect(config.reference, 'an authored reference wins').toBe('Swarm');
+        expect(
+            DockLayoutAdapter.decorateProjectedItem({ntype: 'component'}, 'swarm', {title: 'Swarm'}, {}).reference,
+            'a record without one defaults to its dock identity'
+        ).toBe('swarm');
+        expect(config.header.text).toBe('Swarm');
+        expect(config.header.module).toBe(DockTabEnterButton);
+        expect(config.header.cls).toEqual([
+            'neo-dashboard-dock-tab-enter',
+            'dock-tab-enter-item-swarm'
+        ])
+    });
+
+    test('a retained live pane gets one insertion header and restores its original header afterward', () => {
+        const pane           = Neo.create(Component, {header: {text: 'Swarm', cls: ['stable-header']}}),
+              item           = {reference: 'Swarm', title: 'Swarm'},
+              originalHeader = pane.header,
+              options        = {
+                  nodeId             : 'main-tabs',
+                  tabInsertDescriptor: {operation: 'addTab', itemId: 'swarm', tabsNodeId: 'main-tabs'}
+              };
+
+        try {
+            expect(DockLayoutAdapter.decorateProjectedItem(pane, 'swarm', item, options)).toBe(pane);
+            expect(pane.header.module).toBe(DockTabEnterButton);
+            expect(pane.header.cls).toEqual(['stable-header', 'neo-dashboard-dock-tab-enter', 'dock-tab-enter-item-swarm']);
+            expect(originalHeader).toEqual({text: 'Swarm', cls: ['stable-header']});
+
+            DockLayoutAdapter.decorateProjectedItem(pane, 'swarm', item, {...options, stackHandle: true});
+            expect(pane.header.text[1].cls).toEqual(['neo-dock-stack-handle']);
+            expect(pane.header.cls.filter(cls => cls === 'neo-dashboard-dock-tab-enter')).toHaveLength(1);
+
+            DockLayoutAdapter.decorateProjectedItem(pane, 'swarm', item, {...options, nodeId: 'other-tabs'});
+            expect(pane.header).toBe(originalHeader);
+            expect(pane.header).not.toHaveProperty('module')
+        } finally {
+            pane.destroy()
+        }
+    });
+
+    test('a live pane without an own header regains that absence after insertion decoration', () => {
+        const pane = Neo.create(Component, {}), item = {reference: 'bare', title: 'Bare'};
+
+        try {
+            expect(Object.hasOwn(pane, 'header')).toBe(false);
+            DockLayoutAdapter.decorateProjectedItem(pane, 'bare', item, {
+                nodeId: 'target', tabInsertDescriptor: {operation: 'addTab', itemId: 'bare', tabsNodeId: 'target'}
+            });
+            expect(pane.header.module).toBe(DockTabEnterButton);
+            DockLayoutAdapter.decorateProjectedItem(pane, 'bare', item);
+            expect(Object.hasOwn(pane, 'header')).toBe(false)
+        } finally {
+            pane.destroy()
+        }
+    });
+
+    test('a bare live pane keeps its synthesized title when the stack grip retires', () => {
+        const pane = Neo.create(Component), item = {title: 'Bare pane'};
+        let tabs;
+
+        try {
+            expect(Object.hasOwn(pane, 'header')).toBe(false);
+            DockLayoutAdapter.decorateProjectedItem(pane, 'bare', item, {stackHandle: true});
+            DockLayoutAdapter.decorateProjectedItem(pane, 'bare', item);
+            expect(pane.header, 'the default title outlives the transient grip').toEqual({text: 'Bare pane'});
+            tabs = Neo.create(TabContainer, {items: [pane]});
+            expect(tabs.getTabAtIndex(0).text, 'the same pane remains labelled in a fresh tab container').toBe('Bare pane')
+        } finally {
+            tabs?.destroy();
+            pane.isDestroyed || pane.destroy()
+        }
+    });
+
     test('projects the documented edge-zone root model through the dashboard adapter', () => {
         let result = DockLayoutAdapter.project(createEdgeZoneModel(), {
-                resolveComponentRef: componentRef => ({
+                resolveComponentRef: reference => ({
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 })
             }),
             row    = result.items[0],
-            center = row.items[0],
-            right  = row.items[1],
+            center = row.items.find(item => item.dockNodeId === 'main-tabs'),
+            right  = row.items.find(item => item.dockNodeId === 'side-split'),
+            edgeSplitter = row.items.find(item => item.data?.operation === 'resizeEdgeZone'),
             rightChildren = getProjectedChildren(right);
 
         expect(result.dockNodeType).toBe('edge-zone');
@@ -260,34 +750,111 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(row.dockNodeType).toBe('edge-zone-row');
         expect(row.layout).toEqual({ntype: 'hbox', align: 'stretch'});
 
-        expect(center.ntype).toBe('tab-container');
+        expect(center.module).toBe(DockTabContainer);
         expect(center.activeIndex).toBe(1);
         expect(center.items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
 
         expect(right.layout).toEqual({ntype: 'vbox', align: 'stretch'});
+        expect(right.width).toBe('30%');
         expect(rightChildren.map(item => item.flex)).toEqual([0.55, 0.45]);
         expect(rightChildren.map(item => item.items[0].data.dockItemId)).toEqual(['terminal', 'inspector']);
+
+        expect(edgeSplitter.module).toBe(DockSplitter);
+        expect(edgeSplitter.edge).toBe('right');
+        expect(edgeSplitter.edgeZoneId).toBe('root');
+        expect(edgeSplitter.data).toMatchObject({
+            dockNodeId : 'root',
+            edge       : 'right',
+            edgeZoneId : 'root',
+            operation  : 'resizeEdgeZone',
+            orientation: 'horizontal'
+        })
+    });
+
+    test('omits edge splitters when the descriptor does not opt into resizing', () => {
+        let model = createEdgeZoneModel();
+
+        model.nodes.root.zones.right.resizable = false;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            row = result.items[0];
+
+        expect(row.items.some(item => item.data?.operation === 'resizeEdgeZone')).toBe(false)
+    });
+
+    test('projects left, right, and bottom splitters on their center-facing boundaries', () => {
+        let model = createEdgeZoneModel();
+
+        Object.assign(model.items, {
+            navigator: {reference: 'navigator', title: 'Navigator'},
+            feed     : {reference: 'feed',      title: 'Feed'}
+        });
+        Object.assign(model.nodes, {
+            'left-tabs'  : {type: 'tabs', items: ['navigator'], activeItemId: 'navigator'},
+            'bottom-tabs': {type: 'tabs', items: ['feed'],      activeItemId: 'feed'}
+        });
+        Object.assign(model.nodes.root.zones, {
+            left  : {nodeId: 'left-tabs',   extent: 0.2,  resizable: true},
+            bottom: {nodeId: 'bottom-tabs', extent: 0.25, resizable: true}
+        });
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            row       = result.items.find(item => item.dockNodeType === 'edge-zone-row'),
+            splitters = [...row.items, ...result.items].filter(item => item.data?.operation === 'resizeEdgeZone');
+
+        expect(splitters.map(item => item.edge)).toEqual(['left', 'right', 'bottom']);
+        expect(row.items.indexOf(row.items.find(item => item.dockNodeId === 'left-tabs')))
+            .toBeLessThan(row.items.indexOf(row.items.find(item => item.edge === 'left')));
+        expect(row.items.indexOf(row.items.find(item => item.edge === 'right')))
+            .toBeLessThan(row.items.indexOf(row.items.find(item => item.dockNodeId === 'side-split')));
+        expect(result.items.indexOf(result.items.find(item => item.edge === 'bottom')))
+            .toBeLessThan(result.items.indexOf(result.items.find(item => item.dockNodeId === 'bottom-tabs')))
     });
 
     test('falls back to recoverable placeholders without mutating the source model', () => {
         let model    = createModel(),
             snapshot = JSON.parse(JSON.stringify(model)),
             result   = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => componentRef === 'missing' ? null : {
+                resolveComponentRef: reference => reference === 'missing' ? null : {
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 }
             }),
             placeholder = getProjectedChildren(getProjectedChildren(result)[1])[1].items[0];
 
         expect(placeholder.ntype).toBe('dashboard-panel');
+        // A placeholder carries only what a consumer can act on: the identity and the fact that
+        // resolution failed. It stamps no lookup key — the recoverable record still holds it.
         expect(placeholder.data).toEqual({
-            componentRef       : 'missing',
-            dockItemId         : 'missing',
-            missingComponentRef: true
+            dockItemId      : 'missing',
+            missingReference: true
         });
         expect(placeholder.header.text).toBe('Missing');
         expect(model).toEqual(snapshot);
+    });
+
+    test('keeps a tabs-node item absent from the catalog recoverable', () => {
+        let model = createModel();
+
+        model.nodes['missing-tabs'] = {
+            type        : 'tabs',
+            items       : ['unknown'],
+            activeItemId: 'unknown'
+        };
+
+        let result      = DockLayoutAdapter.project(model, {resolveComponentRef: () => null}),
+            placeholder = getProjectedChildren(getProjectedChildren(result)[1])[1].items[0];
+
+        expect(placeholder.ntype).toBe('dashboard-panel');
+        expect(placeholder.data).toEqual({
+            dockItemId      : 'unknown',
+            missingReference: true
+        });
+        expect(placeholder.header.text).toBe('unknown')
     });
 
     test('normalizes invalid split sizes without rewriting the model', () => {
@@ -296,9 +863,9 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         model.nodes.root.sizes = [0, Number.NaN];
 
         let result = DockLayoutAdapter.project(model, {
-            resolveComponentRef: componentRef => ({
+            resolveComponentRef: reference => ({
                 ntype    : 'dashboard-panel',
-                reference: componentRef
+                reference
             })
         });
 
@@ -327,32 +894,52 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(() => DockLayoutAdapter.project(model)).toThrow(/preview-only field "sourceSortZone"/);
     });
 
+    test('rejects the grouped-drag runtime-only groupNodeId at the adapter boundary', () => {
+        let model = createModel();
+
+        model.items.strategy.metadata = {
+            groupNodeId: 'tabs-1'
+        };
+
+        expect(() => DockLayoutAdapter.project(model)).toThrow(/preview-only field "groupNodeId"/);
+    });
+
     test('projects an autoHidden edge item into an edge rail and drops it from the tab flow', () => {
         let model = createEdgeZoneModel();
 
         model.items.terminal.autoHidden = true;
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
-            row          = result.items[0],
-            rail         = row.items.find(item => item.dockNodeType === 'edge-rail'),
-            side         = row.items.find(item => item.dockNodeId === 'side-split'),
-            terminalTabs = getProjectedChildren(side)[0];
+            row  = result.items[0],
+            rail = row.items.find(item => item.dockNodeType === 'edge-rail'),
+            side = row.items.find(item => item.dockNodeId === 'side-split');
 
-        // The auto-hidden item surfaces as a right-edge rail tab.
+        // The auto-hidden item surfaces as a right-edge DockRail affordance.
         expect(rail).toBeTruthy();
         expect(rail.dockEdge).toBe('right');
-        expect(rail.layout).toEqual({ntype: 'vbox', align: 'start'});
-        expect(rail.items.map(item => item.dockItemId)).toEqual(['terminal']);
-        expect(rail.items[0].dockNodeType).toBe('edge-rail-tab');
-        expect(rail.items[0].text).toBe('Terminal');
-        expect(rail.items[0].data).toEqual({dockEdge: 'right', dockItemId: 'terminal', dockRailTab: true});
+        expect(rail.edge).toBe('right');
+        expect(rail.flex).toBe('none');
+        expect(rail.module).toBe(DockRail);
+        expect(rail.ntype).toBe('dashboard-dock-rail');
+        expect(rail.railItems).toEqual([
+            {dockEdge: 'right', dockItemId: 'terminal', restorable: true, title: 'Terminal'}
+        ]);
+        // The rail's structural identity — its owning edge-zone node and its edge — is what lets the
+        // reconciler key a retained rail across projections; the same document projects it twice alike.
+        expect(rail.dockNodeId).toBe('root:edge-rail:right');
+        expect(DockLayoutAdapter.project(model, {
+            resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+        }).items[0].items.find(item => item.dockNodeType === 'edge-rail').dockNodeId).toBe(rail.dockNodeId);
 
-        // ...and is gone from its tab flow (the now-empty terminal-tabs).
-        expect(terminalTabs.dockNodeId).toBe('terminal-tabs');
-        expect(terminalTabs.items).toEqual([]);
-        expect(terminalTabs.activeIndex).toBeNull();
+        // ...and its now-empty tabs node is gone from the live split, not rendered as dead chrome.
+        expect([...collectProjectedTabsById(side).keys()]).toEqual(['inspector-tabs']);
+
+        // Geometry discipline: edge bands keep a fixed cross-extent, the center flexes.
+        expect(side.flex).toBe('none');
+        expect(side.cls).toEqual(expect.arrayContaining(['neo-dashboard-dock-edge-band', 'neo-dashboard-dock-edge-band-right']));
+        expect(row.items[0].flex).toBe(1);
     });
 
     test('does not rail an item that is pinned but not autoHidden', () => {
@@ -361,7 +948,7 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         model.items.terminal.pinned = true;
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             row = result.items[0];
 
@@ -374,7 +961,7 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         model.items.strategy.autoHidden = true;
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             row    = result.items[0],
             center = row.items[0];
@@ -382,5 +969,566 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         // Center never auto-hides to a rail; the item stays visible rather than vanishing.
         expect(row.items.find(item => item.dockNodeType === 'edge-rail')).toBeUndefined();
         expect(center.items.map(item => item.data.dockItemId)).toEqual(['strategy', 'swarm']);
+    });
+
+    test('an edge band whose every item is railed projects rail-only — no empty in-flow band box', () => {
+        let model  = createTabsBandModel(),
+            result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            row  = result.items[0],
+            band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
+            rail = row.items.find(item => item.dockNodeType === 'edge-rail');
+
+        // Every band item is auto-hidden: the tabs would project an EMPTY flow, and an empty
+        // band still holding its fixed cross-extent starves the center (a dead gutter at
+        // desktop; band + rail can exceed a narrow vessel's whole row). Rail-only is the
+        // truthful projection.
+        expect(band).toBeUndefined();
+        expect(rail).toBeTruthy();
+        expect(rail.railItems.map(item => item.dockItemId)).toEqual(['detail', 'operator']);
+
+        // the row keeps exactly the flexing center + the rail
+        expect(row.items.filter(item => item.dockNodeType !== 'splitter').length).toBe(2);
+        expect(row.items[0].flex).toBe(1);
+    });
+
+    test('a partially-railed edge band keeps projecting: live items still own their band', () => {
+        let model = createTabsBandModel();
+
+        model.items.operator.autoHidden = false;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            row  = result.items[0],
+            band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
+            rail = row.items.find(item => item.dockNodeType === 'edge-rail');
+
+        expect(band).toBeTruthy();
+        expect(band.flex).toBe('none');
+        expect(band.cls).toEqual(expect.arrayContaining(['neo-dashboard-dock-edge-band', 'neo-dashboard-dock-edge-band-right']));
+        expect(band.items.map(item => item.data.dockItemId)).toEqual(['operator']);
+
+        // the railed sibling still reaches the rail
+        expect(rail.railItems.map(item => item.dockItemId)).toEqual(['detail']);
+    });
+
+    test('a split edge band omits a child whose final live tab moved to the rail', () => {
+        let model = createEdgeZoneModel();
+
+        model.items.terminal.autoHidden = true;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            row  = result.items[0],
+            band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
+            rail = row.items.find(item => item.dockNodeType === 'edge-rail');
+
+        // The committed split remains model truth, but a child with zero live tabs has no in-flow
+        // representation. Keeping it renders an empty tab header/body beside the rail — the exact
+        // Workstation failure when Commit Stream is the final item in its split child.
+        expect(band).toBeTruthy();
+        expect(band.dockNodeId).toBe('side-split');
+        expect([...collectProjectedTabsById(band).keys()]).toEqual(['inspector-tabs']);
+        expect(getProjectedSplitters(band), 'one surviving child has no split boundary').toHaveLength(0);
+        expect(rail.railItems.map(item => item.dockItemId)).toEqual(['terminal'])
+    });
+
+    test('a split edge band with no live descendants projects rail-only', () => {
+        let model  = createEdgeZoneModel(),
+            before = JSON.stringify(model);
+
+        model.items.terminal.autoHidden  = true;
+        model.items.inspector.autoHidden = true;
+        before = JSON.stringify(model);
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            row  = result.items[0],
+            band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
+            rail = row.items.find(item => item.dockNodeType === 'edge-rail');
+
+        expect(band, 'an empty split wrapper must not retain the edge-band extent').toBeUndefined();
+        expect(rail.railItems.map(item => item.dockItemId)).toEqual(['terminal', 'inspector']);
+        expect(row.items.filter(item => item.dockNodeType === 'splitter'),
+            'rail-only has no edge splitter against a missing band').toHaveLength(0);
+        expect(JSON.stringify(model), 'projection never rewrites the committed split').toBe(before)
+    });
+
+    test('threads reducer callbacks from projection context into the rail affordance', () => {
+        let applyDockZoneOperation    = () => null,
+            model                     = createEdgeZoneModel(),
+            onDockZoneDocumentChange  = () => null,
+            resolveComponentRef       = reference => ({hidden: true, ntype: 'component', reference}),
+            resolveRevealComponentRef = reference => ({html: reference, ntype: 'component'});
+
+        model.items.terminal.autoHidden = true;
+
+        let result = DockLayoutAdapter.project(model, {
+                applyDockZoneOperation,
+                autoHideRevealOnHover: true,
+                defaultRevealFraction: 0.4,
+                onDockZoneDocumentChange,
+                resolveComponentRef,
+                resolveRevealComponentRef
+            }),
+            rail = result.items[0].items.find(item => item.dockNodeType === 'edge-rail');
+
+        // Commits must ride the workspace's single operation path — same threading as splitters.
+        expect(rail.applyDockZoneOperation).toBe(applyDockZoneOperation);
+        expect(rail.onDockZoneDocumentChange).toBe(onDockZoneDocumentChange);
+        expect(rail.dockZoneDocument).toBe(model);
+        expect(rail.resolveComponentRef).toBe(resolveRevealComponentRef);
+        expect(rail.resolveComponentRef('terminal')).toEqual({html: 'terminal', ntype: 'component'});
+        // Workspace-level interaction options thread through; they default when absent.
+        expect(rail.autoHideRevealOnHover).toBe(true);
+        expect(rail.defaultRevealFraction).toBe(0.4);
+        rail = DockLayoutAdapter.project(model, {resolveComponentRef})
+            .items[0].items.find(item => item.dockNodeType === 'edge-rail');
+        expect(rail.autoHideRevealOnHover).toBe(false);
+        expect(rail.resolveComponentRef).toBe(resolveComponentRef)
+    });
+
+    test('resolveRevealExtent returns the committed edge extent, never a nested split share', () => {
+        let model = createEdgeZoneModel();
+
+        // Both items belong to the right edge. The nested split sizes are internal to that band;
+        // reveal uses the edge descriptor's committed extent for either item.
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'terminal')).toBeCloseTo(0.3);
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'inspector')).toBeCloseTo(0.3);
+
+        // strategy's tabs node sits directly in an edge-zone slot — no ancestor split, no extent.
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'strategy')).toBeNull();
+
+        // Unknown items and absent models fail null-safe.
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'ghost')).toBeNull();
+        expect(DockLayoutAdapter.resolveRevealExtent(null, 'terminal')).toBeNull();
+    });
+
+    test('projects one rail per edge with correct membership (multi-edge grouping)', () => {
+        let model = createEdgeZoneModel();
+
+        model.items.navigator    = {reference: 'navigator', title: 'Navigator'};
+        model.nodes['left-tabs'] = {type: 'tabs', items: ['navigator'], activeItemId: 'navigator'};
+        model.nodes.root.zones.left = {nodeId: 'left-tabs', extent: 0.2, resizable: true};
+
+        model.items.navigator.autoHidden = true;
+        model.items.terminal.autoHidden  = true;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            rails = result.items[0].items.filter(item => item.dockNodeType === 'edge-rail');
+
+        expect(rails.map(rail => rail.dockEdge)).toEqual(['left', 'right']);
+        expect(rails[0].railItems.map(item => item.dockItemId)).toEqual(['navigator']);
+        expect(rails[1].railItems.map(item => item.dockItemId)).toEqual(['terminal']);
+    });
+
+    test('re-projects consistently across rapid autoHidden toggles through the executor', () => {
+        let model    = createEdgeZoneModel(),
+            options  = {resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})},
+            findRail = result => result.items[0].items.find(item => item.dockNodeType === 'edge-rail');
+
+        let hidden = Operations.applyOperation(model, {autoHidden: true, itemId: 'terminal', operation: 'setItemAutoHidden'});
+        expect(hidden.errors).toEqual([]);
+
+        let railed = findRail(DockLayoutAdapter.project(hidden.document, options));
+        expect(railed.railItems.map(item => item.dockItemId)).toEqual(['terminal']);
+
+        let restored = Operations.applyOperation(hidden.document, {autoHidden: false, itemId: 'terminal', operation: 'setItemAutoHidden'});
+        expect(findRail(DockLayoutAdapter.project(restored.document, options))).toBeUndefined();
+
+        let rehidden = Operations.applyOperation(restored.document, {autoHidden: true, itemId: 'terminal', operation: 'setItemAutoHidden'});
+        expect(findRail(DockLayoutAdapter.project(rehidden.document, options)).railItems).toEqual(railed.railItems);
+    });
+
+    test('projects restorable: false for a railed item whose pinnable policy flipped off', () => {
+        let model = createEdgeZoneModel();
+
+        // Reachable state: the item railed first, then its policy flipped — the model would now
+        // reject setItemAutoHidden(false), so the tab must not lie about the affordance.
+        model.items.terminal.autoHidden = true;
+        model.items.terminal.pinnable   = false;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            rail = result.items[0].items.find(item => item.dockNodeType === 'edge-rail');
+
+        expect(rail.railItems).toEqual([
+            {dockEdge: 'right', dockItemId: 'terminal', restorable: false, title: 'Terminal'}
+        ]);
+    });
+
+    test('projectTabsNode injects the tab-native overflow plugin into the projected header toolbar', () => {
+        let result = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            mainTabs = result.items[0],
+            plugins  = mainTabs.headerToolbar?.plugins;
+
+        // The dock CONSUMES the generic tab-overflow affordance by injecting Neo.tab.plugin.Overflow into
+        // every projected tab header toolbar's plugins — a one-directional adapter→plugin consume (the plugin
+        // owns its computeOverflow static, so nothing reaches back to the adapter). Wiring, not behavior: this
+        // pins that the projection carries the plugin, so a silent drop of the injection is caught in CI.
+        expect(mainTabs.module).toBe(DockTabContainer);
+        expect(mainTabs.ui, 'dock tab strips use the generic embedded-header variant').toBe('inline');
+        expect(plugins).toHaveLength(1);
+        expect(plugins[0].module).toBe(TabOverflowPlugin);
+        expect(plugins[0].projectAsAction, 'dock headers project Overflow into their action rail').toBe(true);
+    });
+
+    test('a projected header routes the overflow plugin\'s start/idle pair into the dock motion signal, carried by the header toolbar itself — one entry per header, a nested pass counted, an idle without a start a no-op', async () => {
+        const
+            MotionSignal = (await import('../../../../src/dashboard/dock/projection/MotionSignal.mjs')).default,
+            result       = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            listeners    = result.items[0].headerToolbar.listeners,
+            makeToolbar  = id => ({id, isDestroyed: false, isDestroying: false, cls: [], addCls(cls) { this.cls.push(cls) }, removeCls(cls) { this.cls = this.cls.filter(c => c !== cls) }}),
+            headerA      = makeToolbar('header-a'),
+            headerB      = makeToolbar('header-b');
+
+        MotionSignal.activeMotions.clear();
+
+        try {
+            expect(typeof listeners.overflowProjectionStart).toBe('function');
+            expect(typeof listeners.overflowProjectionIdle).toBe('function');
+
+            // Each header toolbar carries its own signal: the class lands where the nodes move.
+            listeners.overflowProjectionStart({owner: headerA});
+            listeners.overflowProjectionStart({owner: headerB});
+
+            expect(headerA.cls).toEqual(['neo-dashboard-dock-animating']);
+            expect(headerB.cls).toEqual(['neo-dashboard-dock-animating']);
+            expect(MotionSignal.isAnimating('header-a')).toBe(true);
+
+            listeners.overflowProjectionIdle({owner: headerA});
+
+            expect(headerA.cls, 'A settled').toEqual([]);
+            expect(headerB.cls, 'B is still in flight').toEqual(['neo-dashboard-dock-animating']);
+
+            listeners.overflowProjectionIdle({owner: headerB});
+
+            expect(headerB.cls).toEqual([]);
+            expect(MotionSignal.isAnimating('header-b')).toBe(false);
+
+            // Counted: a second producer on the same toolbar (a FLIP or reveal nesting a repartition)
+            // keeps the class until the last one leaves; an idle without a start changes nothing.
+            listeners.overflowProjectionStart({owner: headerA});
+            MotionSignal.enter(headerA);
+            listeners.overflowProjectionIdle({owner: headerA});
+
+            expect(headerA.cls, 'the other producer still holds it').toEqual(['neo-dashboard-dock-animating']);
+
+            MotionSignal.leave(headerA);
+            listeners.overflowProjectionIdle({owner: headerA});
+
+            expect(headerA.cls).toEqual([]);
+            expect(MotionSignal.activeMotions.size, 'an unbalanced idle registers nothing').toBe(0)
+        } finally {
+            MotionSignal.activeMotions.clear()
+        }
+    });
+
+    test('a header re-projected mid-pass cannot wedge the signal: the destroyed toolbar\'s entry clears through the fail-safe, its late idle is a no-op, and the new header\'s pass is a clean pair', async () => {
+        const
+            MotionSignal = (await import('../../../../src/dashboard/dock/projection/MotionSignal.mjs')).default,
+            result       = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            listeners    = result.items[0].headerToolbar.listeners,
+            makeToolbar  = id => ({id, isDestroyed: false, isDestroying: false, cls: [], addCls(cls) { this.cls.push(cls) }, removeCls(cls) { this.cls = this.cls.filter(c => c !== cls) }}),
+            oldHeader    = makeToolbar('header-old'),
+            newHeader    = makeToolbar('header-new'),
+            failSafeMs   = MotionSignal.FAIL_SAFE_MS;
+
+        MotionSignal.activeMotions.clear();
+        MotionSignal.FAIL_SAFE_MS = 30;
+
+        try {
+            // The old header arms a pass, then the dock re-projects and destroys it mid-flight: its idle
+            // never publishes (a destroyed owner has no listeners), so its entry outlives it — until the
+            // fail-safe clears it. Nothing else carries a stale class.
+            listeners.overflowProjectionStart({owner: oldHeader});
+            expect(MotionSignal.isAnimating('header-old')).toBe(true);
+
+            oldHeader.isDestroyed = true;
+
+            await new Promise(resolve => setTimeout(resolve, 80));
+
+            expect(MotionSignal.isAnimating('header-old'), 'the fail-safe cleared the destroyed header\'s entry').toBe(false);
+            expect(MotionSignal.activeMotions.size).toBe(0);
+
+            // A late idle from the destroyed header — the pass's finally reaching a listener after all —
+            // registers nothing and touches no other component.
+            listeners.overflowProjectionIdle({owner: oldHeader});
+            expect(MotionSignal.activeMotions.size).toBe(0);
+
+            // The re-projected header's own pass is a clean pair.
+            listeners.overflowProjectionStart({owner: newHeader});
+            expect(newHeader.cls).toEqual(['neo-dashboard-dock-animating']);
+            listeners.overflowProjectionIdle({owner: newHeader});
+            expect(newHeader.cls).toEqual([]);
+            expect(MotionSignal.isAnimating('header-new')).toBe(false)
+        } finally {
+            MotionSignal.FAIL_SAFE_MS = failSafeMs;
+            MotionSignal.activeMotions.clear()
+        }
+    });
+
+    test('the composed pointer contract with the real plugin: a menu that parks an active pass releases the header toolbar\'s signal at once, and the pass that resumes after the menu drains runs its split with the signal present — not by way of the fail-safe', async () => {
+        let release,
+            callCount = 0,
+            plugin;
+
+        const
+            MotionSignal = (await import('../../../../src/dashboard/dock/projection/MotionSignal.mjs')).default,
+            result       = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            listeners    = result.items[0].headerToolbar.listeners,
+            failSafeMs   = MotionSignal.FAIL_SAFE_MS,
+            gate         = new Promise(resolve => {release = resolve}),
+            splits       = [],
+            // A lean header toolbar: what the plugin measures and mutates, what the signal marks, and the
+            // projected header config's own listeners as the owner's event surface.
+            owner        = {
+                id          : 'header-live',
+                appName     : 'DashboardDockLayoutAdapterTest',
+                dock        : 'top',
+                mounted     : true,
+                isDestroyed : false,
+                isDestroying: false,
+                cls         : [],
+                parent      : {activeIndex: 0, on() {}, un() {}},
+                theme       : 'neo-theme-neo-dark',
+                windowId    : 1,
+                items       : [{id: 'b1'}, {id: 'b2'}],
+                addCls(cls) { this.cls.push(cls) },
+                removeCls(cls) { this.cls = this.cls.filter(c => c !== cls) },
+                getActionItems: () => [],
+                getTabButtons() { return this.items },
+                getTheme() { return this.theme },
+                async getDomRect(ids) {
+                    callCount++;
+                    if (callCount === 1) { await gate }
+                    return ids[0] === 'header-live' ? [{width: 1000}] : [{width: 10}, {width: 10}]
+                },
+                add               : () => ({}),
+                addDomListeners   : () => {},
+                removeDomListeners: () => {},
+                fire              : (name, data) => listeners[name]?.(data),
+                on                : () => {},
+                un                : () => {},
+                remove            : () => {},
+                up                : () => ({activeIndex: 0})
+            };
+
+        MotionSignal.activeMotions.clear();
+        MotionSignal.FAIL_SAFE_MS = 30;
+
+        try {
+            plugin         = Neo.create(TabOverflowPlugin, {owner});
+            plugin.control = null;
+
+            const applySplit = plugin.applySplit;
+
+            plugin.applySplit = function (...args) {
+                splits.push(MotionSignal.isAnimating('header-live'));
+                return applySplit.apply(this, args)
+            };
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            // An active measure carries the signal on the toolbar itself.
+            expect(plugin.measuring).toBe(true);
+            expect(MotionSignal.isAnimating('header-live'), 'a measuring header carries the signal').toBe(true);
+
+            // The menu opens during the awaited measure: the mutation boundary parks the pass. Parked means
+            // stable, so the signal leaves at once — no fail-safe involved.
+            const menuList = Neo.create(MountableMenuList, {mounted: true});
+
+            plugin.control = {alignTo() {}, destroy() {}, iconCls: 'fa fa-ellipsis', menuList, mounted: true};
+
+            release();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(plugin.menuProjectionQueued, 'the pass is parked behind the menu').toBe(true);
+            expect(splits, 'a parked pass mutates nothing').toEqual([]);
+            expect(MotionSignal.isAnimating('header-live'), 'a parked pass releases the signal at once').toBe(false);
+
+            // The menu is held past the fail-safe window: nothing is left for the fail-safe to clear, and
+            // nothing may be left that the resume below depends on.
+            await new Promise(resolve => setTimeout(resolve, 80));
+
+            expect(MotionSignal.activeMotions.size).toBe(0);
+
+            // The menu closes and the drain resumes the pass as a fresh transaction: its split executes with
+            // the signal present, and the signal leaves once it settles.
+            menuList.mounted = false;
+
+            await plugin.whenProjectionIdle();
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(splits, 'the resumed split ran with the signal present').toEqual([true]);
+            expect(MotionSignal.isAnimating('header-live'), 'settled: the signal left').toBe(false);
+            expect(MotionSignal.activeMotions.size).toBe(0);
+
+            menuList.destroy()
+        } finally {
+            MotionSignal.FAIL_SAFE_MS = failSafeMs;
+            MotionSignal.activeMotions.clear();
+            plugin?.destroy()
+        }
+    });
+
+    test.describe('tab sort boundary + tear-out projection threading', () => {
+        test('a workspace boundary enables ordinary cross-zone motion without arming tear-out', () => {
+            const result = DockLayoutAdapter.project(createModel(), {
+                dockWorkspaceBoundaryContainerId: 'dock-workspace-root',
+                resolveComponentRef             : reference => ({ntype: 'dashboard-panel', reference})
+            });
+            const config = result.items[0].headerToolbar.sortZoneConfig;
+
+            expect(config).toMatchObject({
+                allowOverdrag      : false,
+                boundaryContainerId: 'dock-workspace-root',
+                enableProxyToPopup : false
+            })
+        });
+
+        test('an explicit tear-out boundary wins over the workspace default', () => {
+            const result = DockLayoutAdapter.project(createModel(), {
+                dockTearOutBoundaryContainerId  : 'tear-out-root',
+                dockWorkspaceBoundaryContainerId: 'dock-workspace-root',
+                resolveComponentRef             : reference => ({ntype: 'dashboard-panel', reference})
+            });
+
+            expect(result.items[0].headerToolbar.sortZoneConfig.boundaryContainerId).toBe('tear-out-root')
+        });
+
+        test('enableDockTearOut arms the app-boundary popup grammar on every projected tab sort zone and threads the four gesture seams', () => {
+            const captured = {cancel: [], entry: [], exit: [], terminal: []};
+
+            const result = DockLayoutAdapter.project(createModel(), {
+                dockTearOutBoundaryContainerId: 'workstation-root',
+                enableDockTearOut             : true,
+                onDockTearOutCancel           : data => captured.cancel.push(data),
+                onDockTearOutEntry            : data => captured.entry.push(data),
+                onDockTearOutExit             : data => captured.exit.push(data),
+                onDockTearOutTerminal         : data => captured.terminal.push(data),
+                resolveComponentRef           : reference => ({ntype: 'dashboard-panel', reference})
+            });
+
+            const mainTabs = result.items[0];
+
+            // The serializable flag rides the sortZoneConfig; the closures live on the tab.Container
+            // listeners block — the projection's proven clone-safe closure home. A function inside
+            // sortZoneConfig would not survive config cloning; this split is the load-bearing shape.
+            expect(mainTabs.headerToolbar.sortZoneConfig).toMatchObject({
+                boundaryContainerId: 'workstation-root',
+                enableProxyToPopup : true
+            });
+
+            for (const [listener, bucket] of [
+                ['dockTearOutCancel', 'cancel'], ['dockTearOutEntry', 'entry'],
+                ['dockTearOutExit', 'exit'], ['dockTearOutTerminal', 'terminal']
+            ]) {
+                const handler = mainTabs.listeners[listener];
+
+                expect(typeof handler, `${listener} must be wired`).toBe('function');
+                handler({itemId: 'swarm'});
+                expect(captured[bucket]).toEqual([{itemId: 'swarm'}])
+            }
+        });
+
+        test('absent opt-in keeps the dock fully in-window: the flag projects false (the unchanged default)', () => {
+            const result = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            });
+
+            const config = result.items[0].headerToolbar.sortZoneConfig;
+
+            expect(config.enableProxyToPopup).toBe(false);
+            expect(config).not.toHaveProperty('boundaryContainerId')
+        })
+    });
+
+    test.describe('claim projection threading — the source decides, the projection threads one flag', () => {
+        test('the explicit opt-in reaches the projected dock sort zone, and the default stays off', () => {
+            const project = options => DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference}),
+                ...options
+            }).items[0].headerToolbar.sortZoneConfig;
+
+            expect(project({enableVesselConversion: true}).enableVesselConversion).toBe(true);
+            expect(project({}).enableVesselConversion).toBe(false)
+        })
+    });
+
+    test.describe('whole-stack projection threading — one model-derived grip', () => {
+        test('a live pane gets a reversible runtime header overlay with its original restored exactly', () => {
+            const pane    = Neo.create(Component, {header: {text: 'Live pane'}}),
+                item      = {reference: 'live', title: 'Live pane'},
+                decorated = DockLayoutAdapter.decorateProjectedItem(pane, 'live', item, {stackHandle: true}),
+                grip      = decorated.header.text[1];
+
+            expect(decorated).toBe(pane);
+            expect(grip.cls).toEqual(['neo-dock-stack-handle']);
+            expect(grip.id).toBe('neo-dock-stack-handle-live');
+
+            const restored = DockLayoutAdapter.decorateProjectedItem(pane, 'live', item);
+
+            expect(restored).toBe(pane);
+            expect(restored.header).toEqual({text: 'Live pane'});
+
+            pane.destroy()
+        });
+
+        test('the opt-in decorates only the active resolved-stack header and threads its terminal', () => {
+            const terminals = [];
+            const model     = createEdgeZoneModel();
+            const snapshot  = JSON.parse(JSON.stringify(model));
+            const result    = DockLayoutAdapter.project(model, {
+                enableStackDrag        : true,
+                onDockStackDragTerminal: data => terminals.push(data),
+                resolveComponentRef    : reference => ({ntype: 'dashboard-panel', reference})
+            });
+            const mainTabs = result.items[0].items.find(item => item.dockNodeId === 'main-tabs');
+            const side     = result.items[0].items.find(item => item.dockNodeId === 'side-split');
+            const header   = mainTabs.items[1].header;
+
+            expect(mainTabs.items[0].header.text).toBe('Strategy');
+            expect(header.text[0]).toEqual({vtype: 'text', text: 'Swarm'});
+            expect(header.text[1]).toMatchObject({
+                'aria-hidden': true,
+                cls          : ['neo-dock-stack-handle'],
+                id           : 'neo-dock-stack-handle-swarm',
+                tag          : 'span',
+                title        : 'Drag whole stack'
+            });
+            expect(mainTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBe('main-tabs');
+            expect(side.items[0].headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull();
+
+            mainTabs.listeners.dockStackDragTerminal({groupNodeId: 'main-tabs'});
+            expect(terminals).toEqual([{groupNodeId: 'main-tabs'}]);
+            expect(model).toEqual(snapshot)
+        });
+
+        test('without the opt-in every projected header and sort zone stays item-only', () => {
+            const result = DockLayoutAdapter.project(createEdgeZoneModel(), {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            });
+            const mainTabs = result.items[0].items[0];
+
+            expect(mainTabs.items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
+            expect(mainTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull()
+        })
     });
 });

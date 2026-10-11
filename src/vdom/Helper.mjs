@@ -45,23 +45,24 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
-     * @returns {Object} deltas
+     * @returns {Boolean} true when an innerHTML or textContent update was emitted, which replaces the node's children
      * @protected
      */
     compareAttributes({deltas, oldVnode, vnode, vnodeMap}) {
         // If either vnode is a component placeholder (indicated by the presence of componentId),
         // we must not compare element attributes.
         if (vnode.componentId || oldVnode.componentId) {
-            return deltas;
+            return false
         }
 
         // Fragments are "transparent" containers. They do not have physical DOM attributes or styles.
         // Therefore, we skip attribute comparison entirely.
         if (vnode.nodeName === 'fragment') {
-            return deltas
+            return false
         }
 
-        let delta = {},
+        let delta           = {},
+            replacesContent = false,
             attributes, value, keys, styles, add, remove;
 
         if (vnode.vtype === 'text' && vnode.textContent !== oldVnode.textContent) {
@@ -197,12 +198,16 @@ class Helper extends Base {
             }
 
             if (Object.keys(delta).length > 0) {
-                delta.id = vnode.id;
-                deltas.default.push(delta)
+                delta.id        = vnode.id;
+                replacesContent = Object.hasOwn(delta, 'innerHTML') || Object.hasOwn(delta, 'textContent');
+
+                // Markup replaces the old children, so it waits behind the moves, as their removal does: a child moving
+                // to a node the diff reaches later would be detached before its move could find it
+                deltas[replacesContent && this.hasMovedDescendant(oldVnode, vnodeMap) ? 'remove' : 'default'].push(delta)
             }
         }
 
-        return deltas
+        return replacesContent
     }
 
     /**
@@ -285,10 +290,15 @@ class Helper extends Base {
             len           = Math.max(childNodes.length, oldChildNodes.length),
             childNode, nodeInNewTree, oldChildNode, oldChildNodeId;
 
-        me.compareAttributes({deltas, oldVnode, vnode, vnodeMap});
+        const replacesContent = me.compareAttributes({deltas, oldVnode, vnode, vnodeMap});
 
         if (childNodes.length === 0 && oldChildNodes.length > 1) {
-            deltas.remove.push({action: 'removeAll', parentId: vnodeId});
+            // An emitted textContent or innerHTML update replaces every child natively, and a removeAll behind it
+            // would erase the content just written. Without one (no content, or content unchanged), clear here.
+            if (!replacesContent) {
+                deltas.remove.push({action: 'removeAll', parentId: vnodeId})
+            }
+
             return deltas
         }
 
@@ -324,7 +334,7 @@ class Helper extends Base {
 
                 // Remove node, if no longer inside the new tree
                 if (!nodeInNewTree) {
-                    me.removeNode({deltas, oldVnode: oldChildNode, oldVnodeMap});
+                    me.removeNode({deltas, oldVnode: oldChildNode, parentNode: oldVnode});
                     i--;
                     insertDelta++;
                     continue
@@ -559,7 +569,7 @@ class Helper extends Base {
      * @returns {Number}
      */
     getFragmentPhysicalCount(fragmentNode) {
-        let count      = 2, // Start + End anchors
+        let count = 2, // Start + End anchors
             childNodes = fragmentNode.childNodes,
             i          = 0,
             len        = childNodes?.length || 0,
@@ -613,6 +623,19 @@ class Helper extends Base {
         }
 
         return physicalIndex
+    }
+
+    /**
+     * Whether a node's old subtree holds a node the new tree still contains, which the diff then moves elsewhere.
+     * @param {Neo.vdom.VNode} oldVnode
+     * @param {Map}            vnodeMap The new tree's nodes by id
+     * @returns {Boolean}
+     * @protected
+     */
+    hasMovedDescendant(oldVnode, vnodeMap) {
+        return !!oldVnode.childNodes?.some(child =>
+            vnodeMap.has(child.id || child.componentId) || this.hasMovedDescendant(child, vnodeMap)
+        )
     }
 
     /**
@@ -693,10 +716,11 @@ class Helper extends Base {
         oldVnodeMap.get(parentId).vnode.childNodes.splice(index, 0, vnode);
 
         for (let details of movedNodes.values()) {
-            let {id}     = details,
-                parentId = details.parentNode.id;
+            let {id, parentNode} = details,
+                parentId         = parentNode.id;
 
-            deltas.default.push({action: 'moveNode', id, index: details.index, parentId});
+            // The move applies to the DOM, where a text child spans three nodes
+            deltas.default.push({action: 'moveNode', id, index: me.getPhysicalIndex(parentNode, details.index), parentId});
 
             me.createDeltas({deltas, oldVnode: oldVnodeMap.get(id).vnode, oldVnodeMap, vnode: details.vnode, vnodeMap})
         }
@@ -781,19 +805,23 @@ class Helper extends Base {
     }
 
     /**
+     * @summary Emits the removal of `oldVnode` and drops it from the parent the caller is iterating.
+     *
+     * The parent is the caller's, never the vnode map's: `createDeltas` revisits the same index after a removal, so
+     * the removal must shrink the array it iterates. For a component referenced from two parents of the old tree the
+     * map holds only one of them, and removing from that one spun the diff until the VDom worker threw.
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
-     * @param {Map}            config.oldVnodeMap
+     * @param {Neo.vdom.VNode} config.parentNode The old-tree parent whose `childNodes` the caller iterates
      * @protected
      */
-    removeNode({deltas, oldVnode, oldVnodeMap}) {
+    removeNode({deltas, oldVnode, parentNode}) {
         if (oldVnode.componentId) {
             oldVnode.id ??= oldVnode.componentId
         }
 
-        let delta        = {action: 'removeNode', id: oldVnode.id},
-            {parentNode} = oldVnodeMap.get(oldVnode.id);
+        let delta = {action: 'removeNode', id: oldVnode.id};
 
         if (oldVnode.vtype === 'text' || oldVnode.nodeName === 'fragment') {
             delta.parentId = parentNode.id
@@ -842,11 +870,11 @@ class Helper extends Base {
      * This method is the core of the "Teleportation" / Disjoint Updates architecture.
      * Instead of building a single bridged VDOM tree, we process multiple components
      * as separate, disjoint updates in a single batch.
-     * 
+     *
      * **Meta Payload Aggregation:**
-     * If individual component updates provide a `meta` object (see `Neo.mixin.VdomLifecycle#getVdomUpdatePayload`), 
-     * this method aggregates them into a single `meta` dictionary keyed by `componentId`. This allows 
-     * the VDOM worker to pass contextual App Worker state (like baseline `scrollTop` values) through 
+     * If individual component updates provide a `meta` object (see `Neo.mixin.VdomLifecycle#getVdomUpdatePayload`),
+     * this method aggregates them into a single `meta` dictionary keyed by `componentId`. This allows
+     * the VDOM worker to pass contextual App Worker state (like baseline `scrollTop` values) through
      * to the Main Thread's `DeltaUpdates` event listeners.
      *
      * @param {Object} data
@@ -865,7 +893,7 @@ class Helper extends Base {
             if (Object.hasOwn(data.updates, id)) {
                 updateOpts = data.updates[id];
                 result     = me.update(updateOpts);
-                
+
                 allDeltas.push(...result.deltas);
                 vnodes[id] = result.vnode;
 

@@ -38,6 +38,7 @@ const globalDomEvents = [
     'click',
     'contextmenu',
     'dblclick',
+    'drag:cancel',
     'drag:end',
     'drag:move',
     'drag:start',
@@ -256,9 +257,12 @@ class DomEvent extends Base {
             let dragZone = data.dragZoneId && Neo.get(data.dragZoneId);
 
             if (dragZone) {
-                // drag:move & drag:end
                 if (eventName.startsWith('drag:')) {
-                    dragZone[eventName === 'drag:move' ? 'onDragMove' : 'onDragEnd']?.(data)
+                    dragZone[{
+                        'drag:cancel': 'onDragCancel',
+                        'drag:end'   : 'onDragEnd',
+                        'drag:move'  : 'onDragMove'
+                    }[eventName]]?.(data)
                 } else {
                     dragZone.fire(eventName, data);
                     dragZone[{
@@ -267,6 +271,9 @@ class DomEvent extends Base {
                         'drop:leave': 'onDropLeave',
                     }[eventName]].call(dragZone, data)
                 }
+            } else if (eventName === 'drag:cancel' && data.crossWindow) {
+                // Escape in a window that owns no gesture: a cross-window drag may belong to another one
+                Neo.manager.DragCoordinator?.cancelCrossWindowGesture({windowId: event.windowId})
             }
         }
     }
@@ -327,6 +334,17 @@ class DomEvent extends Base {
 
     /**
      * Mounts local domEvent listeners for a given component
+     *
+     * Every caller reaches this after a delay — `updateDomListeners()` defers 50ms, `mixin.DomEvents`
+     * 150ms — so the window can close between the decision to mount and this. `component.mounted`
+     * cannot report that: the App Worker's model outlives its window's port and stays `true`. The
+     * check therefore belongs HERE, at the single point both schedulers funnel through, rather than
+     * at each of them; a third scheduler inherits it instead of having to remember it.
+     *
+     * Failing toward mounting is deliberate. A worker without the predicate behaves exactly as it did
+     * before this guard existed — absence must never silently skip a mount, which is the opposite
+     * direction from a release guard, where absence must never skip the release.
+     *
      * @param {Neo.component.Base} component
      * @protected
      */
@@ -334,6 +352,10 @@ class DomEvent extends Base {
         let me          = this,
             listeners   = me.items[component.id],
             localEvents = [];
+
+        if (Neo.currentWorker?.isWindowDeparted?.(component.windowId)) {
+            return
+        }
 
         if (listeners) {
             Object.entries(listeners).forEach(([eventName, value]) => {
@@ -573,8 +595,11 @@ class DomEvent extends Base {
                 }
 
                 me.mountTimeouts[component.id] = setTimeout(() => {
-                    me.mountDomListeners(component);
-                    delete me.mountTimeouts[component.id]
+                    // Freed before the work, not after: the slot describes a PENDING mount, and a
+                    // mount that declines to run still ends the pending state.
+                    delete me.mountTimeouts[component.id];
+
+                    me.mountDomListeners(component)
                 }, 50)
             }
         } else {
@@ -583,7 +608,7 @@ class DomEvent extends Base {
     }
 
     /**
-     * Verifies if the event target (or a delegate matching node) is a descendant of the listener's component.
+     * @summary Matches delegates within physical/logical ancestry; ID-only paths need no class data.
      * This check supports two modes:
      * 1. **DOM Ancestry (Standard):** Checks if the target is physically inside the listener's DOM node.
      * 2. **Logical Ancestry (Fallback):** If the DOM check fails, it checks the `componentPath` to see if the
@@ -622,10 +647,7 @@ class DomEvent extends Base {
                 }
 
                 for (; j < pathLen; j++) {
-                    if (
-                        (isId && path[j].id === item) ||
-                        path[j].cls.includes(item)
-                    ) {
+                    if (isId ? path[j].id === item : path[j].cls.includes(item)) {
                         hasMatch = true;
                         targetId = path[j].id;
                         break

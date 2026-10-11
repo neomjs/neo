@@ -7,7 +7,7 @@
  * 2. Components are moved correctly when `parentId` changes.
  * 3. Components are removed from the `childMap` upon destruction (unregister).
  *
- * This reverse map optimization (Issue #8872) allows for O(1) retrieval of direct children
+ * This reverse map optimization allows for O(1) retrieval of direct children
  * via `ComponentManager.getDirectChildren(parentId)`, eliminating the need for O(N) linear scans.
  *
  * @see Neo.manager.Component
@@ -38,7 +38,13 @@ import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs
 import InstanceManager from '../../../../src/manager/Instance.mjs';
 
 // Mock applyDeltas to prevent errors during mount
+const realApplyDeltas = Neo.applyDeltas; // patched at import; restored in afterAll below
+
 Neo.applyDeltas = async () => {};
+
+test.afterAll(() => {
+    Neo.applyDeltas = realApplyDeltas;
+});
 
 class ChildComponent extends Component {
     static config = {
@@ -60,7 +66,7 @@ test.describe('Issue 8872: ComponentManager Reverse Map', () => {
     test('childMap should update on parentId change', async () => {
         const parent1 = Neo.create(ParentComponent, { appName });
         const parent2 = Neo.create(ParentComponent, { appName });
-        
+
         const child = Neo.create(ChildComponent, {
             appName,
             parentId: parent1.id
@@ -87,7 +93,7 @@ test.describe('Issue 8872: ComponentManager Reverse Map', () => {
 
         // Unregister
         child.destroy();
-        
+
         children2 = ComponentManager.getDirectChildren(parent2.id);
         expect(children2.length).toBe(0);
 

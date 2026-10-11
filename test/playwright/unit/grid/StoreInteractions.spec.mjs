@@ -27,13 +27,114 @@ setup({
     }
 });
 
-import {test, expect}     from '@playwright/test';
-import Neo                from '../../../../src/Neo.mjs';
-import * as core          from '../../../../src/core/_export.mjs';
-import GridContainer      from '../../../../src/grid/Container.mjs';
-import InstanceManager    from '../../../../src/manager/Instance.mjs';
-import Store              from '../../../../src/data/Store.mjs';
-import VdomHelper         from '../../../../src/vdom/Helper.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import Button          from '../../../../src/button/Base.mjs';
+import GridContainer   from '../../../../src/grid/Container.mjs';
+import InstanceManager from '../../../../src/manager/Instance.mjs';
+import Store           from '../../../../src/data/Store.mjs';
+import TreeModel       from '../../../../src/data/TreeModel.mjs';
+import TreeStore       from '../../../../src/data/TreeStore.mjs';
+import VdomHelper      from '../../../../src/vdom/Helper.mjs';
+
+test.describe('Grid snapshots with stable record keys', () => {
+    let grid, store, renderCount;
+
+    test.beforeEach(async () => {
+        renderCount = 0;
+        store = Neo.create(Store, {
+            model: {fields: [{name: 'id', type: 'String'}, {name: 'name', type: 'String'}]},
+            data : [{id: 'same', name: 'before'}]
+        });
+        await store.ready();
+
+        grid = Neo.create(GridContainer, {
+            appName      : 'GridStoreInteractionsTest',
+            height       : 200,
+            width        : 600,
+            rowHeight    : 40,
+            store,
+            useInternalId: false,
+            columns      : [{
+                dataField: 'name', text: 'Plain', width: 150,
+                renderer : ({value}) => { ++renderCount; return value }
+            }, {
+                dataField: 'id', text: 'Component', type: 'component', width: 150,
+                component: ({record}) => ({module: Button, text: record.name})
+            }]
+        });
+        await grid.ready();
+        await grid.initVnode();
+        grid.mounted = true;
+        grid.body.columnPositions.clear();
+        grid.body.columnPositions.add([
+            {dataField: 'name', width: 150, x: 0},
+            {dataField: 'id', width: 150, x: 150}
+        ]);
+        grid.body.set({availableHeight: 160, containerWidth: 600});
+        await grid.timeout(50);
+    });
+
+    test.afterEach(() => {
+        grid?.destroy();
+        store?.destroy();
+    });
+
+    for (const continuation of [false, true]) {
+        test(`fresh same-key records refresh pooled and component cells (continuation=${continuation})`, async () => {
+            const row    = grid.body.items.find(row => row.rowIndex === 0),
+                  button = row.components.id,
+                  rowId  = row.id;
+
+            for (const name of ['after', 'before']) {
+                const previous = row.record;
+
+                store.setData([{id: 'same', name}], {continuation});
+                await grid.timeout(50);
+
+                expect(row.id).toBe(rowId);
+                expect(row.record).not.toBe(previous);
+                expect(row.record.version).toBe(previous.version);
+                expect(row.record.name).toBe(name);
+                expect(row.vdom.cn.find(cell => cell.data?.field === 'name').html).toBe(name);
+                expect(row.vnode.childNodes[0].innerHTML).toBe(name);
+                expect(row.components.id).toBe(button);
+                expect(button.record).toBe(row.record);
+                expect(button.text).toBe(name);
+            }
+        });
+    }
+
+    test('same-instance forced recycling retains the cells without invoking the renderer', () => {
+        const row   = grid.body.items.find(row => row.rowIndex === 0),
+              nodes = row.vdom.cn.filter(node => node.data),
+              calls = renderCount;
+
+        row.updateContent({force: true, record: row.record, rowIndex: 0, silent: true});
+
+        row.vdom.cn.filter(node => node.data).forEach((node, index) => expect(node).toBe(nodes[index]));
+        expect(renderCount).toBe(calls);
+    });
+
+    test('a hidden row rebinds a fresh record even when its previous key returns', async () => {
+        const row    = grid.body.items.find(row => row.rowIndex === 0),
+              button = row.components.id;
+
+        store.setData([]);
+        await grid.timeout(50);
+        expect(row.record).toBeNull();
+        expect(row.vdom.style.display).toBe('none');
+
+        store.setData([{id: 'same', name: 'returned'}]);
+        await grid.timeout(50);
+        expect(row.record).toBe(store.getAt(0));
+        expect(row.vdom.cn.find(cell => cell.data?.field === 'name').html).toBe('returned');
+        expect(row.components.id).toBe(button);
+        expect(button.record).toBe(row.record);
+        expect(button.text).toBe('returned');
+    });
+});
 
 test.describe('Grid & Store Interactions', () => {
     let grid, store;
@@ -306,5 +407,165 @@ test.describe('Grid & Store Interactions', () => {
         // Content updates for the 2 remaining rows (2 * 3 = 6).
         // Total deltas roughly 18-20.
         expect(deltas.length).toBeLessThanOrEqual(30);
+    });
+
+    test('Store append preserves grid scroll while replacement still requests a reset', async () => {
+        const
+            originalScrollTo = Neo.main.DomAccess.scrollTo,
+            originalRead     = store.pipeline.read,
+            scrollCalls      = [];
+
+        Neo.main.DomAccess.scrollTo = data => scrollCalls.push(data);
+
+        try {
+            // Let any mount-time work settle before observing load-driven scroll requests.
+            await grid.timeout(70);
+
+            store.pipeline.read = async () => ({
+                data      : [{id: 20, name: 'Row 20', score: 200}],
+                totalCount: 21
+            });
+
+            await store.load({append: true, params: {page: 2}});
+            await grid.timeout(70);
+
+            expect(store.items.map(item => item.id)).toEqual(Array.from({length: 21}, (_, index) => index));
+            expect(scrollCalls, 'append is a continuation and must not request a top reset').toEqual([]);
+
+            store.pipeline.read = async () => ({
+                data      : [{id: 100, name: 'Replacement row', score: 1000}],
+                totalCount: 1
+            });
+
+            await store.load({params: {page: 1}});
+            await grid.timeout(70);
+
+            expect(store.items.map(item => item.id)).toEqual([100]);
+            expect(scrollCalls.length, 'ordinary replacement keeps its top-reset behavior').toBeGreaterThan(0);
+            expect(scrollCalls.every(({direction, value}) => direction === 'top' && value === 0)).toBe(true)
+        } finally {
+            store.pipeline.read          = originalRead;
+            Neo.main.DomAccess.scrollTo = originalScrollTo
+        }
+    });
+
+    test('in-memory continuation reprojects fresh records without a top reset; ordinary assignment still resets', async () => {
+        const originalScrollTo = Neo.main.DomAccess.scrollTo, scrollCalls = [];
+        Neo.main.DomAccess.scrollTo = data => scrollCalls.push(data);
+
+        try {
+            await grid.timeout(70);
+            const previous = store.get(5), data = Array.from({length: 30}, (_, id) => ({id, name: `New row ${id}`, score: id}));
+
+            store.setData(data, {continuation: true});
+            await grid.timeout(70);
+
+            expect(store.count).toBe(30);
+            expect(store.get(5)).not.toBe(previous);
+            expect(grid.body.items.find(row => row.rowIndex === 5).record).toBe(store.get(5));
+            expect(scrollCalls).toEqual([]);
+
+            store.setData([{id: 100, name: 'New reading window', score: 1}]);
+            await grid.timeout(70);
+
+            expect(store.items.map(item => item.id)).toEqual([100]);
+            expect(scrollCalls.length).toBeGreaterThan(0);
+            expect(scrollCalls.every(({direction, value}) => direction === 'top' && value === 0)).toBe(true)
+        } finally {
+            Neo.main.DomAccess.scrollTo = originalScrollTo
+        }
+    });
+});
+
+test.describe('Grid & TreeStore Bulk Projection Interactions', () => {
+    let grid, store;
+
+    class TreeStoreBulkProjectionModel extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Grid.StoreInteractions.TreeStoreBulkProjectionModel',
+            fields: [
+                {name: 'id',   type: 'String'},
+                {name: 'name', type: 'String'}
+            ]
+        }
+    }
+
+    const BulkProjectionModel = Neo.setupClass(TreeStoreBulkProjectionModel);
+
+    test.beforeEach(async () => {
+        store = Neo.create(TreeStore, {
+            autoInitRecords: false,
+            data           : [{
+                id: '1', name: 'Root A', isLeaf: false, collapsed: true
+            }, {
+                id: '1-1', parentId: '1', name: 'Child A1', isLeaf: true
+            }, {
+                id: '2', name: 'Root B', isLeaf: false, collapsed: true
+            }, {
+                id: '2-1', parentId: '2', name: 'Child B1', isLeaf: true
+            }],
+            model: BulkProjectionModel
+        });
+
+        grid = Neo.create(GridContainer, {
+            appName          : 'GridStoreInteractionsTest',
+            bufferColumnRange: 0,
+            bufferRowRange   : 1,
+            columns          : [{
+                dataField: 'name',
+                text     : 'Tree',
+                type     : 'tree',
+                width    : 250
+            }],
+            height            : 240,
+            rowHeight         : 40,
+            store,
+            width             : 300
+        });
+
+        await grid.initVnode();
+        grid.mounted = true;
+
+        grid.body.columnPositions.clear();
+        grid.body.columnPositions.add([{
+            dataField: 'name',
+            width    : 250,
+            x        : 0
+        }]);
+
+        grid.body.set({
+            availableHeight: 200,
+            containerWidth : 300
+        });
+
+        await grid.timeout(50);
+    });
+
+    test.afterEach(async () => {
+        await grid.timeout(20);
+        grid?.destroy();
+        store?.destroy();
+    });
+
+    test('TreeStore bulk projections refresh same-record tree cell state', async () => {
+        const firstRow      = grid.body.items.find(row => row.rowIndex === 0),
+              treeComponent = firstRow.components.name;
+
+        expect(treeComponent.collapsed).toBe(true);
+        expect(treeComponent.vdom.cn[1].cls).toContain('is-collapsed');
+
+        store.expandAll();
+        await grid.timeout(50);
+
+        expect(firstRow.record).toBe(store.getAt(0));
+        expect(treeComponent.collapsed).toBe(false);
+        expect(treeComponent.vdom.cn[1].cls).toContain('is-expanded');
+
+        store.collapseAll();
+        await grid.timeout(50);
+
+        expect(firstRow.record).toBe(store.getAt(0));
+        expect(treeComponent.collapsed).toBe(true);
+        expect(treeComponent.vdom.cn[1].cls).toContain('is-collapsed');
     });
 });

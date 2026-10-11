@@ -25,13 +25,14 @@ class BodyContainer extends Container {
      * @param {Neo.component.Base} component
      * @param {Boolean} [destroyItem=true]
      * @param {Boolean} [silent=false]
+     * @param {Boolean} [keepMounted=false]
      * @returns {Neo.component.Base|null}
      */
-    remove(component, destroyItem, silent) {
+    remove(component, destroyItem, silent, keepMounted) {
         if (component?.isTab) {
-            this.parent.remove(component, destroyItem, silent)
+            return this.parent.remove(component, destroyItem, silent, keepMounted)
         } else {
-            super.remove(component, destroyItem, silent)
+            return super.remove(component, destroyItem, silent, keepMounted)
         }
     }
 }

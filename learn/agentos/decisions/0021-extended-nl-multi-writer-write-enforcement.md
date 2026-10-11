@@ -78,4 +78,4 @@ Every layer fails **closed** — only a fully-valid, identified, non-conflicting
 
 ## Related
 
-- Epic #13056 (Extended-NL coordination); contract-of-record #13167. Sibling architecture doc: `learn/agentos/HarnessDockZoneModel.md`. Concept anchor: ADR 0020 (Agent Harness).
+- Epic #13056 (Extended-NL coordination); contract-of-record #13167. Sibling architecture doc: `learn/agentos/DockZoneModel.md`. Concept anchor: ADR 0020 (Agent Harness).

@@ -4,7 +4,6 @@
       "mcp__neo-mjs-github-workflow__*",
       "mcp__neo-mjs-memory-core__*",
       "mcp__neo-mjs-knowledge-base__*",
-      "Bash(npm run agent-preflight*)",
       "Bash(npm run agent-push*)",
       "Bash(git add *)",
       "Bash(git commit *)",
@@ -20,6 +19,11 @@
       "Bash(git rev-parse*)",
       "Bash(git merge-base*)",
       "Bash(git show *)",
+      "Bash(git checkout -- *)",
+      "Bash(git restore *)",
+      "Bash(git rebase *)",
+      "Bash(git push --force-with-lease origin *)",
+      "Bash(git push --force origin *)",
       "Bash(gh pr create *)",
       "Bash(gh pr view *)",
       "Bash(gh pr edit *)",
@@ -30,8 +34,10 @@
     ],
     "deny": [
       "Bash(gh pr merge *)",
-      "Bash(git push* --force*)",
-      "Bash(git push* -f *)",
+      "Bash(git push* --force* origin dev*)",
+      "Bash(git push* --force* origin main*)",
+      "Bash(git push* -f * origin dev*)",
+      "Bash(git push* -f * origin main*)",
       "Bash(git push* *:*)",
       "Bash(git push origin dev*)",
       "Bash(git push origin main*)",
@@ -74,39 +80,6 @@
             "type": "command",
             "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/rgReplaceGuardHook.mjs\"",
             "timeout": 2
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/turnPresenceHook.mjs\" start",
-            "timeout": 2
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/turnPresenceHook.mjs\" progress",
-            "timeout": 2
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "NEO_LANE_STATE_ENFORCE=1 /usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/laneStateStopHook.mjs\"",
-            "timeout": 10
           }
         ]
       }

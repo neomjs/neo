@@ -72,7 +72,7 @@ The "Big Data" benchmark (`apps/bigData`) is our stress test. It simulates a hea
 *   **`ControlsContainer.mjs`**: UI to trigger changes (e.g., "Set rows to 100,000").
 
 ### The Measurement Strategy (Total vs. UI Update)
-In a multi-threaded framework like Neo.mjs, "Total Time" can be misleading. Generating 100,000 records takes time (CPU), but the UI should remain responsive.
+In a multi-threaded application engine like Neo.mjs, "Total Time" can be misleading. Generating 100,000 records takes time (CPU), but the UI should remain responsive.
 
 The Big Data tests (`tests/neo-big-data.spec.mjs`) use a sophisticated dual-measurement approach:
 

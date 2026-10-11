@@ -68,7 +68,7 @@ class KeyNavigation extends Base {
      * @param {Object} data
      */
     onKeyDown(data) {
-        // Using the chrome auto-fill feature does trigger a keydown event, not containing a key. See: #64
+        // Chrome's auto-fill triggers a keydown event carrying no key, so guard on its presence.
         if (data.key) {
             let me           = this,
                 upperCaseKey = data.key.toUpperCase(),

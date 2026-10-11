@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-textfield
+:where(.neo-theme-neo-dark) { // .neo-textfield
     --textfield-border-color                   : var(--purple-700);
     --textfield-border-color-active            : var(--purple-400);
     --textfield-border-color-alert             : var(--orange-500);

@@ -1,6 +1,7 @@
 import BaseGridContainer from '../../../src/grid/Container.mjs';
 import Button            from '../../../src/button/Base.mjs';
 import MainStore         from './MainStore.mjs';
+import NestedCell        from './NestedCell.mjs';
 
 /**
  * @class Neo.examples.grid.bigData.GridContainer
@@ -58,6 +59,13 @@ class GridContainer extends BaseGridContainer {
                     handler() {record.counter++},
                     text  : record.firstname + ' ++',
                     width : 130
+                })},
+                // A cell whose content lives in a CHILD component, one boundary further out than the
+                // flat button above. Both are fed from `firstname`, so the two columns and the plain
+                // `firstname` cell must agree at every scroll position.
+                {cellAlign: 'left', dataField: 'nestedCell', text: 'Nested Cell', width: 150, component: ({record}) => ({
+                    module   : NestedCell,
+                    firstname: record.firstname
                 })},
                 {type: 'animatedChange', dataField: 'counter', text: 'Counter'},
                 {type: 'progress',       dataField: 'progress', text: 'Progress', width: 150}

@@ -1,0 +1,160 @@
+import {expect}              from '../../fixtures.mjs';
+import {readNativeLifecycle} from './dockNativeLifecycle.mjs';
+
+/**
+ * @module e2e/utils/workstationPopOut
+ * @summary The shared choreography for popping a Workstation pane into a real OS window.
+ *
+ * Five ordering constraints, each learned from a failure: click the tab button; poll until the
+ * `pop-out` action is user-reachable; race `waitForEvent('popup')` against the click that opens it;
+ * wait for the popup's `.workstation-viewport`; poll `readNativeLifecycle` until the item reaches
+ * vessel adoption. Then the handover assertions, which are what "popped out" actually means — the
+ * main window releases the live pane, the popup adopts that exact pane, and the stand-in retires.
+ *
+ * ## Why this is a module rather than a copy per spec
+ *
+ * It existed twice and the copies had already diverged, silently, in a way no CI run could catch:
+ * both callers are excluded from the e2e selection when `NEO_AGENTOS_RUNTIME_ROOT` is unset and both
+ * need a real display, so a divergence surfaces only when a maintainer runs one by hand.
+ *
+ * The divergence was not cosmetic. One copy resolved participations by `ntype`, the other by
+ * `className` — and a host may compose its own Participation subclass, which keeps the engine's ntype
+ * and not its className, so the `className` form returns nothing on exactly the topology this suite
+ * exists to drive. It failed as a missing settle rather than as a wrong query, and was deleted rather
+ * than understood. That is the shape of drift this module exists to stop.
+ *
+ * **No CI job runs any caller of this file.** A green pipeline is not evidence about anything here;
+ * the only receipt is a headed run with a real display.
+ */
+
+/**
+ * @param {*} value
+ * @returns {Array}
+ */
+const asArray = value => Array.isArray(value) ? value : value ? [value] : [];
+
+/**
+ * @summary Every live cross-window participation.
+ *
+ * By `ntype`, never `className`: a host may compose its own Participation subclass, which keeps the
+ * engine's ntype but not its className.
+ * @param {Object} app
+ * @returns {Promise<Object[]>}
+ */
+export async function participations(app) {
+    return asArray(await app.findInstances({ntype: 'dock-crosswindow-participation'}, ['id', 'workspaceId']))
+        .map(entry => ({id: entry.id, workspaceId: entry.properties?.workspaceId}))
+}
+
+/**
+ * @summary The main workspace participation's instance id — the engine façade composes it once and
+ * keeps it across projections, so a changed id means a window or binding change, never a refresh.
+ * @param {Object} app
+ * @returns {Promise<String|null>}
+ */
+export async function mainParticipationId(app) {
+    return (await participations(app)).find(entry => entry.workspaceId === 'workstation-main')?.id ?? null
+}
+
+/**
+ * @summary Pops one pane out through the real header action and waits for adoption.
+ *
+ * Always the real action, never `Main.windowOpen`: calling the platform entry point directly asserts
+ * that it works while skipping the path that has to reach it.
+ *
+ * @param {Object}  data
+ * @param {Object}  data.app                     Neural Link app handle.
+ * @param {Object}  data.page                    The main window's page.
+ * @param {String}  data.workspaceId
+ * @param {String}  data.itemId
+ * @param {Boolean} [data.settleForClaim=false]  Assert the main participation survived the detach
+ *     projection before returning. Required ONLY by a caller that goes on to make a native claim: the
+ *     engine façade keeps the target across projections, so the claim's zone is the registered one. A caller
+ *     that merely reads state does not need it and should not pay for it — it is a real wait. This is
+ *     a parameter rather than an unconditional step so that omitting it stays a decision.
+ * @returns {Promise<{bodyRect: Object, nodeRect: Object, popup: Object, windowId: String}>} Both rects
+ *     are read in the main window right before the pop-out click, in its CSS pixels: `nodeRect` is the
+ *     tabs node the pane leaves (header strip + body — the footprint the engine sizes the vessel to,
+ *     `HeaderActions#measureDockPaneRect`), `bodyRect` the pane alone.
+ */
+export async function popOut({app, page, workspaceId, itemId, settleForClaim=false}) {
+    const
+        {dockModel} = await app.getComponent(workspaceId, ['dockModel']),
+        nodeId      = Object.entries(dockModel.nodes)
+            .find(([, node]) => node.type === 'tabs' && node.items?.includes(itemId))?.[0],
+        paneId      = await app.callMethod(workspaceId, 'getPaneIdentity', [itemId]),
+        mainBefore  = settleForClaim ? await mainParticipationId(app) : null;
+
+    expect(nodeId, `${itemId} sits in a tabs node`).toBeTruthy();
+    expect(paneId, `${itemId} owns a live pane`).toBeTruthy();
+
+    let chrome;
+
+    await expect.poll(async () => {
+        chrome = await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId]);
+
+        return chrome?.buttons?.[itemId] ?? null
+    }, {
+        message  : `${nodeId} projects ${itemId} into live tab chrome`,
+        timeout  : 10000,
+        intervals: [25, 50, 100]
+    }).toBeTruthy();
+
+    await page.locator(`#${chrome.buttons[itemId]}`).click();
+
+    let action;
+
+    await expect.poll(async () => {
+        chrome = await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId]);
+        action = chrome?.containerId && await app.callMethod(chrome.containerId, 'getAction', ['pop-out']);
+
+        return Boolean(action?.id && await page.locator(`#${action.id}`).isVisible())
+    }, {message: `pop-out is user-reachable for ${itemId}`, timeout: 10000}).toBe(true);
+
+    // The engine sizes the vessel to the tabs node's rect (HeaderActions#measureDockPaneRect) in the
+    // same frame the action runs, so both rects are read here, before the click, as the caller's
+    // independent reading of the footprint the popup must come up with.
+    const
+        bodyRect     = await page.locator(`#${paneId}`).boundingBox(),
+        nodeRect     = await page.locator(`#${chrome.containerId}`).boundingBox(),
+        popupPromise = page.waitForEvent('popup', {timeout: 30000});
+
+    expect(bodyRect, `${itemId}'s pane has a bounding box before the pop-out`).toBeTruthy();
+    expect(nodeRect, `${itemId}'s tabs node has a bounding box before the pop-out`).toBeTruthy();
+
+    await page.locator(`#${action.id}`).click();
+
+    const popup = await popupPromise;
+
+    await popup.waitForSelector('.workstation-viewport', {timeout: 30000});
+
+    let windowId;
+
+    await expect.poll(async () => {
+        const lifecycle = await readNativeLifecycle(app, workspaceId);
+
+        windowId = lifecycle.owners[itemId]?.windowId ?? null;
+
+        return windowId
+    }, {
+        message  : `${itemId} reaches vessel adoption`,
+        timeout  : 30000,
+        intervals: [50, 100, 250]
+    }).toBeTruthy();
+
+    // What "popped out" means, asserted rather than assumed: the pane is MOVED, not duplicated.
+    await expect(page.locator(`#${paneId}`), `the main window releases ${itemId}'s live pane`).toHaveCount(0);
+    await expect(popup.locator(`#${paneId}`), `the popup adopts ${itemId}'s exact live pane`).toBeVisible();
+    await expect(page.locator('.neo-dashboard-dock-vessel-placeholder'), `the main window retires ${itemId}'s stand-in`)
+        .toHaveCount(0, {timeout: 15000});
+
+    if (settleForClaim) {
+        // The detach projection landed (the stand-in retired above) and the main target is the SAME
+        // registered instance: the engine façade keeps its participation across projections, so a
+        // claim can never land on a target a refresh is about to destroy.
+        expect(await mainParticipationId(app), `the main target survives the detach projection after ${itemId}`)
+            .toBe(mainBefore)
+    }
+
+    return {bodyRect, nodeRect, popup, windowId}
+}

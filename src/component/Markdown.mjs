@@ -1,7 +1,7 @@
 import Component   from './Base.mjs';
 import HighlightJs from '../util/HighlightJs.mjs';
 import IdGenerator from '../core/IdGenerator.mjs';
-import {marked}    from '../../node_modules/marked/lib/marked.esm.js';
+import {marked}    from '../../dist/marked.mjs';
 
 const
     regexFrontMatter  = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/,
@@ -60,7 +60,7 @@ class Markdown extends Component {
          */
         renderFrontmatter: true,
         /**
-         * True to automatically replace ticket references (e.g. #123) with clickable links.
+         * True to automatically replace hash-prefixed ticket numbers with clickable links.
          * @member {Boolean} replaceTicketIds=false
          */
         replaceTicketIds: false,
@@ -244,6 +244,25 @@ class Markdown extends Component {
     }
 
     /**
+     * @summary Hook for rewriting rendered anchor hrefs before the html is set. Identity by default.
+     *
+     * Markdown content can outlive the surface that renders it: the same file is read on GitHub, where a
+     * relative path is the correct link, and inside an app, where only that app knows how to turn the
+     * path into something navigable. This seam lets a subclass supply that translation without the
+     * author having to pick one consumer and break the other.
+     *
+     * Deliberately positioned after `marked.parse`, alongside the table and image post-processing, so it
+     * operates on the parser's OUTPUT. Rewriting the markdown instead would mean re-deciding what counts
+     * as a link, and a second opinion on that eventually disagrees with the renderer.
+     *
+     * @param {String} html Rendered Markdown HTML.
+     * @returns {String}
+     */
+    rewriteLinks(html) {
+        return html
+    }
+
+    /**
      * @summary Wraps Markdown-generated tables in a scroll container while preserving manual frontmatter tables.
      *
      * Mirrors the image-wrapper post-processing step: the rendered content keeps native table layout, while
@@ -317,8 +336,13 @@ class Markdown extends Component {
 
             // 4. Restore protected blocks (in reverse order to handle nesting if any, though regex usually handles top-level)
             // Note: Simple loop is fine as tokens are unique strings
+            // The replacement is a FUNCTION, not the string itself. A string replacement gives the
+            // restored code special meaning: `$&`, `` $` ``, `$'` and `$n` are substitution patterns,
+            // so a guide authoring the inline code `` `$` `` restores as "insert everything before
+            // the match" and splices the whole preceding document back in. A function replacement is
+            // returned verbatim, which is the only thing this loop ever meant.
             placeholders.forEach(item => {
-                content = content.replace(item.token, item.value);
+                content = content.replace(item.token, () => item.value);
             });
         }
 
@@ -502,8 +526,11 @@ class Markdown extends Component {
 
         replacements = await Promise.all(replacementPromises);
 
+        // Same reason as the ticket-restore loop above: highlighted HTML is arbitrary text, and a
+        // string replacement would read `$&`, `` $` ``, `$'` or `$n` inside it as substitution
+        // patterns rather than as content. Nothing here has ever wanted that.
         replacements.forEach(replacement => {
-            updatedContent = updatedContent.replace(replacement.token, replacement.after)
+            updatedContent = updatedContent.replace(replacement.token, () => replacement.after)
         });
 
         return updatedContent
@@ -566,13 +593,15 @@ class Markdown extends Component {
 
         // Parse the (now modified) markdown content into HTML
         // This content string now contains standard markdown PLUS the HTML divs/pres we injected.
-        
+
         // Remove the backslash escape from special blocks so marked.js treats them as normal markdown blocks
         content = content.replace(/\\```/g, '```');
-        
+
         html = marked.parse(content);
 
         html = me.wrapMarkdownTables(html);
+
+        html = me.rewriteLinks(html);
 
         // Wrap raw HTML img tags in a scrollable container
         html = html.replace(/<img([^>]*)>/g, '<div class="neo-markdown-image-wrapper"><img$1></div>');

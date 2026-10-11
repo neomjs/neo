@@ -145,6 +145,9 @@ test.describe('Neo.ai.LockRegistry', () => {
             const result = LockRegistry.acquire([], lock('ada', 's1', ['root']));
 
             expect(result.granted).toBe(true);
+            expect(result.created).toBe(true);
+            expect(result.reentrant).toBe(false);
+            expect(result.acquiredLock).toEqual(lock('ada', 's1', ['root']));
             expect(result.conflict).toBeNull();
             expect(result.errors).toEqual([]);
             expect(result.lockTable).toHaveLength(1);
@@ -173,6 +176,9 @@ test.describe('Neo.ai.LockRegistry', () => {
                   second = LockRegistry.acquire(first.lockTable, lock('ada', 's1', ['root', 'p']));
 
             expect(second.granted).toBe(true);
+            expect(second.created).toBe(false);
+            expect(second.reentrant).toBe(true);
+            expect(second.acquiredLock).toBe(first.lockTable[0]);
             expect(second.lockTable).toHaveLength(1);
         });
 

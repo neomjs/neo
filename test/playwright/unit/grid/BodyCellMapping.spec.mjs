@@ -19,7 +19,7 @@ import Body           from '../../../../src/grid/Body.mjs';
  */
 test.describe('Neo.grid.Body cell mapping', () => {
     /**
-     * Mirrors the devindex shape: 3 locked-start columns precede the center region, so every
+     * Mirrors a multi-region grid: 3 locked-start columns precede the center region, so every
      * center column's global index is local index + 3.
      */
     function createCenterBodyFake() {

@@ -1,0 +1,303 @@
+import {test, expect} from '../../fixtures.mjs';
+
+/**
+ * @summary Whitebox E2E witness: a tab drag in the top-right strip must never paint a
+ * header-layer label over a content-layer label.
+ *
+ * Defect mechanics (red state, first observed during a demo-video capture): for
+ * several frames during a tab drag, two DIFFERENT heading strings interleave on one baseline —
+ * the captured soup sat under the `EVIDENCE CHAIN` kicker in the Audit pane — then the frame
+ * self-recovers. A transient exposure of intermediate state: an outgoing and an incoming (or a
+ * dragged and a landed) subtree both painted, crossing the header/content layer boundary.
+ *
+ * Witness method: a page-side rAF sampler installed BEFORE the gesture records every heading-ish
+ * string (tab header buttons + resident-card kicker/title/metric) with its box, one record per
+ * frame, inside the right-top tab container (`metrics` + `audit` panes, the capture surface).
+ * Red: any two DIFFERENT strings' boxes overlap (>2px both axes) on any frame; the pair's
+ * classes name the layers involved. The exposure frame count is recorded, not described.
+ *
+ * `DockFlip.play()` branch classification is recorded alongside (wrapped `play`,
+ * `hasPreservedMarkerSet`, `hasLandedInPlace`) — including the outcome where the defect sits
+ * outside DockFlip entirely. The branch trace, the designed same-row sort crossing, and the
+ * interference canary are terminal positive controls: an interaction-disabled or branch-absent
+ * run fails the witness even with an empty overlap set, so zero violations can never read green
+ * from a gesture that never entered the repaired path.
+ *
+ * CDP page.mouse is REQUIRED: the drag must ride the trusted-input path (the app-side synthetic
+ * path does not exercise the real drag lifecycle — measured in the drag-selection lane).
+ *
+ * Viewport 1920x1000. The defect was recorded at 1280x800 and that capture stays the historical
+ * evidence, but this witness's GESTURE needs two measurable tab labels — it drags one onto the
+ * other — and 1280 cannot supply them once the spec activates a tab.
+ *
+ * What the `right-top-tabs` zone does, measured, because it will look like a defect otherwise:
+ * activating a tab expands the focus-gated header action set from one action to six (`showOnFocus`),
+ * the 220px strip repartitions, and the non-active label moves behind the overflow control. That is
+ * contracted behaviour, operator-settled — the active tab stays directly visible and the evicted one
+ * stays reachable through the control's menu, the invariant `Neo.tab.plugin.Overflow` packs for.
+ * At 1920 the zone is 265px, both labels survive focus, and nothing repartitions.
+ *
+ * Be precise about what the board buys, because the two are easy to conflate: it makes the second
+ * LABEL survive so the gesture can be performed. It does not change which CODE PATH runs — a plain
+ * header drag reaches `DockFlip.play` with `geometryOnly:false` at 1280 and 1920 alike. Widen this
+ * pin for the gesture, never for the path.
+ *
+ * A green run here restores the INSTRUMENT. It does not prove the recorded defect fixed — that
+ * claim belongs to the ticket that owns it.
+ *
+ * Run: NEO_E2E_PORT=8117 npx playwright test workstation/WorkstationTabDragLabelOverlapNL -c test/playwright/playwright.config.e2e.mjs --workers=1 --headed
+ */
+test.describe('Workstation — a top-right tab drag never paints a header label over a content label (#16406)', () => {
+    test.setTimeout(90000);
+    test.use({
+        contextOptions: {screen: {height: 1000, width: 1920}},
+        viewport      : {height: 1000, width: 1920}
+    });
+
+    test('no two different heading strings share an overlapping box on any frame of the drag', async ({page, neuralLink}) => {
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-dock-host', {timeout: 30000});
+
+        const app = await neuralLink.connectToApp('Workstation');
+
+        // The captured scene had the Audit pane active (the soup sat under EVIDENCE CHAIN).
+        const auditButton = page.locator('.neo-tab-header-button', {hasText: 'Audit'}).first();
+
+        await auditButton.click();
+        await page.waitForSelector('.workstation-resident-kicker:has-text("EVIDENCE CHAIN")', {timeout: 10000});
+
+        const metricsButton = page.locator('.neo-tab-header-button', {hasText: 'Metrics'}).first();
+
+        // The EVIDENCE CHAIN kicker is NOT the header's settle point. Activating Audit re-partitions
+        // the strip, and measured over four runs the bar held only ['Audit'] at the kicker once,
+        // reaching ['Metrics','Audit'] 160ms later; the other three were already settled. Reading
+        // immediately therefore samples a pre-settle strip about one run in four — which is the
+        // intermittency this witness was dying of, and why the same probe disagreed with itself.
+        //
+        // This waits on the observable the assertion depends on rather than on a chosen duration,
+        // and it is not tolerating churn: the repartition is contracted behaviour, so settling is
+        // the state the witness is entitled to measure.
+        await expect.poll(async () => Boolean(await metricsButton.boundingBox()), {
+            message  : 'the Metrics tab header button must reach a measurable box once focus settles',
+            timeout  : 5000,
+            intervals: [50, 50, 100, 200]
+        }).toBe(true);
+
+        const auditBox   = await auditButton.boundingBox(),
+              metricsBox = await metricsButton.boundingBox();
+
+        expect(auditBox,   'the Audit tab header button must be visible').toBeTruthy();
+        expect(metricsBox, 'the Metrics tab header button must be visible').toBeTruthy();
+
+        // Interference canary: headed runs share the OS cursor; stray real moves interleave.
+        await page.evaluate(() => {
+            window.__canary = {mousedown: 0, mousemove: 0, mouseup: 0};
+
+            ['mousedown', 'mousemove', 'mouseup'].forEach(type =>
+                document.addEventListener(type, () => window.__canary[type]++, true))
+        });
+
+        // DockFlip branch recorder: which classification (if any) the drag rides. Main addons
+        // register as singleton instances at their className path (Main.mjs#registerAddon), so
+        // resolve class-or-instance and patch the prototype chain either way.
+        await page.evaluate(() => {
+            window.__flipLog = [];
+
+            const target = Neo.main.addon.DockFlip,
+                  proto  = target?.prototype || (target && Object.getPrototypeOf(target));
+
+            if (!proto) {
+                window.__flipLog.push({m: 'dockflip-unreachable', type: typeof target});
+                return
+            }
+
+            const wrapSync = name => {
+                const orig = proto[name];
+
+                if (typeof orig !== 'function') return;
+
+                proto[name] = function(...args) {
+                    const result = orig.apply(this, args);
+
+                    window.__flipLog.push({m: name, r: result, t: Math.round(performance.now())});
+
+                    return result
+                }
+            };
+
+            wrapSync('hasPreservedMarkerSet');
+            wrapSync('hasLandedInPlace');
+
+            const origPlay = proto.play;
+
+            proto.play = function(...args) {
+                window.__flipLog.push({m: 'play', opts: JSON.stringify(args[0] || {}), t: Math.round(performance.now())});
+
+                return origPlay.apply(this, args)
+            }
+        });
+
+        // rAF heading sampler: one record per frame of every heading-ish string's text + box
+        // inside the right-top tab container (scoped via the Audit button's closest container).
+        const sampling = page.evaluate(({durationMs}) => new Promise(resolve => {
+            const SELECTORS = '.neo-tab-header-button, .workstation-resident-kicker, .workstation-resident-title, .workstation-resident-metric',
+                  auditEl   = [...document.querySelectorAll('.neo-tab-header-button')]
+                      .find(el => el.textContent.trim() === 'Audit'),
+                  region    = auditEl?.closest('.neo-tab-container') || document.body,
+                  samples   = [],
+                  t0        = performance.now();
+
+            (function tick() {
+                const heads = [...region.querySelectorAll(SELECTORS)]
+                    .filter(el => el.getClientRects().length > 0)
+                    .map(el => {
+                        const r = el.getBoundingClientRect();
+
+                        return {
+                            c: el.classList.contains('neo-tab-header-button') ? 'header' : 'content',
+                            s: el.textContent.trim().slice(0, 60),
+                            x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height)
+                        }
+                    })
+                    .filter(h => h.s.length > 0 && h.w > 0 && h.h > 0);
+
+                samples.push({t: Math.round(performance.now() - t0), heads});
+
+                performance.now() - t0 < durationMs
+                    ? requestAnimationFrame(tick)
+                    : resolve(samples)
+            })()
+        }), {durationMs: 4500});
+
+        // The gesture: a sort swap — drag the Audit header left past the Metrics button's center,
+        // hold, release.
+        //
+        // A second phase used to follow, dragging the header DOWN ~140px on the stated claim that
+        // it crossed into the content layer. It crossed nothing. Measured across six admitting runs
+        // with the second window partitioned against the sampler's own clock: the dragged header's
+        // y held its strip baseline for every one of ~440 frames, and the with-phase and without-
+        // phase arms were identical in crossings, box extents and flip log — only the canary moved.
+        // A tab header drag is confined to its sort zone, so no vertical excursion is available to
+        // this gesture, and no control could have witnessed one.
+        const startX  = auditBox.x + auditBox.width / 2,
+              startY  = auditBox.y + auditBox.height / 2,
+              targetX = metricsBox.x + metricsBox.width / 2 - 8;
+
+        await page.mouse.move(startX, startY);
+        await page.mouse.down();
+        await page.mouse.move(startX - 24, startY, {steps: 4});
+        await page.mouse.move(targetX, startY, {steps: 10});
+        await page.waitForTimeout(250);
+        await page.mouse.move(targetX - 4, startY, {steps: 2});
+        await page.mouse.up();
+
+        await page.waitForTimeout(400);
+
+        const samples = await sampling;
+
+        // Discriminating measurement: per frame, every pair of DIFFERENT strings whose boxes
+        // overlap by more than 2px on both axes, SPLIT BY LAYER CROSSING. The defect crosses the
+        // header/content layer boundary (the ticket's corrected reading); same-row header×header
+        // crossings during a sort swap are the designed slide-past animation and are recorded as
+        // diagnostics, not failures.
+        const violations = [], sameLayer = [];
+
+        samples.forEach((frame, fi) => {
+            for (let i = 0; i < frame.heads.length; i++) {
+                for (let j = i + 1; j < frame.heads.length; j++) {
+                    const a = frame.heads[i], b = frame.heads[j];
+
+                    if (a.s === b.s) continue;
+
+                    const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x),
+                          oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+
+                    if (ox > 2 && oy > 2) {
+                        const entry = {
+                            frame: fi, t: frame.t,
+                            a    : `${a.s} [${a.c}]`, b: `${b.s} [${b.c}]`,
+                            aR   : [a.x, a.y, a.w, a.h], bR: [b.x, b.y, b.w, b.h],
+                            ox, oy
+                        };
+
+                        (a.c === b.c ? sameLayer : violations).push(entry)
+                    }
+                }
+            }
+        });
+
+        const exposureFrames = new Set(violations.map(v => v.frame)).size,
+              pairHistogram  = violations.reduce((acc, v) => {
+                  const key = `${v.a} × ${v.b}`;
+
+                  acc[key] = (acc[key] || 0) + 1;
+
+                  return acc
+              }, {}),
+              sameLayerHistogram = sameLayer.reduce((acc, v) => {
+                  const key = `${v.a} × ${v.b}`;
+
+                  acc[key] = (acc[key] || 0) + 1;
+
+                  return acc
+              }, {}),
+              flipLog        = await page.evaluate(() => window.__flipLog),
+              canary         = await page.evaluate(() => window.__canary);
+
+        console.log('[overlap-diag] cross-layer exposure frames:', exposureFrames, 'of', samples.length, 'sampled');
+        console.log('[overlap-diag] cross-layer pair histogram:', JSON.stringify(pairHistogram));
+        console.log('[overlap-diag] first cross-layer violations:', JSON.stringify(violations.slice(0, 20)));
+        console.log('[overlap-diag] same-layer crossings (designed slide-past diagnostics):', JSON.stringify(sameLayerHistogram));
+        console.log('[overlap-diag] flip log:', JSON.stringify(flipLog));
+        console.log('[overlap-diag] canary:', JSON.stringify(canary));
+
+        // Terminal positive controls: a zero-overlap verdict is only meaningful when the intended
+        // drag path actually fired. Absence of the branch, the designed sort crossing, or the
+        // exact gesture signature fails the witness even when no overlap is sampled — an
+        // interaction-disabled run (e.g. pointer-events:none on the headers) is thereby red, not
+        // vacuously green.
+        expect(canary.mousedown, 'interference canary: exactly the one gesture press').toBe(1);
+        expect(canary.mouseup,   'interference canary: exactly the one gesture release').toBe(1);
+        expect(canary.mousemove, 'interference canary: the gesture move stream fired').toBeGreaterThanOrEqual(15);
+
+        expect(
+            sameLayer.length,
+            'positive control: phase A exercised the sort machinery (the designed same-row slide-past crossing occurred)'
+        ).toBeGreaterThan(0);
+
+        const playOptions = flipLog.filter(e => e.m === 'play').map(e => JSON.parse(e.opts));
+
+        expect(
+            playOptions.some(o => o.geometryOnly === false),
+            'positive control: the drag entered DockFlip.play with geometryOnly:false'
+        ).toBe(true);
+
+        // The branch classification must HAPPEN — asserting which branch it picks is not a control,
+        // it is a prediction. `DockFlip#play` evaluates `hasPreservedMarkerSet` at exactly one site
+        // (:703), once per play, before its poll. So `some(r === false)` reads as "at least one
+        // projection REPLACED the tree", which a gesture producing a single preserved-tree
+        // projection can never satisfy — no stage, host or timing change can make it true. Measured
+        // at both 1280 and 1920: a plain header drag fires two plays and reports false first; this
+        // witness's drag fires one and reports true. Both are real classifications of different
+        // gestures. What a positive control must prove is that the path was entered and a verdict
+        // produced, which is exactly what an absent or interaction-disabled run cannot fake.
+        const markerVerdicts = flipLog.filter(e => e.m === 'hasPreservedMarkerSet');
+
+        expect(
+            markerVerdicts.length,
+            'positive control: DockFlip classified the marker set (the branch decision was reached)'
+        ).toBeGreaterThan(0);
+
+        expect(
+            markerVerdicts.every(e => typeof e.r === 'boolean'),
+            'positive control: every classification returned a real verdict, not undefined'
+        ).toBe(true);
+
+        // AC1/AC2: no header-layer label may ever share an overlapping box with a content-layer
+        // label — the layer-boundary crossing is the defect's discriminating signature.
+        expect(
+            violations.length,
+            `${exposureFrames} frame(s) painted a header-layer label over a content-layer label — first: ${JSON.stringify(violations[0] || null)}`
+        ).toBe(0);
+    })
+})

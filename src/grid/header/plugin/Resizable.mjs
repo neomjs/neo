@@ -56,10 +56,32 @@ class Resizable extends BaseResizable {
                 newWidth = parseInt(dragProxy.wrapperStyle.width, 10);
 
             if (newWidth && newWidth !== owner.width) {
-                let toolbar = owner.parent,
-                    body    = toolbar?.parent?.body;
+                // Resolve the body via the toolbar's own getter, never by walking parents:
+                // `grid.header.Wrapper` sits between the toolbar and the grid.Container, so the
+                // former `toolbar.parent.body` walk yielded undefined and this live cell update
+                // silently stopped running — the header resized alone.
+                let body = owner.parent?.body;
 
-                owner.width = newWidth;
+                // `wrapperStyle` carries an inline width that outranks the vdom `width` key
+                // `afterSetWidth()` maintains, so setting the config alone leaves the rendered button
+                // at its pre-drag size: the header would stay put for the whole gesture while
+                // `updateCellPositions()` below has already moved the body. `onDragEnd()` refreshes
+                // `wrapperStyle` from the proxy, which is why the header used to snap into place only
+                // on drop.
+                //
+                // One `set()` rather than two assignments: this runs per pointer step, and separate
+                // setters would emit the stale-width update and then the correcting style update as
+                // two cascades per sample.
+                //
+                // The partial is deliberate — `wrapperStyle_` is a `merge: 'shallow'` descriptor, so
+                // width alone lands and the resize dimming survives. Spreading the current value
+                // instead would be a trap: `beforeGetWrapperStyle()` returns `{...vdom.style, ...value}`,
+                // so a read-back pins every leaked rendered style — including the proxy's `position`,
+                // `left`, `top` and `transform` — into the config that `onDragEnd()` then has to null.
+                owner.set({
+                    width       : newWidth,
+                    wrapperStyle: {width: `${newWidth}px`}
+                });
 
                 if (body) {
                     body.updateCellPositions(owner.dataField, newWidth)

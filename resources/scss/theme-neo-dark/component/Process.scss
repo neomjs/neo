@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     --process-arrow-color     : var(--yellow-700);
     --process-background-color: var(--sem-color-surface-neutral-default);
     --process-icon-color      : var(--yellow-600);

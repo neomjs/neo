@@ -119,19 +119,28 @@ test.describe('Neo.form.field.ComboBox', () => {
         });
 
         const sizes = await page.locator(`#${componentId}`).evaluate(element => {
-            const label   = element.querySelector('.neo-textfield-label'),
-                  wrapper = element.querySelector('.neo-input-wrapper'),
-                  input   = element.querySelector('input.neo-textfield-input:not(.neo-typeahead-input)');
+            const fieldRect   = element.getBoundingClientRect(),
+                  label       = element.querySelector('.neo-textfield-label'),
+                  labelRect   = label.getBoundingClientRect(),
+                  wrapper     = element.querySelector('.neo-input-wrapper'),
+                  wrapperRect = wrapper.getBoundingClientRect(),
+                  input       = element.querySelector('input.neo-textfield-input:not(.neo-typeahead-input)');
 
             return {
+                fieldRight  : fieldRect.right,
                 inputWidth  : input.getBoundingClientRect().width,
-                labelWidth  : label.getBoundingClientRect().width,
-                wrapperWidth: wrapper.getBoundingClientRect().width
+                labelRight  : labelRect.right,
+                labelWidth  : labelRect.width,
+                wrapperLeft : wrapperRect.left,
+                wrapperRight: wrapperRect.right
             };
         });
 
-        expect(Math.round(sizes.labelWidth)).toBe(100);
-        expect(Math.round(sizes.wrapperWidth)).toBe(240);
+        // Font rasterization can shift fractional geometry across hosts, so assert the layout contract:
+        // the configured label consumes the left edge and the wrapper spans every remaining pixel.
+        expect(Math.abs(sizes.labelWidth - 100)).toBeLessThan(1);
+        expect(Math.abs(sizes.wrapperLeft - sizes.labelRight)).toBeLessThan(1);
+        expect(Math.abs(sizes.wrapperRight - sizes.fieldRight)).toBeLessThan(1);
         expect(sizes.inputWidth).toBeGreaterThan(200);
     });
 
@@ -231,6 +240,125 @@ test.describe('Neo.form.field.ComboBox', () => {
         // todo: add another test without forceSelection => Inputs must have been cleared. Both typeahead and filter.
         // We'll assert the main input field's value and assume the typeahead input is handled by the component logic.
         await expect(inputField).toHaveValue('Marshall Islands'); // Assuming forceSelection picks the closest value
+    });
+
+    test('a press on a disabled row of the open list keeps focus in the input, and the list open', async ({page}) => {
+        // The Navigator drives this list from the input, so focus lives OUTSIDE the list it navigates: the one
+        // consumer where a press on the list's dead space must not move focus at all
+        componentId = await createComboBox(page, {
+            displayField: 'name',
+            store       : {
+                data : [{id: 'a', name: 'Alpha'}, {id: 'b', name: 'Locked', disabled: true}, {id: 'c', name: 'Gamma'}],
+                model: {fields: [{name: 'id', type: 'String'}, {name: 'name', type: 'String'}, {name: 'disabled', type: 'Boolean'}]}
+            },
+            valueField  : 'id'
+        });
+
+        const inputField = page.locator(`#${componentId} input.neo-textfield-input:not(.neo-typeahead-input)`),
+              picker     = page.locator('.neo-picker-container');
+
+        await inputField.click();
+        await page.keyboard.press('ArrowDown');
+        await expect(picker).toBeVisible();
+
+        // A disabled row takes no pointer events, so the press lands on the list itself
+        const {x, y} = await page.evaluate(() => {
+            const row                   = [...document.querySelectorAll('.neo-list-item')].find(node => node.textContent.trim() === 'Locked'),
+                  {height, width, x, y} = row.getBoundingClientRect();
+
+            return {x: x + width / 2, y: y + height / 2}
+        });
+
+        await page.mouse.click(x, y);
+
+        // A blur lands within the focus manager's leave gap: outlast it before reading an absence
+        await page.waitForTimeout(300);
+
+        await expect(inputField).toBeFocused();
+        await expect(picker).toBeVisible();
+
+        // CONTROL: an enabled row still chooses
+        await page.locator('.neo-list-item', {hasText: 'Gamma'}).click();
+        await expect(inputField).toHaveValue('Gamma')
+    });
+
+    /**
+     * The field's state, read in the App Worker. A record crosses the worker boundary without its fields, so the
+     * value reads as present or not, and the display — which the arms never typed — names the record.
+     * @returns {Promise<{error: String|null, hasValue: Boolean}>}
+     */
+    const valueState = (page, id) => page.evaluate(async id => {
+        const [value, error] = await Neo.worker.App.getConfigs({id, keys: ['value', 'error']});
+
+        return {error, hasValue: value != null}
+    }, id);
+
+    /**
+     * Replaces the input's text by keyboard, then leaves the field by Tab: the only way out of the viewport's one input.
+     * @returns {Promise<void>}
+     */
+    const typeAndLeave = async (page, inputField, text) => {
+        await inputField.click();
+        await page.keyboard.press('ControlOrMeta+a');
+        await page.keyboard.type(text);
+        await page.keyboard.press('Tab')
+    };
+
+    test('forceSelection: unmatched text returns to the record the field held, in value and display', async ({page}) => {
+        componentId = await createComboBox(page, {value: 'AZ'});
+        const inputField = page.locator(`#${componentId} input.neo-textfield-input:not(.neo-typeahead-input)`);
+
+        await expect(inputField).toHaveValue('Arizona');
+
+        await typeAndLeave(page, inputField, 'Zzzzz');
+
+        await expect(inputField, 'the display returns to the record').toHaveValue('Arizona');
+        await expect.poll(() => valueState(page, componentId), {message: 'the value is a record again, and no error stays'})
+            .toEqual({error: null, hasValue: true})
+    });
+
+    test('forceSelection: unmatched text in a field that held no record clears it, in value and display', async ({page}) => {
+        componentId = await createComboBox(page);
+        const inputField = page.locator(`#${componentId} input.neo-textfield-input:not(.neo-typeahead-input)`);
+
+        await typeAndLeave(page, inputField, 'Zzzzz');
+
+        await expect(inputField, 'the refused text is gone').toHaveValue('');
+        await expect.poll(() => valueState(page, componentId)).toEqual({error: null, hasValue: false})
+    });
+
+    test('forceSelection: a field cleared on purpose stays empty through its next unmatched entry', async ({page}) => {
+        componentId = await createComboBox(page, {value: 'AZ'});
+        const inputField = page.locator(`#${componentId} input.neo-textfield-input:not(.neo-typeahead-input)`);
+
+        await typeAndLeave(page, inputField, 'Zzzzz');
+        await expect(inputField, 'the first attempt returns to the record').toHaveValue('Arizona');
+
+        await inputField.click();
+        await page.keyboard.press('ControlOrMeta+a');
+        await page.keyboard.press('Backspace');
+        await page.keyboard.press('Tab');
+        // the keystroke already emptied the value; leaving is what ends the attempt, so wait for the App Worker to see it
+        await expect.poll(() => page.evaluate(id => Neo.worker.App.getConfigs({id, keys: ['containsFocus']}), componentId),
+            {message: 'the field was left'}).toEqual([false]);
+        await expect.poll(() => valueState(page, componentId), {message: 'the clear holds'}).toEqual({error: null, hasValue: false});
+
+        await typeAndLeave(page, inputField, 'Zzzzz');
+
+        await expect(inputField, 'no earlier record comes back').toHaveValue('');
+        await expect.poll(() => valueState(page, componentId)).toEqual({error: null, hasValue: false})
+    });
+
+    test('forceSelection: a partial match still resolves on blur, over the record the field held', async ({page}) => {
+        componentId = await createComboBox(page, {value: 'CA'});
+        const inputField = page.locator(`#${componentId} input.neo-textfield-input:not(.neo-typeahead-input)`);
+
+        await expect(inputField).toHaveValue('California');
+
+        await typeAndLeave(page, inputField, 'Ariz');
+
+        await expect(inputField, 'the typeahead match fills the display').toHaveValue('Arizona');
+        await expect.poll(() => valueState(page, componentId)).toEqual({error: null, hasValue: true})
     });
 
     test('With store as data', async ({page}) => {

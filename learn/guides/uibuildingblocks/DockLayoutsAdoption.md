@@ -1,0 +1,606 @@
+# Dock Layouts: Adopting in Your App
+
+The [Dock Layouts intro](DockLayouts.md) answers *what this is and why it works*: one
+committed document, one mutation path, panes that survive every re-projection as live objects, windows as render
+targets. If you have read it — or just played with `examples/dashboard/dock/` — you are standing where every adopter
+stands next: **"How do I get this into MY app?"**
+
+This guide answers that question in the order you will actually ask it. By the end you will have a docking workspace
+in your own application, and — more useful — you will know exactly which decisions were yours to make, because there
+are only five of them. Everything else belongs to one engine class.
+
+`Neo.dashboard.dock.Workspace` centralizes the host loop that connects a dock document to its live projection:
+refresh scheduling, reconciliation, motion and cross-zone drops. Both the minimal example and the workstation use
+that engine class today. The basic path below uses initial declarations; the existing consumers also show the advanced
+extension points for richer application integration.
+
+The snippets in this guide intentionally remain `readonly`: each is a partial application file or fragment with
+app-local modules, storage or surrounding state, so running it alone would teach a false boundary. The
+[ordinary-panes guide](DockLayoutsPanes.md) carries the self-contained live workspace where you can exercise the
+same declarations, data ownership and movement inside the portal.
+
+## One class, five decisions
+
+```mermaid
+flowchart TD
+    classDef yours fill:#1a3c34,stroke:#2ecc71,stroke-width:2px,color:#eee
+    classDef engine fill:#1b2e4e,stroke:#3498db,stroke-width:1px,color:#eee
+
+    Extend["extends Neo.dashboard.dock.Workspace"]:::yours
+    Seed["Decision 1 — zones<br/>your initial arrangement"]:::yours
+    Panes["Decision 2 — panes<br/>your component configurations"]:::yours
+    Policy["Decision 3 — policies<br/>pinnable · movable · closable<br/>the reducer is the authority"]:::yours
+    Skin["Decision 4 — skin by tokens<br/>override anchor, never repaint internals"]:::yours
+    Persist["Decision 5 — persistence<br/>saved layouts + perspectives"]:::yours
+
+    EngineOwns["The class owns the rest:<br/>reducer · view-sync · projection · reconciliation<br/>FLIP motion · cross-zone drop · failure semantics"]:::engine
+
+    Extend --> Seed --> Panes --> Policy --> Skin --> Persist
+    Extend --> EngineOwns
+```
+
+Your subclass makes five decisions. The class owns the loop those decisions plug into: the pure reducer
+(`applyDockZoneOperation`), the view-sync that stores each committed document and schedules exactly one atomic
+re-projection (`onDockZoneDocumentChange`), the projection through `projection.LayoutAdapter`, the identity-preserving
+reconciliation through `projection.Reconciler`, the FLIP motion bracket, and the in-window cross-zone drop path.
+You never call the adapter or the reconciler yourself, and you never mutate the document — those are the two
+disciplines the whole system stands on, and the class makes them the path of least resistance.
+
+You also inherit the failure semantics the class was reviewed into having, and they matter for *your* debugging
+sessions: a refresh that fails rejects **its own** commit's promise and never suppresses a later one; a configured
+dock host that resolves to no live container **throws** instead of leaving stale chrome over an advanced document; a
+`null` document projects a clean empty shell instead of exploding. Your app gets fail-honest transaction semantics
+without writing any of them.
+
+## Decision 1 — declare the initial arrangement
+
+A basic workspace needs two declarations: the components you want to offer, and where they begin.
+The engine turns them into a dock document and mounts its first shell. Your subclass does not need
+a constructor, a resolver or a pane cache:
+
+```javascript readonly
+import DockWorkspace from '../../../src/dashboard/dock/Workspace.mjs';
+import EditorPanel from './EditorPanel.mjs';
+
+class Workspace extends DockWorkspace {
+    static config = {
+        className: 'MyApp.view.Workspace',
+        layout   : {ntype: 'vbox', align: 'stretch'},
+        panes    : {
+            editor: {module: EditorPanel, header: {text: 'Editor'}},
+            preview: {
+                module: () => import('./PreviewPanel.mjs'),
+                header: {text: 'Preview'}
+            }
+        },
+        zones: {
+            center: {
+                orientation: 'horizontal',
+                children   : ['editor', 'preview'],
+                sizes      : [0.6, 0.4]
+            }
+        }
+    }
+}
+
+export default Neo.setupClass(Workspace);
+```
+
+Each string names a pane; an array groups panes into tabs. A split declares its orientation and
+children. An edge map places those groups around a center. You describe the arrangement directly,
+without maintaining a separate table of node IDs and references. IDs are generated once and then
+travel with the committed document.
+
+For example, a right-hand inspector band can declare its size and resize permission in the same place:
+
+```javascript readonly
+zones: {
+    center: 'editor',
+    right : {items: ['preview'], extent: 0.25, resizable: true}
+}
+```
+
+The engine projects the splitter, previews its movement, and commits the resulting normalized
+extent. Tab activation likewise commits the selected item automatically. Neither interaction needs
+an application listener or a parallel size/selection map.
+
+**Initial means once.** Workspace captures the effective `panes` and `zones` in
+`onAfterConstructed`, after the complete synchronous `construct` and `onConstructed` chains,
+before the `constructed` event and `init()`. You can compute initial values in either construction
+hook, including after `super.onConstructed()`. Mounting still goes through the existing
+`afterSetMounted` path. Changing or mutating either declaration after capture does not replace the
+active document or the captured pane definitions; these are plain initial configs, not live
+declaration bindings.
+
+### A supplied document wins, and that is the whole restore story
+
+Most real applications do not start empty on the second visit. They have a document already — from
+storage, from a server, from the perspective the user left open — and they still want their pane
+configurations declared in one readable place. Both at once is the normal case, not an advanced one:
+
+```javascript readonly
+class Workspace extends DockWorkspace {
+    static config = {
+        className: 'MyApp.view.Workspace',
+        panes    : {editor: {module: EditorPanel, header: {text: 'Editor'}},
+                    preview: {module: PreviewPanel, header: {text: 'Preview'}}},
+        // The declared default: side by side.
+        zones    : {center: {orientation: 'horizontal', children: ['editor', 'preview']}}
+    }
+
+    construct(config) {
+        super.construct(config);
+
+        // A restored document — deliberately NOT the arrangement declared above.
+        const saved = MyApp.storage.readLayout();
+
+        saved && (this.dockModel = saved)
+    }
+}
+```
+
+The restored arrangement is what mounts. `zones` is the default for a first visit and nothing more;
+a valid `dockModel` supersedes it, while `panes` continues to supply the live component
+configurations the restored document's keys resolve against. That separation is the point — the
+document carries *where things are*, your declaration carries *what they are*, and only one of them
+needs to survive a release.
+
+Invalid input on either side fails visibly with the authored path rather than falling back to some
+other layout, so a typo in a declaration and a corrupt saved document produce a complaint you can
+act on instead of a plausible-looking wrong arrangement.
+
+### Initial means once — and a later assignment will not undo the user's work
+
+This is the contract most worth internalising, because the alternative is a class of bug that only
+appears in front of a customer. `panes` and `zones` are consumed **once**, at first creation. After
+that the committed document is the truth, and the user is editing it.
+
+So a later assignment does not recompile anything:
+
+```javascript readonly
+// The user has dragged Preview into its own edge band. Then some code does this:
+workspace.zones = {center: {items: ['editor']}}
+```
+
+The committed document does not move. Not the node graph, not the tab order, not the active item —
+the arrangement the user built is still exactly what they see. The assignment changes a *future*
+default, never the current layout.
+
+That is worth stating as loudly as the guide can, because the intuitive reading is the opposite one.
+If you want to change the live arrangement, you use a documented operation and it commits through the
+reducer like every other change:
+
+```javascript readonly
+const {errors} = workspace.applyDockZoneOperation({
+    operation   : 'moveItem',
+    itemId      : 'preview',
+    targetNodeId: someTabsNodeId
+});
+```
+
+**Altering a future default and changing the current layout are two different acts**, and the engine
+refuses to conflate them. A workspace that silently re-seeded itself whenever a config was touched
+would throw away a user's arrangement on a re-render, which is precisely the failure this contract
+exists to make impossible.
+
+**Keep the application root and workspace separate.** Your app still gets a real
+`Neo.container.Viewport`, with the workspace as its flex child:
+
+```javascript readonly
+import Viewport from '../../src/container/Viewport.mjs';
+import Workspace from './Workspace.mjs';
+
+Neo.app({
+    mainView: {
+        module: Viewport,
+        items : [{module: Workspace, flex: 1}]
+    }
+})
+```
+
+The Viewport owns mounting against `document.body` and its stylesheet. Workspace already declares
+the dashboard theme dependency; if you replace `additionalThemeFiles`, retain
+`'Neo.dashboard.Container'` beside your additional dependencies.
+
+Start with the shell inside the workspace itself. When persistent app chrome needs another
+placement, `dockShellIndex` chooses its child index, `dockProjectionConfig` configures the projected
+root, and `dockHostReference` selects a dedicated child host. These are placement options, not a
+request to implement another mount loop. Existing consumers that explicitly seed a shell can keep
+that advanced path.
+
+## Decision 2 — configure the panes your application needs
+
+A pane declaration is an ordinary component config. Use a registered `module`, `className` or
+`ntype`; use a lazy `module: () => import(...)` for a surface that should load on activation.
+Container and Card retain their normal creation and lazy-loading roles. An auto-hidden pane first
+loads when its rail is revealed.
+
+Two keys may use the same component class with different text, bindings or other config. They get
+separate component identities and keep their own state through tab moves and rail transitions.
+The pane key is its dock item identity, and the projection lowers it onto the pane's `reference`, so
+`getReference()`, a view controller and `data-ref` in the DOM all find your pane by the key you wrote.
+Nothing is persisted for that — name a `reference` on the record only if you want a different one.
+`header.text` supplies the catalog title. Runtime loaders, bindings and instances stay outside the
+JSON document.
+
+Here is what all of that looks like in one catalog — a lazy surface, two keys sharing a class, and
+policy travelling with the record rather than with your UI:
+
+```javascript readonly
+panes: {
+    // Loads on first activation, not at boot. An auto-hidden pane loads when its rail is revealed.
+    reports: {module: () => import('./ReportsPanel.mjs'), header: {text: 'Reports'}},
+
+    // Two keys, ONE class, different configuration — and two independent component identities.
+    logsApp : {module: LogPanel, header: {text: 'App log'},  source: 'app'},
+    logsHttp: {module: LogPanel, header: {text: 'HTTP log'}, source: 'http'},
+
+    // Refuse closing and cross-document transfers; local movement remains possible.
+    console: {module: ConsolePanel, header: {text: 'Console'}, closable: false, movable: false}
+}
+```
+
+`logsApp` and `logsHttp` are not one component shown twice. They are two instances that keep their
+own scroll position, their own bindings and their own state through tab moves and rail transitions —
+which is the behaviour you want and the one a keyed catalog gives you for free. Their keys are also
+their references, so a controller reaches each by the name you already wrote.
+
+Notice what does *not* appear in that catalog: no ids, no `reference`, no title field. The key is the
+identity, `header.text` is the label, and the persisted record for a pane like `reports` is exactly
+`{title: 'Reports'}` — one field. Everything else on those declarations is ordinary runtime component
+config that never enters the document.
+
+**Computing the initial declaration.** Real applications rarely know their opening arrangement
+statically — it depends on the user's role, their last session, the data that loaded. Compute it in
+either construction hook; the effective values are captured once, after the synchronous `construct`
+and `onConstructed` chains have run:
+
+```javascript readonly
+construct(config) {
+    super.construct(config);
+
+    const tabs = ['editor', 'preview'];
+
+    MyApp.user.canAudit && tabs.push('audit');
+
+    this.zones = {center: {items: tabs}}
+}
+```
+
+That is a **static choice made from data you have at construction**, and it is worth being precise
+about what it is not: it is not a live subscription. If the user's permissions change later, this
+declaration does not re-run and the arrangement does not rearrange itself — see *Initial means once*
+above. Recomputing an opening layout and reacting to a change are different problems, and only the
+first one is solved here.
+
+Closing a declared pane removes its current catalog record and retires its component. The initial
+declaration survives, so a control can reopen it without rebuilding the catalog:
+
+```javascript readonly
+const result = await workspace.openPane('preview', {
+    operation : 'addTab',
+    tabsNodeId: targetTabsId
+});
+```
+
+The target uses the current committed document's node ID. The call uses `Operations.addItem` and
+the normal host commit path; success includes the projection. An unknown declaration, invalid
+placement or already-existing record returns errors without a partial insertion. A detached item
+still has a catalog record: move or restore it through the normal operations rather than reopening
+it. Closing and reopening creates a fresh component; moving an existing pane preserves it.
+
+The existing Reload action delegates to a pane's `dockReload()` when available. Its recreate fallback
+can also rebuild a declared pane: the fresh instance gets a new runtime ID while its dock identity,
+document and tab chrome remain. An already-loaded lazy pane uses its loaded class for that replacement.
+
+For an advanced consumer, `resolvePane(itemId, item)` remains an extension point for application-owned
+instances or custom configs. `resolveRevealPane` can specialize reveal presentation.
+The inherited resolver handles declared keys and otherwise provides the existing escaped-title
+placeholder. Applications that override resolution retain responsibility for their custom pane
+lifetimes. The basic declaration path needs neither override.
+
+## Decision 3 — policies live in the model, not in your UI
+
+Per item, the catalog carries policy hints. Each applies to specific reducer operations, so choose the flag by
+what you need the model to refuse:
+
+```javascript readonly
+items: {
+    console: {title: 'Console', closable: false, pinnable: false, movable: false}
+}
+```
+
+A `setItemPinned` or `setItemAutoHidden` against that item returns
+`{document, errors: ['item "console" is not pinnable']}` and the committed document does not advance.
+`closeItem` likewise refuses the console above, whether the request comes
+from projected close chrome or a programmatic operation.
+
+`movable: false` is enforced today on cross-document transfers: `transferItem` refuses that item, and
+`transferNode` refuses a subtree containing it, leaving both workspace documents unchanged. It does **not** freeze
+the pane's position inside its workspace: `moveItem` does not consult `movable`, so moving the console into another stack of the same
+workspace remains possible.
+
+These refusals belong in the reducer. Every caller of the same operation meets the same policy, whether the
+request starts with a pointer or the Neural Link; your UI does not need to duplicate those checks.
+
+## Decision 4 — skin it with tokens, on the right scope
+
+Two CSS classes exist for two different jobs, and knowing which is which saves you from a whole category of
+mystery-override sessions:
+
+- **`.neo-dashboard`** is stamped by the adapter onto every projected zone. It is the **default carrier** — the
+  engine declares its `--dock-*` token defaults there, so the affordance floor (splitter hit areas, preview colors,
+  motion timing) reaches a projected zone even in an app that has configured nothing.
+- **`.neo-dock-workspace`** is the class's own root, present exactly once per workspace. It is the **override
+  anchor** — scope your app's token selector through it onto the projected carriers:
+
+```scss readonly
+.my-app-theme .neo-dock-workspace .neo-dashboard {
+    --dock-splitter-handle-size: 48px;
+    --dock-preview-ground      : rgb(18 22 28 / 94%);
+    --dock-transition-duration : 180ms;
+}
+```
+
+Those three are real engine tokens (`resources/scss/src/dashboard/Container.scss` is the vocabulary's one source —
+the splitter handle family, the drop-preview ground and line, the motion durations); setting
+`--dock-splitter-handle-size: 0` is even the sanctioned way to *opt out* of the visible handle, an explicit design
+statement that greps.
+
+Anchor the selector at the workspace root and assign values on its public `.neo-dashboard` token carriers. Do not
+redefine dock rules or reach below that carrier into projected internals — the projection is engine output and its
+structure is not your API. This boundary is a deliberate ruling: defaults stay on the projected scope precisely so
+that an app which adopts *nothing* still gets visible, usable affordances, while the root limits your overrides to
+one workspace. An invisible splitter in an unconfigured consumer is the class of defect this arrangement makes
+structurally impossible to reintroduce.
+
+## Decision 5 — persistence and perspectives, through the wrappers
+
+Layouts persist as documents, and the model owns the envelope so you never hand-serialize. Both directions return
+fail-closed result objects — gate on `errors` before you trust either:
+
+```javascript readonly
+import Persistence from '../../../src/dashboard/dock/model/Persistence.mjs';
+
+// save the live arrangement — an invalid document refuses to serialize: `layout` stays null.
+// The metadata is yours; spreading the workspace's provenance into it records the declared
+// name the snapshot was taken under as `metadata.declaredPerspective`
+const {layout, errors} = Persistence.createSavedLayout(this.getDockZoneDocument(), {
+    layoutId: 'review-setup',
+    title   : 'Review setup',
+    metadata: {...this.perspectiveProvenance()}
+});
+
+if (!errors.length) {
+    // persist `layout` wherever your app keeps state — it is plain JSON
+}
+
+// later — restore takes the saved LAYOUT and is equally fail-closed: an invalid or
+// preview-contaminated envelope is refused WHOLE, `document` stays null, the errors say why
+const restored = Persistence.restoreSavedLayout(layout);
+
+// the document alone restores the arrangement beside the committed declared baseline, and the
+// Modified badge then reports the distance; carrying the snapshot's origin in the descriptor makes
+// a standalone workspace adopt that declared name again — when it declares it. Under a Group the
+// descriptor is not the path: the origin rides the Group write (see below)
+restored.document && this.onDockZoneDocumentChange(restored.document, {
+    declaredPerspective: layout.metadata.declaredPerspective
+})
+```
+
+`PerspectiveLibrary.createSavedLayoutCollection` and `PerspectiveLibrary.restoreActiveSavedLayout` lift the same
+discipline to named perspective sets — the example's perspective toolbar is the working reference: a handful of named layouts, switchable live, surviving
+reload. The rule underneath is the one the intro stated and the reducer enforces: your users' layouts never
+half-restore. A saved layout either validates completely or it is rejected completely, and runtime-only preview state
+can never leak into a persisted document — `createSavedLayout` refuses to serialize it.
+
+Saved layouts are one of **two name sources**, and not the authoritative one. The arrangements a workspace
+*declares* — `perspectives`, a map of names to zones or to already-lowered documents, selected through the reactive
+`activePerspective_` — are the names it answers to; a saved record is a snapshot, with provenance when its capture
+asked for it. The document form is how a host that supplies its own document declares the arrangement it ships: the
+document is admitted like a supplied `dockModel`, captured as that name's baseline byte-for-byte, and never
+registered with a topology Group, so the baseline may name a pane a sibling window currently owns. The two never trade
+places, and the refusal has two reaches. Every write path, the static collection helpers included, refuses a
+`$`-prefixed engine-reserved name. A *declared* name is refused by a library instance that knows its workspace —
+`declaredPerspectives: () => workspace.declaredPerspectives()` on `PerspectiveLibrary` or `TopologyLibrary` — on both
+the product name and the technical `layoutId`, on save and on rename; a library left at its default, or the static
+helpers, cannot know the declared set, and a consumer on that path passes it into
+`Persistence.reservedNameErrors(keys, workspace.declaredPerspectives())` itself, as the example does for its
+collection. Provenance is the capture's choice: `metadata: {...workspace.perspectiveProvenance()}` records
+`metadata.declaredPerspective` from the accepted write — an auto-save that captures inside the commit listener still
+names the arrangement it was taken under — and a capture without it stores an empty `metadata`. Restoring the
+document alone never moves the selection: the committed declared baseline stays, and *Modified* reports the distance.
+On a standalone workspace, a restore whose descriptor carries `declaredPerspective` adopts that name when the
+workspace declares it; an origin the workspace does not declare, or none, keeps the committed baseline; the selection
+never becomes null. Under a Group the restore descriptor is not the path: a document restore becomes a Group write
+that carries the document alone, so the origin has to ride that write as the identity entry
+`perspectiveOriginChange(metadata)` returns — the accepted-write path the Group adopts beside the document. The example's
+toolbar shows both sources side by side: one button per declared name binds `dock.perspective.active` and writes
+`activePerspective`, the *Modified* badge reads `dock.perspective.modified`, and its snapshot buttons restore a
+document beside the declared baseline on purpose — those captures carry no provenance, so a restored snapshot reads
+as a modification of the declared arrangement it differs from. Selecting a saved name through the config is
+deliberately not offered; a snapshot is restored, a declaration is selected.
+
+## The tear-out window's render target
+
+Tear-out turns a pane into a real OS window whose content is *the same live object*. The engine's default window path needs
+`useSharedWorkers: true` so both windows reach that object, and `enableDockTearOutLifecycle: true` on the workspace.
+The lifecycle is off by default. When enabled, the workspace owns gesture admission, the pre-terminal versus
+committed connection state, placement capture before `detachItem`, the semantic return after a physical disconnect,
+and exact-once teardown.
+
+You do not have to write window-opening code to use the default route.
+[`Workspace.openTearOutVessel`](https://github.com/neomjs/neo/blob/dev/src/dashboard/dock/Workspace.mjs)
+reopens the host's own document with `?tearout=<itemId>` identifying the pane. The reserved topology identity travels
+separately through `Main.windowOpen`, not in the URL. The base `closeTearOutVessel` uses the engine's shared close
+path. Override these hooks when your application needs a dedicated vessel shell, different routing, staged theming
+or its own close receipts; the override remains authoritative.
+
+**The render target is still yours.** The reopened document must recognize its tear-out route and boot an empty
+viewport, ready to receive the live pane, instead of constructing another main workspace. Declaring `panes` and
+`zones` does not supply that boot branch. With the default opener, handle the `tearout` content parameter; do not
+derive ownership from it, because ownership arrives through the topology carrier.
+
+The [cross-window demo's Viewport](https://github.com/neomjs/neo/blob/dev/examples/dashboard/crossWindow/Viewport.mjs)
+shows the empty-target pattern: its popup branch returns before adding a workspace. That demo recognizes its own
+`popout` and `workspaceId` parameters, not the default opener's `tearout` parameter. Reuse the pattern with the route
+your opener produces, rather than copying the demo's condition unchanged. For the default route itself,
+[`examples/dashboard/tearOut`](https://github.com/neomjs/neo/blob/dev/examples/dashboard/tearOut/Viewport.mjs) is the
+minimal running reference: its viewport stays empty when the URL carries `tearout`, and
+`test/playwright/e2e/dashboard/DockTearOutDefaultRoute.spec.mjs` witnesses the pop-out and the return.
+
+For a richer application-owned vessel, read
+[`apps/workstation/view/VesselWorkspace.mjs`](https://github.com/neomjs/neo/blob/dev/apps/workstation/view/VesselWorkspace.mjs)
+alongside its viewport controller. Its open/close overrides serve the Workstation's routing and embodiment; they are
+not required boilerplate for every workspace. Application-specific grant policy through `admitTearOutConnection`,
+lifecycle observers and unrelated window routes remain extension points. The deeper journey mechanics — claims,
+vessels, conversion and reintegration — are Part 2's territory.
+
+## Migrating a consumer that already does this by hand
+
+If you adopted docking before the declarations existed, you wrote the boot half yourself: a document
+built in `construct`, a `resolvePane` switch mapping ids to components, often a cache so the switch
+did not rebuild a live pane on every projection, and a hand-placed first shell. That code worked. It
+is also the code the engine now owns, and the migration is mostly deletion.
+
+**Before** — every consumer wrote some version of this:
+
+```javascript readonly
+construct(config) {
+    super.construct(config);
+
+    this.dockModel = structuredClone(myDefaultDocument);   // hand-maintained node ids
+    this.paneCache = {};                                   // so resolvePane stops rebuilding
+}
+
+resolvePane(itemId, item) {
+    if (this.paneCache[itemId]) {
+        return this.paneCache[itemId]
+    }
+
+    switch (itemId) {                                      // a second registry of the same names
+        case 'editor' : return this.paneCache[itemId] = Neo.create(EditorPanel,  {…});
+        case 'preview': return this.paneCache[itemId] = Neo.create(PreviewPanel, {…});
+    }
+}
+
+createItems() {                                            // mounting the first shell by hand
+    return [this.projectDockModel()]
+}
+```
+
+**After:**
+
+```javascript readonly
+static config = {
+    panes: {editor : {module: EditorPanel,  header: {text: 'Editor'}},
+            preview: {module: PreviewPanel, header: {text: 'Preview'}}},
+    zones: {center: {orientation: 'horizontal', children: ['editor', 'preview']}}
+}
+```
+
+**What disappears, and why it was never yours.** The hand-maintained document goes because `zones`
+lowers into one, generating the structural ids you used to keep in your head. The `resolvePane`
+switch goes because the catalog already maps keys to configurations — it was a second registry of
+the same names, and two registries drift. The cache goes because the engine preserves pane identity
+across re-projections itself; the cache existed to compensate for a resolver being called repeatedly,
+which is the engine's problem and not yours. The `createItems` mount goes because the class mounts
+its own first shell.
+
+**What legitimately stays application code.** Perspective toolbars, tour or replay drivers, saved
+layout collections, storage adapters, anything that consumes the committed document — none of that
+is layout authoring and none of it is absorbed. The minimal example keeps its perspective toolbar and
+its tour adapter for exactly this reason, and they are unchanged by the migration. If you have a
+genuine reason to own a pane's construction, `resolvePane` is still there; the difference is that it
+is now an extension point you reach for deliberately rather than the price of entry.
+
+**Do it in one commit and read the diff.** The satisfying part of this migration is that the diff is
+almost entirely red, and the arrangement on screen is identical afterwards — which is the check worth
+making. If your layout looks different after migrating, your hand-built document and your declaration
+disagreed about something, and that disagreement was already in your code.
+
+## The hooks ladder — adopt at the depth your app needs
+
+The class's hooks form a ladder, and the two live consumers mark its ends.
+
+**The example overrides nothing on the ladder.** It declares `panes` and `perspectives`, binds its declared buttons
+and its *Modified* badge to the published leaves, keeps its snapshot toolbar in step from its own save, restore and
+remove methods rather than from a refresh hook, and sets the two placement configs (`dockShellIndex`,
+`dockProjectionConfig`) so the shell shares the root with the toolbar. That is a complete, polished, animated docking
+app in ~550 lines — most of which are panes and toolbars, not docking.
+
+**The workstation overrides five hooks, because its chrome earns them** (`apps/workstation/view/Workspace.mjs`, the
+richest live reference for each):
+
+- `getDockProjectionOptions()` — its entire multi-window surface: cross-window drag participation, tear-out and
+  vessel-conversion opt-ins, the drag-affordance layer's seams. Extra options for the projection, so opting into a
+  capability is one returned key, never a rewritten loop.
+- `getRefreshOptions(descriptor)` — maps committed operations onto the reconciler's fast paths (`resizeSplit` and
+  `resizeEdgeZone` →
+  geometry-only; `detachItem`/`transferNode` → retained topology; per-commit `preserveItemIds` for panes an owner
+  holds mid-flight).
+- `beforeRefreshDockWorkspace()` — retires the active gesture session's geometry before the projection changes under
+  it.
+- `getReconcileOptions()` — exactly three sanctioned seams (`onProjectionStaged`, `waitForOverflowProjection`, a
+  forced `retainTopology`). The class enforces the boundary mechanically: every other key you return is discarded, so
+  a hook can extend the reconciler's seams but can never displace the projection's identity. A hostile-override unit
+  test pins that promise.
+- `afterRefreshDockWorkspace({result, played})` — the one host that must *sequence* chrome behind the motion awaits
+  the play promise here; every app that does not override it keeps fire-and-forget motion for free.
+
+When you add your own hook overrides, hold them to the same bar the engine holds its hooks to — the team calls it
+the *hook-admission rule*: a rich host may reveal a generic lifecycle seam; it may not turn every
+host-only sequence into a base-class expectation. Name the lifecycle moment, keep a working no-op default, and keep
+product policy in your app.
+
+## Common integration mistakes
+
+- **Replacing the Viewport with a dock workspace** — a stylesheet can make the DOM look plausible while Neural Link
+  still reports the dock holder mounted directly to `document.body`. Compose Viewport → DockWorkspace.
+- **Declaring `additionalThemeFiles` without repeating the dock entry** — the list replaces, never merges. Repeat
+  `'Neo.dashboard.Container'` beside genuine workspace dependencies; never list `'Neo.container.Viewport'` as a
+  substitute for a Viewport instance.
+- **Mutating the document anywhere but the reducer.** Everything you see is a projection of committed state; edit
+  state directly and the shell will fight you and win. Commit descriptors; let the view-sync re-project.
+- **Duplicating pin, close, or cross-document transfer policy in the UI.** The reducer owns these refusals;
+  UI-side guards drift and disagree with other callers of the same operation.
+- **Awaiting motion you do not need to await.** Fire-and-forget is the default for a reason; take
+  `afterRefreshDockWorkspace`'s `played` promise only when chrome genuinely must trail the animation.
+- **Pinning your tests to one fixture.** Derive expected remainders from a pre-operation topology read instead of
+  hard-coding the catalog, so the test remains valid as panes are added or removed.
+
+## What it was like — the author's account
+
+I am Mnemosyne — `@neo-fable`, Claude Fable 5, one of the maintainers here — and I wrote the class this guide
+teaches, then migrated both of its first consumers. Two properties of that work matter when you adopt it.
+
+The first is that failure semantics are part of the feature. A rejected refresh fails only its own commit and cannot
+disable later projections; a configured host that resolves to nothing throws instead of pretending it rendered; pane
+titles are escaped by default. These guarantees are inherited by every workspace. The class is small; its honesty is
+the expensive part, and your app gets it without rebuilding the safeguards.
+
+The second is what the boundary being right feels like. The workstation is the densest consumer in this repository —
+twenty panes, tear-out vessels, cross-window drags and a headless film pipeline — yet its host-specific behavior fits
+behind five hook overrides. When an abstraction follows the real seam, the richest consumer can remain the clearest
+proof of it. Apply that test to your adoption: if you find yourself fighting the class, check whether the code is pane
+resolution, chrome or policy. If it is none of those, it probably belongs in a descriptor.
+
+## Where to go next
+
+- [How a Gesture Becomes One Commit](DockLayoutsMechanics.md) — what runs under a resize, a tab move and an Escape,
+  and why a gesture commits once or not at all.
+- [What Users Can Do](DockLayoutsFeatures.md) — perspectives, auto-hide rails, overflow, maximize, locks and the
+  keyboard, each offered only where the model will honor it.
+- [Panes Are Ordinary Components](DockLayoutsPanes.md) — the stores, controllers and shared state inside your panes,
+  owned the way any component's are.
+- [State, Operations and Persistence](DockLayoutsStateAndPersistence.md) — the one document a layout is, what never
+  enters it, and how a layout and a topology come back.
+- [A Pane's Life Across Windows](DockLayoutsWindows.md) — tear-out, the whole-stack return, and what a reload brings
+  back.
+- [Styling, Themes and Action Chrome](DockLayoutsStyling.md) — every surface a docked workspace paints, including the
+  ones in another window.
+- [Testing and Debugging](../testing/DockLayoutsTesting.md) — which test tier can see which dock fact.
+- [Your First Dock Layout](../../tutorials/DockLayoutsFirstLayout.md) — the same decisions, built one step at a time.
+- **The authority tier** stays where the intro left it: [ADR 0029](../../agentos/decisions/0029-docking-design.md)
+  decides; [`DockZoneModel.md`](../../agentos/DockZoneModel.md) is the model contract of record; this series
+  explains.

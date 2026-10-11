@@ -253,7 +253,9 @@ class Container extends Component {
     }
 
     /**
-     * Triggered after the dragResortable config got changed
+     * Triggered after the dragResortable config got changed. The hook awaits the sort-zone module,
+     * so a container created and destroyed inside that await (a short-lived projection, a unit
+     * harness tearing down) resumes here with no parent left: a destroyed container creates no zone.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -272,6 +274,10 @@ class Container extends Component {
             } else {
                 module = await me.trap(me.loadSortZoneModule());
                 module = module.default
+            }
+
+            if (me.isDestroyed || me.sortZone) {
+                return
             }
 
             me.createSortZone(Neo.merge({
@@ -293,8 +299,17 @@ class Container extends Component {
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
 
+        // Live items follow a theme change. A raw item config is left to `createItem`, which
+        // resolves its theme with the full precedence — the config's own theme, itemDefaults, the
+        // class default, then this container's; stamping this theme onto the config here would
+        // pre-empt the first three, since `itemDefaults` only fill what is absent.
+        //
+        // An item still holding the replaced theme was inheriting it; any other theme is the item's
+        // own, and overwriting it would make an adopted subtree disagree with a config-built one.
         value && this.items?.forEach(item => {
-            if (!Neo.isString(item)) {
+            const inherited = !item.theme || item.theme === oldValue;
+
+            if (inherited && !Neo.isString(item) && Neo.typeOf(item) !== 'Object') {
                 item.theme = value
             }
         })
@@ -403,6 +418,9 @@ class Container extends Component {
             case 'NeoInstance': {
                 parent = item.parent;
 
+                // Read before the move re-parents it: a theme the instance only inherited follows it to this container.
+                const inheritsTheme = !item.theme || item.theme === parent?.theme;
+
                 if (parent && parent !== me) {
                     if (removeFromPreviousParent) {
                         parent.remove?.(item, false);
@@ -423,7 +441,10 @@ class Container extends Component {
                     }
                 }
 
-                item.set(config);
+                // Carried inside the existing batch: a separate assignment afterwards would run a second
+                // reactive cycle across the subtree. An explicit `theme` in `config` still wins, as any
+                // other key does.
+                item.set(inheritsTheme ? {theme: me.theme, ...config} : config);
                 item.getStateProvider?.()?.createBindings(item);
                 break
             }
@@ -443,7 +464,10 @@ class Container extends Component {
 
                 if (module && !lazyLoadItem) {
                     item.className = module.prototype.className;
-                    item.theme     = defaults.theme || module.config.theme || me.theme
+                    // The item config's own theme first — the precedence every other item config key
+                    // has — then itemDefaults, the class default, the parent. A nested theme is how
+                    // a light scope lives inside a dark host, and the shared tooltip reads it.
+                    item.theme     = item.theme || defaults.theme || module.config.theme || me.theme
                 }
 
                 if (item.handlerScope === 'this') {
@@ -629,6 +653,12 @@ class Container extends Component {
      * 4. The `DeltaUpdates` system detects the existing DOM node and moves it physically, preserving
      *    DOM state such as focus, input values, and iframe content.
      *
+     * A lazy config (`{module: () => import('...')}`) PARKS, exactly as it does at construction:
+     * the config itself takes the items slot and a `removeDom` placeholder vnode holds its index
+     * in the vdom, so a card layout can replace both with the loaded instance. A card layout loads a
+     * parked item when its index activates; when the inserted index is already the active one, this
+     * method starts that load itself. The parked config is what gets returned in that case.
+     *
      * @param {Number} index
      * @param {Array|Object|Neo.component.Base} item
      * @param {Boolean} [silent=false]
@@ -636,10 +666,10 @@ class Container extends Component {
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     insert(index, item, silent=false, removeFromPreviousParent=true) {
-        let me          = this,
-            {items}     = me,
-            lca         = null,
-            i, itemParent, itemType, len, oldParent, parentsA, parentsB, returnArray;
+        let me      = this,
+            {items} = me,
+            lca     = null,
+            i, itemParent, itemType, len, oldParent, parentsA, parentsB, parked, returnArray, vdom;
 
         if (Array.isArray(item)) {
             i           = 0;
@@ -679,17 +709,47 @@ class Container extends Component {
                 }
             }
 
-            item = me.createItem(item, index, removeFromPreviousParent);
+            item   = me.createItem(item, index, removeFromPreviousParent);
+            parked = !(item instanceof Neo.core.Base);
 
-            // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
-            // since it will most likely get activated right away
-            me.layout?.applyChildAttributes(item, index, true);
+            if (parked) {
+                // A lazy `module` config parks, exactly as construction parks it (see createItems()):
+                // the config takes the slot and its `removeDom` placeholder vnode keeps the indices
+                // aligned for the card layout's later loadModule() replacement.
+                vdom = item.vdom
+            } else {
+                // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
+                // since it will most likely get activated right away
+                me.layout?.applyChildAttributes(item, index, true);
+                vdom = item.createVdomReference()
+            }
 
             items.splice(index, 0, item);
 
             me.items = items;
 
-            me.getVdomItemsRoot().cn.splice(index, 0, item.createVdomReference())
+            me.getVdomItemsRoot().cn.splice(index, 0, vdom);
+
+            // A card layout loads a parked item when its index ACTIVATES. An index that is already
+            // active fired that hook long before this insert, so the inserter starts the load itself;
+            // the settled instance publishes through its own update, independent of the caller's
+            // (possibly silent) transaction. A parked item at any other index loads on activation.
+            if (parked && me.layout?.loadModule && me.layout.activeIndex === index) {
+                me.layout.loadModule(item, index).then(() => {
+                    if (!me.isDestroyed) {
+                        me.updateDepth = -1;
+                        me.update()
+                    }
+                }).catch(error => {
+                    // The failure route this call site owes: loadModule() flags the item `isLoading`
+                    // before its await and has no catch of its own, so a rejected import (a chunk that
+                    // fails to fetch, a module that throws while evaluating) would otherwise leave an
+                    // unhandled rejection and an item flagged loading forever. The config stays parked
+                    // behind its placeholder, unflagged, so the next activation retries the load.
+                    delete item.isLoading;
+                    console.error(`${me.id}: the lazy module inserted at index ${index} failed to load`, error)
+                })
+            }
         }
 
         if (!silent) {
@@ -901,6 +961,11 @@ class Container extends Component {
             me.updateDepth = 2;
 
             !silent && me.update();
+
+            // Mirror `insert`'s signal so structural listeners (e.g. Neo.tab.plugin.Overflow) can re-project
+            // on a removal — removeAt was previously silent, stranding a cached projection with stale menu
+            // indices. `items` is already spliced above, so a listener re-reads the post-removal set.
+            !silent && me.fire('remove', {index, item});
 
             if (destroyItem) {
                 item.destroy(true, silent);

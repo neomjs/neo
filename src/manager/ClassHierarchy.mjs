@@ -67,8 +67,9 @@ class ClassHierarchy extends BaseManager {
      * Example use cases:
      * - isA('Neo.button.Menu',    'Neo.button.Base')    => true
      * - isA('Neo.button.Base',    'Neo.button.Menu')    => false
-     * - isA('Neo.button.Base',    'Neo.component.Base') => true
-     * - isA('Neo.component.Base', 'Neo.core.Base')      => true
+     * - isA('Neo.button.Base',    'Neo.component.Base')     => true
+     * - isA('Neo.button.Base',    'Neo.component.Abstract') => true
+     * - isA('Neo.component.Base', 'Neo.core.Base')          => true
      * @param {String} descendant
      * @param {String} ancestor
      * @returns {Boolean}
@@ -90,12 +91,6 @@ class ClassHierarchy extends BaseManager {
         while (parent = this.get(parent)?.parentClassName) {
             if (parent === ancestor) {
                 returnValue = true;
-                break
-            }
-
-            // Assumption: component.Base directly extends core.Base
-            if (parent === 'Neo.component.Base' && ancestor !== 'Neo.core.Base') {
-                returnValue = false;
                 break
             }
 

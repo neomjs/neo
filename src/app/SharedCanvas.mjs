@@ -7,8 +7,14 @@ import Canvas from '../component/Canvas.mjs';
  * SharedWorker canvas renderer. It handles:
  * 1.  **Lifecycle**: Initializing the graph when offscreen canvas is ready.
  * 2.  **Sizing**: Syncing DOM size to the worker via ResizeObserver.
- * 3.  **Interaction**: Bridging mouse events (move, click, leave) to the worker.
+ * 3.  **Interaction**: Bridging pointer input (move, click, leave, down, up, wheel) to the worker through one
+ *     `updateMouseState` payload. The owner of the DOM listeners calls the forwarders: a container's `domListeners`
+ *     delegating to its canvas item, or the host's own `addDomListeners`. Subscribe `wheel` as a local listener
+ *     (`wheel: {fn, local: true, passive: false}`), which is how a node outside the main thread's global wheel
+ *     target list receives deltas.
  * 4.  **Theming**: Syncing the component's theme to the worker.
+ * 5.  **Visibility**: Pausing the render loop while the host's window is hidden. A hidden window and the host's own
+ *     `pause()` are separate reasons, and the loop runs only while neither holds.
  *
  * Subclasses must define:
  * - `rendererClassName`: String name of the SharedWorker singleton (e.g. 'Neo.canvas.Header')
@@ -53,16 +59,31 @@ class SharedCanvas extends Canvas {
      * @member {Object|null} canvasRect=null
      */
     canvasRect = null
+    /**
+     * Whether the host paused its renderer for its own reason, like a part scrolled out of view. Only the host's
+     * own `resume()` lifts it; the window becoming visible does not.
+     * @member {Boolean} hostPaused=false
+     * @protected
+     */
+    hostPaused = false
+    /**
+     * Whether the window this host lives in is hidden, as its app's `visibilitychange` reports it.
+     * @member {Boolean} windowHidden=false
+     * @protected
+     */
+    windowHidden = false
 
     /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
     afterSetIsCanvasReady(value, oldValue) {
+        let me = this;
+
         if (value) {
-            let mode = this.theme?.includes('dark') ? 'dark' : 'light';
-            this.renderer?.setTheme(mode);
-            this.fire('canvasReady')
+            me.renderer?.setTheme({theme: me.resolveColorScheme(), windowId: me.windowId});
+            (me.hostPaused || me.windowHidden) && me.renderer?.pause({windowId: me.windowId});
+            me.fire('canvasReady')
         }
     }
 
@@ -78,7 +99,7 @@ class SharedCanvas extends Canvas {
         if (value) {
             await me.ready()
         } else if (me.offscreenRegistered) {
-            me.renderer?.clearGraph()
+            me.renderer?.clearGraph({windowId: me.windowId})
         }
 
         super.afterSetMounted(value, oldValue)
@@ -109,7 +130,7 @@ class SharedCanvas extends Canvas {
             await me.updateSize()
         } else if (oldValue) {
             me.isCanvasReady = false;
-            await me.renderer.clearGraph()
+            await me.renderer.clearGraph({windowId: me.windowId})
         }
     }
 
@@ -120,10 +141,38 @@ class SharedCanvas extends Canvas {
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
 
-        if (value && this.isCanvasReady) {
-            let mode = value.includes('dark') ? 'dark' : 'light';
-            this.renderer.setTheme(mode)
+        if (this.isCanvasReady) {
+            this.renderer.setTheme({theme: this.resolveColorScheme(), windowId: this.windowId})
         }
+    }
+
+    /**
+     * Triggered after the windowId config got changed: a host that moves into another window takes that window's
+     * current visibility and listens to it from then on.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        let me = this;
+
+        super.afterSetWindowId(value, oldValue);
+
+        if (oldValue) {
+            Neo.apps[oldValue]?.un('visibilitychange', me.onWindowVisibility, me);
+            me.listenToWindow()
+        }
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        let me = this;
+
+        super.construct(config);
+        me.listenToWindow();
+        Neo.currentWorker.on('connect', me.onWindowConnect, me)
     }
 
     /**
@@ -151,7 +200,11 @@ class SharedCanvas extends Canvas {
      * @param {...*} args
      */
     destroy(...args) {
-        this.renderer?.clearGraph();
+        let me = this;
+
+        me.app?.un('visibilitychange', me.onWindowVisibility, me);
+        Neo.currentWorker.un('connect', me.onWindowConnect, me);
+        me.offscreenRegistered && me.renderer?.clearGraph({windowId: me.windowId});
         super.destroy(...args)
     }
 
@@ -164,39 +217,76 @@ class SharedCanvas extends Canvas {
         let me = this;
 
         if (me.rendererImportPath) {
-             // Ensure Canvas Worker is running
-            await Neo.worker.Manager.startWorker({
-                name    : 'canvas',
-                windowId: me.windowId
-            });
+            let {windowId} = me;
 
-            // Wait for the Canvas Worker remote to be available.
-            let i = 0;
+            // Starts this window's canvas worker, in this window's own main thread
+            await Neo.worker.Manager.startWorker({name: 'canvas', windowId});
 
-            while (!Neo.ns('Neo.worker.Canvas.loadModule') && i < 40) {
+            try {
+                await Neo.currentWorker.whenCanvasReady(windowId)
+            } catch (error) {
+                // A window leaving mid-boot is expected; any other failure is this group's worker not starting
+                Neo.currentWorker.isDeparture(error, windowId) || console.error('Neo.app.SharedCanvas: canvas worker unavailable', error);
+                return
+            }
+
+            // Load the specific renderer module for this component
+            await Neo.worker.Canvas.loadModule({path: me.rendererImportPath, windowId});
+
+            // Wait for the remote stub to be created
+            let j = 0;
+            while (!me.renderer && j < 40) {
                 await me.timeout(50);
-                i++
+                j++
             }
 
-            if (Neo.ns('Neo.worker.Canvas.loadModule')) {
-                // Load the specific renderer module for this component
-                await Neo.worker.Canvas.loadModule({
-                    path: me.rendererImportPath
-                });
-
-                // Wait for the remote stub to be created
-                let j = 0;
-                while (!me.renderer && j < 40) {
-                    await me.timeout(50);
-                    j++
-                }
-
-                if (!me.renderer) {
-                     console.error('Renderer Remote Stub not found:', me.rendererClassName)
-                }
-            } else {
-                console.error('Neo.component.CanvasShared: Canvas Worker failed to register remote methods.')
+            if (!me.renderer) {
+                 console.error('Renderer Remote Stub not found:', me.rendererClassName)
             }
+        }
+    }
+
+    /**
+     * @summary Takes the current visibility of the window this host lives in, then listens to its later reports: a
+     * window that is already hidden never reports, so waiting for a `visibilitychange` would leave the loop running.
+     * @protected
+     */
+    listenToWindow() {
+        let me = this;
+
+        me.windowHidden = Neo.currentWorker.hiddenTick.isHidden(me.windowId);
+        me.app?.on('visibilitychange', me.onWindowVisibility, me)
+    }
+
+    /**
+     * Forwards one pointer report to the renderer: the canvas-relative position, then the button and modifier facts
+     * the DOM event carries (`button`, `buttons`, `altKey`, `ctrlKey`, `metaKey`, `shiftKey`), then what the caller
+     * adds (`click`, `down`, `up`, `wheel`). Nothing leaves before the canvas is ready and measured.
+     * @param {Object} data The DOM event data
+     * @param {Object} [extra]
+     * @protected
+     */
+    forwardPointer(data, extra) {
+        let me           = this,
+            {canvasRect} = me;
+
+        if (me.isCanvasReady && canvasRect) {
+            let facts = {};
+
+            // Only facts the event carries: a report without a position leaves the worker's position alone, and
+            // one without modifiers must not reset them.
+            if (typeof data.clientX === 'number' && typeof data.clientY === 'number') {
+                facts.x = data.clientX - canvasRect.left;
+                facts.y = data.clientY - canvasRect.top
+            }
+
+            for (const key of ['altKey', 'button', 'buttons', 'ctrlKey', 'metaKey', 'shiftKey']) {
+                if (data[key] !== undefined) {
+                    facts[key] = data[key]
+                }
+            }
+
+            me.renderer.updateMouseState({...facts, ...extra, windowId: me.windowId})
         }
     }
 
@@ -205,24 +295,24 @@ class SharedCanvas extends Canvas {
      * @param {Object} data
      */
     onClick(data) {
-        let me = this;
-
-        if (me.isCanvasReady && me.canvasRect) {
-            me.renderer.updateMouseState({
-                click: true,
-                x    : data.clientX - me.canvasRect.left,
-                y    : data.clientY - me.canvasRect.top
-            })
-        }
+        this.forwardPointer(data, {click: true})
     }
 
     /**
-     * Pauses the Shared Worker render loop.
+     * Forwards a pressed button to the Shared Worker; the renderer's `onMouseDown` hook starts a drag from it.
+     * @param {Object} data
+     */
+    onMouseDown(data) {
+        this.forwardPointer(data, {down: true})
+    }
+
+    /**
+     * Pauses the Shared Worker render loop until this host's own `resume()`. A canvas that becomes ready later starts
+     * paused.
      */
     pause() {
-        if (this.isCanvasReady) {
-            this.renderer.pause()
-        }
+        this.hostPaused = true;
+        this.syncRenderLoop()
     }
 
     /**
@@ -231,61 +321,119 @@ class SharedCanvas extends Canvas {
      */
     onMouseLeave(data) {
         if (this.isCanvasReady) {
-            this.renderer.updateMouseState({leave: true})
+            this.renderer.updateMouseState({leave: true, windowId: this.windowId})
         }
     }
 
     /**
-     * Forwards mouse coordinates to the Shared Worker.
+     * Forwards mouse coordinates to the Shared Worker, with the held buttons and modifiers of the move.
      * @param {Object} data
      */
     onMouseMove(data) {
+        this.forwardPointer(data)
+    }
+
+    /**
+     * Forwards a released button to the Shared Worker; the renderer's `onMouseUp` hook ends a drag on it.
+     * @param {Object} data
+     */
+    onMouseUp(data) {
+        this.forwardPointer(data, {up: true})
+    }
+
+    /**
+     * Forwards a wheel event to the Shared Worker: the deltas beside the position and modifiers, so a renderer can
+     * zoom (`ctrlKey` marks a trackpad pinch on macOS).
+     * @param {Object} data
+     */
+    onWheel(data) {
+        let {deltaMode, deltaX, deltaY, deltaZ} = data;
+
+        this.forwardPointer(data, {wheel: {deltaMode, deltaX, deltaY, deltaZ}})
+    }
+
+    /**
+     * A window finished connecting, and its visibility snapshot has landed: the host re-reads it, since the snapshot
+     * can arrive after the view was built and never reaches the app as a `visibilitychange`.
+     * @param {Object} data
+     * @param {String} data.windowId
+     * @protected
+     */
+    onWindowConnect({windowId}) {
         let me = this;
 
-        if (me.isCanvasReady) {
-            if (me.canvasRect) {
-                me.renderer.updateMouseState({
-                    x: data.clientX - me.canvasRect.left,
-                    y: data.clientY - me.canvasRect.top
-                })
-            }
+        if (windowId === me.windowId) {
+            me.windowHidden = Neo.currentWorker.hiddenTick.isHidden(windowId);
+            me.syncRenderLoop()
         }
     }
 
     /**
-     * Updates the canvas size in the Shared Worker when the DOM element resizes.
+     * The window's app reported its visibility: a hidden window pauses the render loop, and a visible one resumes it
+     * unless the host holds its own pause.
+     * @param {Object}  data
+     * @param {Boolean} data.hidden
+     * @protected
+     */
+    onWindowVisibility({hidden}) {
+        this.windowHidden = hidden;
+        this.syncRenderLoop()
+    }
+
+    /**
+     * @summary Resizes the worker canvas while retaining the event's viewport origin for pointer conversion.
      * @param {Object} data
      */
     async onDomResize(data) {
         super.onDomResize(data);
-        await this.updateSize(data.contentRect)
+        await this.updateSize(data.contentRect, data.rect)
     }
 
     /**
-     * Resumes the Shared Worker render loop.
+     * Lifts the host's own pause. The render loop resumes unless the window is hidden.
      */
     resume() {
-        if (this.isCanvasReady) {
-            this.renderer.resume()
+        this.hostPaused = false;
+        this.syncRenderLoop()
+    }
+
+    /**
+     * @summary Runs the renderer's loop exactly while neither the host nor a hidden window holds it paused.
+     * @protected
+     */
+    syncRenderLoop() {
+        let me = this;
+
+        if (me.isCanvasReady) {
+            me.renderer[me.hostPaused || me.windowHidden ? 'pause' : 'resume']({windowId: me.windowId})
         }
     }
 
     /**
-     * Pushes the new dimensions to the Shared Worker and caches the bounding rect.
-     * @param {Object|null} [rect]
+     * @summary Caches the viewport pointer rect and pushes dimensions to the renderer once this window's canvas worker
+     * adopted the canvas: the app worker's renderer proxy exists as soon as ANY window's group registered it, even
+     * while this window's group boots or failed. The message carries the host's `devicePixelRatio`, which a
+     * renderer drawing at device resolution sizes its buffer by.
+     * @param {Object|null} [rect] Renderer sizing rectangle.
+     * @param {Object|null} [pointerRect=rect] Viewport rectangle; resize contentRect has a padding-relative origin.
      */
-    async updateSize(rect) {
+    async updateSize(rect, pointerRect=rect) {
         let me = this;
 
         await me.ready();
 
         if (!rect || rect.width === 0 || rect.height === 0) {
-            rect = await me.getDomRect(me.id)
+            rect = pointerRect = await me.getDomRect(me.id)
         }
 
         if (rect) {
-            me.canvasRect = rect;
-            await me.renderer?.updateSize({width: rect.width, height: rect.height})
+            me.canvasRect = pointerRect;
+            me.offscreenRegistered && await me.renderer?.updateSize({
+                devicePixelRatio: Neo.config.devicePixelRatio || 1,
+                height          : rect.height,
+                width           : rect.width,
+                windowId        : me.windowId
+            })
         }
     }
 }

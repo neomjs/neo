@@ -55,6 +55,12 @@ export const measurePerformanceInBrowser = (testName, action, condition, passThr
 };
 
 export const measureUiUpdatePerformanceInBrowser = (testName, condition) => {
+    // Function-local on purpose. This helper is written to be serialized into the page, and
+    // `Function.prototype.toString` carries the body without its closure — a module-scope constant
+    // would be `undefined` there and the deadline would never be scheduled. Matches the `timeout`
+    // default its sibling above already exposes as an option.
+    const UI_UPDATE_BENCHMARK_TIMEOUT_MS = 30000;
+
     return new Promise((resolve, reject) => {
         const observer = new MutationObserver(() => {
             try {
@@ -74,10 +80,14 @@ export const measureUiUpdatePerformanceInBrowser = (testName, condition) => {
 
         observer.observe(document.body, {attributes: true, childList: true, subtree: true});
 
+        // A failure deadline, not a wait: the observer above clears it on the happy path, so it costs
+        // nothing on a green run and fires only to fail a wedged one. Named rather than marked —
+        // `out-waits:` would enter this in the guard's "wall clock still paid" backlog, which is a
+        // number about time actually spent, and no green run ever spends this.
         const timeoutId = setTimeout(() => {
             observer.disconnect();
             reject(new Error(`UI update benchmark timed out for "${testName}".`));
-        }, 30000);
+        }, UI_UPDATE_BENCHMARK_TIMEOUT_MS);
 
         const startTime = performance.now(); // Measurement starts here
         // The action (store.add) is assumed to have just happened
