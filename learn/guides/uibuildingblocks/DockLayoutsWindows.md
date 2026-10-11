@@ -143,6 +143,12 @@ Membership is separate from binding. "A participant lives while its Group does, 
 doing, and a Group holding participants is never empty." Hold on to that sentence; it is the reason a dead window
 does not take your pane with it.
 
+Binding also gives the window a position the engine can read. A window dragged by its native title bar sends the page
+no pointer events, so the engine knows where it stands only through `Neo.main.addon.WindowPosition`, whose stream keeps
+the window's row in `Neo.manager.Window` current, and every cross-window drop zone hit-tests that row. The host loads
+the addon into each window it arms, its own and every admitted vessel's (`Neo.currentWorker.getAddon`), so a tear-out
+app lists nothing for it in `mainThreadAddons`, even when a vessel's page is a child app with its own config.
+
 The dock joins the Group through the workspace set, and the set enforces a protocol rather than documenting one. A
 participant must expose `capture`, `prepare`, `adopt` and `compensate`, or its transaction is refused outright.
 `capture()` is **synchronous** and returns `{value, generation, revision}` — a capture that could await would let the

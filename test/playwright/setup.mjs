@@ -53,6 +53,7 @@ let priorNeoConfigOverrides = null;
 Neo.currentWorker ??= {
     getAddon: async () => ({
         register  : () => {},
+        setConfigs: async () => {},
         unregister: () => {}
     }),
     // Every window is visible until a spec says otherwise

@@ -833,16 +833,18 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
-    test('cross-window source projection publishes stable workspace identity and the claim opt-in', () => {
+    test('cross-window source projection publishes stable workspace identity and the claim opt-in', async () => {
         const
-            originalWindowPosition = Neo.main.addon.WindowPosition,
-            windowPosition         = originalWindowPosition ?? Neo.ns('Neo.main.addon.WindowPosition', true),
-            originalSetConfigs     = windowPosition.setConfigs,
-            resizeCalls            = [];
+            originalGetAddon = Neo.currentWorker.getAddon,
+            {isSharedWorker} = Neo.currentWorker,
+            resizeCalls      = [],
+            windowPosition   = {setConfigs: data => resizeCalls.push(data)};
         let workspace;
 
         try {
-            windowPosition.setConfigs = data => resizeCalls.push(data);
+            // The Workstation is a SharedWorker app, and the engine loads the addon into the bound window.
+            Neo.currentWorker.isSharedWorker = true;
+            Neo.currentWorker.getAddon       = async (name, windowId) => name === 'WindowPosition' ? windowPosition : originalGetAddon(name, windowId);
             workspace = Neo.create(Workspace, {});
 
             const chrome = readTabChrome(workspace);
@@ -856,7 +858,7 @@ test.describe('Workstation.view.Workspace', () => {
 
             workspace.windowId = Neo.config.windowId;
 
-            expect(resizeCalls).toEqual([{observeMovement: true, observeResize: true, windowId: Neo.config.windowId}]);
+            await expect.poll(() => resizeCalls).toEqual([{observeMovement: true, observeResize: true, windowId: Neo.config.windowId}]);
             expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
             expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBe(workspace.dockModel);
 
@@ -869,13 +871,8 @@ test.describe('Workstation.view.Workspace', () => {
             })
         } finally {
             workspace?.destroy();
-            if (originalWindowPosition) {
-                originalSetConfigs
-                    ? windowPosition.setConfigs = originalSetConfigs
-                    : delete windowPosition.setConfigs
-            } else {
-                delete Neo.main.addon.WindowPosition
-            }
+            Neo.currentWorker.getAddon       = originalGetAddon;
+            Neo.currentWorker.isSharedWorker = isSharedWorker
         }
     });
 

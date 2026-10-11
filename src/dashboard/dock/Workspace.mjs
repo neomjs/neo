@@ -736,8 +736,7 @@ class Workspace extends Container {
         // live extents as soon as it exists — during construction for an ordinary host, or from the
         // reactive window binding for a headless one — through the same stream every admitted vessel
         // opens on connect. A moved or resized main window therefore never claims with a stale frame.
-        // Not gated on the engine lifecycle flag: a host may run its own admission (the Workstation
-        // does) and still dock across windows; the app's opt-in is loading the addon at all.
+        // Only a SharedWorker app spans windows; a dock in any other app arms nothing.
         this.observeBoundWindowGeometry(this.windowId);
 
         this.syncDockParticipation()
@@ -1408,25 +1407,28 @@ class Workspace extends Container {
     }
 
     /**
-     * @summary Opens one render target's live geometry stream into `Neo.manager.Window`.
+     * @summary Loads `Neo.main.addon.WindowPosition` into one render target and opens its live
+     * geometry stream into `Neo.manager.Window`.
      *
-     * `Neo.main.addon.WindowPosition` publishes `windowPositionChange` only behind two configs it
-     * defaults off: `observeMovement` (the config-owned poll — pointer travel alone cannot arm it
-     * for a titlebar grabbed from outside page content) and `observeResize` (a fixed-origin resize
-     * is a geometry change the poll never sees). Without both, the manager's row for that window
-     * stays the connect-time snapshot and every cross-window claim hit-tests a stale frame. The
-     * engine host arms both — for its own first real window binding, for each admitted vessel before
-     * ownership publication — so an adopter that EXTENDS this host never has to know the addon
-     * exists. A host COMPOSED from the dock pieces onto a plain container never runs the binding
-     * hook and must arm the same pair itself; half of it (resize only) leaves the row blind to a
-     * titlebar drag, which is the defect the composition example carried. Overridable for a realm
-     * that publishes geometry another way.
+     * The addon publishes `windowPositionChange` only behind two configs it defaults off:
+     * `observeMovement` (the config-owned poll — pointer travel alone cannot arm it for a titlebar
+     * grabbed from outside page content) and `observeResize` (a fixed-origin resize is a geometry
+     * change the poll never sees). Without both, the manager's row for that window stays the
+     * connect-time snapshot and every cross-window claim hit-tests a stale frame. The engine host
+     * arms both — for its own first real window binding, for each admitted vessel before ownership
+     * publication — and loads the addon per window (`Neo.currentWorker.getAddon`), because each
+     * window's Main realm runs its own page config: a vessel's child app need not list it, and no app
+     * lists it for tear-out. A host COMPOSED from the dock pieces onto a plain container never runs
+     * the binding hook and must arm the same pair itself; half of it (resize only) leaves the row
+     * blind to a titlebar drag. Overridable for a realm that publishes geometry another way.
      * @param {String} windowId The render target whose Main realm publishes
-     * @returns {Promise<void>|undefined} The addon's remote settle, or `undefined` off the browser
+     * @returns {Promise<void>} Settles once the window's stream is armed
      * @protected
      */
-    observeWindowGeometry(windowId) {
-        return Neo.main?.addon?.WindowPosition?.setConfigs({observeMovement: true, observeResize: true, windowId})
+    async observeWindowGeometry(windowId) {
+        const WindowPosition = await Neo.currentWorker.getAddon('WindowPosition', windowId);
+
+        return WindowPosition.setConfigs({observeMovement: true, observeResize: true, windowId})
     }
 
     /**
@@ -1435,14 +1437,16 @@ class Workspace extends Container {
      * Construction and the reactive window-id hook deliberately share this guard: a Workspace
      * created with a window must not issue two remote writes, while one created headless must issue
      * none until a container supplies its first real id. The previous realm stays armed because
-     * WindowPosition's observation flags are realm-global, not Workspace-keyed leases.
+     * WindowPosition's observation flags are realm-global, not Workspace-keyed leases. Only an app
+     * whose App Worker is a SharedWorker spans windows, so a dock in any other app arms nothing and
+     * starts no poll.
      * @param {String|null} windowId The Workspace's current render target.
-     * @returns {Promise<void>|undefined} The addon's remote settle, or `undefined` when headless,
-     *     already armed, or outside the browser.
+     * @returns {Promise<void>|undefined} The arming, or `undefined` when headless, already armed, or
+     *     outside a SharedWorker app.
      * @protected
      */
     observeBoundWindowGeometry(windowId) {
-        if (!windowId || this.observedWindowGeometryId === windowId) {
+        if (!windowId || this.observedWindowGeometryId === windowId || !Neo.currentWorker.isSharedWorker) {
             return
         }
 
