@@ -176,10 +176,11 @@ A restored layout sits beside the declared perspective, so the toolbar reads "Mo
 
 ## Step 5: a pane that leaves for its own window
 
-The windows rest on one line in the app's `neo-config.json`. With it, every window of the app connects to one shared App Worker and only renders:
+The windows start in the app's `neo-config.json`. `useSharedWorkers` makes every window of the app connect to one shared App Worker and only render. The main-thread addons give each window what the dock needs there. The defaults are `DragDrop`, `Navigator` and `Stylesheet`. `WindowPosition` lets a window dragged by its own title bar find the drop zones of another, and `DockFlip` animates the dock's structural moves:
 
 ```json
 {
+    "mainThreadAddons": ["DockFlip", "DragDrop", "Navigator", "Stylesheet", "WindowPosition"],
     "useSharedWorkers": true
 }
 ```
