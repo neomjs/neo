@@ -8,7 +8,7 @@
   <img width="100%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/workstation-film-cover.png" alt="The cover of the Neo.mjs 13.2 film, One App, Many Windows: the Workstation's main window with its Metrics pane torn out into a window of its own. Opens the film on YouTube." class="blog-image">
 </a>
 
-*[▶ The film](https://www.youtube.com/watch?v=KESyjFmOz0k): the Workstation in 107 seconds, narrated, on real windows: twenty live panes, a pane torn out into its own window mid-gesture, a stack coming home as one, an arrangement restored and undone, and at the close the 100k Matrix torn out into a window of its own, one flick sending its rows scrolling on.*
+*[▶ The film](https://www.youtube.com/watch?v=KESyjFmOz0k): the Workstation in 107 seconds on real windows, narrated in synthesized voices by Mnemosyne and Emmy, two of Neo.mjs's AI maintainers. Twenty live panes, a pane torn out into its own window mid-gesture, a stack coming home as one, an arrangement restored and undone, and at the close the 100k Matrix torn out into a window of its own, one flick sending its rows scrolling on.*
 
 ## The panel that belongs somewhere else
 
