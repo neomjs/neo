@@ -193,14 +193,19 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(redo.tabs['scale-tabs']).toContain('security');
 
         // the signature's diagonal strokes: the grid followed the hand on both axes, down and to the
-        // right, so the rows kept crossing and the canvas column at the right edge came into view
-        const [gridDrag] = byType('grid-drag-scroll');
+        // right, by the travel the screenplay asked for or the room the matrix had left — a direction
+        // alone or a pixel of motion is not a pan. Whether the canvas column is in the frame is the
+        // take's own evidence; the witness pins the measured travel.
+        const [gridDrag] = byType('grid-drag-scroll'), travel = gridDrag.proof?.travel;
 
         expect(gridDrag.applied, `the grid must follow the hand:\n${(gridDrag.errors || []).join('\n')}`).toBe(true);
         expect(gridDrag.proof?.strokes).toBe(3);
         expect(gridDrag.proof?.after?.settled, 'the inertia tail settled before the read').toBe(true);
-        expect(gridDrag.proof?.after?.scrollLeft, 'the view panned right').toBeGreaterThan(gridDrag.proof?.before?.scrollLeft ?? 0);
-        expect(gridDrag.proof?.after?.scrollTop,  'the view panned down').toBeGreaterThan(gridDrag.proof?.before?.scrollTop ?? 0);
+        expect(travel?.met, 'both dragged axes reached their expected travel').toEqual({x: true, y: true});
+        expect(travel?.expected?.x, 'the pan right had at least a column of room').toBeGreaterThanOrEqual(130);
+        expect(travel?.expected?.y, 'the pan down had at least a row of room').toBeGreaterThanOrEqual(50);
+        expect(travel?.observed?.x, 'the view panned right by the expected travel').toBeGreaterThanOrEqual(travel.expected.x - travel.slack.x);
+        expect(travel?.observed?.y, 'the view panned down by the expected travel').toBeGreaterThanOrEqual(travel.expected.y - travel.slack.y);
 
         // the room never stopped living
         expect(receipt.feed.growth).toBeGreaterThan(0)

@@ -1125,11 +1125,16 @@ class GestureDriver extends Base {
      * @summary Scrolls a grid pane by real diagonal pointer strokes on its body: the grid's own
      * drag-scroll (`Neo.grid.ScrollManager#dragScroll` through the `GridDragScroll` main-thread
      * addon) carries the content with the hand, so one stroke moves the view vertically and
-     * horizontally at once. Each stroke is a mousedown → mouseup bracket the simulator drives from
-     * the pane's anchor point along `(deltaX, deltaY)`, the film cursor riding the drive's clock;
-     * between strokes the hand returns to the anchor, as a person pans a map. The receipt proves
-     * the grid followed the hand on both axes: `scrollTop` from the View and `scrollLeft` from the
-     * Body, read before the first press and after the addon's inertia tail has settled.
+     * horizontally at once. Each stroke is a mousedown → mousemove… → mouseup bracket of raw events
+     * from the pane's anchor point along `(deltaX, deltaY)`; the film cursor moves to a sample as
+     * that sample is dispatched, and the next sample waits for the acknowledgement, so the cursor
+     * never runs ahead of input the main thread has not taken. Between strokes the hand lifts and
+     * presses again at the anchor, as a person pans a map. The receipt proves the grid followed the
+     * hand: `scrollTop` from the View and `scrollLeft` from the Body, read before the first press
+     * and again once the addon's inertia tail has settled — an unsettled tail fails the step — and
+     * the observed travel per dragged axis must reach the expected one (`measureGridTravel`): the
+     * request, or the room the grid had left when the request exceeds it, less one sample per
+     * stroke of slack.
      * @param {Object} step
      * @param {String} step.paneId The workspace pane cache key, e.g. `'scale'`.
      * @param {Number} step.deltaX Pointer travel per stroke in CSS px; negative drags the content left, so `scrollLeft` grows.
@@ -1137,11 +1142,11 @@ class GestureDriver extends Base {
      * @param {Object} [step.anchor] Where each stroke presses, as fractions of the view rect (default `{x: 0.5, y: 0.5}`).
      * @param {Number} [step.strokes=1] How many strokes, each from the anchor.
      * @param {Object} [options]
-     * @param {Number} [options.attempts=180] Poll attempts (16 ms each) for the scroll to settle after a release.
+     * @param {Number} [options.attempts=180] Poll attempts (16 ms each) for the scroll to settle after the last release.
      * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
      * @param {Number} [options.moveSteps=12] Samples along one stroke.
      * @param {Boolean} [options.showCursor=false] Film mode: show the shared synthetic cursor.
-     * @returns {Promise<Object>} `{applied, errors, proof}`
+     * @returns {Promise<Object>} `{applied, errors, proof}`; `proof.travel` carries `requested`, `room`, `expected`, `observed`, `slack` and `met` per axis.
      */
     async executeGridDragScrollStep(step, {attempts=180, moveDelay=16, moveSteps=12, showCursor=false}={}) {
         return this.runGesture(async run => {
@@ -1204,61 +1209,61 @@ class GestureDriver extends Base {
                     }),
                     start         = {x: Math.round(rect.x + rect.width * anchor.x), y: Math.round(rect.y + rect.height * anchor.y)},
                     before        = read(),
-                    dispatched    = [];
+                    room          = driver.readGridScrollRoom(pane, before),
+                    dispatched    = [],
+                    moveCursor    = point => {
+                        if (cursorDot) {
+                            cursorDot.style = {...cursorDot.style, left: `${point.x - 8}px`, top: `${point.y - 8}px`}
+                        }
+                    };
 
                 showCursor && (cursorDot = driver.createFilmCursorDot(start.x, start.y, windowId));
 
                 for (let stroke = 0; stroke < strokes; stroke++) {
-                    let events = [{targetId: pane.body.id, type: 'mousedown', windowId, options: opt(start.x, start.y, 1)}],
-                        at     = ratio => ({x: Math.round(start.x + deltaX * ratio), y: Math.round(start.y + deltaY * ratio)});
+                    let at      = ratio => ({x: Math.round(start.x + deltaX * ratio), y: Math.round(start.y + deltaY * ratio)}),
+                        samples = [{buttons: 1, delay: 0, point: start, targetId: pane.body.id, type: 'mousedown'}],
+                        sent    = 0;
 
                     for (let index = 1; index <= moveSteps; index++) {
-                        let point = at(index / moveSteps);
-
-                        events.push({delay: moveDelay, targetId: 'document.body', type: 'mousemove', windowId, options: opt(point.x, point.y, 1)})
+                        samples.push({buttons: 1, delay: moveDelay, point: at(index / moveSteps), targetId: 'document.body', type: 'mousemove'})
                     }
 
-                    let end = at(1);
+                    samples.push({buttons: 0, delay: moveDelay, point: at(1), targetId: 'document.body', type: 'mouseup'});
 
-                    events.push({delay: moveDelay, targetId: 'document.body', type: 'mouseup', windowId, options: opt(end.x, end.y, 0)});
+                    // the hand lifts at the end of one stroke and presses again at the anchor
+                    stroke && await driver.trap(driver.timeout(moveDelay * 4));
 
-                    let escort = async () => {
-                            for (let index = 1; index <= moveSteps; index++) {
-                                let point = at(index / moveSteps);
+                    // one progression for the eye and the input: the cursor moves to a sample as that
+                    // sample is dispatched, and the next sample waits for this one's acknowledgement
+                    // plus its delay, so a slow main thread holds the cursor with the input
+                    for (let {buttons, delay, point, targetId, type} of samples) {
+                        delay && await driver.trap(driver.timeout(delay));
+                        moveCursor(point);
 
-                                if (cursorDot) {
-                                    cursorDot.style = {...cursorDot.style, left: `${point.x - 8}px`, top: `${point.y - 8}px`}
-                                }
+                        if (!await driver.simulateEvent(run, {events: [{targetId, type, windowId, options: opt(point.x, point.y, buttons)}]})) {
+                            dispatched.push(sent);
+                            return {applied: false, errors: [`stroke ${stroke + 1} could not be dispatched: ${type} at (${point.x}, ${point.y}) was refused`], proof: {before, dispatched, strokes}}
+                        }
 
-                                await driver.trap(driver.timeout(moveDelay))
-                            }
-                        },
-                        [ok] = await Promise.all([driver.simulateEvent(run, {events}), escort()]);
-
-                    dispatched.push(ok);
-
-                    if (!ok) {
-                        return {applied: false, errors: [`stroke ${stroke + 1} could not be dispatched`], proof: {before, dispatched}}
+                        sent++
                     }
 
-                    // the hand comes back to the anchor for the next stroke
-                    if (cursorDot && stroke + 1 < strokes) {
-                        cursorDot.style = {...cursorDot.style, left: `${start.x - 8}px`, top: `${start.y - 8}px`};
-                        await driver.trap(driver.timeout(moveDelay * 4))
-                    }
+                    dispatched.push(sent)
                 }
 
                 let after  = await settle(),
-                    proof  = {after, before, dispatched, strokes, travel: {deltaX, deltaY}},
-                    movedX = Math.sign(after.scrollLeft - before.scrollLeft),
-                    movedY = Math.sign(after.scrollTop - before.scrollTop),
-                    wantX  = -Math.sign(deltaX),
-                    wantY  = -Math.sign(deltaY);
+                    travel = driver.measureGridTravel({after, before, deltaX, deltaY, moveSteps, room, strokes}),
+                    proof  = {after, before, dispatched, strokes, travel},
+                    moved  = `scrollLeft ${before.scrollLeft} → ${after.scrollLeft}, scrollTop ${before.scrollTop} → ${after.scrollTop} for ${strokes} stroke(s) of (${deltaX}, ${deltaY})`;
 
-                if ((wantX && movedX !== wantX) || (wantY && movedY !== wantY)) {
+                if (!after.settled) {
+                    return {applied: false, errors: [`the grid had not settled ${attempts * 16} ms after the last release: ${moved}`], proof}
+                }
+
+                if (!(travel.met.x && travel.met.y)) {
                     return {
                         applied: false,
-                        errors : [`the grid did not follow the hand: scrollLeft ${before.scrollLeft} → ${after.scrollLeft}, scrollTop ${before.scrollTop} → ${after.scrollTop} for ${strokes} stroke(s) of (${deltaX}, ${deltaY})`],
+                        errors : [`the grid did not follow the hand: ${moved}; expected at least (${travel.expected.x}, ${travel.expected.y}) less (${travel.slack.x}, ${travel.slack.y}) of slack within room (${travel.room.x ?? 'unmeasured'}, ${travel.room.y ?? 'unmeasured'})`],
                         proof
                     }
                 }
@@ -1270,6 +1275,62 @@ class GestureDriver extends Base {
                 await driver.retireFilmCursorDot(cursorDot)
             }
         })
+    }
+
+    /**
+     * @summary Reads how far a grid pane can still scroll from a position, where the grid measures
+     * itself: the last column position against the body's container width, the store's row count
+     * times the row height against the body's available height. A side the grid has not measured
+     * yet reads `null`.
+     * @param {Neo.grid.Container} pane
+     * @param {Object} from `{scrollLeft, scrollTop}`
+     * @returns {{x: Number|null, y: Number|null}}
+     * @protected
+     */
+    readGridScrollRoom(pane, from) {
+        let {body}    = pane,
+            positions = body.columnPositions,
+            count     = positions?.getCount?.() ?? 0,
+            last      = count ? positions.getAt(count - 1) : null,
+            width     = last ? last.x + last.width : 0,
+            height    = (pane.store?.getCount?.() ?? 0) * (body.rowHeight || 0),
+            room      = (content, viewport, offset) => content > 0 && viewport > 0 ? Math.max(0, content - viewport - offset) : null;
+
+        return {x: room(width, body.containerWidth, from.scrollLeft), y: room(height, body.availableHeight, from.scrollTop)}
+    }
+
+    /**
+     * @summary Judges a grid drag-scroll's travel per axis. The expected travel is the request
+     * (`|delta| × strokes`), or the grid's room when the request exceeds it; the observed travel is
+     * the scroll change projected on the dragged direction (the inertia tail may add, a bound
+     * clips); the slack is one sample per stroke. An axis that was not dragged is met by
+     * definition; a dragged one must move the dragged way and reach the expected less the slack.
+     * @param {Object} data
+     * @param {Object} data.after `{scrollLeft, scrollTop}` once settled.
+     * @param {Object} data.before `{scrollLeft, scrollTop}` before the first press.
+     * @param {Number} data.deltaX
+     * @param {Number} data.deltaY
+     * @param {Number} data.moveSteps
+     * @param {{x: Number|null, y: Number|null}} data.room From `readGridScrollRoom`.
+     * @param {Number} data.strokes
+     * @returns {Object} `{deltaX, deltaY, requested, room, expected, observed, slack, met}`, the last six as `{x, y}`
+     * @protected
+     */
+    measureGridTravel({after, before, deltaX, deltaY, moveSteps, room, strokes}) {
+        let axis = (delta, change, free) => {
+                let want      = -Math.sign(delta),
+                    requested = Math.abs(delta) * strokes,
+                    expected  = Neo.isNumber(free) ? Math.min(requested, free) : requested,
+                    observed  = change * want,
+                    slack     = Math.ceil(Math.abs(delta) / Math.max(1, moveSteps)) * strokes;
+
+                return {expected, met: !want || (observed > 0 && observed >= expected - slack), observed, requested, room: Neo.isNumber(free) ? free : null, slack}
+            },
+            x    = axis(deltaX, after.scrollLeft - before.scrollLeft, room?.x),
+            y    = axis(deltaY, after.scrollTop  - before.scrollTop,  room?.y),
+            pick = key => ({x: x[key], y: y[key]});
+
+        return {deltaX, deltaY, requested: pick('requested'), room: pick('room'), expected: pick('expected'), observed: pick('observed'), slack: pick('slack'), met: pick('met')}
     }
 
     /**
