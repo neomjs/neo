@@ -39,8 +39,24 @@ delete Neo.main.DomAccess;
 delete Neo.main.addon.DragDrop;
 
 const {default: DomEvents} = await import('../../../../../src/main/DomEvents.mjs'),
+      {default: DomAccess} = await import('../../../../../src/main/DomAccess.mjs'),
       {default: Resize}    = await import('../../../../../src/main/draggable/Resize.mjs'),
       {default: DragDrop}  = await import('../../../../../src/main/addon/DragDrop.mjs');
+
+// Every describe shares these imported singletons and their browser fixtures.
+test.beforeEach(() => {
+    Neo.main.DomAccess      = DomAccess;
+    Neo.main.addon.DragDrop = DragDrop;
+    globalThis.document    = documentRef;
+    globalThis.window      = windowRef
+});
+
+test.afterAll(() => {
+    originalDomAccess === undefined ? delete Neo.main.DomAccess : Neo.main.DomAccess = originalDomAccess;
+    originalDragDrop  === undefined ? delete Neo.main.addon.DragDrop : Neo.main.addon.DragDrop = originalDragDrop;
+    originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument;
+    originalWindow   === undefined ? delete globalThis.window   : globalThis.window   = originalWindow
+});
 
 /**
  * @summary Pointer-follow for a popup window drag.
@@ -49,6 +65,9 @@ const {default: DomEvents} = await import('../../../../../src/main/DomEvents.mjs
  * logical drag frame, so target claims stay pointer-owned while the OS window follows.
  */
 test.describe('Neo.main.addon.DragDrop — physical window drag', () => {
+    // Browser globals are per-worker state; the teardown control must precede the next drag.
+    test.describe.configure({mode: 'default'});
+
     let originalMoveTo,
         originalSend;
 
@@ -57,19 +76,22 @@ test.describe('Neo.main.addon.DragDrop — physical window drag', () => {
         originalSend   = DomEvents.sendMessageToApp
     });
 
-    test.afterAll(() => {
-        originalDomAccess === undefined ? delete Neo.main.DomAccess : Neo.main.DomAccess = originalDomAccess;
-        originalDragDrop  === undefined ? delete Neo.main.addon.DragDrop : Neo.main.addon.DragDrop = originalDragDrop;
-        originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument;
-        originalWindow   === undefined ? delete globalThis.window   : globalThis.window   = originalWindow
-    });
-
     test.afterEach(() => {
         Neo.Main.windowMoveTo      = originalMoveTo;
         DomEvents.sendMessageToApp = originalSend
     });
 
+    test('a preceding fixture teardown cannot remove the next drag\'s browser globals', () => {
+        delete globalThis.document;
+        delete globalThis.window;
+
+        expect(globalThis.document).toBeUndefined();
+        expect(globalThis.window).toBeUndefined()
+    });
+
     test('a window drag moves the popup under the pointer and still emits the logical drag frame', () => {
+        expect(globalThis.document).toBe(documentRef);
+
         const moved = [],
               sent  = [],
               addon = {
