@@ -1143,12 +1143,15 @@ class GestureDriver extends Base {
      * @param {Number} [step.strokes=1] How many strokes, each from the anchor.
      * @param {Object} [options]
      * @param {Number} [options.attempts=180] Poll attempts (16 ms each) for the scroll to settle after the last release.
+     * @param {'linear'|'throw'} [options.curve='linear'] How the samples share the travel: evenly, or
+     * eased in (quartic) so the stroke winds up and whips — the last hundred milliseconds carry the
+     * speed the addon's momentum reads at the release.
      * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
      * @param {Number} [options.moveSteps=12] Samples along one stroke.
      * @param {Boolean} [options.showCursor=false] Film mode: show the shared synthetic cursor.
      * @returns {Promise<Object>} `{applied, errors, proof}`; `proof.travel` carries `requested`, `room`, `expected`, `observed`, `slack` and `met` per axis.
      */
-    async executeGridDragScrollStep(step, {attempts=180, moveDelay=16, moveSteps=12, showCursor=false}={}) {
+    async executeGridDragScrollStep(step, {attempts=180, curve='linear', moveDelay=16, moveSteps=12, showCursor=false}={}) {
         return this.runGesture(async run => {
             let me = run.workspace, driver = this,
                 {anchor={x: 0.5, y: 0.5}, deltaX=0, deltaY=0, paneId, strokes=1} = step || {},
@@ -1220,7 +1223,8 @@ class GestureDriver extends Base {
                 showCursor && (cursorDot = driver.createFilmCursorDot(start.x, start.y, windowId));
 
                 for (let stroke = 0; stroke < strokes; stroke++) {
-                    let at      = ratio => ({x: Math.round(start.x + deltaX * ratio), y: Math.round(start.y + deltaY * ratio)}),
+                    let share   = ratio => curve === 'throw' ? ratio ** 4 : ratio,
+                        at      = ratio => ({x: Math.round(start.x + deltaX * share(ratio)), y: Math.round(start.y + deltaY * share(ratio))}),
                         samples = [{buttons: 1, delay: 0, point: start, targetId: pane.body.id, type: 'mousedown'}],
                         sent    = 0;
 
