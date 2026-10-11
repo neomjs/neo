@@ -173,15 +173,16 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
-     * @summary Closes a participant's bound native window through its Group binding.
-     * Both sides of identity clearing are fenced against the exact binding, generation and window, and
-     * against `snapshot` when one is given, so a successor binding is never the one closed. The clear
-     * itself carries the binding's lineage token, so the window's carrier survives when a same-Group
-     * successor bound there first; a binding without a token is refused rather than cleared by Group.
+     * @summary Closes an emptied participant's bound native window through its Group binding.
+     * Both sides of identity clearing are fenced twice: the binding, generation and window stay the ones
+     * found, and the participant stays empty in the Group snapshot the close was decided in (`snapshot`,
+     * else the current one). The clear carries the binding's lineage token, so a same-Group successor that
+     * bound in the window keeps its carrier; a binding without a token is refused. A pane arriving while
+     * the clear is in flight leaves the window open with its carrier restored.
      * @param {Neo.dashboard.dock.window.WorkspaceSet} workspaceSet
      * @param {String} workspaceId
      * @param {Object} [options={}]
-     * @param {Object} [options.snapshot] The Group snapshot the close must still belong to.
+     * @param {Object} [options.snapshot] The Group snapshot the close was decided in; defaults to the current one.
      * @returns {Promise<Boolean>} `true` once the window accepted the close.
      */
     static async closeWorkspaceWindow(workspaceSet, workspaceId, {snapshot}={}) {
@@ -189,16 +190,21 @@ class NativeVesselTransaction extends Base {
               manager           = workspaceSet?.manager, group = manager?.get(workspaceSet.resolveGroupId()),
               binding           = group?.bindings.get(source?.bindingKey), generation = binding?.generation,
               {generationToken} = binding ?? {},
-              windowId          = native?.windowId(), current = () => manager.get(group.id) === group &&
-                  (snapshot === undefined || group.snapshot === snapshot) &&
-                  workspaceSet.getParticipant(workspaceId) === source &&
+              decided           = snapshot ?? group?.snapshot,
+              windowId          = native?.windowId(),
+              bound             = () => manager.get(group.id) === group && workspaceSet.getParticipant(workspaceId) === source &&
                   group.bindings.get(source.bindingKey) === binding && binding.generation === generation &&
-                  binding.windowId === windowId && native.windowId() === windowId;
-        if (!windowId || !binding || !generationToken) return false;
+                  binding.windowId === windowId && native.windowId() === windowId,
+              emptied           = () => group.snapshot === decided && !Object.keys(source.getDocument()?.items ?? {}).length;
+        if (!windowId || !binding || !generationToken || !bound() || !emptied()) return false;
         try {
-            if (current() && await Neo.Main.clearTopologyIdentity({generationToken, groupId: group.id, windowId}) === true && current()) {
-                return await Neo.Main.closeTopologyWindow({windowId}) === true
-            }
+            if (await Neo.Main.clearTopologyIdentity({generationToken, groupId: group.id, windowId}) !== true) return false;
+            if (bound() && emptied()) return await Neo.Main.closeTopologyWindow({windowId}) === true;
+            // The source changed during the clear: the still-bound window stays and gets its identity back;
+            // `onlyIfEmpty` leaves a successor's carrier untouched.
+            bound() && await Neo.Main.setTopologyIdentity({
+                generationToken, groupId: group.id, onlyIfEmpty: true, windowId, workspaceKey: source.bindingKey
+            })
         } catch {}
         return false
     }
