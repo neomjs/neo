@@ -310,13 +310,14 @@ items: {
 }
 ```
 
-A `setItemAutoHidden` against that item returns `{document, errors: ['item "console" is not pinnable']}` and the
-committed document does not advance. `closeItem` likewise refuses the console above, whether the request comes
+A `setItemPinned` or `setItemAutoHidden` against that item returns
+`{document, errors: ['item "console" is not pinnable']}` and the committed document does not advance.
+`closeItem` likewise refuses the console above, whether the request comes
 from projected close chrome or a programmatic operation.
 
-`movable: false` rejects cross-document transfers: `transferItem` refuses that item, and `transferNode` refuses a
-subtree containing it, leaving both workspace documents unchanged. It does **not** freeze the pane's position
-inside its workspace: `moveItem` does not consult `movable`, so moving the console into another stack of the same
+`movable: false` is enforced today on cross-document transfers: `transferItem` refuses that item, and
+`transferNode` refuses a subtree containing it, leaving both workspace documents unchanged. It does **not** freeze
+the pane's position inside its workspace: `moveItem` does not consult `movable`, so moving the console into another stack of the same
 workspace remains possible.
 
 These refusals belong in the reducer. Every caller of the same operation meets the same policy, whether the

@@ -195,9 +195,9 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    stamps onto the projected pane — so `getReference('editor')`, a view controller, and `data-ref="editor"` in the DOM
    all reach the same live component, and you maintain no second name for it. A pane declaration is an ordinary
    component config: a registered `module`, an `ntype`, or a lazy `module: () => import(…)` that loads on first
-   activation. Policy flags apply to specific model operations: `pinnable: false` refuses `setItemAutoHidden`,
-   `closable: false` refuses `closeItem`, and `movable: false` refuses cross-document transfers without freezing
-   movement inside the workspace. These checks apply whether the request comes from projected chrome or a
+   activation. Today, policy flags apply to specific model operations: `pinnable: false` refuses `setItemPinned`
+   and `setItemAutoHidden`; `closable: false` refuses `closeItem`; and `movable: false` refuses cross-document
+   transfers without freezing movement inside the workspace. These checks apply whether the request comes from projected chrome or a
    programmatic operation; the
    [adoption guide](DockLayoutsAdoption.md#decision-3--policies-live-in-the-model-not-in-your-ui) shows what the
    model refuses.
