@@ -2092,66 +2092,66 @@ test('the holder contract: a config-assigned document is readable before any ope
             expect(workspace.lifecycleEvents).toEqual(['return:true:true', 'disconnect'])
         });
 
-        test.describe('#18077 the host opens the geometry stream for its window and for every admitted vessel', () => {
-            let calls, originalSetConfigs, originalWindowPosition, windowPosition;
+        test.describe('#18077 #19619 the host loads the geometry stream into its window and into every admitted vessel', () => {
+            let addonLoads, calls, isSharedWorker, originalGetAddon, windowPosition;
 
             test.beforeEach(() => {
-                originalWindowPosition = Neo.main?.addon?.WindowPosition;
-                windowPosition         = originalWindowPosition ?? Neo.ns('Neo.main.addon.WindowPosition', true);
-                originalSetConfigs     = windowPosition.setConfigs;
-                calls                  = [];
+                originalGetAddon = Neo.currentWorker.getAddon;
+                isSharedWorker   = Neo.currentWorker.isSharedWorker;
+                addonLoads       = [];
+                calls            = [];
+                windowPosition   = {setConfigs: data => {calls.push(data); return Promise.resolve()}};
 
-                windowPosition.setConfigs = data => {
-                    calls.push(data);
-                    return Promise.resolve()
-                }
+                // `getAddon` loads an addon into ONE window's Main realm and returns its proxy. Recording
+                // the window it was asked for fails a load that reached the wrong realm. Nothing lists
+                // the addon in `mainThreadAddons`, as the Fleet Manager's widget shell does not.
+                Neo.currentWorker.getAddon = async (name, windowId) => {
+                    if (name !== 'WindowPosition') {
+                        return originalGetAddon(name, windowId)
+                    }
+
+                    addonLoads.push(windowId);
+                    return windowPosition
+                };
+
+                Neo.currentWorker.isSharedWorker = true
             });
 
             test.afterEach(() => {
-                if (originalWindowPosition) {
-                    originalSetConfigs
-                        ? windowPosition.setConfigs = originalSetConfigs
-                        : delete windowPosition.setConfigs
-                } else {
-                    delete Neo.main.addon.WindowPosition
-                }
+                Neo.currentWorker.getAddon       = originalGetAddon;
+                Neo.currentWorker.isSharedWorker = isSharedWorker
             });
 
-            test('construction opens movement AND resize for the host render target; a realm without the addon opens nothing and throws nothing', () => {
+            test('a SharedWorker host loads the addon into its own window and opens movement AND resize there', async () => {
                 workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument(), windowId: 'host-window'});
 
-                expect(calls, 'one stream, both observations, the host window').toEqual([
-                    {observeMovement: true, observeResize: true, windowId: 'host-window'}
-                ]);
+                await expect.poll(() => calls.length, 'the stream opens with nothing in mainThreadAddons').toBe(1);
+                expect(addonLoads, 'loaded into the host window').toEqual(['host-window']);
+                expect(calls[0]).toEqual({observeMovement: true, observeResize: true, windowId: 'host-window'})
+            });
 
-                // A host running its own admission (no engine lifecycle) docks across windows too:
-                // the arming is not gated on the lifecycle flag.
+            test('a dock outside a SharedWorker app loads nothing and starts no poll; inside one, every host arms', async () => {
+                Neo.currentWorker.isSharedWorker = false;
+
+                const bare = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'bare-window'});
+
+                bare.destroy();
+
+                // A host running its own admission (no engine lifecycle) docks across windows too.
+                Neo.currentWorker.isSharedWorker = true;
+
                 const plain = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'plain-window'});
 
                 try {
-                    expect(calls.at(-1), 'every dock host opens its stream').toEqual(
-                        {observeMovement: true, observeResize: true, windowId: 'plain-window'}
-                    )
+                    await expect.poll(() => calls.length).toBe(1);
+                    expect(addonLoads, 'the dedicated-worker dock loaded nothing').toEqual(['plain-window']);
+                    expect(calls[0]).toEqual({observeMovement: true, observeResize: true, windowId: 'plain-window'})
                 } finally {
                     plain.destroy()
                 }
-
-                // The app's opt-in is the addon itself: without it the call is a no-op, never a throw.
-                const addon = Neo.main.addon.WindowPosition;
-
-                delete Neo.main.addon.WindowPosition;
-
-                try {
-                    const bare = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'bare-window'});
-
-                    bare.destroy();
-                    expect(calls, 'no addon, no stream').toHaveLength(2)
-                } finally {
-                    Neo.main.addon.WindowPosition = addon
-                }
             });
 
-            test('an admitted vessel opens its stream before the connection reaches any ownership branch', async () => {
+            test('an admitted vessel loads the addon into its own window before the connection reaches any ownership branch', async () => {
                 workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument(), windowId: 'host-window'});
 
                 const {request, zone} = await beginExit('preview');
@@ -2165,6 +2165,7 @@ test('the holder contract: a config-assigned document is readable before any ope
 
                 await connectVessel('vessel-window', request.topologyIdentity);
 
+                expect(addonLoads, 'one load per window, each into its own realm').toEqual(['host-window', 'vessel-window']);
                 expect(calls, 'host at construction, vessel on admission, observers last').toEqual([
                     {observeMovement: true, observeResize: true, windowId: 'host-window'},
                     {observeMovement: true, observeResize: true, windowId: 'vessel-window'},

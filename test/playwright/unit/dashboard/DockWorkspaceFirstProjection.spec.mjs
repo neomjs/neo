@@ -93,16 +93,29 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
         workspace = null
     });
 
-    test('a headless Workspace arms no geometry until its first real window binding', () => {
+    test('a headless Workspace arms no geometry until its first real window binding', async () => {
         const
-            originalWindowPosition = Neo.main.addon.WindowPosition,
-            calls                  = [];
+            originalGetAddon = Neo.currentWorker.getAddon,
+            {isSharedWorker} = Neo.currentWorker,
+            calls            = [],
+            loads            = [],
+            windowPosition   = {
+                setConfigs(data) {
+                    calls.push(data);
+                    return Promise.resolve()
+                }
+            };
 
-        Neo.main.addon.WindowPosition = {
-            setConfigs(data) {
-                calls.push(data);
-                return Promise.resolve()
+        // A SharedWorker app spans windows, and the engine loads the addon into the window it binds.
+        // A load is recorded synchronously, so a repeated binding that armed again would show at once.
+        Neo.currentWorker.isSharedWorker = true;
+        Neo.currentWorker.getAddon       = async (name, windowId) => {
+            if (name !== 'WindowPosition') {
+                return originalGetAddon(name, windowId)
             }
+
+            loads.push(windowId);
+            return windowPosition
         };
 
         try {
@@ -116,7 +129,7 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
                 windowId: 'bound-window'
             });
 
-            expect(calls, 'the real container binding arms both geometry streams exactly once').toEqual([{
+            await expect.poll(() => calls, 'the real container binding arms both geometry streams exactly once').toEqual([{
                 observeMovement: true,
                 observeResize  : true,
                 windowId       : 'bound-window'
@@ -124,11 +137,10 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
 
             workspace.windowId = 'bound-window';
 
-            expect(calls, 'setting the same binding again is idempotent').toHaveLength(1)
+            expect(loads, 'setting the same binding again is idempotent').toEqual(['bound-window'])
         } finally {
-            originalWindowPosition
-                ? Neo.main.addon.WindowPosition = originalWindowPosition
-                : delete Neo.main.addon.WindowPosition
+            Neo.currentWorker.getAddon       = originalGetAddon;
+            Neo.currentWorker.isSharedWorker = isSharedWorker
         }
     });
 
