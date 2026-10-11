@@ -1,6 +1,6 @@
 {
     "name"       : "neo.mjs",
-    "version"    : "13.1.0",
+    "version"    : "13.2.0",
     "description": "Neo.mjs is a multi-threaded application engine — the Body of a self-evolving software organism — with object permanence, worker isolation, JSON-first UIs, and zero-build native ES modules.",
     "type"       : "module",
     "repository" : {
