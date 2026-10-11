@@ -198,7 +198,8 @@ class Reconciler extends Base {
      * The fast path is deliberately strict: dock-node ancestry/order, split orientation, tab item
      * order, active selection, and each rail's edge and membership must all be unchanged (item and
      * rail membership deltas are admitted only under `reconcileItems`). Only then may projected child geometry
-     * (`flex`, `width`, and `height`) be applied to the retained shell in place. Any structural or
+     * be applied to the retained shell in place: `width` and `height` here, `flex` as the returned
+     * `geometry`, which {@link #reconcileProjection} writes at its host commit. Any structural or
      * ownership delta defers to the staged descendant → ancestor transaction in
      * {@link #reconcileProjection}.
      * @param {Neo.component.Base} oldShell
@@ -210,7 +211,8 @@ class Reconciler extends Base {
      * @param {Iterable<String>} [options.preserveItemIds=[]]
      * @param {Function|null} [options.resolveItem=null]
      * @param {Function|null} [options.prepareItem=null] Prepares each resolved pane for its projected slot.
-     * @returns {{currentTabs:Map,nextShell:Neo.component.Base,plans:Map}|null}
+     * @returns {{commitAncestors:Set,commitBars:Set,currentTabs:Map,geometry:Object[],nextShell:Neo.component.Base,plans:Map,reconciledItems:Boolean}|null}
+     * `geometry` holds one `{flex, node}` per retained node whose projection carries `flex`.
      * @static
      */
     static reconcileStableTopology(
@@ -266,6 +268,7 @@ class Reconciler extends Base {
 
         const
             currentTabs = this.collectProjectedTabs(oldShell),
+            geometry    = [],
             plans       = new Map();
 
         nextNodes.forEach((next, nodeId) => {
@@ -273,11 +276,10 @@ class Reconciler extends Base {
                 current    = currentNodes.get(nodeId).node,
                 dimensions = {};
 
+            // A silent write here would leave the node flagged for an update nobody schedules
+            // until the host commit, and a bar committed beneath it would merge into that update.
             if (Object.hasOwn(next.node, 'flex')) {
-                current.setSilent({
-                    flex        : next.node.flex,
-                    wrapperStyle: {...current.wrapperStyle, flex: next.node.flex ?? null}
-                })
+                geometry.push({flex: next.node.flex, node: current})
             }
 
             for (const key of ['height', 'width']) {
@@ -331,7 +333,7 @@ class Reconciler extends Base {
         });
         placeholders.clear();
 
-        return {currentTabs, commitAncestors, commitBars, nextShell: oldShell, plans, reconciledItems: reconcileItems}
+        return {currentTabs, commitAncestors, commitBars, geometry, nextShell: oldShell, plans, reconciledItems: reconcileItems}
     }
 
     /**
@@ -500,6 +502,10 @@ class Reconciler extends Base {
                 bar.updateDepth = -1;
                 return bar.promiseUpdate()
             }));
+            // Geometry lands with the host commit, after the commits above that wait on their own flights.
+            stableProjection.geometry.forEach(({flex, node}) => {
+                node.setSilent({flex, wrapperStyle: {...node.wrapperStyle, flex: flex ?? null}})
+            });
             host.updateDepth = -1;
             host.update();
             await host.promiseUpdate();
