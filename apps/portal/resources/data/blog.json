@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-10-11",
+            "id": "blog/multi-window-dashboards-with-dock-layouts",
+            "isLeaf": true,
+            "name": "Drag it to the other screen: multi-window dashboards with Neo.mjs Dock Layouts.",
+            "parentId": "2026",
+            "path": "learn/blog/multi-window-dashboards-with-dock-layouts.md"
+        },
+        {
             "date": "2026-10-09",
             "id": "blog/a-workspace-that-can-leave-its-window",
             "isLeaf": true,
