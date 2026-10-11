@@ -391,7 +391,7 @@ export const fiveBeatFilmScript = Object.freeze({
             // room — the film's one window resize.
             type   : 'pause',
             ms     : 0,
-            cue    : {type: 'gate', prompt: 'Continue — the matrix leaves the room, grows, and comes home'},
+            cue    : {type: 'gate', prompt: 'Continue — the matrix leaves the room and grows into a window of its own'},
             caption: 'One more window is about to be born under the hand. Your click is the browser’s permission to open it.'
         }, {
             type   : 'pause',
@@ -429,10 +429,8 @@ export const fiveBeatFilmScript = Object.freeze({
             caption: 'one flick — the grid\'s own momentum carries the rows on past the hand, the canvas columns at the right edge in view'
         }, {
             // The film ends on the title: one app, many windows — the room breathing and the matrix
-            // streaming in a window of its own. (A vessel holding one item torn out alone has no
-            // scripted road home yet: the dock's native return adopts only a stack-keyed drag record,
-            // the stack grip's return does not settle, a close is an undoable close, and an undo of
-            // the tear-out leaves the emptied window open — the viewer brings it home by its grip.)
+            // streaming in a window of its own, side by side. (A vessel holding one item torn out
+            // alone has no scripted road home; the ticket records the roads measured and refused.)
             type   : 'topology-assert',
             caption: 'final readout: the main split intact, every travelled pane still here, the matrix keeping its seat in the room from its own window',
             expect : [

@@ -1337,10 +1337,11 @@ test.describe('the grid drag-scroll beat pans a grid pane by raw strokes the gri
 
 /**
  * A committed vessel whose owner-granted routes answer at a fake physical boundary: the geometry
- * follows the verified moves and resizes; `refuseResizeAt` refuses the n-th resize, `shortBy` lands
- * every resize short of its width, `screen` is the display's available area the frame is clamped to.
+ * follows the verified moves and resizes; `refuseResizeAt` refuses the n-th resize, `refuseMoveAt`
+ * the n-th move, `shortBy` lands every resize short of its width, `screen` is the display's
+ * available area the frame is clamped to.
  */
-async function vesselResizeFixture({refuseResizeAt=null, screen={availLeft: 0, availTop: 0, availWidth: 3000, availHeight: 1600}, shortBy=0}={}) {
+async function vesselResizeFixture({refuseMoveAt=null, refuseResizeAt=null, screen={availLeft: 0, availTop: 0, availWidth: 3000, availHeight: 1600}, shortBy=0}={}) {
     const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
     const {default: WindowManager}       = await import('../../../../../src/manager/Window.mjs');
     const vesselWindowId                 = 'vessel-resize-unit-popup', mainId = 'vessel-resize-unit-main', vesselId = 'vessel-resize-unit-vessel',
@@ -1362,6 +1363,7 @@ async function vesselResizeFixture({refuseResizeAt=null, screen={availLeft: 0, a
         const effect = request.nativeEffect, named = effect && ['transactionId', 'effectId'].every(key => typeof effect[key] === 'string' && effect[key].length);
         calls.push(`move:${request.x},${request.y}:${named ? effect.effectId : 'drag'}`);
         if (effect && !named) return false;
+        if (refuseMoveAt !== null && calls.filter(call => call.startsWith('move')).length === refuseMoveAt) return false;
         geometry.x = request.x;
         geometry.y = request.y;
         return true
@@ -1431,12 +1433,78 @@ test.describe('the vessel-resize beat grows a committed window through its owner
             expect(receipt.applied).toBe(false);
             expect(receipt.errors).toEqual(['the window resize was refused at sample 2 of 4']);
             expect(receipt.proof.samples, 'one sample had settled before the refusal').toBe(1);
-            expect(receipt.proof.before).toEqual({height: 540, width: 300, x: 1540, y: 1240});
+            expect(receipt.proof.before, 'the birth frame is kept as the birth frame').toEqual({height: 540, width: 300, x: 1540, y: 1240});
+            expect(receipt.proof.after, 'the frame as it stands is the first sample\'s, read back after the refusal').toEqual({height: 657, width: 450, x: 1541, y: 980});
             expect(receipt.proof.target.width).toBe(900);
             expect(fixture.calls, 'the first sample settled, the second stopped at its resize').toHaveLength(3)
         } finally {
             await fixture.cleanup()
         }
+    });
+
+    test('a move refused after its sample\'s resize applied reports the half-stepped frame as it stands', async () => {
+        const fixture = await vesselResizeFixture({refuseMoveAt: 2});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual(['the window move was refused at sample 2 of 4']);
+            expect(receipt.proof.samples, 'only the first sample settled whole').toBe(1);
+            expect(receipt.proof.after, 'the second resize landed, its move did not: the frame is neither sample').toEqual({height: 774, width: 600, x: 1541, y: 980});
+            expect(receipt.proof.before).toEqual({height: 540, width: 300, x: 1540, y: 1240});
+            expect(fixture.calls, 'the first sample settled, the second stopped at its move').toHaveLength(4)
+        } finally {
+            await fixture.cleanup()
+        }
+    });
+
+    test('a refusal whose readback fails keeps the proof it has and names the blind observation', async () => {
+        const fixture = await vesselResizeFixture({refuseResizeAt: 2});
+        try {
+            const geometry = Neo.Main.windowNativeGetGeometry;
+            let   reads    = 0;
+            // the birth frame reads; every read after it is gone
+            Neo.Main.windowNativeGetGeometry = async request => ++reads === 1 ? geometry(request) : null;
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual(['the window resize was refused at sample 2 of 4', 'the frame could not be read back after the refusal']);
+            expect(receipt.proof.after, 'no frame is invented for the one that could not be read').toBeNull();
+            expect(receipt.proof.before).toEqual({height: 540, width: 300, x: 1540, y: 1240});
+            expect(receipt.proof.samples).toBe(1)
+        } finally {
+            await fixture.cleanup()
+        }
+    });
+
+    test.describe('the derived frame is contained within the display\'s available area on all four edges', () => {
+        const derive = async data => {
+            const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
+            return NativeGestureDriver.prototype.deriveVesselFrame.call(null, {gap: 24, height: null, width: 900, ...data})
+        };
+
+        test('a frame above an offset display\'s top edge comes down to it, against the right edge over the main window', async () => {
+            expect(await derive({height: 700, main: {x: 60, y: 0, width: 1300, height: 700}, screen: {availLeft: 80, availTop: 24, availWidth: 1840, availHeight: 1056}}))
+                .toEqual({clamped: true, height: 700, width: 900, x: 1020, y: 24})
+        });
+
+        test('a main window hanging off the display\'s left pulls the frame to the left edge', async () => {
+            expect(await derive({main: {x: -1500, y: 40, width: 1300, height: 600}, screen: {availLeft: 0, availTop: 0, availWidth: 1920, availHeight: 1080}}))
+                .toEqual({clamped: true, height: 600, width: 900, x: 0, y: 40})
+        });
+
+        test('a display left of and above the primary keeps its negative coordinates: a frame that fits is not clamped', async () => {
+            expect(await derive({main: {x: -1800, y: -100, width: 800, height: 600}, screen: {availLeft: -1920, availTop: -200, availWidth: 1920, availHeight: 1080}}))
+                .toEqual({clamped: false, height: 600, width: 900, x: -976, y: -100})
+        });
+
+        test('a frame wider and taller than the display shrinks to its available area, keeping its top', async () => {
+            expect(await derive({height: 5000, width: 5000, main: {x: 200, y: 200, width: 1320, height: 1007}, screen: {availLeft: 0, availTop: 0, availWidth: 1920, availHeight: 1080}}))
+                .toEqual({clamped: true, height: 880, width: 1920, x: 0, y: 200})
+        });
+
+        test('an unknown display clamps nothing', async () => {
+            expect(await derive({main: {x: 60, y: -50, width: 1300, height: 700}, screen: null}))
+                .toEqual({clamped: false, height: 700, width: 900, x: 1384, y: -50})
+        })
     });
 
     test('a frame that settles off its target fails by name', async () => {

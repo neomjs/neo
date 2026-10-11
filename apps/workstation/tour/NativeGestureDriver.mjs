@@ -269,10 +269,11 @@ class NativeGestureDriver extends GestureDriver {
                     return fail([`vessel resize has no owner-granted ${routes.position ? 'resize' : 'position'} route for '${itemId}'`])
                 }
 
-                const call   = (capability, data) => ({...routes[capability], windowId: routes[capability].ownerWindowId, ...data}),
-                      before = await driver.trap(Neo.Main.windowNativeGetGeometry(call('position', {}))),
-                      record = WindowManager.get(me.windowId),
-                      main   = record?.outerRect || record?.innerRect;
+                const call      = (capability, data) => ({...routes[capability], windowId: routes[capability].ownerWindowId, ...data}),
+                      readFrame = () => driver.trap(Neo.Main.windowNativeGetGeometry(call('position', {}))),
+                      before    = await readFrame(),
+                      record    = WindowManager.get(me.windowId),
+                      main      = record?.outerRect || record?.innerRect;
 
                 if (!before || !main) {
                     return fail([`vessel resize could not read the ${before ? 'main' : 'vessel'} frame`])
@@ -282,7 +283,22 @@ class NativeGestureDriver extends GestureDriver {
                       target        = driver.deriveVesselFrame({gap, height, main, screen, width}),
                       transactionId = `vessel-resize:${itemId}:${Date.now()}`,
                       samples       = [],
-                      lerp          = (from, to, t) => Math.round(from + (to - from) * t);
+                      lerp          = (from, to, t) => Math.round(from + (to - from) * t),
+                      // a refusal can follow applied effects: the receipt carries the frame as it
+                      // stands, or names the readback that could not witness it
+                      refused       = async (what, index) => {
+                          let after = null, blind = null;
+
+                          try {
+                              after = (await readFrame()) || null;
+                              after || (blind = 'the frame could not be read back after the refusal')
+                          } catch (error) {
+                              blind = `the frame could not be read back after the refusal: ${error?.message || String(error)}`
+                          }
+
+                          return fail([`the window ${what} was refused at sample ${index} of ${moveSteps}`, ...(blind ? [blind] : [])],
+                              {after, before, route: {windowId}, samples: samples.length, target})
+                      };
 
                 for (let index = 1; index <= moveSteps; index++) {
                     const t      = index / moveSteps,
@@ -293,20 +309,20 @@ class NativeGestureDriver extends GestureDriver {
                     run.pending = Neo.Main.windowNativeResizeTo(call('resize', {height: sample.height, width: sample.width}));
 
                     if (await driver.trap(run.pending) !== true) {
-                        return fail([`the window resize was refused at sample ${index} of ${moveSteps}`], {before, route: {windowId}, samples: samples.length, target})
+                        return refused('resize', index)
                     }
 
                     run.pending = Neo.Main.windowNativeMoveTo(call('position', {nativeEffect: {effectId: `sample-${index}`, transactionId}, x: sample.x, y: sample.y}));
 
                     if (await driver.trap(run.pending) !== true) {
-                        return fail([`the window move was refused at sample ${index} of ${moveSteps}`], {before, route: {windowId}, samples: samples.length, target})
+                        return refused('move', index)
                     }
 
                     samples.push(sample);
                     index < moveSteps && await driver.trap(driver.timeout(moveDelay))
                 }
 
-                const after = await driver.trap(Neo.Main.windowNativeGetGeometry(call('position', {}))),
+                const after = await readFrame(),
                       off   = ['x', 'y', 'width', 'height'].filter(side => !after || Math.abs(after[side] - target[side]) > 2),
                       proof = {after, before, route: {windowId}, samples: samples.length, target};
 
@@ -323,10 +339,13 @@ class NativeGestureDriver extends GestureDriver {
 
     /**
      * @summary Derives a vessel's target OUTER frame beside the main window: top-aligned, `gap` px
-     * right of the main frame, `width` wide, the main frame's height unless `height` is given. When
-     * the display's available area has no room to the right, the frame sits against the display's
-     * right edge over the main window instead; a frame still too big for the display shrinks to it.
-     * `clamped` records any such adjustment; an unknown display clamps nothing.
+     * right of the main frame, `width` wide, the main frame's height unless `height` is given — then
+     * contained within a known display's available area on all four edges: a frame past the right
+     * edge shifts left over the main window, one past the left edge shifts right, one above the top
+     * edge shifts down, one past the bottom keeps its top and shrinks, and a frame wider than the
+     * area shrinks to it. The area's origin may be negative (a display left of or above the primary)
+     * and the main frame may lie partly outside it. `clamped` records any adjustment; an unknown
+     * display clamps nothing.
      * @param {Object} data
      * @param {Number} data.gap
      * @param {Number|null} data.height
@@ -337,29 +356,19 @@ class NativeGestureDriver extends GestureDriver {
      * @protected
      */
     deriveVesselFrame({gap, height, main, screen, width}) {
-        let target  = {height: Math.round(height ?? main.height), width: Math.round(width), x: Math.round(main.x + main.width + gap), y: Math.round(main.y)},
-            clamped = false;
+        const asked  = {height: Math.round(height ?? main.height), width: Math.round(width), x: Math.round(main.x + main.width + gap), y: Math.round(main.y)},
+              target = {...asked};
 
         if (screen && [screen.availLeft, screen.availTop, screen.availWidth, screen.availHeight].every(Number.isFinite)) {
-            const right  = screen.availLeft + screen.availWidth,
-                  bottom = screen.availTop + screen.availHeight;
+            const left = screen.availLeft, top = screen.availTop, right = left + screen.availWidth, bottom = top + screen.availHeight;
 
-            if (target.x + target.width > right) {
-                target.x = Math.max(screen.availLeft, right - target.width);
-                clamped  = true
-            }
-
-            if (target.x + target.width > right) {
-                target.width = right - target.x
-            }
-
-            if (target.y + target.height > bottom) {
-                target.height = Math.max(0, bottom - target.y);
-                clamped       = true
-            }
+            target.x      = Math.max(left, Math.min(target.x, right - target.width));
+            target.width  = Math.min(target.width, right - target.x);
+            target.y      = Math.max(top, target.y);
+            target.height = Math.max(0, Math.min(target.height, bottom - target.y))
         }
 
-        return {...target, clamped}
+        return {...target, clamped: ['x', 'y', 'width', 'height'].some(side => target[side] !== asked[side])}
     }
 
     /**

@@ -194,8 +194,8 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
         // the close: the matrix leaves the room in a window of its own, that window grows beside the
         // room through its owner-granted resize route, one flick's momentum carries the rows on, and
-        // the window comes home still streaming. Whether the canvas column is in the frame is the
-        // take's own evidence; the witness pins the frame, the measured travel and the return.
+        // the film ends on the room and the window side by side. Whether the canvas column is in the
+        // frame is the take's own evidence; the witness pins the frame and the measured travel.
         const [vesselResize] = byType('vessel-resize'), grown = vesselResize.proof;
 
         expect(vesselResize.applied, `the matrix window must grow:\n${(vesselResize.errors || []).join('\n')}`).toBe(true);
