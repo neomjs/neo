@@ -1,5 +1,7 @@
 import {test, expect}              from '../../fixtures.mjs';
 import {countPixelsUnlikeDominant} from '../utils/pngPixels.mjs';
+import {callWorkstationTour}       from '../utils/workstationTour.mjs';
+import {fiveBeatFilmScript}        from '../../../../apps/workstation/tour/fiveBeatFilm.mjs';
 
 /**
  * @summary Whitebox E2E witness: the sparkline cells of a popped-out grid follow the grid into the
@@ -43,9 +45,13 @@ const
 
 /** One record per live sparkline, in the shape the fixture returns for either wrapper. */
 const readSparklines = async app => {
-    const records = await app.findInstances({className: SPARKLINE}, ['id', 'windowId', 'offscreenRegistered', 'mounted']);
+    const records = await app.findInstances({className: SPARKLINE}, ['id', 'windowId', 'offscreenRegistered', 'mounted', 'record.id']);
 
-    return (Array.isArray(records) ? records : [records]).filter(Boolean).map(record => record.properties ?? record)
+    return (Array.isArray(records) ? records : [records]).filter(Boolean).map(record => {
+        const properties = record.properties ?? record;
+
+        return {...properties, id: record.id ?? properties.id}
+    })
 };
 
 /**
@@ -103,7 +109,8 @@ test.describe('Workstation pop-out — sparkline cells follow the grid into the 
         const vessel = await vesselPromise;
 
         await vessel.waitForLoadState('domcontentloaded');
-        await vessel.waitForSelector('canvas', {timeout: 45000});
+        await vessel.waitForSelector('canvas', {state: 'attached', timeout: 45000});
+        await vessel.setViewportSize({width: 1200, height: 800});
 
         const popupId   = await vessel.evaluate(() => Neo.worker.Manager.windowId),
               inVessel  = new Set(await vessel.evaluate(() => [...document.querySelectorAll('canvas')].map(canvas => canvas.id))),
@@ -147,5 +154,138 @@ test.describe('Workstation pop-out — sparkline cells follow the grid into the 
         }).toEqual([]);
 
         await vessel.close({runBeforeUnload: true})
+    });
+
+    test('pre-existing ScalePane canvases keep drawing as the popup recycles matrix rows', async ({page, context, neuralLink}) => {
+        test.setTimeout(180000);
+
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-scale-pane .neo-grid-row', {timeout: 60000});
+
+        const
+            app        = await neuralLink.connectToApp('Workstation'),
+            found      = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
+            workspaces = Array.isArray(found) ? found : found ? [found] : [],
+            wsId       = workspaces[0]?.id,
+            openerId   = await page.evaluate(() => Neo.worker.Manager.windowId),
+            scalePanes = await app.findInstances({className: 'Workstation.view.ScalePane'}, ['id', 'windowId']),
+            scalePane  = (Array.isArray(scalePanes) ? scalePanes : [scalePanes]).find(Boolean);
+
+        expect(workspaces, 'the opener owns one current Workstation').toHaveLength(1);
+        expect(scalePane?.id, 'the 100k ScalePane is live').toBeTruthy();
+        await expect(page.locator('.workstation-scale-pane')).toBeVisible();
+
+        const sourceCanvasIds = new Set(await page.locator('.workstation-scale-pane canvas').evaluateAll(canvases => canvases.map(canvas => canvas.id)));
+
+        await expect.poll(async () => (await readSparklines(app)).filter(cell =>
+            sourceCanvasIds.has(cell.id) && cell.windowId === openerId && cell.mounted && cell.offscreenRegistered
+        ).length, {message: 'ScalePane canvas ownership has settled in the opener before the census', timeout: 15000}).toBeGreaterThan(0);
+
+        const
+            before        = (await readSparklines(app)).filter(cell => sourceCanvasIds.has(cell.id) && cell.windowId === openerId && cell.mounted && cell.offscreenRegistered),
+            beforeRecords = new Map(before.map(cell => [cell.id, cell['record.id']]));
+
+        expect(before.length, 'pre-existing, registered Sparkline cells occupy the ScalePane').toBeGreaterThan(0);
+
+        const header = await focusPane(page, '100k Matrix'),
+              popOut = header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first();
+
+        await expect(popOut).toBeVisible();
+        await popOut.click();
+
+        const scalePopouts = () => context.pages().filter(candidate => {
+            if (candidate === page || candidate.isClosed()) return false;
+            try { return new URL(candidate.url()).searchParams.get('popout') === 'scale' } catch { return false }
+        });
+
+        await expect.poll(() => scalePopouts().length, {message: 'the surviving popout=scale page is resolved after transient births', timeout: 30000}).toBe(1);
+
+        const popup = scalePopouts()[0];
+        await popup.waitForLoadState('domcontentloaded');
+        await expect(popup.locator('.workstation-scale-pane')).toBeVisible({timeout: 30000});
+
+        const
+            popupId         = await popup.evaluate(() => Neo.worker.Manager.windowId),
+            popupCanvasIds  = new Set(await popup.locator('.workstation-scale-pane canvas').evaluateAll(canvases => canvases.map(canvas => canvas.id))),
+            travelled       = before.map(cell => cell.id).filter(id => popupCanvasIds.has(id)),
+            transferredPane = await app.getComponent(scalePane.id, ['windowId']);
+
+        expect(popupId, 'the surviving vessel has its own window id').not.toBe(openerId);
+        expect(transferredPane.windowId, 'the original ScalePane instance follows the surviving vessel').toBe(popupId);
+        expect(travelled.length, 'pre-existing Sparkline instances, not only newly created cells, travelled').toBeGreaterThan(0);
+
+        await expect.poll(async () => {
+            const cells = new Map((await readSparklines(app)).map(cell => [cell.id, cell]));
+            return travelled.every(id => cells.get(id)?.windowId === popupId && cells.get(id)?.mounted === true && cells.get(id)?.offscreenRegistered === true)
+        }, {message: 'every pre-existing ScalePane canvas re-registers in the popup', timeout: 15000}).toBe(true);
+
+        const cues       = fiveBeatFilmScript.scenes.flatMap(scene => scene.steps).map(step => step.cue).filter(Boolean),
+              midpoint   = cues.find(cue => cue.type === 'scroll' && cue.index === 50000),
+              dragScroll = cues.find(cue => cue.type === 'grid-drag-scroll' && cue.paneId === 'scale');
+
+        expect(midpoint, 'the shipped midpoint scroll cue exists').toBeTruthy();
+        expect(dragScroll, 'the shipped ScalePane grid-drag-scroll cue exists').toBeTruthy();
+        expect(await callWorkstationTour(app, wsId, 'executeCue', [midpoint]), 'the original 100k grid scrolls to its midpoint').toBe(true);
+
+        const atMidpoint = new Map((await readSparklines(app)).map(cell => [cell.id, cell]));
+        expect(travelled.filter(id => atMidpoint.has(id) && atMidpoint.get(id)['record.id'] !== beforeRecords.get(id)).length,
+            'the same pre-existing Sparkline instances are now bound to recycled records').toBeGreaterThan(0);
+
+        const dragReceipt = await callWorkstationTour(app, wsId, 'executeCue', [{...dragScroll, options: {...dragScroll.options, showCursor: false}}]);
+        expect(dragReceipt?.applied, `the diagonal grid drag exposes the canvas column: ${JSON.stringify(dragReceipt)}`).toBe(true);
+        expect(dragReceipt.proof.travel.met.x && dragReceipt.proof.travel.met.y, 'the grid follows the real two-axis drag').toBe(true);
+
+        const
+            afterCells = new Map((await readSparklines(app)).map(cell => [cell.id, cell])),
+            recycled   = travelled.filter(id => afterCells.has(id) && afterCells.get(id)['record.id'] !== beforeRecords.get(id)),
+            visibleIds = new Set(await popup.locator('.workstation-scale-pane canvas').evaluateAll(canvases => canvases.map(canvas => canvas.id)));
+
+        expect(travelled.every(id => afterCells.has(id)), 'row recycling preserves the original cell component instances').toBe(true);
+        expect(recycled.length, 'the midpoint and drag bound those same instances to other rows').toBeGreaterThan(0);
+        expect(recycled.every(id => afterCells.get(id).windowId === popupId && afterCells.get(id).offscreenRegistered === true),
+            'recycled cells remain registered to the popup Canvas Worker').toBe(true);
+
+        // Page screenshots do not scroll elements into view. Intersect the canvas with the viewport
+        // and each clipping ancestor first; only wholly visible canvases at least 20px high are paint
+        // evidence, since a legitimate 1px edge sliver can contain no line pixels.
+        const visibleBounds = async id => popup.locator(`#${id}`).evaluate(canvas => {
+            if (!canvas?.isConnected) return null;
+            for (let node = canvas; node; node = node.parentElement) {
+                const style = getComputedStyle(node);
+                if (style.display === 'none' || style.visibility !== 'visible' || Number(style.opacity) === 0) return null
+            }
+
+            const r    = canvas.getBoundingClientRect();
+            let   left = Math.max(0, r.left), right = Math.min(innerWidth, r.right), top = Math.max(0, r.top), bottom = Math.min(innerHeight, r.bottom);
+
+            for (let node = canvas.parentElement; node; node = node.parentElement) {
+                const style = getComputedStyle(node), clip = node.getBoundingClientRect();
+                if (style.overflowX !== 'visible') { left = Math.max(left, clip.left); right = Math.min(right, clip.right) }
+                if (style.overflowY !== 'visible') { top = Math.max(top, clip.top); bottom = Math.min(bottom, clip.bottom) }
+            }
+
+            return {fullyVisible: left >= r.left - 0.5 && right <= r.right + 0.5 && top >= r.top - 0.5 && bottom <= r.bottom + 0.5 &&
+                    Math.abs((right - left) - r.width) < 0.5 && Math.abs((bottom - top) - r.height) < 0.5,
+                height: r.height, x: r.left, y: r.top, width: r.width}
+        });
+
+        const candidates = [];
+        for (const id of recycled) {
+            if (!visibleIds.has(id)) continue;
+            const rect = await visibleBounds(id);
+            rect?.fullyVisible && rect.height >= 20 && candidates.push({id, rect})
+        }
+
+        expect(candidates.length, 'the cue exposes fully visible recycled Sparkline canvases').toBeGreaterThan(0);
+
+        const scrollBefore = await popup.evaluate(() => ({x: scrollX, y: scrollY})), blanks = [];
+        for (const {id, rect} of candidates) {
+            const pixels = countPixelsUnlikeDominant(await popup.screenshot({clip: {x: rect.x, y: rect.y, width: rect.width, height: rect.height}}));
+            pixels.unlike < MIN_DRAWN_PIXELS && blanks.push({id, recordId: afterCells.get(id)['record.id'], unlike: pixels.unlike});
+        }
+
+        expect(await popup.evaluate(() => ({x: scrollX, y: scrollY})), 'pixel reads do not auto-scroll the popup').toEqual(scrollBefore);
+        expect(blanks, 'fully visible recycled canvases paint the Living signal line').toEqual([]);
+        await popup.close({runBeforeUnload: true})
     })
 });
