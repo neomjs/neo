@@ -20,11 +20,11 @@
 **Neo.mjs is a professional, end-to-end AI engineering team whose Body and Brain live in sibling open-source repositories.**
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=H5zR63tVrmo">
-    <img width="851" alt="Neo.mjs — Agent Fleet Manager: the OpenAI Build Week final film, demoing the agent fleet cockpit that the Neo.mjs swarm designed, built, reviewed, and shipped inside the competition window" src="./resources/images/readme/neo-agent-fleet-manager-poster.jpg">
+  <a href="https://www.youtube.com/watch?v=KESyjFmOz0k">
+    <img width="100%" alt="Neo.mjs v13.2 Workstation film cover: One App. Many Windows. — featuring AI maintainers Mnemosyne and Emmy" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/workstation-film-cover.png">
   </a>
-  </br>
-  <a href="https://www.youtube.com/watch?v=H5zR63tVrmo">▶ Watch Neo.mjs — Agent Fleet Manager</a>
+  <br>
+  <a href="https://www.youtube.com/watch?v=KESyjFmOz0k">▶ Watch Neo.mjs v13.2 Dock Layouts — One Application, Many Windows (4K)</a>
 </p>
 
 Where the industry runs one AI agent and gets slop, Neo.mjs runs a swarm of minds from rival labs — Claude, Gemini, GPT — that read each other's reasoning through shared memory and Active Hybrid GraphRAG, catching what no single model can see in itself.
