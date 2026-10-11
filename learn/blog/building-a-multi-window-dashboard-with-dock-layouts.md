@@ -177,14 +177,16 @@ These are the boundaries, not the whole product. The example's `loadLayoutCollec
 
 ## Step 5: a pane that leaves for its own window
 
-The windows start in the app's `neo-config.json`. `useSharedWorkers` makes every window of the app connect to one shared App Worker and only render. The main-thread addons give each window what the dock needs there. The defaults are `DragDrop`, `Navigator` and `Stylesheet`. `WindowPosition` lets a window dragged by its own title bar find the drop zones of another, and `DockFlip` animates the dock's structural moves:
+The windows start in the app's `neo-config.json`. `useSharedWorkers` makes every window of the app connect to one shared App Worker and only render. Beside the default main-thread addons (`DragDrop`, `Navigator` and `Stylesheet`), list `DockFlip`, which animates the dock's structural moves:
 
 ```json
 {
-    "mainThreadAddons": ["DockFlip", "DragDrop", "Navigator", "Stylesheet", "WindowPosition"],
+    "mainThreadAddons": ["DockFlip", "DragDrop", "Navigator", "Stylesheet"],
     "useSharedWorkers": true
 }
 ```
+
+One addon the windows depend on stays off that list. A window dragged by its own title bar sends the page no pointer events, so the dock tracks where it stands through `WindowPosition`, and it loads that addon into every window it opens.
 
 Then the workspace opts into tear-out and publishes a cross-window sort group, the identity windows of the same app use to drag panes between each other. This is [`examples/dashboard/tearOut`](https://github.com/neomjs/neo/blob/dev/examples/dashboard/tearOut/Workspace.mjs), the minimal app for this step:
 
