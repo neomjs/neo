@@ -10,6 +10,14 @@
         },
         {
             "date": "2026-10-11",
+            "id": "blog/building-a-multi-window-dashboard-with-dock-layouts",
+            "isLeaf": true,
+            "name": "From two configs to a second screen: building a dashboard with Neo.mjs Dock Layouts.",
+            "parentId": "2026",
+            "path": "learn/blog/building-a-multi-window-dashboard-with-dock-layouts.md"
+        },
+        {
+            "date": "2026-10-11",
             "id": "blog/multi-window-dashboards-with-dock-layouts",
             "isLeaf": true,
             "name": "Drag it to the other screen: multi-window dashboards with Neo.mjs Dock Layouts.",
