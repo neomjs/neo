@@ -222,7 +222,7 @@ async onConstructed() {
 }
 ```
 
-That is the example's `Viewport` in full. Run the example, focus a pane's header and use its pop-out action: the pane opens in its own window as the same component, and closing that window brings it home. Its e2e test, [`DockTearOutDefaultRoute.spec.mjs`](https://github.com/neomjs/neo/blob/dev/test/playwright/e2e/dashboard/DockTearOutDefaultRoute.spec.mjs), checks exactly that: the same component id in both windows, no second workspace in the new one, and the same pane back home after the close.
+That is the example's `Viewport` in full. Run the example, type something into its Notes pane, focus the pane's header and use its pop-out action. The pane opens in its own window with your text still in it, and closing that window brings it home, text included. Its e2e test, [`DockTearOutDefaultRoute.spec.mjs`](https://github.com/neomjs/neo/blob/dev/test/playwright/e2e/dashboard/DockTearOutDefaultRoute.spec.mjs), checks exactly that, and that no second workspace mounts in the new window. A pane re-created from its declaration would pass an id comparison but lose the draft, which is why the test checks the draft.
 
 Everything else here is an extension point you can leave alone. A dedicated window shell, its own routing or a grant policy go through overrides of `openTearOutVessel`, `closeTearOutVessel` and `admitTearOutConnection`. The Workstation uses them for its own window routes ([A Pane's Life Across Windows](https://github.com/neomjs/neo/blob/dev/learn/guides/uibuildingblocks/DockLayoutsWindows.md)).
 
