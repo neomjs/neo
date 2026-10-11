@@ -774,13 +774,18 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         await expect.poll(() => owner.effects.length).toBe(1);
         let resolveClear;
         owner.answers.clear = new Promise(resolve => resolveClear = resolve);
-        const result = await TransactionManager.redo({groupId: owner.groupId});
+        const reopenedToken = TransactionManager.getBinding(owner.groupId, FLOATING).generationToken;
+        const result        = await TransactionManager.redo({groupId: owner.groupId});
         await expect.poll(() => owner.calls.some(call => call.name === 'clear')).toBe(true);
         expect(TransactionManager.release(owner.source.windowId)).toBe(true);
         const successor = TransactionManager.reserve({groupId: owner.groupId, workspaceKey: FLOATING});
         owner.rebind(successor, 'native-return-new-lineage');
         resolveClear(true);
         await expect.poll(() => owner.effects.length).toBe(2);
+        // The clear names the lineage it was issued for, so the window's carrier refuses it once the
+        // successor wrote its own (Main.clearTopologyIdentity compares the token).
+        expect(owner.calls.find(call => call.name === 'clear').data.generationToken).toBe(reopenedToken);
+        expect(reopenedToken).not.toBe(successor.generationToken);
         expect(owner.calls.filter(call => call.name === 'close')).toEqual([]);
         expect(owner.effects[1]).toMatchObject({transactionId: result.transactionId, observation: {closed: false}});
         expect(owner.source.windowId).toBe('native-return-new-lineage');
@@ -798,6 +803,11 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
 
         expect(await NativeVesselTransaction.closeWorkspaceWindow(owner.set, SOURCE)).toBe(true);
         expect(owner.calls.map(call => call.name)).toEqual(['clear', 'close']);
+        expect(owner.calls[0].data, 'the clear names the bound lineage').toEqual({
+            generationToken: TransactionManager.getBinding(owner.groupId, FLOATING).generationToken,
+            groupId        : owner.groupId,
+            windowId       : 'native-return-reopened'
+        });
         expect(owner.calls[1].data).toEqual({windowId: 'native-return-reopened'});
 
         owner.source.windowId = null;
