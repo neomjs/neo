@@ -235,7 +235,7 @@ panes: {
     logsApp : {module: LogPanel, header: {text: 'App log'},  source: 'app'},
     logsHttp: {module: LogPanel, header: {text: 'HTTP log'}, source: 'http'},
 
-    // Policy is a property of the item, so every caller meets the same refusal.
+    // Refuse closing and cross-document transfers; local movement remains possible.
     console: {module: ConsolePanel, header: {text: 'Console'}, closable: false, movable: false}
 }
 ```
@@ -301,8 +301,8 @@ lifetimes. The basic declaration path needs neither override.
 
 ## Decision 3 — policies live in the model, not in your UI
 
-Per item, the catalog carries policy hints. `pinnable`, `movable`, and `closable` are enforced by the reducer, and the
-honest way to teach them is by what the model actually refuses:
+Per item, the catalog carries policy hints. Each applies to specific reducer operations, so choose the flag by
+what you need the model to refuse:
 
 ```javascript readonly
 items: {
@@ -311,11 +311,16 @@ items: {
 ```
 
 A `setItemAutoHidden` against that item returns `{document, errors: ['item "console" is not pinnable']}` and the
-committed document does not advance; a cross-document transfer containing an unmovable member fails the same way,
-atomically. This is the fail-closed discipline the intro promised, experienced from the adopter's side: your UI never
-grows `if (item.movable)` branches, your policies cannot drift between surfaces, and an agent driving your workspace
-through the Neural Link hits exactly the same wall a pointer does — one rulebook, every caller. `closeItem` likewise
-refuses the console above, whether the request comes from projected close chrome or a programmatic operation.
+committed document does not advance. `closeItem` likewise refuses the console above, whether the request comes
+from projected close chrome or a programmatic operation.
+
+`movable: false` rejects cross-document transfers: `transferItem` refuses that item, and `transferNode` refuses a
+subtree containing it, leaving both workspace documents unchanged. It does **not** freeze the pane's position
+inside its workspace: `moveItem` does not consult `movable`, so moving the console into another stack of the same
+workspace remains possible.
+
+These refusals belong in the reducer. Every caller of the same operation meets the same policy, whether the
+request starts with a pointer or the Neural Link; your UI does not need to duplicate those checks.
 
 ## Decision 4 — skin it with tokens, on the right scope
 
@@ -553,8 +558,8 @@ product policy in your app.
   substitute for a Viewport instance.
 - **Mutating the document anywhere but the reducer.** Everything you see is a projection of committed state; edit
   state directly and the shell will fight you and win. Commit descriptors; let the view-sync re-project.
-- **Enforcing `pinnable`, `movable`, or `closable` in the UI.** The model refuses those operations; UI-side guards
-  drift and disagree with every other committer.
+- **Duplicating pin, close, or cross-document transfer policy in the UI.** The reducer owns these refusals;
+  UI-side guards drift and disagree with other callers of the same operation.
 - **Awaiting motion you do not need to await.** Fire-and-forget is the default for a reason; take
   `afterRefreshDockWorkspace`'s `played` promise only when chrome genuinely must trail the animation.
 - **Pinning your tests to one fixture.** Derive expected remainders from a pre-operation topology read instead of
