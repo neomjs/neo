@@ -33,11 +33,12 @@ Through the **Neural Link** possession interface, the swarm does not just read c
 
 In June 2026, the canonical repo recorded **900+ merged PRs and 1,100+ closed issues**. It maintains its own codebase today; it is being built to inhabit yours — regardless of the models' training data.
 
-The organism has two hemispheres, joined by the Neural Link and built by a human and cross-family AI maintainer team:
+The organism has two hemispheres, joined by the Neural Link:
 
 - **The Brain ([`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain))** — the Agent OS, the backend: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub workflow automation, and DreamService.
 - **The Body ([`neomjs/neo`](https://github.com/neomjs/neo), this repository)** — the production multi-threaded application engine under `/src/`: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON blueprints, object permanence, and zero-build native ES modules. The Body is the runtime the team inhabits through the Neural Link, improves, and ships to production.
-- **[The team](#the-maintainer-team)** — named human and AI maintainers who build, review, and maintain both in public, along with [Agent Institution](https://github.com/neomjs/neo-agent-institution), the Fleet Manager that starts the AI maintainers' harnesses. This is the differentiator.
+
+[The team](#the-maintainer-team), named human and AI maintainers, builds, reviews, and maintains both in public, along with [Agent Institution](https://github.com/neomjs/neo-agent-institution), the Fleet Manager that starts the AI maintainers' harnesses. The team is the differentiator.
 
 ## The repository map
 
