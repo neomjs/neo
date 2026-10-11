@@ -96,7 +96,8 @@ const filmPace = Object.freeze({birthAttempts: 240, curve: 0.18, moveDelay: 33, 
  */
 export const filmCueTypes = Object.freeze([
     'scroll', 'canvas-update', 'cross-zone-showcase', 'rail', 'resize', 'gate', 'tear-out',
-    'journey', 'native-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo'
+    'journey', 'native-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo',
+    'grid-drag-scroll'
 ]);
 
 /**
@@ -369,7 +370,7 @@ export const fiveBeatFilmScript = Object.freeze({
         title        : 'It never left',
         targetSeconds: 10,
         narration    : 'A hundred thousand rows still cross their midpoint. Same instances, end to end. Heartbeats monotonic through every transition. The content never stopped living — because it never left.',
-        beats        : ['the matrix and the feed come back in front', 'the hundred-thousand-row matrix crosses its midpoint', 'final topology readout', 'identity equality end-to-end', 'monotonic heartbeat close'],
+        beats        : ['the matrix and the feed come back in front', 'the hundred-thousand-row matrix crosses its midpoint', 'a real diagonal drag pans the matrix to its canvas columns', 'final topology readout', 'identity equality end-to-end', 'monotonic heartbeat close'],
         steps        : [{
             // The showcase left Metrics in front of the feed and the redo left Security in front
             // of the matrix: the close is about both panes, so both come back in front first —
@@ -388,6 +389,24 @@ export const fiveBeatFilmScript = Object.freeze({
             ms     : 1400,
             cue    : {type: 'scroll', index: 50000},
             caption: 'a hundred thousand rows cross their midpoint — and the rest of the room keeps breathing'
+        }, {
+            // The matrix is wider than its pane: the sparkline column at its right edge — the
+            // framework's OffscreenCanvas path — never shows unless the grid is panned. Three real
+            // strokes from the pane's lower right, up and to the left, pan the view down and to the
+            // right the way the grid's own drag-scroll answers a hand; the rows keep crossing and
+            // the canvas column enters the frame.
+            type: 'pause',
+            ms  : 800,
+            cue : {
+                type   : 'grid-drag-scroll',
+                paneId : 'scale',
+                anchor : {x: 0.85, y: 0.7},
+                deltaX : -260,
+                deltaY : -120,
+                strokes: 3,
+                options: {moveDelay: 33, moveSteps: 36, showCursor: true}
+            },
+            caption: 'a real diagonal drag — the rows keep crossing, the canvas columns at the right edge come into view'
         }, {
             type   : 'topology-assert',
             caption: 'final readout: the main split intact, every travelled pane, all still here',
