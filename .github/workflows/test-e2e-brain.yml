@@ -101,10 +101,14 @@ jobs:
           paths=$(node buildScripts/util/e2eCiSelection.mjs --brain-paths)
           test -n "$paths"
           node buildScripts/util/e2eCiSelection.mjs --brain-test-list > "$RUNNER_TEMP/brain-quarantine.txt"
+          # Selected once and recorded, so the receipt reports this run's count even after the bridge ends
+          retries=$(node buildScripts/util/e2eCiSelection.mjs --brain-retries)
+          echo "retries=$retries" >> "$GITHUB_OUTPUT"
           start=$SECONDS
           status=0
 
           npx playwright test -c test/playwright/playwright.config.e2e.mjs --shard="$SHARD" \
+            --retries="$retries" \
             --test-list-invert "$RUNNER_TEMP/brain-quarantine.txt" $paths || status=$?
 
           echo "seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
@@ -119,6 +123,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           REPORT: test/playwright/test-results/e2e/results.json
           SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+          RETRIES: ${{ steps.run.outputs.retries }}
           TEST_SECONDS: ${{ steps.run.outputs.seconds }}
         run: node buildScripts/util/e2eCiSelection.mjs --brain-receipt >> "$GITHUB_STEP_SUMMARY"
 
