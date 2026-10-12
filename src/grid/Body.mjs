@@ -317,6 +317,11 @@ class GridBody extends Component {
      * @member {Number|null} rowPoolSize=null
      */
     rowPoolSize = null
+    /**
+     * Style-scoped hidden text projection owned by the View. Its identity never enters the physical row pool.
+     * @member {Object|null} rowMeasureVdom=null
+     */
+    rowMeasureVdom = null
 
     /**
      * The view's row geometry in content-sized mode, else `null`: a fixed-height body positions rows by
@@ -751,6 +756,7 @@ class GridBody extends Component {
         // We ensure the VDOM children (cn) matches the full pool of items exactly.
         // We never remove or reorder these nodes. We only update their content and transform.
         me.getVdomRoot().cn = me.items.map(item => item.createVdomReference())
+        me.rowMeasureVdom && me.getVdomRoot().cn.push(me.rowMeasureVdom)
     }
 
     /**

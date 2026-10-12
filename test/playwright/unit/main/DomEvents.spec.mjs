@@ -63,6 +63,20 @@ class WheelRenderer extends CanvasBase {
 
 Neo.setupClass(WheelRenderer);
 
+/**
+ * @summary A distinct main-thread owner for each document's native font events.
+ * @class Test.Unit.Main.DomEvents.FontNotifications
+ * @extends Neo.main.DomEvents
+ */
+class FontDomEvents extends DomEvents.constructor {
+    static config = {
+        className: 'Test.Unit.Main.DomEvents.FontNotifications',
+        singleton: false
+    }
+}
+
+Neo.setupClass(FontDomEvents);
+
 test.describe('Neo.main.DomEvents', () => {
     // module-level stubs are per-worker state: the tests run in one worker, in order
     test.describe.configure({mode: 'serial'});
@@ -123,6 +137,114 @@ test.describe('Neo.main.DomEvents', () => {
             ['removed-menu',     'removed-menu'],
             ['focus-moved-away', undefined]
         ])
+    });
+
+    test('font completion and failure advance only their document generation, and destroy removes their listeners', () => {
+        const manager = Neo.worker.Manager,
+              sendWas = manager.sendMessage,
+              idWas   = manager.windowId,
+              sent    = [],
+              removed = [],
+              sets    = [new EventTarget(), new EventTarget()],
+              owners  = [];
+
+        manager.sendMessage = (destination, message) => sent.push({destination, ...message});
+        sets[0].removeEventListener = (type, listener) => {
+            removed.push(type);
+            EventTarget.prototype.removeEventListener.call(sets[0], type, listener)
+        };
+
+        try {
+            sets.forEach(fonts => {
+                globalThis.document = Object.assign(new EventTarget(), {fonts});
+                globalThis.window   = new EventTarget();
+                owners.push(Neo.create(FontDomEvents))
+            });
+
+            expect(sent, 'construction invents no completed font load').toEqual([]);
+
+            const dispatch = (index, type) => {
+                manager.windowId = `font-window-${index}`;
+                sets[index].dispatchEvent(new Event(type))
+            };
+
+            dispatch(0, 'loadingdone');
+            dispatch(1, 'loadingerror');
+            dispatch(0, 'loadingerror');
+            dispatch(0, 'loadingdone');
+
+            expect(sent).toEqual([
+                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-0', generation: 1}},
+                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-1', generation: 1}},
+                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-0', generation: 2}},
+                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-0', generation: 3}}
+            ]);
+
+            owners[0].destroy();
+            expect(removed).toEqual(['loadingdone', 'loadingerror']);
+            dispatch(0, 'loadingdone');
+            dispatch(0, 'loadingerror');
+            expect(sent).toHaveLength(4);
+
+            dispatch(1, 'loadingdone');
+            expect(sent.at(-1).data).toEqual({windowId: 'font-window-1', generation: 2})
+        } finally {
+            owners.forEach(owner => !owner.isDestroyed && owner.destroy());
+            manager.sendMessage = sendWas;
+            idWas === undefined ? delete manager.windowId : manager.windowId = idWas;
+            globalThis.document = documentRef;
+            globalThis.window   = windowRef
+        }
+    });
+
+    test('font listeners construct before Manager registration and use its window when the event arrives', () => {
+        const manager = Neo.worker.Manager,
+              sendWas = manager.sendMessage,
+              idWas   = manager.windowId,
+              fonts   = new EventTarget(),
+              sent    = [];
+        let owner;
+
+        try {
+            globalThis.document = Object.assign(new EventTarget(), {fonts});
+            globalThis.window   = new EventTarget();
+            delete Neo.worker.Manager;
+            owner = Neo.create(FontDomEvents);
+
+            Neo.worker.Manager = manager;
+            manager.windowId   = 'font-window-registered-later';
+            manager.sendMessage = (destination, message) => sent.push({destination, ...message});
+            fonts.dispatchEvent(new Event('loadingdone'));
+
+            expect(sent).toEqual([
+                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-registered-later', generation: 1}}
+            ])
+        } finally {
+            Neo.worker.Manager = manager;
+            owner?.destroy();
+            manager.sendMessage = sendWas;
+            idWas === undefined ? delete manager.windowId : manager.windowId = idWas;
+            globalThis.document = documentRef;
+            globalThis.window   = windowRef
+        }
+    });
+
+    test('a missing FontFaceSet supplies no synthetic font notification', () => {
+        const manager = Neo.worker.Manager,
+              sendWas = manager.sendMessage,
+              sent    = [];
+        let owner;
+
+        manager.sendMessage = (...args) => sent.push(args);
+
+        try {
+            owner = Neo.create(FontDomEvents);
+            owner.onFontChange();
+            expect(sent).toEqual([])
+        } finally {
+            owner?.destroy();
+            manager.sendMessage = sendWas
+        }
     });
 
     // A canvas node: no class from the global wheel target list

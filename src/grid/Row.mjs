@@ -157,6 +157,9 @@ class Row extends Component {
     applyRendererOutput({cache, cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
         let {colspanField, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache;
 
+        // Premeasurement projects declared text only, without constructing component cells or an edit surface.
+        if (cache.measureOnly && column.component) return null;
+
         let me            = this,
             cellCls       = ['neo-grid-cell'],
             colspan       = record[colspanField],
@@ -199,6 +202,12 @@ class Row extends Component {
         };
 
         rendererOutput = column.renderer.call(column.rendererScope || gridContainer, rendererConfig);
+
+        if (cache.measureOnly && !(typeof rendererOutput === 'string' || typeof rendererOutput === 'number' ||
+            rendererOutput instanceof Date || rendererOutput == null ||
+            (Neo.typeOf(rendererOutput) === 'Object' && ('html' in rendererOutput || 'text' in rendererOutput)))) {
+            return null
+        }
 
         if (column.cellCls) {
             let extraCls = column.cellCls;
@@ -407,7 +416,8 @@ class Row extends Component {
 
         Object.assign(vdom, {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
-            data           : {recordId, rowId: rowIndex},
+            data           : {recordId, rowId: rowIndex,
+                ...(rowGeometry ? {heightSource: rowGeometry.hasHeight(recordId) ? 'measured' : 'estimated'} : {})},
             role           : 'row',
             // Content-sized rows take height and offset from the view's geometry, fixed rows multiply
             style          : {
@@ -693,7 +703,8 @@ class Row extends Component {
 
         return !!(rowGeometry && me.record) && (
             style.height    !== rowGeometry.heightAt(rowIndex) + 'px' ||
-            style.transform !== me.getRowTransform(rowGeometry.offsetAt(rowIndex))
+            style.transform !== me.getRowTransform(rowGeometry.offsetAt(rowIndex)) ||
+            me.vdom.data.heightSource !== (rowGeometry.hasHeight(me.parent.getRecordId(me.record)) ? 'measured' : 'estimated')
         )
     }
 

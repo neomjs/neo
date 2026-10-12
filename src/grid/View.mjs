@@ -1,6 +1,7 @@
 import Base            from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import RowGeometry     from './RowGeometry.mjs';
+import Row             from './Row.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
 
 /**
@@ -121,6 +122,15 @@ class View extends Base {
      */
     #heldHeights = null
     /**
+     * Estimate refinement and font reset held alongside a thumb drag's height batch.
+     * @member {Boolean} #heldEstimate=false
+     */
+    #heldEstimate = false
+    /**
+     * @member {Boolean} #heldReset=false
+     */
+    #heldReset = false
+    /**
      * Content-sized rows: the cell vdom nodes whose wrapped text was measured, with the width they had then. New
      * content renders a new node; a recycled node can change its width, which the stored one tells.
      * @member {WeakMap<Object, String>} #measuredCells
@@ -154,6 +164,45 @@ class View extends Base {
      * @member {Set<String>|null} #wrapFields=null
      */
     #wrapFields = null
+    /**
+     * Generation of the measurement rules; invalidates replies as well as retained values.
+     * @member {Number} #measureGeneration=0
+     */
+    #measureGeneration = 0
+    /**
+     * Hidden projection's bounded renderer rows, one per body, outside its visible row pool.
+     * @member {Map} #measureRows
+     */
+    #measureRows = new Map()
+    /**
+     * Last actual width/renderer signature for all height-driving columns.
+     * @member {Object[]} #measureLayout
+     */
+    #measureLayout = []
+    /**
+     * Record/field rules whose text height is already known, shared by mounted and hidden passes.
+     * @member {Map} #measureKeys
+     */
+    #measureKeys = new Map()
+    /**
+     * Content revisions of individual records; one edit does not discard another record's valid reply.
+     * @member {Map} #recordVersions
+     */
+    #recordVersions = new Map()
+    /**
+     * One pending hidden batch. Its slot is released on either terminal outcome.
+     * @member {Promise|null} #aheadFlight=null
+     */
+    #aheadFlight = null
+    /**
+     * Cursor and pending wake for bounded refinement while the grid is idle.
+     * @member {Number} #idleMeasureIndex=0
+     */
+    #idleMeasureIndex = 0
+    /**
+     * @member {Promise|null} #idleMeasure=null
+     */
+    #idleMeasure = null
 
     /**
      * The active bodies in visual order (`bodyStart`, `body`, `bodyEnd`) — the render/event delegates
@@ -295,12 +344,18 @@ class View extends Base {
      * @protected
      */
     afterSetIsThumbDragging(value, oldValue) {
-        let me      = this,
-            heights = me.#heldHeights;
+        let me       = this,
+            heights  = me.#heldHeights,
+            estimate = me.#heldEstimate;
 
-        if (!value && heights) {
+        if (!value) {
             me.#heldHeights = null;
-            me.setRowHeights(heights)
+            me.#heldEstimate = false;
+            if (me.#heldReset) {
+                me.#heldReset = false;
+                me.resetRowHeights()
+            }
+            heights && me.setRowHeights(heights, estimate)
         }
     }
 
@@ -327,6 +382,7 @@ class View extends Base {
         super.onConstructed();
         this.selectionModel?.register(this);
         this.bindStore(this.store, null);
+        Neo.currentWorker.on('fontChange', this.onFontChange, this);
         this.contentSizedRows && this.updateRowGeometry()
     }
 
@@ -350,13 +406,26 @@ class View extends Base {
 
             // Like the geometry's heights, the measured texts belong to the old store's records
             if (oldValue) {
+                me.#measureGeneration++;
                 me.#measuredCells = new WeakMap();
-                me.#textHeights.clear()
+                me.#textHeights.clear();
+                me.#measureKeys.clear();
+                me.#recordVersions.clear();
+                me.#idleMeasureIndex = 0;
+                me.clearMeasureProjection();
+                value && !me.isDestroyed && me.#changeRowHeights(() => {
+                    me.rowGeometry.estimate = me.gridContainer.rowHeight;
+                    return true
+                }, true)
             }
         }
 
         // Heights held during a thumb drag are keyed by the records of the old store
-        oldValue && (me.#heldHeights = null);
+        if (oldValue) {
+            me.#heldHeights = null;
+            me.#heldEstimate = false;
+            me.#heldReset = false
+        }
 
         // a store that already holds its records fires no load for them
         value?.count && me.onStoreLoad()
@@ -405,6 +474,8 @@ class View extends Base {
         let me = this;
 
         me.bindStore(null, me.store);
+        Neo.currentWorker.un('fontChange', me.onFontChange, me);
+        me.clearMeasureProjection();
         me.selectionModel?.destroy?.();
         me.rowGeometry?.destroy();
         super.destroy(...args)
@@ -437,6 +508,14 @@ class View extends Base {
         let me                  = this,
             {rowSelectionModel} = me,
             field               = fields.find(item => item.name === me.selectedRecordField);
+
+        if (me.rowGeometry && fields.length) {
+            let id = me.getRecordId(record);
+            me.#recordVersions.set(id, (me.#recordVersions.get(id) || 0) + 1);
+            me.#measureKeys.delete(id);
+            me.#textHeights.delete(id);
+            me.scheduleRowMeasure()
+        }
 
         if (field && rowSelectionModel) {
             rowSelectionModel[field.value ? 'selectRow' : 'deselectRow'](me.getRecordId(record))
@@ -527,6 +606,204 @@ class View extends Base {
     }
 
     /**
+     * @summary Saves a measured field's content and width independently of a physical cell's pooled identity.
+     * @param {Neo.data.Record} record
+     * @param {String} field
+     * @param {String} width
+     * @protected
+     */
+    rememberMeasuredCell(record, field, width) {
+        let id   = this.getRecordId(record),
+            keys = this.#measureKeys.get(id) || new Map();
+
+        keys.set(field, {value: record.get(field), width});
+        this.#measureKeys.set(id, keys)
+    }
+
+    /**
+     * @summary Invalidates this window's font-dependent measurements and replies still crossing from main.
+     * @param {Object} data
+     * @param {String} data.windowId
+     */
+    onFontChange({windowId}) {
+        windowId === this.windowId && this.rowGeometry && this.resetRowHeights()
+    }
+
+    /**
+     * @summary Height-driving columns at their real region widths, including horizontally unmounted columns.
+     * @returns {Object[]}
+     * @protected
+     */
+    getMeasureColumns() {
+        let columns = [];
+
+        this.bodies.forEach(body => body.columnPositions?.items.forEach((position, index) => {
+            let column = this.gridContainer.columns.get(position.dataField);
+
+            column?.wrapText && position.width > 0 && !column.hidden &&
+                columns.push({body, column, index, width: `${position.width}px`})
+        }));
+
+        return columns
+    }
+
+    /**
+     * @summary Measures a bounded hidden projection beside the visible row pool. Eight rows beyond each overscan edge
+     * cover the measured 80ms pipeline at ordinary wheel speed; idle passes refine another eight records.
+     * Only text output enters this projection. Each region preserves its real body/row/cell ancestry and uses
+     * Row's renderer normalization, but never embeds an editor or enters the physical row/cell pools.
+     * @returns {Promise<void>}
+     */
+    measureAheadRows() {
+        let me = this, generation = me.#measureGeneration;
+
+        return me.#aheadFlight ??= me.runAheadMeasure().finally(() => {
+            me.#aheadFlight = null;
+            !me.isDestroyed && me.rowGeometry && generation !== me.#measureGeneration && me.scheduleRowMeasure()
+        })
+    }
+
+    /**
+     * @summary Executes a hidden batch after VDom settlement, dropping stale font/content/width/store responses.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async runAheadMeasure() {
+        let me        = this,
+            store     = me.store,
+            columns   = me.getMeasureColumns(),
+            signature = columns.map(({body, column, width}) =>
+                [body.id, column.id, column.dataField, width, column.renderer, column.cellCls, me.theme]),
+            targets = [], rows = new Map(), indexes = new Set(), heights = new Map(),
+            generation, rects, chrome;
+
+        if (!me.rowGeometry || !me.mounted || !store?.count || !columns.length ||
+            me.isVdomUpdating || me.bodies.some(body => body.isVdomUpdating)) return;
+
+        me.#measureRows.forEach((row, body) => {
+            if (body.isDestroyed || !me.bodies.includes(body)) {
+                row.destroy();
+                me.#measureRows.delete(body)
+            }
+        });
+
+        if (!Neo.isEqual(signature, me.#measureLayout)) {
+            if (me.#measureLayout.length) {
+                let changed = new Set();
+
+                me.#measureLayout.forEach(old => {
+                    let current = signature.find(entry => entry[1] === old[1]);
+                    !Neo.isEqual(old, current) && changed.add(old[2])
+                });
+                changed.size && me.#measureGeneration++;
+                me.#measureKeys.forEach(fields => changed.forEach(field => fields.delete(field)));
+                me.#textHeights.forEach(fields => changed.forEach(field => delete fields[field]));
+                me.#measuredCells = new WeakMap();
+                me.refreshMeasuredHeights()
+            }
+            me.#measureLayout = signature;
+        }
+
+        generation = me.#measureGeneration;
+        let [start, end] = me.gridContainer.body.mountedRows;
+
+        for (let index = Math.max(0, start - 8); index < Math.min(store.count, end + 8); index++) indexes.add(index);
+        if (!me.bodies.some(body => body.isScrolling)) {
+            for (let step = 0; step < 8 && me.#idleMeasureIndex < store.count; step++) indexes.add(me.#idleMeasureIndex++)
+        }
+
+        for (let index of indexes) {
+            let record = store.getAt(index), id = me.getRecordId(record);
+
+            for (let {body, column, index: columnIndex, width} of columns) {
+                let key = me.#measureKeys.get(id)?.get(column.dataField);
+                if (key?.width === width && key.value === record.get(column.dataField)) continue;
+
+                let projector = me.#measureRows.get(body);
+                if (!projector) {
+                    projector = Neo.create(Row, {appName: me.appName, parentId: body.id, theme: body.theme, windowId: me.windowId});
+                    me.#measureRows.set(body, projector)
+                }
+                projector.record = record;
+                projector.rowIndex = index;
+
+                let cellId = `${projector.id}__measure_${generation}_${index}_${columnIndex}`,
+                    cell   = projector.applyRendererOutput({
+                        cache: {gridBody: body, gridContainer: me.gridContainer, store, selectedCells: [], measureOnly: true},
+                        cellId, column, columnIndex, record, rowIndex: index, silent: true
+                    });
+                if (!cell?.cn?.[0]?.cls?.includes('neo-grid-cell-text')) continue;
+
+                cell.style = {...cell.style, width};
+                let bodyRows = rows.get(body) || new Map(), row = bodyRows.get(index);
+                if (!row) {
+                    row = {id: `${projector.id}__measure_${generation}_${index}`, cls: body.getRowClass(record, index),
+                        data : {measureIndex: index},
+                        style: {height: `${me.gridContainer.rowHeight}px`}, cn: []};
+                    bodyRows.set(index, row);
+                    rows.set(body, bodyRows)
+                }
+                row.cn.push(cell);
+                targets.push({body, cell, column, record, id, width, revision: me.#recordVersions.get(id) || 0})
+            }
+        }
+
+        if (targets.length) {
+            await Promise.all([...rows].map(([body, bodyRows]) => {
+                body.rowMeasureVdom = {id: `${body.id}__row_measure`, cls: ['neo-grid-row-measure'],
+                    'aria-hidden': 'true', style: {visibility: 'hidden', position: 'absolute', pointerEvents: 'none'},
+                    cn           : [...bodyRows.values()]};
+                body.createRowPool();
+                body.updateDepth = 4;
+                body.denseUpdate = true;
+                return body.promiseUpdate()
+            }));
+            if (me.isDestroyed || generation !== me.#measureGeneration || store !== me.store) return;
+
+            [rects, chrome] = await Promise.all([
+                Neo.main.DomAccess.getLayoutRect({id: targets.map(({cell}) => cell.cn[0].id), windowId: me.windowId}),
+                Neo.main.DomAccess.getComputedStyle({id: targets[0].cell.id,
+                    style: ['border-bottom-width', 'border-top-width', 'padding-bottom', 'padding-top'], windowId: me.windowId})
+            ]);
+            if (me.isDestroyed || !me.rowGeometry || generation !== me.#measureGeneration || store !== me.store ||
+                !Neo.isEqual(signature, me.getMeasureColumns().map(({body, column, width}) =>
+                    [body.id, column.id, column.dataField, width, column.renderer, column.cellCls, me.theme]))) return;
+
+            me.#chrome = Object.values(chrome).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+            targets.forEach(({body, cell, column, record, id, width, revision}, index) => {
+                let rect = rects[index];
+                if (!rect?.width || revision !== (me.#recordVersions.get(id) || 0) ||
+                    !body.rowMeasureVdom?.cn.some(row => row.cn.includes(cell))) return;
+                let fields = me.#textHeights.get(id) || {};
+                fields[column.dataField] = rect.height;
+                me.#textHeights.set(id, fields);
+                me.rememberMeasuredCell(record, column.dataField, width);
+                heights.set(id, me.measuredHeight(fields))
+            });
+            heights.size && me.setRowHeights(heights, true)
+        }
+
+        if (me.#idleMeasureIndex < store.count && !me.#idleMeasure) {
+            me.#idleMeasure = me.timeout(100).then(() => {
+                me.#idleMeasure = null;
+                return me.measureAheadRows()
+            }).catch(reason => {
+                me.#idleMeasure = null;
+                reason !== Neo.isDestroyed && console.error('grid.View: hidden row measurement failed', reason)
+            })
+        }
+    }
+
+    /**
+     * @summary Retires hidden presentation and its renderer contexts on source replacement, mode exit or destroy.
+     */
+    clearMeasureProjection() {
+        this.#measureRows.forEach(row => row.destroy());
+        this.#measureRows.clear();
+        this.bodies.forEach(body => {body.rowMeasureVdom = null})
+    }
+
+    /**
      * Content-sized rows: measures the wrapped text of the mounted wrapText cells that are new since the last
      * pass, in one batched read for all bodies, and feeds the row heights to the {@link #rowGeometry}. A row
      * takes its tallest wrapText column plus the cell's padding and borders, and never less than `rowHeight`.
@@ -545,6 +822,7 @@ class View extends Base {
             textHeights     = me.#textHeights,
             heights         = new Map(),
             targets         = [],
+            generation      = me.#measureGeneration,
             chrome, rects, wrapFields;
 
         // A render in flight may land before or after the read: the next landed update measures its rows
@@ -586,7 +864,7 @@ class View extends Base {
             })
         ]);
 
-        if (me.isDestroyed || !me.rowGeometry) {
+        if (me.isDestroyed || !me.rowGeometry || generation !== me.#measureGeneration) {
             return
         }
 
@@ -605,6 +883,7 @@ class View extends Base {
 
             fields[cell.data.field] = rect.height;
             textHeights.set(recordId, fields);
+            me.rememberMeasuredCell(record, cell.data.field, width);
             measured.set(cell, width);
             heights.set(recordId, me.measuredHeight(fields))
         });
@@ -669,12 +948,23 @@ class View extends Base {
             {rowGeometry} = me;
 
         if (rowGeometry) {
-            me.#heldHeights   = null;
+            me.#measureGeneration++;
+            me.#heldHeights = null;
+            me.#heldEstimate = false;
             me.#measuredCells = new WeakMap();
             me.#textHeights.clear();
-
-            // The cells render again even if no height was known: their text containers come or go
-            me.#changeRowHeights(() => {rowGeometry.clearHeights(); return true}, true)
+            me.#measureKeys.clear();
+            me.#idleMeasureIndex = 0;
+            if (me.isThumbDragging) {
+                me.#heldReset = true;
+                me.scheduleRowMeasure();
+                return
+            }
+            me.#changeRowHeights(() => {
+                rowGeometry.clearHeights();
+                rowGeometry.estimate = me.gridContainer.rowHeight;
+                return true
+            }, true)
         }
     }
 
@@ -689,7 +979,7 @@ class View extends Base {
         me.#rowMeasure ??= me.timeout(0)
             .then(() => {
                 me.#rowMeasure = null;
-                return me.measureRowHeights()
+                return me.measureRowHeights().then(() => me.measureAheadRows())
             })
             .catch(reason => {
                 me.#rowMeasure = null;
@@ -714,23 +1004,31 @@ class View extends Base {
      * screen: a change above it moves the scroll offset along. During a thumb drag the heights wait for the drag's
      * end, so the extent under the thumb holds still.
      * @param {Map<Number|String, Number>} heights Heights in px, keyed by record id
+     * @param {Boolean} [estimateFromMeasurements=false] Refines unseen rows from the measured mean in this
+     * same mutation. Known heights and the grid's minimum rowHeight stay unchanged.
      * @returns {Boolean} True if at least one height changed now
      */
-    setRowHeights(heights) {
-        let me            = this,
-            {rowGeometry} = me;
+    setRowHeights(heights, estimateFromMeasurements = false) {
+        let me = this, {rowGeometry} = me;
 
-        if (!rowGeometry) {
-            return false
-        }
+        if (!rowGeometry) return false;
 
         if (me.isThumbDragging) {
             me.#heldHeights ??= new Map();
+            me.#heldEstimate ||= estimateFromMeasurements;
             heights.forEach((height, recordId) => me.#heldHeights.set(recordId, height));
             return false
         }
 
-        return me.#changeRowHeights(() => rowGeometry.setHeights(heights))
+        return me.#changeRowHeights(() => {
+            let changed = rowGeometry.setHeights(heights);
+            if (estimateFromMeasurements && rowGeometry.measuredMean !== null &&
+                rowGeometry.estimate !== rowGeometry.measuredMean) {
+                rowGeometry.estimate = rowGeometry.measuredMean;
+                changed = true
+            }
+            return changed
+        })
     }
 
     /**
@@ -822,6 +1120,10 @@ class View extends Base {
             // A new geometry knows no heights: every mounted row is measured again
             me.#measuredCells = new WeakMap();
             me.#textHeights.clear();
+            me.#measureKeys.clear();
+            me.#recordVersions.clear();
+            me.#measureLayout = [];
+            me.#idleMeasureIndex = 0;
 
             me.rowGeometry = Neo.create({
                 module     : RowGeometry,
@@ -830,6 +1132,8 @@ class View extends Base {
                 store      : me.store
             })
         } else if (!me.contentSizedRows && me.rowGeometry) {
+            me.#measureGeneration++;
+            me.clearMeasureProjection();
             me.rowGeometry.destroy();
             me.rowGeometry = null
         }

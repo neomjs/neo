@@ -2,6 +2,7 @@
     "appPath"         : "test/playwright/component/apps/grid-wrap-text/app.mjs",
     "basePath"        : "../../../../../",
     "environment"     : "development",
+    "useAiClient"     : true,
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["DragDrop", "Navigator", "ResizeObserver", "Stylesheet"],
     "themes"          : ["neo-theme-neo-dark", "neo-theme-neo-light"],
