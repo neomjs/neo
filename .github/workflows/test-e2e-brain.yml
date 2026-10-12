@@ -9,6 +9,10 @@ on:
   push:
     branches: [dev]
 
+# The Brain's install runs its own lifecycle scripts in this job, so the token can only read
+permissions:
+  contents: read
+
 concurrency:
   # A started measurement completes; a newer `dev` head replaces only the one still queued
   group: ${{ github.workflow }}
@@ -51,6 +55,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           path: engine
+          persist-credentials: false
 
       - name: Checkout the Brain
         uses: actions/checkout@v7
@@ -58,6 +63,7 @@ jobs:
           repository: neomjs/neo-agent-brain
           ref: ${{ needs.brain.outputs.sha }}
           path: brain
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
