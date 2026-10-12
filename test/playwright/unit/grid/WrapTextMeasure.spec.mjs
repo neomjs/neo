@@ -5,7 +5,11 @@
  * In content-sized mode a `wrapText` cell renders its text in a block container. After an update lands, the grid
  * view reads the layout boxes of the new containers in one batch and feeds each row's tallest one, plus the
  * cell's padding and borders, to the row geometry. The main-thread reads are replaced by recorders here: a text
- * container is as tall as its record's line count for that column × 20px, and the cell chrome is 5px.
+ * container is as tall as its record's line count for that column × 20px, a hidden one has an empty box, and the
+ * cell chrome is 5px.
+ *
+ * A measurement stays valid while its text, its width and its rules stay: a hidden cell is measured once it shows,
+ * and a removed wrapText column or a new `rowHeight` derives the measured rows again from their stored heights.
  *
  * @see Neo.grid.View#measureRowHeights
  */
@@ -107,9 +111,9 @@ async function createGrid(config) {
 }
 
 /**
- * The record each rendered text container currently shows, by container id
+ * The cell and record of each rendered text container, by container id
  * @param {Neo.grid.Container} grid
- * @returns {Map<String, {field: String, record: Object}>}
+ * @returns {Map<String, {cell: Object, field: String, record: Object}>}
  */
 function renderedTexts(grid) {
     let texts = new Map();
@@ -118,7 +122,7 @@ function renderedTexts(grid) {
         let text = cell.cn?.[0];
 
         if (row.record && text?.cls?.includes('neo-grid-cell-text')) {
-            texts.set(text.id, {field: cell.data.field, record: row.record})
+            texts.set(text.id, {cell, field: cell.data.field, record: row.record})
         }
     })));
 
@@ -126,7 +130,8 @@ function renderedTexts(grid) {
 }
 
 /**
- * What the main thread would answer, for what the containers show when the read arrives
+ * What the main thread would answer, for what the containers show when the read arrives. A container in a
+ * `display: none` cell has an empty box.
  * @param {Neo.grid.Container} grid
  * @param {String[]} ids
  * @returns {Object[]}
@@ -136,7 +141,14 @@ function readTextRects(grid, ids) {
 
     return ids.map(id => {
         let text = texts.get(id);
-        return text ? {height: text.record[`${text.field}Lines`] * LINE} : {}
+
+        if (!text) {
+            return {}
+        }
+
+        return text.cell.style.display === 'none' ?
+            {height: 0, width: 0} :
+            {height: text.record[`${text.field}Lines`] * LINE, width: parseFloat(text.cell.style.width)}
     })
 }
 
@@ -453,5 +465,118 @@ test.describe('Grid wrapText measurement', () => {
 
         expect(view.rowGeometry.heightAt(4)).toBe(rowHeight);
         expect(renderedTexts(grid).size).toBe(0)
+    });
+
+    test('a hidden cell is measured once a horizontal scroll shows it, at the same width', async () => {
+        reads.length = 0;
+
+        let hidden = await createGrid({
+                columns: [
+                    {dataField: 'name', locked: 'start', text: 'Name',   width: 150, wrapText: true},
+                    {dataField: 'id',                    text: 'ID',     width: 80},
+                    {dataField: 'filler',                text: 'Filler', width: 600},
+                    {dataField: 'note', hideMode: 'display', text: 'Note', width: 200, wrapText: true}
+                ],
+                contentSizedRows: true,
+                store
+            }),
+            {body, view} = hidden,
+            noteCell     = () => body.items.find(row => row.rowIndex === 4).vdom.cn.find(cell => cell.data?.field === 'note');
+
+        respond = ids => Promise.resolve(readTextRects(hidden, ids));
+
+        await view.measureRowHeights();
+        await view.promiseUpdate();
+        await hidden.timeout(50);
+
+        // Out of the horizontal range, the note cell stays in its row with display none: it is not read, and only
+        // the name counts
+        expect(noteCell().style.display).toBe('none');
+        expect(reads.flat().filter(id => renderedTexts(hidden).get(id)?.field === 'note')).toEqual([]);
+        expect(view.rowGeometry.heightAt(4)).toBe(Math.max(rowHeight, store.getAt(4).nameLines * LINE + CHROME));
+
+        // Scrolled to the horizontal end, 280px, the note column comes into range. This is what a scroll event of
+        // the horizontal scrollbar does, without the hover sync a unit test has no main thread for.
+        hidden.scrollManager.scrollLeft = 280;
+        hidden.scrollManager.syncGridBody();
+        await view.promiseUpdate();
+        await hidden.timeout(50);
+        await view.measureRowHeights();
+        await view.promiseUpdate();
+
+        expect(noteCell().style.display).toBeFalsy();
+        expect(noteCell().style.width).toBe('200px');
+        expect(view.rowGeometry.heightAt(4)).toBe(expectedHeight(store.getAt(4)));
+
+        await hidden.timeout(20);
+        hidden.destroy()
+    });
+
+    test('a cell hidden while its read is in flight is not cached, and is measured once it shows', async () => {
+        let {view} = grid,
+            record = store.get(4),
+            cell, release;
+
+        respond = ids => {
+            let rects = () => readTextRects(grid, ids);
+            return new Promise(resolve => release = () => resolve(rects()))
+        };
+
+        // Record 4 gets a 5-line note: its row renders a new note cell, whose read goes out
+        record.set({note: 'A long note', noteLines: 5});
+        await expect.poll(() => typeof release).toBe('function');
+
+        // Before the reply, the cell leaves the horizontal range: same node, same width, display none
+        cell = grid.body.items.find(row => row.record === record).vdom.cn.find(node => node.data?.field === 'note');
+        cell.style.display = 'none';
+
+        respond = ids => Promise.resolve(readTextRects(grid, ids));
+        release();
+        await grid.timeout(50);
+
+        // It shows again, unchanged: the reply for the hidden box was not kept, so the note is read now
+        cell.style.display = null;
+        await view.measureRowHeights();
+
+        expect(view.rowGeometry.heightAt(4)).toBe(5 * LINE + CHROME)
+    });
+
+    test('removing the tallest wrapText column derives the measured rows from the remaining one, scrolled-out rows included', async () => {
+        let {view}   = grid,
+            nameOnly = record => Math.max(rowHeight, record.nameLines * LINE + CHROME);
+
+        // Measure the rows around 100, then scroll back: those rows keep only their stored heights
+        view.syncBodies(view.rowGeometry.offsetAt(100));
+        await view.promiseUpdate();
+        await grid.timeout(50);
+        view.syncBodies(0);
+        await view.promiseUpdate();
+        await grid.timeout(50);
+
+        // Record 104: a 3-line name (65px) under a 4-line note (85px)
+        expect(view.rowGeometry.heightAt(104)).toBe(4 * LINE + CHROME);
+
+        grid.columns.remove(grid.columns.get('note'));
+        await view.promiseUpdate();
+        await grid.timeout(50);
+        await view.measureRowHeights();
+
+        expect(view.rowGeometry.heightAt(104)).toBe(nameOnly(store.get(104)));
+        expect(view.rowGeometry.heightAt(4)).toBe(nameOnly(store.getAt(4)))
+    });
+
+    test('a new rowHeight floors the measured rows, and lowering it again restores their measured heights', async () => {
+        let {view} = grid;
+
+        // Record 3: a 2-line note, 45px
+        expect(view.rowGeometry.heightAt(3)).toBe(2 * LINE + CHROME);
+
+        grid.rowHeight = 100;
+        expect(view.rowGeometry.heightAt(3)).toBe(100);
+
+        grid.rowHeight = rowHeight;
+        expect(view.rowGeometry.heightAt(3)).toBe(2 * LINE + CHROME);
+
+        await view.promiseUpdate()
     })
 });

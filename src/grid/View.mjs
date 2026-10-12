@@ -103,6 +103,11 @@ class View extends Base {
     rowGeometry = null
 
     /**
+     * Content-sized rows: the padding and borders of a cell in px, as the last read found them
+     * @member {Number} #chrome=0
+     */
+    #chrome = 0
+    /**
      * Content-sized rows: the cell vdom nodes whose wrapped text was measured, with the width they had then. New
      * content renders a new node; a recycled node can change its width, which the stored one tells.
      * @member {WeakMap<Object, String>} #measuredCells
@@ -115,10 +120,15 @@ class View extends Base {
     #rowMeasure = null
     /**
      * Content-sized rows: the measured text height in px of each wrapText column, per record id. A row takes the
-     * tallest, so a column that scrolled out horizontally keeps its share.
+     * tallest, so a column that scrolled out horizontally keeps its share, and a column that left the grid drops it.
      * @member {Map<Number|String, Object>} #textHeights
      */
     #textHeights = new Map()
+    /**
+     * Content-sized rows: the data fields of the wrapText columns, as the last measurement pass found them
+     * @member {Set<String>|null} #wrapFields=null
+     */
+    #wrapFields = null
 
     /**
      * The active bodies in visual order (`bodyStart`, `body`, `bodyEnd`) — the render/event delegates
@@ -418,12 +428,26 @@ class View extends Base {
     }
 
     /**
+     * Content-sized rows: the height of a measured row, its tallest wrapText column plus the cell's padding and
+     * borders, and never less than `rowHeight`
+     * @param {Object} fields The row's text heights in px, by data field
+     * @returns {Number}
+     * @protected
+     */
+    measuredHeight(fields) {
+        return Math.max(this.gridContainer.rowHeight, Math.max(0, ...Object.values(fields)) + this.#chrome)
+    }
+
+    /**
      * Content-sized rows: measures the wrapped text of the mounted wrapText cells that are new since the last
      * pass, in one batched read for all bodies, and feeds the row heights to the {@link #rowGeometry}. A row
      * takes its tallest wrapText column plus the cell's padding and borders, and never less than `rowHeight`.
+     * A hidden cell waits until it shows. When a wrapText column joins or leaves the grid, the measured rows take
+     * their heights from the new set of columns.
      *
      * The read crosses to the main thread while rows go on rendering. A cell whose row rendered it again before
-     * the reply (another record, new content or a new width) is skipped: the node that was read is gone.
+     * the reply (another record, new content or a new width) is skipped: the node that was read is gone. So is a
+     * cell whose box has no width: it was hidden when read.
      * @returns {Promise<void>}
      */
     async measureRowHeights() {
@@ -442,11 +466,20 @@ class View extends Base {
 
         wrapFields = new Set(gridContainer.columns.items.filter(column => column.wrapText).map(column => column.dataField));
 
+        if (me.#wrapFields?.size !== wrapFields.size || [...wrapFields].some(field => !me.#wrapFields.has(field))) {
+            me.#wrapFields?.forEach(field => !wrapFields.has(field) && textHeights.forEach(fields => delete fields[field]));
+            me.#wrapFields = wrapFields;
+            me.refreshMeasuredHeights()
+        }
+
         wrapFields.size > 0 && me.bodies.forEach(body => body.items.forEach(row => {
             row.record && !row.isVdomUpdating && row.vdom.cn.forEach(cell => {
                 let text = cell.cn?.[0];
 
-                if (wrapFields.has(cell.data?.field) && text?.cls?.includes('neo-grid-cell-text') && measured.get(cell) !== cell.style.width) {
+                if (
+                    wrapFields.has(cell.data?.field) && cell.style.display !== 'none' &&
+                    text?.cls?.includes('neo-grid-cell-text') && measured.get(cell) !== cell.style.width
+                ) {
                     targets.push({cell, record: row.record, row, textId: text.id, width: cell.style.width})
                 }
             })
@@ -469,26 +502,40 @@ class View extends Base {
             return
         }
 
-        chrome = Object.values(chrome).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+        me.#chrome = Object.values(chrome).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
 
         targets.forEach(({cell, record, row, width}, index) => {
-            let height = rects[index]?.height,
+            let rect = rects[index],
                 fields, recordId;
 
-            if (height === undefined || row.record !== record || !row.vdom.cn.includes(cell) || cell.style.width !== width) {
+            if (!rect?.width || row.record !== record || !row.vdom.cn.includes(cell) || cell.style.width !== width) {
                 return
             }
 
             recordId = me.getRecordId(record);
             fields   = textHeights.get(recordId) || {};
 
-            fields[cell.data.field] = height;
+            fields[cell.data.field] = rect.height;
             textHeights.set(recordId, fields);
             measured.set(cell, width);
-            heights.set(recordId, Math.max(gridContainer.rowHeight, Math.max(...Object.values(fields)) + chrome))
+            heights.set(recordId, me.measuredHeight(fields))
         });
 
         heights.size > 0 && me.setRowHeights(heights)
+    }
+
+    /**
+     * Content-sized rows: derives the height of every measured row again from its stored text heights. The text
+     * did not change, but its derivation did: the set of wrapText columns, or `rowHeight`.
+     * @returns {Boolean} True if a height changed
+     */
+    refreshMeasuredHeights() {
+        let me      = this,
+            heights = new Map();
+
+        me.#textHeights.forEach((fields, recordId) => heights.set(recordId, me.measuredHeight(fields)));
+
+        return heights.size > 0 && me.setRowHeights(heights)
     }
 
     /**
