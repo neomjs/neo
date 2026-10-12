@@ -7,6 +7,10 @@
  * `scrollCorrection` in the next update's meta, exactly once. A change below the anchor moves nothing. During a
  * thumb drag the heights wait for the drag's end, so the extent under the thumb holds still.
  *
+ * The moved rows travel in the update that carries the correction, also when a smaller row grows the row pool.
+ * The vertical scrollbar mirrors the view's scroll offset, so its extent grows before that update and shrinks
+ * after it: a scrollbar clamped by its new extent would otherwise pull the view ahead of the correction.
+ *
  * @see Neo.grid.View#setRowHeights
  * @see Neo.main.addon.GridRowScrollPinning
  */
@@ -171,5 +175,65 @@ test.describe('Grid content-sized rows: anchor correction', () => {
         expect(body.vdom.height).not.toBe(extent);
         expect(view.scrollTop).toBe(scrollTop + 60);
         expect(metas.filter(meta => meta.scrollCorrection).map(meta => meta.scrollCorrection)).toEqual([60])
+    });
+
+    test('a smaller row grows the row pool inside the update that carries the correction', async () => {
+        let {body, view} = grid,
+            poolSize     = body.items.length,
+            bodyUpdates  = 0,
+            update       = body.update.bind(body);
+
+        body.update = () => {bodyUpdates++; update()};
+
+        // Row 10 shrinks below every other row: more rows fit the view
+        view.setRowHeights(heightsOf(grid, {10: 20}));
+        await view.promiseUpdate();
+
+        expect(body.items.length).toBeGreaterThan(poolSize);
+        expect(bodyUpdates, 'the body renders no update of its own').toBe(0);
+        expect(metas.filter(meta => meta.scrollCorrection)).toEqual([{scrollCorrection: -20, scrollEpoch: 1, scrollTop: 1990}])
+    });
+
+    test('the scrollbar extent grows before the view update and shrinks after it', async () => {
+        let {verticalScrollbar, view} = grid,
+            calls                     = [],
+            updateScrollHeight        = verticalScrollbar.updateScrollHeight.bind(verticalScrollbar),
+            update                    = view.update.bind(view);
+
+        verticalScrollbar.updateScrollHeight = data => {calls.push('scrollbar'); updateScrollHeight(data)};
+        view.update                          = () => {calls.push('view'); update()};
+
+        view.setRowHeights(heightsOf(grid, {10: 100}));
+        expect(calls, 'growing').toEqual(['scrollbar', 'view']);
+
+        await view.promiseUpdate();
+        calls.length = 0;
+        view.setRowHeights(heightsOf(grid, {10: 20}));
+        expect(calls, 'shrinking').toEqual(['view', 'scrollbar']);
+
+        await view.promiseUpdate()
+    });
+
+    test('a busy view defers the update with the correction, and a shrinking scrollbar extent waits for it', async () => {
+        let {verticalScrollbar, view} = grid,
+            extents                   = [],
+            updateScrollHeight        = verticalScrollbar.updateScrollHeight.bind(verticalScrollbar),
+            flight                    = view.promiseUpdate();
+
+        expect(view.isVdomUpdating, 'an update is in flight').toBe(true);
+
+        verticalScrollbar.updateScrollHeight = data => {
+            // The rows already moved: the update with the correction landed
+            extents.push(metas.some(meta => meta.scrollCorrection));
+            updateScrollHeight(data)
+        };
+
+        view.setRowHeights(heightsOf(grid, {10: 20}));
+        expect(extents, 'the scrollbar waits').toEqual([]);
+
+        await flight;
+        await view.promiseUpdate();
+
+        expect(extents).toEqual([true])
     })
 });

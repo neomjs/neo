@@ -440,19 +440,33 @@ class View extends Base {
      * Re-derives everything that depends on row heights after the {@link #rowGeometry} changed: each body's row
      * pool, both scroll extents, and the rows' positions. A row whose record and index did not change finds
      * its moved geometry itself ({@link Neo.grid.Row#hasStaleGeometry}) and keeps its cells.
+     *
+     * The rows move in this view's update, whose meta carries the scroll correction, not in a body update of their
+     * own. The vertical scrollbar mirrors the scroll offset, and a smaller extent clamps it: it grows before that
+     * update and shrinks after it. A busy view defers its update, so the scrollbar waits for it to land.
      * @param {Boolean} [force=false] Re-renders every row. A mode switch needs it: without a geometry, a row
      * cannot tell that its content-sized height is stale.
+     * @param {Boolean} [shrinks=false] The extent shrinks
      */
-    refreshRowGeometry(force = false) {
-        let me = this;
+    refreshRowGeometry(force = false, shrinks = false) {
+        let me        = this,
+            busy      = me.isVdomUpdating,
+            scrollbar = me.gridContainer?.verticalScrollbar;
 
         me.bodies.forEach(body => {
+            body.skipCreateViewData = true;
             body.updateAvailableRows();
+            body.skipCreateViewData = false;
             body.updateScrollHeight(true)
         });
 
-        me.gridContainer?.verticalScrollbar?.updateScrollHeight();
-        me.syncBodies(me.scrollTop, force)
+        if (!shrinks) {
+            scrollbar?.updateScrollHeight();
+            me.syncBodies(me.scrollTop, force)
+        } else {
+            me.syncBodies(me.scrollTop, force);
+            busy ? me.promiseUpdate().then(() => scrollbar?.updateScrollHeight()) : scrollbar?.updateScrollHeight()
+        }
     }
 
     /**
@@ -477,7 +491,7 @@ class View extends Base {
     setRowHeights(heights) {
         let me                       = this,
             {rowGeometry, scrollTop} = me,
-            anchor, correction, offset;
+            anchor, correction, offset, totalHeight;
 
         if (!rowGeometry) {
             return false
@@ -489,8 +503,9 @@ class View extends Base {
             return false
         }
 
-        anchor = rowGeometry.indexAt(scrollTop);
-        offset = rowGeometry.offsetAt(anchor);
+        anchor      = rowGeometry.indexAt(scrollTop);
+        offset      = rowGeometry.offsetAt(anchor);
+        totalHeight = rowGeometry.totalHeight;
 
         if (rowGeometry.setHeights(heights)) {
             correction = rowGeometry.offsetAt(anchor) - offset;
@@ -501,7 +516,7 @@ class View extends Base {
                 me.scrollTop = scrollTop + correction
             }
 
-            me.mounted && me.refreshRowGeometry();
+            me.mounted && me.refreshRowGeometry(false, rowGeometry.totalHeight < totalHeight);
             return true
         }
 

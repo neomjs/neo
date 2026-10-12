@@ -80,7 +80,8 @@ class GridRowScrollPinning extends Base {
      */
     construct(config) {
         super.construct(config);
-        Neo.main.DeltaUpdates.on('update', this.onDeltaUpdate, this)
+        Neo.main.DeltaUpdates.on('update',  this.onDeltaUpdate,  this);
+        Neo.main.DeltaUpdates.on('updated', this.onDeltaUpdated, this)
     }
 
     /**
@@ -155,11 +156,13 @@ class GridRowScrollPinning extends Base {
      * for the scroll events. We synchronize using the dedicated `scrollTop` meta property from the View.
      *
      * Content-sized rows: when row heights above the visible rows change, the View's meta carries a
-     * `scrollCorrection`. It moves the actual scroll offset by the same distance as the moved rows, before
-     * pinning, in the same task as the deltas, so the visible rows hold still and the pin offset stays
-     * `actual - worker`. It is relative, so scrolling done while the worker computed survives. Each correction
-     * raises `scrollEpoch`, and an acknowledgement with an older epoch describes the geometry before it: adopting
-     * its `scrollTop` would displace the rows a second time, so it is ignored.
+     * `scrollCorrection`, the distance the visible rows move. The scroll offset moves by the same distance in the
+     * same task as the deltas, so the visible rows hold still and the pin offset stays `actual - worker`. The
+     * target is the offset before the deltas plus the correction, so scrolling done while the worker computed
+     * survives. {@link #onDeltaUpdated} applies it once the deltas resized the bodies: a grown extent admits it, and
+     * the clamp of a shrunk extent does not count twice. Each correction raises `scrollEpoch`, and an
+     * acknowledgement with an older epoch describes the geometry before it: adopting its `scrollTop` would displace
+     * the rows a second time, so it is ignored.
      *
      * @param {Object} data The DeltaUpdates event payload
      * @param {Object[]} data.deltas
@@ -169,6 +172,9 @@ class GridRowScrollPinning extends Base {
     onDeltaUpdate(data) {
         let me             = this,
             {deltas, meta} = data;
+
+        // A target left by a batch whose deltas failed must not move the view
+        me.registrations.forEach(state => {state.scrollTarget = null});
 
         if (!meta || !deltas) return;
 
@@ -180,14 +186,32 @@ class GridRowScrollPinning extends Base {
                     return
                 }
 
-                if (viewMeta.scrollCorrection) {
-                    state.wrapperNode.scrollTop += viewMeta.scrollCorrection
-                }
-
                 state.scrollEpoch = viewMeta.scrollEpoch ?? state.scrollEpoch;
 
                 // We sync against the true scroll target the VDOM was generated for
                 state.workerScrollTop = viewMeta.scrollTop;
+
+                if (viewMeta.scrollCorrection) {
+                    state.scrollTarget = state.wrapperNode.scrollTop + viewMeta.scrollCorrection
+                } else {
+                    me.applyPinning(state.id)
+                }
+            }
+        })
+    }
+
+    /**
+     * Applies the scroll correction {@link #onDeltaUpdate} read, now that the deltas resized the bodies, then pins
+     * against the corrected offset. Both happen before the next paint.
+     * @protected
+     */
+    onDeltaUpdated() {
+        let me = this;
+
+        me.registrations.forEach(state => {
+            if (state.scrollTarget !== null) {
+                state.wrapperNode.scrollTop = state.scrollTarget;
+                state.scrollTarget          = null;
                 me.applyPinning(state.id)
             }
         })
@@ -308,6 +332,7 @@ class GridRowScrollPinning extends Base {
                 isThumbDragging: false,
                 pin,
                 scrollEpoch    : 0,
+                scrollTarget   : null,
                 scrollTimeoutId: null,
                 workerScrollTop: 0
             });

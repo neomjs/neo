@@ -13,12 +13,13 @@ import * as core      from '../../../../../src/core/_export.mjs';
 
 /**
  * The row scroll addon's handling of content-sized scroll corrections. A height change above the visible rows
- * arrives as `scrollCorrection` in the View's update meta: the addon moves the actual scroll offset by it before
- * pinning, so the pin offset (`actual - worker`) keeps its value, and it ignores an acknowledgement older than
- * the last correction. The race arms hold that under the worst order: while pinning is active, a correction and an
- * older acknowledgement arrive in either order, then the thumb is released.
+ * arrives as `scrollCorrection` in the View's update meta: the addon moves the actual scroll offset by it once
+ * the deltas resized the bodies, then pins, so the pin offset (`actual - worker`) keeps its value, and it ignores
+ * an acknowledgement older than the last correction. The race arms hold that under the worst order: while
+ * pinning is active, a correction and an older acknowledgement arrive in either order, then the thumb is released.
  *
- * DOM nodes are stand-ins: the wrapper holds `scrollTop`, a body holds the `--grid-row-pin-offset` property.
+ * DOM nodes are stand-ins: the wrapper holds `scrollTop` and clamps it to its extent as a scroll container does,
+ * a body holds the `--grid-row-pin-offset` property.
  */
 const
     originalDeltaUpdates = Neo.main.DeltaUpdates,
@@ -43,6 +44,21 @@ const createBody = () => ({style: {
     setProperty(name, value) {this.values[name] = value}
 }});
 
+/**
+ * @param {Number} scrollTop
+ * @returns {Object} A wrapper stand-in whose scroll offset stays inside `0…maxScroll`, also when the extent shrinks
+ */
+const createWrapper = scrollTop => ({
+    max: 1e6,
+    top: scrollTop,
+    get maxScroll()      {return this.max},
+    set maxScroll(value) {this.max = value; this.top = Math.min(this.top, value)},
+    get scrollTop()      {return this.top},
+    set scrollTop(value) {this.top = Math.max(0, Math.min(value, this.max))},
+    addEventListener()    {},
+    removeEventListener() {}
+});
+
 test.describe('Neo.main.addon.GridRowScrollPinning — content-sized scroll corrections', () => {
     let addon, DomAccess, getElement, GridRowScrollPinning, originalApp, scrollbar, thumbDrags, wrapper;
 
@@ -61,10 +77,18 @@ test.describe('Neo.main.addon.GridRowScrollPinning — content-sized scroll corr
     });
 
     /**
-     * Delivers one update the View rendered, with its meta
+     * Delivers one update the View rendered, with its meta, as `Neo.main.DeltaUpdates` does: the `update` event,
+     * the deltas, the `updated` event
      * @param {Object} viewMeta
+     * @param {Function} [applyDeltas] Stands in for the deltas
      */
-    const deliver = viewMeta => addon.onDeltaUpdate({deltas: [], meta: {[viewId]: viewMeta}});
+    const deliver = (viewMeta, applyDeltas) => {
+        let data = {deltas: [], meta: {[viewId]: viewMeta}};
+
+        addon.onDeltaUpdate(data);
+        applyDeltas?.();
+        addon.onDeltaUpdated(data)
+    };
 
     /**
      * @returns {String} The pin offset the bodies carry
@@ -74,7 +98,7 @@ test.describe('Neo.main.addon.GridRowScrollPinning — content-sized scroll corr
     test.beforeEach(() => {
         globalThis.window = windowRef;
 
-        wrapper   = {scrollTop: 1000, addEventListener() {}, removeEventListener() {}};
+        wrapper   = createWrapper(1000);
         scrollbar = {addEventListener() {}, removeEventListener() {}};
 
         Object.assign(nodes, {body: createBody(), scrollbar, [viewId]: wrapper});
@@ -117,6 +141,33 @@ test.describe('Neo.main.addon.GridRowScrollPinning — content-sized scroll corr
         deliver({scrollCorrection: 80, scrollEpoch: 1, scrollTop: 1080});
 
         expect(wrapper.scrollTop).toBe(1280)
+    });
+
+    test('at the end of the list, a correction past the old end lands once the deltas grew the bodies', () => {
+        wrapper.maxScroll = 1000;
+
+        // Rows above the anchor grew by 80px, and so do the bodies
+        deliver({scrollCorrection: 80, scrollEpoch: 1, scrollTop: 1080}, () => {wrapper.maxScroll = 1080});
+
+        expect(wrapper.scrollTop).toBe(1080)
+    });
+
+    test('at the end of the list, a correction that shrinks the bodies moves the offset once', () => {
+        wrapper.maxScroll = 1000;
+
+        // Rows above the anchor shrank by 80px: the smaller extent already clamps the offset by that distance
+        deliver({scrollCorrection: -80, scrollEpoch: 1, scrollTop: 920}, () => {wrapper.maxScroll = 920});
+
+        expect(wrapper.scrollTop).toBe(920)
+    });
+
+    test('a target left by a batch whose deltas failed does not move the view', () => {
+        addon.onDeltaUpdate({deltas: [], meta: {[viewId]: {scrollCorrection: 80, scrollEpoch: 1, scrollTop: 1080}}});
+
+        // The deltas threw, so no `updated` event followed. The next batch carries no correction.
+        deliver({scrollEpoch: 1, scrollTop: 1080});
+
+        expect(wrapper.scrollTop).toBe(1000)
     });
 
     test('unregister detaches the drag listeners from the scrollbar it attached them to', () => {
