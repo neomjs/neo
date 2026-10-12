@@ -319,6 +319,15 @@ class GridBody extends Component {
     rowPoolSize = null
 
     /**
+     * The view's row geometry in content-sized mode, else `null`: a fixed-height body positions rows by
+     * `index × rowHeight`. All three bodies of a view read the same instance.
+     * @member {Neo.grid.RowGeometry|null} rowGeometry
+     */
+    get rowGeometry() {
+        return this.gridContainer?.view?.rowGeometry || null
+    }
+
+    /**
      * @param config
      */
     construct(config) {
@@ -409,9 +418,7 @@ class GridBody extends Component {
      * @protected
      */
     afterSetAvailableHeight(value, oldValue) {
-        if (value > 0) {
-            this.availableRows = Math.ceil(value / this.rowHeight) - 1
-        }
+        this.updateAvailableRows()
     }
 
     /**
@@ -471,8 +478,9 @@ class GridBody extends Component {
      */
     afterSetBufferRowRange(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this,
-                current = Math.floor(me.scrollTop / me.rowHeight);
+            let me            = this,
+                {rowGeometry} = me,
+                current       = rowGeometry ? rowGeometry.indexAt(me.scrollTop) : Math.floor(me.scrollTop / me.rowHeight);
 
             if (Math.abs(me.startIndex - current) >= value) {
                 me.skipCreateViewData = true;
@@ -1404,7 +1412,13 @@ class GridBody extends Component {
                 visibleRows[1] += step
             }
 
-            if (step < 0) {
+            if (me.rowGeometry) {
+                // Up: the row's top meets the viewport top. Down: its bottom meets the viewport bottom, unless the
+                // row is taller than the viewport, which shows its top.
+                scrollTop = step < 0 ?
+                    me.rowGeometry.offsetAt(newIndex) :
+                    Math.min(me.rowGeometry.offsetAt(newIndex), me.rowGeometry.offsetAt(newIndex + 1) - me.availableHeight)
+            } else if (step < 0) {
                 scrollTop = newIndex * me.rowHeight
             } else {
                 lastRowGap = me.rowHeight - (me.availableHeight % me.rowHeight);
@@ -1416,6 +1430,23 @@ class GridBody extends Component {
                 value: scrollTop,
                 windowId: me.windowId
             })
+        }
+    }
+
+    /**
+     * Sizes the row pool for the viewport. A fixed-height body counts `ceil(availableHeight / rowHeight) - 1`
+     * visible rows. In content-sized mode the visible rows run from the row at the top edge to the row the
+     * bottom edge cuts, which are at most `ceil(availableHeight / minHeight)`: a viewport filled with the
+     * shortest rows still has a pooled row for each.
+     */
+    updateAvailableRows() {
+        let me                             = this,
+            {availableHeight, rowGeometry} = me;
+
+        if (availableHeight > 0) {
+            me.availableRows = rowGeometry ?
+                Math.ceil(availableHeight / Math.max(1, rowGeometry.minHeight)) :
+                Math.ceil(availableHeight / me.rowHeight) - 1
         }
     }
 
@@ -1572,11 +1603,16 @@ class GridBody extends Component {
      *
      */
     updateMountedAndVisibleRows() {
-        let me = this,
-            { bufferRowRange, availableRows, startIndex, store } = me,
-            countRecords = store.count,
-            windowSize = availableRows + 2 * bufferRowRange,
-            endIndex = Math.min(countRecords, startIndex + availableRows),
+        let me                                                                = this,
+            { bufferRowRange, availableRows, rowGeometry, startIndex, store } = me,
+            countRecords                                                      = store.count,
+            windowSize                                                        = availableRows + 2 * bufferRowRange,
+            // Content-sized rows: the visible range ends before the row the viewport's bottom edge cuts, measured
+            // from scrollTop, since a partly scrolled-out tall row leaves room for many short ones below.
+            // scrollByRows() relies on a cut row not counting as visible.
+            endIndex = rowGeometry ?
+                Math.min(countRecords, rowGeometry.indexAt(me.scrollTop + me.availableHeight)) :
+                Math.min(countRecords, startIndex + availableRows),
             mountedStart = startIndex - bufferRowRange,
             mountedEnd = endIndex + bufferRowRange;
 
@@ -1626,12 +1662,15 @@ class GridBody extends Component {
      * @param {Boolean} silent=false
      */
     updateScrollHeight(silent = false) {
-        let me = this,
-            countRecords = me.#initialTotalSize || me.store?.count || 0,
-            { rowHeight } = me;
+        let me                         = this,
+            countRecords               = me.#initialTotalSize || me.store?.count || 0,
+            { rowGeometry, rowHeight } = me;
 
         if (countRecords > 0 && rowHeight > 0) {
-            me.vdom.height = `${(countRecords + 1) * rowHeight}px`;
+            // Content-sized rows: the known geometry, plus the estimate for rows a chunked load has not delivered
+            me.vdom.height = rowGeometry ?
+                `${rowGeometry.totalHeight + (countRecords - rowGeometry.count + 1) * rowGeometry.estimate}px` :
+                `${(countRecords + 1) * rowHeight}px`;
             !silent && me.update()
         }
     }

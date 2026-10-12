@@ -130,6 +130,14 @@ class GridContainer extends BaseContainer {
          */
         columns_: [],
         /**
+         * Opt-in content-sized rows: each row gets its own height, and the view positions rows through one
+         * {@link Neo.grid.RowGeometry} instead of `index × rowHeight`. `rowHeight` becomes the estimate for rows
+         * whose height is not known yet. Off by default: a fixed-height grid is unchanged.
+         * @member {Boolean} contentSizedRows_=false
+         * @reactive
+         */
+        contentSizedRows_: false,
+        /**
          * Configs for Neo.toolbar.Base
          * @member {Object|null} [footerToolbar_={[isDescriptor]:true,merge:'deep',value:null}]
          * @reactive
@@ -292,13 +300,14 @@ class GridContainer extends BaseContainer {
         me.view = Neo.create(View, {
             ...me.viewConfig,
             appName,
-            flex         : 1,
-            gridContainer: me,
-            isLoading    : me.isLoading,
-            parentId     : me.id,
-            theme        : me.theme,
+            contentSizedRows: me.contentSizedRows,
+            flex            : 1,
+            gridContainer   : me,
+            isLoading       : me.isLoading,
+            parentId        : me.id,
+            theme           : me.theme,
             windowId,
-            items        : [me.body]
+            items           : [me.body]
         });
 
         me.horizontalScrollbar = Neo.create(HorizontalScrollbar, {
@@ -310,12 +319,13 @@ class GridContainer extends BaseContainer {
         });
 
         me.verticalScrollbar = Neo.create({
-            module  : VerticalScrollbar,
+            module     : VerticalScrollbar,
             appName,
-            parentId: me.id,
+            parentId   : me.id,
+            rowGeometry: me.view.rowGeometry,
             rowHeight,
             store,
-            theme   : me.theme,
+            theme      : me.theme,
             windowId
         });
 
@@ -438,6 +448,16 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered after the contentSizedRows config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetContentSizedRows(value, oldValue) {
+        if (this.view) this.view.contentSizedRows = value
+    }
+
+    /**
      * Triggered after the footerToolbar config got changed
      * @param {Neo.toolbar.Base} value
      * @param {Neo.toolbar.Base} oldValue
@@ -514,11 +534,18 @@ class GridContainer extends BaseContainer {
      */
     afterSetRowHeight(value, oldValue) {
         if (value > 0) {
-            let {body, bodyEnd, bodyStart} = this;
+            let {body, bodyEnd, bodyStart, view} = this,
+                rowGeometry                      = view?.rowGeometry;
+
+            // Content-sized rows: rowHeight is the estimate for every row whose height is not known yet. It
+            // changes first, so the bodies' extent updates below read it.
+            if (rowGeometry) rowGeometry.estimate = value;
 
             if (body)      body.rowHeight = value;
             if (bodyStart) bodyStart.rowHeight = value;
             if (bodyEnd)   bodyEnd.rowHeight = value;
+
+            rowGeometry && view.mounted && view.refreshRowGeometry()
         }
     }
 
@@ -1309,7 +1336,7 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @summary Measures the container chrome and passes the derived body size downstream.
+     * @summary Measures the view and the container and passes the body size downstream.
      *
      * Reads LAYOUT-box metrics (`getLayoutRect()`), never `getBoundingClientRect()`: this async
      * measurement races presentation windows (a committed dock resize triggers it while DockFlip
@@ -1319,16 +1346,11 @@ class GridContainer extends BaseContainer {
      * @returns {Promise<void>}
      */
     async passSizeToBody(silent=false) {
-        let me                             = this,
-            {footerToolbar, headerToolbar} = me,
-            domRects                       = [me.id, headerToolbar.id],
-            containerRect, footerRect, headerRect;
+        let me                    = this,
+            {headerToolbar, view} = me,
+            containerRect, headerRect, viewRect;
 
-        if (footerToolbar) {
-            domRects.push(footerToolbar.id)
-        }
-
-        [containerRect, headerRect, footerRect] = await me.getLayoutRect(domRects);
+        [containerRect, headerRect, viewRect] = await me.getLayoutRect([me.id, headerToolbar.id, view.id]);
 
         // delay for slow connections, where the container-sizing is not done yet
         if (containerRect.height === headerRect.height) {
@@ -1336,7 +1358,9 @@ class GridContainer extends BaseContainer {
             await me.passSizeToBody(silent)
         } else {
             let config = {
-                availableHeight: containerRect.height - headerRect.height - (footerRect?.height || 0),
+                // The view's own height: the container's also holds its borders, the header, the footer and the
+                // horizontal scrollbar below the view
+                availableHeight: viewRect.height,
                 containerWidth : containerRect.width
             };
 
