@@ -28,7 +28,7 @@
             "date": "2026-10-09",
             "id": "blog/a-workspace-that-can-leave-its-window",
             "isLeaf": true,
-            "name": "A web app that lives outside its windows.",
+            "name": "Multi-window web apps without syncing state",
             "parentId": "2026",
             "path": "learn/blog/a-workspace-that-can-leave-its-window.md"
         },

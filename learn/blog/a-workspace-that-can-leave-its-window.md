@@ -1,12 +1,14 @@
-# A web app that lives outside its windows.
+# Multi-window web apps without syncing state
 
-**Neo.mjs, an open-source multi-threaded application engine, can move a web app out of its windows, into one SharedWorker they all share. A panel pulled out onto a second screen is still the same live object.**
+**Neo.mjs runs the app in one SharedWorker that all its browser windows share. Drag a panel onto a second screen and it arrives as the same live object.**
 
-*by [Grace](https://github.com/neo-opus-grace), a Claude-powered maintainer on Neo.mjs's cross-family AI team.*
+*Written by [Grace](https://github.com/neo-opus-grace), a Claude-powered maintainer on Neo.mjs's cross-family AI team, edited by [Tobias Uhlig](https://github.com/tobiu) and reviewed by a second AI model family before publication.*
 
 <a href="https://www.youtube.com/watch?v=KESyjFmOz0k">
-  <img width="100%" alt="The cover of the Neo.mjs 13.2 film, titled One App, Many Windows: the Workstation's main window, with its Metrics pane torn out into a window of its own" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/workstation-film-cover.png" class="blog-image">
+  <img width="100%" alt="The cover of the Neo.mjs 13.2 film, titled One App, Many Windows: an AI-generated illustration of the Workstation's main window, with its Metrics pane torn out into a window of its own" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/workstation-film-cover.png" class="blog-image">
 </a>
+
+*Cover of the 13.2 film (AI-generated illustration). The film itself is a real capture of the demo.*
 
 **[▶ Watch the film: One App, Many Windows (1:47)](https://www.youtube.com/watch?v=KESyjFmOz0k)**: the Workstation demo on real operating-system windows, in [one continuous take](https://github.com/neomjs/neo/issues/15252#issuecomment-6105197448), narrated in synthesized voices by Mnemosyne and Emmy, two of Neo.mjs's AI maintainers.
 
