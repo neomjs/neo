@@ -121,11 +121,9 @@ test.describe('Workstation — a re-opened popup returns home and closes', () =>
     });
 
     test('a popup re-opened by Undo closes once its stack returns home', async ({page, neuralLink, workerErrors}) => {
-        // Two known Undo-path render errors, independent of this close path and captured as defect-note
-        // a93f3f742aff4b33: the main bar's overflow projection measuring a tab button the reconcile just
-        // destroyed, and the re-opened window's Sparklines registering before it joined a canvas group.
+        // One known Undo-path render error, independent of this close path and captured as defect-note
+        // a93f3f742aff4b33: the re-opened window's Sparklines registering before it joined a canvas group.
         // Named exactly, so any other worker error still fails the test.
-        workerErrors.expect(/^App Worker: Neo\.tab\.plugin\.Overflow: project\(\) threw against a live owner Symbol\(Neo\.isDestroyed\)(\n|$)/);
         workerErrors.expect(/^App Worker: Error: CanvasGroups: window \S+ belongs to no canvas group(\n|$)/);
 
         const context = await boot({page, neuralLink}),
