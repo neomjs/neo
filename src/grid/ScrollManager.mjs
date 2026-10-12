@@ -76,6 +76,15 @@ class ScrollManager extends Base {
     gridContainer = null
 
     /**
+     * True while the grid needs the `GridRowScrollPinning` addon: to pin rows during thumb drags, or to apply the
+     * scroll corrections of content-sized rows, which it does with pinning off as well.
+     * @member {Boolean} usesRowScrollAddon
+     */
+    get usesRowScrollAddon() {
+        return this.rowScrollPinning || !!this.gridContainer?.contentSizedRows
+    }
+
+    /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
@@ -103,22 +112,23 @@ class ScrollManager extends Base {
 
         if (value) {
             me.dragScroll && me.updateDragScrollAddon(true);
-            me.rowScrollPinning && me.updateRowScrollPinningAddon(true);
+            me.usesRowScrollAddon && me.updateRowScrollPinningAddon(true);
             me.updateGridHorizontalScrollSyncAddon(true)
         } else if (oldValue && me.windowId) {
             me.dragScroll && me.updateDragScrollAddon(false);
-            me.rowScrollPinning && me.updateRowScrollPinningAddon(false);
+            me.usesRowScrollAddon && me.updateRowScrollPinningAddon(false);
             me.updateGridHorizontalScrollSyncAddon(false)
         }
     }
 
     /**
+     * Content-sized rows keep the addon registered without pinning, for their scroll corrections.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
     afterSetRowScrollPinning(value, oldValue) {
         if (this.mounted) {
-            this.updateRowScrollPinningAddon(value)
+            this.updateRowScrollPinningAddon(this.usesRowScrollAddon)
         }
     }
 
@@ -131,11 +141,11 @@ class ScrollManager extends Base {
 
         if (oldValue && me.mounted) {
             me.dragScroll && me.updateDragScrollAddon(false, oldValue);
-            me.rowScrollPinning && me.updateRowScrollPinningAddon(false, oldValue);
+            me.usesRowScrollAddon && me.updateRowScrollPinningAddon(false, oldValue);
             me.updateGridHorizontalScrollSyncAddon(false, oldValue);
 
             me.dragScroll && me.updateDragScrollAddon(true, value);
-            me.rowScrollPinning && me.updateRowScrollPinningAddon(true, value);
+            me.usesRowScrollAddon && me.updateRowScrollPinningAddon(true, value);
             me.updateGridHorizontalScrollSyncAddon(true, value);
         }
     }
@@ -297,10 +307,11 @@ class ScrollManager extends Base {
 
         if (active) {
             addon.register({
-                bodyIds    : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
+                bodyIds            : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
                 verticalScrollbarId: me.gridContainer.verticalScrollbar?.id,
                 viewId             : me.gridContainer.view.id,
-                id         : me.id,
+                id                 : me.id,
+                pin                : me.rowScrollPinning,
                 windowId
             })
         } else {

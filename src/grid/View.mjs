@@ -57,6 +57,14 @@ class View extends Base {
          */
         gridContainer: null,
         /**
+         * True while the user drags the vertical scrollbar's thumb. The `GridRowScrollPinning` main-thread addon
+         * sets it. Content-sized rows hold height changes during the drag, so the extent under the thumb holds
+         * still, and apply them at its end.
+         * @member {Boolean} isThumbDragging_=false
+         * @reactive
+         */
+        isThumbDragging_: false,
+        /**
          * Empty keys container so the single View-owned SelectionModel registers its Up/Down handlers
          * HERE (`view.keys._keys`) — grid.View is the single key registry, the keyboard half of the
          * multi-body focus/selection centralization (the earlier split left keyboard migration for
@@ -108,6 +116,11 @@ class View extends Base {
      */
     #chrome = 0
     /**
+     * Content-sized rows: heights that arrived during a thumb drag, applied at its end
+     * @member {Map|null} #heldHeights=null
+     */
+    #heldHeights = null
+    /**
      * Content-sized rows: the cell vdom nodes whose wrapped text was measured, with the width they had then. New
      * content renders a new node; a recycled node can change its width, which the stored one tells.
      * @member {WeakMap<Object, String>} #measuredCells
@@ -118,6 +131,18 @@ class View extends Base {
      * @member {Promise|null} #rowMeasure=null
      */
     #rowMeasure = null
+    /**
+     * Content-sized rows: the distance in px height changes moved the anchor row since the last update. The next
+     * update hands it to the main thread, which moves the scroll offset by it.
+     * @member {Number} #scrollCorrection=0
+     */
+    #scrollCorrection = 0
+    /**
+     * Counts the anchor corrections. An acknowledgement that carries an older count describes the geometry before
+     * the last correction, and the main thread ignores it.
+     * @member {Number} #scrollEpoch=0
+     */
+    #scrollEpoch = 0
     /**
      * Content-sized rows: the measured text height in px of each wrapText column, per record id. A row takes the
      * tallest, so a column that scrolled out horizontally keeps its share, and a column that left the grid drops it.
@@ -264,6 +289,22 @@ class View extends Base {
     }
 
     /**
+     * Triggered after the isThumbDragging config got changed. The end of a drag applies the heights held during it.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsThumbDragging(value, oldValue) {
+        let me      = this,
+            heights = me.#heldHeights;
+
+        if (!value && heights) {
+            me.#heldHeights = null;
+            me.setRowHeights(heights)
+        }
+    }
+
+    /**
      * Triggered after the selectionModel config got changed. Registers grid.View (not a body) as the
      * model's `view`, so a single model owns selection state across all bodies.
      * @param {Neo.selection.Model} value
@@ -314,8 +355,45 @@ class View extends Base {
             }
         }
 
+        // Heights held during a thumb drag are keyed by the records of the old store
+        oldValue && (me.#heldHeights = null);
+
         // a store that already holds its records fires no load for them
         value?.count && me.onStoreLoad()
+    }
+
+    /**
+     * Content-sized rows: changes row heights so the visible rows hold still. The row at the scroll offset is the
+     * anchor: a change above it moves it, and the scroll offset moves along by the same distance, which the next
+     * update hands to the main thread as `scrollCorrection`. A change below it moves nothing on screen. A mounted
+     * view then re-derives its layout.
+     * @param {Function} change Changes the heights of the {@link #rowGeometry}, returns true if any changed
+     * @param {Boolean} [force=false] Re-renders every row
+     * @returns {Boolean} True if a height changed
+     * @private
+     */
+    #changeRowHeights(change, force = false) {
+        let me                       = this,
+            {rowGeometry, scrollTop} = me,
+            anchor                   = rowGeometry.indexAt(scrollTop),
+            offset                   = rowGeometry.offsetAt(anchor),
+            totalHeight              = rowGeometry.totalHeight,
+            correction;
+
+        if (!change()) {
+            return false
+        }
+
+        correction = rowGeometry.offsetAt(anchor) - offset;
+
+        if (correction !== 0) {
+            me.#scrollCorrection += correction;
+            me.#scrollEpoch++;
+            me.scrollTop = scrollTop + correction
+        }
+
+        me.mounted && me.refreshRowGeometry(force, rowGeometry.totalHeight < totalHeight);
+        return true
     }
 
     /**
@@ -419,12 +497,22 @@ class View extends Base {
     }
 
     /**
+     * The scroll origin this update renders, for `GridRowScrollPinning`. In content-sized mode it also carries the
+     * scroll correction of moved anchor rows: once, with the update that renders the moved rows, so the main
+     * thread moves the scroll offset in the same task as the row transforms. When an ancestor's update absorbs
+     * this one, `Neo.mixin.VdomLifecycle` sends the meta along with that batch.
      * @returns {Object}
      */
     getVdomUpdateMeta() {
-        return {
-            scrollTop: this.scrollTop
+        let me   = this,
+            meta = {scrollEpoch: me.#scrollEpoch, scrollTop: me.scrollTop};
+
+        if (me.#scrollCorrection !== 0) {
+            meta.scrollCorrection = me.#scrollCorrection;
+            me.#scrollCorrection  = 0
         }
+
+        return meta
     }
 
     /**
@@ -542,33 +630,51 @@ class View extends Base {
      * Re-derives everything that depends on row heights after the {@link #rowGeometry} changed: each body's row
      * pool, both scroll extents, and the rows' positions. A row whose record and index did not change finds
      * its moved geometry itself ({@link Neo.grid.Row#hasStaleGeometry}) and keeps its cells.
+     *
+     * The rows move in this view's update, whose meta carries the scroll correction, not in a body update of their
+     * own. The vertical scrollbar mirrors the scroll offset, and a smaller extent clamps it: it grows before that
+     * update and shrinks after it. A busy view defers its update, so the scrollbar waits for it to land.
      * @param {Boolean} [force=false] Re-renders every row. A mode switch needs it: without a geometry, a row
      * cannot tell that its content-sized height is stale.
+     * @param {Boolean} [shrinks=false] The extent shrinks
      */
-    refreshRowGeometry(force = false) {
-        let me = this;
+    refreshRowGeometry(force = false, shrinks = false) {
+        let me        = this,
+            busy      = me.isVdomUpdating,
+            scrollbar = me.gridContainer?.verticalScrollbar;
 
         me.bodies.forEach(body => {
+            body.skipCreateViewData = true;
             body.updateAvailableRows();
+            body.skipCreateViewData = false;
             body.updateScrollHeight(true)
         });
 
-        me.gridContainer?.verticalScrollbar?.updateScrollHeight();
-        me.syncBodies(me.scrollTop, force)
+        if (!shrinks) {
+            scrollbar?.updateScrollHeight();
+            me.syncBodies(me.scrollTop, force)
+        } else {
+            me.syncBodies(me.scrollTop, force);
+            busy ? me.promiseUpdate().then(() => scrollbar?.updateScrollHeight()) : scrollbar?.updateScrollHeight()
+        }
     }
 
     /**
      * Content-sized rows: forgets every measured height and renders the bodies again, which measures the mounted
-     * rows anew. A change to which columns wrap their text needs it.
+     * rows anew. A change to which columns wrap their text needs it. The row at the scroll offset holds still on
+     * screen, as for {@link #setRowHeights}.
      */
     resetRowHeights() {
-        let me = this;
+        let me            = this,
+            {rowGeometry} = me;
 
-        if (me.rowGeometry) {
-            me.rowGeometry.clearHeights();
+        if (rowGeometry) {
+            me.#heldHeights   = null;
             me.#measuredCells = new WeakMap();
             me.#textHeights.clear();
-            me.mounted && me.refreshRowGeometry(true)
+
+            // The cells render again even if no height was known: their text containers come or go
+            me.#changeRowHeights(() => {rowGeometry.clearHeights(); return true}, true)
         }
     }
 
@@ -604,19 +710,27 @@ class View extends Base {
 
     /**
      * Applies known row heights in content-sized mode. A mounted view re-derives its layout if any height
-     * changed; an unmounted one renders them on its first layout.
+     * changed; an unmounted one renders them on its first layout. The row at the scroll offset holds still on
+     * screen: a change above it moves the scroll offset along. During a thumb drag the heights wait for the drag's
+     * end, so the extent under the thumb holds still.
      * @param {Map<Number|String, Number>} heights Heights in px, keyed by record id
-     * @returns {Boolean} True if at least one height changed
+     * @returns {Boolean} True if at least one height changed now
      */
     setRowHeights(heights) {
-        let me = this;
+        let me            = this,
+            {rowGeometry} = me;
 
-        if (me.rowGeometry?.setHeights(heights)) {
-            me.mounted && me.refreshRowGeometry();
-            return true
+        if (!rowGeometry) {
+            return false
         }
 
-        return false
+        if (me.isThumbDragging) {
+            me.#heldHeights ??= new Map();
+            heights.forEach((height, recordId) => me.#heldHeights.set(recordId, height));
+            return false
+        }
+
+        return me.#changeRowHeights(() => rowGeometry.setHeights(heights))
     }
 
     /**

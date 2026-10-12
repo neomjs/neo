@@ -454,7 +454,12 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     afterSetContentSizedRows(value, oldValue) {
-        if (this.view) this.view.contentSizedRows = value
+        let {scrollManager, view} = this;
+
+        if (view) view.contentSizedRows = value;
+
+        // The scroll corrections of content-sized rows need the row scroll addon, also with pinning off
+        scrollManager?.mounted && scrollManager.updateRowScrollPinningAddon(scrollManager.usesRowScrollAddon)
     }
 
     /**
@@ -1519,7 +1524,7 @@ class GridContainer extends BaseContainer {
         }
 
         if (me.scrollManager) {
-            me.scrollManager.rowScrollPinning && me.scrollManager.updateRowScrollPinningAddon(true);
+            me.scrollManager.usesRowScrollAddon && me.scrollManager.updateRowScrollPinningAddon(true);
             me.scrollManager.rowHoverSync     && me.scrollManager.updateGridRowHoverSyncAddon(me.hasLockedColumns);
         }
 
