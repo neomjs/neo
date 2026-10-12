@@ -127,7 +127,7 @@ export function readBranchRules(run, repo, branch) {
 /**
  * @summary The `prepare` phase's next step.
  *
- * - `released`: the version is out; nothing to do.
+ * - `released`: the version is out; nothing to do (`getBindingProblems` refuses a release this workflow did not produce).
  * - `merged`: the release PR is merged; `finish` takes over.
  * - `waiting`: the release PR is open; its required checks run and the operator merges it.
  * - `open-pr`: the branch is on origin without an open or merged PR.
@@ -149,7 +149,7 @@ export function getPrepareStep({release, pr, remoteBranchSha, localAhead}) {
 /**
  * @summary The `finish` phase's next step.
  *
- * - `released`: the version is out; nothing to do.
+ * - `released`: the version is out; nothing to do (`getBindingProblems` refuses a release this workflow did not produce).
  * - `not-merged`: there is no merged release PR to release from.
  * - `release`: `main` already holds the squash (a run stopped after its push); create the GitHub release.
  * - `squash`: squash the release PR's merge commit onto `main`, then create the GitHub release.
@@ -165,31 +165,37 @@ export function getFinishStep({release, pr, mainTree, mergeTree}) {
 }
 
 /**
- * @summary Refusals that keep a resumed release bound to what was prepared and merged: a present ref is only
- * reused when it is the expected one.
+ * @summary Refusals that keep a resumed release bound to what was prepared and merged. A present ref is reused only
+ * when it is the expected one, and a missing identity refuses rather than skipping the comparison. A GitHub
+ * release counts as done only when its tag is the merged release PR's merge commit: a release published outside
+ * this workflow, such as one from before it, is refused, never reported as finished.
  * @param {'prepare'|'finish'} phase
  * @param {ReleaseState}       state
  * @returns {String[]} Empty when the phase may act.
  */
 export function getBindingProblems(phase, state) {
     const
-        {pr, remoteBranchSha, localBranchSha, tagCommit} = state,
-        problems                                         = [];
+        {pr, release, remoteBranchSha, localBranchSha, tagCommit} = state,
+        problems                                                  = [];
+
+    if (release && !pr?.mergeCommit) {
+        problems.push('the GitHub release exists, but no merged release PR produced it: it was published outside this workflow (bump package.json)')
+    } else if (release && !tagCommit) {
+        problems.push('the GitHub release exists without its version tag')
+    } else if (pr?.mergeCommit && tagCommit && tagCommit !== pr.mergeCommit) {
+        problems.push(`the version tag points to ${tagCommit.slice(0, 10)}, not the release PR's merge commit ${pr.mergeCommit.slice(0, 10)}`)
+    }
 
     if (phase === 'prepare') {
         const step = getPrepareStep(state);
 
-        if (step === 'open-pr' && !localBranchSha) {
-            problems.push('the release branch is on origin without an open or merged PR, and this checkout has no local candidate to bind it to')
+        if ((step === 'open-pr' || step === 'waiting') && !localBranchSha) {
+            problems.push(`${step === 'waiting' ? 'the release PR is open' : 'the release branch is on origin without an open or merged PR'}, and this checkout has no local candidate to bind it to`)
         } else if (step === 'open-pr' && remoteBranchSha !== localBranchSha) {
             problems.push(`the release branch on origin (${remoteBranchSha.slice(0, 10)}) is not the local candidate (${localBranchSha.slice(0, 10)})`)
-        }
-
-        if (step === 'waiting' && localBranchSha && pr.headSha !== localBranchSha) {
+        } else if (step === 'waiting' && pr.headSha !== localBranchSha) {
             problems.push(`the open release PR's head (${pr.headSha.slice(0, 10)}) is not the local candidate (${localBranchSha.slice(0, 10)})`)
         }
-    } else if (pr?.mergeCommit && tagCommit && tagCommit !== pr.mergeCommit) {
-        problems.push(`the version tag points to ${tagCommit.slice(0, 10)}, not the release PR's merge commit ${pr.mergeCommit.slice(0, 10)}`)
     }
 
     return problems

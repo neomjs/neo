@@ -135,12 +135,24 @@ test.describe('a resumed release reuses only its own refs', () => {
     test('an open release PR is reused only when its head is the local candidate', () => {
         expect(getBindingProblems('prepare', {...fresh, pr: open, localBranchSha: sha('l'), localAhead: 1})).toEqual([]);
         expect(getBindingProblems('prepare', {...fresh, pr: {...open, headSha: sha('x')}, localBranchSha: sha('l'), localAhead: 1})).toHaveLength(1);
+        expect(getBindingProblems('prepare', {...fresh, pr: open})).toHaveLength(1);
     });
 
     test('finish accepts an existing tag only on the merge commit, which covers a tag-created, release-missing retry', () => {
         expect(getBindingProblems('finish', {...fresh, pr: merged, tagCommit: sha('a')})).toEqual([]);
         expect(getBindingProblems('finish', {...fresh, pr: merged, tagCommit: sha('x')})).toHaveLength(1);
         expect(getBindingProblems('finish', {...fresh, pr: merged, tagCommit: sha('x'), release: '13.3.0'})).toHaveLength(1);
+    });
+
+    test('a release counts as done only when its tag is the merged release PR\'s merge commit', () => {
+        const done = {...fresh, pr: merged, tagCommit: sha('a'), release: '13.3.0', mergeTree: sha('m')};
+
+        for (const phase of ['prepare', 'finish']) {
+            expect(getBindingProblems(phase, done), phase).toEqual([]);
+            expect(getBindingProblems(phase, {...done, tagCommit: null}), phase).toHaveLength(1);
+            expect(getBindingProblems(phase, {...done, pr: open}), phase).toHaveLength(1);
+            expect(getBindingProblems(phase, {...done, pr: null}), phase).toEqual([expect.stringContaining('published outside this workflow')]);
+        }
     });
 });
 
