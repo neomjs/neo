@@ -75,7 +75,8 @@ test.describe('Grid native hidden premeasurement', () => {
     });
 
     test('hidden and displayed text agree at actual fractional column widths', async ({page}) => {
-        await app.setProperties(textColumnId, {width: 213.5});
+        // Match the resize owner's width + inline-style mutation; the inline width otherwise outranks the config.
+        await app.setProperties(textColumnId, {width: 213.5, wrapperStyle: {width: '213.5px'}});
         await expect.poll(() => page.locator(`${GRID} .neo-grid-cell[data-field="text"]`).filter({visible: true})
             .first().evaluate(cell => cell.getBoundingClientRect().width)).toBe(213.5);
         await app.callMethod(viewId, 'resetRowHeights');
@@ -105,7 +106,7 @@ test.describe('Grid native hidden premeasurement', () => {
     });
 
     test('the horizontally unmounted text column still determines visible row heights', async ({page}) => {
-        await app.setProperties(idColumnId, {width: 1400});
+        await app.setProperties(idColumnId, {width: 1400, wrapperStyle: {width: '1400px'}});
         await expect.poll(() => page.locator(`${GRID} .neo-grid-cell[data-field="id"]`).filter({visible: true})
             .first().evaluate(cell => cell.getBoundingClientRect().width)).toBe(1400);
         await expect.poll(() => page.locator(`${GRID} .neo-grid-cell[data-field="text"]`).filter({visible: true}).count()).toBe(0);
