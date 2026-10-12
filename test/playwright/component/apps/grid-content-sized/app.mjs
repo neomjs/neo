@@ -5,7 +5,7 @@ import Viewport      from '../../../../../src/container/Viewport.mjs';
 
 /**
  * Row heights in px, repeating every six rows. Rows up to 7.5 times the 32px estimate make every row position
- * differ from `index × rowHeight`. `test/playwright/e2e/grid/ContentSizedRows.spec.mjs` mirrors them.
+ * differ from `index × rowHeight`. `test/playwright/e2e/grid/RowGeometry.spec.mjs` mirrors them.
  * @type {Number[]}
  */
 const HEIGHTS = [32, 96, 48, 240, 32, 64];

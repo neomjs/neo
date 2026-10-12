@@ -189,19 +189,24 @@ function defineGridReads(floor) {
         const duration = (performance.now() - sampling.start) / 1000,
               frames   = sampling.frames.slice(1),
               records  = [...sampling.records.values()],
-              visible  = records.filter(entry => 'visible' in entry);
+              visible  = records.filter(entry => 'visible' in entry),
+              numbers  = {
+                  duration,
+                  longFrames        : frames.filter(frame => frame > 20).length,
+                  maxFrame          : Math.round(Math.max(...frames)),
+                  measuringPerSecond: Math.round(sampling.measuring / duration),
+                  mounted           : records.length,
+                  rowsPerSecond     : Math.round(visible.length / duration),
+                  visible           : visible.length
+              };
 
-        return {
-            duration,
-            longFrames        : frames.filter(frame => frame > 20).length,
-            maxFrame          : Math.round(Math.max(...frames)),
-            measuringPerSecond: Math.round(sampling.measuring / duration),
-            mounted           : records.length,
-            mountedAtEstimate : records.filter(entry => entry.mounted).length,
-            rowsPerSecond     : Math.round(visible.length / duration),
-            visible           : visible.length,
-            visibleAtEstimate : visible.filter(entry => entry.visible).length
+        // Only a classifying run knows which rows were at the estimate
+        if (sampling.classify) {
+            numbers.mountedAtEstimate = records.filter(entry => entry.mounted).length;
+            numbers.visibleAtEstimate = visible.filter(entry => entry.visible).length
         }
+
+        return numbers
     }
 }
 
