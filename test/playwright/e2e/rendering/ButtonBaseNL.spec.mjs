@@ -1,5 +1,22 @@
 import { test, expect } from '../../fixtures.mjs';
 
+/**
+ * @summary Waits until the configuration panel's `text` field exists in the App worker, and returns its id.
+ * The panel renders after the example itself, so one query right after connecting can find nothing.
+ * @param {Object} app The connected Neural Link app.
+ * @returns {Promise<String>}
+ */
+async function findTextField(app) {
+    let fields = [];
+
+    await expect.poll(async () => {
+        fields = [].concat(await app.queryComponent({ ntype: 'textfield', labelText: 'text' }, ['id']) ?? []);
+        return fields.length
+    }, { message: 'the configuration panel renders its text field', timeout: 15000 }).toBeGreaterThan(0);
+
+    return fields[0].id
+}
+
 test.describe('Desktop: Neural Link Baseline Validation (Button Base)', () => {
     test.setTimeout(90000);
 
@@ -46,16 +63,11 @@ test.describe('Desktop: Neural Link Baseline Validation (Button Base)', () => {
 
     test('User-Driven Configuration Mutation (Playwright UI -> Config -> Button -> NL Validation)', async ({ page, neuralLink }) => {
         await page.goto('/examples/button/base/index.html');
-        // Give time for UI mount
-        await page.waitForTimeout(500);
 
         const app = await neuralLink.connectToApp('Neo.examples.button.base');
 
         // Find the TextField for 'text' configuration using Neural Link semantic querying
-        const results = await app.queryComponent({ ntype: 'textfield', labelText: 'text' }, ['id', 'value']);
-        expect(Array.isArray(results) ? results.length : (results ? 1 : 0)).toBeGreaterThan(0);
-
-        const textFieldId = Array.isArray(results) ? results[0].id : results.id;
+        const textFieldId = await findTextField(app);
 
         // Native DOM User Interaction: Type into the visual textfield using its ID from the Backend
         const inputLocator = page.locator(`#${textFieldId} input`);
@@ -74,13 +86,11 @@ test.describe('Desktop: Neural Link Baseline Validation (Button Base)', () => {
 
     test('Agent-Driven Configuration Mutation (NL -> Config -> Button)', async ({ page, neuralLink }) => {
         await page.goto('/examples/button/base/index.html');
-        await page.waitForTimeout(500);
 
         const app = await neuralLink.connectToApp('Neo.examples.button.base');
 
         // Find the TextField for 'text' configuration using Neural Link semantic querying
-        const results     = await app.queryComponent({ ntype: 'textfield', labelText: 'text' }, ['id']);
-        const textFieldId = Array.isArray(results) ? results[0].id : results.id;
+        const textFieldId = await findTextField(app);
 
         // Mutate the Configuration field programmatically
         // Note: setting properties directly may not trigger the 'change' event listener unless afterSetValue fires it.

@@ -2,6 +2,11 @@ import Base     from '../../plugin/Base.mjs';
 import NeoArray from '../../util/Array.mjs';
 
 /**
+ * @summary Animates the rows of a grid body to their new positions after a sort or a filter.
+ *
+ * The positions are fixed-height ones (`rowIndex × rowHeight`). With `contentSizedRows` the plugin stands aside:
+ * the body handles the store events itself and renders its rows at their geometry offsets, without transitions.
+ * The plugin follows the mode through the body's `rowGeometryChange` event, which fires before the rows re-render.
  * @class Neo.grid.plugin.AnimateRows
  * @extends Neo.plugin.Base
  */
@@ -48,6 +53,16 @@ class AnimateRows extends Base {
     transitionTimeoutId = null
 
     /**
+     * The body's own store handlers, which this plugin replaces. Content-sized rows hand the events back to them.
+     * @member {Object|null} #bodyHandlers=null
+     */
+    #bodyHandlers = null
+    /**
+     * @member {Boolean} #warned=false
+     */
+    #warned = false
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -60,13 +75,16 @@ class AnimateRows extends Base {
         // Remove the previous view listeners
         owner.store = null;
 
+        me.#bodyHandlers = {filter: owner.onStoreFilter, load: owner.onStoreLoad};
+
         owner.onStoreFilter = me.onStoreFilter.bind(me);
         owner.onStoreLoad   = me.onStoreLoad  .bind(me);
 
         // Add the re-bound listeners
         owner.store = store;
 
-        owner.addCls('neo-animate-rows')
+        owner.on('rowGeometryChange', me.standAside, me);
+        me.standAside()
     }
 
     /**
@@ -103,7 +121,12 @@ class AnimateRows extends Base {
      * @param {Object} args
      */
     destroy(...args) {
-        this.owner.addStyle({
+        let me      = this,
+            {owner} = me;
+
+        owner.un('rowGeometryChange', me.standAside, me);
+
+        owner.addStyle({
             '--neo-duration': null,
             '--neo-easing'  : null
         });
@@ -119,7 +142,9 @@ class AnimateRows extends Base {
      * @param {Neo.data.Store} data.scope
      */
     onStoreFilter(data) {
-        this.updateView()
+        let me = this;
+
+        me.standAside() ? me.#bodyHandlers.filter.call(me.owner, data) : me.updateView()
     }
 
     /**
@@ -127,7 +152,32 @@ class AnimateRows extends Base {
      * @protected
      */
     onStoreLoad(data) {
-        this.updateView()
+        let me = this;
+
+        me.standAside() ? me.#bodyHandlers.load.call(me.owner, data) : me.updateView()
+    }
+
+    /**
+     * Content-sized rows have no fixed-height positions to animate to, and this plugin does not read the row
+     * geometry. In that mode it takes its row transitions off the body and warns, once, that `animatedRowSorting`
+     * is ignored; a store event goes to the body's own handler. Back in fixed-height mode, the transitions return.
+     * Runs on every store event, and on `rowGeometryChange`, before the rows re-render for a new mode.
+     * @returns {Boolean} True if the plugin stands aside
+     * @protected
+     */
+    standAside() {
+        let me           = this,
+            {owner}      = me,
+            contentSized = !!owner.rowGeometry;
+
+        owner[contentSized ? 'removeCls' : 'addCls']('neo-animate-rows');
+
+        if (contentSized && !me.#warned) {
+            me.#warned = true;
+            console.warn('grid.plugin.AnimateRows: animatedRowSorting is ignored with contentSizedRows', owner.id)
+        }
+
+        return contentSized
     }
 
     /**

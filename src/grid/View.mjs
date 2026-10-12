@@ -808,8 +808,9 @@ class View extends Base {
 
     /**
      * Creates the {@link #rowGeometry} when {@link #contentSizedRows} is on, or retires it when it is off, and
-     * hands it to the vertical scrollbar, the one extent consumer outside the bodies. A switch after the
-     * first layout re-renders every row through {@link #refreshRowGeometry}.
+     * hands it to the vertical scrollbar, the one extent consumer outside the bodies. Each body fires
+     * `rowGeometryChange` before a switch after the first layout re-renders every row through
+     * {@link #refreshRowGeometry}, so a body plugin adapts first.
      * @protected
      */
     updateRowGeometry() {
@@ -836,6 +837,8 @@ class View extends Base {
         if (scrollbar) {
             scrollbar.rowGeometry = me.rowGeometry
         }
+
+        me.bodies.forEach(body => body.fire('rowGeometryChange', {rowGeometry: me.rowGeometry}));
 
         me.mounted && me.refreshRowGeometry(true)
     }
