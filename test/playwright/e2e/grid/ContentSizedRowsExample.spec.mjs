@@ -45,7 +45,8 @@ function defineGridReads(floor) {
             .reduce((sum, property) => sum + parseFloat(style.getPropertyValue(property)), 0)
     };
 
-    const displayed = row => row.style.display !== 'none' && !!row.dataset.recordId;
+    // A row of the visible pool, not one the grid renders hidden to measure ahead
+    const displayed = row => row.style.display !== 'none' && !!row.dataset.recordId && !row.closest('.neo-grid-row-measure');
 
     window.gridState = grid => {
         const view    = document.querySelector(`${grid} .neo-grid-view`),
@@ -388,8 +389,9 @@ test.describe('Content-sized rows example', () => {
         test.use({viewport: {width: 700, height: 800}});
 
         test('1. an initially unmounted tallest column sizes its rows before it mounts', async ({page}) => {
+            // A details cell in a row of the visible pool: measuring ahead renders hidden ones
             const hasDetails = () => page.evaluate(grid => [...document.querySelectorAll(`${grid} [data-field="details"]`)]
-                .some(cell => cell.getClientRects().length > 0), GRID);
+                .some(cell => cell.getClientRects().length > 0 && !cell.closest('.neo-grid-row-measure')), GRID);
 
             expect(await hasDetails(), 'the details column starts unmounted').toBe(false);
 
@@ -504,7 +506,8 @@ test.describe('Content-sized rows example', () => {
 
             // In row order, top to bottom
             let scores = await page.evaluate(grid => [...document.querySelectorAll(`${grid} [data-field="score"]`)]
-                .filter(cell => cell.getClientRects().length > 0 && cell.closest('.neo-grid-row').style.display !== 'none')
+                .filter(cell => cell.getClientRects().length > 0 && cell.closest('.neo-grid-row').style.display !== 'none' &&
+                    !cell.closest('.neo-grid-row-measure'))
                 .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
                 .map(cell => Number(cell.textContent)), GRID);
 
@@ -525,7 +528,8 @@ test.describe('Content-sized rows example', () => {
             await expectRowsFitTheirText(page);
 
             let summaries = await page.evaluate(grid => [...document.querySelectorAll(`${grid} [data-field="summary"]`)]
-                .filter(cell => cell.getClientRects().length > 0 && cell.closest('.neo-grid-row').style.display !== 'none')
+                .filter(cell => cell.getClientRects().length > 0 && cell.closest('.neo-grid-row').style.display !== 'none' &&
+                    !cell.closest('.neo-grid-row-measure'))
                 .map(cell => cell.textContent), GRID);
 
             expect(summaries.length).toBeGreaterThan(5);
