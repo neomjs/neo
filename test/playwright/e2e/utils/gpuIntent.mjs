@@ -53,6 +53,9 @@ export const GPU_INTENT_ARGS = [
  * `moveTo(900, 20)` lands at x = 320 and the product's own placement cannot follow a target the
  * test staged beyond it. `contextOptions.screen` changes only what `window.screen` reports, and
  * measured with this configuration's `chrome` channel, `--window-size` left the screen at 800 px.
+ *
+ * `TouchpadOverscrollHistoryNavigation` is disabled because Chrome reads CDP's precise wheel deltas as a
+ * touchpad swipe, and a horizontal overscroll then navigates the page under test back.
  * @type {String[]}
  */
 export const BASE_LAUNCH_ARGS = [
@@ -67,7 +70,7 @@ export const BASE_LAUNCH_ARGS = [
     '--disable-dev-shm-usage',
     '--disable-ipc-flooding-protection',
     '--force-gpu-mem-available-mb=4096',
-    '--disable-features=IsolateOrigins,site-per-process'
+    '--disable-features=IsolateOrigins,site-per-process,TouchpadOverscrollHistoryNavigation'
 ];
 
 /**
