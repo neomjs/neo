@@ -1,0 +1,346 @@
+/**
+ * @file test/playwright/unit/grid/WrapTextMeasure.spec.mjs
+ * @summary Content-sized rows measure the wrapped text of their `wrapText` columns in place.
+ *
+ * In content-sized mode a `wrapText` cell renders its text in a block container. After an update lands, the grid
+ * view reads the layout boxes of the new containers in one batch and feeds each row's tallest one, plus the
+ * cell's padding and borders, to the row geometry. The main-thread reads are replaced by recorders here: a text
+ * container is as tall as its record's line count for that column × 20px, and the cell chrome is 5px.
+ *
+ * @see Neo.grid.View#measureRowHeights
+ */
+
+import {setup} from '../../setup.mjs';
+
+setup({
+    neoConfig: {
+        allowVdomUpdatesInTests: true,
+        unitTestMode           : true,
+        useDomApiRenderer      : true,
+        useVdomWorker          : false
+    },
+    appConfig: {
+        name             : 'GridWrapTextMeasureTest',
+        vnodeInitialising: false
+    }
+});
+
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import InstanceManager    from '../../../../src/manager/Instance.mjs';
+import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import GridContainer      from '../../../../src/grid/Container.mjs';
+import Row                from '../../../../src/grid/Row.mjs';
+import Store              from '../../../../src/data/Store.mjs';
+import VdomHelper         from '../../../../src/vdom/Helper.mjs';
+
+const
+    CHROME    = 5,
+    LINE      = 20,
+    rowHeight = 40,
+    viewport  = 360;
+
+/**
+ * @param {Number} count
+ * @returns {Neo.data.Store}
+ */
+function createStore(count) {
+    return Neo.create(Store, {
+        data: Array.from({length: count}, (item, index) => ({
+            id       : index,
+            name     : `Name ${index}`,
+            nameLines: 1 + index % 3,
+            note     : `Note ${index}`,
+            noteLines: 1 + (index * 2) % 5
+        })),
+        keyProperty: 'id',
+        model      : {
+            fields: [
+                {name: 'id',        type: 'Integer'},
+                {name: 'name',      type: 'String'},
+                {name: 'nameLines', type: 'Integer'},
+                {name: 'note',      type: 'String'},
+                {name: 'noteLines', type: 'Integer'}
+            ]
+        }
+    })
+}
+
+/**
+ * A mounted grid with the layout a browser would deliver applied by hand. `name` is locked to the start and
+ * `note` sits in the center, so the two wrapText columns live in different bodies.
+ * @param {Object} config
+ * @returns {Promise<Neo.grid.Container>}
+ */
+async function createGrid(config) {
+    let grid = Neo.create(GridContainer, {
+        appName       : 'GridWrapTextMeasureTest',
+        bufferRowRange: 2,
+        columns       : [
+            {dataField: 'name', locked: 'start', text: 'Name', width: 150, wrapText: true},
+            {dataField: 'id',                    text: 'ID',   width: 80},
+            {dataField: 'note',                  text: 'Note', width: 200, wrapText: true}
+        ],
+        height: 400,
+        rowHeight,
+        width : 600,
+        ...config
+    });
+
+    await grid.initVnode();
+    grid.mounted = true;
+
+    let {headerWrapper} = grid;
+
+    for (let toolbar of [headerWrapper?.headerStart, grid.headerToolbar, headerWrapper?.headerEnd]) {
+        toolbar && await toolbar.passSizeToBody()
+    }
+
+    grid.view.bodies.forEach(body => {
+        body.set({availableHeight: viewport, containerWidth: 600})
+    });
+
+    await grid.timeout(50);
+
+    return grid
+}
+
+/**
+ * The record each rendered text container currently shows, by container id
+ * @param {Neo.grid.Container} grid
+ * @returns {Map<String, {field: String, record: Object}>}
+ */
+function renderedTexts(grid) {
+    let texts = new Map();
+
+    grid.view.bodies.forEach(body => body.items.forEach(row => row.vdom.cn?.forEach(cell => {
+        let text = cell.cn?.[0];
+
+        if (row.record && text?.cls?.includes('neo-grid-cell-text')) {
+            texts.set(text.id, {field: cell.data.field, record: row.record})
+        }
+    })));
+
+    return texts
+}
+
+/**
+ * What the main thread would answer, for what the containers show when the read arrives
+ * @param {Neo.grid.Container} grid
+ * @param {String[]} ids
+ * @returns {Object[]}
+ */
+function readTextRects(grid, ids) {
+    let texts = renderedTexts(grid);
+
+    return ids.map(id => {
+        let text = texts.get(id);
+        return text ? {height: text.record[`${text.field}Lines`] * LINE} : {}
+    })
+}
+
+/**
+ * The row height the measurement owes a record
+ * @param {Object} record
+ * @returns {Number}
+ */
+const expectedHeight = record => Math.max(rowHeight, Math.max(record.nameLines, record.noteLines) * LINE + CHROME);
+
+test.describe('Grid wrapText measurement', () => {
+    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
+
+    let grid, original, reads, respond, store;
+
+    test.beforeEach(async () => {
+        Neo.main           ??= {};
+        Neo.main.DomAccess ??= {};
+
+        original = {
+            getComputedStyle: Neo.main.DomAccess.getComputedStyle,
+            getLayoutRect   : Neo.main.DomAccess.getLayoutRect
+        };
+
+        reads   = [];
+        // Answers at once; a test that needs the read in flight swaps it
+        respond = ids => Promise.resolve(grid ? readTextRects(grid, ids) : ids.map(() => ({})));
+
+        // Only the text containers' read is recorded: the header toolbars measure their buttons, too
+        Neo.main.DomAccess.getLayoutRect = opts => {
+            let ids = [].concat(opts.id);
+
+            if (!ids.every(id => String(id).endsWith('__text'))) {
+                return original.getLayoutRect.call(Neo.main.DomAccess, opts)
+            }
+
+            reads.push(ids);
+            return respond(ids)
+        };
+
+        Neo.main.DomAccess.getComputedStyle = () => Promise.resolve({
+            'border-bottom-width': '1px',
+            'border-top-width'   : '0px',
+            'padding-bottom'     : '2px',
+            'padding-top'        : '2px'
+        });
+
+        grid  = null;
+        store = createStore(200);
+        grid  = await createGrid({contentSizedRows: true, store});
+
+        // The first measurement, and the refresh its heights trigger
+        await grid.view.measureRowHeights();
+        await grid.view.promiseUpdate();
+        await grid.timeout(50)
+    });
+
+    test.afterEach(async () => {
+        await grid.timeout(20);
+        grid?.destroy();
+        store?.destroy();
+
+        Object.assign(Neo.main.DomAccess, original)
+    });
+
+    test('without contentSizedRows, a wrapText column renders and measures nothing', async () => {
+        let fixed = await createGrid({store}),
+            cell  = fixed.body.items[0].vdom.cn.find(node => node.data?.field === 'note');
+
+        expect(cell.html).toBe('Note 0');
+        expect(cell.cn).toBeUndefined();
+
+        reads.length = 0;
+        await fixed.view.measureRowHeights();
+        expect(reads).toEqual([]);
+
+        await fixed.timeout(20);
+        fixed.destroy()
+    });
+
+    test('a wrapText cell renders its text in a block container whose id follows the cell', () => {
+        let row  = grid.body.items.find(item => item.rowIndex === 0),
+            note = row.vdom.cn.find(node => node.data?.field === 'note'),
+            id   = row.vdom.cn.find(node => node.data?.field === 'id'),
+            cell = {cn: [{cls: ['neo-grid-cell-text'], id: 'old__text'}], id: 'old'};
+
+        expect(note.cn).toEqual([{cls: ['neo-grid-cell-text'], id: `${note.id}__text`, html: 'Note 0'}]);
+        expect(id.html).toBe('0');
+
+        // A recycled cell moving to another slot takes the text container along
+        Row.setCellId(cell, 'row-1__cell-3');
+        expect(cell.cn[0].id).toBe('row-1__cell-3__text')
+    });
+
+    test('rows take their tallest wrapText column across bodies, plus the cell chrome, never less than rowHeight', () => {
+        let geometry = grid.view.rowGeometry,
+            rows     = grid.body.items.filter(row => row.record);
+
+        expect(reads.length).toBeGreaterThan(0);
+        expect(rows.length).toBeGreaterThan(5);
+
+        rows.forEach(row => {
+            expect(geometry.heightAt(row.rowIndex), `row ${row.rowIndex}`).toBe(expectedHeight(row.record))
+        });
+
+        // Row 0 has one line in both columns: the floor holds it at rowHeight
+        expect(geometry.heightAt(0)).toBe(rowHeight)
+    });
+
+    test('one batched read covers the new text containers, and measured ones are not read again', async () => {
+        let {view} = grid,
+            measuredIds;
+
+        reads.length = 0;
+
+        view.syncBodies(view.rowGeometry.offsetAt(100));
+        await view.promiseUpdate();
+        await grid.timeout(50);
+
+        expect(reads.length).toBeGreaterThan(0);
+
+        // The first read after the scroll covers the rows that entered, in both bodies
+        measuredIds = new Set(reads[0]);
+        expect([...renderedTexts(grid).entries()].filter(([id, {record}]) => record.id >= 100 && record.id < 105)
+            .every(([id]) => measuredIds.has(id))).toBe(true);
+
+        // A geometry-only refresh renders no new text: nothing to read
+        reads.length = 0;
+        view.setRowHeights(new Map([[view.getRecordId(store.getAt(199)), 300]]));
+        await view.promiseUpdate();
+        await grid.timeout(50);
+
+        expect(reads).toEqual([])
+    });
+
+    test('a reply for a cell its row rendered again in the meantime is dropped, and the new cell is measured', async () => {
+        let {view}  = grid,
+            applied = [],
+            changed, release;
+
+        // Hold the read in flight
+        respond = ids => {
+            let rects = readTextRects(grid, ids);
+            return new Promise(resolve => release = () => resolve(rects))
+        };
+
+        // One entry per pass that applies heights
+        view.setRowHeights = new Proxy(view.setRowHeights, {
+            apply(target, scope, args) {
+                applied.push([...args[0].keys()]);
+                return Reflect.apply(target, scope, args)
+            }
+        });
+
+        // New rows enter, and their read goes out
+        view.syncBodies(view.rowGeometry.offsetAt(100));
+        await view.promiseUpdate();
+        await expect.poll(() => typeof release).toBe('function');
+
+        // Meanwhile record 101 gets new content: its row renders new cells
+        changed = store.get(101);
+        changed.note = 'A new note';
+
+        respond = ids => Promise.resolve(readTextRects(grid, ids));
+        release();
+        await grid.timeout(50);
+
+        expect(applied[0]).toContain(view.getRecordId(store.get(102)));
+        expect(applied[0]).not.toContain(view.getRecordId(changed));
+
+        // The row's own update measures the new cell
+        expect(applied.flat()).toContain(view.getRecordId(changed))
+    });
+
+    test('a changed record measures its row again, through the row\'s own update', async () => {
+        let {view} = grid,
+            record = store.get(3),
+            textId;
+
+        reads.length = 0;
+
+        // Three lines more of note: only the row of record 3 renders
+        record.set({note: 'A longer note', noteLines: 4});
+        await grid.timeout(50);
+
+        textId = [...renderedTexts(grid).entries()].find(([id, text]) => text.record === record && text.field === 'note')[0];
+
+        expect(reads.flat()).toContain(textId);
+        expect(view.rowGeometry.heightAt(3)).toBe(4 * LINE + CHROME)
+    });
+
+    test('turning wrapText off forgets the measured heights', async () => {
+        let {view} = grid,
+            note   = grid.columns.get('note'),
+            name   = grid.columns.get('name');
+
+        expect(view.rowGeometry.heightAt(4)).toBe(expectedHeight(store.getAt(4)));
+
+        note.wrapText = false;
+        name.wrapText = false;
+        await view.promiseUpdate();
+        await grid.timeout(50);
+
+        expect(view.rowGeometry.heightAt(4)).toBe(rowHeight);
+        expect(renderedTexts(grid).size).toBe(0)
+    })
+});

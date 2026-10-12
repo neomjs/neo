@@ -150,6 +150,14 @@ class RowGeometry extends Base {
     }
 
     /**
+     * Forgets every known height, so each row takes the estimate until it is measured again.
+     */
+    clearHeights() {
+        this.#heights.clear();
+        this.#orderStale = true
+    }
+
+    /**
      * Stops following the store.
      * @param {...*} args
      */
