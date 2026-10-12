@@ -161,6 +161,7 @@ test.describe('Grid native hidden premeasurement', () => {
 
     test('without input the bounded nearby measurements settle and keep the viewport and extent still', async ({page}) => {
         await page.evaluate(() => document.fonts.ready);
+        await app.setProperties('grid-wrap-text', {useInternalId: false});
         await page.evaluate(() => {
             const access = Neo.main.DomAccess, original = access.getLayoutRect,
                 witness  = window.__gridIdleWitness = {measurements: 0, updates: 0, original};
@@ -175,6 +176,19 @@ test.describe('Grid native hidden premeasurement', () => {
         await app.callMethod(viewId, 'measureAheadRows');
         await app.callMethod(viewId, 'promiseUpdate');
         await settleGrid(page);
+        const settledTraffic = await page.evaluate(async () => {
+            const witness = window.__gridIdleWitness;
+            let   last    = `${witness.measurements}/${witness.updates}`, stable = 0;
+            for (let frame = 0; frame < 600 && stable < 10; frame++) {
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                const next = `${witness.measurements}/${witness.updates}`;
+                stable = next === last ? stable + 1 : 0;
+                last = next
+            }
+            return stable === 10
+        });
+        expect(settledTraffic, 'the reset and its hidden measurement traffic finish before idle begins').toBe(true);
+        expect(await app.callMethod(geometryId, 'hasHeight', [300]), 'settlement does not scan the distant store').toBe(false);
         const quiet = await page.evaluate(async grid => {
             const view = document.querySelector(`${grid} .neo-grid-view`), states = new Set(), witness = window.__gridIdleWitness;
             witness.measurements = witness.updates = 0;

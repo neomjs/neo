@@ -611,12 +611,14 @@ class View extends Base {
     }
 
     /**
-     * @summary Invalidates this window's font-dependent measurements and replies still crossing from main.
+     * @summary Invalidates this window's wrapped-text measurements and pending replies. Supplied geometry
+     * without declared text height drivers does not depend on the document's fonts.
      * @param {Object} data
      * @param {String} data.windowId
      */
     onFontChange({windowId}) {
-        windowId === this.windowId && this.rowGeometry && this.resetRowHeights()
+        windowId === this.windowId && this.rowGeometry &&
+            this.gridContainer.columns.items.some(column => column.wrapText) && this.resetRowHeights()
     }
 
     /**

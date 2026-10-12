@@ -120,6 +120,16 @@ test.describe('Grid hidden row premeasurement', () => {
         expect(grid.rowHeight).toBe(40)
     });
 
+    test('font arrival preserves supplied geometry when no column declares wrapping text', () => {
+        const {view} = grid, id = view.getRecordId(store.getAt(0));
+        grid.columns.items.forEach(column => {column.wrapText = false});
+        view.setRowHeights(new Map([[id, 240]]));
+        const height = view.rowGeometry.totalHeight;
+        view.onFontChange({windowId: view.windowId});
+        expect(view.rowGeometry.heightAt(0)).toBe(240);
+        expect(view.rowGeometry.totalHeight).toBe(height)
+    });
+
     test('a thumb drag holds the measured mean and font reset until release, then measures the new font', async () => {
         const {view, verticalScrollbar} = grid,
               geometry                  = view.rowGeometry,
