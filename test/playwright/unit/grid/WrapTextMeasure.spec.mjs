@@ -311,6 +311,82 @@ test.describe('Grid wrapText measurement', () => {
         expect(applied.flat()).toContain(view.getRecordId(changed))
     });
 
+    test('a reply for slots recycled to other records is dropped', async () => {
+        let {view}  = grid,
+            applied = [],
+            release, stale;
+
+        respond = ids => {
+            let rects = readTextRects(grid, ids);
+            return new Promise(resolve => release = () => resolve(rects))
+        };
+
+        view.setRowHeights = new Proxy(view.setRowHeights, {
+            apply(target, scope, args) {
+                applied.push(...args[0].keys());
+                return Reflect.apply(target, scope, args)
+            }
+        });
+
+        // Rows around 50 enter, and their read goes out
+        view.syncBodies(view.rowGeometry.offsetAt(50));
+        await view.promiseUpdate();
+        await expect.poll(() => typeof release).toBe('function');
+
+        // Before the reply arrives, every pooled slot moves on to the rows around 150
+        respond = ids => Promise.resolve(readTextRects(grid, ids));
+        view.syncBodies(view.rowGeometry.offsetAt(150));
+        await view.promiseUpdate();
+
+        release();
+        await grid.timeout(50);
+
+        stale = store.items.slice(40, 70).map(record => view.getRecordId(record));
+
+        expect(applied.length).toBeGreaterThan(0);
+        expect(applied.filter(id => stale.includes(id))).toEqual([])
+    });
+
+    test('a reply for a cell whose width changed in the meantime is dropped', async () => {
+        let {view}  = grid,
+            applied = [],
+            record  = store.get(104),
+            cell, first, release;
+
+        respond = ids => {
+            let rects = readTextRects(grid, ids);
+            return new Promise(resolve => release = () => resolve(rects))
+        };
+
+        // Every height a pass applies, in order
+        view.setRowHeights = new Proxy(view.setRowHeights, {
+            apply(target, scope, args) {
+                applied.push(...args[0].entries());
+                return Reflect.apply(target, scope, args)
+            }
+        });
+
+        view.syncBodies(view.rowGeometry.offsetAt(100));
+        await view.promiseUpdate();
+        await expect.poll(() => typeof release).toBe('function');
+
+        // A recycled cell keeps its node and takes a new width in place, as a column change can give it
+        cell = grid.body.items.find(row => row.record === record).vdom.cn.find(node => node.data?.field === 'note');
+        cell.style.width = '250px';
+
+        respond = ids => Promise.resolve(readTextRects(grid, ids));
+        release();
+        await grid.timeout(50);
+
+        // Record 104: a 3-line name (65px) and a 4-line note (85px). The held pass may only count the name.
+        first = applied.find(([id]) => id === view.getRecordId(record));
+
+        expect(first).toEqual([view.getRecordId(record), 3 * LINE + CHROME]);
+
+        // The cell is read again at its new width by a later pass
+        expect(view.rowGeometry.heightAt(104)).toBe(4 * LINE + CHROME)
+    });
+
     test('a changed record measures its row again, through the row\'s own update', async () => {
         let {view} = grid,
             record = store.get(3),
