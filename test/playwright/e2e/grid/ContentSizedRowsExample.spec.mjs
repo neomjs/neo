@@ -10,7 +10,7 @@ import {expect, test} from '../../fixtures.mjs';
  * the oracle sees every text. Only the first test narrows the viewport, to keep the tallest column unmounted.
  *
  * Extents are read as `scrollHeight`, because Chrome serializes a 3.2M px `style.height` with six significant
- * digits.
+ * digits. Past 2^23 px Chrome also rounds scroll offsets, which {@link scrollSlack} allows for.
  *
  * Fixture for two views: `test/playwright/component/apps/grid-two-views`, grids `#grid-narrow` and `#grid-wide`,
  * which show one store at 400px and 900px.
@@ -310,14 +310,24 @@ const edgeRow = state => state.rows.find(row => row.screen <= 0 && row.screen + 
 const rowOf = (state, id) => state.rows.find(row => row.id === id);
 
 /**
+ * How far from its target the browser can put a scroll offset. Chrome keeps whole pixels up to 2^23 px, then rounds
+ * to 2px, and to 4px past 2^24: `scrollTop = 8697741` reads back `8697742`. The example's extent passes 2^23 once
+ * its mean row height is known.
+ * @param {Object} state
+ * @returns {Number} The largest distance in px a row can sit from where the grid placed it
+ */
+const scrollSlack = ({scrollTop}) => scrollTop < 2 ** 23 ? 0 : scrollTop < 2 ** 24 ? 1 : 2;
+
+/**
  * @param {Object} state
  * @param {Number} id
- * @returns {Boolean} The row of the record lies fully inside the view
+ * @returns {Boolean} The row of the record lies fully inside the view, within {@link scrollSlack}
  */
 function fullyVisible(state, id) {
-    const row = rowOf(state, id);
+    const row   = rowOf(state, id),
+          slack = scrollSlack(state);
 
-    return !!row && row.screen >= 0 && row.screen + row.height <= state.clientHeight
+    return !!row && row.screen >= -slack && row.screen + row.height <= state.clientHeight + slack
 }
 
 /**
@@ -596,7 +606,8 @@ test.describe('Content-sized rows example', () => {
 
             state = await settle(page);
             expect(state.extent, 'the held heights apply at the release').not.toBe(extent);
-            expect(rowOf(state, anchor.id)?.screen, `row ${anchor.id} holds its place at the release`).toBe(anchor.screen);
+            expect(Math.abs(rowOf(state, anchor.id)?.screen - anchor.screen), `row ${anchor.id} holds its place at the release`)
+                .toBeLessThanOrEqual(scrollSlack(state));
             await expectRowsFitTheirText(page);
 
             state = await scrollToEnd(page);
