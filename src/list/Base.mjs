@@ -605,7 +605,7 @@ class List extends Component {
             filter;
 
         if (me.highlightFilterValue) {
-            filter = me.store.getFilter(me.displayField);
+            filter = me.store.getFilter(me.displayField, null);
 
             if (filter && filter.value !== null && filter.value !== '') {
                 itemText = itemText.replace(new RegExp(filter.value, 'gi'), function(match) {

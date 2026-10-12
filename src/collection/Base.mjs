@@ -318,6 +318,7 @@ class Collection extends Base {
     }
 
     /**
+     * @summary Reconciles complete predicate configurations without exchanging logical contribution identities.
      * @param {Array} value
      * @param {Array} oldValue
      * @protected
@@ -327,50 +328,51 @@ class Collection extends Base {
             value = value ? [value] : []
         }
 
-        let len = oldValue && oldValue.length || 0,
-            hasMatch, i;
-
-        value.forEach((key, index) => {
-            if (oldValue) {
-                hasMatch = false;
-                i        = 0;
-
-                for (; i < len; i++) {
-                    if (oldValue[i] === key) {
-                        oldValue[i].set({
-                            operator: key.operator,
-                            property: key.property,
-                            value   : key.value
-                        });
-
-                        hasMatch = true;
-                        break
-                    } else if (
-                        oldValue[i].operator === (key.operator || '===') &&
-                        oldValue[i].property === key.property &&
-                        oldValue[i].value    === key.value
-                    ) {
-                        hasMatch = true;
-                        break
-                    }
+        const tuples       = new Map(), previous = oldValue?.slice() || [], created = [],
+            runtimeConfigs = new Set(['id', 'isConstructed', 'isDestroying', 'isReady', 'listenerApplied', 'listeners']),
+            matchesConfig  = (filter, name, expected) => {
+                const current = filter[name];
+                // Array getters copy values; include-set equality still keeps each entry's strict identity.
+                if (name === 'value' && !filter.filterBy && ['included', 'excluded', 'typedIncluded'].includes(filter.operator) &&
+                    Array.isArray(current) && Array.isArray(expected)) {
+                    return current.length === expected.length && current.every((item, index) => item === expected[index] ||
+                        filter.operator === 'typedIncluded' && item instanceof Date && expected[index] instanceof Date &&
+                        item.valueOf() === expected[index].valueOf())
                 }
-            }
+                return current === expected
+            };
 
-            if (!hasMatch) {
-                value[index] = Neo.create(Filter, key)
-            } else {
-                value[index] = oldValue[i];
-                oldValue.splice(i, 1);
-                len--
-            }
-        });
+        try {
+            value = value.slice();
+            value.forEach(key => {
+                const role = key.ownerRole ?? null, property = key.property ?? 'id';
+                if (role !== null) {
+                    if (typeof role !== 'string' || !role.length) throw new TypeError('Filter ownerRole must be a nonempty string or null');
+                    const fields = tuples.get(role) || new Set();
+                    if (fields.has(property)) throw new Error('Duplicate owned filter contribution: ' + role + '/' + property);
+                    fields.add(property);
+                    tuples.set(role, fields)
+                }
+            });
 
-        if (Array.isArray(oldValue)) {
-            oldValue.forEach(key => {
-                key.destroy();
+            value = value.map(key => {
+                const index = previous.findIndex(filter => filter === key ||
+                    Object.entries(Filter.config).every(([name, fallback]) => runtimeConfigs.has(name) ||
+                        matchesConfig(filter, name, name in key ? key[name] : fallback)) &&
+                    Object.keys(key).every(name => matchesConfig(filter, name, key[name])));
+                if (index !== -1) return previous.splice(index, 1)[0];
+                const filter = Neo.create(Filter, key);
+                created.push(filter);
+                return filter
             })
+        } catch (error) {
+            // The reactive setter stages the input before this hook; refusal restores its backing value.
+            this._filters = oldValue;
+            created.forEach(filter => filter.destroy());
+            throw error
         }
 
+        previous.forEach(filter => filter.destroy());
         return value
     }
 
@@ -657,6 +659,7 @@ class Collection extends Base {
     }
 
     /**
+     * @summary Creates an unconstrained unfiltered projection, overriding subclass filter defaults.
      * Creates the allItems collection used for filtering.
      * Can be overridden by subclasses.
      * @param {Object} config
@@ -664,7 +667,7 @@ class Collection extends Base {
      * @protected
      */
     createAllItems(config) {
-        return Neo.create(this.constructor, config)
+        return Neo.create(this.constructor, {...config, filters: []})
     }
 
     /**
@@ -859,6 +862,7 @@ class Collection extends Base {
     }
 
     /**
+     * @summary Applies the same predicate evaluation as getFilteredItems, then commits membership and events.
      * @param {Boolean} [silent=false]
      * @protected
      */
@@ -867,13 +871,10 @@ class Collection extends Base {
             filters         = me._filters,
             countAllFilters = filters.length,
             countFilters    = 0,
-            items           = me.allItems?._items || me._items,
             i               = 0,
-            countItems      = items.length,
-            filteredItems   = [],
             needsSorting    = false,
             oldItems        = me._items.slice(),
-            config, isIncluded, item, j, tmpItems;
+            config;
 
         for (; i < countAllFilters; i++) {
             if (!filters[i].disabled) {
@@ -921,53 +922,15 @@ class Collection extends Base {
             me.map.clear();
             me.internalIdMap?.clear();
 
-            if (me.filterMode === 'primitive') {
-                // using for loops on purpose -> performance
-                for (i = 0; i < countItems; i++) {
-                    isIncluded = true;
-                    item       = items[i];
-                    j          = 0;
-
-                    for (; j < countAllFilters; j++) {
-                        if (filters[j].isFiltered(item, items, items)) {
-                            isIncluded = false;
-                            break
-                        }
-                    }
-
-                    if (isIncluded) {
-                        filteredItems.push(item);
-                        me.map.set(me.getKey(item), item);
-
-                        if (me.trackInternalId) {
-                            const internalId = me.getInternalKey(item);
-
-                            if (internalId) {
-                                me.internalIdMap.set(internalId, item)
-                            }
-                        }
-                    }
+            const filteredItems = me.evaluateFilters(null, item => {
+                me.map.set(me.getKey(item), item);
+                if (me.trackInternalId) {
+                    const internalId = me.getInternalKey(item);
+                    if (internalId) me.internalIdMap.set(internalId, item)
                 }
-
-                me._items = filteredItems // silent update, the map is already in place
-            } else {
-                filteredItems = items.slice();
-
-                for (j=0; j < countAllFilters; j++) {
-                    tmpItems = [];
-
-                    for (i = 0; i < countItems; i++) {
-                        if (!filters[j].isFiltered(filteredItems[i], filteredItems, items)) {
-                            tmpItems.push(filteredItems[i])
-                        }
-                    }
-
-                    filteredItems = tmpItems.slice();
-                    countItems    = filteredItems.length
-                }
-
-                me.items = filteredItems // update the map
-            }
+            });
+            if (me.filterMode === 'primitive') me._items = filteredItems;
+            else me.items = filteredItems;
         }
 
         me[isFiltered] = countFilters !== 0;
@@ -1124,22 +1087,79 @@ class Collection extends Base {
     }
 
     /**
-     * Returns the first matching filter for the given property config
+     * @summary Finds a contribution by property and optional collection-local role.
+     * Omit ownerRole for legacy first-match lookup; null explicitly selects an unowned filter.
      * @param {String} property
+     * @param {String|null} [ownerRole]
      * @returns {Neo.collection.Filter|null}
      */
-    getFilter(property) {
+    getFilter(property, ownerRole) {
         let filters = this.filters || [],
             i       = 0,
             len     = filters.length;
 
         for (; i < len; i++) {
-            if (filters[i].property === property) {
+            if (filters[i].property === property && (ownerRole === undefined || (filters[i].ownerRole ?? null) === ownerRole)) {
                 return filters[i]
             }
         }
 
         return null
+    }
+
+    /**
+     * @summary Evaluates the complete population without changing membership, emitting events or hydrating items.
+     * Primitive callbacks see the full population; advanced callbacks see the preceding predicate's cohort.
+     * Callbacks must be observational. Exclusion uses exact Filter identity, not property or role.
+     * @param {Neo.collection.Filter|null} excludeFilter=null
+     * @throws {Error} A non-null exclusion must belong to this collection's current filters.
+     * @returns {Array}
+     */
+    getFilteredItems(excludeFilter=null) {
+        if (excludeFilter !== null && !this.filters.includes(excludeFilter)) throw new Error('Unknown filter exclusion');
+        return this.evaluateFilters(excludeFilter)
+    }
+
+    /**
+     * @summary Shares predicate cohorts between observational queries and the filtering writer.
+     * Only the writer supplies onInclude, preserving its progressive primitive-map publication.
+     * @param {Neo.collection.Filter|null} excludeFilter
+     * @param {Function|null} onInclude=null
+     * @returns {Array}
+     * @protected
+     */
+    evaluateFilters(excludeFilter, onInclude=null) {
+        const items    = this.allItems?._items || this._items,
+            evaluators = this.filters.filter(filter => filter !== excludeFilter).map(filter => filter.createEvaluator());
+        let filtered = items.slice();
+
+        if (this.filterMode === 'primitive') {
+            filtered = [];
+            for (let i = 0; i < items.length; i++) {
+                let included = true;
+                for (let j = 0; j < evaluators.length; j++) {
+                    if (evaluators[j](items[i], items, items)) {
+                        included = false;
+                        break
+                    }
+                }
+                if (included) {
+                    filtered.push(items[i]);
+                    onInclude?.(items[i])
+                }
+            }
+        } else {
+            for (const evaluate of evaluators) {
+                const next = [];
+                for (let i = 0; i < filtered.length; i++) {
+                    if (!evaluate(filtered[i], filtered, items)) next.push(filtered[i])
+                }
+                filtered = next
+            }
+            onInclude && filtered.forEach(onInclude)
+        }
+
+        return filtered
     }
 
     /**
