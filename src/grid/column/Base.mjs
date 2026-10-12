@@ -111,7 +111,15 @@ class Column extends Base {
          * @member {Number|null} windowId_=null
          * @reactive
          */
-        windowId_: null
+        windowId_: null,
+        /**
+         * Content-sized rows: true lets this column's text wrap and drive the row height. Rows take the tallest
+         * wrapped text of their `wrapText` columns, and never less than the grid's `rowHeight`. Applies to
+         * renderers that return text or html. Without `contentSizedRows` on the grid it has no effect.
+         * @member {Boolean} wrapText_=false
+         * @reactive
+         */
+        wrapText_: false
     }
 
     /**
@@ -211,6 +219,17 @@ class Column extends Base {
      */
     afterSetWindowId(value, oldValue) {
         value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
+    }
+
+    /**
+     * Triggered after the wrapText config got changed. A content-sized grid forgets its measured row heights and
+     * measures the rows it renders again.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetWrapText(value, oldValue) {
+        oldValue !== undefined && this.parent?.view?.resetRowHeights()
     }
 
     /**

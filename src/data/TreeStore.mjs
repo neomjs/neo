@@ -769,6 +769,14 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary Refuses flat value counts; tree visibility is not a complete local facet population.
+     * @returns {Object}
+     */
+    getFilterValues() {
+        return {refused: true, reason: 'tree-population'}
+    }
+
+    /**
      * @summary Calculates the target flat array index for a newly added node.
      *
      * **Architectural Mechanics:**

@@ -1,4 +1,7 @@
-import {expect, test}                           from '@playwright/test';
+import {expect, test}  from '@playwright/test';
+import {readFileSync}  from 'node:fs';
+import {createRequire} from 'node:module';
+import {dirname, join} from 'node:path';
 import {
     activeLaunchArgs,
     claimsGpuAcceleration,
@@ -6,6 +9,7 @@ import {
     GPU_INTENT_ARGS,
     isEngineProfile,
     isFilmTake,
+    PLAYWRIGHT_DISABLED_FEATURES,
     PRESENTING_LAUNCH_ARGS,
     requiresGlProbe
 }                                                from '../../e2e/utils/gpuIntent.mjs';
@@ -115,6 +119,25 @@ test.describe('e2e/utils/glState', () => {
         // Tuning flags do not by themselves claim acceleration and must not arm the demand.
         expect(claimsGpuAcceleration(['--disable-frame-rate-limit', '--force-gpu-mem-available-mb=4096'])).toBe(false);
         expect(claimsGpuAcceleration()).toBe(false)
+    });
+
+    test('#19675 every launch profile keeps Playwright\'s disabled features in its one --disable-features', () => {
+        // Chrome keeps only the last `--disable-features`, and Playwright passes its own first. Measured:
+        // adding any list of ours turned Playwright's disabled storage partitioning back on.
+        const
+            require  = createRequire(import.meta.url),
+            bundle   = readFileSync(join(dirname(require.resolve('playwright-core/package.json')), 'lib/coreBundle.js'), 'utf8'),
+            upstream = [...(bundle.match(/disabledFeatures = \[([\s\S]*?)\]\.filter/)?.[1] ?? '').matchAll(/"([^"]+)"/g)].map(match => match[1]);
+
+        expect(upstream.length, 'Playwright\'s list was not found in its bundle: re-derive the copy').toBeGreaterThan(5);
+        expect([...PLAYWRIGHT_DISABLED_FEATURES].sort(), 'the copy matches the installed Playwright').toEqual([...upstream].sort());
+
+        for (const args of [ENGINE_LAUNCH_ARGS, PRESENTING_LAUNCH_ARGS]) {
+            const lists = args.filter(arg => arg.startsWith('--disable-features='));
+
+            expect(lists).toHaveLength(1);
+            expect(lists[0].slice('--disable-features='.length).split(',')).toEqual(expect.arrayContaining(upstream))
+        }
     });
 
     test('#16128 presenting is default; only the exact engine sentinel selects the engine profile', () => {

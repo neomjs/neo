@@ -488,7 +488,7 @@ class Chip extends ComboBox {
 
                 return source.get(key)
             }).filter(Boolean),
-            filter = store.getFilter(me.displayField);
+            filter = store.getFilter(me.displayField, null);
 
         me.hintRecordId = null;
         me.value        = records;

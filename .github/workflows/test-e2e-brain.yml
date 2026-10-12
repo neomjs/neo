@@ -44,8 +44,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard : [1, 2, 3, 4, 5, 6]
-        shards: [6]
+        shard : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        shards: [10]
     defaults:
       run:
         working-directory: engine
@@ -100,10 +100,12 @@ jobs:
           # Assigned and checked first: without paths the runner selects the whole e2e tree
           paths=$(node buildScripts/util/e2eCiSelection.mjs --brain-paths)
           test -n "$paths"
+          node buildScripts/util/e2eCiSelection.mjs --brain-test-list > "$RUNNER_TEMP/brain-quarantine.txt"
           start=$SECONDS
           status=0
 
-          npx playwright test -c test/playwright/playwright.config.e2e.mjs --shard="$SHARD" $paths || status=$?
+          npx playwright test -c test/playwright/playwright.config.e2e.mjs --shard="$SHARD" \
+            --test-list-invert "$RUNNER_TEMP/brain-quarantine.txt" $paths || status=$?
 
           echo "seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
           exit $status

@@ -29,11 +29,11 @@ class Country extends List {
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
     createItemContent(record, index) {
-        let me         = this,
-            itemText   = record[me.displayField],
-            filter     = me.highlightFilterValue ? me.store.getFilter(me.displayField) : null,
-            flagUrl    = CountryFlags.getFlagUrl(record[me.displayField] || record.code),
-            flagNode   = null;
+        let me       = this,
+            itemText = record[me.displayField],
+            filter   = me.highlightFilterValue ? me.store.getFilter(me.displayField, null) : null,
+            flagUrl  = CountryFlags.getFlagUrl(record[me.displayField] || record.code),
+            flagNode = null;
 
         if (flagUrl) {
             flagNode = {

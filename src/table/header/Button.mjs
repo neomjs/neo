@@ -256,6 +256,7 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Updates the shared inline contribution without replacing picker or application predicates.
      * @param {Object} data
      */
     changeFilterOperator(data) {
@@ -263,22 +264,19 @@ class Button extends BaseButton {
             tableContainer = me.up('table-container'),
             store          = tableContainer?.store,
             operator       = data.value,
-            filter, filters;
+            filter;
 
         if (store) {
-            filter = store.getFilter(me.dataField);
+            filter = store.getFilter(me.dataField, 'header-inline');
 
             if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
-                    value   : null,
+                store.filters = [...store.filters, {
                     ...me.filterConfig,
-                    operator
-                });
-
-                store.filters = filters
+                    property : me.dataField,
+                    value    : null,
+                    operator,
+                    ownerRole: 'header-inline'
+                }]
             } else {
                 filter.operator = operator
             }
@@ -286,6 +284,7 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Writes input into the shared inline contribution; filterConfig supplies creation defaults only.
      * @param {Object} data
      */
     changeFilterValue(data) {
@@ -293,10 +292,10 @@ class Button extends BaseButton {
             tableContainer = me.up('table-container'),
             store          = tableContainer?.store,
             {value}        = data,
-            field, filter, filters, model;
+            field, filter, model;
 
         if (store) {
-            filter = store.getFilter(me.dataField);
+            filter = store.getFilter(me.dataField, 'header-inline');
             model  = store.model;
             field  = model && model.getField(me.dataField);
 
@@ -309,16 +308,13 @@ class Button extends BaseButton {
             }
 
             if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
+                store.filters = [...store.filters, {
                     operator: 'like',
                     ...me.filterConfig,
-                    value
-                });
-
-                store.filters = filters
+                    property : me.dataField,
+                    value,
+                    ownerRole: 'header-inline'
+                }]
             } else {
                 filter.value = value
             }

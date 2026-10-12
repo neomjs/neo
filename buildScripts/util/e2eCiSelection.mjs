@@ -1,7 +1,10 @@
-import {readdirSync, readFileSync} from 'fs';
-import {join, relative}            from 'path';
-import {selectExternalBrainSpecs}  from '../../test/playwright/externalBrainSelection.mjs';
-import isEntryModule               from './isEntryModule.mjs';
+import {execFileSync}                                                  from 'child_process';
+import {mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'fs';
+import {createRequire}                                                 from 'module';
+import {tmpdir}                                                        from 'os';
+import {join, relative}                                                from 'path';
+import {selectExternalBrainSpecs}                                      from '../../test/playwright/externalBrainSelection.mjs';
+import isEntryModule                                                   from './isEntryModule.mjs';
 
 /**
  * @summary The one place that decides which e2e specs the CI tier runs, and the one place that
@@ -70,6 +73,60 @@ export const EXCLUSIONS = [{
  * @member {Object[]} QUARANTINES
  */
 export const QUARANTINES = [];
+
+/**
+ * Brain-gated specs that need a capability a hosted runner may lack. An entry applies only while its
+ * variable is unset, the same way the whole tier keys on `NEO_AGENTOS_RUNTIME_ROOT`, so provisioning the
+ * capability brings the files back without anyone editing this list.
+ * @member {Object[]} BRAIN_CAPABILITIES
+ */
+export const BRAIN_CAPABILITIES = [{
+    requires: 'NEO_MCP_REMOTE_TOKEN',
+    paths   : [
+        'test/playwright/e2e/dashboard/DemoBDockTransactionsNL.spec.mjs',
+        'test/playwright/e2e/neural-link/TransactionArchiveReplay.spec.mjs'
+    ],
+    reason : 'their transaction archive lives in a Memory Core, whose client refuses to connect without this credential (`archive-store-unavailable`)',
+    exit   : 'CI provisions a Memory Core archive and both files pass against it',
+    tracker: '#17844'
+}];
+
+/**
+ * Brain-gated tests that run hosted but fail there for a reason not yet diagnosed. Each is deselected by
+ * file and title through Playwright's `--test-list-invert`, so no spec is edited. An entry names who is
+ * accountable, what removes it and since when, and every receipt flags one older than
+ * {@link QUARANTINE_STALE_DAYS} days: a quarantine without a retirement trigger becomes the permanent
+ * exclusion it was meant to avoid.
+ * @member {Object[]} BRAIN_QUARANTINES
+ */
+export const BRAIN_QUARANTINES = [{
+    path       : 'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
+    titlePath  : ['Workstation — the film tour plays from the toolbar', 'Start film tour runs all nine scenes; the viewer\'s Continue clicks open every window'],
+    reason     : 'hosted only: the tour stops at journey hop 3 because no fresh vessel is born, then waits out its 200 s receipt',
+    accountable: '@neo-opus-grace',
+    exit       : 'a diagnosis; if it is headless multi-window, both film tours move to a capability',
+    since      : '2026-10-12'
+}, {
+    path       : 'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
+    titlePath  : ['Workstation — the film tour plays from the toolbar', 'under autoGates the film runs unattended: no gate waits for a viewer, and the same windows are born and closed'],
+    reason     : 'hosted only: the same stop at journey hop 3 as the viewer-driven tour',
+    accountable: '@neo-opus-grace',
+    exit       : 'the diagnosis of the viewer-driven tour',
+    since      : '2026-10-12'
+}, {
+    path       : 'test/playwright/e2e/workstation/WorkstationPopOutSparklinesNL.spec.mjs',
+    titlePath  : ['Workstation pop-out — sparkline cells follow the grid into the popup (Neural Link)', 'every sparkline that travelled with the Feed pane registers under the popup windowId and draws'],
+    reason     : 'hosted only: the popup closes while a sparkline cell is being captured (`locator.screenshot`)',
+    accountable: '@neo-opus-grace',
+    exit       : 'a diagnosis lands as a fix or a ticket',
+    since      : '2026-10-12'
+}];
+
+/**
+ * Days a quarantine may stand before every receipt flags it as stale.
+ * @member {Number} QUARANTINE_STALE_DAYS
+ */
+export const QUARANTINE_STALE_DAYS = 7;
 
 /**
  * @summary Walks a directory for spec files.
@@ -193,19 +250,124 @@ export function brainPaths(root = process.cwd()) {
 }
 
 /**
- * @summary Renders one Brain-gated burn-in shard's receipt: the run's identity, the files the shard
- * ran and their outcome, and its test time against the five-minute ceiling the engine tier keeps.
+ * @summary What this environment runs of the Brain-gated tier: every gated file except those whose
+ * capability is unset here.
+ * @param {Object} [options]
+ * @param {Object} [options.env=process.env]
+ * @param {String} [options.root=process.cwd()]
+ * @returns {{absent: Object[], gated: String[], paths: String[]}} The capability entries whose variable is
+ *          unset, every Brain-gated file, and the files to run.
+ */
+export function brainSelection({env = process.env, root = process.cwd()} = {}) {
+    const gated    = brainPaths(root),
+          absent   = BRAIN_CAPABILITIES.filter(entry => !env[entry.requires]),
+          excluded = absent.flatMap(entry => entry.paths);
+
+    return {absent, gated, paths: gated.filter(path => !excluded.includes(path))}
+}
+
+/**
+ * @summary Refuses a declaration whose file is no longer a Brain-gated spec, naming every such entry.
+ * @description A deleted or moved file would otherwise leave an entry naming nothing while every receipt
+ * went on listing it. Titles are {@link assertQuarantinesResolve}'s job.
+ * @param {Object}   [options]
+ * @param {Object[]} [options.capabilities=BRAIN_CAPABILITIES]
+ * @param {Object[]} [options.quarantines=BRAIN_QUARANTINES]
+ * @param {String}   [options.root=process.cwd()]
+ * @throws {Error} Naming every stale entry.
+ */
+export function assertBrainDeclarations({capabilities = BRAIN_CAPABILITIES, quarantines = BRAIN_QUARANTINES, root = process.cwd()} = {}) {
+    const gated = brainPaths(root),
+          stale = [...capabilities.flatMap(entry => entry.paths), ...quarantines.map(entry => entry.path)].filter(path => !gated.includes(path));
+
+    if (stale.length) {
+        throw new Error(`Brain-gated e2e declarations name files that are not Brain-gated specs:\n- ${stale.join('\n- ')}\n` +
+            'Update or remove them in buildScripts/util/e2eCiSelection.mjs.')
+    }
+}
+
+/**
+ * @summary One quarantine entry as a Playwright test-list line: `file › describe › test`, the file relative to
+ * the e2e `testDir`, which is how Playwright resolves it.
+ * @param {Object} entry
+ * @returns {String}
+ */
+function testListLine(entry) {
+    return [entry.path.replace('test/playwright/e2e/', ''), ...entry.titlePath].join(' › ')
+}
+
+/**
+ * @summary The quarantine as a Playwright test list for `--test-list-invert`.
+ * @returns {String}
+ */
+export function brainTestList() {
+    return BRAIN_QUARANTINES.map(testListLine).join('\n')
+}
+
+/**
+ * @summary Asks Playwright which registered tests each quarantine entry selects, through its own `--list`
+ * with the entry as the test list. Each entry must select exactly one.
+ * @description A renamed title or a new enclosing `describe` leaves an entry selecting nothing while its
+ * strings still appear in the source, so only Playwright's own matcher can tell. Listing loads the spec
+ * files but no fixture, so any `NEO_AGENTOS_RUNTIME_ROOT` lifts the config's Brain deselection. The unit
+ * tier runs this on every pull request, so the change that breaks an entry fails.
+ * @param {Object}   [options]
+ * @param {Object[]} [options.quarantines=BRAIN_QUARANTINES]
+ * @param {String}   [options.root=process.cwd()]
+ * @throws {Error} Naming every entry that does not select exactly one test.
+ */
+export function assertQuarantinesResolve({quarantines = BRAIN_QUARANTINES, root = process.cwd()} = {}) {
+    const cli   = createRequire(import.meta.url).resolve('@playwright/test/cli'),
+          dir   = mkdtempSync(join(tmpdir(), 'neo-brain-quarantine-')),
+          list  = join(dir, 'entry.txt'),
+          count = suite => (suite.specs?.length ?? 0) + (suite.suites ?? []).reduce((sum, child) => sum + count(child), 0),
+          stale = [];
+
+    try {
+        for (const entry of quarantines) {
+            writeFileSync(list, testListLine(entry) + '\n');
+
+            const report = JSON.parse(execFileSync(process.execPath, [
+                cli, 'test', '--config', 'test/playwright/playwright.config.e2e.mjs',
+                '--list', '--reporter=json', '--test-list', list, entry.path
+            ], {
+                cwd  : root,
+                env  : {...process.env, NEO_AGENTOS_RUNTIME_ROOT: process.env.NEO_AGENTOS_RUNTIME_ROOT || root},
+                stdio: ['ignore', 'pipe', 'ignore']
+            }).toString());
+
+            count({suites: report.suites}) === 1 || stale.push(testListLine(entry))
+        }
+    } finally {
+        rmSync(dir, {force: true, recursive: true})
+    }
+
+    if (stale.length) {
+        throw new Error(`Brain-gated e2e quarantines do not select exactly one registered test:\n- ${stale.join('\n- ')}\n` +
+            'Update or remove them in buildScripts/util/e2eCiSelection.mjs.')
+    }
+}
+
+/**
+ * @summary Renders one Brain-gated burn-in shard's receipt: the run's identity, its test time against the
+ * five-minute ceiling the engine tier keeps, what the tier selected and why anything is out, and the files
+ * the shard ran with their outcome.
  * @param {Object}      options
  * @param {Object|null} options.report  The shard's Playwright JSON report, `null` when it wrote none.
  * @param {Object}      options.run     `{shard, event, attempt, engineSha, brainSha}`
  * @param {Number|null} options.seconds The test step's wall time, `null` when the step did not finish.
+ * @param {Object}      [options.env=process.env]
+ * @param {Date}        [options.now=new Date()] What a quarantine's age is measured against.
  * @param {String}      [options.root=process.cwd()]
  * @returns {String}
  */
-export function brainReceipt({report, run, seconds, root = process.cwd()}) {
-    const {brainFree, ignored} = populations(root),
-          ceiling              = 300,
-          minutes              = value => `${Math.floor(value / 60)}m ${value % 60}s`;
+export function brainReceipt({report, run, seconds, env = process.env, now = new Date(), root = process.cwd()}) {
+    const {brainFree}            = populations(root),
+          {absent, gated, paths} = brainSelection({env, root}),
+          ceiling                = 300,
+          days                   = since => Math.floor((now - new Date(since)) / 86400000),
+          minutes                = value => `${Math.floor(value / 60)}m ${value % 60}s`,
+          short                  = path => `\`${path.replace('test/playwright/e2e/', '')}\``;
 
     return [
         `### Brain-gated e2e burn-in · shard ${run.shard}`,
@@ -215,13 +377,19 @@ export function brainReceipt({report, run, seconds, root = process.cwd()}) {
         `- **Test time:** ${seconds === null
             ? 'none, because the step did not finish'
             : `${minutes(seconds)} against the ${minutes(ceiling)} ceiling${seconds > ceiling ? ' (**over**)' : ''}`}`,
+        `- **Selected:** ${paths.length} of the ${gated.length} Brain-gated spec files, with ${BRAIN_QUARANTINES.length} of their tests quarantined. The ${brainFree} Brain-free files are the engine tier's.`,
+        ...BRAIN_CAPABILITIES.map(entry => absent.includes(entry)
+            ? `- **Excluded while \`${entry.requires}\` is unset:** ${entry.paths.map(short).join(', ')}, because ${entry.reason}. They return when ${entry.exit} (${entry.tracker}).`
+            : `- **\`${entry.requires}\` is set,** so ${entry.paths.map(short).join(', ')} are selected.`),
+        ...BRAIN_QUARANTINES.map(entry => `- **Quarantined:** ${short(entry.path)} › ${entry.titlePath.at(-1)} — ${entry.reason}. ` +
+            `Accountable: ${entry.accountable}. Exit: ${entry.exit}. Since ${entry.since}, ${days(entry.since)} days` +
+            `${days(entry.since) > QUARANTINE_STALE_DAYS ? ' (**stale**)' : ''}.`),
         // Without a report the shard's files are unknown, which is not the same as zero
         ...report ? [
-            `- **Population:** ${report.suites.length} of the ${ignored} Brain-gated spec files. The ${brainFree} Brain-free ones are the engine tier's.`,
-            `- **Outcome:** ${report.stats.expected} passed, ${report.stats.unexpected} failed, ${report.stats.flaky} flaky, ${report.stats.skipped} skipped`,
+            `- **This shard:** ${report.suites.length} files · ${report.stats.expected} passed, ${report.stats.unexpected} failed, ${report.stats.flaky} flaky, ${report.stats.skipped} skipped`,
             '',
             ...report.suites.map(suite => `- \`${suite.file}\``)
-        ] : ['- **Population and outcome:** unknown, because the run wrote no Playwright report']
+        ] : ['- **This shard:** unknown, because the run wrote no Playwright report']
     ].join('\n')
 }
 
@@ -239,7 +407,10 @@ if (isEntryModule(import.meta.url)) {
     } else if (mode === '--summary') {
         process.stdout.write(summary() + '\n')
     } else if (mode === '--brain-paths') {
-        process.stdout.write(brainPaths().join(' '))
+        assertBrainDeclarations();
+        process.stdout.write(brainSelection().paths.join(' '))
+    } else if (mode === '--brain-test-list') {
+        process.stdout.write(brainTestList() + '\n')
     } else if (mode === '--brain-receipt') {
         const {ATTEMPT, BRAIN_SHA, ENGINE_SHA, EVENT, REPORT, SHARD, TEST_SECONDS} = process.env;
         let   report                                                               = null;
@@ -254,7 +425,7 @@ if (isEntryModule(import.meta.url)) {
             seconds: TEST_SECONDS ? Number(TEST_SECONDS) : null
         }) + '\n')
     } else {
-        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-receipt');
+        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-test-list | --brain-receipt');
         process.exit(2)
     }
 }
