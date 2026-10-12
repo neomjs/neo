@@ -303,14 +303,38 @@ test.describe('e2e CI selection — the Brain-gated burn-in', () => {
                       {file: 'grid/A.spec.mjs', title: 'green first time', tests: [{status: 'expected',  results: [attempt('passed')]}]}
                   ]}]}]
               },
-              text    = brainReceipt({report, run, seconds: 120, env: {}, now: new Date(`${BRAIN_RETRY_BRIDGE.until}T12:00:00Z`), root});
+              text    = brainReceipt({report, run, seconds: 120, retries: 1, env: {}, root});
 
         expect(flakyTests(report)).toEqual([{error: 'Request timed out', file: 'grid/A.spec.mjs', title: 'Grid › heals on retry'}]);
         expect(text).toContain('**Needed the retry:** `grid/A.spec.mjs` › Grid › heals on retry — first attempt: Request timed out');
         expect(text, 'a test red on every attempt is a failure, not a retry').not.toContain('red every time');
-        expect(text).toContain(`${BRAIN_RETRY_BRIDGE.retries} retry through ${BRAIN_RETRY_BRIDGE.until}`);
-        expect(brainReceipt({report, run, seconds: 120, env: {}, now: new Date(Date.parse(`${BRAIN_RETRY_BRIDGE.until}T23:59:59.999Z`) + 1), root}))
-            .toContain(`ended on ${BRAIN_RETRY_BRIDGE.until}`);
+    });
+
+    test('the first attempt\'s error is read from every shape Playwright serializes', () => {
+        // A thrown Error carries `message`, anything else thrown only `value`, and the `errors` envelope can
+        // carry an error with no `error` field beside it
+        const flaky  = result => ({status: 'flaky', results: [{status: 'failed', ...result}, {status: 'passed'}]}),
+              spec   = (title, result) => ({file: 'grid/A.spec.mjs', title, tests: [flaky(result)]}),
+              report = {stats: {expected: 0, unexpected: 0, flaky: 4, skipped: 0}, suites: [{file: 'grid/A.spec.mjs', specs: [
+                  spec('an Error',          {error: {message: 'thrown Error', stack: 'Error: thrown Error\n    at x'}}),
+                  spec('a thrown value',    {error: {value: 'a string was thrown'}}),
+                  spec('only the envelope', {errors: [{message: 'from the errors envelope'}]}),
+                  spec('nothing recorded',  {})
+              ]}]};
+
+        expect(flakyTests(report).map(test => test.error))
+            .toEqual(['thrown Error', 'a string was thrown', 'from the errors envelope', 'no error recorded']);
+    });
+
+    test('the receipt reports the retry count the run selected, not one recomputed at its end', () => {
+        // A run that starts on the bridge's last day and finishes after midnight still retried
+        const after = new Date(Date.parse(`${BRAIN_RETRY_BRIDGE.until}T23:59:59.999Z`) + 1),
+              text  = retries => brainReceipt({report: null, run, seconds: null, retries, env: {}, now: after, root});
+
+        expect(text(1)).toContain(`**Retries:** 1 for this run, from the bridge through ${BRAIN_RETRY_BRIDGE.until}`);
+        expect(brainRetries(after), 'a run started after the bridge ends selects none').toBe(0);
+        expect(text(0)).toContain('**Retries:** none for this run');
+        expect(text(null)).toContain('**Retries:** unknown, because the run step recorded none');
     });
 
     test('a step that never finished and a run without a report say so, rather than reading as zero', () => {

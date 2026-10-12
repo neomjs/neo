@@ -371,6 +371,21 @@ export function brainRetries(now = new Date()) {
 }
 
 /**
+ * @summary The first line of an attempt's recorded error, in whichever shape Playwright serialized it.
+ * @description A thrown `Error` carries `message`; anything else thrown carries only `value`; and the
+ * `errors` envelope can hold an error with no `error` field beside it. Only when all of them are empty
+ * did the attempt record no error.
+ * @param {Object|undefined} result One attempt from a Playwright JSON report.
+ * @returns {String}
+ */
+function firstLine(result) {
+    const error = result?.error,
+          text  = error?.message ?? error?.value ?? result?.errors?.[0]?.message ?? error?.stack;
+
+    return text ? text.replace(/\u001b\[[0-9;]*m/g, '').split('\n')[0] : 'no error recorded'
+}
+
+/**
  * @summary The report's tests that failed an attempt and passed a later one, each with its first attempt's
  * error. A test red on every attempt is Playwright's `unexpected`, so it never appears here.
  * @param {Object} report A Playwright JSON report.
@@ -382,7 +397,7 @@ export function flakyTests(report) {
               for (const spec of suite.specs ?? []) {
                   for (const test of spec.tests ?? []) {
                       test.status === 'flaky' && flaky.push({
-                          error:(test.results?.[0]?.error?.message ?? 'no error recorded').replace(/\u001b\[[0-9;]*m/g, '').split('\n')[0],
+                          error: firstLine(test.results?.[0]),
                           file : spec.file,
                           title: [...titles, spec.title].join(' › ')
                       })
@@ -405,12 +420,15 @@ export function flakyTests(report) {
  * @param {Object|null} options.report  The shard's Playwright JSON report, `null` when it wrote none.
  * @param {Object}      options.run     `{shard, event, attempt, engineSha, brainSha}`
  * @param {Number|null} options.seconds The test step's wall time, `null` when the step did not finish.
+ * @param {Number|null} [options.retries=null] The retry count the run step selected, `null` when it recorded
+ *        none. Read from the run, never recomputed: a run that starts before the bridge ends and finishes
+ *        after it still retried.
  * @param {Object}      [options.env=process.env]
- * @param {Date}        [options.now=new Date()] What a quarantine's age and the retry bridge are measured against.
+ * @param {Date}        [options.now=new Date()] What a quarantine's age is measured against.
  * @param {String}      [options.root=process.cwd()]
  * @returns {String}
  */
-export function brainReceipt({report, run, seconds, env = process.env, now = new Date(), root = process.cwd()}) {
+export function brainReceipt({report, run, seconds, retries = null, env = process.env, now = new Date(), root = process.cwd()}) {
     const {brainFree}            = populations(root),
           {absent, gated, paths} = brainSelection({env, root}),
           ceiling                = 300,
@@ -433,9 +451,11 @@ export function brainReceipt({report, run, seconds, env = process.env, now = new
         ...BRAIN_QUARANTINES.map(entry => `- **Quarantined:** ${short(entry.path)} › ${entry.titlePath.at(-1)} — ${entry.reason}. ` +
             `Accountable: ${entry.accountable}. Exit: ${entry.exit}. Since ${entry.since}, ${days(entry.since)} days` +
             `${days(entry.since) > QUARANTINE_STALE_DAYS ? ' (**stale**)' : ''}.`),
-        brainRetries(now)
-            ? `- **Retry bridge:** ${BRAIN_RETRY_BRIDGE.retries} retry through ${BRAIN_RETRY_BRIDGE.until} (${BRAIN_RETRY_BRIDGE.tracker}), because ${BRAIN_RETRY_BRIDGE.reason}. A test red on every attempt stays red.`
-            : `- **Retry bridge:** ended on ${BRAIN_RETRY_BRIDGE.until}; the tier runs without retries.`,
+        retries === null
+            ? '- **Retries:** unknown, because the run step recorded none.'
+            : retries
+                ? `- **Retries:** ${retries} for this run, from the bridge through ${BRAIN_RETRY_BRIDGE.until} (${BRAIN_RETRY_BRIDGE.tracker}), because ${BRAIN_RETRY_BRIDGE.reason}. A test red on every attempt stays red.`
+                : `- **Retries:** none for this run. The bridge's last day is ${BRAIN_RETRY_BRIDGE.until}.`,
         // Without a report the shard's files are unknown, which is not the same as zero
         ...report ? [
             `- **This shard:** ${report.suites.length} files · ${report.stats.expected} passed, ${report.stats.unexpected} failed, ${report.stats.flaky} flaky, ${report.stats.skipped} skipped`,
@@ -467,8 +487,8 @@ if (isEntryModule(import.meta.url)) {
     } else if (mode === '--brain-retries') {
         process.stdout.write(String(brainRetries()))
     } else if (mode === '--brain-receipt') {
-        const {ATTEMPT, BRAIN_SHA, ENGINE_SHA, EVENT, REPORT, SHARD, TEST_SECONDS} = process.env;
-        let   report                                                               = null;
+        const {ATTEMPT, BRAIN_SHA, ENGINE_SHA, EVENT, REPORT, RETRIES, SHARD, TEST_SECONDS} = process.env;
+        let   report                                                                        = null;
 
         try {
             report = JSON.parse(readFileSync(REPORT, 'utf8'))
@@ -477,6 +497,7 @@ if (isEntryModule(import.meta.url)) {
         process.stdout.write(brainReceipt({
             report,
             run    : {shard: SHARD, event: EVENT, attempt: ATTEMPT, engineSha: ENGINE_SHA, brainSha: BRAIN_SHA},
+            retries: RETRIES ? Number(RETRIES) : null,
             seconds: TEST_SECONDS ? Number(TEST_SECONDS) : null
         }) + '\n')
     } else {
