@@ -55,7 +55,7 @@ test.describe('Release-note lifecycle', () => {
         expect(stampIdx, 'publish.mjs must stamp the note').toBeGreaterThan(-1);
         expect(prepareIdx).toBeGreaterThan(stampIdx);
         // The release body is the note as merged through the release PR, read at its merge commit
-        expect(src).toContain('getReleaseNoteParts(runCommandWithOutput(`git show ${mergeCommit}:${notePathInRepo}`)');
+        expect(src).toContain("getReleaseNoteParts(read(['git', 'show', `${mergeCommit}:${notePathInRepo}`]))");
     });
 
     test('every note sits flat in .github/RELEASE_NOTES, one file per version', () => {

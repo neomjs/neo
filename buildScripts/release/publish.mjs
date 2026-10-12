@@ -8,14 +8,18 @@
  *
  * 1. **`prepare`**: preflight (on `dev` at `origin/dev`, clean, version bumped, note present, no tag yet), drop the
  *    released notes, stamp the note, run `prepare.mjs` and `build-all`, commit to `release/v<version>`, push it and
- *    open a PR to `dev` that resolves the cut ticket (`--ticket`). The operator merges it once its checks pass.
+ *    open a PR to `dev`. The PR resolves a preparation leaf (`--ticket`) with a body written like any PR body
+ *    (`--body-file`), checked against that ticket before anything is built; the cut's own record stays open until
+ *    `finish`, npm and the Portal are verified. The operator merges the PR once its checks pass.
  * 2. **`finish`**: squash the release PR's merge commit onto `main` as one commit (`commit-tree`, so `main` keeps a
  *    linear history of releases), push it, and create the GitHub release on the merge commit with the atomic-commit
  *    line in its body. The release event runs `npm-publish.yml`.
  *
  * Each phase reads how far the release already got (`releaseState.mjs`) and continues from there, so a run that
- * stopped at any push resumes by running the same command again. `--rehearse` reports the push gates (rules,
- * bypass, permissions, the pre-push hook) and the phase's preflight, and changes nothing.
+ * stopped at any push resumes by running the same command again. A read that fails stops the phase: an unknown never
+ * passes for an absence. A present ref is reused only when it is the one this release prepared or merged.
+ * `--rehearse` reports the push gates (rules, bypass, permissions, the pre-push hook) and the phase's preflight, and
+ * changes nothing.
  *
  * The release note is authored at `.github/RELEASE_NOTES/v<version>.md` and stamped with its GitHub Release
  * frontmatter in `prepare`. The engine keeps only the notes it has not released: the release commit drops the older
@@ -28,23 +32,31 @@
  * @keywords Release Automation, Release PR, Git Plumbing, Resumable, Engine-Brain Boundary
  */
 
-import {execSync} from 'child_process';
-import {program}  from 'commander';
-import fs         from 'fs-extra';
-import os         from 'os';
-import path       from 'path';
-import semver     from 'semver';
+import {execSync, spawnSync} from 'child_process';
+import {program}             from 'commander';
+import fs                    from 'fs-extra';
+import os                    from 'os';
+import path                  from 'path';
+import semver                from 'semver';
 import {
     getReleaseNoteParts,
     stampReleaseNote
 } from './releaseNoteFrontmatter.mjs';
 import {
+    getBindingProblems,
     getFinishStep,
-    getPrepareStep
+    getPrBodyProblems,
+    getPrepareStep,
+    ObservationError,
+    observe,
+    readBranchRules,
+    readPrepareBlockers,
+    readReleaseState
 } from './releaseState.mjs';
 
 const
     root       = path.resolve(),
+    repo       = 'neomjs/neo',
     newVersion = fs.readJsonSync(path.join(root, 'package.json')).version,
     // The release branch, the tag and the note all key on the version `package.json` was bumped to before the cut
     releaseBranch   = `release/v${newVersion}`,
@@ -85,20 +97,6 @@ function runCommand(command, errorMessage) {
 }
 
 /**
- * @summary Runs a read-only command and returns its trimmed output, or `null` when it fails.
- * @param {String} command
- * @param {String} [input] Written to the command's stdin.
- * @returns {String|null}
- */
-function runCommandWithOutput(command, input) {
-    try {
-        return execSync(command, {encoding: 'utf-8', input, stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe']}).trim()
-    } catch {
-        return null
-    }
-}
-
-/**
  * @summary Stops the release with a message; a phase re-run resumes from the state it left.
  * @param {String} message
  */
@@ -108,79 +106,79 @@ function fail(message) {
 }
 
 /**
- * @summary Reads how far this version's release already got.
- * @returns {import('./releaseState.mjs').ReleaseState & {headBranch: String}}
+ * @summary The command runner the state reader observes through: no shell, every outcome returned.
+ * @param {String[]} args
+ * @returns {{status: Number|null, stdout: String, stderr: String}}
  */
-function readState() {
-    runCommand('git fetch origin dev main', 'Failed to fetch origin');
+function run(args) {
+    const result = spawnSync(args[0], args.slice(1), {encoding: 'utf-8'});
 
-    const
-        headBranch = runCommandWithOutput('git rev-parse --abbrev-ref HEAD'),
-        prs        = JSON.parse(runCommandWithOutput(
-            `gh pr list --head ${releaseBranch} --base dev --state all --limit 1 --json number,state,url,mergeCommit`
-        ) ?? '[]'),
-        pr         = prs[0] ? {...prs[0], mergeCommit: prs[0].mergeCommit?.oid ?? null} : null,
-        mainTree   = runCommandWithOutput('git rev-parse origin/main^{tree}');
+    return {status: result.status, stdout: result.stdout ?? '', stderr: result.stderr || result.error?.message || ''}
+}
 
-    return {
-        headBranch,
-        pr,
-        released       : runCommandWithOutput(`gh release view ${newVersion} --json tagName`) !== null,
-        branchPushed   : Boolean(runCommandWithOutput(`git ls-remote --heads origin ${releaseBranch}`)),
-        branchCommitted: headBranch === releaseBranch && Number(runCommandWithOutput(`git rev-list --count origin/dev..${releaseBranch}`)) > 0,
-        mainHasTree    : Boolean(pr?.mergeCommit) && runCommandWithOutput(`git rev-parse ${pr.mergeCommit}^{tree}`) === mainTree
+/**
+ * @summary Reads one value for a real phase, stopping the release when the read fails.
+ * @param {String[]} args
+ * @param {Function} [absent] Recognizes a failed exit that proves absence.
+ * @returns {String|null}
+ */
+function read(args, absent) {
+    try {
+        return observe(run, args, absent)
+    } catch (error) {
+        if (error instanceof ObservationError) fail(error.message);
+        throw error
     }
 }
 
 /**
- * @summary The `prepare` preflight: a release starts from a clean `dev` at `origin/dev` with its note and no tag.
- * @returns {String[]} The failed checks; empty when the release can start.
+ * @summary Reads how far this version's release already got, stopping the phase when any read fails.
+ * @returns {import('./releaseState.mjs').ReleaseState}
  */
-function getPrepareBlockers({headBranch}) {
-    const blockers = [];
+function readState() {
+    runCommand('git fetch origin dev main', 'Failed to fetch origin');
 
-    if (headBranch === releaseBranch)                                                   blockers.push(`on ${releaseBranch} without a release commit: a run stopped before committing; switch back to dev, delete the branch, and re-run`);
-    else if (headBranch !== 'dev')                                                      blockers.push(`on '${headBranch}', not 'dev'`);
-    if (runCommandWithOutput('git rev-parse HEAD') !== runCommandWithOutput('git rev-parse origin/dev')) blockers.push('dev is not at origin/dev');
-    if (runCommandWithOutput('git status --porcelain'))                                 blockers.push('the working tree is not clean');
-    if (!fs.existsSync(releaseNotePath))                                                blockers.push(`${notePathInRepo} is missing`);
-    if (runCommandWithOutput(`git ls-remote --tags origin refs/tags/${newVersion}`))    blockers.push(`tag ${newVersion} already exists: bump package.json first`);
-
-    return blockers
+    try {
+        return readReleaseState(run, {repo, version: newVersion, releaseBranch})
+    } catch (error) {
+        if (error instanceof ObservationError) fail(`Could not read the release state: ${error.message}`);
+        throw error
+    }
 }
 
 /**
- * @summary Writes the release PR's body. It carries the anchors the PR-body check requires, because that check is
- * one of the `dev` ruleset's required contexts.
- * @param {Number} ticket The cut ticket the PR resolves.
- * @returns {String} The body file's path.
+ * @summary The `prepare` preflight for this checkout (see `readPrepareBlockers`).
+ * @param {import('./releaseState.mjs').ReleaseState} state
+ * @returns {String[]}
+ * @throws {ObservationError} When a check cannot be read.
  */
-function writePrBody(ticket) {
-    const bodyPath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'neo-release-')), 'pr-body.md');
+function getPrepareBlockers(state) {
+    return readPrepareBlockers(run, state, {notePresent: fs.existsSync(releaseNotePath), releaseBranch, version: newVersion})
+}
 
-    fs.writeFileSync(bodyPath, [
-        `Resolves #${ticket}`,
-        '',
-        `Release v${newVersion}: the stamped note, the \`prepare.mjs\` outputs, and the released notes dropped. Merging this PR is the release's one human step. Then \`node buildScripts/release/publish.mjs finish\` squashes it onto \`main\` and creates the GitHub release, which runs \`npm-publish.yml\`.`,
-        '',
-        'Evidence: L1 (machine-generated release commit from `publish.mjs prepare`) → L1 required (no runtime change beyond the version stamp).',
-        '',
-        '## AC Evidence',
-        `No structured ACs on #${ticket}`,
-        '',
-        '## Deltas from ticket',
-        'None substantive.',
-        '',
-        '## Test Evidence',
-        'All coverage runs in CI.',
-        '',
-        '## Post-Merge Validation',
-        `- [ ] \`node buildScripts/release/publish.mjs finish\` squashes this merge onto \`main\` and creates release ${newVersion}.`,
-        '',
-        `Authored by \`publish.mjs prepare\`, run by ${runCommandWithOutput('git config user.name') ?? 'unknown'}.`
-    ].join('\n'));
+/**
+ * @summary Checks the release PR body against the ticket it resolves, then runs the PR-body lint on it.
+ * @param {Number} ticket   The preparation leaf the release PR resolves.
+ * @param {String} bodyFile The release PR body.
+ * @returns {String[]} Empty when the body may be used.
+ * @throws {ObservationError} When the ticket cannot be read.
+ */
+function getBodyProblems(ticket, bodyFile) {
+    if (!Number.isInteger(ticket))           return ['pass --ticket <number>: the open preparation leaf the release PR resolves'];
+    if (!bodyFile || !fs.existsSync(bodyFile)) return ['pass --body-file <path>: the release PR body, written like any PR body'];
 
-    return bodyPath
+    const issue = JSON.parse(observe(run, ['gh', 'issue', 'view', String(ticket), '--repo', repo, '--json', 'state,body']));
+
+    if (issue.state !== 'OPEN') return [`#${ticket} is ${issue.state}: the release PR resolves an open preparation leaf`];
+
+    const problems = getPrBodyProblems(fs.readFileSync(bodyFile, 'utf-8'), ticket, issue.body);
+
+    if (!problems.length) {
+        const lint = run(['node', 'node_modules/neo-agent-skills/scripts/check-pr-body.mjs', '--body-file', bodyFile]);
+        lint.status === 0 || problems.push(`the PR-body lint fails: ${(lint.stdout + lint.stderr).trim().split('\n').pop()}`)
+    }
+
+    return problems
 }
 
 // --- Phases ---
@@ -188,21 +186,42 @@ function writePrBody(ticket) {
 /**
  * @summary Builds the release commit on `release/v<version>` and opens its PR to `dev`, or reports where an
  * earlier run left the release.
- * @param {Number} ticket The cut ticket the release PR resolves.
+ * @param {Number} ticket   The preparation leaf the release PR resolves.
+ * @param {String} bodyFile The release PR body.
  */
-function prepare(ticket) {
+function prepare(ticket, bodyFile) {
     const
-        state = readState(),
-        step  = getPrepareStep(state);
+        state   = readState(),
+        step    = getPrepareStep(state),
+        binding = getBindingProblems('prepare', state);
+
+    binding.length && fail(`The release refs are not the prepared candidate:\n  - ${binding.join('\n  - ')}`);
 
     if (step === 'released') return console.log(`✅ v${newVersion} is already released.`);
     if (step === 'merged')   return console.log(`✅ ${state.pr.url} is merged. Next: node buildScripts/release/publish.mjs finish`);
     if (step === 'waiting')  return console.log(`⏳ ${state.pr.url} is open. Its required checks run there; merging it is the operator's step. Then run finish.`);
 
-    Number.isInteger(ticket) || fail('prepare needs --ticket <number>: the cut ticket the release PR resolves.');
+    // Everything the PR needs is checked before anything is built or pushed
+    let problems;
+
+    try {
+        problems = getBodyProblems(ticket, bodyFile)
+    } catch (error) {
+        if (error instanceof ObservationError) fail(error.message);
+        throw error
+    }
+
+    problems.length && fail(`The release PR body is not ready:\n  - ${problems.join('\n  - ')}`);
 
     if (step === 'build') {
-        const blockers = getPrepareBlockers(state);
+        let blockers;
+
+        try {
+            blockers = getPrepareBlockers(state)
+        } catch (error) {
+            if (error instanceof ObservationError) fail(error.message);
+            throw error
+        }
 
         blockers.length && fail(`Preflight failed:\n  - ${blockers.join('\n  - ')}`);
 
@@ -230,7 +249,7 @@ function prepare(ticket) {
     }
 
     runCommand(
-        `gh pr create --base dev --head ${releaseBranch} --title "chore(release): v${newVersion} (#${ticket})" --body-file ${writePrBody(ticket)}`,
+        `gh pr create --repo ${repo} --base dev --head ${releaseBranch} --title "chore(release): v${newVersion} (#${ticket})" --body-file ${bodyFile}`,
         'Failed to open the release PR'
     );
 
@@ -238,26 +257,26 @@ function prepare(ticket) {
 }
 
 /**
- * @summary Squashes the merged release onto `main` and creates the GitHub release, or reports where an earlier
- * run left it.
+ * @summary Squashes the merged release onto `main` and creates the GitHub release on the merge commit, or reports
+ * where an earlier run left it.
  */
 function finish() {
     const
-        state = readState(),
-        step  = getFinishStep(state);
+        state   = readState(),
+        step    = getFinishStep(state),
+        binding = getBindingProblems('finish', state);
+
+    binding.length && fail(`The release refs are not the merged release:\n  - ${binding.join('\n  - ')}`);
 
     if (step === 'released')   return console.log(`✅ v${newVersion} is already released.`);
     if (step === 'not-merged') fail(`No merged release PR from ${releaseBranch}${state.pr ? ` (${state.pr.url} is ${state.pr.state})` : ''}. Run prepare, and merge its PR first.`);
 
-    const
-        mergeCommit = state.pr.mergeCommit,
-        releaseTree = runCommandWithOutput(`git rev-parse ${mergeCommit}^{tree}`) ?? fail(`The merge commit ${mergeCommit} is not in this checkout: is it on origin/dev?`);
-
-    let mainCommit = runCommandWithOutput('git rev-parse origin/main');
+    const mergeCommit = state.pr.mergeCommit;
+    let   mainCommit  = read(['git', 'rev-parse', 'origin/main']);
 
     if (step === 'squash') {
-        console.log(`🔀 Squashing ${mergeCommit.slice(0, 10)} (tree ${releaseTree.slice(0, 10)}) onto origin/main...`);
-        mainCommit = runCommandWithOutput(`git commit-tree -p ${mainCommit} -m "v${newVersion}" ${releaseTree}`);
+        console.log(`🔀 Squashing ${mergeCommit.slice(0, 10)} (tree ${state.mergeTree.slice(0, 10)}) onto origin/main...`);
+        mainCommit = read(['git', 'commit-tree', '-p', mainCommit, '-m', `v${newVersion}`, state.mergeTree]);
 
         // The squash push skips the developer pre-push guards on purpose (--no-verify). They judge individual
         // changes, and this commit flattens every change since the last release, each already reviewed and merged
@@ -270,14 +289,15 @@ function finish() {
     // The note as merged, frontmatter stripped; the atomic-commit line goes into the release body, so no second
     // `dev` commit is needed. The site's notes route reads the release body the content sync archives.
     const
-        {body, title} = getReleaseNoteParts(runCommandWithOutput(`git show ${mergeCommit}:${notePathInRepo}`) ?? fail(`${notePathInRepo} is missing at ${mergeCommit}`)),
+        {body, title} = getReleaseNoteParts(read(['git', 'show', `${mergeCommit}:${notePathInRepo}`])),
         bodyPath      = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'neo-release-')), 'release-body.md');
 
-    fs.writeFileSync(bodyPath, `${body}\n\nAll changes delivered in 1 atomic commit: [${mainCommit.slice(0, 7)}](https://github.com/neomjs/neo/commit/${mainCommit})\n`);
+    fs.writeFileSync(bodyPath, `${body}\n\nAll changes delivered in 1 atomic commit: [${mainCommit.slice(0, 7)}](https://github.com/${repo}/commit/${mainCommit})\n`);
 
-    // The release event runs npm-publish.yml
+    // An existing tag is already bound to the merge commit (getBindingProblems), so a run that stopped after the tag
+    // existed creates the release on that same tag. The release event runs npm-publish.yml.
     runCommand(
-        `gh release create ${newVersion} --target ${mergeCommit} --title "${title || `v${newVersion}`}" --notes-file ${bodyPath}`,
+        `gh release create ${newVersion} --repo ${repo} --target ${mergeCommit} --title "${title || `v${newVersion}`}" --notes-file ${bodyPath}`,
         'Failed to create the GitHub release'
     );
 
@@ -287,51 +307,84 @@ function finish() {
 
 /**
  * @summary Reports the gates a real run of `phase` would meet, and changes nothing: the acting account and its
- * permission, the rules on `dev` and `main` with the account's bypass, the pre-push hook the branch push runs, and
- * the phase's preflight.
+ * permission, the rules on `dev` and `main` with the account's bypass, the release refs and their binding, the
+ * pre-push hook the branch push runs, and the phase's preflight. A gate whose read fails reports as unknown (❌).
  * @param {'prepare'|'finish'} phase
  * @param {Number} [ticket]
+ * @param {String} [bodyFile]
  */
-function rehearse(phase, ticket) {
+function rehearse(phase, ticket, bodyFile) {
     const
-        repo   = runCommandWithOutput('gh repo view --json nameWithOwner --jq .nameWithOwner') ?? 'neomjs/neo',
         rows   = [],
         report = (ok, gate, detail) => rows.push({ok, gate, detail}),
-        state  = readState(),
-        login  = runCommandWithOutput('gh api user --jq .login'),
-        perms  = JSON.parse(runCommandWithOutput(`gh api repos/${repo} --jq .permissions`) ?? '{}'),
-        rules  = branch => JSON.parse(runCommandWithOutput(`gh api repos/${repo}/rules/branches/${branch}`) ?? '[]'),
-        bypass = ids => [...new Set(ids)].map(id => runCommandWithOutput(`gh api repos/${repo}/rulesets/${id} --jq .current_user_can_bypass`));
+        gate   = (name, check) => {
+            try {
+                check()
+            } catch (error) {
+                if (!(error instanceof ObservationError)) throw error;
+                report(false, name, `unknown: ${error.message}`)
+            }
+        };
 
-    report(Boolean(login), 'gh account', login ?? 'not authenticated: gh auth login');
-    report(Boolean(perms.push), 'push permission', perms.admin ? 'admin' : perms.maintain ? 'maintain' : perms.push ? 'write' : 'none');
+    let login, state;
 
-    const devRules = rules('dev');
-    report(true, 'dev rules', `${devRules.map(rule => rule.type).join(', ') || 'none'}; bypass: ${bypass(devRules.map(rule => rule.ruleset_id)).join(', ') || 'n/a'}. Not pushed to: the release reaches dev through its PR`);
+    runCommand('git fetch origin dev main', 'Failed to fetch origin');
 
-    const
-        mainRules    = rules('main'),
-        mainBypass   = bypass(mainRules.map(rule => rule.ruleset_id)),
-        mainBlocking = mainRules.filter(rule => BLOCKING_MAIN_RULES.includes(rule.type)).map(rule => rule.type);
-    report(!mainBlocking.length || mainBypass.every(value => value === 'always'), 'main rules', `${mainRules.map(rule => rule.type).join(', ') || 'none'}${mainBlocking.length ? `; would refuse the squash push: ${mainBlocking.join(', ')}` : ''}`);
+    gate('gh account', () => {
+        login = observe(run, ['gh', 'api', 'user', '--jq', '.login']);
+        report(true, 'gh account', login)
+    });
+
+    gate('push permission', () => {
+        const perms = JSON.parse(observe(run, ['gh', 'api', `repos/${repo}`, '--jq', '.permissions']));
+        report(Boolean(perms.push), 'push permission', perms.admin ? 'admin' : perms.maintain ? 'maintain' : perms.push ? 'write' : 'none')
+    });
+
+    gate('dev rules', () => {
+        const {types, bypass} = readBranchRules(run, repo, 'dev');
+        report(true, 'dev rules', `${types.join(', ') || 'none'}; bypass: ${bypass.join(', ') || 'n/a'}. Not pushed to: the release reaches dev through its PR`)
+    });
+
+    gate('main rules', () => {
+        const
+            {types, bypass} = readBranchRules(run, repo, 'main'),
+            blocking        = types.filter(type => BLOCKING_MAIN_RULES.includes(type));
+
+        report(!blocking.length || bypass.every(value => value === 'always'), 'main rules', `${types.join(', ') || 'none'}${blocking.length ? `; would refuse the squash push: ${blocking.join(', ')}` : ''}`)
+    });
+
+    gate('release refs', () => {
+        state = readReleaseState(run, {repo, version: newVersion, releaseBranch});
+
+        const binding = getBindingProblems(phase, state);
+        report(!binding.length, 'release refs', binding.join('; ') || `prepare: ${getPrepareStep(state)}, finish: ${getFinishStep(state)}`)
+    });
 
     if (phase === 'prepare') {
-        const
-            head    = runCommandWithOutput('git rev-parse HEAD'),
-            hook    = runCommandWithOutput('sh .husky/pre-push', `refs/heads/${releaseBranch} ${head} refs/heads/${releaseBranch} ${'0'.repeat(40)}\n`),
-            blocked = getPrepareStep(state) === 'build' ? getPrepareBlockers(state) : [];
+        gate('pre-push hook', () => {
+            const
+                head = observe(run, ['git', 'rev-parse', 'HEAD']),
+                hook = spawnSync('sh', ['.husky/pre-push'], {encoding: 'utf-8', input: `refs/heads/${releaseBranch} ${head} refs/heads/${releaseBranch} ${'0'.repeat(40)}\n`});
 
-        report(hook !== null, 'pre-push hook', hook !== null ? `passes for a push of HEAD to ${releaseBranch}` : 'fails: run sh .husky/pre-push to see why');
-        report(Number.isInteger(ticket), 'cut ticket', Number.isInteger(ticket) ? `#${ticket}` : 'pass --ticket <number>');
-        report(!blocked.length, 'preflight', blocked.join('; ') || `step: ${getPrepareStep(state)}`)
+            report(hook.status === 0, 'pre-push hook', hook.status === 0 ? `passes for a push of HEAD to ${releaseBranch}` : 'fails: run sh .husky/pre-push to see why')
+        });
+
+        gate('release PR body', () => {
+            const problems = getBodyProblems(ticket, bodyFile);
+            report(!problems.length, 'release PR body', problems.join('; ') || `resolves #${ticket}, consistent with the ticket, lint passes`)
+        });
+
+        state && getPrepareStep(state) === 'build' && gate('preflight', () => {
+            const blockers = getPrepareBlockers(state);
+            report(!blockers.length, 'preflight', blockers.join('; ') || 'ready to build')
+        })
     } else {
-        const step = getFinishStep(state);
-        report(step !== 'not-merged', 'preflight', `step: ${step}${state.pr ? ` (${state.pr.url}, ${state.pr.state})` : ''}`);
+        state && report(getFinishStep(state) !== 'not-merged', 'preflight', `step: ${getFinishStep(state)}${state.pr ? ` (${state.pr.url}, ${state.pr.state})` : ''}`);
         report(true, 'pre-push hook', 'skipped by design for the squash push to main (see finish)')
     }
 
-    console.log(`\nRehearsal of '${phase}' for v${newVersion}, as ${login ?? 'nobody'}:\n`);
-    rows.forEach(({ok, gate, detail}) => console.log(`${ok ? '✅' : '❌'} ${gate.padEnd(16)} ${detail}`));
+    console.log(`\nRehearsal of '${phase}' for v${newVersion}, as ${login ?? 'an unknown account'}:\n`);
+    rows.forEach(({ok, gate: name, detail}) => console.log(`${ok ? '✅' : '❌'} ${name.padEnd(16)} ${detail}`));
 
     if (rows.some(row => !row.ok)) {
         process.exitCode = 1
@@ -342,17 +395,18 @@ program
     .name('publish')
     .description('Releases the Engine: prepare opens the release PR, the operator merges it, finish squashes it onto main and creates the GitHub release.')
     .argument('<phase>', 'prepare | finish')
-    .option('--ticket <number>', 'the cut ticket the release PR resolves (prepare)', value => parseInt(value, 10))
+    .option('--ticket <number>', 'the open preparation leaf the release PR resolves (prepare)', value => parseInt(value, 10))
+    .option('--body-file <path>', 'the release PR body, checked against --ticket before anything is built (prepare)')
     .option('--rehearse', 'report the push gates and the preflight, and change nothing')
-    .action((phase, {rehearse: dryRun, ticket}) => {
+    .action((phase, {bodyFile, rehearse: dryRun, ticket}) => {
         ['prepare', 'finish'].includes(phase) || fail(`Unknown phase '${phase}': use prepare or finish.`);
 
         if (dryRun) {
-            rehearse(phase, ticket)
-        } else if (runCommandWithOutput('gh auth status') === null) {
+            rehearse(phase, ticket, bodyFile)
+        } else if (run(['gh', 'auth', 'status']).status !== 0) {
             fail('GitHub CLI (gh) is not authenticated. Run `gh auth login`.')
         } else if (phase === 'prepare') {
-            prepare(ticket)
+            prepare(ticket, bodyFile)
         } else {
             finish()
         }
