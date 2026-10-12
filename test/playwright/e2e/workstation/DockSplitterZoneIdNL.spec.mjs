@@ -29,7 +29,19 @@ test.describe('DockSplitter cold-start zone id — the registry repair (#16758)'
         await page.goto('/apps/workstation/index.html');
         await page.waitForSelector('.workstation-dock-host', {timeout: 30000});
 
-        const app = await neuralLink.connectToApp('Workstation');
+        const
+            app        = await neuralLink.connectToApp('Workstation'),
+            found      = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
+            workspaces = Array.isArray(found) ? found : found ? [found] : [];
+
+        expect(workspaces, 'the page must own exactly one current Workspace').toHaveLength(1);
+
+        // A restored boot renders the saved dock, then its cold-hydrate write re-projects it with
+        // new splitters. Selecting a splitter before that refresh settles can pick one it replaces.
+        // A fresh boot records no refresh.
+        const {refreshPromise} = await app.getComponent(workspaces[0].id, ['refreshPromise']);
+
+        refreshPromise && await app.callMethod(workspaces[0].id, 'refreshPromise.then');
 
         await page.evaluate(() => {
             window.__stream = [];
