@@ -250,6 +250,27 @@ test.describe('Neo.grid.RowGeometry', () => {
         lazy.destroy()
     });
 
+    test('a new store starts from the estimate, also where its record ids repeat the old store\'s', () => {
+        // The same ids 0-4, naming other records
+        let other = createStore(5);
+
+        geometry.setHeights(new Map([[1, 100], [3, 10]]));
+        expect(geometry.totalHeight).toBe(230);
+
+        geometry.store = other;
+
+        expect([0, 1, 2, 3, 4, 5].map(index => geometry.offsetAt(index))).toEqual([0, 40, 80, 120, 160, 200]);
+        expect(geometry.heightAt(1)).toBe(40);
+        expect(geometry.totalHeight).toBe(200);
+
+        // Heights set for the new store apply as before
+        geometry.setHeights(new Map([[1, 70]]));
+        expect(geometry.heightAt(1)).toBe(70);
+
+        geometry.store = store;
+        other.destroy()
+    });
+
     test('heights follow their records through a sort and a filter', () => {
         geometry.setHeights(new Map([[1, 100], [3, 10]]));
 
@@ -467,6 +488,32 @@ test.describe('Grid content-sized rows', () => {
 
         await locked.timeout(20);
         locked.destroy()
+    });
+
+    test('a store replaced on the grid starts from the estimate, also with natural record ids', async () => {
+        let natural      = await createGrid({contentSizedRows: true, store, useInternalId: false}),
+            other        = createStore(200),
+            {body, view} = natural;
+
+        view.setRowHeights(heightsOf(natural, {7: 120}));
+        await view.promiseUpdate();
+        expect(view.rowGeometry.heightAt(7)).toBe(120);
+
+        // The new store holds other records under the same ids, and its data arrives
+        natural.store = other;
+        other.fire('load', {items: other.items});
+        await natural.timeout(50);
+
+        expect(view.rowGeometry.heightAt(7)).toBe(rowHeight);
+        expect(body.vdom.height).toBe(`${(other.count + 1) * rowHeight}px`);
+
+        body.items.filter(row => row.record).forEach(row => {
+            expect(renderedGeometry(row), `row ${row.rowIndex}`).toEqual({height: rowHeight, offset: row.rowIndex * rowHeight})
+        });
+
+        await natural.timeout(20);
+        natural.destroy();
+        other.destroy()
     });
 
     test('two grids at different widths on one store keep independent geometries', async () => {

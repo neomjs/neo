@@ -10,8 +10,9 @@ import Base from '../core/Base.mjs';
  * scrollbar) and keyboard scrolling. One owner per view is what keeps the start, center and end bodies of a
  * view on the same row heights.
  *
- * Heights are keyed by record id, so they survive a sort or a filter. A row whose height is not known yet uses
- * the {@link #estimate}. The geometry catches up lazily, on the next read, in one of two passes:
+ * Heights are keyed by record id, so they survive a sort or a filter of their store, and a new store starts without
+ * any. A row whose height is not known yet uses the {@link #estimate}. The geometry catches up lazily, on the next
+ * read, in one of two passes:
  *
  * - **The full pass** follows a sort, filter, load or mutation of the store, or a new estimate: any height can
  *   now belong to any row. It resolves the record id of every row once, about 10 ms for 100k rows, and skips
@@ -52,7 +53,7 @@ class RowGeometry extends Base {
     }
 
     /**
-     * Known row heights in px, keyed by record id. They outlive every order change.
+     * Known row heights in px, keyed by record id. They outlive every order change of their store, not the store.
      * @member {Map} #heights
      */
     #heights = new Map()
@@ -145,6 +146,9 @@ class RowGeometry extends Base {
         oldValue?.un(listeners);
         // Ahead of the bodies' own store listeners: a body re-rendering on the same event must read fresh offsets
         value?.on({...listeners, order: 'before'});
+
+        // The ids of another store name other records, which start from the estimate
+        oldValue && me.#heights.clear();
 
         me.#orderStale = true
     }
