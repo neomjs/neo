@@ -1,7 +1,10 @@
-import {readdirSync, readFileSync} from 'fs';
-import {join, relative}            from 'path';
-import {selectExternalBrainSpecs}  from '../../test/playwright/externalBrainSelection.mjs';
-import isEntryModule               from './isEntryModule.mjs';
+import {execFileSync}                                                  from 'child_process';
+import {mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'fs';
+import {createRequire}                                                 from 'module';
+import {tmpdir}                                                        from 'os';
+import {join, relative}                                                from 'path';
+import {selectExternalBrainSpecs}                                      from '../../test/playwright/externalBrainSelection.mjs';
+import isEntryModule                                                   from './isEntryModule.mjs';
 
 /**
  * @summary The one place that decides which e2e specs the CI tier runs, and the one place that
@@ -264,11 +267,9 @@ export function brainSelection({env = process.env, root = process.cwd()} = {}) {
 }
 
 /**
- * @summary Refuses a Brain-tier declaration that no longer names what it was written for.
- * @description A capability path must still be a Brain-gated spec, and a quarantined file must still
- * contain every title of its entry. Otherwise a renamed test would slip out of its quarantine while every
- * receipt went on listing it, and a deleted one would leave an entry naming nothing. The unit tier runs
- * this on every pull request, so a rename fails in the change that made it.
+ * @summary Refuses a declaration whose file is no longer a Brain-gated spec, naming every such entry.
+ * @description A deleted or moved file would otherwise leave an entry naming nothing while every receipt
+ * went on listing it. Titles are {@link assertQuarantinesResolve}'s job.
  * @param {Object}   [options]
  * @param {Object[]} [options.capabilities=BRAIN_CAPABILITIES]
  * @param {Object[]} [options.quarantines=BRAIN_QUARANTINES]
@@ -277,28 +278,74 @@ export function brainSelection({env = process.env, root = process.cwd()} = {}) {
  */
 export function assertBrainDeclarations({capabilities = BRAIN_CAPABILITIES, quarantines = BRAIN_QUARANTINES, root = process.cwd()} = {}) {
     const gated = brainPaths(root),
-          // Unescaped, because the title Playwright reads as `viewer's` is written `viewer\'s`
-          source = path => readFileSync(join(root, path), 'utf8').replace(/\\(['"`])/g, '$1'),
-          stale  = [
-              ...capabilities.flatMap(entry => entry.paths).filter(path => !gated.includes(path)),
-              ...quarantines
-                  .filter(entry => !gated.includes(entry.path) || !entry.titlePath.every(title => source(entry.path).includes(title)))
-                  .map(entry => [entry.path, ...entry.titlePath].join(' › '))
-          ];
+          stale = [...capabilities.flatMap(entry => entry.paths), ...quarantines.map(entry => entry.path)].filter(path => !gated.includes(path));
 
     if (stale.length) {
-        throw new Error(`Brain-gated e2e declarations name what no longer exists:\n- ${stale.join('\n- ')}\n` +
+        throw new Error(`Brain-gated e2e declarations name files that are not Brain-gated specs:\n- ${stale.join('\n- ')}\n` +
             'Update or remove them in buildScripts/util/e2eCiSelection.mjs.')
     }
 }
 
 /**
- * @summary The quarantine as a Playwright test list for `--test-list-invert`: one `file › describe › test`
- * line per entry, the file relative to the e2e `testDir`, which is how Playwright resolves it.
+ * @summary One quarantine entry as a Playwright test-list line: `file › describe › test`, the file relative to
+ * the e2e `testDir`, which is how Playwright resolves it.
+ * @param {Object} entry
+ * @returns {String}
+ */
+function testListLine(entry) {
+    return [entry.path.replace('test/playwright/e2e/', ''), ...entry.titlePath].join(' › ')
+}
+
+/**
+ * @summary The quarantine as a Playwright test list for `--test-list-invert`.
  * @returns {String}
  */
 export function brainTestList() {
-    return BRAIN_QUARANTINES.map(entry => [entry.path.replace('test/playwright/e2e/', ''), ...entry.titlePath].join(' › ')).join('\n')
+    return BRAIN_QUARANTINES.map(testListLine).join('\n')
+}
+
+/**
+ * @summary Asks Playwright which registered tests each quarantine entry selects, through its own `--list`
+ * with the entry as the test list. Each entry must select exactly one.
+ * @description A renamed title or a new enclosing `describe` leaves an entry selecting nothing while its
+ * strings still appear in the source, so only Playwright's own matcher can tell. Listing loads the spec
+ * files but no fixture, so any `NEO_AGENTOS_RUNTIME_ROOT` lifts the config's Brain deselection. The unit
+ * tier runs this on every pull request, so the change that breaks an entry fails.
+ * @param {Object}   [options]
+ * @param {Object[]} [options.quarantines=BRAIN_QUARANTINES]
+ * @param {String}   [options.root=process.cwd()]
+ * @throws {Error} Naming every entry that does not select exactly one test.
+ */
+export function assertQuarantinesResolve({quarantines = BRAIN_QUARANTINES, root = process.cwd()} = {}) {
+    const cli   = createRequire(import.meta.url).resolve('@playwright/test/cli'),
+          dir   = mkdtempSync(join(tmpdir(), 'neo-brain-quarantine-')),
+          list  = join(dir, 'entry.txt'),
+          count = suite => (suite.specs?.length ?? 0) + (suite.suites ?? []).reduce((sum, child) => sum + count(child), 0),
+          stale = [];
+
+    try {
+        for (const entry of quarantines) {
+            writeFileSync(list, testListLine(entry) + '\n');
+
+            const report = JSON.parse(execFileSync(process.execPath, [
+                cli, 'test', '--config', 'test/playwright/playwright.config.e2e.mjs',
+                '--list', '--reporter=json', '--test-list', list, entry.path
+            ], {
+                cwd  : root,
+                env  : {...process.env, NEO_AGENTOS_RUNTIME_ROOT: process.env.NEO_AGENTOS_RUNTIME_ROOT || root},
+                stdio: ['ignore', 'pipe', 'ignore']
+            }).toString());
+
+            count({suites: report.suites}) === 1 || stale.push(testListLine(entry))
+        }
+    } finally {
+        rmSync(dir, {force: true, recursive: true})
+    }
+
+    if (stale.length) {
+        throw new Error(`Brain-gated e2e quarantines do not select exactly one registered test:\n- ${stale.join('\n- ')}\n` +
+            'Update or remove them in buildScripts/util/e2eCiSelection.mjs.')
+    }
 }
 
 /**

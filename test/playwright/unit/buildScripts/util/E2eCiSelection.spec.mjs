@@ -4,6 +4,7 @@ import os             from 'node:os';
 import path           from 'node:path';
 import {
     assertBrainDeclarations,
+    assertQuarantinesResolve,
     BRAIN_CAPABILITIES,
     BRAIN_QUARANTINES,
     brainPaths,
@@ -178,27 +179,39 @@ test.describe('e2e CI selection — the Brain-gated burn-in', () => {
         }
     });
 
-    test('every declaration still names a Brain-gated spec, and every quarantined title still exists', () => {
+    test('every declaration names a Brain-gated spec, and every quarantine selects exactly one registered test', () => {
         // The pull-request half of the stale-entry guard: the tier itself runs on `dev` pushes only, so
         // without this arm a renamed test would first fail there, after the rename had merged.
         expect(() => assertBrainDeclarations({root})).not.toThrow();
+        expect(() => assertQuarantinesResolve({root})).not.toThrow();
     });
 
-    test('a declaration naming what no longer exists fails, and names the entry', () => {
-        const tmp        = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-brain-declarations-')),
-              file       = 'test/playwright/e2e/grid/GatedNL.spec.mjs',
-              quarantine = {path: file, titlePath: ['Grid', 'sorts the viewer\'s rows']};
+    test('a quarantine whose strings are all in the source but which is not a registered path fails', () => {
+        // Each title below exists verbatim in the file, so a check of the source text passes all three.
+        // Only the path Playwright registers tells them apart: a dropped describe, a new enclosing one.
+        const [entry]   = BRAIN_QUARANTINES,
+              [, title] = entry.titlePath,
+              dropped   = {...entry, titlePath: [title]},
+              wrapped   = {...entry, titlePath: ['hosted profile', ...entry.titlePath]};
+
+        expect(() => assertQuarantinesResolve({quarantines: [entry], root}), 'control: the real entry').not.toThrow();
+        expect(() => assertQuarantinesResolve({quarantines: [dropped, wrapped], root}))
+            .toThrow(new RegExp(`spec\\.mjs › ${title.slice(0, 20)}[\\s\\S]*› hosted profile ›`));
+    });
+
+    test('a declaration naming a file that is not Brain-gated fails, and names it', () => {
+        const tmp  = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-brain-declarations-')),
+              file = 'test/playwright/e2e/grid/GatedNL.spec.mjs';
 
         fs.mkdirSync(path.join(tmp, 'test/playwright/e2e/grid'), {recursive: true});
-        // Written the way a spec escapes it, while Playwright reads the title unescaped
-        fs.writeFileSync(path.join(tmp, file), "test.describe('Grid', () => test('sorts the viewer\\'s rows', async ({neuralLink}) => {}))");
+        fs.writeFileSync(path.join(tmp, file), "test('sorts', async ({neuralLink}) => {})");
 
-        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [quarantine], root: tmp}), 'an escaped quote still matches')
+        expect(() => assertBrainDeclarations({capabilities: [{paths: [file]}], quarantines: [{path: file}], root: tmp}), 'control')
             .not.toThrow();
-        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [{...quarantine, titlePath: ['Grid', 'renamed']}], root: tmp}))
-            .toThrow('test/playwright/e2e/grid/GatedNL.spec.mjs › Grid › renamed');
         expect(() => assertBrainDeclarations({capabilities: [{paths: ['test/playwright/e2e/grid/Gone.spec.mjs']}], quarantines: [], root: tmp}))
             .toThrow('test/playwright/e2e/grid/Gone.spec.mjs');
+        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [{path: 'test/playwright/e2e/grid/Moved.spec.mjs'}], root: tmp}))
+            .toThrow('test/playwright/e2e/grid/Moved.spec.mjs');
 
         fs.rmSync(tmp, {recursive: true, force: true})
     });
