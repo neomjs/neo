@@ -1,7 +1,7 @@
-import {readdirSync}              from 'fs';
-import {join}                     from 'path';
-import {selectExternalBrainSpecs} from '../../test/playwright/externalBrainSelection.mjs';
-import isEntryModule              from './isEntryModule.mjs';
+import {readdirSync, readFileSync} from 'fs';
+import {join, relative}            from 'path';
+import {selectExternalBrainSpecs}  from '../../test/playwright/externalBrainSelection.mjs';
+import isEntryModule               from './isEntryModule.mjs';
 
 /**
  * @summary The one place that decides which e2e specs the CI tier runs, and the one place that
@@ -179,6 +179,52 @@ export function coverageLine(root = process.cwd()) {
         `The job summary lists every exclusion class and its owner.`
 }
 
+/**
+ * @summary The Brain-gated spec files, relative to the repository root: every spec the `neuralLink`
+ * fixture gates. `test-e2e-brain.yml` runs exactly these, with a Brain provisioned.
+ * @param {String} [root=process.cwd()]
+ * @returns {String[]}
+ */
+export function brainPaths(root = process.cwd()) {
+    const e2e      = join(root, 'test/playwright/e2e'),
+          {ignore} = selectExternalBrainSpecs(e2e);
+
+    return walk(e2e).filter(file => ignore.some(pattern => pattern.test(file))).map(file => relative(root, file)).sort()
+}
+
+/**
+ * @summary Renders one Brain-gated burn-in shard's receipt: the run's identity, the files the shard
+ * ran and their outcome, and its test time against the five-minute ceiling the engine tier keeps.
+ * @param {Object}      options
+ * @param {Object|null} options.report  The shard's Playwright JSON report, `null` when it wrote none.
+ * @param {Object}      options.run     `{shard, event, attempt, engineSha, brainSha}`
+ * @param {Number|null} options.seconds The test step's wall time, `null` when the step did not finish.
+ * @param {String}      [options.root=process.cwd()]
+ * @returns {String}
+ */
+export function brainReceipt({report, run, seconds, root = process.cwd()}) {
+    const {brainFree, ignored} = populations(root),
+          ceiling              = 300,
+          minutes              = value => `${Math.floor(value / 60)}m ${value % 60}s`;
+
+    return [
+        `### Brain-gated e2e burn-in · shard ${run.shard}`,
+        '',
+        `- **Run:** ${run.event}, attempt ${run.attempt}`,
+        `- **Engine:** \`${run.engineSha}\` · **Brain \`dev\` tip**, resolved once for every shard: \`${run.brainSha}\``,
+        `- **Test time:** ${seconds === null
+            ? 'none, because the step did not finish'
+            : `${minutes(seconds)} against the ${minutes(ceiling)} ceiling${seconds > ceiling ? ' (**over**)' : ''}`}`,
+        // Without a report the shard's files are unknown, which is not the same as zero
+        ...report ? [
+            `- **Population:** ${report.suites.length} of the ${ignored} Brain-gated spec files. The ${brainFree} Brain-free ones are the engine tier's.`,
+            `- **Outcome:** ${report.stats.expected} passed, ${report.stats.unexpected} failed, ${report.stats.flaky} flaky, ${report.stats.skipped} skipped`,
+            '',
+            ...report.suites.map(suite => `- \`${suite.file}\``)
+        ] : ['- **Population and outcome:** unknown, because the run wrote no Playwright report']
+    ].join('\n')
+}
+
 if (isEntryModule(import.meta.url)) {
     const mode = process.argv[2];
 
@@ -192,8 +238,23 @@ if (isEntryModule(import.meta.url)) {
         process.stdout.write(RUN_PATHS.join(' '))
     } else if (mode === '--summary') {
         process.stdout.write(summary() + '\n')
+    } else if (mode === '--brain-paths') {
+        process.stdout.write(brainPaths().join(' '))
+    } else if (mode === '--brain-receipt') {
+        const {ATTEMPT, BRAIN_SHA, ENGINE_SHA, EVENT, REPORT, SHARD, TEST_SECONDS} = process.env;
+        let   report                                                               = null;
+
+        try {
+            report = JSON.parse(readFileSync(REPORT, 'utf8'))
+        } catch {}
+
+        process.stdout.write(brainReceipt({
+            report,
+            run    : {shard: SHARD, event: EVENT, attempt: ATTEMPT, engineSha: ENGINE_SHA, brainSha: BRAIN_SHA},
+            seconds: TEST_SECONDS ? Number(TEST_SECONDS) : null
+        }) + '\n')
     } else {
-        console.error('usage: e2eCiSelection.mjs --paths | --summary');
+        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-receipt');
         process.exit(2)
     }
 }
