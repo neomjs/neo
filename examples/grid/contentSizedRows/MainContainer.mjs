@@ -2,6 +2,7 @@ import CheckBox      from '../../../src/form/field/CheckBox.mjs';
 import GridContainer from '../../../src/grid/Container.mjs';
 import MainStore     from './MainStore.mjs';
 import NumberField   from '../../../src/form/field/Number.mjs';
+import TextField     from '../../../src/form/field/Text.mjs';
 import Toolbar       from '../../../src/toolbar/Base.mjs';
 import Viewport      from '../../../src/container/Viewport.mjs';
 
@@ -10,7 +11,8 @@ import Viewport      from '../../../src/container/Viewport.mjs';
  *
  * `title` wraps in the locked start body, `summary` in the center, `notes` in the locked end body, and `details`
  * in a center column that starts past the horizontal range. The checkbox switches the grid back to fixed-height
- * rows, the control, and "Jump to row" scrolls a row into view.
+ * rows, the control, and "Jump to row" scrolls a row into view. A `summary` cell is editable with a double click,
+ * the filter field filters by `summary`, and a header click sorts.
  * @class Neo.examples.grid.contentSizedRows.MainContainer
  * @extends Neo.container.Viewport
  */
@@ -48,9 +50,18 @@ class MainContainer extends Viewport {
                 reference    : 'jump-to-row',
                 style        : {marginLeft: '1em'},
                 width        : 160
+            }, {
+                module       : TextField,
+                labelPosition: 'inline',
+                labelText    : 'Filter summary',
+                listeners    : {change: 'up.onFilterChange'},
+                reference    : 'filter',
+                style        : {marginLeft: '1em'},
+                width        : 200
             }]
         }, {
             module          : GridContainer,
+            cellEditing     : true,
             contentSizedRows: true,
             flex            : 1,
             reference       : 'grid',
@@ -58,7 +69,7 @@ class MainContainer extends Viewport {
             columns         : [
                 {dataField: 'id',      locked: 'start', text: '#',       width: 70},
                 {dataField: 'title',   locked: 'start', text: 'Title',   width: 160, wrapText: true},
-                {dataField: 'summary',                  text: 'Summary', width: 280, wrapText: true},
+                {dataField: 'summary', editable: true,  text: 'Summary', width: 280, wrapText: true},
                 {dataField: 'owner',                    text: 'Owner',   width: 110},
                 {dataField: 'status',                   text: 'Status',  width: 110},
                 {dataField: 'country',                  text: 'Country', width: 120},
@@ -75,6 +86,14 @@ class MainContainer extends Viewport {
      */
     onContentSizedChange({value}) {
         this.getReference('grid').contentSizedRows = value
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String|null} data.value
+     */
+    onFilterChange({value}) {
+        this.getReference('grid').store.getFilter('summary').value = value || null
     }
 
     /**

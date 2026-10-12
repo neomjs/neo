@@ -36,6 +36,12 @@ class MainStore extends Store {
          */
         autoInitRecords: false,
         /**
+         * Inactive until the filter field sets a value
+         * @member {Object[]} filters
+         * @reactive
+         */
+        filters: [{operator: 'like', property: 'summary', value: null}],
+        /**
          * @member {Neo.data.Model} model=Model
          * @reactive
          */
