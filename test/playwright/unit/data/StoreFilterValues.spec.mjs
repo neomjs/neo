@@ -55,6 +55,11 @@ test.describe('Store column filter contract', () => {
         expect(collection.getFilter('category', 'header-picker').ownerRole).toBe('header-picker')
     });
 
+    test('an explicitly undefined optional role is still unowned', () => {
+        const collection = create(Collection, {filters: [{property: 'category', ownerRole: undefined, value: 'a'}]});
+        expect(collection.getFilter('category', null)).toBe(collection.filters[0])
+    });
+
     test('authoritative replacement preserves complete owned configuration and refuses duplicates atomically', () => {
         const collection = create(Collection, {items: [{id: 1, category: 'a'}], filters: [
             {property: 'category', value: 'a', ownerRole: 'header-picker'}

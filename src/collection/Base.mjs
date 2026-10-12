@@ -1088,7 +1088,7 @@ class Collection extends Base {
             len     = filters.length;
 
         for (; i < len; i++) {
-            if (filters[i].property === property && (ownerRole === undefined || filters[i].ownerRole === ownerRole)) {
+            if (filters[i].property === property && (ownerRole === undefined || (filters[i].ownerRole ?? null) === ownerRole)) {
                 return filters[i]
             }
         }
