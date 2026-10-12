@@ -158,8 +158,8 @@ function readTextRects(grid, ids) {
 
 /**
  * What the main thread would answer while the DOM lags the vdom: for the texts and widths the rows' last landed
- * updates rendered, their vnodes. A text names its record, e.g. `Note 12`, and wraps to fewer lines in a cell wider
- * than its column's {@link WIDTHS}.
+ * updates rendered, their vnodes. A text names its record, e.g. `Note 12`. As HTML it takes the record's line count
+ * and wraps to fewer lines in a cell wider than its column's {@link WIDTHS}; as literal text it shows on one line.
  * @param {Neo.grid.Container} grid
  * @param {String[]} ids
  * @returns {Object[]}
@@ -172,16 +172,30 @@ function shownTextRects(grid, ids) {
             let text = VNodeUtil.getById(row.vnode, id);
 
             if (text) {
-                let [name, index] = text.innerHTML.split(' '),
+                let [name, index] = (text.innerHTML ?? text.textContent).split(' '),
                     field         = name.toLowerCase(),
-                    width         = parseFloat(VNodeUtil.getById(row.vnode, id.slice(0, -'__text'.length)).style.width);
+                    width         = parseFloat(VNodeUtil.getById(row.vnode, id.slice(0, -'__text'.length)).style.width),
+                    lines         = Object.hasOwn(text, 'innerHTML') ? grid.store.get(Number(index))[`${field}Lines`] : 1;
 
-                return {height: grid.store.get(Number(index))[`${field}Lines`] * LINE * WIDTHS[field] / width, width}
+                return {height: lines * LINE * WIDTHS[field] / width, width}
             }
         }
 
         return {}
     })
+}
+
+/**
+ * Renders a row's `note` cell again with the same bytes in the other content mode, as a renderer that returns
+ * `{text}` instead of `{html}` would: a new cell node whose update has not landed
+ * @param {Neo.grid.Row} row
+ */
+function switchNoteMode(row) {
+    let index                      = row.vdom.cn.findIndex(node => node.data?.field === 'note'),
+        cell                       = row.vdom.cn[index],
+        {html, text, ...container} = cell.cn[0];
+
+    row.vdom.cn[index] = {...cell, cn: [html !== undefined ? {...container, text: html} : {...container, html: text}]}
 }
 
 /**
@@ -441,6 +455,75 @@ test.describe('Grid wrapText measurement', () => {
         await grid.timeout(50);
 
         expect(applied[0]).toBe(4 * LINE * WIDTHS.note / 250 + CHROME)
+    });
+
+    for (const from of ['html', 'text']) {
+        test(`a note switching from ${from} to the other mode with the same bytes is read once its update lands`, async () => {
+            let {view}  = grid,
+                applied = [],
+                row     = grid.body.items.find(item => item.rowIndex === 4),
+                // Record 4: a 2-line name, and a note of 4 lines as HTML but 1 as literal text
+                id      = view.getRecordId(store.get(4)),
+                heights = {html: 4 * LINE + CHROME, text: 2 * LINE + CHROME};
+
+            respond = ids => Promise.resolve(shownTextRects(grid, ids));
+
+            // The text-mode note lands first
+            if (from === 'text') {
+                switchNoteMode(row);
+                await row.promiseUpdate();
+                await grid.timeout(50)
+            }
+
+            view.setRowHeights = new Proxy(view.setRowHeights, {
+                apply(target, scope, args) {
+                    args[0].has(id) && applied.push(args[0].get(id));
+                    return Reflect.apply(target, scope, args)
+                }
+            });
+
+            switchNoteMode(row);
+
+            await view.measureRowHeights();
+            expect(applied, `the ${from} note is not read for the other mode`).toEqual([]);
+
+            await row.promiseUpdate();
+            await grid.timeout(50);
+
+            expect(applied[0]).toBe(from === 'html' ? heights.text : heights.html)
+        })
+    }
+
+    test('the string renderer\'s escaped text counts as shown', async () => {
+        let {view}               = grid,
+            applied              = [],
+            row                  = grid.body.items.find(item => item.rowIndex === 4),
+            id                   = view.getRecordId(store.get(4)),
+            index                = row.vdom.cn.findIndex(node => node.data?.field === 'note'),
+            cell                 = row.vdom.cn[index],
+            {html, ...container} = cell.cn[0];
+
+        respond = ids => Promise.resolve(shownTextRects(grid, ids));
+
+        // A text-mode note with markup characters lands
+        row.vdom.cn[index] = {...cell, cn: [{...container, text: 'Note 4 <b>'}]};
+        await row.promiseUpdate();
+        await grid.timeout(50);
+
+        // The string renderer keeps it escaped in the vnode. A new, unmeasured cell asks for the same text.
+        VNodeUtil.getById(row.vnode, container.id).textContent = 'Note 4 &lt;b&gt;';
+        row.vdom.cn[index] = {...row.vdom.cn[index]};
+
+        view.setRowHeights = heights => {heights.has(id) && applied.push(heights.get(id)); return false};
+        Neo.config.useDomApiRenderer = false;
+
+        try {
+            await view.measureRowHeights()
+        } finally {
+            Neo.config.useDomApiRenderer = true
+        }
+
+        expect(applied).toEqual([2 * LINE + CHROME])
     });
 
     test('a reply for a cell whose width changed in the meantime is dropped', async () => {

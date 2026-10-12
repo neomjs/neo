@@ -2,6 +2,7 @@ import Base            from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import RowGeometry     from './RowGeometry.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
+import StringUtil      from '../util/String.mjs';
 import VNodeUtil       from '../util/VNode.mjs';
 
 /**
@@ -398,9 +399,10 @@ class View extends Base {
     }
 
     /**
-     * Content-sized rows: true if the row's last landed update rendered the cell as its vdom describes it, the same
-     * text at the same width. A pass can recycle a row while the view's update waits for other rows', and no flag
-     * shows that wait: a read would measure the text the row showed before.
+     * Content-sized rows: true if the row's last landed update rendered the cell as its vdom describes it: the same
+     * content, as HTML or as text, at the same width. Identical bytes render differently in the two modes. A pass can
+     * recycle a row while the view's update waits for other rows', and no flag shows that wait: a read would measure
+     * the text the row showed before.
      * @param {Neo.grid.Row} row
      * @param {Object} cell The cell's vdom
      * @returns {Boolean}
@@ -411,8 +413,16 @@ class View extends Base {
             cellVnode = VNodeUtil.getById(row.vnode, cell.id),
             textVnode = cellVnode?.childNodes[0];
 
-        return textVnode?.id === text.id && cellVnode.style.width === cell.style.width &&
-            (textVnode.textContent ?? textVnode.innerHTML) === (text.text ?? text.html)
+        if (textVnode?.id !== text.id || cellVnode.style.width !== cell.style.width) {
+            return false
+        }
+
+        if (Object.hasOwn(text, 'html')) {
+            return textVnode.innerHTML === text.html
+        }
+
+        // The string renderer keeps a text node's content escaped in its vnode
+        return textVnode.textContent === (Neo.config.useDomApiRenderer ? text.text : StringUtil.escapeHtml(text.text))
     }
 
     /**
