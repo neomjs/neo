@@ -1597,6 +1597,20 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         const dwell2 = await readPaintedPreview();
 
+        // TEMP probe, never merged: the painted preview against the live zone and the gesture-start geometry
+        {
+            const ids   = [zoneIds['right-bottom-tabs'], zoneIds['scale-tabs'], dockHostId],
+                  now   = await readComponentRects(app, ids),
+                  state = await app.getComponent(wsId, ['dragAffordances.geometry']),
+                  geo   = state?.properties?.['dragAffordances.geometry'] ?? state?.['dragAffordances.geometry'] ?? state,
+                  doms  = await page.evaluate(() => [...document.querySelectorAll('.neo-dashboard-dock-tabs')]
+                      .map(el => {const r = el.getBoundingClientRect(); return `${el.id}:${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)}x${Math.round(r.height)}`}));
+
+            console.log(`[probe] fivebeat preview=${JSON.stringify(dwell2.rect)} zoneNow=${JSON.stringify(now[ids[0]])} hostNow=${JSON.stringify(now[ids[2]])}`);
+            console.log(`[probe] fivebeat geo=${JSON.stringify(geo)}`);
+            console.log(`[probe] fivebeat tabs=${doms.join(' ')}`)
+        }
+
         await assertPreviewZoneAlignment(app, {kind: 'tab-into', previewRect: dwell2.rect, zoneId: zoneIds['right-bottom-tabs']});
 
         const result = await stepPromise;

@@ -1,0 +1,83 @@
+name: TEMP five-beat preview probe
+
+# Temporary, on an unmerged branch: repeats WorkstationFiveBeatNL's dwell-preview test, logging the painted preview
+# against the live zone and the gesture-start geometry. Its own workflow, so it never displaces a dev burn-in run.
+
+on:
+  push:
+    branches: [grace/19657-fivebeat-probe]
+
+permissions:
+  contents: read
+
+jobs:
+  brain:
+    name: Resolve the Brain's dev tip
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.tip.outputs.sha }}
+    steps:
+      - name: Resolve neo-agent-brain dev
+        id: tip
+        run: |
+          sha=$(git ls-remote https://github.com/neomjs/neo-agent-brain refs/heads/dev | cut -f1)
+          test -n "$sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  probe:
+    name: probe (fivebeat)
+    needs: brain
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: engine
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: engine
+          persist-credentials: false
+
+      - uses: actions/checkout@v7
+        with:
+          repository: neomjs/neo-agent-brain
+          ref: ${{ needs.brain.outputs.sha }}
+          path: brain
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: |
+            engine/package-lock.json
+            brain/package-lock.json
+
+      - run: npm ci
+
+      - working-directory: brain
+        run: npm ci --foreground-scripts
+
+      - run: npm run bundle-browser-deps
+
+      - run: npx playwright install ffmpeg
+
+      - name: Probe
+        timeout-minutes: 38
+        env:
+          NEO_AGENTOS_RUNTIME_ROOT: ${{ github.workspace }}/brain
+          NEO_TEST_SKIP_CI: 'true'
+        run: |
+          # Every round reports; a red round must not end the probe
+          set +e
+          cfg=test/playwright/playwright.config.e2e.mjs
+          out="$RUNNER_TEMP/out.txt"
+
+          for round in 1 2 3; do
+            npx playwright test -c "$cfg" --reporter=list --repeat-each=8 test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs:1523 > "$out" 2>&1
+            echo "[probe] round=$round exit=$? $(grep -E '^ +[0-9]+ (passed|failed|flaky|skipped)' "$out" | tr '\n' ' ')"
+            grep -E 'Error:|Received:' "$out" | head -6 | sed -E 's/^ +/[probe]   /' | cut -c1-200 || true
+            grep -E '\[probe\] fivebeat' "$out" | sed -E 's/^.*\[probe\]/[probe] /' | cut -c1-3000 || true
+          done
