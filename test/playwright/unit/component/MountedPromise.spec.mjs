@@ -73,17 +73,22 @@ test.describe('component.Abstract: mountedPromise after an unmount that skipped 
         source.add(widget, true);
         widget.mounted = true;
 
-        expect(await settlesNow(widget.mountedPromise), 'control: a mounted component\'s promise settles').toBe(true);
+        const settled = widget.mountedPromise;
+
+        expect(await settlesNow(settled), 'control: a mounted component\'s promise settles').toBe(true);
+        expect(widget.mountedPromise, 'and stays the same promise while mounted').toBe(settled);
 
         target.add(widget, true, false);
 
-        expect(widget.mounted, 'the copy is unmounted in its new window').toBe(false);
-        expect(await settlesNow(widget.mountedPromise), 'an earlier mount does not settle the next one').toBe(false);
+        const next = widget.mountedPromise;
 
-        const remount = widget.mountedPromise;
+        expect(widget.mounted, 'the copy is unmounted in its new window').toBe(false);
+        expect(await settlesNow(next), 'an earlier mount does not settle the next one').toBe(false);
+        expect(widget.mountedPromise, 'every waiter gets the one pending promise').toBe(next);
+
         widget.mounted = true;
 
-        expect(await settlesNow(remount), 'the next mount settles it').toBe(true)
+        expect(await settlesNow(next), 'the next mount settles it').toBe(true)
     });
 
     test('one update() on an unmounted component holding an earlier mount\'s promise runs once', async () => {
