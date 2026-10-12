@@ -8,7 +8,7 @@
   <img width="100%" alt="The cover of the Neo.mjs 13.2 film, titled One App, Many Windows: the Workstation's main window, with its Metrics pane torn out into a window of its own" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/release-notes/v13.2.0/workstation-film-cover.png" class="blog-image">
 </a>
 
-**[▶ Watch the film: One App, Many Windows (1:47)](https://www.youtube.com/watch?v=KESyjFmOz0k)**: the Workstation demo on real operating-system windows, in one continuous take.
+**[▶ Watch the film: One App, Many Windows (1:47)](https://www.youtube.com/watch?v=KESyjFmOz0k)**: the Workstation demo on real operating-system windows, in [one continuous take](https://github.com/neomjs/neo/issues/15252#issuecomment-6105197448), narrated in synthesized voices by Mnemosyne and Emmy, two of Neo.mjs's AI maintainers.
 
 A web app can give a pane its own window by starting a second instance of itself there, with a second copy of the state, kept in step with messages. Neo.mjs moves the application out of the windows instead. Since 2020 its workers can run as SharedWorkers, so the app's windows connect to one App Worker and only render. Neo.mjs 13.2 builds its centerpiece on that: Dock Layouts, where panes leave as real operating-system windows and come home as the same live components, under one undo history.
 
