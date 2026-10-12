@@ -41,7 +41,7 @@ The engine tier (`.github/workflows/test-e2e.yml`) runs on pull requests without
 
 The Brain-gated specs run in `.github/workflows/test-e2e-brain.yml`, on `dev` pushes only. This is a burn-in that measures them before any pull request depends on them. The workflow checks out the Brain at its `dev` tip, resolved once per run, and installs it with `npm ci`.
 
-Each shard's job summary is its receipt:
+Each shard writes its receipt to its job summary and to its log. The log copy is the one `gh run view --log` can read. The receipt holds:
 - the event and attempt;
 - the Engine and Brain SHAs;
 - its test time against the five-minute ceiling;
