@@ -5,11 +5,13 @@ import {expect, test} from '../../fixtures.mjs';
  * scroll offset with them, so the row at the top edge of the view holds still in every frame. At the end of the
  * list, growth needs the grown extent before the offset can follow, and shrinking must not move the offset twice.
  * Scrolling up over rows measured on the way shows no jump. A thumb drag holds the extent until its release, the
- * release keeps the row at the top edge still, and the final row stays reachable before and after.
+ * release keeps the row at the top edge still, and the final row stays reachable before and after. A row that
+ * keyboard navigation jumped to keeps its edge instead, while the rows around it are learned.
  *
  * Fixture: `test/playwright/component/apps/grid-anchor`, grid `#grid-anchor`: 300 rows whose heights repeat
  * {@link HEIGHTS}, learned after the render that first shows a row, as measurement does. `#grid-anchor-grow`
- * doubles the heights of the first 20 rows, `#grid-anchor-shrink` halves them.
+ * doubles the heights of the first 20 rows, `#grid-anchor-shrink` halves them, `#grid-anchor-jump` scrolls row 250
+ * into view the way keyboard navigation does.
  */
 const GRID  = '#grid-anchor',
       COUNT = 300,
@@ -22,17 +24,19 @@ const GRID  = '#grid-anchor',
 /**
  * Defines `window.gridState()`: the view's scroll state and the rows it renders, each with its record id, its
  * height, its top inside the body (`content`) and its top relative to the view's top edge (`screen`), in px.
- * `window.trackRow(id)` records a row's `screen` on every animation frame until `window.stopTracking()` returns
- * the records.
+ * `window.trackRow(id, edge)` records a row's top (`screen`) or bottom on every animation frame, `null` while it is
+ * not rendered, until `window.stopTracking()` returns the records.
  * @param {String} grid
  */
 function defineGridState(grid) {
     let tracking = null;
 
-    window.trackRow = id => {
+    window.trackRow = (id, edge = 'top') => {
         const tops = [],
               read = () => {
-                  tops.push(window.gridState().rows.find(row => row.id === id)?.screen ?? null);
+                  const row = window.gridState().rows.find(row => row.id === id);
+
+                  tops.push(!row ? null : edge === 'top' ? row.screen : row.screen + row.height);
                   tracking = {frame: requestAnimationFrame(read), tops}
               };
 
@@ -258,5 +262,23 @@ test.describe('Grid content-sized height corrections', () => {
 
         state = await scrollToEnd(page);
         expect(finalRowVisible(state), 'the final row is reachable after the release').toBe(true)
+    });
+
+    test('a jump down to an unseen row keeps it at the bottom edge while the rows around it are learned', async ({page}) => {
+        let bottoms, row, state;
+
+        await page.evaluate(() => window.trackRow(250, 'bottom'));
+        await page.locator('#grid-anchor-jump').click();
+
+        state = await settle(page);
+        row   = rowOf(state, 250);
+
+        expect(row && row.screen + row.height, 'row 250 meets the bottom edge').toBe(state.clientHeight);
+
+        // From its first frame on screen, the row never left the view
+        bottoms = (await page.evaluate(() => window.stopTracking())).filter(bottom => bottom !== null);
+
+        expect(bottoms.length).toBeGreaterThan(0);
+        bottoms.forEach((bottom, i) => expect(bottom, `frame ${i}`).toBeLessThanOrEqual(state.clientHeight))
     })
 });

@@ -1418,12 +1418,12 @@ class GridBody extends Component {
             }
 
             if (me.rowGeometry) {
-                // Up: the row's top meets the viewport top. Down: its bottom meets the viewport bottom, unless the
-                // row is taller than the viewport, which shows its top.
-                scrollTop = step < 0 ?
-                    me.rowGeometry.offsetAt(newIndex) :
-                    Math.min(me.rowGeometry.offsetAt(newIndex), me.rowGeometry.offsetAt(newIndex + 1) - me.availableHeight)
-            } else if (step < 0) {
+                // Up: the row's top meets the viewport top. Down: its bottom meets the viewport bottom.
+                me.gridContainer.view.scrollRowIntoView(newIndex, step < 0 ? 'top' : 'bottom');
+                return
+            }
+
+            if (step < 0) {
                 scrollTop = newIndex * me.rowHeight
             } else {
                 lastRowGap = me.rowHeight - (me.availableHeight % me.rowHeight);
