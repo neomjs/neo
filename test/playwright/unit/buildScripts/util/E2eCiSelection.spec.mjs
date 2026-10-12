@@ -1,8 +1,15 @@
-import {test, expect}                                from '@playwright/test';
-import fs                                            from 'node:fs';
-import os                                            from 'node:os';
-import path                                          from 'node:path';
-import {EXCLUSIONS, populations, RUN_PATHS, summary} from '../../../../../buildScripts/util/e2eCiSelection.mjs';
+import {test, expect} from '@playwright/test';
+import fs             from 'node:fs';
+import os             from 'node:os';
+import path           from 'node:path';
+import {
+    brainPaths,
+    brainReceipt,
+    EXCLUSIONS,
+    populations,
+    RUN_PATHS,
+    summary
+} from '../../../../../buildScripts/util/e2eCiSelection.mjs';
 
 /**
  * The e2e tier's coverage summary is an honesty guard: `testIgnore` DESELECTS the Brain-dependent
@@ -148,5 +155,43 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
             expect(entry.reason, `${entry.path} reason`).toBeTruthy();
             expect(['cause', 'observed', 'partial'], `${entry.path} kind`).toContain(entry.kind);
         }
+    });
+});
+
+test.describe('e2e CI selection — the Brain-gated burn-in', () => {
+    const root = path.resolve(import.meta.dirname, '../../../../..'),
+          run  = {shard: '2/6', event: 'push', attempt: '1', engineSha: 'e'.repeat(40), brainSha: 'b'.repeat(40)};
+
+    test('selects exactly the specs the neuralLink fixture gates', () => {
+        const paths = brainPaths(root);
+
+        expect(paths).toHaveLength(populations(root).ignored);
+
+        for (const file of paths) {
+            expect(fs.readFileSync(path.join(root, file), 'utf8'), file).toMatch(/\bneuralLink\b/)
+        }
+    });
+
+    test('a receipt states the run, both SHAs, the time against the ceiling, the population and the outcome', () => {
+        const report = {suites: [{file: 'core/A.spec.mjs'}, {file: 'grid/B.spec.mjs'}], stats: {expected: 5, unexpected: 1, flaky: 0, skipped: 2}},
+              text   = brainReceipt({report, run, seconds: 312, root});
+
+        expect(text).toContain('shard 2/6');
+        expect(text).toContain('push, attempt 1');
+        expect(text).toContain(run.engineSha);
+        expect(text).toContain(run.brainSha);
+        expect(text).toContain('5m 12s against the 5m 0s ceiling (**over**)');
+        expect(text).toContain(`2 of the ${populations(root).ignored} Brain-gated spec files`);
+        expect(text).toContain('5 passed, 1 failed, 0 flaky, 2 skipped');
+        expect(text).toContain('- `grid/B.spec.mjs`');
+        expect(brainReceipt({report, run, seconds: 300, root})).not.toContain('**over**');
+    });
+
+    test('a step that never finished and a run without a report say so, rather than reading as zero', () => {
+        const text = brainReceipt({report: null, run, seconds: null, root});
+
+        expect(text).toContain('none, because the step did not finish');
+        expect(text).toContain('unknown, because the run wrote no Playwright report');
+        expect(text).not.toContain('of the');
     });
 });
