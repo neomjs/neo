@@ -71,6 +71,9 @@ class GridContentSizedGrid extends GridContainer {
 
 GridContentSizedGrid = Neo.setupClass(GridContentSizedGrid);
 
+// The grid-animated-content-sized fixture builds on both
+export {GridContentSizedGrid, GridContentSizedStore};
+
 export const onStart = () => Neo.app({
     mainView: {
         module: Viewport,
