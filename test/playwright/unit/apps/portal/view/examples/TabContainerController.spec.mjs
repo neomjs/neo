@@ -143,41 +143,52 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
         productionStore.destroy()
     });
 
-    test('reveals DockDemo with 13.2 as the first live card, beside the visible DevIndex flagship', () => {
+    test('leads with Workstation and keeps choreography last among visible examples', () => {
         const registries = [{
-            file       : 'examples_devmode.json',
-            devIndexUrl: 'https://neomjs.com/devindex/',
-            dockDemoUrl: 'examples/dashboard/choreography/index.html'
+            file          : 'examples_devmode.json',
+            devIndexUrl   : 'https://neomjs.com/devindex/',
+            dockDemoUrl   : 'examples/dashboard/choreography/index.html',
+            workstationUrl: 'apps/workstation/index.html'
         }, {
-            file       : 'examples_dist_dev.json',
-            devIndexUrl: 'https://neomjs.com/devindex/dist/development/apps/devindex/',
-            dockDemoUrl: 'dist/development/examples/dashboard/choreography/index.html'
+            file          : 'examples_dist_dev.json',
+            devIndexUrl   : 'https://neomjs.com/devindex/dist/development/apps/devindex/',
+            dockDemoUrl   : 'dist/development/examples/dashboard/choreography/index.html',
+            workstationUrl: 'dist/development/apps/workstation/index.html'
         }, {
-            file       : 'examples_dist_esm.json',
-            devIndexUrl: 'https://neomjs.com/devindex/',
-            dockDemoUrl: 'dist/esm/examples/dashboard/choreography/index.html'
+            file          : 'examples_dist_esm.json',
+            devIndexUrl   : 'https://neomjs.com/devindex/',
+            dockDemoUrl   : 'dist/esm/examples/dashboard/choreography/index.html',
+            workstationUrl: 'dist/esm/apps/workstation/index.html'
         }, {
-            file       : 'examples_dist_prod.json',
-            devIndexUrl: 'https://neomjs.com/devindex/dist/production/apps/devindex/',
-            dockDemoUrl: 'dist/production/examples/dashboard/choreography/index.html'
+            file          : 'examples_dist_prod.json',
+            devIndexUrl   : 'https://neomjs.com/devindex/dist/production/apps/devindex/',
+            dockDemoUrl   : 'dist/production/examples/dashboard/choreography/index.html',
+            workstationUrl: 'dist/production/apps/workstation/index.html'
         }];
 
-        registries.forEach(({file, devIndexUrl, dockDemoUrl}) => {
+        registries.forEach(({file, devIndexUrl, dockDemoUrl, workstationUrl}) => {
             const
-                records   = JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8')),
-                dockDemo  = records.find(record => record.name === 'Dock Layouts'),
-                devIndex  = records.find(record => record.name === 'GitHub Meritocracy Index'),
-                firstSeen = records.find(record => !record.hidden);
+                records  = JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8')),
+                dockDemo = records.find(record => record.id === 28),
+                devIndex = records.find(record => record.name === 'GitHub Meritocracy Index'),
+                visible  = records.filter(record => !record.hidden);
 
-            expect(records[0], `${file}: DockDemo stays top-ranked`).toBe(dockDemo);
+            expect(records[0], `${file}: Workstation leads`).toMatchObject({
+                id           : 27,
+                name         : 'Workstation',
+                sharedWorkers: true,
+                sourceUrl    : 'apps/workstation',
+                url          : workstationUrl
+            });
+            expect(visible[0], `${file}: Workstation is visible`).toBe(records[0]);
             expect(dockDemo).toMatchObject({
                 id           : 28,
+                name         : 'Dock Choreography Demo',
                 sharedWorkers: true,
                 sourceUrl    : 'examples/dashboard/choreography',
                 url          : dockDemoUrl
             });
-            // Registries reach the site only inside a release package, so the reveal ships with the release that contains the app
-            expect(firstSeen, `${file}: DockDemo is the first live card`).toBe(dockDemo);
+            expect(visible.at(-1), `${file}: choreography remains available at the end`).toBe(dockDemo);
             // DevIndex left the engine's build: each row links out to its deployed site, at the entry that site serves
             // for the row's environment, and at the site root while the site has none
             expect(devIndex, `${file}: DevIndex entry`).toMatchObject({
