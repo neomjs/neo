@@ -21,7 +21,7 @@ class Filter extends Base {
      */
     static operators = [
         '==', '===', '!=', '!==', '<', '<=', '>', '>=', 'doesNotStartWith', 'endsWith', 'excluded',
-        'included', 'isDefined', 'isUndefined', 'like', 'startsWith'
+        'included', 'isDefined', 'isUndefined', 'like', 'startsWith', 'typedIncluded'
     ]
 
     static config = {
@@ -69,14 +69,26 @@ class Filter extends Base {
          * The operator to filter by (use the combination of property, operator & value)
          * Valid values: '==', '===', '!=', '!==', '<', '<=', '>', '>=', 'doesNotStartWith', 'endsWith', 'excluded', 'included', 'isDefined', 'isUndefined', 'like', 'startsWith'
          * @member {String} operator='==='
+         * @reactive
          */
         operator_: '===',
+        /**
+         * Optional collection-local contribution identity, paired with property. Null is unowned.
+         * @member {String|null} ownerRole=null
+         */
+        ownerRole: null,
         /**
          * The property to filter by (use the combination of property, operator & value)
          * @member {String} property_='id'
          * @reactive
          */
         property_: 'id',
+        /**
+         * Opts a local Store into reapplying its full filter conjunction after ordinary record edits.
+         * The Store owns this lifetime; silent raw edits still need explicit filtering.
+         * @member {Boolean} reapplyOnRecordChange=false
+         */
+        reapplyOnRecordChange: false,
         /**
          * The scope to use for the filterBy method, in case it is provided. Defaults to this instance.
          * @member {Object|null} scope=null
@@ -124,14 +136,57 @@ class Filter extends Base {
     }
 
     /**
-     * Triggered before the operator config gets changed.
+     * @summary Validates the operator and current typed include value before admitting a change.
      * @param {String|null} value
      * @param {String} oldValue
      * @returns {String}
      * @protected
      */
     beforeSetOperator(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'operator')
+        value = this.beforeSetEnumValue(value, oldValue, 'operator');
+        try {
+            if (value === 'typedIncluded' && this._value != null) {
+                if (!Array.isArray(this._value)) throw new TypeError('typedIncluded requires an array of scalar values');
+                this._value.forEach(Filter.getValueKey)
+            }
+        } catch (error) {
+            this._operator = oldValue;
+            throw error
+        }
+        return value
+    }
+
+    /**
+     * @summary Validates a typed include set before changing its authoritative value.
+     * @param {*} value
+     * @param {*} oldValue
+     * @returns {*}
+     * @protected
+     */
+    beforeSetValue(value, oldValue) {
+        try {
+            if (this.operator === 'typedIncluded' && value !== null) {
+                if (!Array.isArray(value)) throw new TypeError('typedIncluded requires an array of scalar values');
+                value.forEach(Filter.getValueKey)
+            }
+        } catch (error) {
+            this._value = oldValue;
+            throw error
+        }
+
+        return value
+    }
+
+    /**
+     * @summary Builds a scan-local evaluator; typed selection keys are computed once without mutating the Filter.
+     * @returns {Function}
+     * @protected
+     */
+    createEvaluator() {
+        const keys = !this.disabled && this.operator === 'typedIncluded' && Array.isArray(this.value)
+            ? new Set(this.value.map(Filter.getValueKey)) : null;
+
+        return (item, filteredItems, allItems) => this.isFiltered(item, filteredItems, allItems, keys)
     }
 
     /**
@@ -168,9 +223,10 @@ class Filter extends Base {
      * @param {Array} filteredItems If the collection filterMode is not primitive contains the items which passed
      * the previous filters, otherwise all collection items
      * @param {Array} allItems all collection items
+     * @param {Set|null} typedKeys=null Scan-local typed include keys.
      * @returns {Boolean}
      */
-    isFiltered(item, filteredItems, allItems) {
+    isFiltered(item, filteredItems, allItems, typedKeys=null) {
         let me = this,
             filterValue, recordValue;
 
@@ -198,6 +254,10 @@ class Filter extends Base {
         filterValue = me._value;
         recordValue = item[me._property];
 
+        if (me._operator === 'typedIncluded') {
+            return typedKeys ? !typedKeys.has(Filter.getValueKey(recordValue)) : !Filter.typedIncluded(recordValue, filterValue)
+        }
+
         if (filterValue instanceof Date && recordValue instanceof Date) {
             filterValue = filterValue.valueOf();
             recordValue = recordValue.valueOf()
@@ -215,10 +275,12 @@ class Filter extends Base {
 
         return {
             ...super.toJSON(),
-            disabled: me.disabled,
-            operator: me.operator,
-            property: me.property,
-            value   : me.value
+            disabled             : me.disabled,
+            operator             : me.operator,
+            ownerRole            : me.ownerRole,
+            property             : me.property,
+            reapplyOnRecordChange: me.reapplyOnRecordChange,
+            value                : me.value
         }
     }
 
@@ -251,6 +313,42 @@ class Filter extends Base {
 
     static ['included'](a, b) {
         return b.indexOf(a) > -1
+    }
+
+    /**
+     * @summary Encodes scalar identity without merging equal labels or Date/number values.
+     * @param {*} value
+     * @returns {String}
+     * @throws {TypeError} Unsupported scalar or invalid Date.
+     * @static
+     */
+    static getValueKey(value) {
+        if (value === null) return 'null';
+        if (value instanceof Date) {
+            const epoch = value.valueOf();
+            if (!Number.isFinite(epoch)) throw new TypeError('Invalid Date in scalar filter values');
+            return 'date:' + epoch
+        }
+
+        const type = typeof value;
+        if (type === 'undefined') return 'undefined';
+        if (type === 'string') return 'string:' + value;
+        if (type === 'boolean') return 'boolean:' + value;
+        if (type === 'number' && !Number.isNaN(value)) return 'number:' + value;
+        throw new TypeError('Filter values must be scalar values or valid Dates')
+    }
+
+    /**
+     * @summary Tests local typed inclusion; equal Date epochs match, numeric timestamps stay distinct.
+     * Remote consumers of this operator are not supported.
+     * @param {*} value
+     * @param {Array} values
+     * @returns {Boolean}
+     * @static
+     */
+    static typedIncluded(value, values) {
+        const key = Filter.getValueKey(value);
+        return values.some(candidate => Filter.getValueKey(candidate) === key)
     }
 
     static ['isDefined'](a, b) {

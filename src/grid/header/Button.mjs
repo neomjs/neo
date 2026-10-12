@@ -299,6 +299,7 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Updates this Store/field's shared inline contribution without touching picker or application filters.
      * @param {Object} data
      */
     changeFilterOperator(data) {
@@ -306,22 +307,19 @@ class Button extends BaseButton {
             gridContainer = me.up('grid-container'),
             store         = gridContainer?.store,
             operator      = data.value,
-            filter, filters;
+            filter;
 
         if (store) {
-            filter = store.getFilter(me.dataField);
+            filter = store.getFilter(me.dataField, 'header-inline');
 
             if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
+                store.filters = [...store.filters, {
+                    ...me.filterConfig,
+                    property : me.dataField,
                     operator,
-                    value   : null,
-                    ...me.filterConfig
-                });
-
-                store.filters = filters
+                    value    : null,
+                    ownerRole: 'header-inline'
+                }]
             } else {
                 filter.operator = operator
             }
@@ -329,6 +327,7 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Writes input into the shared inline contribution; filterConfig supplies creation defaults only.
      * @param {Object} data
      */
     changeFilterValue(data) {
@@ -336,10 +335,10 @@ class Button extends BaseButton {
             gridContainer = me.up('grid-container'),
             store         = gridContainer?.store,
             {value}       = data,
-            field, filter, filters, model;
+            field, filter, model;
 
         if (store) {
-            filter = store.getFilter(me.dataField);
+            filter = store.getFilter(me.dataField, 'header-inline');
             model  = store.model;
             field  = model.getField(me.dataField);
 
@@ -348,16 +347,13 @@ class Button extends BaseButton {
             }
 
             if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
+                store.filters = [...store.filters, {
                     operator: 'like',
+                    ...me.filterConfig,
+                    property : me.dataField,
                     value,
-                    ...me.filterConfig
-                });
-
-                store.filters = filters
+                    ownerRole: 'header-inline'
+                }]
             } else {
                 filter.value = value
             }
