@@ -1270,6 +1270,11 @@ class GridContainer extends BaseContainer {
 
         await me.passSizeToBody(true);
 
+        // The delivery is buffered, so the grid can be gone by now
+        if (me.isDestroyed) {
+            return
+        }
+
         me.bodyStart?.updateMountedAndVisibleColumns();
         me.body.updateMountedAndVisibleColumns();
         me.bodyEnd?.updateMountedAndVisibleColumns();
@@ -1349,6 +1354,11 @@ class GridContainer extends BaseContainer {
         let me                    = this,
             {headerToolbar, view} = me,
             containerRect, headerRect, viewRect;
+
+        // `view` resolves nothing once the grid is gone, as a late (buffered) resize delivery can find it
+        if (!view) {
+            return
+        }
 
         [containerRect, headerRect, viewRect] = await me.getLayoutRect([me.id, headerToolbar.id, view.id]);
 
