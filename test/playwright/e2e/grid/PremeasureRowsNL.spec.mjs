@@ -118,10 +118,23 @@ test.describe('Grid native hidden premeasurement', () => {
     });
 
     test('a real font arrival replaces the fallback-font height cache', async ({page}) => {
-        const lastCell = page.locator(`${GRID} .neo-grid-row-measure [data-measure-index="299"] .neo-grid-cell[data-field="text"]`);
-        await lastCell.waitFor({state: 'attached'});
+        await app.callMethod(viewId, 'promiseUpdate');
+        await settleGrid(page);
+        await app.callMethod(viewId, 'measureAheadRows');
+        await app.callMethod(viewId, 'promiseUpdate');
+        await page.locator(`${GRID} .neo-grid-view`).hover();
+        for (let step = 0; step < 32; step++) {
+            await page.mouse.wheel(0, 200);
+            await settleGrid(page)
+        }
+        const lastCell = page.locator(`${GRID} .neo-grid-row[data-record-id] .neo-grid-cell[data-field="text"]`).filter({visible: true}).first();
+        expect(await lastCell.evaluate(cell => Number(cell.closest('.neo-grid-row').dataset.rowId))).toBeGreaterThan(40);
         const lastId = await lastCell.getAttribute('data-record-id');
         await expect.poll(() => app.callMethod(geometryId, 'hasHeight', [lastId])).toBe(true);
+        await page.locator(`${GRID} .neo-grid-view`).evaluate(view => {view.scrollTop = 0});
+        await expect.poll(() => page.locator(`${GRID} .neo-grid-row[data-record-id]`).first()
+            .evaluate(row => Number(row.dataset.rowId))).toBe(0);
+        await settleGrid(page);
         await page.evaluate(async grid => {
             let face = new FontFace('GridFontArrival', 'local("Courier New"), local("DejaVu Sans Mono"), local("Liberation Mono")');
             document.fonts.add(face);
@@ -131,9 +144,55 @@ test.describe('Grid native hidden premeasurement', () => {
             await face.load();
             await document.fonts.ready
         }, GRID);
-        // Record 299 is outside the viewport: only clearing the retained cache can make it unknown.
+        // The previously visited record is outside the measurement window: invalidation must retire its height.
         await expect.poll(() => app.callMethod(geometryId, 'hasHeight', [lastId])).toBe(false);
+        const firstId = await page.locator(`${GRID} .neo-grid-row[data-record-id]`).first().getAttribute('data-record-id');
+        await expect.poll(() => app.callMethod(geometryId, 'hasHeight', [firstId])).toBe(true);
+        await app.callMethod(viewId, 'promiseUpdate');
+        await settleGrid(page);
+        await app.callMethod(viewId, 'measureAheadRows');
+        await app.callMethod(viewId, 'promiseUpdate');
+        for (let step = 0; step < 100 && !(await app.callMethod(geometryId, 'hasHeight', [lastId])); step++) {
+            await page.mouse.wheel(0, 200);
+            await settleGrid(page)
+        }
         await expect.poll(() => app.callMethod(geometryId, 'hasHeight', [lastId]), {timeout: 10000}).toBe(true)
+    });
+
+    test('without input the bounded nearby measurements settle and keep the viewport and extent still', async ({page}) => {
+        await page.evaluate(() => document.fonts.ready);
+        await page.evaluate(() => {
+            const access = Neo.main.DomAccess, original = access.getLayoutRect,
+                witness  = window.__gridIdleWitness = {measurements: 0, updates: 0, original};
+            access.getLayoutRect = function(...args) {witness.measurements++; return original.apply(this, args)};
+            witness.onUpdated = () => {witness.updates++};
+            Neo.main.DeltaUpdates.on('updated', witness.onUpdated)
+        });
+        // A real reset supplies positive controls for both main-thread counters through the production transport.
+        await app.callMethod(viewId, 'resetRowHeights');
+        await expect.poll(() => page.evaluate(() => window.__gridIdleWitness.measurements)).toBeGreaterThan(0);
+        await expect.poll(() => page.evaluate(() => window.__gridIdleWitness.updates)).toBeGreaterThan(0);
+        await app.callMethod(viewId, 'measureAheadRows');
+        await app.callMethod(viewId, 'promiseUpdate');
+        await settleGrid(page);
+        const quiet = await page.evaluate(async grid => {
+            const view = document.querySelector(`${grid} .neo-grid-view`), states = new Set(), witness = window.__gridIdleWitness;
+            witness.measurements = witness.updates = 0;
+            try {
+                for (let frame = 0; frame < 60; frame++) {
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+                    states.add(JSON.stringify([view.scrollTop, view.scrollHeight,
+                        [...view.querySelectorAll('.neo-grid-row[data-record-id]')].filter(row => row.style.display !== 'none')
+                            .map(row => [row.dataset.recordId, row.getBoundingClientRect().top, row.getBoundingClientRect().height])]))
+                }
+                return {states: states.size, measurements: witness.measurements, updates: witness.updates}
+            } finally {
+                Neo.main.DomAccess.getLayoutRect = witness.original;
+                Neo.main.DeltaUpdates.un('updated', witness.onUpdated)
+            }
+        }, GRID);
+        expect(quiet, 'idle has no measurement traffic, renderer updates, estimate changes or visible twitches')
+            .toEqual({states: 1, measurements: 0, updates: 0})
     });
 
     for (const direction of [-1, 1]) for (const paced of [true, false]) {
@@ -165,10 +224,10 @@ test.describe('Grid native hidden premeasurement', () => {
         expect(await app.callMethod(geometryId, 'hasHeight', [unknownId]), 'the wheel path still contains unseen records').toBe(false);
         await page.evaluate(({grid, unknownId}) => {
             let seen      = new Set([...document.querySelectorAll(`${grid} .neo-grid-row[data-record-id]`)].map(row => row.dataset.recordId));
-            let frameSeen = new Set(seen);
+            let frameSeen = new Set();
             let started   = false;
             window.__gridHeightSample = {jump: {measured: 0, estimated: 0}, wheel: {measured: 0, estimated: 0},
-                frames: {measured: 0, estimated: 0}, unseenRecordArrived: false};
+                visible: {measured: 0, estimated: 0}, unseenRecordArrived: false, unseenRecordVisible: false};
             document.querySelector(`${grid} .neo-grid-view`).addEventListener('wheel', () => {started = true},
                 {capture: true, once: true, passive: true});
             window.__gridHeightObserver = new MutationObserver(() => {
@@ -182,11 +241,17 @@ test.describe('Grid native hidden premeasurement', () => {
             });
             window.__gridHeightObserver.observe(document.querySelector(grid), {attributes: true, childList: true, subtree: true})
             const frame = () => {
+                const viewport = document.querySelector(`${grid} .neo-grid-view`).getBoundingClientRect();
                 document.querySelectorAll(`${grid} .neo-grid-row[data-record-id]`).forEach(row => {
-                    let id = row.dataset.recordId, source = row.dataset.heightSource;
-                    if (!started || row.style.display === 'none' || frameSeen.has(id) || !['measured', 'estimated'].includes(source)) return;
+                    let id = row.dataset.recordId, source = row.dataset.heightSource, rect = row.getBoundingClientRect();
+                    if (row.style.display === 'none' || frameSeen.has(id) || !['measured', 'estimated'].includes(source) ||
+                        rect.bottom <= viewport.top || rect.top >= viewport.bottom ||
+                        rect.right <= viewport.left || rect.left >= viewport.right) return;
                     frameSeen.add(id);
-                    window.__gridHeightSample.frames[source]++
+                    if (started) {
+                        window.__gridHeightSample.visible[source]++;
+                        Number(id) === unknownId && (window.__gridHeightSample.unseenRecordVisible = true)
+                    }
                 });
                 window.__gridHeightFrame = requestAnimationFrame(frame)
             };
@@ -207,9 +272,9 @@ test.describe('Grid native hidden premeasurement', () => {
             return window.__gridHeightSample
         });
         console.log('premeasurement wheel coverage', JSON.stringify({direction, paced, ...sample}));
-        expect(sample.wheel.measured + sample.wheel.estimated).toBeGreaterThan(15);
-        expect(sample.wheel.estimated).toBe(0);
-        expect(sample.unseenRecordArrived, 'the sample reaches a record proven unknown before wheel input').toBe(true)
+        expect(sample.visible.measured + sample.visible.estimated).toBeGreaterThan(15);
+        expect(sample.visible.estimated).toBe(0);
+        expect(sample.unseenRecordVisible, 'the sample displays a record proven unknown before wheel input').toBe(true)
     })
     }
 });

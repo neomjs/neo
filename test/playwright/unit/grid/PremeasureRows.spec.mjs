@@ -99,6 +99,27 @@ test.describe('Grid hidden row premeasurement', () => {
         expect(view.rowGeometry.measuredMean).toBe(null)
     });
 
+    test('a view-owned row refresh schedules measurement when it absorbs the body updates', async () => {
+        const {view}    = grid;
+        let   scheduled = 0, bodyUpdates = 0;
+        view.scheduleRowMeasure = () => {scheduled++};
+        view.bodies.forEach(body => {body.afterExecuteVdomUpdate = () => {bodyUpdates++}});
+
+        expect(view.setRowHeights(new Map([[view.getRecordId(store.getAt(0)), 100]]))).toBe(true);
+        await view.promiseUpdate();
+        expect(bodyUpdates, 'the View owns this update, so child post-update hooks do not run').toBe(0);
+        expect(scheduled, 'the landed parent render still owes a measurement pass').toBeGreaterThan(0)
+    });
+
+    test('the unseen-row estimate rounds the mean without rounding a known height or lowering the minimum', () => {
+        const {view} = grid, id = view.getRecordId(store.getAt(0));
+        view.setRowHeights(new Map([[id, 85.4]]), true);
+        expect(view.rowGeometry.heightAt(0)).toBe(85.4);
+        expect(view.rowGeometry.measuredMean).toBe(85.4);
+        expect(view.rowGeometry.heightAt(79)).toBe(85);
+        expect(grid.rowHeight).toBe(40)
+    });
+
     test('a thumb drag holds the measured mean and font reset until release, then measures the new font', async () => {
         const {view, verticalScrollbar} = grid,
               geometry                  = view.rowGeometry,

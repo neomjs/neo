@@ -194,15 +194,6 @@ class View extends Base {
      * @member {Promise|null} #aheadFlight=null
      */
     #aheadFlight = null
-    /**
-     * Cursor and pending wake for bounded refinement while the grid is idle.
-     * @member {Number} #idleMeasureIndex=0
-     */
-    #idleMeasureIndex = 0
-    /**
-     * @member {Promise|null} #idleMeasure=null
-     */
-    #idleMeasure = null
 
     /**
      * The active bodies in visual order (`bodyStart`, `body`, `bodyEnd`) — the render/event delegates
@@ -411,7 +402,6 @@ class View extends Base {
                 me.#textHeights.clear();
                 me.#measureKeys.clear();
                 me.#recordVersions.clear();
-                me.#idleMeasureIndex = 0;
                 me.clearMeasureProjection();
                 value && !me.isDestroyed && me.#changeRowHeights(() => {
                     me.rowGeometry.estimate = me.gridContainer.rowHeight;
@@ -649,7 +639,7 @@ class View extends Base {
 
     /**
      * @summary Measures a bounded hidden projection beside the visible row pool. Eight rows beyond each overscan edge
-     * cover the measured 80ms pipeline at ordinary wheel speed; idle passes refine another eight records.
+     * cover the nearby input window. Landed renders renew this range; there is no whole-store idle sweep.
      * Only text output enters this projection. Each region preserves its real body/row/cell ancestry and uses
      * Row's renderer normalization, but never embeds an editor or enters the physical row/cell pools.
      * @returns {Promise<void>}
@@ -708,9 +698,6 @@ class View extends Base {
         let [start, end] = me.gridContainer.body.mountedRows;
 
         for (let index = Math.max(0, start - 8); index < Math.min(store.count, end + 8); index++) indexes.add(index);
-        if (!me.bodies.some(body => body.isScrolling)) {
-            for (let step = 0; step < 8 && me.#idleMeasureIndex < store.count; step++) indexes.add(me.#idleMeasureIndex++)
-        }
 
         for (let index of indexes) {
             let record = store.getAt(index), id = me.getRecordId(record);
@@ -783,15 +770,6 @@ class View extends Base {
             heights.size && me.setRowHeights(heights, true)
         }
 
-        if (me.#idleMeasureIndex < store.count && !me.#idleMeasure) {
-            me.#idleMeasure = me.timeout(100).then(() => {
-                me.#idleMeasure = null;
-                return me.measureAheadRows()
-            }).catch(reason => {
-                me.#idleMeasure = null;
-                reason !== Neo.isDestroyed && console.error('grid.View: hidden row measurement failed', reason)
-            })
-        }
     }
 
     /**
@@ -954,7 +932,6 @@ class View extends Base {
             me.#measuredCells = new WeakMap();
             me.#textHeights.clear();
             me.#measureKeys.clear();
-            me.#idleMeasureIndex = 0;
             if (me.isThumbDragging) {
                 me.#heldReset = true;
                 me.scheduleRowMeasure();
@@ -1005,7 +982,7 @@ class View extends Base {
      * end, so the extent under the thumb holds still.
      * @param {Map<Number|String, Number>} heights Heights in px, keyed by record id
      * @param {Boolean} [estimateFromMeasurements=false] Refines unseen rows from the measured mean in this
-     * same mutation. Known heights and the grid's minimum rowHeight stay unchanged.
+     * same mutation using a whole-pixel estimate. Known heights and the grid's minimum rowHeight stay unchanged.
      * @returns {Boolean} True if at least one height changed now
      */
     setRowHeights(heights, estimateFromMeasurements = false) {
@@ -1021,10 +998,12 @@ class View extends Base {
         }
 
         return me.#changeRowHeights(() => {
-            let changed = rowGeometry.setHeights(heights);
+            let changed  = rowGeometry.setHeights(heights),
+                estimate = rowGeometry.measuredMean === null ? null :
+                    Math.max(me.gridContainer.rowHeight, Math.round(rowGeometry.measuredMean));
             if (estimateFromMeasurements && rowGeometry.measuredMean !== null &&
-                rowGeometry.estimate !== rowGeometry.measuredMean) {
-                rowGeometry.estimate = rowGeometry.measuredMean;
+                rowGeometry.estimate !== estimate) {
+                rowGeometry.estimate = estimate;
                 changed = true
             }
             return changed
@@ -1123,7 +1102,6 @@ class View extends Base {
             me.#measureKeys.clear();
             me.#recordVersions.clear();
             me.#measureLayout = [];
-            me.#idleMeasureIndex = 0;
 
             me.rowGeometry = Neo.create({
                 module     : RowGeometry,
