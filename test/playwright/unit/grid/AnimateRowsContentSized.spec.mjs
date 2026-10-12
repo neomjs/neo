@@ -28,6 +28,7 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
+import AnimateRows        from '../../../../src/grid/plugin/AnimateRows.mjs';
 import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import GridContainer      from '../../../../src/grid/Container.mjs';
@@ -54,12 +55,13 @@ function createStore(count) {
  * A mounted grid whose body animates its rows, with the layout a browser would deliver applied by hand
  * @param {Neo.data.Store} store
  * @param {Boolean} contentSizedRows
+ * @param {Object} [body={animatedRowSorting: true}] The body config that brings in the plugin
  * @returns {Promise<Neo.grid.Container>}
  */
-async function createGrid(store, contentSizedRows) {
+async function createGrid(store, contentSizedRows, body = {animatedRowSorting: true}) {
     let grid = Neo.create(GridContainer, {
         appName       : 'GridAnimateRowsContentSizedTest',
-        body          : {animatedRowSorting: true},
+        body,
         bufferRowRange: 2,
         columns       : [{dataField: 'id', text: 'ID', width: 100}, {dataField: 'name', text: 'Name', width: 200}],
         contentSizedRows,
@@ -170,6 +172,41 @@ test.describe('Grid AnimateRows with content-sized rows', () => {
         // ids 3, 4, 5, ...: the tall record 4 sits at index 1
         expect(body.items.find(row => row.rowIndex === 0)?.record.id).toBe(3);
         expect(view.rowGeometry.heightAt(1)).toBe(120);
+        expectRowsOnGeometry(body, view.rowGeometry)
+    });
+
+    test('content-sized rows switched on after the plugin: it stands aside from then on', async () => {
+        grid = await createGrid(store, false);
+
+        let {body, view} = grid;
+
+        expect(body.cls).toContain('neo-animate-rows');
+
+        grid.contentSizedRows = true;
+        await view.promiseUpdate();
+
+        view.setRowHeights(heightsOf(grid, {197: 120, 199: 80}));
+        await view.promiseUpdate();
+
+        store.sort({direction: 'DESC', property: 'id'});
+        await grid.timeout(50);
+
+        expect(warnings.length).toBe(1);
+        expect(body.cls).not.toContain('neo-animate-rows');
+        expect(body.items.find(row => row.rowIndex === 0)?.record.id).toBe(199);
+        expectRowsOnGeometry(body, view.rowGeometry)
+    });
+
+    test('content-sized rows: a plugin declared by hand stands aside, too', async () => {
+        grid = await createGrid(store, true, {plugins: [{module: AnimateRows}]});
+
+        let {body, view} = grid;
+
+        store.filters = [{property: 'id', operator: '>', value: 2}];
+        await grid.timeout(50);
+
+        expect(warnings.length).toBe(1);
+        expect(body.items.find(row => row.rowIndex === 0)?.record.id).toBe(3);
         expectRowsOnGeometry(body, view.rowGeometry)
     });
 
