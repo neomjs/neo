@@ -6,6 +6,7 @@ import NeoArray from '../../util/Array.mjs';
  *
  * The positions are fixed-height ones (`rowIndex × rowHeight`). With `contentSizedRows` the plugin stands aside:
  * the body handles the store events itself and renders its rows at their geometry offsets, without transitions.
+ * The plugin follows the mode through the body's `rowGeometryChange` event, which fires before the rows re-render.
  * @class Neo.grid.plugin.AnimateRows
  * @extends Neo.plugin.Base
  */
@@ -82,6 +83,7 @@ class AnimateRows extends Base {
         // Add the re-bound listeners
         owner.store = store;
 
+        owner.on('rowGeometryChange', me.standAside, me);
         me.standAside()
     }
 
@@ -119,7 +121,12 @@ class AnimateRows extends Base {
      * @param {Object} args
      */
     destroy(...args) {
-        this.owner.addStyle({
+        let me      = this,
+            {owner} = me;
+
+        owner.un('rowGeometryChange', me.standAside, me);
+
+        owner.addStyle({
             '--neo-duration': null,
             '--neo-easing'  : null
         });
@@ -153,7 +160,8 @@ class AnimateRows extends Base {
     /**
      * Content-sized rows have no fixed-height positions to animate to, and this plugin does not read the row
      * geometry. In that mode it takes its row transitions off the body and warns, once, that `animatedRowSorting`
-     * is ignored; the caller hands the store event to the body.
+     * is ignored; a store event goes to the body's own handler. Back in fixed-height mode, the transitions return.
+     * Runs on every store event, and on `rowGeometryChange`, before the rows re-render for a new mode.
      * @returns {Boolean} True if the plugin stands aside
      * @protected
      */

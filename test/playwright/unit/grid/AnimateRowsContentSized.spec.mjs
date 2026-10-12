@@ -175,26 +175,45 @@ test.describe('Grid AnimateRows with content-sized rows', () => {
         expectRowsOnGeometry(body, view.rowGeometry)
     });
 
-    test('content-sized rows switched on after the plugin: it stands aside from then on', async () => {
+    test('content-sized rows switched on after the plugin: the transitions come off with the switch, and come back with the switch back', async () => {
         grid = await createGrid(store, false);
 
         let {body, view} = grid;
 
         expect(body.cls).toContain('neo-animate-rows');
 
+        // No store event: the switch alone takes the transitions off, before measured heights move any row
         grid.contentSizedRows = true;
-        await view.promiseUpdate();
+        expect(body.cls).not.toContain('neo-animate-rows');
+        expect(warnings.length).toBe(1);
 
-        view.setRowHeights(heightsOf(grid, {197: 120, 199: 80}));
+        view.setRowHeights(heightsOf(grid, {1: 120, 2: 80}));
         await view.promiseUpdate();
+        expectRowsOnGeometry(body, view.rowGeometry);
 
+        // A sort renders through the body
         store.sort({direction: 'DESC', property: 'id'});
         await grid.timeout(50);
 
-        expect(warnings.length).toBe(1);
-        expect(body.cls).not.toContain('neo-animate-rows');
         expect(body.items.find(row => row.rowIndex === 0)?.record.id).toBe(199);
-        expectRowsOnGeometry(body, view.rowGeometry)
+        expectRowsOnGeometry(body, view.rowGeometry);
+
+        grid.contentSizedRows = false;
+        expect(body.cls).toContain('neo-animate-rows');
+        expect(warnings.length).toBe(1);
+
+        await view.promiseUpdate()
+    });
+
+    test('a destroyed plugin no longer follows the mode', async () => {
+        grid = await createGrid(store, false);
+
+        grid.body.getPlugin('grid-animate-rows').destroy();
+
+        grid.contentSizedRows = true;
+        await grid.view.promiseUpdate();
+
+        expect(warnings).toEqual([])
     });
 
     test('content-sized rows: a plugin declared by hand stands aside, too', async () => {
