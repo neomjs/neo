@@ -43,6 +43,32 @@ export const GPU_INTENT_ARGS = [
 ];
 
 /**
+ * @summary Playwright's own disabled Chrome features, copied verbatim from its `chromiumSwitches`.
+ *
+ * Playwright launches Chrome with these as `--disable-features` and appends user args after them, and
+ * Chrome keeps only the last `--disable-features`. Any list of ours therefore replaces this one unless
+ * it repeats it. `glState.spec.mjs` fails when the installed Playwright's list stops matching.
+ * @type {String[]}
+ */
+export const PLAYWRIGHT_DISABLED_FEATURES = [
+    'AvoidUnnecessaryBeforeUnloadCheckSync',
+    'DestroyProfileOnBrowserClose',
+    'DialMediaRouteProvider',
+    'GlobalMediaControls',
+    'HttpsUpgrades',
+    'LensOverlay',
+    'MediaRouter',
+    'PaintHolding',
+    'ThirdPartyStoragePartitioning',
+    'BlockOriginHeaderModificationOnRedirect',
+    'Translate',
+    'AutoDeElevate',
+    'OptimizationHints',
+    'msForceBrowserSignIn',
+    'msEdgeUpdateLaunchServicesPreferredVersion'
+];
+
+/**
  * @summary Shared browser isolation, memory, throttling, screen, and sandbox arguments.
  *
  * The explicit engine profile uses this list unchanged. The presenting profile removes the
@@ -70,7 +96,7 @@ export const BASE_LAUNCH_ARGS = [
     '--disable-dev-shm-usage',
     '--disable-ipc-flooding-protection',
     '--force-gpu-mem-available-mb=4096',
-    '--disable-features=IsolateOrigins,site-per-process,TouchpadOverscrollHistoryNavigation'
+    `--disable-features=${[...PLAYWRIGHT_DISABLED_FEATURES, 'IsolateOrigins', 'site-per-process', 'TouchpadOverscrollHistoryNavigation'].join(',')}`
 ];
 
 /**
