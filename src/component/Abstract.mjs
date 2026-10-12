@@ -157,11 +157,16 @@ class Abstract extends Base {
      * available and interactive before executing subsequent logic.
      *
      * It also handles unmounting by resetting the promise, so it can be safely
-     * awaited again if the component is remounted.
+     * awaited again if the component is remounted, including after an unmount that skipped `afterSetMounted()`
+     * (`container.Base#insert` copies into another window with a raw `_mounted` write).
      * @returns {Promise<Neo.component.Base>}
      */
     get mountedPromise() {
         let me = this;
+
+        if (me._mountedPromise && !me.mountedPromiseResolve && !me.mounted) {
+            delete me._mountedPromise
+        }
 
         if (!me._mountedPromise) {
             me._mountedPromise = new Promise(resolve => {
