@@ -32,6 +32,21 @@ You MUST specify the E2E specific playwright config (`playwright.config.e2e.mjs`
 npx playwright test test/playwright/e2e/<domain>/YourTestNL.spec.mjs -c test/playwright/playwright.config.e2e.mjs
 ```
 
+**3. Point the Fixture at a Brain**
+The `neuralLink` fixture drives a live Brain. Set `NEO_AGENTOS_RUNTIME_ROOT` to the absolute path of a `neo-agent-brain` checkout whose dependencies are installed (`npm ci`). Without it, `playwright.config.e2e.mjs` deselects every spec that uses the fixture.
+
+## Hosted CI
+
+The engine tier (`.github/workflows/test-e2e.yml`) runs on pull requests without a Brain, so it selects only the Brain-free specs.
+
+The Brain-gated specs run in `.github/workflows/test-e2e-brain.yml`, on `dev` pushes only. This is a burn-in that measures them before any pull request depends on them. The workflow checks out the Brain at its `dev` tip, resolved once per run, and installs it with `npm ci`.
+
+Each shard's job summary is its receipt:
+- the event and attempt;
+- the Engine and Brain SHAs;
+- the files the shard ran, with their outcome;
+- its test time against the five-minute ceiling.
+
 ## Connecting the Neural Link (Fixtures)
 
 Whitebox E2E tests are located in `test/playwright/e2e/`. Instead of manually establishing WebSocket connections, the Neo.mjs team provides a powerful Playwright fixture called `neuralLink`.
