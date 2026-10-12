@@ -74,18 +74,19 @@ export const PLAYWRIGHT_DISABLED_FEATURES = [
  * The explicit engine profile uses this list unchanged. The presenting profile removes the
  * frame-rate override which suppresses compositor frames on headed Retina hosts.
  *
- * `--screen-info` gives headless Chrome a 1920×1080 screen instead of its 800×600 default. The
+ * `--screen-info` gives headless Chrome a 2560×1440 screen instead of its 800×600 default. The
  * window manager clamps a script-moved popup into the screen, so on the default a 480 px popup's
  * `moveTo(900, 20)` lands at x = 320 and the product's own placement cannot follow a target the
- * test staged beyond it. `contextOptions.screen` changes only what `window.screen` reports, and
- * measured with this configuration's `chrome` channel, `--window-size` left the screen at 800 px.
+ * test staged beyond it. The multi-window journeys drive popups beside a 1280×720 main window, which
+ * 1920×1080 still leaves too little room for. `contextOptions.screen` changes only what `window.screen`
+ * reports, and measured with this configuration's `chrome` channel, `--window-size` left the screen at 800 px.
  *
  * `TouchpadOverscrollHistoryNavigation` is disabled because Chrome reads CDP's precise wheel deltas as a
  * touchpad swipe, and a horizontal overscroll then navigates the page under test back.
  * @type {String[]}
  */
 export const BASE_LAUNCH_ARGS = [
-    '--screen-info={1920x1080}',
+    '--screen-info={2560x1440}',
     '--disable-frame-rate-limit',
     '--no-sandbox',
     '--disable-setuid-sandbox',
