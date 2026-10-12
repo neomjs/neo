@@ -10,6 +10,7 @@
  *
  * A measurement stays valid while its text, its width and its rules stay: a hidden cell is measured once it shows,
  * and a removed wrapText column or a new `rowHeight` derives the measured rows again from their stored heights.
+ * A cell is read only once the DOM shows it, so a row whose vdom ran ahead of its last landed update waits for it.
  *
  * @see Neo.grid.View#measureRowHeights
  */
@@ -38,12 +39,15 @@ import GridContainer      from '../../../../src/grid/Container.mjs';
 import Row                from '../../../../src/grid/Row.mjs';
 import Store              from '../../../../src/data/Store.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
+import VNodeUtil          from '../../../../src/util/VNode.mjs';
 
 const
     CHROME    = 5,
     LINE      = 20,
     rowHeight = 40,
-    viewport  = 360;
+    viewport  = 360,
+    // The column widths of createGrid(), in px
+    WIDTHS    = {name: 150, note: 200};
 
 /**
  * @param {Number} count
@@ -149,6 +153,34 @@ function readTextRects(grid, ids) {
         return text.cell.style.display === 'none' ?
             {height: 0, width: 0} :
             {height: text.record[`${text.field}Lines`] * LINE, width: parseFloat(text.cell.style.width)}
+    })
+}
+
+/**
+ * What the main thread would answer while the DOM lags the vdom: for the texts and widths the rows' last landed
+ * updates rendered, their vnodes. A text names its record, e.g. `Note 12`, and wraps to fewer lines in a cell wider
+ * than its column's {@link WIDTHS}.
+ * @param {Neo.grid.Container} grid
+ * @param {String[]} ids
+ * @returns {Object[]}
+ */
+function shownTextRects(grid, ids) {
+    let rows = grid.view.bodies.flatMap(body => body.items);
+
+    return ids.map(id => {
+        for (let row of rows) {
+            let text = VNodeUtil.getById(row.vnode, id);
+
+            if (text) {
+                let [name, index] = text.innerHTML.split(' '),
+                    field         = name.toLowerCase(),
+                    width         = parseFloat(VNodeUtil.getById(row.vnode, id.slice(0, -'__text'.length)).style.width);
+
+                return {height: grid.store.get(Number(index))[`${field}Lines`] * LINE * WIDTHS[field] / width, width}
+            }
+        }
+
+        return {}
     })
 }
 
@@ -357,6 +389,58 @@ test.describe('Grid wrapText measurement', () => {
 
         expect(applied.length).toBeGreaterThan(0);
         expect(applied.filter(id => stale.includes(id))).toEqual([])
+    });
+
+    test('a row whose vdom runs ahead of the DOM is read once its update lands', async () => {
+        let {view}        = grid,
+            {rowGeometry} = view,
+            row           = grid.body.items.find(item => item.rowIndex === 1),
+            // A 5-line note (105px), where the slot's record 1 shows a 3-line one
+            record        = store.get(152);
+
+        respond = ids => Promise.resolve(shownTextRects(grid, ids));
+
+        // A silent pass moves the slot on to record 152, and no update renders it yet
+        row.updateContent({record, rowIndex: 152, silent: true});
+
+        await view.measureRowHeights();
+        expect(rowGeometry.heightAt(152), 'record 1\'s note is not read for record 152').toBe(rowGeometry.estimate);
+
+        // The row's own update lands, and the pass it schedules reads the new note
+        await row.promiseUpdate();
+        await grid.timeout(50);
+
+        expect(rowGeometry.heightAt(152)).toBe(expectedHeight(record))
+    });
+
+    test('a cell whose new width has not landed is read at that width once it does', async () => {
+        let {view}  = grid,
+            applied = [],
+            row     = grid.body.items.find(item => item.rowIndex === 4),
+            // Record 4: a 2-line name and a 4-line note
+            id      = view.getRecordId(store.get(4));
+
+        respond = ids => Promise.resolve(shownTextRects(grid, ids));
+
+        // Every height a pass applies to record 4, in order
+        view.setRowHeights = new Proxy(view.setRowHeights, {
+            apply(target, scope, args) {
+                args[0].has(id) && applied.push(args[0].get(id));
+                return Reflect.apply(target, scope, args)
+            }
+        });
+
+        // A column resize widens the cell in the vdom, and no update renders it yet
+        row.vdom.cn.find(node => node.data?.field === 'note').style.width = '250px';
+
+        await view.measureRowHeights();
+        expect(applied, 'the 200px note is not read for 250px').toEqual([]);
+
+        // The row's update lands, and the pass it schedules reads the note at 250px: 4 × 200 / 250 lines
+        await row.promiseUpdate();
+        await grid.timeout(50);
+
+        expect(applied[0]).toBe(4 * LINE * WIDTHS.note / 250 + CHROME)
     });
 
     test('a reply for a cell whose width changed in the meantime is dropped', async () => {

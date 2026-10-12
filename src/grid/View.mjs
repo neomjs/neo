@@ -2,6 +2,7 @@ import Base            from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import RowGeometry     from './RowGeometry.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
+import VNodeUtil       from '../util/VNode.mjs';
 
 /**
  * Component boundaries between grid.View and a cell component: View → Body → Row. `updateDepth` is
@@ -397,6 +398,24 @@ class View extends Base {
     }
 
     /**
+     * Content-sized rows: true if the row's last landed update rendered the cell as its vdom describes it, the same
+     * text at the same width. A pass can recycle a row while the view's update waits for other rows', and no flag
+     * shows that wait: a read would measure the text the row showed before.
+     * @param {Neo.grid.Row} row
+     * @param {Object} cell The cell's vdom
+     * @returns {Boolean}
+     * @private
+     */
+    #isShown(row, cell) {
+        let text      = cell.cn[0],
+            cellVnode = VNodeUtil.getById(row.vnode, cell.id),
+            textVnode = cellVnode?.childNodes[0];
+
+        return textVnode?.id === text.id && cellVnode.style.width === cell.style.width &&
+            (textVnode.textContent ?? textVnode.innerHTML) === (text.text ?? text.html)
+    }
+
+    /**
      * Retires the model the View owns and stops following the store; a body's destruction never
      * touches the model.
      * @param {...*} args
@@ -533,9 +552,10 @@ class View extends Base {
      * A hidden cell waits until it shows. When a wrapText column joins or leaves the grid, the measured rows take
      * their heights from the new set of columns.
      *
-     * The read crosses to the main thread while rows go on rendering. A cell whose row rendered it again before
-     * the reply (another record, new content or a new width) is skipped: the node that was read is gone. So is a
-     * cell whose box has no width: it was hidden when read.
+     * Only a cell the DOM shows as its vdom describes it is read, see {@link #isShown}. The read crosses to the main
+     * thread while rows go on rendering. A cell whose row rendered it again before the reply (another record, new
+     * content or a new width) is skipped: the node that was read is gone. So is a cell whose box has no width: it was
+     * hidden when read.
      * @returns {Promise<void>}
      */
     async measureRowHeights() {
@@ -566,7 +586,8 @@ class View extends Base {
 
                 if (
                     wrapFields.has(cell.data?.field) && cell.style.display !== 'none' &&
-                    text?.cls?.includes('neo-grid-cell-text') && measured.get(cell) !== cell.style.width
+                    text?.cls?.includes('neo-grid-cell-text') && measured.get(cell) !== cell.style.width &&
+                    me.#isShown(row, cell)
                 ) {
                     targets.push({cell, record: row.record, row, textId: text.id, width: cell.style.width})
                 }
