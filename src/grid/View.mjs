@@ -1,5 +1,6 @@
 import Base            from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import RowGeometry     from './RowGeometry.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
 
 /**
@@ -31,6 +32,14 @@ class View extends Base {
          * @protected
          */
         baseCls: ['neo-grid-view', 'neo-hide-scrollbar'],
+        /**
+         * Content-sized mode: rows take individual heights, and every row-position consumer reads them from
+         * the View-owned {@link #rowGeometry} instead of multiplying by `rowHeight`. `grid.Container` sets it
+         * from its own `contentSizedRows` config.
+         * @member {Boolean} contentSizedRows_=false
+         * @reactive
+         */
+        contentSizedRows_: false,
         /**
          * grid.View is the single logical focus anchor for the multi-body grid: its outer element is
          * programmatically focusable (`tabIndex: '-1'`, not tab-reachable), so a row activation in ANY
@@ -85,6 +94,13 @@ class View extends Base {
          */
         selectedRecordField: 'annotations.selected'
     }
+
+    /**
+     * The row geometry of this view while {@link #contentSizedRows} is on, else `null`. One instance per view
+     * keeps its start, center and end bodies on the same row heights.
+     * @member {Neo.grid.RowGeometry|null} rowGeometry=null
+     */
+    rowGeometry = null
 
     /**
      * The active bodies in visual order (`bodyStart`, `body`, `bodyEnd`) — the render/event delegates
@@ -155,6 +171,17 @@ class View extends Base {
     }
 
     /**
+     * Triggered after the contentSizedRows config got changed. Creates or retires the {@link #rowGeometry}.
+     * The initial value is applied in {@link #onConstructed}, once the store and the bodies exist.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetContentSizedRows(value, oldValue) {
+        this.isConstructed && this.updateRowGeometry()
+    }
+
+    /**
      * Triggered after the isLoading config got changed
      *
      * {@link Neo.grid.Body#createViewData} refuses to project while the view is loading, and a store
@@ -222,7 +249,8 @@ class View extends Base {
     onConstructed() {
         super.onConstructed();
         this.selectionModel?.register(this);
-        this.bindStore(this.store, null)
+        this.bindStore(this.store, null);
+        this.contentSizedRows && this.updateRowGeometry()
     }
 
     /**
@@ -240,6 +268,10 @@ class View extends Base {
         oldValue?.un({...listeners});
         value   ?.on({...listeners});
 
+        if (me.rowGeometry) {
+            me.rowGeometry.store = value
+        }
+
         // a store that already holds its records fires no load for them
         value?.count && me.onStoreLoad()
     }
@@ -254,6 +286,7 @@ class View extends Base {
 
         me.bindStore(null, me.store);
         me.selectionModel?.destroy?.();
+        me.rowGeometry?.destroy();
         super.destroy(...args)
     }
 
@@ -353,12 +386,48 @@ class View extends Base {
     }
 
     /**
+     * Re-derives everything that depends on row heights after the {@link #rowGeometry} changed: each body's row
+     * pool, both scroll extents, and the rows' positions. A row whose record and index did not change finds
+     * its moved geometry itself ({@link Neo.grid.Row#hasStaleGeometry}) and keeps its cells.
+     * @param {Boolean} [force=false] Re-renders every row. A mode switch needs it: without a geometry, a row
+     * cannot tell that its content-sized height is stale.
+     */
+    refreshRowGeometry(force = false) {
+        let me = this;
+
+        me.bodies.forEach(body => {
+            body.updateAvailableRows();
+            body.updateScrollHeight(true)
+        });
+
+        me.gridContainer?.verticalScrollbar?.updateScrollHeight();
+        me.syncBodies(me.scrollTop, force)
+    }
+
+    /**
      * Scrolls the grid by a number of rows. Delegates to the center body (the scroll authority).
      * @param {Number} index
      * @param {Number} step
      */
     scrollByRows(index, step) {
         return this.gridContainer?.body?.scrollByRows(index, step)
+    }
+
+    /**
+     * Applies known row heights in content-sized mode. A mounted view re-derives its layout if any height
+     * changed; an unmounted one renders them on its first layout.
+     * @param {Map<Number|String, Number>} heights Heights in px, keyed by record id
+     * @returns {Boolean} True if at least one height changed
+     */
+    setRowHeights(heights) {
+        let me = this;
+
+        if (me.rowGeometry?.setHeights(heights)) {
+            me.mounted && me.refreshRowGeometry();
+            return true
+        }
+
+        return false
     }
 
     /**
@@ -370,14 +439,18 @@ class View extends Base {
      * Preserves the row/cell pooling invariant: each body recomputes view data for a fixed node pool
      * via the silent `createViewData(true)` path — never inserting, removing, or moving DOM nodes
      * while scrolling.
+     * In content-sized mode the start row and the last visible row come from the {@link #rowGeometry} instead of
+     * dividing by `rowHeight`.
      * @param {Number} scrollTop
+     * @param {Boolean} [force=false] Re-projects every row, also one whose record and index did not change
      */
-    syncBodies(scrollTop) {
+    syncBodies(scrollTop, force = false) {
         let me                                        = this,
             container                                 = me.gridContainer,
             {body, bodyEnd, bodyStart, scrollManager} = container,
             {bufferRowRange, rowHeight}               = body,
-            newStartIndex                             = Math.floor(scrollTop / rowHeight);
+            {rowGeometry}                             = me,
+            newStartIndex                             = rowGeometry ? rowGeometry.indexAt(scrollTop) : Math.floor(scrollTop / rowHeight);
 
         let updateBody = _body => {
             let isCenter = _body === body;
@@ -388,15 +461,19 @@ class View extends Base {
                 scrollTop : scrollTop
             });
 
-            if (Math.abs(_body.startIndex - newStartIndex) >= bufferRowRange) {
+            // Content-sized rows: a row-count threshold cannot tell whether rows of other heights still cover the
+            // viewport, so every new start row re-renders
+            if (rowGeometry ? _body.startIndex !== newStartIndex : Math.abs(_body.startIndex - newStartIndex) >= bufferRowRange) {
                 _body.startIndex = newStartIndex
             } else {
                 _body.visibleRows[0] = newStartIndex;
-                _body.visibleRows[1] = newStartIndex + _body.availableRows
+                _body.visibleRows[1] = rowGeometry ?
+                    Math.min(rowGeometry.count, rowGeometry.indexAt(scrollTop + _body.availableHeight)) :
+                    newStartIndex + _body.availableRows
             }
 
             _body.skipCreateViewData = false;
-            _body.createViewData(true) // silent = true
+            _body.createViewData(true, force) // silent = true
         };
 
         updateBody(body);
@@ -424,6 +501,36 @@ class View extends Base {
         // The rows changed silently, so a body update merging into this cycle must not make it sparse
         me.denseUpdate = true;
         me.update()
+    }
+
+    /**
+     * Creates the {@link #rowGeometry} when {@link #contentSizedRows} is on, or retires it when it is off, and
+     * hands it to the vertical scrollbar, the one extent consumer outside the bodies. A switch after the
+     * first layout re-renders every row through {@link #refreshRowGeometry}.
+     * @protected
+     */
+    updateRowGeometry() {
+        let me              = this,
+            {gridContainer} = me,
+            scrollbar       = gridContainer.verticalScrollbar;
+
+        if (me.contentSizedRows && !me.rowGeometry) {
+            me.rowGeometry = Neo.create({
+                module     : RowGeometry,
+                estimate   : gridContainer.rowHeight,
+                getRecordId: record => me.getRecordId(record),
+                store      : me.store
+            })
+        } else if (!me.contentSizedRows && me.rowGeometry) {
+            me.rowGeometry.destroy();
+            me.rowGeometry = null
+        }
+
+        if (scrollbar) {
+            scrollbar.rowGeometry = me.rowGeometry
+        }
+
+        me.mounted && me.refreshRowGeometry(true)
     }
 }
 

@@ -84,6 +84,7 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
             applyRendererOutput: Row.prototype.applyRendererOutput,
             createVdom         : Row.prototype.createVdom,
             getCellId          : Row.prototype.getCellId,
+            getRowTransform    : Row.prototype.getRowTransform,
             id                 : ROW_ID,
             parent             : gridBody,
             record,

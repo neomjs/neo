@@ -383,6 +383,7 @@ class Row extends Component {
             view           = gridContainer?.view,
             selectedCells  = view?.selectedCells ?? [],
             selectionModel = view?.selectionModel ?? null,
+            {rowGeometry}  = gridBody,
             recordId       = gridBody.getRecordId(record),
             countColumns   = columns.getCount(),
             cellEditing    = gridContainer.getPlugin('grid-cell-editing'),
@@ -394,10 +395,11 @@ class Row extends Component {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
             data           : {recordId, rowId: rowIndex},
             role           : 'row',
+            // Content-sized rows take height and offset from the view's geometry, fixed rows multiply
             style          : {
                 display  : null, // Reset display in case it was hidden
-                height   : rowHeight + 'px',
-                transform: `translate3d(0px, calc(${rowIndex * rowHeight}px + var(--grid-row-pin-offset, 0px)), 0px)`
+                height   : (rowGeometry ? rowGeometry.heightAt(rowIndex) : rowHeight) + 'px',
+                transform: me.getRowTransform(rowGeometry ? rowGeometry.offsetAt(rowIndex) : rowIndex * rowHeight)
             }
         });
 
@@ -654,6 +656,34 @@ class Row extends Component {
     }
 
     /**
+     * The transform that places this row at an offset in px. `--grid-row-pin-offset` is the scroll pinning
+     * delta of the `GridRowScrollPinning` main-thread addon.
+     * @param {Number} offset
+     * @returns {String}
+     */
+    getRowTransform(offset) {
+        return `translate3d(0px, calc(${offset}px + var(--grid-row-pin-offset, 0px)), 0px)`
+    }
+
+    /**
+     * Content-sized rows move when a row above them changes its height, while their record and index stay the
+     * same. True if the height or offset this row rendered no longer matches the view's row geometry.
+     * @returns {Boolean}
+     * @protected
+     */
+    hasStaleGeometry() {
+        let me            = this,
+            {rowGeometry} = me.parent,
+            {rowIndex}    = me,
+            {style}       = me.vdom;
+
+        return !!(rowGeometry && me.record) && (
+            style.height    !== rowGeometry.heightAt(rowIndex) + 'px' ||
+            style.transform !== me.getRowTransform(rowGeometry.offsetAt(rowIndex))
+        )
+    }
+
+    /**
      * Updates components inside the row matching a specific identifier (ntype, className or Class)
      * @param {String|Neo.core.Base} identifier
      * @param {Object} config
@@ -698,7 +728,7 @@ class Row extends Component {
 
         // Optimization: Skip VDOM generation if the state hasn't changed.
         // This prevents thousands of redundant updates during simple scrolling.
-        if (!force && me.record === record && me.rowIndex === rowIndex) {
+        if (!force && me.record === record && me.rowIndex === rowIndex && !me.hasStaleGeometry()) {
             return
         }
 
