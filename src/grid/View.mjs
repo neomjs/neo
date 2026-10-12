@@ -57,6 +57,14 @@ class View extends Base {
          */
         gridContainer: null,
         /**
+         * True while the user drags the vertical scrollbar's thumb. The `GridRowScrollPinning` main-thread addon
+         * sets it. Content-sized rows hold height changes during the drag, so the extent under the thumb holds
+         * still, and apply them at its end.
+         * @member {Boolean} isThumbDragging_=false
+         * @reactive
+         */
+        isThumbDragging_: false,
+        /**
          * Empty keys container so the single View-owned SelectionModel registers its Up/Down handlers
          * HERE (`view.keys._keys`) — grid.View is the single key registry, the keyboard half of the
          * multi-body focus/selection centralization (the earlier split left keyboard migration for
@@ -101,6 +109,24 @@ class View extends Base {
      * @member {Neo.grid.RowGeometry|null} rowGeometry=null
      */
     rowGeometry = null
+
+    /**
+     * Content-sized rows: heights that arrived during a thumb drag, applied at its end
+     * @member {Map|null} #heldHeights=null
+     */
+    #heldHeights = null
+    /**
+     * Content-sized rows: the distance in px height changes moved the anchor row since the last update. The next
+     * update hands it to the main thread, which moves the scroll offset by it.
+     * @member {Number} #scrollCorrection=0
+     */
+    #scrollCorrection = 0
+    /**
+     * Counts the anchor corrections. An acknowledgement that carries an older count describes the geometry before
+     * the last correction, and the main thread ignores it.
+     * @member {Number} #scrollEpoch=0
+     */
+    #scrollEpoch = 0
 
     /**
      * The active bodies in visual order (`bodyStart`, `body`, `bodyEnd`) — the render/event delegates
@@ -224,6 +250,22 @@ class View extends Base {
                     reason !== Neo.isDestroyed &&
                         console.error('grid.View: deferred re-projection failed', {id: me.id, reason})
                 })
+        }
+    }
+
+    /**
+     * Triggered after the isThumbDragging config got changed. The end of a drag applies the heights held during it.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsThumbDragging(value, oldValue) {
+        let me      = this,
+            heights = me.#heldHeights;
+
+        if (!value && heights) {
+            me.#heldHeights = null;
+            me.setRowHeights(heights)
         }
     }
 
@@ -377,12 +419,21 @@ class View extends Base {
     }
 
     /**
+     * The scroll origin this update renders, for `GridRowScrollPinning`. In content-sized mode it also carries the
+     * scroll correction of moved anchor rows: once, with the update that renders the moved rows, so the main
+     * thread moves the scroll offset in the same task as the row transforms.
      * @returns {Object}
      */
     getVdomUpdateMeta() {
-        return {
-            scrollTop: this.scrollTop
+        let me   = this,
+            meta = {scrollEpoch: me.#scrollEpoch, scrollTop: me.scrollTop};
+
+        if (me.#scrollCorrection !== 0) {
+            meta.scrollCorrection = me.#scrollCorrection;
+            me.#scrollCorrection  = 0
         }
+
+        return meta
     }
 
     /**
@@ -416,13 +467,40 @@ class View extends Base {
     /**
      * Applies known row heights in content-sized mode. A mounted view re-derives its layout if any height
      * changed; an unmounted one renders them on its first layout.
+     *
+     * The row at the scroll offset is the anchor: a change above it moves it, and the scroll offset moves along,
+     * so the visible rows hold still. A change below it moves nothing on screen. During a thumb drag the heights
+     * wait for the drag's end, so the extent under the thumb holds still.
      * @param {Map<Number|String, Number>} heights Heights in px, keyed by record id
-     * @returns {Boolean} True if at least one height changed
+     * @returns {Boolean} True if at least one height changed now
      */
     setRowHeights(heights) {
-        let me = this;
+        let me                       = this,
+            {rowGeometry, scrollTop} = me,
+            anchor, correction, offset;
 
-        if (me.rowGeometry?.setHeights(heights)) {
+        if (!rowGeometry) {
+            return false
+        }
+
+        if (me.isThumbDragging) {
+            me.#heldHeights ??= new Map();
+            heights.forEach((height, recordId) => me.#heldHeights.set(recordId, height));
+            return false
+        }
+
+        anchor = rowGeometry.indexAt(scrollTop);
+        offset = rowGeometry.offsetAt(anchor);
+
+        if (rowGeometry.setHeights(heights)) {
+            correction = rowGeometry.offsetAt(anchor) - offset;
+
+            if (correction !== 0) {
+                me.#scrollCorrection += correction;
+                me.#scrollEpoch++;
+                me.scrollTop = scrollTop + correction
+            }
+
             me.mounted && me.refreshRowGeometry();
             return true
         }
