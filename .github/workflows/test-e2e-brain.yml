@@ -79,6 +79,10 @@ jobs:
       - name: Bundle browser dependencies
         run: npm run bundle-browser-deps
 
+      # The browser is the runner's Chrome channel; the specs that record video still need Playwright's ffmpeg
+      - name: Install Playwright's ffmpeg
+        run: npx playwright install ffmpeg
+
       - name: Run the Brain-gated tier
         id: run
         timeout-minutes: 30
