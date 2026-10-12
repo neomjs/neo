@@ -288,7 +288,8 @@ async function scrollToEnd(page) {
     for (let attempt = 0; attempt < 10; attempt++) {
         state = await scrollTo(page, 1e8);
 
-        if (state.scrollTop === state.maxScroll) {
+        // The browser may round the end offset past it, see scrollSlack()
+        if (Math.abs(state.scrollTop - state.maxScroll) <= scrollSlack(state)) {
             return state
         }
     }
@@ -487,7 +488,8 @@ test.describe('Content-sized rows example', () => {
                 anchor   = edgeRow(state),
                 recordId = await page.locator(`${GRID} .neo-grid-cell[data-field="id"]`, {hasText: new RegExp(`^${target.id}$`)})
                     .getAttribute('data-record-id'),
-                cell     = page.locator(`${GRID} .neo-grid-cell[data-field="summary"][data-record-id="${recordId}"]`);
+                // The visible cell, not a copy measured hidden
+                cell     = page.locator(`${GRID} .neo-grid-cell[data-field="summary"][data-record-id="${recordId}"]:not(.neo-grid-row-measure *)`);
 
             await cell.dblclick();
             await page.locator(`${GRID} .neo-grid-editor input`).fill(Array.from({length: 40}, (_, i) => `word${i}`).join(' '));
