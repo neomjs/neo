@@ -1,7 +1,7 @@
 import {expect, test} from '../../fixtures.mjs';
 
 /**
- * @summary `examples/grid/contentSizedRows`, 100k records whose wrapped texts size their rows in three bodies,
+ * @summary `examples/grid/contentSizedRows`, 10k records whose wrapped texts size their rows in three bodies,
  * passes the ten acceptance examples of content-sized rows, one named test each, plus a wheel-throughput
  * measurement. In every example, each row ends up as tall as its tallest wrapped text, and the bodies agree.
  *
@@ -9,13 +9,12 @@ import {expect, test} from '../../fixtures.mjs';
  * borders, and never less than `rowHeight` (as in `WrapTextMeasure`). A viewport of 1400px mounts every column, so
  * the oracle sees every text. Only the first test narrows the viewport, to keep the tallest column unmounted.
  *
- * Extents are read as `scrollHeight`, because Chrome serializes a 3.2M px `style.height` with six significant
- * digits. Past 2^23 px Chrome also rounds scroll offsets, which {@link scrollSlack} allows for.
+ * Positions are exact: the example's extent stays far below 2^23 px, past which Chrome rounds scroll offsets to 2px.
  *
  * Fixture for two views: `test/playwright/component/apps/grid-two-views`, grids `#grid-narrow` and `#grid-wide`,
  * which show one store at 400px and 900px.
  */
-const COUNT = 100000,
+const COUNT = 10000,
       GRID  = '.neo-grid-container',
       // The grid's default rowHeight: the floor of every row, and the fixed-height control's height
       ROW   = 32,
@@ -293,8 +292,7 @@ async function scrollToEnd(page) {
     for (let attempt = 0; attempt < 10; attempt++) {
         state = await scrollTo(page, 1e8);
 
-        // The browser may round the end offset past it, see scrollSlack()
-        if (Math.abs(state.scrollTop - state.maxScroll) <= scrollSlack(state)) {
+        if (state.scrollTop === state.maxScroll) {
             return state
         }
     }
@@ -316,24 +314,14 @@ const edgeRow = state => state.rows.find(row => row.screen <= 0 && row.screen + 
 const rowOf = (state, id) => state.rows.find(row => row.id === id);
 
 /**
- * How far from its target the browser can put a scroll offset. Chrome keeps whole pixels up to 2^23 px, then rounds
- * to 2px, and to 4px past 2^24: `scrollTop = 8697741` reads back `8697742`. The example's extent passes 2^23 once
- * its mean row height is known.
- * @param {Object} state
- * @returns {Number} The largest distance in px a row can sit from where the grid placed it
- */
-const scrollSlack = ({scrollTop}) => scrollTop < 2 ** 23 ? 0 : scrollTop < 2 ** 24 ? 1 : 2;
-
-/**
  * @param {Object} state
  * @param {Number} id
- * @returns {Boolean} The row of the record lies fully inside the view, within {@link scrollSlack}
+ * @returns {Boolean} The row of the record lies fully inside the view
  */
 function fullyVisible(state, id) {
-    const row   = rowOf(state, id),
-          slack = scrollSlack(state);
+    const row = rowOf(state, id);
 
-    return !!row && row.screen >= -slack && row.screen + row.height <= state.clientHeight + slack
+    return !!row && row.screen >= 0 && row.screen + row.height <= state.clientHeight
 }
 
 /**
@@ -571,7 +559,7 @@ test.describe('Content-sized rows example', () => {
 
         test('5. reverse wheel scrolling over unseen rows shows no jump at the top edge', async ({page}) => {
             // Rows the grid has not seen: only the rows of the view and its buffer get measured
-            let state  = await scrollTo(page, 1600000),
+            let state  = await scrollTo(page, 160000),
                 anchor = edgeRow(state),
                 box    = await page.locator(`${GRID} .neo-grid-view`).boundingBox();
 
@@ -600,7 +588,7 @@ test.describe('Content-sized rows example', () => {
 
             await thumb(page, true);
 
-            state = await scrollTo(page, 1200000);
+            state = await scrollTo(page, 120000);
             expect(state.extent, 'the extent holds during the drag').toBe(extent);
 
             state = await scrollToEnd(page);
@@ -613,8 +601,7 @@ test.describe('Content-sized rows example', () => {
 
             state = await settle(page);
             expect(state.extent, 'the held heights apply at the release').not.toBe(extent);
-            expect(Math.abs(rowOf(state, anchor.id)?.screen - anchor.screen), `row ${anchor.id} holds its place at the release`)
-                .toBeLessThanOrEqual(scrollSlack(state));
+            expect(rowOf(state, anchor.id)?.screen, `row ${anchor.id} holds its place at the release`).toBe(anchor.screen);
             await expectRowsFitTheirText(page);
 
             state = await scrollToEnd(page);
@@ -622,7 +609,7 @@ test.describe('Content-sized rows example', () => {
         });
 
         test('7. jump-to-row brings the row into view and keeps it there', async ({page}) => {
-            const target = 50000;
+            const target = 5000;
 
             await page.evaluate(({grid, id}) => window.trackRow(grid, id), {grid: GRID, id: target});
             await jumpToRow(page, target);
@@ -664,7 +651,7 @@ test.describe('Content-sized rows example', () => {
 
             await expect.poll(async () => (await gridState(page)).extent, {message: 'the fixed extent'}).toBe((COUNT + 1) * ROW);
 
-            for (const scrollTop of [0, 1600000]) {
+            for (const scrollTop of [0, 160000]) {
                 let state = await scrollTo(page, scrollTop);
 
                 state.rows.forEach(row => {
@@ -682,7 +669,7 @@ test.describe('Content-sized rows example', () => {
             for (const [speed, interval] of [['ordinary', 50], ['fast', 16]]) {
                 for (const classify of [false, true]) {
                     // Rows the grid has not seen, a different stretch per run
-                    await scrollTo(page, (classify ? 1000000 : 2000000) + interval * 10000);
+                    await scrollTo(page, (classify ? 100000 : 200000) + interval * 1000);
 
                     let numbers = await measureWheel(page, {classify, delta: STEP, interval, steps: 40});
 

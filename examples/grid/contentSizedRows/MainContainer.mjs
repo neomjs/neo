@@ -7,7 +7,7 @@ import Toolbar       from '../../../src/toolbar/Base.mjs';
 import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
- * @summary Content-sized rows on 100k records: each row is as tall as its longest wrapped text.
+ * @summary Content-sized rows on 10k records: each row is as tall as its longest wrapped text.
  *
  * `title` wraps in the locked start body, `summary` in the center, `notes` in the locked end body, and `details`
  * in a center column that starts past the horizontal range. The checkbox switches the grid back to fixed-height
@@ -45,7 +45,7 @@ class MainContainer extends Viewport {
                 labelPosition: 'inline',
                 labelText    : 'Jump to row',
                 listeners    : {change: 'up.onJumpToRowChange'},
-                maxValue     : 100000,
+                maxValue     : 10000,
                 minValue     : 1,
                 reference    : 'jump-to-row',
                 style        : {marginLeft: '1em'},

@@ -12,10 +12,12 @@ const
     ];
 
 /**
- * @summary 100k records whose text fields wrap to one to four lines: `title` and `notes` in the locked bodies,
+ * @summary 10k records whose text fields wrap to one to four lines: `title` and `notes` in the locked bodies,
  * `summary` in the center, and `details`, the tallest, in a center column that starts past the horizontal range.
  *
- * The content comes from a seeded generator, so every load shows the same records.
+ * The content comes from a seeded generator, so every load shows the same records. Browsers cap element heights, each
+ * at its own limit: 10k of these rows reach about 0.9M px, while 100k would reach 8.7M px, past the 2^23 px beyond
+ * which Chrome rounds scroll offsets to 2px.
  * @class Neo.examples.grid.contentSizedRows.MainStore
  * @extends Neo.data.Store
  */
@@ -27,10 +29,10 @@ class MainStore extends Store {
          */
         className: 'Neo.examples.grid.contentSizedRows.MainStore',
         /**
-         * @member {Number} amountRows_=100000
+         * @member {Number} amountRows_=10000
          * @reactive
          */
-        amountRows_: 100000,
+        amountRows_: 10000,
         /**
          * @member {Boolean} autoInitRecords=false
          */
