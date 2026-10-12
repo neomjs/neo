@@ -44,8 +44,15 @@ The Brain-gated specs run in `.github/workflows/test-e2e-brain.yml`, on `dev` pu
 Each shard's job summary is its receipt:
 - the event and attempt;
 - the Engine and Brain SHAs;
-- the files the shard ran, with their outcome;
-- its test time against the five-minute ceiling.
+- its test time against the five-minute ceiling;
+- what the tier selected, and every declared exclusion and quarantine;
+- the files the shard ran, with their outcome.
+
+`buildScripts/util/e2eCiSelection.mjs` declares two kinds of gap, and the receipt prints both:
+- A **capability** excludes files only while the variable they need is unset. Provisioning it brings them back.
+- A **quarantine** deselects one test by file and title. It names who is accountable, what removes it and since when, and after a week every receipt flags it as stale.
+
+A declaration whose file or title no longer exists fails the unit tier.
 
 ## Connecting the Neural Link (Fixtures)
 

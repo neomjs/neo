@@ -3,10 +3,17 @@ import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 import {
+    assertBrainDeclarations,
+    assertQuarantinesResolve,
+    BRAIN_CAPABILITIES,
+    BRAIN_QUARANTINES,
     brainPaths,
     brainReceipt,
+    brainSelection,
+    brainTestList,
     EXCLUSIONS,
     populations,
+    QUARANTINE_STALE_DAYS,
     RUN_PATHS,
     summary
 } from '../../../../../buildScripts/util/e2eCiSelection.mjs';
@@ -172,26 +179,111 @@ test.describe('e2e CI selection — the Brain-gated burn-in', () => {
         }
     });
 
-    test('a receipt states the run, both SHAs, the time against the ceiling, the population and the outcome', () => {
-        const report = {suites: [{file: 'core/A.spec.mjs'}, {file: 'grid/B.spec.mjs'}], stats: {expected: 5, unexpected: 1, flaky: 0, skipped: 2}},
-              text   = brainReceipt({report, run, seconds: 312, root});
+    test('every declaration names a Brain-gated spec, and every quarantine selects exactly one registered test', () => {
+        // The pull-request half of the stale-entry guard: the tier itself runs on `dev` pushes only, so
+        // without this arm a renamed test would first fail there, after the rename had merged.
+        expect(() => assertBrainDeclarations({root})).not.toThrow();
+        expect(() => assertQuarantinesResolve({root})).not.toThrow();
+    });
+
+    test('a quarantine whose strings are all in the source but which is not a registered path fails', () => {
+        // Each title below exists verbatim in the file, so a check of the source text passes all three.
+        // Only the path Playwright registers tells them apart: a dropped describe, a new enclosing one.
+        const [entry]   = BRAIN_QUARANTINES,
+              [, title] = entry.titlePath,
+              dropped   = {...entry, titlePath: [title]},
+              wrapped   = {...entry, titlePath: ['hosted profile', ...entry.titlePath]};
+
+        expect(() => assertQuarantinesResolve({quarantines: [entry], root}), 'control: the real entry').not.toThrow();
+        expect(() => assertQuarantinesResolve({quarantines: [dropped, wrapped], root}))
+            .toThrow(new RegExp(`spec\\.mjs › ${title.slice(0, 20)}[\\s\\S]*› hosted profile ›`));
+    });
+
+    test('a declaration naming a file that is not Brain-gated fails, and names it', () => {
+        const tmp  = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-brain-declarations-')),
+              file = 'test/playwright/e2e/grid/GatedNL.spec.mjs';
+
+        fs.mkdirSync(path.join(tmp, 'test/playwright/e2e/grid'), {recursive: true});
+        fs.writeFileSync(path.join(tmp, file), "test('sorts', async ({neuralLink}) => {})");
+
+        expect(() => assertBrainDeclarations({capabilities: [{paths: [file]}], quarantines: [{path: file}], root: tmp}), 'control')
+            .not.toThrow();
+        expect(() => assertBrainDeclarations({capabilities: [{paths: ['test/playwright/e2e/grid/Gone.spec.mjs']}], quarantines: [], root: tmp}))
+            .toThrow('test/playwright/e2e/grid/Gone.spec.mjs');
+        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [{path: 'test/playwright/e2e/grid/Moved.spec.mjs'}], root: tmp}))
+            .toThrow('test/playwright/e2e/grid/Moved.spec.mjs');
+
+        fs.rmSync(tmp, {recursive: true, force: true})
+    });
+
+    test('a capability excludes its files only while its variable is unset', () => {
+        const unset = brainSelection({env: {}, root}),
+              set   = brainSelection({env: Object.fromEntries(BRAIN_CAPABILITIES.map(entry => [entry.requires, 'provisioned'])), root});
+
+        for (const file of BRAIN_CAPABILITIES.flatMap(entry => entry.paths)) {
+            expect(unset.paths, `${file} is out while its capability is unset`).not.toContain(file);
+        }
+
+        expect(unset.paths).toHaveLength(unset.gated.length - BRAIN_CAPABILITIES.flatMap(entry => entry.paths).length);
+        expect(set.paths, 'and the whole tier returns once every capability is provisioned').toEqual(set.gated);
+    });
+
+    test('the quarantine list names its files the way Playwright resolves them, relative to the e2e testDir', () => {
+        const lines = brainTestList().split('\n').filter(Boolean);
+
+        expect(lines).toHaveLength(BRAIN_QUARANTINES.length);
+
+        for (const line of lines) {
+            expect(fs.existsSync(path.join(root, 'test/playwright/e2e', line.split(' › ')[0])), line).toBe(true);
+        }
+    });
+
+    test('a receipt states the run, both SHAs, the time against the ceiling, the selection and the outcome', () => {
+        const report         = {suites: [{file: 'core/A.spec.mjs'}, {file: 'grid/B.spec.mjs'}], stats: {expected: 5, unexpected: 1, flaky: 0, skipped: 2}},
+              text           = brainReceipt({report, run, seconds: 312, env: {}, root}),
+              {gated, paths} = brainSelection({env: {}, root});
 
         expect(text).toContain('shard 2/6');
         expect(text).toContain('push, attempt 1');
         expect(text).toContain(run.engineSha);
         expect(text).toContain(run.brainSha);
         expect(text).toContain('5m 12s against the 5m 0s ceiling (**over**)');
-        expect(text).toContain(`2 of the ${populations(root).ignored} Brain-gated spec files`);
-        expect(text).toContain('5 passed, 1 failed, 0 flaky, 2 skipped');
+        expect(text).toContain(`${paths.length} of the ${gated.length} Brain-gated spec files, with ${BRAIN_QUARANTINES.length} of their tests quarantined`);
+        expect(text).toContain('2 files · 5 passed, 1 failed, 0 flaky, 2 skipped');
         expect(text).toContain('- `grid/B.spec.mjs`');
-        expect(brainReceipt({report, run, seconds: 300, root})).not.toContain('**over**');
+        expect(brainReceipt({report, run, seconds: 300, env: {}, root})).not.toContain('**over**');
+    });
+
+    test('every receipt prints each declaration: an unset capability with its exit, a quarantine with its owner', () => {
+        const text = brainReceipt({report: null, run, seconds: null, env: {}, root});
+
+        for (const entry of BRAIN_CAPABILITIES) {
+            expect(text).toContain(`Excluded while \`${entry.requires}\` is unset`);
+            expect(text).toContain(`${entry.exit} (${entry.tracker})`);
+        }
+
+        for (const entry of BRAIN_QUARANTINES) {
+            expect(text).toContain(`${entry.titlePath.at(-1)} — ${entry.reason}. Accountable: ${entry.accountable}. Exit: ${entry.exit}.`);
+        }
+    });
+
+    test('a quarantine older than a week is flagged stale on every receipt', () => {
+        // Aged against the oldest entry rather than a fixed date, so a later entry cannot move the boundary
+        if (!BRAIN_QUARANTINES.length) {
+            return
+        }
+
+        const oldest  = Math.min(...BRAIN_QUARANTINES.map(entry => Date.parse(entry.since))),
+              receipt = days => brainReceipt({report: null, run, seconds: null, env: {}, now: new Date(oldest + days * 86400000), root});
+
+        expect(receipt(QUARANTINE_STALE_DAYS)).not.toContain('(**stale**)');
+        expect(receipt(QUARANTINE_STALE_DAYS + 1)).toContain(`${QUARANTINE_STALE_DAYS + 1} days (**stale**)`);
     });
 
     test('a step that never finished and a run without a report say so, rather than reading as zero', () => {
-        const text = brainReceipt({report: null, run, seconds: null, root});
+        const text = brainReceipt({report: null, run, seconds: null, env: {}, root});
 
         expect(text).toContain('none, because the step did not finish');
-        expect(text).toContain('unknown, because the run wrote no Playwright report');
-        expect(text).not.toContain('of the');
+        expect(text).toContain('**This shard:** unknown, because the run wrote no Playwright report');
     });
 });
