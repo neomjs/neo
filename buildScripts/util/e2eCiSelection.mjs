@@ -373,16 +373,25 @@ export function brainRetries(now = new Date()) {
 /**
  * @summary The first line of an attempt's recorded error, in whichever shape Playwright serialized it.
  * @description A thrown `Error` carries `message`; anything else thrown carries only `value`; and the
- * `errors` envelope can hold an error with no `error` field beside it. Only when all of them are empty
- * did the attempt record no error.
+ * `errors` envelope can hold an error with no `error` field beside it. The first nonblank line among them
+ * wins, so an empty field never hides a populated one. Only when all of them are blank did the attempt
+ * record no error.
  * @param {Object|undefined} result One attempt from a Playwright JSON report.
  * @returns {String}
  */
 function firstLine(result) {
     const error = result?.error,
-          text  = error?.message ?? error?.value ?? result?.errors?.[0]?.message ?? error?.stack;
+          texts = [error?.message, error?.value, ...(result?.errors ?? []).map(entry => entry?.message), error?.stack];
 
-    return text ? text.replace(/\u001b\[[0-9;]*m/g, '').split('\n')[0] : 'no error recorded'
+    for (const text of texts) {
+        const line = text?.replace(/\u001b\[[0-9;]*m/g, '').split('\n').find(line => line.trim());
+
+        if (line) {
+            return line
+        }
+    }
+
+    return 'no error recorded'
 }
 
 /**

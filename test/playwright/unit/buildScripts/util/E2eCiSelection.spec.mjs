@@ -312,18 +312,23 @@ test.describe('e2e CI selection — the Brain-gated burn-in', () => {
 
     test('the first attempt\'s error is read from every shape Playwright serializes', () => {
         // A thrown Error carries `message`, anything else thrown only `value`, and the `errors` envelope can
-        // carry an error with no `error` field beside it
+        // carry an error with no `error` field beside it. A blank field must not hide a populated one.
         const flaky  = result => ({status: 'flaky', results: [{status: 'failed', ...result}, {status: 'passed'}]}),
               spec   = (title, result) => ({file: 'grid/A.spec.mjs', title, tests: [flaky(result)]}),
-              report = {stats: {expected: 0, unexpected: 0, flaky: 4, skipped: 0}, suites: [{file: 'grid/A.spec.mjs', specs: [
-                  spec('an Error',          {error: {message: 'thrown Error', stack: 'Error: thrown Error\n    at x'}}),
-                  spec('a thrown value',    {error: {value: 'a string was thrown'}}),
-                  spec('only the envelope', {errors: [{message: 'from the errors envelope'}]}),
-                  spec('nothing recorded',  {})
+              report = {stats: {expected: 0, unexpected: 0, flaky: 7, skipped: 0}, suites: [{file: 'grid/A.spec.mjs', specs: [
+                  spec('an Error',                   {error: {message: 'thrown Error', stack: 'Error: thrown Error\n    at x'}}),
+                  spec('a thrown value',             {error: {value: 'a string was thrown'}}),
+                  spec('only the envelope',          {errors: [{message: 'from the errors envelope'}]}),
+                  spec('an empty message, stack',    {error: {message: '', stack: 'Error\n    at x'}}),
+                  spec('an empty message, envelope', {error: {message: ''}, errors: [{message: 'recorded envelope'}]}),
+                  spec('a blank first line',         {error: {message: '\u001b[31m\u001b[39m\nafter a blank line'}}),
+                  spec('nothing recorded',           {})
               ]}]};
 
-        expect(flakyTests(report).map(test => test.error))
-            .toEqual(['thrown Error', 'a string was thrown', 'from the errors envelope', 'no error recorded']);
+        expect(flakyTests(report).map(test => test.error)).toEqual([
+            'thrown Error', 'a string was thrown', 'from the errors envelope', 'Error', 'recorded envelope', 'after a blank line',
+            'no error recorded'
+        ]);
     });
 
     test('the receipt reports the retry count the run selected, not one recomputed at its end', () => {
