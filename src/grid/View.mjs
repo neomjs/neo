@@ -103,6 +103,34 @@ class View extends Base {
     rowGeometry = null
 
     /**
+     * Content-sized rows: the padding and borders of a cell in px, as the last read found them
+     * @member {Number} #chrome=0
+     */
+    #chrome = 0
+    /**
+     * Content-sized rows: the cell vdom nodes whose wrapped text was measured, with the width they had then. New
+     * content renders a new node; a recycled node can change its width, which the stored one tells.
+     * @member {WeakMap<Object, String>} #measuredCells
+     */
+    #measuredCells = new WeakMap()
+    /**
+     * The scheduled {@link #measureRowHeights} pass, while it is pending
+     * @member {Promise|null} #rowMeasure=null
+     */
+    #rowMeasure = null
+    /**
+     * Content-sized rows: the measured text height in px of each wrapText column, per record id. A row takes the
+     * tallest, so a column that scrolled out horizontally keeps its share, and a column that left the grid drops it.
+     * @member {Map<Number|String, Object>} #textHeights
+     */
+    #textHeights = new Map()
+    /**
+     * Content-sized rows: the data fields of the wrapText columns, as the last measurement pass found them
+     * @member {Set<String>|null} #wrapFields=null
+     */
+    #wrapFields = null
+
+    /**
      * The active bodies in visual order (`bodyStart`, `body`, `bodyEnd`) — the render/event delegates
      * the single View-owned SelectionModel spans for cross-body selection state.
      * @returns {Neo.grid.Body[]}
@@ -168,6 +196,14 @@ class View extends Base {
      */
     get store() {
         return this.gridContainer?.store || null
+    }
+
+    /**
+     * Triggered after an update of this view landed in the DOM. Content-sized rows measure what it rendered.
+     * @protected
+     */
+    afterExecuteVdomUpdate() {
+        this.rowGeometry && this.scheduleRowMeasure()
     }
 
     /**
@@ -269,7 +305,13 @@ class View extends Base {
         value   ?.on({...listeners});
 
         if (me.rowGeometry) {
-            me.rowGeometry.store = value
+            me.rowGeometry.store = value;
+
+            // Like the geometry's heights, the measured texts belong to the old store's records
+            if (oldValue) {
+                me.#measuredCells = new WeakMap();
+                me.#textHeights.clear()
+            }
         }
 
         // a store that already holds its records fires no load for them
@@ -386,6 +428,117 @@ class View extends Base {
     }
 
     /**
+     * Content-sized rows: the height of a measured row, its tallest wrapText column plus the cell's padding and
+     * borders, and never less than `rowHeight`
+     * @param {Object} fields The row's text heights in px, by data field
+     * @returns {Number}
+     * @protected
+     */
+    measuredHeight(fields) {
+        return Math.max(this.gridContainer.rowHeight, Math.max(0, ...Object.values(fields)) + this.#chrome)
+    }
+
+    /**
+     * Content-sized rows: measures the wrapped text of the mounted wrapText cells that are new since the last
+     * pass, in one batched read for all bodies, and feeds the row heights to the {@link #rowGeometry}. A row
+     * takes its tallest wrapText column plus the cell's padding and borders, and never less than `rowHeight`.
+     * A hidden cell waits until it shows. When a wrapText column joins or leaves the grid, the measured rows take
+     * their heights from the new set of columns.
+     *
+     * The read crosses to the main thread while rows go on rendering. A cell whose row rendered it again before
+     * the reply (another record, new content or a new width) is skipped: the node that was read is gone. So is a
+     * cell whose box has no width: it was hidden when read.
+     * @returns {Promise<void>}
+     */
+    async measureRowHeights() {
+        let me              = this,
+            {gridContainer} = me,
+            measured        = me.#measuredCells,
+            textHeights     = me.#textHeights,
+            heights         = new Map(),
+            targets         = [],
+            chrome, rects, wrapFields;
+
+        // A render in flight may land before or after the read: the next landed update measures its rows
+        if (!me.rowGeometry || !me.mounted || me.isVdomUpdating || me.bodies.some(body => body.isVdomUpdating)) {
+            return
+        }
+
+        wrapFields = new Set(gridContainer.columns.items.filter(column => column.wrapText).map(column => column.dataField));
+
+        if (me.#wrapFields?.size !== wrapFields.size || [...wrapFields].some(field => !me.#wrapFields.has(field))) {
+            me.#wrapFields?.forEach(field => !wrapFields.has(field) && textHeights.forEach(fields => delete fields[field]));
+            me.#wrapFields = wrapFields;
+            me.refreshMeasuredHeights()
+        }
+
+        wrapFields.size > 0 && me.bodies.forEach(body => body.items.forEach(row => {
+            row.record && !row.isVdomUpdating && row.vdom.cn.forEach(cell => {
+                let text = cell.cn?.[0];
+
+                if (
+                    wrapFields.has(cell.data?.field) && cell.style.display !== 'none' &&
+                    text?.cls?.includes('neo-grid-cell-text') && measured.get(cell) !== cell.style.width
+                ) {
+                    targets.push({cell, record: row.record, row, textId: text.id, width: cell.style.width})
+                }
+            })
+        }));
+
+        if (targets.length < 1) {
+            return
+        }
+
+        [rects, chrome] = await Promise.all([
+            Neo.main.DomAccess.getLayoutRect({id: targets.map(target => target.textId), windowId: me.windowId}),
+            Neo.main.DomAccess.getComputedStyle({
+                id      : targets[0].cell.id,
+                style   : ['border-bottom-width', 'border-top-width', 'padding-bottom', 'padding-top'],
+                windowId: me.windowId
+            })
+        ]);
+
+        if (me.isDestroyed || !me.rowGeometry) {
+            return
+        }
+
+        me.#chrome = Object.values(chrome).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+
+        targets.forEach(({cell, record, row, width}, index) => {
+            let rect = rects[index],
+                fields, recordId;
+
+            if (!rect?.width || row.record !== record || !row.vdom.cn.includes(cell) || cell.style.width !== width) {
+                return
+            }
+
+            recordId = me.getRecordId(record);
+            fields   = textHeights.get(recordId) || {};
+
+            fields[cell.data.field] = rect.height;
+            textHeights.set(recordId, fields);
+            measured.set(cell, width);
+            heights.set(recordId, me.measuredHeight(fields))
+        });
+
+        heights.size > 0 && me.setRowHeights(heights)
+    }
+
+    /**
+     * Content-sized rows: derives the height of every measured row again from its stored text heights. The text
+     * did not change, but its derivation did: the set of wrapText columns, or `rowHeight`.
+     * @returns {Boolean} True if a height changed
+     */
+    refreshMeasuredHeights() {
+        let me      = this,
+            heights = new Map();
+
+        me.#textHeights.forEach((fields, recordId) => heights.set(recordId, me.measuredHeight(fields)));
+
+        return heights.size > 0 && me.setRowHeights(heights)
+    }
+
+    /**
      * Re-derives everything that depends on row heights after the {@link #rowGeometry} changed: each body's row
      * pool, both scroll extents, and the rows' positions. A row whose record and index did not change finds
      * its moved geometry itself ({@link Neo.grid.Row#hasStaleGeometry}) and keeps its cells.
@@ -402,6 +555,42 @@ class View extends Base {
 
         me.gridContainer?.verticalScrollbar?.updateScrollHeight();
         me.syncBodies(me.scrollTop, force)
+    }
+
+    /**
+     * Content-sized rows: forgets every measured height and renders the bodies again, which measures the mounted
+     * rows anew. A change to which columns wrap their text needs it.
+     */
+    resetRowHeights() {
+        let me = this;
+
+        if (me.rowGeometry) {
+            me.rowGeometry.clearHeights();
+            me.#measuredCells = new WeakMap();
+            me.#textHeights.clear();
+            me.mounted && me.refreshRowGeometry(true)
+        }
+    }
+
+    /**
+     * Content-sized rows: runs {@link #measureRowHeights} after the current task, once for any number of landed
+     * updates.
+     * @protected
+     */
+    scheduleRowMeasure() {
+        let me = this;
+
+        me.#rowMeasure ??= me.timeout(0)
+            .then(() => {
+                me.#rowMeasure = null;
+                return me.measureRowHeights()
+            })
+            .catch(reason => {
+                me.#rowMeasure = null;
+
+                reason !== Neo.isDestroyed && !Neo.currentWorker?.isDeparture?.(reason, me.windowId) &&
+                    console.error('grid.View: measuring row heights failed', {reason, windowId: me.windowId})
+            })
     }
 
     /**
@@ -515,6 +704,10 @@ class View extends Base {
             scrollbar       = gridContainer.verticalScrollbar;
 
         if (me.contentSizedRows && !me.rowGeometry) {
+            // A new geometry knows no heights: every mounted row is measured again
+            me.#measuredCells = new WeakMap();
+            me.#textHeights.clear();
+
             me.rowGeometry = Neo.create({
                 module     : RowGeometry,
                 estimate   : gridContainer.rowHeight,

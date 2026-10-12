@@ -78,6 +78,17 @@ class Row extends Component {
     }
 
     /**
+     * Triggered after an update of this row landed in the DOM, e.g. for a changed record. Content-sized rows
+     * measure what it rendered.
+     * @protected
+     */
+    afterExecuteVdomUpdate() {
+        let gridBody = this.parent;
+
+        gridBody?.rowGeometry && gridBody.gridContainer.view.scheduleRowMeasure()
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -297,10 +308,13 @@ class Row extends Component {
         }
 
         if (Neo.typeOf(rendererOutput) === 'Object') {
-            if (Object.hasOwn(rendererOutput, 'html')) {
-                cellConfig.html = rendererOutput.html  || ''
+            let content = Object.hasOwn(rendererOutput, 'html') ? {html: rendererOutput.html || ''} : {text: rendererOutput.text || ''};
+
+            // Content-sized rows: the text of a wrapText column wraps in a block container, which the view measures
+            if (column.wrapText && gridBody.rowGeometry) {
+                cellConfig.cn = [{cls: ['neo-grid-cell-text'], id: `${cellId}__text`, ...content}]
             } else {
-                cellConfig.text = rendererOutput.text  || ''
+                Object.assign(cellConfig, content)
             }
         } else {
             cellConfig.cn = rendererOutput
@@ -476,7 +490,7 @@ class Row extends Component {
 
                     if (oldNode && oldNode.data?.recordId === recordId) {
                         // We must update the ID and colindex to match the new physical slot
-                        oldNode.id = `${me.id}__cell-${poolIndex}`;
+                        Row.setCellId(oldNode, `${me.id}__cell-${poolIndex}`);
                         oldNode['aria-colindex'] = i + 1;
 
                         // Update position
@@ -563,7 +577,7 @@ class Row extends Component {
                         // re-issued that pool id — keeping it here puts two nodes with one id
                         // into a single row, and id-based diffing collapses (id-less insert
                         // storms, the DOM accumulating both generations).
-                        oldNode.id = `${me.id}__${column.dataField}`;
+                        Row.setCellId(oldNode, `${me.id}__${column.dataField}`);
                         oldNode['aria-colindex'] = i + 1;
 
                         if (columnPosition) {
@@ -681,6 +695,22 @@ class Row extends Component {
             style.height    !== rowGeometry.heightAt(rowIndex) + 'px' ||
             style.transform !== me.getRowTransform(rowGeometry.offsetAt(rowIndex))
         )
+    }
+
+    /**
+     * Gives a recycled cell the id of its new slot. A content-sized text container inside it takes the matching
+     * id, so no two elements of a row share one.
+     * @param {Object} cell The cell's vdom
+     * @param {String} id
+     */
+    static setCellId(cell, id) {
+        let text = cell.cn?.[0];
+
+        cell.id = id;
+
+        if (text?.cls?.includes('neo-grid-cell-text')) {
+            text.id = `${id}__text`
+        }
     }
 
     /**

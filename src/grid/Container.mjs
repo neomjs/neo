@@ -545,7 +545,10 @@ class GridContainer extends BaseContainer {
             if (bodyStart) bodyStart.rowHeight = value;
             if (bodyEnd)   bodyEnd.rowHeight = value;
 
-            rowGeometry && view.mounted && view.refreshRowGeometry()
+            // rowHeight is also the floor of measured rows. Deriving them again refreshes the geometry if one changed.
+            if (rowGeometry && !view.refreshMeasuredHeights()) {
+                view.mounted && view.refreshRowGeometry()
+            }
         }
     }
 

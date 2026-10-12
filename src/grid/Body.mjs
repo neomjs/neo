@@ -352,12 +352,17 @@ class GridBody extends Component {
      * Optional hook triggered after a VDOM update completes (including Main thread paint).
      * Used by `Neo.grid.ScrollManager` to measure the real-time VDOM worker pipeline roundtrip
      * latency (RTT) during active scrolling, enabling Predictive Delta Injection.
+     * Content-sized rows measure the rows the update rendered.
      * @protected
      */
     afterExecuteVdomUpdate() {
-        if (this.isScrolling) {
-            Performance.markEnd('grid.scroll:' + this.id)
+        let me = this;
+
+        if (me.isScrolling) {
+            Performance.markEnd('grid.scroll:' + me.id)
         }
+
+        me.rowGeometry && me.gridContainer.view.scheduleRowMeasure()
     }
 
     /**
