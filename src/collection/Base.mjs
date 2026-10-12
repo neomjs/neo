@@ -329,7 +329,18 @@ class Collection extends Base {
         }
 
         const tuples       = new Map(), previous = oldValue?.slice() || [], created = [],
-            runtimeConfigs = new Set(['id', 'isConstructed', 'isReady', 'listenerApplied']);
+            runtimeConfigs = new Set(['id', 'isConstructed', 'isDestroying', 'isReady', 'listenerApplied', 'listeners']),
+            matchesConfig  = (filter, name, expected) => {
+                const current = filter[name];
+                // Array getters copy values; include-set equality still keeps each entry's strict identity.
+                if (name === 'value' && !filter.filterBy && ['included', 'excluded', 'typedIncluded'].includes(filter.operator) &&
+                    Array.isArray(current) && Array.isArray(expected)) {
+                    return current.length === expected.length && current.every((item, index) => item === expected[index] ||
+                        filter.operator === 'typedIncluded' && item instanceof Date && expected[index] instanceof Date &&
+                        item.valueOf() === expected[index].valueOf())
+                }
+                return current === expected
+            };
 
         try {
             value = value.slice();
@@ -347,8 +358,8 @@ class Collection extends Base {
             value = value.map(key => {
                 const index = previous.findIndex(filter => filter === key ||
                     Object.entries(Filter.config).every(([name, fallback]) => runtimeConfigs.has(name) ||
-                        filter[name] === (name in key ? key[name] : fallback)) &&
-                    Object.keys(key).every(name => filter[name] === key[name]));
+                        matchesConfig(filter, name, name in key ? key[name] : fallback)) &&
+                    Object.keys(key).every(name => matchesConfig(filter, name, key[name])));
                 if (index !== -1) return previous.splice(index, 1)[0];
                 const filter = Neo.create(Filter, key);
                 created.push(filter);
@@ -1101,9 +1112,11 @@ class Collection extends Base {
      * Primitive callbacks see the full population; advanced callbacks see the preceding predicate's cohort.
      * Callbacks must be observational. Exclusion uses exact Filter identity, not property or role.
      * @param {Neo.collection.Filter|null} excludeFilter=null
+     * @throws {Error} A non-null exclusion must belong to this collection's current filters.
      * @returns {Array}
      */
     getFilteredItems(excludeFilter=null) {
+        if (excludeFilter !== null && !this.filters.includes(excludeFilter)) throw new Error('Unknown filter exclusion');
         return this.evaluateFilters(excludeFilter)
     }
 

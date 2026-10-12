@@ -298,6 +298,8 @@ const result = store.getFilterValues('status', picker);
 filtering. It applies every predicate except that exact Filter instance, including other predicates on the same field.
 Buckets retain first-occurrence population order; the display consumer sorts labels. Returned Date values are detached
 from the source. `getFilteredItems(excludeFilter)` exposes the same observational evaluation without aggregation.
+A non-null exclusion must be a current Filter instance on that collection: a stale or foreign reference returns
+`unknown-filter` from `getFilterValues`, and throws from `getFilteredItems`. Re-resolve the contribution after replacement.
 Primitive callbacks see the full population; advanced callbacks see the preceding predicate's cohort. Callbacks must
 be observational and use those arguments for cohort-sensitive decisions. Counting preserves the current visible maps;
 it does not emulate a filtering writer's temporary map. It never removes/reapplies filters, emits filtering events,
@@ -305,7 +307,7 @@ hydrates records or resolves fields.
 
 Coverage requires a fully loaded flat local Store with canonical values already available: eager Records, or raw
 simple-field Turbo items. Simple metadata does not authorize reconstructing missing defaults or coercing raw input.
-Expected unsupported coverage returns `{refused: true, reason}` with one of `remote-projection`, `incomplete-population`,
+Expected refusal returns `{refused: true, reason}` with one of `unknown-filter`, `remote-projection`, `incomplete-population`,
 `unknown-field`, `raw-complex-fields`, `noncanonical-field`, `unsupported-value` or `tree-population`. Unexpected callback
 faults still propagate. A refusal is distinct from a valid empty array.
 

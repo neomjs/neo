@@ -803,7 +803,8 @@ class Store extends Collection {
      * @param {String} property
      * @param {Neo.collection.Filter|null} excludeFilter=null
      * Buckets retain first-occurrence population order. Expected refusal returns {refused: true, reason}:
-     * remote-projection, incomplete-population, unknown-field, raw-complex-fields, noncanonical-field, unsupported-value.
+     * unknown-filter, remote-projection, incomplete-population, unknown-field, raw-complex-fields,
+     * noncanonical-field, unsupported-value, tree-population (TreeStore).
      * Unexpected callback failures propagate.
      * @returns {Object[]|Object}
      */
@@ -812,6 +813,9 @@ class Store extends Collection {
             properties = new Set([property, ...me.filters.filter(filter => !filter.disabled && !filter.filterBy &&
                 filter !== excludeFilter).map(filter => filter.property)]);
 
+        if (excludeFilter !== null && !me.filters.includes(excludeFilter)) {
+            return {refused: true, reason: 'unknown-filter'}
+        }
         if (me.isPipelinePushProjectionUncertain()) {
             return {refused: true, reason: 'remote-projection'}
         }

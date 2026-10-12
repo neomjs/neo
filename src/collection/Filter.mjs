@@ -67,7 +67,7 @@ class Filter extends Base {
         listenerApplied: false,
         /**
          * The operator to filter by (use the combination of property, operator & value)
-         * Valid values: '==', '===', '!=', '!==', '<', '<=', '>', '>=', 'doesNotStartWith', 'endsWith', 'excluded', 'included', 'isDefined', 'isUndefined', 'like', 'startsWith'
+         * Valid values: '==', '===', '!=', '!==', '<', '<=', '>', '>=', 'doesNotStartWith', 'endsWith', 'excluded', 'included', 'isDefined', 'isUndefined', 'like', 'startsWith', 'typedIncluded'
          * @member {String} operator='==='
          * @reactive
          */

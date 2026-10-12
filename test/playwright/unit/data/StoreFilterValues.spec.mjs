@@ -60,6 +60,83 @@ test.describe('Store column filter contract', () => {
         expect(collection.getFilter('category', null)).toBe(collection.filters[0])
     });
 
+    test('equal descriptors reuse live filters and a changed descriptor replaces only its contribution', () => {
+        const descriptors = () => [
+            {property: 'category', operator: 'typedIncluded', value: ['a', new Date('2026-01-01T00:00:00Z')], ownerRole: 'header-picker'},
+            {property: 'allowed', value: true}
+        ];
+        const collection    = create(Collection, {items: [{id: 1, category: 'a', allowed: true}], filters: descriptors()});
+        const [picker, app] = collection.filters;
+        let   changes       = 0;
+        picker.on('change', () => changes++);
+        collection.filters = descriptors();
+        expect(collection.filters[0]).toBe(picker);
+        expect(collection.filters[1]).toBe(app);
+        expect(picker.isDestroyed).not.toBe(true);
+        expect(app.isDestroyed).not.toBe(true);
+        collection.filters = [descriptors()[0], {property: 'allowed', value: false}];
+        expect(collection.filters[0]).toBe(picker);
+        expect(collection.filters[1]).not.toBe(app);
+        expect(app.isDestroyed).toBe(true);
+        picker.value = ['b'];
+        expect(changes).toBe(1);
+        expect(collection.count).toBe(0)
+    });
+
+    test('descriptor reuse keeps callback, scope and explicit listener identity authoritative', () => {
+        const callback   = id => function predicate({item}) {return item.id !== id};
+        const first      = callback(1), second = callback(2), scope = create(Collection, {}), events = [];
+        const collection = create(Collection, {items: [{id: 1}, {id: 2}], filters: [{filterBy: first, scope}]});
+        const original   = collection.filters[0];
+        collection.filters = [{filterBy: second, scope}];
+        expect(collection.filters[0]).not.toBe(original);
+        expect(collection.filters[0].filterBy).toBe(second);
+        expect(collection.filters[0].scope).toBe(scope);
+        expect(collection.items.map(item => item.id)).toEqual([2]);
+        collection.filters = [{property: 'id', value: 1, listeners: {change: () => events.push('old')}}];
+        const withListeners = collection.filters[0];
+        collection.filters = [{property: 'id', value: 1, listeners: {change: () => events.push('new')}}];
+        expect(collection.filters[0]).not.toBe(withListeners);
+        expect(withListeners.isDestroyed).toBe(true);
+        collection.filters[0].value = 2;
+        expect(events).toEqual(['new']);
+        expect(collection.items.map(item => item.id)).toEqual([2])
+    });
+
+    test('snapshot queries reject stale and foreign exclusions', () => {
+        const collection = create(Collection, {items: [{id: 1, category: 'a'}, {id: 2, category: 'b'}],
+            filters: [{property: 'category', value: 'a', ownerRole: 'header-picker'}]});
+        const stale = collection.filters[0], foreign = create(Filter, {property: 'category', value: 'b', ownerRole: 'header-picker'});
+        collection.filters = [{property: 'category', value: 'b', ownerRole: 'header-picker'}];
+        const current = collection.filters[0], before = collection.items, events = [];
+        collection.on('filter', () => events.push('filter'));
+        expect(stale.isDestroyed).toBe(true);
+        for (const exclude of [stale, foreign]) expect(() => collection.getFilteredItems(exclude)).toThrow(/unknown.*filter/i);
+        expect(collection.getFilteredItems(current).map(item => item.id)).toEqual([1, 2]);
+        expect(collection.getFilteredItems(null)).toEqual(before);
+        expect(collection.items).toEqual(before);
+        expect(collection.get(2)).toBe(before[0]);
+        expect(events).toEqual([])
+    });
+
+    test('value counts refuse stale and foreign exclusions instead of silently retaining the picker', async () => {
+        const store = await makeStore();
+        store.filters = [{property: 'category', value: 'a', ownerRole: 'header-picker'}];
+        const stale = store.filters[0], foreign = create(Filter, {property: 'category', value: 'b', ownerRole: 'header-picker'});
+        store.filters = [{property: 'category', value: 'b', ownerRole: 'header-picker'}];
+        const current = store.filters[0], before = store.items, events = [];
+        store.on('filter', () => events.push('filter'));
+        for (const exclude of [stale, foreign]) {
+            expect(store.getFilterValues('category', exclude)).toEqual({refused: true, reason: 'unknown-filter'})
+        }
+        expect(store.getFilterValues('category', current).map(({value, count}) => [value, count]))
+            .toEqual([['a', 2], ['b', 1], ['c', 1]]);
+        expect(store.getFilterValues('category', null).map(({value, count}) => [value, count])).toEqual([['b', 1]]);
+        expect(store.items).toEqual(before);
+        expect(store.filters[0]).toBe(current);
+        expect(events).toEqual([])
+    });
+
     test('authoritative replacement preserves complete owned configuration and refuses duplicates atomically', () => {
         const collection = create(Collection, {items: [{id: 1, category: 'a'}], filters: [
             {property: 'category', value: 'a', ownerRole: 'header-picker'}
