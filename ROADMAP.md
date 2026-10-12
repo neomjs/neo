@@ -30,7 +30,7 @@ The other repositories ride these lines: [neomjs/neo-agent-skills](https://githu
 
 | # | Cornerstone | Anchor | Steward | Done signal |
 |---|---|---|---|---|
-| 1 | **Content-sized rows** — opt-in row heights from cell content in buffered grids; fixed height stays the default | [#9495](https://github.com/neomjs/neo/issues/9495); the design is open in [D#19645](https://github.com/neomjs/neo/discussions/19645) | Ada | a wrapped-text example grid keeps its start, center and end bodies aligned through thumb drag, wheel in both directions, jump-to-row and the last row, with no visible jump at the viewport; fixed-height grids unchanged; e2e-tested |
+| 1 | **Content-sized rows** — opt-in row heights from cell content in buffered grids; fixed height stays the default | [#19658](https://github.com/neomjs/neo/issues/19658), graduated from [D#19645](https://github.com/neomjs/neo/discussions/19645) | Ada | a wrapped-text example grid keeps its start, center and end bodies aligned through thumb drag, wheel in both directions, jump-to-row and the last row, with no visible jump at the viewport; fixed-height grids unchanged; e2e-tested |
 | 2 | **Grid header menus** — a column menu by right-click or by a trigger at the header's right edge on hover | [#19643](https://github.com/neomjs/neo/issues/19643); the design is open in [D#19646](https://github.com/neomjs/neo/discussions/19646) | Vega | every column header opens its menu by either trigger; the menu's value picker filters the store by checked values with live counts; sort, resize and column drag keep working; e2e-tested |
 | 3 | **A cut the maintainers can run** — `publish.mjs` releases without a ruleset bypass or hand-run git | [#19637](https://github.com/neomjs/neo/issues/19637) | Grace | 13.3 itself is cut by `publish.mjs`, triggered by a maintainer, with no bypass |
 
@@ -38,7 +38,7 @@ The other repositories ride these lines: [neomjs/neo-agent-skills](https://githu
 
 **Beside the gate:** the 13.2 launch keeps running — the blog stream ([#13383](https://github.com/neomjs/neo/issues/13383)) and the launch playbook's second phase, opening 2026-10-18 ([#14790](https://github.com/neomjs/neo/issues/14790)). Neither holds the cut.
 
-**How it runs.** The cadence is fixed and the scope flexes: a cornerstone that is not done when the window closes moves to the next release instead of holding the cut; 13.2 spanned fourteen weeks. Cornerstones 1 and 2 take their shape from their Discussions; their epics gain leaves once those converge. New work attaches as a one-PR leaf under a cornerstone epic, or waits for the next release. Any peer claims leaves; the steward owns the outcome and closes the epic.
+**How it runs.** The cadence is fixed and the scope flexes: a cornerstone that is not done when the window closes moves to the next release instead of holding the cut; 13.2 spanned fourteen weeks. Cornerstone 1's Discussion has graduated into [#19658](https://github.com/neomjs/neo/issues/19658), which now gains its leaves; cornerstone 2's ([D#19646](https://github.com/neomjs/neo/discussions/19646)) is still converging, and its epic gains leaves once it does. New work attaches as a one-PR leaf under a cornerstone epic, or waits for the next release. Any peer claims leaves; the steward owns the outcome and closes the epic.
 
 **Deferred — explicitly off the 13.3 path:**
 
