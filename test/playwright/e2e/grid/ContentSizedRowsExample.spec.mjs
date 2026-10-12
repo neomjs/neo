@@ -360,7 +360,8 @@ const jumpToRow = (page, row) => page.locator('.neo-numberfield', {hasText: 'Jum
 
 /**
  * Wheels the view `steps` times by `delta` px, `interval` ms apart, while the page samples, and returns the
- * sampler's numbers
+ * sampler's numbers. Five unsampled steps warm the wheel path first: the first wheel step after a jump pays a
+ * one-time cost of about 33ms.
  * @param {import('@playwright/test').Page} page
  * @param {Object} options
  * @param {Boolean} options.classify
@@ -373,6 +374,13 @@ async function measureWheel(page, {classify, delta, interval, steps}) {
     let box = await page.locator(`${GRID} .neo-grid-view`).boundingBox();
 
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+    for (let step = 0; step < 5; step++) {
+        await page.mouse.wheel(0, delta);
+        await page.waitForTimeout(interval)
+    }
+
+    await settle(page);
     await page.evaluate(({grid, classify}) => window.startSampling(grid, classify), {grid: GRID, classify});
 
     for (let step = 0; step < steps; step++) {
