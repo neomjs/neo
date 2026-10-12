@@ -7,7 +7,7 @@ name: E2E (Brain-gated burn-in)
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, grace/19656-brain-e2e-burn-in]
 
 concurrency:
   # A started measurement completes; a newer `dev` head replaces only the one still queued
