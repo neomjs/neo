@@ -97,5 +97,142 @@ test.describe('Grid hidden row premeasurement', () => {
         release();
         await flight;
         expect(view.rowGeometry.measuredMean).toBe(null)
+    });
+
+    test('a thumb drag holds the measured mean and font reset until release, then measures the new font', async () => {
+        const {view, verticalScrollbar} = grid,
+              geometry                  = view.rowGeometry,
+              recordId                  = view.getRecordId(store.getAt(0)),
+              baseRead                  = read,
+              extents                   = () => ({total: geometry.totalHeight, bodies: view.bodies.map(body => body.vdom.height),
+                  scrollbar: verticalScrollbar.vdom.cn[0].height}),
+              initial = extents();
+
+        view.isThumbDragging = true;
+        await view.measureAheadRows();
+        expect(geometry.hasHeight(recordId)).toBe(false);
+        expect(geometry.measuredMean).toBe(null);
+        expect(geometry.estimate).toBe(40);
+        expect(extents()).toEqual(initial);
+
+        view.isThumbDragging = false;
+        await view.promiseUpdate();
+        expect(geometry.hasHeight(recordId)).toBe(true);
+        expect(geometry.measuredMean).toBe(85);
+        expect(geometry.estimate).toBe(85);
+        expect(geometry.hasHeight(view.getRecordId(store.getAt(79)))).toBe(false);
+        expect(geometry.heightAt(79)).toBe(85);
+        const measured = extents();
+        expect(measured).toEqual({total: 6800, bodies: view.bodies.map(() => '6885px'), scrollbar: '6885px'});
+
+        // The same content and widths now have twice the text height: only font invalidation can renew them.
+        read = ids => baseRead(ids).map(rect => ({...rect, height: rect.height * 2}));
+        view.isThumbDragging = true;
+        view.onFontChange({windowId: view.windowId});
+        expect(geometry.hasHeight(recordId)).toBe(true);
+        expect(geometry.measuredMean).toBe(85);
+        expect(geometry.estimate).toBe(85);
+        expect(extents()).toEqual(measured);
+
+        view.isThumbDragging = false;
+        expect(geometry.hasHeight(recordId)).toBe(false);
+        expect(geometry.measuredMean).toBe(null);
+        expect(geometry.estimate).toBe(40);
+        await view.promiseUpdate();
+        expect(extents()).toEqual(initial);
+
+        await view.measureAheadRows();
+        expect(geometry.hasHeight(recordId)).toBe(true);
+        expect(geometry.measuredMean).toBe(165);
+        expect(geometry.estimate).toBe(165);
+        expect(geometry.hasHeight(view.getRecordId(store.getAt(79)))).toBe(false);
+        expect(geometry.heightAt(79)).toBe(165);
+        expect(grid.rowHeight).toBe(40);
+        expect(extents()).toEqual({total: 13200, bodies: view.bodies.map(() => '13365px'), scrollbar: '13365px'})
+    });
+
+    test('store replacement retires renderer contexts, resets every mounted source, and refuses the old pending reply', async () => {
+        const {view, verticalScrollbar} = grid,
+              geometry                  = view.rowGeometry,
+              bodies                    = [...view.bodies],
+              oldStore                  = store,
+              contexts                  = [],
+              baseRead                  = read;
+        let release, replacement, pendingRects;
+
+        grid.useInternalId = false;
+        grid.columns.get('note').renderer = ({record, row, store: contextStore, value}) => {
+            contexts.push({record, row, store: contextStore});
+            return value
+        };
+        grid.repaintCells();
+        await Promise.all(bodies.map(body => body.promiseUpdate()));
+        await view.measureAheadRows();
+        await view.promiseUpdate();
+        expect(geometry.measuredMean).toBe(85);
+        expect(geometry.estimate).toBe(85);
+        const projectors = bodies.map(body => Neo.getComponent(body.rowMeasureVdom.cn[0].id.split('__measure_')[0]));
+        expect(projectors.every(row => row && !row.isDestroyed)).toBe(true);
+        expect(contexts.some(context => projectors.includes(context.row) && context.store === oldStore)).toBe(true);
+
+        // A different record range contributes a valid old-store read with overlapping natural ids.
+        view.syncBodies(geometry.offsetAt(40));
+        await view.promiseUpdate();
+        read = ids => {
+            pendingRects = baseRead(ids);
+            return new Promise(resolve => {release = () => resolve(pendingRects)})
+        };
+        const flight = view.measureAheadRows();
+        await expect.poll(() => typeof release).toBe('function');
+        expect(pendingRects.length).toBeGreaterThan(0);
+        expect(pendingRects.every(rect => rect.width > 0 && rect.height > 0)).toBe(true);
+
+        try {
+            replacement = Neo.create(Store, {keyProperty: 'id',
+                data: Array.from({length: 80}, (_, id) => ({id, name: `New name ${id}`, note: `New note ${id}`,
+                    nameLines: 1, noteLines: 2})),
+                model: {fields: ['id', 'name', 'note', 'nameLines', 'noteLines'].map(name => ({name}))}});
+            grid.store = replacement;
+            store = replacement;
+            expect(view.bodies).toEqual(bodies);
+            expect(view.rowGeometry).toBe(geometry);
+            expect(geometry.store).toBe(replacement);
+            expect(projectors.every(row => row.isDestroyed)).toBe(true);
+            expect(bodies.every(body => body.rowMeasureVdom === null)).toBe(true);
+            expect(geometry.measuredMean).toBe(null);
+            expect(geometry.estimate).toBe(40);
+
+            release();
+            await flight;
+            await view.promiseUpdate();
+            expect(geometry.measuredMean).toBe(null);
+            expect(replacement.items.every(record => !geometry.hasHeight(view.getRecordId(record)))).toBe(true);
+            expect(geometry.totalHeight).toBe(3200);
+            bodies.forEach(body => {
+                expect(body.store).toBe(replacement);
+                expect(body.vdom.height).toBe('3240px');
+                expect(body.items.filter(row => row.record).every(row => replacement.items.includes(row.record))).toBe(true);
+                expect(body.items.filter(row => row.record).every(row => row.vdom.style.height === '40px')).toBe(true)
+            });
+            expect(verticalScrollbar.vdom.cn[0].height).toBe('3240px');
+
+            contexts.length = 0;
+            read = baseRead;
+            await Promise.all(bodies.map(body => body.promiseUpdate()));
+            expect(bodies.every(body => !body.isVdomUpdating)).toBe(true);
+            await view.measureAheadRows();
+            expect(geometry.measuredMean).toBe(45);
+            expect(geometry.estimate).toBe(45);
+            expect(geometry.heightAt(79)).toBe(45);
+            expect(bodies.every(body => body.rowMeasureVdom !== null)).toBe(true);
+            expect(contexts.length).toBeGreaterThan(0);
+            expect(contexts.every(context => context.store === replacement && replacement.items.includes(context.record))).toBe(true);
+            const hiddenContexts = contexts.filter(context => !bodies.some(body => body.items.includes(context.row)));
+            expect(hiddenContexts.length).toBeGreaterThan(0);
+            expect(hiddenContexts.every(context => !projectors.includes(context.row) &&
+                context.row.parent.store === replacement)).toBe(true)
+        } finally {
+            store === replacement ? oldStore.destroy() : replacement?.destroy()
+        }
     })
 });
