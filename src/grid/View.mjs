@@ -314,6 +314,9 @@ class View extends Base {
             me.rowGeometry.store = value
         }
 
+        // Heights held during a thumb drag are keyed by the records of the old store
+        oldValue && (me.#heldHeights = null);
+
         // a store that already holds its records fires no load for them
         value?.count && me.onStoreLoad()
     }
@@ -421,7 +424,8 @@ class View extends Base {
     /**
      * The scroll origin this update renders, for `GridRowScrollPinning`. In content-sized mode it also carries the
      * scroll correction of moved anchor rows: once, with the update that renders the moved rows, so the main
-     * thread moves the scroll offset in the same task as the row transforms.
+     * thread moves the scroll offset in the same task as the row transforms. When an ancestor's update absorbs
+     * this one, `Neo.mixin.VdomLifecycle` sends the meta along with that batch.
      * @returns {Object}
      */
     getVdomUpdateMeta() {

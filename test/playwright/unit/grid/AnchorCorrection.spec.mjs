@@ -58,9 +58,10 @@ function createStore(count) {
 /**
  * A mounted content-sized grid, with the layout a browser would deliver applied by hand
  * @param {Neo.data.Store} store
+ * @param {Object} [config={}]
  * @returns {Promise<Neo.grid.Container>}
  */
-async function createGrid(store) {
+async function createGrid(store, config = {}) {
     let grid = Neo.create(GridContainer, {
         appName         : 'GridAnchorCorrectionTest',
         bufferRowRange  : 2,
@@ -69,7 +70,8 @@ async function createGrid(store) {
         height          : 400,
         rowHeight,
         store,
-        width           : 600
+        width           : 600,
+        ...config
     });
 
     await grid.initVnode();
@@ -235,5 +237,72 @@ test.describe('Grid content-sized rows: anchor correction', () => {
         await view.promiseUpdate();
 
         expect(extents).toEqual([true])
+    });
+
+    test('when an ancestor update absorbs the view update, the correction reaches the main thread with that batch', async () => {
+        let {view}      = grid,
+            batches     = [],
+            updateBatch = VdomHelper.updateBatch;
+
+        // Every batch the VDOM worker answers: its emitted roots and the meta it hands to the main thread
+        VdomHelper.updateBatch = data => {
+            let response = updateBatch.call(VdomHelper, data);
+            batches.push({meta: response.meta, roots: Object.keys(data.updates)});
+            return response
+        };
+
+        try {
+            // Control: the view's own update carries the correction
+            view.setRowHeights(heightsOf(grid, {10: 120}));
+            await view.promiseUpdate();
+
+            expect(batches.filter(batch => batch.meta?.[view.id]?.scrollCorrection === 80).map(batch => batch.roots))
+                .toEqual([[view.id]]);
+
+            // A full-depth grid update in flight and one queued behind it: the view's update merges into the grid's
+            batches.length = 0;
+            grid.updateDepth = -1;
+            grid.update();
+            grid.update();
+            view.setRowHeights(heightsOf(grid, {20: 120}));
+            await grid.promiseUpdate();
+            await grid.timeout(50);
+
+            let carriers = batches.filter(batch => batch.meta?.[view.id]?.scrollCorrection === 80);
+
+            expect(carriers.length).toBe(1);
+            expect(carriers[0].roots, 'the grid payload absorbed the view').not.toContain(view.id)
+        } finally {
+            VdomHelper.updateBatch = updateBatch
+        }
+    });
+
+    test('heights held during a thumb drag do not outlive a store replacement, and heights of the new store do', async () => {
+        let first   = createStore(200),
+            other   = createStore(200),
+            natural = await createGrid(first, {useInternalId: false}),
+            {view}  = natural;
+
+        view.syncBodies(0);
+        await view.promiseUpdate();
+
+        view.isThumbDragging = true;
+        view.setRowHeights(new Map([[view.getRecordId(first.get(10)), 160]]));
+
+        // The same ids name other records now
+        natural.store = other;
+        other.fire('load', {items: other.items});
+        view.setRowHeights(new Map([[view.getRecordId(other.get(20)), 90]]));
+
+        view.isThumbDragging = false;
+        await view.promiseUpdate();
+
+        expect(view.rowGeometry.heightAt(10)).toBe(rowHeight);
+        expect(view.rowGeometry.heightAt(20)).toBe(90);
+
+        await natural.timeout(20);
+        natural.destroy();
+        first.destroy();
+        other.destroy()
     })
 });
