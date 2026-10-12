@@ -363,6 +363,40 @@ class View extends Base {
     }
 
     /**
+     * Content-sized rows: changes row heights so the visible rows hold still. The row at the scroll offset is the
+     * anchor: a change above it moves it, and the scroll offset moves along by the same distance, which the next
+     * update hands to the main thread as `scrollCorrection`. A change below it moves nothing on screen. A mounted
+     * view then re-derives its layout.
+     * @param {Function} change Changes the heights of the {@link #rowGeometry}, returns true if any changed
+     * @param {Boolean} [force=false] Re-renders every row
+     * @returns {Boolean} True if a height changed
+     * @private
+     */
+    #changeRowHeights(change, force = false) {
+        let me                       = this,
+            {rowGeometry, scrollTop} = me,
+            anchor                   = rowGeometry.indexAt(scrollTop),
+            offset                   = rowGeometry.offsetAt(anchor),
+            totalHeight              = rowGeometry.totalHeight,
+            correction;
+
+        if (!change()) {
+            return false
+        }
+
+        correction = rowGeometry.offsetAt(anchor) - offset;
+
+        if (correction !== 0) {
+            me.#scrollCorrection += correction;
+            me.#scrollEpoch++;
+            me.scrollTop = scrollTop + correction
+        }
+
+        me.mounted && me.refreshRowGeometry(force, rowGeometry.totalHeight < totalHeight);
+        return true
+    }
+
+    /**
      * Retires the model the View owns and stops following the store; a body's destruction never
      * touches the model.
      * @param {...*} args
@@ -627,16 +661,20 @@ class View extends Base {
 
     /**
      * Content-sized rows: forgets every measured height and renders the bodies again, which measures the mounted
-     * rows anew. A change to which columns wrap their text needs it.
+     * rows anew. A change to which columns wrap their text needs it. The row at the scroll offset holds still on
+     * screen, as for {@link #setRowHeights}.
      */
     resetRowHeights() {
-        let me = this;
+        let me            = this,
+            {rowGeometry} = me;
 
-        if (me.rowGeometry) {
-            me.rowGeometry.clearHeights();
+        if (rowGeometry) {
+            me.#heldHeights   = null;
             me.#measuredCells = new WeakMap();
             me.#textHeights.clear();
-            me.mounted && me.refreshRowGeometry(true)
+
+            // The cells render again even if no height was known: their text containers come or go
+            me.#changeRowHeights(() => {rowGeometry.clearHeights(); return true}, true)
         }
     }
 
@@ -672,18 +710,15 @@ class View extends Base {
 
     /**
      * Applies known row heights in content-sized mode. A mounted view re-derives its layout if any height
-     * changed; an unmounted one renders them on its first layout.
-     *
-     * The row at the scroll offset is the anchor: a change above it moves it, and the scroll offset moves along,
-     * so the visible rows hold still. A change below it moves nothing on screen. During a thumb drag the heights
-     * wait for the drag's end, so the extent under the thumb holds still.
+     * changed; an unmounted one renders them on its first layout. The row at the scroll offset holds still on
+     * screen: a change above it moves the scroll offset along. During a thumb drag the heights wait for the drag's
+     * end, so the extent under the thumb holds still.
      * @param {Map<Number|String, Number>} heights Heights in px, keyed by record id
      * @returns {Boolean} True if at least one height changed now
      */
     setRowHeights(heights) {
-        let me                       = this,
-            {rowGeometry, scrollTop} = me,
-            anchor, correction, offset, totalHeight;
+        let me            = this,
+            {rowGeometry} = me;
 
         if (!rowGeometry) {
             return false
@@ -695,24 +730,7 @@ class View extends Base {
             return false
         }
 
-        anchor      = rowGeometry.indexAt(scrollTop);
-        offset      = rowGeometry.offsetAt(anchor);
-        totalHeight = rowGeometry.totalHeight;
-
-        if (rowGeometry.setHeights(heights)) {
-            correction = rowGeometry.offsetAt(anchor) - offset;
-
-            if (correction !== 0) {
-                me.#scrollCorrection += correction;
-                me.#scrollEpoch++;
-                me.scrollTop = scrollTop + correction
-            }
-
-            me.mounted && me.refreshRowGeometry(false, rowGeometry.totalHeight < totalHeight);
-            return true
-        }
-
-        return false
+        return me.#changeRowHeights(() => rowGeometry.setHeights(heights))
     }
 
     /**

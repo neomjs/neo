@@ -144,6 +144,26 @@ test.describe('Grid content-sized rows: anchor correction', () => {
         expect(metas.at(-1).scrollEpoch).toBe(1)
     });
 
+    test('a reset of the measured heights keeps the anchor row still', async () => {
+        let {view}   = grid,
+            geometry = view.rowGeometry,
+            before;
+
+        // Row 10 grows by 80px above the anchor, then a wrapText change resets every measured height
+        view.setRowHeights(heightsOf(grid, {10: 120}));
+        await view.promiseUpdate();
+
+        before       = view.scrollTop - geometry.offsetAt(50);
+        metas.length = 0;
+
+        view.resetRowHeights();
+        await view.promiseUpdate();
+
+        expect(geometry.heightAt(10)).toBe(rowHeight);
+        expect(view.scrollTop - geometry.offsetAt(50)).toBe(before);
+        expect(metas.filter(meta => meta.scrollCorrection).map(meta => meta.scrollCorrection)).toEqual([-80])
+    });
+
     test('a change below the anchor row moves nothing', async () => {
         let {view}    = grid,
             scrollTop = view.scrollTop;
