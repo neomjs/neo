@@ -83,8 +83,9 @@ function defineGridState(grid) {
 const gridState = page => page.evaluate(() => window.gridState());
 
 /**
- * Waits until the grid state holds still for ten animation frames: the worker rendered the rows, the grid
- * learned their heights, and the corrections landed
+ * Waits until the grid state holds still for ten animation frames while a rendered row covers the view's top edge:
+ * the worker rendered the rows for the scroll offset, the grid learned their heights, and the corrections landed.
+ * Ten still frames alone can pass before the first render for a new offset, while the previous rows still show.
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<Object>} The settled grid state
  */
@@ -96,9 +97,11 @@ async function settle(page) {
         for (let frame = 0; frame < 600 && stable < 10; frame++) {
             await new Promise(resolve => requestAnimationFrame(resolve));
 
-            const next = JSON.stringify(window.gridState());
+            const current = window.gridState(),
+                  next    = JSON.stringify(current),
+                  covered = current.rows.some(row => row.screen <= 0 && row.screen + row.height > 0);
 
-            stable = next === last ? stable + 1 : 0;
+            stable = covered && next === last ? stable + 1 : 0;
             last   = next
         }
 
