@@ -30,7 +30,10 @@
       "Bash(gh pr checks *)",
       "Bash(gh pr list *)",
       "Bash(gh issue view *)",
-      "Bash(gh issue list *)"
+      "Bash(gh issue list *)",
+      "Bash(docker exec *neo-local-agent-os-*)",
+      "Bash(docker cp * neo-local-agent-os-*)",
+      "Bash(docker compose *)"
     ],
     "deny": [
       "Bash(gh pr merge *)",
