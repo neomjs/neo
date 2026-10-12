@@ -328,6 +328,41 @@ test.describe('Grid wrapText measurement', () => {
         expect(view.rowGeometry.heightAt(3)).toBe(4 * LINE + CHROME)
     });
 
+    test('a replaced store forgets the measured texts of the old store\'s records', async () => {
+        let natural   = await createGrid({contentSizedRows: true, store, useInternalId: false}),
+            {view}    = natural,
+            hideNames = false,
+            // The same ids, naming records with one line in both columns
+            other     = Neo.create(Store, {
+                data       : Array.from({length: 200}, (item, index) => ({id: index, name: 'N', nameLines: 1, note: 'N', noteLines: 1})),
+                keyProperty: 'id',
+                model      : store.model
+            });
+
+        // After the swap, the name texts go unread
+        respond = ids => Promise.resolve(readTextRects(natural, ids).map((rect, index) =>
+            hideNames && renderedTexts(natural).get(ids[index])?.field === 'name' ? {} : rect));
+
+        await view.measureRowHeights();
+        await view.promiseUpdate();
+        await natural.timeout(50);
+
+        // Record 8 of the first store: its 3-line name is its tallest text
+        expect(view.rowGeometry.heightAt(8)).toBe(3 * LINE + CHROME);
+
+        hideNames     = true;
+        natural.store = other;
+        other.fire('load', {items: other.items});
+        await natural.timeout(100);
+
+        // Only the new note texts were read, and an old name height must not combine with them
+        expect(view.rowGeometry.heightAt(8)).toBe(rowHeight);
+
+        await natural.timeout(20);
+        natural.destroy();
+        other.destroy()
+    });
+
     test('turning wrapText off forgets the measured heights', async () => {
         let {view} = grid,
             note   = grid.columns.get('note'),

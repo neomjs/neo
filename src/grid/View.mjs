@@ -295,7 +295,13 @@ class View extends Base {
         value   ?.on({...listeners});
 
         if (me.rowGeometry) {
-            me.rowGeometry.store = value
+            me.rowGeometry.store = value;
+
+            // Like the geometry's heights, the measured texts belong to the old store's records
+            if (oldValue) {
+                me.#measuredCells = new WeakMap();
+                me.#textHeights.clear()
+            }
         }
 
         // a store that already holds its records fires no load for them
