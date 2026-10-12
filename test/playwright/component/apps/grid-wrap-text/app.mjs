@@ -49,6 +49,9 @@ class GridWrapTextStore extends Store {
 
 GridWrapTextStore = Neo.setupClass(GridWrapTextStore);
 
+// The grid-two-views fixture shows the same records in two grids
+export {GridWrapTextStore};
+
 export const onStart = () => Neo.app({
     mainView: {
         module: Viewport,
