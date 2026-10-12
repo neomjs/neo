@@ -416,8 +416,7 @@ class Row extends Component {
 
         Object.assign(vdom, {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
-            data           : {recordId, rowId: rowIndex,
-                ...(rowGeometry ? {heightSource: rowGeometry.hasHeight(recordId) ? 'measured' : 'estimated'} : {})},
+            data           : {recordId, rowId: rowIndex},
             role           : 'row',
             // Content-sized rows take height and offset from the view's geometry, fixed rows multiply
             style          : {
@@ -703,8 +702,7 @@ class Row extends Component {
 
         return !!(rowGeometry && me.record) && (
             style.height    !== rowGeometry.heightAt(rowIndex) + 'px' ||
-            style.transform !== me.getRowTransform(rowGeometry.offsetAt(rowIndex)) ||
-            me.vdom.data.heightSource !== (rowGeometry.hasHeight(me.parent.getRecordId(me.record)) ? 'measured' : 'estimated')
+            style.transform !== me.getRowTransform(rowGeometry.offsetAt(rowIndex))
         )
     }
 

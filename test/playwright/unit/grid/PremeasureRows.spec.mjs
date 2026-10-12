@@ -130,7 +130,31 @@ test.describe('Grid hidden row premeasurement', () => {
         expect(view.rowGeometry.totalHeight).toBe(height)
     });
 
-    test('a thumb drag holds the measured mean and font reset until release, then measures the new font', async () => {
+    test('font arrival retains rendered heights until the fresh nearby batch replaces heights and mean together', async () => {
+        const {view} = grid, geometry = view.rowGeometry, baseRead = read;
+        await view.measureAheadRows();
+        await view.promiseUpdate();
+        const previous = geometry.totalHeight;
+        let release;
+        read = ids => new Promise(resolve => {
+            release = () => resolve(baseRead(ids).map(rect => ({...rect, height: rect.height * 2})))
+        });
+
+        view.onFontChange({windowId: view.windowId});
+        expect(geometry.heightAt(0), 'font invalidation alone never paints the estimate').toBe(85);
+        expect(geometry.measuredMean).toBe(85);
+        const flight = view.measureAheadRows();
+        await expect.poll(() => typeof release).toBe('function');
+        expect(geometry.totalHeight, 'the old extent survives the cross-thread read').toBe(previous);
+        release();
+        await flight;
+        expect(geometry.heightAt(0)).toBe(165);
+        expect(geometry.measuredMean).toBe(165);
+        expect(geometry.estimate).toBe(165);
+        expect(geometry.hasHeight(view.getRecordId(store.getAt(79))), 'unseen fallback-font knowledge is retired').toBe(false)
+    });
+
+    test('a thumb drag holds the old geometry until release swaps the ready font measurements and mean', async () => {
         const {view, verticalScrollbar} = grid,
               geometry                  = view.rowGeometry,
               recordId                  = view.getRecordId(store.getAt(0)),
@@ -164,15 +188,11 @@ test.describe('Grid hidden row premeasurement', () => {
         expect(geometry.measuredMean).toBe(85);
         expect(geometry.estimate).toBe(85);
         expect(extents()).toEqual(measured);
-
-        view.isThumbDragging = false;
-        expect(geometry.hasHeight(recordId)).toBe(false);
-        expect(geometry.measuredMean).toBe(null);
-        expect(geometry.estimate).toBe(40);
-        await view.promiseUpdate();
-        expect(extents()).toEqual(initial);
-
         await view.measureAheadRows();
+        expect(geometry.measuredMean, 'fresh font measurements do not move the dragging thumb').toBe(85);
+        expect(extents()).toEqual(measured);
+        view.isThumbDragging = false;
+        await view.promiseUpdate();
         expect(geometry.hasHeight(recordId)).toBe(true);
         expect(geometry.measuredMean).toBe(165);
         expect(geometry.estimate).toBe(165);

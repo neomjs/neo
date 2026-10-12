@@ -170,6 +170,11 @@ class View extends Base {
      */
     #measureGeneration = 0
     /**
+     * Fresh font measurements waiting to replace the retained geometry in one anchored mutation.
+     * @member {Object|null} #fontRefresh=null
+     */
+    #fontRefresh = null
+    /**
      * Hidden projection's bounded renderer rows, one per body, outside its visible row pool.
      * @member {Map} #measureRows
      */
@@ -347,6 +352,7 @@ class View extends Base {
                 me.resetRowHeights()
             }
             heights && me.setRowHeights(heights, estimate)
+            me.#fontRefresh?.heights.size && me.commitFontHeights()
         }
     }
 
@@ -398,6 +404,7 @@ class View extends Base {
             // Like the geometry's heights, the measured texts belong to the old store's records
             if (oldValue) {
                 me.#measureGeneration++;
+                me.#fontRefresh = null;
                 me.#measuredCells = new WeakMap();
                 me.#textHeights.clear();
                 me.#measureKeys.clear();
@@ -611,14 +618,43 @@ class View extends Base {
     }
 
     /**
-     * @summary Invalidates this window's wrapped-text measurements and pending replies. Supplied geometry
-     * without declared text height drivers does not depend on the document's fonts.
+     * @summary Re-measures this window's wrapped text while retaining the rendered geometry until its replacement
+     * is ready. Supplied geometry without declared text height drivers does not depend on document fonts.
      * @param {Object} data
      * @param {String} data.windowId
      */
     onFontChange({windowId}) {
-        windowId === this.windowId && this.rowGeometry &&
-            this.gridContainer.columns.items.some(column => column.wrapText) && this.resetRowHeights()
+        let me = this;
+
+        if (windowId === me.windowId && me.rowGeometry && me.gridContainer.columns.items.some(column => column.wrapText)) {
+            me.#measureGeneration++;
+            me.#fontRefresh = {heights: new Map(), textHeights: new Map()};
+            me.#measureKeys.clear();
+            me.#measuredCells = new WeakMap();
+            me.#heldHeights = null;
+            me.#heldEstimate = false;
+            me.#heldReset = false;
+            me.scheduleRowMeasure()
+        }
+    }
+
+    /**
+     * @summary Replaces fallback-font knowledge and the estimate only after a fresh hidden batch is ready.
+     * During a thumb drag the old extent stays authoritative until release.
+     * @protected
+     */
+    commitFontHeights() {
+        let me = this, refresh = me.#fontRefresh;
+
+        if (!refresh || me.isThumbDragging || !me.rowGeometry) return;
+        me.#fontRefresh = null;
+        me.#textHeights = refresh.textHeights;
+        me.#changeRowHeights(() => {
+            me.rowGeometry.clearHeights();
+            me.rowGeometry.setHeights(refresh.heights);
+            me.rowGeometry.estimate = Math.max(me.gridContainer.rowHeight, Math.round(me.rowGeometry.measuredMean || me.gridContainer.rowHeight));
+            return true
+        })
     }
 
     /**
@@ -667,6 +703,8 @@ class View extends Base {
             signature = columns.map(({body, column, width}) =>
                 [body.id, column.id, column.dataField, width, column.renderer, column.cellCls, me.theme]),
             targets = [], rows = new Map(), indexes = new Set(), heights = new Map(),
+            fontRefresh = me.#fontRefresh,
+            textHeights = fontRefresh?.textHeights || me.#textHeights,
             generation, rects, chrome;
 
         if (!me.rowGeometry || !me.mounted || !store?.count || !columns.length ||
@@ -689,9 +727,9 @@ class View extends Base {
                 });
                 changed.size && me.#measureGeneration++;
                 me.#measureKeys.forEach(fields => changed.forEach(field => fields.delete(field)));
-                me.#textHeights.forEach(fields => changed.forEach(field => delete fields[field]));
+                textHeights.forEach(fields => changed.forEach(field => delete fields[field]));
                 me.#measuredCells = new WeakMap();
-                me.refreshMeasuredHeights()
+                !fontRefresh && me.refreshMeasuredHeights()
             }
             me.#measureLayout = signature;
         }
@@ -759,17 +797,28 @@ class View extends Base {
                     [body.id, column.id, column.dataField, width, column.renderer, column.cellCls, me.theme]))) return;
 
             me.#chrome = Object.values(chrome).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+            if (fontRefresh && targets.some(({body, cell, id, revision}, index) => !rects[index]?.width ||
+                revision !== (me.#recordVersions.get(id) || 0) ||
+                !body.rowMeasureVdom?.cn.some(row => row.cn.includes(cell)))) {
+                me.scheduleRowMeasure();
+                return
+            }
             targets.forEach(({body, cell, column, record, id, width, revision}, index) => {
                 let rect = rects[index];
                 if (!rect?.width || revision !== (me.#recordVersions.get(id) || 0) ||
                     !body.rowMeasureVdom?.cn.some(row => row.cn.includes(cell))) return;
-                let fields = me.#textHeights.get(id) || {};
+                let fields = textHeights.get(id) || {};
                 fields[column.dataField] = rect.height;
-                me.#textHeights.set(id, fields);
+                textHeights.set(id, fields);
                 me.rememberMeasuredCell(record, column.dataField, width);
                 heights.set(id, me.measuredHeight(fields))
             });
-            heights.size && me.setRowHeights(heights, true)
+            if (fontRefresh) {
+                heights.forEach((height, id) => fontRefresh.heights.set(id, height));
+                heights.size && me.commitFontHeights()
+            } else {
+                heights.size && me.setRowHeights(heights, true)
+            }
         }
 
     }
@@ -806,7 +855,7 @@ class View extends Base {
             chrome, rects, wrapFields;
 
         // A render in flight may land before or after the read: the next landed update measures its rows
-        if (!me.rowGeometry || !me.mounted || me.isVdomUpdating || me.bodies.some(body => body.isVdomUpdating)) {
+        if (!me.rowGeometry || me.#fontRefresh || !me.mounted || me.isVdomUpdating || me.bodies.some(body => body.isVdomUpdating)) {
             return
         }
 
@@ -929,6 +978,7 @@ class View extends Base {
 
         if (rowGeometry) {
             me.#measureGeneration++;
+            me.#fontRefresh = null;
             me.#heldHeights = null;
             me.#heldEstimate = false;
             me.#measuredCells = new WeakMap();
@@ -1113,6 +1163,7 @@ class View extends Base {
             })
         } else if (!me.contentSizedRows && me.rowGeometry) {
             me.#measureGeneration++;
+            me.#fontRefresh = null;
             me.clearMeasureProjection();
             me.rowGeometry.destroy();
             me.rowGeometry = null

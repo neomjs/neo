@@ -139,7 +139,7 @@ test.describe('Neo.main.DomEvents', () => {
         ])
     });
 
-    test('font completion and failure advance only their document generation, and destroy removes their listeners', () => {
+    test('font completion and failure announce only their document window, and destroy removes their listeners', () => {
         const manager = Neo.worker.Manager,
               sendWas = manager.sendMessage,
               idWas   = manager.windowId,
@@ -174,10 +174,10 @@ test.describe('Neo.main.DomEvents', () => {
             dispatch(0, 'loadingdone');
 
             expect(sent).toEqual([
-                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-0', generation: 1}},
-                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-1', generation: 1}},
-                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-0', generation: 2}},
-                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-0', generation: 3}}
+                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-0'}},
+                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-1'}},
+                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-0'}},
+                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-0'}}
             ]);
 
             owners[0].destroy();
@@ -187,7 +187,7 @@ test.describe('Neo.main.DomEvents', () => {
             expect(sent).toHaveLength(4);
 
             dispatch(1, 'loadingdone');
-            expect(sent.at(-1).data).toEqual({windowId: 'font-window-1', generation: 2})
+            expect(sent.at(-1).data).toEqual({windowId: 'font-window-1'})
         } finally {
             owners.forEach(owner => !owner.isDestroyed && owner.destroy());
             manager.sendMessage = sendWas;
@@ -217,7 +217,7 @@ test.describe('Neo.main.DomEvents', () => {
             fonts.dispatchEvent(new Event('loadingdone'));
 
             expect(sent).toEqual([
-                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-registered-later', generation: 1}}
+                {destination: 'app', action: 'fontChange', data: {windowId: 'font-window-registered-later'}}
             ])
         } finally {
             Neo.worker.Manager = manager;

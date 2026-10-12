@@ -16,7 +16,7 @@ async function settleGrid(page) {
             return JSON.stringify([...view.querySelectorAll('.neo-grid-row[data-record-id]')]
                     .filter(row => row.style.display !== 'none')
                     .map(row => [row.dataset.recordId, row.getBoundingClientRect().top - top,
-                        row.getBoundingClientRect().height, row.dataset.heightSource]))
+                        row.getBoundingClientRect().height]))
         };
         let last = state(), stable = 0;
         for (let frame = 0; frame < 600 && stable < 10; frame++) {
@@ -160,6 +160,63 @@ test.describe('Grid native hidden premeasurement', () => {
         await expect.poll(() => app.callMethod(geometryId, 'hasHeight', [lastId]), {timeout: 10000}).toBe(true)
     });
 
+    for (const relevant of [false, true]) {
+        test(`a ${relevant ? 'used' : 'unused'} font arrival never paints visible rows at the estimate`, async ({page}) => {
+            const rowHeight = (await app.getComponent('grid-wrap-text', ['rowHeight'])).rowHeight;
+            await page.evaluate(() => document.fonts.ready);
+            await app.callMethod(viewId, 'measureAheadRows');
+            await app.callMethod(viewId, 'promiseUpdate');
+            await settleGrid(page);
+            const baseline = await page.evaluate(grid => {
+                const view    = document.querySelector(`${grid} .neo-grid-view`), box = view.getBoundingClientRect();
+                const heights = () => Object.fromEntries([...view.querySelectorAll('.neo-grid-row[data-record-id]')]
+                    .filter(row => row.style.display !== 'none' && row.getBoundingClientRect().bottom > box.top &&
+                        row.getBoundingClientRect().top < box.bottom)
+                    .map(row => [row.dataset.recordId, row.getBoundingClientRect().height]));
+                const previous = heights();
+                window.__fontFrames = {frames: [], stop: false, heights};
+                const tick = () => {
+                    window.__fontFrames.frames.push(heights());
+                    if (!window.__fontFrames.stop) requestAnimationFrame(tick)
+                };
+                requestAnimationFrame(tick);
+                return previous
+            }, GRID);
+            expect(Object.values(baseline).some(height => height > rowHeight), 'positive control: rows start above the estimate').toBe(true);
+            await page.evaluate(async ({grid, relevant}) => {
+                const family = relevant ? 'GridUsedArrival' : 'GridUnusedArrival',
+                    face     = new FontFace(family, 'local("Courier New"), local("DejaVu Sans Mono"), local("Liberation Mono")');
+                document.fonts.add(face);
+                if (relevant) {
+                    const style = document.createElement('style');
+                    style.textContent = `${grid} .neo-grid-cell {font-family: ${family}, monospace}`;
+                    document.head.append(style)
+                }
+                await face.load();
+                await document.fonts.ready
+            }, {grid: GRID, relevant});
+            await app.callMethod(viewId, 'measureAheadRows');
+            await app.callMethod(viewId, 'promiseUpdate');
+            await settleGrid(page);
+            const {frames, final} = await page.evaluate(() => {
+                window.__fontFrames.stop = true;
+                return {frames: window.__fontFrames.frames, final: window.__fontFrames.heights()}
+            });
+            expect(frames.length, 'the witness observed rendered frames').toBeGreaterThan(0);
+            for (const frame of frames) {
+                for (const [id, before] of Object.entries(baseline)) {
+                    if (before > rowHeight && final[id] > rowHeight && frame[id] !== undefined) {
+                        expect(frame[id], `record ${id} never collapses to the estimate`).toBeGreaterThan(rowHeight)
+                    }
+                    if (!relevant && frame[id] !== undefined) expect(frame[id], `unused font leaves record ${id} unchanged`).toBe(before)
+                }
+            }
+            const report = await layoutReport(page);
+            expect(report.driven.length).toBeGreaterThan(0);
+            expect(report.driven.every(pair => Math.abs(pair.row - pair.needed) < 1)).toBe(true)
+        })
+    }
+
     test('without input the bounded nearby measurements settle and keep the viewport and extent still', async ({page}) => {
         await page.evaluate(() => document.fonts.ready);
         await app.setProperties('grid-wrap-text', {useInternalId: false});
@@ -211,7 +268,7 @@ test.describe('Grid native hidden premeasurement', () => {
     });
 
     for (const direction of [-1, 1]) for (const paced of [true, false]) {
-    test(`${direction < 0 ? 'reverse' : 'forward'} wheel ${paced ? 'coverage' : 'throughput'} records the share first mounted at the estimate`, async ({page}) => {
+    test(`${direction < 0 ? 'reverse' : 'forward'} wheel ${paced ? 'coverage' : 'throughput'} records rendered rows against their natural text height`, async ({page}) => {
         // A bounded idle scan must not make this witness vacuous by learning the whole store before input.
         const storeId = (await app.findInstances({className: 'Neo.test.playwright.GridWrapTextStore'}, ['id']))[0].id;
         await app.setProperties('grid-wrap-text', {useInternalId: false});
@@ -237,18 +294,40 @@ test.describe('Grid native hidden premeasurement', () => {
         }, {grid: GRID, direction});
         expect(unknownId).toBeGreaterThan(1);
         expect(await app.callMethod(geometryId, 'hasHeight', [unknownId]), 'the wheel path still contains unseen records').toBe(false);
-        await page.evaluate(({grid, unknownId}) => {
-            let seen      = new Set([...document.querySelectorAll(`${grid} .neo-grid-row[data-record-id]`)].map(row => row.dataset.recordId));
+        const rowHeight = (await app.getComponent('grid-wrap-text', ['rowHeight'])).rowHeight;
+        await page.evaluate(({grid, unknownId, rowHeight}) => {
+            const readRows = () => {
+                const rows = [...document.querySelectorAll(`${grid} .neo-grid-row[data-record-id]`)]
+                    .filter(row => !row.closest('.neo-grid-row-measure') && row.style.display !== 'none');
+                const natural = new Map();
+                rows.forEach(row => {
+                    const id     = row.dataset.recordId;
+                    let   height = natural.get(id) ?? rowHeight;
+                    row.querySelectorAll('.neo-grid-cell-text').forEach(text => {
+                        const cell = text.parentElement, rect = text.getBoundingClientRect(), style = getComputedStyle(cell);
+                        if (!rect.width) return;
+                        const chrome = ['padding-top', 'padding-bottom', 'border-top-width', 'border-bottom-width']
+                            .reduce((sum, name) => sum + (parseFloat(style.getPropertyValue(name)) || 0), 0);
+                        height = Math.max(height, rect.height + chrome)
+                    });
+                    natural.set(id, height)
+                });
+                // All bodies share a record's height, including a wrapping column in another body.
+                return rows.map(row => {
+                    const id = row.dataset.recordId, rect = row.getBoundingClientRect();
+                    return {id, rect, source: Math.abs(rect.height - natural.get(id)) < 1 ? 'matched' : 'mismatched'}
+                })
+            };
+            let seen      = new Set(readRows().map(row => row.id));
             let frameSeen = new Set();
             let started   = false;
-            window.__gridHeightSample = {jump: {measured: 0, estimated: 0}, wheel: {measured: 0, estimated: 0},
-                visible: {measured: 0, estimated: 0}, unseenRecordArrived: false, unseenRecordVisible: false};
+            window.__gridHeightSample = {jump: {matched: 0, mismatched: 0}, wheel: {matched: 0, mismatched: 0},
+                visible: {matched: 0, mismatched: 0}, unseenRecordArrived: false, unseenRecordVisible: false};
             document.querySelector(`${grid} .neo-grid-view`).addEventListener('wheel', () => {started = true},
                 {capture: true, once: true, passive: true});
             window.__gridHeightObserver = new MutationObserver(() => {
-                document.querySelectorAll(`${grid} .neo-grid-row[data-record-id]`).forEach(row => {
-                    let id = row.dataset.recordId, source = row.dataset.heightSource;
-                    if (row.style.display === 'none' || seen.has(id) || !['measured', 'estimated'].includes(source)) return;
+                readRows().forEach(({id, source}) => {
+                    if (seen.has(id)) return;
                     seen.add(id);
                     started && Number(id) === unknownId && (window.__gridHeightSample.unseenRecordArrived = true);
                     window.__gridHeightSample[started ? 'wheel' : 'jump'][source]++
@@ -257,9 +336,8 @@ test.describe('Grid native hidden premeasurement', () => {
             window.__gridHeightObserver.observe(document.querySelector(grid), {attributes: true, childList: true, subtree: true})
             const frame = () => {
                 const viewport = document.querySelector(`${grid} .neo-grid-view`).getBoundingClientRect();
-                document.querySelectorAll(`${grid} .neo-grid-row[data-record-id]`).forEach(row => {
-                    let id = row.dataset.recordId, source = row.dataset.heightSource, rect = row.getBoundingClientRect();
-                    if (row.style.display === 'none' || frameSeen.has(id) || !['measured', 'estimated'].includes(source) ||
+                readRows().forEach(({id, source, rect}) => {
+                    if (frameSeen.has(id) ||
                         rect.bottom <= viewport.top || rect.top >= viewport.bottom ||
                         rect.right <= viewport.left || rect.left >= viewport.right) return;
                     frameSeen.add(id);
@@ -271,7 +349,7 @@ test.describe('Grid native hidden premeasurement', () => {
                 window.__gridHeightFrame = requestAnimationFrame(frame)
             };
             window.__gridHeightFrame = requestAnimationFrame(frame)
-        }, {grid: GRID, unknownId});
+        }, {grid: GRID, unknownId, rowHeight});
         for (let step = 0; step < 25; step++) {
             await page.mouse.wheel(0, direction * 120);
             if (paced) {
@@ -287,8 +365,8 @@ test.describe('Grid native hidden premeasurement', () => {
             return window.__gridHeightSample
         });
         console.log('premeasurement wheel coverage', JSON.stringify({direction, paced, ...sample}));
-        expect(sample.visible.measured + sample.visible.estimated).toBeGreaterThan(15);
-        expect(sample.visible.estimated).toBe(0);
+        expect(sample.visible.matched + sample.visible.mismatched).toBeGreaterThan(15);
+        expect(sample.visible.mismatched).toBe(0);
         expect(sample.unseenRecordVisible, 'the sample displays a record proven unknown before wheel input').toBe(true)
     })
     }

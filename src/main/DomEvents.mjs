@@ -131,7 +131,7 @@ class DomEvents extends Base {
     mouseMoveReqId = null
 
     /**
-     * Native font subscription and generation of this document.
+     * Native font subscription owned by this document.
      * @member {Object|null} #fontEvents=null
      */
     #fontEvents = null
@@ -163,7 +163,7 @@ class DomEvents extends Base {
         if (typeof fonts?.addEventListener === 'function' && typeof fonts.removeEventListener === 'function') {
             const listener = me.onFontChange.bind(me);
 
-            me.#fontEvents = {fonts, generation: 0, listener};
+            me.#fontEvents = {fonts, listener};
             fonts.addEventListener('loadingdone',  listener);
             fonts.addEventListener('loadingerror', listener)
         }
@@ -876,7 +876,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Announces a completed or failed font load with this document's next generation.
+     * @summary Announces a completed or failed font load in this document's current window.
      * @protected
      */
     onFontChange() {
@@ -885,7 +885,7 @@ class DomEvents extends Base {
         if (binding && !this.isDestroyed) {
             Neo.worker.Manager.sendMessage('app', {
                 action: 'fontChange',
-                data  : {windowId: Neo.worker.Manager.windowId, generation: ++binding.generation}
+                data  : {windowId: Neo.worker.Manager.windowId}
             })
         }
     }

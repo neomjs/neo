@@ -846,11 +846,10 @@ class App extends Base {
     }
 
     /**
-     * @summary Reports a document's font generation to window-scoped measurement consumers.
+     * @summary Reports completed document font loads to window-scoped measurement consumers.
      * @param {Object} msg
      * @param {Object} msg.data
      * @param {String} msg.data.windowId
-     * @param {Number} msg.data.generation
      */
     onFontChange(msg) {
         this.fire('fontChange', msg.data)
