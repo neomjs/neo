@@ -105,6 +105,7 @@ jobs:
           status=0
 
           npx playwright test -c test/playwright/playwright.config.e2e.mjs --shard="$SHARD" \
+            --retries="$(node buildScripts/util/e2eCiSelection.mjs --brain-retries)" \
             --test-list-invert "$RUNNER_TEMP/brain-quarantine.txt" $paths || status=$?
 
           echo "seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"

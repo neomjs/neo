@@ -54,6 +54,8 @@ Each shard's job summary is its receipt:
 
 A declaration whose file or title no longer exists fails the unit tier.
 
+Through 2026-10-25 the burn-in retries a failed test once, while #19657 diagnoses the intermittent set. Every receipt names each test that needed the retry, with its first-attempt error, and a test red on every attempt stays red. After that date the tier runs without retries.
+
 ## Connecting the Neural Link (Fixtures)
 
 Whitebox E2E tests are located in `test/playwright/e2e/`. Instead of manually establishing WebSocket connections, the Neo.mjs team provides a powerful Playwright fixture called `neuralLink`.

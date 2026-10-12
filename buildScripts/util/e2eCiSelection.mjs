@@ -129,6 +129,19 @@ export const BRAIN_QUARANTINES = [{
 export const QUARANTINE_STALE_DAYS = 7;
 
 /**
+ * The burn-in's one-retry bridge while its intermittent set is diagnosed. It ends on `until` without anyone
+ * editing it, the same way a quarantine ages. A retry runs in a fresh worker, so a cross-file leak always heals on
+ * it. Every receipt therefore names each test that needed the retry, and a test red on every attempt stays red.
+ * @member {Object} BRAIN_RETRY_BRIDGE
+ */
+export const BRAIN_RETRY_BRIDGE = {
+    retries: 1,
+    until  : '2026-10-25',
+    reason : 'the intermittent set is still being diagnosed',
+    tracker: '#19657'
+};
+
+/**
  * @summary Walks a directory for spec files.
  * @param {String} dir
  * @returns {String[]}
@@ -349,15 +362,51 @@ export function assertQuarantinesResolve({quarantines = BRAIN_QUARANTINES, root 
 }
 
 /**
+ * @summary How many retries the burn-in runs with: the bridge's count through its end date, then none.
+ * @param {Date} [now=new Date()]
+ * @returns {Number}
+ */
+export function brainRetries(now = new Date()) {
+    return now <= new Date(`${BRAIN_RETRY_BRIDGE.until}T23:59:59.999Z`) ? BRAIN_RETRY_BRIDGE.retries : 0
+}
+
+/**
+ * @summary The report's tests that failed an attempt and passed a later one, each with its first attempt's
+ * error. A test red on every attempt is Playwright's `unexpected`, so it never appears here.
+ * @param {Object} report A Playwright JSON report.
+ * @returns {{error: String, file: String, title: String}[]}
+ */
+export function flakyTests(report) {
+    const flaky = [],
+          walk  = (suite, titles) => {
+              for (const spec of suite.specs ?? []) {
+                  for (const test of spec.tests ?? []) {
+                      test.status === 'flaky' && flaky.push({
+                          error:(test.results?.[0]?.error?.message ?? 'no error recorded').replace(/\u001b\[[0-9;]*m/g, '').split('\n')[0],
+                          file : spec.file,
+                          title: [...titles, spec.title].join(' › ')
+                      })
+                  }
+              }
+
+              (suite.suites ?? []).forEach(child => walk(child, [...titles, child.title]))
+          };
+
+    report.suites.forEach(suite => walk(suite, []));
+
+    return flaky
+}
+
+/**
  * @summary Renders one Brain-gated burn-in shard's receipt: the run's identity, its test time against the
- * five-minute ceiling the engine tier keeps, what the tier selected and why anything is out, and the files
- * the shard ran with their outcome.
+ * five-minute ceiling the engine tier keeps, what the tier selected and why anything is out, the retry
+ * bridge and every test that needed it, and the files the shard ran with their outcome.
  * @param {Object}      options
  * @param {Object|null} options.report  The shard's Playwright JSON report, `null` when it wrote none.
  * @param {Object}      options.run     `{shard, event, attempt, engineSha, brainSha}`
  * @param {Number|null} options.seconds The test step's wall time, `null` when the step did not finish.
  * @param {Object}      [options.env=process.env]
- * @param {Date}        [options.now=new Date()] What a quarantine's age is measured against.
+ * @param {Date}        [options.now=new Date()] What a quarantine's age and the retry bridge are measured against.
  * @param {String}      [options.root=process.cwd()]
  * @returns {String}
  */
@@ -384,9 +433,13 @@ export function brainReceipt({report, run, seconds, env = process.env, now = new
         ...BRAIN_QUARANTINES.map(entry => `- **Quarantined:** ${short(entry.path)} › ${entry.titlePath.at(-1)} — ${entry.reason}. ` +
             `Accountable: ${entry.accountable}. Exit: ${entry.exit}. Since ${entry.since}, ${days(entry.since)} days` +
             `${days(entry.since) > QUARANTINE_STALE_DAYS ? ' (**stale**)' : ''}.`),
+        brainRetries(now)
+            ? `- **Retry bridge:** ${BRAIN_RETRY_BRIDGE.retries} retry through ${BRAIN_RETRY_BRIDGE.until} (${BRAIN_RETRY_BRIDGE.tracker}), because ${BRAIN_RETRY_BRIDGE.reason}. A test red on every attempt stays red.`
+            : `- **Retry bridge:** ended on ${BRAIN_RETRY_BRIDGE.until}; the tier runs without retries.`,
         // Without a report the shard's files are unknown, which is not the same as zero
         ...report ? [
             `- **This shard:** ${report.suites.length} files · ${report.stats.expected} passed, ${report.stats.unexpected} failed, ${report.stats.flaky} flaky, ${report.stats.skipped} skipped`,
+            ...flakyTests(report).map(test => `- **Needed the retry:** \`${test.file}\` › ${test.title} — first attempt: ${test.error}`),
             '',
             ...report.suites.map(suite => `- \`${suite.file}\``)
         ] : ['- **This shard:** unknown, because the run wrote no Playwright report']
@@ -411,6 +464,8 @@ if (isEntryModule(import.meta.url)) {
         process.stdout.write(brainSelection().paths.join(' '))
     } else if (mode === '--brain-test-list') {
         process.stdout.write(brainTestList() + '\n')
+    } else if (mode === '--brain-retries') {
+        process.stdout.write(String(brainRetries()))
     } else if (mode === '--brain-receipt') {
         const {ATTEMPT, BRAIN_SHA, ENGINE_SHA, EVENT, REPORT, SHARD, TEST_SECONDS} = process.env;
         let   report                                                               = null;
@@ -425,7 +480,7 @@ if (isEntryModule(import.meta.url)) {
             seconds: TEST_SECONDS ? Number(TEST_SECONDS) : null
         }) + '\n')
     } else {
-        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-test-list | --brain-receipt');
+        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-test-list | --brain-retries | --brain-receipt');
         process.exit(2)
     }
 }

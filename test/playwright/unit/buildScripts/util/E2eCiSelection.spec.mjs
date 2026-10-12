@@ -7,11 +7,14 @@ import {
     assertQuarantinesResolve,
     BRAIN_CAPABILITIES,
     BRAIN_QUARANTINES,
+    BRAIN_RETRY_BRIDGE,
     brainPaths,
     brainReceipt,
+    brainRetries,
     brainSelection,
     brainTestList,
     EXCLUSIONS,
+    flakyTests,
     populations,
     QUARANTINE_STALE_DAYS,
     RUN_PATHS,
@@ -278,6 +281,36 @@ test.describe('e2e CI selection — the Brain-gated burn-in', () => {
 
         expect(receipt(QUARANTINE_STALE_DAYS)).not.toContain('(**stale**)');
         expect(receipt(QUARANTINE_STALE_DAYS + 1)).toContain(`${QUARANTINE_STALE_DAYS + 1} days (**stale**)`);
+    });
+
+    test('the retry bridge retries through its end date and not a moment after', () => {
+        const until = BRAIN_RETRY_BRIDGE.until;
+
+        expect(brainRetries(new Date(`${until}T00:00:00Z`))).toBe(BRAIN_RETRY_BRIDGE.retries);
+        expect(brainRetries(new Date(`${until}T23:59:59.999Z`)), 'the last millisecond of its day').toBe(BRAIN_RETRY_BRIDGE.retries);
+        expect(brainRetries(new Date(Date.parse(`${until}T23:59:59.999Z`) + 1)), 'the day after').toBe(0);
+    });
+
+    test('every receipt names each test that needed the retry, with its first attempt\'s error', () => {
+        // Playwright marks a test `flaky` when an attempt failed and a later one passed, and `unexpected`
+        // when every attempt failed. Only the first kind needed the retry; the second stays a failure.
+        const attempt = (status, message) => ({status, ...message ? {error: {message: `\u001b[31m${message}\u001b[39m\nstack`}} : {}}),
+              report  = {
+                  stats : {expected: 1, unexpected: 1, flaky: 1, skipped: 0},
+                  suites: [{file: 'grid/A.spec.mjs', specs: [], suites: [{title: 'Grid', specs: [
+                      {file: 'grid/A.spec.mjs', title: 'heals on retry',  tests: [{status: 'flaky',      results: [attempt('failed', 'Request timed out'), attempt('passed')]}]},
+                      {file: 'grid/A.spec.mjs', title: 'red every time',  tests: [{status: 'unexpected', results: [attempt('failed', 'boom'), attempt('failed', 'boom')]}]},
+                      {file: 'grid/A.spec.mjs', title: 'green first time', tests: [{status: 'expected',  results: [attempt('passed')]}]}
+                  ]}]}]
+              },
+              text    = brainReceipt({report, run, seconds: 120, env: {}, now: new Date(`${BRAIN_RETRY_BRIDGE.until}T12:00:00Z`), root});
+
+        expect(flakyTests(report)).toEqual([{error: 'Request timed out', file: 'grid/A.spec.mjs', title: 'Grid › heals on retry'}]);
+        expect(text).toContain('**Needed the retry:** `grid/A.spec.mjs` › Grid › heals on retry — first attempt: Request timed out');
+        expect(text, 'a test red on every attempt is a failure, not a retry').not.toContain('red every time');
+        expect(text).toContain(`${BRAIN_RETRY_BRIDGE.retries} retry through ${BRAIN_RETRY_BRIDGE.until}`);
+        expect(brainReceipt({report, run, seconds: 120, env: {}, now: new Date(Date.parse(`${BRAIN_RETRY_BRIDGE.until}T23:59:59.999Z`) + 1), root}))
+            .toContain(`ended on ${BRAIN_RETRY_BRIDGE.until}`);
     });
 
     test('a step that never finished and a run without a report say so, rather than reading as zero', () => {
