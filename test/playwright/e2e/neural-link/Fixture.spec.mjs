@@ -19,6 +19,10 @@ test.describe('Neural Link Playwright Fixture Baseline', () => {
 
         expect(app.sessionId).not.toBe(olderId);
         expect(app.sessionId).toBe(await readWorkerId(page, 30000));
+
+        // A worker id read from another page binds that worker, also once the fixture's page has closed
+        await page.close();
+        expect((await neuralLink.connectToApp(olderId)).sessionId).toBe(olderId);
     });
 
     test('connectToApp refuses to bind by name when the page\'s App Worker reports no id', async ({ page, neuralLink }) => {

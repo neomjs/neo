@@ -96,6 +96,12 @@ export function loadNeuralLinkModules(env = process.env) {
 const MIRRORED_WORKER_ERROR = /^[A-Za-z]+ Worker: /;
 
 /**
+ * An App Worker id, which `connectToApp` binds exactly, as opposed to an app's name.
+ * @type {RegExp}
+ */
+const WORKER_ID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+
+/**
  * @summary Polls a page's own App Worker for its id until the remote answers.
  * @description The remote namespace materializes after worker construction, so the first read on a
  * booting page is null. `page.waitForFunction` cannot wait for it: an async predicate returns a
@@ -307,21 +313,23 @@ export const test = base.extend({
             routeConfig,
 
             /**
-             * Waits for the page's own App Worker to connect to the Bridge and returns an SDK wrapper.
+             * Waits for an App Worker to connect to the Bridge and returns an SDK wrapper.
              *
-             * It binds by the worker's id (an exact match in `waitForSession`) and never by `appName`:
-             * a name lookup returns the OLDEST matching session, so a dev tab or an earlier page of the
-             * same app would silently receive the test's worker queries while `page.mouse` drives the
-             * test page. A page whose worker reports no id fails rather than guess.
-             * @param {String} [appName]                       The app the test expects, named in failures
+             * It binds by worker id (an exact match in `waitForSession`) and never by app name: a name
+             * lookup returns the OLDEST matching session, so a dev tab or an earlier page of the same
+             * app would silently receive the test's worker queries while `page.mouse` drives the test
+             * page. Given a name, it binds the page's own App Worker, and fails if that reports no id.
+             * Given a worker id, for example one read from another page with `readWorkerId`, it binds
+             * that worker, which works after the fixture's page has closed.
+             * @param {String} [target]                        The app's name, named in failures, or an App Worker id
              * @param {Object} [options]
              * @param {Number} [options.identityTimeout=30000] Ms to wait for the page's App Worker id
              */
-            async connectToApp(appName, {identityTimeout = 30000} = {}) {
-                const workerId = await readWorkerId(page, identityTimeout);
+            async connectToApp(target, {identityTimeout = 30000} = {}) {
+                const workerId = WORKER_ID.test(target) ? target : await readWorkerId(page, identityTimeout);
 
                 if (!workerId) {
-                    throw new Error(`neuralLink.connectToApp('${appName}'): the page's App Worker reported no id ` +
+                    throw new Error(`neuralLink.connectToApp('${target}'): the page's App Worker reported no id ` +
                         `within ${identityTimeout} ms. Binding by name would select the oldest same-name session.`)
                 }
 
