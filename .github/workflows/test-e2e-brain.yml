@@ -1,11 +1,14 @@
-name: E2E (Brain-gated burn-in)
+name: E2E (Brain-gated tier)
 
 # The Brain-gated e2e tier: every spec the `neuralLink` fixture gates, run against the Brain's
-# current `dev` tip. It has never run hosted, so this phase measures it before any pull request
-# depends on it (epic #19655). `dev` pushes only: merge readiness reads pull-request checks and
-# refuses any red there, required or not. Each shard writes its receipt to its job summary and its log.
+# current `dev` tip. It gates Engine pull requests: merge readiness refuses any red, required or not.
+# A pull request runs the full tier when its change reaches the E2E impact boundary and a smoke subset
+# otherwise, never nothing, because the Brain's tip can break the pairing on its own. `dev` pushes always
+# run the full tier. Each shard writes its receipt, which names the tier, to its job summary and its log.
 
 on:
+  pull_request:
+    branches: [dev]
   push:
     branches: [dev]
 
@@ -14,11 +17,21 @@ permissions:
   contents: read
 
 concurrency:
-  # A started measurement completes; a newer `dev` head replaces only the one still queued
-  group: ${{ github.workflow }}
-  cancel-in-progress: false
+  # A pull request's newer head supersedes its older run. On `dev`, a started run completes and a newer
+  # head replaces only the one still queued.
+  group: ${{ github.event_name == 'pull_request' && format('{0}-{1}', github.workflow, github.ref) || github.workflow }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # The same classifier the engine tier and `test.yml` consume, for the full or smoke choice
+  changes:
+    name: Classify test scope
+    # It lists the pull request's files and reads its live head
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/classify-test-scope.yml
+
   brain:
     name: Resolve the Brain's dev tip
     runs-on: ubuntu-latest
@@ -36,16 +49,18 @@ jobs:
 
   e2e-brain:
     name: e2e-brain (${{ matrix.shard }}/${{ matrix.shards }})
-    needs: brain
+    needs: [brain, changes]
     runs-on: ubuntu-latest
-    # The burn-in measures how long the tier takes, so neither bound is set to end it early. The
-    # five-minute ceiling is what each receipt compares against.
+    # Neither bound ends a slow shard early: the five-minute ceiling is what each receipt compares against.
     timeout-minutes: 45
+    env:
+      TIER: ${{ needs.changes.outputs.e2e_brain_tier || 'full' }}
     strategy:
       fail-fast: false
       matrix:
-        shard : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        shards: [10]
+        # The smoke subset fits one shard
+        shard : ${{ fromJSON(needs.changes.outputs.e2e_brain_tier == 'smoke' && '[1]' || '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]') }}
+        shards: ${{ fromJSON(needs.changes.outputs.e2e_brain_tier == 'smoke' && '[1]' || '[10]') }}
     defaults:
       run:
         working-directory: engine

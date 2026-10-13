@@ -31,6 +31,9 @@ on:
       run_e2e:
         description: Whether the e2e (engine tier) suite is relevant to the changed paths.
         value: ${{ jobs.classify.outputs.run_e2e }}
+      e2e_brain_tier:
+        description: Which Brain-gated e2e population runs, `full` or `smoke`; it never skips, and a push is always `full`.
+        value: ${{ jobs.classify.outputs.e2e_brain_tier }}
       skip_reason:
         description: Human-readable reason a caller can print when it skips.
         value: ${{ jobs.classify.outputs.skip_reason }}
@@ -43,6 +46,7 @@ jobs:
       run_unit: ${{ steps.scope.outputs.run_unit }}
       run_components: ${{ steps.scope.outputs.run_components }}
       run_e2e: ${{ steps.scope.outputs.run_e2e }}
+      e2e_brain_tier: ${{ steps.scope.outputs.e2e_brain_tier }}
       skip_reason: ${{ steps.scope.outputs.skip_reason }}
 
     steps:
@@ -109,6 +113,7 @@ jobs:
               core.setOutput('run_unit', 'false');
               core.setOutput('run_components', 'false');
               core.setOutput('run_e2e', 'false');
+              core.setOutput('e2e_brain_tier', 'smoke');
               core.setOutput('skip_reason', reason);
               await core.summary
                 .addHeading('Stale workflow attempt')
@@ -129,6 +134,7 @@ jobs:
               core.setOutput('run_unit', 'true');
               core.setOutput('run_components', 'true');
               core.setOutput('run_e2e', 'true');
+              core.setOutput('e2e_brain_tier', 'full');
               core.setOutput('skip_reason', 'changed files unavailable');
               return;
             }
@@ -313,6 +319,12 @@ jobs:
               file === '.github/workflows/test-e2e.yml' ||
               file === '.github/workflows/classify-test-scope.yml';
 
+            // The Brain-gated tier never skips: a change outside the boundary still runs its smoke subset,
+            // because the Brain's own `dev` tip can break the pairing. The full tier covers the same
+            // boundary plus the tier's own workflow, and every push.
+            const brainTier = eventName !== 'pull_request' || normalizedFiles.some(file =>
+                isE2eRelevantPath(file) || file === '.github/workflows/test-e2e-brain.yml') ? 'full' : 'smoke';
+
             const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
             const runComponents  = normalizedFiles.some(isComponentsRelevantPath);
             const runE2e         = normalizedFiles.some(isE2eRelevantPath);
@@ -321,10 +333,12 @@ jobs:
             core.info(`run_unit=${runUnit}`);
             core.info(`run_components=${runComponents}`);
             core.info(`run_e2e=${runE2e}`);
+            core.info(`e2e_brain_tier=${brainTier}`);
 
             core.setOutput('run_unit', String(runUnit));
             core.setOutput('run_components', String(runComponents));
             core.setOutput('run_e2e', String(runE2e));
+            core.setOutput('e2e_brain_tier', brainTier);
             core.setOutput(
               'skip_reason',
               'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)'
