@@ -254,8 +254,8 @@ class Container extends BaseContainer {
                 scope : me
             };
 
-        value   ?.on(listeners);
-        oldValue?.un(listeners);
+        value   ?.on({...listeners});
+        oldValue?.un({...listeners});
 
         // in case we dynamically change the store, the body needs to get the new reference
         if (me.body) {

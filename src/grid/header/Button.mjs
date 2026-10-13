@@ -37,9 +37,17 @@ class Button extends BaseButton {
          */
         cellAlign_: 'left',
         /**
-         * @member {String|null} dataField=null
+         * Enables the optional value-filter surface on this header.
+         * @member {Boolean} columnMenu_=false
+         * @reactive
          */
-        dataField: null,
+        columnMenu_: false,
+        /**
+         * The Store field addressed by this header's sort and filter projections.
+         * @member {String|null} dataField_=null
+         * @reactive
+         */
+        dataField_: null,
         /**
          * Sort direction when clicking on an unsorted button
          * @member {String} defaultSortDirection='ASC'
@@ -114,6 +122,13 @@ class Button extends BaseButton {
          */
         useTriStateSorting_: false
     }
+
+    /** @member {Promise|null} headerFilterReady=null @protected */
+    headerFilterReady = null
+    /** @member {Number} columnMenuSerial=0 @protected */
+    columnMenuSerial = 0
+    /** @member {Boolean} menuRootWrapped=false @protected */
+    menuRootWrapped = false
 
     /**
      * Triggered after the isSorted config got changed
@@ -225,12 +240,107 @@ class Button extends BaseButton {
             } else {
                 delete me.filterField.vdom.removeDom
             }
+            me.ensureHeaderFilterProjection()
         } else if (me.filterField) {
             me.filterField.vdom.removeDom = true
         }
 
         me.updateDepth = 2;
         me.update()
+    }
+
+    /**
+     * @summary Attaches the shared inline projection once; late imports cannot attach to a retired header.
+     * @returns {Promise}
+     */
+    ensureHeaderFilterProjection() {
+        return this.headerFilterReady ||= import('../../plugin/HeaderFilter.mjs').then(({default: module}) => {
+            if (!this.isDestroyed && !this.isDestroying) {
+                let plugin = this.getPlugin('plugin-header-filter');
+                if (!plugin) {
+                    this.plugins = [...(this.plugins || []), {module}];
+                    plugin = this.getPlugin('plugin-header-filter')
+                }
+                plugin.syncField()
+            }
+        })
+    }
+
+    /**
+     * @summary Lazily enables the menu while keeping its default free of trigger and handler registration.
+     * @param {Boolean} value
+     */
+    afterSetColumnMenu(value) {
+        const serial = this.columnMenuSerial = (this.columnMenuSerial || 0) + 1;
+        if (!value) {
+            this.getPlugin('plugin-grid-header-menu')?.destroy();
+            return
+        }
+        import('./plugin/Menu.mjs').then(({default: module}) => {
+            if (!this.isDestroyed && !this.isDestroying && this.columnMenu && this.columnMenuSerial === serial &&
+                !this.getPlugin('plugin-grid-header-menu')) {
+                this.plugins = [...(this.plugins || []), {module}]
+            }
+        })
+    }
+
+    /**
+     * @summary Creates a stable sibling-trigger wrapper while retaining the native sort button and its focus identity.
+     */
+    prepareColumnMenuWrapper() {
+        if (this.menuRootWrapped) return;
+        const root = this.vdom;
+        this.menuRootWrapped = true;
+        this._vdom = {tag: 'div', cls: ['neo-grid-menu-wrapper'], cn: [root]};
+        this.ensureStableIds();
+        const parent = this.parent, reference = parent?.getVdomItemsRoot().cn.find(node => node.componentId === this.id);
+        if (reference) Object.assign(reference, this.createVdomReference());
+        this.wrapperCls = [...(this.wrapperCls || []), 'neo-grid-menu-wrapper'];
+        this.afterSetWidth(this.width);
+        this.updateDepth = -1;
+        if (reference) {
+            parent.updateDepth = -1;
+            parent.update()
+        } else {
+            this.update()
+        }
+    }
+
+    /**
+     * @summary Sizes the whole composed header; its sort button continues to span that complete column.
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     */
+    afterSetWidth(value, oldValue) {
+        super.afterSetWidth(value, oldValue);
+        if (this.menuRootWrapped) {
+            delete this.getVdomRoot().width;
+            this.wrapperStyle = {width: typeof value === 'number' ? `${value}px` : value}
+        }
+    }
+
+    /** @summary Returns the native sort-button vdom. @returns {Object} */
+    getVdomRoot() {
+        return this.menuRootWrapped ? this.vdom.cn[0] : super.getVdomRoot()
+    }
+
+    /** @summary Returns the native sort vnode, including the pending wrapper transition. @returns {Object} */
+    getVnodeRoot() {
+        return this.vnode?.id === `${this.id}__wrapper` ? this.vnode.childNodes[0] : super.getVnodeRoot()
+    }
+
+    /**
+     * @summary Lets the parent own a root-shape transition; a child diff requires unchanged root identity.
+     * @param {Function} [resolve]
+     * @param {Function} [reject]
+     */
+    updateVdom(resolve, reject) {
+        if (this.menuRootWrapped && this.vnode && this.vnode.id !== this.vdom.id && this.parent?.vnode) {
+            this.parent.updateDepth = -1;
+            this.parent.promiseUpdate().then(resolve, reject);
+            return
+        }
+        super.updateVdom(resolve, reject)
     }
 
     /**
@@ -272,7 +382,8 @@ class Button extends BaseButton {
      * @protected
      */
     onClick(data) {
-        if (data.path[0].cls.includes('neo-resizable')) {
+        if (data.path.some(node => node.cls?.includes('neo-grid-menu-trigger')) ||
+            data.path[0].cls.includes('neo-resizable')) {
             return
         }
 
@@ -342,7 +453,7 @@ class Button extends BaseButton {
             model  = store.model;
             field  = model.getField(me.dataField);
 
-            if (value && field?.type.toLowerCase() === 'date') {
+            if (value && field?.type?.toLowerCase() === 'date') {
                 value = new Date(value)
             }
 
@@ -382,6 +493,7 @@ class Button extends BaseButton {
         return {
             ...super.toJSON(),
             cellAlign           : me.cellAlign,
+            columnMenu          : me.columnMenu,
             dataField           : me.dataField,
             defaultSortDirection: me.defaultSortDirection,
             editorConfig        : me.serializeConfig(me.editorConfig),

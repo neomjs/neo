@@ -38,9 +38,11 @@ class Button extends BaseButton {
          */
         cellAlign_: 'left',
         /**
-         * @member {String|null} dataField=null
+         * The Store field addressed by this header's sort and inline filter projection.
+         * @member {String|null} dataField_=null
+         * @reactive
          */
-        dataField: null,
+        dataField_: null,
         /**
          * Sort direction when clicking on an unsorted button
          * @member {String} defaultSortDirection='ASC'
@@ -121,6 +123,9 @@ class Button extends BaseButton {
         ]}
     }
 
+    /** @member {Promise|null} headerFilterReady=null @protected */
+    headerFilterReady = null
+
     /**
      * Triggered after the isSorted config got changed
      * @param {String|null} value
@@ -187,12 +192,30 @@ class Button extends BaseButton {
             } else {
                 delete me.filterField.vdom.removeDom
             }
+            me.ensureHeaderFilterProjection()
         } else if (me.filterField) {
             me.filterField.vdom.removeDom = true
         }
 
         me.updateDepth = 2;
         me.update()
+    }
+
+    /**
+     * @summary Attaches the shared inline projection once without introducing a Table menu surface.
+     * @returns {Promise}
+     */
+    ensureHeaderFilterProjection() {
+        return this.headerFilterReady ||= import('../../plugin/HeaderFilter.mjs').then(({default: module}) => {
+            if (!this.isDestroyed && !this.isDestroying) {
+                let plugin = this.getPlugin('plugin-header-filter');
+                if (!plugin) {
+                    this.plugins = [...(this.plugins || []), {module}];
+                    plugin = this.getPlugin('plugin-header-filter')
+                }
+                plugin.syncField()
+            }
+        })
     }
 
     /**
@@ -299,7 +322,7 @@ class Button extends BaseButton {
             model  = store.model;
             field  = model && model.getField(me.dataField);
 
-            if (value && field.type.toLowerCase() === 'date') {
+            if (value && field?.type?.toLowerCase() === 'date') {
                 value = new Date(value)
             }
 
