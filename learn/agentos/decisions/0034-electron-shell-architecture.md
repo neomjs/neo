@@ -15,6 +15,7 @@
 | **After the split** | The Electron shell ships from [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution) (`harness/`, #17810), and the local plane it bootstraps from [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) (#17806). The Engine keeps this record as history. |
 | **Amended** | 2026-08-08 (#16747, [ADR 0038](0038-fm-client-topology.md) — the FM client topology, graduated from D#16720): §2.1's hosting frame and §2.6.4's dev-attaches/packaged-hosts dichotomy are re-scoped for the pure-client cockpit — the main process's hosting/supervision is the packaged product's local-plane BOOTSTRAP (role-3 host machinery; bundle = organism), never the cockpit's runtime identity. The cockpit connects to the (bundled or remote) plane's fleet service in every topology; identity, registry, credential, and authorization policy are plane-owned; lifecycle affordances surface behind `CAN_ADMINISTER_FLEET_OF` over the authenticated fleet wire. The retrieval statements themselves are rewritten in place (epigraph, §1 anchors, §2.1 heading + settled frame + binding 1, §2.6.4) with provenance brackets; ADR 0038 §3.3 is the canonical statement. |
 | **Author** | @neo-opus-vega (Vega, Claude Fable 5, Claude Code) — #13377 epic steward. |
+| **Runtime-continuity amendment** | 2026-10-13 (#19725, graduated at [D19723](https://github.com/orgs/neomjs/discussions/19723)): §2.5 adds immutable runtime generations for surviving managed seats, consuming [Institution #674](https://github.com/neomjs/neo-agent-institution/issues/674) and its [package-identity fold](https://github.com/neomjs/neo-agent-institution/issues/674#issuecomment-6151465185). [ADR 0038 §2.5.2](0038-fm-client-topology.md#252-native-launch-admission-generation-custody-and-recovery) supplies the clean-handoff admission contract. Decision authority, not executable or installed delivery. |
 | **Resolves** | #14786 — the #13377 gate leaf: settle the shared shell questions ONCE, decision-record tier, before the E-leaves multiply incoherently (the ADR-0029 settle-shared-questions pattern). |
 | **Parent epic** | #13377 (*Electron shell — package + host the Agent OS*) under #13012 (Agent Harness). |
 | **Depends on** | **ADR 0020** (the embodiment vessel — extended, never superseded; §3 fixes the shell decision, the in-process target + child-process fallback, source-tree discipline, and PATs-Brain-side); **ADR 0029** (docking design — its §2.1 state-class table, window-manager boundaries, and semantic-restore rules are consumed, not reopened). |
@@ -424,6 +425,78 @@ amends ADR 0029 and this section together, before implementation.
 **Falsifier:** if H1 adoption data shows install-base staleness hurting (users stuck on old
 organisms), §2.5.3's deferral is the named revisit point — the two-speed split is the decision,
 partial updates are the recorded alternative.
+
+#### Runtime generations for managed seats
+
+The whole package remains the delivery unit. A managed seat's executable and MCP runtime must
+be independent of the replaceable app bundle for the lifetime of that seat. The 2026-10-13
+[installed update](https://github.com/neomjs/neo-agent-institution/issues/12#issuecomment-6149794862)
+required 31 minutes 18 seconds from checkpoint request to completed installation, before
+recipient recovery checks. That interval includes coordination, not just installer execution.
+The bundle-use guard correctly refused replacement while seat processes used its files.
+
+1. **One immutable generation per package identity.** The shell's install/boot owner materialises
+   the packaged runtime under `<userData>/brain/runtime/<generation-id>/`. The id is the SHA-256
+   of the UTF-8 JSON array `[productRevision, brainRevision, engineRevision, electronVersion]`,
+   in that order, using the complete values from `organism-build-info.json`. The revisions are
+   not abbreviated; staging time and installation path are not identity. Product revision alone
+   is insufficient: two retained `4183eccd` packages contain different Brain and Engine revisions
+   ([measured control](https://github.com/neomjs/neo-agent-institution/issues/674#issuecomment-6151438208)).
+2. **Verify the execution closure before publishing it.** A generation includes the packaged
+   Node-capable executable, its required native libraries, the organism modules and their locked
+   dependencies. It must run without loading code or native libraries from the replaceable
+   bundle, a mutable `current` link, or an operator-installed runtime. Native-module compatibility
+   and target-platform compatibility are checked before selection. The ledger separately records
+   a digest of the runtime/executable payload, its path and installation time. Reinstalling the
+   same identity and verified payload is a no-op; the same identity with different payload is a
+   named `non-reproducible build` refusal. Incomplete publication, integrity failure or an unknown
+   binding selects nothing. The exact payload manifest and atomic publication belong to the
+   implementing leaf; its evidence must cover file bytes, executable modes and link targets.
+3. **Pin one actual managed Start.** The seat command, executable, launcher target and projected
+   hooks bind to that runtime generation. A package installation does not rewrite or restart a
+   surviving seat. Its next explicit managed Start selects the installed generation. The existing
+   host lifecycle owns the pin and re-adopts it with the seat's verified process lease; a second
+   process supervisor or a filesystem-only inference is not a substitute.
+4. **Keep runtime identity distinct from admission authority.** A runtime generation identifies
+   immutable code; an admission generation is the revocable authority of one managed Start.
+   [ADR 0038 §2.5.2](0038-fm-client-topology.md#252-native-launch-admission-generation-custody-and-recovery)
+   requires positive durable succession proof, recovery of the existing owned profile capability,
+   the original issuer endpoint and current proofs from the original credential owners. Runtime
+   relocation alone cannot preserve later-child admission. Before replacing the issuer, the product
+   proves compatible pins and recoverable inputs, completes pending durable transitions, and awaits
+   endpoint release. Unproved prerequisites remain a named refusal or legacy migration case;
+   an old active record after an unclean issuer loss is not authority. App rollback never rolls back
+   admission revocations or security state, and no running profile is rewritten.
+5. **Retire only a generation proved unused.** The installed package and rollback target retain
+   their generations. A surviving seat's pin and any remaining child process also retain theirs:
+   zero currently running MCP children does not mean an idle seat cannot launch another child.
+   Unknown ownership or liveness retains the generation and names the uncertainty. Retirement
+   must exclude concurrent admission or Start acquiring a new reference between its check and
+   removal. The host generation lifecycle owns this decision, using the existing seat lifecycle
+   and admission authorities rather than a second counter that can silently drift.
+6. **Preserve the installer and the operator's choices.** Whole-package staging, verified slot
+   replacement, custody comparison and the one-slot rollback remain the canonical install path.
+   The bundle-use guard remains unchanged. Legacy seats still bound to the bundle require a
+   managed migration restart and remain a named refusal until migrated; the installer never kills
+   them. For compatible generation-bound seats meeting the clean-handoff contract, a routine package
+   update requires no peer checkpoint or session reopening. The cockpit distinguishes each seat's
+   running generation from the installed one; moving a live seat to the new generation remains an
+   explicit restart choice. A vendor-harness update that ends the seat process also ends that Start;
+   it is outside this surviving-seat promise.
+
+**Delivery and retirement of the transitional guidance:** neomjs/neo-agent-institution#674 owns generation
+materialisation, retention, installer integration and its display; neomjs/neo-agent-brain#980 owns the seat
+binding, admission continuity and hook projection. The current stop-all update guide stays
+accurate until those implementations pass the installed witness, then its ordinary update path
+is replaced. E7's automatic feed/signing work remains separate; this clause does not enable
+partial in-place updates or change the release-line credential boundary.
+
+**Required installed witness:** update the canonical app with every generation-bound seat
+running; verify unchanged custody, old/new generation coexistence, each seat's native tools and
+a later MCP-child reconnect without restarting that seat. Then exercise an explicitly selected
+seat restart onto the new generation, rollback reachability, safe retirement and unknown-liveness
+retention. Preserve failed or unobserved checks on neomjs/neo-agent-institution#12; a green package smoke or an
+already-running child answering is not the complete witness.
 
 ### §2.6 Dev/prod parity — one harness root, two origins, identical topology (Q6)
 
