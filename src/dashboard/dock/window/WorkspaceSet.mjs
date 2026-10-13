@@ -265,7 +265,8 @@ class WorkspaceSet extends Base {
      * @param {Function} [seams.setDocument] `(document)` adopts a committed document; a
      *     participant without one is read-only to `adoptTransfer` (fail closed).
      * @param {Function} [seams.getRevision] Owner-supplied revision stamp; otherwise reference changes are counted.
-     * @param {Function} [seams.project] Post-commit context includes `preserveItemIds` owned by sibling documents.
+     * @param {Function} [seams.project] Post-commit context includes `preserveItemIds` owned by sibling documents,
+     *     and `isCurrent()`, false once a newer commit adopted this workspace's next document.
      * @param {Function} [seams.dispose] Releases this owner when its Group explicitly retires.
      * @param {String} [seams.bindingKey=workspaceId] Window slot whose lineage and generation fence this document.
      * @param {String} [seams.componentId] Opaque live owner lookup; excluded from captured document truth.
@@ -377,11 +378,16 @@ class WorkspaceSet extends Base {
             }
         }
 
-        if (typeof project === 'function') entry.project = context => project({
-            ...context,
-            preserveItemIds: participantKeys().filter(key => key !== workspaceId)
-                .flatMap(key => Object.keys(context.snapshot.participants[key]?.items ?? {}))
-        });
+        if (typeof project === 'function') entry.project = context => {
+            const {revision} = entry.capture();
+            return project({
+                ...context,
+                // A failed newer write compensates with a cloned document but restores the revision
+                isCurrent      : () => entry.capture().revision === revision,
+                preserveItemIds: participantKeys().filter(key => key !== workspaceId)
+                    .flatMap(key => Object.keys(context.snapshot.participants[key]?.items ?? {}))
+            })
+        };
         if (componentId !== undefined) entry.componentId = componentId;
         if (nativeWindow !== undefined) entry.nativeWindow = nativeWindow;
         if (typeof resolveReturnDescriptor === 'function') entry.resolveReturnDescriptor = resolveReturnDescriptor;

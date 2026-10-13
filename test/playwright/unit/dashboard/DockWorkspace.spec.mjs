@@ -5070,22 +5070,43 @@ test.describe('projectDockCommit — a projection the chain reaches after a newe
         return document
     };
 
-    /** @summary Whether a document holds the shared pane; `null` for a cleared document. */
-    const has = document => document ? 'shared' in document.items : null;
+    /** @summary Whether a document holds the shared pane. */
+    const has = document => 'shared' in document.items;
 
-    /** @summary The Group adopts the document, then dispatches its projection, as `Commit.complete` does. */
-    const commit = (workspace, document, sibling) => {
-        const previous = workspace.dockModel;
+    test.afterEach(() => [...TransactionManager.items].forEach(group => TransactionManager.retireGroup(group.id)));
 
-        workspace.dockModel = document;
+    /**
+     * @summary Main and a popup as one Group's participants. The popup refuses a document holding the
+     * shared pane once `refuse()` was called, after main adopted its half of the same write.
+     * @param {Object} popupDocument The popup's first document
+     * @returns {Object} `main`, `popup`, a `write(main, popup)` that omits a null half, `refuse` and `retire`
+     */
+    const group = popupDocument => {
+        const {groupId} = TransactionManager.bind({windowId: `dock-supersede-${Neo.getId('t')}`, workspaceKey: 'main'}),
+              set       = Neo.create(WorkspaceSet, {documentModel: WorkspaceDocument, getGroupId: () => groupId, manager: TransactionManager}),
+              main      = Neo.create(SharedPaneWorkspace, {dockModel: withShared(false)}),
+              popup     = Neo.create(SharedPaneWorkspace, {dockModel: popupDocument});
 
-        return workspace.projectDockCommit({
-            captured       : {value: previous},
-            descriptor     : null,
-            preserveItemIds: Object.keys(sibling.items),
-            snapshot       : {participants: {main: document}},
-            workspaceKey   : 'main'
-        })
+        let refusing = false;
+
+        for (const [key, workspace] of [['main', main], ['popup', popup]]) {
+            set.register(key, {
+                getDocument: () => workspace.dockModel,
+                setDocument: value => {
+                    if (refusing && workspace === popup && has(value)) throw new Error('the popup refused the document');
+                    workspace.dockModel = value
+                },
+                project: context => workspace.projectDockCommit(context)
+            })
+        }
+
+        return {
+            main, popup,
+            refuse: () => {refusing = true},
+            retire: () => {set.destroy(); main.destroy(); popup.destroy()},
+            write : (mainDocument, popupDocument) => set.write(Object.fromEntries(
+                [['main', mainDocument], ['popup', popupDocument]].filter(([, document]) => document)), {cause: 'dock'})
+        }
     };
 
     /** @summary The id of the Workspace whose shell holds the component, or null when it is parked. */
@@ -5102,19 +5123,18 @@ test.describe('projectDockCommit — a projection the chain reaches after a newe
      * return projection waits at `hold` until the undo has committed on both.
      * @param {String} hold `chain` (main's refresh chain is busy), `flip` or `release` (main's
      *     return projection waits inside its refresh, at the FLIP capture or the reveal-pane releases)
-     * @param {Object|null} [undone] Main's document after the undo, `null` for a clear
+     * @param {Object} [undone] Main's document after the undo
      * @returns {Promise<Object>} The pane's final owner and what main's refreshes reached
      */
     async function undoReturn(hold, undone = withShared(false)) {
-        const pane     = sharedPane = Neo.ntype({ntype: 'component', id: `dock-shared-pane-${hold}`}),
-              main     = Neo.create(SharedPaneWorkspace, {dockModel: withShared(false)}),
-              popup    = Neo.create(SharedPaneWorkspace, {dockModel: withShared(true)}),
-              addons   = Neo.ns('Neo.main.addon', true),
-              flip     = addons.DockFlip,
-              build    = main.projectDockModel.bind(main),
-              prepare  = main.beforeRefreshDockWorkspace.bind(main),
-              releases = main.releaseStaleRevealPanes.bind(main),
-              seen     = {built: [], captures: 0, prepared: []};
+        const pane                         = sharedPane = Neo.ntype({ntype: 'component', id: `dock-shared-pane-${hold}`}),
+              {main, popup, retire, write} = group(withShared(true)),
+              addons                       = Neo.ns('Neo.main.addon', true),
+              flip                         = addons.DockFlip,
+              build                        = main.projectDockModel.bind(main),
+              prepare                      = main.beforeRefreshDockWorkspace.bind(main),
+              releases                     = main.releaseStaleRevealPanes.bind(main),
+              seen                         = {built: [], captures: 0, prepared: []};
 
         let reached, release, holding = hold;
 
@@ -5138,13 +5158,15 @@ test.describe('projectDockCommit — a projection the chain reaches after a newe
             }
 
             // The native close returns the pane to main...
-            const returnMain = commit(main, withShared(true), withShared(false));
+            await write(withShared(true), withShared(false));
+            const returnMain = main.refreshPromise;
             await atHold;
-            await commit(popup, withShared(false), withShared(true));
+            await popup.refreshPromise;
 
             // ...and the undo gives it back to the popup, which projects at once.
-            const undoMain = commit(main, undone, withShared(true));
-            await commit(popup, withShared(true), withShared(false));
+            await write(undone, withShared(true));
+            const undoMain = main.refreshPromise;
+            await popup.refreshPromise;
 
             expect(ownerOf(pane), 'the undo moved the pane into the popup').toBe(popup.id);
 
@@ -5155,8 +5177,7 @@ test.describe('projectDockCommit — a projection the chain reaches after a newe
         } finally {
             release();
             flip === undefined ? delete addons.DockFlip : addons.DockFlip = flip;
-            main.destroy();
-            popup.destroy();
+            retire();
             pane.destroy();
             sharedPane = null
         }
@@ -5187,30 +5208,65 @@ test.describe('projectDockCommit — a projection the chain reaches after a newe
         expect(result.owner, 'the return projection the undo superseded mid-flight must not reconcile').toBe(result.popup)
     });
 
-    test('a newer clear fences the older document too', async () => {
-        const result = await undoReturn('chain', null);
+    test('a newer commit that empties main fences the older document too', async () => {
+        const result = await undoReturn('chain', createEmptyDocument());
 
-        expect(result.built, 'only the clear projects').toEqual([null]);
-        expect(result.owner, 'the cleared main never reclaims the pane').toBe(result.popup)
+        expect(result.built, 'only the emptied document projects').toEqual([false]);
+        expect(result.owner, 'the emptied main never reclaims the pane').toBe(result.popup)
     });
 
-    test('a participant the newer commit did not touch still projects its queued document', async () => {
-        const main  = Neo.create(SharedPaneWorkspace, {dockModel: withShared(false)}),
-              popup = Neo.create(SharedPaneWorkspace, {dockModel: withShared(false)}),
-              build = main.projectDockModel.bind(main),
-              built = [];
+    test('a newer write that fails and compensates leaves the owed projection to land', async () => {
+        const pane                                 = sharedPane = Neo.ntype({ntype: 'component', id: 'dock-shared-pane-compensated'}),
+              {main, popup, refuse, retire, write} = group(withShared(true)),
+              build                                = main.projectDockModel.bind(main),
+              built                                = [];
 
         let release;
 
+        main.projectDockModel = (descriptor, resolver, document) => {built.push(has(document)); return build(descriptor, resolver, document)};
+        main.refreshPromise   = new Promise(resolve => {release = resolve});
+
+        try {
+            await write(withShared(true), withShared(false));
+            const owed = main.refreshPromise;
+
+            // Main adopts its half of the next write, the popup refuses its half, and the rollback
+            // restores main's document as a clone without dispatching another projection.
+            refuse();
+            await expect(write(withShared(false), withShared(true))).rejects.toThrow('the popup refused the document');
+            expect(has(main.dockModel), 'the rollback restored the returned document').toBe(true);
+
+            release();
+            await owed;
+
+            expect(built, 'the last committed document still projects').toEqual([true]);
+            expect(ownerOf(pane), 'and the pane lands in main').toBe(main.id)
+        } finally {
+            release();
+            retire();
+            pane.destroy();
+            sharedPane = null
+        }
+    });
+
+    test('a participant the newer commit did not touch still projects its queued document', async () => {
+        const {main, retire, write} = group(withShared(false)),
+              build                 = main.projectDockModel.bind(main),
+              built                 = [],
+              next                  = withShared(false);
+
+        let release;
+
+        next.nodes['side-tabs'].activeItemId = 'terminal';
         main.projectDockModel = (descriptor, resolver, document) => {built.push(document); return build(descriptor, resolver, document)};
         main.refreshPromise   = new Promise(resolve => {release = resolve});
 
         try {
-            const next       = withShared(false),
-                  projection = commit(main, next, withShared(false));
+            await write(next, null);
+            const projection = main.refreshPromise;
 
             // A newer commit lands on the sibling alone, while main's projection still waits.
-            await commit(popup, withShared(false), next);
+            await write(null, createEmptyDocument());
 
             release();
             await projection;
@@ -5218,8 +5274,7 @@ test.describe('projectDockCommit — a projection the chain reaches after a newe
             expect(built, 'main\'s own document is still its latest, so it projects').toEqual([next])
         } finally {
             release();
-            main.destroy();
-            popup.destroy()
+            retire()
         }
     })
 });
