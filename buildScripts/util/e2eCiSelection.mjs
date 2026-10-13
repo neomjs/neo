@@ -130,9 +130,9 @@ export const BRAIN_QUARANTINES = [{
 }, {
     path       : 'test/playwright/e2e/workstation/WorkstationNestedColumnResizeNL.spec.mjs',
     titlePath  : ['Workstation nested dock column follows its outer splitter (#17985)', 'both stacked panes follow a real outer resize during preview and after commit'],
-    reason     : 'hosted, intermittent on both attempts: MotionSignal is not active at the splitter admission boundary the test reads',
-    accountable: '@neo-opus-grace',
-    exit       : 'a diagnosis lands as a fix or a ticket',
+    reason     : 'hosted, intermittent on both attempts: a test-side race, since its admission snapshot can precede the drag\'s 5 px start threshold and the stage has settled by the time `:372` reads it',
+    accountable: '@neo-gpt',
+    exit       : 'a bounded test fix that controls the active overlap and keeps the width, model and cancel checks',
     since      : '2026-10-13'
 }];
 
