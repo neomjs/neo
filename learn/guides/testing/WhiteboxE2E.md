@@ -39,22 +39,28 @@ The `neuralLink` fixture drives a live Brain. Set `NEO_AGENTOS_RUNTIME_ROOT` to 
 
 The engine tier (`.github/workflows/test-e2e.yml`) runs on pull requests without a Brain, so it selects only the Brain-free specs.
 
-The Brain-gated specs run in `.github/workflows/test-e2e-brain.yml`, on `dev` pushes only. This is a burn-in that measures them before any pull request depends on them. The workflow checks out the Brain at its `dev` tip, resolved once per run, and installs it with `npm ci`.
+The Brain-gated specs run in `.github/workflows/test-e2e-brain.yml`, and this tier gates Engine pull requests: merge readiness refuses any red, required or not. The workflow checks out the Brain at its `dev` tip, resolved once per run, and installs it with `npm ci`.
+
+The shared scope classifier picks the tier's population, and it never skips:
+- A pull request whose change reaches the E2E impact boundary runs the **full** tier, on ten shards. So does every `dev` push.
+- Any other pull request runs the **smoke** subset (`BRAIN_SMOKE`), on one shard. Its change cannot reach the tier's specs, but the Brain's tip can still break the pairing. A green smoke is not full-tier evidence.
+
+Each shard's test step stops at five minutes, the ceiling the engine tier enforces too.
 
 Each shard writes its receipt to its job summary and to its log. The log copy is the one `gh run view --log` can read. The receipt holds:
-- the event and attempt;
+- the event, attempt and tier;
 - the Engine and Brain SHAs;
 - its test time against the five-minute ceiling;
-- what the tier selected, and every declared exclusion and quarantine;
+- what the tier selected, and every declared exclusion and quarantine, of which a smoke file may carry none;
 - the files the shard ran, with their outcome.
 
 `buildScripts/util/e2eCiSelection.mjs` declares two kinds of gap, and the receipt prints both:
 - A **capability** excludes files only while the variable they need is unset. Provisioning it brings them back.
 - A **quarantine** deselects one test by file and title. It names who is accountable, what removes it and since when, and after a week every receipt flags it as stale.
 
-A declaration whose file or title no longer exists fails the unit tier.
+A declaration whose file or title no longer exists fails the unit tier, and so does a declared smoke file.
 
-Through 2026-10-25 the burn-in retries a failed test once, while #19657 diagnoses the intermittent set. Every receipt names each test that needed the retry, with its first-attempt error, and a test red on every attempt stays red. After that date the tier runs without retries.
+Through 2026-10-25 the tier retries a failed test once, while #19655 diagnoses the intermittent set. Every receipt names each test that needed the retry, with its first-attempt error, and a test red on every attempt stays red. After that date the tier runs without retries.
 
 ## Connecting the Neural Link (Fixtures)
 
