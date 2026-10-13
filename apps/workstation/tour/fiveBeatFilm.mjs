@@ -382,8 +382,14 @@ export const fiveBeatFilmScript = Object.freeze({
         title        : 'An arrangement across windows comes back',
         targetSeconds: 8,
         narration    : 'The two-window arrangement from the journey was saved as well. Restore it — Metrics and Commits leave the room for their window, and the window is born again around them. Drag their stack home, and the empty window closes.',
-        beats        : ['restore the two-window perspective: both panes leave the room for their closed window’s workspace', 'the viewer opens the door: the window is born again around the same live panes', 'a beat to read the re-born window', 'dragging the stack home returns both panes and retires the empty window'],
+        beats        : ['save the current room before restoring the earlier two-window arrangement', 'restore the two-window perspective: both panes leave the room for their closed window’s workspace', 'the viewer opens the door: the window is born again around the same live panes', 'a beat to read the re-born window', 'dragging the stack home returns both panes and retires the empty window', 'resume the current room after the window closes'],
         steps        : [{
+            // Keep the room's later edits while the earlier two-window arrangement is demonstrated.
+            type   : 'pause',
+            ms     : 0,
+            cue    : {type: 'perspective-capture', name: 'film-before-cross-window', captureScope: 'window', title: 'Before cross-window restore'},
+            caption: 'the current room is saved before the earlier two-window arrangement returns'
+        }, {
             // A restore is semantic: it returns both panes to the workspace of their closed window
             // and opens nothing. The window is the gated birth that follows.
             type   : 'pause',
@@ -411,6 +417,11 @@ export const fiveBeatFilmScript = Object.freeze({
             ms     : 1200,
             cue    : {type: 'stack-return', ownerItemId: 'metrics', options: {moveDelay: 33, showCursor: true}},
             caption: 'drag the stack home: both panes return, and the empty window closes'
+        }, {
+            type   : 'pause',
+            ms     : 0,
+            cue    : {type: 'perspective-restore', name: 'film-before-cross-window'},
+            caption: 'the room resumes its latest arrangement after the window closes'
         }]
     }, {
         id           : 'film-signature',

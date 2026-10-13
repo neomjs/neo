@@ -221,6 +221,16 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
             expect(returnedHome.proof.mainDocument.items, `${itemId} belongs to main after the stack return`).toHaveProperty(itemId)
         }
 
+        const currentCapture = byName('perspective-capture', 'film-before-cross-window'),
+              currentRestore = byName('perspective-restore', 'film-before-cross-window');
+
+        expect(currentCapture, 'the later room arrangement is retained before demonstrating the earlier topology')
+            .toMatchObject({applied: true, stored: true});
+        expect(currentRestore, 'the room resumes only after the restored stack returned and its window closed')
+            .toMatchObject({applied: true, errors: []});
+        expect(currentRestore.tabs['scale-tabs'], 'Security stays beside Scale so the final tear-out cannot prune their group')
+            .toEqual(expect.arrayContaining(['scale', 'security']));
+
         // the close: the matrix leaves the room in a window of its own, that window grows beside the
         // room through its owner-granted resize route, one flick's momentum carries the rows on, and
         // the film ends on the room and the window side by side. Whether the canvas column is in the
@@ -327,7 +337,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         }
     });
 
-    test('under autoGates the film runs unattended: earlier windows close and the signature matrix stays open', async ({page, neuralLink}) => {
+    test('under autoGates the film runs unattended: earlier windows close and the signature matrix stays open', async ({page, neuralLink}, testInfo) => {
         const {app, dispose, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
         try {
@@ -372,6 +382,8 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
             });
 
             const receipt = await callWorkstationTour(app, wsId, 'getTourReceipt');
+
+            await testInfo.attach('film-tour-receipt', {body: JSON.stringify(receipt, null, 2), contentType: 'application/json'});
 
             // the controller's own clock: start to settlement, the picture's total before any voice
             console.log(`[film-probe] auto receipt settled: elapsed ${receipt.elapsedMs}ms`);

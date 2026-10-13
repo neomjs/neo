@@ -132,17 +132,24 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(journey.sourceNodeId).not.toBe('heavy-tabs')
     });
 
-    test('the arrangement across windows: saved with both panes, restored behind a gate, and returned home by its stack grip', () => {
-        const scenes                             = fiveBeatFilmScript.scenes,
-              ids                                = scenes.map(scene => scene.id),
-              capture                            = scenes.find(scene => scene.id === 'film-journey').steps.at(-1).cue,
-              across                             = scenes.find(scene => scene.id === 'film-perspective-across-windows'),
-              owner                              = steps().find(step => step.cue?.type === 'tear-out').cue.itemId,
-              [restore, gate, open, dwell, home] = across.steps;
+    test('the arrangement across windows resumes the current room after its gated birth and stack return', () => {
+        const scenes                                              = fiveBeatFilmScript.scenes,
+              ids                                                 = scenes.map(scene => scene.id),
+              capture                                             = scenes.find(scene => scene.id === 'film-journey').steps.at(-1).cue,
+              across                                              = scenes.find(scene => scene.id === 'film-perspective-across-windows'),
+              owner                                               = steps().find(step => step.cue?.type === 'tear-out').cue.itemId,
+              [current, restore, gate, open, dwell, home, resume] = across.steps;
 
         // the capture is the journey's last step, taken before the stack return empties the window
         expect(capture).toMatchObject({type: 'perspective-capture', captureScope: 'topology'});
         expect(ids.indexOf(across.id), 'it follows the in-room perspectives scene').toBe(ids.indexOf('film-perspectives-undo') + 1);
+        expect(ids.indexOf('film-signature')).toBe(ids.indexOf(across.id) + 1);
+        expect(across.steps).toHaveLength(7);
+        expect(current).toMatchObject({type: 'pause', ms: 0, cue: {
+            type: 'perspective-capture', captureScope: 'window', name: 'film-before-cross-window'
+        }});
+        const captures = steps().filter(step => step.cue?.type === 'perspective-capture').map(step => step.cue.name);
+        expect(new Set(captures).size, 'each saved arrangement has its own record').toBe(captures.length);
 
         expect(restore.cue).toEqual({type: 'perspective-restore', name: capture.name});
         expect(gate.cue.type, 'the restore opens nothing; the re-birth is a gated window birth').toBe('gate');
@@ -151,6 +158,8 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(dwell.cue).toBeUndefined();
         // the stack gesture returns both panes and retires the emptied source through its Group binding
         expect(home.cue).toEqual({type: 'stack-return', ownerItemId: owner, options: {moveDelay: 33, showCursor: true}});
+        expect(resume).toMatchObject({type: 'pause', ms: 0,
+            cue: {type: 'perspective-restore', name: current.cue.name}});
         expect(steps().filter(step => step.cue?.type === 'stack-return')).toHaveLength(1);
         expect(WORKSTATION_CUE_TYPES).not.toContain('workspace-close');
         expect(steps().filter(step => step.cue?.type === 'native-return')).toHaveLength(1)
