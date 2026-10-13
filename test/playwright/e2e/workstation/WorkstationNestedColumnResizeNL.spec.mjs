@@ -246,65 +246,71 @@ test.describe('Workstation nested dock column follows its outer splitter (#17985
         await page.mouse.up()
     }
 
-    test('landing stops a running transform transition while preserving unrelated animation', async ({page, neuralLink}) => {
-        await boot(page, neuralLink);
-        const report = await page.evaluate(async () => {
-            const flip = Neo.main.addon.DockFlip,
-                host   = document.createElement('div'),
-                source = document.createElement('div'),
-                target = document.createElement('div'),
-                pane   = document.createElement('div');
+    for (const pending of [false, true]) {
+        test(`landing during ${pending ? 'the inverse frame' : 'a running transition'} preserves unrelated animation`, async ({page, neuralLink}) => {
+            await boot(page, neuralLink);
+            const report = await page.evaluate(async pending => {
+                const flip = Neo.main.addon.DockFlip,
+                    host   = document.createElement('div'),
+                    source = document.createElement('div'),
+                    target = document.createElement('div'),
+                    pane   = document.createElement('div');
 
-            host.id = 'dock-transition-landing-control';
-            host.className = 'neo-dashboard';
-            host.style.cssText = 'display:flex;gap:20px;position:fixed;left:0;top:0;--dock-transition-duration:280ms;--dock-transition-easing:linear';
-            source.style.cssText = 'width:300px;height:100px;overflow:hidden';
-            target.style.cssText = 'width:100px;height:100px;overflow:hidden';
-            pane.className = 'dock-transition-control-pane';
-            pane.style.cssText = 'width:100%;height:100%;transform:translateX(7px);transform-origin:center top;opacity:.8';
-            source.append(pane);
-            host.append(source, target);
-            document.body.append(host);
-            const original = pane.style.cssText,
-                unrelated  = pane.animate([{backgroundColor: 'red'}, {backgroundColor: 'blue'}],
-                    {duration: 10000, iterations: Infinity});
+                host.id = 'dock-transition-landing-control';
+                host.className = 'neo-dashboard';
+                host.style.cssText = 'display:flex;gap:20px;position:fixed;left:0;top:0;--dock-transition-duration:280ms;--dock-transition-easing:linear';
+                source.style.cssText = 'width:300px;height:100px;overflow:hidden';
+                target.style.cssText = 'width:100px;height:100px;overflow:hidden';
+                pane.className = 'dock-transition-control-pane';
+                pane.style.cssText = 'width:100%;height:100%;transform:translateX(7px);transform-origin:center top;opacity:.8;transition:transform 2s linear';
+                source.append(pane);
+                host.append(source, target);
+                document.body.append(host);
+                const original = pane.style.cssText,
+                    unrelated  = pane.animate([{backgroundColor: 'red'}, {backgroundColor: 'blue'}],
+                        {duration: 10000, iterations: Infinity});
 
-            try {
-                flip.captureFirst({hostId: host.id, markerPrefix: 'dock-transition-control-'});
-                target.append(pane);
-                const played      = flip.play({hostId: host.id, markerPrefix: 'dock-transition-control-'}),
-                    invertedWidth = pane.getBoundingClientRect().width;
-                let before;
+                try {
+                    flip.captureFirst({hostId: host.id, markerPrefix: 'dock-transition-control-'});
+                    target.append(pane);
+                    const played      = flip.play({hostId: host.id, markerPrefix: 'dock-transition-control-'}),
+                        invertedWidth = pane.getBoundingClientRect().width;
+                    let before;
 
-                for (let frame = 0; frame < 40; frame++) {
-                    await new Promise(resolve => requestAnimationFrame(resolve));
-                    before = {width: pane.getBoundingClientRect().width,
-                        transitions: pane.getAnimations().filter(animation => animation.transitionProperty).length};
-                    if (before.transitions && before.width > 120) break
+                    for (let frame = 0; frame < 40; frame++) {
+                        if (pending) {
+                            before = {width: invertedWidth, transitions: 0};
+                            break
+                        }
+                        await new Promise(resolve => requestAnimationFrame(resolve));
+                        before = {width: pane.getBoundingClientRect().width,
+                            transitions: pane.getAnimations().filter(animation => animation.transitionProperty).length};
+                        if (before.transitions && before.width > 120) break
+                    }
+                    const landed = flip.land({hostId: host.id}),
+                        after    = {width: pane.getBoundingClientRect().width,
+                            transform       : getComputedStyle(pane).transform,
+                            transitions     : pane.getAnimations().filter(animation => animation.transitionProperty).length,
+                            sameInline      : pane.style.cssText === original,
+                            unrelatedRunning: unrelated.playState === 'running'};
+
+                    return {invertedWidth, before, after, landed, played: await played}
+                } finally {
+                    flip.land({hostId: host.id});
+                    unrelated.cancel();
+                    host.remove()
                 }
-                const landed = flip.land({hostId: host.id}),
-                    after    = {width: pane.getBoundingClientRect().width,
-                        transform       : getComputedStyle(pane).transform,
-                        transitions     : pane.getAnimations().filter(animation => animation.transitionProperty).length,
-                        sameInline      : pane.style.cssText === original,
-                        unrelatedRunning: unrelated.playState === 'running'};
+            }, pending);
 
-                return {invertedWidth, before, after, landed, played: await played}
-            } finally {
-                flip.land({hostId: host.id});
-                unrelated.cancel();
-                host.remove()
-            }
+            expect(report.invertedWidth, 'the inverse was observed before the transition release').toBeGreaterThan(120);
+            if (!pending) expect(report.before.transitions, 'the control enters a real CSS transition').toBeGreaterThan(0);
+            expect(report.before.width, 'the transition visibly differs from the committed layout').toBeGreaterThan(120);
+            expect(report.landed).toBe(true);
+            expect(report.played).toBe(false);
+            expect(report.after).toEqual({width: 100, transform: 'matrix(1, 0, 0, 1, 7, 0)',
+                transitions: 0, sameInline: true, unrelatedRunning: true})
         });
-
-        expect(report.invertedWidth, 'the inverse was observed before the transition release').toBeGreaterThan(120);
-        expect(report.before.transitions, 'the control enters a real CSS transition').toBeGreaterThan(0);
-        expect(report.before.width, 'the transition visibly differs from the committed layout').toBeGreaterThan(120);
-        expect(report.landed).toBe(true);
-        expect(report.played).toBe(false);
-        expect(report.after).toEqual({width: 100, transform: 'matrix(1, 0, 0, 1, 7, 0)',
-            transitions: 0, sameInline: true, unrelatedRunning: true})
-    });
+    }
 
     test('both stacked panes follow a real outer resize during preview and after commit', async ({page, neuralLink}) => {
         const {app, workspaceId} = await boot(page, neuralLink),

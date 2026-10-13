@@ -630,10 +630,11 @@ class DockFlip extends Base {
                 if (styleSnapshot) {
                     // Restoring inline strings alone leaves an existing CSS transition running.
                     el.style.transition = 'none';
-                    el.getAnimations();
                     Object.entries(styleSnapshot).forEach(([property, value]) => {
-                        el.style[property] = value
-                    })
+                        property !== 'transition' && (el.style[property] = value)
+                    });
+                    el.getAnimations();
+                    el.style.transition = styleSnapshot.transition
                 }
 
                 fixedStage && !hadStageClass && el.classList.remove('neo-dock-flip-fixed-stage')
