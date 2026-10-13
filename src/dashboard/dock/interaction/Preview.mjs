@@ -31,6 +31,18 @@ import PreviewContract from '../model/PreviewContract.mjs';
  * persisted-tree mutation) are deliberately out of scope: they are separate docking leaves.
  */
 class Preview extends Component {
+    /**
+     * TEMP probe, never merged
+     * @param {Neo.dashboard.dock.interaction.Preview} me
+     * @param {String} what
+     * @param {Object} [data={}]
+     */
+    static probeLog(me, what, data={}) {
+        const log = me.__probe ??= [];
+        log.push({t: Date.now(), what, kind: me.dockPreview?.placement?.kind ?? null, target: me.dockPreview?.target?.nodeId ?? null,
+            node: me.vdom.cn?.[0]?.id ?? null, width: me.vdom.cn?.[0]?.style?.width ?? null, ...data});
+        log.length > 300 && log.shift()
+    }
 
     static config = {
         /**
@@ -285,6 +297,7 @@ class Preview extends Component {
             affordance = Preview.mapPreviewToAffordance(value);
 
         me.vdom.cn = affordance ? [me.getAffordanceVdom(affordance)] : [];
+        Preview.probeLog(me, 'set', {from: oldValue?.placement?.kind ?? null, fromTarget: oldValue?.target?.nodeId ?? null, group: affordance?.group ?? null});
         me.update()
     }
 
@@ -299,6 +312,7 @@ class Preview extends Component {
 
         // The writer sets the clock before the preview, so the common case renders once through
         // afterSetDockPreview; this covers a clock that arrives or leaves while a preview stands.
+        Preview.probeLog(me, 'dwell', {armed: value?.armedAt ?? null, was: oldValue?.armedAt ?? null});
         if (me.dockPreview && (value?.armedAt !== oldValue?.armedAt || value?.durationMs !== oldValue?.durationMs)) {
             me.afterSetDockPreview(me.dockPreview, me.dockPreview)
         }
@@ -317,13 +331,18 @@ class Preview extends Component {
             affordance = Preview.mapPreviewToAffordance(me.dockPreview),
             node       = me.vdom.cn?.[0];
 
-        if (!affordance || !node) return;
+        if (!affordance || !node) {
+            Preview.probeLog(me, 'apply-skip', {affordance: !!affordance});
+            return
+        }
 
         let geo = Preview.affordanceGeometry(affordance, targetRect, {
             edgeBandSize        : me.edgeBandSize,
             resultRegionPreviews: me.resultRegionPreviews,
             splitLineSize       : me.splitLineSize
         });
+
+        Preview.probeLog(me, 'apply', {group: affordance.group, geo, rect: targetRect});
 
         if (!geo) return;
 

@@ -1606,9 +1606,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                   doms  = await page.evaluate(() => [...document.querySelectorAll('.neo-dashboard-dock-tabs')]
                       .map(el => {const r = el.getBoundingClientRect(); return `${el.id}:${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)}x${Math.round(r.height)}`}));
 
-            console.log(`[probe] fivebeat preview=${JSON.stringify(dwell2.rect)} zoneNow=${JSON.stringify(now[ids[0]])} hostNow=${JSON.stringify(now[ids[2]])}`);
-            console.log(`[probe] fivebeat geo=${JSON.stringify(geo)}`);
-            console.log(`[probe] fivebeat tabs=${doms.join(' ')}`)
+            const plog = (await app.getComponent(previewId, ['__probe']))?.__probe ?? [],
+                  t0   = plog.at(-1)?.t ?? 0;
+
+            console.log(`[probe] fivebeat preview=${JSON.stringify(dwell2.rect)} zoneNow=${JSON.stringify(now[ids[0]])} geoZones=${geo?.zones?.length ?? null} tabs=${doms.length}`);
+            plog.slice(-40).forEach(entry => console.log(`[probe] fivebeat plog ${entry.t - t0} ${JSON.stringify({...entry, t: undefined, rect: undefined})}`))
         }
 
         await assertPreviewZoneAlignment(app, {kind: 'tab-into', previewRect: dwell2.rect, zoneId: zoneIds['right-bottom-tabs']});
