@@ -368,5 +368,40 @@ test.describe('Grid content-sized rows: anchor correction', () => {
         } finally {
             Neo.main.DomAccess.scrollTo = original
         }
+    });
+
+    test('a filter ends a keyboard navigation\'s target, whose row index names another record now', async () => {
+        let {view}   = grid,
+            geometry = view.rowGeometry,
+            original = Neo.main.DomAccess?.scrollTo,
+            scrolls  = [],
+            top;
+
+        Neo.main           ??= {};
+        Neo.main.DomAccess ??= {};
+        Neo.main.DomAccess.scrollTo = ({value}) => {scrolls.push(value)};
+
+        try {
+            // Down to row 100, record 100, and the scroll lands
+            view.scrollByRows(50, 50);
+            view.syncBodies(scrolls[0]);
+            await view.promiseUpdate();
+
+            // Row 100 is record 150 now, still in range
+            store.filters = [{operator: '>=', property: 'id', value: 50}];
+            await view.promiseUpdate();
+
+            expect(store.getAt(100).id).toBe(150);
+            top = view.scrollTop;
+
+            // Record 145, row 95, grows below the row at the top edge: nothing moves
+            expect(geometry.indexAt(top)).toBeLessThan(95);
+            view.setRowHeights(heightsOf(grid, {145: 80}));
+            await view.promiseUpdate();
+
+            expect(view.scrollTop).toBe(top)
+        } finally {
+            Neo.main.DomAccess.scrollTo = original
+        }
     })
 });

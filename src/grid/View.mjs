@@ -128,7 +128,8 @@ class View extends Base {
     #measuredCells = new WeakMap()
     /**
      * Content-sized rows: the row keyboard navigation scrolled to, `{edge, index, landed, scrollTop}`. Once its
-     * scroll lands, height changes keep the row at its edge instead of the row at the top edge, until another scroll.
+     * scroll lands, height changes keep the row at its edge instead of the row at the top edge, until another scroll,
+     * or a load or filter gives its index another record.
      * @member {Object|null} #navigationTarget=null
      */
     #navigationTarget = null
@@ -356,14 +357,14 @@ class View extends Base {
 
     /**
      * Listens to the store for the one selection concern the View owns — a record's
-     * {@link #selectedRecordField} — once per grid, however many bodies render the record.
-     * `grid.Container` calls it again when its store changes.
+     * {@link #selectedRecordField} — once per grid, however many bodies render the record, and for the loads and
+     * filters that end a keyboard navigation's target. `grid.Container` calls it again when its store changes.
      * @param {Neo.data.Store|null} value
      * @param {Neo.data.Store|null} oldValue
      */
     bindStore(value, oldValue) {
         let me        = this,
-            listeners = {load: me.onStoreLoad, recordChange: me.onStoreRecordChange, scope: me};
+            listeners = {filter: me.onStoreFilter, load: me.onStoreLoad, recordChange: me.onStoreRecordChange, scope: me};
 
         // on() and un() consume keys like `scope` from the passed object, so each call gets its own copy
         oldValue?.un({...listeners});
@@ -427,13 +428,7 @@ class View extends Base {
             return false
         }
 
-        target = me.#navigationTarget;
-
-        // A filtered store may no longer hold the navigated row
-        if (target?.index >= rowGeometry.count) {
-            me.#navigationTarget = target = null
-        }
-
+        target     = me.#navigationTarget;
         correction = target?.landed ? me.#alignedScrollTop(target) - scrollTop : rowGeometry.offsetAt(anchor) - offset;
 
         if (correction !== 0) {
@@ -461,6 +456,14 @@ class View extends Base {
         me.selectionModel?.destroy?.();
         me.rowGeometry?.destroy();
         super.destroy(...args)
+    }
+
+    /**
+     * A local filter moves the rows like a load, without firing one: a keyboard navigation's target index names
+     * another record, so it ends.
+     */
+    onStoreFilter() {
+        this.#navigationTarget = null
     }
 
     /**
@@ -765,7 +768,7 @@ class View extends Base {
 
     /**
      * Content-sized rows: scrolls the row at `index` to an edge of the view, for keyboard navigation. The row stays at
-     * that edge while the rows around it are measured, until another scroll.
+     * that edge while the rows around it are measured, until another scroll, load or filter.
      * @param {Number} index
      * @param {String} edge `'top'` or `'bottom'`, see {@link #alignedScrollTop}
      */
