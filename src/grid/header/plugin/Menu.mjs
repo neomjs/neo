@@ -65,7 +65,7 @@ class Menu extends Plugin {
     #releaseFilters = null;
     /** @member {Array|null} domListeners=null @private */
     #domListeners = null;
-    /** @member {Object|null} outsideListener=null @private */
+    /** @member {Object[]|null} outsideListener=null @private */
     #outsideListener = null;
     /** @member {Neo.component.Base|null} outsideOwner=null @private */
     #outsideOwner = null;
@@ -350,7 +350,10 @@ class Menu extends Plugin {
         if (attach && !this.#outsideOwner) {
             const owner = this.owner.app?.mainView;
             if (owner) {
-                this.#outsideListener ||= {mousedown: this.onOutsidePointer, scope: this};
+                this.#outsideListener ||= [
+                    {mousedown: this.onOutsidePointer, scope: this},
+                    {touchstart: this.onOutsidePointer, scope: this}
+                ];
                 owner.addDomListeners(this.#outsideListener);
                 this.#outsideOwner = owner
             }

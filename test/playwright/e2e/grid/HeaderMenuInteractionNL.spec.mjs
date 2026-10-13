@@ -301,8 +301,11 @@ test.describe('Grid header value-menu touch affordance', () => {
         await expectClosed(page, state, true);
         await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
         await expectOpen(page, state);
-        const bodyBox = await page.locator(`#${state.bodyId}`).boundingBox();
+        const bodyBox    = await page.locator(`#${state.bodyId}`).boundingBox();
+        const touchCount = (await page.evaluate(() => window.__headerTouch)).length;
         await page.touchscreen.tap(bodyBox.x + bodyBox.width - 40, bodyBox.y + 200);
+        await expect.poll(async () => (await page.evaluate(() => window.__headerTouch)).length).toBe(touchCount + 1);
+        expect((await page.evaluate(() => window.__headerTouch)).at(-1)).toEqual({type: 'touch', trusted: true});
         await expectClosed(page, state);
         expect(await headerTruth(state)).toEqual(before)
     });

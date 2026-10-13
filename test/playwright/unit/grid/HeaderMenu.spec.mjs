@@ -7,6 +7,7 @@ import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
+import DomEvent        from '../../../../src/manager/DomEvent.mjs';
 import VdomHelper      from '../../../../src/vdom/Helper.mjs';
 import Grid            from '../../../../src/grid/Container.mjs';
 import Store           from '../../../../src/data/Store.mjs';
@@ -139,6 +140,28 @@ test.describe('Grid header value menu', () => {
             expect(counts).toBe(1);
             expect(menu.valuePicker.selection).toEqual(selection);
             expect(menu.surface.getItem('clear').hidden).toBe(!selection.length)
+        }
+    });
+
+    test('outside mouse and touch observers use global transport and detach on each close', async () => {
+        const grid = gridFor(storeFor(), {columnMenu: true}), {menu} = await menuFor(grid),
+              app  = grid.app, previous = app.mainView;
+        app.mainView = grid;
+        try {
+            for (let cycle=0; cycle<2; cycle++) {
+                menu.syncOutsideListener(true);
+                for (const name of ['mousedown', 'touchstart']) {
+                    const listeners = DomEvent.items[grid.id][name];
+                    expect(listeners.filter(listener => listener.scope === menu)).toHaveLength(1);
+                    expect(listeners.find(listener => listener.scope === menu).mounted).toBe(true)
+                }
+                menu.syncOutsideListener(false);
+                for (const name of ['mousedown', 'touchstart']) {
+                    expect(DomEvent.items[grid.id][name].filter(listener => listener.scope === menu)).toEqual([])
+                }
+            }
+        } finally {
+            app.mainView = previous
         }
     });
 
