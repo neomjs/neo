@@ -11,8 +11,12 @@ globalThis.DOMRect = class DOMRect {
         this.y = y || 0;
         this.width = width || 0;
         this.height = height || 0;
-        this.top = this.y;
-        this.left = this.x;
+    }
+    get left() {
+        return this.x;
+    }
+    get top() {
+        return this.y;
     }
     get right() {
         return this.x + this.width;
