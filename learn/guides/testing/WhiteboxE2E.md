@@ -41,7 +41,7 @@ The engine tier (`.github/workflows/test-e2e.yml`) runs on pull requests without
 
 The Brain-gated specs run in `.github/workflows/test-e2e-brain.yml`, on `dev` pushes only. This is a burn-in that measures them before any pull request depends on them. The workflow checks out the Brain at its `dev` tip, resolved once per run, and installs it with `npm ci`.
 
-Each shard's job summary is its receipt:
+Each shard writes its receipt to its job summary and to its log. The log copy is the one `gh run view --log` can read. The receipt holds:
 - the event and attempt;
 - the Engine and Brain SHAs;
 - its test time against the five-minute ceiling;
@@ -53,6 +53,8 @@ Each shard's job summary is its receipt:
 - A **quarantine** deselects one test by file and title. It names who is accountable, what removes it and since when, and after a week every receipt flags it as stale.
 
 A declaration whose file or title no longer exists fails the unit tier.
+
+Through 2026-10-25 the burn-in retries a failed test once, while #19657 diagnoses the intermittent set. Every receipt names each test that needed the retry, with its first-attempt error, and a test red on every attempt stays red. After that date the tier runs without retries.
 
 ## Connecting the Neural Link (Fixtures)
 

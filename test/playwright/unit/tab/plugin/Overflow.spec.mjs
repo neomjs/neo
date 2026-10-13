@@ -197,6 +197,40 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.measuring, 'the latch still resets so future passes are not frozen').toBe(false)
     });
 
+    test('a throw after the owner or the plugin is destroyed is teardown, even while mounted still reads true', async () => {
+        // Destruction does not reset `mounted`: a destroyed owner still reads mounted, so destruction is asked for itself.
+        // The plugin projects while constructing, so the destroying measure is armed only after both exist.
+        let armed = false;
+
+        const rects          = ids => [ids].flat().map(() => ({bottom: 20, height: 20, left: 0, right: 100, top: 0, width: 100, x: 0, y: 0})),
+              ownerDestroyed = createPlugin(async function (ids) {
+                  if (!armed) return rects(ids);
+                  this.isDestroyed = true;
+                  throw Neo.isDestroyed
+              }),
+              pluginDestroyed = createPlugin(async ids => {
+                  if (!armed) return rects(ids);
+                  pluginDestroyed.isDestroyed = true;
+                  throw Neo.isDestroyed
+              }),
+              errors          = [],
+              orig            = console.error;
+
+        console.error = (...args) => { errors.push(args) };
+        armed = true;
+
+        try {
+            await ownerDestroyed.project(true).catch(() => {});
+            await pluginDestroyed.project(true).catch(() => {})
+        } finally {
+            console.error = orig
+        }
+
+        expect(ownerDestroyed.owner.mounted, 'control: the destroyed owner still reads mounted').toBe(true);
+        expect(errors.length, 'a destroyed owner or plugin is torn down, not a live-owner defect').toBe(0);
+        expect(ownerDestroyed.measuring || pluginDestroyed.measuring, 'both latches still reset').toBe(false)
+    });
+
     test('a project() arriving during an in-flight pass is coalesced, then drained once — never dropped, so the last state wins', async () => {
         let release,
             gate       = new Promise(resolve => { release = resolve }),

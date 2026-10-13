@@ -3,7 +3,7 @@ name: E2E (Brain-gated burn-in)
 # The Brain-gated e2e tier: every spec the `neuralLink` fixture gates, run against the Brain's
 # current `dev` tip. It has never run hosted, so this phase measures it before any pull request
 # depends on it (epic #19655). `dev` pushes only: merge readiness reads pull-request checks and
-# refuses any red there, required or not. Each shard's job summary is its receipt.
+# refuses any red there, required or not. Each shard writes its receipt to its job summary and its log.
 
 on:
   push:
@@ -101,10 +101,14 @@ jobs:
           paths=$(node buildScripts/util/e2eCiSelection.mjs --brain-paths)
           test -n "$paths"
           node buildScripts/util/e2eCiSelection.mjs --brain-test-list > "$RUNNER_TEMP/brain-quarantine.txt"
+          # Selected once and recorded, so the receipt reports this run's count even after the bridge ends
+          retries=$(node buildScripts/util/e2eCiSelection.mjs --brain-retries)
+          echo "retries=$retries" >> "$GITHUB_OUTPUT"
           start=$SECONDS
           status=0
 
           npx playwright test -c test/playwright/playwright.config.e2e.mjs --shard="$SHARD" \
+            --retries="$retries" \
             --test-list-invert "$RUNNER_TEMP/brain-quarantine.txt" $paths || status=$?
 
           echo "seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
@@ -119,8 +123,13 @@ jobs:
           EVENT: ${{ github.event_name }}
           REPORT: test/playwright/test-results/e2e/results.json
           SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+          RETRIES: ${{ steps.run.outputs.retries }}
           TEST_SECONDS: ${{ steps.run.outputs.seconds }}
-        run: node buildScripts/util/e2eCiSelection.mjs --brain-receipt >> "$GITHUB_STEP_SUMMARY"
+        # A job summary renders only for signed-in viewers and no API returns it, so the log carries the same text.
+        # `pipefail`: a receipt that throws still fails the step, although `tee` succeeds.
+        run: |
+          set -o pipefail
+          node buildScripts/util/e2eCiSelection.mjs --brain-receipt | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test artifacts on failure
         if: ${{ failure() }}
