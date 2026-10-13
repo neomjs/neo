@@ -68,7 +68,11 @@ test.describe('Neo.list.ValuePicker', () => {
         expect(rows(list)).toHaveLength(7);
         expect(list.items).toBeNull();
         expect(list.selectionModel).toBeNull();
-        expect(rows(list)[0]).toMatchObject({role: 'checkbox', 'aria-checked': false});
+        expect(list.vdom).toMatchObject({role: 'listbox', 'aria-multiselectable': true});
+        expect(rows(list)[0]).toMatchObject({role: 'option', 'aria-selected': false});
+        expect(rows(list)[0]['aria-checked']).toBeUndefined();
+        expect(list.vdom['aria-describedby']).toBe(list.id + '__refine');
+        expect(list.vdom.cn.at(-1).role).toBe('presentation');
         expect(rows(list)[0].cn.map(text)).toEqual(['Value 0', '0']);
         expect(text(list.vdom.cn.at(-1))).toBe('10,001 values match, narrow the search');
         expect(list.vdom.cn.at(-1).cls).not.toContain('neo-list-item');
@@ -79,15 +83,15 @@ test.describe('Neo.list.ValuePicker', () => {
         await createList({}, data(5));
         list.selection = ['number:1'];
         expect(events).toEqual([]);
-        expect(rows(list)[1]['aria-checked']).toBe(true);
+        expect(rows(list)[1]['aria-selected']).toBe(true);
         list.onClick({path: [rows(list)[1]]});
         expect(events).toHaveLength(1);
         expect(events[0]).toMatchObject({added: [], removed: ['number:1'], selection: []});
         expect(list.selection).toEqual(['number:1']);
-        expect(rows(list)[1]['aria-checked']).toBe(true);
+        expect(rows(list)[1]['aria-selected']).toBe(true);
         list.selection = events[0].selection;
         expect(events).toHaveLength(1);
-        expect(rows(list)[1]['aria-checked']).toBe(false);
+        expect(rows(list)[1]['aria-selected']).toBe(false);
         list.selectedIndex = 2;
         list.selectedIndex = null;
         expect(events).toHaveLength(1);
@@ -105,7 +109,8 @@ test.describe('Neo.list.ValuePicker', () => {
         list.searchValue = 'ALPHA';
         expect(store.items.map(record => record.key)).toEqual(['number:0', 'number:1', 'number:4']);
         expect(list.vdom.cn.at(-1).cls).toContain('neo-buffered-list-bottom-spacer');
-        expect(rows(list).map(node => node['aria-checked'])).toEqual([false, false, true]);
+        expect(rows(list).map(node => node['aria-selected'])).toEqual([false, false, true]);
+        expect(list.vdom['aria-describedby']).toBeUndefined();
         expect(list.selection).toEqual(['number:4']);
         list.searchValue = '(';
         expect(store.items.map(record => record.key)).toEqual(['number:0', 'number:4']);
@@ -125,7 +130,7 @@ test.describe('Neo.list.ValuePicker', () => {
             {key: 'number:9', value: 9, label: '9', count: 1}
         ]);
         expect(store.items.map(record => record.key)).toEqual(['number:1', 'string:1', 'number:9']);
-        expect(rows(list).map(node => node['aria-checked'])).toEqual([false, true, true]);
+        expect(rows(list).map(node => node['aria-selected'])).toEqual([false, true, true]);
         expect(text(list.vdom.cn.at(-1))).toBe('4 values match, narrow the search');
         list.maxMatchingOptions = 2;
         expect(store.getCount()).toBe(4);
@@ -140,15 +145,17 @@ test.describe('Neo.list.ValuePicker', () => {
         const selected = store.get('number:4');
         selected.count = 0;
         selected.label = 'Unmatched';
+        await Promise.resolve();
         expect(rows(list).map(node => node.data.recordId)).toEqual(['number:0', 'number:4']);
         expect(rows(list)[1].cn.map(text)).toEqual(['Unmatched', '0']);
         list.onClick({path: [rows(list)[1]]});
         expect(events[0]).toMatchObject({removed: ['number:4'], selection: []});
         store.add({key: 'string:new', value: 'new', label: 'Value 0 new', count: 13});
         expect(rows(list).at(-1).cn.map(text)).toEqual(['Value 0 new', '13']);
-        expect(rows(list).at(-1)['aria-checked']).toBe(false);
+        expect(rows(list).at(-1)['aria-selected']).toBe(false);
         const hidden = store.allItems.get('number:2');
         hidden.label = 'Value 0 now';
+        await Promise.resolve();
         expect(store.items.map(record => record.key)).toContain('number:2')
     });
 
@@ -225,5 +232,55 @@ test.describe('Neo.list.ValuePicker', () => {
         list.onScrollCapture({target: {id: list.id}, scrollTop: 64});
         expect(list.scrollTop).toBe(64);
         expect(list.focusIndex).toBeNull()
+    });
+
+    test('500 count edits render mounted counts without admission; label edits coalesce once', async () => {
+        const store    = await createList();
+        const original = list.refreshOptions;
+        let   passes   = 0;
+        list.refreshOptions = function(...args) {++passes; return original.apply(this, args)};
+        for (let index = 0; index < 500; ++index) store.get('number:' + index).count = 20000 + index;
+        await Promise.resolve();
+        expect(passes).toBe(0);
+        expect(rows(list).map(node => text(node.cn[1]))).toEqual(Array.from({length: 7}, (_, index) => String(20000 + index)));
+        expect(rows(list)[0]['aria-label']).toBe('Value 0, 20000 matches');
+        list.searchValue = 'match';
+        passes = 0;
+        for (let index = 0; index < 500; ++index) store.allItems.get('number:' + index).label = 'Match ' + index;
+        expect(passes).toBe(0);
+        await Promise.resolve();
+        expect(passes).toBe(1);
+        expect(store.getCount()).toBe(500);
+        expect(text(rows(list)[0].cn[0])).toBe('Match 0')
+    });
+
+    test('queued admission edits cannot refresh a replacement or destroyed list', async () => {
+        const old = await createList({}, data(5));
+        old.get('number:0').label = 'Queued';
+        const replacement = createStore(data(3));
+        list.store = replacement;
+        replacement.get('number:0').label = 'Current';
+        const original = list.refreshOptions;
+        let   passes   = 0;
+        list.refreshOptions = function(...args) {++passes; return original.apply(this, args)};
+        await Promise.resolve();
+        expect(passes).toBe(1);
+        expect(text(rows(list)[0].cn[0])).toBe('Current');
+        replacement.get('number:0').label = 'Teardown';
+        list.destroy(); list = null;
+        await Promise.resolve();
+        expect(passes).toBe(1)
+    });
+
+    test('authoritative filter replacement preserves the host filter and reinstates owned admission', async () => {
+        const store = await createList({maxMatchingOptions: 2, selection: ['number:4']}, data(5));
+        store.filters = [{property: 'count', operator: '>=', value: 0}];
+        expect(store.items.map(record => record.key)).toEqual(['number:0', 'number:1', 'number:4']);
+        expect(store.filters).toHaveLength(2);
+        expect(store.filters.find(filter => filter.property === 'count').ownerRole).toBeNull();
+        expect(store.filters.find(filter => filter.property === 'label').ownerRole).toBe('value-picker:' + list.id);
+        list.destroy(); list = null;
+        expect(store.filters).toHaveLength(1);
+        expect(store.filters[0].property).toBe('count')
     });
 });

@@ -58,16 +58,20 @@ test('logical keys cross the pool; Enter does not synthesize a second pointer to
     expect(await page.evaluate(() => window.valuePickerClicks)).toBe(0);
     expect(await page.evaluate(id => Neo.worker.App.getConfigs({id, keys: 'selection'}), id)).toEqual([]);
     await page.evaluate(id => Neo.worker.App.setConfigs({id, selection: ['number:14']}), id);
-    await expect(picker.locator('[data-record-id="number:14"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(picker.locator('[data-record-id="number:14"]')).toHaveAttribute('aria-selected', 'true');
     await page.evaluate(id => Neo.worker.App.setConfigs({id, searchValue: 'Value 9999'}), id);
     await expect(picker.locator('.neo-list-item')).toHaveCount(2);
-    await expect(picker.locator('[data-record-id="number:14"]')).toHaveAttribute('aria-checked', 'true');
-    await expect(picker.locator('[data-record-id="number:9999"]')).toHaveAttribute('aria-checked', 'false')
+    await expect(picker.locator('[data-record-id="number:14"]')).toHaveAttribute('aria-selected', 'true');
+    await expect(picker.locator('[data-record-id="number:9999"]')).toHaveAttribute('aria-selected', 'false');
+    await expect(picker).toHaveAttribute('role', 'listbox');
+    await expect(picker).toHaveAttribute('aria-multiselectable', 'true');
+    await expect(picker.getByRole('option', {selected: true})).toHaveCount(1)
 });
 
 test('literal labels, count zero and refine footer render within the fixed-height surface', async ({page}, testInfo) => {
     const picker = page.locator('#' + id);
     await expect(picker.locator('.neo-value-picker-refine')).toHaveText('10,001 values match, narrow the search');
+    await expect(picker).toHaveAccessibleDescription('10,001 values match, narrow the search');
     await expect(picker.locator('[data-record-id="number:0"] .neo-value-picker-count')).toHaveText('0');
     await expect.poll(() => picker.locator('.neo-list-item').evaluateAll(nodes => nodes.every(node =>
         Math.abs(node.getBoundingClientRect().height - 32) < .1
@@ -76,6 +80,7 @@ test('literal labels, count zero and refine footer render within the fixed-heigh
     await page.evaluate(id => Neo.worker.App.setConfigs({id, searchValue: '('}), id);
     await expect(picker.locator('.neo-list-item')).toHaveCount(0);
     await expect(picker.locator('.neo-value-picker-refine')).toHaveCount(0)
+    await expect(picker).not.toHaveAttribute('aria-describedby', /refine/)
 });
 
 test('Tab can leave a pending logical jump and wheel scrolling resumes with focus outside', async ({page}) => {
@@ -100,4 +105,45 @@ test('Tab can leave a pending logical jump and wheel scrolling resumes with focu
         return Math.abs(actual - model)
     }).toBeLessThan(1);
     await expect(page.locator('#outside-picker')).toBeFocused()
+});
+
+test('ordinary Navigator keys and scrolling remain active; a recycled active record emits its identity', async ({page}) => {
+    const report = await page.evaluate(() => {
+        const nav = Neo.main.addon.Navigator, dom = Neo.main.DomEvents, original = dom.sendMessageToApp,
+            root  = document.createElement('ul'), first = document.createElement('li'), second = document.createElement('li'),
+            data  = {id: 'value-picker-default-navigator', selector: 'li'}, events = [];
+        let scrolls = 0;
+        root.id = data.id;
+        first.id = root.id + '-a'; second.id = root.id + '-b';
+        first.dataset.recordId = 'before'; second.dataset.recordId = 'next';
+        first.tabIndex = second.tabIndex = -1;
+        first.scrollIntoView = second.scrollIntoView = () => {++scrolls};
+        root.append(first, second); document.body.append(root);
+        dom.sendMessageToApp = function(event) {
+            if (event.type === 'neonavigate' && event.target === root.id) {
+                events.push({item: event.activeItem, record: event.activeRecordId});
+                return
+            }
+            return original.call(this, event)
+        };
+        try {
+            nav.subscribe(data);
+            nav.setActiveItem(first, data);
+            first.dataset.recordId = 'after';
+            nav.setActiveItem(first, data);
+            const key = new KeyboardEvent('keydown', {key: 'ArrowDown', cancelable: true});
+            nav.navigateKeyDownHandler(key, data);
+            return {events, scrolls, prevented: key.defaultPrevented, active: data.activeItem.id}
+        } finally {
+            nav.unsubscribe(data); root.remove(); dom.sendMessageToApp = original
+        }
+    });
+    expect(report.events).toEqual([
+        {item: 'value-picker-default-navigator-a', record: 'before'},
+        {item: 'value-picker-default-navigator-a', record: 'after'},
+        {item: 'value-picker-default-navigator-b', record: 'next'}
+    ]);
+    expect(report.scrolls).toBeGreaterThan(0);
+    expect(report.prevented).toBe(true);
+    expect(report.active).toBe('value-picker-default-navigator-b')
 });

@@ -437,6 +437,11 @@ class Navigator extends Base {
 
         // navigating to the same element should get ignored
         if (data.activeItem !== data.previousActiveItem || data.activeRecordId !== data.previousActiveRecordId) {
+            /**
+             * @event neonavigate
+             * @param {String} activeItem Physical active element id.
+             * @param {String|undefined} activeRecordId Record key captured at emission; a recycled-key change also fires.
+             */
             DomEvents.sendMessageToApp({
                 type  : 'neonavigate',
                 target: data.id,

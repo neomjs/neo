@@ -67,6 +67,11 @@ class ValuePicker extends Buffered {
          */
         searchValue_: '',
         /**
+         * @member {String} role='listbox'
+         * @reactive
+         */
+        role: 'listbox',
+        /**
          * Host-written option keys. Array or Set input; toggles only report a proposed next set.
          * @member {Array} selection_=[]
          * @reactive
@@ -78,7 +83,12 @@ class ValuePicker extends Buffered {
          */
         useCheckBoxes: true,
         /** @member {Boolean} useInternalId=false */
-        useInternalId: false
+        useInternalId: false,
+        /**
+         * @member {Object} _vdom
+         * @protected
+         */
+        _vdom: {tag: 'ul', 'aria-label': 'Values', 'aria-multiselectable': true, cn: []}
     }
 
     /**
@@ -121,6 +131,16 @@ class ValuePicker extends Buffered {
      * @private
      */
     #refreshing = false
+    /**
+     * @member {Boolean} refreshQueued=false
+     * @private
+     */
+    #refreshQueued = false
+    /**
+     * @member {Number} refreshGeneration=0
+     * @private
+     */
+    #refreshGeneration = 0
     /**
      * @member {Set} selectedKeys
      * @private
@@ -203,6 +223,8 @@ class ValuePicker extends Buffered {
      * @protected
      */
     afterSetStore(value, oldValue) {
+        ++this.#refreshGeneration;
+        this.#refreshQueued = false;
         this.#focusedKey = null;
         ++this.#focusSerial;
         super.afterSetStore(value, oldValue);
@@ -300,11 +322,18 @@ class ValuePicker extends Buffered {
         const focus  = this.captureItemFocusState(), serial = this.#focusSerial;
         const result = super.createItems(true);
         if (!this.store) return result;
-        if (this.#overflowing) this.getVdomRoot().cn.push({
-            id   : this.id + '__refine', tag: 'li', role: 'status', cls: ['neo-value-picker-refine'],
-            style: {height: this.itemHeight + 'px'},
-            cn   : [{vtype: 'text', text: this.#matchingCount.toLocaleString() + ' values match, narrow the search'}]
-        });
+        const root       = this.getVdomRoot(), footerId = this.id + '__refine',
+            descriptions = String(root['aria-describedby'] || '').split(/\s+/).filter(id => id && id !== footerId);
+        if (this.#overflowing) {
+            descriptions.push(footerId);
+            root.cn.push({
+                id   : footerId, tag: 'li', role: 'presentation', cls: ['neo-value-picker-refine'],
+                style: {height: this.itemHeight + 'px'},
+                cn   : [{vtype: 'text', text: this.#matchingCount.toLocaleString() + ' values match, narrow the search'}]
+            })
+        }
+        if (descriptions.length) root['aria-describedby'] = descriptions.join(' ');
+        else delete root['aria-describedby'];
         if (silent) return result;
         return this.promiseUpdate().then(data => {
             if (!this.isDestroyed && serial === this.#focusSerial) {
@@ -324,8 +353,8 @@ class ValuePicker extends Buffered {
     createPooledItem(item) {
         const node = super.createPooledItem(item), selected = this.#selectedKeys.has(this.store.getKey(item.record));
         selected && node.cls.push('neo-selected');
-        node.role = 'checkbox';
-        node['aria-checked'] = selected;
+        node.role = 'option';
+        node['aria-label'] = this.getOptionLabel(item.record) + ', ' + (item.record.count ?? 0) + ' matches';
         node['aria-selected'] = selected;
         return node
     }
@@ -337,7 +366,7 @@ class ValuePicker extends Buffered {
      */
     detachStoreListeners(store) {
         ['filter', 'load', 'recordChange', 'sort'].forEach(name => {
-            store.un(name, this['onStore' + Neo.capitalize(name)], this)
+            store.un({[name]: 'onStore' + Neo.capitalize(name), scope: this})
         })
     }
 
@@ -440,16 +469,35 @@ class ValuePicker extends Buffered {
 
     /** @summary Renders externally driven membership changes after the options predicate is settled. */
     onStoreFilter() {
-        if (!this.#refreshing) return super.onStoreFilter()
+        if (!this.#refreshing) {
+            if (!this.store.filters.includes(this.#optionsFilter)) this.refreshOptions();
+            else return super.onStoreFilter()
+        }
     }
 
     /**
-     * @summary Recomputes admission after label, key or count changes.
+     * @summary Updates mounted counts directly and coalesces admission-affecting edits per task.
      * @param {Object} data
      * @protected
      */
     onStoreRecordChange(data) {
-        this.refreshOptions()
+        super.onStoreRecordChange(data);
+        if (!data.fields?.length || data.fields.some(field => field.name !== 'count')) this.queueOptionsRefresh()
+    }
+
+    /**
+     * @summary Coalesces a task's edits and cancels obsolete source generations.
+     * @protected
+     */
+    queueOptionsRefresh() {
+        if (this.#refreshQueued) return;
+        this.#refreshQueued = true;
+        const generation = this.#refreshGeneration;
+        queueMicrotask(() => {
+            if (generation !== this.#refreshGeneration || this.isDestroyed) return;
+            this.#refreshQueued = false;
+            this.refreshOptions()
+        })
     }
 
     /**
@@ -476,6 +524,10 @@ class ValuePicker extends Buffered {
     refreshOptions() {
         const me = this, store = me.store;
         if (!store || me.#refreshing) return;
+        if (me.#refreshQueued) {
+            ++me.#refreshGeneration;
+            me.#refreshQueued = false
+        }
         me.#refreshing = true;
         ++me.#focusSerial;
         me.#focusPending = false;
@@ -594,6 +646,8 @@ class ValuePicker extends Buffered {
      * @param {Array} args
      */
     destroy(...args) {
+        ++this.#refreshGeneration;
+        this.#refreshQueued = false;
         ++this.#focusSerial;
         if (this.store) {
             this.detachStoreListeners(this.store);
