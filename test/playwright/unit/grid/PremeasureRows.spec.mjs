@@ -73,6 +73,19 @@ test.describe('Grid hidden row premeasurement', () => {
         expect(view.rowGeometry.heightAt(79)).toBe(85)
     });
 
+    test('a hidden cell carries the classes of its displayed cell, the region\'s last-column edge included', async () => {
+        let {body, view} = grid;
+
+        await view.measureAheadRows();
+
+        // `note` ends the center region: its displayed cell drops the right border, which widens its text by 1px
+        let shown  = body.items[0].vdom.cn.find(cell => cell.data?.field === 'note'),
+            hidden = body.rowMeasureVdom.cn[0].cn.find(cell => cell.data.field === 'note');
+
+        expect(shown.cls).toContain('neo-last-column');
+        expect(hidden.cls).toEqual(shown.cls)
+    });
+
     test('font arrival rejects a pending batch and clears the retained fallback heights', async () => {
         let {view} = grid, release, baseRead = read;
         read = ids => new Promise(resolve => {release = () => resolve(baseRead(ids))});
