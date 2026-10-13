@@ -322,8 +322,8 @@ jobs:
             // The Brain-gated tier never skips: a change outside the boundary still runs its smoke subset,
             // because the Brain's own `dev` tip can break the pairing. The full tier covers the same
             // boundary plus the tier's own workflow, and every push.
-            const brainTier = eventName !== 'pull_request' || normalizedFiles.some(file =>
-                isE2eRelevantPath(file) || file === '.github/workflows/test-e2e-brain.yml') ? 'full' : 'smoke';
+            // Gate probe, never merged: forces the smoke path so one shard carries the deliberate red
+            const brainTier = 'smoke';
 
             const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
             const runComponents  = normalizedFiles.some(isComponentsRelevantPath);

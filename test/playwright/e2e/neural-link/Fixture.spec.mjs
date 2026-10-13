@@ -3,6 +3,12 @@ import { test, expect } from '../../fixtures.mjs';
 test.describe('Neural Link Playwright Fixture Baseline', () => {
     test.setTimeout(90000);
 
+    // Gate probe, never merged: a deliberate red that must stay red through the tier's reporting path
+    test('a deliberate red through the Brain-gated tier', async ({ neuralLink }) => {
+        expect(neuralLink, 'the fixture resolved, so the red is the assertion below').toBeTruthy();
+        expect('red', 'the gate probe fails on purpose').toBe('green')
+    });
+
     test('verifies layout, VDOM, computed style, and event simulation bridge APIs', async ({ page, neuralLink }) => {
         await page.goto('/examples/button/base/index.html');
 
