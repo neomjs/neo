@@ -157,6 +157,9 @@ class Row extends Component {
     applyRendererOutput({cache, cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
         let {colspanField, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache;
 
+        // Premeasurement projects declared text only, without constructing component cells or an edit surface.
+        if (cache.measureOnly && column.component) return null;
+
         let me            = this,
             cellCls       = ['neo-grid-cell'],
             colspan       = record[colspanField],
@@ -199,6 +202,12 @@ class Row extends Component {
         };
 
         rendererOutput = column.renderer.call(column.rendererScope || gridContainer, rendererConfig);
+
+        if (cache.measureOnly && !(typeof rendererOutput === 'string' || typeof rendererOutput === 'number' ||
+            rendererOutput instanceof Date || rendererOutput == null ||
+            (Neo.typeOf(rendererOutput) === 'Object' && ('html' in rendererOutput || 'text' in rendererOutput)))) {
+            return null
+        }
 
         if (column.cellCls) {
             let extraCls = column.cellCls;
