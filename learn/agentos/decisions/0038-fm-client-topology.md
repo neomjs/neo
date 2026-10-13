@@ -10,6 +10,7 @@
 | **After the split** | The cockpit, the pure client, ships from [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution) (#17810), and the plane that owns fleet truth from [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) (#17806). The Engine keeps this record as history. |
 | **Amended** | 2026-08-09 (#16740, the S6 leaf): §2.5.1 lands the canonical credential-class ledger — six classes × nine columns, the tunnel-delegated transport disposition, and the provider-secret boundary — completing §2.5's forward reference. Additive; no §2.2–§2.8 contract changed. · 2026-10-02 (#19370, graduated at D#16764): §2.2 fact 2's `ownerPrincipal` is backed by a plane-governed forge connection, not the URL-derived tuple. §2.5.1's derivation authority moves to that connection registry, and §4 gains D#16764's rejected rows. · 2026-10-03 (#19388, for neomjs/neo-agent-brain#823): §2.5.1 gains row 7, the Fleet's observe read — each seat's work read with that seat's own PAT, never the launching process's environment by default — and row 3 declares the one seat PAT that serves classes 3, 4 and 7 in normal setup, under the operator's one-PAT ruling (neomjs/neo-agent-brain#818); §4 records the two rejected alternatives. · 2026-10-06 (#19422, for neomjs/neo-agent-institution#571 and neomjs/neo-agent-brain#896): row 1 declares the operator's one PAT for both the fleet surface and the shell's MC credential, under the operator's one-PAT ruling. Plane mints and undeclared aliases still refuse, and §4 records the two rejected mints. · 2026-10-07 (#19438, graduated at D#19437): §2.5.1 adds the native Desktop MCP launch-admission class; §2.5.2 records its generation and custody boundary. This is decision authority, not a runtime-delivery receipt. · 2026-10-07 (#19451, graduated at D#19440): §2.2 fact 4 names its two content carriers, per-target grants and the deployment's content-sharing policy, and marks the two reserved scopes as reserved. §2.3's invariant is scoped to grant edges, and §2.3.1 records the explicit team A2A observation on the private single-operator deployment. Decision authority, not a runtime-delivery receipt: the dependent runtime policy (neomjs/neo-agent-brain#921) merges after it. |
 | **Author** | @neo-fable-clio (Clio, Claude Fable 5) drafting; architecture converged operator + four families via D#16720 (12 body versions, one evening, 2026-08-08) |
+| **Runtime-continuity amendment** | 2026-10-13 (#19725, graduated at [D19723](https://github.com/orgs/neomjs/discussions/19723)): row 8 and §2.5.2 permit re-adoption of the original managed Start after a durably proved clean issuer handoff. The capability stays in its existing owned profile; original owners prove target inputs. [ADR 0034 §2.5](0034-electron-shell-architecture.md#runtime-generations-for-managed-seats) supplies immutable runtime pins. Decision authority, not a runtime-delivery receipt. |
 | **Graduated from** | Discussion #16720 — *"FM as pure client: the fleet surface joins the composition (optional container) + PAT-grade auth for cross-hardware planes"* (family-keyed quorum: fable `AUTHOR_SIGNAL`+`APPROVED` · Opus `APPROVED` (re-stamped, blockers verified closed) · GPT `[GRADUATION_APPROVED]` at the filed state). #16720 is **archaeology** — never required reading |
 | **Resolves** | #16747 (the D1 Decision-Record carrier; parent Epic #16168) |
 | **Amends** | ADR 0020 §3 + §4 (the in-process-main sentence itself rewritten + restart affordances re-scoped for the pure client), ADR 0026 §2.7 (the reserved `restartAgent` fold — executed), and ADR 0034 §2.1 + §2.6.4 (the accepted shell-specific hosting frame + dev/prod dichotomy, re-scoped as plane bootstrap beneath the client wire). All amendment notes land in the **same PR** as this file, per the #13880 no-dangling-cross-reference precedent — at the statements a future session will retrieve, not only at the concept anchor |
@@ -108,7 +109,7 @@ One row per class. The **non-alias rule is load-bearing on every row**: two clas
 | 7 | **Fleet observe read (Fleet → forge, read-only)** | Forge — the declared seat PAT of rows 3/4, reused for reading only | The seat itself: each seat's open work (its authored and held pull requests) is read with **that seat's own** PAT | Forge REST/GraphQL read endpoints | Read only — open pull requests, their reviews and merge state; never a write | The Fleet's credential store, Brain-side (`FleetRegistryService.resolveCredential`); never the Body, never the fleet wire | As the seat PAT | Forge-side. When some seats read and others' PAT is missing or refused, coverage is `partial`; when no seat reads, it is `stale` over the last snapshot, or `unavailable` without one. Either way the surface names each affected seat and its next step, never "set `GH_TOKEN`" | TLS to the forge | One seat's PAT never reads another seat's work, so the surface can always say which identity read. The launching process's environment (`GH_TOKEN`-class) is an explicit override for headless and dev runs only, never the installed default |
 | 5 | **Plane controller → host actuator envelope** | The plane's Fleet control service (signing key in the Fleet-owned root) | The commanding controller identity | Exactly one host actuator | Command-scoped plan/apply (the #16715 / PR #16731 seam) + one-shot secret redemption (D#16176-inherited) | Plane-side signing key; the host holds only the verification trust anchor | Per-command envelopes, replay-bounded (nonce + expiry); no standing bearer exists | Plane rotates the signing key; host trust re-provisioned explicitly | Signed HTTP over a confidential channel — RFC 9421-aligned signature for integrity/authenticity PLUS TLS, or a loopback / condition-(2) confidential tunnel hop, for confidentiality (D#16176's selected default); one-shot secret redemption returns secret bytes only over that confidential authenticated channel, never signature-only plaintext | ≠ every bearer class: possession of a class-1 admission bearer NEVER signs an actuator command; role 3 cannot re-derive authority (§2.1) |
 | 6 | **Signed-wake HMAC (plane → wake receiver)** | The plane, per subscription (plane-held secret) | The subscription (identity × route) — never the operator | The seat's wake receiver (today: the local signed Shape-B receiver; target: the ingress-wake channel, S7 #16741) | Wake delivery only — carries ZERO read/write authority | Shared secret held by plane + receiver; per-subscription isolation | Subscription lifetime | Owner-scoped `rotateKey` rotates the HMAC in place (the one rotation door; re-subscribe is deliberately idempotent — an existing route returns WITHOUT minting a key); unsubscribe revokes | Local-only delivery today (ADR 0014); S7 moves it onto the authenticated ingress | ADR 0019 §10.8's own named class — never the admission bearer, never the process bearer, never a content grant |
-| 8 | **Native Desktop MCP launch-admission capability** | The Fleet control authority for an authorized managed Start (role-2 policy, distinct from role-3 host effects) | One seat, its validated forge identity and actual Desktop launch generation (§2.5.2) | Fixed packaged launcher for exactly one enabled MCP server and its fixed target | Supply only that server's required secret inputs from their selected owners; no caller-selected seat, plane, command, cwd or env-key list | Profile carries the launch capability, literal identity and resolved non-secret placement; long-lived credentials remain with their existing owners | Profile capability plus issuer-held generation state; no new durable PAT/remote bearer copy or launcher-held master/signing key | Reserved during preparation, active after successful Start and lease commitment; repeatable and concurrent-safe within that generation, subject to sticky revocation (§2.5.2) | Separate authenticated confidential native hop; local implementation uses loopback TCP. Reachability and caller labels confer no authority | Distinct from classes 1–7, process bearer and Bridge token; outside `FleetControlBridge` / `FLEET_WIRE_METHODS`. Possession is the boundary: a same-UID profile reader can redeem, so this is not OS isolation |
+| 8 | **Native Desktop MCP launch-admission capability** | The Fleet control authority for an authorized managed Start (role-2 policy, distinct from role-3 host effects) | One seat, its validated forge identity and actual Desktop launch generation (§2.5.2) | Fixed launcher from the seat's verified runtime generation, for exactly one enabled MCP server and its fixed target | Supply only that server's required secret inputs from their selected owners; no caller-selected seat, plane, command, cwd or env-key list | Existing owned profile carries the capability, literal identity and resolved non-secret placement; long-lived credentials stay with their existing owners | Profile capability plus Fleet-owned durable non-secret Start/succession record; no second capability copy, durable PAT/remote bearer/provider-key cache or launcher-held master/signing key | Reserved during preparation, active after successful Start and lease commitment; sticky revocation. A clean issuer replacement preserves only positively proved original-Start authority (§2.5.2) | Separate authenticated confidential native hop; local implementation rebinds the recorded loopback origin. Reachability and caller labels confer no authority | Distinct from classes 1–7, process bearer and Bridge token; outside `FleetControlBridge` / `FLEET_WIRE_METHODS`. Possession is the boundary: a same-UID profile reader can redeem, so this is not OS isolation |
 
 **Tunnel-delegated transport — dispositioned ACCEPTED-WITH-CONDITIONS** (the OQ5 remainder; today's fleet runs one in production, seat-witnessed): (1) both tunnel ends terminate on loopback-bound listeners; (2) the tunnel itself provides the hop's confidentiality + integrity (ssh / VM-boundary class); (3) the credential requirement is UNCHANGED — a tunnel is a pipe, never an identity, so transport never substitutes for admission; (4) the deployment names the tunnel in its runbook — an unnamed tunnel is a shadow topology. **REFUSED:** plaintext HTTP forwarded across a host boundary without a confidentiality layer, and any configuration where reaching the listener is treated as authentication (the #15320 thesis: ambient reachability ≠ viewer identity).
 
@@ -116,17 +117,91 @@ One row per class. The **non-alias rule is load-bearing on every row**: two clas
 
 ### 2.5.2 Native launch admission: generation, custody and recovery
 
-Class 8 is the [D#19437](https://github.com/orgs/neomjs/discussions/19437) decision for Desktop-owned Neo MCP rows. It does not reclassify class 5's one-shot controller command as a reusable grant. The generation binds an authorized managed Start to the observed Desktop main PID, birth and curated profile; a manual relaunch, reused PID, writable lease or adopted survivor cannot recreate it. Unknown process observation admits no new child.
+Class 8 is the [D#19437](https://github.com/orgs/neomjs/discussions/19437) decision for Desktop-owned Neo MCP rows,
+amended by [D19723](https://github.com/orgs/neomjs/discussions/19723) for clean issuer succession. It does not
+reclassify class 5's one-shot command. An **admission generation** binds one authorized managed Start to
+the observed Desktop main PID, birth and curated profile; its **runtime generation** identifies immutable
+code under ADR 0034 §2.5. A manual relaunch, reused PID, writable lease or observed survivor cannot create
+the missing original authority. Unknown process observation admits no new child.
 
-**Lifecycle:** reserve grants before profile preparation and activate only after Start succeeds and its lease commits. Pending requests settle on success, named failure, Stop or a bounded deadline. Redemptions may repeat concurrently and later within one generation. Revoke at Stop intent before signalling, including adopted or failed Stop; failed Stop never re-enables admission. Failed Start/lease, asynchronous failure/exit and issuer replacement invalidate the generation. Disabling a server revokes its grant permanently for that generation; off→on waits for a new managed Start. Target, harness or launch-owner changes invalidate affected old-plan admission. Serialize those mutations with redemption, including the final admission check after asynchronous credential proof.
+**Lifecycle:** reserve before profile preparation; activate only after Start and its lease commit.
+Pending requests settle on success, named failure, Stop or a bounded deadline. Redemptions may repeat
+concurrently and later within that Start. Revoke at Stop intent before signalling, including adopted or
+failed Stop; failed Stop never re-enables admission. Failed Start/lease, asynchronous seat failure/exit, a newer Start
+and invalidating target/harness/launch-owner changes end affected authority. Disablement is sticky:
+off→on waits for a new Start. Serialize mutation with redemption; repeat revocation/process checks after
+asynchronous credential proofs, with no await between the final fence and the answer. Issuer replacement
+alone preserves authority only through the recovery contract below; unknown or unproved recovery is stale.
 
-**Custody:** resolve the selected credential owner, prove that snapshot and deliver exactly that value. A changed registry PAT cannot replace a retained default-plane or explicit tenant credential. Select required slots from the bound plan, including tenant `credentialEnvVar`, not descriptor `secretEnv` alone; do not export the whole Start environment. Use existing resolved placement and the validated forge login, never the opaque Fleet id, as literal profile inputs. The private handoff transiently carries secrets to the fixed launcher, which starts the unchanged target with inherited stdio. No secret enters the cockpit, project files, argv or logs; a missing credential refuses without host-keyring or other-class fallback. ADR 0019's provider/placement ownership, stopped-seat token replacement and the existing Bridge lifetime remain unchanged; no live renewal is implied.
+**Durable original-Start record:** only authorized Start writes the versioned Fleet-owned record. It
+binds phase, seat/validated identity, PID/birth/profile/lease, runtime identity, enabled fixed targets,
+owned rows/convergence receipts, original loopback origin, input-owner descriptors, capability hashes
+and revocation state. Persist reservation, activation and revocation; a failed write cannot be reported
+as successful or handed off as active. Incomplete, corrupt or unknown-version records admit nothing.
+Persist only explicitly classified non-secret metadata, never a whole `server.env` or another secret copy.
 
-**Convergence:** prepare and rotate profile rows only while Desktop is stopped. Receipts own only the Neo projection; retire only receipt-matching former project rows and preserve foreign MCPs, trust, disabled choices and operator env content. Interrupted preparation restores known admissible state or reports a named reconciliation state without overwriting foreign changes. Preserve the app-bundle placement guard. ADR 0034 needs amendment only if a shell-hosted effect is added; this decision adds none.
+**Positive succession proof:** old active bytes plus matching profile, capability, PID and lease are
+insufficient after unclean issuer loss. Recovery requires durable proof of a completed, exclusively owned
+handoff bound to this admission generation and issuer transition. Consume or fence that proof durably
+before the successor resumes mutable authority, so a later crash cannot replay an earlier handoff.
+Missing, torn, failed or replayed proof leaves new-child admission stale. Finish or visibly refuse pending
+transitions, durably publish through the existing strict fsync-capable primitive, and await endpoint
+release. Rename alone is not crash durability. The former revoke-all/non-awaited `destroy()` is not a
+continuity handoff. App rollback must never restore revoked security state.
 
-**Recovery and evidence:** already-running children retain their process inputs and survive issuer exit; later starts fail before spawn. The seat card renders issuer-owned typed outcomes and a managed-restart action for stale new-child admission, without declaring existing tools disconnected. Failed reads remain unknown. Audit records bounded time/reason and issuer-derived seat/server/generation; unrecognized capabilities have unknown attribution. Arbitrary child stderr is never status authority. Runtime controls, packaged recovery and three installed witnesses—Desktop-profile availability, native Code connectivity, and correct identity/plane read-write—remain delivery obligations under neomjs/neo-agent-brain#571 and neomjs/neo-agent-institution#12.
+**Recovery checks:** require the active original record and no applicable tombstone; the same live main
+PID/birth, curated profile and lease; and a present, verified runtime with a compatible launch protocol.
+Open the profile with swap-resistant custody checks: regular file, no symlink, expected operator UID,
+mode `0600`, beneath the canonical managed root. Require one receipt-matching owned Neo row, the expected
+grant and its recorded capability hash; missing, duplicated or foreign-edited rows refuse. Read its
+existing capability transiently for the unchanged HMAC protocol, never persist another copy. Acquire the
+**same recorded loopback origin** under exclusive lifecycle ownership. A bind conflict refuses by name;
+do not select another port, trust the current listener, terminate it or rewrite a running profile.
 
-**Revalidation:** revisit this carrier when the measured Desktop loader (2.19675.1) changes or supported isolated-profile protected-settings provisioning becomes available. Preserve the stated same-UID possession limit and issuer availability dependency for new children when comparing simpler alternatives.
+**Input custody:** recovery of the capability does not recover the target's inputs. Resolve each original
+owner, prove the current snapshot at redemption and deliver exactly those bytes to the fixed target with
+inherited stdio. Select slots from the bound plan, including tenant `credentialEnvVar`, not descriptor
+`secretEnv` alone. The required/optional distinction survives; unknown source selection never authorizes
+ambient-env fallback. Literal profile identity remains the validated forge login, not the opaque Fleet id.
+
+| Input | Recoverable authority | Refusal boundary |
+|---|---|---|
+| Forge PAT (`GH_TOKEN` or selected GitLab slot) | Original registry/seat/forge owner | No different credential class or ambient operator token |
+| Default-plane or explicit tenant bearer | Original binding, endpoint, expected identity and proven plane | A changed registry PAT or target cannot replace the selected owner |
+| Resident provider inputs (`GEMINI_API_KEY`, `NEO_OPENAI_COMPATIBLE_API_KEY`, `NEO_KB_ASK_API_KEY`) | Existing resolved config/provider export for the bound placement and target | No provider switch, direct ambient read or durable secret cache |
+| `NEO_FLEET_BRIDGE_TOKEN` | Verified original Fleet registry/Ed25519 signing authority; mint a fresh normal-TTL token for the same admitted seat, matching the Bridge verifier | No stale token, new/substitute key or assumption that the Neural Link Bridge died with FM |
+| Other held aliases, including `GITHUB_TOKEN`, and plan metadata | Declared original source descriptors; only affirmed non-secret values may persist | Unrecoverable required input refuses; explicitly absent optional input follows the pinned plan |
+
+ADR 0019's provider/placement ownership and stopped-seat credential replacement remain unchanged.
+The Bridge row is the narrow reconnect exception to the former no-renewal boundary, not permission to
+refresh existing children's inputs. No secret enters the cockpit, project files, argv or logs, and no
+host-keyring or other-class fallback repairs missing proof.
+
+**Convergence and legacy:** prepare/rotate rows only while Desktop is stopped. Receipts own only the Neo
+projection; retire only receipt-matching former project rows. Preserve foreign MCPs, trust, disabled
+choices and operator env content. Interrupted
+preparation restores known admissible state or reports reconciliation without overwriting foreign changes.
+Legacy seats without an original durable Start record or independent runtime need a named managed migration;
+profile/lease matches cannot retrofit authorization. ADR 0034 retains the bundle-use guard and per-seat
+runtime pin; a vendor update ending the Desktop process ends this Start normally.
+
+**Visible state and evidence:** existing children retain their inputs across issuer exit. A running seat
+stays running even if its next tool connection refuses. Render the issuer-owned reason and available
+recovery action separately from process/existing-tool state; failed reads stay unknown. Audit bounded
+time/reason and issuer-derived seat/server/generation, with unknown attribution for unrecognized grants;
+arbitrary stderr is not status authority. Required production controls include lost-revocation persistence
+followed by issuer crash, replayed handoff, corrupt record, profile swap/row mismatch, port conflict,
+input-owner loss and concurrent Stop during proof, paired with successful clean handoff and later-child
+redemption. The synthetic HMAC/file/same-origin probe is compatibility evidence only. neomjs/neo-agent-brain#980
+and neomjs/neo-agent-institution#674 implement this contract after the ADR amendment;
+neomjs/neo-agent-institution#12 retains the installed surviving-seat/native-reconnect witness, including
+correct identity/plane read-write. Existing Desktop-profile availability and native Code connectivity
+obligations under neomjs/neo-agent-brain#571 remain.
+
+**Revalidation:** Desktop's own config writes during a running session must preserve the owned capability
+or cause refusal. Revisit on carrier/loader changes, an essential input losing its original owner, or
+supported isolated-profile protected-settings provisioning. Preserve the same-UID possession limit and
+the issuer's availability requirement for new children when comparing alternatives.
 
 ### 2.6 The storage boundary (binding — D#16176 Option A)
 
@@ -194,6 +269,16 @@ From D#19440 (the Fleet operator's A2A observation, 2026-10-07):
 - **An expanded read for human operators only.** Not selected: the chosen trust unit includes agents deliberately, and an auto-provisioned account's class does not prove a human role.
 - **A metadata list without message detail.** Superseded: clipped subjects do not let anyone inspect an exchange.
 
+From [D19723](https://github.com/orgs/neomjs/discussions/19723) (clean-update continuity, 2026-10-13):
+
+- **A new Fleet-held derivation key.** Not selected: a second secret class can mint every grant in a
+  generation and needs a transition from random grants, without solving endpoint or input-owner recovery.
+  Reconsider only through an explicit custody amendment if the existing profile carrier fails.
+- **A separate surviving issuer.** Not selected: adds a privileged lifetime/update owner not present in
+  the accepted topology. Revisit if an accepted host-service design supplies that owner and revocation proof.
+- **Re-adopt from old active bytes and a matching lease.** Rejected: those facts cannot disprove a lost
+  invalidation after an unclean issuer exit. Positive, non-replayable succession proof is required.
+
 ## 5. Consequences
 
 **Positive:** one client contract serves every plane placement (local compose, cloud, future multi-plane) — the cockpit stops being a topology-dependent fork; the v13.2 "FM with data" gate becomes reachable (a data-less FM cannot pass the roadmap's done-signal); identity/visibility bugs become contract violations with named falsifiers instead of UX surprises. **Negative / cost:** the local product profile now operates one more service; two grant families must be administered (C4 owns the UX that keeps that honest); the presence contract obliges every roster surface to carry band + tier provenance. **Boundary:** this ADR records client topology and cross-cutting identity/visibility contracts — per-leaf executable contracts (compose/Caddy/AiConfig rows, verb tables, projection shapes) live in the S/C sub bodies, and control-plane authority remains D#16176/#16168.
@@ -207,6 +292,7 @@ A future session picks this up in three steps: (1) read THIS ADR (~4 minutes); (
 - **Discussion #16720** — graduation archaeology (12 body versions, divergence matrix, falsifier receipts).
 - **Discussion #16764**: `ownerPrincipal` continuity (D + Q), the design record behind the 2026-10-02 amendment. Its Contract Ledger is implemented by neomjs/neo-agent-brain#783.
 - **Discussion #19440**: the Fleet operator's A2A observation, the design record behind the §2.3.1 amendment, graduated with GPT and Claude signals on its accepted body. Its runtime is neomjs/neo-agent-brain#921 and its cockpit consumer neomjs/neo-agent-institution#596, under neomjs/neo-agent-institution#414.
+- **[D19723](https://github.com/orgs/neomjs/discussions/19723)**: clean issuer succession, graduated to #19725 with GPT author and Claude approval at the 2026-10-13T19:00:49Z fold and Emmy's confirmed Step-Back. Runtime delivery remains on neomjs/neo-agent-brain#980 and neomjs/neo-agent-institution#674.
 - **#16747** — the D1 carrier this ADR resolves; **Epic #16168** — control-plane parent; **D#16176** — the graduated control-plane authority.
 - Subs informed: S1 #16735 · S2 #16736 · S3 #16737 · S4 #16738 · S5 #16739 · S6 #16740 · S7 #16741 · C1 #16742 · C2 #16743 · C3 #16744 · C4 #16745 · C5 #16746.
 - **ADR 0020** (harness concept — §3 sentence rewritten, §4 re-scoped) · **ADR 0026** (recovery actuator — amended §2.7) · **ADR 0034** (Electron shell — amended §2.1 + §2.6.4) · **ADR 0019 §10.8** (credential taxonomy) · **ADR 0014** (deployment topology).
