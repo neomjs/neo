@@ -73,6 +73,8 @@ class Menu extends Plugin {
     #refused = false;
     /** @member {Intl.Collator} labelCollator @private */
     #labelCollator = new Intl.Collator(undefined, {numeric: true});
+    /** @member {Object|null} dateFormatters=null @private */
+    #dateFormatters = null;
 
     /**
      * @summary Installs the trigger and observes the header's current source tuple once.
@@ -271,8 +273,29 @@ class Menu extends Plugin {
         return this.#labelCollator.compare(a.label, b.label) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
     }
 
-    /** @summary Formats a pure label without invoking a cell renderer. @param {*} value @returns {String} */
+    /**
+     * @summary Formats locale-aware Dates and distinct empty values without invoking a cell renderer.
+     * @param {*} value
+     * @returns {String}
+     */
     formatValueLabel(value) {
+        if (value instanceof Date) {
+            const locale     = Neo.config.locale;
+            let   formatters = this.#dateFormatters;
+            if (!formatters || formatters.locale !== locale) {
+                formatters = this.#dateFormatters = {
+                    locale,
+                    date    : new Intl.DateTimeFormat(locale, {dateStyle: 'medium'}),
+                    dateTime: new Intl.DateTimeFormat(locale, {dateStyle: 'medium', timeStyle: 'medium'})
+                }
+            }
+            const midnight = value.getHours() === 0 && value.getMinutes() === 0 &&
+                value.getSeconds() === 0 && value.getMilliseconds() === 0;
+            return (midnight ? formatters.date : formatters.dateTime).format(value)
+        }
+        if (value === '') return '(blank)';
+        if (value === null) return '(null)';
+        if (value === undefined) return '(undefined)';
         return String(value)
     }
 

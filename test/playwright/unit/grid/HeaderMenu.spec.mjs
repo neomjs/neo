@@ -17,7 +17,7 @@ import NumberContainer from '../../../../src/filter/NumberContainer.mjs';
 
 /** @summary Real host composition, typed ownership and source projection before browser input evidence. */
 test.describe('Grid header value menu', () => {
-    let owned;
+    let owned, locale;
     const storeFor = (data=[{id: 1, status: 'Open'}, {id: 2, status: 'Closed'}], config={}) => {
         const store = Neo.create(Store, {keyProperty: 'id', data,
             model: {fields: [{name: 'id'}, {name: 'status'}, {name: 'other'}]}, ...config});
@@ -38,8 +38,15 @@ test.describe('Grid header value menu', () => {
         menu.refreshOptions();
         return {header, menu}
     };
-    test.beforeEach(() => {owned = []});
-    test.afterEach(() => {owned.reverse().forEach(item => {if (!item.isDestroyed) item.destroy()})});
+    test.beforeEach(() => {
+        owned = [];
+        locale = {present: Object.hasOwn(Neo.config, 'locale'), value: Neo.config.locale}
+    });
+    test.afterEach(() => {
+        owned.reverse().forEach(item => {if (!item.isDestroyed) item.destroy()});
+        if (locale.present) Neo.config.locale = locale.value;
+        else delete Neo.config.locale
+    });
 
     test('default stays native; opt-in composes sibling buttons and keeps native focus identity', async () => {
         const source = storeFor(), grid = gridFor(source), header = grid.getButton('status');
@@ -181,6 +188,87 @@ test.describe('Grid header value menu', () => {
               {menu} = await menuFor(gridFor(source, {columnMenu: true}));
         expect(menu.optionsStore.items.map(item => item.key)).toEqual(
             [values[2], values[1], values[0]].map(value => menu.getOptionKey(value)))
+    });
+
+    test('Date labels show local dates at exact midnight and time for every other timestamp', async () => {
+        Neo.config.locale = 'en-US';
+        const midnight = new Date(2026, 0, 15), timed = new Date(2026, 0, 15, 13, 14, 15),
+              second   = new Date(2026, 0, 15, 0, 0, 1), millisecond = new Date(2026, 0, 15, 0, 0, 0, 1),
+              absent   = new Date(2026, 0, 16, 13, 14, 15),
+              source   = storeFor([timed, midnight, millisecond, second, new Date(midnight)]
+                  .map((status, id) => ({id, status})));
+        source.filters = [{property: 'status', ownerRole: 'header-picker', operator: 'typedIncluded', value: [absent]}];
+        const {menu} = await menuFor(gridFor(source, {columnMenu: true}));
+        for (const [value, label, count] of [
+            [midnight, 'Jan 15, 2026', 2], [millisecond, 'Jan 15, 2026, 12:00:00 AM', 1],
+            [second, 'Jan 15, 2026, 12:00:01 AM', 1], [timed, 'Jan 15, 2026, 1:14:15 PM', 1],
+            [absent, 'Jan 16, 2026, 1:14:15 PM', 0]
+        ]) {
+            const option = menu.optionsStore.get(menu.getOptionKey(value));
+            expect(option.label).toBe(label);
+            expect(option.value).toBeInstanceOf(Date);
+            expect(option.value.getTime()).toBe(value.getTime());
+            expect(option.count).toBe(count)
+        }
+        expect(menu.optionsStore.items.map(item => item.key)).toEqual(
+            [midnight, millisecond, second, timed, absent].map(value => menu.getOptionKey(value)));
+        menu.onSelectionChange({selection: [menu.getOptionKey(timed)]});
+        expect(source.getFilter('status', 'header-picker').value).toEqual([timed]);
+        expect(source.count).toBe(1)
+    });
+
+    test('blank, null and undefined labels keep distinct typed keys and filter values', async () => {
+        const values = ['', null, undefined, '(blank)', 'null', 'undefined'],
+              source = storeFor(values.map((status, id) => ({id, status})), {autoInitRecords: false}),
+              {menu} = await menuFor(gridFor(source, {columnMenu: true})),
+              keys   = values.map(value => menu.getOptionKey(value));
+        expect(new Set(keys).size).toBe(values.length);
+        expect(keys.map(key => menu.optionsStore.get(key).label)).toEqual(
+            ['(blank)', '(null)', '(undefined)', '(blank)', 'null', 'undefined']);
+        for (let index=0; index<values.length; index++) {
+            menu.onSelectionChange({selection: [keys[index]]});
+            expect(source.getFilter('status', 'header-picker').value[0]).toBe(values[index]);
+            expect(source.count).toBe(1);
+            expect(menu.optionsStore.get(keys[index]).count).toBe(1)
+        }
+        expect(source.allItems.items.map(item => item.status)).toEqual(values)
+    });
+
+    test('other scalar labels keep their plain string form without calling the column renderer', async () => {
+        const values = ['<em>literal</em>', ' ', 12.5, -Infinity, Infinity, false, true],
+              source = storeFor(values.map((status, id) => ({id, status}))),
+              grid   = gridFor(source, {columnMenu: true});
+        let renders = 0;
+        grid.columns.items[0].renderer = () => {renders++; return 'Rendered cell'};
+        const {menu} = await menuFor(grid);
+        expect(values.map(value => menu.optionsStore.get(menu.getOptionKey(value)).label)).toEqual(
+            ['<em>literal</em>', ' ', '12.5', '-Infinity', 'Infinity', 'false', 'true']);
+        menu.refreshOptions();
+        expect(renders).toBe(0)
+    });
+
+    test('existing Date options follow locale changes while their identity, counts and selection stay intact', async () => {
+        Neo.config.locale = 'en-US';
+        const midnight = new Date(2026, 0, 15), timed = new Date(2026, 0, 15, 13, 14, 15),
+              source   = storeFor([midnight, timed].map((status, id) => ({id, status})));
+        source.filters = [{property: 'status', ownerRole: 'header-picker', operator: 'typedIncluded', value: [timed]}];
+        const {menu} = await menuFor(gridFor(source, {columnMenu: true})),
+              keys   = [midnight, timed].map(value => menu.getOptionKey(value)),
+              labels = () => keys.map(key => menu.optionsStore.get(key).label);
+        expect(labels()).toEqual(['Jan 15, 2026', 'Jan 15, 2026, 1:14:15 PM']);
+        Neo.config.locale = 'de-DE';
+        menu.refreshOptions();
+        expect(labels()).toEqual(['15.01.2026', '15.01.2026, 13:14:15']);
+        Neo.config.locale = 'default';
+        menu.refreshOptions();
+        expect(labels()).toEqual([
+            new Intl.DateTimeFormat(undefined, {dateStyle: 'medium'}).format(midnight),
+            new Intl.DateTimeFormat(undefined, {dateStyle: 'medium', timeStyle: 'medium'}).format(timed)
+        ]);
+        expect(menu.optionsStore.items.map(item => item.key)).toEqual(keys);
+        expect(keys.map(key => menu.optionsStore.get(key).count)).toEqual([1, 1]);
+        expect(menu.valuePicker.selection).toEqual([keys[1]]);
+        expect(source.getFilter('status', 'header-picker').value).toEqual([timed])
     });
 
     test('mixed types stay grouped and label fallback uses natural numeric collation', async () => {

@@ -64,6 +64,47 @@ async function closeMenu(page, state, menu) {
     await expect(page.locator(`#${menu.surfaceId}`)).toHaveCount(0)
 }
 
+test('Date menu labels follow the locale and native selection retains the typed value', async ({page, neuralLink}, testInfo) => {
+    const state = await openApp(page, neuralLink);
+    await state.app.manageNeoConfig('set', {locale: 'en-US'});
+    await state.app.setProperties(state.gridId, {
+        columns   : [{dataField: 'created', text: 'Created', width: 340, columnMenu: true}],
+        columnMenu: true,
+        store     : {ntype: 'store', model: {fields: [{name: 'id', type: 'Int'}, {name: 'created', type: 'Date'}]},
+            data: [{id: 1, created: '2026-01-15T00:00:00'}, {id: 2, created: '2026-01-15T13:14:15'},
+                {id: 3, created: '2026-01-15T00:00:00'}]}
+    });
+    state.storeId = (await state.app.getComponent(state.gridId, ['store.id']))['store.id'];
+    const menu = await discoverMenu(page, state, 'created');
+    await openMenu(page, state, menu);
+    const surface = page.locator(`#${menu.surfaceId}`), options = surface.getByRole('option');
+    await expect(options).toHaveCount(2);
+    await expect(options.nth(0)).toContainText('Jan 15, 2026');
+    await expect(options.nth(0)).not.toContainText('AM');
+    await expect(options.nth(1)).toContainText('Jan 15, 2026, 1:14:15 PM');
+    const before = await state.app.inspectStore(menu.optionsStoreId, 3);
+    expect(before.items.map(item => [item.label, item.count])).toEqual([
+        ['Jan 15, 2026', 2], ['Jan 15, 2026, 1:14:15 PM', 1]
+    ]);
+    expect(before.items.every(item => item.key.includes(':date:'))).toBe(true);
+    await testInfo.attach('date-menu-en-US', {body: await surface.screenshot(), contentType: 'image/png'});
+    await state.app.manageNeoConfig('set', {locale: 'de-DE'});
+    await state.app.callMethod(menu.pluginId, 'refreshOptions');
+    await expect(options.nth(0)).toContainText('15.01.2026');
+    await expect(options.nth(1)).toContainText('15.01.2026, 13:14:15');
+    const localized = await state.app.inspectStore(menu.optionsStoreId, 3);
+    expect(localized.items.map(item => [item.key, item.value, item.count])).toEqual(
+        before.items.map(item => [item.key, item.value, item.count]));
+    await options.nth(1).click();
+    await expect.poll(async () => (await state.app.inspectStore(state.storeId, 3)).items.map(item => item.id)).toEqual([2]);
+    const filter = await state.app.callMethod(state.storeId, 'getFilter', ['created', 'header-picker']);
+    expect(filter.operator).toBe('typedIncluded');
+    expect(filter.value).toEqual([before.items[1].value]);
+    await testInfo.attach('date-menu-typed-selection', {body: Buffer.from(JSON.stringify({before, localized, filter})),
+        contentType: 'application/json'});
+    await closeMenu(page, state, menu)
+});
+
 const refusals = [
     {code: 'remote-projection', message: 'Values cannot be counted for a remote projection.', store: {remoteFilter: true}},
     {code: 'incomplete-population', message: 'Wait for the complete data before filtering values.', store: {isLoading: true}},
