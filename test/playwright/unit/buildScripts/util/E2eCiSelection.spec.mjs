@@ -8,6 +8,8 @@ import {
     BRAIN_CAPABILITIES,
     BRAIN_QUARANTINES,
     BRAIN_RETRY_BRIDGE,
+    BRAIN_SMOKE,
+    BRAIN_TIERS,
     brainPaths,
     brainReceipt,
     brainRetries,
@@ -168,7 +170,7 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
     });
 });
 
-test.describe('e2e CI selection — the Brain-gated burn-in', () => {
+test.describe('e2e CI selection — the Brain-gated tier', () => {
     const root = path.resolve(import.meta.dirname, '../../../../..'),
           run  = {shard: '2/6', event: 'push', attempt: '1', engineSha: 'e'.repeat(40), brainSha: 'b'.repeat(40)};
 
@@ -183,8 +185,8 @@ test.describe('e2e CI selection — the Brain-gated burn-in', () => {
     });
 
     test('every declaration names a Brain-gated spec, and every quarantine selects exactly one registered test', () => {
-        // The pull-request half of the stale-entry guard: the tier itself runs on `dev` pushes only, so
-        // without this arm a renamed test would first fail there, after the rename had merged.
+        // The tier asserts its declarations only after checking out a Brain, and never resolves quarantine
+        // titles; this arm fails either kind of stale entry in the unit tier every pull request already runs.
         expect(() => assertBrainDeclarations({root})).not.toThrow();
         expect(() => assertQuarantinesResolve({root})).not.toThrow();
     });
@@ -209,14 +211,37 @@ test.describe('e2e CI selection — the Brain-gated burn-in', () => {
         fs.mkdirSync(path.join(tmp, 'test/playwright/e2e/grid'), {recursive: true});
         fs.writeFileSync(path.join(tmp, file), "test('sorts', async ({neuralLink}) => {})");
 
-        expect(() => assertBrainDeclarations({capabilities: [{paths: [file]}], quarantines: [{path: file}], root: tmp}), 'control')
+        expect(() => assertBrainDeclarations({capabilities: [{paths: [file]}], quarantines: [{path: file}], smoke: [], root: tmp}), 'control')
             .not.toThrow();
-        expect(() => assertBrainDeclarations({capabilities: [{paths: ['test/playwright/e2e/grid/Gone.spec.mjs']}], quarantines: [], root: tmp}))
+        expect(() => assertBrainDeclarations({capabilities: [{paths: ['test/playwright/e2e/grid/Gone.spec.mjs']}], quarantines: [], smoke: [], root: tmp}))
             .toThrow('test/playwright/e2e/grid/Gone.spec.mjs');
-        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [{path: 'test/playwright/e2e/grid/Moved.spec.mjs'}], root: tmp}))
+        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [{path: 'test/playwright/e2e/grid/Moved.spec.mjs'}], smoke: [], root: tmp}))
             .toThrow('test/playwright/e2e/grid/Moved.spec.mjs');
+        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [], smoke: ['test/playwright/e2e/grid/Renamed.spec.mjs'], root: tmp}))
+            .toThrow('test/playwright/e2e/grid/Renamed.spec.mjs');
 
         fs.rmSync(tmp, {recursive: true, force: true})
+    });
+
+    test('a smoke file is refused while a capability or a quarantine touches it, and named', () => {
+        const tmp    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-brain-smoke-')),
+              file   = 'test/playwright/e2e/grid/GatedNL.spec.mjs',
+              assert = declarations => assertBrainDeclarations({capabilities: [], quarantines: [], smoke: [file], root: tmp, ...declarations});
+
+        fs.mkdirSync(path.join(tmp, 'test/playwright/e2e/grid'), {recursive: true});
+        fs.writeFileSync(path.join(tmp, file), "test('sorts', async ({neuralLink}) => {})");
+
+        expect(() => assert({}), 'control').not.toThrow();
+        expect(() => assert({quarantines: [{path: file}]})).toThrow(`capability-gated or quarantined:\n- ${file}`);
+        expect(() => assert({capabilities: [{paths: [file]}]})).toThrow(`capability-gated or quarantined:\n- ${file}`);
+
+        fs.rmSync(tmp, {recursive: true, force: true})
+    });
+
+    test('the smoke tier selects exactly its declared files, and an unknown tier is refused', () => {
+        expect(brainSelection({env: {}, root, tier: 'smoke'}).paths.toSorted()).toEqual(BRAIN_SMOKE.toSorted());
+        expect(brainSelection({env: {}, root}).paths, 'the default tier is full').toEqual(brainSelection({env: {}, root, tier: 'full'}).paths);
+        expect(() => brainSelection({env: {}, root, tier: 'smok'})).toThrow("Unknown Brain-gated tier 'smok'");
     });
 
     test('a capability excludes its files only while its variable is unset', () => {
@@ -257,7 +282,25 @@ test.describe('e2e CI selection — the Brain-gated burn-in', () => {
         expect(brainReceipt({report, run, seconds: 300, env: {}, root})).not.toContain('**over**');
     });
 
-    test('every receipt prints each declaration: an unset capability with its exit, a quarantine with its owner', () => {
+    test('a receipt names its tier, and a run that names none is the full tier', () => {
+        const receipt = tier => brainReceipt({report: null, run: {...run, tier}, seconds: null, env: {}, root});
+
+        expect(receipt(undefined)).toContain('### Brain-gated e2e · full tier · shard 2/6');
+        expect(receipt(undefined)).toContain(`- **Tier:** full — ${BRAIN_TIERS.full}.`);
+        expect(receipt('smoke')).toContain('### Brain-gated e2e · smoke tier · shard 2/6');
+        expect(receipt('smoke')).toContain(`- **Tier:** smoke — ${BRAIN_TIERS.smoke}.`);
+    });
+
+    test('a smoke receipt counts only the smoke files, with no declaration to explain', () => {
+        const text    = brainReceipt({report: null, run: {...run, tier: 'smoke'}, seconds: null, env: {}, root}),
+              {gated} = brainSelection({env: {}, root});
+
+        expect(text).toContain(`${BRAIN_SMOKE.length} of the ${gated.length} Brain-gated spec files, with 0 of their tests quarantined`);
+        expect(text).not.toContain('**Quarantined:**');
+        expect(text).not.toContain('**Excluded while');
+    });
+
+    test('every full-tier receipt prints each declaration: an unset capability with its exit, a quarantine with its owner', () => {
         const text = brainReceipt({report: null, run, seconds: null, env: {}, root});
 
         for (const entry of BRAIN_CAPABILITIES) {

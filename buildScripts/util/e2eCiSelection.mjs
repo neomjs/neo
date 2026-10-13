@@ -120,6 +120,27 @@ export const BRAIN_QUARANTINES = [{
     accountable: '@neo-opus-grace',
     exit       : 'a diagnosis lands as a fix or a ticket',
     since      : '2026-10-12'
+}, {
+    path       : 'test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs',
+    titlePath  : ['Workstation — the five-beat multi-window journey', 'showcase dwell previews align with their zones — component-id rect truth'],
+    reason     : 'hosted, intermittent on both attempts: the tab-into preview reads 110 px against its 220 px zone while the preview flips between edge-left and tab-into',
+    accountable: '@neo-opus-grace',
+    exit       : 'a diagnosis lands as a fix or a ticket',
+    since      : '2026-10-13'
+}, {
+    path       : 'test/playwright/e2e/workstation/WorkstationReclaimEmbodimentNL.spec.mjs',
+    titlePath  : ['Workstation reclaim route (Neural Link)', 'Reset and Undo carry the same live pane across the window boundary, and a read after the transit finds it embodied'],
+    reason     : 'hosted, intermittent on both attempts: after the transit the home strip projects no tab for the reclaimed item',
+    accountable: '@neo-opus-grace',
+    exit       : 'a diagnosis lands as a fix or a ticket',
+    since      : '2026-10-13'
+}, {
+    path       : 'test/playwright/e2e/dashboard/DockMotionNL.spec.mjs',
+    titlePath  : ['Dock motion pipeline (Neural Link) — the signal brackets real motion', 'a rail-click reveal SLIDES: the overlay travels through intermediate render states, signal-bracketed'],
+    reason     : 'hosted, intermittent on both attempts: the entry witness records no sample of the revealed overlay',
+    accountable: '@neo-opus-grace',
+    exit       : 'a diagnosis lands as a fix or a ticket',
+    since      : '2026-10-13'
 }];
 
 /**
@@ -129,7 +150,7 @@ export const BRAIN_QUARANTINES = [{
 export const QUARANTINE_STALE_DAYS = 7;
 
 /**
- * The burn-in's one-retry bridge while its intermittent set is diagnosed. It ends on `until` without anyone
+ * The Brain-gated tier's one-retry bridge while its intermittent set is diagnosed. It ends on `until` without anyone
  * editing it, the same way a quarantine ages. A retry runs in a fresh worker, so a cross-file leak always heals on
  * it. Every receipt therefore names each test that needed the retry, and a test red on every attempt stays red.
  * @member {Object} BRAIN_RETRY_BRIDGE
@@ -138,7 +159,34 @@ export const BRAIN_RETRY_BRIDGE = {
     retries: 1,
     until  : '2026-10-25',
     reason : 'the intermittent set is still being diagnosed',
-    tracker: '#19657'
+    tracker: '#19655'
+};
+
+/**
+ * The Brain-gated files a pull request runs when its change is outside the E2E impact boundary
+ * (`classify-test-scope.yml`'s `e2e_brain_tier`). Such a change cannot reach the tier's specs, so what can
+ * still break is the pairing with the Brain's `dev` tip: one fast, stable file for each surface the tier covers,
+ * none of them capability-gated or quarantined.
+ * @member {String[]} BRAIN_SMOKE
+ */
+export const BRAIN_SMOKE = [
+    'test/playwright/e2e/dashboard/DockDragDropNL.spec.mjs',
+    'test/playwright/e2e/dashboard/DockTourSmokeNL.spec.mjs',
+    'test/playwright/e2e/grid/BigDataNL.spec.mjs',
+    'test/playwright/e2e/neural-link/CreateComponentMultiWindow.spec.mjs',
+    'test/playwright/e2e/neural-link/Fixture.spec.mjs',
+    'test/playwright/e2e/rendering/ContextMenuNL.spec.mjs',
+    'test/playwright/e2e/workstation/WindowGeometryRealChromeNL.spec.mjs',
+    'test/playwright/e2e/write-guard/MultiWriterNL.spec.mjs'
+];
+
+/**
+ * The populations the Brain-gated tier can run, and why each is chosen.
+ * @member {Object} BRAIN_TIERS
+ */
+export const BRAIN_TIERS = {
+    full : 'every Brain-gated file, because the change reaches the E2E impact boundary or this is a `dev` push',
+    smoke: `the ${BRAIN_SMOKE.length} smoke files, because the change is outside the E2E impact boundary; a green smoke is not full-tier evidence`
 };
 
 /**
@@ -263,39 +311,56 @@ export function brainPaths(root = process.cwd()) {
 }
 
 /**
- * @summary What this environment runs of the Brain-gated tier: every gated file except those whose
+ * @summary What this environment runs of the Brain-gated tier: the tier's files except those whose
  * capability is unset here.
  * @param {Object} [options]
  * @param {Object} [options.env=process.env]
  * @param {String} [options.root=process.cwd()]
+ * @param {String} [options.tier='full'] A {@link BRAIN_TIERS} key
  * @returns {{absent: Object[], gated: String[], paths: String[]}} The capability entries whose variable is
  *          unset, every Brain-gated file, and the files to run.
+ * @throws {Error} For a tier that is not a {@link BRAIN_TIERS} key.
  */
-export function brainSelection({env = process.env, root = process.cwd()} = {}) {
+export function brainSelection({env = process.env, root = process.cwd(), tier = 'full'} = {}) {
+    if (!Object.hasOwn(BRAIN_TIERS, tier)) {
+        throw new Error(`Unknown Brain-gated tier '${tier}'; expected ${Object.keys(BRAIN_TIERS).join(' or ')}.`)
+    }
+
     const gated    = brainPaths(root),
           absent   = BRAIN_CAPABILITIES.filter(entry => !env[entry.requires]),
-          excluded = absent.flatMap(entry => entry.paths);
+          excluded = absent.flatMap(entry => entry.paths),
+          pool     = tier === 'smoke' ? gated.filter(path => BRAIN_SMOKE.includes(path)) : gated;
 
-    return {absent, gated, paths: gated.filter(path => !excluded.includes(path))}
+    return {absent, gated, paths: pool.filter(path => !excluded.includes(path))}
 }
 
 /**
- * @summary Refuses a declaration whose file is no longer a Brain-gated spec, naming every such entry.
+ * @summary Refuses a declaration whose file is no longer a Brain-gated spec, and a smoke file that is
+ * capability-gated or quarantined, naming every such entry.
  * @description A deleted or moved file would otherwise leave an entry naming nothing while every receipt
- * went on listing it. Titles are {@link assertQuarantinesResolve}'s job.
+ * went on listing it. A smoke file runs whole on every pull request, so a smoke receipt has no exclusion to
+ * explain. Titles are {@link assertQuarantinesResolve}'s job.
  * @param {Object}   [options]
  * @param {Object[]} [options.capabilities=BRAIN_CAPABILITIES]
  * @param {Object[]} [options.quarantines=BRAIN_QUARANTINES]
+ * @param {String[]} [options.smoke=BRAIN_SMOKE]
  * @param {String}   [options.root=process.cwd()]
- * @throws {Error} Naming every stale entry.
+ * @throws {Error} Naming every stale entry, or every declared smoke file.
  */
-export function assertBrainDeclarations({capabilities = BRAIN_CAPABILITIES, quarantines = BRAIN_QUARANTINES, root = process.cwd()} = {}) {
-    const gated = brainPaths(root),
-          stale = [...capabilities.flatMap(entry => entry.paths), ...quarantines.map(entry => entry.path)].filter(path => !gated.includes(path));
+export function assertBrainDeclarations({capabilities = BRAIN_CAPABILITIES, quarantines = BRAIN_QUARANTINES, smoke = BRAIN_SMOKE, root = process.cwd()} = {}) {
+    const gated    = brainPaths(root),
+          declared = [...capabilities.flatMap(entry => entry.paths), ...quarantines.map(entry => entry.path)],
+          stale    = [...declared, ...smoke].filter(path => !gated.includes(path)),
+          unstable = smoke.filter(path => declared.includes(path));
 
     if (stale.length) {
         throw new Error(`Brain-gated e2e declarations name files that are not Brain-gated specs:\n- ${stale.join('\n- ')}\n` +
             'Update or remove them in buildScripts/util/e2eCiSelection.mjs.')
+    }
+
+    if (unstable.length) {
+        throw new Error(`Brain-gated smoke files must run whole, but these are capability-gated or quarantined:\n- ${unstable.join('\n- ')}\n` +
+            'Choose other smoke files in buildScripts/util/e2eCiSelection.mjs.')
     }
 }
 
@@ -362,7 +427,7 @@ export function assertQuarantinesResolve({quarantines = BRAIN_QUARANTINES, root 
 }
 
 /**
- * @summary How many retries the burn-in runs with: the bridge's count through its end date, then none.
+ * @summary How many retries the Brain-gated tier runs with: the bridge's count through its end date, then none.
  * @param {Date} [now=new Date()]
  * @returns {Number}
  */
@@ -422,12 +487,12 @@ export function flakyTests(report) {
 }
 
 /**
- * @summary Renders one Brain-gated burn-in shard's receipt: the run's identity, its test time against the
+ * @summary Renders one Brain-gated tier shard's receipt: the run's identity and tier, its test time against the
  * five-minute ceiling the engine tier keeps, what the tier selected and why anything is out, the retry
  * bridge and every test that needed it, and the files the shard ran with their outcome.
  * @param {Object}      options
  * @param {Object|null} options.report  The shard's Playwright JSON report, `null` when it wrote none.
- * @param {Object}      options.run     `{shard, event, attempt, engineSha, brainSha}`
+ * @param {Object}      options.run     `{shard, event, attempt, engineSha, brainSha, tier}`; `tier` defaults to `full`
  * @param {Number|null} options.seconds The test step's wall time, `null` when the step did not finish.
  * @param {Number|null} [options.retries=null] The retry count the run step selected, `null` when it recorded
  *        none. Read from the run, never recomputed: a run that starts before the bridge ends and finishes
@@ -439,25 +504,30 @@ export function flakyTests(report) {
  */
 export function brainReceipt({report, run, seconds, retries = null, env = process.env, now = new Date(), root = process.cwd()}) {
     const {brainFree}            = populations(root),
-          {absent, gated, paths} = brainSelection({env, root}),
+          tier                   = run.tier ?? 'full',
+          {absent, gated, paths} = brainSelection({env, root, tier}),
+          // No declaration touches a smoke file (assertBrainDeclarations), so a smoke receipt has none to explain
+          capabilities           = tier === 'full' ? BRAIN_CAPABILITIES : [],
+          quarantines            = tier === 'full' ? BRAIN_QUARANTINES : [],
           ceiling                = 300,
           days                   = since => Math.floor((now - new Date(since)) / 86400000),
           minutes                = value => `${Math.floor(value / 60)}m ${value % 60}s`,
           short                  = path => `\`${path.replace('test/playwright/e2e/', '')}\``;
 
     return [
-        `### Brain-gated e2e burn-in · shard ${run.shard}`,
+        `### Brain-gated e2e · ${tier} tier · shard ${run.shard}`,
         '',
         `- **Run:** ${run.event}, attempt ${run.attempt}`,
+        `- **Tier:** ${tier} — ${BRAIN_TIERS[tier]}.`,
         `- **Engine:** \`${run.engineSha}\` · **Brain \`dev\` tip**, resolved once for every shard: \`${run.brainSha}\``,
         `- **Test time:** ${seconds === null
             ? 'none, because the step did not finish'
             : `${minutes(seconds)} against the ${minutes(ceiling)} ceiling${seconds > ceiling ? ' (**over**)' : ''}`}`,
-        `- **Selected:** ${paths.length} of the ${gated.length} Brain-gated spec files, with ${BRAIN_QUARANTINES.length} of their tests quarantined. The ${brainFree} Brain-free files are the engine tier's.`,
-        ...BRAIN_CAPABILITIES.map(entry => absent.includes(entry)
+        `- **Selected:** ${paths.length} of the ${gated.length} Brain-gated spec files, with ${quarantines.length} of their tests quarantined. The ${brainFree} Brain-free files are the engine tier's.`,
+        ...capabilities.map(entry => absent.includes(entry)
             ? `- **Excluded while \`${entry.requires}\` is unset:** ${entry.paths.map(short).join(', ')}, because ${entry.reason}. They return when ${entry.exit} (${entry.tracker}).`
             : `- **\`${entry.requires}\` is set,** so ${entry.paths.map(short).join(', ')} are selected.`),
-        ...BRAIN_QUARANTINES.map(entry => `- **Quarantined:** ${short(entry.path)} › ${entry.titlePath.at(-1)} — ${entry.reason}. ` +
+        ...quarantines.map(entry => `- **Quarantined:** ${short(entry.path)} › ${entry.titlePath.at(-1)} — ${entry.reason}. ` +
             `Accountable: ${entry.accountable}. Exit: ${entry.exit}. Since ${entry.since}, ${days(entry.since)} days` +
             `${days(entry.since) > QUARANTINE_STALE_DAYS ? ' (**stale**)' : ''}.`),
         retries === null
@@ -490,14 +560,14 @@ if (isEntryModule(import.meta.url)) {
         process.stdout.write(summary() + '\n')
     } else if (mode === '--brain-paths') {
         assertBrainDeclarations();
-        process.stdout.write(brainSelection().paths.join(' '))
+        process.stdout.write(brainSelection({tier: process.env.TIER || 'full'}).paths.join(' '))
     } else if (mode === '--brain-test-list') {
         process.stdout.write(brainTestList() + '\n')
     } else if (mode === '--brain-retries') {
         process.stdout.write(String(brainRetries()))
     } else if (mode === '--brain-receipt') {
-        const {ATTEMPT, BRAIN_SHA, ENGINE_SHA, EVENT, REPORT, RETRIES, SHARD, TEST_SECONDS} = process.env;
-        let   report                                                                        = null;
+        const {ATTEMPT, BRAIN_SHA, ENGINE_SHA, EVENT, REPORT, RETRIES, SHARD, TEST_SECONDS, TIER} = process.env;
+        let   report                                                                              = null;
 
         try {
             report = JSON.parse(readFileSync(REPORT, 'utf8'))
@@ -505,7 +575,7 @@ if (isEntryModule(import.meta.url)) {
 
         process.stdout.write(brainReceipt({
             report,
-            run    : {shard: SHARD, event: EVENT, attempt: ATTEMPT, engineSha: ENGINE_SHA, brainSha: BRAIN_SHA},
+            run    : {shard: SHARD, event: EVENT, attempt: ATTEMPT, engineSha: ENGINE_SHA, brainSha: BRAIN_SHA, tier: TIER || 'full'},
             retries: RETRIES ? Number(RETRIES) : null,
             seconds: TEST_SECONDS ? Number(TEST_SECONDS) : null
         }) + '\n')
