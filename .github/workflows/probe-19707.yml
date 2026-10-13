@@ -1,0 +1,68 @@
+name: TEMP DockFlip landing A-B
+
+on:
+  push:
+    branches: [codex/19707-land-css-transitions]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: engine
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: neomjs/neo-agent-brain
+          ref: 7dc7506f6471d5e2149a8cdf305145077f4061c0
+          path: brain
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            engine/package-lock.json
+            brain/package-lock.json
+      - run: npm ci
+      - working-directory: brain
+        run: npm ci --foreground-scripts
+      - run: npm run bundle-browser-deps
+      - run: npx playwright install chrome ffmpeg
+      - name: Compare the same admission witness on one runner
+        env:
+          NEO_AGENTOS_RUNTIME_ROOT: ${{ github.workspace }}/brain
+          NEO_TEST_SKIP_CI: 'true'
+          NEO_E2E_ENGINE_PROFILE: '0'
+          BASE: de92007b1184e9da2b41a2c43a630a83adce1b81
+        run: |
+          set +e
+          spec=test/playwright/e2e/workstation/WorkstationNestedColumnResizeNL.spec.mjs
+          src=src/main/addon/DockFlip.mjs
+          for arm in baseline fixed; do
+            if [ "$arm" = baseline ]; then git checkout "$BASE" -- "$src"; else git checkout HEAD -- "$src"; fi
+            NEO_E2E_RUN_ID="19707-$arm" npx playwright test "$spec" -c test/playwright/playwright.config.e2e.mjs --workers=1 --repeat-each=3 --retries=0
+            result=$?
+            echo "[19707-probe] arm=$arm exit=$result source=$(git hash-object "$src")"
+            cp test/playwright/test-results/e2e/results.json "$RUNNER_TEMP/19707-$arm.json"
+            if [ "$arm" = baseline ]; then baseline=$result; else fixed=$result; fi
+          done
+          git checkout HEAD -- "$src"
+          test "$baseline" -ne 0 && test "$fixed" -eq 0
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: dock-flip-19707-ab
+          retention-days: 3
+          path: |
+            engine/test/playwright/test-results/
+            ${{ runner.temp }}/19707-*.json

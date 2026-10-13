@@ -46,6 +46,10 @@ function createMarker(markerClass, rect) {
         getBoundingClientRect() {
             return currentRect
         },
+        /** @summary The Node fixture has no CSS transitions to flush. @returns {Array} */
+        getAnimations() {
+            return []
+        },
         isConnected  : true,
         parentElement: null,
         setRect(value) {
