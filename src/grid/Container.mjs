@@ -125,6 +125,12 @@ class GridContainer extends BaseContainer {
          */
         columnDefaults: null,
         /**
+         * Enables value-filter menus for columns without their own override.
+         * @member {Boolean} columnMenu_=false
+         * @reactive
+         */
+        columnMenu_: false,
+        /**
          * @member {Object[]} columns_=[]
          * @reactive
          */
@@ -421,8 +427,24 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Triggered after the columns config got changed
-     * @param {Neo.collection.Base|null}          value
+     * @summary Updates inherited menu opt-ins while preserving explicit per-column choices.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetColumnMenu(value, oldValue) {
+        if (oldValue !== undefined && this.headerWrapper) {
+            this.columns?.items?.forEach(column => {
+                if (column.columnMenu === null) {
+                    const button = this.getButton(column.dataField);
+                    if (button) button.columnMenu = value
+                }
+            })
+        }
+    }
+
+    /**
+     * Triggered after the columns config got changed.
+     * @param {Neo.collection.Base|null} value
      * @param {Object[]|Neo.collection.Base|null} oldValue
      * @protected
      */
@@ -847,7 +869,7 @@ class GridContainer extends BaseContainer {
                     scope: me
                 };
 
-                buttonConfig = {...column};
+                buttonConfig = {...column, columnMenu: column.columnMenu ?? me.columnMenu};
 
                 // An id the app gave the column names the column: its button takes a generated one
                 delete buttonConfig.id;
@@ -1479,6 +1501,7 @@ class GridContainer extends BaseContainer {
             ...super.toJSON(),
             body         : me.body?.toJSON(),
             cellEditing  : me.cellEditing,
+            columnMenu   : me.columnMenu,
             columns      : me.columns?.items.map(item => item.toJSON()),
             footerToolbar: me.footerToolbar?.toJSON(),
             headerToolbar: me.headerToolbar?.toJSON(),

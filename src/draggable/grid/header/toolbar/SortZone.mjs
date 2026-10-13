@@ -484,6 +484,8 @@ class SortZone extends BaseSortZone {
      * @param {Object} data
      */
     async onDragStart(data) {
+        if ([...(data.targetPath || []), ...data.path].some(node => node.cls?.includes('neo-grid-menu-trigger'))) return;
+
         let me = this;
 
         // Avoid conflicts with grid.header.plugin.Resizable

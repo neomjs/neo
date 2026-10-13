@@ -43,7 +43,7 @@ class ToggleOperatorsButton extends Button {
     }
 
     /**
-     * Triggered after the value config got changed
+     * @summary Paints the current operator, preserving the initial affordance when a projection resets to null.
      * @param {String|null} value
      * @param {String|null} oldValue
      */
@@ -51,7 +51,7 @@ class ToggleOperatorsButton extends Button {
         if (oldValue !== undefined) {
             let me = this;
 
-            me.text = value;
+            me.text = value || me.operators[0];
 
             me.fire('change', {
                 component: me,

@@ -304,6 +304,53 @@ For a column to be filterable, you must also set its `filterable` config to `tru
 text input filter for string fields and a number input filter for number fields. More complex filter types can be
 implemented by extending `Neo.grid.header.Filter`.
 
+### Column Value Menus
+
+Set `columnMenu: true` on [Neo.grid.Container](../../../src/grid/Container.mjs) to add a value picker to its column headers.
+Each column can override the grid setting: `columnMenu: false` hides its menu, `true` enables it,
+and the default `null` follows the grid. The feature is off by default.
+
+```javascript readonly
+{
+    module: GridContainer,
+    columnMenu: true,
+    store,
+    columns: [
+        {dataField: 'status', text: 'Status', width: 180},
+        {dataField: 'region', text: 'Region', width: 180},
+        {dataField: 'notes', text: 'Notes', width: 240, columnMenu: false}
+    ]
+}
+```
+
+Open a menu with a right click, the header's arrow button, `Shift+F10`, or the context-menu key.
+The arrow appears on hover or keyboard focus and stays visible on devices without hover. Escape or
+an outside pointer dismisses the menu and returns focus to the header. The header retains its sort,
+resize and reorder interactions.
+
+Check one or more values to include them. Values within a column combine with OR; filters across
+columns combine with AND. Counts reflect the complete available Store population under the other
+active filters, including inline and application filters on the same column. They exclude this
+menu's own selection, so users can still see alternative values. The search field narrows the option
+labels with a case-insensitive literal substring; it does not filter grid records or alter checks.
+Labels display plain values rather than invoking cell renderers.
+
+Selected values remain visible and removable when their count reaches zero or the search does not
+match them. New source values appear unchecked. Clear, or unchecking the final value, removes only
+this column menu's contribution. Inline header filters and application filters remain active.
+Two grids sharing a Store share these selections and counts; recreating a header reads the existing
+selection. Removing the menu leaves its Store-owned filter intact.
+
+The menu uses [Neo.list.ValuePicker](../../../src/list/ValuePicker.mjs), which buffers its option rows and displays up to 1,000
+unselected search matches by default. When more match, its footer asks the user to refine the search;
+selected options remain available in addition to that cap.
+
+Value counts require a complete, fully loaded local flat population with canonical comparable values.
+Normal Turbo Stores with simple canonical fields are supported without initializing offscreen records.
+Remote projections, incomplete data, trees, unknown fields, complex raw records and values that cannot
+be compared display an explanation instead of applying a partial filter. An application needing server
+facets must supply that authority separately; visible buffered rows cannot establish complete counts.
+
 ## Sorting
 
 Neo.mjs grids provide built-in support for sorting data by one or more columns. Sorting is primarily managed by the

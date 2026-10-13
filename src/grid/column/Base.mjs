@@ -38,6 +38,12 @@ class Column extends Base {
          */
         cellCls: null,
         /**
+         * Overrides the Grid's column menu opt-in; null inherits it.
+         * @member {Boolean|null} columnMenu_=null
+         * @reactive
+         */
+        columnMenu_: null,
+        /**
          * The field name of the data.Model to read the value from.
          * Must be unique within the grid instance.
          *
@@ -132,9 +138,8 @@ class Column extends Base {
             let me            = this,
                 gridContainer = me.parent,
                 body          = gridContainer?.body,
-                headerToolbar = gridContainer?.headerToolbar,
                 colPositions  = body?.columnPositions,
-                button        = headerToolbar?.getColumn(oldValue),
+                button        = gridContainer?.getButton(oldValue),
                 pos           = colPositions?.get(oldValue);
 
             if (pos) {
@@ -150,6 +155,18 @@ class Column extends Base {
             if (button) {
                 button.dataField = value
             }
+        }
+    }
+
+    /**
+     * @summary Projects this column's menu override into its current physical header.
+     * @param {Boolean|null} value
+     * @param {Boolean|null} oldValue
+     */
+    afterSetColumnMenu(value, oldValue) {
+        if (oldValue !== undefined && this.parent) {
+            const button = this.parent.getButton(this.dataField);
+            if (button) button.columnMenu = value ?? this.parent.columnMenu
         }
     }
 
@@ -289,6 +306,7 @@ class Column extends Base {
             out = super.toJSON();
 
         out.dataField = me.dataField;
+        out.columnMenu = me.columnMenu;
         out.type      = me.type;
 
         if (Neo.isString(me.renderer)) {
