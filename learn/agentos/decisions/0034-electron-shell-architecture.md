@@ -491,7 +491,7 @@ accurate until those implementations pass the installed witness, then its ordina
 is replaced. E7's automatic feed/signing work remains separate; this clause does not enable
 partial in-place updates or change the release-line credential boundary.
 
-**Required installed witness:** update the canonical app with all eight generation-bound seats
+**Required installed witness:** update the canonical app with every generation-bound seat
 running; verify unchanged custody, old/new generation coexistence, each seat's native tools and
 a later MCP-child reconnect without restarting that seat. Then exercise an explicitly selected
 seat restart onto the new generation, rollback reachability, safe retirement and unknown-liveness
