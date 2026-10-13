@@ -134,7 +134,8 @@ const unreachableReturnWarned = new Set();
  * - `project(context)` — the post-commit presentation callback. It receives the transaction
  *   **context**, not a document: the committed value is read from `context.snapshot`, and the
  *   adapter adds `preserveItemIds` naming the panes owned by sibling participants, so a source
- *   refresh cannot destroy a pane before its destination adopts it. It must return the projection
+ *   refresh cannot destroy a pane before its destination adopts it, plus `isCurrent()`, false once
+ *   a newer commit adopted this participant's next document. It must return the projection
  *   promise and must NOT admit another document write — projection observes the committed document,
  *   it does not advance it. That is {@link #onDockZoneDocumentChange} being the sole mutation path,
  *   restated at the seam where a participant could otherwise break it.
@@ -2251,11 +2252,15 @@ class Workspace extends Container {
      * @summary Projects a Group participant's adopted document with its captured operation context.
      * Presentation collaborators can distinguish ordered operations against their before-state;
      * the context is runtime-only and does not enter the document or reconciliation options.
+     * It runs when this participant's refresh chain reaches it; once the adapter's `isCurrent` reports
+     * that a newer commit adopted the next document, it stands down rather than take back panes that
+     * commit gave a sibling.
      * @param {Object} context The Group participant's projection context.
      * @returns {Promise} This projection's outcome.
      */
     projectDockCommit(context) {
         const project = () => this.projectDockZoneDocument(context.snapshot.participants[context.workspaceKey], context.descriptor, this, {
+            isCurrent         : context.isCurrent,
             perspectiveContext: context,
             preserveItemIds   : context.preserveItemIds,
             previousDocument  : context.captured.value,
@@ -2272,6 +2277,7 @@ class Workspace extends Container {
      * @param {Object|null} [source=null] The originating interaction surface.
      * @param {Object} [projectionOptions={}] Pane-preservation policy plus optional `previousDocument`
      *     and `workspaceKey` for the collaborator event; those two fields never reach reconciliation.
+     *     An `isCurrent` predicate passes through to {@link #refreshDockWorkspace}.
      * @returns {Promise} This projection's outcome; later projections survive its failure.
      * @protected
      */
@@ -2468,6 +2474,8 @@ class Workspace extends Container {
      * @param {Object} [refreshOptions={}]
      * @param {Boolean} [refreshOptions.geometryOnly=false] Admit the reconciler's strict in-place
      *     geometry path.
+     * @param {Function} [refreshOptions.isCurrent] A Group projection's check, passed through
+     *     {@link #projectDockCommit}; a `false` stops the refresh wherever a destroyed workspace would stop.
      * @param {String[]} [refreshOptions.preserveItemIds] Per-commit owner-held ids, merged with
      *     the standing {@link #getPreservedItemIds} set.
      * @param {Boolean} [refreshOptions.retainTopology=false] Admit in-place item reconciliation on
@@ -2482,7 +2490,8 @@ class Workspace extends Container {
             flip               = Neo.main?.addon?.DockFlip,
             placeholders       = new Map(),
             {flipMarkerPrefix} = me,
-            {geometryOnly=false, retainTopology=false} = refreshOptions;
+            {geometryOnly=false, retainTopology=false} = refreshOptions,
+            superseded         = () => refreshOptions.isCurrent?.() === false;
 
         if (!host) {
             throw new Error(`Workspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
@@ -2500,7 +2509,7 @@ class Workspace extends Container {
             }
         }
 
-        if (me.isDestroyed || host.isDestroyed) {
+        if (me.isDestroyed || host.isDestroyed || superseded()) {
             return
         }
 
@@ -2511,7 +2520,7 @@ class Workspace extends Container {
             await flip?.captureFirst({hostId: host.id, markerPrefix: flipMarkerPrefix, windowId: host.windowId})
         } catch (error) {/* instant landing */}
 
-        if (me.isDestroyed) {
+        if (me.isDestroyed || superseded()) {
             return
         }
 
@@ -2519,7 +2528,7 @@ class Workspace extends Container {
 
         await me.releaseStaleRevealPanes(document);
 
-        if (me.isDestroyed) {
+        if (me.isDestroyed || superseded()) {
             return
         }
 
