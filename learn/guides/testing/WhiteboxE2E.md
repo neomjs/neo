@@ -45,6 +45,8 @@ The shared scope classifier picks the tier's population, and it never skips:
 - A pull request whose change reaches the E2E impact boundary runs the **full** tier, on ten shards. So does every `dev` push.
 - Any other pull request runs the **smoke** subset (`BRAIN_SMOKE`), on one shard. Its change cannot reach the tier's specs, but the Brain's tip can still break the pairing. A green smoke is not full-tier evidence.
 
+Each shard's test step stops at five minutes, the ceiling the engine tier enforces too.
+
 Each shard writes its receipt to its job summary and to its log. The log copy is the one `gh run view --log` can read. The receipt holds:
 - the event, attempt and tier;
 - the Engine and Brain SHAs;

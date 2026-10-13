@@ -51,8 +51,8 @@ jobs:
     name: e2e-brain (${{ matrix.shard }}/${{ matrix.shards }})
     needs: [brain, changes]
     runs-on: ubuntu-latest
-    # Neither bound ends a slow shard early: the five-minute ceiling is what each receipt compares against.
-    timeout-minutes: 45
+    # Provisioning plus the test step; the test step itself enforces the five-minute ceiling, as the engine tier does
+    timeout-minutes: 12
     env:
       TIER: ${{ needs.changes.outputs.e2e_brain_tier || 'full' }}
     strategy:
@@ -106,7 +106,7 @@ jobs:
 
       - name: Run the Brain-gated tier
         id: run
-        timeout-minutes: 30
+        timeout-minutes: 5
         env:
           NEO_AGENTOS_RUNTIME_ROOT: ${{ github.workspace }}/brain
           NEO_TEST_SKIP_CI: 'true'
