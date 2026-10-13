@@ -95,6 +95,38 @@ export function loadNeuralLinkModules(env = process.env) {
  */
 const MIRRORED_WORKER_ERROR = /^[A-Za-z]+ Worker: /;
 
+/**
+ * @summary Polls a page's own App Worker for its id until the remote answers.
+ * @description The remote namespace materializes after worker construction, so the first read on a
+ * booting page is null. `page.waitForFunction` cannot wait for it: an async predicate returns a
+ * Promise, which is truthy, so the wait resolves on its first read. Some SharedWorker
+ * remotes return the raw reply envelope, whose `data` is the id.
+ * @param {Object} page    A Playwright `Page`
+ * @param {Number} timeout Ms to wait for the remote
+ * @returns {Promise<String|null>} The id, or null if none arrived in time
+ */
+export async function readWorkerId(page, timeout) {
+    let workerId = null;
+
+    await expect.poll(async () => {
+        const reply = await page.evaluate(async () => {
+            const appWorker = window.Neo?.worker?.App;
+
+            try {
+                return appWorker?.getWorkerId ? await appWorker.getWorkerId() : null
+            } catch {
+                return null
+            }
+        }).catch(() => null);
+
+        workerId = typeof reply === 'string' ? reply : reply?.data;
+
+        return typeof workerId === 'string' && workerId.length > 0
+    }, {timeout}).toBe(true).catch(() => workerId = null);
+
+    return workerId
+}
+
 export const test = base.extend({
     /**
      * @summary Fails a test whose page received a worker error or an uncaught page error, unless the
@@ -275,59 +307,25 @@ export const test = base.extend({
             routeConfig,
 
             /**
-             * Waits for the Test's specific App Worker to connect to the Bridge and returns an SDK wrapper.
+             * Waits for the page's own App Worker to connect to the Bridge and returns an SDK wrapper.
              *
-             * Resolution order: the page's OWN App Worker id (identity-bind via the `getWorkerId`
-             * remote — exact-match in `waitForSession`), falling back to the explicit / inferred
-             * appName. The identity path is what makes same-name topologies safe: appName resolution
-             * binds to the OLDEST matching session, so a persistent dev tab of the same app would
-             * silently receive the test's worker queries while `page.mouse` drives the test page.
-             * @param {String} [appName] Optional explicitly named app to wait for (fallback only).
+             * It binds by the worker's id (an exact match in `waitForSession`) and never by `appName`:
+             * a name lookup returns the OLDEST matching session, so a dev tab or an earlier page of the
+             * same app would silently receive the test's worker queries while `page.mouse` drives the
+             * test page. A page whose worker reports no id fails rather than guess.
+             * @param {String} [appName]                       The app the test expects, named in failures
+             * @param {Object} [options]
+             * @param {Number} [options.identityTimeout=30000] Ms to wait for the page's App Worker id
              */
-            async connectToApp(appName) {
-                let inferredAppName = null,
-                    workerId        = null;
+            async connectToApp(appName, {identityTimeout = 30000} = {}) {
+                const workerId = await readWorkerId(page, identityTimeout);
 
-                try {
-                    // Give the page a moment to initialize Neo
-                    await page.waitForFunction(() => window.Neo && window.Neo.config, { timeout: 2000 }).catch(() => {});
-
-                    // Identity-bind: ask the page's own App Worker for its id. The remote namespace
-                    // (Neo.worker.App.getWorkerId on the main thread) materializes asynchronously
-                    // after worker construction, so a single immediate evaluate RACES it on freshly
-                    // navigated pages — and a null silently degrades to the appName fallback, which
-                    // binds the OLDEST same-named session. Poll with a bounded wait instead; only
-                    // genuinely old builds (no getWorkerId remote) fall through to appName.
-                    workerId = await page.waitForFunction(async () => {
-                        const appWorker = window.Neo?.worker?.App;
-                        if (!appWorker?.getWorkerId) return null; // remote not registered yet -> keep polling
-                        try {
-                            return await appWorker.getWorkerId()
-                        } catch {
-                            return null
-                        }
-                    }, null, { timeout: 5000 }).then(handle => handle.jsonValue()).catch(() => null);
-
-                    inferredAppName = await page.evaluate(() => {
-                        const path = window.Neo?.config?.appPath;
-                        return path ? path.split('/').slice(-2, -1)[0] : null;
-                    });
-                } catch (e) {
-                    // Ignore, page might not exist or be blank
+                if (!workerId) {
+                    throw new Error(`neuralLink.connectToApp('${appName}'): the page's App Worker reported no id ` +
+                        `within ${identityTimeout} ms. Binding by name would select the oldest same-name session.`)
                 }
 
-                // Prefer the page's own worker id (exact-id match); fall back to explicit / inferred appName.
-                // Some SharedWorker remotes return the raw reply envelope instead of unwrapping the data field.
-                // The `data` payload is still the App Worker id and remains the only same-name-safe target.
-                const normalizedWorkerId = typeof workerId === 'string' ? workerId : workerId?.data,
-                      targetId           = typeof normalizedWorkerId === 'string' && normalizedWorkerId ?
-                          normalizedWorkerId :
-                          appName || inferredAppName;
-                if (!targetId) {
-                    throw new Error('neuralLink.connectToApp requires either an initialized Neo environment or an explicit appName to wait for.');
-                }
-
-                const sessionId = await NeuralLink_ConnectionService.waitForSession(targetId, 30000);
+                const sessionId = await NeuralLink_ConnectionService.waitForSession(workerId, 30000);
 
                 return {
                     sessionId,
