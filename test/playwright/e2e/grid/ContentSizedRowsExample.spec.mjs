@@ -121,18 +121,29 @@ function defineGridReads(floor) {
 
     /**
      * Records the frame times, the time the main thread spends in the batched `getLayoutRect` reads that
-     * measure rows, and the records that enter the view. With `classify`, it also checks each record the first
-     * time it is mounted and the first time it is visible: a row that does not fit its text then was rendered
-     * at the estimate. Classifying forces a layout in the frame, so a timing run does not classify.
+     * measure rows, and the records that newly mount and newly enter the view, each with the absolute time of
+     * that frame. Rows already mounted or visible when sampling starts are not arrivals. With `classify`, it
+     * also checks each arriving record's visual fit: whether its row is as tall as its text needs. Classifying
+     * forces a layout in the frame, so a timing run does not classify.
      */
     window.startSampling = (grid, classify) => {
         const domAccess = Neo.main.DomAccess,
               original  = domAccess.getLayoutRect,
               view      = document.querySelector(`${grid} .neo-grid-view`),
               misfit    = recordId => window.rowReport(grid, recordId)
-                  .some(entry => entry.heights.some(height => Math.abs(height - entry.natural) >= 1));
+                  .some(entry => entry.heights.some(height => Math.abs(height - entry.natural) >= 1)),
+              {bottom: viewBottom, top: viewTop} = view.getBoundingClientRect();
 
         sampling = {classify, frames: [], measuring: 0, original, records: new Map(), start: performance.now()};
+
+        // The population present at the start: mounted rows are no arrivals, nor are rows already visible
+        document.querySelector(`${grid} .neo-grid-body`).querySelectorAll('.neo-grid-row').forEach(row => {
+            if (displayed(row)) {
+                const rect = row.getBoundingClientRect();
+
+                sampling.records.set(row.dataset.recordId, {present: true, ...(rect.bottom > viewTop && rect.top < viewBottom ? {visibleAt: null} : {})})
+            }
+        });
 
         domAccess.getLayoutRect = function(data) {
             if (!Array.isArray(data.id)) {
@@ -154,7 +165,9 @@ function defineGridReads(floor) {
             sampling.frames.push(now - last);
             last = now;
 
-            const {bottom, top} = view.getBoundingClientRect();
+            // Absolute time, comparable with the App Worker's clock
+            const {bottom, top} = view.getBoundingClientRect(),
+                  at            = performance.timeOrigin + now;
 
             document.querySelector(`${grid} .neo-grid-body`).querySelectorAll('.neo-grid-row').forEach(row => {
                 if (!displayed(row)) {
@@ -162,16 +175,18 @@ function defineGridReads(floor) {
                 }
 
                 const {recordId} = row.dataset,
-                      rect       = row.getBoundingClientRect(),
-                      entry      = sampling.records.get(recordId) ?? {};
+                      rect       = row.getBoundingClientRect();
 
-                if (!sampling.records.has(recordId)) {
-                    entry.mounted = classify ? misfit(recordId) : null;
+                let entry = sampling.records.get(recordId);
+
+                if (!entry) {
+                    entry = {mountedAt: at, ...(classify ? {mountedMisfit: misfit(recordId)} : {})};
                     sampling.records.set(recordId, entry)
                 }
 
-                if (!('visible' in entry) && rect.bottom > top && rect.top < bottom) {
-                    entry.visible = classify ? misfit(recordId) : null
+                if (!('visibleAt' in entry) && rect.bottom > top && rect.top < bottom) {
+                    entry.visibleAt = at;
+                    classify && (entry.visibleMisfit = misfit(recordId))
                 }
             });
 
@@ -187,22 +202,27 @@ function defineGridReads(floor) {
 
         const duration = (performance.now() - sampling.start) / 1000,
               frames   = sampling.frames.slice(1),
-              records  = [...sampling.records.values()],
-              visible  = records.filter(entry => 'visible' in entry),
+              records  = [...sampling.records.entries()],
+              mounted  = records.filter(([, entry]) => entry.mountedAt),
+              visible  = records.filter(([, entry]) => entry.visibleAt),
               numbers  = {
+                  arrivals          : {
+                      mounted: mounted.map(([recordId, entry]) => [recordId, entry.mountedAt]),
+                      visible: visible.map(([recordId, entry]) => [recordId, entry.visibleAt])
+                  },
                   duration,
                   longFrames        : frames.filter(frame => frame > 20).length,
                   maxFrame          : Math.round(Math.max(...frames)),
                   measuringPerSecond: Math.round(sampling.measuring / duration),
-                  mounted           : records.length,
+                  mounted           : mounted.length,
                   rowsPerSecond     : Math.round(visible.length / duration),
                   visible           : visible.length
               };
 
-        // Only a classifying run knows which rows were at the estimate
+        // Only a classifying run knows which arriving rows missed their text height
         if (sampling.classify) {
-            numbers.mountedAtEstimate = records.filter(entry => entry.mounted).length;
-            numbers.visibleAtEstimate = visible.filter(entry => entry.visible).length
+            numbers.mountedMisfit = mounted.filter(([, entry]) => entry.mountedMisfit).length;
+            numbers.visibleMisfit = visible.filter(([, entry]) => entry.visibleMisfit).length
         }
 
         return numbers
@@ -359,9 +379,73 @@ const thumb = (page, pressed) => page.evaluate(({grid, pressed}) => {
 const jumpToRow = (page, row) => page.locator('.neo-numberfield', {hasText: 'Jump to row'}).locator('input').fill(String(row));
 
 /**
+ * The App Worker, which owns the grid's row geometry. The example runs dedicated workers.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<import('@playwright/test').Worker>}
+ */
+async function appWorker(page) {
+    const isApp = worker => worker.url().includes('/worker/App');
+
+    await expect.poll(() => page.workers().some(isApp)).toBe(true);
+    return page.workers().find(isApp)
+}
+
+/**
+ * Records in the App Worker, as absolute time, when each record's height first becomes known to a view's
+ * geometry: `RowGeometry#setHeights` is the only writer of known heights, and `clearHeights` forgets them. A
+ * height known before the clock started reads as known since forever.
+ * @param {import('@playwright/test').Worker} worker
+ */
+const installHeightClock = worker => worker.evaluate(() => {
+    if (globalThis.heightClock) {
+        return
+    }
+
+    const clock                      = globalThis.heightClock = new Map(),
+          proto                      = Neo.grid.RowGeometry.prototype,
+          {clearHeights, setHeights} = proto;
+
+    proto.setHeights = function(heights) {
+        const at = performance.timeOrigin + performance.now();
+
+        heights.forEach((height, recordId) => {
+            const key = `${this.id}|${recordId}`;
+            clock.has(key) || clock.set(key, this.hasHeight(recordId) ? -Infinity : at)
+        });
+
+        return setHeights.apply(this, arguments)
+    };
+
+    proto.clearHeights = function() {
+        clock.forEach((at, key) => key.startsWith(`${this.id}|`) && clock.delete(key));
+        return clearHeights.apply(this, arguments)
+    }
+});
+
+/**
+ * Counts the arrivals the view's geometry had no height for yet when they arrived: rows at the estimate
+ * @param {import('@playwright/test').Page} page
+ * @param {import('@playwright/test').Worker} worker
+ * @param {Object} arrivals `{mounted, visible}`, each a list of `[recordId, absolute time]`
+ * @returns {Promise<Object>} `{mounted, visible}` counts
+ */
+async function countAtEstimate(page, worker, arrivals) {
+    const viewId = await page.evaluate(grid => document.querySelector(`${grid} .neo-grid-view`).id, GRID);
+
+    return worker.evaluate(({arrivals, viewId}) => {
+        const geometry = Neo.getComponent(viewId).rowGeometry,
+              knownAt  = recordId => globalThis.heightClock.get(`${geometry.id}|${recordId}`) ??
+                  (geometry.hasHeight(recordId) ? -Infinity : Infinity);
+
+        return Object.fromEntries(Object.entries(arrivals).map(([kind, list]) =>
+            [kind, list.filter(([recordId, at]) => knownAt(recordId) > at).length]))
+    }, {arrivals, viewId})
+}
+
+/**
  * Wheels the view `steps` times by `delta` px, `interval` ms apart, while the page samples, and returns the
  * sampler's numbers. Five unsampled steps warm the wheel path first: the first wheel step after a jump pays a
- * one-time cost of about 33ms.
+ * one-time cost of about 33ms. The rows at the estimate come from the App Worker's geometry, not from pixels.
  * @param {import('@playwright/test').Page} page
  * @param {Object} options
  * @param {Boolean} options.classify
@@ -371,6 +455,10 @@ const jumpToRow = (page, row) => page.locator('.neo-numberfield', {hasText: 'Jum
  * @returns {Promise<Object>}
  */
 async function measureWheel(page, {classify, delta, interval, steps}) {
+    const worker = await appWorker(page);
+
+    await installHeightClock(worker);
+
     let box = await page.locator(`${GRID} .neo-grid-view`).boundingBox();
 
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -389,7 +477,11 @@ async function measureWheel(page, {classify, delta, interval, steps}) {
     }
 
     await settle(page);
-    return page.evaluate(() => window.stopSampling())
+
+    const {arrivals, ...numbers} = await page.evaluate(() => window.stopSampling()),
+          atEstimate             = await countAtEstimate(page, worker, arrivals);
+
+    return {...numbers, mountedAtEstimate: atEstimate.mounted, visibleAtEstimate: atEstimate.visible}
 }
 
 test.describe('Content-sized rows example', () => {
@@ -554,17 +646,65 @@ test.describe('Content-sized rows example', () => {
         });
 
         test('4. delayed responses for recycled rows never size a row with another record\'s text', async ({page}) => {
-            // Jumps faster than a measurement's round trip: replies arrive for rows recycled since they were asked
-            await page.evaluate(async grid => {
-                const view = document.querySelector(`${grid} .neo-grid-view`);
+            // Holds the next read of displayed rows, the in-place measurement, until the test releases it. The
+            // read then happens on the recycled rows, so its texts belong to the records that took them over.
+            await page.evaluate(() => {
+                const domAccess = Neo.main.DomAccess,
+                      original  = domAccess.getLayoutRect,
+                      recordOf  = id => document.getElementById(id)?.closest('.neo-grid-row')?.dataset.recordId;
 
-                for (const share of [0.1, 0.7, 0.3, 0.9, 0.5, 0.2, 0.8, 0.4]) {
-                    view.scrollTop = share * view.scrollHeight;
-                    await new Promise(resolve => setTimeout(resolve, 16))
+                window.held = null;
+
+                domAccess.getLayoutRect = function(data) {
+                    // Cell text boxes of the visible pool, not the hidden ones measured ahead
+                    if (window.holdArmed && !window.held && Array.isArray(data.id) &&
+                        data.id.every(id => id.endsWith('__text') && !id.includes('__measure_'))) {
+                        let release;
+                        const gate = new Promise(resolve => {release = resolve});
+
+                        window.held = {release, records: data.id.map(recordOf), recordsNow: () => data.id.map(recordOf)};
+                        return gate.then(() => original.call(this, data))
+                    }
+
+                    return original.call(this, data)
                 }
-            }, GRID);
+            });
 
+            const worker = await appWorker(page),
+                  viewId = await page.evaluate(grid => document.querySelector(`${grid} .neo-grid-view`).id, GRID),
+                  // The heights the view's geometry knows for these records, null where it knows none
+                  known  = recordIds => worker.evaluate(({recordIds, viewId}) => {
+                      const view = Neo.getComponent(viewId), {rowGeometry, store} = view;
+
+                      return recordIds.map(recordId => rowGeometry.hasHeight(recordId) ?
+                          rowGeometry.heightAt(store.items.findIndex(record => view.getRecordId(record) === recordId)) : null)
+                  }, {recordIds, viewId});
+
+            // Rows the grid has not seen get measured in place: the first such read after this jump is held
+            await page.evaluate(grid => {
+                document.querySelector(`${grid} .neo-grid-view`).scrollTop = 300000;
+                window.holdArmed = true
+            }, GRID);
+            await expect.poll(() => page.evaluate(() => !!window.held), {message: 'a measurement read is held'}).toBe(true);
             await settle(page);
+
+            // Another jump recycles the rows the held read addresses
+            await scrollTo(page, 600000);
+
+            const {before, now} = await page.evaluate(() => ({before: window.held.records, now: window.held.recordsNow()})),
+                  recycled      = [...new Set(before.filter((recordId, index) => recordId && recordId !== now[index]))];
+
+            expect(recycled.length, 'the held read now addresses rows that show other records').toBeGreaterThan(0);
+
+            // Released, the read measures the texts of the records that took the rows over. Their sizes must not
+            // reach the records the read was asked for.
+            const heights = await known(recycled);
+
+            await page.evaluate(() => window.held.release());
+            await page.waitForTimeout(300);
+            await settle(page);
+
+            expect(await known(recycled), 'the recycled records keep the heights they had').toEqual(heights);
             await expectRowsFitTheirText(page)
         });
 
@@ -679,6 +819,13 @@ test.describe('Content-sized rows example', () => {
         });
 
         test('wheel throughput at ordinary and fast speeds', async ({page}) => {
+            // The control: a view at rest has no arrivals
+            await page.evaluate(grid => window.startSampling(grid, false), GRID);
+            await page.waitForTimeout(500);
+
+            const {mounted, visible} = await page.evaluate(() => window.stopSampling());
+            expect({mounted, visible}, 'a view at rest has no arrivals').toEqual({mounted: 0, visible: 0});
+
             for (const [speed, interval] of [['ordinary', 50], ['fast', 16]]) {
                 for (const classify of [false, true]) {
                     // Rows the grid has not seen, a different stretch per run
