@@ -120,6 +120,20 @@ export const BRAIN_QUARANTINES = [{
     accountable: '@neo-opus-grace',
     exit       : 'a diagnosis lands as a fix or a ticket',
     since      : '2026-10-12'
+}, {
+    path       : 'test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs',
+    titlePath  : ['Workstation — the five-beat multi-window journey', 'showcase dwell previews align with their zones — component-id rect truth'],
+    reason     : 'hosted, intermittent on both attempts: the tab-into preview reads 110 px against its 220 px zone while the preview flips between edge-left and tab-into',
+    accountable: '@neo-opus-grace',
+    exit       : 'a diagnosis lands as a fix or a ticket',
+    since      : '2026-10-13'
+}, {
+    path       : 'test/playwright/e2e/workstation/WorkstationNestedColumnResizeNL.spec.mjs',
+    titlePath  : ['Workstation nested dock column follows its outer splitter (#17985)', 'both stacked panes follow a real outer resize during preview and after commit'],
+    reason     : 'hosted, intermittent on both attempts: MotionSignal is not active at the splitter admission boundary the test reads',
+    accountable: '@neo-opus-grace',
+    exit       : 'a diagnosis lands as a fix or a ticket',
+    since      : '2026-10-13'
 }];
 
 /**
