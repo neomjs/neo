@@ -599,12 +599,14 @@ test.describe('Content-sized rows example', () => {
 
             await thumb(page, true);
 
-            state = await scrollTo(page, 120000);
-            expect(state.extent, 'the extent holds during the drag').toBe(extent);
-
             state = await scrollToEnd(page);
             expect(state.extent, 'the extent holds at the end of the drag').toBe(extent);
             expect(fullyVisible(state, COUNT), 'the final row is reachable during the drag').toBe(true);
+
+            // At the end of the list, rows from the top edge down that shrink at the release move that edge's row
+            // down, since the view cannot scroll past its end. Mid-list, the row can always hold its place.
+            state = await scrollTo(page, 120000);
+            expect(state.extent, 'the extent holds during the drag').toBe(extent);
 
             anchor = edgeRow(state);
 
