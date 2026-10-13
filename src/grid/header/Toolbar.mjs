@@ -415,7 +415,7 @@ class Toolbar extends BaseToolbar {
                 // carried the PRE-resize width and every cell was repainted onto the geometry the
                 // drag had just replaced — while the header, whose config was set directly, kept the
                 // new one. Measure only what we do not own, and the race has nothing to bite on.
-                width = item.hidden ? 0 : (me.isMeasuredWidth(item) ? rects[i].width : parseInt(item.width, 10));
+                width = item.hidden ? 0 : (me.isMeasuredWidth(item) ? rects[i].width : parseFloat(item.width));
 
                 columnPositions.push({
                     dataField: item.dataField,

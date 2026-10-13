@@ -188,6 +188,34 @@ test.describe('Neo.grid.RowGeometry', () => {
         expect(geometry.setHeights(new Map([[1, 100]]))).toBe(false)
     });
 
+    test('the measured mean counts known records once and never substitutes for their heights', () => {
+        expect(geometry.measuredMean).toBe(null);
+
+        geometry.setHeights(new Map([[1, 100], [3, 60]]));
+        expect(geometry.measuredMean).toBe(80);
+        geometry.estimate = geometry.measuredMean;
+        expect([0, 1, 2, 3, 4].map(index => geometry.heightAt(index))).toEqual([80, 100, 80, 60, 80]);
+
+        geometry.setHeights(new Map([[1, 100]]));
+        expect(geometry.measuredMean).toBe(80);
+        geometry.setHeights(new Map([[1, 120]]));
+        expect(geometry.measuredMean).toBe(90);
+
+        geometry.clearHeights();
+        expect(geometry.measuredMean).toBe(null)
+    });
+
+    test('a replacement store starts a new measured mean', () => {
+        let replacement = createStore(5);
+
+        geometry.setHeights(new Map([[1, 100]]));
+        geometry.store = replacement;
+        expect(geometry.measuredMean).toBe(null);
+        geometry.setHeights(new Map([[1, 60]]));
+        expect(geometry.measuredMean).toBe(60);
+        replacement.destroy()
+    });
+
     test('an offset maps back to the row that covers it', () => {
         geometry.setHeights(new Map([[1, 100], [3, 10]]));
 

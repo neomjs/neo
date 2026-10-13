@@ -58,6 +58,11 @@ class RowGeometry extends Base {
      */
     #heights = new Map()
     /**
+     * Sum of the known heights. Updating a record replaces its contribution, so a measured mean costs O(1).
+     * @member {Number} #heightSum=0
+     */
+    #heightSum = 0
+    /**
      * True if the last full pass resolved the record ids into {@link #indexes}. It skips them while no height
      * is known.
      * @member {Boolean} #indexed=false
@@ -105,6 +110,24 @@ class RowGeometry extends Base {
     }
 
     /**
+     * @summary Mean height of measured records, or null before the first measurement. Unseen rows do not count;
+     * the owning view decides when to apply this estimate through its scroll-stable height mutation path.
+     * @member {Number|null} measuredMean
+     */
+    get measuredMean() {
+        return this.#heights.size ? this.#heightSum / this.#heights.size : null
+    }
+
+    /**
+     * @summary Whether this record has a supplied height, rather than the unseen-row estimate.
+     * @param {Number|String} recordId
+     * @returns {Boolean}
+     */
+    hasHeight(recordId) {
+        return this.#heights.has(recordId)
+    }
+
+    /**
      * The smallest row height in px, known or estimated. Row pools are sized by it, so a viewport filled with
      * the shortest rows still has a row for every slot.
      * @member {Number} minHeight
@@ -148,7 +171,7 @@ class RowGeometry extends Base {
         value?.on({...listeners, order: 'before'});
 
         // The ids of another store name other records, which start from the estimate
-        oldValue && me.#heights.clear();
+        oldValue && me.clearHeights();
 
         me.#orderStale = true
     }
@@ -158,6 +181,7 @@ class RowGeometry extends Base {
      */
     clearHeights() {
         this.#heights.clear();
+        this.#heightSum = 0;
         this.#orderStale = true
     }
 
@@ -318,6 +342,7 @@ class RowGeometry extends Base {
 
         for ([recordId, height] of heights) {
             if (known.get(recordId) !== height) {
+                me.#heightSum += height - (known.get(recordId) ?? 0);
                 known.set(recordId, height);
                 changed = true;
 

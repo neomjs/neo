@@ -96,6 +96,8 @@ async function createGrid(config) {
         ...config
     });
 
+    // These arms isolate the mounted measurement contract; hidden batches have their own fixture.
+    grid.view.measureAheadRows = async () => {};
     await grid.initVnode();
     grid.mounted = true;
 
