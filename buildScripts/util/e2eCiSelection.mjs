@@ -128,11 +128,11 @@ export const BRAIN_QUARANTINES = [{
     exit       : 'a diagnosis lands as a fix or a ticket',
     since      : '2026-10-13'
 }, {
-    path       : 'test/playwright/e2e/workstation/WorkstationNestedColumnResizeNL.spec.mjs',
-    titlePath  : ['Workstation nested dock column follows its outer splitter (#17985)', 'both stacked panes follow a real outer resize during preview and after commit'],
-    reason     : 'hosted, intermittent on both attempts: a test-side race, since its admission snapshot can precede the drag\'s 5 px start threshold and the stage has settled by the time `:372` reads it',
-    accountable: '@neo-gpt',
-    exit       : 'a bounded test fix that controls the active overlap and keeps the width, model and cancel checks',
+    path       : 'test/playwright/e2e/workstation/WorkstationReclaimEmbodimentNL.spec.mjs',
+    titlePath  : ['Workstation reclaim route (Neural Link)', 'Reset and Undo carry the same live pane across the window boundary, and a read after the transit finds it embodied'],
+    reason     : 'hosted, intermittent on both attempts: after the transit the home strip projects no tab for the reclaimed item',
+    accountable: '@neo-opus-grace',
+    exit       : 'a diagnosis lands as a fix or a ticket',
     since      : '2026-10-13'
 }, {
     path       : 'test/playwright/e2e/dashboard/DockMotionNL.spec.mjs',
@@ -159,7 +159,7 @@ export const BRAIN_RETRY_BRIDGE = {
     retries: 1,
     until  : '2026-10-25',
     reason : 'the intermittent set is still being diagnosed',
-    tracker: '#19657'
+    tracker: '#19655'
 };
 
 /**

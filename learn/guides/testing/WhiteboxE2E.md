@@ -58,7 +58,7 @@ Each shard writes its receipt to its job summary and to its log. The log copy is
 
 A declaration whose file or title no longer exists fails the unit tier, and so does a declared smoke file.
 
-Through 2026-10-25 the tier retries a failed test once, while #19657 diagnoses the intermittent set. Every receipt names each test that needed the retry, with its first-attempt error, and a test red on every attempt stays red. After that date the tier runs without retries.
+Through 2026-10-25 the tier retries a failed test once, while #19655 diagnoses the intermittent set. Every receipt names each test that needed the retry, with its first-attempt error, and a test red on every attempt stays red. After that date the tier runs without retries.
 
 ## Connecting the Neural Link (Fixtures)
 
