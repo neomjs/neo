@@ -5033,3 +5033,193 @@ test.describe('Neo.dashboard.dock.Workspace#closeTearOutVessel (engine default)'
         }
     })
 });
+
+let sharedPane = null, sharedPaneHosts = 0;
+
+/**
+ * A Group participant in its own window whose `shared` item resolves to one live pane, the way a
+ * declared pane resolves by identity in whichever window projects it.
+ */
+class SharedPaneWorkspace extends PlainWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.SharedPaneWorkspace'
+    }
+
+    construct(config) {
+        config.windowId ??= `shared-pane-${++sharedPaneHosts}`;
+        super.construct(config)
+    }
+
+    resolvePane(itemId, item) {
+        return itemId === 'shared' ? sharedPane : super.resolvePane(itemId, item)
+    }
+}
+
+Neo.setupClass(SharedPaneWorkspace);
+
+test.describe('projectDockCommit — a projection the chain reaches after a newer commit stands down', () => {
+    /** @summary The test document, with the shared pane in its side stack or without it. @param {Boolean} shared @returns {Object} */
+    const withShared = shared => {
+        const document = createDocument();
+
+        if (shared) {
+            document.items.shared = {reference: 'Shared', title: 'Shared'};
+            document.nodes['side-tabs'].items.push('shared')
+        }
+
+        return document
+    };
+
+    /** @summary Whether a document holds the shared pane; `null` for a cleared document. */
+    const has = document => document ? 'shared' in document.items : null;
+
+    /** @summary The Group adopts the document, then dispatches its projection, as `Commit.complete` does. */
+    const commit = (workspace, document, sibling) => {
+        const previous = workspace.dockModel;
+
+        workspace.dockModel = document;
+
+        return workspace.projectDockCommit({
+            captured       : {value: previous},
+            descriptor     : null,
+            preserveItemIds: Object.keys(sibling.items),
+            snapshot       : {participants: {main: document}},
+            workspaceKey   : 'main'
+        })
+    };
+
+    /** @summary The id of the Workspace whose shell holds the component, or null when it is parked. */
+    const ownerOf = component => {
+        let node = component.parent;
+
+        while (node && !(node instanceof DockWorkspace)) node = node.parent;
+
+        return node?.id ?? null
+    };
+
+    /**
+     * @summary Undoes a native-close return across two participants sharing one live pane. Main's
+     * return projection waits at `hold` until the undo has committed on both.
+     * @param {String} hold `chain` (main's refresh chain is busy), `flip` or `release` (main's
+     *     return projection waits inside its refresh, at the FLIP capture or the reveal-pane releases)
+     * @param {Object|null} [undone] Main's document after the undo, `null` for a clear
+     * @returns {Promise<Object>} The pane's final owner and what main's refreshes reached
+     */
+    async function undoReturn(hold, undone = withShared(false)) {
+        const pane     = sharedPane = Neo.ntype({ntype: 'component', id: `dock-shared-pane-${hold}`}),
+              main     = Neo.create(SharedPaneWorkspace, {dockModel: withShared(false)}),
+              popup    = Neo.create(SharedPaneWorkspace, {dockModel: withShared(true)}),
+              addons   = Neo.ns('Neo.main.addon', true),
+              flip     = addons.DockFlip,
+              build    = main.projectDockModel.bind(main),
+              prepare  = main.beforeRefreshDockWorkspace.bind(main),
+              releases = main.releaseStaleRevealPanes.bind(main),
+              seen     = {built: [], captures: 0, prepared: []};
+
+        let reached, release, holding = hold;
+
+        const atHold = new Promise(resolve => {reached = resolve}),
+              held   = new Promise(resolve => {release = resolve}),
+              // The first pass through `at` is main's return projection.
+              pause  = at => holding === at ? (holding = null, reached(), held) : undefined;
+
+        addons.DockFlip                 = {captureFirst: ({hostId}) => hostId === main.id ? (seen.captures++, pause('flip')) : undefined};
+        main.beforeRefreshDockWorkspace = (document, options) => {seen.prepared.push(has(document)); prepare(document, options)};
+        main.releaseStaleRevealPanes    = document => pause('release') ?? releases(document);
+        // The shell a refresh builds right before it reconciles: which documents actually land.
+        main.projectDockModel           = (descriptor, resolver, document) => {seen.built.push(has(document)); return build(descriptor, resolver, document)};
+
+        try {
+            expect(ownerOf(pane), 'the popup starts with the pane').toBe(popup.id);
+
+            if (hold === 'chain') {
+                main.refreshPromise = held;
+                reached()
+            }
+
+            // The native close returns the pane to main...
+            const returnMain = commit(main, withShared(true), withShared(false));
+            await atHold;
+            await commit(popup, withShared(false), withShared(true));
+
+            // ...and the undo gives it back to the popup, which projects at once.
+            const undoMain = commit(main, undone, withShared(true));
+            await commit(popup, withShared(true), withShared(false));
+
+            expect(ownerOf(pane), 'the undo moved the pane into the popup').toBe(popup.id);
+
+            release();
+            await Promise.all([returnMain, undoMain]);
+
+            return {destroyed: !!pane.isDestroyed, owner: ownerOf(pane), popup: popup.id, ...seen}
+        } finally {
+            release();
+            flip === undefined ? delete addons.DockFlip : addons.DockFlip = flip;
+            main.destroy();
+            popup.destroy();
+            pane.destroy();
+            sharedPane = null
+        }
+    }
+
+    test('queued behind a busy refresh chain, the return projection does no refresh work', async () => {
+        const result = await undoReturn('chain');
+
+        expect(result.captures, 'only the undo\'s projection reaches the FLIP capture').toBe(1);
+        expect(result.prepared, 'and only it reaches the pre-refresh hook').toEqual([false]);
+        expect(result.built, 'the undo\'s own refresh lands; the return\'s never does').toEqual([false]);
+        expect(result.destroyed, 'the pane survives both projections').toBe(false);
+        expect(result.owner, 'main\'s superseded return document must not take the pane back').toBe(result.popup)
+    });
+
+    test('superseded during its FLIP capture, the return projection stops before the pre-refresh hook', async () => {
+        const result = await undoReturn('flip');
+
+        expect(result.prepared, 'the return document reaches neither the hook nor the releases').toEqual([false]);
+        expect(result.built).toEqual([false]);
+        expect(result.owner).toBe(result.popup)
+    });
+
+    test('superseded during its reveal-pane releases, the return projection stops before it reconciles', async () => {
+        const result = await undoReturn('release');
+
+        expect(result.built).toEqual([false]);
+        expect(result.owner, 'the return projection the undo superseded mid-flight must not reconcile').toBe(result.popup)
+    });
+
+    test('a newer clear fences the older document too', async () => {
+        const result = await undoReturn('chain', null);
+
+        expect(result.built, 'only the clear projects').toEqual([null]);
+        expect(result.owner, 'the cleared main never reclaims the pane').toBe(result.popup)
+    });
+
+    test('a participant the newer commit did not touch still projects its queued document', async () => {
+        const main  = Neo.create(SharedPaneWorkspace, {dockModel: withShared(false)}),
+              popup = Neo.create(SharedPaneWorkspace, {dockModel: withShared(false)}),
+              build = main.projectDockModel.bind(main),
+              built = [];
+
+        let release;
+
+        main.projectDockModel = (descriptor, resolver, document) => {built.push(document); return build(descriptor, resolver, document)};
+        main.refreshPromise   = new Promise(resolve => {release = resolve});
+
+        try {
+            const next       = withShared(false),
+                  projection = commit(main, next, withShared(false));
+
+            // A newer commit lands on the sibling alone, while main's projection still waits.
+            await commit(popup, withShared(false), next);
+
+            release();
+            await projection;
+
+            expect(built, 'main\'s own document is still its latest, so it projects').toEqual([next])
+        } finally {
+            release();
+            main.destroy();
+            popup.destroy()
+        }
+    })
+});
