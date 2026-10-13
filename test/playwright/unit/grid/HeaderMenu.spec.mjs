@@ -17,9 +17,9 @@ import NumberContainer from '../../../../src/filter/NumberContainer.mjs';
 /** @summary Real host composition, typed ownership and source projection before browser input evidence. */
 test.describe('Grid header value menu', () => {
     let owned;
-    const storeFor = (data=[{id: 1, status: 'Open'}, {id: 2, status: 'Closed'}]) => {
+    const storeFor = (data=[{id: 1, status: 'Open'}, {id: 2, status: 'Closed'}], config={}) => {
         const store = Neo.create(Store, {keyProperty: 'id', data,
-            model: {fields: [{name: 'id'}, {name: 'status'}, {name: 'other'}]}});
+            model: {fields: [{name: 'id'}, {name: 'status'}, {name: 'other'}]}, ...config});
         owned.push(store);
         return store
     };
@@ -122,6 +122,54 @@ test.describe('Grid header value menu', () => {
         a.menu.onSelectionChange({selection: []});
         b.menu.refreshOptions();
         expect(b.menu.valuePicker.selection).toEqual([])
+    });
+
+    test('each open-surface toggle counts once across contribution creation, edits and removal', async () => {
+        const source = storeFor(), {menu} = await menuFor(gridFor(source, {columnMenu: true}));
+        menu.surface.align = null;
+        menu.surface.hidden = false;
+        const getValues = source.getFilterValues.bind(source);
+        let   counts    = 0;
+        source.getFilterValues = (...args) => {counts++; return getValues(...args)};
+        for (const values of [['Open'], ['Open'], ['Open', 'Closed'], ['Closed'], [], []]) {
+            counts = 0;
+            const selection = values.map(value => menu.getOptionKey(value));
+            menu.onSelectionChange({selection});
+            await Promise.resolve();
+            expect(counts).toBe(1);
+            expect(menu.valuePicker.selection).toEqual(selection);
+            expect(menu.surface.getItem('clear').hidden).toBe(!selection.length)
+        }
+    });
+
+    test('numeric options sort numerically, including selected zero-count values and infinities', async () => {
+        const source = storeFor([20, 2, 100, 10, 1, Infinity, -Infinity].map((status, id) => ({id, status})));
+        source.filters = [{property: 'status', ownerRole: 'header-picker', operator: 'typedIncluded', value: [3]}];
+        const {menu} = await menuFor(gridFor(source, {columnMenu: true}));
+        expect(menu.optionsStore.items.map(item => item.key)).toEqual(
+            [-Infinity, 1, 2, 3, 10, 20, 100, Infinity].map(value => menu.getOptionKey(value)));
+        expect(menu.optionsStore.get(menu.getOptionKey(3)).count).toBe(0);
+        expect(menu.valuePicker.selection).toEqual([menu.getOptionKey(3)])
+    });
+
+    test('Date options sort by epoch rather than weekday labels', async () => {
+        const values = ['2026-10-16', '2026-10-13', '2026-10-12'].map(value => new Date(value + 'T12:00:00Z')),
+              source = storeFor(values.map((status, id) => ({id, status}))),
+              {menu} = await menuFor(gridFor(source, {columnMenu: true}));
+        expect(menu.optionsStore.items.map(item => item.key)).toEqual(
+            [values[2], values[1], values[0]].map(value => menu.getOptionKey(value)))
+    });
+
+    test('mixed types stay grouped and label fallback uses natural numeric collation', async () => {
+        const date = new Date('2026-10-12T12:00:00Z'), values = ['Value 10', undefined, 10, null, date,
+            'Value 2', true, 2, false, 'Value 02'], source = storeFor(values.map((status, id) => ({id, status})), {autoInitRecords: false}),
+            {menu} = await menuFor(gridFor(source, {columnMenu: true}));
+        expect(menu.optionsStore.items.map(item => item.key)).toEqual(
+            [false, true, date, null, 2, 10, 'Value 02', 'Value 2', 'Value 10', undefined].map(value => menu.getOptionKey(value)));
+        source.data = [...values].reverse().map((status, id) => ({id, status}));
+        menu.refreshOptions();
+        expect(menu.optionsStore.items.map(item => item.key)).toEqual(
+            [false, true, date, null, 2, 10, 'Value 02', 'Value 2', 'Value 10', undefined].map(value => menu.getOptionKey(value)))
     });
 
     test('a high-cardinality options population keeps offscreen records raw beyond the visible cap', async () => {

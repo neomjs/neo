@@ -71,6 +71,8 @@ class Menu extends Plugin {
     #outsideOwner = null;
     /** @member {Boolean} refused=false @private */
     #refused = false;
+    /** @member {Intl.Collator} labelCollator @private */
+    #labelCollator = new Intl.Collator(undefined, {numeric: true});
 
     /**
      * @summary Installs the trigger and observes the header's current source tuple once.
@@ -211,9 +213,11 @@ class Menu extends Plugin {
     }
 
     /**
-     * @summary Projects selected zero-count values and contextual buckets in one options population replacement.
+     * @summary Projects selected zero-count values and contextual buckets, cancelling redundant queued recounts.
      */
     refreshOptions() {
+        this.#generation++;
+        this.#queued = false;
         const store  = this.#store, field = this.owner.dataField;
         let   filter = store?.getFilter(field, 'header-picker'), buckets;
         try {
@@ -239,7 +243,7 @@ class Menu extends Plugin {
             this.#values.set(key, value);
             if (!records.has(key)) records.set(key, {key, value, label: this.formatValueLabel(value), count: 0})
         }
-        this.optionsStore.data = [...records.values()].sort((a, b) => a.label.localeCompare(b.label));
+        this.optionsStore.data = [...records.values()].sort((a, b) => this.compareOptions(a, b));
         this.valuePicker.selection = selected.map(value => this.getOptionKey(value));
         this.valuePicker.hidden = false;
         this.surface.getItem('status').hidden = true;
@@ -247,6 +251,24 @@ class Menu extends Plugin {
         clear.vdom['data-picker-scope'] = this.#keyPrefix;
         clear.hidden = !selected.length;
         clear.update()
+    }
+
+    /**
+     * @summary Groups scalar types, orders numbers and Dates by value, and naturally collates labels.
+     * @param {Object} a
+     * @param {Object} b
+     * @returns {Number}
+     */
+    compareOptions(a, b) {
+        const typeA = a.value instanceof Date ? 'date' : a.value === null ? 'null' : typeof a.value,
+              typeB = b.value instanceof Date ? 'date' : b.value === null ? 'null' : typeof b.value;
+        if (typeA !== typeB) return typeA < typeB ? -1 : 1;
+        if (typeA === 'number' || typeA === 'date') {
+            const valueA = typeA === 'date' ? a.value.getTime() : a.value,
+                  valueB = typeB === 'date' ? b.value.getTime() : b.value;
+            return valueA < valueB ? -1 : valueA > valueB ? 1 : 0
+        }
+        return this.#labelCollator.compare(a.label, b.label) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
     }
 
     /** @summary Formats a pure label without invoking a cell renderer. @param {*} value @returns {String} */
