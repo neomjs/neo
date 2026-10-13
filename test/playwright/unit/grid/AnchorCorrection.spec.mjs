@@ -324,5 +324,84 @@ test.describe('Grid content-sized rows: anchor correction', () => {
         natural.destroy();
         first.destroy();
         other.destroy()
+    });
+
+    test('a row reached by keyboard keeps its edge while rows above it change, until another scroll', async () => {
+        let {view}   = grid,
+            geometry = view.rowGeometry,
+            original = Neo.main.DomAccess?.scrollTo,
+            scrolls  = [],
+            anchor, offset;
+
+        Neo.main           ??= {};
+        Neo.main.DomAccess ??= {};
+
+        // The main thread's scroll, recorded instead of performed
+        Neo.main.DomAccess.scrollTo = ({value}) => {scrolls.push(value)};
+
+        try {
+            // Down from row 50 to row 100, which is not mounted: its bottom meets the view's bottom
+            view.scrollByRows(50, 50);
+            expect(scrolls).toEqual([geometry.offsetAt(101) - viewport]);
+
+            // The scroll lands
+            view.syncBodies(scrolls[0]);
+            await view.promiseUpdate();
+
+            // Rows between the top edge and row 100 grow by 100px: row 100 keeps its bottom at the view's bottom
+            view.setRowHeights(heightsOf(grid, {95: 100, 99: 80}));
+            await view.promiseUpdate();
+
+            expect(geometry.offsetAt(101) - view.scrollTop).toBe(viewport);
+
+            // A wheel scrolls up: the next change holds the row at the top edge still again
+            view.syncBodies(view.scrollTop - 200);
+            await view.promiseUpdate();
+
+            anchor = geometry.indexAt(view.scrollTop);
+            offset = view.scrollTop - geometry.offsetAt(anchor);
+
+            view.setRowHeights(heightsOf(grid, {10: 100}));
+            await view.promiseUpdate();
+
+            expect(view.scrollTop - geometry.offsetAt(anchor)).toBe(offset)
+        } finally {
+            Neo.main.DomAccess.scrollTo = original
+        }
+    });
+
+    test('a filter ends a keyboard navigation\'s target, whose row index names another record now', async () => {
+        let {view}   = grid,
+            geometry = view.rowGeometry,
+            original = Neo.main.DomAccess?.scrollTo,
+            scrolls  = [],
+            top;
+
+        Neo.main           ??= {};
+        Neo.main.DomAccess ??= {};
+        Neo.main.DomAccess.scrollTo = ({value}) => {scrolls.push(value)};
+
+        try {
+            // Down to row 100, record 100, and the scroll lands
+            view.scrollByRows(50, 50);
+            view.syncBodies(scrolls[0]);
+            await view.promiseUpdate();
+
+            // Row 100 is record 150 now, still in range
+            store.filters = [{operator: '>=', property: 'id', value: 50}];
+            await view.promiseUpdate();
+
+            expect(store.getAt(100).id).toBe(150);
+            top = view.scrollTop;
+
+            // Record 145, row 95, grows below the row at the top edge: nothing moves
+            expect(geometry.indexAt(top)).toBeLessThan(95);
+            view.setRowHeights(heightsOf(grid, {145: 80}));
+            await view.promiseUpdate();
+
+            expect(view.scrollTop).toBe(top)
+        } finally {
+            Neo.main.DomAccess.scrollTo = original
+        }
     })
 });

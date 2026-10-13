@@ -137,6 +137,12 @@ export const onStart = () => Neo.app({
                 handler: () => Neo.getComponent('grid-anchor').resizeTopRows(0.5),
                 id     : 'grid-anchor-shrink',
                 text   : 'Halve the first 20 rows'
+            }, {
+                module : Button,
+                // The keyboard navigation path
+                handler: () => Neo.getComponent('grid-anchor').view.scrollByRows(0, 249),
+                id     : 'grid-anchor-jump',
+                text   : 'Jump to row 250'
             }]
         }, {
             module          : GridAnchorGrid,

@@ -129,6 +129,13 @@ class View extends Base {
      */
     #measuredCells = new WeakMap()
     /**
+     * Content-sized rows: the row keyboard navigation scrolled to, `{edge, index, landed, scrollTop}`. Once its
+     * scroll lands, height changes keep the row at its edge instead of the row at the top edge, until another scroll,
+     * or a load or filter gives its index another record.
+     * @member {Object|null} #navigationTarget=null
+     */
+    #navigationTarget = null
+    /**
      * The scheduled {@link #measureRowHeights} pass, while it is pending
      * @member {Promise|null} #rowMeasure=null
      */
@@ -307,6 +314,24 @@ class View extends Base {
     }
 
     /**
+     * Triggered after the scrollTop config got changed. The navigation's own scroll lands its target, and any other
+     * scroll ends it. A correction's echo leaves the value unchanged.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetScrollTop(value, oldValue) {
+        let me     = this,
+            target = me.#navigationTarget;
+
+        if (target && Math.abs(value - target.scrollTop) < 1) {
+            target.landed = true
+        } else {
+            me.#navigationTarget = null
+        }
+    }
+
+    /**
      * Triggered after the selectionModel config got changed. Registers grid.View (not a body) as the
      * model's `view`, so a single model owns selection state across all bodies.
      * @param {Neo.selection.Model} value
@@ -334,14 +359,14 @@ class View extends Base {
 
     /**
      * Listens to the store for the one selection concern the View owns — a record's
-     * {@link #selectedRecordField} — once per grid, however many bodies render the record.
-     * `grid.Container` calls it again when its store changes.
+     * {@link #selectedRecordField} — once per grid, however many bodies render the record, and for the loads and
+     * filters that end a keyboard navigation's target. `grid.Container` calls it again when its store changes.
      * @param {Neo.data.Store|null} value
      * @param {Neo.data.Store|null} oldValue
      */
     bindStore(value, oldValue) {
         let me        = this,
-            listeners = {load: me.onStoreLoad, recordChange: me.onStoreRecordChange, scope: me};
+            listeners = {filter: me.onStoreFilter, load: me.onStoreLoad, recordChange: me.onStoreRecordChange, scope: me};
 
         // on() and un() consume keys like `scope` from the passed object, so each call gets its own copy
         oldValue?.un({...listeners});
@@ -365,10 +390,29 @@ class View extends Base {
     }
 
     /**
+     * Content-sized rows: the scroll offset at which a row meets an edge of the view. At the `top` edge its top meets
+     * the view's top. At the `bottom` edge its bottom meets the view's bottom, unless the row is taller than the
+     * view, which shows its top.
+     * @param {Object} target
+     * @param {String} target.edge `'top'` or `'bottom'`
+     * @param {Number} target.index
+     * @returns {Number}
+     * @private
+     */
+    #alignedScrollTop({edge, index}) {
+        let {rowGeometry} = this,
+            top           = rowGeometry.offsetAt(index),
+            bottom        = rowGeometry.offsetAt(index + 1) - this.gridContainer.body.availableHeight;
+
+        return Math.max(0, edge === 'top' ? top : Math.min(top, bottom))
+    }
+
+    /**
      * Content-sized rows: changes row heights so the visible rows hold still. The row at the scroll offset is the
      * anchor: a change above it moves it, and the scroll offset moves along by the same distance, which the next
-     * update hands to the main thread as `scrollCorrection`. A change below it moves nothing on screen. A mounted
-     * view then re-derives its layout.
+     * update hands to the main thread as `scrollCorrection`. A change below it moves nothing on screen. After keyboard
+     * navigation, its row is the anchor instead and keeps its edge, see {@link #scrollRowIntoView}. A mounted view
+     * then re-derives its layout.
      * @param {Function} change Changes the heights of the {@link #rowGeometry}, returns true if any changed
      * @param {Boolean} [force=false] Re-renders every row
      * @returns {Boolean} True if a height changed
@@ -380,17 +424,21 @@ class View extends Base {
             anchor                   = rowGeometry.indexAt(scrollTop),
             offset                   = rowGeometry.offsetAt(anchor),
             totalHeight              = rowGeometry.totalHeight,
-            correction;
+            correction, target;
 
         if (!change()) {
             return false
         }
 
-        correction = rowGeometry.offsetAt(anchor) - offset;
+        target     = me.#navigationTarget;
+        correction = target?.landed ? me.#alignedScrollTop(target) - scrollTop : rowGeometry.offsetAt(anchor) - offset;
 
         if (correction !== 0) {
             me.#scrollCorrection += correction;
             me.#scrollEpoch++;
+
+            // The target follows its own correction, so the new offset does not end it
+            target?.landed && (target.scrollTop = scrollTop + correction);
             me.scrollTop = scrollTop + correction
         }
 
@@ -440,14 +488,24 @@ class View extends Base {
     }
 
     /**
+     * A local filter moves the rows like a load, without firing one: a keyboard navigation's target index names
+     * another record, so it ends.
+     */
+    onStoreFilter() {
+        this.#navigationTarget = null
+    }
+
+    /**
      * A loaded store's flagged records are the selected rows — adopted here, once, through the one
      * row-selecting model; a paint follows through the model's own row update, never a mutation in
-     * a render.
+     * a render. The rows moved, so a keyboard navigation's target index names another record: it ends.
      */
     onStoreLoad() {
         let me                         = this,
             {rowSelectionModel, store} = me,
             field                      = me.selectedRecordField;
+
+        me.#navigationTarget = null;
 
         if (rowSelectionModel && store && field) {
             store.items.forEach(record => {
@@ -737,6 +795,25 @@ class View extends Base {
      */
     scrollByRows(index, step) {
         return this.gridContainer?.body?.scrollByRows(index, step)
+    }
+
+    /**
+     * Content-sized rows: scrolls the row at `index` to an edge of the view, for keyboard navigation. The row stays at
+     * that edge while the rows around it are measured, until another scroll, load or filter.
+     * @param {Number} index
+     * @param {String} edge `'top'` or `'bottom'`, see {@link #alignedScrollTop}
+     */
+    scrollRowIntoView(index, edge) {
+        let me     = this,
+            target = {edge, index};
+
+        target.scrollTop = me.#alignedScrollTop(target);
+        // Already there: no scroll arrives to land it
+        target.landed    = Math.abs(target.scrollTop - me.scrollTop) < 1;
+
+        me.#navigationTarget = target;
+
+        Neo.main.DomAccess.scrollTo({id: me.id, value: target.scrollTop, windowId: me.windowId})
     }
 
     /**
