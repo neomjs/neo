@@ -127,6 +127,13 @@ export const BRAIN_QUARANTINES = [{
     accountable: '@neo-opus-grace',
     exit       : 'a diagnosis lands as a fix or a ticket',
     since      : '2026-10-13'
+}, {
+    path       : 'test/playwright/e2e/dashboard/DockMotionNL.spec.mjs',
+    titlePath  : ['Dock motion pipeline (Neural Link) — the signal brackets real motion', 'a rail-click reveal SLIDES: the overlay travels through intermediate render states, signal-bracketed'],
+    reason     : 'hosted, intermittent on both attempts: the entry witness records no sample of the revealed overlay',
+    accountable: '@neo-opus-grace',
+    exit       : 'a diagnosis lands as a fix or a ticket',
+    since      : '2026-10-13'
 }];
 
 /**
