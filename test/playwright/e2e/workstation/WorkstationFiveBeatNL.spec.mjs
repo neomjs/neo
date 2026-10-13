@@ -1573,6 +1573,17 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             }
         };
 
+        // TEMP probe, never merged: every DOM change the main thread applies to the preview overlay
+        await page.evaluate(id => {
+            window.__pmut = [];
+            new MutationObserver(records => records.forEach(record => {
+                const el = record.target.nodeType === 1 ? record.target : null;
+                window.__pmut.push({t: Date.now(), type: record.type, id: el?.id ?? null, width: el?.style?.width ?? null,
+                    added  : [...record.addedNodes].map(node => `${node.id}:${node.style?.width ?? ''}`),
+                    removed: [...record.removedNodes].map(node => node.id)})
+            })).observe(document.getElementById(id), {attributes: true, attributeFilter: ['style'], childList: true, subtree: true})
+        }, previewId);
+
         const stepPromise = callWorkstationGesture(app, wsId, 'executeCrossZoneShowcaseStep', [{
             dwells: [
                 {placementKind: 'edge-bottom', targetNodeId: 'scale-tabs'},
@@ -1610,7 +1621,13 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                   t0   = plog.at(-1)?.t ?? 0;
 
             console.log(`[probe] fivebeat preview=${JSON.stringify(dwell2.rect)} zoneNow=${JSON.stringify(now[ids[0]])} geoZones=${geo?.zones?.length ?? null} tabs=${doms.length}`);
-            plog.slice(-40).forEach(entry => console.log(`[probe] fivebeat plog ${entry.t - t0} ${JSON.stringify({...entry, t: undefined, rect: undefined})}`))
+            plog.slice(-16).forEach(entry => console.log(`[probe] fivebeat plog ${entry.t - t0} ${JSON.stringify({...entry, t: undefined, rect: undefined, geo: entry.geo?.width})}`));
+
+            const muts = await page.evaluate(() => window.__pmut ?? []),
+                  dom  = await page.evaluate(id => [...(document.getElementById(id)?.children ?? [])].map(node => `${node.id}:${node.style.width}`), previewId);
+
+            console.log(`[probe] fivebeat dom now=${JSON.stringify(dom)}`);
+            muts.slice(-16).forEach(entry => console.log(`[probe] fivebeat mut ${entry.t - t0} ${JSON.stringify({...entry, t: undefined})}`))
         }
 
         await assertPreviewZoneAlignment(app, {kind: 'tab-into', previewRect: dwell2.rect, zoneId: zoneIds['right-bottom-tabs']});
