@@ -249,7 +249,9 @@ class PopupWorkspace extends DockWorkspace {
         this.windowId = null;
         const state = this.runtimeState;
         if (state) {
-            state.disconnected = true;
+            // a close request belongs to the window it was issued against; a later window starts without one
+            state.closeRequested = false;
+            state.disconnected   = true;
             state.windowId = state.app = state.renderTarget = null
         }
         if (this.rootWorkspace.lastCrossWindowTransfer?.sourceWorkspaceId === this.workspaceKey) {

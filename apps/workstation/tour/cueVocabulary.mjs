@@ -18,6 +18,7 @@ export const WORKSTATION_CUE_TYPES = Object.freeze([
     // real-pointer window gestures over the NativeGestureDriver's executors, and the one scripted
     // frame operation among them: a committed vessel growing through its owner-granted resize route
     'tear-out', 'convert-while-dragging', 'journey', 'stack-return', 'native-return', 'vessel-resize',
-    // perspectives and Group-cursor history through the workspace's own seams
-    'perspective-capture', 'perspective-restore', 'undo', 'redo'
+    // perspectives and Group-cursor history through the workspace's own seams; `workspace-open`
+    // re-births the window of a workspace a restore returned panes to
+    'perspective-capture', 'perspective-restore', 'workspace-open', 'undo', 'redo'
 ]);

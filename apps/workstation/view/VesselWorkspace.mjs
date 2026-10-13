@@ -822,12 +822,15 @@ class VesselWorkspace extends DockWorkspace {
 
         // Through the engine's retirement, not the platform seam directly: the fence it holds keeps a
         // late bind for the same item cleanup-only while the close is in flight.
-        const closed = vessel
+        const windowId = state.windowId,
+              closed   = vessel
             ? await me.nativeWindows.retire(me.id, vessel)
             : await NativeVesselTransaction.closeWorkspaceWindow(me.workspaceSet, workspaceId);
 
         if (closed) {
-            state.closeRequested = true;
+            // The retirement can settle after the window already detached. A close request describes
+            // only the window still bound to this state, never a later one born for the same workspace.
+            if (state.windowId === windowId) state.closeRequested = true;
 
             if (
                 me.lastCrossWindowTransfer?.sourceWorkspaceId === workspaceId &&
@@ -1480,13 +1483,17 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Supplies the restored Workstation page and native-window presentation.
+     * @summary Supplies the restored Workstation page at its Group-owned relative frame position.
      * @param {Object} reservation The shared manager's reserved workspace identity.
      * @returns {Object}
      */
     getNativeWindowOpenConfig(reservation) {
-        const params = new URLSearchParams({workspace: reservation.workspaceKey, theme: this.theme});
-        return {topologyIdentity: reservation, url: `./index.html?${params}`, windowFeatures: 'width=700,height=600',
+        const params   = new URLSearchParams({workspace: reservation.workspaceKey, theme: this.theme}),
+              hint     = this.getPlacementHints()[reservation.workspaceKey],
+              frame    = WindowManager.get(this.windowId)?.outerRect,
+              placed   = [frame?.x, frame?.y, hint?.dx, hint?.dy].every(Number.isFinite),
+              position = placed ? `,left=${Math.round(frame.x + hint.dx)},top=${Math.round(frame.y + hint.dy)}` : '';
+        return {topologyIdentity: reservation, url: `./index.html?${params}`, windowFeatures: `width=700,height=600${position}`,
             windowId: this.windowId, windowName: `workstation-restored-${crypto.randomUUID()}`}
     }
 

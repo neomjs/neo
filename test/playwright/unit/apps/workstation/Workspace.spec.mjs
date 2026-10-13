@@ -76,6 +76,91 @@ test('an emptied vessel re-opened for its workspace closes through its Group bin
     }
 });
 
+test('a restored window opens at its Group hint relative to the opener frame without changing either input', () => {
+    const manager     = Neo.manager.Window, originalGet = manager.get,
+          reservation = Object.freeze({workspaceKey: 'restored-room', groupId: 'restored-group'}),
+          hint        = Object.freeze({dx: 98.35, dy: -21.6, width: 640, height: 400}),
+          hints       = Object.freeze({'restored-room': hint}),
+          geometry    = Object.freeze({
+              outerRect: Object.freeze({x: 270.4, y: 95.4, width: 1600, height: 1000}),
+              innerRect: Object.freeze({x: 275.4, y: 162.4, width: 1590, height: 933})
+          });
+    manager.get = windowId => {expect(windowId).toBe('opener-window'); return geometry};
+    try {
+        const config = Workspace.prototype.getNativeWindowOpenConfig.call({
+            windowId: 'opener-window', theme: 'neo-dark', getPlacementHints: () => hints
+        }, reservation);
+        expect(Object.fromEntries(config.windowFeatures.split(',').map(part => part.split('='))))
+            .toEqual({width: '700', height: '600', left: '369', top: '74'});
+        expect(config.topologyIdentity).toBe(reservation);
+        expect(config.windowId).toBe('opener-window');
+        expect(new URL(config.url, 'https://example.test/workstation/').searchParams.get('workspace')).toBe('restored-room');
+        expect(hints['restored-room']).toBe(hint);
+        expect(hint).toEqual({dx: 98.35, dy: -21.6, width: 640, height: 400});
+        expect(geometry.outerRect).toEqual({x: 270.4, y: 95.4, width: 1600, height: 1000})
+    } finally {manager.get = originalGet}
+});
+
+test('missing or nonfinite opener geometry and placement hints preserve a size-only window open', () => {
+    const manager     = Neo.manager.Window, originalGet = manager.get,
+          reservation = {workspaceKey: 'restored-room', groupId: 'restored-group'};
+    for (const [geometry, hint] of [
+        [undefined, {dx: 10, dy: 20}],
+        [{innerRect: {x: 300, y: 400}}, {dx: 10, dy: 20}],
+        [{outerRect: {x: NaN, y: 200}}, {dx: 10, dy: 20}],
+        [{outerRect: {x: 100, y: Infinity}}, {dx: 10, dy: 20}],
+        [{outerRect: {x: 100, y: 200}}, undefined],
+        [{outerRect: {x: 100, y: 200}}, {dx: undefined, dy: 20}],
+        [{outerRect: {x: 100, y: 200}}, {dx: 10, dy: NaN}],
+        [{outerRect: {x: 100, y: 200}}, {dx: -Infinity, dy: 20}]
+    ]) {
+        manager.get = () => geometry;
+        try {
+            const config = Workspace.prototype.getNativeWindowOpenConfig.call({
+                windowId: 'opener-window', theme: 'neo-dark', getPlacementHints: () => ({'restored-room': hint})
+            }, reservation);
+            expect(config.windowFeatures).toBe('width=700,height=600');
+            expect(config.topologyIdentity).toBe(reservation);
+            expect(config.url).toBe('./index.html?workspace=restored-room&theme=neo-dark');
+            expect(config.windowName).toMatch(/^workstation-restored-/)
+        } finally {manager.get = originalGet}
+    }
+});
+
+for (const path of ['tear-out record', 'Group binding']) {
+    for (const replacementWindowId of [null, 'successor-window']) {
+        test(`${path} retirement cannot mark a ${replacementWindowId === null ? 'detached' : 'rebound'} window close-requested`, async () => {
+            const original  = NativeVesselTransaction.closeWorkspaceWindow, closing = Promise.withResolvers(), calls = [],
+                  state     = {document: {items: {}}, itemId: 'feed', windowId: 'retiring-window', closeRequested: false},
+                  vessel    = {itemId: 'feed', windowId: 'retiring-window'},
+                  workspace = {
+                      id                  : 'retirement-owner', getPopupState: () => state,
+                      resolveTearOutVessel: () => path === 'tear-out record' ? vessel : null,
+                      nativeWindows       : {retire: (sourceId, value) => {calls.push([sourceId, value]); return closing.promise}},
+                      workspaceSet        : {getParticipant: () => ({nativeWindow: {windowId: () => state.windowId}})}
+                  };
+            NativeVesselTransaction.closeWorkspaceWindow = (set, workspaceId) => {
+                calls.push([set, workspaceId]);
+                return closing.promise
+            };
+            try {
+                const flight = Workspace.prototype.retireReturnedVessel.call(workspace, 'workstation-vessel:feed');
+                expect(calls).toEqual(path === 'tear-out record'
+                    ? [['retirement-owner', vessel]] : [[workspace.workspaceSet, 'workstation-vessel:feed']]);
+                expect(state.closeRequested).toBe(false);
+                state.windowId = replacementWindowId;
+                closing.resolve(true);
+                expect(await flight).toBe(true);
+                expect(state.windowId).toBe(replacementWindowId);
+                expect(state.closeRequested).toBe(false)
+            } finally {
+                closing.resolve(true);
+                NativeVesselTransaction.closeWorkspaceWindow = original
+            }
+        })
+    }
+}
+
 test('Reset awaits bound popup projections without waiting for a headless owner to remount', async () => {
     const live    = Promise.withResolvers(), headless = Promise.withResolvers();
     let   settled = false;
