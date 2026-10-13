@@ -217,6 +217,45 @@ test.describe('Grid header value menu', () => {
         expect(source.count).toBe(1)
     });
 
+    test('UTC-midnight Date labels preserve calendar days and keep local-midnight keys distinct', async () => {
+        Neo.config.locale = 'en-US';
+        const calendar = new Date('2026-10-13'), local = new Date(2026, 9, 13), absent = new Date('2026-10-14'),
+              timed    = ['01:00:00', '00:01:00', '00:00:01', '00:00:00.001']
+                  .map(time => new Date(`2026-10-13T${time}Z`)).filter(value => value.getTime() !== local.getTime()),
+              source   = storeFor(['2026-10-13', new Date(calendar), local, ...timed]
+                  .map((status, id) => ({id, status})), {model: {fields: [
+                      {name: 'id'}, {name: 'status', type: 'Date'}, {name: 'other'}
+                  ]}});
+        source.filters = [{property: 'status', ownerRole: 'header-picker', operator: 'typedIncluded', value: [absent]}];
+        const {menu}   = await menuFor(gridFor(source, {columnMenu: true})), calendarKey = menu.getOptionKey(calendar),
+              localKey = menu.getOptionKey(local), distinct = calendar.getTime() !== local.getTime();
+        expect(menu.optionsStore.get(calendarKey).label).toBe('Oct 13, 2026');
+        expect(menu.optionsStore.get(calendarKey).value.getTime()).toBe(calendar.getTime());
+        expect(menu.optionsStore.get(calendarKey).count).toBe(distinct ? 2 : 3);
+        expect(menu.optionsStore.get(localKey).label).toBe('Oct 13, 2026');
+        expect(menu.optionsStore.get(menu.getOptionKey(absent)).label).toBe('Oct 14, 2026');
+        expect(menu.optionsStore.get(menu.getOptionKey(absent)).count).toBe(0);
+        for (const value of timed) {
+            const option = menu.optionsStore.get(menu.getOptionKey(value));
+            expect(option.label).toBe(new Intl.DateTimeFormat('en-US', {dateStyle: 'medium', timeStyle: 'medium'}).format(value));
+            expect(option.value.getTime()).toBe(value.getTime());
+            expect(option.count).toBe(1)
+        }
+        if (distinct) {
+            expect(localKey).not.toBe(calendarKey);
+            menu.onSelectionChange({selection: [localKey]});
+            expect(source.getFilter('status', 'header-picker').value).toEqual([local]);
+            expect(source.count).toBe(1)
+        }
+        menu.onSelectionChange({selection: [calendarKey]});
+        expect(source.getFilter('status', 'header-picker').value).toEqual([calendar]);
+        expect(source.count).toBe(distinct ? 2 : 3);
+        Neo.config.locale = 'de-DE';
+        menu.refreshOptions();
+        expect(menu.optionsStore.get(calendarKey).label).toBe('13.10.2026');
+        expect(menu.valuePicker.selection).toEqual([calendarKey])
+    });
+
     test('blank, null and undefined labels keep distinct typed keys and filter values', async () => {
         const values = ['', null, undefined, '(blank)', 'null', 'undefined'],
               source = storeFor(values.map((status, id) => ({id, status})), {autoInitRecords: false}),

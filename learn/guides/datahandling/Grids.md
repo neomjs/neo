@@ -333,8 +333,9 @@ columns combine with AND. Counts reflect the complete available Store population
 active filters, including inline and application filters on the same column. They exclude this
 menu's own selection, so users can still see alternative values. The search field narrows the option
 labels with a case-insensitive literal substring; it does not filter grid records or alter checks.
-Date labels follow `Neo.config.locale`, showing only the date at exact local midnight and both the local date
-and time for other timestamps. Empty strings display as `(blank)`, `null` as `(null)`, and `undefined` as
+Date labels follow `Neo.config.locale`, showing only the date at exact local or UTC midnight and both the local date
+and time for other timestamps. UTC-midnight values use the UTC calendar date, so an ISO date-only value keeps
+its day across time zones. Empty strings display as `(blank)`, `null` as `(null)`, and `undefined` as
 `(undefined)`; other scalars keep their `String(value)` form. Labels do not merge typed option keys, so equal
 labels can represent distinct values, and formatting never calls a cell renderer.
 

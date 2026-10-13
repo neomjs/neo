@@ -275,6 +275,7 @@ class Menu extends Plugin {
 
     /**
      * @summary Formats locale-aware Dates and distinct empty values without invoking a cell renderer.
+     * Exact UTC midnight retains its calendar day independently of the local timezone.
      * @param {*} value
      * @returns {String}
      */
@@ -286,12 +287,15 @@ class Menu extends Plugin {
                 formatters = this.#dateFormatters = {
                     locale,
                     date    : new Intl.DateTimeFormat(locale, {dateStyle: 'medium'}),
-                    dateTime: new Intl.DateTimeFormat(locale, {dateStyle: 'medium', timeStyle: 'medium'})
+                    dateTime: new Intl.DateTimeFormat(locale, {dateStyle: 'medium', timeStyle: 'medium'}),
+                    utcDate : new Intl.DateTimeFormat(locale, {dateStyle: 'medium', timeZone: 'UTC'})
                 }
             }
+            const utcMidnight = value.getUTCHours() === 0 && value.getUTCMinutes() === 0 &&
+                value.getUTCSeconds() === 0 && value.getUTCMilliseconds() === 0;
             const midnight = value.getHours() === 0 && value.getMinutes() === 0 &&
                 value.getSeconds() === 0 && value.getMilliseconds() === 0;
-            return (midnight ? formatters.date : formatters.dateTime).format(value)
+            return (utcMidnight ? formatters.utcDate : midnight ? formatters.date : formatters.dateTime).format(value)
         }
         if (value === '') return '(blank)';
         if (value === null) return '(null)';
