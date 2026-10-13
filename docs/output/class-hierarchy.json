@@ -394,6 +394,7 @@
  "Neo.list.Color": "Neo.list.Base",
  "Neo.list.Component": "Neo.list.Base",
  "Neo.list.Country": "Neo.list.Base",
+ "Neo.list.ValuePicker": "Neo.list.Buffered",
  "Neo.list.plugin.Animate": "Neo.plugin.Base",
  "Neo.main.DeltaUpdates": "Neo.core.Base",
  "Neo.main.DomAccess": "Neo.core.Base",
