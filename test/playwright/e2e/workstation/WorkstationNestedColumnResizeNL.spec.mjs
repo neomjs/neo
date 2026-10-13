@@ -17,12 +17,19 @@ import {test, expect} from '../../fixtures.mjs';
  *   -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
 test.describe('Workstation nested dock column follows its outer splitter (#17985)', () => {
-    test.setTimeout(120000);
+    const scenarioTimeout = 120000;
+    test.setTimeout(scenarioTimeout);
     test.use({viewport: {height: 900, width: 1600}});
 
     test.afterEach(async ({page}) => {
         if (!page.isClosed()) {
             await page.evaluate(() => {
+                const motion = window.__nestedResizeMotion;
+                if (motion) {
+                    Neo.main.addon.DockFlip.land({hostId: motion.workspaceId});
+                    motion.restore();
+                    delete window.__nestedResizeMotion
+                }
                 const witness = window.__nestedResizeAdmission;
                 if (!witness) return;
                 witness.mouse.set({delay: witness.delay});
@@ -347,6 +354,22 @@ test.describe('Workstation nested dock column follows its outer splitter (#17985
         await expect(page.locator('.neo-dock-flip-fixed-stage'),
             'the first structural move leaves no fixed-stage residue').toHaveCount(0);
 
+        await page.evaluate(({workspaceId, duration}) => {
+            const host    = document.getElementById(workspaceId),
+                tokenHost = host.matches('.neo-dashboard') ? host : host.querySelector('.neo-dashboard') || host,
+                property  = '--dock-transition-duration', previous = tokenHost.style.getPropertyValue(property),
+                priority  = tokenHost.style.getPropertyPriority(property);
+            window.__nestedResizeMotion = {
+                workspaceId,
+                restore() {
+                    previous ? tokenHost.style.setProperty(property, previous, priority) : tokenHost.style.removeProperty(property)
+                }
+            };
+            // The real second-drop motion outlives any successful execution of this test. Native
+            // admission still lands it immediately and restores the token before resize release.
+            tokenHost.style.setProperty(property, duration + 'ms')
+        }, {workspaceId, duration: scenarioTimeout});
+
         await dragTabToPoint(page, {
             placement   : 'edge-top',
             sourceTitle : 'Live Event Stream',
@@ -454,6 +477,7 @@ test.describe('Workstation nested dock column follows its outer splitter (#17985
                 if (!owns(path)) return witness.land.call(this, path);
                 const before = snapshot(), landed = witness.land.call(this, path);
                 witness.landings.push({before, after: snapshot(), landed});
+                window.__nestedResizeMotion.restore();
                 return landed
             };
             resize.start = function(path, ...args) {
@@ -461,6 +485,14 @@ test.describe('Workstation nested dock column follows its outer splitter (#17985
                 return witness.start.call(this, path, ...args)
             }
         }, ids);
+
+        // Intentional latency fault: prove overlap survives a runner delay longer than normal motion.
+        const delayed = await page.evaluate(async () => {
+            const start = performance.now();
+            await new Promise(resolve => setTimeout(resolve, 400));
+            return performance.now() - start
+        });
+        expect(delayed).toBeGreaterThanOrEqual(400);
 
         await page.mouse.move(sx, sy);
         await page.mouse.down();

@@ -633,7 +633,7 @@ class DockFlip extends Base {
                     Object.entries(styleSnapshot).forEach(([property, value]) => {
                         property !== 'transition' && (el.style[property] = value)
                     });
-                    el.getAnimations();
+                    el.getAnimations(); // Flush restored geometry before reinstating the caller's transition policy.
                     el.style.transition = styleSnapshot.transition
                 }
 
