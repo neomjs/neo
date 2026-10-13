@@ -805,6 +805,11 @@ class View extends Base {
         }
 
         if (targets.length) {
+            // A mounted card can have no layout box. Publishing a hidden batch there would let its
+            // completion hook schedule another unmeasurable batch; its next layout resumes the work.
+            const [box] = await Neo.main.DomAccess.getLayoutRect({id: [me.vdom.id], windowId: me.windowId});
+            if (!box?.width || !box.height || generation !== me.#measureGeneration || store !== me.store) return;
+
             await Promise.all([...rows].map(([body, bodyRows]) => {
                 body.rowMeasureVdom = {id: `${body.id}__row_measure`, cls: ['neo-grid-row-measure'],
                     'aria-hidden': 'true', style: {visibility: 'hidden', position: 'absolute', pointerEvents: 'none'},
@@ -826,8 +831,8 @@ class View extends Base {
                     [body.id, column.id, column.dataField, width, column.renderer, column.cellCls, me.theme]))) return;
 
             me.#chrome = Object.values(chrome).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
-            if (fontRefresh && targets.some(({body, cell, id, revision}, index) => !rects[index]?.width ||
-                revision !== (me.#recordVersions.get(id) || 0) ||
+            if (fontRefresh && rects.some(rect => !rect?.width)) return;
+            if (fontRefresh && targets.some(({body, cell, id, revision}) => revision !== (me.#recordVersions.get(id) || 0) ||
                 !body.rowMeasureVdom?.cn.some(row => row.cn.includes(cell)))) {
                 me.scheduleRowMeasure();
                 return

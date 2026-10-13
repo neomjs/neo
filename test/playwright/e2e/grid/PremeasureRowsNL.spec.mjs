@@ -220,6 +220,55 @@ test.describe('Grid native hidden premeasurement', () => {
         })
     }
 
+    test('a hidden mounted grid keeps a font refresh quiet and resumes when shown', async ({page}) => {
+        await page.evaluate(() => document.fonts.ready);
+        await app.callMethod(viewId, 'measureAheadRows');
+        await app.callMethod(viewId, 'promiseUpdate');
+        await settleGrid(page);
+        await page.evaluate(grid => {
+            const access = Neo.main.DomAccess, original = access.getLayoutRect;
+            window.__hiddenFont = {original, batches: 0, display: document.querySelector(grid).style.display};
+            access.getLayoutRect = function(...args) {
+                const ids = args[0]?.id;
+                Array.isArray(ids) && ids.some(id => String(id).includes('__measure_')) && window.__hiddenFont.batches++;
+                return original.apply(this, args)
+            };
+            document.querySelector(grid).style.display = 'none'
+        }, GRID);
+        try {
+            expect((await app.getComponent('grid-wrap-text', ['mounted'])).mounted).toBe(true);
+            await page.evaluate(async grid => {
+                const face = new FontFace('GridHiddenArrival', 'local("Courier New"), local("DejaVu Sans Mono"), local("Liberation Mono")'),
+                    style  = document.createElement('style');
+                document.fonts.add(face);
+                style.textContent = `${grid} .neo-grid-cell {font-family: GridHiddenArrival, monospace}`;
+                document.head.append(style);
+                await face.load();
+                await document.fonts.ready
+            }, GRID);
+            const batches = await page.evaluate(async () => {
+                // Initial replies may still be draining; a hidden view must not perpetuate them.
+                for (let frame = 0; frame < 20; frame++) await new Promise(resolve => requestAnimationFrame(resolve));
+                const before = window.__hiddenFont.batches;
+                for (let frame = 0; frame < 60; frame++) await new Promise(resolve => requestAnimationFrame(resolve));
+                return window.__hiddenFont.batches - before
+            });
+            expect(batches, 'a grid with no box publishes no repeating hidden batches').toBe(0);
+            await page.evaluate(grid => {document.querySelector(grid).style.display = window.__hiddenFont.display}, GRID);
+            await expect.poll(async () => {
+                const report = await layoutReport(page);
+                return report.driven.length > 0 && report.driven.every(pair => Math.abs(pair.row - pair.needed) < 1)
+            }, {message: 'showing the grid resumes its pending font refresh'}).toBe(true);
+            expect(await page.evaluate(() => window.__hiddenFont.batches), 'the shown grid performs a real fresh batch').toBeGreaterThan(0)
+        } finally {
+            await page.evaluate(grid => {
+                const witness = window.__hiddenFont;
+                document.querySelector(grid).style.display = witness.display;
+                Neo.main.DomAccess.getLayoutRect = witness.original
+            }, GRID)
+        }
+    });
+
     test('without input the bounded nearby measurements settle and keep the viewport and extent still', async ({page}) => {
         await page.evaluate(() => document.fonts.ready);
         await app.setProperties('grid-wrap-text', {useInternalId: false});

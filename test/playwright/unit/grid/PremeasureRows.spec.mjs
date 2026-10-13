@@ -202,6 +202,29 @@ test.describe('Grid hidden row premeasurement', () => {
         expect(extents()).toEqual({total: 13200, bodies: view.bodies.map(() => '13365px'), scrollbar: '13365px'})
     });
 
+    test('a mounted view with no box publishes no hidden font batch and resumes when layout returns', async () => {
+        const {view} = grid, access = Neo.main.DomAccess.getLayoutRect, baseRead = read;
+        await view.measureAheadRows();
+        await view.promiseUpdate();
+        let   hidden  = true, updates = 0;
+        const flights = view.bodies.map(body => body.promiseUpdate);
+        view.bodies.forEach((body, index) => {
+            body.promiseUpdate = function(...args) {updates++; return flights[index].apply(this, args)}
+        });
+        read = ids => baseRead(ids).map(rect => ({...rect, height: rect.height * 2}));
+        Neo.main.DomAccess.getLayoutRect = opts => opts.id[0] === view.vdom.id && hidden ?
+            Promise.resolve([{width: 0, height: 0}]) : access(opts);
+        view.onFontChange({windowId: view.windowId});
+        await view.measureAheadRows();
+        await view.measureAheadRows();
+        expect(updates, 'no batch completion can schedule another hidden batch').toBe(0);
+        expect(view.rowGeometry.heightAt(0)).toBe(85);
+        hidden = false;
+        await view.measureAheadRows();
+        expect(updates).toBeGreaterThan(0);
+        expect(view.rowGeometry.heightAt(0)).toBe(165)
+    });
+
     test('store replacement retires renderer contexts, resets every mounted source, and refuses the old pending reply', async () => {
         const {view, verticalScrollbar} = grid,
               geometry                  = view.rowGeometry,
