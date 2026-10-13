@@ -841,10 +841,12 @@ class View extends Base {
                 projector.record = record;
                 projector.rowIndex = index;
 
+                // The region's last column drops its right border, as in Row#createVdom: 1px of text width
                 let cellId = `${projector.id}__measure_${generation}_${index}_${columnIndex}`,
                     cell   = projector.applyRendererOutput({
                         cache: {gridBody: body, gridContainer: me.gridContainer, store, selectedCells: [], measureOnly: true},
-                        cellId, column, columnIndex, record, rowIndex: index, silent: true
+                        cellId, column, columnIndex, isLastColumn: columnIndex === body.columnPositions.getCount() - 1,
+                        record, rowIndex: index, silent: true
                     });
                 if (!cell?.cn?.[0]?.cls?.includes('neo-grid-cell-text')) continue;
 
