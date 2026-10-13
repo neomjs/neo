@@ -491,6 +491,8 @@ class Worker extends Base {
 
     /**
      * @summary Retires one exact SharedWorker port generation and releases its message handler.
+     * Pending replies retain their disconnection name and carry the dead-port code and target window,
+     * so consumers can apply the same recorded-departure predicate before or after dispatch.
      * @param {Object} portEntry
      * @returns {Boolean} True when the entry was live and removed
      */
@@ -522,7 +524,11 @@ class Worker extends Base {
         Object.entries(me.promises).forEach(([id, promise]) => {
             if (promise.portEntry === portEntry || (windowGone && !promise.portEntry && promise.windowId === portEntry.windowId)) {
                 delete me.promises[id];
-                promise.reject(Object.assign(new Error(`Worker port disconnected before reply: ${portEntry.id}`), {name: 'PortDisconnectedError'}))
+                promise.reject(Object.assign(new Error(`Worker port disconnected before reply: ${portEntry.id}`), {
+                    code    : 'NEO_DEAD_PORT',
+                    name    : 'PortDisconnectedError',
+                    windowId: portEntry.windowId
+                }))
             }
         });
 
