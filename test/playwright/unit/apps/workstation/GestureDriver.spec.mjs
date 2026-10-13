@@ -1133,3 +1133,407 @@ test.describe('cross-window target admission', () => {
         })
     }
 });
+
+/**
+ * A grid pane whose scroll follows the fake main thread's arithmetic: the content moves 1:1 with
+ * the hand from the press point on, as `GridDragScroll` does. `ack` gates each dispatched sample's
+ * acknowledgement; `drift` makes the vertical scroll change on every read (a tail that never
+ * settles); `perStroke` replaces the 1:1 arithmetic by a fixed travel per release; `columns` and
+ * `clampX` shape the horizontal room and the bound the fake DOM clamps at.
+ */
+async function makeGridDragScrollFixture({ack=null, clampX=null, columns={count: 7, width: 150}, drift=false, perStroke=null}={}) {
+    const {default: WindowManager} = await import('../../../../../src/manager/Window.mjs'),
+          windowId                 = 'gesture-grid-window',
+          calls                    = [], cursors = [], cursorAtDispatch = [],
+          scroll                   = {left: 0, top: 0},
+          view                     = {id: 'scale-view', getDomRect: async () => [{x: 100, y: 100, width: 300, height: 400}], get scrollTop() {return drift ? ++scroll.top : scroll.top}},
+          body                     = {id: 'scale-body', availableHeight: 400, containerWidth: 300, rowHeight: 50, get scrollLeft() {return scroll.left},
+                       columnPositions: {getCount: () => columns.count, getAt: index => ({x: index * columns.width, width: columns.width})}},
+          pane      = {id: 'scale', isDestroyed: false, windowId, body, view, store: {getCount: () => 100000}},
+          workspace = {id: 'gesture-grid-workspace', isDestroyed: false, windowId, appName: 'Workstation', paneCache: {scale: pane}, refreshPromise: null},
+          driver    = Neo.create(GestureDriver, {workspace}),
+          service   = driver.interactionService;
+
+    WindowManager.register({id: windowId, windowId, innerRect: {x: 0, y: 0, width: 1200, height: 800}});
+    const proto                 = Object.getPrototypeOf(driver),
+          originalCursorHelpers = {createFilmCursorDot: proto.createFilmCursorDot, retireFilmCursorDot: proto.retireFilmCursorDot};
+    proto.createFilmCursorDot = (x, y) => {
+        const dot = {isDestroyed: false, style: {left: `${x - 8}px`, top: `${y - 8}px`}, destroy() {dot.isDestroyed = true}};
+        cursors.push(dot);
+        return dot
+    };
+    proto.retireFilmCursorDot = async dot => {
+        if (!dot || dot.isDestroyed) return false;
+        dot.destroy();
+        return true
+    };
+    let last = null;
+    service.simulateEvent = async ({events}) => {
+        for (const event of events) {
+            const {clientX: x, clientY: y} = event.options;
+            calls.push(`${event.type}@${x},${y}`);
+            // where the cursor stood when this sample reached the main thread
+            cursorAtDispatch.push({type: event.type, x, y, left: cursors[0]?.style.left, top: cursors[0]?.style.top});
+            ack && await ack(event);
+            if (event.type === 'mousedown') {
+                last = {x, y}
+            } else if (last) {
+                if (perStroke) {
+                    if (event.type === 'mouseup') {scroll.left += perStroke.x; scroll.top += perStroke.y}
+                } else {
+                    scroll.left += last.x - x;
+                    scroll.top  += last.y - y
+                }
+                last = event.type === 'mouseup' ? null : {x, y}
+            }
+            if (clampX !== null) scroll.left = Math.min(scroll.left, clampX)
+        }
+        return true
+    };
+    service.dispatch = async ({type}) => {calls.push(`cleanup:${type}`); return true};
+
+    return {
+        calls, cursors, cursorAtDispatch, driver, scroll, service,
+        execute(options={}, step={anchor: {x: 0.5, y: 0.5}, deltaX: -120, deltaY: -60, paneId: 'scale', strokes: 2}) {
+            return driver.executeGridDragScrollStep(step, {attempts: 10, moveDelay: 0, moveSteps: 4, showCursor: true, ...options})
+        },
+        cleanup() {
+            driver.isDestroyed || driver.destroy();
+            Object.assign(proto, originalCursorHelpers);
+            WindowManager.unregister(windowId)
+        }
+    }
+}
+
+test.describe('the grid drag-scroll beat pans a grid pane by raw strokes the grid\'s own listener reads', () => {
+    test('the strokes reach the requested travel on both axes, the tail settles and the receipt measures it', async () => {
+        const fixture = await makeGridDragScrollFixture();
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.errors).toEqual([]);
+            expect(receipt.applied).toBe(true);
+            expect(receipt.proof.after).toEqual({scrollLeft: 240, scrollTop: 120, settled: true});
+            expect(receipt.proof.dispatched, 'six samples per stroke: the press, four moves, the release').toEqual([6, 6]);
+            expect(receipt.proof.travel).toEqual({
+                deltaX   : -120, deltaY: -60,
+                requested: {x: 240, y: 120}, room: {x: 750, y: 4999600}, expected: {x: 240, y: 120},
+                observed : {x: 240, y: 120}, slack: {x: 60, y: 30}, met: {x: true, y: true}
+            });
+            // each stroke presses at the anchor and walks the diagonal to its end
+            expect(fixture.calls.slice(0, 6)).toEqual(['mousedown@250,300', 'mousemove@220,285', 'mousemove@190,270', 'mousemove@160,255', 'mousemove@130,240', 'mouseup@130,240']);
+            expect(fixture.calls[6]).toBe('mousedown@250,300');
+            expect(fixture.calls.filter(call => call.startsWith('cleanup:')), 'the release left no pressed pointer to clean up').toEqual([]);
+            expect(fixture.cursors[0].isDestroyed, 'the film cursor retired with the beat').toBe(true)
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a throw winds up and whips: the samples share the travel eased in, the last ones carry the speed', async () => {
+        const fixture = await makeGridDragScrollFixture();
+        try {
+            const receipt = await fixture.execute({curve: 'throw'}, {anchor: {x: 0.5, y: 0.5}, deltaX: -120, deltaY: -60, paneId: 'scale', strokes: 1});
+            expect(receipt.errors).toEqual([]);
+            expect(receipt.applied).toBe(true);
+            expect(fixture.calls).toEqual(['mousedown@250,300', 'mousemove@250,300', 'mousemove@243,296', 'mousemove@212,281', 'mousemove@130,240', 'mouseup@130,240']);
+            expect(receipt.proof.travel.observed).toEqual({x: 120, y: 60})
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a tail that never settles refuses success and keeps the proof it sampled', async () => {
+        const fixture = await makeGridDragScrollFixture({drift: true});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toHaveLength(1);
+            expect(receipt.errors[0]).toMatch(/^the grid had not settled 160 ms after the last release: scrollLeft 0 → 240, scrollTop 1 → \d+ for 2 stroke\(s\) of \(-120, -60\)$/);
+            expect(receipt.proof.after.settled).toBe(false);
+            expect(receipt.proof.before).toEqual({scrollLeft: 0, scrollTop: 1});
+            expect(receipt.proof.travel.requested).toEqual({x: 240, y: 120});
+            expect(fixture.cursors[0].isDestroyed).toBe(true)
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('travel short of the request fails by name: a pixel in the right direction is not a pan', async () => {
+        const fixture = await makeGridDragScrollFixture({perStroke: {x: 1, y: 1}});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual([
+                'the grid did not follow the hand: scrollLeft 0 → 2, scrollTop 0 → 2 for 2 stroke(s) of (-120, -60); '
+                + 'expected at least (240, 120) less (60, 30) of slack within room (750, 4999600)'
+            ]);
+            expect(receipt.proof.after.settled).toBe(true);
+            expect(receipt.proof.travel.observed).toEqual({x: 2, y: 2});
+            expect(receipt.proof.travel.met).toEqual({x: false, y: false})
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('an axis the grid can no longer scroll is met at its room, not at the request', async () => {
+        const fixture = await makeGridDragScrollFixture({clampX: 100, columns: {count: 2, width: 200}});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.errors).toEqual([]);
+            expect(receipt.applied).toBe(true);
+            expect(receipt.proof.travel.room.x).toBe(100);
+            expect(receipt.proof.travel.expected).toEqual({x: 100, y: 120});
+            expect(receipt.proof.travel.observed).toEqual({x: 100, y: 120});
+            expect(receipt.proof.travel.met).toEqual({x: true, y: true})
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a request without an axis to move, a pane without geometry, or a refused sample fail by name', async () => {
+        const fixture = await makeGridDragScrollFixture();
+        try {
+            expect(await fixture.execute({}, {paneId: 'metrics', deltaX: -10})).toEqual({applied: false, errors: ["grid drag-scroll step must name a rendered grid pane; 'metrics' is not one"]});
+            expect(await fixture.execute({}, {paneId: 'scale', deltaX: 0, deltaY: 0})).toEqual({applied: false, errors: ['grid drag-scroll step needs a non-zero travel and at least one stroke']});
+            expect(await fixture.execute({}, {paneId: 'scale', deltaX: -10, strokes: 0})).toEqual({applied: false, errors: ['grid drag-scroll step needs a non-zero travel and at least one stroke']});
+            const original = fixture.service.simulateEvent;
+            fixture.service.simulateEvent = async data => {await original(data); return data.events[0].type !== 'mousemove'};
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual(['stroke 1 could not be dispatched: mousemove at (220, 285) was refused']);
+            expect(receipt.proof.dispatched, 'the press went out, the first move was refused').toEqual([1]);
+            expect(fixture.cursors.at(-1).isDestroyed).toBe(true)
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('the cursor moves with each dispatched sample and holds while an acknowledgement is pending', async () => {
+        const heldSamples = [];
+        let   held        = false;
+        const fixture     = await makeGridDragScrollFixture({ack: async event => {
+            // the main thread takes its time over the first press: the cursor must wait with it
+            if (event.type === 'mousedown' && !held) {
+                held = true;
+                for (let hop = 0; hop < 3; hop++) {
+                    await new Promise(setImmediate);
+                    heldSamples.push(fixture.cursors[0].style.left)
+                }
+            }
+        }});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(true);
+            expect(heldSamples, 'three hops into a pending press, the cursor still stands at the anchor').toEqual(['242px', '242px', '242px']);
+            expect(fixture.cursorAtDispatch).toHaveLength(12);
+            for (const sample of fixture.cursorAtDispatch) {
+                expect({left: sample.left, top: sample.top}, `the cursor stood on the ${sample.type} sample it escorted`).toEqual({left: `${sample.x - 8}px`, top: `${sample.y - 8}px`})
+            }
+        } finally {
+            fixture.cleanup()
+        }
+    })
+});
+
+/**
+ * A committed vessel whose owner-granted routes answer at a fake physical boundary: the geometry
+ * follows the verified moves and resizes; `refuseResizeAt` refuses the n-th resize, `refuseMoveAt`
+ * the n-th move, `shortBy` lands every resize short of its width, `screen` is the display's
+ * available area the frame is clamped to.
+ */
+async function vesselResizeFixture({refuseMoveAt=null, refuseResizeAt=null, screen={availLeft: 0, availTop: 0, availWidth: 3000, availHeight: 1600}, shortBy=0}={}) {
+    const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
+    const {default: WindowManager}       = await import('../../../../../src/manager/Window.mjs');
+    const vesselWindowId                 = 'vessel-resize-unit-popup', mainId = 'vessel-resize-unit-main', vesselId = 'vessel-resize-unit-vessel',
+          route     = {ownerWindowId: mainId, targetWindowId: vesselWindowId, nativeHandleKey: 'vessel-resize-unit-handle', capabilities: {position: true, resize: true}},
+          geometry  = {height: 540, width: 300, x: 1540, y: 1240},
+          calls     = [],
+          state     = {windowId: vesselWindowId, committed: true, document: {items: {scale: {}}, nodes: {}}},
+          workspace = {id: 'vessel-resize-unit-workspace', windowId: mainId, isDestroyed: false, refreshPromise: null,
+              constructor: {vesselWorkspaceId: () => vesselId}, getPopupState: id => id === vesselId ? state : null},
+          original  = {data: Neo.Main.getWindowData, geometry: Neo.Main.windowNativeGetGeometry, move: Neo.Main.windowNativeMoveTo, resize: Neo.Main.windowNativeResizeTo},
+          driver    = Neo.create(NativeGestureDriver, {workspace});
+
+    WindowManager.register({id: mainId, innerRect: {x: 200, y: 287, width: 1320, height: 920}, outerRect: {x: 200, y: 200, width: 1320, height: 1007}});
+    WindowManager.register({id: vesselWindowId, nativeRoute: route});
+    Neo.Main.getWindowData           = async () => ({screen: {...screen}});
+    Neo.Main.windowNativeGetGeometry = async () => ({...geometry});
+    Neo.Main.windowNativeMoveTo      = async request => {
+        // the main thread refuses an effect without both string ids; the fixture does the same
+        const effect = request.nativeEffect, named = effect && ['transactionId', 'effectId'].every(key => typeof effect[key] === 'string' && effect[key].length);
+        calls.push(`move:${request.x},${request.y}:${named ? effect.effectId : 'drag'}`);
+        if (effect && !named) return false;
+        if (refuseMoveAt !== null && calls.filter(call => call.startsWith('move')).length === refuseMoveAt) return false;
+        geometry.x = request.x;
+        geometry.y = request.y;
+        return true
+    };
+    Neo.Main.windowNativeResizeTo    = async request => {
+        calls.push(`resize:${request.width},${request.height}`);
+        if (refuseResizeAt !== null && calls.filter(call => call.startsWith('resize')).length === refuseResizeAt) return false;
+        geometry.width  = request.width - shortBy;
+        geometry.height = request.height;
+        return true
+    };
+
+    return {
+        calls, driver, geometry, state, workspace,
+        execute(options={}, step={itemId: 'scale', frame: {anchor: 'right-of-main', gap: 24, width: 900}}) {
+            return driver.executeVesselResizeStep(step, {moveDelay: 0, moveSteps: 4, ...options})
+        },
+        async cleanup() {
+            driver.isDestroyed || driver.destroy();
+            await driver.settledPromise;
+            Object.assign(Neo.Main, {getWindowData: original.data, windowNativeGetGeometry: original.geometry, windowNativeMoveTo: original.move, windowNativeResizeTo: original.resize});
+            WindowManager.unregister(vesselWindowId);
+            WindowManager.unregister(mainId)
+        }
+    }
+}
+
+test.describe('the vessel-resize beat grows a committed window through its owner-granted routes', () => {
+    test('the frame walks to the derived target beside the main window, a verified move and resize per sample', async () => {
+        const fixture = await vesselResizeFixture();
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.errors).toEqual([]);
+            expect(receipt.applied).toBe(true);
+            expect(receipt.proof.before).toEqual({height: 540, width: 300, x: 1540, y: 1240});
+            expect(receipt.proof.target).toEqual({clamped: false, height: 1007, width: 900, x: 1544, y: 200});
+            expect(receipt.proof.after).toEqual({height: 1007, width: 900, x: 1544, y: 200});
+            expect(receipt.proof.samples).toBe(4);
+            expect(receipt.proof.route).toEqual({windowId: 'vessel-resize-unit-popup'});
+            // a resize, then a move carrying the scripted-effect identity, per sample
+            expect(fixture.calls).toEqual([
+                'resize:450,657', 'move:1541,980:sample-1', 'resize:600,774', 'move:1542,720:sample-2',
+                'resize:750,890', 'move:1543,460:sample-3', 'resize:900,1007', 'move:1544,200:sample-4'
+            ])
+        } finally {
+            await fixture.cleanup()
+        }
+    });
+
+    test('a display without room to the right seats the frame against its edge over the main window, and records the clamp', async () => {
+        const fixture = await vesselResizeFixture({screen: {availLeft: 0, availTop: 0, availWidth: 1920, availHeight: 1080}});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.errors).toEqual([]);
+            expect(receipt.applied).toBe(true);
+            expect(receipt.proof.target).toEqual({clamped: true, height: 880, width: 900, x: 1020, y: 200});
+            expect(receipt.proof.after).toEqual({height: 880, width: 900, x: 1020, y: 200})
+        } finally {
+            await fixture.cleanup()
+        }
+    });
+
+    test('a refused resize fails by name with the frame as it stands', async () => {
+        const fixture = await vesselResizeFixture({refuseResizeAt: 2});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual(['the window resize was refused at sample 2 of 4']);
+            expect(receipt.proof.samples, 'one sample had settled before the refusal').toBe(1);
+            expect(receipt.proof.before, 'the birth frame is kept as the birth frame').toEqual({height: 540, width: 300, x: 1540, y: 1240});
+            expect(receipt.proof.after, 'the frame as it stands is the first sample\'s, read back after the refusal').toEqual({height: 657, width: 450, x: 1541, y: 980});
+            expect(receipt.proof.target.width).toBe(900);
+            expect(fixture.calls, 'the first sample settled, the second stopped at its resize').toHaveLength(3)
+        } finally {
+            await fixture.cleanup()
+        }
+    });
+
+    test('a move refused after its sample\'s resize applied reports the half-stepped frame as it stands', async () => {
+        const fixture = await vesselResizeFixture({refuseMoveAt: 2});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual(['the window move was refused at sample 2 of 4']);
+            expect(receipt.proof.samples, 'only the first sample settled whole').toBe(1);
+            expect(receipt.proof.after, 'the second resize landed, its move did not: the frame is neither sample').toEqual({height: 774, width: 600, x: 1541, y: 980});
+            expect(receipt.proof.before).toEqual({height: 540, width: 300, x: 1540, y: 1240});
+            expect(fixture.calls, 'the first sample settled, the second stopped at its move').toHaveLength(4)
+        } finally {
+            await fixture.cleanup()
+        }
+    });
+
+    test('a refusal whose readback fails keeps the proof it has and names the blind observation', async () => {
+        const fixture = await vesselResizeFixture({refuseResizeAt: 2});
+        try {
+            const geometry = Neo.Main.windowNativeGetGeometry;
+            let   reads    = 0;
+            // the birth frame reads; every read after it is gone
+            Neo.Main.windowNativeGetGeometry = async request => ++reads === 1 ? geometry(request) : null;
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual(['the window resize was refused at sample 2 of 4', 'the frame could not be read back after the refusal']);
+            expect(receipt.proof.after, 'no frame is invented for the one that could not be read').toBeNull();
+            expect(receipt.proof.before).toEqual({height: 540, width: 300, x: 1540, y: 1240});
+            expect(receipt.proof.samples).toBe(1)
+        } finally {
+            await fixture.cleanup()
+        }
+    });
+
+    test.describe('the derived frame is contained within the display\'s available area on all four edges', () => {
+        const derive = async data => {
+            const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
+            return NativeGestureDriver.prototype.deriveVesselFrame.call(null, {gap: 24, height: null, width: 900, ...data})
+        };
+
+        test('a frame above an offset display\'s top edge comes down to it, against the right edge over the main window', async () => {
+            expect(await derive({height: 700, main: {x: 60, y: 0, width: 1300, height: 700}, screen: {availLeft: 80, availTop: 24, availWidth: 1840, availHeight: 1056}}))
+                .toEqual({clamped: true, height: 700, width: 900, x: 1020, y: 24})
+        });
+
+        test('a main window hanging off the display\'s left pulls the frame to the left edge', async () => {
+            expect(await derive({main: {x: -1500, y: 40, width: 1300, height: 600}, screen: {availLeft: 0, availTop: 0, availWidth: 1920, availHeight: 1080}}))
+                .toEqual({clamped: true, height: 600, width: 900, x: 0, y: 40})
+        });
+
+        test('a display left of and above the primary keeps its negative coordinates: a frame that fits is not clamped', async () => {
+            expect(await derive({main: {x: -1800, y: -100, width: 800, height: 600}, screen: {availLeft: -1920, availTop: -200, availWidth: 1920, availHeight: 1080}}))
+                .toEqual({clamped: false, height: 600, width: 900, x: -976, y: -100})
+        });
+
+        test('a frame wider and taller than the display shrinks to its available area, keeping its top', async () => {
+            expect(await derive({height: 5000, width: 5000, main: {x: 200, y: 200, width: 1320, height: 1007}, screen: {availLeft: 0, availTop: 0, availWidth: 1920, availHeight: 1080}}))
+                .toEqual({clamped: true, height: 880, width: 1920, x: 0, y: 200})
+        });
+
+        test('an unknown display clamps nothing', async () => {
+            expect(await derive({main: {x: 60, y: -50, width: 1300, height: 700}, screen: null}))
+                .toEqual({clamped: false, height: 700, width: 900, x: 1384, y: -50})
+        })
+    });
+
+    test('a frame that settles off its target fails by name', async () => {
+        const fixture = await vesselResizeFixture({shortBy: 10});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors[0]).toMatch(/^the window frame ended off its target on width: /);
+            expect(receipt.proof.after.width).toBe(890);
+            expect(receipt.proof.samples).toBe(4)
+        } finally {
+            await fixture.cleanup()
+        }
+    });
+
+    test('no committed vessel, no recipe, or no route fail by name before any frame moves', async () => {
+        const fixture = await vesselResizeFixture();
+        try {
+            expect(await fixture.execute({}, {itemId: 'scale', frame: {anchor: 'right-of-main'}})).toEqual({applied: false, errors: ['vessel resize needs a frame {anchor: \'right-of-main\', width} and at least one sample']});
+            fixture.state.committed = false;
+            expect(await fixture.execute()).toEqual({applied: false, errors: ['vessel resize needs \'scale\' committed in a window of its own']});
+            fixture.state.committed = true;
+            const {default: WindowManager} = await import('../../../../../src/manager/Window.mjs');
+            WindowManager.unregister('vessel-resize-unit-popup');
+            WindowManager.register({id: 'vessel-resize-unit-popup', nativeRoute: {ownerWindowId: 'vessel-resize-unit-main', targetWindowId: 'vessel-resize-unit-popup', nativeHandleKey: 'h', capabilities: {position: true}}});
+            expect(await fixture.execute()).toEqual({applied: false, errors: ['vessel resize has no owner-granted resize route for \'scale\'']});
+            expect(fixture.calls, 'nothing moved').toEqual([])
+        } finally {
+            await fixture.cleanup()
+        }
+    })
+});

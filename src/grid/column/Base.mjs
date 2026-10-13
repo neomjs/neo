@@ -38,6 +38,12 @@ class Column extends Base {
          */
         cellCls: null,
         /**
+         * Overrides the Grid's column menu opt-in; null inherits it.
+         * @member {Boolean|null} columnMenu_=null
+         * @reactive
+         */
+        columnMenu_: null,
+        /**
          * The field name of the data.Model to read the value from.
          * Must be unique within the grid instance.
          *
@@ -111,7 +117,15 @@ class Column extends Base {
          * @member {Number|null} windowId_=null
          * @reactive
          */
-        windowId_: null
+        windowId_: null,
+        /**
+         * Content-sized rows: true lets this column's text wrap and drive the row height. Rows take the tallest
+         * wrapped text of their `wrapText` columns, and never less than the grid's `rowHeight`. Applies to
+         * renderers that return text or html. Without `contentSizedRows` on the grid it has no effect.
+         * @member {Boolean} wrapText_=false
+         * @reactive
+         */
+        wrapText_: false
     }
 
     /**
@@ -124,9 +138,8 @@ class Column extends Base {
             let me            = this,
                 gridContainer = me.parent,
                 body          = gridContainer?.body,
-                headerToolbar = gridContainer?.headerToolbar,
                 colPositions  = body?.columnPositions,
-                button        = headerToolbar?.getColumn(oldValue),
+                button        = gridContainer?.getButton(oldValue),
                 pos           = colPositions?.get(oldValue);
 
             if (pos) {
@@ -142,6 +155,18 @@ class Column extends Base {
             if (button) {
                 button.dataField = value
             }
+        }
+    }
+
+    /**
+     * @summary Projects this column's menu override into its current physical header.
+     * @param {Boolean|null} value
+     * @param {Boolean|null} oldValue
+     */
+    afterSetColumnMenu(value, oldValue) {
+        if (oldValue !== undefined && this.parent) {
+            const button = this.parent.getButton(this.dataField);
+            if (button) button.columnMenu = value ?? this.parent.columnMenu
         }
     }
 
@@ -214,6 +239,17 @@ class Column extends Base {
     }
 
     /**
+     * Triggered after the wrapText config got changed. A content-sized grid forgets its measured row heights and
+     * measures the rows it renders again.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetWrapText(value, oldValue) {
+        oldValue !== undefined && this.parent?.view?.resetRowHeights()
+    }
+
+    /**
      * Triggered before the hideMode config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -270,6 +306,7 @@ class Column extends Base {
             out = super.toJSON();
 
         out.dataField = me.dataField;
+        out.columnMenu = me.columnMenu;
         out.type      = me.type;
 
         if (Neo.isString(me.renderer)) {

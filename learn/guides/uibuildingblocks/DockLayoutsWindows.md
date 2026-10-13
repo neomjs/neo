@@ -143,6 +143,12 @@ Membership is separate from binding. "A participant lives while its Group does, 
 doing, and a Group holding participants is never empty." Hold on to that sentence; it is the reason a dead window
 does not take your pane with it.
 
+Binding also gives the window a position the engine can read. A window dragged by its native title bar sends the page
+no pointer events, so the engine knows where it stands only through `Neo.main.addon.WindowPosition`, whose stream keeps
+the window's row in `Neo.manager.Window` current, and every cross-window drop zone hit-tests that row. The host loads
+the addon into each window it arms, its own and every admitted vessel's (`Neo.currentWorker.getAddon`), so a tear-out
+app lists nothing for it in `mainThreadAddons`, even when a vessel's page is a child app with its own config.
+
 The dock joins the Group through the workspace set, and the set enforces a protocol rather than documenting one. A
 participant must expose `capture`, `prepare`, `adopt` and `compensate`, or its transaction is refused outright.
 `capture()` is **synchronous** and returns `{value, generation, revision}` — a capture that could await would let the
@@ -310,6 +316,12 @@ into another; a node that is not the source's resolved stack root never transfer
 leaves the source with its panes. On the Workstation the receipt for this road reads in a fixed order — documents
 adopted, projections settled, close dispatched, close acknowledged — so the emptied vessel closes itself only after
 the main document holds its panes, each with the instance id it left with.
+
+A popup that Undo or a restored perspective re-opens is the same workspace in a new render target, not a tear-out.
+`NativeVesselTransaction.embodyWorkspace` opens it, so it carries no tear-out record and no native-route
+capabilities. Its stack still comes home by the grip, and once empty it closes through its Group binding, behind the
+same fence a Redo uses. Its title-bar drag returns nothing: a native return is admitted only for a vessel the tear-out
+registry knows, on a route born with the `position` capability, and a re-opened window has neither.
 
 All four share one physical fact that fooled two maintainers on the same day, and the guide would be dishonest to
 skip it. When a pane comes home, the *document* moves first and the *component* follows. On the Workstation the

@@ -5,10 +5,11 @@ setup({
     appConfig: {name: 'HelperMoveIntoInsertedSubtreeTest'}
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import VdomHelper     from '../../../../src/vdom/Helper.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import StringFromVnode from '../../../../src/vdom/util/StringFromVnode.mjs';
+import VdomHelper      from '../../../../src/vdom/Helper.mjs';
 
 /**
  * @summary A node the diff moves into a freshly inserted subtree is left out of that subtree's markup and follows as

@@ -38,9 +38,11 @@ class Button extends BaseButton {
          */
         cellAlign_: 'left',
         /**
-         * @member {String|null} dataField=null
+         * The Store field addressed by this header's sort and inline filter projection.
+         * @member {String|null} dataField_=null
+         * @reactive
          */
-        dataField: null,
+        dataField_: null,
         /**
          * Sort direction when clicking on an unsorted button
          * @member {String} defaultSortDirection='ASC'
@@ -121,6 +123,9 @@ class Button extends BaseButton {
         ]}
     }
 
+    /** @member {Promise|null} headerFilterReady=null @protected */
+    headerFilterReady = null
+
     /**
      * Triggered after the isSorted config got changed
      * @param {String|null} value
@@ -187,12 +192,30 @@ class Button extends BaseButton {
             } else {
                 delete me.filterField.vdom.removeDom
             }
+            me.ensureHeaderFilterProjection()
         } else if (me.filterField) {
             me.filterField.vdom.removeDom = true
         }
 
         me.updateDepth = 2;
         me.update()
+    }
+
+    /**
+     * @summary Attaches the shared inline projection once without introducing a Table menu surface.
+     * @returns {Promise}
+     */
+    ensureHeaderFilterProjection() {
+        return this.headerFilterReady ||= import('../../plugin/HeaderFilter.mjs').then(({default: module}) => {
+            if (!this.isDestroyed && !this.isDestroying) {
+                let plugin = this.getPlugin('plugin-header-filter');
+                if (!plugin) {
+                    this.plugins = [...(this.plugins || []), {module}];
+                    plugin = this.getPlugin('plugin-header-filter')
+                }
+                plugin.syncField()
+            }
+        })
     }
 
     /**
@@ -256,6 +279,7 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Updates the shared inline contribution without replacing picker or application predicates.
      * @param {Object} data
      */
     changeFilterOperator(data) {
@@ -263,22 +287,19 @@ class Button extends BaseButton {
             tableContainer = me.up('table-container'),
             store          = tableContainer?.store,
             operator       = data.value,
-            filter, filters;
+            filter;
 
         if (store) {
-            filter = store.getFilter(me.dataField);
+            filter = store.getFilter(me.dataField, 'header-inline');
 
             if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
-                    value   : null,
+                store.filters = [...store.filters, {
                     ...me.filterConfig,
-                    operator
-                });
-
-                store.filters = filters
+                    property : me.dataField,
+                    value    : null,
+                    operator,
+                    ownerRole: 'header-inline'
+                }]
             } else {
                 filter.operator = operator
             }
@@ -286,6 +307,7 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Writes input into the shared inline contribution; filterConfig supplies creation defaults only.
      * @param {Object} data
      */
     changeFilterValue(data) {
@@ -293,14 +315,14 @@ class Button extends BaseButton {
             tableContainer = me.up('table-container'),
             store          = tableContainer?.store,
             {value}        = data,
-            field, filter, filters, model;
+            field, filter, model;
 
         if (store) {
-            filter = store.getFilter(me.dataField);
+            filter = store.getFilter(me.dataField, 'header-inline');
             model  = store.model;
             field  = model && model.getField(me.dataField);
 
-            if (value && field.type.toLowerCase() === 'date') {
+            if (value && field?.type?.toLowerCase() === 'date') {
                 value = new Date(value)
             }
 
@@ -309,16 +331,13 @@ class Button extends BaseButton {
             }
 
             if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
+                store.filters = [...store.filters, {
                     operator: 'like',
                     ...me.filterConfig,
-                    value
-                });
-
-                store.filters = filters
+                    property : me.dataField,
+                    value,
+                    ownerRole: 'header-inline'
+                }]
             } else {
                 filter.value = value
             }

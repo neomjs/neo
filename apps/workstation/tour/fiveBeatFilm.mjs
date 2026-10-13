@@ -24,6 +24,7 @@
  * folds into its edge rail, is revealed, and comes back), the resize (the main boundary follows a
  * real pointer drag, both panes re-flowing live, and commits once on release), the drop-zone
  * showcase that puts the travelled pane wherever the viewer likes, perspectives with undo/redo,
+ * the saved two-window arrangement restored and its re-born stack dragged home,
  * and the living close. The picture sets the pace: every pointer walk runs at hand tempo (a sample
  * every 33 ms, the leg's `moveSteps` sized to about a second of travel), a hold inside a gesture
  * and a cue-free reading beat are each at most 1.5 s, and no gesture or beat is stretched to fit a
@@ -69,7 +70,7 @@
  * - undo/redo round-trip       → one dock mutation walked back and replayed on the Group cursor (scene 8)
  * - cross-window restore       → a topology restore returns both panes to their closed window's
  *                                workspace and opens nothing; the gated `workspace-open` births that
- *                                window again around them, and closing it brings them home (scene 9)
+ *                                window again around them; a stack drag brings them home and retires it (scene 9)
  * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 10)
  * Narration makes NO cross-platform, default-selection, or portability claims, and carries no
  * competitive comparisons — captions inherit the spec's macOS-headed claim boundary.
@@ -99,7 +100,8 @@ const filmPace = Object.freeze({birthAttempts: 240, curve: 0.18, moveDelay: 33, 
  */
 export const filmCueTypes = Object.freeze([
     'scroll', 'canvas-update', 'cross-zone-showcase', 'rail', 'resize', 'gate', 'tear-out',
-    'journey', 'native-return', 'perspective-capture', 'perspective-restore', 'workspace-open', 'workspace-close', 'undo', 'redo'
+    'journey', 'native-return', 'stack-return', 'perspective-capture', 'perspective-restore', 'workspace-open', 'undo', 'redo',
+    'grid-drag-scroll', 'vessel-resize'
 ]);
 
 /**
@@ -379,8 +381,8 @@ export const fiveBeatFilmScript = Object.freeze({
         id           : 'film-perspective-across-windows',
         title        : 'An arrangement across windows comes back',
         targetSeconds: 8,
-        narration    : 'The two-window arrangement from the journey was saved as well. Restore it — Metrics and Commits leave the room for their window, and the window is born again around them. Close it, and both come home.',
-        beats        : ['restore the two-window perspective: both panes leave the room for their closed window’s workspace', 'the viewer opens the door: the window is born again around the same live panes', 'a beat to read the re-born window', 'closing the window brings both panes home'],
+        narration    : 'The two-window arrangement from the journey was saved as well. Restore it — Metrics and Commits leave the room for their window, and the window is born again around them. Drag their stack home, and the empty window closes.',
+        beats        : ['restore the two-window perspective: both panes leave the room for their closed window’s workspace', 'the viewer opens the door: the window is born again around the same live panes', 'a beat to read the re-born window', 'dragging the stack home returns both panes and retires the empty window'],
         steps        : [{
             // A restore is semantic: it returns both panes to the workspace of their closed window
             // and opens nothing. The window is the gated birth that follows.
@@ -403,32 +405,90 @@ export const fiveBeatFilmScript = Object.freeze({
             ms     : 1500,
             caption: 'the re-born window holds both panes — a beat to read it'
         }, {
-            // A window born from a topology record has no tear-out ownership record, which the
-            // title-bar return of scene 4 needs as its native drag source. Closing the window is its
-            // own way home: the panes return before the window disconnects.
+            // The stack grip carries the committed document even when its window has no tear-out
+            // record. Returning both panes empties the source; its Group binding owns retirement.
             type   : 'pause',
             ms     : 1200,
-            cue    : {type: 'workspace-close', workspaceKey: 'workstation-vessel:metrics'},
-            caption: 'close the window: both panes come home, the same live instances'
+            cue    : {type: 'stack-return', ownerItemId: 'metrics', options: {moveDelay: 33, showCursor: true}},
+            caption: 'drag the stack home: both panes return, and the empty window closes'
         }]
     }, {
         id           : 'film-signature',
         title        : 'It never left',
         targetSeconds: 10,
         narration    : 'A hundred thousand rows still cross their midpoint. Same instances, end to end. Heartbeats monotonic through every transition. The content never stopped living — because it never left.',
-        beats        : ['the hundred-thousand-row matrix crosses its midpoint', 'final topology readout', 'identity equality end-to-end', 'monotonic heartbeat close'],
+        beats        : ['the matrix and the feed come back in front', 'the matrix leaves the room in a window of its own', 'the window grows beside the room', 'the hundred-thousand-row matrix crosses its midpoint', 'one flick: the grid\'s momentum carries the rows on into the canvas columns', 'final topology readout: the room whole, the matrix in its own window', 'identity equality end-to-end', 'monotonic heartbeat close'],
         steps        : [{
+            // The showcase left Metrics in front of the feed and the redo left Security in front
+            // of the matrix: the close is about both panes, so both come back in front first —
+            // committed document operations, a no-op where the tab is already active.
+            type      : 'op',
+            caption   : 'the hundred-thousand-row matrix comes back in front of its group',
+            descriptor: {operation: 'setActiveItem', tabsNodeId: 'scale-tabs', itemId: 'scale'},
+            expect    : [{path: 'nodes.scale-tabs.activeItemId', equals: 'scale'}]
+        }, {
+            type      : 'op',
+            caption   : 'the live feed comes back in front of its group',
+            descriptor: {operation: 'setActiveItem', tabsNodeId: 'bottom-tabs', itemId: 'feed'},
+            expect    : [{path: 'nodes.bottom-tabs.activeItemId', equals: 'feed'}]
+        }, {
+            // The matrix at three hundred pixels of pane can show neither its rows nor its canvas
+            // columns at scale. The close takes it out of the room the way a desktop user would: a
+            // window born under the hand, the same instance riding along, then grown beside the
+            // room — the film's one window resize.
+            type   : 'pause',
+            ms     : 0,
+            cue    : {type: 'gate', prompt: 'Continue — the matrix leaves the room and grows into a window of its own'},
+            caption: 'One more window is about to be born under the hand. Your click is the browser’s permission to open it.'
+        }, {
+            type   : 'pause',
+            ms     : 1200,
+            cue    : {type: 'tear-out', itemId: 'scale', sourceNodeId: 'scale-tabs', options: filmPace},
+            caption: 'the matrix leaves the room: a window is born under the hand, the same hundred thousand rows riding along'
+        }, {
+            type   : 'pause',
+            ms     : 1000,
+            cue    : {type: 'vessel-resize', itemId: 'scale', frame: {anchor: 'right-of-main', gap: 24, width: 900}, options: {moveDelay: 33, moveSteps: 16}},
+            caption: 'the window grows beside the room — the matrix gets the space it never had in its pane'
+        }, {
             type   : 'pause',
             ms     : 1400,
             cue    : {type: 'scroll', index: 50000},
             caption: 'a hundred thousand rows cross their midpoint — and the rest of the room keeps breathing'
         }, {
+            // A throw, not a walk: one stroke at the film's rhythm that winds up and whips (the
+            // distance eased in, so the last hundred milliseconds carry the speed), then the grid's
+            // own drag-scroll carries the rows on under momentum for seconds (the velocity over the
+            // last hundred milliseconds, friction 0.95). The x axis stops at the matrix's right room
+            // with the sparkline column — the framework's OffscreenCanvas path — in view; the y axis
+            // runs far past the hand. The receipt's travel judges both.
+            type: 'pause',
+            ms  : 800,
+            cue : {
+                type   : 'grid-drag-scroll',
+                paneId : 'scale',
+                anchor : {x: 0.8, y: 0.85},
+                deltaX : -360,
+                deltaY : -480,
+                strokes: 1,
+                options: {attempts: 300, curve: 'throw', moveDelay: 33, moveSteps: 24, showCursor: true}
+            },
+            caption: 'one flick — the grid\'s own momentum carries the rows on past the hand, the canvas columns at the right edge in view'
+        }, {
+            // The film ends on the title: one app, many windows — the room breathing and the matrix
+            // streaming in a window of its own, side by side. (A vessel holding one item torn out
+            // alone has no scripted road home; the ticket records the roads measured and refused.)
             type   : 'topology-assert',
-            caption: 'final readout: the main split intact, every travelled pane, all still here',
+            caption: 'final readout: the main split intact, every travelled pane still here, the matrix keeping its seat in the room from its own window',
             expect : [
                 // the main split's proportion differs by tier after the resize beat (the document
                 // tier runs no cues), so the readout pins its order; the witness pins the proportion
                 {path: 'nodes.split-main.children', equals: ['scale-tabs', 'heavy-tabs']},
+                // the matrix's stored home survives its departure (Security stays in the group, so
+                // the tabs node is not removed with its last pane — the road back exists), the feed
+                // stays in front; the membership differs by tier, the document tier never tore it out
+                {path: 'nodes.scale-tabs.type', equals: 'tabs'},
+                {path: 'nodes.bottom-tabs.activeItemId', equals: 'feed'},
                 {path: 'items.metrics.title', equals: 'System Metrics'},
                 {path: 'items.commits.title', equals: 'Commit Stream'},
                 {path: 'items.traces.title', equals: 'Distributed Trace Explorer'}

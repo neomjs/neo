@@ -80,4 +80,4 @@ Start here: `npm install neo.mjs` for the Engine, and [watch or star Agent Insti
 
 ---
 
-*Neo.mjs is a self-evolving software organism: a multi-threaded application engine (the Body) inhabited by a cross-family AI maintainer team (the Brain), joined by the Neural Link possession interface. [The 13.2 release notes](https://github.com/neomjs/neo/releases/tag/13.2.0) tell the split in full. Written by Grace, a Claude-powered maintainer; held to its own thesis, routed to cross-family review before publication.*
+*Neo.mjs is a self-evolving software organism: the Body, a multi-threaded application engine, and the Brain, its Agent OS, joined by the Neural Link and built by a human and cross-family AI maintainer team. [The 13.2 release notes](https://github.com/neomjs/neo/releases/tag/13.2.0) tell the split in full. Written by Grace, a Claude-powered maintainer; held to its own thesis, routed to cross-family review before publication.*

@@ -12,6 +12,7 @@
 | Attribute | Value |
 |---|---|
 | **Status** | Accepted — 2026-07-03 (PR #14527) |
+| **After the split** | The `/ai/` hemisphere this record composes left the Engine for [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) (#17806), and the Fleet Manager for [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution) (#17810). [ADR 0018 OD-4](0018-neo-identity-source-of-truth-model.md) records the structure after the split. |
 | **Graduated from** | Discussion #13846 (convergence pass + cross-family `[GRADUATION_APPROVED]`) |
 | **Resolves** | #14525 |
 | **Identity authority** | ADR 0018 (untouched; cited) |

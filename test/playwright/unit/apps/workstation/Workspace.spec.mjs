@@ -16,6 +16,7 @@ import DockWorkspace            from '../../../../../src/dashboard/dock/Workspac
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../../../src/dashboard/dock/model/Persistence.mjs';
 import DockParticipation        from '../../../../../src/dashboard/dock/window/Participation.mjs';
+import NativeVesselTransaction  from '../../../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import TopologyLibrary    from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
@@ -48,6 +49,117 @@ test('binding a restored vessel supplies its native item identity', async () => 
     expect(await Workspace.prototype.retireReturnedVessel.call(workspace, 'restored-slot')).toBe(true);
     expect(calls, 'the rebound identity resolves the vessel that must close').toEqual(['metrics'])
 });
+
+test('an emptied vessel re-opened for its workspace closes through its Group binding', async () => {
+    const original  = NativeVesselTransaction.closeWorkspaceWindow, closes = [], retired = [],
+          native    = {windowId: () => 'reopened-window'},
+          workspace = {
+              getPopupState       : () => ({document: {items: {}}, itemId: 'feed'}),
+              resolveTearOutVessel: () => null,
+              nativeWindows       : {retire: async (_sourceId, vessel) => {retired.push(vessel); return true}},
+              workspaceSet        : {getParticipant: () => ({nativeWindow: native})}
+          };
+
+    NativeVesselTransaction.closeWorkspaceWindow = async (set, workspaceId) => {closes.push(workspaceId); return true};
+
+    try {
+        expect(await Workspace.prototype.retireReturnedVessel.call(workspace, 'workstation-vessel:feed')).toBe(true);
+        expect(closes, 'no tear-out record: the Group binding closes the window').toEqual(['workstation-vessel:feed']);
+        expect(retired, 'the item-keyed retirement has no record to retire').toEqual([]);
+
+        native.windowId = () => null;
+        expect(await Workspace.prototype.retireReturnedVessel.call(workspace, 'workstation-vessel:feed'),
+            'neither a record nor a bound window: nothing to close').toBe(false);
+        expect(closes).toHaveLength(1)
+    } finally {
+        NativeVesselTransaction.closeWorkspaceWindow = original
+    }
+});
+
+test('a restored window opens at its Group hint relative to the opener frame without changing either input', () => {
+    const manager     = Neo.manager.Window, originalGet = manager.get,
+          reservation = Object.freeze({workspaceKey: 'restored-room', groupId: 'restored-group'}),
+          hint        = Object.freeze({dx: 98.35, dy: -21.6, width: 640, height: 400}),
+          hints       = Object.freeze({'restored-room': hint}),
+          geometry    = Object.freeze({
+              outerRect: Object.freeze({x: 270.4, y: 95.4, width: 1600, height: 1000}),
+              innerRect: Object.freeze({x: 275.4, y: 162.4, width: 1590, height: 933})
+          });
+    manager.get = windowId => {expect(windowId).toBe('opener-window'); return geometry};
+    try {
+        const config = Workspace.prototype.getNativeWindowOpenConfig.call({
+            windowId: 'opener-window', theme: 'neo-dark', getPlacementHints: () => hints
+        }, reservation);
+        expect(Object.fromEntries(config.windowFeatures.split(',').map(part => part.split('='))))
+            .toEqual({width: '700', height: '600', left: '369', top: '74'});
+        expect(config.topologyIdentity).toBe(reservation);
+        expect(config.windowId).toBe('opener-window');
+        expect(new URL(config.url, 'https://example.test/workstation/').searchParams.get('workspace')).toBe('restored-room');
+        expect(hints['restored-room']).toBe(hint);
+        expect(hint).toEqual({dx: 98.35, dy: -21.6, width: 640, height: 400});
+        expect(geometry.outerRect).toEqual({x: 270.4, y: 95.4, width: 1600, height: 1000})
+    } finally {manager.get = originalGet}
+});
+
+test('missing or nonfinite opener geometry and placement hints preserve a size-only window open', () => {
+    const manager     = Neo.manager.Window, originalGet = manager.get,
+          reservation = {workspaceKey: 'restored-room', groupId: 'restored-group'};
+    for (const [geometry, hint] of [
+        [undefined, {dx: 10, dy: 20}],
+        [{innerRect: {x: 300, y: 400}}, {dx: 10, dy: 20}],
+        [{outerRect: {x: NaN, y: 200}}, {dx: 10, dy: 20}],
+        [{outerRect: {x: 100, y: Infinity}}, {dx: 10, dy: 20}],
+        [{outerRect: {x: 100, y: 200}}, undefined],
+        [{outerRect: {x: 100, y: 200}}, {dx: undefined, dy: 20}],
+        [{outerRect: {x: 100, y: 200}}, {dx: 10, dy: NaN}],
+        [{outerRect: {x: 100, y: 200}}, {dx: -Infinity, dy: 20}]
+    ]) {
+        manager.get = () => geometry;
+        try {
+            const config = Workspace.prototype.getNativeWindowOpenConfig.call({
+                windowId: 'opener-window', theme: 'neo-dark', getPlacementHints: () => ({'restored-room': hint})
+            }, reservation);
+            expect(config.windowFeatures).toBe('width=700,height=600');
+            expect(config.topologyIdentity).toBe(reservation);
+            expect(config.url).toBe('./index.html?workspace=restored-room&theme=neo-dark');
+            expect(config.windowName).toMatch(/^workstation-restored-/)
+        } finally {manager.get = originalGet}
+    }
+});
+
+for (const path of ['tear-out record', 'Group binding']) {
+    for (const replacementWindowId of [null, 'successor-window']) {
+        test(`${path} retirement cannot mark a ${replacementWindowId === null ? 'detached' : 'rebound'} window close-requested`, async () => {
+            const original  = NativeVesselTransaction.closeWorkspaceWindow, closing = Promise.withResolvers(), calls = [],
+                  state     = {document: {items: {}}, itemId: 'feed', windowId: 'retiring-window', closeRequested: false},
+                  vessel    = {itemId: 'feed', windowId: 'retiring-window'},
+                  workspace = {
+                      id                  : 'retirement-owner', getPopupState: () => state,
+                      resolveTearOutVessel: () => path === 'tear-out record' ? vessel : null,
+                      nativeWindows       : {retire: (sourceId, value) => {calls.push([sourceId, value]); return closing.promise}},
+                      workspaceSet        : {getParticipant: () => ({nativeWindow: {windowId: () => state.windowId}})}
+                  };
+            NativeVesselTransaction.closeWorkspaceWindow = (set, workspaceId) => {
+                calls.push([set, workspaceId]);
+                return closing.promise
+            };
+            try {
+                const flight = Workspace.prototype.retireReturnedVessel.call(workspace, 'workstation-vessel:feed');
+                expect(calls).toEqual(path === 'tear-out record'
+                    ? [['retirement-owner', vessel]] : [[workspace.workspaceSet, 'workstation-vessel:feed']]);
+                expect(state.closeRequested).toBe(false);
+                state.windowId = replacementWindowId;
+                closing.resolve(true);
+                expect(await flight).toBe(true);
+                expect(state.windowId).toBe(replacementWindowId);
+                expect(state.closeRequested).toBe(false)
+            } finally {
+                closing.resolve(true);
+                NativeVesselTransaction.closeWorkspaceWindow = original
+            }
+        })
+    }
+}
 
 test('Reset awaits bound popup projections without waiting for a headless owner to remount', async () => {
     const live    = Promise.withResolvers(), headless = Promise.withResolvers();
@@ -806,16 +918,18 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
-    test('cross-window source projection publishes stable workspace identity and the claim opt-in', () => {
+    test('cross-window source projection publishes stable workspace identity and the claim opt-in', async () => {
         const
-            originalWindowPosition = Neo.main.addon.WindowPosition,
-            windowPosition         = originalWindowPosition ?? Neo.ns('Neo.main.addon.WindowPosition', true),
-            originalSetConfigs     = windowPosition.setConfigs,
-            resizeCalls            = [];
+            originalGetAddon = Neo.currentWorker.getAddon,
+            {isSharedWorker} = Neo.currentWorker,
+            resizeCalls      = [],
+            windowPosition   = {setConfigs: data => resizeCalls.push(data)};
         let workspace;
 
         try {
-            windowPosition.setConfigs = data => resizeCalls.push(data);
+            // The Workstation is a SharedWorker app, and the engine loads the addon into the bound window.
+            Neo.currentWorker.isSharedWorker = true;
+            Neo.currentWorker.getAddon       = async (name, windowId) => name === 'WindowPosition' ? windowPosition : originalGetAddon(name, windowId);
             workspace = Neo.create(Workspace, {});
 
             const chrome = readTabChrome(workspace);
@@ -829,7 +943,7 @@ test.describe('Workstation.view.Workspace', () => {
 
             workspace.windowId = Neo.config.windowId;
 
-            expect(resizeCalls).toEqual([{observeMovement: true, observeResize: true, windowId: Neo.config.windowId}]);
+            await expect.poll(() => resizeCalls).toEqual([{observeMovement: true, observeResize: true, windowId: Neo.config.windowId}]);
             expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
             expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBe(workspace.dockModel);
 
@@ -842,13 +956,8 @@ test.describe('Workstation.view.Workspace', () => {
             })
         } finally {
             workspace?.destroy();
-            if (originalWindowPosition) {
-                originalSetConfigs
-                    ? windowPosition.setConfigs = originalSetConfigs
-                    : delete windowPosition.setConfigs
-            } else {
-                delete Neo.main.addon.WindowPosition
-            }
+            Neo.currentWorker.getAddon       = originalGetAddon;
+            Neo.currentWorker.isSharedWorker = isSharedWorker
         }
     });
 

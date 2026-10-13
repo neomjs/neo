@@ -796,7 +796,9 @@ class VesselWorkspace extends DockWorkspace {
 
     /**
      * Closes an emptied vessel only after the main target projection has adopted the committed
-     * stack. Physical disconnect remains the topology-exit terminal.
+     * stack. Physical disconnect remains the topology-exit terminal. A torn-out vessel closes through
+     * its tear-out record; a window re-opened for the workspace (Undo, a perspective) has none and
+     * closes through its Group binding, as a Redo does.
      * @param {String} workspaceId
      * @returns {Promise<Boolean>}
      * @protected
@@ -805,9 +807,10 @@ class VesselWorkspace extends DockWorkspace {
         let me      = this,
             state   = me.getPopupState(workspaceId),
             vessel  = state && me.resolveTearOutVessel(state.itemId),
+            bound   = !vessel && me.workspaceSet?.getParticipant(workspaceId)?.nativeWindow?.windowId(),
             receipt = me.lastCrossWindowTransfer;
 
-        if (!state || Object.keys(state.document?.items || {}).length || !vessel) return false;
+        if (!state || Object.keys(state.document?.items || {}).length || !(vessel || bound)) return false;
 
         if (
             receipt?.sourceWorkspaceId === workspaceId &&
@@ -820,7 +823,9 @@ class VesselWorkspace extends DockWorkspace {
         // Through the engine's retirement, not the platform seam directly: the fence it holds keeps a
         // late bind for the same item cleanup-only while the close is in flight.
         const windowId = state.windowId,
-              closed   = await me.nativeWindows.retire(me.id, vessel);
+              closed   = vessel
+            ? await me.nativeWindows.retire(me.id, vessel)
+            : await NativeVesselTransaction.closeWorkspaceWindow(me.workspaceSet, workspaceId);
 
         if (closed) {
             // The retirement can settle after the window already detached. A close request describes
@@ -1478,13 +1483,17 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Supplies the restored Workstation page and native-window presentation.
+     * @summary Supplies the restored Workstation page at its Group-owned relative frame position.
      * @param {Object} reservation The shared manager's reserved workspace identity.
      * @returns {Object}
      */
     getNativeWindowOpenConfig(reservation) {
-        const params = new URLSearchParams({workspace: reservation.workspaceKey, theme: this.theme});
-        return {topologyIdentity: reservation, url: `./index.html?${params}`, windowFeatures: 'width=700,height=600',
+        const params   = new URLSearchParams({workspace: reservation.workspaceKey, theme: this.theme}),
+              hint     = this.getPlacementHints()[reservation.workspaceKey],
+              frame    = WindowManager.get(this.windowId)?.outerRect,
+              placed   = [frame?.x, frame?.y, hint?.dx, hint?.dy].every(Number.isFinite),
+              position = placed ? `,left=${Math.round(frame.x + hint.dx)},top=${Math.round(frame.y + hint.dy)}` : '';
+        return {topologyIdentity: reservation, url: `./index.html?${params}`, windowFeatures: `width=700,height=600${position}`,
             windowId: this.windowId, windowName: `workstation-restored-${crypto.randomUUID()}`}
     }
 

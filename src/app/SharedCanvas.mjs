@@ -381,12 +381,12 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * Updates the canvas size in the Shared Worker when the DOM element resizes.
+     * @summary Resizes the worker canvas while retaining the event's viewport origin for pointer conversion.
      * @param {Object} data
      */
     async onDomResize(data) {
         super.onDomResize(data);
-        await this.updateSize(data.contentRect)
+        await this.updateSize(data.contentRect, data.rect)
     }
 
     /**
@@ -410,23 +410,24 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * Caches the bounding rect, and pushes the new dimensions to the renderer once this window's canvas worker
+     * @summary Caches the viewport pointer rect and pushes dimensions to the renderer once this window's canvas worker
      * adopted the canvas: the app worker's renderer proxy exists as soon as ANY window's group registered it, even
      * while this window's group boots or failed. The message carries the host's `devicePixelRatio`, which a
      * renderer drawing at device resolution sizes its buffer by.
-     * @param {Object|null} [rect]
+     * @param {Object|null} [rect] Renderer sizing rectangle.
+     * @param {Object|null} [pointerRect=rect] Viewport rectangle; resize contentRect has a padding-relative origin.
      */
-    async updateSize(rect) {
+    async updateSize(rect, pointerRect=rect) {
         let me = this;
 
         await me.ready();
 
         if (!rect || rect.width === 0 || rect.height === 0) {
-            rect = await me.getDomRect(me.id)
+            rect = pointerRect = await me.getDomRect(me.id)
         }
 
         if (rect) {
-            me.canvasRect = rect;
+            me.canvasRect = pointerRect;
             me.offscreenRegistered && await me.renderer?.updateSize({
                 devicePixelRatio: Neo.config.devicePixelRatio || 1,
                 height          : rect.height,

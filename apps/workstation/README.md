@@ -63,7 +63,7 @@ again, into the first window, out once more, and in to stay; the merged stack is
 one; a pane folds into its edge rail and comes back; the main boundary follows a real pointer drag;
 the drop-zone showcase puts the travelled pane wherever the viewer likes; a perspective is
 captured, torn apart and restored, one dock mutation undone and redone; the two-window arrangement
-saved during the journey is restored, its window born again around both panes and brought home; and
+saved during the journey is restored, its window born again around both panes, then its stack dragged home; and
 the closing readout
 scrolls the hundred-thousand-row grid through its midpoint while the feed keeps ticking. Before
 every beat that opens a window the tour stops at a gate and shows **Continue**: that click is the

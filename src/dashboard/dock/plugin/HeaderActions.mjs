@@ -221,7 +221,7 @@ class HeaderActions extends Plugin {
             return {document: me.dockModel, errors: ['Dock pop-out action requires a tear-out handler bundle']}
         }
 
-        const proxyRect = await this.measureDockPaneRect(tabContainer);
+        const paneRect = await this.measureDockPaneRect(tabContainer);
 
         // A click is asynchronous across two awaits and `destroy()` nulls `tearOutHandlers`, so the
         // pipeline is re-checked after EVERY await rather than captured once. Nothing here may
@@ -230,8 +230,9 @@ class HeaderActions extends Plugin {
             return {document: me.dockModel, errors: ['Dock pop-out abandoned: the workspace was destroyed before admission']}
         }
 
-        // Admission-first. A refused vessel leaves the pane untouched and uncommitted.
-        const admitted = await me.admitDockPopOut({itemId, proxyRect, sortZone: null});
+        // Admission-first. A refused vessel leaves the pane untouched and uncommitted. The measured box both
+        // places the vessel (`proxyRect`) and sizes it (`sourceRect`): the pane lifts at its own footprint.
+        const admitted = await me.admitDockPopOut({itemId, proxyRect: paneRect, sourceRect: paneRect, sortZone: null});
 
         if (admitted === false) {
             return {document: me.dockModel, errors: ['Dock pop-out was refused by the host vessel seam']}

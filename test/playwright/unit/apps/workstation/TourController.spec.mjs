@@ -1,8 +1,9 @@
-import {setup}        from '../../../setup.mjs';
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
-import Workspace      from '../../../../../apps/workstation/view/Workspace.mjs';
+import {setup}            from '../../../setup.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../../src/Neo.mjs';
+import * as core          from '../../../../../src/core/_export.mjs';
+import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
+import TransactionManager from '../../../../../src/manager/Transaction.mjs';
 
 setup({appConfig: {name: 'WorkstationTourControllerTest'}});
 
@@ -15,6 +16,87 @@ function deferred() {
 
 /** @summary The entry reset `Workspace#resetTopology` answers when it commits. @returns {Object} */
 const acceptedReset = () => ({errors: [], reset: true, transactionId: null});
+
+test('a topology capture resumes its working layout only after a current durable acknowledgement', async () => {
+    const binding    = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: 'main'}),
+          workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          write      = deferred(), writing = deferred(), snapshots = [], resumed = [];
+    workspace.topologyLibrary.persistenceAdapter = {write: async () => {}};
+    try {
+        expect(await workspace.saveTopology('working-room')).toMatchObject({persisted: true, current: true, errors: []});
+        const save = workspace.saveTopology.bind(workspace);
+        workspace.saveTopology = async layoutId => {
+            const receipt = await save(layoutId);
+            resumed.push({layoutId, receipt});
+            return receipt
+        };
+        workspace.topologyLibrary.persistenceAdapter = {write: snapshot => {
+            snapshots.push(snapshot);
+            writing.resolve();
+            return write.promise
+        }};
+        let   settled = false;
+        const capture = controller.capturePerspectiveCue({captureScope: 'topology', name: 'film-room', layoutId: 'film-layout'})
+            .then(result => {settled = true; return result});
+        await writing.promise;
+        await new Promise(setImmediate);
+        expect(settled).toBe(false);
+        expect(snapshots).toHaveLength(1);
+        expect(snapshots[0].activeLayoutId).toBe('working-room');
+        expect(snapshots[0].topologies['film-layout'].perspectiveName).toBe('film-room');
+        expect(snapshots[0].topologies['working-room']).toBeTruthy();
+        write.resolve();
+        expect(await capture).toEqual({applied: true, errors: [], name: 'film-room', stored: true});
+        expect(resumed).toHaveLength(1);
+        expect(resumed[0]).toMatchObject({layoutId: 'working-room', receipt: {persisted: true, current: true, errors: []}});
+        expect(workspace.topologyCollection.activeLayoutId).toBe('working-room');
+        expect(workspace.topologyCollection.topologies['film-layout'].perspectiveName).toBe('film-room')
+    } finally {write.resolve(); workspace.destroy(); TransactionManager.retireGroup(binding.groupId)}
+});
+
+for (const [label, receipt] of [
+    ['failed persistence', {persisted: false, current: false, errors: []}],
+    ['stale persistence', {persisted: true, current: false, errors: []}],
+    ['errors-only acknowledgement', {errors: []}],
+    ['nonboolean persistence', {persisted: 'yes', current: true, errors: []}],
+    ['nonboolean freshness', {persisted: true, current: 'yes', errors: []}]
+]) {
+    test(`a topology capture refuses ${label} when restoring its working layout`, async () => {
+        const binding    = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: 'main'}),
+              workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+              controller = await workspace.getController().getTourController(), resumed = [];
+        workspace.topologyLibrary.persistenceAdapter = {write: async () => {}};
+        try {
+            expect(await workspace.saveTopology('working-room')).toMatchObject({persisted: true, current: true});
+            workspace.saveTopology = async layoutId => {resumed.push(layoutId); return receipt};
+            const result = await controller.capturePerspectiveCue({captureScope: 'topology', name: 'film-room'});
+            expect(result.applied).toBe(false);
+            expect(result.stored).toBe(true);
+            expect(result.errors.length).toBeGreaterThan(0);
+            expect(resumed).toEqual(['working-room']);
+            expect(workspace.topologyCollection.topologies['film-room'].perspectiveName).toBe('film-room');
+            expect(workspace.isDestroyed).toBeFalsy()
+        } finally {workspace.destroy(); TransactionManager.retireGroup(binding.groupId)}
+    })
+}
+
+test('an ordinary window capture keeps its working topology and does not request a topology save', async () => {
+    const binding    = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: 'main'}),
+          workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(), snapshots = [];
+    workspace.topologyLibrary.persistenceAdapter = {write: async snapshot => {snapshots.push(snapshot)}};
+    try {
+        expect(await workspace.saveTopology('working-room')).toMatchObject({persisted: true, current: true});
+        const before = structuredClone(workspace.topologyCollection);
+        workspace.saveTopology = () => {throw new Error('a window capture must not restore the topology')};
+        expect(await controller.capturePerspectiveCue({name: 'window-frame'}))
+            .toEqual({applied: true, errors: [], name: 'window-frame', stored: true});
+        expect(workspace.perspectiveStore.getPerspective('window-frame')).toBeTruthy();
+        expect(workspace.topologyCollection).toEqual(before);
+        expect(snapshots).toHaveLength(1)
+    } finally {workspace.destroy(); TransactionManager.retireGroup(binding.groupId)}
+});
 
 test('the configured runner cannot begin its next beat before the controller cue settles', async () => {
     const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),

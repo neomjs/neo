@@ -78,6 +78,17 @@ class Row extends Component {
     }
 
     /**
+     * Triggered after an update of this row landed in the DOM, e.g. for a changed record. Content-sized rows
+     * measure what it rendered.
+     * @protected
+     */
+    afterExecuteVdomUpdate() {
+        let gridBody = this.parent;
+
+        gridBody?.rowGeometry && gridBody.gridContainer.view.scheduleRowMeasure()
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -146,6 +157,9 @@ class Row extends Component {
     applyRendererOutput({cache, cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
         let {colspanField, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache;
 
+        // Premeasurement projects declared text only, without constructing component cells or an edit surface.
+        if (cache.measureOnly && column.component) return null;
+
         let me            = this,
             cellCls       = ['neo-grid-cell'],
             colspan       = record[colspanField],
@@ -188,6 +202,12 @@ class Row extends Component {
         };
 
         rendererOutput = column.renderer.call(column.rendererScope || gridContainer, rendererConfig);
+
+        if (cache.measureOnly && !(typeof rendererOutput === 'string' || typeof rendererOutput === 'number' ||
+            rendererOutput instanceof Date || rendererOutput == null ||
+            (Neo.typeOf(rendererOutput) === 'Object' && ('html' in rendererOutput || 'text' in rendererOutput)))) {
+            return null
+        }
 
         if (column.cellCls) {
             let extraCls = column.cellCls;
@@ -297,10 +317,13 @@ class Row extends Component {
         }
 
         if (Neo.typeOf(rendererOutput) === 'Object') {
-            if (Object.hasOwn(rendererOutput, 'html')) {
-                cellConfig.html = rendererOutput.html  || ''
+            let content = Object.hasOwn(rendererOutput, 'html') ? {html: rendererOutput.html || ''} : {text: rendererOutput.text || ''};
+
+            // Content-sized rows: the text of a wrapText column wraps in a block container, which the view measures
+            if (column.wrapText && gridBody.rowGeometry) {
+                cellConfig.cn = [{cls: ['neo-grid-cell-text'], id: `${cellId}__text`, ...content}]
             } else {
-                cellConfig.text = rendererOutput.text  || ''
+                Object.assign(cellConfig, content)
             }
         } else {
             cellConfig.cn = rendererOutput
@@ -383,6 +406,7 @@ class Row extends Component {
             view           = gridContainer?.view,
             selectedCells  = view?.selectedCells ?? [],
             selectionModel = view?.selectionModel ?? null,
+            {rowGeometry}  = gridBody,
             recordId       = gridBody.getRecordId(record),
             countColumns   = columns.getCount(),
             cellEditing    = gridContainer.getPlugin('grid-cell-editing'),
@@ -394,10 +418,11 @@ class Row extends Component {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
             data           : {recordId, rowId: rowIndex},
             role           : 'row',
+            // Content-sized rows take height and offset from the view's geometry, fixed rows multiply
             style          : {
                 display  : null, // Reset display in case it was hidden
-                height   : rowHeight + 'px',
-                transform: `translate3d(0px, calc(${rowIndex * rowHeight}px + var(--grid-row-pin-offset, 0px)), 0px)`
+                height   : (rowGeometry ? rowGeometry.heightAt(rowIndex) : rowHeight) + 'px',
+                transform: me.getRowTransform(rowGeometry ? rowGeometry.offsetAt(rowIndex) : rowIndex * rowHeight)
             }
         });
 
@@ -474,7 +499,7 @@ class Row extends Component {
 
                     if (oldNode && oldNode.data?.recordId === recordId) {
                         // We must update the ID and colindex to match the new physical slot
-                        oldNode.id = `${me.id}__cell-${poolIndex}`;
+                        Row.setCellId(oldNode, `${me.id}__cell-${poolIndex}`);
                         oldNode['aria-colindex'] = i + 1;
 
                         // Update position
@@ -561,7 +586,7 @@ class Row extends Component {
                         // re-issued that pool id — keeping it here puts two nodes with one id
                         // into a single row, and id-based diffing collapses (id-less insert
                         // storms, the DOM accumulating both generations).
-                        oldNode.id = `${me.id}__${column.dataField}`;
+                        Row.setCellId(oldNode, `${me.id}__${column.dataField}`);
                         oldNode['aria-colindex'] = i + 1;
 
                         if (columnPosition) {
@@ -654,6 +679,50 @@ class Row extends Component {
     }
 
     /**
+     * The transform that places this row at an offset in px. `--grid-row-pin-offset` is the scroll pinning
+     * delta of the `GridRowScrollPinning` main-thread addon.
+     * @param {Number} offset
+     * @returns {String}
+     */
+    getRowTransform(offset) {
+        return `translate3d(0px, calc(${offset}px + var(--grid-row-pin-offset, 0px)), 0px)`
+    }
+
+    /**
+     * Content-sized rows move when a row above them changes its height, while their record and index stay the
+     * same. True if the height or offset this row rendered no longer matches the view's row geometry.
+     * @returns {Boolean}
+     * @protected
+     */
+    hasStaleGeometry() {
+        let me            = this,
+            {rowGeometry} = me.parent,
+            {rowIndex}    = me,
+            {style}       = me.vdom;
+
+        return !!(rowGeometry && me.record) && (
+            style.height    !== rowGeometry.heightAt(rowIndex) + 'px' ||
+            style.transform !== me.getRowTransform(rowGeometry.offsetAt(rowIndex))
+        )
+    }
+
+    /**
+     * Gives a recycled cell the id of its new slot. A content-sized text container inside it takes the matching
+     * id, so no two elements of a row share one.
+     * @param {Object} cell The cell's vdom
+     * @param {String} id
+     */
+    static setCellId(cell, id) {
+        let text = cell.cn?.[0];
+
+        cell.id = id;
+
+        if (text?.cls?.includes('neo-grid-cell-text')) {
+            text.id = `${id}__text`
+        }
+    }
+
+    /**
      * Updates components inside the row matching a specific identifier (ntype, className or Class)
      * @param {String|Neo.core.Base} identifier
      * @param {Object} config
@@ -680,7 +749,7 @@ class Row extends Component {
     }
 
     /**
-     * Updates the content of this Row instance to display a new record.
+     * @summary Updates this pooled row to display a record, refreshing cells when the record instance changes.
      *
      * This is the core method of the Row Pooling architecture. It is called by `Neo.grid.Body`
      * during scrolling or rendering. It updates the internal state (`record`, `rowIndex`)
@@ -689,7 +758,7 @@ class Row extends Component {
      * @param {Object} data
      * @param {Boolean} [data.force=false] True to force a VDOM update even if record and rowIndex are unchanged.
      * @param {Object} data.record The new record to display.
-     * @param {Boolean} [data.recycle=true] True to attempt reusing existing cell VDOMs (performance optimization).
+     * @param {Boolean} [data.recycle=true] True to reuse cell VDOMs only while retaining the same record instance.
      * @param {Number} data.rowIndex The new row index.
      * @param {Boolean} [data.silent=false] True to prevent an immediate VDOM update (useful for batching).
      */
@@ -698,10 +767,11 @@ class Row extends Component {
 
         // Optimization: Skip VDOM generation if the state hasn't changed.
         // This prevents thousands of redundant updates during simple scrolling.
-        if (!force && me.record === record && me.rowIndex === rowIndex) {
+        if (!force && me.record === record && me.rowIndex === rowIndex && !me.hasStaleGeometry()) {
             return
         }
 
+        recycle     = recycle && me.record === record;
         me.record   = record;
         me.rowIndex = rowIndex;
 

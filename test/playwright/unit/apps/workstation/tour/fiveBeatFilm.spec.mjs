@@ -90,8 +90,9 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         filmCueTypes.forEach(type => expect(WORKSTATION_CUE_TYPES).toContain(type));
 
         // the cold open's resize is a pointer drag (a `resize` cue), so the document tier's own
-        // operations are the showcase's split and the perspective scene's re-add
-        expect(operations).toEqual(['splitNode', 'addTab']);
+        // operations are the perspective scene's split and re-add, then the signature's two
+        // activations that bring the matrix and the feed back in front
+        expect(operations).toEqual(['splitNode', 'addTab', 'setActiveItem', 'setActiveItem']);
         operations.forEach(operation => expect(Operations.operations).toContain(operation))
     });
 
@@ -112,13 +113,13 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         });
 
         // the tear-out, the journey (one gate: the click activates its first window, the two births
-        // that follow inside the same drag rest on the site's pop-up permission) and the re-birth of
-        // the restored window; the stack returns open no window
-        expect(births).toBe(3);
-        expect(steps().filter(step => step.cue?.type === 'gate')).toHaveLength(3);
-        expect(steps().find(step => step.cue?.type === 'native-return').cue.ownerItemId).toBe('metrics');
+        // that follow inside the same drag rest on the site's pop-up permission), the restored
+        // window and the signature's matrix window. Both stack returns open no window.
+        expect(births).toBe(4);
+        expect(steps().filter(step => step.cue?.type === 'gate')).toHaveLength(4);
+        expect(steps().filter(step => step.cue?.type === 'native-return').map(step => step.cue.ownerItemId)).toEqual(['metrics']);
         expect(steps().filter(step => step.cue?.type === 'tear-out').map(step => step.cue.options.reenter === true))
-            .toEqual([false]);
+            .toEqual([false, false]);
 
         // the journey walks Commits out, back over main, out, into the vessel the tear-out committed,
         // out once more, and drops there: a target hop follows a desktop hop, and the last hop drops
@@ -131,7 +132,7 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(journey.sourceNodeId).not.toBe('heavy-tabs')
     });
 
-    test('the arrangement across windows: saved while Metrics\' window holds both panes, restored after the stack came home, re-born behind a gate and closed home', () => {
+    test('the arrangement across windows: saved with both panes, restored behind a gate, and returned home by its stack grip', () => {
         const scenes                             = fiveBeatFilmScript.scenes,
               ids                                = scenes.map(scene => scene.id),
               capture                            = scenes.find(scene => scene.id === 'film-journey').steps.at(-1).cue,
@@ -148,8 +149,10 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(open.cue).toEqual({type: 'workspace-open', workspaceKey: `workstation-vessel:${owner}`});
         expect(dwell, 'a cue-free beat to read the re-born window').toMatchObject({type: 'pause', ms: 1500});
         expect(dwell.cue).toBeUndefined();
-        // a re-born window has no tear-out ownership record for a title-bar return; closing it brings its panes home
-        expect(home.cue).toEqual({type: 'workspace-close', workspaceKey: open.cue.workspaceKey});
+        // the stack gesture returns both panes and retires the emptied source through its Group binding
+        expect(home.cue).toEqual({type: 'stack-return', ownerItemId: owner, options: {moveDelay: 33, showCursor: true}});
+        expect(steps().filter(step => step.cue?.type === 'stack-return')).toHaveLength(1);
+        expect(WORKSTATION_CUE_TYPES).not.toContain('workspace-close');
         expect(steps().filter(step => step.cue?.type === 'native-return')).toHaveLength(1)
     });
 
@@ -187,12 +190,13 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
             .filter(step => step.cue?.options?.moveSteps !== undefined)
             .map(step => ({type: step.cue.type, ...step.cue.options}));
 
-        expect(walks.map(walk => walk.type)).toEqual(['resize', 'tear-out', 'journey', 'native-return', 'rail', 'resize', 'cross-zone-showcase']);
+        expect(walks.map(walk => walk.type)).toEqual(['resize', 'tear-out', 'journey', 'native-return', 'rail', 'resize', 'cross-zone-showcase', 'tear-out', 'vessel-resize', 'grid-drag-scroll']);
         walks.forEach(walk => expect(walk.moveDelay, `${walk.type}: the film's sampling rhythm`).toBe(33));
 
         // a same-thread walk's leg is its samples times the rhythm; the native return pays a window
-        // move's round trip per sample on top, so its leg is pinned by samples alone
-        walks.filter(walk => walk.type !== 'native-return').forEach(walk =>
+        // move's round trip per sample on top, and the vessel resize a move's and a resize's, so
+        // their legs are pinned by samples alone
+        walks.filter(walk => !['native-return', 'vessel-resize'].includes(walk.type)).forEach(walk =>
             expect(walk.moveDelay * walk.moveSteps, `${walk.type}: a leg is about a second, never a machine-speed jump`).toBeGreaterThanOrEqual(790));
         expect(walks.find(walk => walk.type === 'native-return').moveSteps).toBeGreaterThanOrEqual(16)
     });
@@ -222,7 +226,7 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(history[addTabAt + 2].cue?.type).toBe('undo')
     });
 
-    test('the document tier runs twice with identical logs and ends with Security in the matrix group', async () => {
+    test('the document tier runs twice with identical logs and ends with the matrix and the feed in front, Security a member of the matrix group', async () => {
         createRunner();
 
         const first = await runner.start();
@@ -235,7 +239,11 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         // both resizes are cues (pointer drags), which spec mode never executes: the shipped
         // proportion stands, and the receipts carry the committed vectors in the film witness
         expect(firstDocument.nodes['split-main'].sizes).toEqual([0.6, 0.4]);
-        expect(firstDocument.nodes['scale-tabs'].activeItemId).toBe('security');
+        // the redo leaves Security in the matrix group; the signature brings the matrix and the
+        // feed back in front before the close (a take frame-checked on 2026-10-10 had both hidden)
+        expect(firstDocument.nodes['scale-tabs'].items).toContain('security');
+        expect(firstDocument.nodes['scale-tabs'].activeItemId).toBe('scale');
+        expect(firstDocument.nodes['bottom-tabs'].activeItemId).toBe('feed');
         expect(firstDocument.nodes['heavy-tabs'].items).not.toContain('security');
         // cues are not executed in spec mode, so the travelled panes never left the document
         expect(firstDocument.items.metrics.title).toBe('System Metrics');

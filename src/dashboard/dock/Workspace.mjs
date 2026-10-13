@@ -134,7 +134,8 @@ const unreachableReturnWarned = new Set();
  * - `project(context)` — the post-commit presentation callback. It receives the transaction
  *   **context**, not a document: the committed value is read from `context.snapshot`, and the
  *   adapter adds `preserveItemIds` naming the panes owned by sibling participants, so a source
- *   refresh cannot destroy a pane before its destination adopts it. It must return the projection
+ *   refresh cannot destroy a pane before its destination adopts it, plus `isCurrent()`, false once
+ *   a newer commit adopted this participant's next document. It must return the projection
  *   promise and must NOT admit another document write — projection observes the committed document,
  *   it does not advance it. That is {@link #onDockZoneDocumentChange} being the sole mutation path,
  *   restated at the seam where a participant could otherwise break it.
@@ -736,8 +737,7 @@ class Workspace extends Container {
         // live extents as soon as it exists — during construction for an ordinary host, or from the
         // reactive window binding for a headless one — through the same stream every admitted vessel
         // opens on connect. A moved or resized main window therefore never claims with a stale frame.
-        // Not gated on the engine lifecycle flag: a host may run its own admission (the Workstation
-        // does) and still dock across windows; the app's opt-in is loading the addon at all.
+        // Only a SharedWorker app spans windows; a dock in any other app arms nothing.
         this.observeBoundWindowGeometry(this.windowId);
 
         this.syncDockParticipation()
@@ -1408,25 +1408,28 @@ class Workspace extends Container {
     }
 
     /**
-     * @summary Opens one render target's live geometry stream into `Neo.manager.Window`.
+     * @summary Loads `Neo.main.addon.WindowPosition` into one render target and opens its live
+     * geometry stream into `Neo.manager.Window`.
      *
-     * `Neo.main.addon.WindowPosition` publishes `windowPositionChange` only behind two configs it
-     * defaults off: `observeMovement` (the config-owned poll — pointer travel alone cannot arm it
-     * for a titlebar grabbed from outside page content) and `observeResize` (a fixed-origin resize
-     * is a geometry change the poll never sees). Without both, the manager's row for that window
-     * stays the connect-time snapshot and every cross-window claim hit-tests a stale frame. The
-     * engine host arms both — for its own first real window binding, for each admitted vessel before
-     * ownership publication — so an adopter that EXTENDS this host never has to know the addon
-     * exists. A host COMPOSED from the dock pieces onto a plain container never runs the binding
-     * hook and must arm the same pair itself; half of it (resize only) leaves the row blind to a
-     * titlebar drag, which is the defect the composition example carried. Overridable for a realm
-     * that publishes geometry another way.
+     * The addon publishes `windowPositionChange` only behind two configs it defaults off:
+     * `observeMovement` (the config-owned poll — pointer travel alone cannot arm it for a titlebar
+     * grabbed from outside page content) and `observeResize` (a fixed-origin resize is a geometry
+     * change the poll never sees). Without both, the manager's row for that window stays the
+     * connect-time snapshot and every cross-window claim hit-tests a stale frame. The engine host
+     * arms both — for its own first real window binding, for each admitted vessel before ownership
+     * publication — and loads the addon per window (`Neo.currentWorker.getAddon`), because each
+     * window's Main realm runs its own page config: a vessel's child app need not list it, and no app
+     * lists it for tear-out. A host COMPOSED from the dock pieces onto a plain container never runs
+     * the binding hook and must arm the same pair itself; half of it (resize only) leaves the row
+     * blind to a titlebar drag. Overridable for a realm that publishes geometry another way.
      * @param {String} windowId The render target whose Main realm publishes
-     * @returns {Promise<void>|undefined} The addon's remote settle, or `undefined` off the browser
+     * @returns {Promise<void>} Settles once the window's stream is armed
      * @protected
      */
-    observeWindowGeometry(windowId) {
-        return Neo.main?.addon?.WindowPosition?.setConfigs({observeMovement: true, observeResize: true, windowId})
+    async observeWindowGeometry(windowId) {
+        const WindowPosition = await Neo.currentWorker.getAddon('WindowPosition', windowId);
+
+        return WindowPosition.setConfigs({observeMovement: true, observeResize: true, windowId})
     }
 
     /**
@@ -1435,14 +1438,16 @@ class Workspace extends Container {
      * Construction and the reactive window-id hook deliberately share this guard: a Workspace
      * created with a window must not issue two remote writes, while one created headless must issue
      * none until a container supplies its first real id. The previous realm stays armed because
-     * WindowPosition's observation flags are realm-global, not Workspace-keyed leases.
+     * WindowPosition's observation flags are realm-global, not Workspace-keyed leases. Only an app
+     * whose App Worker is a SharedWorker spans windows, so a dock in any other app arms nothing and
+     * starts no poll.
      * @param {String|null} windowId The Workspace's current render target.
-     * @returns {Promise<void>|undefined} The addon's remote settle, or `undefined` when headless,
-     *     already armed, or outside the browser.
+     * @returns {Promise<void>|undefined} The arming, or `undefined` when headless, already armed, or
+     *     outside a SharedWorker app.
      * @protected
      */
     observeBoundWindowGeometry(windowId) {
-        if (!windowId || this.observedWindowGeometryId === windowId) {
+        if (!windowId || this.observedWindowGeometryId === windowId || !Neo.currentWorker.isSharedWorker) {
             return
         }
 
@@ -2247,11 +2252,15 @@ class Workspace extends Container {
      * @summary Projects a Group participant's adopted document with its captured operation context.
      * Presentation collaborators can distinguish ordered operations against their before-state;
      * the context is runtime-only and does not enter the document or reconciliation options.
+     * It runs when this participant's refresh chain reaches it; once the adapter's `isCurrent` reports
+     * that a newer commit adopted the next document, it stands down rather than take back panes that
+     * commit gave a sibling.
      * @param {Object} context The Group participant's projection context.
      * @returns {Promise} This projection's outcome.
      */
     projectDockCommit(context) {
         const project = () => this.projectDockZoneDocument(context.snapshot.participants[context.workspaceKey], context.descriptor, this, {
+            isCurrent         : context.isCurrent,
             perspectiveContext: context,
             preserveItemIds   : context.preserveItemIds,
             previousDocument  : context.captured.value,
@@ -2268,6 +2277,7 @@ class Workspace extends Container {
      * @param {Object|null} [source=null] The originating interaction surface.
      * @param {Object} [projectionOptions={}] Pane-preservation policy plus optional `previousDocument`
      *     and `workspaceKey` for the collaborator event; those two fields never reach reconciliation.
+     *     An `isCurrent` predicate passes through to {@link #refreshDockWorkspace}.
      * @returns {Promise} This projection's outcome; later projections survive its failure.
      * @protected
      */
@@ -2464,6 +2474,8 @@ class Workspace extends Container {
      * @param {Object} [refreshOptions={}]
      * @param {Boolean} [refreshOptions.geometryOnly=false] Admit the reconciler's strict in-place
      *     geometry path.
+     * @param {Function} [refreshOptions.isCurrent] A Group projection's check, passed through
+     *     {@link #projectDockCommit}; a `false` stops the refresh wherever a destroyed workspace would stop.
      * @param {String[]} [refreshOptions.preserveItemIds] Per-commit owner-held ids, merged with
      *     the standing {@link #getPreservedItemIds} set.
      * @param {Boolean} [refreshOptions.retainTopology=false] Admit in-place item reconciliation on
@@ -2478,7 +2490,8 @@ class Workspace extends Container {
             flip               = Neo.main?.addon?.DockFlip,
             placeholders       = new Map(),
             {flipMarkerPrefix} = me,
-            {geometryOnly=false, retainTopology=false} = refreshOptions;
+            {geometryOnly=false, retainTopology=false} = refreshOptions,
+            superseded         = () => refreshOptions.isCurrent?.() === false;
 
         if (!host) {
             throw new Error(`Workspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
@@ -2496,7 +2509,7 @@ class Workspace extends Container {
             }
         }
 
-        if (me.isDestroyed || host.isDestroyed) {
+        if (me.isDestroyed || host.isDestroyed || superseded()) {
             return
         }
 
@@ -2507,7 +2520,7 @@ class Workspace extends Container {
             await flip?.captureFirst({hostId: host.id, markerPrefix: flipMarkerPrefix, windowId: host.windowId})
         } catch (error) {/* instant landing */}
 
-        if (me.isDestroyed) {
+        if (me.isDestroyed || superseded()) {
             return
         }
 
@@ -2515,7 +2528,7 @@ class Workspace extends Container {
 
         await me.releaseStaleRevealPanes(document);
 
-        if (me.isDestroyed) {
+        if (me.isDestroyed || superseded()) {
             return
         }
 

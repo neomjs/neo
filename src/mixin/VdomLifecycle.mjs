@@ -279,7 +279,7 @@ class VdomLifecycle extends Base {
                 scopes    = new Map(), // collected id → the merged ids its payload expands, in collection order
                 processed = new Set(); // Prevent duplicates and cycles
 
-            let sparseScopes, absorbedScopes;
+            let absorbedMeta, sparseScopes, absorbedScopes;
 
             const collectScopes = (componentId) => {
                 if (processed.has(componentId)) return;
@@ -377,7 +377,12 @@ class VdomLifecycle extends Base {
                 // We pass null as the second arg to respect the component's configured updateDepth.
                 const payload = Neo.getComponent(id).getVdomUpdatePayload(ids, null, emitted.size > 1 ? emitted : null);
 
-                if (emitted.has(id)) updates[id] = payload
+                if (emitted.has(id)) {
+                    updates[id] = payload
+                } else if (payload.meta) {
+                    // An absorbed root's changes travel in its carrier's payload, so its meta travels with the batch
+                    (absorbedMeta ||= {})[id] = payload.meta
+                }
             }
 
             // Absorbing a payload must not retire the scope that owns late writes and callbacks.
@@ -407,6 +412,10 @@ class VdomLifecycle extends Base {
             }
 
             const batchData = {updates};
+
+            if (absorbedMeta) {
+                batchData.meta = absorbedMeta
+            }
 
             // CRITICAL: SharedWorker Context Injection
             // This block MUST NOT be removed or simplified.
@@ -570,7 +579,8 @@ class VdomLifecycle extends Base {
      * to the Main Thread. The Main Thread's `DeltaUpdates` singleton fires an `update` event before
      * applying deltas, allowing addons (like optical pinning) to read this `meta` data and dynamically
      * adjust the deltas (like `translate3d` transforms) based on the *current* Main Thread state
-     * before they are painted.
+     * before they are painted, and an `updated` event after them. The meta is read once per payload: when
+     * another root's payload absorbs this one, the meta still travels with the batch.
      *
      * @param {Set<String>|null} mergedChildIds
      * @param {Number} [depth] Override the update depth

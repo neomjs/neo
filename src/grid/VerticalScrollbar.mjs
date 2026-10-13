@@ -55,6 +55,12 @@ class VerticalScrollbar extends Component {
          */
         baseCls: ['neo-grid-vertical-scrollbar'],
         /**
+         * The view's row geometry in content-sized mode, else `null`. The grid view hands it over, so the extent
+         * matches the bodies' extent.
+         * @member {Neo.grid.RowGeometry|null} rowGeometry=null
+         */
+        rowGeometry: null,
+        /**
          * Number in px
          * @member {Number} rowHeight_=0
          * @reactive
@@ -144,12 +150,15 @@ class VerticalScrollbar extends Component {
      * @protected
      */
     updateScrollHeight(data) {
-        let me           = this,
-            countRecords = data?.total ? data.total : (me.store?.count ?? 0),
-            {rowHeight}  = me;
+        let me                       = this,
+            countRecords             = data?.total ? data.total : (me.store?.count ?? 0),
+            {rowGeometry, rowHeight} = me;
 
         if (countRecords > 0 && rowHeight > 0) {
-            me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
+            // Content-sized rows: the known geometry, plus the estimate for rows a chunked load has not delivered
+            me.vdom.cn[0].height = rowGeometry ?
+                `${rowGeometry.totalHeight + (countRecords - rowGeometry.count + 1) * rowGeometry.estimate}px` :
+                `${(countRecords + 1) * rowHeight}px`;
             me.update()
         }
     }

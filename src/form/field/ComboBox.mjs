@@ -524,7 +524,7 @@ class ComboBox extends Picker {
             {picker} = me,
             store    = me.listStore,
             record   = me.value,
-            filter   = store.getFilter(me.displayField);
+            filter   = store.getFilter(me.displayField, null);
 
         if (filter) {
             filter.value = value

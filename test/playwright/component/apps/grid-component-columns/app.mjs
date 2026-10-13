@@ -1,7 +1,16 @@
+import Button        from '../../../../../src/button/Base.mjs';
 import Component     from '../../../../../src/component/Base.mjs';
 import GridContainer from '../../../../../src/grid/Container.mjs';
 import Store         from '../../../../../src/data/Store.mjs';
 import Viewport      from '../../../../../src/container/Viewport.mjs';
+
+const snapshots = [[
+    {id: 1, login: 'octo-one', name: 'Octo One', topRepo: ['octo-one/engine', 1200], countryCode: 'DE', location: 'Berlin', website: 'https://one.example', linkedinUrl: 'octo-one', isHireable: true, organizations: [{login: 'org-a', name: 'Org A'}], followers: 42},
+    {id: 2, login: 'octo-two', name: 'Octo Two', topRepo: ['octo-two/lens', 7], countryCode: 'FR', location: 'Paris', website: 'https://two.example', linkedinUrl: 'https://www.linkedin.com/in/octo-two-profile/', isHireable: false, organizations: [{login: 'org-b', name: 'Org B'}], followers: 7}
+], [
+    {id: 1, login: 'octo-one', name: 'Updated One', topRepo: ['octo-one/engine', 1200], countryCode: 'DE', location: 'Berlin', website: 'https://one.example', linkedinUrl: 'octo-one', isHireable: true, organizations: [{login: 'org-a', name: 'Org A'}], followers: 84},
+    {id: 2, login: 'octo-two', name: 'Octo Two', topRepo: ['octo-two/lens', 7], countryCode: 'FR', location: 'Paris', website: 'https://two.example', linkedinUrl: 'https://www.linkedin.com/in/octo-two-profile/', isHireable: false, organizations: [{login: 'org-b', name: 'Org B'}], followers: 7}
+]];
 
 /**
  * @summary Fixture for the instance a component column builds its cells on: the component column types a profile
@@ -34,10 +43,7 @@ const ProfileStore = Neo.setupClass(class extends Store {
             ]
         },
 
-        data: [
-            {id: 1, login: 'octo-one', name: 'Octo One', topRepo: ['octo-one/engine', 1200], countryCode: 'DE', location: 'Berlin', website: 'https://one.example', linkedinUrl: 'octo-one', isHireable: true, organizations: [{login: 'org-a', name: 'Org A'}], followers: 42},
-            {id: 2, login: 'octo-two', name: 'Octo Two', topRepo: ['octo-two/lens', 7], countryCode: 'FR', location: 'Paris', website: 'https://two.example', linkedinUrl: 'https://www.linkedin.com/in/octo-two-profile/', isHireable: false, organizations: [{login: 'org-b', name: 'Org B'}], followers: 7}
-        ]
+        data: snapshots[0]
     }
 });
 
@@ -47,10 +53,21 @@ export const onStart = () => Neo.app({
         layout: {ntype: 'vbox', align: 'stretch'},
 
         items: [{
-            module: GridContainer,
-            id    : 'grid-component-columns',
-            flex  : 1,
-            store : ProfileStore,
+            module: Button,
+            text  : 'Toggle snapshot',
+            /** @summary Replaces profile records while keeping their semantic keys. */
+            handler() {
+                const store = this.up().getReference('profiles').store;
+
+                store.data = snapshots[store.get(1).name === 'Octo One' ? 1 : 0];
+            }
+        }, {
+            module       : GridContainer,
+            id           : 'grid-component-columns',
+            flex         : 1,
+            store        : ProfileStore,
+            reference    : 'profiles',
+            useInternalId: false,
 
             columns: [{
                 type     : 'githubUser',

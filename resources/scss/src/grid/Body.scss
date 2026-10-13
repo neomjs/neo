@@ -97,6 +97,15 @@
                  background-color: var(--grid-cellmodel-selected-column-cell-background-color);
                  color           : var(--grid-cellmodel-selected-column-cell-color);
              }
+
+             // Content-sized rows: the text of a wrapText column, whose height the grid view measures. As a flex item
+             // it would not shrink below its longest word, so `min-width: 0` lets overflow-wrap break long words.
+             .neo-grid-cell-text {
+                 flex         : 1 1 auto;
+                 min-width    : 0;
+                 overflow-wrap: break-word;
+                 white-space  : normal;
+             }
          }
 
          .neo-grid-cell:not(.neo-locked-start):not(.neo-locked-end) {

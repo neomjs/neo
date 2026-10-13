@@ -2,7 +2,6 @@ import Controller                               from '../../../src/controller/Co
 import ClassSystem                              from '../../../src/util/ClassSystem.mjs';
 import TourRunner                               from '../../../src/ai/client/TourRunner.mjs';
 import TransactionManager                       from '../../../src/manager/Transaction.mjs';
-import WindowManager                            from '../../../src/manager/Window.mjs';
 import NativeGestureDriver                      from '../tour/NativeGestureDriver.mjs';
 import WorkspaceDocument                        from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import {WORKSTATION_CUE_TYPES}                  from '../tour/cueVocabulary.mjs';
@@ -317,6 +316,10 @@ class TourController extends Controller {
                 return (await this.getGestureDriver()).executeResizeStep(
                     {sizes: cue.sizes, splitNodeId: cue.splitNodeId}, cue.options
                 )
+            case 'grid-drag-scroll':
+                return (await this.getGestureDriver()).executeGridDragScrollStep(
+                    {anchor: cue.anchor, deltaX: cue.deltaX, deltaY: cue.deltaY, paneId: cue.paneId, strokes: cue.strokes}, cue.options
+                )
             case 'theme':
                 return this.workspace.setWorkspaceTheme(cue.theme)
             case 'gate':
@@ -339,14 +342,16 @@ class TourController extends Controller {
                 return (await this.getGestureDriver()).executeNativeReturnStep(
                     {ownerItemId: cue.ownerItemId, previewNodeId: cue.previewNodeId}, cue.options
                 )
+            case 'vessel-resize':
+                return (await this.getGestureDriver()).executeVesselResizeStep(
+                    {frame: cue.frame, itemId: cue.itemId}, cue.options
+                )
             case 'perspective-capture':
                 return this.capturePerspectiveCue(cue)
             case 'perspective-restore':
                 return this.restorePerspectiveCue(cue)
             case 'workspace-open':
                 return this.openWorkspaceCue(cue)
-            case 'workspace-close':
-                return this.closeWorkspaceCue(cue)
             case 'undo':
             case 'redo':
                 return this.historyCue(cue.type)
@@ -382,6 +387,9 @@ class TourController extends Controller {
               })),
               resumed   = result.captured === true && working ? await this.trap(workspace.saveTopology(working)) : null,
               errors    = [...result.errors ?? [], ...resumed?.errors ?? []];
+        if (result.captured === true && working && !(resumed?.persisted === true && resumed.current === true)) {
+            errors.push('the working topology did not resume with a current persistence receipt')
+        }
 
         return {applied: result.captured === true && errors.length === 0, errors, name, stored: result.stored === true}
     }
@@ -412,37 +420,6 @@ class TourController extends Controller {
         return {
             applied: mounted === true,
             errors : result?.errors?.length ? result.errors : mounted ? [] : [`workspace "${workspaceKey}" did not mount in its window`],
-            workspaceKey
-        }
-    }
-
-    /**
-     * @summary Closes a Group workspace's window the way its close button does, then waits until the
-     * window is gone and its panes are home.
-     *
-     * A closing window returns its panes before it disconnects, so this is how the film ends a window a
-     * restore re-born: the request rides the window's own native close route, the one the Neural
-     * Link's `close_window` uses.
-     * @param {Object} cue
-     * @param {String} cue.workspaceKey The Group workspace, e.g. `workstation-vessel:metrics`
-     * @returns {Promise<Object>} `{applied, errors, workspaceKey}`; `applied` once the window is gone and its workspace holds no pane.
-     */
-    async closeWorkspaceCue({workspaceKey}) {
-        const me        = this,
-              workspace = me.workspace,
-              windowId  = workspace.getPopupState(workspaceKey)?.windowId,
-              {route}   = windowId ? WindowManager.resolveNativeRoute({capability: 'close', route: WindowManager.get(windowId)?.nativeRoute}) : {},
-              accepted  = Boolean(route) && await me.trap(Neo.Main.windowNativeClose({
-                  nativeHandleKey: route.nativeHandleKey,
-                  targetWindowId : route.targetWindowId,
-                  windowId       : route.ownerWindowId
-              })) === true,
-              home      = accepted && await me.waitFor(() => !WindowManager.get(windowId) &&
-                  !Object.keys(workspace.getPopupState(workspaceKey)?.document?.items ?? {}).length, {attempts: 600});
-
-        return {
-            applied: home === true,
-            errors : home ? [] : [`workspace "${workspaceKey}" did not close with its panes home`],
             workspaceKey
         }
     }

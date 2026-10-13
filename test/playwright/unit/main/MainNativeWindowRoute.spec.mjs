@@ -359,6 +359,11 @@ async function runNativeWindowRouteProbe(scenario) {
             const protectedCarrier = WorkerManager.readTopologyIdentity();
             const ownClear = Main.clearTopologyIdentity({groupId: 'g1'});
             const restored = Main.setTopologyIdentity({...carried, onlyIfEmpty: true});
+            // A same-Group successor binds before a deferred clear of the earlier lineage lands.
+            Main.setTopologyIdentity({generationToken: 't1-successor', groupId: 'g1', workspaceKey: 'main'});
+            const staleLineageClear = Main.clearTopologyIdentity({generationToken: 't1', groupId: 'g1'});
+            const successorCarrier  = WorkerManager.readTopologyIdentity();
+            const lineageClear      = Main.clearTopologyIdentity({generationToken: 't1-successor', groupId: 'g1'});
             Main.setTopologyIdentity({generationToken: 't2', groupId: 'g2', workspaceKey: 'main'});
             const staleRestore = Main.setTopologyIdentity({...carried, onlyIfEmpty: true});
             const newerCarrier = WorkerManager.readTopologyIdentity();
@@ -401,7 +406,8 @@ async function runNativeWindowRouteProbe(scenario) {
             const cleared = !childStorage.has('neo-topology-identity');
             console.log(JSON.stringify({accepted, carried, cleared, empty, malformed, partial, reserved,
                 foreignClear, protectedCarrier, ownClear, restored, staleRestore, newerCarrier,
-                closeWithCarrier, closeScheduled, beforeCloseEffect, closeEvents}))
+                closeWithCarrier, closeScheduled, beforeCloseEffect, closeEvents,
+                staleLineageClear, successorCarrier, lineageClear}))
         } else {
             const
                 events   = [],
@@ -926,6 +932,10 @@ test.describe('Neo.Main native window routes (#15396)', () => {
         expect(result.protectedCarrier).toEqual(result.carried);
         expect(result.ownClear).toBe(true);
         expect(result.restored, 'a partial close can compensate an emptied carrier').toBe(true);
+        expect(result.staleLineageClear, 'a clear naming an earlier lineage is refused').toBe(false);
+        expect(result.successorCarrier, 'and the same-Group successor keeps its carrier').toEqual(
+            {generationToken: 't1-successor', groupId: 'g1', workspaceKey: 'main'});
+        expect(result.lineageClear, 'the lineage it names still clears').toBe(true);
         expect(result.staleRestore, 'compensation cannot overwrite a newer Group').toBe(false);
         expect(result.newerCarrier.groupId).toBe('g2');
         expect(result.closeWithCarrier).toBe(false);

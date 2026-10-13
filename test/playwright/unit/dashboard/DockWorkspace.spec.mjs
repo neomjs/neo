@@ -1173,6 +1173,9 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // has none, and the seam already accepts the difference.
             expect(calls[0][1]).toMatchObject({itemId, sortZone: null});
             expect(calls[0][1].proxyRect).toMatchObject({height: 200, width: 400});
+            // The vessel takes its size from `sourceRect` alone, so the measured box must ride there too,
+            // or a click opens the window at the host's fallback size instead of the pane's footprint.
+            expect(calls[0][1].sourceRect, 'the measured box also sizes the vessel').toEqual(calls[0][1].proxyRect);
             expect(calls[1][1]).toEqual({itemId})
         });
 
@@ -2089,66 +2092,66 @@ test('the holder contract: a config-assigned document is readable before any ope
             expect(workspace.lifecycleEvents).toEqual(['return:true:true', 'disconnect'])
         });
 
-        test.describe('#18077 the host opens the geometry stream for its window and for every admitted vessel', () => {
-            let calls, originalSetConfigs, originalWindowPosition, windowPosition;
+        test.describe('#18077 #19619 the host loads the geometry stream into its window and into every admitted vessel', () => {
+            let addonLoads, calls, isSharedWorker, originalGetAddon, windowPosition;
 
             test.beforeEach(() => {
-                originalWindowPosition = Neo.main?.addon?.WindowPosition;
-                windowPosition         = originalWindowPosition ?? Neo.ns('Neo.main.addon.WindowPosition', true);
-                originalSetConfigs     = windowPosition.setConfigs;
-                calls                  = [];
+                originalGetAddon = Neo.currentWorker.getAddon;
+                isSharedWorker   = Neo.currentWorker.isSharedWorker;
+                addonLoads       = [];
+                calls            = [];
+                windowPosition   = {setConfigs: data => {calls.push(data); return Promise.resolve()}};
 
-                windowPosition.setConfigs = data => {
-                    calls.push(data);
-                    return Promise.resolve()
-                }
+                // `getAddon` loads an addon into ONE window's Main realm and returns its proxy. Recording
+                // the window it was asked for fails a load that reached the wrong realm. Nothing lists
+                // the addon in `mainThreadAddons`, as the Fleet Manager's widget shell does not.
+                Neo.currentWorker.getAddon = async (name, windowId) => {
+                    if (name !== 'WindowPosition') {
+                        return originalGetAddon(name, windowId)
+                    }
+
+                    addonLoads.push(windowId);
+                    return windowPosition
+                };
+
+                Neo.currentWorker.isSharedWorker = true
             });
 
             test.afterEach(() => {
-                if (originalWindowPosition) {
-                    originalSetConfigs
-                        ? windowPosition.setConfigs = originalSetConfigs
-                        : delete windowPosition.setConfigs
-                } else {
-                    delete Neo.main.addon.WindowPosition
-                }
+                Neo.currentWorker.getAddon       = originalGetAddon;
+                Neo.currentWorker.isSharedWorker = isSharedWorker
             });
 
-            test('construction opens movement AND resize for the host render target; a realm without the addon opens nothing and throws nothing', () => {
+            test('a SharedWorker host loads the addon into its own window and opens movement AND resize there', async () => {
                 workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument(), windowId: 'host-window'});
 
-                expect(calls, 'one stream, both observations, the host window').toEqual([
-                    {observeMovement: true, observeResize: true, windowId: 'host-window'}
-                ]);
+                await expect.poll(() => calls.length, 'the stream opens with nothing in mainThreadAddons').toBe(1);
+                expect(addonLoads, 'loaded into the host window').toEqual(['host-window']);
+                expect(calls[0]).toEqual({observeMovement: true, observeResize: true, windowId: 'host-window'})
+            });
 
-                // A host running its own admission (no engine lifecycle) docks across windows too:
-                // the arming is not gated on the lifecycle flag.
+            test('a dock outside a SharedWorker app loads nothing and starts no poll; inside one, every host arms', async () => {
+                Neo.currentWorker.isSharedWorker = false;
+
+                const bare = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'bare-window'});
+
+                bare.destroy();
+
+                // A host running its own admission (no engine lifecycle) docks across windows too.
+                Neo.currentWorker.isSharedWorker = true;
+
                 const plain = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'plain-window'});
 
                 try {
-                    expect(calls.at(-1), 'every dock host opens its stream').toEqual(
-                        {observeMovement: true, observeResize: true, windowId: 'plain-window'}
-                    )
+                    await expect.poll(() => calls.length).toBe(1);
+                    expect(addonLoads, 'the dedicated-worker dock loaded nothing').toEqual(['plain-window']);
+                    expect(calls[0]).toEqual({observeMovement: true, observeResize: true, windowId: 'plain-window'})
                 } finally {
                     plain.destroy()
                 }
-
-                // The app's opt-in is the addon itself: without it the call is a no-op, never a throw.
-                const addon = Neo.main.addon.WindowPosition;
-
-                delete Neo.main.addon.WindowPosition;
-
-                try {
-                    const bare = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'bare-window'});
-
-                    bare.destroy();
-                    expect(calls, 'no addon, no stream').toHaveLength(2)
-                } finally {
-                    Neo.main.addon.WindowPosition = addon
-                }
             });
 
-            test('an admitted vessel opens its stream before the connection reaches any ownership branch', async () => {
+            test('an admitted vessel loads the addon into its own window before the connection reaches any ownership branch', async () => {
                 workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument(), windowId: 'host-window'});
 
                 const {request, zone} = await beginExit('preview');
@@ -2162,6 +2165,7 @@ test('the holder contract: a config-assigned document is readable before any ope
 
                 await connectVessel('vessel-window', request.topologyIdentity);
 
+                expect(addonLoads, 'one load per window, each into its own realm').toEqual(['host-window', 'vessel-window']);
                 expect(calls, 'host at construction, vessel on admission, observers last').toEqual([
                     {observeMovement: true, observeResize: true, windowId: 'host-window'},
                     {observeMovement: true, observeResize: true, windowId: 'vessel-window'},
@@ -5026,6 +5030,251 @@ test.describe('Neo.dashboard.dock.Workspace#closeTearOutVessel (engine default)'
         } finally {
             Neo.Main.windowClose = originalClose;
             created.filter(workspace => !workspace.isDestroyed).forEach(retire)
+        }
+    })
+});
+
+let sharedPane = null, sharedPaneHosts = 0;
+
+/**
+ * A Group participant in its own window whose `shared` item resolves to one live pane, the way a
+ * declared pane resolves by identity in whichever window projects it.
+ */
+class SharedPaneWorkspace extends PlainWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.SharedPaneWorkspace'
+    }
+
+    construct(config) {
+        config.windowId ??= `shared-pane-${++sharedPaneHosts}`;
+        super.construct(config)
+    }
+
+    resolvePane(itemId, item) {
+        return itemId === 'shared' ? sharedPane : super.resolvePane(itemId, item)
+    }
+}
+
+Neo.setupClass(SharedPaneWorkspace);
+
+test.describe('projectDockCommit — a projection the chain reaches after a newer commit stands down', () => {
+    /** @summary The test document, with the shared pane in its side stack or without it. @param {Boolean} shared @returns {Object} */
+    const withShared = shared => {
+        const document = createDocument();
+
+        if (shared) {
+            document.items.shared = {reference: 'Shared', title: 'Shared'};
+            document.nodes['side-tabs'].items.push('shared')
+        }
+
+        return document
+    };
+
+    /** @summary Whether a document holds the shared pane. */
+    const has = document => 'shared' in document.items;
+
+    test.afterEach(() => [...TransactionManager.items].forEach(group => TransactionManager.retireGroup(group.id)));
+
+    /**
+     * @summary Main and a popup as one Group's participants. The popup refuses a document holding the
+     * shared pane once `refuse()` was called, after main adopted its half of the same write.
+     * @param {Object} popupDocument The popup's first document
+     * @returns {Object} `main`, `popup`, a `write(main, popup)` that omits a null half, `refuse` and `retire`
+     */
+    const group = popupDocument => {
+        const {groupId} = TransactionManager.bind({windowId: `dock-supersede-${Neo.getId('t')}`, workspaceKey: 'main'}),
+              set       = Neo.create(WorkspaceSet, {documentModel: WorkspaceDocument, getGroupId: () => groupId, manager: TransactionManager}),
+              main      = Neo.create(SharedPaneWorkspace, {dockModel: withShared(false)}),
+              popup     = Neo.create(SharedPaneWorkspace, {dockModel: popupDocument});
+
+        let refusing = false;
+
+        for (const [key, workspace] of [['main', main], ['popup', popup]]) {
+            set.register(key, {
+                getDocument: () => workspace.dockModel,
+                setDocument: value => {
+                    if (refusing && workspace === popup && has(value)) throw new Error('the popup refused the document');
+                    workspace.dockModel = value
+                },
+                project: context => workspace.projectDockCommit(context)
+            })
+        }
+
+        return {
+            main, popup,
+            refuse: () => {refusing = true},
+            retire: () => {set.destroy(); main.destroy(); popup.destroy()},
+            write : (mainDocument, popupDocument) => set.write(Object.fromEntries(
+                [['main', mainDocument], ['popup', popupDocument]].filter(([, document]) => document)), {cause: 'dock'})
+        }
+    };
+
+    /** @summary The id of the Workspace whose shell holds the component, or null when it is parked. */
+    const ownerOf = component => {
+        let node = component.parent;
+
+        while (node && !(node instanceof DockWorkspace)) node = node.parent;
+
+        return node?.id ?? null
+    };
+
+    /**
+     * @summary Undoes a native-close return across two participants sharing one live pane. Main's
+     * return projection waits at `hold` until the undo has committed on both.
+     * @param {String} hold `chain` (main's refresh chain is busy), `flip` or `release` (main's
+     *     return projection waits inside its refresh, at the FLIP capture or the reveal-pane releases)
+     * @param {Object} [undone] Main's document after the undo
+     * @returns {Promise<Object>} The pane's final owner and what main's refreshes reached
+     */
+    async function undoReturn(hold, undone = withShared(false)) {
+        const pane                         = sharedPane = Neo.ntype({ntype: 'component', id: `dock-shared-pane-${hold}`}),
+              {main, popup, retire, write} = group(withShared(true)),
+              addons                       = Neo.ns('Neo.main.addon', true),
+              flip                         = addons.DockFlip,
+              build                        = main.projectDockModel.bind(main),
+              prepare                      = main.beforeRefreshDockWorkspace.bind(main),
+              releases                     = main.releaseStaleRevealPanes.bind(main),
+              seen                         = {built: [], captures: 0, prepared: []};
+
+        let reached, release, holding = hold;
+
+        const atHold = new Promise(resolve => {reached = resolve}),
+              held   = new Promise(resolve => {release = resolve}),
+              // The first pass through `at` is main's return projection.
+              pause  = at => holding === at ? (holding = null, reached(), held) : undefined;
+
+        addons.DockFlip                 = {captureFirst: ({hostId}) => hostId === main.id ? (seen.captures++, pause('flip')) : undefined};
+        main.beforeRefreshDockWorkspace = (document, options) => {seen.prepared.push(has(document)); prepare(document, options)};
+        main.releaseStaleRevealPanes    = document => pause('release') ?? releases(document);
+        // The shell a refresh builds right before it reconciles: which documents actually land.
+        main.projectDockModel           = (descriptor, resolver, document) => {seen.built.push(has(document)); return build(descriptor, resolver, document)};
+
+        try {
+            expect(ownerOf(pane), 'the popup starts with the pane').toBe(popup.id);
+
+            if (hold === 'chain') {
+                main.refreshPromise = held;
+                reached()
+            }
+
+            // The native close returns the pane to main...
+            await write(withShared(true), withShared(false));
+            const returnMain = main.refreshPromise;
+            await atHold;
+            await popup.refreshPromise;
+
+            // ...and the undo gives it back to the popup, which projects at once.
+            await write(undone, withShared(true));
+            const undoMain = main.refreshPromise;
+            await popup.refreshPromise;
+
+            expect(ownerOf(pane), 'the undo moved the pane into the popup').toBe(popup.id);
+
+            release();
+            await Promise.all([returnMain, undoMain]);
+
+            return {destroyed: !!pane.isDestroyed, owner: ownerOf(pane), popup: popup.id, ...seen}
+        } finally {
+            release();
+            flip === undefined ? delete addons.DockFlip : addons.DockFlip = flip;
+            retire();
+            pane.destroy();
+            sharedPane = null
+        }
+    }
+
+    test('queued behind a busy refresh chain, the return projection does no refresh work', async () => {
+        const result = await undoReturn('chain');
+
+        expect(result.captures, 'only the undo\'s projection reaches the FLIP capture').toBe(1);
+        expect(result.prepared, 'and only it reaches the pre-refresh hook').toEqual([false]);
+        expect(result.built, 'the undo\'s own refresh lands; the return\'s never does').toEqual([false]);
+        expect(result.destroyed, 'the pane survives both projections').toBe(false);
+        expect(result.owner, 'main\'s superseded return document must not take the pane back').toBe(result.popup)
+    });
+
+    test('superseded during its FLIP capture, the return projection stops before the pre-refresh hook', async () => {
+        const result = await undoReturn('flip');
+
+        expect(result.prepared, 'the return document reaches neither the hook nor the releases').toEqual([false]);
+        expect(result.built).toEqual([false]);
+        expect(result.owner).toBe(result.popup)
+    });
+
+    test('superseded during its reveal-pane releases, the return projection stops before it reconciles', async () => {
+        const result = await undoReturn('release');
+
+        expect(result.built).toEqual([false]);
+        expect(result.owner, 'the return projection the undo superseded mid-flight must not reconcile').toBe(result.popup)
+    });
+
+    test('a newer commit that empties main fences the older document too', async () => {
+        const result = await undoReturn('chain', createEmptyDocument());
+
+        expect(result.built, 'only the emptied document projects').toEqual([false]);
+        expect(result.owner, 'the emptied main never reclaims the pane').toBe(result.popup)
+    });
+
+    test('a newer write that fails and compensates leaves the owed projection to land', async () => {
+        const pane                                 = sharedPane = Neo.ntype({ntype: 'component', id: 'dock-shared-pane-compensated'}),
+              {main, popup, refuse, retire, write} = group(withShared(true)),
+              build                                = main.projectDockModel.bind(main),
+              built                                = [];
+
+        let release;
+
+        main.projectDockModel = (descriptor, resolver, document) => {built.push(has(document)); return build(descriptor, resolver, document)};
+        main.refreshPromise   = new Promise(resolve => {release = resolve});
+
+        try {
+            await write(withShared(true), withShared(false));
+            const owed = main.refreshPromise;
+
+            // Main adopts its half of the next write, the popup refuses its half, and the rollback
+            // restores main's document as a clone without dispatching another projection.
+            refuse();
+            await expect(write(withShared(false), withShared(true))).rejects.toThrow('the popup refused the document');
+            expect(has(main.dockModel), 'the rollback restored the returned document').toBe(true);
+
+            release();
+            await owed;
+
+            expect(built, 'the last committed document still projects').toEqual([true]);
+            expect(ownerOf(pane), 'and the pane lands in main').toBe(main.id)
+        } finally {
+            release();
+            retire();
+            pane.destroy();
+            sharedPane = null
+        }
+    });
+
+    test('a participant the newer commit did not touch still projects its queued document', async () => {
+        const {main, retire, write} = group(withShared(false)),
+              build                 = main.projectDockModel.bind(main),
+              built                 = [],
+              next                  = withShared(false);
+
+        let release;
+
+        next.nodes['side-tabs'].activeItemId = 'terminal';
+        main.projectDockModel = (descriptor, resolver, document) => {built.push(document); return build(descriptor, resolver, document)};
+        main.refreshPromise   = new Promise(resolve => {release = resolve});
+
+        try {
+            await write(next, null);
+            const projection = main.refreshPromise;
+
+            // A newer commit lands on the sibling alone, while main's projection still waits.
+            await write(null, createEmptyDocument());
+
+            release();
+            await projection;
+
+            expect(built, 'main\'s own document is still its latest, so it projects').toEqual([next])
+        } finally {
+            release();
+            retire()
         }
     })
 });

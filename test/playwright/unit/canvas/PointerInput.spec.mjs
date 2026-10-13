@@ -145,6 +145,47 @@ test.describe('Neo.app.SharedCanvas — the forwarders', () => {
 
     const modifiers = {altKey: false, ctrlKey: true, metaKey: false, shiftKey: false};
 
+    test('resize keeps viewport pointer origin separate from content-box renderer dimensions', async () => {
+        const {host, reports} = createHost(), sizes = [], events = [], originalDpr = Neo.config.devicePixelRatio;
+        let   reads           = 0, viewportRect;
+
+        Object.defineProperties(host, {
+            id                 : {value: 'pointer-resize-canvas'},
+            offscreenRegistered: {value: true},
+            ready              : {value: async () => {}},
+            getDomRect         : {value: async () => { reads++; return viewportRect }},
+            fire               : {value: (...args) => events.push(args)}
+        });
+        host.renderer.updateSize = size => sizes.push(size);
+        Neo.config.devicePixelRatio = 2;
+
+        try {
+            for (const inset of [0, 6]) {
+                viewportRect = {left: 21 + inset, top: 154 + inset, width: 660, height: 340};
+                const contentRect = {left: inset, top: inset, width: 640, height: 320},
+                      data        = {contentRect, rect: viewportRect};
+
+                await host.onDomResize(data);
+                host.onClick({clientX: viewportRect.left + 30, clientY: viewportRect.top + 20, button: 0, buttons: 0, ...modifiers});
+
+                expect(reports.at(-1)).toEqual({windowId: 'window-1', x: 30, y: 20, button: 0, buttons: 0, click: true, ...modifiers});
+                expect(sizes.at(-1)).toEqual({windowId: 'window-1', width: 640, height: 320, devicePixelRatio: 2});
+                expect(host.canvasRect).toBe(viewportRect);
+                expect(events.at(-1)).toEqual(['resize', data]);
+                expect(contentRect).toEqual({left: inset, top: inset, width: 640, height: 320})
+            }
+
+            expect(reads, 'resize already carries the viewport rectangle; pointer forwarding needs no DOM read').toBe(0);
+
+            await host.updateSize();
+            expect(reads, 'the initial no-argument path still measures the canvas').toBe(1);
+            expect(host.canvasRect).toBe(viewportRect);
+            expect(sizes.at(-1)).toEqual({windowId: 'window-1', width: 660, height: 340, devicePixelRatio: 2})
+        } finally {
+            Neo.config.devicePixelRatio = originalDpr
+        }
+    });
+
     test('down, up and move carry canvas-relative coordinates, buttons and modifiers', () => {
         const {host, reports} = createHost();
 
