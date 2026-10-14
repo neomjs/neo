@@ -19,4 +19,4 @@ jobs:
     # Every other pull request is skipped before a runner starts; the called decision checks the author again.
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     # A published Skills release, named by its tag; Dependabot moves the tag.
-    uses: neomjs/neo-agent-skills/.github/workflows/reusable-dependabot-automerge.yml@v0.1.35
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-dependabot-automerge.yml@v0.1.40
