@@ -61,6 +61,15 @@ class Canvas extends Component {
     }
 
     /**
+     * @summary Lets a worker-backed subclass refuse transfer while retaining the ordinary component mount lifecycle.
+     * @returns {Boolean}
+     * @protected
+     */
+    get canTransferOffscreenCanvas() {
+        return true
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -74,6 +83,8 @@ class Canvas extends Component {
             {offscreen, windowId} = me;
 
         if (value) {
+            if (offscreen && !me.canTransferOffscreenCanvas) return;
+
             await me.timeout(30); // next rAF tick
 
             if (me.monitorSize) {
@@ -84,7 +95,7 @@ class Canvas extends Component {
                 }])
             }
 
-            if (offscreen) {
+            if (offscreen && me.canTransferOffscreenCanvas) {
                 me.registerCanvasCallbacks ??= {};
 
                 let promise = new Promise(resolve => {
@@ -133,7 +144,7 @@ class Canvas extends Component {
     destroy(...args) {
         if (this.offscreenRegistered) {
             Neo.worker.Canvas.unregisterCanvas({
-                nodeId  : this.id,
+                nodeId  : this.getCanvasId(),
                 windowId: this.windowId
             })
         }
