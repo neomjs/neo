@@ -64,6 +64,8 @@ export const PLAYWRIGHT_DISABLED_FEATURES = [
     'Translate',
     'AutoDeElevate',
     'OptimizationHints',
+    'NetworkTimeServiceQuerying',
+    'AimEnabled',
     'msForceBrowserSignIn',
     'msEdgeUpdateLaunchServicesPreferredVersion'
 ];
