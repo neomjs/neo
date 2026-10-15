@@ -348,8 +348,11 @@ async function assertStageGeometryPublished(app, stageReceipt) {
             observed      = stageReceipt.after,
             delta         = managedWindow?.innerRect && managedWindow?.outerRect
                 ? [
-                    ...['x', 'y', 'width', 'height']
-                        .map(key => Math.abs(managedWindow.innerRect[key] - observed.inner[key])),
+                    // `observed.inner.x/y` is screenX/screenY, the FRAME origin: the manager's frame is outerRect
+                    Math.abs(managedWindow.outerRect.x - observed.inner.x),
+                    Math.abs(managedWindow.outerRect.y - observed.inner.y),
+                    Math.abs(managedWindow.innerRect.width  - observed.inner.width),
+                    Math.abs(managedWindow.innerRect.height - observed.inner.height),
                     Math.abs(managedWindow.outerRect.width  - observed.outer.width),
                     Math.abs(managedWindow.outerRect.height - observed.outer.height)
                 ]
