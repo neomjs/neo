@@ -5,10 +5,12 @@
  * Locked columns live in their own bodies and header toolbars. Each one is a clone of the center instance
  * (`Neo.cloneNeoInstance`): the same class and construction configs, with its own id, no reference, and the
  * parent, store and region it needs. Before, the locked instances spread a config record that nothing assigned,
- * so a locked column lost the grid's body and header settings.
+ * so a locked column lost the grid's body and header settings. With `animatedRowSorting`, every body now runs its
+ * own AnimateRows plugin, and a sort moves each record's locked and center rows together.
  *
  * @see Neo.grid.Container#createOrUpdateSubGrids
  * @see Neo.grid.header.Wrapper#updateHeaders
+ * @see Neo.grid.plugin.AnimateRows
  */
 import {setup} from '../../setup.mjs';
 
@@ -77,6 +79,19 @@ async function createGrid(store, body = {}, headerToolbar = {}) {
     return grid
 }
 
+/**
+ * Each displayed record's row index, offset and opacity, keyed by record id
+ * @param {Neo.grid.Body} body
+ * @returns {Object}
+ */
+function displayedRows(body) {
+    return Object.fromEntries(body.items.filter(row => row.record).map(({record, rowIndex, vdom}) => [record.id, {
+        offset : parseFloat(/calc\((-?[\d.]+)px/.exec(vdom.style.transform)[1]),
+        opacity: vdom.style.opacity ?? null,
+        rowIndex
+    }]))
+}
+
 test.describe('Grid: locked bodies and header toolbars', () => {
     test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
 
@@ -139,6 +154,39 @@ test.describe('Grid: locked bodies and header toolbars', () => {
 
         [headerStart, headerEnd].forEach(locked => expect(locked.reference).toBe(null));
         expect([headerStart.layoutLock, headerEnd.layoutLock]).toEqual(['start', 'end'])
+    });
+
+    test('with animatedRowSorting, the locked bodies move every record with the center body', async () => {
+        grid = await createGrid(store, {animatedRowSorting: true, pluginAnimateRowsConfig: {transitionDuration: 200}});
+
+        let {body, bodyEnd, bodyStart, headerWrapper} = grid,
+            bodies                                    = [bodyStart, body, bodyEnd],
+            often                                     = {intervals: [5]},
+            start, center, end;
+
+        await expect.poll(() => bodies.every(item => !!item.getPlugin('grid-animate-rows'))).toBe(true);
+
+        grid.mounted = true;
+        await Promise.all([headerWrapper.headerStart, grid.headerToolbar, headerWrapper.headerEnd].map(item => item.passSizeToBody()));
+        bodies.forEach(item => item.set({availableHeight: 360, containerWidth: 600}));
+        await grid.timeout(50);
+
+        // Names sort as text: Row 10 moves up from index 10 to 2, and Row 14, which was not displayed, enters at index 6
+        store.sort({direction: 'ASC', property: 'name'});
+
+        [start, center, end] = bodies.map(displayedRows);
+        expect([center[10], center[14]]).toEqual([{offset: 400, opacity: null, rowIndex: 2}, {offset: 240, opacity: 0, rowIndex: 6}]);
+        expect([start, end]).toEqual([center, center]);
+
+        await expect.poll(() => bodies.every(item => item.cls.includes('neo-animate-rows-moving')), often).toBe(true);
+        [start, center, end] = bodies.map(displayedRows);
+        expect([center[10], center[14]]).toEqual([{offset: 80, opacity: null, rowIndex: 2}, {offset: 240, opacity: null, rowIndex: 6}]);
+        expect([start, end]).toEqual([center, center]);
+
+        await expect.poll(() => bodies.some(item => item.cls.includes('neo-animate-rows-moving')), often).toBe(false);
+        [start, center, end] = bodies.map(displayedRows);
+        Object.values(center).forEach(({offset, rowIndex}) => expect(offset).toBe(rowIndex * 40));
+        expect([start, end]).toEqual([center, center])
     });
 
     test('Neo.cloneNeoInstance applies the given configs over the original ones and drops the id', () => {
