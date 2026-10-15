@@ -197,6 +197,14 @@ test.describe('Grid: locked bodies and header toolbars', () => {
         expect(clone.id).not.toBe(original.id);
         expect([clone.iconCls, clone.text]).toEqual(['fa fa-home', 'Away']);
 
+        // Neo.clone() takes the same path without configs
+        let copy = Neo.clone(original);
+
+        expect(copy).toBeInstanceOf(Button);
+        expect(copy.id).not.toBe(original.id);
+        expect([copy.iconCls, copy.text]).toEqual(['fa fa-home', 'Home']);
+
+        copy.destroy();
         clone.destroy();
         original.destroy()
     })
