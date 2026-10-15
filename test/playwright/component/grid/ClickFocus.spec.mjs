@@ -100,6 +100,7 @@ test.describe('grid click focus — the mousedown default reaches the View ancho
               before = await maxScrollTop(page, 'grid-focus-long'),
               from   = {x: box.x + box.width / 2, y: box.y + box.height * 0.75};
 
+        expect(box.y + box.height, 'the long grid viewport fits the page').toBeLessThanOrEqual(page.viewportSize().height);
         await drag(page, from, {x: from.x, y: from.y - 160});
 
         await expect.poll(() => maxScrollTop(page, 'grid-focus-long'), {message: 'the drag scrolled the long grid'}).toBeGreaterThan(before);
