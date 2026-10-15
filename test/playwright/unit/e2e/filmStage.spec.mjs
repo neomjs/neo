@@ -1,5 +1,5 @@
-import {expect, test}                                                from '@playwright/test';
-import {placeBesideSource, planBeside, planSideBySide, rectsOverlap} from '../../e2e/utils/filmStage.mjs';
+import {expect, test}                                                                      from '@playwright/test';
+import {identifyNativeWindow, placeBesideSource, planBeside, planSideBySide, rectsOverlap} from '../../e2e/utils/filmStage.mjs';
 
 /**
  * @summary Unit coverage for the side-by-side stage planner.
@@ -223,4 +223,36 @@ test('an emulated page with no declared envelope reports its containment as unpr
 
     expect(verdict, 'apart is measured, but no envelope could be established to contain them')
         .toMatchObject({fits: true, moved: false, stageTrusted: false})
+});
+
+test.describe('identifyNativeWindow binds the sensor to the window it will read', () => {
+    // The popup before the gesture, and a destination 94 px to its right
+    const popup = {height: 600, number: 41, width: 800, x: 906, y: 200};
+
+    test('binds the one window whose frame is the popup frame, and only that window', () => {
+        expect(identifyNativeWindow([popup], {height: 600, width: 800, x: 906, y: 200})).toBe(41)
+    });
+
+    test('a foreign same-size window at the destination is never mistaken for the popup', () => {
+        const foreign = {...popup, number: 7, x: 1000};
+
+        expect(identifyNativeWindow([foreign, popup], {height: 600, width: 800, x: 906, y: 200})).toBe(41)
+    });
+
+    test('a missing popup fails loud, even with a same-size window at the destination', () => {
+        const foreign = {...popup, number: 7, x: 1000};
+
+        expect(() => identifyNativeWindow([foreign], {height: 600, width: 800, x: 906, y: 200}))
+            .toThrow('0 windows match')
+    });
+
+    test('two windows on the popup frame are ambiguous and fail loud', () => {
+        expect(() => identifyNativeWindow([popup, {...popup, number: 42}], {height: 600, width: 800, x: 906, y: 200}))
+            .toThrow('2 windows match')
+    });
+
+    test('a frame off by more than the tolerance binds nothing', () => {
+        expect(() => identifyNativeWindow([popup], {height: 600, width: 800, x: 908, y: 200})).toThrow('0 windows match');
+        expect(identifyNativeWindow([popup], {height: 600, width: 800, x: 907, y: 200})).toBe(41)
+    });
 });
