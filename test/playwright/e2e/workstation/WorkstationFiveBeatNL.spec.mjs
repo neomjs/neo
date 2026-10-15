@@ -2124,6 +2124,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         ]), 'the exact physical target point must pass the participant hit test').toBe(true);
 
         const
+            coordinators      = await app.findInstances({className: 'Neo.manager.DragCoordinator'}, ['nativeWindowDropAnchorInset']),
+            anchorInset       = (Array.isArray(coordinators) ? coordinators[0] : coordinators)?.nativeWindowDropAnchorInset,
             mainChromeHeight  = mainPlacement.browser.outer.height - mainPlacement.browser.inner.height,
             popupChromeHeight = popupPlacement.browser.outer.height - popupPlacement.browser.inner.height,
             titlebarOffset    = Math.max(8, Math.min(18, popupChromeHeight / 2)),
@@ -2142,10 +2144,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 y: popupPlacement.bounds.top + popupChromeHeight
                     + Math.min(80, popupPlacement.browser.inner.height / 3)
             },
-            desiredPopupTop = targetCenter.y - popupPlacement.bounds.height / 2,
+            // The drop anchor is the popup's outer top-left corner (inset), never its centre: the hand
+            // brings that corner onto the target, which leaves two sides of the drop zone visible
             end = {
-                x: targetCenter.x,
-                y: desiredPopupTop + titlebarOffset
+                x: targetCenter.x - anchorInset + (start.x - popupPlacement.bounds.left),
+                y: targetCenter.y - anchorInset + titlebarOffset
             },
             popupStart = await popup.evaluate(() => ({
                 x: globalThis.screenX,
