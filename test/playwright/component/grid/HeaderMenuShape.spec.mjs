@@ -65,6 +65,20 @@ async function readOverflowingTriggers(page, grid) {
     }).map(wrapper => wrapper.querySelector('.neo-grid-header-button').textContent.trim()), grid)
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {String} grid The grid's id
+ * @returns {Promise<String[]>} The headers whose menu trigger does not receive a pointer at its center
+ */
+async function readCoveredTriggers(page, grid) {
+    return page.evaluate(id => [...document.getElementById(id).querySelectorAll('.neo-grid-menu-wrapper')].filter(wrapper => {
+        const trigger = wrapper.querySelector('.neo-grid-menu-trigger'),
+              rect    = trigger.getBoundingClientRect();
+
+        return !trigger.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+    }).map(wrapper => wrapper.querySelector('.neo-grid-header-button').textContent.trim()), grid)
+}
+
 test.describe('Header menu shape', () => {
     test.beforeEach(async ({page}) => {
         await page.goto(APP);
@@ -138,14 +152,26 @@ test.describe('Header menu shape', () => {
         }
     });
 
-    test('a configured menu opens from its trigger', async ({page}) => {
-        const wrapper = page.locator('#grid-column-menu-plain .neo-grid-menu-wrapper').filter({hasText: 'Team'});
+    test('a locked header leaves its menu trigger on top', async ({page}) => {
+        for (const grid of ['grid-column-menu-plain', 'grid-column-menu-locked']) {
+            expect(await readCoveredTriggers(page, grid)).toEqual([])
+        }
+    });
 
-        await wrapper.hover();
-        await wrapper.locator('.neo-grid-menu-trigger').click();
-
+    test('a configured menu opens from its trigger, in the center and in a locked region', async ({page}) => {
         const menu = page.locator('.neo-grid-column-menu');
-        await expect(menu).toBeVisible();
-        await expect(menu.locator('[role="option"]')).toHaveCount(3)
+
+        for (const [grid, header, options] of [['grid-column-menu-plain', 'Team', 3], ['grid-column-menu-locked', 'State', 2]]) {
+            const wrapper = page.locator(`#${grid} .neo-grid-menu-wrapper`).filter({hasText: header});
+
+            await wrapper.hover();
+            await wrapper.locator('.neo-grid-menu-trigger').click();
+
+            await expect(menu).toBeVisible();
+            await expect(menu.locator('[role="option"]')).toHaveCount(options);
+
+            await page.keyboard.press('Escape');
+            await expect(menu).toBeHidden()
+        }
     })
 });

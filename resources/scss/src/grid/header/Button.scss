@@ -146,4 +146,10 @@
         padding-right: 30px;
         width        : 100%;
     }
+
+    // A locked button paints at z-index 5; its menu trigger joins that level and follows it, so it stays on top
+    > .neo-locked-start ~ .neo-grid-menu-trigger,
+    > .neo-locked-end ~ .neo-grid-menu-trigger {
+        z-index: 5;
+    }
 }
