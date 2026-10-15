@@ -251,14 +251,21 @@ async function warmNativeInput() {
  * The path first enters popup content and exits through its titlebar so the product's ordinary
  * mouseout-owned movement observer is live. It then holds the OS mouse button throughout the
  * cross-window move and dwell. No CDP or Neo method moves the popup during this gesture.
+ *
+ * The window server resists a window whose edge meets another window's edge, so an open-loop
+ * path leaves the frame short of the hand. Like a hand that watches its corner, the script reads
+ * the popup frame back after the path and keeps dragging until the frame origin is on `land`,
+ * inside the coordinator's quiescence window so no early drop fires.
  * @param {Object} data
  * @param {{x:Number,y:Number}} data.end Global release coordinate over the target window.
+ * @param {{x:Number,y:Number}} data.land Global popup frame origin the hand must reach.
  * @param {{x:Number,y:Number}} data.prime Global point inside popup content.
+ * @param {{height:Number,width:Number}} data.size The popup's outer frame size, to find its frame.
  * @param {{x:Number,y:Number}} data.start Global popup-titlebar press coordinate.
- * @returns {Promise<Object>} Accessibility and physical mouse timing receipt.
+ * @returns {Promise<Object>} Accessibility, physical mouse timing and landing receipt.
  */
-async function dragNativeTitlebar({end, prime, start}) {
-    const points = [end, prime, start];
+async function dragNativeTitlebar({end, land, prime, size, start}) {
+    const points = [end, land, prime, start];
 
     if (!points.every(point => Number.isFinite(point?.x) && Number.isFinite(point?.y))) {
         throw new Error('native titlebar drag requires finite global coordinates')
@@ -313,9 +320,42 @@ for step in 1...28 {
     Thread.sleep(forTimeInterval: 0.025)
 }
 
+let landX = ${literal(land.x)}
+let landY = ${literal(land.y)}
+
+func popupOrigin() -> CGPoint? {
+    let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+
+    return windows.compactMap { info -> CGRect? in
+        guard let bounds = info[kCGWindowBounds as String] as? NSDictionary else { return nil }
+        return CGRect(dictionaryRepresentation: bounds as CFDictionary)
+    }.filter {
+        abs($0.width - ${literal(size.width)}) <= 2 && abs($0.height - ${literal(size.height)}) <= 2
+    }.min { abs($0.minX - landX) + abs($0.minY - landY) < abs($1.minX - landX) + abs($1.minY - landY) }?.origin
+}
+
+var mouseX = endX
+var mouseY = endY
+var corrections = 0
+
+Thread.sleep(forTimeInterval: 0.04)
+
+for _ in 0..<6 {
+    guard let origin = popupOrigin(), abs(landX - origin.x) > 1 || abs(landY - origin.y) > 1 else { break }
+    mouseX += landX - origin.x
+    mouseY += landY - origin.y
+    corrections += 1
+    post(.leftMouseDragged, x: mouseX, y: mouseY)
+    Thread.sleep(forTimeInterval: 0.03)
+}
+
+let landed = popupOrigin()
+print("corrections=\\(corrections)")
+print("landedX=\\(landed?.x ?? .nan)")
+print("landedY=\\(landed?.y ?? .nan)")
 Thread.sleep(forTimeInterval: 0.14)
 print("mouseUpMs=\\(Int(Date().timeIntervalSince1970 * 1000))")
-post(.leftMouseUp, x: endX, y: endY)
+post(.leftMouseUp, x: mouseX, y: mouseY)
 Thread.sleep(forTimeInterval: 0.12)
 `;
 
@@ -334,6 +374,8 @@ Thread.sleep(forTimeInterval: 0.12)
 
         return {
             access     : receipt.access === 'true',
+            corrections: Number(receipt.corrections),
+            landed     : {x: Number(receipt.landedX), y: Number(receipt.landedY)},
             mouseDownMs: Number(receipt.mouseDownMs),
             mouseUpMs  : Number(receipt.mouseUpMs)
         }
@@ -2311,7 +2353,13 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 }
             })(),
             [nativeInput, moved, retainedAtFirst] = await Promise.all([
-                dragNativeTitlebar({end, prime, start}),
+                dragNativeTitlebar({
+                    end,
+                    land: {x: targetCenter.x - anchorInset, y: targetCenter.y - anchorInset},
+                    prime,
+                    size: {height: popupPlacement.bounds.height, width: popupPlacement.bounds.width},
+                    start
+                }),
                 movedPromise,
                 retainedPromise
             ]),
@@ -2344,6 +2392,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         }));
 
         expect(nativeInput.access, 'the OS accepted literal HID event authority').toBe(true);
+        expect(Math.max(
+            Math.abs(nativeInput.landed.x - (targetCenter.x - anchorInset)),
+            Math.abs(nativeInput.landed.y - (targetCenter.y - anchorInset))
+        ), `the hand must land the popup corner on the target (corrections: ${nativeInput.corrections})`)
+            .toBeLessThanOrEqual(2);
         expect(nativeInput.mouseUpMs).toBeGreaterThan(nativeInput.mouseDownMs);
         expect(Math.max(
             Math.abs(moved.x - popupStart.x),
