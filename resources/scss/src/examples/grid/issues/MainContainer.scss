@@ -1,0 +1,150 @@
+// The header palette, on every theme carrier: the page, the view once its theme switches, and a column menu, which
+// floats on the body and carries a theme of its own. Each carrier resolves the values for its own theme.
+.neo-theme-neo-dark,
+.neo-theme-neo-light {
+    --grid-header-button-background-color      : var(--examples-grid-issues-surface);
+    --grid-header-button-background-color-hover: var(--examples-grid-issues-hover);
+    --grid-header-button-border-right-color    : var(--examples-grid-issues-border);
+    --grid-header-button-color                 : var(--examples-grid-issues-muted-color);
+    --grid-header-button-color-hover           : var(--examples-grid-issues-title-color);
+    --grid-header-button-font-size             : 11px;
+    --grid-header-button-font-weight           : 700;
+    --grid-header-button-glyph-color           : var(--examples-grid-issues-muted-color);
+    --grid-header-button-glyph-color-hover     : var(--examples-grid-issues-title-color);
+}
+
+.neo-examples-grid-issues {
+    background-color: var(--examples-grid-issues-background);
+    color           : var(--examples-grid-issues-text-color);
+    font-family     : var(--neo-font-family);
+    padding         : 0 20px 20px;
+
+    .issues-header {
+        background-color: transparent;
+        gap             : 16px;
+        padding         : 22px 8px 16px;
+    }
+
+    .issues-heading-title {
+        color         : var(--examples-grid-issues-title-color);
+        font-size     : 22px;
+        font-weight   : 700;
+        letter-spacing: -0.01em;
+    }
+
+    .issues-heading-subtitle {
+        color     : var(--examples-grid-issues-muted-color);
+        font-size : 13px;
+        margin-top: 4px;
+    }
+
+    .issues-toggle {
+        color    : var(--examples-grid-issues-text-color);
+        font-size: 13px;
+    }
+
+    .issues-grid {
+        --grid-container-border-color              : var(--examples-grid-issues-border);
+        --grid-container-cell-background-color     : var(--examples-grid-issues-surface);
+        --grid-container-cell-background-color-even: var(--examples-grid-issues-surface);
+        --grid-container-color                     : var(--examples-grid-issues-text-color);
+        --grid-container-font-size                 : 14px;
+        --grid-cell-background-color-hover         : var(--examples-grid-issues-hover);
+
+        background-color: var(--examples-grid-issues-surface);
+        border          : 1px solid var(--examples-grid-issues-border);
+        border-radius   : 12px;
+        box-shadow      : var(--examples-grid-issues-shadow);
+        overflow        : hidden;
+
+        .neo-grid-header-toolbar .neo-grid-header-button {
+            letter-spacing: 0.06em;
+        }
+
+        .neo-grid-row .neo-grid-cell {
+            border-right: none;
+            line-height : 1.45;
+            padding     : 10px 14px;
+
+            &.issues-id {
+                color             : var(--examples-grid-issues-muted-color);
+                font-size         : 13px;
+                font-variant-numeric: tabular-nums;
+            }
+
+            &.issues-title {
+                color      : var(--examples-grid-issues-title-color);
+                font-weight: 600;
+            }
+
+            &.issues-summary {
+                color    : var(--examples-grid-issues-text-color);
+                font-size: 13px;
+            }
+
+            &.issues-date {
+                color    : var(--examples-grid-issues-muted-color);
+                font-size: 13px;
+            }
+        }
+    }
+
+    .issues-chip {
+        border-radius: 999px;
+        display      : inline-flex;
+        font-size    : 12px;
+        font-weight  : 600;
+        line-height  : 20px;
+        padding      : 0 10px;
+        white-space  : nowrap;
+    }
+
+    .issues-type-bug         {background-color: var(--examples-grid-issues-bug-bg);     color: var(--examples-grid-issues-bug-fg);}
+    .issues-type-feature     {background-color: var(--examples-grid-issues-feature-bg); color: var(--examples-grid-issues-feature-fg);}
+    .issues-type-epic        {background-color: var(--examples-grid-issues-epic-bg);    color: var(--examples-grid-issues-epic-fg);}
+    .issues-type-task        {background-color: var(--examples-grid-issues-neutral-bg); color: var(--examples-grid-issues-neutral-fg);}
+
+    .issues-state            {padding-left: 8px;}
+    .issues-state:before     {background-color: currentColor; border-radius: 50%; content: ''; height: 6px; margin: 7px 6px 0 0; width: 6px;}
+    .issues-state-open       {background-color: var(--examples-grid-issues-open-bg);    color: var(--examples-grid-issues-open-fg);}
+    .issues-state-closed     {background-color: var(--examples-grid-issues-closed-bg);  color: var(--examples-grid-issues-closed-fg);}
+    .issues-state-not-planned,
+    .issues-state-duplicate  {background-color: var(--examples-grid-issues-neutral-bg); color: var(--examples-grid-issues-neutral-fg);}
+
+    .issues-area {
+        background-color: transparent;
+        border          : 1px solid var(--examples-grid-issues-area-border);
+        color           : var(--examples-grid-issues-area-fg);
+        font-weight     : 500;
+    }
+
+    .issues-author {
+        align-items: center;
+        display    : inline-flex;
+        font-size  : 13px;
+        gap        : 8px;
+    }
+
+    .issues-avatar {
+        align-items     : center;
+        background-color: hsl(var(--issues-avatar-hue) var(--examples-grid-issues-avatar-tone));
+        border-radius   : 50%;
+        color           : var(--examples-grid-issues-avatar-fg);
+        display         : inline-flex;
+        flex-shrink     : 0;
+        font-size       : 11px;
+        font-weight     : 700;
+        height          : 24px;
+        justify-content : center;
+        overflow        : hidden;
+        position        : relative;
+        width           : 24px;
+
+        img {
+            height  : 100%;
+            inset   : 0;
+            position: absolute;
+            width   : 100%;
+        }
+    }
+}
