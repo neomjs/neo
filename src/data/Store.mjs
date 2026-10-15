@@ -1265,12 +1265,15 @@ class Store extends Collection {
      * both events runs its `sort` handler *after* the `load` handler has already rebuilt the view, because
      * this store registers its own collection listener in `construct()` — before any component can bind. That
      * second handler is therefore looking at already-corrected state.
+     *
+     * The coarse payload carries `isSort: true`, so a consumer of both granularities can leave
+     * presentation to its fine sort handler without delaying ordinary membership loads.
      */
     onCollectionSort() {
         let me = this;
 
         if (me.isConstructed) {
-            me.fire('load', {items: me.items})
+            me.fire('load', {items: me.items, isSort: true})
         }
     }
 

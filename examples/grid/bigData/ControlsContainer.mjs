@@ -1,4 +1,5 @@
 import * as selection from '../../../src/selection/grid/_export.mjs';
+import CheckBox       from '../../../src/form/field/CheckBox.mjs';
 import ComboBox       from '../../../src/form/field/ComboBox.mjs';
 import Container      from '../../../src/container/Base.mjs';
 import Radio          from '../../../src/form/field/Radio.mjs';
@@ -112,6 +113,13 @@ class ControlsContainer extends Container {
                     style     : {marginTop: '.3em'},
                     value     : 'neo-theme-light',
                     valueLabel: 'Light'
+                }, {
+                    module    : CheckBox,
+                    hideLabel : true,
+                    listeners : {change: 'up.onColumnMenuChange'},
+                    reference : 'column-menu',
+                    style     : {marginTop: '2em'},
+                    valueLabel: 'Column menus'
                 }, {
                     ntype: 'label',
                     style: {marginTop: '2em'},
@@ -250,6 +258,14 @@ class ControlsContainer extends Container {
 
     /**
      * @param {Object} data
+     * @param {Boolean} data.value
+     */
+    onColumnMenuChange({value}) {
+        this.grid.columnMenu = value
+    }
+
+    /**
+     * @param {Object} data
      */
     async onControlsToggleButtonClick(data) {
         let me     = this,
@@ -268,10 +284,15 @@ class ControlsContainer extends Container {
     onConstructed() {
         super.onConstructed();
 
-        let me      = this,
-            {store} = me.grid;
+        let me     = this,
+            {grid} = me;
 
-        store.on({
+        // The checkbox mirrors the grid, never a default of its own
+        me.getItem('column-menu').checked = grid.columnMenu;
+
+        grid.on('columnMenuChange', me.onGridColumnMenuChange, me);
+
+        grid.store.on({
             filter: me.updateRowsLabel,
             load  : me.updateRowsLabel,
             scope : me
@@ -292,6 +313,15 @@ class ControlsContainer extends Container {
 
         me.grid.store.getFilter(data.component.name).value = data.value;
         me.grid.isLoading = false
+    }
+
+    /**
+     * Keeps the checkbox in line when the grid's columnMenu changes elsewhere, e.g. through the Neural Link.
+     * @param {Object} data
+     * @param {Boolean} data.value
+     */
+    onGridColumnMenuChange({value}) {
+        this.getItem('column-menu').checked = value
     }
 
     /**

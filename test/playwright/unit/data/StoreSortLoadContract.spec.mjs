@@ -31,21 +31,24 @@ test.describe('Neo.data.Store sort/load notification contract', () => {
 
     test.beforeEach(() => {
         store = Neo.create(Store, {
-            keyProperty: 'id',
-            model      : {
+            keyProperty    : 'id',
+            autoInitRecords: true,
+            model          : {
                 module: Model,
                 fields: [
                     {name: 'id',   type: 'String'},
                     {name: 'name', type: 'String'}
                 ]
             },
-            items: [
+            data: [
                 {id: '1', name: 'charlie'},
                 {id: '2', name: 'alpha'},
                 {id: '3', name: 'bravo'}
             ]
         })
     });
+
+    test.afterEach(() => store.destroy());
 
     test('a sort re-fires as a load, so a consumer binding load alone still sees it', () => {
         let loadFires = 0;
@@ -70,6 +73,46 @@ test.describe('Neo.data.Store sort/load notification contract', () => {
         // sufficient for the consumers that rely on it.
         expect(received.map(record => record.name)).toEqual(['alpha', 'bravo', 'charlie']);
     });
+
+    test('only the coarse sort load carries isSort, before the fine sort with the current typed records', () => {
+        const before = [...store.items], events = [];
+        let coarse, fine;
+
+        store.on({
+            load: data => { events.push('load'); coarse = data },
+            sort: data => { events.push('sort'); fine = data }
+        });
+        store.sort({direction: 'ASC', property: 'name'});
+
+        expect(events).toEqual(['load', 'sort']);
+        expect(coarse.isSort).toBe(true);
+        expect(Object.hasOwn(fine, 'isSort')).toBe(false);
+        expect(coarse.items.map(record => record.name)).toEqual(['alpha', 'bravo', 'charlie']);
+        expect(fine.items).toEqual(coarse.items);
+        [1, 2, 0].forEach((oldIndex, index) => {
+            expect(coarse.items[index]).toBe(before[oldIndex]);
+            expect(store.getAt(index)).toBe(before[oldIndex])
+        });
+        fine.previousItems.forEach((record, index) => expect(record).toBe(before[index]))
+    });
+
+    for (const [operation, mutate] of [
+        ['add', store => store.add({id: '4', name: 'delta'})],
+        ['remove', store => store.remove('2')],
+        ['clear', store => store.clear()],
+        ['replacement', store => { store.data = [{id: '1', name: 'updated'}, {id: '4', name: 'delta'}] }]
+    ]) {
+        test(`ordinary ${operation} membership loads omit the sort-only marker`, () => {
+            const loads = [];
+            store.on({load: data => loads.push(data)});
+
+            mutate(store);
+
+            expect(loads.length).toBeGreaterThan(0);
+            loads.forEach(data => expect(Object.hasOwn(data, 'isSort')).toBe(false));
+            expect(loads.at(-1).items).toEqual(store.items)
+        })
+    }
 
     test('both events fire for one sort, and the store\'s own listener runs before any consumer\'s', () => {
         const order = [];

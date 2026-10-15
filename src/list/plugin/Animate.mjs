@@ -36,8 +36,6 @@ class Animate extends Base {
      * @protected
      */
     measureToken = 0
-    /** @summary Invalidates deferred coarse loads after a synchronous fine sort/filter. */
-    loadSerial = 0
     /** @summary Fences delayed filter and settlement work against the latest presentation intent. */
     motionSerial = 0
     /** @summary Associates each rendered descriptor with the record it actually presents. */
@@ -443,7 +441,6 @@ class Animate extends Base {
             ownerId = me.owner?.id;
 
         clearTimeout(me.transitionTimeoutId);
-        me.loadSerial++;
         me.motionSerial++;
         if (me.ownerOnStoreLoad && me.owner?.onStoreLoad === me.ownerLoadHandler) {
             me.owner.onStoreLoad = me.ownerOnStoreLoad
@@ -568,22 +565,20 @@ class Animate extends Base {
     }
 
     /**
-     * @summary Lets a synchronous fine event own presentation before rebuilding for a coarse load.
-     * Store deliberately emits load before sort. Rebuilding here would reassign index-pooled cards
-     * before sortItems can move them. Ordinary loads still reach the original mount-aware handler.
+     * @summary Leaves an identified coarse sort notification to its fine sort handler.
+     * Ordinary membership/replacement loads reach the original mount-aware owner synchronously;
+     * only Store's explicit sort origin may skip that rebuild before sortItems moves the cards.
      * @param {Object} data
+     * @param {Boolean} [data.isSort] The coarse notification emitted by Store.onCollectionSort.
      */
     onStoreLoad(data) {
-        const serial = ++this.loadSerial;
-        queueMicrotask(() => {
-            if (this.isDestroyed || serial !== this.loadSerial) return;
-            this.motionSerial++;
-            this.pendingFilter = false;
-            this.endIndexedMotion();
-            clearTimeout(this.transitionTimeoutId);
-            this.transitionTimeoutId = null;
-            this.ownerOnStoreLoad(data)
-        })
+        if (this.isDestroyed || data?.isSort === true) return;
+        this.motionSerial++;
+        this.pendingFilter = false;
+        this.endIndexedMotion();
+        clearTimeout(this.transitionTimeoutId);
+        this.transitionTimeoutId = null;
+        return this.ownerOnStoreLoad(data)
     }
 
     /**
@@ -660,7 +655,6 @@ class Animate extends Base {
             index, item, map, position;
 
         const serial = ++me.motionSerial;
-        me.loadSerial++;
         me.pendingFilter = true;
 
         if (transitionTimeoutId) {
@@ -771,7 +765,6 @@ class Animate extends Base {
     onStoreSort(data) {
         let me = this;
 
-        me.loadSerial++;
         me.motionSerial++;
         clearTimeout(me.transitionTimeoutId);
         me.transitionTimeoutId = null;
