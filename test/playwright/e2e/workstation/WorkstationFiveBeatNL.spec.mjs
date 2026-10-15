@@ -2125,7 +2125,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         const
             coordinators      = await app.findInstances({className: 'Neo.manager.DragCoordinator'}, ['nativeWindowDropAnchorInset']),
-            anchorInset       = (Array.isArray(coordinators) ? coordinators[0] : coordinators)?.nativeWindowDropAnchorInset,
+            anchorInset       = (Array.isArray(coordinators) ? coordinators[0] : coordinators)?.properties?.nativeWindowDropAnchorInset,
             mainChromeHeight  = mainPlacement.browser.outer.height - mainPlacement.browser.inner.height,
             popupChromeHeight = popupPlacement.browser.outer.height - popupPlacement.browser.inner.height,
             titlebarOffset    = Math.max(8, Math.min(18, popupChromeHeight / 2)),
@@ -2154,6 +2154,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 x: globalThis.screenX,
                 y: globalThis.screenY
             }));
+
+        expect(Number.isFinite(anchorInset), 'the coordinator must publish its native drop anchor inset').toBe(true);
 
         await page.evaluate(() => {
             const
