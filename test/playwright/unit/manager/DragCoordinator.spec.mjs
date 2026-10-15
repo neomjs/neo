@@ -1475,6 +1475,42 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         }
     });
 
+    test('native source lookup excludes disconnected windows and observes renewed eligibility', () => {
+        const
+            draggedItem = {id: 'terminal'},
+            closed      = createZone('closed-workspace', 'win-closed'),
+            main        = createZone('workspace-main', 'win-main'),
+            drag        = {draggedItem, sourceWindowId: 'win-popup', widgetName: 'terminal'};
+
+        let closedReads = 0;
+
+        closed.getNativeWindowDrag = () => {
+            closedReads++;
+            throw new Error('disconnected source resolver invoked')
+        };
+        main.getNativeWindowDrag = windowId => windowId === 'win-popup' ? drag : null;
+
+        registerWindow('win-closed', 0, 0, 1000, 800);
+        registerWindow('win-main', 0, 0, 1000, 800);
+        registerWindow('win-popup', 200, 200, 300, 200);
+        DragCoordinator.register(closed);
+        DragCoordinator.register(main);
+        WindowManager.onWindowDisconnect({windowId: 'win-closed'});
+
+        expect(() => DragCoordinator.onWindowPositionChange({windowId: 'win-main'})).not.toThrow();
+        expect(DragCoordinator.getNativeWindowDragSource('win-popup')).toMatchObject({
+            ...drag, sourceSortZone: main
+        });
+        expect(closedReads).toBe(0);
+        expect(DragCoordinator.sortZones.get('dock').get('win-closed')).toBe(closed);
+
+        closed.getNativeWindowDrag = () => { closedReads++; return drag };
+        registerWindow('win-closed', 0, 0, 1000, 800);
+
+        expect(DragCoordinator.getNativeWindowDragSource('win-popup').sourceSortZone).toBe(closed);
+        expect(closedReads).toBe(1)
+    });
+
     test('a native source may name its physical popup separately so the originating main participation can claim', () => {
         const
             draggedItem = {id: 'terminal'},
