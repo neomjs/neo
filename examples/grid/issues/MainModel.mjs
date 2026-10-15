@@ -1,7 +1,7 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
- * @summary One issue of `neomjs/neo`, as the snapshot in `resources/data/neoIssues.json` holds it.
+ * @summary One issue of `neomjs/neo`, as the snapshot in `neomjs/pages` (`resources_pub/data/neo_issues.json`) holds it.
  * @class Neo.examples.grid.issues.MainModel
  * @extends Neo.data.Model
  */

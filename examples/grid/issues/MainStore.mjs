@@ -10,6 +10,9 @@ import Store from '../../../src/data/Store.mjs';
  * paragraph, at most 220 characters), the type and the first area label, the state, the author's login, the creation
  * day and the comment count. Records whose title or summary held an email address, a token, a local path, a private
  * name or a session id were dropped rather than edited.
+ *
+ * The snapshot lives in `neomjs/pages` and loads through the GitHub CDN, as the covid apps' data does, so neither this
+ * repository nor its npm package carries it.
  * @class Neo.examples.grid.issues.MainStore
  * @extends Neo.data.Store
  */
@@ -33,9 +36,9 @@ class MainStore extends Store {
          */
         sorters: [{property: 'id', direction: 'DESC'}],
         /**
-         * @member {String} url='../../../resources/data/neoIssues.json'
+         * @member {String} url='https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/neo_issues.json'
          */
-        url: '../../../resources/data/neoIssues.json'
+        url: 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/neo_issues.json'
     }
 }
 

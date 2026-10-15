@@ -109,7 +109,7 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Shows the author's GitHub avatar beside the login, over an initial that stays when the page runs offline. A
+     * Shows the author's GitHub avatar beside the login, over an initial that stays when the avatar cannot load. A
      * login that is not a plain GitHub name renders as text.
      * @param {Object} data
      * @param {String} data.value
