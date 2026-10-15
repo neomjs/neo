@@ -104,11 +104,11 @@ test.describe('Grid issues showcase', () => {
     })
 });
 
-test.describe('Grid issues showcase, west of Greenwich', () => {
-    // A UTC midnight read in this zone is the previous evening
-    test.use({timezoneId: 'America/Los_Angeles'});
+// Los Angeles reads a UTC midnight as the previous evening. UTC is the positive control: there the day holds either way.
+for (const timezoneId of ['America/Los_Angeles', 'UTC']) test.describe(`Grid issues showcase in ${timezoneId}`, () => {
+    test.use({timezoneId});
 
-    test('the snapshot\'s days read the same in every time zone', async ({page}) => {
+    test('the snapshot\'s days read as their calendar days', async ({page}) => {
         const days   = issues.map(issue => issue.created).sort(),
               newest = issues.reduce((a, b) => b.id > a.id ? b : a),
               day    = new Intl.DateTimeFormat('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'}),
