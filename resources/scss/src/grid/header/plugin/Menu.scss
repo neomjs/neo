@@ -1,19 +1,10 @@
+// The wrapper's own geometry is the header button's (grid/header/Button.scss)
 .neo-grid-menu-wrapper {
-    display : flex;
-    flex-shrink: 0;
-    position: relative;
-
-    > .neo-grid-header-button {
-        flex         : 1 1 auto;
-        min-width    : 0;
-        padding-right: 30px;
-        width        : 100%;
-    }
-
     > .neo-grid-menu-trigger {
         background : transparent;
         border     : 0;
         bottom     : 3px;
+        height     : auto; // top and bottom size it, not the theme's button height
         min-width  : 20px;
         opacity    : 0;
         padding    : 0;
