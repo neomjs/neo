@@ -1,5 +1,7 @@
 .neo-grid-body {
-    &.neo-animate-rows {
+    // Rows transition only while a sort or a filter moves them. Pooled rows recycle through their transforms
+    // while the body scrolls, which must not animate.
+    &.neo-animate-rows.neo-animate-rows-moving:not(.neo-is-scrolling) {
         .neo-grid-row {
             transition:
                 background-color var(--neo-duration) var(--neo-easing),
