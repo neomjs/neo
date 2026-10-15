@@ -2453,7 +2453,18 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             message  : 'native terminal cleanup must leave no preview or proxy residue',
             timeout  : 5000,
             intervals: [25, 50, 100]
-        }).toEqual({preview: false, proxy: false});
+        }).toEqual({preview: false, proxy: false}).catch(async error => {
+            // A residue the embodiment still holds as `active` missed a retire path; any other is an orphan
+            const
+                domProxyId    = await page.evaluate(() => document.querySelector('.workstation-vessel-dragproxy')?.id ?? null),
+                {targetProxy} = await app.callMethod(wsId, 'readCrossWindowGestureSnapshot', [{
+                    draggedItemId    : 'metrics',
+                    targetWorkspaceId: 'workstation-main'
+                }]);
+
+            error.message += `\ndomProxyId=${domProxyId}\nactiveProxy=${JSON.stringify(targetProxy ?? null)}`;
+            throw error
+        });
 
         expect(popupProbe).toHaveLength(1);
         expect(popupProbe[0].closed).toBe(true);
