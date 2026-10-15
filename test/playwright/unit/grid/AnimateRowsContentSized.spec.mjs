@@ -3,9 +3,9 @@
  * @summary `grid.plugin.AnimateRows` stands aside in content-sized mode.
  *
  * The plugin animates rows to fixed-height positions and does not read the row geometry. With `contentSizedRows`
- * it takes its row transitions off the body, warns once that `animatedRowSorting` is ignored, and hands the store's
- * sort and filter events back to the body, which renders its rows at their geometry offsets. In fixed-height mode
- * it keeps its transitions and stays silent.
+ * it takes `neo-animate-rows`, the class its transitions hang on, off the body, warns once that `animatedRowSorting`
+ * is ignored, and hands the store's sort and filter events back to the body, which renders its rows at their
+ * geometry offsets. In fixed-height mode it keeps the class and stays silent.
  *
  * @see Neo.grid.plugin.AnimateRows#standAside
  */
@@ -229,7 +229,7 @@ test.describe('Grid AnimateRows with content-sized rows', () => {
         expectRowsOnGeometry(body, view.rowGeometry)
     });
 
-    test('fixed-height rows: the plugin keeps its row transitions and says nothing', async () => {
+    test('fixed-height rows: the plugin keeps its class and says nothing', async () => {
         grid = await createGrid(store, false);
 
         expect(grid.body.cls).toContain('neo-animate-rows');
