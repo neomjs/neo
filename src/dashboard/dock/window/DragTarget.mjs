@@ -196,6 +196,14 @@ class DragTarget extends Base {
     currentDragPayload = null
 
     /**
+     * Payloads whose leave-path restore the embodiment refused. Their generation stays live after
+     * the leave, so a commit still pending for one of them is the only terminal left to retire it.
+     * @member {WeakSet<Object>} #unrestoredPayloads
+     * @private
+     */
+    #unrestoredPayloads = new WeakSet()
+
+    /**
      * The declared ownership the coordinator admits candidates by (docking design record §2.3): the seam's answer,
      * `null` while unresolved, never `undefined` — see {@link #resolveOwnershipId}.
      * @member {String|null} ownershipId
@@ -367,7 +375,10 @@ class DragTarget extends Base {
         let me      = this,
             payload = me.currentDragPayload;
 
-        payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload);
+        if (payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload) === false) {
+            me.#unrestoredPayloads.add(payload)
+        }
+
         me.currentDragPayload = null;
         me.currentPreview     = null;
         me.clearPreview?.()
@@ -431,13 +442,16 @@ class DragTarget extends Base {
         }
 
         const settle = committed => {
-            const current = me.currentDragPayload === payload && !me.isDestroyed;
+            const
+                current  = me.currentDragPayload === payload && !me.isDestroyed,
+                orphaned = committed && !me.isDestroyed && !me.currentDragPayload && me.#unrestoredPayloads.has(payload);
 
             // A target can unregister while an async owner commit is pending. Its leave path restores
             // this exact embodiment, and a late completion must not advertise a commit to the
-            // coordinator/source disposer. That restore is refused once the commit adopted the pane,
-            // so a commit still promotes: the identity-guarded promote no-ops on a restored generation.
-            if (payload?.embodyProxy === true && (current || (committed && !me.isDestroyed))) {
+            // coordinator/source disposer, nor settle a generation it no longer owns: the embodiment
+            // identity names no generation, so a restored one's successor would match it. Only the
+            // generation a refused restore left live, with no successor hovering, is still this drop's.
+            if (payload?.embodyProxy === true && (current || orphaned)) {
                 me[committed ? 'promoteDragEmbodiment' : 'restoreDragEmbodiment']?.(payload)
             }
 

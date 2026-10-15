@@ -9,6 +9,7 @@ setup({
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
+import '../../../../src/manager/Instance.mjs';
 import Component       from '../../../../src/component/Base.mjs';
 import Container       from '../../../../src/container/Base.mjs';
 import DockWorkspace   from '../../../../src/dashboard/dock/Workspace.mjs';
@@ -371,6 +372,113 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         expect(mounting.commits, 'a drop while the proxy is still mounting lands behind nothing either').toEqual([]);
         expect(mounting.result).toBeNull();
         expect(mounting.preview).toBeNull()
+    });
+
+    /**
+     * A native source window that retires while the owner commit is pending makes the coordinator
+     * leave the target. Drives the REAL target, participation seams and proxy embodiment, whose
+     * identity names item and windows but no generation: the late commit must retire the pane
+     * generation a refused restore left live, and must not touch a header successor that took the
+     * place of a restored predecessor under the same identity.
+     */
+    test('a late committed drop retires the generation a refused restore left live, never a successor', async () => {
+        let settleCommit;
+
+        const
+            draggedItem = {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'},
+            home        = Neo.create(Container, {items: []}),
+            source      = Neo.create(Container, {items: [{module: Component, html: 'alpha'}]}),
+            pane        = source.items[0],
+            embodiment  = Neo.create(VesselProxyEmbodiment, {
+                createProxy: config => {
+                    if (config.vdom) {
+                        const proxy = Neo.create(Component, {cls: config.cls, style: config.style});
+
+                        proxy.initVnode = () => Promise.resolve();
+                        return proxy
+                    }
+
+                    const proxy   = Neo.create(Container, {cls: config.cls, items: [], windowId: config.windowId}),
+                          destroy = proxy.destroy.bind(proxy);
+
+                    // a committed projection has already reparented the pane; never cascade into it
+                    proxy.destroy = (...args) => { proxy.items = []; destroy(...args) };
+                    return proxy
+                },
+                resolvePane       : itemId => itemId === 'alpha' ? pane : null,
+                resolveProxyConfig: () => ({cls: ['neo-dock-dragproxy']})
+            }),
+            participation = Neo.create(DockCrossWindowParticipation, {
+                commitLocal       : () => new Promise(resolve => settleCommit = resolve),
+                dragCoordinator   : createCoordinatorStub([]),
+                dragEmbodiment    : embodiment,
+                getDocument       : () => targetDoc(),
+                hitTest           : () => true,
+                previewFor        : payload => ({itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}}),
+                previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+                resolveOwnershipId: () => 'group-1',
+                sortGroup         : 'dock-demo',
+                windowId          : 'window-b',
+                workspaceId       : 'B'
+            }),
+            {target} = participation,
+            gesture  = embodyHeader => ({
+                draggedItem, embodyHeader, embodyProxy: true, localX: 10, localY: 10, offsetX: 0, offsetY: 0,
+                proxyRect     : {height: 32, width: 90, x: 10, y: 10},
+                sourceSortZone: {
+                    getDragProxyConfig: () => ({cls: []}),
+                    getDragProxyVdom  : () => ({cn: [{tag: 'button', text: 'Alpha'}]})
+                },
+                sourceWindowId: 'window-a'
+            });
+
+        // A header predecessor whose leave restore succeeds, then a successor under the same identity
+        const predecessor = gesture(true), successor = gesture(true);
+
+        target.onRemoteDragMove(predecessor);
+        await embodiment.whenSettled({itemId: 'alpha'});
+
+        let dropping = target.onRemoteDrop(draggedItem);
+
+        target.onRemoteDragLeave();
+        target.onRemoteDragMove(successor);
+        await embodiment.whenSettled({itemId: 'alpha'});
+
+        const successorGeneration = embodiment.snapshot('alpha').generation;
+
+        settleCommit({document: targetDoc(), errors: []});
+
+        expect(await dropping).toBeNull();
+        expect(embodiment.snapshot('alpha'), 'the late commit leaves the successor generation alone')
+            .toMatchObject({generation: successorGeneration, settled: true, visible: true});
+        expect(target.currentDragPayload).toBe(successor);
+
+        target.onRemoteDragLeave();
+
+        // A pane generation: the commit's projection takes the pane home and its placeholder away,
+        // so the source's release can no longer restore it
+        target.onRemoteDragMove(gesture(false));
+        await embodiment.whenSettled({itemId: 'alpha'});
+
+        dropping = target.onRemoteDrop(draggedItem);
+        pane.parent.remove(pane, false);
+        home.add(pane);
+        source.removeAt(0, true);
+        target.onRemoteDragLeave();
+
+        expect(embodiment.snapshot('alpha'), 'the refused restore leaves the generation live').toBeTruthy();
+
+        settleCommit({document: targetDoc(), errors: []});
+
+        expect(await dropping).toBeNull();
+        expect(embodiment.snapshot('alpha'), 'the late commit retires it').toBeNull();
+        expect(pane.isDestroyed).toBeFalsy();
+        expect(pane.parent).toBe(home);
+
+        participation.destroy();
+        embodiment.destroy();
+        home.destroy();
+        source.destroy()
     });
 
     test('foreign drop: composes ONE transferItem through the real executor — source loses the item, target gains it, commitTransfer publishes the pair', () => {

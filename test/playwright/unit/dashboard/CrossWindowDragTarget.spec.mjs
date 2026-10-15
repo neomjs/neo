@@ -315,11 +315,11 @@ test.describe('Neo.dashboard.dock.window.DragTarget (#14670 / ADR 0029 §2.3)', 
         expect(restored, 'destroy restores the staged generation exactly once').toEqual(['pane-a'])
     });
 
-    test('a committed completion promotes the generation a mid-commit leave could not restore', async () => {
+    test('a late committed completion promotes only the generation its refused leave restore left live', async () => {
         const
             promoted = [],
             restored = [];
-        let settleCommit;
+        let restoreAnswer, settleCommit;
 
         const
             target = Neo.create(CrossWindowDragTarget, {
@@ -327,37 +327,59 @@ test.describe('Neo.dashboard.dock.window.DragTarget (#14670 / ADR 0029 §2.3)', 
                 previewFor           : () => ({feedback: {state: 'accepted'}, itemId: 'pane-a'}),
                 previewToOperation   : () => ({operation: 'addTab', itemId: 'pane-a', tabsNodeId: 't1'}),
                 promoteDragEmbodiment: payload => promoted.push(payload.draggedItem.dockItemId),
-                restoreDragEmbodiment: payload => restored.push(payload.draggedItem.dockItemId),
+                restoreDragEmbodiment: payload => (restored.push(payload.draggedItem.dockItemId), restoreAnswer),
                 sortGroup            : 'dock-main',
                 stageDragEmbodiment  : () => true,
                 windowId             : 2
             }),
-            payload = {
+            gesture = () => ({
                 draggedItem: {dockItemId: 'pane-a'},
                 embodyProxy: true,
                 localX     : 4,
                 localY     : 4
+            }),
+            // A native source window retires while the owner commit is pending: its release leaves the target
+            dropAndLeave = (answer, beforeSettle) => {
+                const payload = gesture();
+
+                restoreAnswer = answer;
+                target.onRemoteDragMove(payload);
+
+                const dropping = target.onRemoteDrop(payload.draggedItem);
+
+                target.onRemoteDragLeave();
+                beforeSettle?.();
+                return dropping
             };
 
-        // A native source window retires while the owner commit is pending: its release leaves the target
-        target.onRemoteDragMove(payload);
-        let dropping = target.onRemoteDrop(payload.draggedItem);
-        target.onRemoteDragLeave();
+        let dropping = dropAndLeave(false);
         settleCommit({applied: true});
 
         expect(await dropping, 'a departed payload still advertises no commit to the source disposer').toBeNull();
-        expect(restored, 'the leave path attempted its restore').toEqual(['pane-a']);
-        expect(promoted, 'the committed generation is promoted instead of left live').toEqual(['pane-a']);
+        expect(promoted, 'the generation the refused restore left live is promoted').toEqual(['pane-a']);
 
-        // Control: a refused completion after the same leave settles nothing a second time
-        target.onRemoteDragMove(payload);
-        dropping = target.onRemoteDrop(payload.draggedItem);
+        dropping = dropAndLeave(true);
+        settleCommit({applied: true});
+
+        expect(await dropping).toBeNull();
+        expect(promoted, 'a restored generation is gone: the late commit settles nothing').toEqual(['pane-a']);
+
+        const successor = gesture();
+
+        dropping = dropAndLeave(false, () => target.onRemoteDragMove(successor));
+        settleCommit({applied: true});
+
+        expect(await dropping).toBeNull();
+        expect(promoted, 'a successor hovering owns the embodiment').toEqual(['pane-a']);
+        expect(target.currentDragPayload).toBe(successor);
+
         target.onRemoteDragLeave();
+        dropping = dropAndLeave(false);
         settleCommit(null);
 
         expect(await dropping).toBeNull();
-        expect(restored).toEqual(['pane-a', 'pane-a']);
-        expect(promoted).toEqual(['pane-a']);
+        expect(promoted, 'a refused completion promotes nothing').toEqual(['pane-a']);
+        expect(restored, 'and restores nothing a second time').toEqual(['pane-a', 'pane-a', 'pane-a', 'pane-a', 'pane-a']);
 
         target.destroy()
     });
