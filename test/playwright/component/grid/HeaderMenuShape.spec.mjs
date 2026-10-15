@@ -51,6 +51,20 @@ async function readMisalignedColumns(page, grid) {
     }, grid)
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {String} grid The grid's id
+ * @returns {Promise<String[]>} The headers whose menu trigger reaches outside them
+ */
+async function readOverflowingTriggers(page, grid) {
+    return page.evaluate(id => [...document.getElementById(id).querySelectorAll('.neo-grid-menu-wrapper')].filter(wrapper => {
+        const header  = wrapper.getBoundingClientRect(),
+              trigger = wrapper.querySelector('.neo-grid-menu-trigger').getBoundingClientRect();
+
+        return trigger.top < header.top || trigger.bottom > header.bottom
+    }).map(wrapper => wrapper.querySelector('.neo-grid-header-button').textContent.trim()), grid)
+}
+
 test.describe('Header menu shape', () => {
     test.beforeEach(async ({page}) => {
         await page.goto(APP);
@@ -116,6 +130,12 @@ test.describe('Header menu shape', () => {
 
         await expect.poll(() => readMisalignedColumns(page, grid)).toEqual([]);
         expect(await readGrid(page, grid)).toMatchObject({colindex: ['1', '2', '3'], rows: [4], wrappers: 3})
+    });
+
+    test('each menu trigger sits inside its header', async ({page}) => {
+        for (const grid of ['grid-column-menu-plain', 'grid-column-menu-locked']) {
+            expect(await readOverflowingTriggers(page, grid)).toEqual([])
+        }
     });
 
     test('a configured menu opens from its trigger', async ({page}) => {
