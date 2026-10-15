@@ -6,9 +6,10 @@ import GridContainer from '../../../src/grid/Container.mjs';
 import MainStore     from './MainStore.mjs';
 import Viewport      from '../../../src/container/Viewport.mjs';
 
+// The snapshot holds calendar days in UTC; read in the viewer's zone, a day west of Greenwich shows as the one before
 const
-    dayFormat   = new Intl.DateTimeFormat('en-US', {month: 'short', day: 'numeric'}),
-    rangeFormat = new Intl.DateTimeFormat('en-US', {month: 'short', day: 'numeric', year: 'numeric'}),
+    dayFormat   = new Intl.DateTimeFormat('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'}),
+    rangeFormat = new Intl.DateTimeFormat('en-US', {month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'}),
     slug        = value => value.toLowerCase().replace(/\s+/g, '-');
 
 /**
