@@ -41,7 +41,13 @@ const pixels = async (page, points) => {
 
         context.drawImage(image, 0, 0);
 
-        return points.map(({x, y}) => [...context.getImageData(x, y, 1, 1).data.slice(0, 3)].join())
+        return points.map(({x, y}) => {
+            if (x < 0 || y < 0 || x >= image.width || y >= image.height) {
+                throw new Error(`Divider sample (${x}, ${y}) is outside the ${image.width}×${image.height} screenshot`)
+            }
+
+            return [...context.getImageData(x, y, 1, 1).data.slice(0, 3)].join()
+        })
     }, {png, points})
 };
 
