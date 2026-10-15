@@ -2034,7 +2034,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(storeIdsBefore).toHaveLength(2);
         await popup.waitForSelector('.workstation-viewport', {timeout: 30000});
 
-        const documentBeforeReturn = await readDocument(app, wsId);
+        const
+            documentBeforeReturn = await readDocument(app, wsId),
+            vesselBeforeReturn   = await app.callMethod(wsId, 'getWorkspaceDocument', ['workstation-vessel:metrics']);
 
         expect(Object.values(documentBeforeReturn.nodes)
             .flatMap(node => node.items ?? [])
@@ -2370,12 +2372,17 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         const
             expectedOperation = PreviewContract.previewToOperation(committedPreview),
-            expectedReturn    = Operations.applyOperation(documentBeforeReturn, expectedOperation);
+            // The vessel owns the torn-out record, so the return is a transfer back into main
+            expectedReturn    = Operations.transferItem(vesselBeforeReturn, documentBeforeReturn, {
+                itemId           : 'metrics',
+                sourceWorkspaceId: 'workstation-vessel:metrics',
+                targetWorkspaceId: 'workstation-main',
+                target           : expectedOperation
+            });
 
         expect(expectedOperation, 'the retained accepted preview must convert through the production contract')
             .toBeTruthy();
-        expect(expectedReturn.errors, 'the retained preview operation must be valid against pre-return truth; '
-            + `catalog: ${JSON.stringify(Object.keys(documentBeforeReturn.items ?? {}))}`)
+        expect(expectedReturn.errors, 'the retained preview operation must be valid against pre-return truth')
             .toEqual([]);
 
         let closeReceipt   = null,
@@ -2402,7 +2409,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(documentAfter,
             `the exact physical landing must commit its retained ${committedPreview.placement.kind} preview`)
-            .toEqual(expectedReturn.document);
+            .toEqual(expectedReturn.targetDocument);
         expect(Object.values(documentAfter.nodes)
             .flatMap(node => node.items ?? [])
             .filter(itemId => itemId === 'metrics')).toHaveLength(1);
