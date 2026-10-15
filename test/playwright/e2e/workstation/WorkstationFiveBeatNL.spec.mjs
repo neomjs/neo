@@ -220,6 +220,32 @@ async function awaitFilmGo(payload) {
 }
 
 /**
+ * @summary The environment every `swift -e` native-input script runs in: one module cache per
+ * user, so only the first compile on a machine pays for Cocoa's modules.
+ * @returns {Promise<Object>} the process environment plus the shared module-cache paths
+ */
+async function nativeInputEnv() {
+    const moduleCache = path.join(process.env.TMPDIR || '/tmp', 'neo-native-titlebar-swift-cache');
+
+    await fs.ensureDir(moduleCache);
+
+    return {...process.env, CLANG_MODULE_CACHE_PATH: moduleCache, SWIFT_MODULE_CACHE_PATH: moduleCache}
+}
+
+/**
+ * @summary Compiles the native-input imports before any gesture-timed witness opens: on a cold
+ * module cache the drag's own `swift -e` compile outlasts the 15 s witnesses beside it.
+ * @returns {Promise<Boolean>} whether the OS accepts literal HID events from this process tree
+ */
+async function warmNativeInput() {
+    const {stdout} = await execFileAsync('/usr/bin/swift', ['-e',
+        'import Cocoa\nimport Darwin\nimport Foundation\nprint(CGPreflightPostEventAccess())'
+    ], {env: await nativeInputEnv(), timeout: 120000});
+
+    return stdout.trim() === 'true'
+}
+
+/**
  * @summary Performs one literal macOS HID titlebar drag with CoreGraphics mouse events.
  *
  * The path first enters popup content and exits through its titlebar so the product's ordinary
@@ -291,18 +317,11 @@ Thread.sleep(forTimeInterval: 0.14)
 print("mouseUpMs=\\(Int(Date().timeIntervalSince1970 * 1000))")
 post(.leftMouseUp, x: endX, y: endY)
 Thread.sleep(forTimeInterval: 0.12)
-`,
-        moduleCache = path.join(process.env.TMPDIR || '/tmp', 'neo-native-titlebar-swift-cache');
-
-    await fs.ensureDir(moduleCache);
+`;
 
     try {
         const {stderr, stdout} = await execFileAsync('/usr/bin/swift', ['-e', script], {
-            env: {
-                ...process.env,
-                CLANG_MODULE_CACHE_PATH: moduleCache,
-                SWIFT_MODULE_CACHE_PATH: moduleCache
-            },
+            env    : await nativeInputEnv(),
             timeout: 60000
         });
         const receipt = Object.fromEntries(stdout.trim().split('\n').map(line => {
@@ -1984,6 +2003,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(userAgent, 'a headless browser cannot witness an OS titlebar gesture')
             .not.toContain('HeadlessChrome');
+        expect(await warmNativeInput(), 'the OS must accept literal HID events before a timed witness opens')
+            .toBe(true);
 
         const {default: Operations} = await import('../../../../src/dashboard/dock/model/Operations.mjs');
 
@@ -2353,7 +2374,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(expectedOperation, 'the retained accepted preview must convert through the production contract')
             .toBeTruthy();
-        expect(expectedReturn.errors, 'the retained preview operation must be valid against pre-return truth')
+        expect(expectedReturn.errors, 'the retained preview operation must be valid against pre-return truth; '
+            + `catalog: ${JSON.stringify(Object.keys(documentBeforeReturn.items ?? {}))}`)
             .toEqual([]);
 
         let closeReceipt   = null,
