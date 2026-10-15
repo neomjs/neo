@@ -581,9 +581,7 @@ class DragCoordinator extends Manager {
     }
 
     /**
-     * @summary Finds the terminal detached dashboard item represented by a native popup window.
-     *
-     * Finds the terminal detached dashboard item represented by a native popup window.
+     * @summary Finds a native popup's detached item through a currently connected source window.
      * @param {String} windowId
      * @returns {Object|null}
      */
@@ -592,6 +590,8 @@ class DragCoordinator extends Manager {
 
         for (const group of me.sortZones.values()) {
             for (const sortZone of group.values()) {
+                if (!Window.get(sortZone.windowId)) continue;
+
                 let drag = sortZone.getNativeWindowDrag?.(windowId);
 
                 if (drag) {
