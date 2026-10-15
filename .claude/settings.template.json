@@ -48,7 +48,11 @@
       "Bash(git push origin main*)",
       "Bash(git commit* --no-verify*)",
       "Bash(git commit* -n *)",
-      "Workflow"
+      "Workflow",
+      "mcp__ccd_session__start_session",
+      "mcp__ccd_session__hand_off_to_session",
+      "mcp__scheduled-tasks__create_scheduled_task",
+      "mcp__scheduled-tasks__run_scheduled_task"
     ],
     "ask": [
       "Agent",
