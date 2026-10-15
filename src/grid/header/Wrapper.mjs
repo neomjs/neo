@@ -118,8 +118,10 @@ class Wrapper extends BaseContainer {
                 let dirty = false;
 
                 toolbar.items.forEach((item, index) => {
-                    if (item.vdom['aria-colindex'] !== index + 1) {
-                        item.vdom['aria-colindex'] = index + 1; // 1 based
+                    let root = item.getVdomRoot();
+
+                    if (root['aria-colindex'] !== index + 1) {
+                        root['aria-colindex'] = index + 1; // 1 based
                         dirty = true
                     }
                 });

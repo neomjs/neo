@@ -132,3 +132,18 @@
         }
     }
 }
+
+// A header with a column menu wraps its button before the first render. The menu plugin loads lazily,
+// so the wrapper's geometry lives here: the header toolbar measures it as soon as it mounts.
+.neo-grid-menu-wrapper {
+    display    : flex;
+    flex-shrink: 0;
+    position   : relative;
+
+    > .neo-grid-header-button {
+        flex         : 1 1 auto;
+        min-width    : 0;
+        padding-right: 30px;
+        width        : 100%;
+    }
+}

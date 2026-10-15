@@ -94,6 +94,11 @@ class Toolbar extends BaseToolbar {
      * @protected
      */
     pendingScrollTarget = null
+    /**
+     * The latest update {@link #measureAfterUpdate} waits for.
+     * @member {Promise|null} #measureAfter=null
+     */
+    #measureAfter = null
 
     /**
      * @summary The grid body this toolbar drives — the single source of truth for header→body routing.
@@ -275,7 +280,7 @@ class Toolbar extends BaseToolbar {
             style;
 
         items.forEach((item, index) => {
-            item.vdom['aria-colindex'] = index + 1; // 1 based
+            item.getVdomRoot()['aria-colindex'] = index + 1; // 1 based
 
             style = item.wrapperStyle;
 
@@ -361,6 +366,9 @@ class Toolbar extends BaseToolbar {
      * resizes trigger it while DockFlip still scale-transforms the pane), and visual button
      * rects sampled mid-motion would poison every column position and the summed
      * `availableWidth` the body paints itself with.
+     *
+     * Each button is measured at its outermost node, the box this toolbar lays out. A header with
+     * a column menu wraps its button, and that wrapper is also the button's offset parent.
      * @param {Boolean} silent=false
      * @returns {Promise<void>}
      */
@@ -388,7 +396,7 @@ class Toolbar extends BaseToolbar {
         }
 
         if (hasDynamicWidth) {
-            rects = await me.getLayoutRect(items.map(item => item.id));
+            rects = await me.getLayoutRect(items.map(item => item.vdom.id));
 
             // If the css sizing is not done, columns after the first one can get x === firstX
             for (i = 1; i < len; i++) {
@@ -439,6 +447,26 @@ class Toolbar extends BaseToolbar {
             // createViewData's own change-detection would repaint, and the cells would keep the
             // geometry we just discarded. `true` marks this as a geometry change.
             !silent && body.refreshColumns(true)
+        }
+    }
+
+    /**
+     * @summary Updates, then measures the headers again. Calls made while that update is pending share one
+     * measurement, taken after the latest of their updates.
+     *
+     * Each caller has changed a header's shape and needs it rendered, so every call schedules its own update; only
+     * the measurement is shared. A grid that turns on its column menus wraps every header at once.
+     * @returns {Promise<void>}
+     */
+    async measureAfterUpdate() {
+        let me     = this,
+            update = me.#measureAfter = me.promiseUpdate();
+
+        await update;
+
+        if (update === me.#measureAfter) {
+            me.#measureAfter = null;
+            await me.passSizeToBody()
         }
     }
 

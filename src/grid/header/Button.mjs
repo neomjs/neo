@@ -285,25 +285,47 @@ class Button extends BaseButton {
     }
 
     /**
-     * @summary Creates a stable sibling-trigger wrapper while retaining the native sort button and its focus identity.
+     * @summary A header configured with `columnMenu` takes its wrapper shape before its first render.
+     *
+     * The lazily loaded menu plugin only installs the trigger then; a root swap from it could land while the grid's
+     * first render is in flight.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.columnMenu && this.wrapColumnMenuRoot()
+    }
+
+    /**
+     * @summary Wraps a header created without a menu, then re-measures its toolbar: the wrapper reserves the trigger's
+     * space, which widens a content-sized column.
      */
     prepareColumnMenuWrapper() {
         if (this.menuRootWrapped) return;
+        const parent = this.parent, reference = this.wrapColumnMenuRoot();
+        this.updateDepth = -1;
+        if (reference) {
+            parent.updateDepth = -1;
+            parent.measureAfterUpdate()
+        } else {
+            this.update()
+        }
+    }
+
+    /**
+     * @summary Creates a stable sibling-trigger wrapper while retaining the native sort button and its focus identity.
+     * Re-points the parent's reference to the wrapper, without an update.
+     * @returns {Object|undefined} The parent's reference node, when the parent already holds one
+     */
+    wrapColumnMenuRoot() {
         const root = this.vdom;
         this.menuRootWrapped = true;
         this._vdom = {tag: 'div', cls: ['neo-grid-menu-wrapper'], cn: [root]};
         this.ensureStableIds();
-        const parent = this.parent, reference = parent?.getVdomItemsRoot().cn.find(node => node.componentId === this.id);
+        const reference = this.parent?.getVdomItemsRoot().cn.find(node => node.componentId === this.id);
         if (reference) Object.assign(reference, this.createVdomReference());
         this.wrapperCls = [...(this.wrapperCls || []), 'neo-grid-menu-wrapper'];
         this.afterSetWidth(this.width);
-        this.updateDepth = -1;
-        if (reference) {
-            parent.updateDepth = -1;
-            parent.update()
-        } else {
-            this.update()
-        }
+        return reference
     }
 
     /**
