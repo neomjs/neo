@@ -11,9 +11,27 @@ import {expect, test} from '../../fixtures.mjs';
 const APP = 'examples/grid/animatedRowSorting/index.html',
       ROW = '.neo-grid-body .neo-grid-row';
 
+/**
+ * Opens the example and waits until its body animates. The body imports AnimateRows on demand, and the plugin's
+ * `neo-animate-rows` class reaches the DOM only with its stylesheet, while the rows can render before both: a sort or
+ * filter made in between renders without a transition. So the module arrives only after the rows show, the order a
+ * cold load can produce, and the tests wait for the class.
+ * @param {import('@playwright/test').Page} page
+ */
 async function openExample(page) {
+    let rowsShown;
+    const shown = new Promise(resolve => {rowsShown = resolve});
+
+    await page.route('**/grid/plugin/AnimateRows.mjs*', async route => {
+        await shown;
+        await new Promise(resolve => setTimeout(resolve, 500)); // wall-clock-under-test: the plugin arrives after the rows
+        await route.continue()
+    });
+
     await page.goto(APP);
-    await expect.poll(async () => (await displayedRows(page)).length).toBe(7)
+    await expect.poll(async () => (await displayedRows(page)).length).toBe(7);
+    rowsShown();
+    await expect(page.locator('.neo-grid-body.neo-animate-rows')).toHaveCount(1)
 }
 
 /**
