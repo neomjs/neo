@@ -1,5 +1,4 @@
 import BaseContainer from '../../container/Base.mjs';
-import Toolbar       from './Toolbar.mjs';
 
 /**
  * @summary The dedicated orchestrator for a grid's header region within the multi-body architecture.
@@ -158,9 +157,20 @@ class Wrapper extends BaseContainer {
      * @param {Object[]} [lockedEndButtons]
      */
     updateHeaders(lockedStartButtons, centerButtons, lockedEndButtons) {
-        let me              = this,
-            {gridContainer} = me,
-            {centerColumns, headerToolbar, lockedEndColumns, lockedStartColumns, theme, windowId} = gridContainer;
+        let me                                                                                    = this,
+            {gridContainer}                                                                       = me,
+            {centerColumns, headerToolbar, lockedEndColumns, lockedStartColumns, theme, windowId} = gridContainer,
+            // A locked toolbar is the center toolbar's class with its configs, holding the locked buttons
+            lockedToolbar   = (items, layoutLock) => Neo.cloneNeoInstance(headerToolbar, {
+                flex     : 'none',
+                gridContainer,
+                items,
+                layoutLock,
+                parentId : me.id,
+                reference: null,
+                theme,
+                windowId
+            });
 
         // --- Center (Default) ---
         if (centerColumns.length > 0 && centerButtons) {
@@ -171,16 +181,7 @@ class Wrapper extends BaseContainer {
         // --- Start (Left) ---
         if (lockedStartColumns.length > 0) {
             if (!me.headerStart) {
-                me.headerStart = Neo.create(Toolbar, {
-                    ...headerToolbar.initialConfig,
-                    flex      : 'none',
-                    gridContainer,
-                    items     : lockedStartButtons || [],
-                    layoutLock: 'start',
-                    parentId  : me.id,
-                    theme,
-                    windowId
-                })
+                me.headerStart = lockedToolbar(lockedStartButtons || [], 'start')
             } else if (lockedStartButtons) {
                 me.headerStart.items = lockedStartButtons;
                 me.headerStart.createItems()
@@ -190,16 +191,7 @@ class Wrapper extends BaseContainer {
         // --- End (Right) ---
         if (lockedEndColumns.length > 0) {
             if (!me.headerEnd) {
-                me.headerEnd = Neo.create(Toolbar, {
-                    ...headerToolbar.initialConfig,
-                    flex      : 'none',
-                    gridContainer,
-                    items     : lockedEndButtons || [],
-                    layoutLock: 'end',
-                    parentId  : me.id,
-                    theme,
-                    windowId
-                })
+                me.headerEnd = lockedToolbar(lockedEndButtons || [], 'end')
             } else if (lockedEndButtons) {
                 me.headerEnd.items = lockedEndButtons;
                 me.headerEnd.createItems()

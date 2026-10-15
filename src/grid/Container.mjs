@@ -930,7 +930,19 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons) {
-        let me = this;
+        let me = this,
+            // A locked body is the center body's class with its configs, placed in this view
+            lockedBody = () => Neo.cloneNeoInstance(me.body, {
+                flex         : 'none',
+                gridContainer: me,
+                parentId     : me.view.id,
+                reference    : null,
+                rowHeight    : me.rowHeight,
+                store        : me.store,
+                theme        : me.theme,
+                useInternalId: me.useInternalId,
+                windowId     : me.windowId
+            });
 
         // The header region (locked + centre toolbars) is owned by the dedicated header.Wrapper orchestrator.
         me.headerWrapper.updateHeaders(lockedStartButtons, centerButtons, lockedEndButtons);
@@ -938,17 +950,7 @@ class GridContainer extends BaseContainer {
         // --- Start body (Left) ---
         if (me.lockedStartColumns.length > 0) {
             if (!me.bodyStart) {
-                me.bodyStart = Neo.create(GridBody, {
-                    ...me.body.initialConfig,
-                    flex         : 'none',
-                    gridContainer: me,
-                    parentId     : me.view.id,
-                    rowHeight    : me.rowHeight,
-                    store        : me.store,
-                    theme        : me.theme,
-                    useInternalId: me.useInternalId,
-                    windowId     : me.windowId
-                })
+                me.bodyStart = lockedBody()
             }
         } else if (me.bodyStart) {
             me.bodyStart.destroy();
@@ -962,17 +964,7 @@ class GridContainer extends BaseContainer {
         // --- End body (Right) ---
         if (me.lockedEndColumns.length > 0) {
             if (!me.bodyEnd) {
-                me.bodyEnd = Neo.create(GridBody, {
-                    ...me.body.initialConfig,
-                    flex         : 'none',
-                    gridContainer: me,
-                    parentId     : me.view.id,
-                    rowHeight    : me.rowHeight,
-                    store        : me.store,
-                    theme        : me.theme,
-                    useInternalId: me.useInternalId,
-                    windowId     : me.windowId
-                })
+                me.bodyEnd = lockedBody()
             }
         } else if (me.bodyEnd) {
             me.bodyEnd.destroy();
