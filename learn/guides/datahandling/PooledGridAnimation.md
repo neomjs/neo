@@ -35,7 +35,7 @@ rolling back data or replaying queued mutations.
 | Modulo row identity | `src/grid/Body.mjs#getRowId()` | Physical row ids are slot ids, not record ids. Tree structural animation must not key movement by pooled row ids. |
 | View projection | `src/data/TreeStore.mjs#expand()` and `src/data/TreeStore.mjs#collapse()` | Projection mutation stays immediate for ordinary TreeStore use. No async-only TreeStore path is introduced. |
 | Bulk projection | `src/data/TreeStore.mjs#expandAll()` and `src/data/TreeStore.mjs#collapseAll()` | Large projection rebuilds may fall back to no animation or a bounded viewport overlay. They must not emit per-node splice storms. |
-| Existing plugin | `src/grid/plugin/AnimateRows.mjs` | `AnimateRows` remains a flat-store row sorting/filtering plugin until it is repaired behind the shared pooled-grid contract. |
+| Existing plugin | `src/grid/plugin/AnimateRows.mjs` | `AnimateRows` animates flat-store sorts and filters within these contracts: it keys movement by record identity, leaves the pool alone, and lets rows transition only during a move (#6858). It is not the TreeGrid path. |
 
 ## Rejected Alternatives
 
@@ -51,15 +51,14 @@ filters, sorting, async child loading, `singleExpand`, rapid toggles, and bulk
 layer commits the truth immediately, and the view decides how much of that change can be
 animated.
 
-### Current `AnimateRows` enablement
+### `AnimateRows` enablement
 
 Rejected for TreeGrid structural changes.
 
-`AnimateRows` maps VDOM rows by `row.id`, pushes inserted VDOM rows, fades leftovers, and
-later forces `owner.createViewData()`. That can work for flat row sorting, but it fights
-the current grid body contract where `row.id` is a modulo pool slot. Enabling it for
-TreeGrid expand/collapse would create a second row lifecycle over a renderer that
-intentionally keeps the pool stable.
+`AnimateRows` moves the live pooled rows: each row starts at its new record's previous
+offset and transitions to its new one (#6858). A record that leaves the viewport, as
+collapsed children do, has no row left to animate. TreeGrid structural changes therefore
+need the snapshot overlay, and the plugin stays a flat-store sort and filter affordance.
 
 ### Global transform transitions
 
