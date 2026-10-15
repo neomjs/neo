@@ -10,7 +10,7 @@ import * as core                                                    from '../../
 import PreviewContract                                              from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {test, expect}                                               from '../../fixtures.mjs';
 import {assertPreviewZoneAlignment, readComponentRects}             from '../utils/dockGeometry.mjs';
-import {pinToCaptureDisplay, placeNativeWindow, planSideBySide, readBrowserSurface,
+import {identifyNativeWindow, pinToCaptureDisplay, placeNativeWindow, planSideBySide, readBrowserSurface,
     readDisplayEnvelope}                                           from '../utils/filmStage.mjs';
 import {isFilmTake}                                                 from '../utils/gpuIntent.mjs';
 
@@ -246,6 +246,29 @@ async function warmNativeInput() {
 }
 
 /**
+ * @summary Lists the on-screen windows the native sensor can bind, as the window server reports them.
+ * @returns {Promise<Object[]>} `{height, number, width, x, y}` per window, frames in global points
+ */
+async function listNativeWindows() {
+    const {stdout} = await execFileAsync('/usr/bin/swift', ['-e', `
+import Cocoa
+let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+for info in windows {
+    guard let number = info[kCGWindowNumber as String] as? Int,
+          let bounds = info[kCGWindowBounds as String] as? NSDictionary,
+          let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { continue }
+    print("\\(number) \\(frame.minX) \\(frame.minY) \\(frame.width) \\(frame.height)")
+}
+`], {env: await nativeInputEnv(), timeout: 60000});
+
+    return stdout.trim().split('\n').filter(Boolean).map(line => {
+        const [number, x, y, width, height] = line.split(' ').map(Number);
+
+        return {height, number, width, x, y}
+    })
+}
+
+/**
  * @summary Performs one literal macOS HID titlebar drag with CoreGraphics mouse events.
  *
  * The path first enters popup content and exits through its titlebar so the product's ordinary
@@ -254,18 +277,22 @@ async function warmNativeInput() {
  *
  * The window server resists a window whose edge meets another window's edge, so an open-loop
  * path leaves the frame short of the hand. Like a hand that watches its corner, the script reads
- * the popup frame back after the path and keeps dragging until the frame origin is on `land`,
- * inside the coordinator's quiescence window so no early drop fires.
+ * the bound popup window's frame back after the path and keeps dragging until its origin is on
+ * `land`, inside the coordinator's quiescence window so no early drop fires.
  * @param {Object} data
  * @param {{x:Number,y:Number}} data.end Global release coordinate over the target window.
  * @param {{x:Number,y:Number}} data.land Global popup frame origin the hand must reach.
  * @param {{x:Number,y:Number}} data.prime Global point inside popup content.
- * @param {{height:Number,width:Number}} data.size The popup's outer frame size, to find its frame.
  * @param {{x:Number,y:Number}} data.start Global popup-titlebar press coordinate.
+ * @param {Number} data.window The popup's window number, bound by {@link identifyNativeWindow}.
  * @returns {Promise<Object>} Accessibility, physical mouse timing and landing receipt.
  */
-async function dragNativeTitlebar({end, land, prime, size, start}) {
+async function dragNativeTitlebar({end, land, prime, start, window}) {
     const points = [end, land, prime, start];
+
+    if (!Number.isInteger(window)) {
+        throw new Error('native titlebar drag requires the popup window number its sensor reads')
+    }
 
     if (!points.every(point => Number.isFinite(point?.x) && Number.isFinite(point?.y))) {
         throw new Error('native titlebar drag requires finite global coordinates')
@@ -323,25 +350,25 @@ for step in 1...28 {
 let landX = ${literal(land.x)}
 let landY = ${literal(land.y)}
 
-func popupOrigin() -> CGPoint? {
-    let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+let popupWindow = CGWindowID(${Number(window)})
 
-    return windows.compactMap { info -> CGRect? in
-        guard let bounds = info[kCGWindowBounds as String] as? NSDictionary else { return nil }
-        return CGRect(dictionaryRepresentation: bounds as CFDictionary)
-    }.filter {
-        abs($0.width - ${literal(size.width)}) <= 2 && abs($0.height - ${literal(size.height)}) <= 2
-    }.min { abs($0.minX - landX) + abs($0.minY - landY) < abs($1.minX - landX) + abs($1.minY - landY) }?.origin
+func popupOrigin() -> CGPoint? {
+    guard let info = (CGWindowListCopyWindowInfo([.optionIncludingWindow], popupWindow) as? [[String: Any]])?.first,
+          let bounds = info[kCGWindowBounds as String] as? NSDictionary else { return nil }
+
+    return CGRect(dictionaryRepresentation: bounds as CFDictionary)?.origin
 }
 
 var mouseX = endX
 var mouseY = endY
 var corrections = 0
+var sensorLost = false
 
 Thread.sleep(forTimeInterval: 0.04)
 
 for _ in 0..<6 {
-    guard let origin = popupOrigin(), abs(landX - origin.x) > 1 || abs(landY - origin.y) > 1 else { break }
+    guard let origin = popupOrigin() else { sensorLost = true; break }
+    guard abs(landX - origin.x) > 1 || abs(landY - origin.y) > 1 else { break }
     mouseX += landX - origin.x
     mouseY += landY - origin.y
     corrections += 1
@@ -350,6 +377,7 @@ for _ in 0..<6 {
 }
 
 let landed = popupOrigin()
+print("sensorLost=\\(sensorLost || landed == nil)")
 print("corrections=\\(corrections)")
 print("landedX=\\(landed?.x ?? .nan)")
 print("landedY=\\(landed?.y ?? .nan)")
@@ -375,6 +403,7 @@ Thread.sleep(forTimeInterval: 0.12)
         return {
             access     : receipt.access === 'true',
             corrections: Number(receipt.corrections),
+            sensorLost : receipt.sensorLost !== 'false',
             landed     : {x: Number(receipt.landedX), y: Number(receipt.landedY)},
             mouseDownMs: Number(receipt.mouseDownMs),
             mouseUpMs  : Number(receipt.mouseUpMs)
@@ -2199,6 +2228,14 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(Number.isFinite(anchorInset), 'the coordinator must publish its native drop anchor inset').toBe(true);
 
+        // The hand's sensor reads this one window throughout, bound by its frame before the gesture
+        const popupWindow = identifyNativeWindow(await listNativeWindows(), {
+            height: popupPlacement.browser.outer.height,
+            width : popupPlacement.browser.outer.width,
+            x     : popupStart.x,
+            y     : popupStart.y
+        });
+
         await page.evaluate(() => {
             const
                 state = globalThis.__nativeTitlebarWitness = {
@@ -2355,10 +2392,10 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             [nativeInput, moved, retainedAtFirst] = await Promise.all([
                 dragNativeTitlebar({
                     end,
-                    land: {x: targetCenter.x - anchorInset, y: targetCenter.y - anchorInset},
+                    land  : {x: targetCenter.x - anchorInset, y: targetCenter.y - anchorInset},
                     prime,
-                    size: {height: popupPlacement.bounds.height, width: popupPlacement.bounds.width},
-                    start
+                    start,
+                    window: popupWindow
                 }),
                 movedPromise,
                 retainedPromise
@@ -2392,6 +2429,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         }));
 
         expect(nativeInput.access, 'the OS accepted literal HID event authority').toBe(true);
+        expect(nativeInput.sensorLost, 'the bound popup window must stay readable through the landing').toBe(false);
         expect(Math.max(
             Math.abs(nativeInput.landed.x - (targetCenter.x - anchorInset)),
             Math.abs(nativeInput.landed.y - (targetCenter.y - anchorInset))
