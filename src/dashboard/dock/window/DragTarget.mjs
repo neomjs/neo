@@ -433,10 +433,11 @@ class DragTarget extends Base {
         const settle = committed => {
             const current = me.currentDragPayload === payload && !me.isDestroyed;
 
-            // A target can unregister while an async owner commit is pending. Its leave path has
-            // already restored this exact embodiment; a late completion must neither promote that
-            // stale generation nor advertise a commit to the coordinator/source disposer.
-            if (current && payload?.embodyProxy === true) {
+            // A target can unregister while an async owner commit is pending. Its leave path restores
+            // this exact embodiment, and a late completion must not advertise a commit to the
+            // coordinator/source disposer. That restore is refused once the commit adopted the pane,
+            // so a commit still promotes: the identity-guarded promote no-ops on a restored generation.
+            if (payload?.embodyProxy === true && (current || (committed && !me.isDestroyed))) {
                 me[committed ? 'promoteDragEmbodiment' : 'restoreDragEmbodiment']?.(payload)
             }
 
