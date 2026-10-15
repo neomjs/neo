@@ -231,5 +231,58 @@ test.describe('Grid AnimateRows: the two steps of a move', () => {
 
         await new Promise(resolve => setTimeout(resolve, duration * 2)); // wall-clock-under-test: a late second step must stay silent past the transition
         expect(errors).toEqual([])
+    });
+
+    test('a load that is not a sort between the steps settles the rows, and the late second step changes nothing', async () => {
+        grid = await createGrid(store);
+
+        let {body} = grid;
+
+        store.sort({direction: 'ASC', property: 'name'});
+
+        // Row 199 sorts far below the displayed rows: removing it fires a load without isSort
+        store.remove(store.get(199));
+        expect(rowOf(body, 10).rowIndex).toBe(2);
+        expectSettled(body);
+
+        await grid.timeout(duration * 2);
+        expectSettled(body);
+        expect(errors).toEqual([])
+    });
+
+    test('a rejected first step settles the rows and still reports the failure', async () => {
+        grid = await createGrid(store);
+
+        let {body} = grid;
+
+        body.promiseUpdate = () => Promise.reject(new Error('test-injected first-step failure'));
+        store.sort({direction: 'ASC', property: 'name'});
+        delete body.promiseUpdate;
+
+        await expect.poll(() => errors.length, often).toBe(1);
+        expect(String(errors[0][1])).toContain('test-injected first-step failure');
+        expectSettled(body)
+    });
+
+    test('a late rejection of a superseded first step leaves the newer move alone', async () => {
+        grid = await createGrid(store);
+
+        let {body} = grid,
+            reject;
+
+        // The first change's first step hangs until the test rejects it
+        body.promiseUpdate = () => new Promise((resolve, rejectFn) => {reject = rejectFn});
+        store.sort({direction: 'ASC', property: 'name'});
+        delete body.promiseUpdate;
+
+        store.sort({direction: 'DESC', property: 'name'});
+        await expect.poll(() => body.cls.includes('neo-animate-rows-moving'), often).toBe(true);
+
+        reject(new Error('test-injected late failure'));
+        await expect.poll(() => errors.length, often).toBe(1);
+        expect(body.cls).toContain('neo-animate-rows-moving');
+
+        await expect.poll(() => body.cls.includes('neo-animate-rows-moving'), often).toBe(false);
+        expectSettled(body)
     })
 });

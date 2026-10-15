@@ -192,11 +192,13 @@ class AnimateRows extends Base {
     onStoreFilter(data) {
         let me = this;
 
+        me.settle();
         me.standAside() ? me.#bodyHandlers.filter.call(me.owner, data) : me.updateView()
     }
 
     /**
      * A sort moves the displayed records. Any other load replaces them, and the body renders it as usual.
+     * Either way, a move still in progress settles first.
      * @param {Object} data
      * @param {Boolean} [data.isSort]
      * @protected
@@ -204,6 +206,7 @@ class AnimateRows extends Base {
     onStoreLoad(data) {
         let me = this;
 
+        me.settle();
         me.standAside() || !data.isSort ? me.#bodyHandlers.load.call(me.owner, data) : me.updateView()
     }
 
@@ -291,20 +294,17 @@ class AnimateRows extends Base {
      * adds `neo-animate-rows-moving` and the new offsets, and the browser transitions between the two. A record
      * that left the display has no row anymore; its slot shows another record.
      *
-     * A scroll, the next store change, a switch of row mode or a destroy between the two updates settles the rows
-     * instead (`settle()`).
+     * A scroll, the next store event, a switch of row mode, a destroy, or a failed first update between the two
+     * steps settles the rows instead (`settle()`). The store handlers settle any earlier move before calling this.
      * @protected
      */
     updateView() {
         let me          = this,
             {owner}     = me,
             {rowHeight} = owner,
+            change      = me.#change,
             moved       = new Map(),
-            previous    = new Map(),
-            change;
-
-        me.settle();
-        change = me.#change;
+            previous    = new Map();
 
         // The body defers a re-bind while its own update is in flight: this change renders without a transition
         if (owner.isVdomUpdating) {
@@ -363,6 +363,8 @@ class AnimateRows extends Base {
                 change === me.#change && me.settle()
             }, me.transitionDuration)
         }, reason => {
+            // Only this change's rows are put back: a newer change owns the rows by now
+            change === me.#change && !me.isDestroyed && me.settle();
             reason !== Neo.isDestroyed && console.error('grid.plugin.AnimateRows: the first step failed', reason)
         })
     }
