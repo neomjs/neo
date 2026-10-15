@@ -60,8 +60,8 @@ test.describe('Grid issues showcase', () => {
         await expect(page.locator(`${GRID} .neo-grid-body .neo-grid-row`).first()).toBeVisible({timeout: 30000})
     });
 
-    test('every row fits its tallest wrapped text, alike in all three bodies', async ({page}) => {
-        await expect.poll(async () => {
+    test('every row fits its tallest wrapped text, alike in all three bodies, in both themes', async ({page}) => {
+        const verdict = async () => {
             const rows    = await readRows(page),
                   heights = rows.map(row => row.heights[0]);
 
@@ -71,7 +71,13 @@ test.describe('Grid issues showcase', () => {
                 // A long summary or title makes its row taller than a one-line row
                 varied : Math.max(...heights) > Math.min(...heights)
             }
-        }, {timeout: 20000}).toEqual({aligned: true, fits: true, varied: true})
+        };
+
+        await expect.poll(verdict, {timeout: 20000}).toEqual({aligned: true, fits: true, varied: true});
+
+        await page.locator('.issues-theme-button').click();
+        await expect(page.locator('.neo-examples-grid-issues')).toHaveClass(/neo-theme-neo-dark/);
+        await expect.poll(verdict, {timeout: 20000}).toEqual({aligned: true, fits: true, varied: true})
     });
 
     test('the State menu filters by value and clears', async ({page}) => {
