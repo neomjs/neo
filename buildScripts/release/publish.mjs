@@ -6,12 +6,14 @@
  * The release takes the same path as every other change. Nothing is pushed to `dev` directly, so its ruleset
  * (required checks and CodeQL) judges the release commit like any other, and no account needs a bypass.
  *
- * 1. **`prepare`**: preflight (on `dev` at `origin/dev`, clean, version bumped, note present, no tag yet), drop the
- *    released notes, stamp the note, run `prepare.mjs` and `build-all`, commit to `release/v<version>`, push it and
- *    open a PR to `dev`. The PR resolves a preparation leaf (`--ticket`) with a body written like any PR body
+ * 1. **`prepare --version <semver>`**: preflight (on `dev` at `origin/dev`, clean, the version newer than
+ *    `package.json`'s, its note present, no tag yet), set the version, drop the released notes, stamp the note, run
+ *    `prepare.mjs` and `build-all`, commit to `release/v<version>`, push it and open a PR to `dev`. The release commit
+ *    is where the package version changes, so no cut needs a separate bump. The PR resolves a preparation leaf (`--ticket`) with a body written like any PR body
  *    (`--body-file`), checked against that ticket before anything is built; the cut's own record stays open until
  *    `finish`, npm and the Portal are verified. The operator merges the PR once its checks pass.
- * 2. **`finish`**: squash the release PR's merge commit onto `main` as one commit (`commit-tree`, so `main` keeps a
+ * 2. **`finish`**: read the version from `origin/dev`, where the merged release PR put it, squash the release PR's
+ *    merge commit onto `main` as one commit (`commit-tree`, so `main` keeps a
  *    linear history of releases), push it, and create the GitHub release on the merge commit with the atomic-commit
  *    line in its body. The release event runs `npm-publish.yml`.
  *
@@ -55,17 +57,35 @@ import {
 } from './releaseState.mjs';
 
 const
-    root       = path.resolve(),
-    repo       = 'neomjs/neo',
-    newVersion = fs.readJsonSync(path.join(root, 'package.json')).version,
-    // The release branch, the tag and the note all key on the version `package.json` was bumped to before the cut
-    releaseBranch   = `release/v${newVersion}`,
-    releaseNotePath = path.join(root, `.github/RELEASE_NOTES/v${newVersion}.md`),
-    notePathInRepo  = `.github/RELEASE_NOTES/v${newVersion}.md`,
+    root = path.resolve(),
+    repo = 'neomjs/neo',
     // `main` takes only fast-forward squash pushes; these rule types would refuse them for an account without a bypass
     BLOCKING_MAIN_RULES = ['pull_request', 'required_signatures', 'required_status_checks', 'update'];
 
+// The version this run releases, and what keys on it: the release branch, the tag and the note (see useVersion)
+let newVersion, releaseBranch, releaseNotePath, notePathInRepo;
+
 // --- Helper Functions ---
+
+/**
+ * @summary Fixes the version this run releases. `prepare` takes it from `--version`, because the release commit is
+ * where the package version changes; `finish` reads it from `origin/dev`, where the merged release PR put it.
+ * @param {'prepare'|'finish'} phase
+ * @param {String} [version] The `--version` option.
+ */
+function useVersion(phase, version) {
+    if (phase === 'prepare') {
+        semver.valid(version) || fail('pass --version <semver>: the version this release sets, e.g. --version 13.3.0')
+    } else {
+        runCommand('git fetch origin dev', 'Failed to fetch origin');
+        version = JSON.parse(read(['git', 'show', 'origin/dev:package.json'])).version
+    }
+
+    newVersion      = version;
+    releaseBranch   = `release/v${newVersion}`;
+    notePathInRepo  = `.github/RELEASE_NOTES/v${newVersion}.md`;
+    releaseNotePath = path.join(root, notePathInRepo)
+}
 
 /**
  * @summary Removes every note older than the version being released from `.github/RELEASE_NOTES`, so the
@@ -153,7 +173,12 @@ function readState() {
  * @throws {ObservationError} When a check cannot be read.
  */
 function getPrepareBlockers(state) {
-    return readPrepareBlockers(run, state, {notePresent: fs.existsSync(releaseNotePath), releaseBranch, version: newVersion})
+    return readPrepareBlockers(run, state, {
+        notePresent   : fs.existsSync(releaseNotePath),
+        packageVersion: fs.readJsonSync(path.join(root, 'package.json')).version,
+        releaseBranch,
+        version       : newVersion
+    })
 }
 
 /**
@@ -227,6 +252,9 @@ function prepare(ticket, bodyFile) {
 
         console.log(`📦 Preparing v${newVersion} on ${releaseBranch}...`);
         runCommand(`git switch -c ${releaseBranch}`, 'Failed to create the release branch');
+
+        // `package.json` and its lock take the version here; `prepare.mjs` below carries it into the files that print it
+        runCommand(`npm version ${newVersion} --no-git-tag-version`, 'Failed to set the release version');
 
         dropReleasedNotes(newVersion);
 
@@ -395,11 +423,14 @@ program
     .name('publish')
     .description('Releases the Engine: prepare opens the release PR, the operator merges it, finish squashes it onto main and creates the GitHub release.')
     .argument('<phase>', 'prepare | finish')
+    .option('--version <semver>', 'the version this release sets (prepare); finish reads it from origin/dev')
     .option('--ticket <number>', 'the open preparation leaf the release PR resolves (prepare)', value => parseInt(value, 10))
     .option('--body-file <path>', 'the release PR body, checked against --ticket before anything is built (prepare)')
     .option('--rehearse', 'report the push gates and the preflight, and change nothing')
-    .action((phase, {bodyFile, rehearse: dryRun, ticket}) => {
+    .action((phase, {bodyFile, rehearse: dryRun, ticket, version}) => {
         ['prepare', 'finish'].includes(phase) || fail(`Unknown phase '${phase}': use prepare or finish.`);
+
+        useVersion(phase, version);
 
         if (dryRun) {
             rehearse(phase, ticket, bodyFile)

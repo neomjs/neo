@@ -9,6 +9,8 @@
  * @module buildScripts/release/releaseState
  */
 
+import semver from 'semver';
+
 /**
  * @summary A required observation failed: its state is unknown, so no phase may act on it.
  */
@@ -73,13 +75,14 @@ export function readReleaseState(run, {repo, version, releaseBranch}) {
  * @param {Function}     run   `args => {status, stdout, stderr}`
  * @param {ReleaseState} state
  * @param {Object}       facts
- * @param {Boolean}      facts.notePresent   The release note exists at its authored path.
- * @param {String}       facts.releaseBranch `release/v<version>`
+ * @param {Boolean}      facts.notePresent    The release note exists at its authored path.
+ * @param {String}       facts.packageVersion `package.json`'s version, which the release commit raises to `version`
+ * @param {String}       facts.releaseBranch  `release/v<version>`
  * @param {String}       facts.version
  * @returns {String[]} The failed checks; empty when the release can start.
  * @throws {ObservationError} When a check cannot be read.
  */
-export function readPrepareBlockers(run, state, {notePresent, releaseBranch, version}) {
+export function readPrepareBlockers(run, state, {notePresent, packageVersion, releaseBranch, version}) {
     const
         blockers = [],
         dirty    = observe(run, ['git', 'status', '--porcelain']);
@@ -87,8 +90,9 @@ export function readPrepareBlockers(run, state, {notePresent, releaseBranch, ver
     if (state.headBranch !== 'dev')                                                                         blockers.push(`on '${state.headBranch}', not 'dev'`);
     if (observe(run, ['git', 'rev-parse', 'HEAD']) !== observe(run, ['git', 'rev-parse', 'origin/dev'])) blockers.push('HEAD is not at origin/dev');
     if (dirty)                                                                                              blockers.push('the working tree is not clean');
+    if (!semver.gt(version, packageVersion))                                                                blockers.push(`${version} is not newer than package.json's ${packageVersion}`);
     if (!notePresent)                                                                                       blockers.push(`.github/RELEASE_NOTES/v${version}.md is missing`);
-    if (state.tagCommit)                                                                                    blockers.push(`tag ${version} already exists: bump package.json first`);
+    if (state.tagCommit)                                                                                    blockers.push(`tag ${version} already exists`);
     if (state.localBranchSha)                                                                               blockers.push(`a local ${releaseBranch} carries no release commit (a run stopped before committing): delete it and re-run`);
 
     return blockers
@@ -179,7 +183,7 @@ export function getBindingProblems(phase, state) {
         problems                                                  = [];
 
     if (release && !pr?.mergeCommit) {
-        problems.push('the GitHub release exists, but no merged release PR produced it: it was published outside this workflow (bump package.json)')
+        problems.push('the GitHub release exists, but no merged release PR produced it: it was published outside this workflow: release a newer --version')
     } else if (release && !tagCommit) {
         problems.push('the GitHub release exists without its version tag')
     } else if (pr?.mergeCommit && tagCommit && tagCommit !== pr.mergeCommit) {

@@ -76,7 +76,7 @@ test.describe('the command boundary: an unknown never passes for an absence', ()
     });
 
     test('a failed worktree read throws instead of reading as clean', () => {
-        expect(() => readPrepareBlockers(runner({'git status --porcelain': err(128, 'fatal: not a git repository')}), fresh, {notePresent: true, ...names})).toThrow(ObservationError);
+        expect(() => readPrepareBlockers(runner({'git status --porcelain': err(128, 'fatal: not a git repository')}), fresh, {notePresent: true, packageVersion: '13.2.0', ...names})).toThrow(ObservationError);
     });
 
     test('a failed rules read throws instead of reading as "no rules"', () => {
@@ -84,12 +84,16 @@ test.describe('the command boundary: an unknown never passes for an absence', ()
         expect(readBranchRules(runner({'gh api repos/neomjs/neo/rules/branches/main': ok('[]')}), 'neomjs/neo', 'main')).toEqual({types: [], bypass: []});
     });
 
-    test('the preflight names a dirty tree, an existing tag and a stopped local branch', () => {
-        const clean = {'git status --porcelain': ok(''), 'git rev-parse HEAD': ok(sha('d')), 'git rev-parse origin/dev': ok(sha('d'))};
+    test('the preflight names a dirty tree, a version not newer than package.json\'s, an existing tag and a stopped local branch', () => {
+        const
+            clean = {'git status --porcelain': ok(''), 'git rev-parse HEAD': ok(sha('d')), 'git rev-parse origin/dev': ok(sha('d'))},
+            // The release commit raises package.json from 13.2.0 to the released 13.3.0
+            facts = {notePresent: true, packageVersion: '13.2.0', ...names};
 
-        expect(readPrepareBlockers(runner(clean), fresh, {notePresent: true, ...names})).toEqual([]);
-        expect(readPrepareBlockers(runner({...clean, 'git status --porcelain': ok(' M package.json')}), fresh, {notePresent: true, ...names})).toEqual(['the working tree is not clean']);
-        expect(readPrepareBlockers(runner(clean), {...fresh, tagCommit: sha('t'), localBranchSha: sha('l')}, {notePresent: true, ...names})).toHaveLength(2);
+        expect(readPrepareBlockers(runner(clean), fresh, facts)).toEqual([]);
+        expect(readPrepareBlockers(runner({...clean, 'git status --porcelain': ok(' M package.json')}), fresh, facts)).toEqual(['the working tree is not clean']);
+        expect(readPrepareBlockers(runner(clean), fresh, {...facts, packageVersion: '13.3.0'})).toEqual(['13.3.0 is not newer than package.json\'s 13.3.0']);
+        expect(readPrepareBlockers(runner(clean), {...fresh, tagCommit: sha('t'), localBranchSha: sha('l')}, facts)).toHaveLength(2);
     });
 });
 
