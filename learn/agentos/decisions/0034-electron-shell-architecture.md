@@ -548,30 +548,40 @@ violates this section on its face — shell awareness lives in the packaging roo
 2. **The order after v1 — each step demand-gated and its own packaging leaf,** with a native smoke
    on the target and an artifact receipt, never a config-flag toggle: **(a) Linux arm64 in a Docker
    container** first — the development host's architecture, a plane that already runs as Linux
-   containers, hosted CI with arm64 Linux runners, and the harness kinds that exist on Linux are the
-   CLI ones (`claude-code`, `codex`, Gemini CLI, Antigravity; no Claude Desktop) — the seed of a
-   hosted institution; **(b) x64 macOS** when a concrete machine needs it (macOS 26 is Apple's last
+   containers, hosted CI with arm64 Linux runners, and the registry's `runsAs: 'cli'` kinds as the
+   seats (`codex`, `claude-code`, `opencode`, `kimi-code` — `src/fleet/contract/harnessTypes.mjs:20-29`
+   at Brain `c9d894c6`); the `runsAs: 'app'` kinds (`claude-desktop`, `codex-desktop`, `antigravity`,
+   the last gated to `darwin`/`arm64` at `ai/services/fleet/probeAntigravityRuntime.mjs:28,71`) have
+   no Linux form today — the seed of a hosted institution; **(b) x64 macOS** when a concrete machine needs it (macOS 26 is Apple's last
    Intel release; the tail shrinks); **(c) Windows** on the first outside team that runs it —
    per-harness launch and wake adapters, Docker Desktop over WSL2 for the plane, Windows signing
    beside §2.5.2's notarization, an installer, a machine, a runner.
-3. **The OS seam.** The shell carries no platform branches beyond the three files that hold them
-   today — `harness/install.mjs`, `harness/main.mjs`, `harness/runtimeGeneration.mjs` (Institution
-   `4fd5945`). OS-specific seat launch and wake behaviour lives in the Brain's launch/wake layer —
-   `ai/services/fleet/deriveHarnessLaunchSpec.mjs`, `ai/daemons/wake/*`,
-   `ai/scripts/lifecycle/resumeHarness.mjs` (Brain `c9d894c6`) — keyed by harness kind today and by
-   harness kind × platform once a second OS lands. The first non-macOS leaf makes the seam explicit
-   (one adapter per harness kind × platform) and carries the platform-branch census as its first
-   deliverable; until then the layer is the seam de facto, and nothing new branches on platform
-   outside it.
+3. **The OS seam.** The shell carries no platform branches beyond the four files that hold them
+   today — `harness/install.mjs:865`, `harness/main.mjs:382,403`, `harness/prepareAssets.mjs:53` (a
+   build-time script) and `harness/runtimeGeneration.mjs:89,519` (Institution `4fd5945`).
+   OS-specific **seat launch, resume, runtime probing and wake** behaviour lives in the Brain's
+   launch/wake layer — `ai/services/fleet/*`, `ai/scripts/lifecycle/*`, `ai/daemons/wake/*` (Brain
+   `c9d894c6`) — whose active platform branches sit in `resumeHarness.mjs` (a `tmux` adapter for
+   non-`darwin` hosts at :218; `win32` paths at :149,182), `windowsBatchSpawn.mjs`,
+   `probeAntigravityRuntime.mjs`, `runtimeGeneration.mjs`, `excludeManagedWorkspaceFiles.mjs`,
+   `localWakeAdapters.mjs`, `daemon.mjs` and `receiver.mjs`; `deriveHarnessLaunchSpec.mjs` keys on
+   harness kind and carries no platform branch yet — it is the dispatch site where harness kind ×
+   platform lands. Generic host portability elsewhere (command names, path separators, benchmark
+   and maintenance scripts) is not this seam's subject. The first non-macOS leaf makes the seam
+   explicit (one adapter per harness kind × platform) and carries the platform-branch census as its
+   first deliverable; until then the layer is the seam de facto, and no new seat launch, resume or
+   wake code branches on platform outside it.
 4. **Identity portability is not a platform question.** No walk and no platform leaf moves a peer:
    a cold first run is a fresh institution with a guest seat. A seat move's minimum is the seat's
    harness-local memory, its credential and its seat definition; the shared record stays with the
    plane (Brain #571's lane, copy-never-move).
 
-**Falsifier:** a new `process.platform`, `darwin` or `win32` branch in the shell outside the three
-files of item 3, or in a Brain fleet service outside the launch/wake layer, violates this section on
-its face — the same shape as §2.6's `process.versions.electron` falsifier. A platform target added as
-a flag without its native smoke and receipt violates item 2.
+**Falsifier:** a new `process.platform`, `darwin`, `win32` or `linux` branch in the shell outside the
+four files of item 3, or seat launch, resume, runtime-probing or wake code that branches on platform
+outside the layer named there, violates this section on its face — the same shape as §2.6's
+`process.versions.electron` falsifier; the baseline trees at Institution `4fd5945` and Brain
+`c9d894c6` pass it. A platform target added as a flag without its native smoke and receipt violates
+item 2.
 
 ## 3. Consequences
 
