@@ -248,6 +248,44 @@ test.describe('Grid record search toolbar', () => {
         expect(ids(store)).toEqual([101, 102, 103, 104])
     });
 
+    test('a Grid-owned toolbar updates its scope caption after column changes without rewriting the stored search', async () => {
+        const store = await storeFor(),
+            grid    = await initializedGridFor(store, {
+                columns: [
+                    {dataField: 'title', text: 'Title', width: 180},
+                    {dataField: 'state', text: 'Status', width: 100}
+                ],
+                searchToolbar: {}
+            }),
+            toolbar = grid.searchToolbar,
+            titleColumn = grid.columns.get('title'),
+            stateColumn = grid.columns.get('state');
+
+        owned.push(stateColumn);
+        grid.columns.remove(stateColumn);
+        toolbar.writeSearch({value: 'Falcon'});
+        const filter = toolbar.getSearchFilter(), scopeButton = toolbar.getItem('scope');
+        expect(scopeButton.text).toBe('Grid columns');
+        expect(filter.fields).toEqual(['title']);
+        expect(ids(store)).toEqual([101, 102, 103]);
+
+        titleColumn.dataField = 'summary';
+        expect(scopeButton.text).toBe('title');
+        expect(toolbar.getSearchFilter()).toBe(filter);
+        expect(filter.fields).toEqual(['title']);
+        expect(ids(store)).toEqual([101, 102, 103]);
+
+        titleColumn.dataField = 'title';
+        expect(scopeButton.text).toBe('Grid columns');
+        grid.columns.add(stateColumn);
+        expect(scopeButton.text).toBe('Title');
+        grid.columns.remove(stateColumn);
+        expect(scopeButton.text).toBe('Grid columns');
+        expect(toolbar.getSearchFilter()).toBe(filter);
+        expect(filter.fields).toEqual(['title']);
+        expect(ids(store)).toEqual([101, 102, 103])
+    });
+
     test('clear removes every grid filter role while application predicates survive; empty scope stays inert', async () => {
         const store = await storeFor({filters: [
                 {ownerRole: 'application', property: 'state', value: 'open'},

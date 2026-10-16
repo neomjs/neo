@@ -1286,7 +1286,8 @@ class GridContainer extends BaseContainer {
 
         me.headerWrapper.applyColumnButtonOrder(me.lockedStartColumns, me.centerColumns, me.lockedEndColumns);
 
-        me.updateColCount()
+        me.updateColCount();
+        if (me.searchToolbar instanceof SearchToolbar) me.searchToolbar.syncFromStore()
     }
 
     /**
