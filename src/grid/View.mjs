@@ -746,7 +746,9 @@ class View extends Base {
 
         if (windowId === me.windowId && me.rowGeometry && me.gridContainer.columns.items.some(column => column.wrapText)) {
             me.#measureGeneration++;
-            me.#fontRefresh = {heights: new Map(), textHeights: new Map()};
+            // Only declared text has a hidden batch to replace the geometry with. Without one, e.g. when a tree
+            // column is the only one that wraps, the rows measure again where they show.
+            me.#fontRefresh = me.getMeasureColumns().length > 0 ? {heights: new Map(), textHeights: new Map()} : null;
             me.#measureKeys.clear();
             me.#measuredCells = new WeakMap();
             me.#heldHeights = null;
@@ -776,7 +778,8 @@ class View extends Base {
     }
 
     /**
-     * @summary Height-driving columns at their real region widths, including horizontally unmounted columns.
+     * @summary Height-driving text columns at their real region widths, including horizontally unmounted columns.
+     * A component column's cells are measured once they show, see {@link #measureRowHeights}.
      * @returns {Object[]}
      * @protected
      */
@@ -786,7 +789,7 @@ class View extends Base {
         this.bodies.forEach(body => body.columnPositions?.items.forEach((position, index) => {
             let column = this.gridContainer.columns.get(position.dataField);
 
-            column?.wrapText && position.width > 0 && !column.hidden &&
+            column?.wrapText && !column.cellDepth && position.width > 0 && !column.hidden &&
                 columns.push({body, column, index, width: `${position.width}px`})
         }));
 

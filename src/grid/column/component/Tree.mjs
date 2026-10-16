@@ -63,13 +63,6 @@ class Tree extends Component {
          */
         value_: null,
         /**
-         * Content-sized rows: the label wraps at its natural height instead of cutting off, and the grid view
-         * measures it through {@link #textVdom}. The helper lines keep spanning the whole row.
-         * @member {Boolean} wrapText_=false
-         * @reactive
-         */
-        wrapText_: false,
-        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -111,7 +104,7 @@ class Tree extends Component {
      * @protected
      */
     afterExecuteVdomUpdate() {
-        let gridBody = this.wrapText && this.parent?.parent;
+        let gridBody = this.parent?.parent;
 
         gridBody?.rowGeometry && gridBody.gridContainer.view.scheduleRowMeasure()
     }
@@ -194,15 +187,6 @@ class Tree extends Component {
 
         me.vdom.cn[2].html = value;
         me.update()
-    }
-
-    /**
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetWrapText(value, oldValue) {
-        this.toggleCls('neo-wrap-text', value)
     }
 
     /**

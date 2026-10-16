@@ -15,11 +15,16 @@ class Tree extends ComponentColumn {
         /**
          * @member {Function|String|String[]|null} cellCls
          */
-        cellCls: ({column}) => {
+        cellCls: ({column, gridContainer}) => {
             let cls = ['neo-grid-tree-column-cell'];
 
             if (column.showHelperLines) {
                 cls.push('show-helper-lines')
+            }
+
+            // Content-sized rows wrap the label, which grid.View measures; a fixed-height row keeps the one-line ellipsis
+            if (column.wrapText && gridContainer.contentSizedRows) {
+                cls.push('neo-wrap-text')
             }
 
             return cls
@@ -75,8 +80,6 @@ class Tree extends ComponentColumn {
             isNodeLoading  : record.isLoading,
             showHelperLines: this.showHelperLines,
             value          : record[this.dataField],
-            // wrapText takes effect in content-sized rows only; a fixed-height row keeps the one-line ellipsis
-            wrapText       : this.wrapText && !!this.parent?.contentSizedRows,
             ...config
         }
     }

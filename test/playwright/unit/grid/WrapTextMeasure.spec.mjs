@@ -852,7 +852,7 @@ test.describe('Grid wrapText measurement — tree cells', () => {
         rows.forEach(row => {
             let component = row.components.name;
 
-            expect(component.cls, `row ${row.rowIndex}`).toContain('neo-wrap-text');
+            expect(row.vdom.cn.find(cell => cell.data?.field === 'name').cls, `row ${row.rowIndex}`).toContain('neo-wrap-text');
             expect(reads.flat(), `row ${row.rowIndex}`).toContain(component.textVdom.id);
             expect(grid.view.rowGeometry.heightAt(row.rowIndex), `row ${row.rowIndex}`)
                 .toBe(Math.max(rowHeight, row.record.nameLines * LINE + CHROME))
@@ -919,5 +919,78 @@ test.describe('Grid wrapText measurement — tree cells', () => {
                     .toBe(Math.max(rowHeight, row.record.nameLines * LINE + CHROME))
             })
         }
+    });
+
+    test('switching contentSizedRows or the column\'s wrapText re-renders the tree cells of unchanged records', async () => {
+        let {view} = grid,
+            column = grid.columns.get('name'),
+            // Whether anything marks a rendered tree cell as wrapping: its cell or its component
+            wraps   = () => grid.body.items.filter(row => row.record).map(row =>
+                row.vdom.cn.find(cell => cell.data?.field === 'name').cls.includes('neo-wrap-text') ||
+                row.components.name.cls.includes('neo-wrap-text'));
+
+        expect(wraps().every(Boolean)).toBe(true);
+
+        for (let [target, key] of [[grid, 'contentSizedRows'], [column, 'wrapText']]) {
+            target[key] = false;
+            await view.promiseUpdate();
+            await grid.timeout(50);
+            expect(wraps().some(Boolean), `${key} off`).toBe(false);
+
+            target[key] = true;
+            await view.promiseUpdate();
+            await grid.timeout(100);
+            expect(wraps().every(Boolean), `${key} on`).toBe(true);
+            expect(view.rowGeometry.heightAt(2), `${key} on: row 2 measured again`).toBe(3 * LINE + CHROME)
+        }
+    });
+
+    test('a font change in a grid whose only wrapping column is the tree column leaves its labels measurable', async () => {
+        let {view} = grid;
+
+        // The real hidden pass: it projects declared text only, which this grid has none of
+        delete view.measureAheadRows;
+
+        for (let i = 0; i < 2; i++) {
+            view.onFontChange({windowId: view.windowId});
+            await view.promiseUpdate();
+            await grid.timeout(50)
+        }
+
+        // The label of record 1 now wraps onto a third line
+        store.get(1).nameLines = 3;
+        await view.promiseUpdate();
+        await grid.timeout(100);
+
+        expect(view.rowGeometry.heightAt(1)).toBe(3 * LINE + CHROME)
+    });
+
+    test('hidden premeasurement constructs no tree cells', async () => {
+        let {view} = grid,
+            trees  = () => InstanceManager.items.filter(item => item.ntype === 'grid-column-component-tree' && !item.isDestroyed).length,
+            before = trees(),
+            projector;
+
+        delete view.measureAheadRows;
+
+        for (let i = 0; i < 3; i++) {
+            store.get(10 + i).nameLines = 1 + i;
+            await view.measureAheadRows();
+            await grid.timeout(20)
+        }
+
+        expect(trees(), 'the hidden passes').toBe(before);
+
+        // A measuring render of the tree column itself returns nothing, without building a cell first
+        projector = Neo.create(Row, {appName: grid.appName, parentId: grid.body.id, windowId: grid.windowId});
+
+        expect(projector.applyRendererOutput({
+            cache : {gridBody: grid.body, gridContainer: grid, store, selectedCells: [], measureOnly: true},
+            cellId: `${projector.id}__measure`, column: grid.columns.get('name'), columnIndex: 0,
+            record: store.get(20), rowIndex: 20, silent: true
+        })).toBe(null);
+        expect(trees(), 'a measuring render').toBe(before);
+
+        projector.destroy()
     })
 });

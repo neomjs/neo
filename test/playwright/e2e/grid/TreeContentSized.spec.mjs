@@ -34,7 +34,8 @@ function defineReads(floor) {
                   label = row.querySelector('.neo-tree-content'),
                   needs = [...row.querySelectorAll('.neo-grid-cell')].map(cell => {
                       // A text cell wraps in its text block, a wrapText tree cell in its label
-                      const text = cell.querySelector(':scope > .neo-grid-cell-text, :scope > .neo-wrap-text > .neo-tree-content');
+                      const text = cell.querySelector(':scope > .neo-grid-cell-text') ||
+                          (cell.classList.contains('neo-wrap-text') ? cell.querySelector(':scope > .neo-grid-tree-cell > .neo-tree-content') : null);
 
                       return text ? Math.ceil(text.getBoundingClientRect().height + chrome(cell)) : 0
                   });
