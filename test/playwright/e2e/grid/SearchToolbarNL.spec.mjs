@@ -31,6 +31,15 @@ async function ids(state) {
     return items.map(item => item.id).sort((a, b) => a - b)
 }
 
+/** @summary The overlay follows the actual row viewport, including chrome that changes height at runtime. */
+async function expectScrollbarBounds(page, gridId) {
+    await expect.poll(() => page.locator(`#${gridId}`).evaluate(grid => {
+        const view = grid.querySelector('.neo-grid-view').getBoundingClientRect(),
+              bar  = grid.querySelector('.neo-grid-vertical-scrollbar').getBoundingClientRect();
+        return Math.max(Math.abs(view.top - bar.top), Math.abs(view.bottom - bar.bottom))
+    })).toBeLessThanOrEqual(1)
+}
+
 test('showcase searches Title and Summary, scopes, and clears only grid-owned predicates', async ({page, neuralLink}, testInfo) => {
     const state   = await open(page, neuralLink), {app, gridId, toolbarId} = state;
     const toolbar = page.locator(`#${toolbarId}`), input = toolbar.locator('input'),
@@ -84,6 +93,7 @@ test('narrow toolbar keeps every summary and reset reachable', async ({page, neu
     await expect(toolbar).toContainText('searchable title');
     await expect(toolbar).toContainText('Application restriction');
     await expect(toolbar.getByRole('button', {name: 'Clear filters', exact: true})).toBeVisible();
+    await expectScrollbarBounds(page, gridId);
     const geometry = await toolbar.evaluate(el => ({client: el.clientWidth, scroll: el.scrollWidth,
         children: [...el.querySelectorAll('button')].map(button => ({width: button.getBoundingClientRect().width,
             right: button.getBoundingClientRect().right - el.getBoundingClientRect().left}))}));
@@ -102,6 +112,7 @@ test('optional toolbar is absent by default and records 100k-row typing response
     state.toolbarId = (await app.getComponent(gridId, ['searchToolbar.id']))['searchToolbar.id'];
     const input = page.locator(`#${state.toolbarId} input`), samples = [];
     await expect(input).toBeVisible();
+    await expectScrollbarBounds(page, gridId);
     let value = '';
     for (const character of 'Amanda') {
         value += character;
@@ -119,5 +130,12 @@ test('optional toolbar is absent by default and records 100k-row typing response
             count: (await app.getComponent(storeId, ['count'])).count})
     }
     expect(samples.at(-1).count).toBeGreaterThan(0);
+    await expectScrollbarBounds(page, gridId);
+    await input.fill('');
+    await expect.poll(async () => (await app.getComponent(storeId, ['count'])).count).toBe(100000);
+    await expectScrollbarBounds(page, gridId);
+    await app.setProperties(gridId, {searchToolbar: null});
+    await expect(page.locator('.neo-grid-search-toolbar')).toHaveCount(0);
+    await expectScrollbarBounds(page, gridId);
     await testInfo.attach('search-100k-latency.json', {body: Buffer.from(JSON.stringify({rows: 100000, samples})), contentType: 'application/json'})
 });

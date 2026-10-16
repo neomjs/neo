@@ -323,6 +323,8 @@ class GridContainer extends BaseContainer {
             items           : [me.body]
         });
 
+        me.view.addDomListeners({resize: {fn: me.onViewResize, scope: me}});
+
         me.horizontalScrollbar = Neo.create(HorizontalScrollbar, {
             appName,
             flex    : 'none',
@@ -382,13 +384,13 @@ class GridContainer extends BaseContainer {
         let me             = this,
             {windowId}     = me,
             ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
-            resizeParams   = {componentId: me.id, id: me.id, windowId};
+            targets        = [me.id, me.view.id];
 
         if (mounted) {
-            ResizeObserver.register(resizeParams);
+            targets.forEach(id => ResizeObserver.register({componentId: id, id, windowId}));
             await me.passSizeToBody()
         } else {
-            ResizeObserver.unregister(resizeParams)
+            targets.forEach(id => ResizeObserver.unregister({componentId: id, id, windowId}))
         }
     }
 
@@ -1135,11 +1137,11 @@ class GridContainer extends BaseContainer {
 
         // `componentId` names the holder to drop; without it the addon removes nothing and the
         // native observer outlives this grid. See addResizeObserver().
-        me.mounted && Neo.main.addon.ResizeObserver.unregister({
-            componentId: me.id,
-            id         : me.id,
-            windowId   : me.windowId
-        });
+        if (me.mounted) {
+            [me.id, me.view.id].forEach(id => Neo.main.addon.ResizeObserver.unregister({
+                componentId: id, id, windowId: me.windowId
+            }))
+        }
 
         super.destroy(...args)
     }
@@ -1337,6 +1339,15 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Header, footer and search chrome can resize the body viewport without resizing the grid itself.
+     * Keep body sizing and the scrollbar overlay on that viewport's actual layout bounds.
+     * @returns {Promise<void>}
+     */
+    onViewResize() {
+        return this.passSizeToBody()
+    }
+
+    /**
      * @param {*} value
      * @returns {String|null|undefined}
      * @protected
@@ -1423,6 +1434,12 @@ class GridContainer extends BaseContainer {
             await me.timeout(100);
             await me.passSizeToBody(silent)
         } else {
+            // The view and scrollbar share the positioned grid as their offset parent. Layout coordinates
+            // also stay valid while an ancestor presents a transformed dock transition.
+            const scrollbar = me.verticalScrollbar;
+            if (scrollbar) {
+                scrollbar.style = {...scrollbar.style, top: `${viewRect.top}px`, height: `${viewRect.height}px`, bottom: 'auto'}
+            }
             let config = {
                 // The view's own height: the container's also holds its borders, the header, the footer and the
                 // horizontal scrollbar below the view
