@@ -156,7 +156,8 @@ class GridContainer extends BaseContainer {
         },
         /**
          * Optional record search and filter summary above the headers. Null preserves the ordinary grid.
-         * @member {Object|Neo.grid.SearchToolbar|null} searchToolbar_=null
+         * A replacement toolbar module must implement syncFromStore().
+         * @member {Object|Neo.toolbar.Base|null} searchToolbar_=null
          * @reactive
          */
         searchToolbar_: {[isDescriptor]: true, merge: 'deep', value: null},
@@ -357,7 +358,7 @@ class GridContainer extends BaseContainer {
         me._columns = me.createColumns(me.columns);
         me.updateColCount();
 
-        me.searchToolbar?.syncFromStore();
+        me.syncSearchToolbar();
 
         me.syncValueBandingFields();
 
@@ -480,8 +481,7 @@ class GridContainer extends BaseContainer {
         }
 
         me.configsApplied && me.updateColCount();
-        // Reading columns can occur inside toolbar construction, while its config still holds a descriptor.
-        if (me.searchToolbar instanceof SearchToolbar) me.searchToolbar.syncFromStore()
+        me.syncSearchToolbar()
     }
 
     /**
@@ -513,7 +513,11 @@ class GridContainer extends BaseContainer {
         }
     }
 
-    /** @summary Replaces optional search chrome without changing the Store-owned search intent. */
+    /**
+     * @summary Replaces optional search chrome without changing the Store-owned search intent.
+     * @param {Neo.toolbar.Base|null} value
+     * @param {Neo.toolbar.Base|null} oldValue
+     */
     afterSetSearchToolbar(value, oldValue) {
         const me = this;
         if (oldValue && me.items?.includes(oldValue)) me.remove(oldValue);
@@ -802,7 +806,12 @@ class GridContainer extends BaseContainer {
         })
     }
 
-    /** @summary Creates optional native search chrome with this grid's column and Store context. */
+    /**
+     * @summary Creates optional native search chrome with this grid's column and Store context.
+     * @param {Object|Neo.toolbar.Base|null} value
+     * @param {Neo.toolbar.Base|null} oldValue
+     * @returns {Neo.toolbar.Base|null}
+     */
     beforeSetSearchToolbar(value, oldValue) {
         if (!value) return null;
         return ClassSystemUtil.beforeSetInstance(value, SearchToolbar, {
@@ -1287,7 +1296,7 @@ class GridContainer extends BaseContainer {
         me.headerWrapper.applyColumnButtonOrder(me.lockedStartColumns, me.centerColumns, me.lockedEndColumns);
 
         me.updateColCount();
-        if (me.searchToolbar instanceof SearchToolbar) me.searchToolbar.syncFromStore()
+        me.syncSearchToolbar()
     }
 
     /**
@@ -1497,6 +1506,12 @@ class GridContainer extends BaseContainer {
                 button.isFiltered = this.isColumnFiltered(button.dataField)
             })
         })
+    }
+
+    /** @summary Refreshes search chrome only after its descriptor has become a constructed toolbar. @protected */
+    syncSearchToolbar() {
+        const toolbar = this.searchToolbar;
+        if (toolbar?.isConstructed) toolbar.syncFromStore()
     }
 
     /**

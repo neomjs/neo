@@ -49,9 +49,13 @@ test('showcase searches Title and Summary, scopes, and clears only grid-owned pr
     await input.fill('header menus');
     await expect.poll(async () => (await app.getComponent(state.storeId, ['count'])).count).toBeLessThan(initialCount);
     expect((await app.getComponent(state.storeId, ['count'])).count).toBeGreaterThan(0);
-    await expect(toolbar).toContainText('“header menus”');
+    await expect(input).toHaveValue('header menus');
+    await expect(toolbar.locator('.neo-grid-filter-summary')).toBeHidden();
+    await expect(toolbar.getByRole('button', {name: 'Remove search', exact: true})).toHaveCount(0);
+    await expect(toolbar.getByRole('button', {name: 'Clear filters', exact: true})).toBeHidden();
     await page.screenshot({path: testInfo.outputPath('real-showcase-search.png')});
-    await input.fill('');
+    await toolbar.locator('.neo-trigger-clear').click();
+    await expect(input).toHaveValue('');
     await expect.poll(async () => (await app.getComponent(state.storeId, ['count'])).count).toBe(initialCount);
     await app.setProperties(state.storeId, {
         data   : rows,
@@ -67,6 +71,11 @@ test('showcase searches Title and Summary, scopes, and clears only grid-owned pr
     const scopeMenu = page.locator('.neo-grid-search-scope-menu').filter({visible: true});
     await expect(scopeMenu.locator('.neo-list-item').filter({hasText: /^Grid columns$/})).toHaveAttribute('aria-selected', 'true');
     await expect(scopeMenu).toContainText('All record fields includes values outside this grid');
+    await expect(scopeMenu.locator('.neo-list-item').filter({hasText: /^Opened \(not searchable\)$/})).toHaveClass(/neo-disabled/);
+    const scopeState = await app.getComponent(await scopeMenu.getAttribute('id'), ['items']);
+    expect(scopeState.items.find(item => item.id === 'field:created')).toMatchObject({
+        text: 'Opened (not searchable)', disabled: true
+    });
     await scopeMenu.getByText('Title', {exact: true}).click();
     await expect.poll(() => app.callMethod(toolbarId, 'getSearchFields')).toEqual(['title']);
     await expect.poll(() => ids(state)).toEqual([]);
@@ -94,8 +103,11 @@ test('narrow toolbar keeps every summary and reset reachable', async ({page, neu
     });
     await app.setProperties(gridId, {width: 320, flex: 'none'});
     const toolbar = page.locator(`#${toolbarId}`);
-    await toolbar.locator('input').fill('searchable title');
-    await expect(toolbar).toContainText('searchable title');
+    const input   = toolbar.locator('input');
+    await input.fill('searchable title');
+    await expect(input).toHaveValue('searchable title');
+    await expect(toolbar.getByRole('button', {name: 'Remove search', exact: true})).toHaveCount(0);
+    await expect(toolbar.getByRole('button', {name: 'Remove Title filter', exact: true})).toBeVisible();
     await expect(toolbar).toContainText('Application restriction');
     await expect(toolbar.getByRole('button', {name: 'Clear filters', exact: true})).toBeVisible();
     await toolbar.getByRole('button', {name: 'Grid columns', exact: true}).click();

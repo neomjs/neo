@@ -111,7 +111,8 @@ class SearchToolbar extends Toolbar {
 
     /** @summary Names fields through this grid's captions. @param {String} name @returns {String} */
     getFieldLabel(name) {
-        return this.gridContainer?.columns?.items?.find(column => column.dataField === name)?.text || name
+        const column = this.gridContainer?.columns?.items?.find(column => column.dataField === name);
+        return column ? column.text || 'Unnamed column' : `Record field: ${name}`
     }
 
     /** @summary Identifies one matching choice without rewriting the stored list. @param {String[]} fields @returns {String|null} */
@@ -155,6 +156,7 @@ class SearchToolbar extends Toolbar {
     updateScopeMenu() {
         const me      = this, button = me.getItem('scope'), fields = me.getSearchFields(),
               columns = me.gridContainer?.columns?.items || [],
+              hooks   = me.getSearchFilter()?.fieldText ?? me.fieldText,
               active  = me.getScopeKey(fields),
               choice  = (id, text, resolveFields) => ({id, text,
                   iconCls: active === id ? 'fa-solid fa-check' : '',
@@ -167,7 +169,12 @@ class SearchToolbar extends Toolbar {
             const name = column.dataField;
             if (name && !seen.has(name)) {
                 seen.add(name);
-                items.push(choice(`field:${name}`, column.text || name, () => [name]))
+                const item = choice(`field:${name}`, me.getFieldLabel(name), () => [name]);
+                if (me.store?.getSearchRefusal([name], hooks)) {
+                    item.text += ' (not searchable)';
+                    item.disabled = true
+                }
+                items.push(item)
             }
         }
         items.push({separator: true}, {text: `Searching: ${fields.map(name => me.getFieldLabel(name)).join(', ') || 'none'}`, disabled: true});
@@ -250,24 +257,32 @@ class SearchToolbar extends Toolbar {
             caseButton.vdom['aria-pressed'] = String(filter?.caseSensitive === true);
             caseButton.set({pressed: filter?.caseSensitive === true, disabled: !me.store});
             me.getItem('scope').set({text: me.getScopeLabel(fields), disabled: !me.store});
-            const hasOwned = effective.some(item => me.isOwnedFilter(item));
-            me.getItem('clear').set({hidden: !hasOwned, disabled: !hasOwned});
+            const hasHeaders = effective.some(item => ['header-inline', 'header-picker'].includes(item.ownerRole));
+            me.getItem('clear').set({hidden: !hasHeaders, disabled: !hasHeaders});
         } finally { me.syncing = false }
         for (const item of effective) {
+            if (item.ownerRole === 'grid-search') continue;
             const name = me.gridContainer?.columns?.items?.find(column => column.dataField === item.property)?.text || item.property;
             if (me.isOwnedFilter(item)) {
-                entries.push({module: Button, ui: 'ghost', text: item.ownerRole === 'grid-search' ?
-                    `“${item.value}” in ${item.fields.length} fields` : `${name}: ${String(item.value)}`,
+                entries.push({module: Button, ui: 'ghost', text: `${name}: ${String(item.value)}`,
                     iconCls: 'fa-solid fa-xmark', iconPosition: 'right',
-                    vdom   : {'aria-label': `Remove ${item.ownerRole === 'grid-search' ? 'search' : name + ' filter'}`},
+                    vdom   : {'aria-label': `Remove ${name} filter`},
                     handler: () => me.removeFilter(item)});
             } else {
-                entries.push({module: Component, text: `Application restriction${name ? ': ' + name : ''}`})
+                entries.push({module: Component, text: `Application restriction${!item.filterBy && name ? ': ' + name : ''}`})
             }
         }
         if (!fields.length) entries.push({module: Component, text: 'No field is searchable'});
         if (filter?.disabled) entries.push({module: Component, text: 'Search is disabled by the application'});
-        if (me.refusal) entries.push({module: Component, text: `Search unavailable: ${me.refusal}`});
+        if (filter && !filter.effective && !filter.disabled && fields.length && String(filter.value ?? '').length) {
+            entries.push({module: Component, text: 'Enter a search term'})
+        }
+        if (me.refusal) entries.push({module: Component, text: {
+            'remote-projection': 'Search needs all records loaded locally',
+            'unknown-field'    : 'The selected search field is no longer available',
+            'unsupported-field': 'The selected column cannot be searched',
+            'tree-population'  : 'Search is unavailable for tree data'
+        }[me.refusal] || 'Search is unavailable for these records'});
         const summary = me.getItem('summary'), holder = me.getItem('entries');
         holder.removeAll();
         if (entries.length) holder.add(entries);

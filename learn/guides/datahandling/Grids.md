@@ -325,12 +325,22 @@ The toolbar searches local, resolved field values with literal text. Whitespace 
 match somewhere in the selected search scope; the terms are combined with AND. A new search starts with the grid's
 searchable columns, including locked columns. Choose **All record fields** to also search values the grid does not
 display, or choose one named column. The scope menu identifies the selected choice and lists the stored search fields
-using column captions. A case toggle controls whether matching distinguishes letter case. Search does not
+using column captions. A stored field absent from this grid is identified as **Record field: name**. A case toggle
+controls whether matching distinguishes letter case. Search does not
 interpret regular expressions.
+
+A column without searchable text or a configured text conversion stays listed as **not searchable**. The search
+field itself shows the query; it is not repeated as a filter chip. Effective header filters have removable chips,
+while application restrictions and inactive-search explanations remain visible beside them.
+
+The toolbar's `fieldText` config maps field names to `(value, item) => String` conversions, for example for Date
+fields. The hooks receive canonical field values and raw items; they do not call renderers or hydrate records.
+They are stored with the search on an explicit write. A toolbar that joins an existing search retains its stored
+hooks along with its field list.
 
 The search intent belongs to the Store, so grids sharing that Store share the search and the intent survives toolbar
 recreation. Clearing the text makes the search inactive while retaining its scope and case setting. Removing a
-search or filter chip removes that contribution. The toolbar's Clear filters action removes the grid-owned search,
+header-filter chip removes that contribution. The toolbar's Clear filters action removes the grid-owned search,
 header, and value-picker filter roles together; application-owned filters remain active. Remote projections and tree
 grids cannot provide the complete local flat population this search requires, so the toolbar reports that limitation
 instead of applying a partial result.

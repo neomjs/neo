@@ -157,8 +157,7 @@ class Column extends Base {
             }
 
             // The stored search scope stays fixed; only its caption relative to these columns changes.
-            const toolbar = gridContainer?.searchToolbar;
-            if (toolbar?.isConstructed) toolbar.syncFromStore()
+            gridContainer?.syncSearchToolbar()
         }
     }
 
