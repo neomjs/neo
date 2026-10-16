@@ -44,6 +44,8 @@ test('showcase searches Title and Summary, scopes, and clears only grid-owned pr
     const state   = await open(page, neuralLink), {app, gridId, toolbarId} = state;
     const toolbar = page.locator(`#${toolbarId}`), input = toolbar.locator('input'),
           initialCount = (await app.getComponent(state.storeId, ['count'])).count;
+    await expect(toolbar.getByRole('button', {name: 'Grid columns', exact: true})).toBeVisible();
+    await expect(toolbar.getByRole('button', {name: 'Clear filters', exact: true})).toBeHidden();
     await input.fill('header menus');
     await expect.poll(async () => (await app.getComponent(state.storeId, ['count'])).count).toBeLessThan(initialCount);
     expect((await app.getComponent(state.storeId, ['count'])).count).toBeGreaterThan(0);
@@ -61,8 +63,11 @@ test('showcase searches Title and Summary, scopes, and clears only grid-owned pr
     await expect(toolbar).toContainText('Application restriction: State');
     await toolbar.getByRole('button', {name: 'Match case', exact: true}).click();
     await expect.poll(() => ids(state)).toEqual([101, 104]);
-    await toolbar.getByRole('button', {name: /search fields/}).click();
-    await page.locator('.neo-menu-list').filter({visible: true}).getByText('Title', {exact: true}).click();
+    await toolbar.getByRole('button', {name: 'Grid columns', exact: true}).click();
+    const scopeMenu = page.locator('.neo-grid-search-scope-menu').filter({visible: true});
+    await expect(scopeMenu.locator('.neo-list-item').filter({hasText: /^Grid columns$/})).toHaveAttribute('aria-selected', 'true');
+    await expect(scopeMenu).toContainText('All record fields includes values outside this grid');
+    await scopeMenu.getByText('Title', {exact: true}).click();
     await expect.poll(() => app.callMethod(toolbarId, 'getSearchFields')).toEqual(['title']);
     await expect.poll(() => ids(state)).toEqual([]);
     await toolbar.getByRole('button', {name: 'Match case', exact: true}).click();
@@ -93,7 +98,24 @@ test('narrow toolbar keeps every summary and reset reachable', async ({page, neu
     await expect(toolbar).toContainText('searchable title');
     await expect(toolbar).toContainText('Application restriction');
     await expect(toolbar.getByRole('button', {name: 'Clear filters', exact: true})).toBeVisible();
+    await toolbar.getByRole('button', {name: 'Grid columns', exact: true}).click();
+    const menu = page.locator('.neo-grid-search-scope-menu').filter({visible: true});
+    await expect(menu).toBeVisible();
+    await expect.poll(async () => {
+        const menuBox = await menu.boundingBox(), gridBox = await page.locator(`#${gridId}`).boundingBox();
+        return menuBox && menuBox.x >= gridBox.x - 1 && menuBox.y >= gridBox.y - 1 &&
+            menuBox.x + menuBox.width <= gridBox.x + gridBox.width + 1 &&
+            menuBox.y + menuBox.height <= gridBox.y + gridBox.height + 1
+    }).toBe(true);
+    await testInfo.attach('search-narrow-scope.png', {body: await page.screenshot(), contentType: 'image/png'});
+    await menu.getByText('All record fields', {exact: true}).click();
+    await expect(toolbar.getByRole('button', {name: 'All record fields', exact: true})).toBeVisible();
     await expectScrollbarBounds(page, gridId);
+    await expect.poll(async () => toolbar.evaluate(el => {
+        const bounds = el.getBoundingClientRect();
+        return [...el.querySelectorAll('button')].filter(button => button.getBoundingClientRect().bottom > bounds.bottom + 1)
+            .map(button => ({text: button.textContent, bottom: button.getBoundingClientRect().bottom, toolbarBottom: bounds.bottom}))
+    })).toEqual([]);
     const geometry = await toolbar.evaluate(el => ({client: el.clientWidth, scroll: el.scrollWidth,
         children: [...el.querySelectorAll('button')].map(button => ({width: button.getBoundingClientRect().width,
             right: button.getBoundingClientRect().right - el.getBoundingClientRect().left}))}));

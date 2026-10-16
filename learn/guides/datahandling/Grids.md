@@ -322,9 +322,10 @@ keep their current layout until the feature is enabled.
 ```
 
 The toolbar searches local, resolved field values with literal text. Whitespace separates terms, and every term must
-match somewhere in the selected search scope; the terms are combined with AND. By default, the scope covers all
-searchable fields. You can switch to the grid's current columns, including locked columns and a one-column view, or
-choose one named column. A case toggle controls whether matching distinguishes letter case. Search does not
+match somewhere in the selected search scope; the terms are combined with AND. A new search starts with the grid's
+searchable columns, including locked columns. Choose **All record fields** to also search values the grid does not
+display, or choose one named column. The scope menu identifies the selected choice and lists the stored search fields
+using column captions. A case toggle controls whether matching distinguishes letter case. Search does not
 interpret regular expressions.
 
 The search intent belongs to the Store, so grids sharing that Store share the search and the intent survives toolbar

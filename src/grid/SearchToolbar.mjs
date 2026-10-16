@@ -45,6 +45,7 @@ class SearchToolbar extends Toolbar {
         const me = this;
         me.items = [{
             module: Toolbar,
+            flex  : 'none',
             cls   : ['neo-grid-search-controls'],
             layout: {ntype: 'hbox', align: 'center', wrap: 'wrap', gap: '8px'},
             items : [{
@@ -52,25 +53,32 @@ class SearchToolbar extends Toolbar {
                 placeholderText: 'Search records', clearToOriginalValue: false,
                 listeners      : {change: data => me.onSearchChange(data)}
             }, {
-                module : Button, reference: 'scope', text: 'Search fields', ui: 'ghost',
+                module : Button, reference: 'scope', text: 'Grid columns', ui: 'ghost',
                 iconCls: 'fa-solid fa-angle-down', iconPosition: 'right',
-                handler: () => me.updateScopeMenu(), menu: []
+                handler: () => me.updateScopeMenu(),
+                menu   : {cls: ['neo-grid-search-scope-menu'], items: []}
             }, {
                 module : Button, reference: 'case', text: 'Aa', ui: 'ghost',
                 tooltip: 'Match case', vdom: {'aria-label': 'Match case', 'aria-pressed': 'false'},
                 handler: () => me.writeSearch({caseSensitive: !me.getSearchFilter()?.caseSensitive})
-            }, {
-                module: Button, reference: 'clear', text: 'Clear filters', ui: 'ghost', handler: () => me.clearFilters()
             }]
         }, {
-            module: Container, reference: 'summary', cls: ['neo-grid-filter-summary'],
-            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap', gap: '4px'}, items: []
+            module: Container, reference: 'summary', cls: ['neo-grid-filter-summary'], flex: 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap', gap: '4px'},
+            items : [{
+                module: Container, reference: 'entries', cls: ['neo-grid-filter-entries'], flex: '1 1 12rem',
+                layout: {ntype: 'hbox', align: 'center', wrap: 'wrap', gap: '4px'}, items: []
+            }, {
+                module: Button, reference: 'clear', cls: ['neo-grid-filter-clear'], text: 'Clear filters',
+                ui    : 'ghost', handler: () => me.clearFilters()
+            }]
         }]
     }
 
     /** @summary Subscribes after child controls exist and projects without creating a search contribution. */
     onConstructed() {
         super.onConstructed();
+        this.getItem('query').changeInputElKey('aria-label', 'Search records');
         this.bindStore(this.store);
         this.syncFromStore()
     }
@@ -96,9 +104,35 @@ class SearchToolbar extends Toolbar {
         return this.store?.getFilter(null, 'grid-search') || null
     }
 
-    /** @summary Reads the stored scope; only a new search defaults to all searchable Model fields. */
+    /** @summary Reads the stored scope; a new grid search starts with its declared columns, including locked ones. */
     getSearchFields() {
-        return this.getSearchFilter()?.fields ?? this.resolveScope('all')
+        return this.getSearchFilter()?.fields ?? this.resolveScope(this.gridContainer ? 'columns' : 'all')
+    }
+
+    /** @summary Names fields through this grid's captions. @param {String} name @returns {String} */
+    getFieldLabel(name) {
+        return this.gridContainer?.columns?.items?.find(column => column.dataField === name)?.text || name
+    }
+
+    /** @summary Identifies one matching choice without rewriting the stored list. @param {String[]} fields @returns {String|null} */
+    getScopeKey(fields=this.getSearchFields()) {
+        const matches = scope => {
+            const resolved = this.resolveScope(scope);
+            return fields.length === resolved.length && fields.every(name => resolved.includes(name))
+        };
+        if (!fields.length) return null;
+        if (this.gridContainer && matches('columns')) return 'columns';
+        if (matches('all')) return 'all';
+        return fields.length === 1 ? `field:${fields[0]}` : null
+    }
+
+    /** @summary Describes the stored list using its matching choice or field count. @param {String[]} fields @returns {String} */
+    getScopeLabel(fields=this.getSearchFields()) {
+        const key = this.getScopeKey(fields);
+        if (!fields.length) return 'No search fields';
+        if (key === 'columns') return 'Grid columns';
+        if (key === 'all') return 'All record fields';
+        return fields.length === 1 ? this.getFieldLabel(fields[0]) : `Selected fields (${fields.length})`
     }
 
     /**
@@ -121,21 +155,32 @@ class SearchToolbar extends Toolbar {
     updateScopeMenu() {
         const me      = this, button = me.getItem('scope'), fields = me.getSearchFields(),
               columns = me.gridContainer?.columns?.items || [],
-              choose  = scope => () => me.writeSearch({fields: me.resolveScope(scope)}),
-              items   = [{text: 'All searchable fields', handler: choose('all')},
-                  {text: "This grid's columns", handler: choose('columns')},
-                  {text: `Searched: ${fields.join(', ') || 'none'}`, disabled: true}];
+              active  = me.getScopeKey(fields),
+              choice  = (id, text, resolveFields) => ({id, text,
+                  iconCls: active === id ? 'fa-solid fa-check' : '',
+                  handler: () => me.writeSearch({fields: resolveFields()})}),
+              items   = [choice('columns', 'Grid columns', () => me.resolveScope('columns')),
+                  choice('all', 'All record fields', () => me.resolveScope('all')),
+                  {text: 'All record fields includes values outside this grid', disabled: true}, {separator: true}];
         const seen = new Set();
         for (const column of columns) {
             const name = column.dataField;
             if (name && !seen.has(name)) {
                 seen.add(name);
-                items.push({text: column.text || name, handler: choose(name)})
+                items.push(choice(`field:${name}`, column.text || name, () => [name]))
             }
         }
+        items.push({separator: true}, {text: `Searching: ${fields.map(name => me.getFieldLabel(name)).join(', ') || 'none'}`, disabled: true});
         // Button owns this menu and its teardown; keep that instance instead of resetting its menu config.
         button.menuListReady?.then(() => {
-            if (!button.isDestroyed && button.menuList) button.menuList.items = items
+            if (!button.isDestroyed && button.menuList) {
+                const menu = button.menuList;
+                menu.align = {edgeAlign: 't0-b0', target: button.id, constrainTo: me.gridContainer?.id || 'document.body'};
+                menu.selectionModel.deselectAll(true);
+                menu.items = items;
+                const selected = items.find(item => item.iconCls);
+                if (selected) menu.selectionModel.select(menu.store.get(selected.id))
+            }
         })
     }
 
@@ -204,9 +249,9 @@ class SearchToolbar extends Toolbar {
             const caseButton = me.getItem('case');
             caseButton.vdom['aria-pressed'] = String(filter?.caseSensitive === true);
             caseButton.set({pressed: filter?.caseSensitive === true, disabled: !me.store});
-            me.getItem('scope').set({text: `${fields.length} search fields`, disabled: !me.store,
-                tooltip: fields.join(', ') || 'No field is searchable'});
-            me.getItem('clear').disabled = !filters.some(item => me.isOwnedFilter(item));
+            me.getItem('scope').set({text: me.getScopeLabel(fields), disabled: !me.store});
+            const hasOwned = effective.some(item => me.isOwnedFilter(item));
+            me.getItem('clear').set({hidden: !hasOwned, disabled: !hasOwned});
         } finally { me.syncing = false }
         for (const item of effective) {
             const name = me.gridContainer?.columns?.items?.find(column => column.dataField === item.property)?.text || item.property;
@@ -223,9 +268,10 @@ class SearchToolbar extends Toolbar {
         if (!fields.length) entries.push({module: Component, text: 'No field is searchable'});
         if (filter?.disabled) entries.push({module: Component, text: 'Search is disabled by the application'});
         if (me.refusal) entries.push({module: Component, text: `Search unavailable: ${me.refusal}`});
-        const summary = me.getItem('summary');
-        summary.removeAll();
-        if (entries.length) summary.add(entries)
+        const summary = me.getItem('summary'), holder = me.getItem('entries');
+        holder.removeAll();
+        if (entries.length) holder.add(entries);
+        summary.hidden = !entries.length
     }
 
     /** @summary Releases observation and child controls; the borrowed Store and its search remain alive. */

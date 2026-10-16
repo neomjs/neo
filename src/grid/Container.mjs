@@ -479,8 +479,9 @@ class GridContainer extends BaseContainer {
             me.body?.createViewData()
         }
 
-        me.configsApplied && me.updateColCount()
-        me.searchToolbar?.syncFromStore()
+        me.configsApplied && me.updateColCount();
+        // Reading columns can occur inside toolbar construction, while its config still holds a descriptor.
+        if (me.searchToolbar instanceof SearchToolbar) me.searchToolbar.syncFromStore()
     }
 
     /**

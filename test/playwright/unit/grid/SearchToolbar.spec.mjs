@@ -84,6 +84,99 @@ test.describe('Grid record search toolbar', () => {
 
     const ids = store => store.items.map(record => record.id);
 
+    const clearIsVisible = toolbar => {
+        const clear = toolbar.getItem('clear');
+        return Boolean(clear && !clear.hidden)
+    };
+
+    test('a new search includes locked grid columns, while searching undisplayed record fields is an explicit choice', async () => {
+        const store = await storeFor(),
+            grid    = gridFor(store, [
+                {dataField: 'state', text: 'Status', width: 100, locked: 'start'},
+                {dataField: 'title', text: 'Title', width: 180},
+                {dataField: 'area', text: 'Area', width: 100, locked: 'end'}
+            ]),
+            toolbar = await toolbarFor(store, grid),
+            scopeButton = toolbar.getItem('scope');
+
+        expect(toolbar.getSearchFilter()).toBeNull();
+        expect(toolbar.getSearchFields()).toEqual(['state', 'title', 'area']);
+        expect(scopeButton.text).toBe('Grid columns');
+        expect(clearIsVisible(toolbar)).toBe(false);
+
+        toolbar.writeSearch({value: 'closed'});
+        expect(ids(store)).toEqual([102]);
+        toolbar.writeSearch({value: 'Store'});
+        expect(ids(store)).toEqual([103, 104]);
+        toolbar.writeSearch({value: 'retry'});
+        expect(ids(store)).toEqual([103]);
+
+        toolbar.updateScopeMenu();
+        await scopeButton.menuListReady;
+        const choices  = scopeButton.menuList.items,
+            gridChoice = choices.find(item => item.text === 'Grid columns'),
+            allChoice  = choices.find(item => item.text === 'All record fields');
+
+        expect(gridChoice).toBeTruthy();
+        expect(allChoice).toBeTruthy();
+        expect(choices.some(item => item.text === 'Status')).toBe(true);
+        expect(choices.some(item => item.text === 'Area')).toBe(true);
+        const menu       = scopeButton.menuList,
+            selectedAria = id => menu.createItem(menu.store.get(id), menu.store.indexOf(id))['aria-selected'];
+        expect(selectedAria('columns')).toBe(true);
+        expect(selectedAria('all')).toBe(false);
+        allChoice.handler();
+
+        expect(toolbar.getSearchFilter().fields).toEqual(['id', 'state', 'title', 'summary', 'area']);
+        expect(scopeButton.text).toBe('All record fields');
+        expect(ids(store)).toEqual([101, 102, 103, 104]);
+        expect(clearIsVisible(toolbar)).toBe(true);
+        expect(toolbar.getItem('summary').items).toContain(toolbar.getItem('clear'));
+        toolbar.updateScopeMenu();
+        await scopeButton.menuListReady;
+        expect(selectedAria('columns')).toBe(false);
+        expect(selectedAria('all')).toBe(true);
+
+        const standaloneStore = await storeFor(),
+            standaloneToolbar = await toolbarFor(standaloneStore);
+        expect(standaloneToolbar.getSearchFields()).toEqual(['id', 'state', 'title', 'summary', 'area']);
+        expect(standaloneToolbar.getSearchFilter()).toBeNull()
+    });
+
+    test('column fields named all and columns remain literal menu choices, distinct from aggregate scopes', async () => {
+        const store = await storeFor({
+                model: {module: Model, fields: [
+                    {name: 'id', type: 'Int'}, {name: 'all', type: 'String'},
+                    {name: 'columns', type: 'String'}, {name: 'title', type: 'String'}
+                ]},
+                data: [
+                    {id: 201, all: 'needle', columns: 'other', title: 'other'},
+                    {id: 202, all: 'other', columns: 'needle', title: 'other'},
+                    {id: 203, all: 'other', columns: 'other', title: 'needle'}
+                ]
+            }),
+            grid = gridFor(store, [
+                {dataField: 'all', text: 'All values', width: 120},
+                {dataField: 'columns', text: 'Column values', width: 120},
+                {dataField: 'title', text: 'Title', width: 120}
+            ]),
+            toolbar = await toolbarFor(store, grid),
+            scopeButton = toolbar.getItem('scope');
+
+        toolbar.writeSearch({value: 'needle'});
+        toolbar.updateScopeMenu();
+        await scopeButton.menuListReady;
+        const choices = scopeButton.menuList.items;
+
+        for (const [name, expectedId] of [['all', 201], ['columns', 202]]) {
+            choices.find(item => item.id === name).handler();
+            expect(ids(store)).toEqual([201, 202, 203]);
+            choices.find(item => item.id === `field:${name}`).handler();
+            expect(toolbar.getSearchFilter().fields).toEqual([name]);
+            expect(ids(store)).toEqual([expectedId])
+        }
+    });
+
     test('two grid hosts share Store-owned search settings and query, case and scope edits preserve disabled state', async () => {
         const store   = await storeFor(),
             firstGrid = gridFor(store, [
@@ -99,7 +192,12 @@ test.describe('Grid record search toolbar', () => {
 
         expect(first.getItem('query')).toBeInstanceOf(SearchField);
         expect(first.getSearchFilter()).toBeNull();
-        expect(first.getSearchFields()).toEqual(['id', 'state', 'title', 'summary', 'area']);
+        expect(first.getSearchFields()).toEqual(['title', 'state']);
+        expect(second.getSearchFields()).toEqual(['summary', 'area']);
+
+        first.writeSearch({value: 'closed'});
+        expect(ids(store)).toEqual([102]);
+        expect(second.getSearchFields()).toEqual(['title', 'state']);
 
         expect(first.writeSearch({value: 'Falcon retry', fields: ['title', 'summary'], caseSensitive: false}))
             .toEqual({status: 'written'});
@@ -126,14 +224,28 @@ test.describe('Grid record search toolbar', () => {
         expect(filter.fields).toEqual(['title']);
         expect(filter.disabled).toBe(true);
         expect(second.getSearchFields()).toEqual(['title']);
+        expect(first.getItem('scope').text).toBe('Title');
 
         filter.disabled = false;
         first.writeSearch({value: 'Falcon retry', caseSensitive: true, fields: ['title', 'summary']});
         expect(ids(store)).toEqual([101, 102, 104]);
+        expect(first.getItem('scope').text).toBe('Selected fields (2)');
+
+        // Rebinding a displayed column and attaching another host must not reinterpret the shared scope.
+        firstGrid.columns.items.find(column => column.dataField === 'title').dataField = 'area';
+        const thirdGrid = gridFor(store, [{dataField: 'state', text: 'Status', width: 100}]),
+            third       = await toolbarFor(store, thirdGrid);
+        expect(third.getSearchFilter()).toBe(filter);
+        expect(third.getSearchFields()).toEqual(['title', 'summary']);
+        expect(first.getSearchFields()).toEqual(['title', 'summary']);
+        expect(ids(store)).toEqual([101, 102, 104]);
+        third.writeSearch({value: 'retry'});
+        expect(filter.fields).toEqual(['title', 'summary']);
+        expect(ids(store)).toEqual([101, 102, 103, 104]);
 
         first.destroy();
         expect(second.getSearchFilter()).toBe(filter);
-        expect(ids(store)).toEqual([101, 102, 104])
+        expect(ids(store)).toEqual([101, 102, 103, 104])
     });
 
     test('clear removes every grid filter role while application predicates survive; empty scope stays inert', async () => {
@@ -147,12 +259,15 @@ test.describe('Grid record search toolbar', () => {
             appFilter = store.getFilter('state', 'application');
 
         expect(ids(store)).toEqual([101]);
+        expect(clearIsVisible(toolbar)).toBe(true);
         toolbar.clearFilters();
         expect(store.getFilter('title', 'header-inline')).toBeNull();
         expect(store.getFilter('area', 'header-picker')).toBeNull();
         expect(store.getFilter(null, 'grid-search')).toBeNull();
         expect(store.getFilter('state', 'application')).toBe(appFilter);
         expect(ids(store)).toEqual([101, 103, 104, 105]);
+        expect(clearIsVisible(toolbar)).toBe(false);
+        expect(toolbar.getItem('entries').items.some(item => item.text.startsWith('Application restriction'))).toBe(true);
 
         const result = toolbar.writeSearch({value: 'Falcon retry', fields: []});
         expect(result).toEqual({status: 'written'});
@@ -161,11 +276,14 @@ test.describe('Grid record search toolbar', () => {
         expect(filter.value).toBe('Falcon retry');
         expect(filter.effective).toBe(false);
         expect(ids(store)).toEqual([101, 103, 104, 105]);
+        expect(clearIsVisible(toolbar)).toBe(false);
+        expect(toolbar.getItem('entries').items.some(item => item.text === 'No field is searchable')).toBe(true);
 
         toolbar.writeSearch({fields: ['title']});
         expect(filter.fields).toEqual(['title']);
         expect(filter.effective).toBe(true);
         expect(ids(store)).toEqual([103]);
+        expect(clearIsVisible(toolbar)).toBe(true);
 
         toolbar.writeSearch({value: 'Falcon', caseSensitive: false});
         expect(ids(store)).toEqual([101, 103]);
@@ -176,7 +294,8 @@ test.describe('Grid record search toolbar', () => {
         expect(store.getFilter(null, 'grid-search')).toBe(filter);
         expect(filter.fields).toEqual(['title']);
         expect(filter.value).toBe('Falcon');
-        expect(toolbar.refusal).toBe('unknown-field')
+        expect(toolbar.refusal).toBe('unknown-field');
+        expect(toolbar.getItem('entries').items.some(item => item.text === 'Search unavailable: unknown-field')).toBe(true)
     });
 
     test('each toolbar removes only its Store listener and recreate/swap projects the destination Store without moving intent', async () => {
