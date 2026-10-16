@@ -378,14 +378,20 @@ class GridContainer extends BaseContainer {
      * the real one in place, and releases nothing while looking like a teardown. `list.Buffered`
      * carries the same contract.
      *
+     * Both ids are read before the await, so an unregister that resumes after destroy still names
+     * both holders. A register that resumes after destroy returns: `destroy()` has already
+     * unregistered synchronously, so a late holder would never be removed.
+     *
      * @param {Boolean} mounted
      * @protected
      */
     async addResizeObserver(mounted) {
         let me             = this,
             {windowId}     = me,
-            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
-            targets        = [me.id, me.view.id];
+            targets        = [me.id, me.view.id],
+            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId);
+
+        if (mounted && me.isDestroyed) return;
 
         if (mounted) {
             targets.forEach(id => ResizeObserver.register({componentId: id, id, windowId}));
