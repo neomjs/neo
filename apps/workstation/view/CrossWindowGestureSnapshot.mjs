@@ -123,7 +123,71 @@ class CrossWindowGestureSnapshot extends Base {
                 targetProxy.visible
             ));
 
+        // An unready read names the surfaces a claim would have crossed, so a timed-out gesture's last
+        // snapshot explains itself; a ready read stays the receipt the beat logs compare.
+        if (!snapshot.ready) {
+            snapshot.claimSurfaces = describeClaimSurfaces(me, {coordinator, nativeWindowId, participation, sourceZone, target})
+        }
+
         return snapshot
+    }
+}
+
+/**
+ * @summary Describes the surfaces between a dragging zone and a workspace's target at the moment a claim
+ * did not arrive: the participation and its target, the coordinator's claim and hover state, both windows'
+ * inner rects, the source zone's arming state and the workspace's native ownership records. Diagnostics
+ * only; nothing here is awaited or created. A module function, not a mixin method: no reader addresses it
+ * by name, and the unit specs drive the reader on plain stubs.
+ * @param {Object} workspace The reading workspace (the mixin host, or a stub carrying its fields).
+ * @param {Object} context
+ * @param {Neo.manager.DragCoordinator|null} [context.coordinator=null]
+ * @param {String|null} [context.nativeWindowId=null]
+ * @param {Neo.dashboard.dock.window.Participation|null} [context.participation=null]
+ * @param {Neo.dashboard.dock.interaction.TabSortZone|null} [context.sourceZone=null]
+ * @param {Object|null} [context.target=null] The participation's drop target.
+ * @returns {Object}
+ */
+function describeClaimSurfaces(workspace, {coordinator=null, nativeWindowId=null, participation=null, sourceZone=null, target=null}={}) {
+    let windows        = Neo.manager?.Window,
+        rectOf         = id => id == null ? null : (windows?.get(id)?.innerRect ?? null),
+        sourceWindowId = nativeWindowId ?? sourceZone?.windowId ?? null,
+        arbiter        = nativeWindowId ? coordinator?.nativeClaimArbiters?.get(nativeWindowId) : coordinator?.pointerClaimArbiter,
+        registry       = workspace.nativeWindows;
+
+    return {
+        participation: participation ? {
+            affordances   : Boolean(participation.affordances ?? participation.ownedAffordances),
+            targetId      : target?.id ?? null,
+            targetWindowId: target?.windowId ?? null
+        } : null,
+        coordinator: coordinator ? {
+            activeTargetZoneId  : coordinator.activeTargetZone?.id ?? null,
+            activeTargetWindowId: coordinator.activeTargetZone?.windowId ?? null,
+            arbiter             : arbiter ? {
+                claimCount    : arbiter.claimCount ?? 0,
+                token         : arbiter.token ?? null,
+                winnerStableId: arbiter.resolve?.()?.stableId ?? null
+            } : null,
+            nativeArbiterWindowIds: [...(coordinator.nativeClaimArbiters?.keys?.() ?? [])],
+            nativeHoverWindowIds  : [...(coordinator.nativeHoverTargets?.keys?.() ?? [])]
+        } : null,
+        sourceZone: sourceZone ? {
+            dockGroupNodeId: sourceZone.dockGroupNodeId ?? null,
+            dragProxy      : Boolean(sourceZone.dragProxy),
+            id             : sourceZone.id ?? null,
+            stackDragActive: sourceZone.stackDragActive === true,
+            windowId       : sourceZone.windowId ?? null
+        } : null,
+        windows: {
+            main  : {id: workspace.windowId ?? null, innerRect: rectOf(workspace.windowId)},
+            source: {id: sourceWindowId, innerRect: rectOf(sourceWindowId)}
+        },
+        owners: registry ? {
+            connections       : registry.connectionEntries(workspace.id).map(([itemId]) => itemId),
+            owned             : registry.ownerEntries(workspace.id).map(([itemId, entry]) => ({itemId, windowName: entry?.windowName ?? null})),
+            pendingRetirements: registry.pendingRetirements(workspace.id).map(vessel => ({itemId: vessel?.itemId ?? null, windowName: vessel?.windowName ?? null}))
+        } : null
     }
 }
 
