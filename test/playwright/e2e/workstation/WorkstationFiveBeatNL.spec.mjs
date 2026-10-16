@@ -2546,6 +2546,21 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             intervals: [25, 50, 100]
         }).toEqual({preview: false, proxy: false});
 
+        // The return's cost by phase, relative to the OS mouse-up: main's re-projection receipt and the
+        // transfer's own phases. A receipt for the vessel-close latency, not an assertion.
+        const projectionReceipt = await app.getComponent(wsId, ['lastProjectionTiming', 'lastCrossWindowTransfer']);
+
+        console.log('[native-titlebar][projection-timing]', JSON.stringify({
+            mouseUpMs                : nativeInput.mouseUpMs,
+            popupClosedAt,
+            popupClosedAfterMouseUpMs: popupClosedAt ? popupClosedAt - nativeInput.mouseUpMs : null,
+            timing                   : projectionReceipt?.lastProjectionTiming ?? null,
+            timingAfterMouseUpMs     : Object.fromEntries(Object.entries(projectionReceipt?.lastProjectionTiming ?? {})
+                .filter(([, value]) => typeof value === 'number')
+                .map(([key, value]) => [key, value - nativeInput.mouseUpMs])),
+            transferPhases: projectionReceipt?.lastCrossWindowTransfer?.phases ?? null
+        }));
+
         expect(popupProbe).toHaveLength(1);
         expect(popupProbe[0].closed).toBe(true);
         expect(pageErrors).toEqual([])

@@ -163,6 +163,48 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
         expect(outcome.landedInPlace, 'a first projection is a normal staged result, never a fast path').toBe(false)
     });
 
+    test('adoption settles when the document is in the host, before a post-projection hook that trails motion', async () => {
+        const order = [];
+        let adoptedAt, settledAt;
+
+        workspace = Neo.create(DockWorkspace, {dockModel: createDocument()});
+        // A host that sequences chrome behind the motion window (apps/workstation does) delays the
+        // settled surface, never the adoption.
+        workspace.afterRefreshDockWorkspace = () => new Promise(resolve => setTimeout(resolve, 150));
+        parent    = await bindAndMount(workspace);
+
+        const adoption = workspace.adoptionPromise, refresh = workspace.refreshPromise;
+
+        expect(adoption, 'the scheduling commit exposes the cycle\'s adoption').toBeInstanceOf(Promise);
+
+        adoption.then(() => {adoptedAt = Date.now(); order.push('adopted')});
+        refresh.then(() => {settledAt = Date.now(); order.push('settled')});
+
+        await settleRefreshTail(workspace);
+        await adoption;
+
+        expect(order).toEqual(['adopted', 'settled']);
+        expect(settledAt - adoptedAt, 'the hook\'s wait sits between adoption and the settled surface').toBeGreaterThanOrEqual(100);
+        expect((await adoption).landedInPlace, 'adoption resolves with the reconciler\'s outcome').toBe(false);
+
+        const timing = workspace.lastProjectionTiming;
+
+        expect(Object.keys(timing)).toEqual(expect.arrayContaining(['queuedAt', 'startedAt', 'configProjected', 'reconciled', 'collaboratorsSynced', 'settledAt']));
+        expect(timing.reconciled, 'the receipt orders the reconcile before the settle').toBeLessThanOrEqual(timing.settledAt);
+        expect(timing.settledAt - timing.reconciled).toBeGreaterThanOrEqual(100);
+
+        // A cycle that never runs — the workspace is gone before its tick — resolves the adoption with
+        // null rather than leaving a consumer hanging on it.
+        const lone      = Neo.create(DockWorkspace, {dockModel: createDocument()}),
+              skipped   = lone.projectDockZoneDocument(createDocument()),
+              adoption2 = lone.adoptionPromise;
+
+        lone.destroy();
+        await skipped.catch(() => {});
+
+        expect(await adoption2).toBeNull()
+    });
+
     test('the standalone dock example keeps only its toolbar static and receives its shell from the engine', async () => {
         workspace = Neo.create(MainContainer, {});
 
