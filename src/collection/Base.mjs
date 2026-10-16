@@ -11,6 +11,7 @@ const
     isFiltered         = Symbol.for('isFiltered'),
     isSorted           = Symbol.for('isSorted'),
     silentUpdateMode   = Symbol.for('silentUpdateMode'),
+    sortPosition       = Symbol.for('sortPosition'),
     toAddArray         = Symbol.for('toAddArray'),
     toRemoveArray      = Symbol.for('toRemoveArray'),
     updatingIndex      = Symbol.for('updatingIndex');
@@ -766,8 +767,9 @@ class Collection extends Base {
             } else {
                 if (hasTransformValue) {
                     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort#Sorting_with_map
+                    // The position lives under a Symbol, so a sort property of any name (e.g. `index`) cannot overwrite it
                     mappedItems = items.map((item, index) => {
-                        obj = {index};
+                        obj = {[sortPosition]: index};
                         i   = 0;
 
                         for (; i < countSorters; i++) {
@@ -803,7 +805,7 @@ class Collection extends Base {
 
                 if (hasTransformValue) {
                     me._items = mappedItems.map(el => {
-                        return items[el.index]
+                        return items[el[sortPosition]]
                     })
                 }
             }
