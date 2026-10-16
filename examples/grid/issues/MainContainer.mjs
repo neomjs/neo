@@ -143,11 +143,17 @@ class MainContainer extends Viewport {
     }
 
     /**
+     * @summary Switches the grid between content-sized and fixed rows; fixed rows show one line of each title and
+     * summary, cut with an ellipsis (MainContainer.scss).
      * @param {Object} data
      * @param {Boolean} data.value
      */
     onContentSizedChange({value}) {
-        this.getReference('grid').contentSizedRows = value
+        const grid = this.getReference('grid'),
+              cls  = grid.cls.filter(item => item !== 'issues-fixed-rows');
+
+        // One set() batch, so the row mode and the text style it needs change together
+        grid.set({contentSizedRows: value, cls: value ? cls : [...cls, 'issues-fixed-rows']})
     }
 
     /**
