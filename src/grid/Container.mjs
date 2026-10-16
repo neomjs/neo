@@ -5,6 +5,7 @@ import GridBody            from './Body.mjs';
 import ScrollManager       from './ScrollManager.mjs';
 import Store               from '../data/Store.mjs';
 import FooterToolbar       from './footer/Toolbar.mjs';
+import SearchToolbar       from './SearchToolbar.mjs';
 import HorizontalScrollbar from './HorizontalScrollbar.mjs';
 import NeoArray            from '../util/Array.mjs';
 import VerticalScrollbar   from './VerticalScrollbar.mjs';
@@ -153,6 +154,12 @@ class GridContainer extends BaseContainer {
             merge         : 'deep',
             value         : null
         },
+        /**
+         * Optional record search and filter summary above the headers. Null preserves the ordinary grid.
+         * @member {Object|Neo.grid.SearchToolbar|null} searchToolbar_=null
+         * @reactive
+         */
+        searchToolbar_: {[isDescriptor]: true, merge: 'deep', value: null},
         /**
          * Configs for Neo.grid.header.Toolbar
          * @member {Object|null} [headerToolbar_={[isDescriptor]:true,merge:'deep',value:null}]
@@ -337,6 +344,8 @@ class GridContainer extends BaseContainer {
 
         me.items = [me.headerWrapper, me.view, me.horizontalScrollbar];
 
+        if (me.searchToolbar) me.items.unshift(me.searchToolbar);
+
         if (me.footerToolbar) {
             me.items.push(me.footerToolbar)
         }
@@ -345,6 +354,8 @@ class GridContainer extends BaseContainer {
 
         me._columns = me.createColumns(me.columns);
         me.updateColCount();
+
+        me.searchToolbar?.syncFromStore();
 
         me.syncValueBandingFields();
 
@@ -467,6 +478,7 @@ class GridContainer extends BaseContainer {
         }
 
         me.configsApplied && me.updateColCount()
+        me.searchToolbar?.syncFromStore()
     }
 
     /**
@@ -495,6 +507,16 @@ class GridContainer extends BaseContainer {
 
         if (value && me.store && value.store !== me.store) {
             value.store = me.store
+        }
+    }
+
+    /** @summary Replaces optional search chrome without changing the Store-owned search intent. */
+    afterSetSearchToolbar(value, oldValue) {
+        const me = this;
+        if (oldValue && me.items?.includes(oldValue)) me.remove(oldValue);
+        if (value) {
+            value.store = me.store;
+            if (me.isConstructed && !me.items.includes(value)) me.insert(0, value)
         }
     }
 
@@ -651,6 +673,8 @@ class GridContainer extends BaseContainer {
             me.footerToolbar.store = value
         }
 
+        if (me.searchToolbar && me.searchToolbar.store !== value) me.searchToolbar.store = value;
+
         me.syncValueBandingFields();
         me.syncFilteredHeaders()
     }
@@ -772,6 +796,14 @@ class GridContainer extends BaseContainer {
             flex    : 'none',
             parentId: me.id,
             theme   : me.theme
+        })
+    }
+
+    /** @summary Creates optional native search chrome with this grid's column and Store context. */
+    beforeSetSearchToolbar(value, oldValue) {
+        if (!value) return null;
+        return ClassSystemUtil.beforeSetInstance(value, SearchToolbar, {
+            flex: 'none', gridContainer: this, parentId: this.id, store: this.store, theme: this.theme
         })
     }
 
@@ -1521,6 +1553,7 @@ class GridContainer extends BaseContainer {
             columnMenu   : me.columnMenu,
             columns      : me.columns?.items.map(item => item.toJSON()),
             footerToolbar: me.footerToolbar?.toJSON(),
+            searchToolbar: me.searchToolbar?.toJSON(),
             headerToolbar: me.headerToolbar?.toJSON(),
             rowHeight    : me.rowHeight,
 

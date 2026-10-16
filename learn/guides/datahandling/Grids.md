@@ -304,6 +304,36 @@ For a column to be filterable, you must also set its `filterable` config to `tru
 text input filter for string fields and a number input filter for number fields. More complex filter types can be
 implemented by extending `Neo.grid.header.Filter`.
 
+### Grid Search Toolbar
+
+Set `searchToolbar` to an object to add a search toolbar above the grid. It is `null` by default, so existing grids
+keep their current layout until the feature is enabled.
+
+```javascript readonly
+{
+    module: GridContainer,
+    searchToolbar: {},
+    store,
+    columns: [
+        {text: 'Name',   dataField: 'name'},
+        {text: 'Status', dataField: 'status'}
+    ]
+}
+```
+
+The toolbar searches local, resolved field values with literal text. Whitespace separates terms, and every term must
+match somewhere in the selected search scope; the terms are combined with AND. By default, the scope covers all
+searchable fields. You can switch to the grid's current columns, including locked columns and a one-column view, or
+choose one named column. A case toggle controls whether matching distinguishes letter case. Search does not
+interpret regular expressions.
+
+The search intent belongs to the Store, so grids sharing that Store share the search and the intent survives toolbar
+recreation. Clearing the text makes the search inactive while retaining its scope and case setting. Removing a
+search or filter chip removes that contribution. The toolbar's Clear filters action removes the grid-owned search,
+header, and value-picker filter roles together; application-owned filters remain active. Remote projections and tree
+grids cannot provide the complete local flat population this search requires, so the toolbar reports that limitation
+instead of applying a partial result.
+
 ### Column Value Menus
 
 Set `columnMenu: true` on [Neo.grid.Container](../../../src/grid/Container.mjs) to add a value picker to its column headers.

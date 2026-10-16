@@ -1,0 +1,44 @@
+.neo-grid-search-toolbar {
+    box-sizing: border-box;
+    max-width  : 100%;
+    min-width  : 0;
+    width      : 100%;
+}
+
+.neo-grid-search-controls,
+.neo-grid-filter-summary {
+    box-sizing : border-box;
+    max-width  : 100%;
+    min-width  : 0;
+    width      : 100%;
+}
+
+.neo-grid-search-controls {
+    align-items: center;
+    display    : flex;
+    flex-wrap  : wrap;
+
+    .neo-searchfield {
+        flex     : 1 1 12rem;
+        max-width: 100%;
+        min-width: 0;
+
+        .neo-textfield-input {
+            min-width: 0;
+        }
+    }
+}
+
+.neo-grid-filter-summary {
+    align-items  : center;
+    display      : flex;
+    flex-wrap    : wrap;
+    white-space  : normal;
+    overflow-wrap: anywhere;
+
+    > * {
+        max-width    : 100%;
+        min-width    : 0;
+        overflow-wrap: anywhere;
+    }
+}
