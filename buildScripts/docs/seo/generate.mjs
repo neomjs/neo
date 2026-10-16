@@ -1026,10 +1026,12 @@ export async function getLlmsTxt(options={}) {
     const {baseUrl, basePath = DEFAULT_BASE_PATH} = options;
     const allRoutes = await collectAllRoutes(options);
 
-    // 1. The Dynamic Header: organism apex for LLM crawlers
-    let content = `# Neo.mjs: Self-Evolving Software Organism for AI Engineering
+    // 1. The Dynamic Header: the category label, then the organism apex behind it, for LLM crawlers
+    let content = `# Neo.mjs: An Agent Institution
 
-> Neo.mjs is a self-evolving software organism: a professional, end-to-end AI engineering team whose Body and Brain live in sibling open-source repositories.
+> Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.
+> Behind it stands a self-evolving software organism: a professional, end-to-end AI engineering team whose Body, Brain and Institution live in sibling open-source repositories.
+> Its Institution (github.com/neomjs/neo-agent-institution) is the Fleet Manager: it starts the agent harnesses over the Brain's Fleet transport, and agents reach it through the Neural Link like any Neo app.
 > Its Brain (github.com/neomjs/neo-agent-brain) is the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub Workflow, DreamService, and Active Hybrid GraphRAG.
 > Its Body (github.com/neomjs/neo, /src) is the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON VDOM blueprints, object permanence, and zero-build ES modules.
 > The Neural Link is the possession interface between them. Agents inspect semantic runtime state, mutate UI and data in live apps, hot-patch behavior, and verify changes inside running software.
