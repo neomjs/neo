@@ -11,7 +11,9 @@ import StoreManager    from '../manager/Store.mjs';
 const
     initialIndexSymbol   = Symbol.for('initialIndex'),
     updatingIndexSymbol  = Symbol.for('updatingIndex'),
-    pushInsertStrategies = new Set(['insert', 'reload', 'reloadWhenUncertain', 'upsert']);
+    pushInsertStrategies = new Set(['insert', 'reload', 'reloadWhenUncertain', 'upsert']),
+    // Model field types whose values a SearchFilter can match as text without a fieldText hook
+    plainTextFieldTypes  = new Set(['auto', 'boolean', 'float', 'int', 'integer', 'number', 'string']);
 
 /**
  * @class Neo.data.Store
@@ -690,7 +692,7 @@ class Store extends Collection {
         if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
             const
                 activeFilters    = me.filters.filter(f => !f.disabled && f.value !== null),
-                filterProperties = activeFilters.map(f => f.property),
+                filterProperties = activeFilters.flatMap(f => f.fields || (f.property === null ? [] : [f.property])),
                 len              = filterProperties.length;
 
             if (len > 0) {
@@ -809,9 +811,10 @@ class Store extends Collection {
      * @returns {Object[]|Object}
      */
     getFilterValues(property, excludeFilter=null) {
+        // A filter's read set is its declared fields, else its property; callbacks without fields read nothing checked.
         const me       = this, items = me.allItems?._items || me._items,
-            properties = new Set([property, ...me.filters.filter(filter => !filter.disabled && !filter.filterBy &&
-                filter !== excludeFilter).map(filter => filter.property)]);
+            properties = new Set([property, ...me.filters.filter(filter => !filter.disabled && filter !== excludeFilter)
+                .flatMap(filter => filter.fields || (filter.filterBy || filter.property === null ? [] : [filter.property]))]);
 
         if (excludeFilter !== null && !me.filters.includes(excludeFilter)) {
             return {refused: true, reason: 'unknown-filter'}
@@ -856,6 +859,36 @@ class Store extends Collection {
             else buckets.set(key, {key, value: value instanceof Date ? new Date(value) : value, count: 1})
         }
         return [...buckets.values()]
+    }
+
+    /**
+     * @summary Checks before writing a SearchFilter whether this Store can search `fields`; null means it can.
+     * Remote or pipeline-pushed populations are not searchable locally. A field needs a Model entry, and without
+     * a `fieldText` hook it must hold plain text: Auto, Boolean, Float, Int, Integer, Number or String.
+     * @param {String[]} fields
+     * @param {Object|null} [fieldText=null] Per-field `(value, item) => String` hooks
+     * @returns {String|null} 'remote-projection', 'unknown-field' or 'unsupported-field'
+     */
+    getSearchRefusal(fields, fieldText=null) {
+        const me = this;
+
+        if (me.remoteFilter || me.isPipelinePushProjectionUncertain()) {
+            return 'remote-projection'
+        }
+
+        for (const name of fields) {
+            const field = me.model?.getField(name);
+
+            if (!field) {
+                return 'unknown-field'
+            }
+
+            if (!fieldText?.[name] && !plainTextFieldTypes.has(field.type?.toLowerCase() ?? 'auto')) {
+                return 'unsupported-field'
+            }
+        }
+
+        return null
     }
 
     /**
@@ -1033,8 +1066,12 @@ class Store extends Collection {
 
         if (!me.autoInitRecords && !RecordFactory.isRecord(item) && me.filters.length > 0) {
             me.filters.forEach(filter => {
-                if (!filter.disabled && filter.value !== null && !Object.hasOwn(item, filter.property)) {
-                    item[filter.property] = me.resolveField(item, filter.property)
+                if (!filter.disabled && filter.value !== null) {
+                    for (const property of filter.fields || (filter.property === null ? [] : [filter.property])) {
+                        if (!Object.hasOwn(item, property)) {
+                            item[property] = me.resolveField(item, property)
+                        }
+                    }
                 }
             })
         }

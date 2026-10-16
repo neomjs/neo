@@ -329,7 +329,8 @@ class Collection extends Base {
         }
 
         const tuples       = new Map(), previous = oldValue?.slice() || [], created = [],
-            runtimeConfigs = new Set(['id', 'isConstructed', 'isDestroying', 'isReady', 'listenerApplied', 'listeners']),
+            // `module` selects the class at creation; matching compares the constructor instead.
+            runtimeConfigs = new Set(['id', 'isConstructed', 'isDestroying', 'isReady', 'listenerApplied', 'listeners', 'module']),
             matchesConfig  = (filter, name, expected) => {
                 const current = filter[name];
                 // Array getters copy values; include-set equality still keeps each entry's strict identity.
@@ -339,13 +340,19 @@ class Collection extends Base {
                         filter.operator === 'typedIncluded' && item instanceof Date && expected[index] instanceof Date &&
                         item.valueOf() === expected[index].valueOf())
                 }
+                if (name === 'fields' && Array.isArray(current) && Array.isArray(expected)) {
+                    return current.length === expected.length && current.every((item, index) => item === expected[index])
+                }
                 return current === expected
             };
 
         try {
             value = value.slice();
             value.forEach(key => {
-                const role = key.ownerRole ?? null, property = key.property ?? 'id';
+                // The key resolves the property its Filter will expose: an explicit null stays null (a columnless
+                // contribution), and an absent property takes the class default.
+                const role     = key.ownerRole ?? null,
+                      property = key.property !== undefined ? key.property : (key.module || Filter).config.property;
                 if (role !== null) {
                     if (typeof role !== 'string' || !role.length) throw new TypeError('Filter ownerRole must be a nonempty string or null');
                     const fields = tuples.get(role) || new Set();
@@ -356,12 +363,15 @@ class Collection extends Base {
             });
 
             value = value.map(key => {
-                const index = previous.findIndex(filter => filter === key ||
-                    Object.entries(Filter.config).every(([name, fallback]) => runtimeConfigs.has(name) ||
+                // A config may name a Filter subclass as `module`; its merged config defines what matches.
+                const cls   = key.module || Filter,
+                      index = previous.findIndex(filter => filter === key || filter.constructor === cls &&
+                    Object.entries(cls.config).every(([name, fallback]) => runtimeConfigs.has(name) ||
                         matchesConfig(filter, name, name in key ? key[name] : fallback)) &&
-                    Object.keys(key).every(name => matchesConfig(filter, name, key[name])));
+                    Object.keys(key).every(name => name === 'module' || matchesConfig(filter, name, key[name])));
                 if (index !== -1) return previous.splice(index, 1)[0];
-                const filter = Neo.create(Filter, key);
+                const {module, ...config} = key,
+                      filter              = module ? Neo.create(module, config) : Neo.create(Filter, key);
                 created.push(filter);
                 return filter
             })
