@@ -85,6 +85,15 @@ class ScrollManager extends Base {
     }
 
     /**
+     * True while the grid needs the `GridRowHoverSync` addon: a row spans several bodies once columns are locked,
+     * and CSS `:hover` reaches only the body under the pointer.
+     * @member {Boolean} usesRowHoverSyncAddon
+     */
+    get usesRowHoverSyncAddon() {
+        return this.rowHoverSync && !!this.gridContainer?.hasLockedColumns
+    }
+
+    /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
@@ -113,10 +122,12 @@ class ScrollManager extends Base {
         if (value) {
             me.dragScroll && me.updateDragScrollAddon(true);
             me.usesRowScrollAddon && me.updateRowScrollPinningAddon(true);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(true);
             me.updateGridHorizontalScrollSyncAddon(true)
         } else if (oldValue && me.windowId) {
             me.dragScroll && me.updateDragScrollAddon(false);
             me.usesRowScrollAddon && me.updateRowScrollPinningAddon(false);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(false);
             me.updateGridHorizontalScrollSyncAddon(false)
         }
     }
@@ -142,10 +153,12 @@ class ScrollManager extends Base {
         if (oldValue && me.mounted) {
             me.dragScroll && me.updateDragScrollAddon(false, oldValue);
             me.usesRowScrollAddon && me.updateRowScrollPinningAddon(false, oldValue);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(false, oldValue);
             me.updateGridHorizontalScrollSyncAddon(false, oldValue);
 
             me.dragScroll && me.updateDragScrollAddon(true, value);
             me.usesRowScrollAddon && me.updateRowScrollPinningAddon(true, value);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(true, value);
             me.updateGridHorizontalScrollSyncAddon(true, value);
         }
     }
