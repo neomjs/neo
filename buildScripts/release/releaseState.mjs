@@ -12,6 +12,22 @@
 import semver from 'semver';
 
 /**
+ * @summary Why a `--version` input cannot key the release, or `null` when it can. The input must be exactly the
+ * canonical version `npm version` writes: the release branch, the note, the tag and `finish`'s lookup all key on that
+ * string, so a prefixed, padded or build-tagged input is refused with the form to pass instead.
+ * @param {String} [version]
+ * @returns {String|null}
+ */
+export function getVersionProblem(version) {
+    const canonical = semver.valid(version);
+
+    if (!canonical)            return 'pass --version <semver>: the version this release sets, e.g. --version 13.3.0';
+    if (canonical !== version) return `pass --version ${canonical}: npm writes ${canonical}, and the release keys on that exact string`;
+
+    return null
+}
+
+/**
  * @summary A required observation failed: its state is unknown, so no phase may act on it.
  */
 export class ObservationError extends Error {}

@@ -49,6 +49,7 @@ import {
     getFinishStep,
     getPrBodyProblems,
     getPrepareStep,
+    getVersionProblem,
     ObservationError,
     observe,
     readBranchRules,
@@ -75,7 +76,8 @@ let newVersion, releaseBranch, releaseNotePath, notePathInRepo;
  */
 function useVersion(phase, version) {
     if (phase === 'prepare') {
-        semver.valid(version) || fail('pass --version <semver>: the version this release sets, e.g. --version 13.3.0')
+        const problem = getVersionProblem(version);
+        problem && fail(problem)
     } else {
         runCommand('git fetch origin dev', 'Failed to fetch origin');
         version = JSON.parse(read(['git', 'show', 'origin/dev:package.json'])).version

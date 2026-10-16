@@ -4,6 +4,7 @@ import {
     getFinishStep,
     getPrBodyProblems,
     getPrepareStep,
+    getVersionProblem,
     ObservationError,
     observe,
     readBranchRules,
@@ -82,6 +83,20 @@ test.describe('the command boundary: an unknown never passes for an absence', ()
     test('a failed rules read throws instead of reading as "no rules"', () => {
         expect(() => readBranchRules(runner({'gh api repos/neomjs/neo/rules/branches/main': err(1, 'gh: Forbidden (HTTP 403)')}), 'neomjs/neo', 'main')).toThrow(ObservationError);
         expect(readBranchRules(runner({'gh api repos/neomjs/neo/rules/branches/main': ok('[]')}), 'neomjs/neo', 'main')).toEqual({types: [], bypass: []});
+    });
+
+    test('a --version input keys the release only as the exact string npm writes', () => {
+        expect(getVersionProblem('13.3.0')).toBeNull();
+        expect(getVersionProblem('13.3.0-rc.1')).toBeNull();
+
+        // Each parses, but npm writes 13.3.0, so the branch and note would part from finish's lookup
+        for (const input of ['v13.3.0', ' 13.3.0 ', '13.3.0+build.1']) {
+            expect(getVersionProblem(input), input).toBe('pass --version 13.3.0: npm writes 13.3.0, and the release keys on that exact string')
+        }
+
+        for (const input of [undefined, '', 'foo', '=13.3.0']) {
+            expect(getVersionProblem(input), String(input)).toMatch(/^pass --version <semver>/)
+        }
     });
 
     test('the preflight names a dirty tree, a version not newer than package.json\'s, an existing tag and a stopped local branch', () => {
