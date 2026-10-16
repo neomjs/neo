@@ -13,6 +13,7 @@ import NativeVesselTransaction                  from './window/NativeVesselTrans
 import PreviewProducer                          from './interaction/PreviewProducer.mjs';
 import PerspectiveSelection                     from './interaction/PerspectiveSelection.mjs';
 import PerspectiveState                         from './projection/PerspectiveState.mjs';
+import ProjectionCycle                          from './projection/Cycle.mjs';
 import Reconciler                               from './projection/Reconciler.mjs';
 import StateProvider                            from '../../state/Provider.mjs';
 import TearOut                                  from './window/TearOut.mjs';
@@ -516,32 +517,15 @@ class Workspace extends Container {
     scheduledProjection = null
 
     /**
-     * Phase stamps of the most recent re-projection that started, in epoch milliseconds: `queuedAt`
-     * (the commit chained it), `startedAt` (the settled tail and the one-tick deferral behind it),
-     * then `hostMounted`, `flipCaptured`, `stalePanesReleased`, `configProjected`, `reconciled`,
-     * `collaboratorsSynced` and `settledAt`, with `flipPlayed` once the motion window closes.
-     * `waitedForTail` says whether an earlier cycle was still in flight when this one was chained,
-     * `landedInPlace` what the reconciler reported. A receipt, read after {@link #refreshPromise}
-     * settles; the next cycle that starts replaces it.
-     * @member {Object|null} lastProjectionTiming=null
-     * @protected
-     */
-    lastProjectionTiming = null
-
-    /**
-     * The adoption moment of the in-flight re-projection, as its own awaitable: it resolves with the
-     * reconciler's outcome once the committed document is IN the host — the panes reparented, the
-     * staged transaction landed — before the collaborators, the FLIP motion and the post-projection
-     * hook that {@link #refreshPromise} still waits out. A consumer that needs only the document in
-     * place (an emptied vessel that may close once its pane is home) awaits this; a consumer that
-     * needs the settled surface keeps awaiting the refresh. It never rejects: a cycle that is
-     * skipped, superseded, destroyed or repaired resolves it with `null`, and the refresh stays the
-     * gate for that cycle. Same pointer discipline as the refresh: read it when the commit that
+     * The newest re-projection a commit chained (see {@link Neo.dashboard.dock.projection.Cycle}): its
+     * `adoption` settles once the reconcile has landed the committed document in the host, before the
+     * motion and the post-projection hook {@link #refreshPromise} still waits out, and its `timing` is
+     * the per-phase receipt. Same pointer discipline as the refresh: read it when the commit that
      * scheduled the cycle has returned.
-     * @member {Promise<Object|null>|null} adoptionPromise=null
+     * @member {Neo.dashboard.dock.projection.Cycle|null} projectionCycle=null
      * @protected
      */
-    adoptionPromise = null
+    projectionCycle = null
 
     /**
      * @summary The Group-owned native lifecycle; this view contributes effects, not native state.
@@ -2332,15 +2316,9 @@ class Workspace extends Container {
 
         tail                = me.refreshPromise?.catch(() => {}) || Promise.resolve();
 
-        // The cycle's own bookkeeping, handed to the refresh beside the options rather than inside them:
-        // the options are a consumer-visible contract (the hooks receive them), the cycle is not. Its
-        // timing receipt (see {@link #lastProjectionTiming}) and its adoption moment (see
-        // {@link #adoptionPromise}), the latter resolved by the refresh once the reconcile has landed and
-        // with `null` by the chain's end for a cycle that never adopted.
-        const timing = {queuedAt: Date.now(), waitedForTail: Boolean(me.refreshPromise)};
-        let   adopt;
-
-        me.adoptionPromise = new Promise(resolve => adopt = resolve);
+        // The cycle's own record (see {@link #projectionCycle}), handed to the refresh beside the options
+        // rather than inside them: the options are a consumer-visible contract, the cycle is not.
+        const cycle = me.projectionCycle = Neo.create(ProjectionCycle, {waitedForTail: Boolean(me.refreshPromise)});
 
         // Header truth is written at the commit boundary: every leaf self-diffs, so the bindings
         // whose inputs this commit changed re-evaluate now — a lock reaches its header, its pane and
@@ -2354,16 +2332,7 @@ class Workspace extends Container {
         // commit as the newer one and stands down — a `null` document, the clear, included.
         me.scheduledProjection = {document};
 
-        me.refreshPromise = tail
-            .then(() => me.timeout(0))
-            .then(() => {
-                if (!me.isDestroyed) {
-                    timing.startedAt        = Date.now();
-                    me.lastProjectionTiming = timing;
-                    return me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, {adopt, timing})
-                }
-            })
-            .finally(() => adopt(null));
+        me.refreshPromise = cycle.run(tail, me, () => me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, cycle));
         return me.refreshPromise
     }
 
@@ -2521,9 +2490,9 @@ class Workspace extends Container {
      *     the standing {@link #getPreservedItemIds} set.
      * @param {Boolean} [refreshOptions.retainTopology=false] Admit in-place item reconciliation on
      *     a proven-identical structural shell.
-     * @param {Object|null} [cycle=null] The scheduling commit's bookkeeping for this one cycle, kept
-     *     out of the options the hooks receive: `timing`, the receipt this refresh stamps (see
-     *     {@link #lastProjectionTiming}), and `adopt`, the resolver of {@link #adoptionPromise}.
+     * @param {Neo.dashboard.dock.projection.Cycle|null} [cycle=null] The scheduling commit's record of
+     *     this one cycle, kept out of the options the hooks receive: the refresh stamps its receipt and
+     *     settles its adoption once the reconcile has landed.
      * @returns {Promise<void>}
      * @protected
      */
@@ -2535,8 +2504,7 @@ class Workspace extends Container {
             placeholders       = new Map(),
             {flipMarkerPrefix} = me,
             {geometryOnly=false, retainTopology=false} = refreshOptions,
-            superseded         = () => refreshOptions.isCurrent?.() === false,
-            stamp              = name => {cycle?.timing && (cycle.timing[name] = Date.now())};
+            superseded         = () => refreshOptions.isCurrent?.() === false;
 
         if (!host) {
             throw new Error(`Workspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
@@ -2558,8 +2526,6 @@ class Workspace extends Container {
             return
         }
 
-        stamp('hostMounted');
-
         try {
             // windowId routes the call to the host's OWN main thread: without it, SharedWorker
             // port resolution falls back to the first connected window — the wrong realm the
@@ -2571,7 +2537,6 @@ class Workspace extends Container {
             return
         }
 
-        stamp('flipCaptured');
         me.beforeRefreshDockWorkspace(document, refreshOptions);
 
         await me.releaseStaleRevealPanes(document);
@@ -2579,8 +2544,6 @@ class Workspace extends Container {
         if (me.isDestroyed || superseded()) {
             return
         }
-
-        stamp('stalePanesReleased');
 
         // The reconciler discards a retained tabs node's config whole, so a stand-in for one of its
         // items never enters a parent; only an item inside a NEW tabs node needs one, for button pairing.
@@ -2633,15 +2596,13 @@ class Workspace extends Container {
         // contract never promised — a pre-existing spec double proved it by throwing here.
         let result;
 
-        stamp('configProjected');
-
         try {
             result = await Reconciler.reconcileProjection(projection)
         } catch (error) {
             result = me.onDockProjectionFailed(error, document, tabInsertDescriptor, refreshOptions)
         }
 
-        stamp('reconciled');
+        cycle?.stamp('reconciled');
 
         // The failure path owns the remainder of this cycle. Running the maximize sync and the FLIP
         // over a shell the committed document does not describe would animate the recovery itself,
@@ -2651,7 +2612,7 @@ class Workspace extends Container {
         me.releaseDeclaredPanes(document);
 
         // The document is in the host: adoption, for the consumers that wait on nothing further.
-        cycle?.adopt?.(result);
+        cycle?.adopt(result);
 
         // Awaited on purpose, in plugins order: refreshPromise is the settled-surface contract, and
         // a collaborator presentation that re-applies after it settles is a surface nobody can
@@ -2673,12 +2634,6 @@ class Workspace extends Container {
         // committed. `geometryOnly` rides the reconciler's ACTUAL path, never the requested one.
         let played = null;
 
-        stamp('collaboratorsSynced');
-
-        if (cycle?.timing) {
-            cycle.timing.landedInPlace = result?.landedInPlace === true
-        }
-
         if (typeof flip?.play === 'function' && !me.isDestroyed) {
             let rawPlayed;
 
@@ -2691,10 +2646,7 @@ class Workspace extends Container {
             }
 
             played = Promise.resolve(rawPlayed).catch(() => null);
-            played.finally(() => {
-                MotionSignal.leave(me);
-                stamp('flipPlayed')
-            })
+            played.finally(() => {MotionSignal.leave(me); cycle?.stamp('flipPlayed')})
         }
 
         if (!me.isDestroyed) {
@@ -2705,7 +2657,7 @@ class Workspace extends Container {
             me.isDestroyed || me.syncDockParticipation()
         }
 
-        stamp('settledAt')
+        cycle?.stamp('settledAt')
     }
 
     /**

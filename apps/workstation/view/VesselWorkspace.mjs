@@ -650,9 +650,9 @@ class VesselWorkspace extends DockWorkspace {
             // Main's ADOPTION, not its settled surface: the retire below needs the pane in main's DOM, which
             // the reconcile lands; main's FLIP motion and the chrome settle that afterRefreshDockWorkspace
             // trails are presentation the emptied vessel need not outlive. A cycle that adopted nothing
-            // (skipped, superseded, repaired) resolves null, and the settled surface stays the gate.
-            const adopted = await me.adoptionPromise;
-            await Promise.all([adopted === null ? me.refreshPromise : null, source?.host?.refreshPromise, target?.host?.refreshPromise]);
+            // (skipped, superseded, repaired) settles null, and the settled surface stays the gate.
+            const adopted = await me.projectionCycle?.adoption;
+            await Promise.all([adopted == null ? me.refreshPromise : null, source?.host?.refreshPromise, target?.host?.refreshPromise]);
             receipt.reconciled = true;
             receipt.phases.push('projections-settled');
             if (source && !Object.keys(source.document.items).length) {
