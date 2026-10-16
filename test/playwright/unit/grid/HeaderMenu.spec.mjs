@@ -536,5 +536,27 @@ test.describe('Grid header value menu', () => {
         expect(filtered()).toEqual([true, false, true]);
         source.filters = [];
         expect(filtered()).toEqual([false, false, false])
+    });
+
+    test('a header rebound to another field derives that field\'s state, in both directions', () => {
+        const source = storeFor(undefined, {filters: [{property: 'status', ownerRole: 'header-picker', operator: 'typedIncluded', value: ['Open']}]}),
+            grid     = gridFor(source), status = grid.getButton('status'), other = grid.getButton('other'),
+            column   = field => grid.columns.items.find(item => item.dataField === field);
+        expect([status.isFiltered, other.isFiltered]).toEqual([true, false]);
+        // No Store event fires: the rebind alone must move the state with the field
+        column('status').dataField = 'id';
+        expect(status.isFiltered).toBe(false);
+        column('other').dataField = 'status';
+        expect(other.isFiltered).toBe(true)
+    });
+
+    test('a filtered header describes itself as filtered, with or without a menu', () => {
+        const source  = storeFor(), grid = gridFor(source, {showHeaderFilters: true}), header = grid.getButton('status'),
+            described = () => header.getVdomRoot()['aria-description'];
+        expect(described()).toBe(undefined);
+        header.changeFilterValue({value: 'Op'});
+        expect(described()).toBe('Filtered');
+        header.changeFilterValue({value: ''});
+        expect(described()).toBe(undefined)
     })
 });

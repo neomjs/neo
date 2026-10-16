@@ -139,12 +139,32 @@ class Button extends BaseButton {
     menuRootWrapped = false
 
     /**
-     * @summary Marks the header root; the menu's visibility rule keeps a filtered column's trigger shown.
+     * @summary A header rebound to another field takes that field's filtered state from the grid's Store.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetDataField(value, oldValue) {
+        if (oldValue !== undefined) {
+            const container = this.up('grid-container');
+            if (container) this.isFiltered = container.isColumnFiltered(value)
+        }
+    }
+
+    /**
+     * @summary Marks the header root and describes it as filtered. With a menu, the menu keeps its trigger shown;
+     * without one, the header shows its own mark (Button.scss).
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetIsFiltered(value, oldValue) {
+        const root = this.getVdomRoot();
+
+        if (value) root['aria-description'] = 'Filtered';
+        else delete root['aria-description'];
+
+        // The class always changes with the state, so its update carries the description too
         this.toggleCls('neo-grid-column-filtered', value)
     }
 

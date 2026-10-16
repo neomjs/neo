@@ -203,6 +203,47 @@ test.describe('Grid header value-menu shared state and lifetime', () => {
             await expect(header).not.toHaveClass(/neo-grid-column-filtered/)
         });
 
+    test('a menu-disabled header shows a picker filter the shared Store holds while its own field is empty (#19793)',
+        async ({page, neuralLink}) => {
+            const state = await menuFor(await setup(page, neuralLink)),
+                  plain = await state.app.createInstance({className: 'Neo.grid.Container', parentId: state.parentId,
+                      config: {store: state.storeId, columns: columns(), columnMenu: false, showHeaderFilters: true, width: 480, flex: 'none'}});
+            let headerId;
+            await expect.poll(async () => {
+                const toolbar = (await state.app.getComponent(plain.id, ['headerToolbar.id']))['headerToolbar.id'],
+                      headers = await state.app.queryComponent({className: 'Neo.grid.header.Button'}, ['dataField', 'parentId']);
+                headerId = headers.find(item => item.properties.dataField === 'status' && item.properties.parentId === toolbar)?.id;
+                return Boolean(headerId)
+            }).toBe(true);
+            const header = page.locator(`#${headerId}`),
+                  // The header's own mark: no menu, so no trigger can show the state
+                  mark   = () => header.evaluate(node => {
+                      const style = getComputedStyle(node, '::before');
+                      return {content: style.content, height: style.height, visible: style.backgroundColor !== 'rgba(0, 0, 0, 0)'}
+                  });
+            await expect(header).toBeVisible();
+            await expect(header).not.toHaveClass(/neo-grid-menu-enabled/);
+            expect(await mark()).toMatchObject({content: 'none'});
+
+            // The menu grid checks a value; the plain grid's inline field stays empty
+            await open(page, state);
+            await select(state, ['Open']);
+            await state.app.callMethod(state.pluginId, 'close');
+            expect(await selected(state)).toEqual(['Open']);
+            await expect(header.locator('input')).toHaveValue('');
+            await expect(header).toHaveClass(/neo-grid-column-filtered/);
+            await expect(header).toHaveAttribute('aria-description', 'Filtered');
+            await expect.poll(mark).toEqual({content: '""', height: '2px', visible: true});
+
+            // Clearing the last effective contribution removes the mark
+            await open(page, state);
+            await select(state, []);
+            await state.app.callMethod(state.pluginId, 'close');
+            await expect(header).not.toHaveClass(/neo-grid-column-filtered/);
+            await expect(header).not.toHaveAttribute('aria-description');
+            await expect.poll(async () => (await mark()).content).toBe('none')
+        });
+
     test('two real grids share checks and contextual counts; append and record edits update both open islands',
         async ({page, neuralLink}) => {
             const state  = await setup(page, neuralLink, [application, region]);
