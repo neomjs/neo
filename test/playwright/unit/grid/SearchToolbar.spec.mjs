@@ -541,6 +541,46 @@ test.describe('Grid record search toolbar', () => {
         expect(recreated.getItem('query').value).toBe('retry')
     });
 
+    test('adopting a prebuilt toolbar supplies grid defaults without changing an existing stored scope', async () => {
+        const store = await storeFor(),
+            toolbar = await toolbarFor(store);
+
+        expect(toolbar.gridContainer).toBeNull();
+        expect(toolbar.getSearchFilter()).toBeNull();
+        const grid = await initializedGridFor(store, {
+            columns      : [{dataField: 'title', text: 'Title', width: 180}],
+            searchToolbar: toolbar
+        });
+
+        expect(grid.searchToolbar).toBe(toolbar);
+        expect(toolbar.gridContainer).toBe(grid);
+        expect(toolbar.getSearchFields()).toEqual(['title']);
+        expect(toolbar.getItem('scope').text).toBe('Grid columns');
+        toolbar.writeSearch({value: 'retry'});
+        expect(toolbar.getSearchFilter().fields).toEqual(['title']);
+        expect(ids(store)).toEqual([103]);
+
+        const searchedStore = await storeFor({filters: [
+                {module: SearchFilter, ownerRole: 'grid-search', property: null,
+                    fields: ['summary'], value: 'retry', caseSensitive: true}
+            ]}),
+            filter = searchedStore.getFilter(null, 'grid-search'),
+            searchedToolbar = await toolbarFor(searchedStore),
+            searchedGrid = await initializedGridFor(searchedStore, {
+                columns      : [{dataField: 'title', text: 'Title', width: 180}],
+                searchToolbar: searchedToolbar
+            });
+
+        expect(searchedGrid.searchToolbar).toBe(searchedToolbar);
+        expect(searchedToolbar.gridContainer).toBe(searchedGrid);
+        expect(searchedToolbar.getSearchFilter()).toBe(filter);
+        expect(filter.fields).toEqual(['summary']);
+        expect(filter.value).toBe('retry');
+        expect(filter.caseSensitive).toBe(true);
+        expect(searchedToolbar.getItem('scope').text).toBe('Record field: summary');
+        expect(ids(searchedStore)).toEqual([101, 102, 104])
+    });
+
     test('Grid opt-in, shared Store swap, destroy/recreate and runtime toolbar toggles preserve each Store intent', async () => {
         const firstStore = await storeFor(),
             secondStore  = await storeFor({filters: [

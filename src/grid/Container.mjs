@@ -522,9 +522,11 @@ class GridContainer extends BaseContainer {
         const me = this;
         if (oldValue && me.items?.includes(oldValue)) me.remove(oldValue);
         if (value) {
+            value.gridContainer = me;
             value.store = me.store;
             if (me.isConstructed && !me.items.includes(value)) me.insert(0, value)
         }
+        me.syncSearchToolbar()
     }
 
     /**
