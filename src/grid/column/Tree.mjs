@@ -75,6 +75,8 @@ class Tree extends ComponentColumn {
             isNodeLoading  : record.isLoading,
             showHelperLines: this.showHelperLines,
             value          : record[this.dataField],
+            // wrapText takes effect in content-sized rows only; a fixed-height row keeps the one-line ellipsis
+            wrapText       : this.wrapText && !!this.parent?.contentSizedRows,
             ...config
         }
     }

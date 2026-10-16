@@ -103,4 +103,14 @@
             }
         }
     }
+
+    // Content-sized rows: a wrapText tree column's label wraps at its natural height, which the grid view measures.
+    // The indent and the toggle keep spanning the whole row, so the helper lines stay unbroken.
+    .neo-grid-tree-cell.neo-wrap-text .neo-tree-content {
+        align-self   : center;
+        display      : block;
+        overflow-wrap: break-word;
+        text-overflow: clip;
+        white-space  : normal;
+    }
 }

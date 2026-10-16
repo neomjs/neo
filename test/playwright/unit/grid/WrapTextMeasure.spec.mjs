@@ -11,6 +11,7 @@
  * A measurement stays valid while its text, its width and its rules stay: a hidden cell is measured once it shows,
  * and a removed wrapText column or a new `rowHeight` derives the measured rows again from their stored heights.
  * A cell is read only once the DOM shows it, so a row whose vdom ran ahead of its last landed update waits for it.
+ * A tree cell is measured through its label, once its own update rendered the label and the indent its vdom names.
  *
  * @see Neo.grid.View#measureRowHeights
  */
@@ -38,6 +39,8 @@ import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs
 import GridContainer      from '../../../../src/grid/Container.mjs';
 import Row                from '../../../../src/grid/Row.mjs';
 import Store              from '../../../../src/data/Store.mjs';
+import TreeModel          from '../../../../src/data/TreeModel.mjs';
+import TreeStore          from '../../../../src/data/TreeStore.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 import VNodeUtil          from '../../../../src/util/VNode.mjs';
 
@@ -747,5 +750,174 @@ test.describe('Grid wrapText measurement', () => {
         expect(view.rowGeometry.heightAt(3)).toBe(2 * LINE + CHROME);
 
         await view.promiseUpdate()
+    })
+});
+
+test.describe('Grid wrapText measurement — tree cells', () => {
+    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
+
+    class TreeLinesModel extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Grid.WrapTextMeasure.TreeLinesModel',
+            fields   : [
+                {name: 'id',        type: 'Integer'},
+                {name: 'name',      type: 'String'},
+                {name: 'nameLines', type: 'Integer'}
+            ]
+        }
+    }
+
+    Neo.setupClass(TreeLinesModel);
+
+    let grid, original, reads, store;
+
+    /**
+     * What the main thread would answer for tree labels: the label its component's last landed update rendered,
+     * e.g. `Name 12`, takes its record's line count
+     * @param {String[]} ids
+     * @returns {Object[]}
+     */
+    const labelRects = ids => ids.map(id => {
+        let component = Neo.getComponent(id.slice(0, -'__content'.length)),
+            label     = component && VNodeUtil.getById(component.vnode, id),
+            record    = label && store.get(Number(label.innerHTML.split(' ')[1]));
+
+        return record ? {height: record.nameLines * LINE, width: WIDTHS.name} : {}
+    });
+
+    test.beforeEach(async () => {
+        Neo.main           ??= {};
+        Neo.main.DomAccess ??= {};
+
+        original = {
+            getComputedStyle: Neo.main.DomAccess.getComputedStyle,
+            getLayoutRect   : Neo.main.DomAccess.getLayoutRect
+        };
+
+        reads = [];
+
+        Neo.main.DomAccess.getLayoutRect = opts => {
+            let ids = [].concat(opts.id);
+
+            if (!ids.every(id => String(id).endsWith('__content'))) {
+                return original.getLayoutRect.call(Neo.main.DomAccess, opts)
+            }
+
+            reads.push(ids);
+            return Promise.resolve(labelRects(ids))
+        };
+
+        Neo.main.DomAccess.getComputedStyle = () => Promise.resolve({
+            'border-bottom-width': '1px',
+            'border-top-width'   : '0px',
+            'padding-bottom'     : '2px',
+            'padding-top'        : '2px'
+        });
+
+        store = Neo.create(TreeStore, {
+            data: [
+                ...Array.from({length: 60}, (item, index) => ({id: index, isLeaf: true, name: `Name ${index}`, nameLines: 1 + index % 3})),
+                // A second `Name 1`, one level deeper and, like record 1, not the last child
+                {id: 60, isLeaf: false, collapsed: false, name: 'Folder 60', nameLines: 1},
+                {id: 61, parentId: 60, isLeaf: true, name: 'Name 1', nameLines: 2},
+                {id: 62, parentId: 60, isLeaf: true, name: 'Name 62', nameLines: 1}
+            ],
+            model: TreeLinesModel
+        });
+
+        grid = await createGrid({
+            columns         : [{dataField: 'name', text: 'Name', type: 'tree', width: WIDTHS.name, wrapText: true}],
+            contentSizedRows: true,
+            store
+        });
+
+        await grid.view.measureRowHeights();
+        await grid.view.promiseUpdate();
+        await grid.timeout(50)
+    });
+
+    test.afterEach(async () => {
+        await grid.timeout(20);
+        grid?.destroy();
+        store?.destroy();
+
+        Object.assign(Neo.main.DomAccess, original)
+    });
+
+    test('a tree cell is measured through its label, and its row takes the label plus the cell chrome', () => {
+        let rows = grid.body.items.filter(row => row.record);
+
+        expect(rows.length).toBeGreaterThan(5);
+
+        rows.forEach(row => {
+            let component = row.components.name;
+
+            expect(component.cls, `row ${row.rowIndex}`).toContain('neo-wrap-text');
+            expect(reads.flat(), `row ${row.rowIndex}`).toContain(component.textVdom.id);
+            expect(grid.view.rowGeometry.heightAt(row.rowIndex), `row ${row.rowIndex}`)
+                .toBe(Math.max(rowHeight, row.record.nameLines * LINE + CHROME))
+        })
+    });
+
+    test('a re-bound tree cell is not read before its own update lands, and is measured once it does', async () => {
+        let {view}        = grid,
+            {rowGeometry} = view,
+            row           = grid.body.items.find(item => item.rowIndex === 1),
+            component     = row.components.name,
+            // A 3-line label (65px), where the slot's record 1 shows a 2-line one
+            record        = store.get(50);
+
+        reads.length = 0;
+
+        // A silent pass moves the slot on to record 50: the row re-binds its tree cell, and no update renders it yet
+        row.updateContent({record, rowIndex: 50, silent: true});
+        expect(VNodeUtil.getById(component.vnode, component.textVdom.id).innerHTML).toBe('Name 1');
+
+        await view.measureRowHeights();
+        expect(reads.flat(), 'record 1\'s label is not read for record 50').not.toContain(component.textVdom.id);
+        expect(rowGeometry.heightAt(50)).toBe(rowGeometry.estimate);
+
+        // The cell's own update lands ahead of its row's, and the pass it schedules reads the new label
+        await component.promiseUpdate();
+        await grid.timeout(50);
+
+        expect(reads.flat()).toContain(component.textVdom.id);
+        expect(rowGeometry.heightAt(50)).toBe(3 * LINE + CHROME)
+    });
+
+    test('a tree cell re-bound to the same label one level deeper is not read before its own update lands', async () => {
+        let {view}    = grid,
+            row       = grid.body.items.find(item => item.rowIndex === 1),
+            component = row.components.name;
+
+        reads.length = 0;
+
+        // Record 61 shows the same `Name 1` as the slot's record 1, indented one level more
+        row.updateContent({record: store.get(61), rowIndex: 61, silent: true});
+
+        await view.measureRowHeights();
+        expect(reads.flat(), 'the label is not read at record 1\'s indent').not.toContain(component.textVdom.id);
+
+        await component.promiseUpdate();
+        await grid.timeout(50);
+
+        expect(reads.flat()).toContain(component.textVdom.id);
+        expect(view.rowGeometry.heightAt(61)).toBe(2 * LINE + CHROME)
+    });
+
+    test('a filter that shows other records re-binds the tree cells, and their rows fit the new labels', async () => {
+        let {view} = grid;
+
+        for (let value of ['Name 5', 'Name 1', null]) {
+            store.filters = value ? [{operator: 'like', property: 'name', value}] : [];
+
+            await view.promiseUpdate();
+            await grid.timeout(100);
+
+            grid.body.items.filter(row => row.record).forEach(row => {
+                expect(view.rowGeometry.heightAt(row.rowIndex), `filter ${value}: row ${row.rowIndex}, ${row.record.name}`)
+                    .toBe(Math.max(rowHeight, row.record.nameLines * LINE + CHROME))
+            })
+        }
     })
 });
