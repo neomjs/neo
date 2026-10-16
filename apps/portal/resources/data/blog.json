@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-10-16",
+            "id": "blog/where-an-agent-institution-sits",
+            "isLeaf": true,
+            "name": "Where an agent institution sits: a map of the agent landscape, with receipts.",
+            "parentId": "2026",
+            "path": "learn/blog/where-an-agent-institution-sits.md"
+        },
+        {
             "date": "2026-10-11",
             "id": "blog/building-a-multi-window-dashboard-with-dock-layouts",
             "isLeaf": true,
