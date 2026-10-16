@@ -83,8 +83,7 @@ class Wrapper extends BaseContainer {
      * @param {Object[]} lockedEndColumns
      */
     applyColumnButtonOrder(lockedStartColumns, centerColumns, lockedEndColumns) {
-        let me       = this,
-            toolbars = [me.headerStart, me.gridContainer.headerToolbar, me.headerEnd];
+        let me = this;
 
         const applyRegion = (columns, toolbar) => {
             columns.forEach((col, targetIndex) => {
@@ -112,23 +111,21 @@ class Wrapper extends BaseContainer {
 
         // Buttons carry a toolbar-local aria-colindex, which the header SortZone resolves column
         // positions through at drag start — re-homed and shifted buttons must re-sync it.
-        toolbars.forEach(toolbar => {
-            if (toolbar) {
-                let dirty = false;
+        me.getToolbars().forEach(toolbar => {
+            let dirty = false;
 
-                toolbar.items.forEach((item, index) => {
-                    let root = item.getVdomRoot();
+            toolbar.items.forEach((item, index) => {
+                let root = item.getVdomRoot();
 
-                    if (root['aria-colindex'] !== index + 1) {
-                        root['aria-colindex'] = index + 1; // 1 based
-                        dirty = true
-                    }
-                });
-
-                if (dirty) {
-                    toolbar.updateDepth = 2;
-                    toolbar.update()
+                if (root['aria-colindex'] !== index + 1) {
+                    root['aria-colindex'] = index + 1; // 1 based
+                    dirty = true
                 }
+            });
+
+            if (dirty) {
+                toolbar.updateDepth = 2;
+                toolbar.update()
             }
         })
     }
@@ -149,6 +146,17 @@ class Wrapper extends BaseContainer {
     }
 
     /**
+     * @summary The header toolbars from left to right: locked start, centre, locked end. Absent regions are skipped.
+     * Header-wide state (sort, header settings) walks these, so a locked column never misses it.
+     * @returns {Neo.grid.header.Toolbar[]}
+     */
+    getToolbars() {
+        let me = this;
+
+        return [me.headerStart, me.gridContainer.headerToolbar, me.headerEnd].filter(Boolean)
+    }
+
+    /**
      * Creates, updates or destroys the locked-start and locked-end header toolbars to match the current
      * locked-column state, refreshes the centre toolbar buttons, and (re)assembles all toolbars into this
      * Wrapper in left-to-right order. Invoked by {@link Neo.grid.Container#createOrUpdateSubGrids}.
@@ -160,15 +168,19 @@ class Wrapper extends BaseContainer {
         let me                                                                                    = this,
             {gridContainer}                                                                       = me,
             {centerColumns, headerToolbar, lockedEndColumns, lockedStartColumns, theme, windowId} = gridContainer,
-            // A locked toolbar is the center toolbar's class with its configs, holding the locked buttons
+            // A locked toolbar is the center toolbar's class with its configs, holding the locked buttons.
+            // The clone starts from construction configs, so the header-wide ones take the center's current values.
             lockedToolbar   = (items, layoutLock) => Neo.cloneNeoInstance(headerToolbar, {
-                flex     : 'none',
+                flex              : 'none',
                 gridContainer,
                 items,
                 layoutLock,
-                parentId : me.id,
-                reference: null,
+                parentId          : me.id,
+                reference         : null,
+                showHeaderFilters : headerToolbar.showHeaderFilters,
+                sortable          : headerToolbar.sortable,
                 theme,
+                useTriStateSorting: headerToolbar.useTriStateSorting,
                 windowId
             });
 
@@ -218,14 +230,7 @@ class Wrapper extends BaseContainer {
             }
         }
 
-        // Assemble the header toolbars into the wrapper in left-to-right order.
-        let headerItems = [];
-
-        me.headerStart && headerItems.push(me.headerStart);
-        headerToolbar  && headerItems.push(headerToolbar);
-        me.headerEnd   && headerItems.push(me.headerEnd);
-
-        me.items = headerItems;
+        me.items = me.getToolbars();
         me.createItems()
     }
 }

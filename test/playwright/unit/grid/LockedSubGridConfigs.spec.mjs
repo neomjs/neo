@@ -136,6 +136,35 @@ test.describe('Grid: locked bodies and header toolbars', () => {
         })
     });
 
+    test('a runtime header config change reaches every header region and its buttons, existing or created later', async () => {
+        grid = await createGrid(store);
+
+        // The end region goes, the change lands, and the end region returns as a fresh clone of the center toolbar
+        grid.columns.get('state').locked = null;
+        await grid.timeout(50);
+        expect(grid.headerWrapper.headerEnd).toBeNull();
+
+        grid.set({showHeaderFilters: true, sortable: false, useTriStateSorting: true});
+        await grid.timeout(50);
+
+        grid.columns.get('state').locked = 'end';
+        await grid.timeout(50);
+
+        let {headerEnd, headerStart} = grid.headerWrapper;
+
+        [headerStart, grid.headerToolbar, headerEnd].forEach(toolbar => {
+            expect(toolbar.showHeaderFilters, toolbar.id).toBe(true);
+            expect(toolbar.sortable, toolbar.id).toBe(false);
+            expect(toolbar.useTriStateSorting, toolbar.id).toBe(true);
+
+            toolbar.items.forEach(button => {
+                expect(button.showHeaderFilter, button.dataField).toBe(true);
+                expect(button.sortable, button.dataField).toBe(false);
+                expect(button.useTriStateSorting, button.dataField).toBe(true)
+            })
+        })
+    });
+
     test('a locked instance keeps its own identity and placement', async () => {
         grid = await createGrid(store, {module: CustomBody, reference: 'centerBody'}, {reference: 'centerHeader'});
 
