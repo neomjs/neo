@@ -14,8 +14,10 @@
         width      : 20px;
     }
 
+    // A filtered column keeps its trigger shown: the state must not depend on hover or focus
     &:hover > .neo-grid-menu-trigger,
-    &:focus-within > .neo-grid-menu-trigger {
+    &:focus-within > .neo-grid-menu-trigger,
+    > .neo-grid-column-filtered ~ .neo-grid-menu-trigger {
         opacity: 1;
     }
 }

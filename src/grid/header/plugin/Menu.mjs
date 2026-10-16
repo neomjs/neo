@@ -63,6 +63,8 @@ class Menu extends Plugin {
     #releaseField = null;
     /** @member {Function|null} releaseFilters=null @private */
     #releaseFilters = null;
+    /** @member {Function|null} releaseFiltered=null @private */
+    #releaseFiltered = null;
     /** @member {Array|null} domListeners=null @private */
     #domListeners = null;
     /** @member {Object[]|null} outsideListener=null @private */
@@ -88,10 +90,11 @@ class Menu extends Plugin {
         owner.addCls('neo-grid-menu-enabled');
         me.trigger = Neo.create(Button, {
             appName        : owner.appName, windowId: owner.windowId, parentComponent: owner,
-            parentId       : owner.vdom.id, cls: ['neo-grid-menu-trigger'], text: '▾',
+            parentId       : owner.vdom.id, cls: ['neo-grid-menu-trigger'], text: me.getTriggerGlyph(),
             useRippleEffect: false, handler: () => me.open(),
-            vdom           : {'aria-label': `Filter ${owner.text || owner.dataField}`, 'aria-haspopup': 'dialog'}
+            vdom           : {'aria-label': me.getTriggerLabel(), 'aria-haspopup': 'dialog'}
         });
+        me.#releaseFiltered = me.observeConfig(owner, 'isFiltered', () => me.syncTrigger());
         me.trigger.addDomListeners({keydown: {fn: me.onHeaderKeyDown, scope: me, bubble: true}});
         owner.vdom.cn.push(me.trigger.createVdomReference());
         owner.updateDepth = -1;
@@ -139,6 +142,26 @@ class Menu extends Plugin {
             this.#releaseFilters = this.observeConfig(store, 'filters', () => this.scheduleRefresh())
         }
         if (this.surface && !this.surface.hidden) this.refreshOptions()
+    }
+
+    /** @summary The filled glyph marks a filtered column; the outline glyph an unfiltered one. @returns {String} */
+    getTriggerGlyph() {
+        return this.owner.isFiltered ? '▾' : '▿'
+    }
+
+    /** @summary ARIA has no filtered columnheader attribute, so the trigger's label carries the state. @returns {String} */
+    getTriggerLabel() {
+        const {owner} = this, label = `Filter ${owner.text || owner.dataField}`;
+        return owner.isFiltered ? `${label}, active` : label
+    }
+
+    /** @summary Projects the header's filtered state into the trigger's glyph and label. */
+    syncTrigger() {
+        const {trigger} = this;
+        if (!trigger || trigger.isDestroyed) return;
+        trigger.vdom['aria-label'] = this.getTriggerLabel();
+        trigger.text = this.getTriggerGlyph();
+        trigger.update()
     }
 
     /** @summary Returns a fresh listener config because Observable consumes its scope key. @returns {Object} */
@@ -400,7 +423,7 @@ class Menu extends Plugin {
     destroy(...args) {
         this.#generation++;
         this.#openSerial++;
-        this.#releaseStore?.(); this.#releaseField?.(); this.#releaseFilters?.();
+        this.#releaseStore?.(); this.#releaseField?.(); this.#releaseFilters?.(); this.#releaseFiltered?.();
         this.#store?.un(this.sourceListeners());
         this.syncOutsideListener(false);
         if (this.#domListeners) this.owner.removeDomListeners(this.#domListeners);

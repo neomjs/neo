@@ -162,6 +162,47 @@ test.describe('Grid header value-menu shared state and lifetime', () => {
             }
         });
 
+    test('a checked picker keeps its column marked and its trigger shown after the inline field is cleared (#19793)',
+        async ({page, neuralLink}) => {
+            const state = await menuFor(await setup(page, neuralLink));
+            await state.app.setProperties(state.gridId, {showHeaderFilters: true});
+            const header = page.locator(`#${state.headerId}`), trigger = page.locator(`#${state.triggerId}`),
+                opacity  = () => trigger.evaluate(node => getComputedStyle(node).opacity);
+            // The 480 px grid sits top left: the far corner is away from every header, so :hover cannot show the trigger
+            await page.mouse.move(1590, 890);
+            expect(await trigger.evaluate(node => node.parentElement.matches(':hover, :focus-within'))).toBe(false);
+            await expect(header).not.toHaveClass(/neo-grid-column-filtered/);
+            await expect(trigger).toHaveAttribute('aria-label', 'Filter Status');
+            await expect.poll(opacity).toBe('0');
+
+            // The ticket's drive: a value checked in the picker, which then closes, and an inline term typed and cleared again
+            await open(page, state);
+            await select(state, ['Open']);
+            await state.app.callMethod(state.pluginId, 'close');
+            await state.app.callMethod(state.headerId, 'changeFilterValue', [{value: 'Op'}]);
+            await state.app.callMethod(state.headerId, 'changeFilterValue', [{value: ''}]);
+            expect(await selected(state)).toEqual(['Open']);
+            // Closing returns focus to the header; only the filtered state may keep the trigger shown
+            await page.evaluate(() => document.activeElement?.blur());
+            expect(await trigger.evaluate(node => node.parentElement.matches(':hover, :focus-within'))).toBe(false);
+            await expect(header).toHaveClass(/neo-grid-column-filtered/);
+            await expect(trigger).toHaveAttribute('aria-label', 'Filter Status, active');
+            await expect(trigger).toHaveText('▾');
+            await expect.poll(opacity).toBe('1');
+
+            // Unchecking leaves only the cleared inline filter, which no longer narrows the rows
+            await select(state, []);
+            await expect(header).not.toHaveClass(/neo-grid-column-filtered/);
+            await expect(trigger).toHaveAttribute('aria-label', 'Filter Status');
+            await expect(trigger).toHaveText('▿');
+            await expect.poll(opacity).toBe('0');
+
+            // An application predicate on the same field is not the column's own state
+            await state.app.setProperties(state.storeId, {filters: [application]});
+            await expect.poll(async () => (await state.app.getComponent(state.storeId, ['count'])).count).toBe(4);
+            await expect(header).not.toHaveClass(/neo-grid-column-filtered/)
+        });
+
     test('two real grids share checks and contextual counts; append and record edits update both open islands',
         async ({page, neuralLink}) => {
             const state  = await setup(page, neuralLink, [application, region]);

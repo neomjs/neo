@@ -651,7 +651,8 @@ class GridContainer extends BaseContainer {
             me.footerToolbar.store = value
         }
 
-        me.syncValueBandingFields()
+        me.syncValueBandingFields();
+        me.syncFilteredHeaders()
     }
 
     /**
@@ -863,6 +864,8 @@ class GridContainer extends BaseContainer {
                 if (sorters?.[0] && column.dataField === sorters[0].property) {
                     column.isSorted = sorters[0].direction
                 }
+
+                column.isFiltered = me.isColumnFiltered(column.dataField);
 
                 column.listeners = {
                     sort : me.onSortColumn,
@@ -1339,7 +1342,8 @@ class GridContainer extends BaseContainer {
      *
      */
     onStoreFilter() {
-        this.updateRowCount()
+        this.updateRowCount();
+        this.syncFilteredHeaders()
     }
 
     /**
@@ -1353,6 +1357,7 @@ class GridContainer extends BaseContainer {
             totalCount = data.total ? data.total : this.store.count;
 
         me.updateRowCount(totalCount);
+        me.syncFilteredHeaders();
 
         if (me.store.sorters?.length < 1) {
             me.removeSortingCss()
@@ -1416,6 +1421,31 @@ class GridContainer extends BaseContainer {
         width = Number(width);
 
         return Number.isFinite(width) && width > 0 ? width : null
+    }
+
+    /**
+     * @summary True while the Store holds an effective header-owned contribution, inline or picker, for the field.
+     * A cleared inline field keeps its filter with an empty value, which is not effective; application filters
+     * and the record search are not a column's own state.
+     * @param {String|null} dataField
+     * @returns {Boolean}
+     */
+    isColumnFiltered(dataField) {
+        const {store} = this;
+        return !!store && !!dataField && ['header-inline', 'header-picker'].some(role => store.getFilter(dataField, role)?.effective)
+    }
+
+    /**
+     * @summary Projects each header's filtered state from the Store, in every header region, whichever surface or
+     * caller changed the filters.
+     * @protected
+     */
+    syncFilteredHeaders() {
+        this.headerWrapper?.getToolbars().forEach(toolbar => {
+            toolbar.items.forEach(button => {
+                button.isFiltered = this.isColumnFiltered(button.dataField)
+            })
+        })
     }
 
     /**
