@@ -236,6 +236,23 @@ test.describe('Grid Locked Columns', () => {
         }
     });
 
+    test('a sort clears every other header\'s sort state, whichever region holds it', async () => {
+        // The Store keeps one sorter, so exactly one header may show one
+        const sortState = () => Object.fromEntries(grid.columns.items.map(({dataField}) => {
+            const {cls, isSorted} = grid.getButton(dataField);
+
+            return [dataField, cls.includes('neo-sort-hidden') ? null : isSorted]
+        }));
+
+        for (const dataField of ['col3', 'col1', 'col2', 'col4']) {
+            grid.getButton(dataField).isSorted = 'ASC';
+            await grid.timeout(20);
+
+            expect(store.sorters.map(({property}) => property), dataField).toEqual([dataField]);
+            expect(sortState(), dataField).toEqual({col1: null, col2: null, col3: null, col4: null, col5: null, [dataField]: 'ASC'})
+        }
+    });
+
     test('ScrollManager row addons are re-synced on lock state change', async () => {
         const {scrollManager} = grid;
 

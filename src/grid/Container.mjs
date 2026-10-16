@@ -587,7 +587,7 @@ class GridContainer extends BaseContainer {
      */
     afterSetShowHeaderFilters(value, oldValue) {
         if (oldValue !== undefined) {
-            this.headerToolbar.showHeaderFilters = value
+            this.headerWrapper.getToolbars().forEach(toolbar => {toolbar.showHeaderFilters = value})
         }
     }
 
@@ -599,7 +599,7 @@ class GridContainer extends BaseContainer {
      */
     afterSetSortable(value, oldValue) {
         if (oldValue !== undefined) {
-            this.headerToolbar.sortable = value
+            this.headerWrapper.getToolbars().forEach(toolbar => {toolbar.sortable = value})
         }
     }
 
@@ -611,7 +611,7 @@ class GridContainer extends BaseContainer {
      */
     afterSetUseTriStateSorting(value, oldValue) {
         if (oldValue !== undefined) {
-            this.headerToolbar.useTriStateSorting = value
+            this.headerWrapper.getToolbars().forEach(toolbar => {toolbar.useTriStateSorting = value})
         }
     }
 
@@ -1151,10 +1151,7 @@ class GridContainer extends BaseContainer {
             // body still holds the columnPositions / availableWidth of its OLD membership. Rebuild
             // them from the new toolbar memberships before re-rendering the rows, or the gaining
             // region renders without the column and the losing region keeps a hidden ghost position.
-            let {headerWrapper} = me,
-                toolbars        = [headerWrapper.headerStart, me.headerToolbar, headerWrapper.headerEnd].filter(Boolean);
-
-            await Promise.all(toolbars.map(toolbar => toolbar.passSizeToBody()));
+            await Promise.all(me.headerWrapper.getToolbars().map(toolbar => toolbar.passSizeToBody()));
 
             // Force a full row re-render to apply the new column order and styles
             if (me.body)      me.body.createViewData();
@@ -1422,18 +1419,16 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @param {String} dataField
+     * @summary Clears the sort state of every header except `dataField`'s, in every region: the Store keeps one sorter.
+     * @param {String} [dataField]
      * @protected
      */
     removeSortingCss(dataField) {
-        let items = this.headerToolbar?.items;
-        if (items) {
-            for (let i = 0, len = items.length; i < len; i++) {
-                if (items[i].dataField !== dataField) {
-                    items[i].removeSortingCss()
-                }
-            }
-        }
+        this.headerWrapper?.getToolbars().forEach(toolbar => {
+            toolbar.items.forEach(button => {
+                button.dataField !== dataField && button.removeSortingCss()
+            })
+        })
     }
 
     /**
