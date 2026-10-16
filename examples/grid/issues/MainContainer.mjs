@@ -147,7 +147,11 @@ class MainContainer extends Viewport {
      * @param {Boolean} data.value
      */
     onContentSizedChange({value}) {
-        this.getReference('grid').contentSizedRows = value
+        const grid = this.getReference('grid');
+
+        grid.contentSizedRows = value;
+        // Fixed rows show one line of each title and summary, cut with an ellipsis (MainContainer.scss)
+        grid.toggleCls('issues-fixed-rows', !value)
     }
 
     /**

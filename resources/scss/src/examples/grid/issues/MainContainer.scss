@@ -87,6 +87,17 @@
                 font-size: 13px;
             }
         }
+
+        // Fixed rows: wrapped text would centre in the flex cell and lose both edges, so each shows one cut line
+        &.issues-fixed-rows .neo-grid-row .neo-grid-cell {
+            &.issues-title,
+            &.issues-summary {
+                display      : block;
+                overflow     : hidden;
+                text-overflow: ellipsis;
+                white-space  : nowrap;
+            }
+        }
     }
 
     .issues-chip {
