@@ -124,6 +124,43 @@ test.describe('Grid issues showcase', () => {
 
         await menu.getByRole('button', {name: 'Clear'}).click();
         await expect.poll(states).toEqual(all)
+    });
+
+    test('a filtered locked column keeps its header marked while its menu is closed (#19793)', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              header  = wrapper.locator('.neo-grid-header-button'),
+              trigger = wrapper.locator('.neo-grid-menu-trigger'),
+              opacity = () => trigger.evaluate(node => getComputedStyle(node).opacity),
+              // Off the headers with nothing focused, so only the filtered state may keep the trigger shown
+              away    = async () => {
+                  await page.mouse.move(800, 880);
+                  await page.evaluate(() => document.activeElement?.blur());
+                  expect(await wrapper.evaluate(node => node.matches(':hover, :focus-within'))).toBe(false)
+              };
+
+        // State is locked at the end, so its header lives outside the centre toolbar
+        await expect(header).toHaveClass(/neo-locked-end/);
+        await wrapper.hover();
+        await trigger.click();
+        await menu.locator('[role="option"]').filter({hasText: 'Closed'}).click();
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
+        await away();
+        await expect(header).toHaveClass(/neo-grid-column-filtered/);
+        await expect(trigger).toHaveAttribute('aria-label', 'Filter State, active');
+        await expect(trigger).toHaveText('▾');
+        await expect.poll(opacity).toBe('1');
+
+        await wrapper.hover();
+        await trigger.click();
+        await menu.getByRole('button', {name: 'Clear'}).click();
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
+        await away();
+        await expect(header).not.toHaveClass(/neo-grid-column-filtered/);
+        await expect(trigger).toHaveAttribute('aria-label', 'Filter State');
+        await expect.poll(opacity).toBe('0')
     })
 });
 
