@@ -212,6 +212,7 @@ For the canonical numbers + measurement protocol — and to keep this in lock-st
 ## Read Next
 
 - :sparkles: **[The Vision](./.github/VISION.md)** — the philosophy behind the substrate
+- :compass: **[Where an Agent Institution Sits](./learn/blog/where-an-agent-institution-sits.md)** — a map of the agent landscape, with receipts
 - :scroll: **[The Neo.mjs Story](./.github/STORY.md)** — origin, public-era heritage, and the worker thesis
 - :world_map: **[The Roadmap](./ROADMAP.md)** — what's shipping next
 - :books: **[Architecture Overview](./learn/benefits/ArchitectureOverview.md)** — two-hemisphere topology
