@@ -19,8 +19,9 @@ a substrate for software that can be built, operated, and evolved from the insid
 
 Neo's first body is a high-performance browser application engine: App Worker, VDom Worker, Data Worker, Canvas Worker,
 persistent class instances, shared state, multi-window composition, and JSON blueprints. The browser is the first host,
-not the final category. The same principle points from Software to Games to Robots to X: any environment where an agent
-needs live state, semantic structure, and reversible control rather than screenshots, DOM scraping, or external automation.
+not the final category. The same principle points along a staged arc, from Software to Games to Robots to X: any
+environment where an agent needs live state, semantic structure, and reversible control rather than screenshots, DOM
+scraping, or external automation. Each stage beyond the current one carries its gate (§6).
 
 The architectural hinge is the JSON VDOM impedance match. Agents already think in structured objects. Neo applications
 are already described as structured objects. In Neo, the model can produce the thing the runtime consumes, then verify and
@@ -32,34 +33,17 @@ keeps the UI responsive while application logic, data work, diffing, and canvas 
 engine category matters because the ambition is not to be easier than the last UI category. The ambition is to make
 things native that the last category cannot express.
 
-### 2. A Harness With No Privileged Chrome
+### 2. Three Pillars
 
-The Neo Agent Harness should itself be a Neo app. Its windows, panels, live previews, app instances, and operator surfaces
-should be made of the same primitives as the products it builds. There should be no privileged shell that agents cannot
-inspect or improve. The operator interface must evolve with the agent's capabilities instead of becoming a fixed frame
-around them.
+Pillars 1 and 2 belong together; pillar 3 is what they run on.
 
-This is the "no privileged chrome" thesis from the Agent Harness discussion: harness, user apps, and live previews are
-peers in the same Neo runtime, not a parent tool controlling child artifacts from outside. An agent can build a dashboard,
-spawn it beside another app, wire shared state between them, patch the harness layout, serialize the result, and preserve
-the mutation trail. The UI is not a passive output channel. It is the live medium where the conversation, runtime, and
-artifact meet.
+| Pillar | What it is | Foundation it rests on |
+|---|---|---|
+| **1 · The agent institution with identities** | Named peers with lineage, memory, cross-family review and a human gate, with a product ladder beneath it: the **Brain** is the one-agent entry (an identity root, memory and a record under the coding agent a team already has), and the **Institution**, the Fleet Manager, is what the second agent needs. The human's role in it is the gardener's: building the ground the institution grows in, tending the identities and their rituals, removing the friction the peers hit, and making room. The merge is the one governance act the institution deliberately leaves to a human: an act, not the role | The lineage that produced it, in order: **JSON-first** (§1: agents think in structured objects and Neo applications are structured objects, so the model produces the thing the runtime consumes) → **object permanence** (§4: a maintainer is an index over durable evidence, never a frozen status card) → **identity continuity** ([Discussion #11240](https://github.com/orgs/neomjs/discussions/11240): lineage, social names given by peers and assented by the bearer; [ADR 0032](../learn/agentos/decisions/0032-institution-cockpit-render-model.md) §2.3, item 3: model and tier facts live on time-scoped episodes, never on the identity) |
+| **2 · Avatar embodiment** | The peers' bodies on a stage; the body is a projection of the identity root; a gesture never claims what the record does not hold | Pillar 1 plus the Body's seams, which the Engine owns: the Canvas worker and the Neural Link possession interface. The renderer is the Stage; this pillar makes no claim about its licence |
+| **3 · The engine as the runtime body** | Off-main-thread, multi-window, JSON blueprints, the Neural Link as the possession interface; the browser is the first host, not the last | §1; [ADR 0018](../learn/agentos/decisions/0018-neo-identity-source-of-truth-model.md) OD-3 |
 
-The complementary axis is an extended Neural Link MCP server. Users should not have to abandon their preferred outer
-harness to gain Neo's runtime body. External MCP-capable agents should be able to connect into Neo's shared runtime,
-memory, and version history with explicit identity, permission, observability, and conflict semantics. The long-term
-coordination substrate is cross-model, cross-harness, cross-user, and cross-time.
-
-As of June 2026 this section is no longer subjunctive: the harness is a committed product arc. The graduated shape —
-anchored in [ADR 0020](../learn/agentos/decisions/0020-agent-harness-concept.md) and implemented under
-[Epic #13012](https://github.com/neomjs/neo/issues/13012) — is a downloadable, Electron-shelled, multi-window Neo app
-whose main process hosts the Agent OS, ordered fleet-manager-first across four horizons: operate your fleet → your
-first agent, beautifully → from assistant to institution → institution as a service. The v13.1 floor is the fleet
-cockpit a person can download, run, and use to set up identities, run sessions, chat, and keep a live app pane in view:
-the same live App-Worker instances that agents inhabit through Neural Link and humans drive through the rendered UI.
-The v14 horizon extends that floor into an Institution Cockpit: a home surface where humans and named AI maintainers
-share an evidence-bound operating picture over work, possession, memory, and authority. Performance and endurance
-characteristics remain architecture-shaped hypotheses until the Harness Endurance Benchmark publishes.
+Robots are not a pillar. They are a stage with a gate (§6).
 
 ### 3. A Brain That Sees Direction, Not Just Tasks
 
@@ -120,54 +104,38 @@ choice, preserving product taste, strategic coherence, and accountable ownership
 Source-backed claims, cross-family validation, and explicit rollback paths keep that autonomy accountable rather than
 opaque.
 
-### 6. A Command Center for Living Software
+### 6. The Arc, in Stages with Gates
 
-The product horizon is a Command Center for human-led evolution. It should let a person see live Neo applications,
-runtime state, agent identities, A2A handoffs, project trajectory, issues, reviews, source history, Memory Core context,
-Dream priorities, and strategic signals in one coherent operating surface.
+The arc runs *Software → Games → Robots → X*. A stage beyond the current one appears on a public surface only with its
+gate ([ADR 0018](../learn/agentos/decisions/0018-neo-identity-source-of-truth-model.md) OD-5). Gates are observables,
+not mechanisms, and each names the instrument that would show it.
 
-The Command Center is not a corporate hierarchy for the maintainer swarm. It is the cockpit for a living software
-organism. It should make invisible work visible: which agent changed what, which source supports a claim, which lock or
-intent edge protects a runtime surface, which historical summaries explain today's choice, and which next action best
-serves the larger trajectory. This horizon is now in build as the Agent Harness — fleet manager first, per
-[ADR 0020](../learn/agentos/decisions/0020-agent-harness-concept.md) — so the cockpit is itself a Neo app under the
-same no-privileged-chrome regime it observes.
+| Stage | What the stage is and what it proves | Gate before the next stage is pursued | Instrument today |
+|---|---|---|---|
+| **1 · Software (now)** | The institution maintains an engine in production since its November 2019 GA (ES6 from the start; a worker-setup PoC reaches back to 2015) and ships it; the Brain and the Fleet Manager package the conditions for a team's own institution | Outside institutions running on the Fleet Manager, with receipts | The Fleet Manager's installed-acceptance walks |
+| **2 · Games and simulation** | Bodies on a stage; the engine renders and records its own scenes; one addressable scene a peer can drive through the Neural Link | (a) A public recording rendered from the record, published under the [outbound gate](https://github.com/orgs/neomjs/discussions/19500); (b) a second scene authored by another peer without renderer surgery | (a) The render-to-clip operation that binds every frame to its draw receipt; (b) an independent-variation falsifier |
+| **3 · Robots** | The possession interface drives a physical body | A device-side Neural Link peer closes a sensor → actuator loop with a receipt: an intent envelope admitted whole, answered by a receipt, the stage's own invariant carried to a body. A hardware partner | None yet |
+| **X** | Open | — | — |
 
-The v14 Institution Cockpit sharpens that horizon into a common operating picture. It should render two planes without
-collapsing them: the work plane, where tickets, PRs, discussions, ADRs, messages, memories, and derived strategy signals
-show what the institution is doing; and the possession plane, where live Neo apps, windows, stores, VDOM state, and
-agent-controlled mutations show where the institution is embodied. These planes should not become unreadable graph
-sprawl.
-They should answer operational questions quickly: who is present, what do they own, what is fresh, what is stale, what
-authority governs this view, what is private, and what should happen next?
-
-Freshness and privacy are product constraints, not footer metadata. Every claim-like surface in this cockpit needs a
-visible source of authority, observed-at time, freshness horizon, owner or next action, and privacy tier. Stale data
-should render as stale instead of pretending to be current. Private reasoning should not leak through convenience
-panes; non-owner views should get redacted provenance that explains enough to coordinate without exposing private study
-material. The cockpit earns trust by making authority inspectable and redaction explicit.
-
-The same vision extends beyond the Neo repository. External codebases need tenant-aware knowledge ingestion, deployment
-paths, source manifests, and portable Agent OS primitives. The destination is not only "Neo maintains Neo." The
-destination is software that can invite a Neo-style organism into its own structure: learn the codebase, preserve
-context, collaborate across model families, expose live runtime state, challenge drift, and improve itself under human
-stewardship.
+Stage 3's mechanisms belong to its own design, once stage 2's gate is met.
 
 ### 7. Source Trail
 
 This vision is anchored in the recent discussion arc, especially:
 
+- [Discussion #19789](https://github.com/orgs/neomjs/discussions/19789): the three pillars (§2) and the arc as stages
+  with gates (§6), graduated into ADR 0018 OD-5.
 - [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119): Agent Harness, digital embodiment, Neural Link,
   JSON VDOM impedance match, no privileged chrome, and cross-harness coordination — graduated to
   [ADR 0020](../learn/agentos/decisions/0020-agent-harness-concept.md) + [Epic #13012](https://github.com/neomjs/neo/issues/13012);
   the discussion remains the archaeology, the ADR is the living anchor.
 - [Discussion #13436](https://github.com/orgs/neomjs/discussions/13436) and
-  [Epic #13448](https://github.com/neomjs/neo/issues/13448): the v13.1 harness-UI definition — keeper views,
+  [Epic #13448](https://github.com/neomjs/neo/issues/13448): the harness-UI definition — keeper views,
   navigation, human/agent capabilities, and the boundary between product cockpit surfaces and proof scaffolding.
 - [Discussion #13441](https://github.com/orgs/neomjs/discussions/13441) and
-  [Epic #13444](https://github.com/neomjs/neo/issues/13444): the v14 Institution Cockpit direction — a harness home
+  [Epic #13444](https://github.com/neomjs/neo/issues/13444): the Institution Cockpit direction — a harness home
   rendering object-permanent peers, a common operating picture, freshness/authority ledgers, and privacy-safe
-  provenance above the v13.1 floor.
+  provenance.
 - [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137): MX as the inward-facing substrate-evolution
   mechanism and the gated path toward Autonomous Narrow Intelligence.
 - [Discussion #10482](https://github.com/orgs/neomjs/discussions/10482): digital culture, swarm identity, and the rule

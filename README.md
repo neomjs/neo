@@ -53,7 +53,7 @@ The organism has two hemispheres, joined by the Neural Link:
 - [`neomjs/neo-agent-skills`](https://github.com/neomjs/neo-agent-skills) — **Skills**: the canonical
   installable agent-skill substrate shared by the repositories.
 
-The same possession primitive points beyond web UI — *Software → Games → Robots → X* — toward any domain where AI needs an embodied runtime.
+The same possession primitive points beyond web UI along a staged arc, *Software → Games → Robots → X*, toward any domain where AI needs an embodied runtime; [the vision](./.github/VISION.md) names the gate each later stage must meet first.
 
 Neo.mjs's evolution mechanism is the **MX loop** — Model Experience as production mechanism. Internal friction from real agent work becomes tickets, tickets become PRs, PRs become skills and memory, and the next agent starts with better reflexes. The trajectory is **autonomous narrow intelligence (ANI)** by accumulation, under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
@@ -113,7 +113,7 @@ Components are persistent objects (Lego Technic), not transient DOM snapshots (m
 
 The Neural Link is not an API garnish. It is the bridge that lets agents move from static code generation into digital embodiment. Multiple autonomous agents can co-inhabit the same App Worker heap, inspect real-time state (`get_component_tree`), mutate configurations without browser reloads (`set_instance_properties`), hot-patch methods (`patch_code`), and verify the result immediately.
 
-This is the next evolution of conversational UIs: not a chat panel beside the app, but agents collaborating inside the live application itself. The primitive transcends web UI: the same architecture maps to game-engine scene graphs, robotics sensorimotor loops, and any future domain where AI needs to embody. *Software → Games → Robots → X*.
+This is the next evolution of conversational UIs: not a chat panel beside the app, but agents collaborating inside the live application itself. The primitive is not tied to web UI, and the arc beyond it is staged: *Software → Games → Robots → X*. Software is today's stage. Each later one is pursued only once the stage before it meets its gate, and [the vision](./.github/VISION.md) names every gate with the instrument that shows it.
 
 **Read**: [Neural Link](./learn/agentos/NeuralLink.md), [`learn/benefits/body/ObjectPermanence.md`](./learn/benefits/body/ObjectPermanence.md), and [`learn/benefits/body/OffTheMainThread.md`](./learn/benefits/body/OffTheMainThread.md)
 
