@@ -3163,6 +3163,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             });
 
             expect(returnResult.errors, JSON.stringify({
+                aimed           : returnResult.proof?.aimed,
                 sourceArm       : returnResult.proof?.sourceArm,
                 closeReceipt    : returnResult.proof?.closeReceipt,
                 phaseOrder      : returnResult.proof?.phaseOrder,

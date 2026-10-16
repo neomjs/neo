@@ -169,6 +169,12 @@ function describeClaimSurfaces(workspace, {coordinator=null, nativeWindowId=null
                 token         : arbiter.token ?? null,
                 winnerStableId: arbiter.resolve?.()?.stableId ?? null
             } : null,
+            // The resolver's own record of this gesture's passes — why each registered zone did or did not
+            // claim. Filtered by the token each entry was stamped with, never the one live now: the ring
+            // spans gestures (see DragCoordinator#recordClaimResolution). The last three passes suffice.
+            claimTrace: arbiter?.token != null
+                ? (coordinator.claimTrace ?? []).filter(entry => entry.gestureToken === arbiter.token).slice(-3).map(entry => WorkspaceDocument.clone(entry))
+                : null,
             nativeArbiterWindowIds: [...(coordinator.nativeClaimArbiters?.keys?.() ?? [])],
             nativeHoverWindowIds  : [...(coordinator.nativeHoverTargets?.keys?.() ?? [])]
         } : null,
@@ -185,7 +191,7 @@ function describeClaimSurfaces(workspace, {coordinator=null, nativeWindowId=null
         },
         owners: registry ? {
             connections       : registry.connectionEntries(workspace.id).map(([itemId]) => itemId),
-            owned             : registry.ownerEntries(workspace.id).map(([itemId, entry]) => ({itemId, windowName: entry?.windowName ?? null})),
+            owned             : registry.ownerEntries(workspace.id).map(([itemId, entry]) => ({itemId, windowId: entry?.windowId ?? null, windowName: entry?.windowName ?? null})),
             pendingRetirements: registry.pendingRetirements(workspace.id).map(vessel => ({itemId: vessel?.itemId ?? null, windowName: vessel?.windowName ?? null}))
         } : null
     }

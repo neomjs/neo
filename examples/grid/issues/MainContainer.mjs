@@ -33,7 +33,8 @@ const chipRenderer = kind => ({value}) => ({
  *
  * Titles and summaries wrap: `contentSizedRows` gives every row the height of its tallest wrapped cell, across the
  * locked start columns and the center. The Type, Area, Author and State headers open a value menu (`columnMenu`), whose
- * counts follow the other active filters. The checkbox switches back to fixed-height rows for comparison, and the
+ * counts follow the other active filters. The optional search toolbar also reaches Title and Summary and can clear
+ * grid-owned filters together. The checkbox switches back to fixed-height rows for comparison, and the
  * button switches between the light and dark neo themes.
  * @class Neo.examples.grid.issues.MainContainer
  * @extends Neo.container.Viewport
@@ -94,6 +95,7 @@ class MainContainer extends Viewport {
             flex            : 1,
             reference       : 'grid',
             rowHeight       : 44,
+            searchToolbar   : {},
             store           : MainStore,
             columns         : [
                 {dataField: 'id',      locked: 'start', text: '#',       width: 78,  columnMenu: false, renderer: textRenderer('issues-id')},

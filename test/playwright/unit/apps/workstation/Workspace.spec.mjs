@@ -364,8 +364,23 @@ test('an unready pointer read names the claim surfaces it crossed; a ready read 
               preview   : {dockPreview: preview},
               indicators: {activeCandidate: {preview}, candidateSet: {itemId: 'metrics', cross: [], root: {chips: []}}, cls: []}
           },
+          // One claim-pass record per pointer move, as DragCoordinator#recordClaimResolution stamps it: the
+          // source zone skipped, main's zone asked and answering differently each pass.
+          pass        = (gestureToken, mainCandidate) => ({
+              sortGroup : 'dock', sourceOwnershipId: 'group-a', groupSize: 2, outcome: 'no-claim', claimedStableId: null, retiredStableIds: [],
+              candidates: [{windowId: vesselWindowId, skipped: 'source-or-excluded'}, {windowId: mainWindowId, stableTargetId: workspaceId, ...mainCandidate}],
+              gestureToken
+          }),
+          passes      = [
+              pass('gesture-6', {innerResolved: true, intersects: true, accepts: true}),
+              pass('gesture-7', {innerResolved: false, intersects: null, accepts: null}),
+              pass('gesture-7', {innerResolved: true, intersects: false, accepts: null}),
+              pass('gesture-7', {innerResolved: true, intersects: true, accepts: false}),
+              pass('gesture-7', {skipped: 'ownership', ownershipId: 'group-b', released: false})
+          ],
           coordinator = {
               activeTargetZone   : null,
+              claimTrace         : passes,
               nativeClaimArbiters: new Map(),
               nativeHoverTargets : new Map([['some-native-window', {}]]),
               pointerClaimArbiter: {claimCount: 0, token: 'gesture-7', resolve: () => null}
@@ -377,7 +392,7 @@ test('an unready pointer read names the claim surfaces it crossed; a ready read 
               participation  : {target, affordances: visuals},
               dragAffordances: visuals,
               nativeWindows  : {
-                  ownerEntries      : () => [['metrics', {windowName: 'vessel-metrics-1'}]],
+                  ownerEntries      : () => [['metrics', {windowId: 'claim-surfaces-vessel-0', windowName: 'vessel-metrics-1'}]],
                   connectionEntries : () => [['commits', {}]],
                   pendingRetirements: () => [{itemId: 'audit', windowName: 'vessel-audit-0'}]
               }
@@ -394,6 +409,8 @@ test('an unready pointer read names the claim surfaces it crossed; a ready read 
             coordinator  : {
                 activeTargetZoneId    : null, activeTargetWindowId: null,
                 arbiter               : {claimCount: 0, token: 'gesture-7', winnerStableId: null},
+                // the live gesture's passes only, the last three, newest last — gesture-6's record stays out
+                claimTrace            : passes.slice(2),
                 nativeArbiterWindowIds: [], nativeHoverWindowIds: ['some-native-window']
             },
             sourceZone: {dockGroupNodeId: 'stack', dragProxy: true, id: 'vessel-stack-zone', stackDragActive: true, windowId: vesselWindowId},
@@ -403,10 +420,11 @@ test('an unready pointer read names the claim surfaces it crossed; a ready read 
             },
             owners: {
                 connections       : ['commits'],
-                owned             : [{itemId: 'metrics', windowName: 'vessel-metrics-1'}],
+                owned             : [{itemId: 'metrics', windowId: 'claim-surfaces-vessel-0', windowName: 'vessel-metrics-1'}],
                 pendingRetirements: [{itemId: 'audit', windowName: 'vessel-audit-0'}]
             }
         });
+        expect(unready.claimSurfaces.coordinator.claimTrace[0], 'the record is a copy, not the ring\'s entry').not.toBe(passes[2]);
 
         coordinator.activeTargetZone = target;
         coordinator.pointerClaimArbiter = {claimCount: 1, resolve: () => ({stableId: workspaceId})};

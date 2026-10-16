@@ -5,6 +5,7 @@ import GridBody            from './Body.mjs';
 import ScrollManager       from './ScrollManager.mjs';
 import Store               from '../data/Store.mjs';
 import FooterToolbar       from './footer/Toolbar.mjs';
+import SearchToolbar       from './SearchToolbar.mjs';
 import HorizontalScrollbar from './HorizontalScrollbar.mjs';
 import NeoArray            from '../util/Array.mjs';
 import VerticalScrollbar   from './VerticalScrollbar.mjs';
@@ -153,6 +154,13 @@ class GridContainer extends BaseContainer {
             merge         : 'deep',
             value         : null
         },
+        /**
+         * Optional record search and filter summary above the headers. Null preserves the ordinary grid.
+         * A replacement toolbar module must implement syncFromStore().
+         * @member {Object|Neo.toolbar.Base|null} searchToolbar_=null
+         * @reactive
+         */
+        searchToolbar_: {[isDescriptor]: true, merge: 'deep', value: null},
         /**
          * Configs for Neo.grid.header.Toolbar
          * @member {Object|null} [headerToolbar_={[isDescriptor]:true,merge:'deep',value:null}]
@@ -316,6 +324,8 @@ class GridContainer extends BaseContainer {
             items           : [me.body]
         });
 
+        me.view.addDomListeners({resize: {fn: me.onViewResize, scope: me}});
+
         me.horizontalScrollbar = Neo.create(HorizontalScrollbar, {
             appName,
             flex    : 'none',
@@ -337,6 +347,8 @@ class GridContainer extends BaseContainer {
 
         me.items = [me.headerWrapper, me.view, me.horizontalScrollbar];
 
+        if (me.searchToolbar) me.items.unshift(me.searchToolbar);
+
         if (me.footerToolbar) {
             me.items.push(me.footerToolbar)
         }
@@ -345,6 +357,8 @@ class GridContainer extends BaseContainer {
 
         me._columns = me.createColumns(me.columns);
         me.updateColCount();
+
+        me.syncSearchToolbar();
 
         me.syncValueBandingFields();
 
@@ -371,13 +385,13 @@ class GridContainer extends BaseContainer {
         let me             = this,
             {windowId}     = me,
             ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
-            resizeParams   = {componentId: me.id, id: me.id, windowId};
+            targets        = [me.id, me.view.id];
 
         if (mounted) {
-            ResizeObserver.register(resizeParams);
+            targets.forEach(id => ResizeObserver.register({componentId: id, id, windowId}));
             await me.passSizeToBody()
         } else {
-            ResizeObserver.unregister(resizeParams)
+            targets.forEach(id => ResizeObserver.unregister({componentId: id, id, windowId}))
         }
     }
 
@@ -466,7 +480,8 @@ class GridContainer extends BaseContainer {
             me.body?.createViewData()
         }
 
-        me.configsApplied && me.updateColCount()
+        me.configsApplied && me.updateColCount();
+        me.syncSearchToolbar()
     }
 
     /**
@@ -496,6 +511,22 @@ class GridContainer extends BaseContainer {
         if (value && me.store && value.store !== me.store) {
             value.store = me.store
         }
+    }
+
+    /**
+     * @summary Replaces optional search chrome without changing the Store-owned search intent.
+     * @param {Neo.toolbar.Base|null} value
+     * @param {Neo.toolbar.Base|null} oldValue
+     */
+    afterSetSearchToolbar(value, oldValue) {
+        const me = this;
+        if (oldValue && me.items?.includes(oldValue)) me.remove(oldValue);
+        if (value) {
+            value.gridContainer = me;
+            value.store = me.store;
+            if (me.isConstructed && !me.items.includes(value)) me.insert(0, value)
+        }
+        me.syncSearchToolbar()
     }
 
     /**
@@ -651,6 +682,8 @@ class GridContainer extends BaseContainer {
             me.footerToolbar.store = value
         }
 
+        if (me.searchToolbar && me.searchToolbar.store !== value) me.searchToolbar.store = value;
+
         me.syncValueBandingFields();
         me.syncFilteredHeaders()
     }
@@ -772,6 +805,19 @@ class GridContainer extends BaseContainer {
             flex    : 'none',
             parentId: me.id,
             theme   : me.theme
+        })
+    }
+
+    /**
+     * @summary Creates optional native search chrome with this grid's column and Store context.
+     * @param {Object|Neo.toolbar.Base|null} value
+     * @param {Neo.toolbar.Base|null} oldValue
+     * @returns {Neo.toolbar.Base|null}
+     */
+    beforeSetSearchToolbar(value, oldValue) {
+        if (!value) return null;
+        return ClassSystemUtil.beforeSetInstance(value, SearchToolbar, {
+            flex: 'none', gridContainer: this, parentId: this.id, store: this.store, theme: this.theme
         })
     }
 
@@ -1103,11 +1149,11 @@ class GridContainer extends BaseContainer {
 
         // `componentId` names the holder to drop; without it the addon removes nothing and the
         // native observer outlives this grid. See addResizeObserver().
-        me.mounted && Neo.main.addon.ResizeObserver.unregister({
-            componentId: me.id,
-            id         : me.id,
-            windowId   : me.windowId
-        });
+        if (me.mounted) {
+            [me.id, me.view.id].forEach(id => Neo.main.addon.ResizeObserver.unregister({
+                componentId: id, id, windowId: me.windowId
+            }))
+        }
 
         super.destroy(...args)
     }
@@ -1251,7 +1297,8 @@ class GridContainer extends BaseContainer {
 
         me.headerWrapper.applyColumnButtonOrder(me.lockedStartColumns, me.centerColumns, me.lockedEndColumns);
 
-        me.updateColCount()
+        me.updateColCount();
+        me.syncSearchToolbar()
     }
 
     /**
@@ -1302,6 +1349,15 @@ class GridContainer extends BaseContainer {
         me.bodyEnd?.updateMountedAndVisibleColumns();
 
         await me.headerToolbar.passSizeToBody()
+    }
+
+    /**
+     * @summary Header, footer and search chrome can resize the body viewport without resizing the grid itself.
+     * Keep body sizing and the scrollbar overlay on that viewport's actual layout bounds.
+     * @returns {Promise<void>}
+     */
+    onViewResize() {
+        return this.passSizeToBody()
     }
 
     /**
@@ -1391,6 +1447,12 @@ class GridContainer extends BaseContainer {
             await me.timeout(100);
             await me.passSizeToBody(silent)
         } else {
+            // The view and scrollbar share the positioned grid as their offset parent. Layout coordinates
+            // also stay valid while an ancestor presents a transformed dock transition.
+            const scrollbar = me.verticalScrollbar;
+            if (scrollbar) {
+                scrollbar.style = {...scrollbar.style, top: `${viewRect.top}px`, height: `${viewRect.height}px`, bottom: 'auto'}
+            }
             let config = {
                 // The view's own height: the container's also holds its borders, the header, the footer and the
                 // horizontal scrollbar below the view
@@ -1446,6 +1508,12 @@ class GridContainer extends BaseContainer {
                 button.isFiltered = this.isColumnFiltered(button.dataField)
             })
         })
+    }
+
+    /** @summary Refreshes search chrome only after its descriptor has become a constructed toolbar. @protected */
+    syncSearchToolbar() {
+        const toolbar = this.searchToolbar;
+        if (toolbar?.isConstructed) toolbar.syncFromStore()
     }
 
     /**
@@ -1521,6 +1589,7 @@ class GridContainer extends BaseContainer {
             columnMenu   : me.columnMenu,
             columns      : me.columns?.items.map(item => item.toJSON()),
             footerToolbar: me.footerToolbar?.toJSON(),
+            searchToolbar: me.searchToolbar?.toJSON(),
             headerToolbar: me.headerToolbar?.toJSON(),
             rowHeight    : me.rowHeight,
 
