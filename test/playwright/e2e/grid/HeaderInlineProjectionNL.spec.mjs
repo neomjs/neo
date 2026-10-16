@@ -23,67 +23,74 @@ function sourceConfig(filters=[]) {
 
 const inline = (property, value, operator='like') => ({property, value, operator, ownerRole: 'header-inline'});
 
-test('Grid: inline filter gestures preserve sorting while header captions still sort', async ({page, neuralLink}) => {
-    const state    = await openExample(page, neuralLink, examples.Grid), {app, containerId} = state;
-    const original = await app.getMethodSource(state.headerClass, 'onClick');
-    expect(original.source).toContain('onClick');
-    expect(await app.patchCode(state.headerClass, 'onClick', `(function(original) {
-        return function(data) {
-            const result = original.call(this, data);
-            this.__headerClickCount = (this.__headerClickCount || 0) + 1;
-            return result
-        }
-    })(Neo.ns('${state.headerClass}').prototype.onClick)`)).toMatchObject({success: true});
-    await app.setProperties(containerId, {store: sourceConfig(), columns: [
-        {dataField: 'firstname', text: 'Name', width: 260, showHeaderFilter: true, resizable: false}
-    ]});
-    const storeId = (await app.getComponent(containerId, ['store.id']))['store.id'];
-    let   header  = await findHeader(state, 'firstname');
+for (const [kind, definition] of Object.entries(examples)) {
+    test(`${kind}: inline filter gestures preserve sorting while header captions still sort`, async ({page, neuralLink}) => {
+        const state    = await openExample(page, neuralLink, definition), {app, containerId} = state;
+        const original = await app.getMethodSource(state.headerClass, 'onClick');
+        expect(original.source).toContain('onClick');
+        expect(await app.patchCode(state.headerClass, 'onClick', `(function(original) {
+            return function(data) {
+                const result = original.call(this, data);
+                this.__headerClickCount = (this.__headerClickCount || 0) + 1;
+                return result
+            }
+        })(Neo.ns('${state.headerClass}').prototype.onClick)`)).toMatchObject({success: true});
+        await app.setProperties(containerId, {store: sourceConfig(), columns: [
+            {dataField: 'firstname', text: 'Name', width: 260, showHeaderFilter: true, resizable: false}
+        ]});
+        const storeId = (await app.getComponent(containerId, ['store.id']))['store.id'];
+        let   header  = await findHeader(state, 'firstname');
 
-    /** @summary Waits for the real header dispatch before checking that a child gesture did not sort. */
-    const click = async locator => {
-        const before = (await app.getComponent(header.headerId, ['__headerClickCount'])).__headerClickCount || 0;
-        await locator.click();
-        await expect.poll(async () =>
-            (await app.getComponent(header.headerId, ['__headerClickCount'])).__headerClickCount).toBe(before + 1)
-    };
-    /** @summary Reads sort intent from both the header and its source Store. */
-    const sortState = async () => ({
-        header : (await app.getComponent(header.headerId, ['isSorted'])).isSorted,
-        sorters: (await app.getComponent(storeId, ['sorters'])).sorters.map(({property, direction}) => ({property, direction}))
+        /** @summary Waits for the real header dispatch before checking that a child gesture did not sort. */
+        const click = async locator => {
+            const before = (await app.getComponent(header.headerId, ['__headerClickCount'])).__headerClickCount || 0;
+            await locator.click();
+            await expect.poll(async () =>
+                (await app.getComponent(header.headerId, ['__headerClickCount'])).__headerClickCount).toBe(before + 1)
+        };
+        /** @summary Reads sort intent from both the header and its source Store. */
+        const sortState = async () => ({
+            header : (await app.getComponent(header.headerId, ['isSorted'])).isSorted,
+            sorters: (await app.getComponent(storeId, ['sorters'])).sorters.map(({property, direction}) => ({property, direction}))
+        });
+        const initial = await sortState(), input = page.locator(`#${header.fieldId} input`);
+        expect(initial).toEqual({header: null, sorters: []});
+        await click(input);
+        expect(await sortState()).toEqual(initial);
+        await input.fill('Al');
+        await input.press('Enter');
+        await expect.poll(() => filtersOf(app, storeId)).toContainEqual(expect.objectContaining({property: 'firstname', value: 'Al'}));
+        await click(input);
+        expect(await sortState()).toEqual(initial);
+        await page.locator(`#${header.fieldId} .neo-trigger-clear`).click();
+        await expect.poll(async () => (await filtersOf(app, storeId))[0]?.value).toBeNull();
+        expect(await sortState()).toEqual(initial);
+
+        // Grid and Table cycle the sort state through different maps, so the caption checks are relative:
+        // the first click sorts, the second reverses it, and the Store's sorter always mirrors the header.
+        const caption = page.locator(`#${header.headerId} .neo-button-text`);
+        await click(caption);
+        const sorted = await sortState();
+        expect(['ASC', 'DESC']).toContain(sorted.header);
+        expect(sorted.sorters).toEqual([{property: 'firstname', direction: sorted.header}]);
+        await click(caption);
+        const reversed = sorted.header === 'ASC' ? 'DESC' : 'ASC';
+        expect(await sortState()).toEqual({header: reversed, sorters: [{property: 'firstname', direction: reversed}]});
+
+        await app.callMethod(state.workerId, 'loadModule', [{path: '../filter/NumberContainer.mjs'}]);
+        await app.setProperties(containerId, {columns: [
+            {dataField: 'score', text: 'Score', width: 260, showHeaderFilter: true, resizable: false,
+                editorConfig: {className: 'Neo.filter.NumberContainer'}}
+        ]});
+        header = await findHeader(state, 'score');
+        const beforeOperator = await sortState(),
+            operatorId       = await expectNumber(page, app, header.fieldId, null, null, '===');
+        await page.locator(`#${operatorId}`).click();
+        await expect.poll(async () => (await filtersOf(app, storeId)).find(filter => filter.property === 'score'))
+            .toMatchObject({operator: '>', value: null});
+        expect(await sortState()).toEqual(beforeOperator)
     });
-    const initial = await sortState(), input = page.locator(`#${header.fieldId} input`);
-    expect(initial).toEqual({header: null, sorters: []});
-    await click(input);
-    expect(await sortState()).toEqual(initial);
-    await input.fill('Al');
-    await input.press('Enter');
-    await expect.poll(() => filtersOf(app, storeId)).toContainEqual(expect.objectContaining({property: 'firstname', value: 'Al'}));
-    await click(input);
-    expect(await sortState()).toEqual(initial);
-    await page.locator(`#${header.fieldId} .neo-trigger-clear`).click();
-    await expect.poll(async () => (await filtersOf(app, storeId))[0]?.value).toBeNull();
-    expect(await sortState()).toEqual(initial);
-
-    const caption = page.locator(`#${header.headerId} .neo-button-text`);
-    await click(caption);
-    expect(await sortState()).toEqual({header: 'DESC', sorters: [{property: 'firstname', direction: 'DESC'}]});
-    await click(caption);
-    expect(await sortState()).toEqual({header: 'ASC', sorters: [{property: 'firstname', direction: 'ASC'}]});
-
-    await app.callMethod(state.workerId, 'loadModule', [{path: '../filter/NumberContainer.mjs'}]);
-    await app.setProperties(containerId, {columns: [
-        {dataField: 'score', text: 'Score', width: 260, showHeaderFilter: true, resizable: false,
-            editorConfig: {className: 'Neo.filter.NumberContainer'}}
-    ]});
-    header = await findHeader(state, 'score');
-    const beforeOperator = await sortState(),
-        operatorId       = await expectNumber(page, app, header.fieldId, null, null, '===');
-    await page.locator(`#${operatorId}`).click();
-    await expect.poll(async () => (await filtersOf(app, storeId)).find(filter => filter.property === 'score'))
-        .toMatchObject({operator: '>', value: null});
-    expect(await sortState()).toEqual(beforeOperator)
-});
+}
 
 /** @summary Identifies this exact page worker before any runtime write and instruments the real inline writers. */
 async function openExample(page, neuralLink, definition) {
