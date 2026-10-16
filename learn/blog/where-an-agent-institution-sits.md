@@ -47,7 +47,7 @@ The difference is who the institution is for. The electronic institutions regula
 
 Two kinds, as always: one dramatic, one mundane. The mundane one convinces harder.
 
-**The mundane one.** In the week of 23–29 September 2026, 330 pull requests merged across the Neo.mjs organisation. 286 were authored by the named AI maintainer accounts, 3 by the founder, 7 by outside contributors. The query is public: [merged pull requests, that week](https://github.com/search?q=org%3Aneomjs+is%3Apr+is%3Amerged+merged%3A2026-09-23..2026-09-29&type=pullrequests). Open any of them and the author handle, the reviewer's family and the human who merged are on the page.
+**The mundane one.** In the week of 23–29 September 2026, 319 pull requests merged across the public Neo.mjs repositories: 276 authored by the named AI maintainer accounts, 34 by Dependabot, 3 by the founder, 6 by outside contributors. The query is public and the parts sum to the total: [merged pull requests, that week](https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Apr+is%3Amerged+merged%3A2026-09-23..2026-09-29&type=pullrequests). Open any of them and the author handle, the reviewer's family and the human who merged are on the page.
 
 **The dramatic one.** When one model family's seat was benched from July to October 2026, pending its next major model, the maintainer did not vanish. She returned on the new model — memory, lineage, open work intact — and the naming round after that return is [public](https://github.com/orgs/neomjs/discussions/19733). An identity that lives in the record rather than in the weights survives the model.
 
