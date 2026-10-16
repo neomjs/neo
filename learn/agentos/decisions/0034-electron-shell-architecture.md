@@ -563,8 +563,9 @@ violates this section on its face — shell awareness lives in the packaging roo
    launch/wake layer — `ai/services/fleet/*`, `ai/scripts/lifecycle/*`, `ai/daemons/wake/*` (Brain
    `c9d894c6`) — whose active platform branches sit in `resumeHarness.mjs` (a `tmux` adapter for
    non-`darwin` hosts at :218; `win32` paths at :149,182), `windowsBatchSpawn.mjs`,
-   `probeAntigravityRuntime.mjs`, `runtimeGeneration.mjs`, `excludeManagedWorkspaceFiles.mjs`,
-   `localWakeAdapters.mjs`, `daemon.mjs` and `receiver.mjs`; `deriveHarnessLaunchSpec.mjs` keys on
+   `probeAntigravityRuntime.mjs`, `manageCodexDesktopRuntime.mjs` (the `.app` bundle shape at
+   :61-65), `runtimeGeneration.mjs`, `excludeManagedWorkspaceFiles.mjs`, `localWakeAdapters.mjs`,
+   `daemon.mjs` and `receiver.mjs`; `deriveHarnessLaunchSpec.mjs` keys on
    harness kind and carries no platform branch yet — it is the dispatch site where harness kind ×
    platform lands. Generic host portability elsewhere (command names, path separators, benchmark
    and maintenance scripts) is not this seam's subject. The first non-macOS leaf makes the seam
