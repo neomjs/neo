@@ -811,7 +811,7 @@ class NativeGestureDriver extends GestureDriver {
                     return {
                         applied: false,
                         errors : ['main workspace did not reach one semantic + rendered stack-return claim'],
-                        proof  : {cancellation, remoteSnapshot}
+                        proof  : {aimed: {nodeId: returnNodeId ?? null, rect: returnRect ?? null}, cancellation, remoteSnapshot}
                     }
                 }
 

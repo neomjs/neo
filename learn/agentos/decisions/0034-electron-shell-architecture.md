@@ -16,6 +16,7 @@
 | **Amended** | 2026-08-08 (#16747, [ADR 0038](0038-fm-client-topology.md) — the FM client topology, graduated from D#16720): §2.1's hosting frame and §2.6.4's dev-attaches/packaged-hosts dichotomy are re-scoped for the pure-client cockpit — the main process's hosting/supervision is the packaged product's local-plane BOOTSTRAP (role-3 host machinery; bundle = organism), never the cockpit's runtime identity. The cockpit connects to the (bundled or remote) plane's fleet service in every topology; identity, registry, credential, and authorization policy are plane-owned; lifecycle affordances surface behind `CAN_ADMINISTER_FLEET_OF` over the authenticated fleet wire. The retrieval statements themselves are rewritten in place (epigraph, §1 anchors, §2.1 heading + settled frame + binding 1, §2.6.4) with provenance brackets; ADR 0038 §3.3 is the canonical statement. |
 | **Author** | @neo-opus-vega (Vega, Claude Fable 5, Claude Code) — #13377 epic steward. |
 | **Runtime-continuity amendment** | 2026-10-13 (#19725, graduated at [D19723](https://github.com/orgs/neomjs/discussions/19723)): §2.5 adds immutable runtime generations for surviving managed seats, consuming [Institution #674](https://github.com/neomjs/neo-agent-institution/issues/674) and its [package-identity fold](https://github.com/neomjs/neo-agent-institution/issues/674#issuecomment-6151465185). [ADR 0038 §2.5.2](0038-fm-client-topology.md#252-native-launch-admission-generation-custody-and-recovery) supplies the clean-handoff admission contract. Decision authority, not executable or installed delivery. |
+| **Platform amendment** | 2026-10-16 (#19818, operator decision in session; no Discussion — the v1 scope is a product boundary, the seam rule design-seat substrate, this amendment's cross-family review the challenge path): §2.7 narrows §2.5.1's artifact set for v1 to macOS on Apple Silicon, fixes the post-v1 order (Linux arm64 in a container → x64 macOS → Windows; each demand-gated, its own leaf with a native smoke and receipt) and names the OS seam — the shell carries no platform branches; seat launch/wake OS specifics live in the Brain's launch/wake layer, keyed by harness kind × platform. |
 | **Resolves** | #14786 — the #13377 gate leaf: settle the shared shell questions ONCE, decision-record tier, before the E-leaves multiply incoherently (the ADR-0029 settle-shared-questions pattern). |
 | **Parent epic** | #13377 (*Electron shell — package + host the Agent OS*) under #13012 (Agent Harness). |
 | **Depends on** | **ADR 0020** (the embodiment vessel — extended, never superseded; §3 fixes the shell decision, the in-process target + child-process fallback, source-tree discipline, and PATs-Brain-side); **ADR 0029** (docking design — its §2.1 state-class table, window-manager boundaries, and semantic-restore rules are consumed, not reopened). |
@@ -409,7 +410,8 @@ amends ADR 0029 and this section together, before implementation.
    (signed), Linux `AppImage` — built by an electron-builder-class pipeline from the packaging
    root (own `package.json`, wraps BUILT Body + Brain; ADR 0020 §3 source-tree discipline). "The
    stranger downloads the harness" = one double-clickable artifact; **the `npx` bootstrap and the
-   #14230 fork-path stay the contributor door** — the two doors never merge.
+   #14230 fork-path stay the contributor door** — the two doors never merge. *[v1 ships one of
+   these artifacts, macOS on Apple Silicon — §2.7 (2026-10-16, #19818).]*
 2. **Signing reality is a release-line concern:** cert provisioning/notarization credentials are
    operator-owned (human-only, like the merge gate); CI produces unsigned artifacts for
    verification, the release pipeline signs. No leaf embeds signing material in repo tooling.
@@ -527,6 +529,60 @@ already-running child answering is not the complete witness.
 **Falsifier:** any leaf introducing a `process.versions.electron` branch inside `src/` or `apps/`
 violates this section on its face — shell awareness lives in the packaging root and
 `main.addon.*` enhancement points only.
+
+### §2.7 Amendment — Target platforms for v1 and the OS seam (2026-10-16, #19818)
+
+> Operator decision of 2026-10-16, recorded by the design seat; no Discussion — the v1 scope is a
+> product boundary (Tier 4), the seam rule is design-seat substrate, and this amendment's
+> cross-family review is the challenge path. §2.5's artifact class, signing and update decisions
+> stand; this section scopes them in time.
+
+1. **v1 ships one artifact: macOS on Apple Silicon.** §2.5.1's three installers remain the end
+   state, not the v1 scope. The pipeline is single-architecture by construction, not by Electron's
+   limits: `harness/electron-builder.yml:54` emits `zip` for `arch: arm64` only; `pack.mjs` stages
+   one organism directory and rebuilds its dependencies for the **host** architecture
+   (`@electron/rebuild` without `--arch`, `pack.mjs:783–820` at Institution `3ec914d`); and
+   `runtimeGeneration.mjs:585–587` verifies the observed architecture at publication, so a
+   cross-architecture shell over host-built natives refuses itself. Electron 43.5.0 publishes
+   `darwin-x64`, `darwin-arm64`, `linux-arm64` and `linux-x64` release assets.
+2. **The order after v1 — each step demand-gated and its own packaging leaf,** with a native smoke
+   on the target and an artifact receipt, never a config-flag toggle: **(a) Linux arm64 in a Docker
+   container** first — the development host's architecture, a plane that already runs as Linux
+   containers, hosted CI with arm64 Linux runners, and the registry's `runsAs: 'cli'` kinds as the
+   seats (`codex`, `claude-code`, `opencode`, `kimi-code` — `src/fleet/contract/harnessTypes.mjs:20-29`
+   at Brain `c9d894c6`); the `runsAs: 'app'` kinds (`claude-desktop`, `codex-desktop`, `antigravity`,
+   the last gated to `darwin`/`arm64` at `ai/services/fleet/probeAntigravityRuntime.mjs:28,71`) have
+   no Linux form today — the seed of a hosted institution; **(b) x64 macOS** when a concrete machine needs it (macOS 26 is Apple's last
+   Intel release; the tail shrinks); **(c) Windows** on the first outside team that runs it —
+   per-harness launch and wake adapters, Docker Desktop over WSL2 for the plane, Windows signing
+   beside §2.5.2's notarization, an installer, a machine, a runner.
+3. **The OS seam.** The shell carries no platform branches beyond the four files that hold them
+   today — `harness/install.mjs:865`, `harness/main.mjs:382,403`, `harness/prepareAssets.mjs:53` (a
+   build-time script) and `harness/runtimeGeneration.mjs:89,519` (Institution `4fd5945`).
+   OS-specific **seat launch, resume, runtime probing and wake** behaviour lives in the Brain's
+   launch/wake layer — `ai/services/fleet/*`, `ai/scripts/lifecycle/*`, `ai/daemons/wake/*` (Brain
+   `c9d894c6`) — whose active platform branches sit in `resumeHarness.mjs` (a `tmux` adapter for
+   non-`darwin` hosts at :218; `win32` paths at :149,182), `windowsBatchSpawn.mjs`,
+   `probeAntigravityRuntime.mjs`, `manageCodexDesktopRuntime.mjs` (the `.app` bundle shape at
+   :61-65), `runtimeGeneration.mjs`, `excludeManagedWorkspaceFiles.mjs`, `localWakeAdapters.mjs`,
+   `daemon.mjs` and `receiver.mjs`; `deriveHarnessLaunchSpec.mjs` keys on
+   harness kind and carries no platform branch yet — it is the dispatch site where harness kind ×
+   platform lands. Generic host portability elsewhere (command names, path separators, benchmark
+   and maintenance scripts) is not this seam's subject. The first non-macOS leaf makes the seam
+   explicit (one adapter per harness kind × platform) and carries the platform-branch census as its
+   first deliverable; until then the layer is the seam de facto, and no new seat launch, resume or
+   wake code branches on platform outside it.
+4. **Identity portability is not a platform question.** No walk and no platform leaf moves a peer:
+   a cold first run is a fresh institution with a guest seat. A seat move's minimum is the seat's
+   harness-local memory, its credential and its seat definition; the shared record stays with the
+   plane (Brain #571's lane, copy-never-move).
+
+**Falsifier:** a new `process.platform`, `darwin`, `win32` or `linux` branch in the shell outside the
+four files of item 3, or seat launch, resume, runtime-probing or wake code that branches on platform
+outside the layer named there, violates this section on its face — the same shape as §2.6's
+`process.versions.electron` falsifier; the baseline trees at Institution `4fd5945` and Brain
+`c9d894c6` pass it. A platform target added as a flag without its native smoke and receipt violates
+item 2.
 
 ## 3. Consequences
 

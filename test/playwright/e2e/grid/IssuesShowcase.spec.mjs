@@ -105,6 +105,41 @@ test.describe('Grid issues showcase', () => {
         await expect.poll(verdict, {timeout: 20000}).toEqual({aligned: true, fits: true, varied: true})
     });
 
+    test('fixed rows show each title and summary as one line, cut with an ellipsis (#19806)', async ({page}) => {
+        const toggle = page.locator('.issues-toggle').getByText('Content-sized rows'),
+              // Per visible Title/Summary cell: its distinct text lines, whether they sit inside the content box
+              // vertically, and whether the text is cut
+              cells  = () => page.evaluate(grid => [...document.querySelectorAll(
+                  `${grid} .neo-grid-row .neo-grid-cell.issues-title, ${grid} .neo-grid-row .neo-grid-cell.issues-summary`
+              )].filter(cell => {
+                  const row = cell.closest('.neo-grid-row');
+                  return row.style.display !== 'none' && row.dataset.recordId && !row.closest('.neo-grid-row-measure')
+              }).map(cell => {
+                  const range = document.createRange(), box = cell.getBoundingClientRect(), style = getComputedStyle(cell);
+                  range.selectNodeContents(cell);
+                  const lines = [...range.getClientRects()].filter(rect => rect.height > 0);
+                  return {
+                      lines : new Set(lines.map(rect => Math.round(rect.top))).size,
+                      inside: lines.every(rect => rect.top >= box.top + parseFloat(style.paddingTop) - 1 &&
+                                                  rect.bottom <= box.bottom - parseFloat(style.paddingBottom) + 1),
+                      cut   : cell.scrollWidth > cell.clientWidth
+                  }
+              }), GRID),
+              verdict = async () => {
+                  const read = await cells();
+                  return {oneLine: read.every(cell => cell.lines === 1), inside: read.every(cell => cell.inside), cut: read.some(cell => cell.cut)}
+              };
+
+        await toggle.click();
+        await expect.poll(() => page.locator(`${GRID} .neo-grid-cell-text`).count()).toBe(0);
+        await expect.poll(verdict).toEqual({oneLine: true, inside: true, cut: true});
+
+        // Ticking it again restores the wrapped, measured text
+        await toggle.click();
+        await expect.poll(() => page.locator(`${GRID} .neo-grid-cell-text`).count()).toBeGreaterThan(0);
+        expect((await cells()).some(cell => cell.lines > 1)).toBe(true)
+    });
+
     test('the State menu filters by value and clears', async ({page}) => {
         const all     = [...new Set(issues.map(issue => issue.state))].sort(),
               closed  = issues.filter(issue => issue.state === 'Closed').length,
@@ -124,6 +159,43 @@ test.describe('Grid issues showcase', () => {
 
         await menu.getByRole('button', {name: 'Clear'}).click();
         await expect.poll(states).toEqual(all)
+    });
+
+    test('a filtered locked column keeps its header marked while its menu is closed (#19793)', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              header  = wrapper.locator('.neo-grid-header-button'),
+              trigger = wrapper.locator('.neo-grid-menu-trigger'),
+              opacity = () => trigger.evaluate(node => getComputedStyle(node).opacity),
+              // Off the headers with nothing focused, so only the filtered state may keep the trigger shown
+              away    = async () => {
+                  await page.mouse.move(800, 880);
+                  await page.evaluate(() => document.activeElement?.blur());
+                  expect(await wrapper.evaluate(node => node.matches(':hover, :focus-within'))).toBe(false)
+              };
+
+        // State is locked at the end, so its header lives outside the centre toolbar
+        await expect(header).toHaveClass(/neo-locked-end/);
+        await wrapper.hover();
+        await trigger.click();
+        await menu.locator('[role="option"]').filter({hasText: 'Closed'}).click();
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
+        await away();
+        await expect(header).toHaveClass(/neo-grid-column-filtered/);
+        await expect(trigger).toHaveAttribute('aria-label', 'Filter State, active');
+        await expect(trigger).toHaveText('▾');
+        await expect.poll(opacity).toBe('1');
+
+        await wrapper.hover();
+        await trigger.click();
+        await menu.getByRole('button', {name: 'Clear'}).click();
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
+        await away();
+        await expect(header).not.toHaveClass(/neo-grid-column-filtered/);
+        await expect(trigger).toHaveAttribute('aria-label', 'Filter State');
+        await expect.poll(opacity).toBe('0')
     })
 });
 

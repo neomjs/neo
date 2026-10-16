@@ -85,6 +85,15 @@ class ScrollManager extends Base {
     }
 
     /**
+     * True while the grid needs the `GridRowHoverSync` addon: a row spans several bodies once columns are locked,
+     * and CSS `:hover` reaches only the body under the pointer.
+     * @member {Boolean} usesRowHoverSyncAddon
+     */
+    get usesRowHoverSyncAddon() {
+        return this.rowHoverSync && !!this.gridContainer?.hasLockedColumns
+    }
+
+    /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
@@ -113,10 +122,12 @@ class ScrollManager extends Base {
         if (value) {
             me.dragScroll && me.updateDragScrollAddon(true);
             me.usesRowScrollAddon && me.updateRowScrollPinningAddon(true);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(true);
             me.updateGridHorizontalScrollSyncAddon(true)
         } else if (oldValue && me.windowId) {
             me.dragScroll && me.updateDragScrollAddon(false);
             me.usesRowScrollAddon && me.updateRowScrollPinningAddon(false);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(false);
             me.updateGridHorizontalScrollSyncAddon(false)
         }
     }
@@ -142,20 +153,32 @@ class ScrollManager extends Base {
         if (oldValue && me.mounted) {
             me.dragScroll && me.updateDragScrollAddon(false, oldValue);
             me.usesRowScrollAddon && me.updateRowScrollPinningAddon(false, oldValue);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(false, oldValue);
             me.updateGridHorizontalScrollSyncAddon(false, oldValue);
 
             me.dragScroll && me.updateDragScrollAddon(true, value);
             me.usesRowScrollAddon && me.updateRowScrollPinningAddon(true, value);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(true, value);
             me.updateGridHorizontalScrollSyncAddon(true, value);
         }
     }
 
     /**
+     * @summary Retires every addon registration this manager can hold, whatever its flags say now.
+     *
+     * The grid destroys this manager directly, never through an unmount, so `afterSetMounted()` retires
+     * nothing here, and a flag switched off after registering does not always unregister by itself. An
+     * addon ignores an id it does not hold. An unregister needs only `id` and `windowId`, which outlive
+     * destruction, while a register still awaiting its addon returns once it finds this manager destroyed.
      * @param args
      */
     destroy(...args) {
-        this.updateRowScrollPinningAddon(false);
-        this.updateGridHorizontalScrollSyncAddon(false);
+        let me = this;
+
+        me.updateDragScrollAddon(false);
+        me.updateGridRowHoverSyncAddon(false);
+        me.updateRowScrollPinningAddon(false);
+        me.updateGridHorizontalScrollSyncAddon(false);
         super.destroy(...args)
     }
 
@@ -282,6 +305,8 @@ class ScrollManager extends Base {
         let me = this,
             addon = await Neo.currentWorker.getAddon('GridDragScroll', windowId);
 
+        if (active && me.isDestroyed) return;
+
         if (active) {
             let scrollerId = me.gridContainer.horizontalScrollbar?.id;
 
@@ -304,6 +329,8 @@ class ScrollManager extends Base {
     async updateRowScrollPinningAddon(active, windowId = this.windowId) {
         let me = this,
             addon = await Neo.currentWorker.getAddon('GridRowScrollPinning', windowId);
+
+        if (active && me.isDestroyed) return;
 
         if (active) {
             addon.register({
@@ -328,6 +355,8 @@ class ScrollManager extends Base {
         let me = this,
             addon = await Neo.currentWorker.getAddon('GridRowHoverSync', windowId);
 
+        if (active && me.isDestroyed) return;
+
         if (active) {
             addon.register({
                 viewId  : me.gridContainer.view.id,
@@ -347,6 +376,8 @@ class ScrollManager extends Base {
     async updateGridHorizontalScrollSyncAddon(active, windowId = this.windowId) {
         let me = this,
             addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', windowId);
+
+        if (active && me.isDestroyed) return;
 
         if (active) {
             let scrollerId = me.gridContainer.horizontalScrollbar?.id,

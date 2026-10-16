@@ -641,13 +641,34 @@ class VesselWorkspace extends DockWorkspace {
                 transactionId: committed.transactionId, phases: ['documents-adopted'],
                 reconciled   : false, closeRequested: false, topologyExited: false
             };
-            const source = me.getPopupState(sourceWorkspaceId), target = me.getPopupState(targetWorkspaceId);
+            const source   = me.getPopupState(sourceWorkspaceId), target = me.getPopupState(targetWorkspaceId);
+            let   departed = null;
             if (descriptor.operation === 'transferNode' && targetWorkspaceId === VesselWorkspace.MAIN_WORKSPACE_ID
                 && source && !Object.keys(source.document.items).length) {
                 const viewport = source.app?.mainView;
-                viewport && !viewport.isDestroyed && viewport.addCls('workstation-vessel-departing')
+                if (viewport && !viewport.isDestroyed) {
+                    viewport.addCls('workstation-vessel-departing');
+                    // The designed exit (Viewport.scss): the theme-ground overlay fades in over `--motion-panel`
+                    // and holds before the OS close. Awaited through the browser's own Animation API in the
+                    // vessel's window once the class has reached its DOM, then held one beat so the opaque ground
+                    // is what the window dies on. Presentation never refuses a transfer: a view that cannot
+                    // report its update, a main thread without the primitive, a missing or instant animation
+                    // all settle at once.
+                    departed = Promise.resolve()
+                        .then(() => viewport.promiseUpdate?.())
+                        .then(() => Neo.main?.DomAccess?.waitForAnimation?.({
+                            animationName: 'workstation-vessel-depart', id: viewport.id, windowId: source.windowId
+                        }))
+                        .then(() => me.timeout(80))
+                        .catch(() => null)
+                }
             }
-            await Promise.all([me.refreshPromise, source?.host?.refreshPromise, target?.host?.refreshPromise]);
+            // Main's ADOPTION, not its settled surface: the retire below needs the pane in main's DOM, which
+            // the reconcile lands; main's FLIP motion and the chrome settle that afterRefreshDockWorkspace
+            // trails are presentation the emptied vessel need not outlive. A cycle that adopted nothing
+            // (skipped, superseded, repaired) settles null, and the settled surface stays the gate.
+            const adopted = await me.projectionCycle?.adoption;
+            await Promise.all([adopted == null ? me.refreshPromise : null, source?.host?.refreshPromise, target?.host?.refreshPromise, departed]);
             receipt.reconciled = true;
             receipt.phases.push('projections-settled');
             if (source && !Object.keys(source.document.items).length) {

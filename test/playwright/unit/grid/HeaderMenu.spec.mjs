@@ -477,5 +477,86 @@ test.describe('Grid header value menu', () => {
         expect(field.items[0].text).toBe('<');
         expect(field.items[1].value).toBe(34);
         expect(events).toBe(0)
+    });
+
+    test('a header marks only an effective header-owned contribution on its field, with or without a menu', () => {
+        const source = storeFor(), grid = gridFor(source, {showHeaderFilters: true}), header = grid.getButton('status'),
+            other    = grid.getButton('other'), marked = () => header.cls.includes('neo-grid-column-filtered');
+        expect([header.isFiltered, marked()]).toEqual([false, false]);
+        header.changeFilterValue({value: 'Op'});
+        expect([header.isFiltered, marked(), other.isFiltered]).toEqual([true, true, false]);
+        // A cleared field keeps its contribution with an empty value, which no longer narrows the rows
+        header.changeFilterValue({value: ''});
+        expect(source.getFilter('status', 'header-inline').value).toBe('');
+        expect([header.isFiltered, marked()]).toEqual([false, false]);
+        source.filters = [...source.filters, {property: 'status', ownerRole: 'header-picker', operator: 'typedIncluded', value: ['Open']}];
+        expect([header.isFiltered, marked()]).toEqual([true, true]);
+        // Application predicates and the record search are not a column's own state
+        source.filters = [{property: 'status', operator: '!=', value: 'Closed'}, {property: 'other', ownerRole: 'application', value: 'x'}];
+        expect([header.isFiltered, other.isFiltered]).toEqual([false, false])
+    });
+
+    test('the trigger label and glyph follow the header state, which the menu does not own', async () => {
+        const source = storeFor(), {header, menu} = await menuFor(gridFor(source, {columnMenu: true})),
+            label    = () => menu.trigger.vdom['aria-label'];
+        expect([label(), menu.trigger.text]).toEqual(['Filter Status', '▿']);
+        // The surface is closed: its own refresh path is inert, the header's state still follows the Store
+        menu.surface.hidden = true;
+        source.filters = [{property: 'status', ownerRole: 'header-picker', operator: 'typedIncluded', value: ['Open']}];
+        expect([header.isFiltered, label(), menu.trigger.text]).toEqual([true, 'Filter Status, active', '▾']);
+        source.filters = [];
+        expect([header.isFiltered, label(), menu.trigger.text]).toEqual([false, 'Filter Status', '▿'])
+    });
+
+    test('a recreated header and a swapped Store start from the current contributions', () => {
+        const picker = value => ({property: 'status', ownerRole: 'header-picker', operator: 'typedIncluded', value}),
+            source   = storeFor(undefined, {filters: [picker(['Open'])]}), grid = gridFor(source);
+        expect(grid.getButton('status').isFiltered).toBe(true);
+        grid.columns = [{dataField: 'other', text: 'Other', width: 180}, {dataField: 'status', text: 'Status', width: 180}];
+        expect(grid.getButton('status').isFiltered).toBe(true);
+        const next = storeFor();
+        grid.store = next;
+        expect(grid.getButton('status').isFiltered).toBe(false);
+        next.filters = [picker(['Closed'])];
+        expect(grid.getButton('status').isFiltered).toBe(true);
+        source.filters = [];
+        expect(grid.getButton('status').isFiltered).toBe(true)
+    });
+
+    test('a locked header follows its column filters like a centre one', () => {
+        const picker = (property, value) => ({property, ownerRole: 'header-picker', operator: 'typedIncluded', value}),
+            source   = storeFor(), grid = gridFor(source, {columns: [
+                {dataField: 'status', text: 'Status', width: 120, locked: 'start'},
+                {dataField: 'other',  text: 'Other',  width: 120},
+                {dataField: 'id',     text: 'Id',     width: 120, locked: 'end'}]}),
+            filtered = () => ['status', 'other', 'id'].map(field => grid.getButton(field).isFiltered);
+        // The locked headers live in their own region toolbars, outside the centre one
+        expect(grid.headerToolbar.items.map(item => item.dataField)).toEqual(['other']);
+        source.filters = [picker('status', ['Open']), picker('id', [1])];
+        expect(filtered()).toEqual([true, false, true]);
+        source.filters = [];
+        expect(filtered()).toEqual([false, false, false])
+    });
+
+    test('a header rebound to another field derives that field\'s state, in both directions', () => {
+        const source = storeFor(undefined, {filters: [{property: 'status', ownerRole: 'header-picker', operator: 'typedIncluded', value: ['Open']}]}),
+            grid     = gridFor(source), status = grid.getButton('status'), other = grid.getButton('other'),
+            column   = field => grid.columns.items.find(item => item.dataField === field);
+        expect([status.isFiltered, other.isFiltered]).toEqual([true, false]);
+        // No Store event fires: the rebind alone must move the state with the field
+        column('status').dataField = 'id';
+        expect(status.isFiltered).toBe(false);
+        column('other').dataField = 'status';
+        expect(other.isFiltered).toBe(true)
+    });
+
+    test('a filtered header describes itself as filtered, with or without a menu', () => {
+        const source  = storeFor(), grid = gridFor(source, {showHeaderFilters: true}), header = grid.getButton('status'),
+            described = () => header.getVdomRoot()['aria-description'];
+        expect(described()).toBe(undefined);
+        header.changeFilterValue({value: 'Op'});
+        expect(described()).toBe('Filtered');
+        header.changeFilterValue({value: ''});
+        expect(described()).toBe(undefined)
     })
 });

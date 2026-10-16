@@ -372,10 +372,16 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Sorts header gestures without treating inline filter controls as sort actions.
      * @param {Object} data
      * @protected
      */
     onClick(data) {
+        const {filterField} = this;
+        if (filterField && data.path.some(node => node.id === filterField.id)) {
+            return
+        }
+
         let me = this,
             map;
 
@@ -393,7 +399,10 @@ class Button extends BaseButton {
             }
         }
 
-        me.isSorted = map[me.isSorted + ''];
+        // A non-sortable header keeps its click (the button handler), but never starts a sort
+        if (me.sortable) {
+            me.isSorted = map[me.isSorted + '']
+        }
 
         super.onClick(data)
     }

@@ -57,6 +57,14 @@ import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs
 test.describe('grid.Container — releasing the native resize target', () => {
     let calls, grid, store;
 
+    /** @summary Every observed target must name the same holder on registration and teardown. */
+    const expectTargetPairs = (entries, targets) => {
+        const actual   = entries.map(({id, componentId}) => `${id}:${componentId}`).sort(),
+              expected = targets.map(id => `${id}:${id}`).sort();
+
+        expect(actual).toEqual(expected)
+    };
+
     // The addon lives on the main thread; in unit mode `Neo.main.addon.ResizeObserver` is a harness
     // stub. Recording it captures exactly what the component emits across the worker boundary,
     // which is the surface under contract here — the addon's own refcount behaviour is pinned in
@@ -110,36 +118,30 @@ test.describe('grid.Container — releasing the native resize target', () => {
         !store.isDestroyed && store.destroy()
     });
 
-    test('destroy names the grid on its unregister, so the holder list can empty', () => {
+    test('destroy names the grid and view on unregister, so both holder lists can empty', () => {
         calls = [];
 
+        const targets = [grid.id, grid.view.id];
         grid.destroy();
 
         const unregisters = calls.filter(entry => entry.method === 'unregister');
 
-        expect(unregisters.length).toBeGreaterThan(0);
-
-        // The DOM target and the App-Worker holder are two different identities that happen to
-        // share a value here. Asserting BOTH is deliberate: a payload naming only `id` reads as
-        // complete and removes nothing.
-        unregisters.forEach(entry => {
-            expect(entry.id).toBe(grid.id);
-            expect(entry.componentId).toBe(grid.id)
-        })
+        // Both the grid and its independently observed view must release the exact holder they registered.
+        expectTargetPairs(unregisters, targets)
     });
 
-    test('unmount names the grid too — an unmounted grid stops being a holder', async () => {
+    test('unmount releases both grid and view holders', async () => {
         calls = [];
 
+        const targets = [grid.id, grid.view.id];
         await grid.addResizeObserver(false);
 
-        const [unregister] = calls.filter(entry => entry.method === 'unregister');
+        const unregisters = calls.filter(entry => entry.method === 'unregister');
 
-        expect(unregister).toBeTruthy();
-        expect(unregister.componentId).toBe(grid.id)
+        expectTargetPairs(unregisters, targets)
     });
 
-    test('the register arm names it as well, so the holder it adds is the one destroy removes', async () => {
+    test('register names both grid and view so destroy can remove their holders', async () => {
         calls = [];
 
         // The mounted arm continues into `passSizeToBody()`, which measures through
@@ -152,12 +154,10 @@ test.describe('grid.Container — releasing the native resize target', () => {
 
         await grid.addResizeObserver(true);
 
-        const [register] = calls.filter(entry => entry.method === 'register');
-
-        expect(register).toBeTruthy();
+        const registers = calls.filter(entry => entry.method === 'register');
 
         // An anonymous holder is never removable: no caller can pass the `undefined` back in a way
         // that distinguishes it, so it pins the target observed for the life of the document.
-        expect(register.componentId).toBe(grid.id)
+        expectTargetPairs(registers, [grid.id, grid.view.id])
     })
 });

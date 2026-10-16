@@ -356,6 +356,87 @@ test('pointer readiness reads current popup and supplied main visual owners', ()
     }
 });
 
+test('an unready pointer read names the claim surfaces it crossed; a ready read carries none', () => {
+    const workspaceId = Workspace.MAIN_WORKSPACE_ID, mainWindowId = 'claim-surfaces-main', vesselWindowId = 'claim-surfaces-vessel',
+          preview     = {previewId: 'surfaces-preview'},
+          target      = {id: 'main-target', windowId: mainWindowId, currentPreview: preview},
+          visuals     = {
+              preview   : {dockPreview: preview},
+              indicators: {activeCandidate: {preview}, candidateSet: {itemId: 'metrics', cross: [], root: {chips: []}}, cls: []}
+          },
+          // One claim-pass record per pointer move, as DragCoordinator#recordClaimResolution stamps it: the
+          // source zone skipped, main's zone asked and answering differently each pass.
+          pass        = (gestureToken, mainCandidate) => ({
+              sortGroup : 'dock', sourceOwnershipId: 'group-a', groupSize: 2, outcome: 'no-claim', claimedStableId: null, retiredStableIds: [],
+              candidates: [{windowId: vesselWindowId, skipped: 'source-or-excluded'}, {windowId: mainWindowId, stableTargetId: workspaceId, ...mainCandidate}],
+              gestureToken
+          }),
+          passes      = [
+              pass('gesture-6', {innerResolved: true, intersects: true, accepts: true}),
+              pass('gesture-7', {innerResolved: false, intersects: null, accepts: null}),
+              pass('gesture-7', {innerResolved: true, intersects: false, accepts: null}),
+              pass('gesture-7', {innerResolved: true, intersects: true, accepts: false}),
+              pass('gesture-7', {skipped: 'ownership', ownershipId: 'group-b', released: false})
+          ],
+          coordinator = {
+              activeTargetZone   : null,
+              claimTrace         : passes,
+              nativeClaimArbiters: new Map(),
+              nativeHoverTargets : new Map([['some-native-window', {}]]),
+              pointerClaimArbiter: {claimCount: 0, token: 'gesture-7', resolve: () => null}
+          },
+          sourceZone  = {id: 'vessel-stack-zone', windowId: vesselWindowId, dockGroupNodeId: 'stack', stackDragActive: true, dragProxy: {}, dragCoordinator: coordinator},
+          workspace   = {
+              constructor    : Workspace,
+              id             : 'claim-surfaces-workspace', windowId: mainWindowId,
+              participation  : {target, affordances: visuals},
+              dragAffordances: visuals,
+              nativeWindows  : {
+                  ownerEntries      : () => [['metrics', {windowId: 'claim-surfaces-vessel-0', windowName: 'vessel-metrics-1'}]],
+                  connectionEntries : () => [['commits', {}]],
+                  pendingRetirements: () => [{itemId: 'audit', windowName: 'vessel-audit-0'}]
+              }
+          },
+          read = () => Workspace.prototype.readCrossWindowGestureSnapshot.call(workspace, {sourceZone, targetWorkspaceId: workspaceId});
+
+    Neo.manager.Window.register({id: mainWindowId, innerRect: {x: 0, y: 0, width: 1200, height: 800}});
+    Neo.manager.Window.register({id: vesselWindowId, innerRect: {x: 1300, y: 60, width: 500, height: 400}});
+    try {
+        const unready = read();
+        expect(unready.ready).toBe(false);
+        expect(unready.claimSurfaces).toEqual({
+            participation: {affordances: true, targetId: 'main-target', targetWindowId: mainWindowId},
+            coordinator  : {
+                activeTargetZoneId    : null, activeTargetWindowId: null,
+                arbiter               : {claimCount: 0, token: 'gesture-7', winnerStableId: null},
+                // the live gesture's passes only, the last three, newest last — gesture-6's record stays out
+                claimTrace            : passes.slice(2),
+                nativeArbiterWindowIds: [], nativeHoverWindowIds: ['some-native-window']
+            },
+            sourceZone: {dockGroupNodeId: 'stack', dragProxy: true, id: 'vessel-stack-zone', stackDragActive: true, windowId: vesselWindowId},
+            windows   : {
+                main  : {id: mainWindowId, innerRect: {x: 0, y: 0, width: 1200, height: 800}},
+                source: {id: vesselWindowId, innerRect: {x: 1300, y: 60, width: 500, height: 400}}
+            },
+            owners: {
+                connections       : ['commits'],
+                owned             : [{itemId: 'metrics', windowId: 'claim-surfaces-vessel-0', windowName: 'vessel-metrics-1'}],
+                pendingRetirements: [{itemId: 'audit', windowName: 'vessel-audit-0'}]
+            }
+        });
+        expect(unready.claimSurfaces.coordinator.claimTrace[0], 'the record is a copy, not the ring\'s entry').not.toBe(passes[2]);
+
+        coordinator.activeTargetZone = target;
+        coordinator.pointerClaimArbiter = {claimCount: 1, resolve: () => ({stableId: workspaceId})};
+        const ready = read();
+        expect(ready.ready).toBe(true);
+        expect(ready).not.toHaveProperty('claimSurfaces')
+    } finally {
+        Neo.manager.Window.unregister(mainWindowId);
+        Neo.manager.Window.unregister(vesselWindowId)
+    }
+});
+
 test('native-window readiness reads its own claim and hover instead of the pointer gesture', () => {
     const workspaceId = Workspace.MAIN_WORKSPACE_ID, nativeWindowId = 'native-readiness-popup',
           preview     = {previewId: 'native-current-preview'}, target = {currentPreview: preview},

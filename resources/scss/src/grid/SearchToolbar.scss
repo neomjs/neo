@@ -1,0 +1,98 @@
+.neo-grid-search-toolbar {
+    box-sizing: border-box;
+    max-width  : 100%;
+    min-width  : 0;
+    width      : 100%;
+}
+
+.neo-grid-search-controls,
+.neo-grid-filter-summary,
+.neo-grid-filter-entries {
+    box-sizing : border-box;
+    max-width  : 100%;
+    min-width  : 0;
+    width      : 100%;
+}
+
+.neo-grid-search-controls {
+    align-items: center;
+    display    : flex;
+    flex-wrap  : wrap;
+    padding    : 0;
+
+    > .neo-button {
+        flex     : 0 1 auto;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .neo-searchfield {
+        flex     : 1 1 12rem;
+        max-width: 100%;
+        min-width: 0;
+
+        .neo-textfield-input {
+            min-width: 0;
+        }
+    }
+}
+
+.neo-grid-filter-summary {
+    align-items  : center;
+    display      : flex;
+    flex-wrap    : wrap;
+    gap          : 4px;
+    margin-top   : 4px;
+    white-space  : normal;
+    overflow-wrap: anywhere;
+
+    .neo-grid-filter-entries {
+        align-items: center;
+        display    : flex;
+        flex       : 1 1 12rem;
+        flex-wrap  : wrap;
+        gap        : 4px;
+        width      : auto;
+    }
+
+    .neo-grid-filter-clear {
+        flex: 0 0 auto;
+    }
+}
+
+.neo-grid-filter-entries {
+    > * {
+        max-width    : 100%;
+        min-width    : 0;
+        overflow-wrap: anywhere;
+    }
+}
+
+.neo-grid-search-controls,
+.neo-grid-filter-entries {
+    .neo-button-text {
+        min-width    : 0;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+.neo-menu-list.neo-grid-search-scope-menu {
+    box-sizing: border-box;
+    max-width : min(24rem, calc(100vw - 16px));
+    min-height: 1px;
+    min-width : 1px;
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    .neo-list-item:not(.neo-menu-separator) {
+        height    : auto;
+        min-height: var(--menu-list-item-height);
+
+        .neo-content {
+            min-width    : 0;
+            overflow-wrap: anywhere;
+            white-space  : normal;
+        }
+    }
+}
