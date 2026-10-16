@@ -400,11 +400,14 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Sorts header gestures without treating inline filter controls as sort actions.
      * @param {Object} data
      * @protected
      */
     onClick(data) {
-        if (data.path.some(node => node.cls?.includes('neo-grid-menu-trigger')) ||
+        const {filterField} = this;
+        if (data.path.some(node => node.cls?.includes('neo-grid-menu-trigger') ||
+                filterField && node.id === filterField.id) ||
             data.path[0].cls.includes('neo-resizable')) {
             return
         }
