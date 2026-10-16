@@ -151,18 +151,19 @@ class ScrollManager extends Base {
     }
 
     /**
-     * @summary Retires every addon registration this manager holds.
+     * @summary Retires every addon registration this manager can hold, whatever its flags say now.
      *
      * The grid destroys this manager directly, never through an unmount, so `afterSetMounted()` retires
-     * nothing here. An unregister needs only `id` and `windowId`, which outlive destruction, while a register
-     * still awaiting its addon returns once it finds this manager destroyed.
+     * nothing here, and a flag switched off after registering does not always unregister by itself. An
+     * addon ignores an id it does not hold. An unregister needs only `id` and `windowId`, which outlive
+     * destruction, while a register still awaiting its addon returns once it finds this manager destroyed.
      * @param args
      */
     destroy(...args) {
         let me = this;
 
-        me.dragScroll && me.updateDragScrollAddon(false);
-        me.rowHoverSync && me.updateGridRowHoverSyncAddon(false);
+        me.updateDragScrollAddon(false);
+        me.updateGridRowHoverSyncAddon(false);
         me.updateRowScrollPinningAddon(false);
         me.updateGridHorizontalScrollSyncAddon(false);
         super.destroy(...args)

@@ -151,6 +151,27 @@ test.describe('grid.Container — addon registrations end with the grid', () => 
         expect(held()).toEqual([])
     });
 
+    test('destroy retires the row hover sync after its flag was switched off', async () => {
+        const {scrollManager} = grid;
+
+        grid.mounted = true;
+        await settle();
+
+        grid.columns.get('col1').locked = 'start';
+        await settle();
+
+        // Positive control: the lock registered it
+        expect(held()).toContain(`GridRowHoverSync ${scrollManager.id}`);
+
+        // No hook unregisters on flag-off, so destroy must not consult the flag
+        scrollManager.rowHoverSync = false;
+        grid.destroy();
+        await settle();
+
+        expect(rejections).toEqual([]);
+        expect(held()).toEqual([])
+    });
+
     test('a grid unmounted and destroyed in one tick still retires every registration', async () => {
         grid.mounted = true;
         await settle();
