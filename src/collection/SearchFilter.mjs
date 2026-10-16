@@ -4,8 +4,8 @@ import {isDescriptor} from '../core/ConfigSymbols.mjs';
 /**
  * @summary A record search: every whitespace-separated term of `value` must occur in at least one of `fields`.
  *
- * Its settings are reactive configs, so a change re-filters without swapping a callback. An empty query is inert
- * and not `effective`. Strings, Numbers and Booleans match as text; other values only through a `fieldText` hook.
+ * Its settings are reactive configs, so a change re-filters without swapping a callback. An empty query or an empty
+ * `fields` list is inert and not `effective`. Strings, Numbers and Booleans match as text; other values only through a `fieldText` hook.
  * Local only: `export()` returns null. Writers check `Store#getSearchRefusal()` first.
  *
  * @example
@@ -58,11 +58,11 @@ class SearchFilter extends Filter {
     #terms = null
 
     /**
-     * @summary True while the search narrows anything: enabled and holding at least one term.
+     * @summary True while the search narrows anything: enabled, with at least one term and one field.
      * @member {Boolean} effective
      */
     get effective() {
-        return !this.disabled && this.getTerms().length > 0
+        return !this.disabled && this.getTerms().length > 0 && this._fields?.length > 0
     }
 
     afterSetCaseSensitive(value, oldValue) {
@@ -118,16 +118,18 @@ class SearchFilter extends Filter {
             return true
         }
 
-        const terms = me.getTerms();
+        const fields = me._fields,
+              terms  = me.getTerms();
 
-        if (!terms.length) {
+        // An empty query or an empty scope searches nothing, so it keeps every record.
+        if (!terms.length || !fields?.length) {
             return false
         }
 
         const fieldText = me._fieldText,
               texts     = [];
 
-        for (const field of me._fields || []) {
+        for (const field of fields) {
             const value = item[field],
                   hook  = fieldText?.[field];
 

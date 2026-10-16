@@ -106,6 +106,24 @@ test.describe('Store-wide record search', () => {
         expect(query.effective).toBe(false)
     });
 
+    test('an empty scope is inert too, keeping the query and the independent disabled flag', async () => {
+        const store = await makeStore({filters: [search('falcon', [])]});
+        const query = store.getFilter(null, 'grid-search');
+
+        expect(ids(store)).toEqual([101, 102, 103, 104, 105]);
+        expect(query.effective).toBe(false);
+        expect(query.value).toBe('falcon');
+        expect(query.disabled).toBe(false);
+
+        query.fields = ['title'];
+        expect(ids(store)).toEqual([101, 102, 103]);
+        expect(query.effective).toBe(true);
+
+        query.fields = null;
+        expect(ids(store)).toEqual([101, 102, 103, 104, 105]);
+        expect(query.effective).toBe(false)
+    });
+
     test('an explicit null property stays the columnless slot from config to complete replacement', async () => {
         const store  = await makeStore({filters: [search()]});
         const before = store.getFilter(null, 'grid-search');
