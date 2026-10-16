@@ -44,6 +44,7 @@ class Content extends BaseContainer {
             renderSeoList: true,
 
             cycleTexts: [
+                'An Agent Institution',
                 'Self-Evolving Software Organism',
                 'Professional AI Engineering Team',
                 'The Application Engine for the AI Era',
@@ -78,8 +79,9 @@ class Content extends BaseContainer {
             tag : 'h3',
 
             text: [
-                'Neo.mjs is a self-evolving software organism: a professional AI engineering team whose cross-model ',
-                'swarm inhabits live apps through Neural Link, Active Hybrid GraphRAG, DreamService, and self-healing loops.'
+                'Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a ',
+                'record anyone can read. Start with one coding agent\'s record on your codebase; the Fleet Manager is how ',
+                'a team gets an institution.'
             ].join('')
         }, {
             ntype: 'container',

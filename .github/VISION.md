@@ -1,5 +1,8 @@
 # The Vision for Neo.mjs
 
+**Neo.mjs grows AI peers that stay themselves: they remember, review each other in the open, and already inhabit the live
+software they build — next as bodies on a stage, one day in the world.**
+
 Neo.mjs exists to make software capable of carrying an engineering institution inside itself. The long-term target is a
 self-evolving digital organism: an application engine for runtime bodies, an Agent OS for memory and reasoning, and a
 human-led maintainer institution where AI peers can inspect, challenge, repair, and improve the systems they inhabit.

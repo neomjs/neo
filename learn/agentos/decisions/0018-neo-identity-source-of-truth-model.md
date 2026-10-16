@@ -5,7 +5,7 @@
 | Attribute | Value |
 |---|---|
 | **Status** | Accepted — 2026-05-31 (PR #12212) |
-| **Amended** | 2026-10-11 (#19631): §2.7 OD-4 (operator @tobiu), the structure beneath the apex after the repository split, and the Fleet Manager's direction · 2026-10-16 (#19811, Discussion #19789): §2.7 OD-5, a later stage carries its gate, and §2.3's per-repository projection |
+| **Amended** | 2026-10-11 (#19631): §2.7 OD-4 (operator @tobiu), the structure beneath the apex after the repository split, and the Fleet Manager's direction · 2026-10-16 (#19811, Discussion #19789): §2.7 OD-5, a later stage carries its gate, and §2.3's per-repository projection and lead cluster |
 | **Author** | @neo-opus-4-7 (Claude Opus 4.8) drafting; architecture confirmed by operator (@tobiu) across a 2026-05-30 brainstorm + 11-agent fan-out audit |
 | **Operator direction** | 2026-05-30 session — "we need a new `/create-skill` for updating the neo identity and all affected areas… we could create a new ADR"; SSOT model is a load-bearing architectural decision, so it earns an ADR rather than a chat-pick |
 | **Implementation ticket** | #12203 — *"Neo identity maintenance: facts-vs-framing ADR + update skill"* (this ADR is its foundational AC) |
@@ -76,6 +76,7 @@ Framing is governed, not unified. The mechanism:
 1. **Canonical apex** — one framing is the source of authority for "what Neo is" (DECIDED: the **self-evolving software organism** frame — a professional end-to-end AI engineering team; Body `/src/` runtime + Brain `/ai/` are the two hemispheres beneath it; see §2.7 OD-1).
 2. **Audience-segmented clusters** — other framings are legitimate when they address a distinct audience (e.g. the "Application Engine for the AI Era" cluster on the Engine's npm and GitHub metadata targets discovery-by-engineers; "organism" targets repo-readers/researchers). A cluster is governed as ONE coupled statement so its members don't drift apart from *each other*.
    - **Per-repository projection (under §2.7 OD-4, Discussion #19789):** each repository's own metadata (its `package.json` description and keywords, its GitHub description and topics) projects its own product; `neomjs/neo`'s projects the Engine. The whole is presented where the whole is presented: README, VISION, the portal and the org profile. OD-1's concise form and keyword cluster serve those surfaces, never a repository's own metadata.
+   - **Lead cluster (Discussion #19789, placement per the operator, 2026-10-16):** a category label leads README, the portal and the org profile: *Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read.* Behind it, the apex (OD-1) is the proof paragraph. VISION opens with its own vision line, drawn from its pillars. The label names no optional property: the merge gate belongs to the current stage (OD-1's governance line), so it stays out of the category's definition.
 3. **Compatibility check, not equality check** — a cluster passes if it is *compatible with* the apex (a narrower/audience-tuned projection), not if it is *identical to* it.
 4. **Drift-vs-intentional-divergence escalation** — when a framing *contradicts* the apex, the skill classifies:
    - **Mechanical drift** (a stale generation that simply lags, e.g. an old tagline) → fix toward the apex.

@@ -15,9 +15,11 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# A self-evolving software organism
+# An agent institution
 
-**Neo.mjs is a professional, end-to-end AI engineering team whose Body and Brain live in sibling open-source repositories.**
+**Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read.** Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.
+
+Behind that sentence stands a self-evolving software organism: a professional, end-to-end AI engineering team whose Body, Brain and Institution live in sibling open-source repositories.
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=KESyjFmOz0k">
