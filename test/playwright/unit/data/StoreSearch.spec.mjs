@@ -142,6 +142,37 @@ test.describe('Store-wide record search', () => {
             .toThrow('Duplicate owned filter contribution: app/id')
     });
 
+    test('instances keep identity, base and subclass never reconcile, and a foreign module is refused', async () => {
+        const store = await makeStore({filters: [search()]});
+        const query = store.getFilter(null, 'grid-search');
+
+        store.filters = store.filters.slice();
+        expect(store.getFilter(null, 'grid-search')).toBe(query);
+        query.value = 'queue';
+        expect(ids(store)).toEqual([105]);
+
+        expect(() => store.filters = [query, search()]).toThrow('Duplicate owned filter contribution: grid-search/null');
+        expect(() => store.filters = [{module: Object, value: 'x'}]).toThrow('Filter module must be Neo.collection.Filter');
+        expect(store.filters).toEqual([query]);
+
+        store.filters = [{ownerRole: 'grid-search', property: null, filterBy: ({item}) => item.id !== 101}];
+        const base = store.getFilter(null, 'grid-search');
+        expect(base).not.toBeInstanceOf(SearchFilter);
+        expect(query.isDestroyed).toBe(true);
+        expect(ids(store)).toEqual([101]);
+
+        store.filters = [search('Falcon retry', ['title'])];
+        expect(store.getFilter(null, 'grid-search')).toBeInstanceOf(SearchFilter);
+        expect(base.isDestroyed).toBe(true);
+        expect(ids(store)).toEqual([103]);
+
+        // An explicit undefined property is absent: validator and instance both take the class default.
+        store.filters = [{...search(), ownerRole: 'x', property: undefined}, {ownerRole: 'y', property: undefined, value: 103}];
+        expect(store.getFilter(null, 'x').property).toBeNull();
+        expect(store.getFilter('id', 'y').property).toBe('id');
+        expect(ids(store)).toEqual([103])
+    });
+
     test('the columnless search coexists with per-field roles and unowned predicates', async () => {
         const store = await makeStore({filters: [
             search(),

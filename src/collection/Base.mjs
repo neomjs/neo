@@ -349,8 +349,11 @@ class Collection extends Base {
         try {
             value = value.slice();
             value.forEach(key => {
+                if (key.module && !(key.module === Filter || Filter.isPrototypeOf(key.module))) {
+                    throw new TypeError('Filter module must be Neo.collection.Filter or a subclass')
+                }
                 // The key resolves the property its Filter will expose: an explicit null stays null (a columnless
-                // contribution), and an absent property takes the class default.
+                // contribution), and an absent or undefined property takes the class default.
                 const role     = key.ownerRole ?? null,
                       property = key.property !== undefined ? key.property : (key.module || Filter).config.property;
                 if (role !== null) {
@@ -363,15 +366,21 @@ class Collection extends Base {
             });
 
             value = value.map(key => {
+                // Instances keep their identity; only configs are matched by value.
+                if (key instanceof Filter) {
+                    const index = previous.indexOf(key);
+                    return index === -1 ? key : previous.splice(index, 1)[0]
+                }
                 // A config may name a Filter subclass as `module`; its merged config defines what matches.
-                const cls   = key.module || Filter,
-                      index = previous.findIndex(filter => filter === key || filter.constructor === cls &&
-                    Object.entries(cls.config).every(([name, fallback]) => runtimeConfigs.has(name) ||
-                        matchesConfig(filter, name, name in key ? key[name] : fallback)) &&
-                    Object.keys(key).every(name => name === 'module' || matchesConfig(filter, name, key[name])));
-                if (index !== -1) return previous.splice(index, 1)[0];
                 const {module, ...config} = key,
-                      filter              = module ? Neo.create(module, config) : Neo.create(Filter, key);
+                      cls                 = module || Filter;
+                if (config.property === undefined) delete config.property;
+                const index = previous.findIndex(filter => filter.constructor === cls &&
+                    Object.entries(cls.config).every(([name, fallback]) => runtimeConfigs.has(name) ||
+                        matchesConfig(filter, name, name in config ? config[name] : fallback)) &&
+                    Object.keys(config).every(name => matchesConfig(filter, name, config[name])));
+                if (index !== -1) return previous.splice(index, 1)[0];
+                const filter = Neo.create(cls, config);
                 created.push(filter);
                 return filter
             })
