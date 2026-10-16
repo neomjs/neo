@@ -90,6 +90,8 @@ class VerticalScrollbar extends Component {
             ScrollSync = await Neo.currentWorker.getAddon('ScrollSync', windowId),
             params     = {id: me.id, windowId};
 
+        if (mounted && me.isDestroyed) return;
+
         if (mounted) {
             ScrollSync.register({
                 fromId: me.parent.view.id,
@@ -141,6 +143,16 @@ class VerticalScrollbar extends Component {
         // so each call needs its own copy — a shared object breaks the second call silently.
         value   ?.on({...listeners});
         oldValue?.un({...listeners})
+    }
+
+    /**
+     * @summary Retires the scroll sync this scrollbar registered on mount. The grid destroys it directly,
+     * never through an unmount, so `afterSetMounted()` retires nothing here.
+     * @param args
+     */
+    destroy(...args) {
+        this.mounted && this.addScrollSync(false);
+        super.destroy(...args)
     }
 
     /**
