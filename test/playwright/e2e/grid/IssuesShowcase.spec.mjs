@@ -105,27 +105,6 @@ test.describe('Grid issues showcase', () => {
         await expect.poll(verdict, {timeout: 20000}).toEqual({aligned: true, fits: true, varied: true})
     });
 
-    test('the State menu filters by value and clears', async ({page}) => {
-        const all     = [...new Set(issues.map(issue => issue.state))].sort(),
-              closed  = issues.filter(issue => issue.state === 'Closed').length,
-              menu    = page.locator('.neo-grid-column-menu'),
-              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
-              states  = async () => [...new Set((await readRows(page)).map(row => row.state))].sort();
-
-        await expect.poll(states).toEqual(all);
-
-        await wrapper.hover();
-        await wrapper.locator('.neo-grid-menu-trigger').click();
-        await expect(menu.locator('[role="option"]')).toHaveCount(all.length);
-        await expect(menu.locator('[role="option"]').filter({hasText: 'Closed'})).toHaveAttribute('aria-label', `Closed, ${closed} matches`);
-
-        await menu.locator('[role="option"]').filter({hasText: 'Closed'}).click();
-        await expect.poll(states).toEqual(['Closed']);
-
-        await menu.getByRole('button', {name: 'Clear'}).click();
-        await expect.poll(states).toEqual(all)
-    });
-
     test('fixed rows show each title and summary as one line, cut with an ellipsis (#19806)', async ({page}) => {
         const toggle = page.locator('.issues-toggle').getByText('Content-sized rows'),
               // Per visible Title/Summary cell: its distinct text lines, whether they sit inside the content box
@@ -159,6 +138,27 @@ test.describe('Grid issues showcase', () => {
         await toggle.click();
         await expect.poll(() => page.locator(`${GRID} .neo-grid-cell-text`).count()).toBeGreaterThan(0);
         expect((await cells()).some(cell => cell.lines > 1)).toBe(true)
+    });
+
+    test('the State menu filters by value and clears', async ({page}) => {
+        const all     = [...new Set(issues.map(issue => issue.state))].sort(),
+              closed  = issues.filter(issue => issue.state === 'Closed').length,
+              menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              states  = async () => [...new Set((await readRows(page)).map(row => row.state))].sort();
+
+        await expect.poll(states).toEqual(all);
+
+        await wrapper.hover();
+        await wrapper.locator('.neo-grid-menu-trigger').click();
+        await expect(menu.locator('[role="option"]')).toHaveCount(all.length);
+        await expect(menu.locator('[role="option"]').filter({hasText: 'Closed'})).toHaveAttribute('aria-label', `Closed, ${closed} matches`);
+
+        await menu.locator('[role="option"]').filter({hasText: 'Closed'}).click();
+        await expect.poll(states).toEqual(['Closed']);
+
+        await menu.getByRole('button', {name: 'Clear'}).click();
+        await expect.poll(states).toEqual(all)
     })
 });
 
