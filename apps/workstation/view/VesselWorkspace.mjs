@@ -651,10 +651,16 @@ class VesselWorkspace extends DockWorkspace {
                     // The designed exit (Viewport.scss): the theme-ground overlay fades in over `--motion-panel`
                     // and holds before the OS close. Awaited through the browser's own Animation API in the
                     // vessel's window once the class has reached its DOM, then held one beat so the opaque ground
-                    // is what the window dies on; a missing or instant animation resolves at once.
-                    departed = viewport.promiseUpdate().then(() => Neo.main.DomAccess.waitForAnimation({
-                        animationName: 'workstation-vessel-depart', id: viewport.id, windowId: source.windowId
-                    })).then(() => me.timeout(80)).catch(() => null)
+                    // is what the window dies on. Presentation never refuses a transfer: a view that cannot
+                    // report its update, a main thread without the primitive, a missing or instant animation
+                    // all settle at once.
+                    departed = Promise.resolve()
+                        .then(() => viewport.promiseUpdate?.())
+                        .then(() => Neo.main?.DomAccess?.waitForAnimation?.({
+                            animationName: 'workstation-vessel-depart', id: viewport.id, windowId: source.windowId
+                        }))
+                        .then(() => me.timeout(80))
+                        .catch(() => null)
                 }
             }
             // Main's ADOPTION, not its settled surface: the retire below needs the pane in main's DOM, which
