@@ -429,7 +429,10 @@ class Button extends BaseButton {
             }
         }
 
-        me.isSorted = map[me.isSorted + ''];
+        // A non-sortable header keeps its click (the button handler), but never starts a sort
+        if (me.sortable) {
+            me.isSorted = map[me.isSorted + '']
+        }
 
         super.onClick(data)
     }
