@@ -131,7 +131,7 @@ class SearchFilter extends Filter {
 
         for (const field of fields) {
             const value = item[field],
-                  hook  = fieldText?.[field];
+                  hook  = SearchFilter.getHook(fieldText, field);
 
             let text = hook ? hook(value, item) : SearchFilter.getDefaultText(value);
 
@@ -167,6 +167,18 @@ class SearchFilter extends Filter {
     static getDefaultText(value) {
         const type = typeof value;
         return type === 'string' || type === 'number' || type === 'boolean' ? String(value) : null
+    }
+
+    /**
+     * @summary A field's own callable hook, never an inherited member such as `toString`.
+     * @param {Object|null} fieldText
+     * @param {String} field
+     * @returns {Function|null}
+     * @static
+     */
+    static getHook(fieldText, field) {
+        const hook = fieldText && Object.hasOwn(fieldText, field) ? fieldText[field] : null;
+        return typeof hook === 'function' ? hook : null
     }
 }
 

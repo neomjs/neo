@@ -6,6 +6,7 @@ import Model           from './Model.mjs';
 import Observable      from '../core/Observable.mjs';
 import Pipeline        from './Pipeline.mjs';
 import RecordFactory   from './RecordFactory.mjs';
+import SearchFilter    from '../collection/SearchFilter.mjs';
 import StoreManager    from '../manager/Store.mjs';
 
 const
@@ -883,7 +884,7 @@ class Store extends Collection {
                 return 'unknown-field'
             }
 
-            if (!fieldText?.[name] && !plainTextFieldTypes.has(field.type?.toLowerCase() ?? 'auto')) {
+            if (!SearchFilter.getHook(fieldText, name) && !plainTextFieldTypes.has(field.type?.toLowerCase() ?? 'auto')) {
                 return 'unsupported-field'
             }
         }

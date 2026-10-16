@@ -347,8 +347,16 @@ class Collection extends Base {
             };
 
         try {
+            const instances = new Set();
             value = value.slice();
             value.forEach(key => {
+                // An instance joins once, and only if it is live and either unattached or already this collection's.
+                if (key instanceof Filter) {
+                    if (key.isDestroyed || instances.has(key) || key.listenerApplied && !previous.includes(key)) {
+                        throw new TypeError('A Filter instance must be live, listed once, and unattached or already in this collection')
+                    }
+                    instances.add(key)
+                }
                 if (key.module && !(key.module === Filter || Filter.isPrototypeOf(key.module))) {
                     throw new TypeError('Filter module must be Neo.collection.Filter or a subclass')
                 }

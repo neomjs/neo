@@ -191,6 +191,49 @@ test.describe('Store-wide record search', () => {
         expect(ids(store)).toEqual([103])
     });
 
+    test('a Filter instance joins one collection once; a fresh standalone one is adopted', async () => {
+        const owner = create(Collection, {items: [{id: 1, title: 'a'}, {id: 2, title: 'b'}],
+            filters: [{module: SearchFilter, ownerRole: 'grid-search', fields: ['title'], value: 'a'}]});
+        const query = owner.filters[0];
+        const other = create(Collection, {items: [{id: 1, title: 'a'}, {id: 2, title: 'b'}]});
+
+        expect(() => other.filters = [query]).toThrow('A Filter instance must be live, listed once');
+        expect(other.filters).toEqual([]);
+        query.value = 'b';
+        expect(owner.items.map(item => item.id)).toEqual([2]);
+
+        const fresh = create(SearchFilter, {ownerRole: 'grid-search', fields: ['title'], value: 'a'});
+        expect(() => other.filters = [fresh, fresh]).toThrow('A Filter instance must be live, listed once');
+        expect(other.filters).toEqual([]);
+
+        other.filters = [fresh];
+        expect(other.items.map(item => item.id)).toEqual([1]);
+        fresh.value = 'b';
+        expect(other.items.map(item => item.id)).toEqual([2]);
+        other.filters = [fresh];
+        expect(fresh.isDestroyed).not.toBe(true)
+    });
+
+    test('fieldText hooks are own functions, never inherited members like toString', async () => {
+        const store = await makeStore({
+            autoInitRecords: false,
+            model          : {module: Model, fields: [{name: 'id', type: 'Int'}, {name: 'toString', type: 'String'}, {name: 'opened', type: 'Date'}]},
+            data           : [{id: 1, toString: 'Alpha', opened: new Date('2026-10-16T00:00:00Z')}, {id: 2, toString: 'Beta', opened: null}]
+        });
+
+        store.filters = [{module: SearchFilter, ownerRole: 'grid-search', fields: ['toString'], value: 'alpha'}];
+        const query = store.getFilter(null, 'grid-search');
+        expect(ids(store)).toEqual([1]);
+        query.fieldText = {};
+        expect(ids(store)).toEqual([1]);
+        query.fieldText = {opened: value => value?.toISOString() ?? ''};
+        expect(ids(store)).toEqual([1]);
+
+        expect(store.getSearchRefusal(['opened'], {})).toBe('unsupported-field');
+        expect(store.getSearchRefusal(['opened'], {opened: 'not a function'})).toBe('unsupported-field');
+        expect(store.getSearchRefusal(['toString', 'opened'], {opened: value => String(value)})).toBeNull()
+    });
+
     test('the columnless search coexists with per-field roles and unowned predicates', async () => {
         const store = await makeStore({filters: [
             search(),
