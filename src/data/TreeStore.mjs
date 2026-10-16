@@ -613,7 +613,7 @@ class TreeStore extends Store {
 
         // 1. Soft hydration (Turbo Mode)
         if (!me.autoInitRecords && me.model?.hasComplexFields && activeFilters.length > 0) {
-            const filterProperties = activeFilters.map(f => f.property),
+            const filterProperties = activeFilters.flatMap(f => f.fields || (f.property === null ? [] : [f.property])),
                   len              = filterProperties.length;
 
             if (len > 0) {
@@ -774,6 +774,14 @@ class TreeStore extends Store {
      */
     getFilterValues() {
         return {refused: true, reason: 'tree-population'}
+    }
+
+    /**
+     * @summary Refuses record search; a tree's visible population depends on expansion, not only on the query.
+     * @returns {String}
+     */
+    getSearchRefusal() {
+        return 'tree-population'
     }
 
     /**

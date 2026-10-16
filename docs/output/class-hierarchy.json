@@ -162,6 +162,7 @@
  "Neo.code.executor.Neo": "Neo.core.Base",
  "Neo.collection.Base": "Neo.core.Base",
  "Neo.collection.Filter": "Neo.core.Base",
+ "Neo.collection.SearchFilter": "Neo.collection.Filter",
  "Neo.collection.Sorter": "Neo.core.Base",
  "Neo.component.Abstract": "Neo.core.Base",
  "Neo.component.Base": "Neo.component.Abstract",

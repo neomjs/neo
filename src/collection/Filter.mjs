@@ -42,6 +42,12 @@ class Filter extends Base {
          */
         disabled_: false,
         /**
+         * The fields this predicate reads when they are not just `property` (a callback or a multi-field subclass)
+         * @member {String[]|null} fields_=null
+         * @reactive
+         */
+        fields_: null,
+        /**
          * Provide a custom filtering function which has a higher priority than property, operator & value
          * @member {Function|null} filterBy_=null
          * @reactive
@@ -102,7 +108,20 @@ class Filter extends Base {
         value_: null
     }
 
+    /**
+     * @summary True while this filter narrows the collection: enabled, with a callback or a non-empty value.
+     * @member {Boolean} effective
+     */
+    get effective() {
+        const me = this;
+        return !me.disabled && (!!me.filterBy || !(me.includeEmptyValues && (me.value === null || Neo.isEmpty(me.value))))
+    }
+
     afterSetDisabled(...args) {
+        this.fireChangeEvent(...args)
+    }
+
+    afterSetFields(...args) {
         this.fireChangeEvent(...args)
     }
 
@@ -276,6 +295,7 @@ class Filter extends Base {
         return {
             ...super.toJSON(),
             disabled             : me.disabled,
+            fields               : me.fields,
             operator             : me.operator,
             ownerRole            : me.ownerRole,
             property             : me.property,
