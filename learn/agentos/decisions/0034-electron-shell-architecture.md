@@ -333,7 +333,7 @@ adoption.
     consent or bind a path to another window's value. Every operation starts from the record on
     disk, never from a copy the broker kept: an effect whose acknowledgement write the host
     rejected is found `pending` by the next request and settled by observation (ADR 0041), and a
-    record the broker cannot read refuses the operation. This is broker-local ordering, not a
+    record the broker cannot read refuses every operation but a fresh run. This is broker-local ordering, not a
     cross-process exclusion: the CLI and the shell are not expected to drive one run at the same
     time, and the record's digest-checked receipts make a crossed write visible as
     `reconcile-required`, never as a replay. The renderer holds no credential value, no path it did
