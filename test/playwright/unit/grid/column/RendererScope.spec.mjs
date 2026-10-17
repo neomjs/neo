@@ -161,6 +161,55 @@ test.describe('Neo.grid.column.Base renderer scope', () => {
         expect(scopes, 'the method ran on the configured scope').toEqual([explicit])
     });
 
+    /**
+     * A view controller above the grid, as `examples/grid/nestedRecordFields` declares one: it defines a renderer the
+     * column only names. `getHandlerScope` answers as `Neo.controller.Component#getHandlerScope` does for a name
+     * without a component: the controller that defines it, or null. It also defines `cellRenderer`, so a lookup
+     * that asked the controller before the column would take over the column's own renderer.
+     * @param {Object[]} scopes
+     * @returns {Object}
+     */
+    function createController(scopes) {
+        return {
+            getHandlerScope(name) {
+                return Neo.isFunction(this[name]) ? this : null
+            },
+
+            cellRenderer() {
+                return 'controller-took-over'
+            },
+
+            countryRenderer({value}) {
+                scopes.push(this);
+                return `controller:${value}`
+            }
+        }
+    }
+
+    test('a plain renderer name only a view controller defines runs on that controller', () => {
+        const scopes        = [],
+              controller    = createController(scopes),
+              gridContainer = {id: 'grid-1', parent: null, getController: () => controller},
+              column        = Neo.create(GridColumn, {dataField: 'country', parent: gridContainer, renderer: 'countryRenderer'}),
+              row           = createRowFake(gridContainer);
+
+        const cell = renderCell(row, column);
+
+        expect(cell.html, 'the controller\'s method ran').toBe('controller:de');
+        expect(scopes, 'it ran once, on the controller').toEqual([controller])
+    });
+
+    test('CONTROL: a name the column defines stays the column\'s when its view controller defines it too', () => {
+        const controller    = createController([]),
+              gridContainer = {id: 'grid-1', parent: null, getController: () => controller},
+              column        = Neo.create(GridColumn, {dataField: 'country', parent: gridContainer}),
+              row           = createRowFake(gridContainer);
+
+        const cell = renderCell(row, column);
+
+        expect(cell.html, 'the column\'s own cellRenderer ran').toBe('de')
+    });
+
     test('CONTROL: the default cellRenderer still resolves on the column itself', () => {
         const column = Neo.create(GridColumn, {dataField: 'country'}),
               row    = createRowFake({id: 'grid-1'});

@@ -97,7 +97,8 @@ class Column extends Base {
          * Three sources can name it, and this config is the first: an instance set here wins. A `renderer` string
          * resolves against an instance and records it here — `'up.name'` the ancestor that defines the method,
          * a plain name the column itself, which is what the default `cellRenderer` and every subclass override of
-         * it need to reach their own configs. A `renderer` function names no instance and runs on the grid
+         * it need to reach their own configs, and a plain name the column does not define the closest view
+         * controller above the grid that does. A `renderer` function names no instance and runs on the grid
          * Container. The strings `'this'` and `'me'` mean the column, as {@link Neo.grid.column.Component} sets.
          * @member {Neo.core.Base|String|null} rendererScope=null
          */
@@ -272,15 +273,24 @@ class Column extends Base {
         let me          = this,
             {fn, scope} = resolveCallback(value, me);
 
+        // A column is no component and has no controller of its own, so a plain name only a view controller defines
+        // is looked up through the grid's: the closest controller above it that defines the method runs it, as it
+        // would a component's string handler. The column is asked first, so a controller method of the same name
+        // never takes over `cellRenderer` or a subclass override of it.
+        if (!fn && Neo.isString(value) && !value.startsWith('up.')) {
+            scope = me.parent?.getController?.()?.getHandlerScope(value, null) || scope;
+            fn    = scope[value]
+        }
+
         // A name is resolved against an instance, and that instance is the one the method must run on: `up.name`
-        // names an ancestor, a plain name names the column itself — `cellRenderer` and every subclass override of
-        // it read their own configs. A function carries no such instance and falls through to the grid Container.
-        // An explicit rendererScope stays the author's choice, whichever of the two configs is applied first.
+        // names an ancestor, a plain name names the column itself or the view controller that defines it. A
+        // function carries no such instance and falls through to the grid Container. An explicit rendererScope
+        // stays the author's choice, whichever of the two configs is applied first.
         if (Neo.isString(value) && fn && !me.rendererScope) {
             me.rendererScope = scope
         }
 
-        // If no fn is found inside the parent tree, return the plain value for view controllers to match
+        // A name nothing defines stays the plain value
         return fn || value
     }
 
