@@ -5,6 +5,7 @@ import GridBody            from './Body.mjs';
 import ScrollManager       from './ScrollManager.mjs';
 import Store               from '../data/Store.mjs';
 import FooterToolbar       from './footer/Toolbar.mjs';
+import SearchToolbar       from './SearchToolbar.mjs';
 import HorizontalScrollbar from './HorizontalScrollbar.mjs';
 import NeoArray            from '../util/Array.mjs';
 import VerticalScrollbar   from './VerticalScrollbar.mjs';
@@ -125,10 +126,24 @@ class GridContainer extends BaseContainer {
          */
         columnDefaults: null,
         /**
+         * Enables value-filter menus for columns without their own override.
+         * @member {Boolean} columnMenu_=false
+         * @reactive
+         */
+        columnMenu_: false,
+        /**
          * @member {Object[]} columns_=[]
          * @reactive
          */
         columns_: [],
+        /**
+         * Opt-in content-sized rows: each row gets its own height, and the view positions rows through one
+         * {@link Neo.grid.RowGeometry} instead of `index × rowHeight`. `rowHeight` becomes the estimate for rows
+         * whose height is not known yet. Off by default: a fixed-height grid is unchanged.
+         * @member {Boolean} contentSizedRows_=false
+         * @reactive
+         */
+        contentSizedRows_: false,
         /**
          * Configs for Neo.toolbar.Base
          * @member {Object|null} [footerToolbar_={[isDescriptor]:true,merge:'deep',value:null}]
@@ -139,6 +154,13 @@ class GridContainer extends BaseContainer {
             merge         : 'deep',
             value         : null
         },
+        /**
+         * Optional record search and filter summary above the headers. Null preserves the ordinary grid.
+         * A replacement toolbar module must implement syncFromStore().
+         * @member {Object|Neo.toolbar.Base|null} searchToolbar_=null
+         * @reactive
+         */
+        searchToolbar_: {[isDescriptor]: true, merge: 'deep', value: null},
         /**
          * Configs for Neo.grid.header.Toolbar
          * @member {Object|null} [headerToolbar_={[isDescriptor]:true,merge:'deep',value:null}]
@@ -292,14 +314,17 @@ class GridContainer extends BaseContainer {
         me.view = Neo.create(View, {
             ...me.viewConfig,
             appName,
-            flex         : 1,
-            gridContainer: me,
-            isLoading    : me.isLoading,
-            parentId     : me.id,
-            theme        : me.theme,
+            contentSizedRows: me.contentSizedRows,
+            flex            : 1,
+            gridContainer   : me,
+            isLoading       : me.isLoading,
+            parentId        : me.id,
+            theme           : me.theme,
             windowId,
-            items        : [me.body]
+            items           : [me.body]
         });
+
+        me.view.addDomListeners({resize: {fn: me.onViewResize, scope: me}});
 
         me.horizontalScrollbar = Neo.create(HorizontalScrollbar, {
             appName,
@@ -310,16 +335,19 @@ class GridContainer extends BaseContainer {
         });
 
         me.verticalScrollbar = Neo.create({
-            module  : VerticalScrollbar,
+            module     : VerticalScrollbar,
             appName,
-            parentId: me.id,
+            parentId   : me.id,
+            rowGeometry: me.view.rowGeometry,
             rowHeight,
             store,
-            theme   : me.theme,
+            theme      : me.theme,
             windowId
         });
 
         me.items = [me.headerWrapper, me.view, me.horizontalScrollbar];
+
+        if (me.searchToolbar) me.items.unshift(me.searchToolbar);
 
         if (me.footerToolbar) {
             me.items.push(me.footerToolbar)
@@ -329,6 +357,8 @@ class GridContainer extends BaseContainer {
 
         me._columns = me.createColumns(me.columns);
         me.updateColCount();
+
+        me.syncSearchToolbar();
 
         me.syncValueBandingFields();
 
@@ -348,20 +378,26 @@ class GridContainer extends BaseContainer {
      * the real one in place, and releases nothing while looking like a teardown. `list.Buffered`
      * carries the same contract.
      *
+     * Both ids are read before the await, so an unregister that resumes after destroy still names
+     * both holders. A register that resumes after destroy returns: `destroy()` has already
+     * unregistered synchronously, so a late holder would never be removed.
+     *
      * @param {Boolean} mounted
      * @protected
      */
     async addResizeObserver(mounted) {
         let me             = this,
             {windowId}     = me,
-            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
-            resizeParams   = {componentId: me.id, id: me.id, windowId};
+            targets        = [me.id, me.view.id],
+            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId);
+
+        if (mounted && me.isDestroyed) return;
 
         if (mounted) {
-            ResizeObserver.register(resizeParams);
+            targets.forEach(id => ResizeObserver.register({componentId: id, id, windowId}));
             await me.passSizeToBody()
         } else {
-            ResizeObserver.unregister(resizeParams)
+            targets.forEach(id => ResizeObserver.unregister({componentId: id, id, windowId}))
         }
     }
 
@@ -411,8 +447,24 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Triggered after the columns config got changed
-     * @param {Neo.collection.Base|null}          value
+     * @summary Updates inherited menu opt-ins while preserving explicit per-column choices.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetColumnMenu(value, oldValue) {
+        if (oldValue !== undefined && this.headerWrapper) {
+            this.columns?.items?.forEach(column => {
+                if (column.columnMenu === null) {
+                    const button = this.getButton(column.dataField);
+                    if (button) button.columnMenu = value
+                }
+            })
+        }
+    }
+
+    /**
+     * Triggered after the columns config got changed.
+     * @param {Neo.collection.Base|null} value
      * @param {Object[]|Neo.collection.Base|null} oldValue
      * @protected
      */
@@ -434,7 +486,23 @@ class GridContainer extends BaseContainer {
             me.body?.createViewData()
         }
 
-        me.configsApplied && me.updateColCount()
+        me.configsApplied && me.updateColCount();
+        me.syncSearchToolbar()
+    }
+
+    /**
+     * Triggered after the contentSizedRows config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetContentSizedRows(value, oldValue) {
+        let {scrollManager, view} = this;
+
+        if (view) view.contentSizedRows = value;
+
+        // The scroll corrections of content-sized rows need the row scroll addon, also with pinning off
+        scrollManager?.mounted && scrollManager.updateRowScrollPinningAddon(scrollManager.usesRowScrollAddon)
     }
 
     /**
@@ -449,6 +517,22 @@ class GridContainer extends BaseContainer {
         if (value && me.store && value.store !== me.store) {
             value.store = me.store
         }
+    }
+
+    /**
+     * @summary Replaces optional search chrome without changing the Store-owned search intent.
+     * @param {Neo.toolbar.Base|null} value
+     * @param {Neo.toolbar.Base|null} oldValue
+     */
+    afterSetSearchToolbar(value, oldValue) {
+        const me = this;
+        if (oldValue && me.items?.includes(oldValue)) me.remove(oldValue);
+        if (value) {
+            value.gridContainer = me;
+            value.store = me.store;
+            if (me.isConstructed && !me.items.includes(value)) me.insert(0, value)
+        }
+        me.syncSearchToolbar()
     }
 
     /**
@@ -514,11 +598,21 @@ class GridContainer extends BaseContainer {
      */
     afterSetRowHeight(value, oldValue) {
         if (value > 0) {
-            let {body, bodyEnd, bodyStart} = this;
+            let {body, bodyEnd, bodyStart, view} = this,
+                rowGeometry                      = view?.rowGeometry;
+
+            // Content-sized rows: rowHeight is the estimate for every row whose height is not known yet. It
+            // changes first, so the bodies' extent updates below read it.
+            if (rowGeometry) rowGeometry.estimate = value;
 
             if (body)      body.rowHeight = value;
             if (bodyStart) bodyStart.rowHeight = value;
             if (bodyEnd)   bodyEnd.rowHeight = value;
+
+            // rowHeight is also the floor of measured rows. Deriving them again refreshes the geometry if one changed.
+            if (rowGeometry && !view.refreshMeasuredHeights()) {
+                view.mounted && view.refreshRowGeometry()
+            }
         }
     }
 
@@ -530,7 +624,7 @@ class GridContainer extends BaseContainer {
      */
     afterSetShowHeaderFilters(value, oldValue) {
         if (oldValue !== undefined) {
-            this.headerToolbar.showHeaderFilters = value
+            this.headerWrapper.getToolbars().forEach(toolbar => {toolbar.showHeaderFilters = value})
         }
     }
 
@@ -542,7 +636,7 @@ class GridContainer extends BaseContainer {
      */
     afterSetSortable(value, oldValue) {
         if (oldValue !== undefined) {
-            this.headerToolbar.sortable = value
+            this.headerWrapper.getToolbars().forEach(toolbar => {toolbar.sortable = value})
         }
     }
 
@@ -554,7 +648,7 @@ class GridContainer extends BaseContainer {
      */
     afterSetUseTriStateSorting(value, oldValue) {
         if (oldValue !== undefined) {
-            this.headerToolbar.useTriStateSorting = value
+            this.headerWrapper.getToolbars().forEach(toolbar => {toolbar.useTriStateSorting = value})
         }
     }
 
@@ -594,7 +688,10 @@ class GridContainer extends BaseContainer {
             me.footerToolbar.store = value
         }
 
-        me.syncValueBandingFields()
+        if (me.searchToolbar && me.searchToolbar.store !== value) me.searchToolbar.store = value;
+
+        me.syncValueBandingFields();
+        me.syncFilteredHeaders()
     }
 
     /**
@@ -718,6 +815,19 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Creates optional native search chrome with this grid's column and Store context.
+     * @param {Object|Neo.toolbar.Base|null} value
+     * @param {Neo.toolbar.Base|null} oldValue
+     * @returns {Neo.toolbar.Base|null}
+     */
+    beforeSetSearchToolbar(value, oldValue) {
+        if (!value) return null;
+        return ClassSystemUtil.beforeSetInstance(value, SearchToolbar, {
+            flex: 'none', gridContainer: this, parentId: this.id, store: this.store, theme: this.theme
+        })
+    }
+
+    /**
      * Triggered before the headerToolbar config gets changed.
      * @param {Object|Neo.grid.header.Toolbar|null} value
      * @param {Object|Neo.grid.header.Toolbar|null} oldValue
@@ -807,12 +917,14 @@ class GridContainer extends BaseContainer {
                     column.isSorted = sorters[0].direction
                 }
 
+                column.isFiltered = me.isColumnFiltered(column.dataField);
+
                 column.listeners = {
                     sort : me.onSortColumn,
                     scope: me
                 };
 
-                buttonConfig = {...column};
+                buttonConfig = {...column, columnMenu: column.columnMenu ?? me.columnMenu};
 
                 // An id the app gave the column names the column: its button takes a generated one
                 delete buttonConfig.id;
@@ -873,7 +985,19 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons) {
-        let me = this;
+        let me = this,
+            // A locked body is the center body's class with its configs, placed in this view
+            lockedBody = () => Neo.cloneNeoInstance(me.body, {
+                flex         : 'none',
+                gridContainer: me,
+                parentId     : me.view.id,
+                reference    : null,
+                rowHeight    : me.rowHeight,
+                store        : me.store,
+                theme        : me.theme,
+                useInternalId: me.useInternalId,
+                windowId     : me.windowId
+            });
 
         // The header region (locked + centre toolbars) is owned by the dedicated header.Wrapper orchestrator.
         me.headerWrapper.updateHeaders(lockedStartButtons, centerButtons, lockedEndButtons);
@@ -881,17 +1005,7 @@ class GridContainer extends BaseContainer {
         // --- Start body (Left) ---
         if (me.lockedStartColumns.length > 0) {
             if (!me.bodyStart) {
-                me.bodyStart = Neo.create(GridBody, {
-                    ...me.body.initialConfig,
-                    flex         : 'none',
-                    gridContainer: me,
-                    parentId     : me.view.id,
-                    rowHeight    : me.rowHeight,
-                    store        : me.store,
-                    theme        : me.theme,
-                    useInternalId: me.useInternalId,
-                    windowId     : me.windowId
-                })
+                me.bodyStart = lockedBody()
             }
         } else if (me.bodyStart) {
             me.bodyStart.destroy();
@@ -905,17 +1019,7 @@ class GridContainer extends BaseContainer {
         // --- End body (Right) ---
         if (me.lockedEndColumns.length > 0) {
             if (!me.bodyEnd) {
-                me.bodyEnd = Neo.create(GridBody, {
-                    ...me.body.initialConfig,
-                    flex         : 'none',
-                    gridContainer: me,
-                    parentId     : me.view.id,
-                    rowHeight    : me.rowHeight,
-                    store        : me.store,
-                    theme        : me.theme,
-                    useInternalId: me.useInternalId,
-                    windowId     : me.windowId
-                })
+                me.bodyEnd = lockedBody()
             }
         } else if (me.bodyEnd) {
             me.bodyEnd.destroy();
@@ -1051,11 +1155,11 @@ class GridContainer extends BaseContainer {
 
         // `componentId` names the holder to drop; without it the addon removes nothing and the
         // native observer outlives this grid. See addResizeObserver().
-        me.mounted && Neo.main.addon.ResizeObserver.unregister({
-            componentId: me.id,
-            id         : me.id,
-            windowId   : me.windowId
-        });
+        if (me.mounted) {
+            [me.id, me.view.id].forEach(id => Neo.main.addon.ResizeObserver.unregister({
+                componentId: id, id, windowId: me.windowId
+            }))
+        }
 
         super.destroy(...args)
     }
@@ -1102,10 +1206,7 @@ class GridContainer extends BaseContainer {
             // body still holds the columnPositions / availableWidth of its OLD membership. Rebuild
             // them from the new toolbar memberships before re-rendering the rows, or the gaining
             // region renders without the column and the losing region keeps a hidden ghost position.
-            let {headerWrapper} = me,
-                toolbars        = [headerWrapper.headerStart, me.headerToolbar, headerWrapper.headerEnd].filter(Boolean);
-
-            await Promise.all(toolbars.map(toolbar => toolbar.passSizeToBody()));
+            await Promise.all(me.headerWrapper.getToolbars().map(toolbar => toolbar.passSizeToBody()));
 
             // Force a full row re-render to apply the new column order and styles
             if (me.body)      me.body.createViewData();
@@ -1202,7 +1303,8 @@ class GridContainer extends BaseContainer {
 
         me.headerWrapper.applyColumnButtonOrder(me.lockedStartColumns, me.centerColumns, me.lockedEndColumns);
 
-        me.updateColCount()
+        me.updateColCount();
+        me.syncSearchToolbar()
     }
 
     /**
@@ -1243,11 +1345,25 @@ class GridContainer extends BaseContainer {
 
         await me.passSizeToBody(true);
 
+        // The delivery is buffered, so the grid can be gone by now
+        if (me.isDestroyed) {
+            return
+        }
+
         me.bodyStart?.updateMountedAndVisibleColumns();
         me.body.updateMountedAndVisibleColumns();
         me.bodyEnd?.updateMountedAndVisibleColumns();
 
         await me.headerToolbar.passSizeToBody()
+    }
+
+    /**
+     * @summary Header, footer and search chrome can resize the body viewport without resizing the grid itself.
+     * Keep body sizing and the scrollbar overlay on that viewport's actual layout bounds.
+     * @returns {Promise<void>}
+     */
+    onViewResize() {
+        return this.passSizeToBody()
     }
 
     /**
@@ -1288,7 +1404,8 @@ class GridContainer extends BaseContainer {
      *
      */
     onStoreFilter() {
-        this.updateRowCount()
+        this.updateRowCount();
+        this.syncFilteredHeaders()
     }
 
     /**
@@ -1302,6 +1419,7 @@ class GridContainer extends BaseContainer {
             totalCount = data.total ? data.total : this.store.count;
 
         me.updateRowCount(totalCount);
+        me.syncFilteredHeaders();
 
         if (me.store.sorters?.length < 1) {
             me.removeSortingCss()
@@ -1309,7 +1427,7 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @summary Measures the container chrome and passes the derived body size downstream.
+     * @summary Measures the view and the container and passes the body size downstream.
      *
      * Reads LAYOUT-box metrics (`getLayoutRect()`), never `getBoundingClientRect()`: this async
      * measurement races presentation windows (a committed dock resize triggers it while DockFlip
@@ -1319,24 +1437,32 @@ class GridContainer extends BaseContainer {
      * @returns {Promise<void>}
      */
     async passSizeToBody(silent=false) {
-        let me                             = this,
-            {footerToolbar, headerToolbar} = me,
-            domRects                       = [me.id, headerToolbar.id],
-            containerRect, footerRect, headerRect;
+        let me                    = this,
+            {headerToolbar, view} = me,
+            containerRect, headerRect, viewRect;
 
-        if (footerToolbar) {
-            domRects.push(footerToolbar.id)
+        // `view` resolves nothing once the grid is gone, as a late (buffered) resize delivery can find it
+        if (!view) {
+            return
         }
 
-        [containerRect, headerRect, footerRect] = await me.getLayoutRect(domRects);
+        [containerRect, headerRect, viewRect] = await me.getLayoutRect([me.id, headerToolbar.id, view.id]);
 
         // delay for slow connections, where the container-sizing is not done yet
         if (containerRect.height === headerRect.height) {
             await me.timeout(100);
             await me.passSizeToBody(silent)
         } else {
+            // The view and scrollbar share the positioned grid as their offset parent. Layout coordinates
+            // also stay valid while an ancestor presents a transformed dock transition.
+            const scrollbar = me.verticalScrollbar;
+            if (scrollbar) {
+                scrollbar.style = {...scrollbar.style, top: `${viewRect.top}px`, height: `${viewRect.height}px`, bottom: 'auto'}
+            }
             let config = {
-                availableHeight: containerRect.height - headerRect.height - (footerRect?.height || 0),
+                // The view's own height: the container's also holds its borders, the header, the footer and the
+                // horizontal scrollbar below the view
+                availableHeight: viewRect.height,
                 containerWidth : containerRect.width
             };
 
@@ -1366,18 +1492,47 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @param {String} dataField
+     * @summary True while the Store holds an effective header-owned contribution, inline or picker, for the field.
+     * A cleared inline field keeps its filter with an empty value, which is not effective; application filters
+     * and the record search are not a column's own state.
+     * @param {String|null} dataField
+     * @returns {Boolean}
+     */
+    isColumnFiltered(dataField) {
+        const {store} = this;
+        return !!store && !!dataField && ['header-inline', 'header-picker'].some(role => store.getFilter(dataField, role)?.effective)
+    }
+
+    /**
+     * @summary Projects each header's filtered state from the Store, in every header region, whichever surface or
+     * caller changed the filters.
+     * @protected
+     */
+    syncFilteredHeaders() {
+        this.headerWrapper?.getToolbars().forEach(toolbar => {
+            toolbar.items.forEach(button => {
+                button.isFiltered = this.isColumnFiltered(button.dataField)
+            })
+        })
+    }
+
+    /** @summary Refreshes search chrome only after its descriptor has become a constructed toolbar. @protected */
+    syncSearchToolbar() {
+        const toolbar = this.searchToolbar;
+        if (toolbar?.isConstructed) toolbar.syncFromStore()
+    }
+
+    /**
+     * @summary Clears the sort state of every header except `dataField`'s, in every region: the Store keeps one sorter.
+     * @param {String} [dataField]
      * @protected
      */
     removeSortingCss(dataField) {
-        let items = this.headerToolbar?.items;
-        if (items) {
-            for (let i = 0, len = items.length; i < len; i++) {
-                if (items[i].dataField !== dataField) {
-                    items[i].removeSortingCss()
-                }
-            }
-        }
+        this.headerWrapper?.getToolbars().forEach(toolbar => {
+            toolbar.items.forEach(button => {
+                button.dataField !== dataField && button.removeSortingCss()
+            })
+        })
     }
 
     /**
@@ -1437,8 +1592,10 @@ class GridContainer extends BaseContainer {
             ...super.toJSON(),
             body         : me.body?.toJSON(),
             cellEditing  : me.cellEditing,
+            columnMenu   : me.columnMenu,
             columns      : me.columns?.items.map(item => item.toJSON()),
             footerToolbar: me.footerToolbar?.toJSON(),
+            searchToolbar: me.searchToolbar?.toJSON(),
             headerToolbar: me.headerToolbar?.toJSON(),
             rowHeight    : me.rowHeight,
 
@@ -1482,7 +1639,7 @@ class GridContainer extends BaseContainer {
         }
 
         if (me.scrollManager) {
-            me.scrollManager.rowScrollPinning && me.scrollManager.updateRowScrollPinningAddon(true);
+            me.scrollManager.usesRowScrollAddon && me.scrollManager.updateRowScrollPinningAddon(true);
             me.scrollManager.rowHoverSync     && me.scrollManager.updateGridRowHoverSyncAddon(me.hasLockedColumns);
         }
 

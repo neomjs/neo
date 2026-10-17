@@ -48,6 +48,13 @@ class PopupWorkspace extends DockWorkspace {
     workspaceSet = null
 
     /**
+     * Items a cross-window transfer landed here whose pane has not been re-rastered yet.
+     * @member {Set<String>} landingItemIds
+     * @protected
+     */
+    landingItemIds = new Set()
+
+    /**
      * Presentation and connection references owned by this popup; membership lives in its Group.
      * Supplied at creation by the root's `createPopupWorkspace`, so the Group registration in
      * {@link #construct} already finds it — a reader reacting to that membership must resolve it.
@@ -130,6 +137,85 @@ class PopupWorkspace extends DockWorkspace {
     }
 
     /**
+     * @summary Records the items a cross-window transfer lands in this vessel for {@link #refreshDockWorkspace}.
+     * @param {Object|null} document
+     * @param {Object|null} [descriptor=null]
+     * @param {Object|null} [source=null]
+     * @param {Object} [projectionOptions={}]
+     * @returns {Promise}
+     * @protected
+     */
+    projectDockZoneDocument(document, descriptor=null, source=null, projectionOptions={}) {
+        const me       = this,
+              previous = projectionOptions.previousDocument ?? me.dockModel;
+
+        if (['transferItem', 'transferNode'].includes(descriptor?.operation) && descriptor.targetWorkspaceId === projectionOptions.workspaceKey) {
+            Object.keys(document?.items ?? {})
+                .filter(itemId => !Object.hasOwn(previous?.items ?? {}, itemId))
+                .forEach(itemId => me.landingItemIds.add(itemId))
+        }
+
+        return super.projectDockZoneDocument(document, descriptor, source, projectionOptions)
+    }
+
+    /**
+     * @summary Re-rasters each landing pane after the first refresh that finds it seated in this window.
+     * @description Chrome can present a vessel's freshly composed pane incomplete — a resident card's kicker
+     * and icon without its metric and title — while its DOM is complete and unclipped, until the next
+     * invalidation of that region. The transfer's own projection can settle before the pane is
+     * seated here, so each refresh checks again; an item that leaves first is dropped.
+     * @param {...*} args
+     * @returns {Promise}
+     * @protected
+     */
+    async refreshDockWorkspace(...args) {
+        const me     = this,
+              result = await super.refreshDockWorkspace(...args);
+
+        me.landingItemIds.forEach(itemId => {
+            const pane   = me.rootWorkspace.paneCache[itemId],
+                  seated = pane?.windowId === me.windowId;
+
+            if (seated || !Object.hasOwn(me.dockModel?.items ?? {}, itemId)) {
+                me.landingItemIds.delete(itemId);
+                seated && me.repaintLandedPane(pane)
+            }
+        });
+
+        return result
+    }
+
+    /**
+     * @summary Gives a landed pane one rendered frame on its own compositing layer: entering the layer rasters
+     * the pane from its current layout, leaving it rasters the pane into its parent again.
+     * @description A failed render rejects like a destruction does, but the pane survives it: the failure is
+     * reported and the layer still comes off. A window that leaves is no failure: the worker rejects a frame in
+     * flight when it retires that window's port (`PortDisconnectedError`), and a frame sent after the port is
+     * gone with that window's dead-port departure ({@link Neo.worker.Base#isDeparture}). Only a destroyed pane
+     * is left alone.
+     * @param {Neo.component.Base|null} pane
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async repaintLandedPane(pane) {
+        const cls = 'workstation-pane-repaint';
+
+        if (!pane || pane.isDestroyed) return;
+
+        pane.addCls(cls);
+
+        try {
+            await pane.promiseUpdate()
+        } catch (error) {
+            if (pane.isDestroyed) return;
+            error?.name === 'PortDisconnectedError' || Neo.currentWorker.isDeparture(error)
+                || console.error('PopupWorkspace: the landed pane\'s repaint render failed', error)
+        }
+
+        pane.isDestroyed || pane.removeCls(cls)
+    }
+
+    /**
      * @summary Uses the same cached pane, controller, Provider and Store across render targets.
      * @param {String} itemId
      * @param {Object} item
@@ -163,7 +249,9 @@ class PopupWorkspace extends DockWorkspace {
         this.windowId = null;
         const state = this.runtimeState;
         if (state) {
-            state.disconnected = true;
+            // a close request belongs to the window it was issued against; a later window starts without one
+            state.closeRequested = false;
+            state.disconnected   = true;
             state.windowId = state.app = state.renderTarget = null
         }
         if (this.rootWorkspace.lastCrossWindowTransfer?.sourceWorkspaceId === this.workspaceKey) {

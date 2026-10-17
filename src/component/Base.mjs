@@ -1412,19 +1412,7 @@ class Component extends Abstract {
             }
         }
 
-        // Destruction is a complete render-flight cancellation boundary:
-        // 1. Settle every promise parked on this component's flight (the initiator's public
-        //    promiseUpdate AND merged children) with the house destroy sentinel — and remove the
-        //    callback entry itself, or it leaks forever (executeCallbacks never fires for a dead
-        //    owner).
-        // 2. Release the in-flight registry entry: a lingering one makes every ancestor update
-        //    yield to it forever (nothing can ever settle it — the reply targets a dead
-        //    component), silently freezing the ancestor's delta stream.
-        // 3. Re-trigger ancestors already queued behind this component — exactly once.
-        VDomUpdate.rejectCallbacks(me.id, Neo.isDestroyed);
-        VDomUpdate.unregisterInFlightUpdate(me.id);
-        VDomUpdate.triggerPostUpdates(me.id);
-
+        // Abstract#destroy cancels this component's render flight first
         super.destroy();
 
         // The parent's stored vnode must stop naming a component the registry no longer knows, while the
@@ -1658,6 +1646,8 @@ class Component extends Abstract {
                 if (me.parentId !== 'document.body') {
                     me.vdom.removeDom = true;
                     me.parent.updateDepth = 2;
+                    // This child changed silently, so a sibling's update merging into the cycle must not make it sparse
+                    me.parent.denseUpdate = true;
                     me.parent.update()
                 } else if (!me.mountFlight) {
                     // A node still in its mount flight does not exist yet: the flight unmounts it when it lands

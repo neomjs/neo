@@ -1160,7 +1160,11 @@ class DeltaUpdates extends Base {
         }
 
         // The ledger mirrors what reached the DOM: commit only after the batch applied.
-        coherenceCommit?.()
+        coherenceCommit?.();
+
+        // Fire an event after the deltas applied, in the same task and before the next paint. Listeners that
+        // depend on the geometry the deltas produce, like a scroll offset only a grown extent admits, act here.
+        me.fire('updated', data)
     }
 }
 

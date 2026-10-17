@@ -328,12 +328,10 @@ Why absence is two-tiered rather than uniformly closed: `Neo.draggable.dashboard
 
 | Member | Obligation |
 |---|---|
-| `resolveRemoteDragTransition(frame)` | Synchronously decide whether the current stable claim may engage, remain visually retained, and commit. `frame` carries `{draggedItem, logicalSourceRect, now, pointerInTarget, targetId, targetRect, targetWindowId}`: the coordinator owns claim truth, the pointer-follow destination, and the live target rect; the source owns resolution of its exact live dragged-vessel rect and any conversion sensor. Return `null` to preserve the legacy path, or exactly `{engage: Boolean, retain: Boolean, commitEligible: Boolean}`. A throw, Promise, or malformed record fails closed. `retain` may preserve visual hover after a raw miss, but `commitEligible` MUST drop immediately. |
+| `resolveRemoteDragTransition({draggedItem, pointerInTarget})` | Synchronously decide whether a frame the source owns engages the claiming target. Return `null` to preserve the generic suspend/resume path, `{engage: false}` to refuse the frame, or `{engage: true, proxyRect}` to hand the claiming target the source's own drag proxy (`{height, offsetX, offsetY, width}`: its extent and the grab offset inside it). A throw, Promise, or malformed record fails closed. An engaged frame is commit-eligible; a frame whose claim lapses leaves the target. |
 
-The optional policy is source-owned because the source alone can map the dragged semantic item to
-its physical vessel identity. For projected dock trees, that mapping rides a synchronous,
-clone-safe owner listener; function configs do not enter the serialized SortZone config. The
-logical proxy rect is never a substitute for the live vessel rect used by dual-window metrics.
+The optional policy is source-owned because only the source knows its drag embodiment: the tab-header
+proxy it shows and where the hand holds it. The coordinator stays dock-blind and validates the record.
 
 **Native-OS-window participation hooks (optional class — only for surfaces whose items embody as native popup windows, the #13025/#13028 lineage; the coordinator invokes them `?.`-guarded):**
 
@@ -581,7 +579,23 @@ handles by the semantic `windowName` passed to `Main.windowOpen()`. Those identi
 This is the generic multi-window Possession Interface consumed by inspection tooling. Product code still decides what a
 window *means* and which semantic transaction precedes a physical effect.
 
-#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396; amended 2026-07-29, #16117; amended 2026-09-26, #19278)
+#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396; amended 2026-07-29, #16117; amended 2026-09-26, #19278; amended 2026-10-09, #19533)
+
+> **Amended 2026-10-09 (#19533): the pointer path never parks.** The operator's rule: *"we NEVER EVER want
+> additional visible windows (popups) … OFF SCREEN or not at all."* A script can neither hide a window nor
+> move it off the visible work area (the clamp below), so a drag keeps one rule for every window of the
+> group: inside a window it is that window's tab-header proxy, outside every window it is a vessel, the rule
+> re-entry into the source window always followed. A window of the group that claims the pointer carries the
+> drag as the source's own tab-header proxy, engaged and commit-eligible from its first claimed frame. A
+> vessel riding the hand retires on that claim exactly as on re-entry: zero model mutation, the pane back
+> home. A claimed frame is no boundary crossing, so no vessel is born over a window; leaving that window for
+> the desktop is a boundary exit again and acquires a fresh vessel. A held drag grants no second activation,
+> so that needs the site's pop-up permission, the one-time setup of the multi-window application; without it
+> the exit fails closed and the drag stays in-window, as for any refused tear-out. Keeping the vessel as the
+> drag over another window was the alternative: it keeps the desktop reachable without the permission, and
+> the operator chose the one rule instead (2026-10-10). The pointer-path park, its target-clear placement and
+> its re-show below are retained as history; their code is retired (#19538). The native title-bar park
+> (after the OS released the drag, behind the target) is unchanged.
 
 Popup-to-proxy conversion is an admitted transition inside the existing outcome machine, not a new
 terminal state. A source may enter `HOVERING_CLAIM` only after its physical park effect returns strict

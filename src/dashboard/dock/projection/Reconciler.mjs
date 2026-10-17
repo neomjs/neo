@@ -6,6 +6,10 @@ import Base      from '../../../core/Base.mjs';
 // in place through its own reactive `railItems`, never as structural children.
 const projectionNodeTypes = new Set(['edge-rail', 'edge-zone', 'split', 'tabs']);
 
+// The outgoing shell from the visibility swap until its destruction. `dashboard/Container.scss` takes
+// it out of layout; hidden by visibility alone it keeps its width in the host's flex row.
+const retiringShellCls = 'neo-dashboard-dock-shell-retiring';
+
 /**
  * @summary Preserves live tab-chrome identity across dock-layout projections.
  *
@@ -31,6 +35,23 @@ class Reconciler extends Base {
          * @protected
          */
         className: 'Neo.dashboard.dock.projection.Reconciler'
+    }
+
+    /**
+     * @summary The shell that holds the dock area: the one at `shellIndex`, or, from a projection's
+     * visibility swap until its cleanup, the incoming shell beside it.
+     *
+     * The swap takes the outgoing shell out of layout before destroying it, so geometry read in that
+     * window must come from the incoming shell, which the staging inserted at `shellIndex + 1`.
+     * @param {Neo.container.Base} host The dock host holding the shells.
+     * @param {Number} shellIndex The index of the committed shell.
+     * @returns {Neo.component.Base|null}
+     * @static
+     */
+    static liveShell(host, shellIndex) {
+        const shell = host?.items?.[shellIndex] || null;
+
+        return shell?.cls?.includes(retiringShellCls) ? (host.items[shellIndex + 1] || shell) : shell
     }
 
     /**
@@ -66,6 +87,31 @@ class Reconciler extends Base {
         tab.plain && classes.push(`${tab.tabContainerCls}-plain`);
 
         return classes
+    }
+
+    /**
+     * @summary Collects the edge rails below one projected dock shell, keyed by their dock identity.
+     * @param {Neo.component.Base|null} root
+     * @returns {Map<String,Neo.dashboard.dock.interaction.Rail>}
+     * @static
+     */
+    static collectProjectedRails(root) {
+        const rails = new Map();
+
+        const visit = component => {
+            if (!component || component.isDestroyed || component.dockNodeType === 'tabs') return;
+
+            if (component.dockNodeType === 'edge-rail') {
+                rails.set(component.dockNodeId, component);
+                return
+            }
+
+            component.items?.forEach(visit)
+        };
+
+        visit(root);
+
+        return rails
     }
 
     /**
@@ -152,7 +198,8 @@ class Reconciler extends Base {
      * The fast path is deliberately strict: dock-node ancestry/order, split orientation, tab item
      * order, active selection, and each rail's edge and membership must all be unchanged (item and
      * rail membership deltas are admitted only under `reconcileItems`). Only then may projected child geometry
-     * (`flex`, `width`, and `height`) be applied to the retained shell in place. Any structural or
+     * be applied to the retained shell in place: `width` and `height` here, `flex` as the returned
+     * `geometry`, which {@link #reconcileProjection} writes at its host commit. Any structural or
      * ownership delta defers to the staged descendant → ancestor transaction in
      * {@link #reconcileProjection}.
      * @param {Neo.component.Base} oldShell
@@ -164,7 +211,8 @@ class Reconciler extends Base {
      * @param {Iterable<String>} [options.preserveItemIds=[]]
      * @param {Function|null} [options.resolveItem=null]
      * @param {Function|null} [options.prepareItem=null] Prepares each resolved pane for its projected slot.
-     * @returns {{currentTabs:Map,nextShell:Neo.component.Base,plans:Map}|null}
+     * @returns {{commitAncestors:Set,commitBars:Set,currentTabs:Map,geometry:Object[],nextShell:Neo.component.Base,plans:Map,reconciledItems:Boolean}|null}
+     * `geometry` holds one `{flex, node}` per retained node whose projection carries `flex`.
      * @static
      */
     static reconcileStableTopology(
@@ -220,6 +268,7 @@ class Reconciler extends Base {
 
         const
             currentTabs = this.collectProjectedTabs(oldShell),
+            geometry    = [],
             plans       = new Map();
 
         nextNodes.forEach((next, nodeId) => {
@@ -227,11 +276,10 @@ class Reconciler extends Base {
                 current    = currentNodes.get(nodeId).node,
                 dimensions = {};
 
+            // A silent write here would leave the node flagged for an update nobody schedules
+            // until the host commit, and a bar committed beneath it would merge into that update.
             if (Object.hasOwn(next.node, 'flex')) {
-                current.setSilent({
-                    flex        : next.node.flex,
-                    wrapperStyle: {...current.wrapperStyle, flex: next.node.flex ?? null}
-                })
+                geometry.push({flex: next.node.flex, node: current})
             }
 
             for (const key of ['height', 'width']) {
@@ -285,23 +333,27 @@ class Reconciler extends Base {
         });
         placeholders.clear();
 
-        return {currentTabs, commitAncestors, commitBars, nextShell: oldShell, plans, reconciledItems: reconcileItems}
+        return {currentTabs, commitAncestors, commitBars, geometry, nextShell: oldShell, plans, reconciledItems: reconcileItems}
     }
 
     /**
-     * @summary Replaces retained projected tab configs with geometry-equivalent staging placeholders.
+     * @summary Replaces retained projected tab and rail configs with geometry-equivalent staging placeholders.
      *
      * Each plan captures active/item/drag metadata before construction consumes config fields.
      * The placeholder reserves the retained tab's destination; new nodes materialize normally.
+     * A rail holds its reveal state only as the same instance, so one whose dock identity, edge and
+     * membership are unchanged is retained too; any other rail is rebuilt.
      * @param {*} config
      * @param {Map<String,Neo.tab.Container>} currentTabs
      * @param {Map<String,Object>} plans
+     * @param {Map<String,Neo.dashboard.dock.interaction.Rail>|null} [currentRails=null]
+     * @param {Map<String,Object>|null} [railPlans=null] Output: `{config, placeholder, rail}` per retained rail
      * @returns {*}
      * @static
      */
-    static prepareTabChromeProjection(config, currentTabs, plans) {
+    static prepareTabChromeProjection(config, currentTabs, plans, currentRails=null, railPlans=null) {
         if (Array.isArray(config)) {
-            return config.map(item => this.prepareTabChromeProjection(item, currentTabs, plans))
+            return config.map(item => this.prepareTabChromeProjection(item, currentTabs, plans, currentRails, railPlans))
         }
 
         if (config?.constructor !== Object) return config;
@@ -323,14 +375,7 @@ class Reconciler extends Base {
             plans.set(nodeId, plan);
 
             if (currentTab) {
-                plan.placeholder = Neo.create({
-                    module  : Component,
-                    cls     : ['neo-dashboard-dock-projection-placeholder'],
-                    flex    : config.flex,
-                    hidden  : true,
-                    hideMode: 'visibility',
-                    style   : config.style
-                });
+                plan.placeholder = this.createStagingPlaceholder(config);
 
                 return plan.placeholder
             }
@@ -338,9 +383,42 @@ class Reconciler extends Base {
             return config
         }
 
+        if (config.dockNodeType === 'edge-rail') {
+            const
+                rail      = currentRails?.get(config.dockNodeId),
+                memberIds = items => (items || []).map(item => item.dockItemId).join('\0');
+
+            if (rail && railPlans && rail.edge === config.edge && memberIds(rail.railItems) === memberIds(config.railItems)) {
+                const placeholder = this.createStagingPlaceholder(config);
+
+                railPlans.set(config.dockNodeId, {config, placeholder, rail});
+
+                return placeholder
+            }
+
+            return config
+        }
+
         return Array.isArray(config.items)
-            ? {...config, items: this.prepareTabChromeProjection(config.items, currentTabs, plans)}
+            ? {...config, items: this.prepareTabChromeProjection(config.items, currentTabs, plans, currentRails, railPlans)}
             : config
+    }
+
+    /**
+     * @summary A hidden component that reserves a retained chrome node's slot in the staged shell.
+     * @param {Object} config The projected config of the retained node
+     * @returns {Neo.component.Base}
+     * @static
+     */
+    static createStagingPlaceholder(config) {
+        return Neo.create({
+            module  : Component,
+            cls     : ['neo-dashboard-dock-projection-placeholder'],
+            flex    : config.flex,
+            hidden  : true,
+            hideMode: 'visibility',
+            style   : config.style
+        })
     }
 
     /**
@@ -349,11 +427,12 @@ class Reconciler extends Base {
      * With a current shell, the host keeps it rendered while a visibility-hidden projection is
      * inserted beside it. Four explicit ownership phases follow: mount the target tree, move
      * pane/button descendants, move retained tab ancestors plus swap shell visibility, then destroy
-     * the empty source shell. With no current shell, the same projection is inserted at
-     * `shellIndex` as the explicit first projection; it resolves panes and becomes visible without
-     * inventing an outgoing shell. Each phase receives its own host update so renderer cleanup
-     * cannot overtake a native reparent. Floating Overflow controls are reprojected only after final
-     * ownership settles.
+     * the empty source shell. The swap also takes the outgoing shell out of layout, so the incoming
+     * one fills the host in the frame it becomes visible. With no current shell, the same projection
+     * is inserted at `shellIndex` as the explicit first projection; it resolves panes and becomes
+     * visible without inventing an outgoing shell. Each phase receives its own host update so renderer
+     * cleanup cannot overtake a native reparent. Floating Overflow controls are reprojected only after
+     * final ownership settles.
      * Live panes imported from elsewhere in the same window commit through their common ancestor
      * before inner rendering flights, preserving the existing DOM node across projection boundaries.
      *
@@ -423,6 +502,10 @@ class Reconciler extends Base {
                 bar.updateDepth = -1;
                 return bar.promiseUpdate()
             }));
+            // Geometry lands with the host commit, after the commits above that wait on their own flights.
+            stableProjection.geometry.forEach(({flex, node}) => {
+                node.setSilent({flex, wrapperStyle: {...node.wrapperStyle, flex: flex ?? null}})
+            });
             host.updateDepth = -1;
             host.update();
             await host.promiseUpdate();
@@ -448,7 +531,8 @@ class Reconciler extends Base {
         const
             currentTabs    = this.collectProjectedTabs(oldShell),
             plans          = new Map(),
-            preparedConfig = this.prepareTabChromeProjection(nextConfig, currentTabs, plans);
+            railPlans      = new Map(),
+            preparedConfig = this.prepareTabChromeProjection(nextConfig, currentTabs, plans, this.collectProjectedRails(oldShell), railPlans);
 
         // Pane placeholders inside a discarded config for a retained tab node never enter a parent.
         // Retire them now; only genuinely new tab nodes need projected placeholders for pairing.
@@ -557,15 +641,25 @@ class Reconciler extends Base {
             await host.promiseUpdate();
 
             this.moveRetainedTabChrome(plans);
+            this.moveRetainedRails(railPlans);
 
-            // A tabs node may itself be the projected root. In that case its staging placeholder has
-            // disappeared and the retained tab is both old and new shell; never retire it as source chrome.
-            nextShell = nextShell.isDestroyed ? host.items[shellIndex] : nextShell;
+            // A staged root that was a retained tab's placeholder has disappeared: that tab is the next
+            // shell, and the old one too when the root stays the root. An old shell the projection nests
+            // moved into the staged shell above and lives on there, so nothing is outgoing.
+            nextShell = nextShell.isDestroyed
+                ? [...plans.values()].find(plan => plan.placeholder === nextShell)?.tab ?? host.items[shellIndex]
+                : nextShell;
 
             retainedRoot = oldShell === nextShell;
 
+            const outgoing = oldShell && !retainedRoot && host.indexOf(oldShell) > -1 ? oldShell : null;
+
             if (!retainedRoot) {
-                oldShell?.setSilent({hideMode: 'visibility', hidden: true});
+                outgoing?.setSilent({
+                    cls     : outgoing.cls.includes(retiringShellCls) ? outgoing.cls : [...outgoing.cls, retiringShellCls],
+                    hideMode: 'visibility',
+                    hidden  : true
+                });
                 nextShell.setSilent({hidden: false})
             }
 
@@ -577,8 +671,8 @@ class Reconciler extends Base {
 
             swapped = Boolean(oldShell && !retainedRoot);
 
-            if (oldShell && !retainedRoot) {
-                host.remove(oldShell, true, true);
+            if (outgoing) {
+                host.remove(outgoing, true, true);
                 host.updateDepth = -1;
                 host.update();
                 await host.promiseUpdate()
@@ -700,7 +794,8 @@ class Reconciler extends Base {
      * @param {Object}  data
      * @param {Neo.container.Base} data.host The dock host holding both shells.
      * @param {Neo.component.Base} data.nextShell The staged shell inserted at `shellIndex + 1`.
-     * @param {Neo.component.Base} data.oldShell The outgoing shell at `shellIndex`.
+     * @param {Neo.component.Base} data.oldShell The outgoing shell at `shellIndex`. A tab root the projection
+     * nested is no longer the host's child: the staged shell holds it and survives.
      * @param {Boolean} data.retainedRoot The projected root was the retained tab; nothing was staged.
      * @param {Number}  data.shellIndex Index the surviving shell must occupy.
      * @param {Boolean} data.swapped The visibility swap LANDED, so the staged shell is on screen.
@@ -711,8 +806,10 @@ class Reconciler extends Base {
         // A retained root never staged a second shell, so the host was never in the two-shell window.
         if (retainedRoot) return 'retained-root';
 
-        const survivor = swapped ? nextShell : oldShell,
-              casualty = swapped ? oldShell  : nextShell;
+        const nested   = Boolean(oldShell) && host.indexOf(oldShell) < 0,
+              staged   = swapped || nested,
+              survivor = staged ? nextShell : oldShell,
+              casualty = staged ? (nested ? null : oldShell) : nextShell;
 
         try {
             if (casualty && !casualty.isDestroyed && host.indexOf(casualty) > -1) {
@@ -727,7 +824,8 @@ class Reconciler extends Base {
             }
 
             if (survivor && !survivor.isDestroyed) {
-                survivor.setSilent({hidden: false})
+                // A swap whose flight failed may have retired the outgoing shell; the survivor returns to layout.
+                survivor.setSilent({cls: survivor.cls.filter(cls => cls !== retiringShellCls), hidden: false})
             }
 
             host.updateDepth = -1;
@@ -736,11 +834,39 @@ class Reconciler extends Base {
 
             // Positional, not incidental: every later commit reconciles against `host.items[shellIndex]`,
             // so a survivor that settled anywhere else would send the next projection at the wrong node.
-            return host.items?.[shellIndex] === survivor ? (swapped ? 'completed-swap' : 'retired-staged') : 'unrecoverable'
+            return host.items?.[shellIndex] === survivor ? (staged ? 'completed-swap' : 'retired-staged') : 'unrecoverable'
         } catch (recoveryError) {
             console.warn('Dock projection recovery failed; the host may still hold two shells', host?.id, recoveryError);
             return 'unrecoverable'
         }
+    }
+
+    /**
+     * @summary Moves retained edge rails into their staged slots, carrying the committed document and rail items.
+     *
+     * Runs beside {@link #moveRetainedTabChrome}, so the swap flight lands the move. The rail keeps its
+     * reveal machine, overlay binding and pressed tab by identity; its document and items arrive through
+     * its own reactive setters, silently, because the host's full-depth flight renders them.
+     * @param {Map<String,Object>} railPlans `{config, placeholder, rail}` per retained rail
+     * @static
+     */
+    static moveRetainedRails(railPlans) {
+        railPlans.forEach(({config, placeholder, rail}, nodeId) => {
+            const
+                sourceParent = rail.parent,
+                targetParent = placeholder.parent,
+                sourceIndex  = sourceParent?.indexOf(rail) ?? -1,
+                targetIndex  = targetParent?.indexOf(placeholder) ?? -1;
+
+            if (!sourceParent || !targetParent || targetIndex < 0) {
+                throw new Error(`Dock projection could not stage surviving rail "${nodeId}"`)
+            }
+
+            targetParent.remove(placeholder, true, true);
+            sourceParent.remove(rail, false, true, true);
+            rail.setSilent({dockZoneDocument: config.dockZoneDocument, railItems: config.railItems});
+            targetParent.insert(sourceParent === targetParent && sourceIndex < targetIndex ? targetIndex - 1 : targetIndex, rail, true, false)
+        })
     }
 
     /**

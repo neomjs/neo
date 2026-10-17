@@ -34,8 +34,111 @@ const selectedCell = page => page.evaluate(({grid, selected}) => {
 
 const scrollLeft = page => page.evaluate(grid => document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`).scrollLeft, GRID);
 
+/**
+ * @summary Captures a failed navigation's DOM before reading the worker, without changing the key sequence.
+ * The View's selectedCells getter reads its selection model's items. Row VDOM and adopted VNodes are separate
+ * projections; their reads happen after the DOM snapshot, not atomically with it. A deadline or missing instance
+ * is recorded as diagnostic evidence and never replaces the original test failure.
+ * @param {import('@playwright/test').Page} page
+ * @param {import('@playwright/test').TestInfo} testInfo
+ * @returns {Promise<void>}
+ */
+async function attachSelectionFailure(page, testInfo) {
+    const snapshot = {grid: GRID};
+    let deadline;
+
+    try {
+        await Promise.race([
+            (async () => {
+                snapshot.dom = await page.evaluate(grid => {
+                    const root = document.querySelector(grid);
+
+                    if (!root) return {capturedAt: performance.now(), missingGrid: true};
+
+                    const id       = node => node?.id || node?.getAttribute('data-neo-id') || null,
+                          cells    = [...root.querySelectorAll('.neo-grid-cell')],
+                          recordId = cells.find(cell => cell.textContent === 'r3c0')?.dataset.recordId,
+                          selected = cell => cell.classList.contains('neo-selected') || cell.getAttribute('aria-selected') === 'true',
+                          readCell = cell => ({
+                              id          : id(cell), field: cell.dataset.field, recordId: cell.dataset.recordId,
+                              text        : cell.textContent, cls: [...cell.classList],
+                              ariaSelected: cell.getAttribute('aria-selected'), left: cell.style.left
+                          });
+
+                    return {
+                        capturedAt     : performance.now(),
+                        gridId         : id(root), viewId: id(root.querySelector('.neo-grid-view')),
+                        activeElementId: id(document.activeElement),
+                        scrollLeft     : root.querySelector('.neo-grid-horizontal-scrollbar')?.scrollLeft,
+                        selectedCells  : cells.filter(selected).map(readCell),
+                        bodies         : [...root.querySelectorAll('.neo-grid-body')].map(body => ({
+                            id: id(body), scrollLeft: body.style.getPropertyValue('--grid-scroll-left')
+                        })),
+                        rows: [...root.querySelectorAll('.neo-grid-row')]
+                            .filter(row => row.dataset.recordId === recordId || [...row.querySelectorAll('.neo-grid-cell')].some(selected))
+                            .map(row => ({
+                                id   : id(row), recordId: row.dataset.recordId,
+                                cells: [...row.querySelectorAll('.neo-grid-cell')].map(readCell)
+                            }))
+                    }
+                }, GRID);
+
+                if (snapshot.dom.missingGrid) return;
+
+                snapshot.worker = await page.evaluate(async ({gridId, viewId, bodies, rows}) => {
+                    const startedAt = performance.now(),
+                          flags     = ['isVdomUpdating', 'needsVdomUpdate', 'isVnodeInitializing'],
+                          read      = async (id, keys) => {
+                              const values = await Neo.worker.App.getConfigs({id, keys});
+                              return values === false ? {id, missingInstance: true} :
+                                  {id, ...Object.fromEntries(keys.map((key, index) => [key, values[index]]))}
+                          },
+                          [container, view, bodyStates, rowStates] = await Promise.all([
+                              read(gridId, flags),
+                              read(viewId, ['selectedCells', ...flags]),
+                              Promise.all(bodies.map(body => read(body.id, ['scrollLeft', 'mountedColumns', ...flags]))),
+                              Promise.all(rows.map(row => read(row.id, ['rowIndex', 'vdom', 'vnode', ...flags])))
+                          ]);
+
+                    for (const row of rowStates) {
+                        row.vdom = row.vdom?.cn?.map(cell => ({
+                            id  : cell.id, field: cell.data?.field, recordId: cell.data?.recordId,
+                            text: cell.html, cls: cell.cls, ariaSelected: cell['aria-selected'], left: cell.style?.left
+                        }));
+                        row.vnode = row.vnode?.childNodes?.map(cell => ({
+                            id  : cell.id, field: cell.attributes?.['data-field'], recordId: cell.attributes?.['data-record-id'],
+                            text: cell.innerHTML, cls: cell.className, ariaSelected: cell.attributes?.['aria-selected'], left: cell.style?.left
+                        }))
+                    }
+
+                    return {startedAt, finishedAt: performance.now(), container, view, bodies: bodyStates, rows: rowStates}
+                }, snapshot.dom)
+            })(),
+            new Promise((resolve, reject) => {
+                deadline = setTimeout(() => reject(new Error('Grid selection diagnostic did not finish within 3 seconds')), 3000)
+            })
+        ])
+    } catch (error) {
+        snapshot.diagnosticError = String(error)
+    } finally {
+        clearTimeout(deadline)
+    }
+
+    try {
+        await testInfo.attach('grid-selection-state', {body: JSON.stringify(snapshot, null, 2), contentType: 'application/json'})
+    } catch (error) {
+        console.warn('Could not attach grid selection diagnostic:', String(error))
+    }
+}
+
 test.describe('Grid keyboard navigation scrolls the selection into sight', () => {
     test.use({viewport: {width: 1400, height: 900}});
+
+    test.afterEach(async ({page}, testInfo) => {
+        if (testInfo.status !== testInfo.expectedStatus) {
+            await attachSelectionFailure(page, testInfo)
+        }
+    });
 
     test('arrowing right past the visible columns, and back left, keeps the selected cell rendered and visible', async ({page}) => {
         await page.goto('/test/playwright/component/apps/grid-cell-editing/index.html');

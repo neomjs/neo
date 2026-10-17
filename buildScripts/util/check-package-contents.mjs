@@ -44,76 +44,22 @@ const ROOT       = path.resolve(__dirname, '../..');
  * carved out of it. A carve-out is spelled as a prefix so the intent stays readable next to the
  * rule it mirrors — and so an ADDED sibling of a carve-out fails rather than inheriting its pass.
  *
- * **Directories only, and that is a boundary rather than an omission.** The `.npmignore` also
- * excludes two individual generated FILES — `/apps/portal/sitemap.xml` and `/apps/portal/llms.txt`,
- * 3.22 MiB of crawler-addressed SEO output — and they are deliberately absent here. The distinction
- * is exposure vs bloat: every prefix below names a tree whose contents must never leave this
- * machine (agent memories, the synced corpus, a crawler dataset), where a leak is a disclosure. The
- * portal files are public artifacts already served from `neomjs.com`; shipping them wastes bytes and
- * discloses nothing, so they are worth an ignore rule and not worth a gate.
- *
- * Raised by @neo-opus-grace on review — "the next reader will otherwise see an omission rather than
- * a boundary", which was correct, because nothing here said so.
+ * Directory rules cover private plane state and generated browser dependencies. The public portal's
+ * individual SEO files remain ordinary ignore rules; they are outside these tree-wide contracts.
  * @type {Array<{prefix: String, allow: String[], why: String}>}
  */
 export const FORBIDDEN_PREFIXES = [
+    {
+        prefix: 'dist/',
+        allow : [],
+        why   : 'Generated browser dependencies and build outputs belong to the consuming workspace, not the source-only npm package.'
+    },
     {
         prefix: '.neo-ai-data/',
         allow : ['.neo-ai-data/concepts/'],
         why   : 'Agent OS plane state — server logs, wake-daemon files, deployment snapshots, and the Memory Core SQLite graph (agent memories, session records, A2A edges). The tracked concept ontology is the sole intended export.'
     }
 ];
-
-/**
- * Files the tarball MUST contain. The mirror image of the rules above, and it exists because the
- * two failures are not symmetric in how they announce themselves: a leak is discovered by anyone who
- * unpacks the tarball, while a silent DROP is discovered by a consumer, at the point of use, with a
- * module-not-found error naming a path nobody recognises.
- *
- * A `.npmignore` cannot express "keep exactly this file" without help, which is the second reason
- * this list exists. An ignore rule on a directory is not reversible — a negation never re-includes a
- * file whose parent directory is excluded — so `/dist/*` plus `!/dist/parse5.mjs` is the only shape
- * that ships one file out of that tree, and it is one careless edit away from `/dist` again.
- * @type {Array<{path: String, why: String}>}
- */
-export const REQUIRED_ENTRIES = [
-    {
-        path: 'dist/marked.mjs',
-        why : 'Markdown and app content import this browser ESM parser by relative path; consumers do not install the engine devDependencies.'
-    },
-    {
-        path: 'dist/parse5.mjs',
-        why : 'src/functional/util/HtmlTemplateProcessor.mjs imports this bundle by relative path, and buildScripts/util/templateBuildProcessor.mjs imports it at module scope — so an installed engine needs it to RUN the dist/esm build, not merely to execute the tree that build emits. A consumer cannot rebuild it: parse5 and esbuild are both devDependencies.'
-    },
-    {
-        path: 'dist/mermaid.mjs',
-        why : 'main.addon.Mermaid imports this bundle by relative path, and a consumer cannot rebuild it: mermaid and esbuild are both devDependencies. It is also not interchangeable with the published package — the build substitutes the `define` identifier across mermaid\'s dependency graph, because vendored UMD wrappers inside it hand an ANONYMOUS factory to any global AMD loader. Shipping the upstream file instead would fail to render every diagram on a page that carries one. Its producer prints its size on every build; main.addon.Mermaid sets useLazyLoading, so nothing fetches it until a page contains a diagram.'
-    },
-    ...['highlight.custom.js', 'highlight.custom.min.js'].map(file => ({
-        path: `dist/highlight/${file}`,
-        why : 'src/util/HighlightJs.mjs imports one of these two bundles, chosen by its public `debug` config, for every code fence component.Markdown renders — so both ship, or one value of that config cannot load in an installed engine. A consumer cannot rebuild either: their producer clones highlight.js from GitHub and installs that repository\'s devDependencies.'
-    })),
-    ...['codicon.ttf', 'css.worker.mjs', 'editor.css', 'editor.mjs', 'editor.worker.mjs', 'html.worker.mjs', 'json.worker.mjs', 'ts.worker.mjs'].map(file => ({
-        path: `dist/monaco/${file}`,
-        why : 'main.addon.MonacoEditor loads the editor, its stylesheet and font, and its workers from this build. It is not interchangeable with the published package: Monaco embeds its own DOMPurify, and this build resolves the sanitizer to the one npm installs for monaco-editor. A consumer cannot rebuild it: monaco-editor and esbuild are both devDependencies. Its producer prints the directory size on every build.'
-    }))
-];
-
-/**
- * @summary Pure predicate: which required entries are missing from the packed set?
- *
- * Split out from the pack invocation for the same reason as its counterpart below — the rule is
- * testable by planting a path list, with no tarball on disk.
- *
- * @param {String[]} packedPaths Tarball-relative paths, as reported by `npm pack --json`.
- * @param {Array<Object>} [rules=REQUIRED_ENTRIES] The presence rules to enforce.
- * @returns {Array<{path: String, why: String}>} One entry per rule with no matching packed path.
- */
-export function findMissingEntries(packedPaths, rules = REQUIRED_ENTRIES) {
-    const packed = new Set(packedPaths);
-
-    return rules.filter(rule => !packed.has(rule.path))
-}
 
 /**
  * @summary Pure predicate: which packed paths violate the forbidden-prefix rules?
@@ -176,27 +122,10 @@ export function parsePackOutput(raw) {
 
 if (isEntryModule(import.meta.url)) {
     // `prepack` composes .npmignore first, so this judges the file set `npm publish` would ship
-    const raw     = execFileSync('npm', ['pack', '--dry-run', '--json'], {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}),
-          report  = parsePackOutput(raw)[0],
-          files   = report.files.map(file => file.path),
-          found   = findForbiddenEntries(files),
-          missing = findMissingEntries(files);
-
-    if (missing.length) {
-        console.error(`\x1b[31mcheck-package-contents: ${missing.length} required entr(ies) missing from the npm tarball:\x1b[0m`);
-
-        for (const rule of missing) {
-            console.error(`\n  ${rule.path}`);
-            console.error(`    ${rule.why}`)
-        }
-
-        console.error(`
-Either an .npmignore rule stopped covering this file, or the release build did not produce it before
-packing. Check the pack first — 'npm pack --dry-run --json' is what ships, and the ignore patterns
-are only what someone believes ships.`);
-
-        process.exit(1)
-    }
+    const raw    = execFileSync('npm', ['pack', '--dry-run', '--json'], {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}),
+          report = parsePackOutput(raw)[0],
+          files  = report.files.map(file => file.path),
+          found  = findForbiddenEntries(files);
 
     if (found.length) {
         console.error(`\x1b[31mcheck-package-contents: ${found.length} forbidden entr(ies) in the npm tarball:\x1b[0m`);
@@ -226,5 +155,5 @@ check, and let the pack decide.`);
         process.exit(1)
     }
 
-    console.log(`check-package-contents: OK — ${report.entryCount} files, ${(report.size / 1048576).toFixed(2)} MiB tarball, ${(report.unpackedSize / 1048576).toFixed(2)} MiB unpacked; no forbidden entries, all ${REQUIRED_ENTRIES.length} required entr(ies) present.`)
+    console.log(`check-package-contents: OK — ${report.entryCount} files, ${(report.size / 1048576).toFixed(2)} MiB tarball, ${(report.unpackedSize / 1048576).toFixed(2)} MiB unpacked; no forbidden entries.`)
 }

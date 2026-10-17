@@ -5,6 +5,10 @@ import fg              from 'fast-glob';
 import matter          from 'gray-matter';
 import isEntryModule   from '../../util/isEntryModule.mjs';
 import {sanitizeInput} from '../../util/sanitizer.mjs';
+import {
+    contentPath,
+    requireContentRoot
+} from '../../util/contentRoot.mjs';
 
 /**
  * @module buildScripts.createDiscussionIndex
@@ -20,8 +24,6 @@ import {sanitizeInput} from '../../util/sanitizer.mjs';
  */
 
 const ROOT_DIR    = process.cwd();
-const INPUT_DIR   = path.resolve(ROOT_DIR, 'resources/content/discussions');
-const ARCHIVE_DIR = path.resolve(ROOT_DIR, 'resources/content/archive/discussions');
 const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/discussions.json');
 const OUTPUT_DIR  = path.resolve(ROOT_DIR, 'apps/portal/resources/data/discussions');
 
@@ -67,18 +69,19 @@ function getDiscussionState(frontmatter) {
  * @param {String} filePath
  * @param {Object} options
  * @param {String} options.archiveDir
+ * @param {String} options.corpusRoot
  * @param {String} options.inputDir
  * @param {Boolean} options.isActive
  * @returns {Object}
  */
-function getSourceBucket(filePath, {archiveDir, inputDir, isActive}) {
+function getSourceBucket(filePath, {archiveDir, corpusRoot, inputDir, isActive}) {
     const
         dir         = path.dirname(filePath),
         relativeDir = path.relative(isActive ? inputDir : archiveDir, dir),
         sourceKey   = `${isActive ? 'active' : 'archive'}-${slugify(relativeDir)}`;
 
     return {
-        contentDir: path.relative(ROOT_DIR, dir),
+        contentDir: contentPath(corpusRoot, dir),
         sourceKey,
         title     : isActive ? relativeDir : `archive/${relativeDir}`
     }
@@ -88,16 +91,16 @@ function getSourceBucket(filePath, {archiveDir, inputDir, isActive}) {
  * Core logic to generate the chunked Discussions index.
  *
  * @param {Object} options Configuration options
- * @param {String} [options.archiveDir] Directory containing archived discussion markdown files.
- * @param {String} [options.inputDir] Directory containing active discussion markdown files.
+ * @param {String} options.corpusRoot The conversation corpus root holding `discussions/` and `archive/discussions/`; required, since the engine holds no corpus.
  * @param {String} [options.outputDir] Directory for per-chunk leaf JSON files.
  * @param {String} [options.outputFile] Path to the root index JSON file.
  * @returns {Promise<void>} Resolves when the JSON files are written.
  */
 async function createDiscussionIndex(options = {}) {
     const
-        inputDir   = options.inputDir   || INPUT_DIR,
-        archiveDir = options.archiveDir || ARCHIVE_DIR,
+        corpusRoot = requireContentRoot(options.corpusRoot, '--corpus-root', 'createDiscussionIndex'),
+        inputDir   = path.join(corpusRoot, 'discussions'),
+        archiveDir = path.join(corpusRoot, 'archive', 'discussions'),
         outputDir  = options.outputDir  || OUTPUT_DIR,
         outputFile = options.outputFile || OUTPUT_FILE;
 
@@ -133,10 +136,10 @@ async function createDiscussionIndex(options = {}) {
         }
 
         const
-            category = getCategory(frontmatter),
-            slug     = slugify(category),
-            bucket   = getSourceBucket(filePath, {archiveDir, inputDir, isActive}),
-            chunkId  = `${category}/${bucket.sourceKey}`,
+            category  = getCategory(frontmatter),
+            slug      = slugify(category),
+            bucket    = getSourceBucket(filePath, {archiveDir, corpusRoot, inputDir, isActive}),
+            chunkId   = `${category}/${bucket.sourceKey}`,
             chunkPath = `discussions/${slug}/${bucket.sourceKey}.json`,
             dateValue = frontmatter.updatedAt || frontmatter.createdAt || '';
 
@@ -244,8 +247,7 @@ async function runCli() {
     program
         .name('create-discussion-index')
         .description('Generates a chunked JSON index of discussions.')
-        .option('-i, --input <path>',   'Active discussions directory path', sanitizeInput)
-        .option('-a, --archive <path>', 'Archive discussions directory path', sanitizeInput)
+        .requiredOption('-r, --corpus-root <path>', 'Conversation corpus root holding discussions/ and archive/discussions/', sanitizeInput)
         .option('-d, --output-dir <path>', 'Output chunk directory path', sanitizeInput)
         .option('-o, --output <path>',  'Output root index file path', sanitizeInput);
 
@@ -254,8 +256,7 @@ async function runCli() {
     const opts = program.opts();
 
     await createDiscussionIndex({
-        inputDir  : opts.input     ? path.resolve(ROOT_DIR, opts.input)     : undefined,
-        archiveDir: opts.archive   ? path.resolve(ROOT_DIR, opts.archive)   : undefined,
+        corpusRoot: path.resolve(opts.corpusRoot),
         outputDir : opts.outputDir ? path.resolve(ROOT_DIR, opts.outputDir) : undefined,
         outputFile: opts.output    ? path.resolve(ROOT_DIR, opts.output)    : undefined
     })

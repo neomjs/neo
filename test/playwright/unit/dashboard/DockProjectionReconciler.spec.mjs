@@ -15,7 +15,7 @@ import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
 
-import {createDockVesselEmbodiment} from '../../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import VesselEmbodiment             from '../../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
 import '../../../../src/manager/Instance.mjs';
 import '../../../../src/button/Base.mjs';
 import '../../../../src/tab/Container.mjs';
@@ -82,7 +82,8 @@ const createThreeChildSplitModel = () => {
     return model
 };
 
-const reconcileModel = async (model, mutate, {geometryOnly=false, preserveItemIds=[], retainTopology=false}={}) => {
+// `beforeReconcile` runs on the live host after projection and before the transaction starts.
+const reconcileModel = async (model, mutate, {beforeReconcile=null, geometryOnly=false, preserveItemIds=[], retainTopology=false}={}) => {
     const
         panes = Object.fromEntries(Object.entries(model.items)
             .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
@@ -111,6 +112,8 @@ const reconcileModel = async (model, mutate, {geometryOnly=false, preserveItemId
     });
 
     let stagedCount = 0;
+
+    beforeReconcile?.({host, oldShell, panes});
 
     const result = await DockProjectionReconciler.reconcileProjection({
         geometryOnly,
@@ -903,6 +906,122 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             }
         });
 
+        // The staged transaction keeps an unchanged rail as the same instance, so its runtime reveal
+        // machine, overlay and pressed tab survive a commit that never touched the rail.
+        const createSelectableRailedModel = () => {
+            const model = createRailedEdgeModel();
+
+            model.items.other = {reference: 'other', title: 'Other'};
+            model.nodes['center-tabs'].items.push('other');
+
+            return model
+        };
+
+        const readReveal = rail => ({
+            pressed : rail.items.find(item => item.dockItemId === 'left')?.pressed,
+            revealed: rail.revealMachine.revealedItemId,
+            state   : rail.revealMachine.state
+        });
+
+        for (const timing of ['already open', 'accepted while the projection is pending']) {
+            test(`a staged selection keeps an unchanged rail with a reveal ${timing}`, async () => {
+                let rail;
+
+                const receipt = await reconcileModel(createSelectableRailedModel(), nextModel => {
+                    nextModel.nodes['center-tabs'].activeItemId = 'other'
+                }, {beforeReconcile({host, oldShell}) {
+                    [rail] = findRails(oldShell);
+
+                    if (timing === 'already open') {
+                        rail.revealMachine.tabClick('left');
+                        return
+                    }
+
+                    // The click lands on the first host flight: the staged shell exists, the swap has not.
+                    const original = host.promiseUpdate.bind(host);
+
+                    host.promiseUpdate = () => {
+                        host.promiseUpdate = original;
+                        rail.revealMachine.tabClick('left');
+
+                        return original()
+                    }
+                }});
+
+                try {
+                    expect(receipt.stagedCount, 'the selection took the staged transaction').toBe(1);
+                    expect(receipt.host.items, 'one shell').toHaveLength(1);
+                    expect(receipt.host.items[0], 'the staged shell replaced the old one').not.toBe(receipt.oldShell);
+
+                    const rails = findRails(receipt.host.items[0]);
+
+                    expect(rails, 'the new shell carries one rail').toHaveLength(1);
+                    expect(rails[0], 'and it is the live rail, not a rebuilt one').toBe(rail);
+                    expect(readReveal(rail)).toEqual({pressed: true, revealed: 'left', state: 'revealed-focused'});
+                    expect(rail.dockZoneDocument, 'the retained rail reads the committed document').toEqual(receipt.nextModel)
+                } finally {
+                    receipt.host.destroy()
+                }
+            })
+        }
+
+        test('a staged commit that changes a rail\'s membership rebuilds it', async () => {
+            const model = createRailedEdgeModel();
+            let   rail;
+
+            model.items.leftTwo = {reference: 'leftTwo', title: 'Left two'};
+            model.nodes['left-tabs'].items.push('leftTwo');
+
+            const receipt = await reconcileModel(model, nextModel => {
+                nextModel.items.leftTwo.autoHidden = true
+            }, {beforeReconcile({oldShell}) {
+                [rail] = findRails(oldShell)
+            }});
+
+            try {
+                const [nextRail] = findRails(receipt.host.items[0]);
+
+                expect(nextRail, 'a rail with new members is a new instance').not.toBe(rail);
+                expect(rail.isDestroyed, 'the old rail retired with its shell').toBe(true);
+                expect(nextRail.railItems.map(item => item.dockItemId)).toEqual(['left', 'leftTwo'])
+            } finally {
+                receipt.host.destroy()
+            }
+        });
+
+        test('a staged projection whose swap fails never destroys the retained rail', async () => {
+            let dockHost, rail;
+
+            const receipt = await reconcileModel(createSelectableRailedModel(), nextModel => {
+                nextModel.nodes['center-tabs'].activeItemId = 'other'
+            }, {beforeReconcile({host, oldShell}) {
+                dockHost = host;
+                [rail]   = findRails(oldShell);
+                rail.revealMachine.tabClick('left');
+
+                const original = host.promiseUpdate.bind(host);
+
+                // The swap is the first host flight after the rail left the outgoing shell.
+                host.promiseUpdate = () => {
+                    if (findRails(oldShell).includes(rail)) return original();
+
+                    host.promiseUpdate = original;
+
+                    return Promise.reject(new Error('injected: the swap flight fails'))
+                }
+            }}).catch(error => ({error}));
+
+            try {
+                expect(receipt.error?.isDockProjectionFailure, 'the failure is typed').toBe(true);
+                expect(rail.isDestroyed, 'the live rail survives the recovery').toBeFalsy();
+                expect(readReveal(rail).revealed).toBe('left')
+            } finally {
+                // The recovery detaches the staged shell that holds the rail; it no longer hangs off the host.
+                dockHost.destroy();
+                rail.isDestroyed || rail.destroy()
+            }
+        });
+
         test('a geometry-only refresh keeps the rail and hands it the committed document', async () => {
             const receipt = await reconcileModel(createRailedEdgeModel(), nextModel => {
                 nextModel.nodes['root-edge'].zones.left.extent = 0.3
@@ -1188,9 +1307,10 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
      * fourth retires the old shell. Rejecting the second or third leaves the swap unlanded (the
      * outgoing shell must survive); rejecting the fourth happens after it landed (the staged shell
      * must survive and the swap simply finishes) — so the two recovery verdicts are both reachable
-     * and are asserted by name rather than inferred.
+     * and are asserted by name rather than inferred. `onCall` observes the host before each flight;
+     * `rejectOnCall: 0` rejects none.
      */
-    const reconcileWithRejectedFlight = async rejectOnCall => {
+    const reconcileWithRejectedFlight = async (rejectOnCall, onCall) => {
         const
             model = createSplitModel(),
             panes = Object.fromEntries(Object.entries(model.items)
@@ -1225,6 +1345,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
         host.promiseUpdate = function() {
             calls++;
+            onCall?.(calls, host, oldShell);
 
             return calls === rejectOnCall
                 // The shape the live report carried: a landing ancestor flight whose stored vnode
@@ -1270,6 +1391,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
                 // The invariant every later commit depends on: ONE shell, at shellIndex, visible.
                 expect(host.items.length, 'the host holds exactly one shell').toBe(1);
                 expect(host.items[0].hidden, 'the surviving shell is visible').not.toBe(true);
+                expect(host.items[0].cls, 'the surviving shell is back in layout').not.toContain('neo-dashboard-dock-shell-retiring');
 
                 expectedSurvivor === 'old'
                     ? expect(host.items[0], 'the outgoing shell survives an unlanded swap').toBe(oldShell)
@@ -1286,6 +1408,135 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             }
         })
     }
+
+    test('the visibility swap takes the outgoing shell out of layout in the flight that shows the staged one', async () => {
+        let atSwap = null;
+
+        // The third flight is the swap. A shell hidden only by visibility keeps its width in the host's
+        // flex row, so the staged shell must not become visible beside it.
+        const {error, host, oldShell} = await reconcileWithRejectedFlight(0, (call, host, oldShell) => {
+            if (call === 3) {
+                atSwap = {
+                    outgoingRetired: oldShell.cls.includes('neo-dashboard-dock-shell-retiring'),
+                    stagedVisible  : host.items[1]?.hidden !== true
+                }
+            }
+        });
+
+        try {
+            expect(error, 'the projection completes').toBeNull();
+            expect(atSwap).toEqual({outgoingRetired: true, stagedVisible: true});
+            expect(host.items.length, 'the outgoing shell is destroyed afterwards').toBe(1);
+            expect(oldShell.isDestroyed).toBe(true)
+        } finally {
+            host.destroy()
+        }
+    });
+
+    test.describe('a tabs node crossing the root', () => {
+        const items   = {alpha: {reference: 'alpha', title: 'Alpha'}, beta: {reference: 'beta', title: 'Beta'}},
+              tabRoot = {schema: 'neo.dock.zone.v1', root: 'root-tabs', items, nodes: {
+                  'root-tabs': {activeItemId: 'alpha', items: ['alpha', 'beta'], type: 'tabs'}
+              }},
+              nested  = {schema: 'neo.dock.zone.v1', root: 'split', items, nodes: {
+                  split      : {children: ['root-tabs', 'beta-tabs'], orientation: 'horizontal', sizes: [0.5, 0.5], type: 'split'},
+                  'root-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'},
+                  'beta-tabs': {activeItemId: 'beta', items: ['beta'], type: 'tabs'}
+              }};
+
+        // Projects `nextModel` over a host showing `model`; the first host flight `rejectWhen` accepts rejects.
+        const reconcileCrossing = async (model, nextModel, rejectWhen=null) => {
+            const panes = Object.fromEntries(Object.entries(model.items)
+                      .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
+                  host         = Neo.create(Container, {items: [DockLayoutAdapter.project(model, {
+                      resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                  })]}),
+                  oldShell     = host.items[0],
+                  oldTabs      = DockProjectionReconciler.collectProjectedTabs(oldShell),
+                  placeholders = new Map(),
+                  original     = host.promiseUpdate.bind(host);
+
+            let error = null, rejected = false;
+
+            host.promiseUpdate = () => !rejected && rejectWhen?.(oldShell, host) && (rejected = true)
+                ? Promise.reject(new Error('injected: the swap flight fails'))
+                : original();
+
+            try {
+                await DockProjectionReconciler.reconcileProjection({
+                    host,
+                    nextConfig: DockLayoutAdapter.project(nextModel, {
+                        resolveComponentRef(_reference, item, itemId) {
+                            const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                            placeholders.set(itemId, placeholder);
+
+                            return placeholder
+                        }
+                    }),
+                    placeholders,
+                    resolveItem: itemId => panes[itemId]
+                })
+            } catch (e) {
+                error = e
+            }
+
+            host.promiseUpdate = original;
+
+            return {error, host, oldShell, oldTabs, panes}
+        };
+
+        test('nesting the tab root keeps its tab container, visible, inside the staged split', async () => {
+            const {error, host, oldShell, panes} = await reconcileCrossing(tabRoot, nested);
+
+            try {
+                expect(error).toBeNull();
+                expect(host.items).toHaveLength(1);
+                expect(oldShell.parent, 'the root tab lives on inside the split').toBe(host.items[0]);
+                expect(oldShell.hidden).not.toBe(true);
+                expect(oldShell.cls).not.toContain('neo-dashboard-dock-shell-retiring');
+                Object.values(panes).forEach(pane => expect(pane.isDestroyed).toBeFalsy())
+            } finally {
+                host.destroy()
+            }
+        });
+
+        test('a nesting commit whose swap flight fails keeps the staged split, which holds the root tab', async () => {
+            // The swap is the first host flight after the root tab moved into the staged split.
+            const {error, host, oldShell} = await reconcileCrossing(tabRoot, nested, (shell, host) => shell.parent !== host);
+
+            try {
+                expect(error?.projectionRecovery).toBe('completed-swap');
+                expect(host.items).toHaveLength(1);
+                expect(host.items[0].hidden).not.toBe(true);
+                expect(oldShell.parent).toBe(host.items[0]);
+                expect(oldShell.isDestroyed).toBeFalsy()
+            } finally {
+                host.destroy()
+            }
+        });
+
+        test('collapsing a split to one of its tabs nodes leaves that retained tab as the only shell', async () => {
+            const model                                   = createSplitModel(),
+                  {error, host, oldShell, oldTabs, panes} = await reconcileCrossing(model, {
+                      schema: 'neo.dock.zone.v1', root: 'alpha-tabs', items: model.items, nodes: {
+                          'alpha-tabs': {activeItemId: 'alpha', items: ['alpha', 'beta'], type: 'tabs'}
+                      }
+                  }),
+                  alphaTabs = oldTabs.get('alpha-tabs');
+
+            try {
+                expect(error).toBeNull();
+                expect(host.items).toHaveLength(1);
+                expect(host.items[0], 'the retained tab is the shell').toBe(alphaTabs);
+                expect(alphaTabs.hidden).not.toBe(true);
+                expect(oldShell.isDestroyed).toBe(true);
+                expect(alphaTabs.getCardContainer().items).toEqual([panes.alpha, panes.beta])
+            } finally {
+                host.destroy()
+            }
+        })
+    });
 
     test('the next projection after a failure reconciles normally onto the surviving shell', async () => {
         const {host, model, panes} = await reconcileWithRejectedFlight(2);
@@ -1416,7 +1667,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
         // The stand-in is minted by the production path, never hand-built here: the repair belongs to
         // the creation site, so an arm that constructs its own placeholder could never witness it.
-        const embodiment = createDockVesselEmbodiment({
+        const embodiment = Neo.create(VesselEmbodiment, {
             resolvePane  : itemId => panes[itemId] ?? null,
             resolveTarget: windowId => windowId === 'admitted-window' ? vessel : null
         });

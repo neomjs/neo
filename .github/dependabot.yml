@@ -15,6 +15,11 @@ updates:
     directory: "/"
     schedule:
       interval: daily
+    # Our own Skills releases skip Dependabot's three-day default hold, so agents never read
+    # superseded rules; every other update keeps it, made explicit.
+    cooldown:
+      default-days: 3
+      exclude: ["neo-agent-skills"]
     groups:
       all-deps:
         patterns: ["*"]

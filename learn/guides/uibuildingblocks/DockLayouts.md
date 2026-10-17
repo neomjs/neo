@@ -54,7 +54,7 @@ flowchart TD
     Descriptors["operation descriptors<br/>setActiveItem · resizeSplit · resizeEdgeZone<br/>moveItem · splitNode · addTab · detachItem"]:::inter
     Coordinator["Neo.manager.DragCoordinator<br/>cross-window arbitration — dock-BLIND"]:::cross
     Arbiter["GestureClaimArbiter<br/>one token per gesture, deterministic winner"]:::cross
-    Vessels["Vessel lifecycle<br/>window.TearOut choreography · VesselEmbodiment<br/>VesselConversion · VesselPark"]:::cross
+    Vessels["Vessel lifecycle<br/>window.TearOut choreography · VesselEmbodiment<br/>VesselPark"]:::cross
 
     Document --> Adapter
     Adapter --> Reconciler
@@ -195,9 +195,10 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    stamps onto the projected pane — so `getReference('editor')`, a view controller, and `data-ref="editor"` in the DOM
    all reach the same live component, and you maintain no second name for it. A pane declaration is an ordinary
    component config: a registered `module`, an `ntype`, or a lazy `module: () => import(…)` that loads on first
-   activation. `pinnable`, `movable` and `closable` are enforced at the operation layer — a `pinnable: false` item
-   refuses `setItemAutoHidden` and a `closable: false` item refuses `closeItem`, in the model, not in your UI code,
-   whether the request comes from projected chrome or a programmatic operation; the
+   activation. Today, policy flags apply to specific model operations: `pinnable: false` refuses `setItemPinned`
+   and `setItemAutoHidden`; `closable: false` refuses `closeItem`; and `movable: false` refuses cross-document
+   transfers without freezing movement inside the workspace. These checks apply whether the request comes from projected chrome or a
+   programmatic operation; the
    [adoption guide](DockLayoutsAdoption.md#decision-3--policies-live-in-the-model-not-in-your-ui) shows what the
    model refuses.
 

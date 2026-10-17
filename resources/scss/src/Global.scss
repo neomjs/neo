@@ -176,3 +176,10 @@ html, .neo-body-viewport {
 .neo-drag-active iframe:not(.neo-drag-passthrough) {
     pointer-events: none;
 }
+
+// DomAccess#focus stamps `neo-focus-pointer` on a node it focuses for a pointer gesture, because the
+// worker→main hop loses `:focus-visible`'s link to that gesture. Zero specificity: the rule beats only
+// the user agent's ring, and any component outline (a locked pane, an arrival pulse) still wins.
+:where(.neo-focus-pointer:focus-visible) {
+    outline: none;
+}

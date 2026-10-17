@@ -260,7 +260,7 @@ test.describe('webpack development-theme freshness hooks (#15666)', () => {
         const middlewares      = webpackServerConfig.devServer.setupMiddlewares([staticMiddleware]);
 
         expect(DEVELOPMENT_THEME_RECHECK_INTERVAL_MS).toBe(5000);
-        expect(webpackServerConfig.devServer.static.watch).toBe(false);
+        expect(webpackServerConfig.devServer.static.map(entry => entry.watch)).toEqual([false, false]);
         expect(typeof webpackServerConfig.devServer.onListening).toBe('function');
         expect(middlewares[0].name).toBe('development-theme-freshness');
         expect(middlewares[1]).toBe(staticMiddleware)
@@ -355,5 +355,15 @@ test.describe('webpack development-theme freshness hooks (#15666)', () => {
         expect(warnings).toHaveLength(2); // a successful check reset the error transition
         expect(warnings[0]).toContain('fixture inspection failed');
         expect(warnings[0]).toContain(DEVELOPMENT_THEME_BUILD_COMMAND)
+    })
+});
+
+test.describe('webpack dev server release notes (#19166)', () => {
+    test('serves the engine release notes at their own path, without allowing dotfiles anywhere', () => {
+        const entries = webpackServerConfig.devServer.static;
+
+        expect(entries.map(entry => entry.publicPath)).toEqual([undefined, '/.github/RELEASE_NOTES']);
+        expect(entries[1].directory).toBe(path.resolve('.github/RELEASE_NOTES'));
+        expect(entries.filter(entry => entry.staticOptions)).toEqual([])
     })
 });

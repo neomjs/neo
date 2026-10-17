@@ -1,8 +1,9 @@
-import {setup}        from '../../../setup.mjs';
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
-import Workspace      from '../../../../../apps/workstation/view/Workspace.mjs';
+import {setup}            from '../../../setup.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../../src/Neo.mjs';
+import * as core          from '../../../../../src/core/_export.mjs';
+import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
+import TransactionManager from '../../../../../src/manager/Transaction.mjs';
 
 setup({appConfig: {name: 'WorkstationTourControllerTest'}});
 
@@ -12,6 +13,90 @@ function deferred() {
     const promise = new Promise(done => resolve = done);
     return {promise, resolve}
 }
+
+/** @summary The entry reset `Workspace#resetTopology` answers when it commits. @returns {Object} */
+const acceptedReset = () => ({errors: [], reset: true, transactionId: null});
+
+test('a topology capture resumes its working layout only after a current durable acknowledgement', async () => {
+    const binding    = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: 'main'}),
+          workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          write      = deferred(), writing = deferred(), snapshots = [], resumed = [];
+    workspace.topologyLibrary.persistenceAdapter = {write: async () => {}};
+    try {
+        expect(await workspace.saveTopology('working-room')).toMatchObject({persisted: true, current: true, errors: []});
+        const save = workspace.saveTopology.bind(workspace);
+        workspace.saveTopology = async layoutId => {
+            const receipt = await save(layoutId);
+            resumed.push({layoutId, receipt});
+            return receipt
+        };
+        workspace.topologyLibrary.persistenceAdapter = {write: snapshot => {
+            snapshots.push(snapshot);
+            writing.resolve();
+            return write.promise
+        }};
+        let   settled = false;
+        const capture = controller.capturePerspectiveCue({captureScope: 'topology', name: 'film-room', layoutId: 'film-layout'})
+            .then(result => {settled = true; return result});
+        await writing.promise;
+        await new Promise(setImmediate);
+        expect(settled).toBe(false);
+        expect(snapshots).toHaveLength(1);
+        expect(snapshots[0].activeLayoutId).toBe('working-room');
+        expect(snapshots[0].topologies['film-layout'].perspectiveName).toBe('film-room');
+        expect(snapshots[0].topologies['working-room']).toBeTruthy();
+        write.resolve();
+        expect(await capture).toEqual({applied: true, errors: [], name: 'film-room', stored: true});
+        expect(resumed).toHaveLength(1);
+        expect(resumed[0]).toMatchObject({layoutId: 'working-room', receipt: {persisted: true, current: true, errors: []}});
+        expect(workspace.topologyCollection.activeLayoutId).toBe('working-room');
+        expect(workspace.topologyCollection.topologies['film-layout'].perspectiveName).toBe('film-room')
+    } finally {write.resolve(); workspace.destroy(); TransactionManager.retireGroup(binding.groupId)}
+});
+
+for (const [label, receipt] of [
+    ['failed persistence', {persisted: false, current: false, errors: []}],
+    ['stale persistence', {persisted: true, current: false, errors: []}],
+    ['errors-only acknowledgement', {errors: []}],
+    ['nonboolean persistence', {persisted: 'yes', current: true, errors: []}],
+    ['nonboolean freshness', {persisted: true, current: 'yes', errors: []}]
+]) {
+    test(`a topology capture refuses ${label} when restoring its working layout`, async () => {
+        const binding    = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: 'main'}),
+              workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+              controller = await workspace.getController().getTourController(), resumed = [];
+        workspace.topologyLibrary.persistenceAdapter = {write: async () => {}};
+        try {
+            expect(await workspace.saveTopology('working-room')).toMatchObject({persisted: true, current: true});
+            workspace.saveTopology = async layoutId => {resumed.push(layoutId); return receipt};
+            const result = await controller.capturePerspectiveCue({captureScope: 'topology', name: 'film-room'});
+            expect(result.applied).toBe(false);
+            expect(result.stored).toBe(true);
+            expect(result.errors.length).toBeGreaterThan(0);
+            expect(resumed).toEqual(['working-room']);
+            expect(workspace.topologyCollection.topologies['film-room'].perspectiveName).toBe('film-room');
+            expect(workspace.isDestroyed).toBeFalsy()
+        } finally {workspace.destroy(); TransactionManager.retireGroup(binding.groupId)}
+    })
+}
+
+test('an ordinary window capture keeps its working topology and does not request a topology save', async () => {
+    const binding    = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: 'main'}),
+          workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(), snapshots = [];
+    workspace.topologyLibrary.persistenceAdapter = {write: async snapshot => {snapshots.push(snapshot)}};
+    try {
+        expect(await workspace.saveTopology('working-room')).toMatchObject({persisted: true, current: true});
+        const before = structuredClone(workspace.topologyCollection);
+        workspace.saveTopology = () => {throw new Error('a window capture must not restore the topology')};
+        expect(await controller.capturePerspectiveCue({name: 'window-frame'}))
+            .toEqual({applied: true, errors: [], name: 'window-frame', stored: true});
+        expect(workspace.perspectiveStore.getPerspective('window-frame')).toBeTruthy();
+        expect(workspace.topologyCollection).toEqual(before);
+        expect(snapshots).toHaveLength(1)
+    } finally {workspace.destroy(); TransactionManager.retireGroup(binding.groupId)}
+});
 
 test('the configured runner cannot begin its next beat before the controller cue settles', async () => {
     const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
@@ -130,6 +215,78 @@ test('a gate holds until Continue; under autoGates it settles on its own and pub
     } finally {workspace.destroy()}
 });
 
+test('a take holds after a named step: the receipt records the hold, the gate stays prompt-free, and the viewer\'s tour never holds', async () => {
+    const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          provider   = workspace.getStateProvider(), prompt = 'Continue — go',
+          script     = {
+              schema: 'neo.tour.script.v1', id: 'take-hold', title: 'Take hold',
+              scenes: [{id: 's', title: 'Scene', steps: [
+                  {type: 'pause', ms: 0, cue: {type: 'gate', prompt}},
+                  {type: 'pause', ms: 0}
+              ]}]
+          };
+    controller.setPipProgress = async () => {};
+    workspace.resetTopology = async () => acceptedReset();
+
+    // The hold's own wait is made controllable so the test proves the BARRIER, not a wall-clock
+    // floor (the progress path awaits 90 ms per step on its own, which a floor cannot tell apart):
+    // the controller's `timeout` routes the hold's duration — a value no other wait uses — to a
+    // deferred promise and leaves every other wait on the real timer. A hold that never asked for
+    // its wait, or did not await it, fails below.
+    const
+        hold            = deferred(),
+        holdCalls       = [],
+        originalTimeout = controller.timeout.bind(controller);
+
+    controller.timeout = (ms, options) => {
+        if (ms === 777) {
+            holdCalls.push(ms);
+            return hold.promise
+        }
+
+        return originalTimeout(ms, options)
+    };
+
+    try {
+        const run = controller.startTour(script, {autoGates: true, takeHoldMs: {'s[0]': 777}});
+
+        // the gate itself settles at once and publishes nothing; then the hold asks for its wait
+        await expect.poll(() => holdCalls).toEqual([777]);
+        expect(controller.cueReceipts).toHaveLength(1);
+        expect(controller.cueReceipts[0].receipt).toEqual({applied: true, continued: 'auto', prompt});
+        expect(controller.getPendingGate()).toBeNull();
+        expect(provider.getData('tour.gatePrompt')).toBeNull();
+
+        // while the hold is pending the next beat cannot start: the runner's log keeps the one
+        // step, nothing is recorded as held, no receipt settles — sampled over several ticks
+        for (let tick = 0; tick < 5; tick++) {
+            await new Promise(setImmediate);
+            expect(controller.tourRunner.log, 'the second step must wait for the hold').toHaveLength(1);
+            expect(controller.holds).toEqual([]);
+            expect(controller.getTourReceipt()).toBeNull()
+        }
+
+        hold.resolve();
+
+        const held = await run;
+        expect(held.completed).toBe(true);
+        expect(held.log).toHaveLength(2);
+        expect(held.holds).toEqual([{heldMs: 777, sceneId: 's', stepIndex: 0}]);
+
+        // the real timer again: the holds stay set for the next take and are recorded afresh per
+        // playback (heldMs is the requested duration, the receipt's elapsedMs the measured one)
+        delete controller.timeout;
+        expect((await controller.startTour(script, {takeHoldMs: {'s[0]': 30}})).holds).toEqual([{heldMs: 30, sceneId: 's', stepIndex: 0}]);
+
+        // the viewer's tour reads no take hold: same holds configured, gate mode off, nothing recorded
+        const viewer = controller.startTour(script, {autoGates: false});
+        await expect.poll(() => controller.getPendingGate()).toEqual({prompt});
+        expect(controller.continueTour()).toBe(true);
+        expect((await viewer).holds).toEqual([])
+    } finally {workspace.destroy()}
+});
+
 test('startTour sets the gate mode only when asked: a gated screenplay then runs unattended, and stays so until told otherwise', async () => {
     const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
           controller = await workspace.getController().getTourController(),
@@ -140,7 +297,7 @@ test('startTour sets the gate mode only when asked: a gated screenplay then runs
           },
           continued  = receipt => receipt.cueReceipts.map(entry => entry.receipt.continued);
     controller.setPipProgress = async () => {};
-    workspace.refreshDockWorkspace = async () => {};
+    workspace.resetTopology = async () => acceptedReset();
     try {
         // viewer mode: the run holds at the gate until Continue
         const held = controller.startTour(script);
@@ -165,19 +322,19 @@ test('startTour sets the gate mode only when asked: a gated screenplay then runs
     } finally {workspace.destroy()}
 });
 
-test('repeated starts share the entry projection and cancellation does not start the runner afterward', async () => {
+test('repeated starts share the entry reset and cancellation does not start the runner afterward', async () => {
     const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
           controller = await workspace.getController().getTourController(),
           entry      = deferred(), entered = deferred(), runner = controller.getTourRunner();
-    let starts = 0, projections = 0;
+    let starts = 0, entries = 0;
     controller.setPipProgress = async () => {};
-    workspace.refreshDockWorkspace = () => {projections++; entered.resolve(); return entry.promise};
+    workspace.resetTopology = () => {entries++; entered.resolve(); return entry.promise.then(acceptedReset)};
     runner.start = async () => {starts++; return {completed: true, errors: [], log: []}};
     try {
         const first = controller.startTour();
         await entered.promise;
         expect(controller.startTour()).toBe(first);
-        expect(projections).toBe(1);
+        expect(entries).toBe(1);
         await controller.cancelTour();
         expect(await first).toMatchObject({completed: false, cancelled: true});
         entry.resolve();
@@ -221,7 +378,7 @@ test('cancellation during final settlement returns cancellation rather than read
           controller = await workspace.getController().getTourController(),
           refresh    = deferred(), started = deferred(), runner = controller.getTourRunner();
     controller.setPipProgress = async () => {};
-    workspace.refreshDockWorkspace = async () => {};
+    workspace.resetTopology = async () => acceptedReset();
     runner.start = async () => {
         workspace.refreshPromise = refresh.promise;
         started.resolve();

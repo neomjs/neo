@@ -160,6 +160,7 @@ class Xhr extends Base {
     }
 
     /**
+     * @summary Dispatches Xhr after URL resolution, retaining the framework-scope bypass.
      * @param {Object} opts
      * @param {Function} opts.callback
      * @param {Object} opts.data
@@ -183,11 +184,7 @@ class Xhr extends Base {
         if (!opts.url) {
             console.error('Neo.Xhr.request without a given url' + JSON.stringify(opts))
         } else {
-            if (!opts.insideNeo && location.href.includes('/node_modules/neo.mjs/') && !location.href.startsWith('https://neomjs.com/')) {
-                if (opts.url.startsWith('./') || opts.url.startsWith('../')) {
-                    opts.url = '../../' + opts.url
-                }
-            }
+            opts.url = me.resolveUrl(opts.url, opts.insideNeo);
 
             if (opts.params) {
                 opts.url += ('?' + new URLSearchParams(opts.params).toString())

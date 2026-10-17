@@ -180,6 +180,42 @@ test.describe('Neo.draggable.DragZone', () => {
         expect(surfaced, 'expected teardown must not be logged as a failure').toHaveLength(0)
     });
 
+    test('proxy cleanup settles the actual in-flight rejection after its worker retires the window port', async () => {
+        const transport = Object.assign(Object.create(WorkerBase.prototype), {
+                  channelPorts: {}, departedWindowIds: new Set(), isSharedWorker: true, ports: [], promises: {}
+              }),
+              sent = [], surfaced = [], currentWorker = Neo.currentWorker,
+              originalDeparture = currentWorker.isDeparture, originalError = console.error,
+              entry = {appNames: new Set(['DraggableDragZoneTest']), id: 'cleanup-port', windowId: 'test-window-1',
+                  port: {close() {}, postMessage: message => sent.push(message)}};
+        transport.ports.push(entry);
+        currentWorker.isDeparture = transport.isDeparture.bind(transport);
+        console.error = (...args) => surfaced.push(args);
+        let emitted, outcome;
+        try {
+            outcome = await recordProxyRemoval(zone => {
+                zone.destroyDragProxy();
+                zone.destroy();
+                return Promise.resolve()
+            }, {deltaResult: ({windowId, deltas}) => {
+                const pending = transport.promiseMessage(windowId, {action: 'updateDom', deltas, windowId});
+                expect(sent).toHaveLength(1);
+                expect(transport.isWindowDeparted(windowId)).toBe(false);
+                transport.removePort(entry);
+                return pending.catch(reason => {emitted = reason; throw reason})
+            }});
+            expect(emitted).toMatchObject({name: 'PortDisconnectedError', code: 'NEO_DEAD_PORT', windowId: 'test-window-1'});
+            expect(transport.isDeparture(emitted)).toBe(true);
+            expect(transport.promises).toEqual({});
+            expect(outcome.recorded).toHaveLength(1);
+            expect(outcome.recorded[0].deltas).toEqual([{action: 'removeNode', id: outcome.proxyId}]);
+            expect(surfaced).toEqual([])
+        } finally {
+            currentWorker.isDeparture = originalDeparture;
+            console.error = originalError
+        }
+    });
+
     test('a dead port for a window that never departed surfaces — unreachable is not departed', async () => {
         const
             originalConsoleError = console.error,

@@ -1,7 +1,36 @@
-import { test, expect } from '../../fixtures.mjs';
+import { test, expect, loadNeuralLinkModules, readWorkerId } from '../../fixtures.mjs';
 
 test.describe('Neural Link Playwright Fixture Baseline', () => {
     test.setTimeout(90000);
+
+    test('connectToApp binds the page\'s own App Worker while an older same-name session is connected', async ({ context, page, neuralLink }) => {
+        const url                            = '/examples/button/base/index.html',
+              older                          = await context.newPage(),
+              {NeuralLink_ConnectionService} = await loadNeuralLinkModules();
+
+        // The competitor connects first, so a bind by appName would select it
+        await older.goto(url);
+        const olderId = await readWorkerId(older, 30000);
+        await NeuralLink_ConnectionService.waitForSession(olderId, 30000);
+
+        // `commit` hands the page over while its App Worker is still booting
+        await page.goto(url, { waitUntil: 'commit' });
+        const app = await neuralLink.connectToApp('Neo.examples.button.base');
+
+        expect(app.sessionId).not.toBe(olderId);
+        expect(app.sessionId).toBe(await readWorkerId(page, 30000));
+
+        // A worker id read from another page binds that worker, also once the fixture's page has closed
+        await page.close();
+        expect((await neuralLink.connectToApp(olderId)).sessionId).toBe(olderId);
+    });
+
+    test('connectToApp refuses to bind by name when the page\'s App Worker reports no id', async ({ page, neuralLink }) => {
+        await page.setContent('<p>no app</p>');
+
+        await expect(neuralLink.connectToApp('Neo.examples.button.base', { identityTimeout: 1000 }))
+            .rejects.toThrow(/connectToApp\('Neo\.examples\.button\.base'\).*oldest same-name session/);
+    });
 
     test('verifies layout, VDOM, computed style, and event simulation bridge APIs', async ({ page, neuralLink }) => {
         await page.goto('/examples/button/base/index.html');

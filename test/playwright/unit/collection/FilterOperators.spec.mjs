@@ -30,12 +30,12 @@ import Filter         from '../../../../src/collection/Filter.mjs';
  */
 test.describe('Neo.collection.Filter operators', () => {
     /**
-     * The sixteen operators, in the order `static operators` declares them. Named here only to
+     * The declared operators, in `static operators` order. Named here only to
      * assert the array's contents are stable; every implementation check iterates the array itself.
      */
     const EXPECTED_OPERATORS = [
         '==', '===', '!=', '!==', '<', '<=', '>', '>=', 'doesNotStartWith', 'endsWith', 'excluded',
-        'included', 'isDefined', 'isUndefined', 'like', 'startsWith'
+        'included', 'isDefined', 'isUndefined', 'like', 'startsWith', 'typedIncluded'
     ];
 
     /**
@@ -60,7 +60,8 @@ test.describe('Neo.collection.Filter operators', () => {
         ['isDefined',         'x',            undefined              ],
         ['isUndefined',       undefined,      undefined              ],
         ['like',              'Hello World',  'WORLD'                ],
-        ['startsWith',        'alpha',        'AL'                   ]
+        ['startsWith',        'alpha',        'AL'                   ],
+        ['typedIncluded',     0,              [false, '0', 0]        ]
     ];
 
     /**
@@ -83,7 +84,8 @@ test.describe('Neo.collection.Filter operators', () => {
         'isDefined'       : [undefined,      undefined  ],
         'isUndefined'     : ['x',            undefined  ],
         'like'            : ['Hello World',  'xyz'      ],
-        'startsWith'      : ['beta',         'al'       ]
+        'startsWith'      : ['beta',         'al'       ],
+        'typedIncluded'   : [0,              [false, '0']]
     };
 
     test('every listed operator has an implementation', () => {

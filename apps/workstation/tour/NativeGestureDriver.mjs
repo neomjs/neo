@@ -118,7 +118,12 @@ class NativeGestureDriver extends GestureDriver {
                           sourceItemIds.every(itemId => me.dockModel.nodes[returnNodeId]?.items?.includes(itemId)) &&
                           phaseOrder.join(',') === 'documents-adopted,projections-settled,close-dispatched,close-acknowledged';
 
-                return {applied, errors: applied ? [] : ['native return did not settle through whole-stack adoption and close'],
+                return {applied, errors: applied ? [] : [
+                        'native return did not settle through whole-stack adoption and close: '
+                        + `operation ${JSON.stringify(transfer?.descriptor?.operation ?? null)}, closeRequested ${transfer?.closeRequested}, topologyExited ${transfer?.topologyExited}, `
+                        + `phases [${phaseOrder.join(', ')}], window gone ${sourceWindowGone}, identity preserved ${identityPreserved}, `
+                        + `home holds ${JSON.stringify(sourceItemIds.filter(itemId => me.dockModel.nodes[returnNodeId]?.items?.includes(itemId)))} of ${JSON.stringify(sourceItemIds)}`
+                    ],
                     proof: {identityPreserved, phaseOrder, positions, previews, sourceItemIds, sourceWindowGone, sourceWindowId,
                         transfer    : transfer ? WorkspaceDocument.clone(transfer) : null,
                         mainDocument: WorkspaceDocument.clone(me.dockModel)}}
@@ -129,8 +134,12 @@ class NativeGestureDriver extends GestureDriver {
                 await driver.trap(Promise.resolve(me.participationPromise));
                 const source = coordinator.getNativeWindowDragSource(sourceWindowId),
                       nodeId = WorkspaceDocument.resolveStackRoot(state.document);
+                // the native window's drag source must carry the whole committed stack — a stack drag
+                // keyed to the vessel's root. A vessel whose record is a tab drag (an item torn out
+                // alone, never composed) has no native road home: the dock adopts nothing from it.
                 if (!nodeId || source?.draggedItem?.dockGroupNodeId !== nodeId || source.widgetName !== ownerItemId) {
-                    throw new Error('native window does not expose its complete committed stack')
+                    throw new Error(`native window does not expose its complete committed stack: stack root ${JSON.stringify(nodeId)}, `
+                        + `drag source ${JSON.stringify(source ? {widgetName: source.widgetName, dockGroupNodeId: source.draggedItem?.dockGroupNodeId ?? null} : null)}`)
                 }
                 route = WindowManager.resolveNativeRoute({capability: 'position', ownerWindowId: me.windowId,
                     windowId: sourceWindowId}).route;
@@ -214,15 +223,164 @@ class NativeGestureDriver extends GestureDriver {
     }
 
     /**
-     * @summary Scene 3's real-pointer executor: converts a second tear-out while the gesture remains
-     * down, parks that exact OS window over a committed sibling Workspace, and releases only after one
-     * semantic + rendered target claim has settled.
+     * @summary Grows a committed tear-out vessel to a frame derived from the main window: top-aligned,
+     * `gap` px right of its right edge, `width` wide and the main frame's height unless given — or,
+     * when the display has no room there, against the display's right edge over the main window,
+     * never beyond the display's available area (`deriveVesselFrame` records the clamp). The walk
+     * goes through the vessel's owner-granted native routes, a verified resize then a verified move
+     * per sample at `moveDelay`; the move carries a native-effect identity, so the geometry reports
+     * the walk produces read as a scripted effect to the dock's coordinator and the placement, never
+     * as the user dragging the window (a native return afterwards would refuse a live drag). The
+     * receipt reads the frame back and refuses one that settled off its target. The film cursor is
+     * not involved: this is the window moving, not the hand.
+     * @param {Object} step
+     * @param {String} step.itemId The item committed in a window of its own.
+     * @param {Object} step.frame `{anchor: 'right-of-main', gap, width, height}` — the target OUTER frame's recipe.
+     * @param {Object} [options]
+     * @param {Number} [options.moveDelay=33] Milliseconds between samples.
+     * @param {Number} [options.moveSteps=16] Samples from the birth frame to the target.
+     * @returns {Promise<Object>} `{applied, errors, proof}`; `proof = {before, target, after, samples, route}`
+     */
+    async executeVesselResizeStep({itemId, frame}={}, {moveDelay=33, moveSteps=16}={}) {
+        return this.runGesture(async run => {
+            const me            = run.workspace, driver = this,
+                  WindowManager = (await driver.trap(import('../../../src/manager/Window.mjs'))).default,
+                  {anchor='right-of-main', gap=24, height=null, width=null} = frame || {},
+                  workspaceId   = itemId && me.constructor.vesselWorkspaceId(itemId),
+                  state         = workspaceId && me.getPopupState(workspaceId),
+                  windowId      = state?.windowId,
+                  fail          = (errors, proof) => ({applied: false, errors, ...(proof ? {proof} : {})});
+
+            if (!state?.committed || state.closeRequested || !windowId) {
+                return fail([`vessel resize needs '${itemId}' committed in a window of its own`])
+            }
+
+            if (anchor !== 'right-of-main' || !(width > 0) || !Number.isInteger(moveSteps) || moveSteps < 1) {
+                return fail(['vessel resize needs a frame {anchor: \'right-of-main\', width} and at least one sample'])
+            }
+
+            try {
+                await driver.trap(Promise.resolve(me.refreshPromise));
+
+                const resolve = capability => WindowManager.resolveNativeRoute({capability, ownerWindowId: me.windowId, windowId}).route,
+                      routes  = {position: resolve('position'), resize: resolve('resize')};
+
+                if (!routes.position || !routes.resize) {
+                    return fail([`vessel resize has no owner-granted ${routes.position ? 'resize' : 'position'} route for '${itemId}'`])
+                }
+
+                const call      = (capability, data) => ({...routes[capability], windowId: routes[capability].ownerWindowId, ...data}),
+                      readFrame = () => driver.trap(Neo.Main.windowNativeGetGeometry(call('position', {}))),
+                      before    = await readFrame(),
+                      record    = WindowManager.get(me.windowId),
+                      main      = record?.outerRect || record?.innerRect;
+
+                if (!before || !main) {
+                    return fail([`vessel resize could not read the ${before ? 'main' : 'vessel'} frame`])
+                }
+
+                const screen        = (await driver.trap(Neo.Main.getWindowData({windowId: me.windowId})))?.screen,
+                      target        = driver.deriveVesselFrame({gap, height, main, screen, width}),
+                      transactionId = `vessel-resize:${itemId}:${Date.now()}`,
+                      samples       = [],
+                      lerp          = (from, to, t) => Math.round(from + (to - from) * t),
+                      // a refusal can follow applied effects: the receipt carries the frame as it
+                      // stands, or names the readback that could not witness it
+                      refused       = async (what, index) => {
+                          let after = null, blind = null;
+
+                          try {
+                              after = (await readFrame()) || null;
+                              after || (blind = 'the frame could not be read back after the refusal')
+                          } catch (error) {
+                              blind = `the frame could not be read back after the refusal: ${error?.message || String(error)}`
+                          }
+
+                          return fail([`the window ${what} was refused at sample ${index} of ${moveSteps}`, ...(blind ? [blind] : [])],
+                              {after, before, route: {windowId}, samples: samples.length, target})
+                      };
+
+                for (let index = 1; index <= moveSteps; index++) {
+                    const t      = index / moveSteps,
+                          sample = {height: lerp(before.height, target.height, t), width: lerp(before.width, target.width, t), x: lerp(before.x, target.x, t), y: lerp(before.y, target.y, t)};
+
+                    // the resize first: the move that follows carries the effect identity, so the
+                    // last geometry report of every sample is a scripted effect, never a drag
+                    run.pending = Neo.Main.windowNativeResizeTo(call('resize', {height: sample.height, width: sample.width}));
+
+                    if (await driver.trap(run.pending) !== true) {
+                        return refused('resize', index)
+                    }
+
+                    run.pending = Neo.Main.windowNativeMoveTo(call('position', {nativeEffect: {effectId: `sample-${index}`, transactionId}, x: sample.x, y: sample.y}));
+
+                    if (await driver.trap(run.pending) !== true) {
+                        return refused('move', index)
+                    }
+
+                    samples.push(sample);
+                    index < moveSteps && await driver.trap(driver.timeout(moveDelay))
+                }
+
+                const after = await readFrame(),
+                      off   = ['x', 'y', 'width', 'height'].filter(side => !after || Math.abs(after[side] - target[side]) > 2),
+                      proof = {after, before, route: {windowId}, samples: samples.length, target};
+
+                if (off.length) {
+                    return fail([`the window frame ended off its target on ${off.join(', ')}: ${JSON.stringify(after)} for ${JSON.stringify(target)}`], proof)
+                }
+
+                return {applied: true, errors: [], proof}
+            } catch (error) {
+                return fail([error?.message || String(error)])
+            }
+        })
+    }
+
+    /**
+     * @summary Derives a vessel's target OUTER frame beside the main window: top-aligned, `gap` px
+     * right of the main frame, `width` wide, the main frame's height unless `height` is given — then
+     * contained within a known display's available area on all four edges: a frame past the right
+     * edge shifts left over the main window, one past the left edge shifts right, one above the top
+     * edge shifts down, one past the bottom keeps its top and shrinks, and a frame wider than the
+     * area shrinks to it. The area's origin may be negative (a display left of or above the primary)
+     * and the main frame may lie partly outside it. `clamped` records any adjustment; an unknown
+     * display clamps nothing.
+     * @param {Object} data
+     * @param {Number} data.gap
+     * @param {Number|null} data.height
+     * @param {Object} data.main The main window's outer frame `{x, y, width, height}`.
+     * @param {Object|null} data.screen `{availLeft, availTop, availWidth, availHeight}` or null when unknown.
+     * @param {Number} data.width
+     * @returns {Object} `{x, y, width, height, clamped}`
+     * @protected
+     */
+    deriveVesselFrame({gap, height, main, screen, width}) {
+        const asked  = {height: Math.round(height ?? main.height), width: Math.round(width), x: Math.round(main.x + main.width + gap), y: Math.round(main.y)},
+              target = {...asked};
+
+        if (screen && [screen.availLeft, screen.availTop, screen.availWidth, screen.availHeight].every(Number.isFinite)) {
+            const left = screen.availLeft, top = screen.availTop, right = left + screen.availWidth, bottom = top + screen.availHeight;
+
+            target.x      = Math.max(left, Math.min(target.x, right - target.width));
+            target.width  = Math.min(target.width, right - target.x);
+            target.y      = Math.max(top, target.y);
+            target.height = Math.max(0, Math.min(target.height, bottom - target.y))
+        }
+
+        return {...target, clamped: ['x', 'y', 'width', 'height'].some(side => target[side] !== asked[side])}
+    }
+
+    /**
+     * @summary Scene 3's real-pointer executor: drags a second pane out of the main window onto a
+     * committed sibling Workspace, which takes the drag as the pane's tab-header proxy, and releases
+     * only after one semantic + rendered target claim has settled with no vessel left.
      *
-     * The source stays on the ordinary tab-drag path. It first crosses the source workspace boundary
-     * to acquire its real vessel; subsequent events keep source-local coordinates outside while
-     * moving in global screen space over the target vessel. The landed conversion sensor and
-     * coordinator therefore own the park, preview, arbitration, and atomic transfer. This method
-     * drives and reports those seams; it never calls a reducer or target commit directly.
+     * The source stays on the ordinary tab-drag path. It crosses the source workspace boundary, where
+     * free desktop under the pointer gives the pane a vessel riding the hand, then moves in global
+     * screen space over the target vessel, whose claim retires that vessel. The coordinator owns the
+     * preview, arbitration, and atomic transfer. This method drives and reports those seams; it never
+     * calls a reducer or target commit directly.
      * @param {Object} step
      * @param {String} step.itemId Incoming pane id.
      * @param {String} step.sourceNodeId Main-workspace tabs node currently holding the pane.
@@ -363,23 +521,6 @@ class NativeGestureDriver extends GestureDriver {
                     }]}))
                 }
 
-                if (!await driver.trap(driver.waitForTearOutVessel(itemId, {attempts}))) {
-                    release = {
-                        clientX: outX,
-                        clientY: outY,
-                        screenX: sourceWindow.innerRect.x + outX,
-                        screenY: sourceWindow.innerRect.y + outY
-                    };
-
-                    let cancellation = await driver.cancelTearOutGesture(run, button, release, {sortZone});
-
-                    return {
-                        applied: false,
-                        errors : ['cross-window source vessel was not born while the gesture remained down'],
-                        proof  : {cancellation}
-                    }
-                }
-
                 let remoteSnapshot;
 
                 if (showCursor) {
@@ -408,12 +549,9 @@ class NativeGestureDriver extends GestureDriver {
                         options: opt(outX + attempt % 2, outY, targetScreenX, targetScreenY, 1)
                     }]}));
 
-                    let transition = sortZone.vesselConversionSensor?.transitionPromise;
-
-                    transition && await driver.trap(transition);
                     remoteSnapshot = me.readCrossWindowGestureSnapshot({
-                        parkedItemId: itemId,
-                        sourceZone  : sortZone,
+                        draggedItemId: itemId,
+                        sourceZone   : sortZone,
                         targetWorkspaceId
                     });
 
@@ -425,7 +563,7 @@ class NativeGestureDriver extends GestureDriver {
 
                     return {
                         applied: false,
-                        errors : ['target vessel did not reach one parked semantic + rendered claim'],
+                        errors : ['target vessel did not take the drag as one semantic + rendered claim'],
                         proof  : {cancellation, remoteSnapshot}
                     }
                 }
@@ -673,7 +811,7 @@ class NativeGestureDriver extends GestureDriver {
                     return {
                         applied: false,
                         errors : ['main workspace did not reach one semantic + rendered stack-return claim'],
-                        proof  : {cancellation, remoteSnapshot}
+                        proof  : {aimed: {nodeId: returnNodeId ?? null, rect: returnRect ?? null}, cancellation, remoteSnapshot}
                     }
                 }
 
@@ -948,11 +1086,10 @@ class NativeGestureDriver extends GestureDriver {
                         survived  : await driver.trap(driver.waitForTearOutVessel(itemId, {attempts: 0})),
                         claimCount: coordinator?.pointerClaimArbiter?.claimCount ?? 0,
                         hasTarget : Boolean(target),
-                        hasPreview: Boolean(target?.currentPreview),
-                        converted : sortZone.vesselConversionSensor?.converted === true
+                        hasPreview: Boolean(target?.currentPreview)
                     };
 
-                    if (!birthHold.survived || birthHold.claimCount || birthHold.hasTarget || birthHold.hasPreview || birthHold.converted) {
+                    if (!birthHold.survived || birthHold.claimCount || birthHold.hasTarget || birthHold.hasPreview) {
                         const cancellation = await driver.cancelTearOutGesture(run, button, release);
 
                         return {
@@ -1092,6 +1229,493 @@ class NativeGestureDriver extends GestureDriver {
                 await driver.retireFilmCursorDot(cursorDot)
             }
 
+        })
+    }
+
+    /**
+     * @summary Holds one `dockTearOutEntry` probe on the source tabs for the span of `run`, and lets
+     * it go on EVERY exit — a settled result, a rejection, a driver destroyed mid-wait. A journey
+     * registers a probe per hop; a probe outliving a cancelled hop would read the next gesture's
+     * entry as this one's.
+     * @param {Neo.component.Base} tabs The source tabs container the entry fires on.
+     * @param {Function} run Async body; its resolved object is returned with `entrySeen` merged in.
+     * @returns {Promise<Object>} `{...result, entrySeen}`
+     * @protected
+     */
+    static async withEntryProbe(tabs, run) {
+        let entrySeen = false,
+            probe     = () => {entrySeen = true};
+
+        tabs.on('dockTearOutEntry', probe);
+
+        try {
+            return {...await run(), entrySeen}
+        } finally {
+            tabs.un('dockTearOutEntry', probe)
+        }
+    }
+
+    /**
+     * @summary Derives the journey's every-hop continuity claim from its ledger, never from the
+     * endpoints: the claim holds only when every expected hop recorded the one borrowed pane, live
+     * and the same instance. A replacement that returns to the original before the drop leaves equal
+     * endpoints and a broken middle; the ledger sees the middle.
+     * @param {Object[]} ledger One `{hop, paneId, destroyed, same}` entry per settled hop plus the drop.
+     * @param {Number} expectedEntries The hop count plus one for the drop.
+     * @returns {Boolean}
+     */
+    static continuityPreserved(ledger, expectedEntries) {
+        return ledger.length === expectedEntries
+            && ledger.every(entry => entry.same === true && entry.destroyed === false && entry.paneId != null)
+    }
+
+    /**
+     * @summary The film's journey executor: under one pointer-down the pane crosses every boundary the
+     * hand likes, and the engine keeps one rule for every window of the group (docking design record
+     * §2.8.6) — inside a window the drag is that window's tab-header proxy, outside every window it is
+     * a vessel; a claim retires the vessel riding the hand, and leaving a window opens a fresh one.
+     *
+     * Hops are data, walked in order from the armed tab drag:
+     * - `desktop` — the pointer leaves every window of the group for a free screen point (chosen
+     *   against the live window rects: beside the target first, then beside main) and a vessel must be
+     *   born there, under a window id the previous generation did not carry. The born hold
+     *   (`birthDwellMs`) then keeps the pointer still with the window under it.
+     * - `main` — the proxy walks back inside the source boundary (the interior point the morph used)
+     *   and the vessel must retire mid-gesture (`dockTearOutEntry` seen, the bookkeeping cleared); the
+     *   committed document is compared byte for byte against the one before the gesture.
+     * - `target` — the pointer moves in screen space over the target vessel's centre, the client point
+     *   staying outside the boundary so the source sampler reads no re-entry, until the gesture
+     *   snapshot is ready: exactly one claim, the vessel gone, the proxy settled and visible in that
+     *   window. The hold (`dwellDelay`) lets the zones read. A target hop follows a desktop hop, and
+     *   the LAST hop is a target: the release there is the A+B adoption the cross-window dock step
+     *   settles.
+     *
+     * A hop that does not settle cancels the gesture and names itself. The proof is observable-only:
+     * vessel bookkeeping, the gesture snapshot, committed documents and the pane identity.
+     * @param {Object} step
+     * @param {String} step.itemId The pane that travels.
+     * @param {String} step.sourceNodeId The main-workspace tabs node holding it.
+     * @param {String} step.targetItemId The detached pane whose committed vessel is the target window.
+     * @param {String[]} step.hops The hop kinds in order (`desktop` | `main` | `target`).
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=240] Readiness poll attempts per target hop, and for the transfer.
+     * @param {Number} [options.birthAttempts=240] Vessel-birth poll attempts (16 ms each) per desktop hop.
+     * @param {Number} [options.birthDwellMs=0] The born hold after each desktop hop, pointer still down.
+     * @param {Number} [options.dwellDelay=0] The hold over the target after each claim settles.
+     * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
+     * @param {Number} [options.moveSteps=4] Pointer samples per leg.
+     * @param {Boolean} [options.showCursor=false] Film mode: the synthetic cursor rides the executor's
+     *     coordinates inside whichever window shows the leg; off every window a vessel, not a dot, rides the hand.
+     * @returns {Promise<Object>}
+     */
+    async executeJourneyStep(step, {attempts=240, birthAttempts=240, birthDwellMs=0, dwellDelay=0, moveDelay=16, moveSteps=4, showCursor=false}={}) {
+        return this.runGesture(async run => {
+            let me = run.workspace, driver = this,
+                {hops=[], itemId, sourceNodeId, targetItemId} = step || {},
+                kinds                                         = ['desktop', 'main', 'target'],
+                targetWorkspaceId                             = targetItemId && me.constructor.vesselWorkspaceId(targetItemId),
+                targetState                                   = targetWorkspaceId && me.getPopupState(targetWorkspaceId),
+                document                                      = me.dockModel,
+                node                                          = document?.nodes?.[sourceNodeId],
+                button                                        = null,
+                cursorDot                                     = null,
+                pointer                                       = null,
+                sortZone                                      = null,
+                targetDot                                     = null,
+                walked                                        = [];
+
+            if (!itemId || node?.type !== 'tabs' || !node.items.includes(itemId)) {
+                return {applied: false, errors: ['journey step must name a live item held by a tabs node']}
+            }
+
+            if (
+                !hops.length || hops.at(-1) !== 'target' ||
+                hops.some((kind, index) => !kinds.includes(kind) || kind === hops[index - 1] || (kind === 'target' && hops[index - 1] !== 'desktop'))
+            ) {
+                return {applied: false, errors: ['journey hops are desktop | main | target, never two alike in a row, a target after a desktop, ending on a target']}
+            }
+
+            if (
+                !targetItemId || itemId === targetItemId || !targetState?.committed || targetState.closeRequested ||
+                !me.nativeWindows?.getOwner(me.id, targetItemId)
+            ) {
+                return {applied: false, errors: ['target vessel is not an available committed workspace']}
+            }
+
+            let pane = me.paneCache[itemId];
+
+            if (!pane || pane.isDestroyed || !document.items?.[itemId]) {
+                return {applied: false, errors: ['travelling pane is not live and owned by the main workspace']}
+            }
+
+            try {
+                await driver.trap(Promise.resolve(me.refreshPromise));
+                await driver.trap(Promise.resolve(targetState.host?.refreshPromise));
+
+                let host          = me.getDockHost(),
+                    tabs          = host?.down({dockNodeId: sourceNodeId}),
+                    itemIndex     = node.items.indexOf(itemId),
+                    WindowManager = (await driver.trap(import('../../../src/manager/Window.mjs'))).default;
+
+                button   = tabs?.getTabAtIndex(itemIndex);
+                sortZone = tabs?.getTabBar()?.sortZone;
+
+                let window       = WindowManager.get(button?.windowId),
+                    [buttonRect] = button ? await driver.trap(button.getDomRect([button.id], button.windowId)) : [];
+
+                if (!button || !sortZone || !buttonRect || !window?.innerRect || !targetState.host?.participation) {
+                    return {applied: false, errors: ['journey gesture surfaces are not ready']}
+                }
+
+                let documentBefore = WorkspaceDocument.clone(document),
+                    paneIdBefore   = me.getPaneIdentity(itemId),
+                    inner          = window.innerRect,
+                    startX         = buttonRect.x + buttonRect.width / 2,
+                    startY         = buttonRect.y + buttonRect.height / 2,
+                    at             = (clientX, clientY) => ({clientX, clientY, screenX: inner.x + clientX, screenY: inner.y + clientY}),
+                    opt            = ({clientX, clientY, screenX, screenY}, buttons=1) => ({
+                        bubbles: true, button: 0, buttons, cancelable: true, clientX, clientY, screenX, screenY
+                    }),
+                    // One sample: the executor's own coordinate log drives the visible cursor, never a
+                    // second derivation. Off the viewport the main-window dot is out of sight, which is
+                    // the picture — a vessel rides the hand there.
+                    sample = async (to, delay=moveDelay) => {
+                        pointer = {clientX: to.clientX, clientY: to.clientY, screenX: to.screenX, screenY: to.screenY};
+                        cursorDot && (cursorDot.style = {...cursorDot.style, left: `${to.clientX - 8}px`, top: `${to.clientY - 8}px`});
+
+                        await driver.trap(driver.simulateEvent(run, {events: [{
+                            delay, targetId: button.id, type: 'mousemove', windowId: button.windowId, options: opt(to)
+                        }]}))
+                    },
+                    // A straight leg: all four coordinates interpolated from the current pointer.
+                    leg = async to => {
+                        let from = {...pointer};
+
+                        for (let index = 1; index <= moveSteps; index++) {
+                            let t = index / moveSteps;
+
+                            await sample({
+                                clientX: Math.round(from.clientX + (to.clientX - from.clientX) * t),
+                                clientY: Math.round(from.clientY + (to.clientY - from.clientY) * t),
+                                screenX: Math.round(from.screenX + (to.screenX - from.screenX) * t),
+                                screenY: Math.round(from.screenY + (to.screenY - from.screenY) * t)
+                            })
+                        }
+                    },
+                    vesselWindowId = () => me.nativeWindows?.getConnection(me.id, itemId)?.windowId ?? null,
+                    // The borrowed pane, read without constructing: the root cache is the one every
+                    // window of the group borrows from. One ledger entry per settled hop and the drop.
+                    continuity = [],
+                    ledgerHop  = hopIndex => {
+                        let live = me.paneCache[itemId] ?? null;
+
+                        continuity.push({destroyed: live?.isDestroyed === true, hop: hopIndex, paneId: live?.id ?? null, same: live != null && live === pane})
+                    },
+                    diag = () => `isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} vesselOpen=${JSON.stringify(me.lastVesselOpen ?? null)} connects=${Boolean(me.nativeWindows?.getConnection(me.id, itemId))} staged=${me.tearOutEmbodiment.isStaged(itemId)} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} pointer=${JSON.stringify(pointer)}`,
+                    fail = async (error, extra={}) => {
+                        let cancellation = await driver.cancelTearOutGesture(run, button, pointer, {sortZone});
+
+                        return {applied: false, errors: [error], hops: walked, proof: {cancellation, continuity, documentBefore, ...extra}}
+                    };
+
+                pointer = at(startX, startY);
+
+                // A stale record from a prior gesture would false-open the first birth gate.
+                me.nativeWindows.clearConnection(me.id, itemId);
+                showCursor && (cursorDot = driver.createFilmCursorDot(startX, startY, button.windowId));
+
+                // Own the native sensor and cross the local arming threshold (delay + distance).
+                await driver.trap(driver.simulateEvent(run, {events: [{
+                    targetId: button.id, type: 'mousedown', windowId: button.windowId, options: opt(pointer)
+                }]}));
+                await sample(at(startX + 8, startY + 2), 120);
+                await sample(at(startX + 16, startY + 24));
+
+                if (!await driver.trap(driver.waitForTearOutDragArmed(sortZone))) {
+                    return fail('journey drag did not arm')
+                }
+
+                let b       = sortZone.boundaryContainerRect,
+                    bRight  = b.right  ?? b.x + b.width,
+                    bBottom = b.bottom ?? b.y + b.height,
+                    margin  = 140,
+                    // The frozen client point every screen-space leg keeps: fully outside the boundary,
+                    // so the source sampler reads no re-entry while the hand is over another window.
+                    out     = {x: Math.round(bRight + 120), y: Math.round(bBottom + 120)},
+                    inside  = at(Math.round(b.x + (b.width ?? 0) * 0.35), Math.round(b.y + (b.height ?? 0) * 0.35)),
+                    // Every window of the group by its live inner rect: the coordinator's zone map plus
+                    // the target vessel itself.
+                    groupRects = () => {
+                        let rects = new Map();
+
+                        sortZone.dragCoordinator?.sortZones?.get(sortZone.sortGroup)?.forEach((zone, windowId) => {
+                            let rect = WindowManager.get(windowId)?.innerRect;
+
+                            rect && rects.set(windowId, rect)
+                        });
+
+                        let targetRect = WindowManager.get(targetState.windowId)?.innerRect;
+
+                        targetRect && rects.set(targetState.windowId, targetRect);
+
+                        return [...rects.values()]
+                    },
+                    clear = (point, rects) => rects.every(rect =>
+                        point.screenX < rect.x - margin / 2 || point.screenX > rect.x + rect.width  + margin / 2 ||
+                        point.screenY < rect.y - margin / 2 || point.screenY > rect.y + rect.height + margin / 2
+                    ),
+                    // A free screen point beside the target first (the next leg back over it stays
+                    // short), then beside main. The client point mirrors the screen point when that
+                    // lands outside the boundary; otherwise it stays at the frozen out point.
+                    desktopPoint = () => {
+                        let rects      = groupRects(),
+                            target     = WindowManager.get(targetState.windowId)?.innerRect,
+                            candidates = [
+                                target && {screenX: target.x + target.width + margin, screenY: target.y + target.height / 2},
+                                target && {screenX: target.x + target.width / 2,      screenY: target.y + target.height + margin},
+                                {screenX: inner.x + inner.width + margin, screenY: inner.y + startY},
+                                {screenX: inner.x + startX,               screenY: inner.y + inner.height + margin},
+                                target && {screenX: target.x - margin,    screenY: target.y + target.height / 2}
+                            ].filter(Boolean).map(point => ({screenX: Math.round(point.screenX), screenY: Math.round(point.screenY)})),
+                            point    = candidates.find(candidate => clear(candidate, rects)) ?? candidates[2],
+                            clientX  = point.screenX - inner.x,
+                            clientY  = point.screenY - inner.y,
+                            mirrored = clientX > bRight + 40 || clientY > bBottom + 40 || clientX < b.x - 40 || clientY < b.y - 40;
+
+                        return {
+                            clientX: mirrored ? clientX : out.x,
+                            clientY: mirrored ? clientY : out.y,
+                            mirrored,
+                            screenX: point.screenX,
+                            screenY: point.screenY
+                        }
+                    },
+                    targetCentre = () => {
+                        let rect = WindowManager.get(targetState.windowId)?.innerRect;
+
+                        return rect && {
+                            clientX: Math.round(rect.width / 2),
+                            clientY: Math.round(rect.height / 2),
+                            screenX: Math.round(rect.x + rect.width / 2),
+                            screenY: Math.round(rect.y + rect.height / 2)
+                        }
+                    };
+
+                let birthHold                     = null,
+                    documentsUnchangedAfterReturn = null,
+                    previousVesselId              = null,
+                    remoteSnapshot                = null,
+                    vesselWindowIds               = [];
+
+                let rectOf = rect => rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y},
+                    // The sampler's own reading after a leg: the boundary ratio and the drag mode are
+                    // the two facts a wrong hop leaves behind.
+                    sampled  = hop => Object.assign(hop, {
+                        ratio         : sortZone.lastIntersectionRatio,
+                        windowDragging: sortZone.isWindowDragging === true
+                    });
+
+                for (let index = 0; index < hops.length; index++) {
+                    let kind = hops[index],
+                        hop  = {index, kind, rects: groupRects().map(rectOf)};
+
+                    walked.push(hop);
+
+                    if (kind === 'desktop') {
+                        let point = desktopPoint();
+
+                        hop.pointer = point;
+                        await leg(point);
+
+                        hop.born = await driver.trap(driver.waitFor(() => {
+                            let id = vesselWindowId();
+
+                            return id != null && id !== previousVesselId
+                        }, {attempts: birthAttempts, delay: 16}));
+                        hop.windowId   = vesselWindowId();
+                        hop.vesselRect = rectOf(WindowManager.get(hop.windowId)?.innerRect);
+                        sampled(hop);
+
+                        if (!hop.born) {
+                            return fail(`journey hop ${index + 1} (desktop): no fresh vessel was born — ${diag()}`)
+                        }
+
+                        // Two deliberate moves on: a newborn vessel must survive the hand moving.
+                        for (let probe = 1; probe <= 2; probe++) {
+                            await sample({
+                                ...pointer,
+                                clientY: point.mirrored ? pointer.clientY + 12 : pointer.clientY,
+                                screenY: pointer.screenY + 12
+                            })
+                        }
+
+                        hop.survivedProbe = await driver.trap(driver.waitForTearOutVessel(itemId, {attempts: 0}));
+
+                        if (hop.survivedProbe && birthDwellMs > 0) {
+                            await driver.trap(driver.timeout(birthDwellMs));
+                            hop.birthHold = birthHold = {
+                                durationMs: birthDwellMs,
+                                survived  : await driver.trap(driver.waitForTearOutVessel(itemId, {attempts: 0}))
+                            }
+                        }
+
+                        if (!hop.survivedProbe || hop.birthHold?.survived === false) {
+                            return fail(`journey hop ${index + 1} (desktop): the vessel did not survive the hand moving on — ${diag()}`)
+                        }
+
+                        previousVesselId = hop.windowId;
+                        vesselWindowIds.push(hop.windowId);
+                        ledgerHop(index)
+                    } else if (kind === 'main') {
+                        let {entrySeen, retired} = await NativeGestureDriver.withEntryProbe(tabs, async () => {
+                            await leg(inside);
+
+                            return {retired: await driver.trap(driver.waitForTearOutVesselRetired(itemId))}
+                        });
+
+                        Object.assign(sampled(hop), {
+                            documentsUnchanged: JSON.stringify(documentBefore) === JSON.stringify(WorkspaceDocument.clone(me.dockModel)),
+                            entrySeen,
+                            retired,
+                            retiredWindowId   : previousVesselId,
+                            windowGone        : !previousVesselId || !WindowManager.get(previousVesselId)
+                        });
+                        documentsUnchangedAfterReturn = hop.documentsUnchanged;
+
+                        if (!entrySeen || !retired || !hop.documentsUnchanged) {
+                            return fail(`journey hop ${index + 1} (main): the vessel did not retire on re-entry with the document unchanged — ${diag()}`)
+                        }
+
+                        ledgerHop(index)
+                    } else {
+                        let frozen = {clientX: pointer.clientX, clientY: pointer.clientY},
+                            over   = targetCentre();
+
+                        if (!over) {
+                            return fail(`journey hop ${index + 1} (target): the target window has no live rect`)
+                        }
+
+                        hop.over = over;
+
+                        // The foreign claim retires the vessel through the source's own entry seam, so
+                        // an entry here is the claim itself, recorded, never a wrong turn by itself.
+                        let {claimed, entrySeen} = await NativeGestureDriver.withEntryProbe(tabs, async () => {
+                            await leg({...frozen, screenX: over.screenX, screenY: over.screenY});
+                            showCursor && (targetDot = driver.createFilmCursorDot(over.clientX, over.clientY, targetState.windowId));
+
+                            for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
+                                over = targetCentre() ?? over;
+
+                                await sample({
+                                    clientX: frozen.clientX + attempt % 2,
+                                    clientY: frozen.clientY,
+                                    screenX: over.screenX + attempt % 2,
+                                    screenY: over.screenY
+                                });
+
+                                remoteSnapshot = me.readCrossWindowGestureSnapshot({draggedItemId: itemId, sourceZone: sortZone, targetWorkspaceId});
+
+                                if (remoteSnapshot.ready) {
+                                    return {claimed: true}
+                                }
+                            }
+
+                            return {claimed: false}
+                        });
+
+                        Object.assign(sampled(hop), {
+                            claimed,
+                            entrySeen,
+                            retiredWindowId: previousVesselId,
+                            snapshot       : remoteSnapshot && {
+                                claimCount: remoteSnapshot.claimCount,
+                                engaged   : remoteSnapshot.engaged,
+                                indicators: remoteSnapshot.indicators,
+                                previewId : remoteSnapshot.preview?.previewId ?? null,
+                                proxy     : remoteSnapshot.targetProxy && {
+                                    header        : remoteSnapshot.targetProxy.header,
+                                    itemId        : remoteSnapshot.targetProxy.itemId,
+                                    settled       : remoteSnapshot.targetProxy.settled,
+                                    targetWindowId: remoteSnapshot.targetProxy.targetWindowId,
+                                    visible       : remoteSnapshot.targetProxy.visible
+                                },
+                                ready               : remoteSnapshot.ready,
+                                renderedPreviewId   : remoteSnapshot.rendered?.previewId ?? null,
+                                sourceVesselWindowId: remoteSnapshot.sourceVesselWindowId,
+                                winnerStableId      : remoteSnapshot.winnerStableId
+                            },
+                            vesselGone: !me.nativeWindows?.getConnection(me.id, itemId)
+                        });
+
+                        if (!claimed) {
+                            return fail(`journey hop ${index + 1} (target): the target did not take the drag as one semantic + rendered claim — ${diag()}`, {remoteSnapshot})
+                        }
+
+                        dwellDelay > 0 && await driver.trap(driver.timeout(dwellDelay));
+                        ledgerHop(index);
+
+                        if (index < hops.length - 1) {
+                            await driver.retireFilmCursorDot(targetDot);
+                            targetDot = null
+                        }
+                    }
+                }
+
+                // The release over the target: the A+B adoption, settled as the cross-window dock step settles it.
+                let previousTransactionId = me.workspaceSet.manager.get(me.topologyGroupId)?.history?.current?.transactionId;
+
+                await driver.trap(driver.simulateEvent(run, {events: [{
+                    targetId: button.id, type: 'mouseup', windowId: button.windowId, options: opt(pointer, 0)
+                }]}));
+
+                let transfer = await driver.trap(driver.waitForCrossWindowTransfer({
+                        sourceWorkspaceId: me.constructor.MAIN_WORKSPACE_ID,
+                        targetWorkspaceId
+                    }, {attempts, previousTransactionId})),
+                    sourceAfter       = WorkspaceDocument.clone(me.dockModel),
+                    targetAfter       = WorkspaceDocument.clone(me.getPopupState(targetWorkspaceId)?.document),
+                    retired           = await driver.trap(driver.waitForTearOutVesselRetired(itemId, {attempts})),
+                    targetItems       = targetAfter?.nodes?.[me.constructor.vesselTabsNodeId(targetItemId)]?.items || [],
+                    sourceOwns        = WorkspaceDocument.findContainingTabsId(sourceAfter, itemId) != null,
+                    paneIdAfter       = me.getPaneIdentity(itemId),
+                    identityPreserved = (ledgerHop('drop'), NativeGestureDriver.continuityPreserved(continuity, hops.length + 1))
+                        && paneIdBefore != null && paneIdAfter === paneIdBefore,
+                    freshGenerations  = new Set(vesselWindowIds).size === vesselWindowIds.length,
+                    applied           = transfer?.reconciled === true && retired && !sourceOwns
+                        && targetItems.length === 2 && targetItems[0] === targetItemId && targetItems[1] === itemId
+                        && identityPreserved && freshGenerations;
+
+                walked.at(-1).transferred = transfer?.reconciled === true;
+
+                return {
+                    applied,
+                    errors: applied ? [] : ['journey did not settle as one A+B target adoption with fresh vessels and the same pane'],
+                    hops  : walked,
+                    proof : {
+                        birthHold,
+                        continuity,
+                        documentBefore,
+                        documentsUnchangedAfterReturn,
+                        freshGenerations,
+                        identityPreserved,
+                        mainInner          : rectOf(inner),
+                        paneId             : paneIdBefore,
+                        remoteSnapshot,
+                        sourceDocument     : sourceAfter,
+                        sourceVesselRetired: retired,
+                        targetDocument     : targetAfter,
+                        transfer           : transfer ? WorkspaceDocument.clone(transfer) : null,
+                        vesselWindowIds
+                    }
+                }
+            } catch (error) {
+                button && await driver.cancelTearOutGesture(run, button, pointer, {sortZone}).catch(() => {});
+
+                return {applied: false, errors: [error?.message || String(error)], hops: walked}
+            } finally {
+                await driver.retireFilmCursorDot(targetDot);
+                await driver.retireFilmCursorDot(cursorDot)
+            }
         })
     }
 

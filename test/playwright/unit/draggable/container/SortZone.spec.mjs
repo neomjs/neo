@@ -15,6 +15,70 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
 import VdomHelper      from '../../../../../src/vdom/Helper.mjs';
 import Container       from '../../../../../src/container/Base.mjs';
 import SortZone        from '../../../../../src/draggable/container/SortZone.mjs';
+import Rectangle       from '../../../../../src/util/Rectangle.mjs';
+
+/**
+ * @summary Handle membership keeps the owning item sortable without making its body a native
+ * gesture target. Creation and insertion share the same marker contract.
+ */
+test.describe('SortZone native handle markers', () => {
+    test('a descendant handle keeps its marker while the owner body remains unmarked', async () => {
+        const item = id => ({ntype: 'component', id, vdom: {cn: [
+            {tag: 'div', cls: ['neo-draggable', 'pane-handle'], text: 'Handle'},
+            {tag: 'div', text: 'Selectable body'}
+        ]}});
+        const owner = Neo.create(Container, {
+            appName, dragResortable: true,
+            sortZoneConfig: {module: SortZone, dragHandleSelector: '.pane-handle'},
+            items         : [item('handle-first')]
+        });
+
+        try {
+            await expect.poll(() => owner.sortZone).toBeTruthy();
+            const zone = owner.sortZone, first = owner.items[0];
+
+            expect(zone.getDraggableItems()).toEqual([first]);
+            expect(first.wrapperCls).not.toContain('neo-draggable');
+            expect(first.vdom.cn[0].cls).toContain('neo-draggable');
+
+            const inserted = Promise.withResolvers();
+            owner.on('insert', () => inserted.resolve(), owner, {once: true});
+            const second = owner.add(item('handle-second'));
+            await inserted.promise;
+            expect(zone.getDraggableItems()).toEqual([first, second]);
+            expect(second.wrapperCls).not.toContain('neo-draggable');
+
+            zone.dragHandleSelector = null;
+            zone.adjustItemCls(true);
+            expect(first.wrapperCls).toContain('neo-draggable');
+            zone.dragHandleSelector = '.pane-handle';
+            zone.adjustItemCls(true);
+            expect(first.wrapperCls, 'retire an outer marker from the earlier whole-item mode').not.toContain('neo-draggable');
+            zone.adjustItemCls(false);
+            expect(first.vdom.cn[0].cls, 'the consumer still owns its header marker').toContain('neo-draggable')
+        } finally {
+            owner.destroy()
+        }
+    });
+
+    for (const selector of [null, '.neo-draggable', '.neo-tab-header-button']) {
+        test(`whole-item or root handle ${selector} retains its automatic wrapper marker`, async () => {
+            const owner = Neo.create(Container, {
+                appName, dragResortable: true,
+                sortZoneConfig: {module: SortZone, dragHandleSelector: selector},
+                items         : [{ntype: 'component', cls: selector ? [selector.slice(1)] : []}]
+            });
+
+            try {
+                await expect.poll(() => owner.sortZone).toBeTruthy();
+                expect(owner.sortZone.getDraggableItems()).toEqual(owner.items);
+                expect(owner.items[0].wrapperCls).toContain('neo-draggable')
+            } finally {
+                owner.destroy()
+            }
+        })
+    }
+});
 
 /**
  * @summary Tests for Neo.draggable.container.SortZone
@@ -518,4 +582,128 @@ test.describe('checkWindowBoundary — arming across the proxy-identity swap (th
         move(vesselAt(0.65));                           // genuine return in the vessel scale
         expect(fired).toEqual(['dragBoundaryExit', 'dragBoundaryEntry'])
     })
+});
+
+/**
+ * @summary The slot model behind a reorder: switching two slots moves the right one past its neighbour
+ * plus the gap it sat behind, keeps the swapped sizes in the model, and repeated switches return the
+ * exact starting geometry in both directions. The header toolbars inherit this method, so the themed
+ * margins between their items survive a drag that reorders them.
+ */
+test.describe('SortZone switchItems gap math', () => {
+    const rect = (x, y, width, height) => Rectangle.clone({x, y, width, height});
+
+    const zoneFor = async (direction, rects) => {
+        const owner = Neo.create(Container, {
+            appName, dragResortable: true,
+            sortZoneConfig: {module: SortZone},
+            items         : [{ntype: 'component'}, {ntype: 'component'}, {ntype: 'component'}]
+        });
+
+        await expect.poll(() => owner.sortZone).toBeTruthy();
+
+        const zone = owner.sortZone;
+
+        zone.sortDirection = direction;
+        zone.reversedLayoutDirection = false;
+        zone.itemRects = rects();
+        zone.indexMap  = {0: 0, 1: 1, 2: 2};
+
+        for (const item of owner.items) {
+            item.wrapperStyle = {}
+        }
+
+        return {owner, zone}
+    };
+
+    const geometry = zone => zone.itemRects.map(({x, y, width, height}) => ({x, y, width, height}));
+
+    test('a horizontal swap keeps the gap and the total span, both directions', async () => {
+        const start         = () => [rect(0, 0, 100, 32), rect(120, 0, 150, 32), rect(290, 0, 200, 32)],
+              startGeometry = geometry({itemRects: start()}),
+              {owner, zone} = await zoneFor('horizontal', start);
+
+        try {
+            zone.switchItems(1, 2);
+
+            expect(geometry(zone)).toEqual([
+                {x: 0, y: 0, width: 100, height: 32},
+                {x: 120, y: 0, width: 200, height: 32},
+                {x: 340, y: 0, width: 150, height: 32}
+            ]);
+            expect(zone.itemRects[2].x - (zone.itemRects[1].x + zone.itemRects[1].width), 'gap stays 20').toBe(20);
+            expect(owner.items[2].wrapperStyle, 'the wider item takes the left slot').toMatchObject({left: '120px', top: '0px'});
+            expect(owner.items[1].wrapperStyle).toMatchObject({left: '340px', top: '0px'});
+
+            zone.switchItems(2, 1);
+
+            expect(geometry(zone), 'the reverse call lands on the start').toEqual(startGeometry);
+            expect(owner.items[1].wrapperStyle).toMatchObject({left: '120px', top: '0px'});
+            expect(owner.items[2].wrapperStyle).toMatchObject({left: '290px', top: '0px'})
+        } finally {
+            owner.destroy()
+        }
+    });
+
+    test('a left traversal over two neighbours keeps every gap, with different widths', async () => {
+        const {owner, zone} = await zoneFor('horizontal', () => [
+            rect(0, 0, 100, 32), rect(120, 0, 150, 32), rect(290, 0, 200, 32)
+        ]);
+
+        try {
+            zone.switchItems(1, 2);
+            zone.switchItems(0, 1);
+
+            const [a, b, c] = zone.itemRects;
+
+            expect({a: [a.x, a.width], b: [b.x, b.width], c: [c.x, c.width]}).toEqual({a: [0, 200], b: [220, 100], c: [340, 150]});
+            expect(b.x - (a.x + a.width), 'first gap stays 20').toBe(20);
+            expect(c.x - (b.x + b.width), 'second gap stays 20').toBe(20);
+            expect(c.x + c.width, 'total span is unchanged').toBe(490)
+        } finally {
+            owner.destroy()
+        }
+    });
+
+    test('repeated switches in both directions do not drift the geometry', async () => {
+        const start         = () => [rect(0, 0, 100, 32), rect(120, 0, 150, 32), rect(290, 0, 200, 32)],
+              startGeometry = geometry({itemRects: start()}),
+              {owner, zone} = await zoneFor('horizontal', start);
+
+        try {
+            for (let round = 0; round < 4; round++) {
+                zone.switchItems(1, 2);
+                zone.switchItems(2, 1);
+                expect(geometry(zone), `round ${round}`).toEqual(startGeometry)
+            }
+        } finally {
+            owner.destroy()
+        }
+    });
+
+    test('a vertical swap keeps the gap in y, both directions, with different heights', async () => {
+        const {owner, zone} = await zoneFor('vertical', () => [
+            rect(0, 0, 200, 40), rect(0, 60, 200, 90), rect(0, 170, 200, 120)
+        ]);
+
+        try {
+            const untouched = {...owner.items[2].wrapperStyle};
+
+            zone.switchItems(0, 1);
+
+            expect(geometry(zone).map(({y, height}) => [y, height])).toEqual([[0, 90], [110, 40], [170, 120]]);
+            expect(zone.itemRects[1].y - (zone.itemRects[0].y + zone.itemRects[0].height), 'gap stays 20').toBe(20);
+            expect(owner.items[1].wrapperStyle, 'the taller item takes the top slot').toMatchObject({left: '0px', top: '0px'});
+            expect(owner.items[0].wrapperStyle).toMatchObject({left: '0px', top: '110px'});
+            expect(owner.items[2].wrapperStyle, 'the untouched slot keeps its style').toEqual(untouched);
+
+            zone.switchItems(1, 0);
+
+            expect(geometry(zone).map(({y, height}) => [y, height])).toEqual([[0, 40], [60, 90], [170, 120]]);
+            expect(owner.items[1].wrapperStyle, 'the reverse switch returns each item to its slot').toMatchObject({top: '60px'});
+            expect(owner.items[0].wrapperStyle).toMatchObject({top: '0px'})
+        } finally {
+            owner.destroy()
+        }
+    });
 });

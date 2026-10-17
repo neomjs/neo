@@ -375,8 +375,8 @@ class DomAccess extends Base {
                 // Modality is an explicit contract: :focus-visible cannot survive the async worker→main
                 // programmatic focus (and a tabindex=-1 node has no reliable user-agent ring to fall back on).
                 // The class is applied immediately before focus() so class + focus land atomically (no flash).
-                // 'pointer' suppresses the accidental ring; the first keydown without an intervening blur swaps
-                // it to the intentional keyboard ring; both self-clear on blur.
+                // 'pointer' suppresses the accidental ring (resources/scss/src/Global.scss); the first keydown
+                // without an intervening blur swaps it to the intentional keyboard ring; both self-clear on blur.
                 if (modality === 'pointer') {
                     node.classList.add('neo-focus-pointer');
 
@@ -650,15 +650,17 @@ class DomAccess extends Base {
      * App-worker components can be born with an animation class before their local DOM listeners
      * finish mounting. The main thread already owns the physical animation, so `Animation.finished`
      * is the race-free settlement authority. A missing, already-finished, or cancelled animation
-     * resolves safely; presentation must never wedge projection truth.
+     * resolves safely; presentation must never wedge projection truth. The node's own pseudo-elements
+     * count as the node (an overlay drawn by `::after`); descendants do not.
      * @param {Object} data
-     * @param {String} data.animationName CSS animation name to match on the node itself.
+     * @param {String} data.animationName CSS animation name to match on the node or its pseudo-elements.
      * @param {String} data.id Physical DOM node id.
      * @returns {Promise<Boolean>} Whether a live named animation was observed.
      */
     async waitForAnimation({animationName, id}) {
-        let animation = this.getElement(id)?.getAnimations?.()
-            .find(candidate => candidate.animationName === animationName);
+        let node      = this.getElement(id),
+            animation = node?.getAnimations?.({subtree: true})
+                .find(candidate => candidate.animationName === animationName && candidate.effect?.target === node);
 
         if (!animation) {
             return false
@@ -1413,6 +1415,7 @@ class DomAccess extends Base {
      * This method implements a "Triangular Communication" pattern required to bypass a core limitation in Firefox Nightly (and potentially other browsers) regarding SharedWorkers.
      * Firefox fails silently when attempting to transfer an `OffscreenCanvas` from the Main Thread to the App Worker (SharedWorker), and then again from the App Worker to the Canvas Worker.
      * By calling this method, the Main Thread extracts the canvas and sends it directly to the Canvas Worker, bypassing the App Worker entirely for the buffer transfer.
+     * Connect this window first: retained components do not repeat their worker bootstrap after a window hop.
      *
      * @param {Object} data
      * @param {String} data.componentId
@@ -1424,6 +1427,8 @@ class DomAccess extends Base {
 
         if (node) {
             try {
+                if (!Neo.worker.Manager.startWorker({name: 'canvas'})) return;
+
                 let offscreen = node.transferControlToOffscreen();
 
                 Neo.worker.Manager.sendMessage('canvas', {
@@ -1433,7 +1438,7 @@ class DomAccess extends Base {
                     nodeId
                 }, [offscreen])
             } catch (e) {
-                // Ignore, means the canvas was already transferred or we do not support it
+                // Keep the best-effort path for unavailable worker startup or canvas transfer.
             }
         }
     }

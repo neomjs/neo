@@ -40,25 +40,26 @@ class CrossWindowGestureSnapshot extends Base {
     }
 
     /**
-     * @summary Reads the semantic, rendered, arbitration, and physical-park truth for one
-     * cross-window pointer or native-window frame.
+     * @summary Reads the semantic, rendered and arbitration truth for one cross-window pointer or
+     * native-window frame.
      *
      * The film executors use this as their pre-release gate: mouseup is withheld until the
      * coordinator has exactly one stable claim, its winning target is engaged, and the target's
-     * semantic preview equals the preview rendered in that window. A converting tear-out can add
-     * `parkedItemId`, which additionally requires the exact source vessel to be strictly parked.
+     * semantic preview equals the preview rendered in that window. A pointer drag can add
+     * `draggedItemId`, which additionally requires that window to carry the drag as the item's
+     * tab-header proxy with no vessel left anywhere: a vessel riding the hand retires on the claim.
      * Visuals are read from the current participant's supplied or already-created controller;
      * observing readiness never creates the popup's lazy preview tier.
      * @param {Object} context
+     * @param {String|null} [context.draggedItemId=null]
      * @param {String|null} [context.nativeWindowId=null] Moving native window; reads its own claim/hover state.
-     * @param {String|null} [context.parkedItemId=null]
      * @param {Neo.dashboard.dock.interaction.TabSortZone|null} [context.sourceZone=null]
      * @param {String|null} [context.sourceZoneId=null] Clone-safe Neural Link alternative.
      * @param {String} context.targetWorkspaceId
      * @returns {Object}
      * @protected
      */
-    readCrossWindowGestureSnapshot({nativeWindowId=null, parkedItemId=null, sourceZone=null, sourceZoneId=null, targetWorkspaceId}={}) {
+    readCrossWindowGestureSnapshot({draggedItemId=null, nativeWindowId=null, sourceZone=null, sourceZoneId=null, targetWorkspaceId}={}) {
         sourceZone ??= sourceZoneId ? Neo.get(sourceZoneId) : null;
 
         let me = this,
@@ -76,13 +77,10 @@ class CrossWindowGestureSnapshot extends Base {
             rendered      = affordances?.preview?.dockPreview ?? null,
             indicatorMenu = affordances?.indicators,
             indicatorSet  = indicatorMenu?.candidateSet ?? null,
-            sensor        = sourceZone?.vesselConversionSensor,
-            parkedVessel  = me.vesselParkHandlers?.parkedVessel ?? null,
-            sourceVessel  = parkedItemId && me.resolveTearOutVessel(parkedItemId),
-            targetProxy   = parkedItemId && me.vesselProxyEmbodiment.snapshot(parkedItemId),
+            sourceVessel  = draggedItemId && me.resolveTearOutVessel(draggedItemId),
+            targetProxy   = draggedItemId && me.vesselProxyEmbodiment.snapshot(draggedItemId),
             snapshot      = {
                 claimCount: arbiter?.claimCount ?? 0,
-                converted : sensor?.converted === true && sensor?.transitioning !== true,
                 engaged   : nativeWindowId ? coordinator?.nativeHoverTargets.get(nativeWindowId) === target : coordinator?.activeTargetZone === target,
                 indicators: indicatorSet ? {
                     activePreviewId: indicatorMenu.activeCandidate?.preview?.previewId ?? null,
@@ -90,7 +88,6 @@ class CrossWindowGestureSnapshot extends Base {
                     itemId         : indicatorSet.itemId ?? null,
                     visible        : !indicatorMenu.cls?.includes?.('neo-dashboard-dock-drop-indicators-hidden')
                 } : null,
-                parkedItemId: parkedVessel?.itemId ?? null,
                 parkReceipt : me.lastVesselParkReceipt
                     ? WorkspaceDocument.clone(me.lastVesselParkReceipt)
                     : null,
@@ -114,21 +111,89 @@ class CrossWindowGestureSnapshot extends Base {
             && Boolean(snapshot.preview?.previewId)
             && snapshot.rendered?.previewId === snapshot.preview.previewId
             && snapshot.indicators?.activePreviewId === snapshot.preview.previewId
-            && (parkedItemId == null || (
-                snapshot.converted && snapshot.parkedItemId === parkedItemId &&
-                snapshot.sourceVesselConnected &&
-                snapshot.indicators?.itemId === parkedItemId &&
+            && (draggedItemId == null || (
+                !snapshot.sourceVesselConnected &&
+                snapshot.indicators?.itemId === draggedItemId &&
                 snapshot.indicators.candidateCount >= 5 &&
                 snapshot.indicators.visible &&
-                targetProxy?.itemId === parkedItemId &&
+                targetProxy?.itemId === draggedItemId &&
                 targetProxy.header &&
                 targetProxy.settled &&
-                targetProxy.sourceWindowId === snapshot.sourceVesselWindowId &&
                 targetProxy.targetWindowId === target?.windowId &&
                 targetProxy.visible
             ));
 
+        // An unready read names the surfaces a claim would have crossed, so a timed-out gesture's last
+        // snapshot explains itself; a ready read stays the receipt the beat logs compare.
+        if (!snapshot.ready) {
+            snapshot.claimSurfaces = describeClaimSurfaces(me, {coordinator, nativeWindowId, participation, sourceZone, target})
+        }
+
         return snapshot
+    }
+}
+
+/**
+ * @summary Describes the surfaces between a dragging zone and a workspace's target at the moment a claim
+ * did not arrive: the participation and its target, the coordinator's claim and hover state, both windows'
+ * inner rects, the source zone's arming state and the workspace's native ownership records. Diagnostics
+ * only; nothing here is awaited or created. A module function, not a mixin method: no reader addresses it
+ * by name, and the unit specs drive the reader on plain stubs.
+ * @param {Object} workspace The reading workspace (the mixin host, or a stub carrying its fields).
+ * @param {Object} context
+ * @param {Neo.manager.DragCoordinator|null} [context.coordinator=null]
+ * @param {String|null} [context.nativeWindowId=null]
+ * @param {Neo.dashboard.dock.window.Participation|null} [context.participation=null]
+ * @param {Neo.dashboard.dock.interaction.TabSortZone|null} [context.sourceZone=null]
+ * @param {Object|null} [context.target=null] The participation's drop target.
+ * @returns {Object}
+ */
+function describeClaimSurfaces(workspace, {coordinator=null, nativeWindowId=null, participation=null, sourceZone=null, target=null}={}) {
+    let windows        = Neo.manager?.Window,
+        rectOf         = id => id == null ? null : (windows?.get(id)?.innerRect ?? null),
+        sourceWindowId = nativeWindowId ?? sourceZone?.windowId ?? null,
+        arbiter        = nativeWindowId ? coordinator?.nativeClaimArbiters?.get(nativeWindowId) : coordinator?.pointerClaimArbiter,
+        registry       = workspace.nativeWindows;
+
+    return {
+        participation: participation ? {
+            affordances   : Boolean(participation.affordances ?? participation.ownedAffordances),
+            targetId      : target?.id ?? null,
+            targetWindowId: target?.windowId ?? null
+        } : null,
+        coordinator: coordinator ? {
+            activeTargetZoneId  : coordinator.activeTargetZone?.id ?? null,
+            activeTargetWindowId: coordinator.activeTargetZone?.windowId ?? null,
+            arbiter             : arbiter ? {
+                claimCount    : arbiter.claimCount ?? 0,
+                token         : arbiter.token ?? null,
+                winnerStableId: arbiter.resolve?.()?.stableId ?? null
+            } : null,
+            // The resolver's own record of this gesture's passes — why each registered zone did or did not
+            // claim. Filtered by the token each entry was stamped with, never the one live now: the ring
+            // spans gestures (see DragCoordinator#recordClaimResolution). The last three passes suffice.
+            claimTrace: arbiter?.token != null
+                ? (coordinator.claimTrace ?? []).filter(entry => entry.gestureToken === arbiter.token).slice(-3).map(entry => WorkspaceDocument.clone(entry))
+                : null,
+            nativeArbiterWindowIds: [...(coordinator.nativeClaimArbiters?.keys?.() ?? [])],
+            nativeHoverWindowIds  : [...(coordinator.nativeHoverTargets?.keys?.() ?? [])]
+        } : null,
+        sourceZone: sourceZone ? {
+            dockGroupNodeId: sourceZone.dockGroupNodeId ?? null,
+            dragProxy      : Boolean(sourceZone.dragProxy),
+            id             : sourceZone.id ?? null,
+            stackDragActive: sourceZone.stackDragActive === true,
+            windowId       : sourceZone.windowId ?? null
+        } : null,
+        windows: {
+            main  : {id: workspace.windowId ?? null, innerRect: rectOf(workspace.windowId)},
+            source: {id: sourceWindowId, innerRect: rectOf(sourceWindowId)}
+        },
+        owners: registry ? {
+            connections       : registry.connectionEntries(workspace.id).map(([itemId]) => itemId),
+            owned             : registry.ownerEntries(workspace.id).map(([itemId, entry]) => ({itemId, windowId: entry?.windowId ?? null, windowName: entry?.windowName ?? null})),
+            pendingRetirements: registry.pendingRetirements(workspace.id).map(vessel => ({itemId: vessel?.itemId ?? null, windowName: vessel?.windowName ?? null}))
+        } : null
     }
 }
 

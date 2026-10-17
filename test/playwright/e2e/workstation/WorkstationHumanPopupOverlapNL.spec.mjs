@@ -1,51 +1,9 @@
 import {expect, test}        from '../../fixtures.mjs';
 import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
 
-const MATRIX_CELLS = [
-        {
-            itemId      : 'commits',
-            label       : 'Commits',
-            name        : 'small-over-large',
-            sourceNodeId: 'right-bottom-tabs',
-            sourceSize  : {height: 300, width: 360},
-            targetSize  : {height: 560, width: 760}
-        },
-        {
-            itemId      : 'audit',
-            label       : 'Audit',
-            name        : 'large-over-small',
-            sourceNodeId: 'right-top-tabs',
-            sourceSize  : {height: 560, width: 760},
-            targetSize  : {height: 300, width: 360}
-        },
-        {
-            itemId      : 'feed',
-            label       : 'Live Event Stream',
-            name        : 'near-equal',
-            sourceNodeId: 'bottom-tabs',
-            sourceSize  : {height: 480, width: 620},
-            targetSize  : {height: 460, width: 600}
-        },
-        {
-            itemId       : 'alerts',
-            label        : 'Priority Alert Observatory',
-            name         : 'post-resize-asymmetric',
-            preSourceSize: {height: 400, width: 500},
-            preTargetSize: {height: 480, width: 620},
-            sourceNodeId : 'heavy-tabs',
-            sourceSize   : {height: 520, width: 740},
-            targetSize   : {height: 320, width: 400}
-        }
-    ],
-    MATRIX_CELL           = MATRIX_CELLS.find(cell =>
-        cell.name === (process.env.NEO_POPUP_CELL || 'large-over-small')),
-    PARTIAL_OVERLAP_RATIO = .68,
-    TARGET_ITEM_ID        = 'metrics',
-    TARGET_WORKSPACE_ID   = 'workstation-vessel:metrics';
-
-if (!MATRIX_CELL) {
-    throw new Error(`Unknown NEO_POPUP_CELL: ${process.env.NEO_POPUP_CELL}`)
-}
+const
+    TARGET_ITEM_ID      = 'metrics',
+    TARGET_WORKSPACE_ID = 'workstation-vessel:metrics';
 
 /**
  * @summary Returns clone-safe rectangle fields from browser, manager, or DOM geometry.
@@ -97,34 +55,6 @@ function readBrowserGeometry(page) {
             height: globalThis.outerHeight,
             width : globalThis.outerWidth
         }
-    }))
-}
-
-/**
- * @summary Preserves the original popup-witness failure when a diagnostic page has already closed.
- * @param {import('@playwright/test').Page} page
- * @param {Function} reader
- * @returns {Promise<Object>}
- */
-async function readPageDiagnostic(page, reader) {
-    try {
-        return await reader()
-    } catch (error) {
-        return {closed: page.isClosed(), error: error.message}
-    }
-}
-
-/**
- * @summary Reads the display envelope currently containing one browser window.
- * @param {Object} page
- * @returns {Promise<Object>}
- */
-function readScreenEnvelope(page) {
-    return page.evaluate(() => ({
-        height: globalThis.screen.availHeight,
-        left  : globalThis.screen.availLeft,
-        top   : globalThis.screen.availTop,
-        width : globalThis.screen.availWidth
     }))
 }
 
@@ -192,18 +122,6 @@ async function setNativeBounds(handle, bounds) {
 }
 
 /**
- * @summary Resizes a real native window without changing its current outer origin.
- * @param {Object} handle
- * @param {Object} size
- * @returns {Promise<Object>}
- */
-async function setNativeSize(handle, size) {
-    const {bounds} = await handle.cdp.send('Browser.getWindowBounds', {windowId: handle.windowId});
-
-    return setNativeBounds(handle, {...bounds, ...size})
-}
-
-/**
  * @summary Reads the manager's distinct content and frame rectangles for one runtime window.
  * @param {Object} app
  * @param {String} managerId
@@ -267,8 +185,7 @@ async function awaitPointerSessionIdle(page) {
             return {
                 dragProxyPresent: Boolean(addon.dragProxyElement),
                 dragZoneId      : addon.dragZoneId,
-                isWindowDragging: addon.isWindowDragging,
-                windowDragParked: addon.windowDragParked
+                isWindowDragging: addon.isWindowDragging
             }
         });
 
@@ -280,8 +197,7 @@ async function awaitPointerSessionIdle(page) {
     }).toEqual({
         dragProxyPresent: false,
         dragZoneId      : null,
-        isWindowDragging: false,
-        windowDragParked: false
+        isWindowDragging: false
     });
     await expect(
         page.locator('.neo-is-dragging'),
@@ -289,82 +205,6 @@ async function awaitPointerSessionIdle(page) {
     ).toHaveCount(0, {timeout: 10000});
 
     return state
-}
-
-/**
- * @summary Measures the committed popup workspace, its card body and its lazily created overlay.
- * @param {Object} page
- * @param {Object} ids Live component identities resolved through Neural Link.
- * @returns {Promise<Object>}
- */
-function readPopupLayout(page, ids) {
-    return page.evaluate(({workspaceId, paneId, bodyId}) => {
-        const
-            workspace  = document.getElementById(workspaceId),
-            pane       = document.getElementById(paneId),
-            body       = document.getElementById(bodyId),
-            indicators = workspace?.querySelector(':scope > .neo-dashboard-dock-drop-indicators'),
-            pick       = element => {
-                const rect = element?.getBoundingClientRect();
-
-                return rect && {
-                    height: rect.height,
-                    width : rect.width,
-                    x     : rect.x,
-                    y     : rect.y
-                }
-            };
-
-        return {
-            hasContainerSheet: [...document.styleSheets].some(sheet =>
-                sheet.href?.includes('/dashboard/Container.css')
-            ),
-            indicatorPosition: indicators && getComputedStyle(indicators).position,
-            indicators       : pick(indicators),
-            pane             : pick(pane),
-            paneBody         : pick(body),
-            viewport         : pick(workspace?.parentElement),
-            workspace        : pick(workspace)
-        }
-    }, ids)
-}
-
-/**
- * @summary Compares all rectangle edges; missing geometry cannot satisfy the comparison.
- * @param {Object|null} first
- * @param {Object|null} second
- * @returns {Object}
- */
-function edgeDelta(first, second) {
-    return {
-        bottom: Math.abs((first?.y ?? Infinity) + (first?.height ?? 0) - (second?.y ?? 0) - (second?.height ?? 0)),
-        left  : Math.abs((first?.x ?? Infinity) - (second?.x ?? 0)),
-        right : Math.abs((first?.x ?? Infinity) + (first?.width ?? 0) - (second?.x ?? 0) - (second?.width ?? 0)),
-        top   : Math.abs((first?.y ?? Infinity) - (second?.y ?? 0))
-    }
-}
-
-/**
- * @summary Computes the live smaller-extent per-axis conversion metric.
- * @param {Object} source
- * @param {Object} target
- * @returns {Object}
- */
-function sampleMetric(source, target) {
-    const
-        overlapWidth = Math.max(
-            0,
-            Math.min(source.x + source.width, target.x + target.width) - Math.max(source.x, target.x)
-        ),
-        overlapHeight = Math.max(
-            0,
-            Math.min(source.y + source.height, target.y + target.height) - Math.max(source.y, target.y)
-        ),
-        rx    = overlapWidth  / Math.min(source.width,  target.width),
-        ry    = overlapHeight / Math.min(source.height, target.height),
-        score = Math.min(rx, ry);
-
-    return {overlapHeight, overlapWidth, rx, ry, score}
 }
 
 /**
@@ -576,74 +416,18 @@ async function awaitVesselRetirement(app, managerId, wsId, itemId, windowId) {
 }
 
 /**
- * @summary Positions the target so the still-held pointer yields calibrated partial overlap.
- * @param {Object} data
- * @returns {Promise<Object>}
- */
-async function positionTargetForPartialOverlap({
-    app,
-    mainHandle,
-    managerId,
-    ratio,
-    source,
-    targetHandle,
-    targetWindowId
-}) {
-    let target = await awaitGeometryParity(
-        app,
-        managerId,
-        targetHandle.page,
-        targetWindowId
-    );
-
-    const
-        overlapWidth  = ratio * Math.min(source.managed.width,  target.managed.width),
-        overlapHeight = ratio * Math.min(source.managed.height, target.managed.height),
-        desiredX      = source.managed.x + overlapWidth  - target.managed.width,
-        desiredY      = source.managed.y + overlapHeight - target.managed.height,
-        {bounds}      = await targetHandle.cdp.send('Browser.getWindowBounds', {windowId: targetHandle.windowId});
-
-    const left = Math.round(bounds.left + desiredX - target.managed.x),
-          main = await mainHandle.cdp.send('Browser.getWindowBounds', {windowId: mainHandle.windowId}),
-          mainWidth = Math.floor(left - main.bounds.left - 32);
-
-    // Moving a committed popup also drives the native docking path. Keep its destination corner
-    // outside main, otherwise rig placement docks the intended TARGET home before the hover starts.
-    expect(mainWidth, 'the display leaves room for main beside the target popup').toBeGreaterThanOrEqual(500);
-    if (main.bounds.left + main.bounds.width >= left) {
-        await setNativeBounds(mainHandle, {...main.bounds, width: mainWidth});
-    }
-
-    await setNativeBounds(targetHandle, {
-        ...bounds,
-        left,
-        top : Math.round(bounds.top  + desiredY - target.managed.y)
-    });
-    target = await awaitGeometryParity(app, managerId, targetHandle.page, targetWindowId);
-
-    return {metric: sampleMetric(source.managed, target.managed), target}
-}
-
-/**
- * @summary Actual-pointer proof that a human popup-over-popup drag materializes early.
+ * @summary Actual-pointer proof of the human popup paths.
  *
- * Every gesture input is Playwright's trusted `page.mouse` stream. CDP only controls physical
- * native window bounds so the matrix is deterministic. The held source is never released until
- * exactly one target-local proxy, the target indicators, and its preview coexist. The
- * representative size-asymmetric cell retains renderer and semantic receipts across a live
- * pointer-follow move. Each cell then converts out, restoring the identical popup and exact outer
- * extent before Escape cancels it.
+ * Every gesture input is Playwright's trusted `page.mouse` stream; CDP only controls physical native
+ * window bounds. A tear-out commits the same pane into its full PopupWorkspace and themes the slot it
+ * vacated. A drag over a foreign popup follows the docking design record §2.8.6: the window that
+ * claims the pointer carries the drag as the tab-header proxy, the vessel riding the hand closes, and
+ * leaving that window opens a fresh one.
  *
  * The ordinary E2E profile retains `--disable-frame-rate-limit` for engine / OffscreenCanvas
- * coverage. `NEO_FILM_TAKE=1` replays the identical assertions with on-glass compositing; the
- * always-on Playwright trace records the proven target-popup frame without injecting a screenshot
- * action into the held gesture. One matrix cell runs per fresh browser process because Chromium's
- * separate native-window churn can terminate the next reused worker browser. `large-over-small`
- * is the representative default; set `NEO_POPUP_CELL` to execute any other named cell.
- * `NEO_POPUP_PROOF_HOLD_MS` optionally holds the proven coexistence frame for native observation
- * without changing the gesture.
+ * coverage. `NEO_FILM_TAKE=1` replays the identical assertions with on-glass compositing.
  */
-test.describe('Workstation — human popup-over-popup conversion (#16117)', () => {
+test.describe('Workstation — human popup-over-popup drag (#16117)', () => {
     test.setTimeout(240000);
     test.use({colorScheme: 'dark', viewport: null});
 
@@ -659,6 +443,10 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
 
         await expect(page.locator(`#${paneId}`)).toBeVisible();
 
+        // the size the pane shows at in the room is the OUTER size its window opens at, floored
+        // at the platform's 320×240 — the tab header's drag proxy is no measure of the widget
+        const paneRect = await page.locator(`#${paneId}`).boundingBox();
+
         let popup;
         try {
             ({popup} = await beginActualTearOut({label: 'Metrics', page}));
@@ -666,6 +454,18 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
 
             const liveElement = await popup.locator(`[id="${paneId}"]`).elementHandle();
             expect(liveElement).toBeTruthy();
+
+            // the window's frame takes over the pane's footprint: its OUTER size is the pane's, and
+            // its content is smaller by the window chrome on purpose (no inner size is required)
+            const
+                vessel = await popup.evaluate(() => ({inner: {height: innerHeight, width: innerWidth}, outer: {height: outerHeight, width: outerWidth}})),
+                birth  = (await app.getComponent(workspace.id, ['lastVesselOpen'])).lastVesselOpen,
+                sizing = `pane ${JSON.stringify(paneRect)}, vessel ${JSON.stringify(vessel)}, birth ${JSON.stringify(birth)}`,
+                want   = {height: Math.max(240, Math.round(paneRect.height)), width: Math.max(320, Math.round(paneRect.width))};
+
+            expect(birth.sourceRect, `the zone measured the pane at arming (${sizing})`).toMatchObject({height: paneRect.height, width: paneRect.width});
+            expect(Math.abs(vessel.outer.width  - want.width),  `the vessel's outer width is the pane's (${sizing})`).toBeLessThanOrEqual(2);
+            expect(Math.abs(vessel.outer.height - want.height), `the vessel's outer height is the pane's (${sizing})`).toBeLessThanOrEqual(2);
             await expect(popup.locator('.workstation-vessel-provisional-chrome .neo-tab-header-button'),
                 'the staged popup shows its pane header before the terminal').toContainText('Metrics');
             await expect(page.locator('.neo-dashboard-dock-vessel-placeholder'),
@@ -794,835 +594,291 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
     });
 
     /**
-     * @summary Exercises the same held-pointer overlap before restoring or committing the vessel.
-     * @param {Object} fixtures
-     * @param {Object} testInfo
-     * @param {String} terminal
-     * @returns {Promise<void>}
+     * @summary Stages a foreign window of the group: Metrics torn out, released on the desktop and placed
+     * clear of a narrowed main, with free desktop beyond it.
+     * @param {Object} page
+     * @param {Object} neuralLink
+     * @returns {Promise<Object>} the app handles, the popup's Page and window id, and main-client points
+     *     over the popup (`overTarget`) and on the desktop beyond it (`desktop`)
      */
-    async function runOverlap({page, neuralLink}, testInfo, terminal) {
-        await test.step(MATRIX_CELL.name, async () => {
-            const cell = MATRIX_CELL;
+    async function stageForeignPopup(page, neuralLink) {
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-dock-host', {timeout: 60000});
+        await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
 
-            await page.goto('/apps/workstation/index.html');
-            await page.waitForSelector('.workstation-dock-host', {timeout: 60000});
-            await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
-            await page.waitForFunction(() => {
-                const host = document.querySelector('.workstation-dock-host');
+        const
+            app       = await neuralLink.connectToApp('Workstation'),
+            workspace = await findOne(app, {className: 'Workstation.view.Workspace'}, ['id', 'windowId']),
+            manager   = await findOne(app, {className: 'Neo.manager.Window'}, ['id']),
+            wsId      = workspace.id,
+            managerId = manager.id,
+            screen    = await page.evaluate(() => ({
+                height: globalThis.screen.availHeight,
+                left  : globalThis.screen.availLeft,
+                top   : globalThis.screen.availTop,
+                width : globalThis.screen.availWidth
+            })),
+            mainWidth  = 760,
+            gap        = 160,
+            popupWidth = 480;
 
-                return host?.getBoundingClientRect().height > 300
-            }, {timeout: 60000});
-            await page.waitForTimeout(1200);
+        test.skip(screen.width < 24 + mainWidth + gap + popupWidth + gap + 40,
+            `${screen.width}px stage cannot hold main, the foreign popup and free desktop beside them`);
 
+        await setNativeBounds(await acquireNativeWindow(page), {
+            height: Math.min(720, screen.height - 80),
+            left  : screen.left + 24,
+            top   : screen.top  + 24,
+            width : mainWidth
+        });
+
+        const {popup: targetPage} = await beginActualTearOut({label: 'Metrics', page});
+
+        const targetWindowId = await awaitVesselWindowId(app, wsId, TARGET_ITEM_ID, false);
+
+        await page.mouse.up();
+        expect(await awaitVesselWindowId(app, wsId, TARGET_ITEM_ID, true)).toBe(targetWindowId);
+        await awaitPointerSessionIdle(page);
+
+        await setNativeBounds(await acquireNativeWindow(targetPage), {
+            height: 440,
+            left  : screen.left + 24 + mainWidth + gap,
+            top   : screen.top  + 80,
+            width : popupWidth
+        });
+
+        const
+            main   = (await awaitGeometryParity(app, managerId, page, workspace.properties.windowId)).managed,
+            target = (await awaitGeometryParity(app, managerId, targetPage, targetWindowId)).managed,
+            // the mouse speaks main's client space; a screen point maps through main's content origin
+            client = point => ({x: Math.round(point.x - main.x), y: Math.round(point.y - main.y)});
+
+        return {
+            app,
+            desktop   : client({x: target.x + target.width + gap / 2, y: target.y + target.height / 2}),
+            mainInner : main,
+            managerId,
+            overTarget: client({x: target.x + target.width / 2, y: target.y + target.height / 2}),
+            targetPage,
+            targetWindowId,
+            wsId
+        }
+    }
+
+    /**
+     * @summary Records every native move main asks for, with its settled answer: a host may admit the popup
+     * but refuse every `window.moveTo`, which is a stage ceiling, not a gesture that stopped asking.
+     * @param {Object} page
+     */
+    async function traceWindowMoves(page) {
+        await page.evaluate(() => {
             const
-                app        = await neuralLink.connectToApp('Workstation'),
-                workspace  = await findOne(app, {className: 'Workstation.view.Workspace'}, ['id']),
-                manager    = await findOne(app, {className: 'Neo.manager.Window'}, ['id']),
-                wsId       = workspace.id,
-                managerId  = manager.id,
-                mainHandle = await acquireNativeWindow(page),
-                screen     = await page.evaluate(() => ({
-                    fullHeight: globalThis.screen.height,
-                    fullWidth : globalThis.screen.width,
-                    height    : globalThis.screen.availHeight,
-                    left      : globalThis.screen.availLeft,
-                    top       : globalThis.screen.availTop,
-                    width     : globalThis.screen.availWidth
-                }));
+                main     = globalThis.Neo.Main,
+                original = main.windowMoveTo.bind(main),
+                trace    = globalThis.__foreignPopupMoves = [];
 
-            const requiredStageWidth = Math.ceil(
-                cell.sourceSize.width + cell.targetSize.width -
-                PARTIAL_OVERLAP_RATIO * Math.min(cell.sourceSize.width, cell.targetSize.width)
-            );
+            main.windowMoveTo = data => {
+                const entry  = {data: {...data}, result: 'pending'},
+                      result = original(data);
 
-            test.skip(
-                screen.width < requiredStageWidth,
-                `${cell.name}: ${screen.width}px stage cannot contain the ${requiredStageWidth}px ` +
-                'minimum union for two reachable popup extents at the calibrated partial overlap'
-            );
+                trace.push(entry);
+                Promise.resolve(result).then(value => {entry.result = value}, error => {entry.result = `reject:${error.message}`});
 
-            await setNativeBounds(mainHandle, {
-                height: Math.min(820, screen.height - 80),
-                left  : screen.left + 24,
-                top   : screen.top  + 24,
-                // Keep even the 760px large-source cell centered on this display. A source whose
-                // center crosses onto another display makes Chrome's unpermissioned window.moveTo
-                // clamp to that display; multi-display transport belongs to the portability matrix,
-                // not this same-display asymmetric-size witness.
-                width : Math.min(1080, screen.width - 80)
-            });
-
-            let pointerDown = false,
-                sourcePage,
-                targetPage,
-                targetHandle;
-
-            const receipts = [];
-
-            try {
-                const targetGesture = await beginActualTearOut({label: 'Metrics', page});
-
-                pointerDown = true;
-                targetPage  = targetGesture.popup;
-
-                const targetWindowId = await awaitVesselWindowId(app, wsId, TARGET_ITEM_ID, false);
-
-                await page.mouse.up();
-                pointerDown = false;
-
-                await expect.poll(async () => {
-                    const {dockModel} = await app.getComponent(wsId, ['dockModel']);
-
-                    return Object.values(dockModel.nodes).some(node => node.items?.includes(TARGET_ITEM_ID))
-                }, {
-                    message  : 'the actual-pointer Metrics release commits its detached target vessel',
-                    timeout  : 15000,
-                    intervals: [50, 100]
-                }).toBe(false);
-                expect(await awaitVesselWindowId(app, wsId, TARGET_ITEM_ID, true)).toBe(targetWindowId);
-                await awaitPointerSessionIdle(page);
-
-                targetHandle = await acquireNativeWindow(targetPage);
-
-                await setNativeBounds(targetHandle, {
-                        ...cell.targetSize,
-                        left: screen.left + 10,
-                        top : screen.top  + 10
-                    });
-
-                    const
-                        targetWorkspace = await findOne(app, {
-                            className   : 'Workstation.view.PopupWorkspace',
-                            workspaceKey: TARGET_WORKSPACE_ID
-                        }, ['id', 'windowId']),
-                        targetTabs = await findOne(app, {
-                            className      : 'Neo.dashboard.dock.interaction.TabContainer',
-                            dockWorkspaceId: targetWorkspace.id
-                        }, ['id']),
-                        targetBody = await app.callMethod(targetTabs.id, 'getCardContainer'),
-                        layoutIds = {
-                            bodyId     : targetBody.id,
-                            paneId     : await app.callMethod(wsId, 'getPaneIdentity', [TARGET_ITEM_ID]),
-                            workspaceId: targetWorkspace.id
-                        };
-
-                    expect(targetWorkspace.properties.windowId).toBe(targetWindowId);
-                    expect(layoutIds.bodyId).toBeTruthy();
-                    expect(layoutIds.paneId).toBeTruthy();
-                    await expect(targetPage.locator(`[id="${layoutIds.paneId}"]`)).toHaveCount(1);
-
-                    let targetLayout;
-
-                    await expect.poll(async () => {
-                        targetLayout = await readPopupLayout(targetPage, layoutIds);
-
-                        return {
-                            hasContainerSheet: targetLayout.hasContainerSheet,
-                            nonzero          : [
-                                targetLayout.viewport,
-                                targetLayout.pane,
-                                targetLayout.paneBody,
-                                targetLayout.workspace
-                            ].every(rect => rect?.width > 0 && rect?.height > 0),
-                            paneFillsBody: Object.values(edgeDelta(targetLayout.pane, targetLayout.paneBody))
-                                .every(delta => delta <= 1),
-                            workspaceFillsViewport: Object.values(edgeDelta(targetLayout.workspace, targetLayout.viewport))
-                                .every(delta => delta <= 1)
-                        }
-                    }, {
-                        message  : `${cell.name}: the committed target fills its full workspace card body`,
-                        timeout  : 10000,
-                        intervals: [25, 50, 100]
-                    }).toMatchObject({
-                        hasContainerSheet     : true,
-                        nonzero               : true,
-                        paneFillsBody         : true,
-                        workspaceFillsViewport: true
-                    });
-
-                    const sourceGesture = await beginActualTearOut({label: cell.label, page});
-
-                    sourcePage = sourceGesture.popup;
-
-                    pointerDown = true;
-
-                    const
-                        sourceWindowId = await awaitVesselWindowId(app, wsId, cell.itemId, false),
-                        sourceZone     = await findOne(app, {
-                            className       : 'Neo.dashboard.dock.interaction.TabSortZone',
-                            dockSourceNodeId: cell.sourceNodeId,
-                            dockWorkspaceId : 'workstation-main'
-                        }, ['id']),
-                        sourceZoneId = sourceZone.id,
-                        sourceHandle = await acquireNativeWindow(sourcePage);
-
-                    let resizedFrom = null;
-
-                    if (cell.preSourceSize && cell.preTargetSize) {
-                        await setNativeSize(targetHandle, cell.preTargetSize);
-                        await setNativeSize(sourceHandle, cell.preSourceSize);
-                        resizedFrom = {
-                            source: await awaitGeometryParity(
-                                app,
-                                managerId,
-                                sourcePage,
-                                sourceWindowId
-                            ),
-                            target: await awaitGeometryParity(
-                                app,
-                                managerId,
-                                targetPage,
-                                targetWindowId
-                            )
-                        }
-                    }
-
-                    await setNativeSize(targetHandle, cell.targetSize);
-                    await setNativeSize(sourceHandle, cell.sourceSize);
-
-                    const
-                        sourceBefore = await awaitGeometryParity(
-                            app,
-                            managerId,
-                            sourcePage,
-                            sourceWindowId
-                        ),
-                        positioned = await positionTargetForPartialOverlap({
-                            app,
-                            mainHandle,
-                            managerId,
-                            ratio : PARTIAL_OVERLAP_RATIO,
-                            source: sourceBefore,
-                            targetHandle,
-                            targetWindowId
-                        });
-
-                    const [sourceScreenEnvelope, targetScreenEnvelope] = await Promise.all([
-                        readScreenEnvelope(sourcePage),
-                        readScreenEnvelope(targetPage)
-                    ]);
-
-                    expect(
-                        sourceScreenEnvelope,
-                        `${cell.name}: the popup-size witness is intentionally same-display`
-                    ).toEqual(targetScreenEnvelope);
-
-                    await page.evaluate(() => {
-                        globalThis.__neoTrustedPointerProjection = null;
-                        addEventListener('mousemove', event => {
-                            globalThis.__neoTrustedPointerProjection = {
-                                clientX: event.clientX,
-                                clientY: event.clientY,
-                                screenX: event.screenX,
-                                screenY: event.screenY
-                            }
-                        }, {capture: true, once: true})
-                    });
-                    await page.mouse.move(sourceGesture.out.x, sourceGesture.out.y);
-
-                    const
-                        pointerProjection = await page.evaluate(() => globalThis.__neoTrustedPointerProjection),
-                        pointerOrigin     = {
-                            x: pointerProjection.screenX - pointerProjection.clientX,
-                            y: pointerProjection.screenY - pointerProjection.clientY
-                        },
-                        pointer = {
-                            x: pointerOrigin.x + sourceGesture.out.x,
-                            y: pointerOrigin.y + sourceGesture.out.y
-                        },
-                        pointerInTarget = {
-                            x: pointer.x - positioned.target.managed.x,
-                            y: pointer.y - positioned.target.managed.y
-                        };
-
-                    expect(positioned.metric.rx, `${cell.name}: horizontal overlap clears convert-in`)
-                        .toBeGreaterThan(.6);
-                    expect(positioned.metric.ry, `${cell.name}: vertical overlap clears convert-in`)
-                        .toBeGreaterThan(.6);
-                    expect(positioned.metric.score, `${cell.name}: composed score clears .55`).toBeGreaterThan(.6);
-                    expect(positioned.metric.score, `${cell.name}: conversion remains partial`).toBeLessThan(.8);
-                    expect(pointerInTarget.x, `${cell.name}: pointer intent is inside target x`).toBeGreaterThan(0);
-                    expect(pointerInTarget.x).toBeLessThan(positioned.target.managed.width);
-                    expect(pointerInTarget.y, `${cell.name}: pointer intent is inside target y`).toBeGreaterThan(0);
-                    expect(pointerInTarget.y).toBeLessThan(positioned.target.managed.height);
-
-                    await page.mouse.move(sourceGesture.out.x + 1, sourceGesture.out.y);
-
-                    let
-                        activePointer  = {...sourceGesture.out},
-                        readyMoveIndex = 0,
-                        snapshotA;
-
-                    try {
-                        await expect.poll(async () => {
-                            await page.mouse.move(
-                                sourceGesture.out.x + readyMoveIndex % 2,
-                                sourceGesture.out.y + readyMoveIndex++ % 2
-                            );
-                            snapshotA = await app.callMethod(wsId, 'readCrossWindowGestureSnapshot', [{
-                                parkedItemId     : cell.itemId,
-                                sourceZoneId,
-                                targetWorkspaceId: TARGET_WORKSPACE_ID
-                            }]);
-
-                            return Boolean(
-                                snapshotA?.claimCount === 1 &&
-                                snapshotA.converted &&
-                                snapshotA.engaged &&
-                                snapshotA.winnerStableId === TARGET_WORKSPACE_ID &&
-                                snapshotA.preview?.previewId &&
-                                snapshotA.rendered?.previewId === snapshotA.preview.previewId &&
-                                snapshotA.parkedItemId === cell.itemId &&
-                                snapshotA.sourceVesselConnected &&
-                                snapshotA.indicators?.itemId === cell.itemId &&
-                                snapshotA.indicators.candidateCount >= 5 &&
-                                snapshotA.indicators.visible &&
-                                snapshotA.targetProxy?.itemId === cell.itemId &&
-                                snapshotA.targetProxy.header &&
-                                snapshotA.targetProxy.settled &&
-                                snapshotA.targetProxy.sourceWindowId === snapshotA.sourceVesselWindowId &&
-                                snapshotA.targetProxy.targetWindowId === targetWindowId &&
-                                snapshotA.targetProxy.visible
-                            )
-                        }, {
-                            message  : `${cell.name}: park materializes before selecting a target choice`,
-                            timeout  : 10000,
-                            intervals: [25, 50, 100]
-                        }).toBe(true);
-
-                        const
-                            centerChoice = targetPage.locator(
-                                '.neo-dashboard-dock-drop-indicator-center:not(.neo-dashboard-dock-drop-indicator-off)'
-                            ),
-                            centerRect = await centerChoice.evaluate(element => {
-                                const rect = element.getBoundingClientRect();
-
-                                return {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
-                            });
-
-                        expect(centerRect, `${cell.name}: center target choice has rendered geometry`).toBeTruthy();
-                        activePointer = {
-                            x: Math.round(
-                                positioned.target.managed.x + centerRect.x + centerRect.width / 2 -
-                                pointerOrigin.x
-                            ),
-                            y: Math.round(
-                                positioned.target.managed.y + centerRect.y + centerRect.height / 2 -
-                                pointerOrigin.y
-                            )
-                        };
-                        readyMoveIndex = 0;
-
-                        await expect.poll(async () => {
-                            // Keep the ordinary pointer stream alive while the newly-mounted
-                            // target overlays paint. The gesture claim is a short hover lease;
-                            // polling Neural Link alone must not impersonate a stationary user
-                            // while that lease expires.
-                            let delta = 1 + readyMoveIndex++ % 2;
-
-                            await page.mouse.move(activePointer.x + delta, activePointer.y + delta);
-                            snapshotA = await app.callMethod(wsId, 'readCrossWindowGestureSnapshot', [{
-                                parkedItemId     : cell.itemId,
-                                sourceZoneId,
-                                targetWorkspaceId: TARGET_WORKSPACE_ID
-                            }]);
-
-                            return snapshotA?.ready
-                        }, {
-                            message  : `${cell.name}: successful park replays into one ready target-local proxy`,
-                            timeout  : 10000,
-                            intervals: [25, 50, 100]
-                        }).toBe(true)
-                    } catch (error) {
-                        const diagnostic = {
-                            targetOwner: await app.getComponent(targetWorkspace.id, [
-                                'participation.id',
-                                'participation.target.id',
-                                'participation.target.currentPreview.previewId',
-                                'participation.ownedPreview.dockPreview.previewId',
-                                'participation.ownedIndicators.candidateSet.itemId'
-                            ]),
-                            dragDrop: await page.evaluate(() => {
-                                const addon = globalThis.Neo.main.addon.DragDrop;
-
-                                return {
-                                    isWindowDragging        : addon.isWindowDragging,
-                                    offsetX                 : addon.offsetX,
-                                    offsetY                 : addon.offsetY,
-                                    popupHeight             : addon.popupHeight,
-                                    popupName               : addon.popupName,
-                                    popupWidth              : addon.popupWidth,
-                                    windowDragParked        : addon.windowDragParked,
-                                    windowDragParkedGeometry: addon.windowDragParkedGeometry
-                                }
-                            }),
-                            snapshotA,
-                            sourceBrowser: await readPageDiagnostic(
-                                sourcePage,
-                                () => readBrowserGeometry(sourcePage)
-                            ),
-                            sourceState  : await app.getComponent(sourceZoneId, [
-                                'isWindowDragging',
-                                'vesselConversionLogicalRect',
-                                'vesselConversionSourceRect',
-                                'vesselConversionTargetId',
-                                'vesselConversionTargetRect',
-                                'vesselConversionSensor'
-                            ]),
-                            targetBrowser: await readPageDiagnostic(
-                                targetPage,
-                                () => readBrowserGeometry(targetPage)
-                            ),
-                            targetDom: await readPageDiagnostic(targetPage, () => targetPage.evaluate(() => ({
-                                indicators: document.querySelectorAll(
-                                    '.neo-dashboard-dock-drop-indicators:not(.neo-dashboard-dock-drop-indicators-hidden)'
-                                ).length,
-                                previews: document.querySelectorAll('.neo-dock-preview-affordance').length,
-                                proxies : document.querySelectorAll('.workstation-vessel-dragproxy').length
-                            }))),
-                            workspace: await app.getComponent(wsId, [
-                                'lastVesselParkReceipt',
-                                'lastVesselRestoreReceipt',
-                                'vesselConversionTargetWindowId'
-                            ])
-                        };
-
-                        throw new Error(`${error.message}\nDIAGNOSTIC ${JSON.stringify(diagnostic)}`)
-                    }
-
-                    const
-                        proxy      = targetPage.locator('.workstation-vessel-dragproxy'),
-                        indicators = targetPage.locator(
-                            '.neo-dashboard-dock-drop-indicators:not(.neo-dashboard-dock-drop-indicators-hidden)'
-                        ),
-                        preview       = targetPage.locator('.neo-dock-preview-affordance'),
-                        targetChoices = targetPage.locator([
-                            '.neo-dashboard-dock-drop-indicator:not(.neo-dashboard-dock-drop-indicator-off)',
-                            '.neo-dashboard-dock-drop-chip:not(.neo-dashboard-dock-drop-indicator-off)'
-                        ].join(', ')),
-                        activeChoice  = targetPage.locator('.neo-dashboard-dock-drop-indicator-active');
-
-                    await expect(proxy, `${cell.name}: exactly one target-local proxy`).toHaveCount(1);
-                    await expect(proxy).toBeVisible();
-                    await expect(indicators, `${cell.name}: target choices remain visible`).toBeVisible();
-                    const hoverLayout = await readPopupLayout(targetPage, layoutIds);
-                    expect(hoverLayout.indicatorPosition).toBe('absolute');
-                    for (const [edge, delta] of Object.entries(edgeDelta(hoverLayout.indicators, hoverLayout.workspace))) {
-                        expect(delta, `${cell.name}: live overlay ${edge} edge tracks its workspace`)
-                            .toBeLessThanOrEqual(1)
-                    }
-                    await expect(
-                        targetChoices,
-                        `${cell.name}: exactly five rendered target choices remain readable`
-                    ).toHaveCount(5);
-                    await expect(
-                        activeChoice,
-                        `${cell.name}: exactly one rendered target choice owns pointer intent`
-                    ).toHaveCount(1);
-                    await expect(preview, `${cell.name}: target preview remains visible beside proxy`).toBeVisible();
-
-                    const
-                        proxyRectA = await proxy.evaluate(element => {
-                            const rect = element.getBoundingClientRect();
-
-                            return {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
-                        });
-
-                    // A converted tab drag enters the target as the tab header the hand grabbed, never as
-                    // its pane: the extent is the header button's, measured at the press
-                    await expect(proxy, `${cell.name}: target proxy carries the grabbed tab`).toContainText(cell.label);
-                    expect(
-                        Math.abs(proxyRectA.width - sourceGesture.hit.rendererBox.width),
-                        `${cell.name}: target proxy width is the grabbed tab header's`
-                    ).toBeLessThanOrEqual(1);
-                    expect(
-                        Math.abs(proxyRectA.height - sourceGesture.hit.rendererBox.height),
-                        `${cell.name}: target proxy height is the grabbed tab header's`
-                    ).toBeLessThanOrEqual(1);
-
-                    const {lastVesselParkReceipt} = await app.getComponent(wsId, ['lastVesselParkReceipt']);
-
-                    expect(lastVesselParkReceipt, `${cell.name}: the vessel parks clear of the target`)
-                        .toMatchObject({cleared: true, parked: true});
-
-                    const proofHoldMs = Number(process.env.NEO_POPUP_PROOF_HOLD_MS || 0);
-
-                    if (proofHoldMs > 0) await targetPage.waitForTimeout(proofHoldMs);
-
-                    await page.mouse.move(activePointer.x + 9, activePointer.y + 6);
-
-                    let
-                        followMoveIndex = 0,
-                        snapshotB;
-
-                    await expect.poll(async () => {
-                        let delta = followMoveIndex++ % 2;
-
-                        await page.mouse.move(activePointer.x + 9 + delta, activePointer.y + 6 + delta);
-                        snapshotB = await app.callMethod(wsId, 'readCrossWindowGestureSnapshot', [{
-                            parkedItemId     : cell.itemId,
-                            sourceZoneId,
-                            targetWorkspaceId: TARGET_WORKSPACE_ID
-                        }]);
-
-                        return snapshotB?.ready
-                    }, {
-                        message  : `${cell.name}: second held pointer frame keeps the same conversion ready`,
-                        timeout  : 10000,
-                        intervals: [25, 50]
-                    }).toBe(true);
-
-                    let proxyRectB;
-
-                    await expect.poll(async () => {
-                        proxyRectB = await proxy.evaluate(element => {
-                            const rect = element.getBoundingClientRect();
-
-                            return {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
-                        });
-
-                        return Math.abs(proxyRectB.x - proxyRectA.x) + Math.abs(proxyRectB.y - proxyRectA.y)
-                    }, {
-                        message: `${cell.name}: target-local proxy follows the still-held pointer`
-                    }).toBeGreaterThan(2);
-
-                    expect(sourcePage.isClosed(), `${cell.name}: source popup remains the same live Page`).toBe(false);
-                    expect(targetPage.isClosed(), `${cell.name}: target popup remains live`).toBe(false);
-                    expect(snapshotA).toMatchObject({
-                        claimCount           : 1,
-                        converted            : true,
-                        engaged              : true,
-                        parkedItemId         : cell.itemId,
-                        sourceVesselConnected: true,
-                        indicators           : {
-                            candidateCount: 5,
-                            itemId        : cell.itemId,
-                            visible       : true
-                        },
-                        targetProxy          : {
-                            itemId : cell.itemId,
-                            visible: true
-                        },
-                        targetWorkspaceId: TARGET_WORKSPACE_ID,
-                        winnerStableId   : TARGET_WORKSPACE_ID
-                    });
-                    expect(snapshotA.parkReceipt?.needsResize)
-                        .toBe(sourceBefore.browser.outer.width > positioned.target.browser.inner.width
-                            || sourceBefore.browser.outer.height > positioned.target.browser.inner.height);
-
-                    if (terminal === 'commit') {
-                        const paneId = await app.callMethod(wsId, 'getPaneIdentity', [cell.itemId]),
-                              {groupId} = await app.callMethod(wsId, 'controller.getTopologyState'),
-                              rows = async () => (await app.callMethod(wsId, 'transactionManager.get', [groupId])).history.rows,
-                              placement = async () => {
-                                  const [main, target, pane] = await Promise.all([
-                                      app.callMethod(wsId, 'getWorkspaceDocument', ['workstation-main']),
-                                      app.callMethod(wsId, 'getWorkspaceDocument', [TARGET_WORKSPACE_ID]),
-                                      app.getComponent(paneId, ['windowId'])
-                                  ]);
-
-                                  return {
-                                      main: Object.values(main.nodes).some(node => node.items?.includes(cell.itemId)),
-                                      target: Object.values(target.nodes).some(node => node.items?.includes(cell.itemId)),
-                                      metrics: Object.values(target.nodes).some(node => node.items?.includes(TARGET_ITEM_ID)),
-                                      paneWindowId: pane.windowId
-                                  }
-                              };
-
-                        expect(await placement(), 'the held gesture has not committed early')
-                            .toMatchObject({main: true, target: false, metrics: true});
-                        expect((await rows()).filter(row => row.itemId === cell.itemId)).toHaveLength(0);
-
-                        await page.mouse.up();
-                        pointerDown = false;
-
-                        const committed = {main: false, target: true, metrics: true, paneWindowId: targetWindowId};
-
-                        await expect.poll(placement, {
-                            message  : 'ordinary pointer release adopts into the existing popup',
-                            timeout  : 10000,
-                            intervals: [25, 50, 100]
-                        }).toEqual(committed);
-                        await expect.poll(() => sourcePage.isClosed()).toBe(true);
-                        // The dispose receipt a hand run reads over the same seam: the pointer-path commit
-                        // retired the parked vessel at its first attempt.
-                        await expect.poll(async () => (await app.getComponent(wsId, ['lastVesselDisposeReceipt'])).lastVesselDisposeReceipt, {
-                            message  : 'the committed conversion publishes its dispose receipt',
-                            timeout  : 5000,
-                            intervals: [25, 50, 100]
-                        }).toMatchObject({admitted: true, attempts: 1, refusal: null, stage: 'retired'});
-                        expect(targetPage.isClosed()).toBe(false);
-                        const retired = await awaitVesselRetirement(app, managerId, wsId, cell.itemId, sourceWindowId);
-                        expect(await app.callMethod(wsId, 'getPaneIdentity', [cell.itemId])).toBe(paneId);
-                        await expect(targetPage.locator(`[id="${paneId}"]`)).toHaveCount(1);
-                        await expect(targetPage.locator(`[id="${paneId}"]`)).toBeVisible();
-                        await expect(page.locator(`[id="${paneId}"]`)).toHaveCount(0);
-
-                        for (const window of [page, targetPage]) {
-                            await expect(window.locator('.neo-dashboard-dock-vessel-placeholder'),
-                                'a committed cross-window drop leaves no stand-in in any surviving window').toHaveCount(0);
-                        }
-
-                        const afterRows = await rows(),
-                              transfers = afterRows.filter(row => row.itemId === cell.itemId);
-
-                        // Physical target staging can append placement rows while the pointer is held.
-                        // Name the pane's transaction rather than mistaking all cursor growth for a drop.
-                        expect(transfers).toHaveLength(1);
-                        expect(transfers[0]).toMatchObject({
-                            cause            : 'dock-transfer',
-                            sourceWorkspaceId: 'workstation-main',
-                            targetWorkspaceId: TARGET_WORKSPACE_ID
-                        });
-                        expect(transfers[0].participants.map(participant => participant.workspaceKey))
-                            .toEqual(['workstation-main', TARGET_WORKSPACE_ID]);
-
-                        await app.callMethod(wsId, 'transactionManager.undo', [{groupId}]);
-                        await expect.poll(async () => {
-                            const {main, target, metrics} = await placement();
-
-                            return {main, target, metrics}
-                        }).toEqual({main: true, target: false, metrics: true});
-                        expect(await app.callMethod(wsId, 'getPaneIdentity', [cell.itemId])).toBe(paneId);
-                        await expect(page.locator(`[id="${paneId}"]`)).toHaveCount(1);
-                        await expect(page.locator(`[id="${paneId}"]`)).toBeVisible();
-                        await expect(targetPage.locator(`[id="${paneId}"]`)).toHaveCount(0);
-                        expect(await rows(), 'undo preserves every retained history row').toEqual(afterRows);
-
-                        await app.callMethod(wsId, 'transactionManager.redo', [{groupId}]);
-                        await expect.poll(placement).toEqual(committed);
-                        expect(await rows(), 'redo preserves every retained history row').toEqual(afterRows);
-                        await expect(targetPage.locator(`[id="${paneId}"]`)).toHaveCount(1);
-                        await expect(targetPage.locator(`[id="${paneId}"]`)).toBeVisible();
-                        await expect(page.locator(`[id="${paneId}"]`)).toHaveCount(0);
-
-                        await testInfo.attach(`human-popup-release-${cell.name}`, {
-                            body: Buffer.from(JSON.stringify({
-                                cell: cell.name, committed, paneId, retired, sourceWindowId, targetWindowId,
-                                historyIds: afterRows.map(row => row.id),
-                                transaction: {
-                                    id: transfers[0].id, cause: transfers[0].cause,
-                                    participants: transfers[0].participants.map(participant => participant.workspaceKey)
-                                }
-                            }, null, 2)),
-                            contentType: 'application/json'
-                        });
-                        return
-                    }
-
-                    const targetFar = await targetHandle.cdp.send(
-                        'Browser.getWindowBounds',
-                        {windowId: targetHandle.windowId}
-                    );
-
-                    await setNativeBounds(targetHandle, {
-                        ...targetFar.bounds,
-                        left: screen.left + 10,
-                        top : screen.top  + 10
-                    });
-
-                    const
-                        targetAway = await awaitGeometryParity(
-                            app,
-                            managerId,
-                            targetPage,
-                            targetWindowId
-                        ),
-                        restorePointer = {
-                            x: activePointer.x + 11,
-                            y: activePointer.y + 8
-                        },
-                        restoreScreen = {
-                            x: pointerOrigin.x + restorePointer.x,
-                            y: pointerOrigin.y + restorePointer.y
-                        };
-
-                    expect(
-                        restoreScreen.x >= targetAway.managed.x &&
-                        restoreScreen.x <= targetAway.managed.x + targetAway.managed.width &&
-                        restoreScreen.y >= targetAway.managed.y &&
-                        restoreScreen.y <= targetAway.managed.y + targetAway.managed.height,
-                        `${cell.name}: pointer is outside the relocated target before convert-out`
-                    ).toBe(false);
-                    await page.mouse.move(restorePointer.x, restorePointer.y);
-
-                    let
-                        restore,
-                        restoreMoveIndex = 0;
-
-                    try {
-                        await expect.poll(async () => {
-                            const delta = restoreMoveIndex++ % 2;
-
-                            await page.mouse.move(restorePointer.x + delta, restorePointer.y + delta);
-
-                            const
-                                conversion = await app.callMethod(sourceZoneId, 'getVesselConversionState'),
-                                state      = await app.getComponent(wsId, ['lastVesselRestoreReceipt']);
-
-                            restore = {conversion, receipt: state.lastVesselRestoreReceipt};
-
-                            return {
-                                admitted     : restore.receipt?.admitted === true,
-                                converted    : conversion.converted,
-                                transitioning: conversion.transitioning
-                            }
-                        }, {
-                            message  : `${cell.name}: convert-out restores before pointer-follow resumes`,
-                            timeout  : 15000,
-                            intervals: [25, 50, 100]
-                        }).toEqual({admitted: true, converted: false, transitioning: false})
-                    } catch (error) {
-                        const
-                            coordinator = await findOne(app, {
-                                className: 'Neo.manager.DragCoordinator'
-                            }, [
-                                'activeTargetCommitEligible',
-                                'activeTargetZone',
-                                'activeTransitionOwned',
-                                'pointerClaimArbiter'
-                            ]),
-                            diagnostic = {
-                                coordinator,
-                                dragDrop: await page.evaluate(() => {
-                                    const addon = globalThis.Neo.main.addon.DragDrop;
-
-                                    return {
-                                        isWindowDragging        : addon.isWindowDragging,
-                                        popupName               : addon.popupName,
-                                        windowDragGeneration    : addon.windowDragGeneration,
-                                        windowDragParked        : addon.windowDragParked,
-                                        windowDragParkedGeometry: addon.windowDragParkedGeometry
-                                    }
-                                }),
-                                restore,
-                                sourceBrowser: await readBrowserGeometry(sourcePage),
-                                sourceState  : await app.getComponent(sourceZoneId, [
-                                    'isWindowDragging',
-                                    'vesselConversionCoordinatorFrame',
-                                    'vesselConversionLogicalRect',
-                                    'vesselConversionPointerMissedAt',
-                                    'vesselConversionReplayFrame',
-                                    'vesselConversionSourceRect',
-                                    'vesselConversionTargetId',
-                                    'vesselConversionTargetRect'
-                                ]),
-                                targetAway,
-                                targetBrowser: await readBrowserGeometry(targetPage),
-                                workspace    : await app.getComponent(wsId, [
-                                    'lastVesselParkReceipt',
-                                    'lastVesselRestoreReceipt',
-                                    'tearOutParkGeometries',
-                                    'vesselConversionTargetWindowId'
-                                ])
-                            };
-
-                        throw new Error(`${error.message}\nDIAGNOSTIC ${JSON.stringify(diagnostic)}`)
-                    }
-
-                    const
-                        sourceAfter  = await readBrowserGeometry(sourcePage),
-                        sourceScreen = await readScreenEnvelope(sourcePage),
-                        followDelta  = {
-                            x: sourceAfter.frame.x + sourceAfter.outer.width + 24 <=
-                                sourceScreen.left + sourceScreen.width
-                                ? 24
-                                : -24,
-                            y: sourceAfter.frame.y + sourceAfter.outer.height + 17 <=
-                                sourceScreen.top + sourceScreen.height
-                                ? 17
-                                : -17
-                        };
-
-                    expect(sourceAfter.outer, `${cell.name}: exact outer extent returns on the identical Page`)
-                        .toEqual(sourceBefore.browser.outer);
-                    expect(sourcePage.isClosed()).toBe(false);
-
-                    await page.mouse.move(
-                        restorePointer.x + followDelta.x,
-                        restorePointer.y + followDelta.y
-                    );
-                    await expect.poll(async () => {
-                        const followed = await readBrowserGeometry(sourcePage);
-
-                        return {
-                            x: followed.frame.x - sourceAfter.frame.x,
-                            y: followed.frame.y - sourceAfter.frame.y
-                        }
-                    }, {
-                        message  : `${cell.name}: restored exact popup resumes live pointer-follow`,
-                        timeout  : 5000,
-                        intervals: [25, 50, 100]
-                    }).toEqual(followDelta);
-
-                    await page.keyboard.press('Escape');
-                    await expect.poll(() => sourcePage.isClosed(), {
-                        message  : `${cell.name}: Escape retires the uncommitted exact source popup`,
-                        timeout  : 15000,
-                        intervals: [50, 100]
-                    }).toBe(true);
-                    await awaitVesselRetirement(app, managerId, wsId, cell.itemId, sourceWindowId);
-                    await page.mouse.up();
-                    pointerDown = false;
-                    await awaitPointerSessionIdle(page);
-
-                    await expect(proxy).toHaveCount(0);
-
-                    receipts.push({
-                        hit            : sourceGesture.hit,
-                        itemId         : cell.itemId,
-                        metric         : positioned.metric,
-                        name           : cell.name,
-                        pointer,
-                        pointerInTarget,
-                        proxyRectA,
-                        proxyRectB,
-                        resizedFrom,
-                        restore,
-                        snapshotA,
-                        snapshotB,
-                        sourceBefore,
-                        screenEnvelopes: {
-                            source: sourceScreenEnvelope,
-                            target: targetScreenEnvelope
-                        },
-                        sourceWindowId,
-                        target: positioned.target,
-                        targetWindowId
-                    })
-
-                expect(receipts.map(receipt => receipt.name)).toEqual([cell.name]);
-                expect(receipts.every(receipt => receipt.snapshotA.ready && receipt.snapshotB.ready)).toBe(true);
-
-                const resizedReceipt = receipts.find(receipt => receipt.name === 'post-resize-asymmetric');
-
-                if (resizedReceipt) {
-                    expect(resizedReceipt.resizedFrom?.source.browser.outer)
-                        .not.toEqual(resizedReceipt.sourceBefore.browser.outer)
-                }
-
-                await testInfo.attach(`human-popup-overlap-${cell.name}-receipts`, {
-                    body       : Buffer.from(JSON.stringify(receipts, null, 2)),
-                    contentType: 'application/json'
-                })
-            } finally {
-                if (pointerDown) {
-                    await page.keyboard.press('Escape').catch(() => {});
-                    await page.mouse.up().catch(() => {})
-                }
-
-                if (sourcePage && !sourcePage.isClosed()) await sourcePage.close().catch(() => {});
-                if (targetPage && !targetPage.isClosed()) await targetPage.close().catch(() => {});
+                return result
             }
         })
     }
 
-    for (const terminal of ['restore', 'commit']) {
-        const name = terminal === 'restore'
-            ? 'one local proxy plus readable target choices'
-            : 'pointer release transfers one pane with undo and redo';
+    /**
+     * @summary Where an item lives: in main's arrangement, in the foreign popup's, and its pane's window.
+     * @param {Object} app
+     * @param {String} wsId
+     * @param {String} itemId
+     * @returns {Promise<Object>}
+     */
+    async function readPlacement(app, wsId, itemId) {
+        const [main, target, paneId] = await Promise.all([
+            app.callMethod(wsId, 'getWorkspaceDocument', ['workstation-main']),
+            app.callMethod(wsId, 'getWorkspaceDocument', [TARGET_WORKSPACE_ID]),
+            app.callMethod(wsId, 'getPaneIdentity', [itemId])
+        ]);
 
-        test(`${MATRIX_CELL.name}: ${name}`, ({page, neuralLink}, testInfo) =>
-            runOverlap({page, neuralLink}, testInfo, terminal))
+        return {
+            main        : Object.values(main.nodes).some(node => node.items?.includes(itemId)),
+            paneWindowId: (await app.getComponent(paneId, ['windowId'])).windowId,
+            target      : Object.values(target.nodes).some(node => node.items?.includes(itemId))
+        }
     }
+
+    // Inside a window of the group the drag is that window's tab-header proxy; outside every window it
+    // is a vessel (docking design record §2.8.6). So under one pointer-down the vessel that left main
+    // retires over a foreign popup, and leaving that popup for the desktop opens a fresh one.
+    test('one pointer-down crosses a foreign popup: its vessel closes there and a fresh one carries the drag out',
+    async ({page, neuralLink}) => {
+        const {app, desktop, mainInner, managerId, overTarget, targetPage, wsId} = await stageForeignPopup(page, neuralLink);
+
+        let firstVessel, pointerDown = false, secondVessel;
+
+        try {
+            const paneId = await app.callMethod(wsId, 'getPaneIdentity', ['audit']);
+
+            ({popup: firstVessel} = await beginActualTearOut({label: 'Audit', page}));
+            pointerDown = true;
+
+            const firstWindowId = await awaitVesselWindowId(app, wsId, 'audit', false);
+
+            await page.mouse.move(overTarget.x, overTarget.y, {steps: 24});
+            await expect.poll(() => firstVessel.isClosed(), {
+                message: 'the vessel retires once the foreign window claims the pointer',
+                timeout: 10000
+            }).toBe(true);
+            await awaitVesselRetirement(app, managerId, wsId, 'audit', firstWindowId);
+            await expect(targetPage.locator('.neo-dock-dragproxy'),
+                'the foreign window carries the drag as the tab-header proxy').toBeVisible({timeout: 10000});
+            expect(page.context().pages().filter(child => !child.isClosed()),
+                'over a window, only the windows the user owns are open').toHaveLength(2);
+
+            const secondPopup = page.waitForEvent('popup', {timeout: 30000});
+
+            await traceWindowMoves(page);
+            await page.mouse.move(desktop.x, desktop.y, {steps: 24});
+            secondVessel = await secondPopup;
+
+            const secondWindowId = await awaitVesselWindowId(app, wsId, 'audit', false);
+
+            expect(secondWindowId, 'leaving the foreign window opens a fresh vessel').not.toBe(firstWindowId);
+            await expect(targetPage.locator('.neo-dock-dragproxy'),
+                'the foreign window lets the drag go').toHaveCount(0);
+
+            // The fresh vessel rides the held pointer: it sits under the pointer and follows one more move.
+            const
+                step     = {x: 48, y: 36},
+                pointer  = {x: mainInner.x + desktop.x + step.x, y: mainInner.y + desktop.y + step.y},
+                readMove = () => page.evaluate(() => globalThis.__foreignPopupMoves),
+                readSelf = () => secondVessel.evaluate(() => ({h: outerHeight, w: outerWidth, x: screenX, y: screenY}));
+
+            await expect.poll(async () => (await readMove()).some(entry => entry.result !== 'pending'), {
+                message: 'the continuing pointer asks the fresh vessel to move',
+                timeout: 5000
+            }).toBe(true);
+
+            const settledAt = await readSelf();
+
+            await page.mouse.move(desktop.x + step.x, desktop.y + step.y, {steps: 8});
+
+            test.skip((await readMove()).every(entry => entry.result === false),
+                'the host refused every verified window.moveTo; native pointer-follow is stage-bound here');
+
+            await expect.poll(async () => {
+                const now = await readSelf();
+
+                return {x: now.x - settledAt.x, y: now.y - settledAt.y}
+            }, {message: 'the fresh vessel follows the held pointer', timeout: 10000}).toEqual(step);
+
+            const under = await readSelf();
+
+            expect(pointer.x >= under.x && pointer.x <= under.x + under.w && pointer.y >= under.y && pointer.y <= under.y + under.h,
+                `the fresh vessel sits under the pointer: ${JSON.stringify({pointer, under})}`).toBe(true);
+
+            await page.mouse.up();
+            pointerDown = false;
+            expect(await awaitVesselWindowId(app, wsId, 'audit', true),
+                'the release detaches the item into the fresh vessel').toBe(secondWindowId);
+
+            const {dockModel} = await app.getComponent(wsId, ['dockModel']);
+
+            expect(Object.values(dockModel.nodes).some(node => node.items?.includes('audit')),
+                'the item left the main arrangement').toBe(false);
+            expect(await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                'the same live pane rides every hop').toBe(paneId)
+        } finally {
+            pointerDown && await page.mouse.up().catch(() => {});
+
+            for (const child of [secondVessel, firstVessel, targetPage]) {
+                await child?.close().catch(() => {})
+            }
+        }
+    });
+
+    test('a release over a foreign popup transfers the pane there, and undo and redo move it back and forth',
+    async ({page, neuralLink}) => {
+        const {app, overTarget, targetPage, targetWindowId, wsId} = await stageForeignPopup(page, neuralLink);
+
+        let pointerDown = false, vessel;
+
+        try {
+            const
+                paneId    = await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                {groupId} = await app.callMethod(wsId, 'controller.getTopologyState'),
+                committed = {main: false, paneWindowId: targetWindowId, target: true};
+
+            ({popup: vessel} = await beginActualTearOut({label: 'Audit', page}));
+            pointerDown = true;
+            await page.mouse.move(overTarget.x, overTarget.y, {steps: 24});
+            await expect.poll(() => vessel.isClosed(), {
+                message: 'the vessel retires once the foreign window claims the pointer',
+                timeout: 10000
+            }).toBe(true);
+            await expect(targetPage.locator('.neo-dock-dragproxy'),
+                'one local proxy carries the drag').toHaveCount(1);
+            expect(await readPlacement(app, wsId, 'audit'), 'the held drag has not committed early')
+                .toMatchObject({main: true, target: false});
+
+            await page.mouse.up();
+            pointerDown = false;
+            await expect.poll(() => readPlacement(app, wsId, 'audit'), {
+                message: 'the release transfers the item into the foreign window',
+                timeout: 10000
+            }).toEqual(committed);
+            await expect(targetPage.locator(`[id="${paneId}"]`)).toBeVisible();
+            await expect(page.locator(`[id="${paneId}"]`)).toHaveCount(0);
+
+            await app.callMethod(wsId, 'transactionManager.undo', [{groupId}]);
+            await expect.poll(() => readPlacement(app, wsId, 'audit'), {message: 'undo brings the pane home'})
+                .toMatchObject({main: true, target: false});
+            await expect(page.locator(`[id="${paneId}"]`)).toBeVisible();
+
+            await app.callMethod(wsId, 'transactionManager.redo', [{groupId}]);
+            await expect.poll(() => readPlacement(app, wsId, 'audit'), {message: 'redo moves it back'})
+                .toEqual(committed);
+            expect(await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                'the same live pane through every move').toBe(paneId)
+        } finally {
+            pointerDown && await page.mouse.up().catch(() => {});
+            await vessel?.close().catch(() => {});
+            await targetPage.close().catch(() => {})
+        }
+    });
+
+    test('Escape over a foreign popup leaves both arrangements and the pane where they were',
+    async ({page, neuralLink}) => {
+        const {app, overTarget, targetPage, wsId} = await stageForeignPopup(page, neuralLink);
+
+        let pointerDown = false, vessel;
+
+        try {
+            const
+                paneId = await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                before = await readPlacement(app, wsId, 'audit');
+
+            ({popup: vessel} = await beginActualTearOut({label: 'Audit', page}));
+            pointerDown = true;
+            await page.mouse.move(overTarget.x, overTarget.y, {steps: 24});
+            await expect(targetPage.locator('.neo-dock-dragproxy')).toHaveCount(1, {timeout: 10000});
+
+            await page.keyboard.press('Escape');
+            await expect(targetPage.locator('.neo-dock-dragproxy'),
+                'the foreign window lets the drag go').toHaveCount(0);
+            await page.mouse.up();
+            pointerDown = false;
+
+            await expect.poll(() => readPlacement(app, wsId, 'audit'), {message: 'nothing moved'})
+                .toEqual(before);
+            await expect(page.locator(`[id="${paneId}"]`)).toBeVisible()
+        } finally {
+            pointerDown && await page.mouse.up().catch(() => {});
+            await vessel?.close().catch(() => {});
+            await targetPage.close().catch(() => {})
+        }
+    });
 });

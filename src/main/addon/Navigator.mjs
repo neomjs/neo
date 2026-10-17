@@ -188,6 +188,11 @@ class Navigator extends Base {
      * @param {Object} data
      */
     navigateKeyDownHandler(keyEvent, data) {
+        if (data.workerKeys?.includes(keyEvent.key)) {
+            keyEvent.preventDefault();
+            return
+        }
+
         const
             me              = this,
             {subject, wrap} = data,
@@ -343,7 +348,7 @@ class Navigator extends Base {
         }
 
         // Scroll the target into view smoothly before we focus it without triggering a scroll
-        target.scrollIntoView({
+        data.scrollIntoView !== false && target.scrollIntoView({
             behavior: 'smooth',
             block   : 'nearest'
         });
@@ -415,11 +420,13 @@ class Navigator extends Base {
         }
 
         data.previousActiveIndex = data.activeIndex;
+        data.previousActiveRecordId = data.activeRecordId;
         (data.previousActiveItem = data.activeItem)?.classList.remove(data.activeCls);
         (data.activeItem = newActiveElement)?.classList.add(data.activeCls);
         data.activeIndex = newActiveElement ? allItems.indexOf(newActiveElement) : -1;
+        data.activeRecordId = newActiveElement?.dataset.recordId;
 
-        newActiveElement.scrollIntoView({
+        data.scrollIntoView !== false && newActiveElement.scrollIntoView({
             behavior: 'smooth',
             block   : 'nearest',
             inline  : 'nearest'
@@ -429,7 +436,12 @@ class Navigator extends Base {
         (data.eventSource || data.subject).setAttribute('aria-activedescendant', data.activeItem.id);
 
         // navigating to the same element should get ignored
-        if (data.activeItem !== data.previousActiveItem) {
+        if (data.activeItem !== data.previousActiveItem || data.activeRecordId !== data.previousActiveRecordId) {
+            /**
+             * @event neonavigate
+             * @param {String} activeItem Physical active element id.
+             * @param {String|undefined} activeRecordId Record key captured at emission; a recycled-key change also fires.
+             */
             DomEvents.sendMessageToApp({
                 type  : 'neonavigate',
                 target: data.id,
@@ -437,6 +449,7 @@ class Navigator extends Base {
                     id : data.id
                 }],
                 activeItem         : data.activeItem.id,
+                activeRecordId     : data.activeRecordId,
                 previousActiveItem : data.previousActiveItem?.id,
                 activeIndex        : data.activeIndex,
                 previousActiveIndex: data.previousActiveIndex,
@@ -480,6 +493,9 @@ class Navigator extends Base {
      * @param {Boolean} data.wrap Pass as `true` to have navigation wrap from first to last and vice versa.
      * @param {Boolean} [data.autoClick=false] Pass as `true` to have navigation click the target navigated to.
      * TabPanels will use this on their tab toolbar.
+     * @param {String[]} [data.workerKeys] Keys owned by logical App-Worker navigation. Cancels their
+     * browser default without a mounted-DOM action; the event still reaches the worker.
+     * @param {Boolean} [data.scrollIntoView=true] False when the worker owns logical scrolling.
      */
     subscribe(data) {
         const

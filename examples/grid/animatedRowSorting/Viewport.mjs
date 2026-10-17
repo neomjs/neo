@@ -61,7 +61,7 @@ class Viewport extends BaseViewport {
             },
 
             columns: [
-                {dataField: 'id',        text: 'Id', width: 100},
+                {dataField: 'id',        locked: 'start', text: 'Id', width: 100},
                 {dataField: 'firstname', text: 'Firstname'},
                 {dataField: 'lastname',  text: 'Lastname'},
                 {dataField: 'progress',  text: 'Progress', type: 'progress'},

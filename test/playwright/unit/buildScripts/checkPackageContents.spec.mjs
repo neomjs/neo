@@ -1,50 +1,24 @@
-import {execFileSync}                      from 'node:child_process';
-import fs                                  from 'node:fs';
-import os                                  from 'node:os';
-import path                                from 'node:path';
-import process                             from 'node:process';
-import {fileURLToPath}                     from 'node:url';
-import {test, expect}                      from '@playwright/test';
-import {BROWSER_BUNDLES}                   from '../../../../buildScripts/util/browserBundles.mjs';
-import {parsePackOutput, REQUIRED_ENTRIES} from '../../../../buildScripts/util/check-package-contents.mjs';
+import {execFileSync}    from 'node:child_process';
+import fs                from 'node:fs';
+import os                from 'node:os';
+import path              from 'node:path';
+import process           from 'node:process';
+import {fileURLToPath}   from 'node:url';
+import {test, expect}    from '@playwright/test';
+import {parsePackOutput} from '../../../../buildScripts/util/check-package-contents.mjs';
 
 /**
  * The check's value is entirely in WHICH packed paths it fires on, so the assertions are the two
  * populations rather than the message text.
  *
- * The rule logic is tested here rather than the pack invocation, deliberately: spawning `npm pack`
- * takes tens of seconds and runs lifecycle scripts, and the interesting failure is never "did npm
- * produce a list" but "does an entry that should never ship get flagged". The pack side is the
- * script's own entrypoint, run in CI and by `npm run check-package-contents`.
+ * Pure path controls cover the rule logic; a small real-pack fixture plants generated files to
+ * verify the ignore policy. The full checkout is checked by the script's own entrypoint in CI.
  *
  * The carve-out cases are the reason this is not a one-line prefix test. `.neo-ai-data/concepts/` is
  * tracked, exported on purpose, and sits inside a directory whose other contents are Agent OS
  * private state — so "flag everything under the prefix" and "flag nothing under the prefix" are both
  * wrong, and the boundary between them is exactly where the original `.npmignore` defect lived.
  */
-/**
- * Outside BROWSER_BUNDLES: a directory's files, not `dist/<name>.mjs`, so their coupling is asserted below.
- * Read from the registry; whether it names the files the loader requests is `unit/util/HighlightJs.spec.mjs`'s question.
- */
-const HIGHLIGHT_BUNDLES = REQUIRED_ENTRIES.map(rule => rule.path).filter(entry => entry.startsWith('dist/highlight/'));
-/** The same shape for Monaco's build; whether it names the files the addon requests is `component/wrapper/MonacoEditor.spec.mjs`'s question. */
-const MONACO_BUNDLE = REQUIRED_ENTRIES.map(rule => rule.path).filter(entry => entry.startsWith('dist/monaco/'));
-
-/**
- * Every shipped bundle's packed path, minus the one an arm deliberately omits.
- *
- * Written as an exclusion rather than a literal list because the arms below assert "EXACTLY this
- * one is missing" — so a bundle added to `REQUIRED_ENTRIES` and not to these fixtures reds four
- * arms with a failure about parse5, which is the wrong thing to read while adding mermaid.
- * @param {String} [omit] Bundle name to leave out of the packed set.
- * @returns {String[]}
- */
-const shippedExcept = omit => [
-    ...BROWSER_BUNDLES.filter(name => name !== omit).map(name => `dist/${name}.mjs`),
-    ...(omit === 'highlight' ? [] : HIGHLIGHT_BUNDLES),
-    ...(omit === 'monaco' ? [] : MONACO_BUNDLE)
-];
-
 test.describe('check-package-contents — fires on private state, not on the tracked carve-out', () => {
     let findForbiddenEntries, FORBIDDEN_PREFIXES, parsePackOutput;
 
@@ -162,120 +136,56 @@ test.describe('check-package-contents — fires on private state, not on the tra
 
     test('the rule set names DIRECTORIES only — the two generated portal FILES are a boundary, not a gap', () => {
         // `.npmignore` also excludes `/apps/portal/sitemap.xml` and `/apps/portal/llms.txt` (3.22 MiB),
-        // and they are deliberately not gated here. Every prefix in the set names a tree whose leak
-        // would be a DISCLOSURE; the portal files are already public on neomjs.com, so shipping them
-        // is waste and not exposure. Asserted so the distinction is enforced rather than merely
-        // written down — a later editor adding a file-shaped rule has to change this test and say why.
+        // and they are deliberately not gated here. Prefixes cover whole private or generated trees;
+        // individual public SEO artifacts remain ordinary ignore rules.
         expect(FORBIDDEN_PREFIXES.every(rule => rule.prefix.endsWith('/'))).toBe(true);
     });
 });
 
-/**
- * The mirror image of the suite above. A leak announces itself to anyone who unpacks the tarball; a
- * silent DROP announces itself to a consumer, at the point of use, as a module-not-found error naming
- * a path nobody recognises. Only one of those two is discoverable from this repository, which is why
- * the presence half needs a gate at all.
- *
- * `dist/parse5.mjs` is the case that motivated it: `/dist` was excluded wholesale, so the bundle
- * `HtmlTemplateProcessor` imports never shipped, and — because `templateBuildProcessor` imports it at
- * module scope — an installed engine could not even START a `dist/esm` build. The `.npmignore` shape
- * that fixes it (`/dist/*` plus a negation) is one careless edit away from `/dist` again, and an
- * ignore rule cannot express "keep exactly this one".
- */
-test.describe('check-package-contents — a required entry cannot be silently dropped', () => {
-    let findMissingEntries, REQUIRED_ENTRIES;
+/** @summary Generated browser dependencies belong to the installed consumer, never its source tarball. */
+test.describe('check-package-contents — source-only release', () => {
+    const sourcePaths = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', 'package.json'],
+          generated   = ['dist/parse5.mjs', 'dist/marked.mjs', 'dist/mermaid.mjs', 'dist/monaco/editor.mjs',
+              'dist/highlight/highlight.custom.js', 'dist/future/nested/asset.bin'];
 
-    test.beforeAll(async () => {
-        ({findMissingEntries, REQUIRED_ENTRIES} =
-            await import('../../../../buildScripts/util/check-package-contents.mjs'));
+    test('every generated bundle family and an unknown future subtree are forbidden', async () => {
+        const {findForbiddenEntries} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        expect(findForbiddenEntries(generated).map(entry => entry.path)).toEqual(generated);
+        expect(findForbiddenEntries(sourcePaths)).toEqual([])
     });
 
-    test('FIRES: the parse5 bundle absent from the packed set', () => {
-        // The exact regression `/dist` produced: a plausible-looking tarball with the producer script
-        // present and the artifact it produces missing.
-        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', 'package.json', ...shippedExcept('parse5')];
+    test('a built package still packs source only', async () => {
+        const {withComposedNpmIgnore} = await import('../../../../buildScripts/util/npmIgnoreComposition.mjs'),
+              root                    = fileURLToPath(new URL('../../../../', import.meta.url)),
+              dir                     = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-source-pack-'));
 
-        expect(findMissingEntries(packed).map(entry => entry.path)).toEqual(['dist/parse5.mjs'])
-    });
+        try {
+            fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({name: 'neo-source-pack-fixture', version: '1.0.0'}));
+            fs.writeFileSync(path.join(dir, '.npmignore'), fs.readFileSync(path.join(root, '.npmignore')));
+            fs.writeFileSync(path.join(dir, '.gitignore'), fs.readFileSync(path.join(root, '.gitignore')));
 
-    test('PASSES: the same set once the artifact ships', () => {
-        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', ...shippedExcept()];
+            for (const file of [...sourcePaths.filter(file => file !== 'package.json'), ...generated,
+                '.neo-ai-data/sqlite/synthetic.sqlite', '.neo-ai-data/concepts/synthetic.json']) {
+                const target = path.join(dir, file);
 
-        expect(findMissingEntries(packed)).toEqual([])
-    });
+                fs.mkdirSync(path.dirname(target), {recursive: true});
+                fs.writeFileSync(target, 'synthetic fixture\n')
+            }
 
-    test('the match is EXACT, so a lookalike path cannot satisfy the rule', () => {
-        // A prefix or suffix match would let `dist/esm/dist/parse5.mjs` — the copy the build emits
-        // INTO the output tree — stand in for the published bundle at the root. They are different
-        // files with different consumers, and only the root one is what an installed engine imports.
-        const packed = ['dist/esm/dist/parse5.mjs', 'vendor/dist/parse5.mjs', 'dist/parse5.mjs.map', ...shippedExcept('parse5')];
+            const files = withComposedNpmIgnore(dir, () => parsePackOutput(execFileSync('npm',
+                ['pack', '--dry-run', '--json', '--ignore-scripts'],
+                {cwd: dir, encoding: 'utf8', stdio: 'pipe', env: {...process.env, npm_config_update_notifier: 'false'}}
+            ))[0].files.map(file => file.path));
 
-        expect(findMissingEntries(packed).map(entry => entry.path)).toEqual(['dist/parse5.mjs'])
-    });
-
-    test('every shipped bundle has a required-entry row — the list cannot fall behind the build', () => {
-        // `build/esmodules.mjs` copies BROWSER_BUNDLES into the output tree, so the set is what the
-        // build BELIEVES it ships. This is the arm that makes the pack gate agree with it: a bundle
-        // added to the build and not here would pack, or not pack, with nothing observing either.
-        const covered = REQUIRED_ENTRIES.map(rule => rule.path);
-
-        expect(BROWSER_BUNDLES.map(name => `dist/${name}.mjs`).filter(entry => !covered.includes(entry))).toEqual([])
-    });
-
-    test('every shipped bundle is re-included in .npmignore — the one copy that cannot import', () => {
-        // `/dist/*` excludes the tree and a negation cannot re-include a file whose PARENT directory
-        // is excluded, so `!/dist/<name>.mjs` per file is the only shape that ships one. `.npmignore`
-        // is the sole gate on package contents and cannot import BROWSER_BUNDLES, which is precisely
-        // why the coupling is asserted here instead of trusted.
-        const ignore = fs.readFileSync(new URL('../../../../.npmignore', import.meta.url), 'utf8'),
-              lines  = ignore.split('\n').map(line => line.trim());
-
-        expect(BROWSER_BUNDLES.filter(name => !lines.includes(`!/dist/${name}.mjs`))).toEqual([])
-    });
-
-    test('the highlight bundles ship from their subdirectory, which the per-name arms above cannot see', () => {
-        // `/dist/*` excludes the `highlight` directory itself, so a file ships only if the directory is
-        // re-included, its contents excluded, and that file re-included after the exclusion.
-        const ignore  = fs.readFileSync(new URL('../../../../.npmignore', import.meta.url), 'utf8'),
-              lines   = ignore.split('\n').map(line => line.trim()),
-              include = lines.indexOf('!/dist/highlight/'),
-              exclude = lines.indexOf('/dist/highlight/*');
-
-        expect(HIGHLIGHT_BUNDLES.length, 'the registry names the highlight bundles').toBeGreaterThan(0);
-        expect(findMissingEntries(shippedExcept('highlight')).map(entry => entry.path)).toEqual(HIGHLIGHT_BUNDLES);
-        expect(include).toBeGreaterThan(-1);
-        expect(exclude).toBeGreaterThan(include);
-        HIGHLIGHT_BUNDLES.forEach(entry => expect(lines.indexOf(`!/${entry}`), entry).toBeGreaterThan(exclude))
-    });
-
-    test('the Monaco build ships its whole directory, which the per-name arms above cannot see', () => {
-        // Every file the build emits is loaded, so unlike highlight nothing inside is excluded again:
-        // re-including the directory after `/dist/*` is the whole rule.
-        const lines = fs.readFileSync(new URL('../../../../.npmignore', import.meta.url), 'utf8').split('\n').map(line => line.trim());
-
-        expect(MONACO_BUNDLE.length, 'the registry names the Monaco files').toBeGreaterThan(0);
-        expect(findMissingEntries(shippedExcept('monaco')).map(entry => entry.path)).toEqual(MONACO_BUNDLE);
-        expect(lines.indexOf('!/dist/monaco/')).toBeGreaterThan(lines.indexOf('/dist/*'));
-        expect(lines.filter(line => line.startsWith('/dist/monaco/')), 'nothing inside is excluded again').toEqual([])
-    });
-
-    test('every required entry carries a reason, because the failure message is the whole product', () => {
-        // Same contract the forbidden rules carry: the consumer reading this failure is holding a
-        // broken install and needs to know what the file is FOR, not merely that it is absent.
-        expect(REQUIRED_ENTRIES.length).toBeGreaterThan(0);
-
-        REQUIRED_ENTRIES.forEach(rule => {
-            expect(rule.path).toBeTruthy();
-            expect(rule.why.length).toBeGreaterThan(40)
-        })
+            expect(files.filter(file => file.startsWith('dist/'))).toEqual([]);
+            expect(files).toEqual(expect.arrayContaining(sourcePaths));
+            expect(files).not.toContain('.neo-ai-data/sqlite/synthetic.sqlite');
+            expect(files).toContain('.neo-ai-data/concepts/synthetic.json')
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true})
+        }
     })
-});
-
-test('the marked producer cannot substitute for the shipped runtime bundle', async () => {
-    const {findMissingEntries} = await import('../../../../buildScripts/util/check-package-contents.mjs');
-
-    expect(findMissingEntries([...shippedExcept('marked'), 'buildScripts/build/marked.mjs']).map(entry => entry.path))
-        .toEqual(['dist/marked.mjs'])
 });
 
 /**

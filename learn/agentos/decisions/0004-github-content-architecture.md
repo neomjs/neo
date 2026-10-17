@@ -6,6 +6,7 @@
 | Attribute | Value |
 |---|---|
 | **Status** | Accepted — 2026-05-14 (operator content-accuracy approval landed via "merge 0004 first" + "fine for me" directives 2026-05-14T18:53-18:54Z) |
+| **After the split** | The content pipeline moved to [`neomjs/github-content-sync`](https://github.com/neomjs/github-content-sync) (#17416), and the Engine dropped its mirror (#19322); the `ai/` paths named below live in [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) since #17806. The Engine keeps this record as history. |
 | **Author** | @neo-opus-4-7 drafting; architecture authored by swarm across Discussion #11180, Epic #11187, Discussion #11359, operator corrections 2026-05-14 |
 | **Documents** | Epic #11187 (Adopt single-root archive with lazy 100-item chunking) — **supersedes Cycle 2 amendment** with operator-confirmed Reading X (universal ordinal) |
 | **Supersedes** | (a) Implicit shape pre-Discussion-#11180 (asymmetric `issue-archive/` + `pr-archive/` fragmentation); (b) Option G per-type density-tuning (operator-revised 2026-05-14); (c) Active-tier `<NNN>xx/` GitHub-ID-range chunking via `chunkPath.mjs` (operator-revised 2026-05-14 to ordinal-100) |

@@ -72,6 +72,23 @@ class SharedCanvas extends Canvas {
      * @protected
      */
     windowHidden = false
+    /**
+     * This host's renderer admission, independent of a shared namespace stub.
+     * @member {Boolean} rendererAdmitted=false
+     * @protected
+     */
+    rendererAdmitted = false
+    /**
+     * The renderer and window whose graph this host started; clearing claims ownership before awaiting remote work.
+     * @member {Object|null} rendererGraph=null
+     * @protected
+     */
+    rendererGraph = null
+
+    /** @summary Transfers only after this host admitted its renderer; shell mounting remains independent. */
+    get canTransferOffscreenCanvas() {
+        return this.rendererAdmitted
+    }
 
     /**
      * @param {Boolean} value
@@ -97,9 +114,11 @@ class SharedCanvas extends Canvas {
         let me = this;
 
         if (value) {
-            await me.ready()
-        } else if (me.offscreenRegistered) {
-            me.renderer?.clearGraph({windowId: me.windowId})
+            await me.ready();
+
+            if (me.isDestroyed) return
+        } else {
+            me.clearRendererGraph()
         }
 
         super.afterSetMounted(value, oldValue)
@@ -119,18 +138,30 @@ class SharedCanvas extends Canvas {
         if (value) {
             await me.ready();
 
+            if (me.isDestroyed) return;
+
+            if (!me.rendererAdmitted) {
+                Neo.worker.Canvas.unregisterCanvas({nodeId: me.getCanvasId(), windowId: me.windowId});
+                me.offscreenRegistered = false;
+                return
+            }
+
             if (!me.rendererClassName) {
                 throw new Error('Canvas component missing rendererClassName config')
             }
 
-            await me.renderer.initGraph({canvasId: me.getCanvasId(), windowId: me.windowId});
+            const graph = {renderer: me.renderer, windowId: me.windowId};
+
+            me.rendererGraph = graph;
+            await graph.renderer.initGraph({canvasId: me.getCanvasId(), windowId: graph.windowId});
+
+            if (me.isDestroyed || me.rendererGraph !== graph || me.windowId !== graph.windowId) return;
 
             me.isCanvasReady = true;
 
             await me.updateSize()
         } else if (oldValue) {
-            me.isCanvasReady = false;
-            await me.renderer.clearGraph({windowId: me.windowId})
+            await me.clearRendererGraph()
         }
     }
 
@@ -204,11 +235,57 @@ class SharedCanvas extends Canvas {
 
         me.app?.un('visibilitychange', me.onWindowVisibility, me);
         Neo.currentWorker.un('connect', me.onWindowConnect, me);
-        me.offscreenRegistered && me.renderer?.clearGraph({windowId: me.windowId});
+        me.clearRendererGraph();
         super.destroy(...args)
     }
 
     /**
+     * @summary Releases only the graph this host started, once, using its original renderer and window.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async clearRendererGraph() {
+        const me = this, graph = me.rendererGraph;
+
+        if (!graph) return;
+
+        me.rendererGraph = null;
+        me.isCanvasReady = false;
+
+        try {
+            await graph.renderer.clearGraph({windowId: graph.windowId})
+        } catch (error) {
+            if (error !== Neo.isDestroyed && !Neo.currentWorker.isDeparture(error, graph.windowId)) {
+                console.error('Neo.app.SharedCanvas: renderer cleanup failed', error)
+            }
+        }
+    }
+
+    /**
+     * @summary Reports one live host's refused admission without rejecting its ordinary initialization.
+     * @event canvasLoadFailed
+     * @param {String} reason module-load-failed, renderer-unavailable or worker-unavailable.
+     * @param {String} message Failure diagnostic.
+     * @protected
+     */
+    onCanvasLoadFailed(reason, message) {
+        const me = this;
+
+        me.rendererAdmitted = false;
+        me.isCanvasReady = false;
+
+        try {
+            me.fire('canvasLoadFailed', {
+                message, path: me.rendererImportPath, reason,
+                rendererClassName: me.rendererClassName, windowId: me.windowId
+            })
+        } catch (error) {
+            console.error('Neo.app.SharedCanvas: canvasLoadFailed listener failed', error)
+        }
+    }
+
+    /**
+     * @summary Admits this host only after successful module loading and remote-stub registration.
      * @returns {Promise<void>}
      */
     async initAsync() {
@@ -216,33 +293,65 @@ class SharedCanvas extends Canvas {
 
         let me = this;
 
-        if (me.rendererImportPath) {
+        if (!me.rendererImportPath) {
+            me.rendererAdmitted = !me.isDestroyed;
+            return
+        }
+
+        if (!me.isDestroyed) {
             let {windowId} = me;
 
-            // Starts this window's canvas worker, in this window's own main thread
-            await Neo.worker.Manager.startWorker({name: 'canvas', windowId});
-
             try {
-                await Neo.currentWorker.whenCanvasReady(windowId)
+                await me.trap(Neo.worker.Manager.startWorker({name: 'canvas', windowId}));
+                await me.trap(Neo.currentWorker.whenCanvasReady(windowId))
             } catch (error) {
-                // A window leaving mid-boot is expected; any other failure is this group's worker not starting
-                Neo.currentWorker.isDeparture(error, windowId) || console.error('Neo.app.SharedCanvas: canvas worker unavailable', error);
+                if (me.isDestroyed || me.windowId !== windowId || error === Neo.isDestroyed || Neo.currentWorker.isDeparture(error, windowId)) return;
+
+                console.error('Neo.app.SharedCanvas: canvas worker unavailable', error);
+                me.onCanvasLoadFailed('worker-unavailable', error.message);
                 return
             }
 
-            // Load the specific renderer module for this component
-            await Neo.worker.Canvas.loadModule({path: me.rendererImportPath, windowId});
+            if (me.isDestroyed || me.windowId !== windowId) return;
 
-            // Wait for the remote stub to be created
-            let j = 0;
-            while (!me.renderer && j < 40) {
-                await me.timeout(50);
-                j++
+            let loaded;
+
+            try {
+                loaded = await me.trap(Neo.worker.Canvas.loadModule({path: me.rendererImportPath, windowId}))
+            } catch (error) {
+                if (me.isDestroyed || me.windowId !== windowId || error === Neo.isDestroyed) return;
+
+                me.onCanvasLoadFailed('module-load-failed', error.message);
+                return
             }
+
+            if (me.isDestroyed || me.windowId !== windowId) return;
+
+            if (loaded?.success !== true) {
+                me.onCanvasLoadFailed('module-load-failed', loaded?.error || 'Renderer module did not load');
+                return
+            }
+
+            let j = 0;
+
+            try {
+                while (!me.renderer && j < 40) {
+                    await me.timeout(50);
+                    j++
+                }
+            } catch (error) {
+                if (error === Neo.isDestroyed || me.isDestroyed) return;
+                throw error
+            }
+
+            if (me.isDestroyed || me.windowId !== windowId) return;
 
             if (!me.renderer) {
-                 console.error('Renderer Remote Stub not found:', me.rendererClassName)
+                me.onCanvasLoadFailed('renderer-unavailable', 'Renderer remote stub did not register');
+                return
             }
+
+            me.rendererAdmitted = true
         }
     }
 
@@ -381,12 +490,12 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * Updates the canvas size in the Shared Worker when the DOM element resizes.
+     * @summary Resizes the worker canvas while retaining the event's viewport origin for pointer conversion.
      * @param {Object} data
      */
     async onDomResize(data) {
         super.onDomResize(data);
-        await this.updateSize(data.contentRect)
+        await this.updateSize(data.contentRect, data.rect)
     }
 
     /**
@@ -410,23 +519,24 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * Caches the bounding rect, and pushes the new dimensions to the renderer once this window's canvas worker
+     * @summary Caches the viewport pointer rect and pushes dimensions to the renderer once this window's canvas worker
      * adopted the canvas: the app worker's renderer proxy exists as soon as ANY window's group registered it, even
      * while this window's group boots or failed. The message carries the host's `devicePixelRatio`, which a
      * renderer drawing at device resolution sizes its buffer by.
-     * @param {Object|null} [rect]
+     * @param {Object|null} [rect] Renderer sizing rectangle.
+     * @param {Object|null} [pointerRect=rect] Viewport rectangle; resize contentRect has a padding-relative origin.
      */
-    async updateSize(rect) {
+    async updateSize(rect, pointerRect=rect) {
         let me = this;
 
         await me.ready();
 
         if (!rect || rect.width === 0 || rect.height === 0) {
-            rect = await me.getDomRect(me.id)
+            rect = pointerRect = await me.getDomRect(me.id)
         }
 
         if (rect) {
-            me.canvasRect = rect;
+            me.canvasRect = pointerRect;
             me.offscreenRegistered && await me.renderer?.updateSize({
                 devicePixelRatio: Neo.config.devicePixelRatio || 1,
                 height          : rect.height,

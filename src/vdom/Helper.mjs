@@ -875,18 +875,20 @@ class Helper extends Base {
      * If individual component updates provide a `meta` object (see `Neo.mixin.VdomLifecycle#getVdomUpdatePayload`),
      * this method aggregates them into a single `meta` dictionary keyed by `componentId`. This allows
      * the VDOM worker to pass contextual App Worker state (like baseline `scrollTop` values) through
-     * to the Main Thread's `DeltaUpdates` event listeners.
+     * to the Main Thread's `DeltaUpdates` event listeners. The meta of a component whose payload another update
+     * of the batch absorbed arrives in `data.meta`, already keyed by its own id.
      *
      * @param {Object} data
+     * @param {Object} [data.meta] The meta of absorbed components: {componentId: meta}
      * @param {Object} data.updates A map of update config objects: {componentId: updateOpts}
      * @returns {Object} { deltas: Object[], meta: Object, vnodes: Object }
      */
     updateBatch(data) {
         let me        = this,
             allDeltas = [],
-            meta      = {},
+            meta      = {...data.meta},
             vnodes    = {},
-            hasMeta   = false,
+            hasMeta   = !!data.meta,
             result, id, updateOpts;
 
         for (id in data.updates) {

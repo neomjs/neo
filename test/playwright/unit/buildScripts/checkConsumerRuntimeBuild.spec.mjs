@@ -14,7 +14,15 @@ import path           from 'node:path';
  * the failure DIRECTIONS, and the workflow asserts the behaviour.
  */
 test.describe('check-consumer-runtime-build — rule logic', () => {
-    let APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures;
+    let APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts;
+
+    const runtimeFiles = [
+        'dist/marked.mjs', 'dist/mermaid.mjs', 'dist/parse5.mjs',
+        'dist/highlight/highlight.custom.js', 'dist/highlight/highlight.custom.min.js',
+        'dist/monaco/codicon.ttf', 'dist/monaco/css.worker.mjs', 'dist/monaco/editor.css',
+        'dist/monaco/editor.mjs', 'dist/monaco/editor.worker.mjs', 'dist/monaco/html.worker.mjs',
+        'dist/monaco/json.worker.mjs', 'dist/monaco/ts.worker.mjs'
+    ];
 
     const APP_VIEW         = './node_modules/neo.mjs/apps/portal/view/news/tickets/Component.mjs',
           APP_MARKED       = './node_modules/neo.mjs/dist/marked.mjs',
@@ -31,7 +39,25 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
           workspaceContext = {context: path.join(workspace, 'src/main/addon'), regExpSource: '^\\.\\/.*\\.mjs$'};
 
     test.beforeAll(async () => {
-        ({APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures} = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
+        ({APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts} = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
+    });
+
+    test('a complete installed dependency build satisfies every runtime address', () => {
+        expect(findMissingBrowserArtifacts([...runtimeFiles, 'dist/unrelated.mjs'])).toEqual([])
+    });
+
+    test('each missing runtime artifact fails independently, including CSS, font and worker files', () => {
+        for (const missing of runtimeFiles) {
+            expect(findMissingBrowserArtifacts(runtimeFiles.filter(file => file !== missing)), missing)
+                .toEqual([missing])
+        }
+    });
+
+    test('source files, directories and another install cannot satisfy generated runtime addresses', () => {
+        expect(findMissingBrowserArtifacts([
+            'src/Neo.mjs', 'dist', 'dist/highlight', 'dist/monaco',
+            ...runtimeFiles.map(file => `other-install/${file}`)
+        ])).toEqual(runtimeFiles)
     });
 
     test('a build resolving only the consumer\'s modules passes', () => {

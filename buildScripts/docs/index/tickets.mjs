@@ -6,6 +6,10 @@ import matter          from 'gray-matter';
 import semver          from 'semver';
 import isEntryModule   from '../../util/isEntryModule.mjs';
 import {sanitizeInput} from '../../util/sanitizer.mjs';
+import {
+    contentPath,
+    requireContentRoot
+} from '../../util/contentRoot.mjs';
 
 /**
  * @module buildScripts.createTicketIndex
@@ -17,7 +21,8 @@ import {sanitizeInput} from '../../util/sanitizer.mjs';
  * by lazy `TreeList` consumers.
  *
  * **Key Features:**
- * - **Dual-Source Scanning:** Reads from both active issues (`resources/content/issues`) and the issue archive (`resources/content/archive/issues`).
+ * - **Dual-Source Scanning:** Reads from both active issues (`issues/`) and the issue archive (`archive/issues/`) under the
+ *   declared corpus root (`--corpus-root`), never from the working directory.
  * - **Intelligent Filtering:** Includes high-value tickets (bug, feature, epic) while excluding noise (chore, task) to ensure high signal-to-noise ratio for SEO and AI.
  * - **Hierarchical Grouping:** Groups tickets by "Backlog" (active) or by release version (archived), sorted semantically.
  * - **Chunked Surface:** Leaf files omit repeated markdown `path` values; chunk nodes carry the
@@ -28,9 +33,7 @@ import {sanitizeInput} from '../../util/sanitizer.mjs';
  * @keywords portal, tickets, seo, json-index, build-script, knowledge-base
  */
 
-const ROOT_DIR    = process.cwd();
-const ISSUES_DIR  = path.resolve(ROOT_DIR, 'resources/content/issues');
-const ARCHIVE_DIR = path.resolve(ROOT_DIR, 'resources/content/archive/issues');
+const ROOT_DIR            = process.cwd();
 const DATA_DIR            = path.resolve(ROOT_DIR, 'apps/portal/resources/data');
 const CHUNKED_OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/tickets/index.json');
 const OUTPUT_DIR          = path.resolve(ROOT_DIR, 'apps/portal/resources/data/tickets');
@@ -56,18 +59,19 @@ function slugify(value) {
  * @param {String} filePath
  * @param {Object} options
  * @param {String} options.archiveDir
+ * @param {String} options.corpusRoot
  * @param {String} options.issuesDir
  * @param {Boolean} options.isActive
  * @returns {Object}
  */
-function getSourceBucket(filePath, {archiveDir, issuesDir, isActive}) {
+function getSourceBucket(filePath, {archiveDir, corpusRoot, issuesDir, isActive}) {
     const
         dir         = path.dirname(filePath),
         relativeDir = path.relative(isActive ? issuesDir : archiveDir, dir),
         sourceKey   = `${isActive ? 'active' : 'archive'}-${slugify(relativeDir)}`;
 
     return {
-        contentDir: path.relative(ROOT_DIR, dir),
+        contentDir: contentPath(corpusRoot, dir),
         sourceKey,
         title     : isActive ? relativeDir : `archive/${relativeDir}`
     }
@@ -211,8 +215,7 @@ function buildChunkedIndex(sortedGroups, ticketsByGroup) {
  * 6.  Writes the chunked root-index, per-chunk leaf files, and crawler manifest.
  *
  * @param {Object} options Configuration options
- * @param {String} [options.issuesDir] - Directory containing active markdown tickets (defaults to `resources/content/issues`)
- * @param {String} [options.archiveDir] - Directory containing archived markdown tickets (defaults to `resources/content/archive/issues`)
+ * @param {String} options.corpusRoot - The conversation corpus root holding `issues/` and `archive/issues/`; required, since the engine holds no corpus
  * @param {String} [options.outputDir] - Directory for chunked ticket leaf JSON files (defaults to `apps/portal/resources/data/tickets`)
  * @param {String} [options.dataDir] - Portal data root the chunk `childrenUrl` values resolve against (defaults to `apps/portal/resources/data`)
  * @param {String} [options.chunkedOutputFile] - Path to the chunked root-index JSON file (defaults to `apps/portal/resources/data/tickets/index.json`)
@@ -221,8 +224,9 @@ function buildChunkedIndex(sortedGroups, ticketsByGroup) {
  */
 async function createTicketIndex(options = {}) {
     const
-        issuesDir         = options.issuesDir         || ISSUES_DIR,
-        archiveDir        = options.archiveDir        || ARCHIVE_DIR,
+        corpusRoot        = requireContentRoot(options.corpusRoot, '--corpus-root', 'createTicketIndex'),
+        issuesDir         = path.join(corpusRoot, 'issues'),
+        archiveDir        = path.join(corpusRoot, 'archive', 'issues'),
         outputDir         = options.outputDir         || OUTPUT_DIR,
         dataDir           = options.dataDir           || DATA_DIR,
         chunkedOutputFile = options.chunkedOutputFile || CHUNKED_OUTPUT_FILE,
@@ -298,7 +302,7 @@ async function createTicketIndex(options = {}) {
 
         const
             ticketId = String(frontmatter.id),
-            bucket   = getSourceBucket(filePath, {archiveDir, issuesDir, isActive: fileInfo.isActive});
+            bucket   = getSourceBucket(filePath, {archiveDir, corpusRoot, issuesDir, isActive: fileInfo.isActive});
 
         const ticketData = {
             id      : ticketId,
@@ -384,8 +388,7 @@ async function createTicketIndex(options = {}) {
  * Handles argument parsing using `commander` and invokes the main `createTicketIndex` function.
  *
  * Supported flags:
- * - `-i, --issues <path>`: Custom issues directory
- * - `-a, --archive <path>`: Custom archive directory
+ * - `-r, --corpus-root <path>`: The conversation corpus root (required)
  * - `-d, --output-dir <path>`: Custom chunk output directory
  * - `-c, --chunked-output <path>`: Custom chunked root-index output file path
  * - `-m, --manifest <path>`: Custom crawler manifest output file path
@@ -396,8 +399,7 @@ async function runCli() {
     program
         .name('create-ticket-index')
         .description('Generates a hierarchical JSON index of tickets.')
-        .option('-i, --issues <path>',  'Active issues directory path', sanitizeInput)
-        .option('-a, --archive <path>', 'Archive directory path', sanitizeInput)
+        .requiredOption('-r, --corpus-root <path>', 'Conversation corpus root holding issues/ and archive/issues/', sanitizeInput)
         .option('-d, --output-dir <path>', 'Output chunk directory path', sanitizeInput)
         .option('-c, --chunked-output <path>', 'Chunked root-index output file path', sanitizeInput)
         .option('-m, --manifest <path>', 'Crawler manifest output file path', sanitizeInput);
@@ -407,8 +409,7 @@ async function runCli() {
     const opts = program.opts();
 
     await createTicketIndex({
-        issuesDir        : opts.issues        ? path.resolve(ROOT_DIR, opts.issues)        : undefined,
-        archiveDir       : opts.archive       ? path.resolve(ROOT_DIR, opts.archive)       : undefined,
+        corpusRoot       : path.resolve(opts.corpusRoot),
         outputDir        : opts.outputDir     ? path.resolve(ROOT_DIR, opts.outputDir)     : undefined,
         chunkedOutputFile: opts.chunkedOutput ? path.resolve(ROOT_DIR, opts.chunkedOutput) : undefined,
         manifestFile     : opts.manifest      ? path.resolve(ROOT_DIR, opts.manifest)      : undefined

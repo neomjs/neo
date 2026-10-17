@@ -54,9 +54,9 @@ owns no concern outright". Knowing the cast is most of understanding the journey
   retires — with every seam injected, so the choreography is a pure decision machine".
 - **Embodiment** — `src/dashboard/dock/window/VesselEmbodiment.mjs`. "This helper owns render topology only. It never
   opens, closes, identifies, or authorizes a native window, and it never mutates a dock document."
-- **Conversion, park and the native transaction** — `VesselConversion.mjs` decides when a dragged popup converts into
-  an in-window proxy; `VesselPark.mjs` parks the real window instead of closing it; `NativeVesselTransaction.mjs` is
-  the strict native effect both consumers used to write by hand.
+- **Park and the native transaction** — `VesselPark.mjs` parks a native title-bar drop's real window behind its
+  target while the drop settles, instead of closing it; `NativeVesselTransaction.mjs` holds the strict native effects
+  the hosts share: the parked window's re-show and the tear-out close.
 - **Placement** — `src/dashboard/dock/window/Placement.mjs`, the durable intent of where a popup belongs relative to
   the main frame, as "relative offsets and semantic fallback targets; window routes, rectangles and pending effects
   stay on this live owner."
@@ -142,6 +142,12 @@ consequence of one of them:
 Membership is separate from binding. "A participant lives while its Group does, whatever its window's generation is
 doing, and a Group holding participants is never empty." Hold on to that sentence; it is the reason a dead window
 does not take your pane with it.
+
+Binding also gives the window a position the engine can read. A window dragged by its native title bar sends the page
+no pointer events, so the engine knows where it stands only through `Neo.main.addon.WindowPosition`, whose stream keeps
+the window's row in `Neo.manager.Window` current, and every cross-window drop zone hit-tests that row. The host loads
+the addon into each window it arms, its own and every admitted vessel's (`Neo.currentWorker.getAddon`), so a tear-out
+app lists nothing for it in `mainThreadAddons`, even when a vessel's page is a child app with its own config.
 
 The dock joins the Group through the workspace set, and the set enforces a protocol rather than documenting one. A
 participant must expose `capture`, `prepare`, `adopt` and `compensate`, or its transaction is refused outright.
@@ -245,24 +251,27 @@ clears it on a bind, and hands it to the expiry effect, so a lease that ends for
 host before returning its pane. Today the same rig reads `mounted: false, isDestroyed: false` at lease end, the vessel
 document still lists the pane. Reset can then recover the very same instance through a Group write.
 
-## Station four: a half-finished drag, and why the window is parked
+## Station four: a half-finished drag, and why the window closes
 
-Most of the journey is about documents and windows in their settled states. One station is about the ten seconds in
-the middle of a gesture, and it exists because of a platform law the engine had to encode rather than argue with.
+Most of the journey is about documents and windows in their settled states. One station is about the seconds in the
+middle of a gesture, and it exists because of two platform laws the engine had to encode rather than argue with.
 
-Opening a popup consumes the browser's transient user activation, and `windowOpen` reports failure by returning a
-Boolean — a blocked popup never throws. So a drag that converts a real window back into an in-window proxy, then
-leaves the target again, cannot count on reacquiring a window: "the activation that opened the vessel may be
-consumed, and a mid-gesture reopen reads as unsolicited to popup blocking. Close-and-reopen is a one-way door." The
-park owner's answer is to remove the door: **conversion parks the vessel, out-conversion re-shows the same OS window,
-and disposal happens exactly once, on commit.** The activation wall becomes unreachable by construction, because the
-park machine has no acquisition seam to call.
+A script can neither hide a window nor move it off the visible work area, so a vessel that stopped riding the hand would
+stay on screen as a window the user never dragged. The engine therefore keeps one rule for every window of the group:
+**inside a window, the drag is that window's tab-header proxy; outside every window, it is a vessel.** The moment
+another window claims the pointer, the vessel retires exactly as it does when the drag re-enters the source window, with
+zero model mutation and the pane back home, and the claiming window carries the drag, commit-eligible from its first
+claimed frame. Leaving that window for the desktop is a boundary exit again and acquires a fresh vessel.
 
-The conversion decision belongs to a companion sensor with overridable geometry — overlap divided by the smaller extent
-on each axis, a live pointer claim for entry, an observed exit or geometric retreat for reversion. The physical effect
-belongs to a strict native transaction that focuses the exact target route first, then resizes and moves the exact
-source handle, then verifies the observed extent before admitting the cover; every refusal restores what it touched.
-The design record's own words: "the order is load-bearing. A focus refusal leaves the source untouched and moving."
+That fresh vessel meets the second law. Opening a popup consumes the browser's transient user activation and a held
+drag never grants another, so a second popup in one gesture needs the site's pop-up permission: the one-time setup of a
+multi-window application, after which a drag leaves and re-enters windows as often as the user likes. A site without
+it degrades instead of breaking: `windowOpen` reports the refusal as a Boolean, the exit fails closed, and the drag
+continues in-window.
+
+What still moves a released window belongs to a strict native transaction. The native title-bar path parks a released
+popup behind its target while the drop commits: it focuses the exact target route first, then moves the exact source
+handle, and every refusal restores what it touched.
 
 And the native transaction has an origin story that says something about how this engine grows. Two consumers wrote
 the same transaction independently — "the same authority block in the same key order, the same admission pair, the
@@ -307,6 +316,12 @@ into another; a node that is not the source's resolved stack root never transfer
 leaves the source with its panes. On the Workstation the receipt for this road reads in a fixed order — documents
 adopted, projections settled, close dispatched, close acknowledged — so the emptied vessel closes itself only after
 the main document holds its panes, each with the instance id it left with.
+
+A popup that Undo or a restored perspective re-opens is the same workspace in a new render target, not a tear-out.
+`NativeVesselTransaction.embodyWorkspace` opens it, so it carries no tear-out record and no native-route
+capabilities. Its stack still comes home by the grip, and once empty it closes through its Group binding, behind the
+same fence a Redo uses. Its title-bar drag returns nothing: a native return is admitted only for a vessel the tear-out
+registry knows, on a route born with the `position` capability, and a re-opened window has neither.
 
 All four share one physical fact that fooled two maintainers on the same day, and the guide would be dishonest to
 skip it. When a pane comes home, the *document* moves first and the *component* follows. On the Workstation the

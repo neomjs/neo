@@ -36,6 +36,14 @@ class PreviewGeometryWorkspace extends DockWorkspace {
          */
         className: 'Test.Playwright.Component.DockPreviewGeometry.Workspace',
         /**
+         * Spec trigger: a JSON operation descriptor commits through the real reducer and refresh loop
+         * (`applyDockZoneOperation` → `onDockZoneDocumentChange`), so a spec can replace or retain
+         * this fixture's tab root.
+         * @member {String|null} applyOperationJson_=null
+         * @reactive
+         */
+        applyOperationJson_: null,
+        /**
          * @member {String[]} cls=['dock-preview-geometry-workspace']
          */
         cls: ['dock-preview-geometry-workspace'],
@@ -44,6 +52,21 @@ class PreviewGeometryWorkspace extends DockWorkspace {
          * @member {String} dockHostReference='dock-host'
          */
         dockHostReference: 'dock-host',
+        /**
+         * Spec trigger: how many of the next projections fail. Each rejects its second host flight
+         * once, which the Reconciler types as a projection failure — the path on which
+         * `refreshDockWorkspace` returns early. Two fail a projection and the one retry it schedules.
+         * @member {Number} failProjections_=0
+         * @reactive
+         */
+        failProjections_: 0,
+        /**
+         * Spec trigger: the next projection's second host flight waits this long, holding the
+         * projection open so a spec can act on the outgoing shell while it is pending.
+         * @member {Number} holdProjectionMs_=0
+         * @reactive
+         */
+        holdProjectionMs_: 0,
         /**
          * @member {String} id='dock-preview-geometry-workspace'
          */
@@ -75,6 +98,12 @@ class PreviewGeometryWorkspace extends DockWorkspace {
      * @member {Boolean} dockProjectionBusy=false
      */
     dockProjectionBusy = false
+    /**
+     * How many projections failed, counted from the workspace's own `dockProjectionFailed` event: the
+     * signal that an armed failure fired, without which "the guard did not latch" proves nothing.
+     * @member {Number} dockProjectionFailures=0
+     */
+    dockProjectionFailures = 0
 
     /**
      * @param {Object} data
@@ -82,6 +111,69 @@ class PreviewGeometryWorkspace extends DockWorkspace {
     afterRefreshDockWorkspace(data) {
         super.afterRefreshDockWorkspace(data);
         this.dockProjectionSettles++
+    }
+
+    /**
+     * Arms one of {@link #failProjections_}, or {@link #holdProjectionMs_}, on the dock host for exactly
+     * this projection.
+     * @param {Object} document
+     * @param {Object} refreshOptions
+     */
+    beforeRefreshDockWorkspace(document, refreshOptions) {
+        let me   = this,
+            host = me.getDockHost();
+
+        super.beforeRefreshDockWorkspace(document, refreshOptions);
+
+        if (me.holdProjectionMs > 0 && host) {
+            let flights = 0,
+                hold    = me.holdProjectionMs;
+
+            me.holdProjectionMs = 0;
+
+            host.promiseUpdate = function(...args) {
+                const run = () => Object.getPrototypeOf(host).promiseUpdate.apply(host, args);
+
+                if (++flights < 2) {
+                    return run()
+                }
+
+                delete host.promiseUpdate;
+
+                return new Promise(resolve => setTimeout(resolve, hold)).then(run)
+            }
+        }
+
+        if (me.failProjections > 0 && host) {
+            let flights = 0;
+
+            me.failProjections--;
+
+            host.promiseUpdate = function(...args) {
+                if (++flights < 2) {
+                    return Object.getPrototypeOf(host).promiseUpdate.apply(host, args)
+                }
+
+                delete host.promiseUpdate;
+
+                return Promise.reject(new Error('injected: the projection in flight fails'))
+            }
+        }
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetApplyOperationJson(value, oldValue) {
+        if (oldValue === undefined || !value) {
+            return
+        }
+
+        const result = this.applyDockZoneOperation(JSON.parse(value));
+
+        result && !result.errors?.length && this.onDockZoneDocumentChange(result.document)
     }
 
     /**
@@ -126,6 +218,8 @@ class PreviewGeometryWorkspace extends DockWorkspace {
         super.onConstructed();
 
         let me = this;
+
+        me.on('dockProjectionFailed', () => me.dockProjectionFailures++);
 
         me.add({
             cls  : ['dock-preview-geometry-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],

@@ -1,29 +1,22 @@
 import Base          from '../../../core/Base.mjs';
-import Rectangle     from '../../../util/Rectangle.mjs';
 import WindowManager from '../../../manager/Window.mjs';
 
 /**
- * @summary The default park / re-show / dispose transaction behind {@link Neo.dashboard.dock.window.VesselPark}'s
- * three required seams, tear-out close, and shared Workspace close-return / native replay.
+ * @summary The native window transactions dock hosts share: the parked vessel's re-show behind
+ * {@link Neo.dashboard.dock.window.VesselPark}'s `reshowVessel` seam, tear-out close, and Workspace
+ * close-return / native replay.
  *
  * `VesselPark` owns gesture-local admission, one-in-flight settlement and disposal ordering, and
- * requires three strict effects it deliberately does not implement — native window ownership stays
- * with the Group, and the arbiter holds no host reference. That left every consumer writing the
- * transaction itself, and two did, with the same contract and different bodies: the same
- * `lastVesselParkReceipt.authority` block in the same key order, the same `resolveNativeRoute`
- * admission pair, the same fail-closed gate, the same dispatch — reached independently, and already
- * diverged. The divergence is the reason this exists; a copy would at least have agreed.
+ * requires strict effects it deliberately does not implement — native window ownership stays with
+ * the Group, and the arbiter holds no host reference. The receipts speak one fixed `authority` block
+ * ({@link #authorityKeys}), so a host's park and this re-show report the same decision under the
+ * same shape.
  *
- * **The authority key set is a function of the transaction's declared restore obligation.** All ten
- * keys are emitted always, so a reader sees one fixed shape; only the required subset gates the
- * refusal. A transaction that restores geometry must hold `resize` at park, because park is where
- * that obligation is accepted. A transaction that restores position only must not — gating it there
- * refuses parks it would service completely.
- *
- * This class holds no state and no host. {@link #effectsFor} closes over a descriptor and returns
- * the three functions; a consumer overriding none inherits a working transaction without
- * re-deriving it, and `VesselPark`'s own construct-time throw still catches the partial-override
- * case. Anything genuinely app-specific stays an override with a stated product reason.
+ * The statics are stateless and host-free. An INSTANCE is one host's re-show owner: its four seam
+ * configs are the whole host-varying surface (which window the park targets, how a vessel resolves,
+ * where the receipt lands), and {@link #reshowVessel} is a prototype method, so a subclass or a
+ * `Neo.overwrites` entry replaces the re-show that actually runs. The host that creates it destroys it;
+ * anything genuinely app-specific stays an override with a stated product reason.
  *
  * @class Neo.dashboard.dock.window.NativeVesselTransaction
  * @extends Neo.core.Base
@@ -34,7 +27,27 @@ class NativeVesselTransaction extends Base {
          * @member {String} className='Neo.dashboard.dock.window.NativeVesselTransaction'
          * @protected
          */
-        className: 'Neo.dashboard.dock.window.NativeVesselTransaction'
+        className: 'Neo.dashboard.dock.window.NativeVesselTransaction',
+        /**
+         * Host seam: `() => String` — the host's current `windowId`, the native route's owner.
+         * @member {Function|null} ownerWindowId=null
+         */
+        ownerWindowId: null,
+        /**
+         * Host seam: `receipt => void` — where the re-show's receipt lands.
+         * @member {Function|null} publishReceipt=null
+         */
+        publishReceipt: null,
+        /**
+         * Host seam: `itemId => entry|null` — the vessel registry entry a re-show addresses.
+         * @member {Function|null} resolveVessel=null
+         */
+        resolveVessel: null,
+        /**
+         * Host seam: `() => String|null` — the park target's `windowId`.
+         * @member {Function|null} targetWindowId=null
+         */
+        targetWindowId: null
     }
 
     /**
@@ -152,22 +165,48 @@ class NativeVesselTransaction extends Base {
         }
         const result = await project();
         if (context.cursorAction === 'redo' && native.windowId() && !Object.keys(source.getDocument().items).length) {
-            const manager  = workspaceSet.manager, group = manager.get(workspaceSet.resolveGroupId()),
-                  binding  = group?.bindings.get(source.bindingKey), generation = binding?.generation,
-                  windowId = native.windowId(), current = () => manager.get(group?.id) === group &&
-                      group?.snapshot === context.snapshot && workspaceSet.getParticipant(workspaceId) === source &&
-                      group?.bindings.get(source.bindingKey) === binding && binding?.generation === generation &&
-                      binding?.windowId === windowId && native.windowId() === windowId;
-            let closed = false;
-            try {
-                if (current() && await Neo.Main.clearTopologyIdentity({groupId: group.id, windowId}) === true && current()) {
-                    closed = await Neo.Main.closeTopologyWindow({windowId}) === true
-                }
-            } catch {}
+            const closed = await this.closeWorkspaceWindow(workspaceSet, workspaceId, {snapshot: context.snapshot});
             this.publishWorkspaceEffect(workspaceSet, workspaceId, context,
                 {closed, errors: closed ? [] : ['native replay close was refused']})
         }
         return result
+    }
+
+    /**
+     * @summary Closes an emptied participant's bound native window through its Group binding.
+     * Both sides of identity clearing are fenced twice: the binding, generation and window stay the ones
+     * found, and the participant stays empty in the Group snapshot the close was decided in (`snapshot`,
+     * else the current one). The clear carries the binding's lineage token, so a same-Group successor that
+     * bound in the window keeps its carrier; a binding without a token is refused. A pane arriving while
+     * the clear is in flight leaves the window open with its carrier restored.
+     * @param {Neo.dashboard.dock.window.WorkspaceSet} workspaceSet
+     * @param {String} workspaceId
+     * @param {Object} [options={}]
+     * @param {Object} [options.snapshot] The Group snapshot the close was decided in; defaults to the current one.
+     * @returns {Promise<Boolean>} `true` once the window accepted the close.
+     */
+    static async closeWorkspaceWindow(workspaceSet, workspaceId, {snapshot}={}) {
+        const source            = workspaceSet?.getParticipant(workspaceId), native = source?.nativeWindow,
+              manager           = workspaceSet?.manager, group = manager?.get(workspaceSet.resolveGroupId()),
+              binding           = group?.bindings.get(source?.bindingKey), generation = binding?.generation,
+              {generationToken} = binding ?? {},
+              decided           = snapshot ?? group?.snapshot,
+              windowId          = native?.windowId(),
+              bound             = () => manager.get(group.id) === group && workspaceSet.getParticipant(workspaceId) === source &&
+                  group.bindings.get(source.bindingKey) === binding && binding.generation === generation &&
+                  binding.windowId === windowId && native.windowId() === windowId,
+              emptied           = () => group.snapshot === decided && !Object.keys(source.getDocument()?.items ?? {}).length;
+        if (!windowId || !binding || !generationToken || !bound() || !emptied()) return false;
+        try {
+            if (await Neo.Main.clearTopologyIdentity({generationToken, groupId: group.id, windowId}) !== true) return false;
+            if (bound() && emptied()) return await Neo.Main.closeTopologyWindow({windowId}) === true;
+            // The source changed during the clear: the still-bound window stays and gets its identity back;
+            // `onlyIfEmpty` leaves a successor's carrier untouched.
+            bound() && await Neo.Main.setTopologyIdentity({
+                generationToken, groupId: group.id, onlyIfEmpty: true, windowId, workspaceKey: source.bindingKey
+            })
+        } catch {}
+        return false
     }
 
     /**
@@ -255,54 +294,6 @@ class NativeVesselTransaction extends Base {
         const chrome = WindowManager.get(windowId)?.chrome;
 
         return {x: rect.x - (chrome?.left ?? 0), y: rect.y - (chrome?.top ?? 0)}
-    }
-
-    /**
-     * @summary Where a parked vessel goes so it covers the target as little as the display allows: the
-     * corner of the target display's work area whose frame overlaps the target's content least, the
-     * farthest one among equals, with the whole frame kept inside the work area.
-     *
-     * A real OS mouse drag does not honour a `focus()` raise, so a vessel parked behind the target
-     * would stay on top of every affordance the conversion produced. Clear of the target, it needs no
-     * z-order at all.
-     * @param {Object} data
-     * @param {{height:Number,width:Number}} data.frame The parked frame's outer extent
-     * @param {Object} data.screen The target display's `availLeft`, `availTop`, `availWidth` and `availHeight`
-     * @param {{height:Number,width:Number,x:Number,y:Number}} data.target The target's content rect
-     * @returns {{cleared:Boolean,x:Number,y:Number}|null} The frame origin, and whether the frame misses the
-     * target's content; `null` when an input is not measurable, the target has no extent, or the frame is
-     * larger than the work area and cannot be placed whole
-     */
-    static resolveClearPark({frame, screen, target} = {}) {
-        const {availHeight, availLeft, availTop, availWidth} = screen ?? {};
-
-        if (
-            ![availHeight, availLeft, availTop, availWidth, frame?.height, frame?.width, target?.height, target?.width, target?.x, target?.y].every(Number.isFinite) ||
-            availHeight <= 0 || availWidth <= 0 || frame.height <= 0 || frame.width <= 0 || target.height <= 0 || target.width <= 0 ||
-            frame.height > availHeight || frame.width > availWidth
-        ) {
-            return null
-        }
-
-        const
-            content = new Rectangle(target.x, target.y, target.width, target.height),
-            right   = availLeft + availWidth  - frame.width,
-            bottom  = availTop  + availHeight - frame.height;
-
-        let best = null;
-
-        for (const [x, y] of [[availLeft, availTop], [right, availTop], [availLeft, bottom], [right, bottom]]) {
-            const
-                overlap  = Rectangle.getIntersection(new Rectangle(x, y, frame.width, frame.height), content),
-                area     = overlap ? overlap.width * overlap.height : 0,
-                distance = Math.hypot(x + frame.width / 2 - content.x - content.width / 2, y + frame.height / 2 - content.y - content.height / 2);
-
-            if (!best || area < best.area || (area === best.area && distance > best.distance)) {
-                best = {area, distance, x, y}
-            }
-        }
-
-        return {cleared: best.area === 0, x: best.x, y: best.y}
     }
 
     /**
@@ -475,370 +466,64 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
-     * @summary Closes over a host descriptor and returns the three `VesselPark` seams.
+     * @summary `VesselPark`'s re-show effect: moves one parked vessel back to its recorded content rect.
      *
-     * The descriptor is the whole host-varying surface, measured across both existing consumers:
-     * which window the conversion targets, whether the transaction owes a geometry restore, how a
-     * vessel resolves, and where receipts land. Everything else is shared and lives here.
-     * @param {Object} descriptor
-     * @param {Function} descriptor.ownerWindowId Returns the host's current `windowId`.
-     * @param {Function} descriptor.publishReceipt `(key, receipt) => void`; `key` is `'dispose'`, `'park'` or `'restore'`.
-     * @param {Function} descriptor.resolveVessel `itemId => entry|null`.
-     * @param {Function} descriptor.retireVessel `({generationToken, itemId, windowName}) => Promise<Boolean>`;
-     * `generationToken` is present when the registry entry carries one and names the exact lineage a retry may close.
-     * @param {Function} descriptor.targetWindowId Returns the conversion target's `windowId`.
-     * @param {Function} [descriptor.restoreGeometry] `itemId => geometry|null`. Absent or returning
-     * `null` declares a position-only transaction, which is NOT gated on `resize`.
-     * @param {String} [descriptor.terminalRestoreOwner='route'] Who performs a TERMINAL restore —
-     * `'drag'` asks the addon that may still own the gesture before addressing the route, `'route'`
-     * addresses the route directly. A restore ending a drag wants `'drag'`; one ending a conversion
-     * has no drag to hand back to and wants `'route'`.
-     * @param {String} [descriptor.rectPlane='inner'] Which published rect the size metric and the
-     * shrink extent speak — `'inner'` or `'outer'`. A child window may legitimately omit `outerRect`,
-     * so a consumer whose admission does not depend on the frame stays on the inner plane rather
-     * than refusing an otherwise-authorized live vessel. The park's clearance reads the outer frame
-     * on either plane: a vessel that owes no resize and publishes no `outerRect` is refused at
-     * `'screen'`.
-     * @returns {{disposeVessel:Function,parkVessel:Function,reshowVessel:Function}}
+     * The statics it composes are reached through `this.constructor`, so a subclass's static override
+     * applies to its own instances.
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Object} data.rect The CONTENT rect the park recorded.
+     * @param {String} data.windowName
+     * @returns {Promise<Boolean>} Whether the platform admitted the move.
      */
-    static effectsFor(descriptor) {
+    async reshowVessel({itemId, rect, windowName}) {
         const
-            restoreGeometry = descriptor.restoreGeometry ?? (() => null),
-            // Which published rect the size metric and the shrink extent speak. A child window may
-            // legitimately omit `outerRect`, so a consumer whose admission does not depend on the
-            // frame stays on `innerRect` rather than rejecting an otherwise-authorized vessel.
-            plane           = descriptor.rectPlane === 'outer' ? 'outerRect' : 'innerRect',
-            snapshot        = rect => rect && {
-                height: rect.height, width: rect.width, x: rect.x, y: rect.y
-            };
+            me         = this,
+            ctor       = me.constructor,
+            entry      = me.resolveVessel(itemId),
+            route      = entry?.nativeRoute ?? null,
+            frame      = ctor.toFrameOrigin(rect, entry?.windowId ?? null),
+            admissions = ctor.resolveAdmissions(me, entry, me.targetWindowId() ?? null);
 
-        return {
-            disposeVessel: async ({itemId, windowName}) => {
-                const
-                    entry = descriptor.resolveVessel(itemId),
-                    route = entry?.nativeRoute ?? null,
-                    // The exact vessel the first call addresses. A successor admission for the same
-                    // item shares the name, never the token or the window, so every call carries
-                    // the lineage the registry named at the start.
-                    identity = {itemId, windowName},
-                    receipt  = {
-                        admitted   : false,
-                        attempts   : 0,
-                        entry      : Boolean(entry),
-                        itemId     : itemId ?? null,
-                        nameMatches: !entry || entry.windowName === windowName,
-                        refusal    : null,
-                        stage      : 'retiring',
-                        windowAlive: null,
-                        windowName : windowName ?? null
-                    };
+        const receipt = {
+            authority: ctor.describeAuthority(admissions, entry?.windowName === windowName),
+            frame,
+            // Both are recorded because they answer different questions: `rect` is what the caller asked
+            // for in content space, `frame` is what the platform was handed. A receipt carrying only one
+            // cannot show that the chrome conversion happened.
+            rect     : rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
+        };
 
-                entry?.generationToken != null && (identity.generationToken = entry.generationToken);
+        // Published first and amended in place, same as the host's park: a caller reading it after a
+        // refusal must see which beat refused.
+        me.publishReceipt(receipt);
 
-                // Published before the first call and amended in place, like the park and restore
-                // receipts: a reader after a refusal sees how far the dispose got and why.
-                descriptor.publishReceipt?.('dispose', receipt);
-
-                let disposed = false;
-
-                // Bounded, exactly-once admitted: the host's retire refuses WITHOUT closing (the tear-out
-                // keeps its slot on refusal), so one more attempt is made only while the vessel's window
-                // still exists and the refusal was the host's close — a window already gone is never
-                // closed twice, a missing or mismatched identity cannot change by waiting, and a second
-                // refusal ends it. The classes say what the host's registry can say.
-                while (!disposed && receipt.attempts < 2) {
-                    receipt.attempts++;
-                    disposed = Boolean(await descriptor.retireVessel({...identity}));
-
-                    if (disposed) break;
-
-                    receipt.refusal     = !entry ? 'no-vessel' : !receipt.nameMatches ? 'identity-mismatch' : 'host-close-refused';
-                    receipt.windowAlive = entry?.windowId != null && Boolean(WindowManager.get(entry.windowId));
-
-                    if (!receipt.windowAlive || receipt.refusal !== 'host-close-refused') break;
-
-                    // One macrotask: whatever refused the close (a settle still in flight) gets to land.
-                    await new Promise(resolve => setTimeout(resolve, 0));
-
-                    // That macrotask may also have retired the vessel externally and admitted a successor
-                    // under the same name: the retry re-reads the registry and closes nothing the first
-                    // call did not address.
-                    const live = descriptor.resolveVessel(itemId);
-
-                    if (!live) {
-                        receipt.refusal = 'no-vessel';
-                        break
-                    }
-
-                    if (live.windowId !== entry.windowId || (live.generationToken ?? null) !== (entry.generationToken ?? null)) {
-                        receipt.refusal = 'vessel-replaced';
-                        break
-                    }
-
-                    receipt.windowAlive = Boolean(WindowManager.get(entry.windowId));
-
-                    if (!receipt.windowAlive) break
-                }
-
-                receipt.admitted = disposed;
-                receipt.stage    = disposed ? 'retired' : 'refused';
-
-                // Retiring the vessel without retiring its orphan recovery leaves a matching
-                // predecessor effect owning a window that no longer exists, which then competes
-                // with the next park on the same handle. One consumer does this and one does not.
-                // Same asymmetry as the acknowledgement: the retirement is bookkeeping over an
-                // effect the consumer may never have armed, and it must not be able to revoke a
-                // disposal that already happened.
-                if (disposed && route?.nativeHandleKey) {
-                    try {
-                        await Neo.main.addon.DragDrop.retireWindowDragOrphanRecovery?.({
-                            nativeHandleKey: route.nativeHandleKey,
-                            targetWindowId : route.targetWindowId,
-                            windowId       : descriptor.ownerWindowId(),
-                            windowName
-                        })
-                    } catch (error) {/* nothing armed, or already retired: the disposal stands */}
-                }
-
-                return disposed
-            },
-
-            parkVessel: async ({itemId, windowName}) => {
-                const
-                    entry          = descriptor.resolveVessel(itemId),
-                    targetWindowId = descriptor.targetWindowId() ?? null,
-                    geometry       = restoreGeometry(itemId),
-                    sourceWindow   = WindowManager.get(entry?.windowId),
-                    targetWindow   = WindowManager.get(targetWindowId),
-                    route          = entry?.nativeRoute ?? null,
-                    sourceRect     = sourceWindow?.[plane] ?? null,
-                    targetRect     = targetWindow?.[plane] ?? null,
-                    admissions     = NativeVesselTransaction.resolveAdmissions(descriptor, entry, targetWindowId),
-                    authority      = NativeVesselTransaction.describeAuthority(admissions, entry?.windowName === windowName),
-                    // The obligation, not the capability: `resize` is required exactly when this
-                    // transaction has promised to restore an extent later.
-                    owesResize     = Boolean(geometry),
-                    receipt        = {authority, geometry, owesResize, sourceRect: snapshot(sourceRect), targetRect: snapshot(targetRect)};
-
-                // The receipt is a stage machine this method amends as the choreography advances,
-                // so it is published FIRST and mutated in place. A caller reading it after a
-                // refusal must be able to see how far the transaction got, which a receipt
-                // assembled only on success cannot express.
-                descriptor.publishReceipt('park', receipt);
-                descriptor.publishReceipt('restore', null);
-
-                // The size precondition falls out of the same obligation, rather than being a second
-                // policy: a parked vessel is no larger than the target, so a source that does not fit
-                // must be shrunk first — and only a transaction that owes a geometry restore may
-                // shrink it, because only that transaction has promised to give the extent back. One
-                // consumer resizes and one refuses; both are this rule, read through their own
-                // declared obligation.
-                receipt.fits = Boolean(sourceRect && targetRect &&
-                    sourceRect.width <= targetRect.width && sourceRect.height <= targetRect.height);
-
-                if (
-                    !admissions.sourcePos.granted || (owesResize && !admissions.sourceResize.granted) ||
-                    !authority.entryNameMatches || !sourceRect || !targetRect || (!receipt.fits && !owesResize)
-                ) {
-                    receipt.reason = 'native route or live park geometry refused';
-                    return false
-                }
-
-                try {
-                    // The vessel parks clear of the target, so no step focuses anything. The clearance
-                    // reads an OUTER frame: the shrunk extent is one, since `windowNativeResizeTo`
-                    // sets outer dimensions; otherwise only the published `outerRect` is, and without
-                    // it the park is refused rather than cleared against a smaller inner rect.
-                    const
-                        extent = owesResize ? {
-                            height: Math.min(sourceRect.height, targetRect.height),
-                            width : Math.min(sourceRect.width, targetRect.width)
-                        } : null,
-                        frame  = extent ?? sourceWindow.outerRect,
-                        {screen} = await Neo.Main.getWindowData({windowId: targetWindowId}),
-                        park   = NativeVesselTransaction.resolveClearPark({frame, screen, target: targetWindow.innerRect ?? targetRect});
-
-                    if (!park) {
-                        receipt.refusedAt = 'screen';
-                        return false
-                    }
-
-                    receipt.cleared = park.cleared;
-
-                    if (extent) {
-                        receipt.resized = await Neo.Main.windowNativeResizeTo({
-                            ...extent,
-                            nativeHandleKey: route.nativeHandleKey,
-                            targetWindowId : route.targetWindowId,
-                            windowId       : descriptor.ownerWindowId()
-                        }) === true;
-
-                        if (!receipt.resized) {
-                            receipt.refusedAt = 'resize';
-                            return false
-                        }
-                    }
-
-                    receipt.requested = {x: park.x, y: park.y};
-                    receipt.moved     = await Neo.main.addon.DragDrop.parkWindowDrag({
-                        nativeHandleKey: route.nativeHandleKey,
-                        targetWindowId : route.targetWindowId,
-                        windowId       : descriptor.ownerWindowId(),
-                        windowName,
-                        x              : park.x,
-                        y              : park.y
-                    }) === true;
-
-                    if (!receipt.moved) {
-                        receipt.refusedAt = 'move';
-                        return false
-                    }
-
-                    receipt.parked = true;
-                    return true
-                } catch (error) {
-                    receipt.refusedAt = 'throw';
-                    return false
-                }
-            },
-
-            reshowVessel: async ({itemId, rect, terminal=false, windowName}) => {
-                const
-                    entry      = descriptor.resolveVessel(itemId),
-                    route      = entry?.nativeRoute ?? null,
-                    geometry   = restoreGeometry(itemId),
-                    frame      = NativeVesselTransaction.toFrameOrigin(rect, entry?.windowId ?? null),
-                    admissions = NativeVesselTransaction.resolveAdmissions(descriptor, entry, descriptor.targetWindowId() ?? null),
-                    owesResize = Boolean(geometry);
-
-                const receipt = {
-                    authority: NativeVesselTransaction.describeAuthority(admissions, entry?.windowName === windowName),
-                    frame,
-                    geometry,
-                    owesResize,
-                    // Both are recorded because they answer different questions: `rect` is what the
-                    // caller asked for in content space, `frame` is what the platform was handed.
-                    // A receipt carrying only one cannot show that the chrome conversion happened.
-                    rect     : snapshot(rect),
-                    terminal
-                };
-
-                // Published first and amended in place, same as the park: a caller reading it
-                // after a refusal must see which beat refused and what was compensated.
-                descriptor.publishReceipt('restore', receipt);
-
-                if (
-                    !admissions.sourcePos.granted || (owesResize && !admissions.sourceResize.granted) ||
-                    entry?.windowName !== windowName || !frame
-                ) {
-                    receipt.reason = 'native route or restore geometry refused';
-                    return false
-                }
-
-                const
-                    handle = {
-                        nativeHandleKey: route.nativeHandleKey,
-                        targetWindowId : route.targetWindowId,
-                        windowId       : descriptor.ownerWindowId()
-                    },
-                    // The addon owns a NAMED drag and needs the name to find it; `Neo.Main`'s
-                    // window calls address the route alone. Sending the name to both worked and
-                    // was still wrong: it put a field the platform ignores into an exactly-asserted
-                    // payload, so the witness could no longer describe the call it was pinning.
-                    data   = {...handle, windowName, x: frame.x, y: frame.y},
-                    origin = {...handle, x: frame.x, y: frame.y},
-                    resize = extent => Neo.Main.windowNativeResizeTo({...handle, ...extent});
-
-                try {
-                    // A non-terminal re-show always goes through the addon: the drag is live by
-                    // definition, it holds the gesture's state, and a direct route mutation
-                    // alongside it would be a second writer.
-                    if (!terminal) {
-                        receipt.admitted = await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true;
-                        return receipt.admitted
-                    }
-
-                    // At TERMINAL time the two consumers legitimately differ, because they differ
-                    // on whether a drag still exists. A restore that ends a drag asks its owner
-                    // first and only then addresses the route; a restore that ends a CONVERSION has
-                    // no drag to hand back to and addresses the route directly. Declared, not
-                    // guessed — asking a nonexistent owner would silently succeed against a stale
-                    // effect, and skipping a live one would make this a second writer.
-                    if (descriptor.terminalRestoreOwner === 'drag') {
-                        receipt.addonRestored = await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true;
-
-                        if (receipt.addonRestored) {
-                            receipt.admitted = true;
-                            return true
-                        }
-                    }
-
-                    // A matching predecessor effect still owns exact recovery. Never race it with a
-                    // direct route mutation, and never let a position-only success stand in for an
-                    // extent restore the recovery is still responsible for.
-                    receipt.recoveryPending = await Neo.main.addon.DragDrop.hasWindowDragOrphanRecovery?.(data) === true;
-
-                    if (receipt.recoveryPending) {
-                        receipt.refusedAt = 'recovery-pending';
-                        return false
-                    }
-
-                    // Extent before position: a window restored to its old size at the park origin
-                    // is briefly visible in the wrong place, whereas the reverse ordering is not
-                    // observable. On refusal the park extent is put back, so a half-restored
-                    // window never survives the failure.
-                    if (owesResize) {
-                        receipt.resized = await resize(geometry.restore) === true;
-
-                        if (!receipt.resized) {
-                            await resize(geometry.park);
-                            receipt.refusedAt = 'resize';
-                            return false
-                        }
-                    }
-
-                    receipt.moved = await Neo.Main.windowNativeMoveTo(origin) === true;
-
-                    if (!receipt.moved) {
-                        // Compensating a failed move means undoing the extent too, in the same
-                        // order it was applied — otherwise the vessel keeps its restored size at
-                        // the park origin and the next re-show measures from a lie.
-                        if (owesResize) {
-                            receipt.compensationResized = await resize(geometry.park) === true;
-
-                            if (receipt.compensationResized) {
-                                receipt.compensationMoved = await Neo.Main.windowNativeMoveTo({
-                                    ...handle, x: geometry.park.x, y: geometry.park.y
-                                }) === true
-                            }
-                        }
-
-                        receipt.refusedAt = 'move';
-                        return false
-                    }
-
-                    receipt.admitted = true;
-
-                    // The vessel is home; this releases the recovery effect that was owning the
-                    // failure case, and it is deliberately unable to revoke the success above.
-                    // A consumer that never arms orphan recovery has nothing to release, and a
-                    // bookkeeping release that threw would otherwise convert a completed restore
-                    // into a refusal — losing a success claim after an await.
-                    try {
-                        receipt.recoveryAcknowledged =
-                            await Neo.main.addon.DragDrop.acknowledgeWindowDragOrphanRecovery?.(data) === true
-                    } catch (error) {
-                        receipt.recoveryAcknowledged = false
-                    }
-
-                    return true
-                } catch (error) {
-                    receipt.error     = String(error?.message || error);
-                    receipt.refusedAt = 'throw';
-                    return false
-                }
-            }
+        if (!admissions.sourcePos.granted || entry?.windowName !== windowName || !frame) {
+            receipt.reason = 'native route or restore geometry refused';
+            return false
         }
+
+        try {
+            receipt.moved = await Neo.Main.windowNativeMoveTo({
+                nativeHandleKey: route.nativeHandleKey,
+                targetWindowId : route.targetWindowId,
+                windowId       : me.ownerWindowId(),
+                x              : frame.x,
+                y              : frame.y
+            }) === true
+        } catch (error) {
+            receipt.error     = String(error?.message || error);
+            receipt.refusedAt = 'throw';
+            return false
+        }
+
+        if (!receipt.moved) {
+            receipt.refusedAt = 'move';
+            return false
+        }
+
+        receipt.admitted = true;
+        return true
     }
 }
 

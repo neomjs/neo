@@ -1,0 +1,7 @@
+{
+    "appPath": "test/playwright/component/apps/animated-sort/app.mjs",
+    "basePath": "../../../../../",
+    "environment": "development",
+    "mainPath": "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Navigator", "NativeDragSource", "Stylesheet"]
+}

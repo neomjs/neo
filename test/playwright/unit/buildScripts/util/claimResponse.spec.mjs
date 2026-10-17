@@ -93,7 +93,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 comment         : secondClaim,
                 comments        : [firstClaim, assignment, secondClaim],
                 issue           : gfiIssue({assignees: [{login: 'first-claimant'}]}),
-                openPullRequests: [{number: 19200, author: 'first-claimant'}],
+                openPullRequests: [{number: 19200, author: 'first-claimant', repository: 'neomjs/neo'}],
                 candidates      : [...CANDIDATES, 19143],
                 repoUrl         : REPO_URL
             });
@@ -148,9 +148,19 @@ test.describe('buildScripts/util/claimResponse', () => {
         });
 
         test("the claimant's own open pull request holds nothing against them", () => {
-            const reply = decideReply({comment: firstClaim, comments: [firstClaim], issue: gfiIssue(), openPullRequests: [{number: 19200, author: 'first-claimant'}], repoUrl: REPO_URL});
+            const reply = decideReply({comment: firstClaim, comments: [firstClaim], issue: gfiIssue(), openPullRequests: [{number: 19200, author: 'first-claimant', repository: 'neomjs/neo'}], repoUrl: REPO_URL});
 
             expect(reply).toContain("You're first in line")
+        });
+
+        test('a pull request inside a fork holds nothing: only one into this repository does (#19413)', () => {
+            // A draft inside the contributor's fork references the issue: its base is the fork, so it holds nothing here
+            const
+                claim = comment('Saadanjum01', '2026-10-05T14:17:57Z', "I'd like to take this one — PR coming shortly with the `:where()` fix and a Playwright test covering both creation orders."),
+                reply = decideReply({comment: claim, comments: [claim], issue: gfiIssue(), openPullRequests: [{number: 1, author: 'Saadanjum0', repository: 'Saadanjum0/neo'}], repoUrl: REPO_URL});
+
+            expect(reply).toContain("You're first in line");
+            expect(reply).not.toContain('#1 ')
         });
     });
 

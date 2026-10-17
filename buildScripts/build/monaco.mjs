@@ -53,8 +53,9 @@ const npmSanitizer = {
  * font esbuild emits beside it, plus one bundle per language worker. The build refuses to emit when
  * the vendored module is still in the graph, or when the editor carries anything but one DOMPurify.
  *
- * Consumed by {@link Neo.main.addon.MonacoEditor}, and shipped for the reason the other `dist/`
- * bundles are: monaco-editor and esbuild are devDependencies, so a consumer cannot build it.
+ * Consumed by {@link Neo.main.addon.MonacoEditor}. A consumer installs the Engine's build
+ * dependencies and runs `bundle-browser-deps` to generate these files in the installed Engine;
+ * the npm package carries their source and build scripts, never generated `dist/` output.
  * @returns {Promise<void>}
  */
 const build = async () => {

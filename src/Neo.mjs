@@ -251,18 +251,21 @@ Neo = globalThis.Neo = Object.assign({
     },
 
     /**
-     * Creates a new instance using the originalConfig without the id
+     * Creates a new instance of the same class from the configs the given one was created with (`originalConfig`),
+     * without its id. Values set after construction do not carry over, and Neo instances inside those configs are
+     * shared, not cloned.
      * @memberOf module:Neo
      * @param {Neo.core.Base} instance
+     * @param {Object} [config={}] Configs that replace the original ones, such as a new parent
      * @returns {Neo.core.Base} the cloned instance
      */
-    cloneNeoInstance(instance) {
-        let config = {...instance.originalConfig};
+    cloneNeoInstance(instance, config={}) {
+        let original = {...instance.originalConfig};
 
-        delete config._id;
-        delete config.id;
+        delete original._id;
+        delete original.id;
 
-        return Neo.create(instance.className, config)
+        return Neo.create(instance.className, {...original, ...config})
     },
 
     /**

@@ -13,14 +13,18 @@ import NativeVesselTransaction                  from './window/NativeVesselTrans
 import PreviewProducer                          from './interaction/PreviewProducer.mjs';
 import PerspectiveSelection                     from './interaction/PerspectiveSelection.mjs';
 import PerspectiveState                         from './projection/PerspectiveState.mjs';
+import ProjectionCycle                          from './projection/Cycle.mjs';
 import Reconciler                               from './projection/Reconciler.mjs';
 import StateProvider                            from '../../state/Provider.mjs';
-import {createDockTearOutHandlers}              from './window/TearOut.mjs';
+import TearOut                                  from './window/TearOut.mjs';
 import {retireParticipation, syncParticipation} from './window/ParticipationLifecycle.mjs';
 import WorkspaceDocument                        from './model/WorkspaceDocument.mjs';
 import Operations                               from './model/Operations.mjs';
 import PreviewContract                          from './model/PreviewContract.mjs';
 import TopologySeams                            from './window/TopologySeams.mjs';
+
+// The workspace classes already warned that a torn-out window has no way back (see projectDockModel)
+const unreachableReturnWarned = new Set();
 
 /**
  * @summary The engine-owned dock workspace host: the reducer-container that owns one committed
@@ -131,7 +135,8 @@ import TopologySeams                            from './window/TopologySeams.mjs
  * - `project(context)` — the post-commit presentation callback. It receives the transaction
  *   **context**, not a document: the committed value is read from `context.snapshot`, and the
  *   adapter adds `preserveItemIds` naming the panes owned by sibling participants, so a source
- *   refresh cannot destroy a pane before its destination adopts it. It must return the projection
+ *   refresh cannot destroy a pane before its destination adopts it, plus `isCurrent()`, false once
+ *   a newer commit adopted this participant's next document. It must return the projection
  *   promise and must NOT admit another document write — projection observes the committed document,
  *   it does not advance it. That is {@link #onDockZoneDocumentChange} being the sole mutation path,
  *   restated at the seam where a participant could otherwise break it.
@@ -512,6 +517,17 @@ class Workspace extends Container {
     scheduledProjection = null
 
     /**
+     * The newest re-projection a commit chained (see {@link Neo.dashboard.dock.projection.Cycle}): its
+     * `adoption` settles once the reconcile has landed the committed document in the host, before the
+     * motion and the post-projection hook {@link #refreshPromise} still waits out, and its `timing` is
+     * the per-phase receipt. Same pointer discipline as the refresh: read it when the commit that
+     * scheduled the cycle has returned.
+     * @member {Neo.dashboard.dock.projection.Cycle|null} projectionCycle=null
+     * @protected
+     */
+    projectionCycle = null
+
+    /**
      * @summary The Group-owned native lifecycle; this view contributes effects, not native state.
      * @member {Neo.manager.transaction.NativeLifecycle|null} nativeWindows=null
      * @protected
@@ -558,8 +574,9 @@ class Workspace extends Container {
     transactionManagerReady = null
 
     /**
-     * The four gesture callbacks produced by {@link Neo.dashboard.dock.window.TearOut} for this workspace.
-     * @member {Object|null} tearOutHandlers=null
+     * This workspace's tear-out choreography: the {@link Neo.dashboard.dock.window.TearOut} it creates
+     * and destroys when `enableDockTearOutLifecycle` is on, or one a host supplies and owns.
+     * @member {Neo.dashboard.dock.window.TearOut|null} tearOutHandlers=null
      * @protected
      */
     tearOutHandlers = null
@@ -684,7 +701,7 @@ class Workspace extends Container {
         }
 
         if (this.enableDockTearOutLifecycle) {
-            this.tearOutHandlers = createDockTearOutHandlers({
+            this.tearOutHandlers = Neo.create(TearOut, {
                 applyOperation      : descriptor => this.applyTearOutOperation(descriptor),
                 awaitRefresh        : () => this.refreshPromise,
                 closeVessel         : vessel => this.nativeWindows?.retire(this.id, vessel) ?? false,
@@ -732,8 +749,7 @@ class Workspace extends Container {
         // live extents as soon as it exists — during construction for an ordinary host, or from the
         // reactive window binding for a headless one — through the same stream every admitted vessel
         // opens on connect. A moved or resized main window therefore never claims with a stale frame.
-        // Not gated on the engine lifecycle flag: a host may run its own admission (the Workstation
-        // does) and still dock across windows; the app's opt-in is loading the addon at all.
+        // Only a SharedWorker app spans windows; a dock in any other app arms nothing.
         this.observeBoundWindowGeometry(this.windowId);
 
         this.syncDockParticipation()
@@ -1404,25 +1420,28 @@ class Workspace extends Container {
     }
 
     /**
-     * @summary Opens one render target's live geometry stream into `Neo.manager.Window`.
+     * @summary Loads `Neo.main.addon.WindowPosition` into one render target and opens its live
+     * geometry stream into `Neo.manager.Window`.
      *
-     * `Neo.main.addon.WindowPosition` publishes `windowPositionChange` only behind two configs it
-     * defaults off: `observeMovement` (the config-owned poll — pointer travel alone cannot arm it
-     * for a titlebar grabbed from outside page content) and `observeResize` (a fixed-origin resize
-     * is a geometry change the poll never sees). Without both, the manager's row for that window
-     * stays the connect-time snapshot and every cross-window claim hit-tests a stale frame. The
-     * engine host arms both — for its own first real window binding, for each admitted vessel before
-     * ownership publication — so an adopter that EXTENDS this host never has to know the addon
-     * exists. A host COMPOSED from the dock pieces onto a plain container never runs the binding
-     * hook and must arm the same pair itself; half of it (resize only) leaves the row blind to a
-     * titlebar drag, which is the defect the composition example carried. Overridable for a realm
-     * that publishes geometry another way.
+     * The addon publishes `windowPositionChange` only behind two configs it defaults off:
+     * `observeMovement` (the config-owned poll — pointer travel alone cannot arm it for a titlebar
+     * grabbed from outside page content) and `observeResize` (a fixed-origin resize is a geometry
+     * change the poll never sees). Without both, the manager's row for that window stays the
+     * connect-time snapshot and every cross-window claim hit-tests a stale frame. The engine host
+     * arms both — for its own first real window binding, for each admitted vessel before ownership
+     * publication — and loads the addon per window (`Neo.currentWorker.getAddon`), because each
+     * window's Main realm runs its own page config: a vessel's child app need not list it, and no app
+     * lists it for tear-out. A host COMPOSED from the dock pieces onto a plain container never runs
+     * the binding hook and must arm the same pair itself; half of it (resize only) leaves the row
+     * blind to a titlebar drag. Overridable for a realm that publishes geometry another way.
      * @param {String} windowId The render target whose Main realm publishes
-     * @returns {Promise<void>|undefined} The addon's remote settle, or `undefined` off the browser
+     * @returns {Promise<void>} Settles once the window's stream is armed
      * @protected
      */
-    observeWindowGeometry(windowId) {
-        return Neo.main?.addon?.WindowPosition?.setConfigs({observeMovement: true, observeResize: true, windowId})
+    async observeWindowGeometry(windowId) {
+        const WindowPosition = await Neo.currentWorker.getAddon('WindowPosition', windowId);
+
+        return WindowPosition.setConfigs({observeMovement: true, observeResize: true, windowId})
     }
 
     /**
@@ -1431,14 +1450,16 @@ class Workspace extends Container {
      * Construction and the reactive window-id hook deliberately share this guard: a Workspace
      * created with a window must not issue two remote writes, while one created headless must issue
      * none until a container supplies its first real id. The previous realm stays armed because
-     * WindowPosition's observation flags are realm-global, not Workspace-keyed leases.
+     * WindowPosition's observation flags are realm-global, not Workspace-keyed leases. Only an app
+     * whose App Worker is a SharedWorker spans windows, so a dock in any other app arms nothing and
+     * starts no poll.
      * @param {String|null} windowId The Workspace's current render target.
-     * @returns {Promise<void>|undefined} The addon's remote settle, or `undefined` when headless,
-     *     already armed, or outside the browser.
+     * @returns {Promise<void>|undefined} The arming, or `undefined` when headless, already armed, or
+     *     outside a SharedWorker app.
      * @protected
      */
     observeBoundWindowGeometry(windowId) {
-        if (!windowId || this.observedWindowGeometryId === windowId) {
+        if (!windowId || this.observedWindowGeometryId === windowId || !Neo.currentWorker.isSharedWorker) {
             return
         }
 
@@ -1581,7 +1602,8 @@ class Workspace extends Container {
         me.releaseDeclaredPanes(null);
         me.transactionManager?.un({bind: me.onTopologyGroupBinding, scope: me});
         me.nativeWindows?.unregisterSource(me.id);
-        me.tearOutHandlers?.retirePaneState?.();
+        // The workspace destroys the TearOut it created; a host-supplied one is released, never destroyed.
+        me.enableDockTearOutLifecycle ? me.tearOutHandlers?.destroy?.() : me.tearOutHandlers?.retirePaneState?.();
         me.tearOutHandlers = null;
         me.nativeWindows = null;
         me.dockPreviewProducer?.destroy();
@@ -1655,9 +1677,10 @@ class Workspace extends Container {
      *
      * **An override MUST spread `super.getDockProjectionOptions()`.** This method is the only
      * carrier of the tear-out opt-ins into the projection context: `enableDockTearOut` is what
-     * arms `allowOverdrag` and `enableProxyToPopup` on every tab sort zone, and the handler bundle
-     * rides beside it. A host that returns its own object instead of extending this one drops both,
-     * so dragging a tab out of the dock becomes unreachable and a dragged popup finds no target.
+     * arms `allowOverdrag` and `enableProxyToPopup` on every tab sort zone, and the four gesture
+     * callbacks ride beside it. A host that returns its own object instead of extending this one drops
+     * both, so dragging a tab out of the dock becomes unreachable and a dragged popup finds no target.
+     * The callbacks come from the TearOut's `getProjectionCallbacks()` and dispatch through it.
      *
      * **The pop-out action is not evidence the options arrived.** `dockPopOutActionActive` derives
      * from `tearOutHandlers` on the instance rather than from the context, so the button renders,
@@ -1668,7 +1691,7 @@ class Workspace extends Container {
      */
     getDockProjectionOptions() {
         return this.enableDockTearOutLifecycle
-            ? {enableDockTearOut: true, ...this.tearOutHandlers}
+            ? {enableDockTearOut: true, ...this.tearOutHandlers?.getProjectionCallbacks?.()}
             : {}
     }
 
@@ -2241,11 +2264,15 @@ class Workspace extends Container {
      * @summary Projects a Group participant's adopted document with its captured operation context.
      * Presentation collaborators can distinguish ordered operations against their before-state;
      * the context is runtime-only and does not enter the document or reconciliation options.
+     * It runs when this participant's refresh chain reaches it; once the adapter's `isCurrent` reports
+     * that a newer commit adopted the next document, it stands down rather than take back panes that
+     * commit gave a sibling.
      * @param {Object} context The Group participant's projection context.
      * @returns {Promise} This projection's outcome.
      */
     projectDockCommit(context) {
         const project = () => this.projectDockZoneDocument(context.snapshot.participants[context.workspaceKey], context.descriptor, this, {
+            isCurrent         : context.isCurrent,
             perspectiveContext: context,
             preserveItemIds   : context.preserveItemIds,
             previousDocument  : context.captured.value,
@@ -2262,6 +2289,7 @@ class Workspace extends Container {
      * @param {Object|null} [source=null] The originating interaction surface.
      * @param {Object} [projectionOptions={}] Pane-preservation policy plus optional `previousDocument`
      *     and `workspaceKey` for the collaborator event; those two fields never reach reconciliation.
+     *     An `isCurrent` predicate passes through to {@link #refreshDockWorkspace}.
      * @returns {Promise} This projection's outcome; later projections survive its failure.
      * @protected
      */
@@ -2288,6 +2316,10 @@ class Workspace extends Container {
 
         tail                = me.refreshPromise?.catch(() => {}) || Promise.resolve();
 
+        // The cycle's own record (see {@link #projectionCycle}), handed to the refresh beside the options
+        // rather than inside them: the options are a consumer-visible contract, the cycle is not.
+        const cycle = me.projectionCycle = Neo.create(ProjectionCycle, {waitedForTail: Boolean(me.refreshPromise)});
+
         // Header truth is written at the commit boundary: every leaf self-diffs, so the bindings
         // whose inputs this commit changed re-evaluate now — a lock reaches its header, its pane and
         // a revealed rail pane here, as it always did — and nothing else moves. Optional because a
@@ -2300,13 +2332,7 @@ class Workspace extends Container {
         // commit as the newer one and stands down — a `null` document, the clear, included.
         me.scheduledProjection = {document};
 
-        me.refreshPromise = tail
-            .then(() => me.timeout(0))
-            .then(() => {
-                if (!me.isDestroyed) {
-                    return me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
-                }
-            });
+        me.refreshPromise = cycle.run(tail, me, () => me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, cycle));
         return me.refreshPromise
     }
 
@@ -2358,8 +2384,8 @@ class Workspace extends Container {
             // action rendering is not evidence the options arrived.
             //
             // The check compares against the WHOLE bundle, not against `enableDockTearOut` alone.
-            // The flag is one of eight keys `super` contributes — the rest are the tear-out gesture
-            // handlers `LayoutAdapter.project` reads — so testing the flag would make it a proxy for
+            // The flag is one of five keys `super` contributes — the rest are the four tear-out gesture
+            // callbacks `LayoutAdapter.project` reads — so testing the flag would make it a proxy for
             // the bundle, and a host that writes the flag by hand (which `apps/workstation` does)
             // would pass with none of the handlers present. That is this same failure one key
             // deeper, and asking what `super` would have contributed keeps the check true as the
@@ -2370,6 +2396,14 @@ class Workspace extends Container {
 
                 if (lost.length) {
                     throw new Error(`Workspace ${me.id}: getDockProjectionOptions() dropped ${lost.join(', ')} while enableDockTearOutLifecycle is on — an override must spread super.getDockProjectionOptions()`)
+                }
+
+                // Only a published crossWindowSortGroup registers the zones and composes the
+                // cross-window participation, so without one a torn-out window can never return.
+                // Warned once per class, not thrown, so a host can upgrade before publishing one.
+                if (!options.crossWindowSortGroup && !unreachableReturnWarned.has(me.className)) {
+                    unreachableReturnWarned.add(me.className);
+                    console.warn(`${me.className}: enableDockTearOutLifecycle is on, but getDockProjectionOptions() publishes no crossWindowSortGroup, so a window torn out of it can never be dragged back`)
                 }
             }
 
@@ -2450,21 +2484,27 @@ class Workspace extends Container {
      * @param {Object} [refreshOptions={}]
      * @param {Boolean} [refreshOptions.geometryOnly=false] Admit the reconciler's strict in-place
      *     geometry path.
+     * @param {Function} [refreshOptions.isCurrent] A Group projection's check, passed through
+     *     {@link #projectDockCommit}; a `false` stops the refresh wherever a destroyed workspace would stop.
      * @param {String[]} [refreshOptions.preserveItemIds] Per-commit owner-held ids, merged with
      *     the standing {@link #getPreservedItemIds} set.
      * @param {Boolean} [refreshOptions.retainTopology=false] Admit in-place item reconciliation on
      *     a proven-identical structural shell.
+     * @param {Neo.dashboard.dock.projection.Cycle|null} [cycle=null] The scheduling commit's record of
+     *     this one cycle, kept out of the options the hooks receive: the refresh stamps its receipt and
+     *     settles its adoption once the reconcile has landed.
      * @returns {Promise<void>}
      * @protected
      */
-    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel, refreshOptions={}) {
+    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel, refreshOptions={}, cycle=null) {
         const
             me                 = this,
             host               = me.getDockHost(),
             flip               = Neo.main?.addon?.DockFlip,
             placeholders       = new Map(),
             {flipMarkerPrefix} = me,
-            {geometryOnly=false, retainTopology=false} = refreshOptions;
+            {geometryOnly=false, retainTopology=false} = refreshOptions,
+            superseded         = () => refreshOptions.isCurrent?.() === false;
 
         if (!host) {
             throw new Error(`Workspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
@@ -2482,7 +2522,7 @@ class Workspace extends Container {
             }
         }
 
-        if (me.isDestroyed || host.isDestroyed) {
+        if (me.isDestroyed || host.isDestroyed || superseded()) {
             return
         }
 
@@ -2493,7 +2533,7 @@ class Workspace extends Container {
             await flip?.captureFirst({hostId: host.id, markerPrefix: flipMarkerPrefix, windowId: host.windowId})
         } catch (error) {/* instant landing */}
 
-        if (me.isDestroyed) {
+        if (me.isDestroyed || superseded()) {
             return
         }
 
@@ -2501,7 +2541,7 @@ class Workspace extends Container {
 
         await me.releaseStaleRevealPanes(document);
 
-        if (me.isDestroyed) {
+        if (me.isDestroyed || superseded()) {
             return
         }
 
@@ -2562,12 +2602,17 @@ class Workspace extends Container {
             result = me.onDockProjectionFailed(error, document, tabInsertDescriptor, refreshOptions)
         }
 
+        cycle?.stamp('reconciled');
+
         // The failure path owns the remainder of this cycle. Running the maximize sync and the FLIP
         // over a shell the committed document does not describe would animate the recovery itself,
         // and `afterRefreshDockWorkspace` consumers read `result` as a completed projection.
         if (result === null) return;
 
         me.releaseDeclaredPanes(document);
+
+        // The document is in the host: adoption, for the consumers that wait on nothing further.
+        cycle?.adopt(result);
 
         // Awaited on purpose, in plugins order: refreshPromise is the settled-surface contract, and
         // a collaborator presentation that re-applies after it settles is a surface nobody can
@@ -2601,7 +2646,7 @@ class Workspace extends Container {
             }
 
             played = Promise.resolve(rawPlayed).catch(() => null);
-            played.finally(() => MotionSignal.leave(me))
+            played.finally(() => {MotionSignal.leave(me); cycle?.stamp('flipPlayed')})
         }
 
         if (!me.isDestroyed) {
@@ -2611,6 +2656,8 @@ class Workspace extends Container {
             // reaches the participation here; unchanged bindings keep the registered instance.
             me.isDestroyed || me.syncDockParticipation()
         }
+
+        cycle?.stamp('settledAt')
     }
 
     /**

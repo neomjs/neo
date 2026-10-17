@@ -1,23 +1,22 @@
 /**
  * @module buildScripts/util/browserBundles
- * @summary The vendored browser bundles the engine builds into `dist/` and ships.
+ * @summary Browser dependencies generated into `dist/` by the Engine's build scripts.
  *
- * ## Why this is a constant and not a list at each site
- *
- * Adding `mermaid` had to touch five places: the producer spawn in `build/all.mjs`, the copy loop in
- * `build/esmodules.mjs`, a `REQUIRED_ENTRIES` row in `util/check-package-contents.mjs`, a
- * `!/dist/<name>.mjs` negation in `.npmignore`, and three separate lists inside
- * `unit/buildScripts/buildDependencyResolution.spec.mjs` — a symlinked-package list, a
- * copied-producer list, and the loop that runs them. Two were updated and three were missed, and
- * the one that failed loudly did so only because a spec happened to enumerate the set.
- *
- * That is the shape a shared constant exists for: the next bundle joins here, and every consumer
- * that can import JavaScript follows without being found first.
- *
- * `.npmignore` cannot import this, so it stays the one copy — which is why
- * `unit/buildScripts/checkPackageContents.spec.mjs` asserts a negation exists per name rather than
- * trusting that whoever adds a bundle remembers the file. `.npmignore` is the sole gate on package
- * contents, and a bundle that stops shipping is discovered by a consumer, at the point of use.
+ * Build, ESM-copy and dependency-resolution checks share this producer list. Generated output
+ * belongs to a build or consuming workspace; the npm package excludes the entire `dist/` tree.
  * @type {String[]}
  */
 export const BROWSER_BUNDLES = ['marked', 'mermaid', 'parse5'];
+
+/**
+ * @summary Runtime-addressed files a dependency build must emit beneath the installed Engine root.
+ * Computed URLs also load the highlight variants and Monaco's workers, stylesheet and font; a
+ * successful webpack compile alone cannot prove these files exist.
+ * @type {String[]}
+ */
+export const BROWSER_BUNDLE_FILES = [
+    ...BROWSER_BUNDLES.map(name => `dist/${name}.mjs`),
+    ...['highlight.custom.js', 'highlight.custom.min.js'].map(name => `dist/highlight/${name}`),
+    ...['codicon.ttf', 'css.worker.mjs', 'editor.css', 'editor.mjs', 'editor.worker.mjs',
+        'html.worker.mjs', 'json.worker.mjs', 'ts.worker.mjs'].map(name => `dist/monaco/${name}`)
+];

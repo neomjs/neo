@@ -6,7 +6,6 @@ setup({
     }
 });
 
-import {spawnSync}       from 'node:child_process';
 import fs                from 'node:fs';
 import os                from 'node:os';
 import path              from 'node:path';
@@ -15,20 +14,17 @@ import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
 import HighlightJs       from '../../../../src/util/HighlightJs.mjs';
-import {parsePackOutput} from '../../../../buildScripts/util/check-package-contents.mjs';
 
-const repoRoot = path.resolve(import.meta.dirname, '../../../..');
+const bundles = {
+    debug     : 'dist/highlight/highlight.custom.js',
+    production: 'dist/highlight/highlight.custom.min.js'
+};
 
 /**
- * `HighlightJs#load()` imports `Neo.config.basePath + getBundlePath()`, so in an installed engine the
- * file it requests must be one the npm package ships. CI's checkout builds both bundles, so no hosted
- * render can notice when it is not.
- *
- * The file set therefore comes from npm, not from a registry: a real `npm pack` over this repository's
- * `package.json` and `.npmignore`, with a stand-in at every path the loader can request, and the real
- * loader run against a tree holding only what was packed.
+ * @summary The loader addresses the producer's two filenames inside a consumer's installed Engine.
+ * The full consumer-build guard owns real generation; these stand-ins isolate the public debug-path contract.
  */
-test.describe('Neo.util.HighlightJs — the loader resolves inside the published package', () => {
+test.describe('Neo.util.HighlightJs — consumer-generated bundle paths', () => {
     let originalBasePath, originalDebug, tmpRoot;
 
     test.beforeEach(() => {
@@ -45,64 +41,44 @@ test.describe('Neo.util.HighlightJs — the loader resolves inside the published
     });
 
     /**
-     * Plants a stand-in at the bundle path of each `debug` value, packs that fixture with the
-     * repository's package metadata, and installs only the packed files.
-     * @returns {String} The install root as a `basePath`: a file URL with a trailing slash.
+     * @summary Creates consumer-generated stand-ins at the producer's filenames, independently of the loader.
+     * @returns {String} The installed Engine root as a file URL with a trailing slash.
      */
-    const installPackedBundles = () => {
-        const packRoot    = path.join(tmpRoot, 'pack'),
-              installRoot = path.join(tmpRoot, 'install');
+    const installConsumerBundles = () => {
+        const installRoot = path.join(tmpRoot, 'install');
 
-        fs.mkdirSync(packRoot, {recursive: true});
+        fs.mkdirSync(installRoot, {recursive: true});
+        fs.writeFileSync(path.join(installRoot, 'package.json'), JSON.stringify({type: 'module'}));
 
-        ['package.json', '.npmignore'].forEach(file => {
-            fs.copyFileSync(path.join(repoRoot, file), path.join(packRoot, file))
-        });
-
-        [originalDebug, !originalDebug].forEach(debug => {
-            HighlightJs.debug = debug;
-
-            const bundlePath = HighlightJs.getBundlePath(),
-                  file       = path.join(packRoot, bundlePath);
+        for (const bundlePath of Object.values(bundles)) {
+            const file = path.join(installRoot, bundlePath);
 
             fs.mkdirSync(path.dirname(file), {recursive: true});
-            // The payload only names its own path; which file loaded is what the arms assert.
             fs.writeFileSync(file, `export default {bundle: ${JSON.stringify(bundlePath)}};`)
-        });
-
-        HighlightJs.debug = originalDebug;
-
-        const result = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {cwd: packRoot, encoding: 'utf8'});
-
-        expect(result.status, result.stderr).toBe(0);
-
-        parsePackOutput(result.stdout)[0].files.forEach(({path: file}) => {
-            fs.mkdirSync(path.dirname(path.join(installRoot, file)), {recursive: true});
-            fs.copyFileSync(path.join(packRoot, file), path.join(installRoot, file))
-        });
+        }
 
         return pathToFileURL(installRoot).href + '/'
     };
 
-    test('the declared default loads the bundle it names from the packed files', async () => {
-        Neo.config.basePath = installPackedBundles();
+    test('the declared default loads its consumer-generated file', async () => {
+        Neo.config.basePath = installConsumerBundles();
 
         await HighlightJs.load();
 
-        expect(HighlightJs.hljs.bundle).toBe(HighlightJs.getBundlePath())
+        expect(HighlightJs.hljs.bundle).toBe(originalDebug ? bundles.debug : bundles.production)
     });
 
     test('so does the other value of debug, a public config a consumer may set', async () => {
-        Neo.config.basePath = installPackedBundles();
+        Neo.config.basePath = installConsumerBundles();
         HighlightJs.debug   = !originalDebug;
 
         await HighlightJs.load();
 
-        expect(HighlightJs.hljs.bundle).toBe(HighlightJs.getBundlePath())
+        expect(HighlightJs.hljs.bundle).toBe(originalDebug ? bundles.production : bundles.debug)
     });
 
     test('control: a requested bundle absent from the install tree rejects instead of loading', async () => {
-        Neo.config.basePath = installPackedBundles();
+        Neo.config.basePath = installConsumerBundles();
 
         fs.rmSync(new URL(HighlightJs.getBundlePath(), Neo.config.basePath), {force: true});
 

@@ -1,0 +1,154 @@
+name: E2E (Brain-gated tier)
+
+# The Brain-gated e2e tier: every spec the `neuralLink` fixture gates, run against the Brain's
+# current `dev` tip. It gates Engine pull requests: merge readiness refuses any red, required or not.
+# A pull request runs the full tier when its change reaches the E2E impact boundary and a smoke subset
+# otherwise, never nothing, because the Brain's tip can break the pairing on its own. `dev` pushes always
+# run the full tier. Each shard writes its receipt, which names the tier, to its job summary and its log.
+
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev]
+
+# The Brain's install runs its own lifecycle scripts in this job, so the token can only read
+permissions:
+  contents: read
+
+concurrency:
+  # A pull request's newer head supersedes its older run. On `dev`, a started run completes and a newer
+  # head replaces only the one still queued.
+  group: ${{ github.event_name == 'pull_request' && format('{0}-{1}', github.workflow, github.ref) || github.workflow }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # The same classifier the engine tier and `test.yml` consume, for the full or smoke choice
+  changes:
+    name: Classify test scope
+    # It lists the pull request's files and reads its live head
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/classify-test-scope.yml
+
+  brain:
+    name: Resolve the Brain's dev tip
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.tip.outputs.sha }}
+    steps:
+      # Once per run, so every shard and every rerun of one tests the same Brain
+      - name: Resolve neo-agent-brain dev
+        id: tip
+        run: |
+          sha=$(git ls-remote https://github.com/neomjs/neo-agent-brain refs/heads/dev | cut -f1)
+          test -n "$sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  e2e-brain:
+    name: e2e-brain (${{ matrix.shard }}/${{ matrix.shards }})
+    needs: [brain, changes]
+    runs-on: ubuntu-latest
+    # Provisioning plus the test step; the test step itself enforces the five-minute ceiling, as the engine tier does
+    timeout-minutes: 12
+    env:
+      TIER: ${{ needs.changes.outputs.e2e_brain_tier || 'full' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The smoke subset fits one shard
+        shard : ${{ fromJSON(needs.changes.outputs.e2e_brain_tier == 'smoke' && '[1]' || '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]') }}
+        shards: ${{ fromJSON(needs.changes.outputs.e2e_brain_tier == 'smoke' && '[1]' || '[10]') }}
+    defaults:
+      run:
+        working-directory: engine
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          path: engine
+          persist-credentials: false
+
+      - name: Checkout the Brain
+        uses: actions/checkout@v7
+        with:
+          repository: neomjs/neo-agent-brain
+          ref: ${{ needs.brain.outputs.sha }}
+          path: brain
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: |
+            engine/package-lock.json
+            brain/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The Brain's own install path: its `prepare` writes the server configs. The Engine adds none.
+      - name: Prepare the Brain runtime
+        working-directory: brain
+        run: npm ci --foreground-scripts
+
+      - name: Bundle browser dependencies
+        run: npm run bundle-browser-deps
+
+      # The browser is the runner's Chrome channel; the specs that record video still need Playwright's ffmpeg
+      - name: Install Playwright's ffmpeg
+        run: npx playwright install ffmpeg
+
+      - name: Run the Brain-gated tier
+        id: run
+        timeout-minutes: 5
+        env:
+          NEO_AGENTOS_RUNTIME_ROOT: ${{ github.workspace }}/brain
+          NEO_TEST_SKIP_CI: 'true'
+          SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+        run: |
+          # Assigned and checked first: without paths the runner selects the whole e2e tree
+          paths=$(node buildScripts/util/e2eCiSelection.mjs --brain-paths)
+          test -n "$paths"
+          node buildScripts/util/e2eCiSelection.mjs --brain-test-list > "$RUNNER_TEMP/brain-quarantine.txt"
+          # Selected once and recorded, so the receipt reports this run's count even after the bridge ends
+          retries=$(node buildScripts/util/e2eCiSelection.mjs --brain-retries)
+          echo "retries=$retries" >> "$GITHUB_OUTPUT"
+          start=$SECONDS
+          status=0
+
+          npx playwright test -c test/playwright/playwright.config.e2e.mjs --shard="$SHARD" \
+            --retries="$retries" \
+            --test-list-invert "$RUNNER_TEMP/brain-quarantine.txt" $paths || status=$?
+
+          echo "seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
+          exit $status
+
+      - name: Report the shard's receipt
+        if: ${{ always() }}
+        env:
+          ATTEMPT: ${{ github.run_attempt }}
+          BRAIN_SHA: ${{ needs.brain.outputs.sha }}
+          ENGINE_SHA: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+          REPORT: test/playwright/test-results/e2e/results.json
+          SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+          RETRIES: ${{ steps.run.outputs.retries }}
+          TEST_SECONDS: ${{ steps.run.outputs.seconds }}
+        # A job summary renders only for signed-in viewers and no API returns it, so the log carries the same text.
+        # `pipefail`: a receipt that throws still fails the step, although `tee` succeeds.
+        run: |
+          set -o pipefail
+          node buildScripts/util/e2eCiSelection.mjs --brain-receipt | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test artifacts on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-e2e-brain-${{ github.run_id }}-shard-${{ matrix.shard }}
+          path: engine/test/playwright/test-results/

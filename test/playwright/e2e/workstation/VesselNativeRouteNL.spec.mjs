@@ -4,9 +4,9 @@ import {popOut}       from '../utils/workstationPopOut.mjs';
 /**
  * @summary A torn-out vessel carries the native control route the engine parks, moves and closes it by.
  *
- * `NativeVesselTransaction.parkVessel` refuses the whole park on `!admissions.targetFocus.granted`, and
- * `resolveAdmissions` grants that from the TARGET window's `nativeRoute`. So this record is the
- * precondition for every native vessel operation, and until this arm nothing observed it.
+ * The native title-bar park (`VesselWorkspace#parkTearOutVessel`) refuses a popup target whose focus
+ * route is not granted, and the route resolver grants that from the TARGET window's `nativeRoute`. So
+ * this record is the precondition for every native vessel operation, and until this arm nothing observed it.
  *
  * ## Why main's `null` is asserted too, and is not padding
  *

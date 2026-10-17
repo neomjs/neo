@@ -42,14 +42,10 @@ const AMD_SHIM = '__neoMermaidNoAmd';
  * resolves the real graph, so the substitution reaches wrappers in dependencies that no scan of
  * today's chunk filenames would have listed.
  *
- * **One file rather than mermaid's 206 lazy chunks, and that is a deliberate trade.** A split build
- * works and was measured — 105 files, same total bytes — but it cannot be *shipped*: `.npmignore`
- * excludes `/dist/*`, and a negation cannot re-include a file whose parent directory is excluded,
- * so only a single file leaves that tree. Every consumer needs the bundle for the same reason
- * `parse5.mjs` and `marked.mjs` are already there — mermaid and esbuild are both devDependencies,
- * so a consumer cannot build it themselves. The cost is paid only where it is used:
- * {@link Neo.main.addon.Mermaid} sets `useLazyLoading: true`, so nothing fetches this until a page
- * actually contains a diagram.
+ * The addon loads one browser ESM bundle. A consumer installs the Engine's build dependencies
+ * and runs `bundle-browser-deps` to generate it alongside parse5 and marked in the installed Engine.
+ * Generated `dist/` output is excluded from npm. {@link Neo.main.addon.Mermaid} sets
+ * `useLazyLoading: true`, so the browser fetches the bundle only when a page contains a diagram.
  *
  * Consumed by {@link Neo.main.addon.Mermaid}. Same shape as `buildScripts/build/parse5.mjs`:
  * bundle an installed package into `dist/` and let the addon import the artifact, which also makes

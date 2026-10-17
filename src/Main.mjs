@@ -413,13 +413,16 @@ class Main extends core.Base {
      * @summary Clears only the closing Group's carrier; a different root's identity is untouched.
      * @param {Object} data
      * @param {String} data.groupId The Group whose close-all operation was durably acknowledged.
+     * @param {String} [data.generationToken] When given, only this lineage's carrier clears, so a same-Group
+     * successor that bound while the clear was in flight keeps its identity.
      * @returns {Boolean}
      */
-    clearTopologyIdentity({groupId}) {
+    clearTopologyIdentity({generationToken, groupId}) {
         try {
             const key     = WorkerManager.topologyIdentityStorageKey,
                   current = JSON.parse(window.sessionStorage.getItem(key) || 'null');
             if (current?.groupId !== groupId) return false;
+            if (generationToken !== undefined && current.generationToken !== generationToken) return false;
             window.sessionStorage.removeItem(key);
             return true
         } catch {

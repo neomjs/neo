@@ -1,31 +1,28 @@
-import Component                    from '../../../src/component/Base.mjs';
-import Container                    from '../../../src/container/Base.mjs';
-import CounterPane                  from './CounterPane.mjs';
-import {createCrossWindowStage}     from './DemoBCrossWindowStage.mjs';
-import DockDropIndicators           from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
-import DockLayoutAdapter            from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
-import DockMotionSignal             from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
-import PerspectiveLibrary           from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
-import Placement                    from '../../../src/dashboard/dock/window/Placement.mjs';
-import TopologySeams                from '../../../src/dashboard/dock/window/TopologySeams.mjs';
-import DockPreview                  from '../../../src/dashboard/dock/interaction/Preview.mjs';
-import DockPreviewProducer          from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
-import DockProjectionReconciler     from '../../../src/dashboard/dock/projection/Reconciler.mjs';
-import DockService                  from '../../../src/ai/client/DockService.mjs';
-import DockTopologyReconciler       from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
-import WorkspaceDocument            from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
-import Operations                   from '../../../src/dashboard/dock/model/Operations.mjs';
-import Persistence                  from '../../../src/dashboard/dock/model/Persistence.mjs';
-import InteractionService           from '../../../src/ai/client/InteractionService.mjs';
-import {createDockKeyboardCommands} from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
-import {createDockTearOutHandlers}  from '../../../src/dashboard/dock/window/TearOut.mjs';
-import {
-    createDockVesselEmbodiment,
-    createDockVesselProxyEmbodiment
-} from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import Component                          from '../../../src/component/Base.mjs';
+import Container                          from '../../../src/container/Base.mjs';
+import CounterPane                        from './CounterPane.mjs';
+import {createCrossWindowStage}           from './DemoBCrossWindowStage.mjs';
+import DockDropIndicators                 from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockLayoutAdapter                  from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockMotionSignal                   from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
+import PerspectiveLibrary                 from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import Placement                          from '../../../src/dashboard/dock/window/Placement.mjs';
+import TopologySeams                      from '../../../src/dashboard/dock/window/TopologySeams.mjs';
+import DockPreview                        from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockPreviewProducer                from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
+import DockProjectionReconciler           from '../../../src/dashboard/dock/projection/Reconciler.mjs';
+import DockService                        from '../../../src/ai/client/DockService.mjs';
+import DockTopologyReconciler             from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
+import WorkspaceDocument                  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Operations                         from '../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence                        from '../../../src/dashboard/dock/model/Persistence.mjs';
+import InteractionService                 from '../../../src/ai/client/InteractionService.mjs';
+import {createDockKeyboardCommands}       from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
+import TearOut                            from '../../../src/dashboard/dock/window/TearOut.mjs';
+import VesselEmbodiment                   from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import VesselProxyEmbodiment              from '../../../src/dashboard/dock/window/VesselProxyEmbodiment.mjs';
 import WorkspaceSet                       from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 import NativeVesselTransaction            from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
-import VesselPark                         from '../../../src/dashboard/dock/window/VesselPark.mjs';
 import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
 import TransactionManager                 from '../../../src/manager/Transaction.mjs';
 import WindowManager                      from '../../../src/manager/Window.mjs';
@@ -221,9 +218,9 @@ class DemoBWorkspace extends Container {
      */
     popupDocument = null
     /**
-     * The second popup render target's worker-owned dock-zone document. Registered through the
-     * same workspace-set seam as the first popup; topology capture stays main+popup-1 scoped,
-     * so this document never enters perspective records.
+     * The second popup render target's worker-owned dock-zone document. It participates in the
+     * Group's topology records alongside the primary and first popup documents, including while
+     * its native render target is unbound.
      * @member {Object|null} popup2Document=null
      */
     popup2Document = null
@@ -267,6 +264,11 @@ class DemoBWorkspace extends Container {
      * @member {Neo.ai.client.TourRunner|null} tourRunner=null
      */
     tourRunner = null
+    /**
+     * The current beat's surface cue, awaited by the runner before it admits the next beat.
+     * @member {Promise} tourCuePromise
+     */
+    tourCuePromise = Promise.resolve()
     /**
      * Pane instances by item id — created ONCE, handed across every re-projection and
      * parked for explicit window moves or an unrestored topology remainder, torn down only
@@ -402,20 +404,19 @@ class DemoBWorkspace extends Container {
      * Transient render-only pane embodiment. An admitted pre-terminal vessel carries the real pane
      * while an exact-slot placeholder preserves the source card/header pairing. WorkspaceDocument truth is
      * untouched until terminal; cancellation restores through the live placeholder position.
-     * @member {Object|null} tearOutEmbodiment=null
+     * @member {Neo.dashboard.dock.window.VesselEmbodiment|null} tearOutEmbodiment=null
      * @protected
      */
     tearOutEmbodiment = null
     /**
      * Target-local live pane ownership while its native source vessel is parked.
-     * @member {Object|null} vesselProxyEmbodiment=null
+     * @member {Neo.dashboard.dock.window.VesselProxyEmbodiment|null} vesselProxyEmbodiment=null
      * @protected
      */
     vesselProxyEmbodiment = null
     /**
-     * Monotonic count of actual tear-out `windowOpen` attempts. The headed conversion witness
-     * snapshots this counter at first park and after re-show; equality is the mechanical proof
-     * that one continuous gesture never tries to reacquire popup activation.
+     * Monotonic count of actual tear-out `windowOpen` attempts: the cross-window step's proof that
+     * each desktop leg of one gesture acquires exactly one vessel.
      * @member {Number} tearOutAcquisitionAttempts=0
      * @protected
      */
@@ -513,7 +514,7 @@ class DemoBWorkspace extends Container {
         me.perspectiveStore = Neo.create(PerspectiveLibrary, {});
         me.topologyCollection = Persistence.createTopologyCollection().collection;
 
-        me.vesselProxyEmbodiment = createDockVesselProxyEmbodiment({
+        me.vesselProxyEmbodiment = Neo.create(VesselProxyEmbodiment, {
             resolvePane       : itemId => me.paneCache[itemId],
             resolveProxyConfig: ({sourceSortZone, targetWindowId}) => ({
                 ...sourceSortZone.getDragProxyConfig(),
@@ -614,7 +615,7 @@ class DemoBWorkspace extends Container {
             workspaceSet          : me.workspaceSet
         });
 
-        me.tearOutEmbodiment = createDockVesselEmbodiment({
+        me.tearOutEmbodiment = Neo.create(VesselEmbodiment, {
             resolvePane: itemId => me.paneCache[itemId]
                 ?? (me.dockModel?.items?.[itemId] && me.resolvePane(itemId, me.dockModel.items[itemId])),
             resolveTarget: windowId => Neo.apps[windowId]?.mainView ?? null
@@ -627,7 +628,7 @@ class DemoBWorkspace extends Container {
         // (`onWindowDisconnect` → `reattachPane`) structurally OUT of the gesture path, so a
         // cancelled tear-out is zero-mutation by GUARD. Post-commit adoption keeps its bookkeeping
         // in the Group's vessel source, never on this host.
-        me.tearOutHandlers = createDockTearOutHandlers({
+        me.tearOutHandlers = Neo.create(TearOut, {
             applyOperation: descriptor => me.applyTearOutOperation(descriptor),
             awaitRefresh  : () => me.refreshPromise,
             closeVessel   : vessel => me.nativeWindows?.retire(me.vesselSourceId, me.exactTearOutVessel(vessel)) ?? false,
@@ -654,27 +655,6 @@ class DemoBWorkspace extends Container {
             }
         });
 
-        // Conversion never reacquires a popup. The source-owned admission machines retain the
-        // existing tear-out vessel while this host binds their effects to its exact native route.
-        // The transaction itself is the engine's; this host supplies only what varies between
-        // consumers. No `restoreGeometry` is declared, which is the whole of this host's policy:
-        // its re-show restores a position and never an extent, so the park may not shrink.
-        me.vesselTransaction = NativeVesselTransaction.effectsFor({
-            ownerWindowId : () => me.windowId,
-            publishReceipt: (key, receipt) => {
-                me[{dispose: 'lastVesselDisposeReceipt', park: 'lastVesselParkReceipt', restore: 'lastVesselRestoreReceipt'}[key]] = receipt
-            },
-            resolveVessel : itemId => me.resolveTearOutVessel(itemId),
-            retireVessel  : vessel => me.tearOutHandlers.retireActiveVessel(vessel),
-            targetWindowId: () => me.crossWindowTargetWindowId
-        });
-
-        me.vesselParkHandlers = Neo.create(VesselPark, {
-            disposeVessel: vessel => me.disposeParkedTearOutVessel(vessel),
-            parkVessel   : vessel => me.parkTearOutVessel(vessel),
-            reshowVessel : vessel => me.reshowTearOutVessel(vessel)
-        });
-
         // The keyboard command surface — the discrete a11y-parity twin of the gesture paths,
         // composed over the SAME host seams (detach reuses the tear-out seams verbatim) plus the
         // keyboard-specific ones. The transfer commit composes the OWNED primitives directly
@@ -699,11 +679,15 @@ class DemoBWorkspace extends Container {
             crossWindowExecutor: me,
             dockService        : me.dockService,
             mode               : 'demo',
-            script             : demoBTourScript
+            script             : demoBTourScript,
+            stepSettlement     : async () => {
+                await me.tourCuePromise;
+                await me.awaitProjectionIdle()
+            }
         });
 
         me.tourRunner.on({
-            beat    : me.onTourBeat,
+            beat    : data => me.tourCuePromise = Promise.resolve(me.onTourBeat(data)),
             complete: me.onTourComplete,
             error   : me.onTourError,
             scene   : me.onTourScene,
@@ -1199,7 +1183,7 @@ class DemoBWorkspace extends Container {
     /**
      * Captures the CURRENT committed workspace state as a named perspective through the real
      * §2.2 path. Window scope persists the primary document; topology scope persists the
-     * primary + popup documents with one composed fingerprint.
+     * Group's registered workspace documents with one composed fingerprint.
      * `replace: true` keeps tour reruns idempotent — re-capturing your own name is the
      * demo's update flow, not a collision dispute.
      * @param {String} name
@@ -1526,10 +1510,13 @@ class DemoBWorkspace extends Container {
     }
 
     /**
+     * @summary Publishes captions and starts the surface cue the runner awaits before its next beat.
      * Caption feed + pip progress + the surface cues that make narrated beats EXECUTABLE:
      * perspective saves/loads ride the store, pop-out/reattach ride the vessel — none of
      * them are dock-document ops, so none of them masquerade as descriptors.
+     * The runner's host callback awaits the returned cue outcome and its projection.
      * @param {Object} data The runner's beat payload.
+     * @returns {Object|Promise|Boolean|undefined} The initiated surface cue's outcome.
      */
     onTourBeat(data) {
         let me    = this,
@@ -1688,13 +1675,19 @@ class DemoBWorkspace extends Container {
 
                 if (!ownsTransfer()) return;
 
+                // A vessel is born only on a desktop leg. One that rode the hand into the claim retired
+                // there and the pane came home (one mount); on the direct path the header proxy adds none.
                 let pane         = me.paneCache[itemId],
                     framesAfter  = pane?.frames ?? -1,
                     targetTabsId = WorkspaceDocument.findContainingTabsId(targetDocument, itemId),
+                    vesselBorn   = Number.isInteger(context?.vesselMountCount),
                     proof        = {
                         framesAfter,
-                        framesBefore      : context?.frames ?? null,
-                        framesNotReset    : framesAfter >= (context?.frames ?? Infinity),
+                        framesBefore  : context?.frames ?? null,
+                        framesNotReset: framesAfter >= (context?.frames ?? Infinity),
+                        homeMountDelta: Number.isInteger(context?.proxyMountCount)
+                            ? context.proxyMountCount - (vesselBorn ? context.vesselMountCount : (context?.mountCount ?? 0))
+                            : null,
                         localDropFires    : sourceDecision.localDropFires,
                         mountDelta        : (pane?.mountCount ?? 0) - (context?.mountCount ?? 0),
                         remoteDropOutFires: sourceDecision.remoteDropOutFires,
@@ -1709,14 +1702,11 @@ class DemoBWorkspace extends Container {
                         targetMountDelta: Number.isInteger(context?.proxyMountCount)
                             ? (pane?.mountCount ?? 0) - context.proxyMountCount
                             : null,
-                        proxyMountDelta: Number.isInteger(context?.proxyMountCount)
-                            ? context.proxyMountCount - context.vesselMountCount
-                            : null,
                         targetTabsId,
                         transferCommits : me.crossWindowStats.transferCommits,
-                        vesselMountDelta: Number.isInteger(context?.vesselMountCount)
-                            ? context.vesselMountCount - (context?.mountCount ?? 0)
-                            : null
+                        vesselBorn,
+                        vesselMountDelta: vesselBorn ? context.vesselMountCount - (context?.mountCount ?? 0) : 0,
+                        vesselRetired   : !me.resolveTearOutVessel(itemId)
                     },
                     checks         = [
                         ['transfer committed exactly once', proof.transferCommits === 1],
@@ -1727,10 +1717,17 @@ class DemoBWorkspace extends Container {
                         ['target document placed the item', proof.targetItemPlaced],
                         ['worker component instance stayed identical', proof.sameInstance],
                         ['instance heartbeat did not reset', proof.framesNotReset],
-                        ['live vessel added exactly one mount', proof.vesselMountDelta === 1],
-                        ['target proxy added exactly one mount', proof.proxyMountDelta === 1],
+                        ['a vessel born on the desktop mounted the pane once and retired on the claim',
+                            !vesselBorn || (proof.vesselMountDelta === 1 && proof.vesselRetired)],
+                        ['target header proxy settled without taking the pane', proof.remoteSnapshot?.embodiment?.header === true
+                            && proof.remoteSnapshot.embodiment.itemId === itemId
+                            && proof.remoteSnapshot.embodiment.targetWindowId === targetWindowId
+                            && proof.remoteSnapshot.embodiment.ownsPane === false
+                            && proof.remoteSnapshot.embodiment.settled === true
+                            && proof.remoteSnapshot.embodiment.visible === true],
+                        ['the claim brought the pane home before the target took it', proof.homeMountDelta === (vesselBorn ? 1 : 0)],
                         ['target document added exactly one mount', proof.targetMountDelta === 1],
-                        ['vessel, proxy and final target each mounted once', proof.mountDelta === 3],
+                        ['the pane mounted once per window it entered', proof.mountDelta === (vesselBorn ? 3 : 1)],
                         ['continuity witness is complete', typeof pane?.id === 'string'
                             && Number.isInteger(pane?.mountCount)]
                     ],
@@ -2042,6 +2039,107 @@ class DemoBWorkspace extends Container {
     }
 
     /**
+     * @summary Reads the one connected tear-out generation's identity; every field is null when none
+     * is connected.
+     * @param {String} itemId
+     * @returns {{nativeHandleKey: String|null, windowId: String|null, windowName: String|null}}
+     * @protected
+     */
+    readCrossWindowVesselIdentity(itemId) {
+        let vessel = this.resolveTearOutVessel(itemId),
+            route  = vessel?.nativeRoute;
+
+        return {
+            nativeHandleKey: route?.nativeHandleKey ?? null,
+            windowId       : vessel?.windowId ?? null,
+            windowName     : vessel?.windowName ?? null
+        }
+    }
+
+    /**
+     * @summary Reads whether a window's claim has settled the vessel that rode the hand into it: the
+     * vessel retired, the tear-out slot clear, and the pane back in the source window.
+     * @param {Object} context
+     * @returns {{activeSlot: Boolean, paneHome: Boolean, settled: Boolean, vessel: Object, vesselRetired: Boolean}}
+     * @protected
+     */
+    readCrossWindowClaimSettlement(context) {
+        let me                             = this,
+            {itemId, pane, sourceWindowId} = context || {},
+            vessel                         = me.readCrossWindowVesselIdentity(itemId),
+            snapshot                       = {
+                activeSlot   : Boolean(me.tearOutHandlers?.activeVessel),
+                paneHome     : Boolean(pane) && !pane.isDestroyed && pane.windowId === sourceWindowId,
+                vessel,
+                vesselRetired: vessel.windowId === null
+            };
+
+        snapshot.settled = snapshot.vesselRetired && snapshot.paneHome && !snapshot.activeSlot;
+
+        return snapshot
+    }
+
+    /**
+     * @summary Drives the pointer off every window of the group — below the source viewport — until
+     * the source's boundary exit has acquired a connected vessel.
+     *
+     * The boundary sampler measures the proxy against the source's boundary container in client
+     * space, so a pointer below the viewport is unambiguously outside, whatever the screen holds
+     * there. After a claim retired the previous generation, only a fresh one counts.
+     * @param {Object} context
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=200]
+     * @param {Number} [options.delay=25]
+     * @param {String} [options.label='first'] Which leg this is, for the receipt.
+     * @param {Object|null} [options.previousVessel=null] The retired generation a fresh one must differ from.
+     * @returns {Promise<{attempts: Number, label: String, pointer: Object, vessel: Object|null, windowDragging: Boolean}>}
+     * @protected
+     */
+    async driveCrossWindowDesktopLeg(context, {attempts=200, delay=25, label='first', previousVessel=null}={}) {
+        let me                                                                  = this,
+            {itemId, pane, sourceButtonId, sourceWindowId, sourceX, sourceZone} = context,
+            WindowManager                                                       = (await import('../../../src/manager/Window.mjs')).default,
+            inner                                                               = WindowManager.get(sourceWindowId)?.innerRect,
+            voidX                                                               = sourceX,
+            voidY                                                               = (inner?.height ?? 720) + 120,
+            voidScreenX                                                         = (inner?.x ?? 0) + voidX,
+            voidScreenY                                                         = (inner?.y ?? 0) + voidY,
+            vessel                                                              = null,
+            attempt;
+
+        for (attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
+            await me.interactionService.simulateEvent({events: [{
+                delay   : 16,
+                targetId: sourceButtonId,
+                type    : 'mousemove',
+                windowId: sourceWindowId,
+                options : {
+                    bubbles: true, button: 0, buttons: 1, cancelable: true,
+                    clientX: voidX + attempt % 2, clientY: voidY,
+                    screenX: voidScreenX + attempt % 2, screenY: voidScreenY
+                }
+            }]});
+
+            let identity = me.readCrossWindowVesselIdentity(itemId);
+
+            if (identity.windowId && identity.windowId !== previousVessel?.windowId && sourceZone.isWindowDragging) {
+                vessel = {...identity, mountCount: pane?.mountCount ?? null};
+                break
+            }
+
+            await me.timeout(delay)
+        }
+
+        return {
+            attempts,
+            label,
+            pointer       : {voidScreenX, voidScreenY, voidX, voidY},
+            vessel,
+            windowDragging: sourceZone.isWindowDragging === true
+        }
+    }
+
+    /**
      * Facade over the extracted cross-window stage module: places the popup
      * outside the source viewport and proves the Window manager sees two non-overlapping
      * rectangles. The observed manager rectangles are the readiness authority.
@@ -2059,17 +2157,23 @@ class DemoBWorkspace extends Container {
      * @summary Phase-0 falsifier: drives the real first pointer gesture through InteractionService.
      * The step carries semantic ids only; this host resolves live windows, component ids, and
      * coordinates immediately before dispatch.
+     * The drag keeps one rule for every window of the group (the docking design record §2.8.6):
+     * inside a window it is that window's tab-header proxy, outside every window it is a vessel. A
+     * window that claims the pointer retires a vessel riding the hand and the pane comes home; leaving
+     * that window for the desktop is a boundary exit again and acquires a fresh vessel.
      * @param {Object} step
      * @param {Object} [options={}]
      * @param {Boolean} [options.cancelAtTarget=false] Whitebox-only branch: Escape after
      * remote preview settles, before mouseup. This option never enters tour-script data.
-     * @param {Boolean} [options.roundTrip=false] Whitebox-only branch: after first park, leave the
-     * target, require same-vessel re-show with zero re-acquisition, then release detached.
-     * @param {Number} [options.parkObservationMs=0] Whitebox-only bounded observation window after
-     * strict park admission; lets the headed harness inspect real focus/placement before re-show.
+     * @param {Boolean} [options.roundTrip=false] Whitebox-only branch: leave the source for the desktop
+     * (a vessel is born), cross into the target (the claim retires it, the target carries the header
+     * proxy), leave again (a fresh vessel is born), then release detached. Implies `viaDesktop`.
+     * @param {Boolean} [options.viaDesktop=roundTrip] Whitebox-only branch: reach the target through the
+     * desktop, so the gesture carries a vessel into the claim. The direct path never births one — a
+     * claimed frame is no boundary crossing.
      * @returns {Promise<Object>}
      */
-    async executeCrossWindowStep(step, {cancelAtTarget = false, parkObservationMs = 0, roundTrip = false} = {}) {
+    async executeCrossWindowStep(step, {cancelAtTarget = false, roundTrip = false, viaDesktop = roundTrip} = {}) {
         let me                        = this,
             acquisitionAttemptsBefore = me.tearOutAcquisitionAttempts,
             sourceProbe               = null,
@@ -2236,6 +2340,31 @@ class DemoBWorkspace extends Container {
                 }
             }
 
+            let firstVessel = null;
+
+            // The desktop leg: the pointer leaves every window, so the source's boundary exit
+            // acquires a vessel that then rides the hand into the target's claim.
+            if (viaDesktop) {
+                let leg = await me.driveCrossWindowDesktopLeg(me.crossWindowGestureContext, {label: 'first'});
+
+                if (!leg.vessel) {
+                    let cancellation = await me.cancelCrossWindowGesture(me.crossWindowGestureContext);
+
+                    me.restoreCrossWindowSourceProbe(sourceProbe);
+                    me.crossWindowGestureResolve = null;
+                    me.crossWindowGestureContext = null;
+
+                    return {
+                        applied: false,
+                        errors : ['the desktop leg did not acquire a vessel'],
+                        debug  : {cancellation, leg}
+                    }
+                }
+
+                firstVessel = leg.vessel;
+                me.crossWindowGestureContext.firstVessel = firstVessel
+            }
+
             // Phase 2: move in screen space while the source document still owns the pointer.
             // Mouseup remains withheld until the target's semantic AND rendered preview agree.
             await me.interactionService.simulateEvent({events: [{
@@ -2252,8 +2381,7 @@ class DemoBWorkspace extends Container {
                 options : options(sourceX + 34, sourceY, targetScreenX + 2, targetScreenY, 1)
             }]});
 
-            let conversionSettlement = false,
-                remoteSnapshot;
+            let remoteSnapshot;
 
             for (let attempt = 0; attempt <= 120 && !me.isDestroyed; attempt++) {
                 remoteSnapshot = me.readCrossWindowRemoteSnapshot(me.crossWindowGestureContext);
@@ -2261,7 +2389,13 @@ class DemoBWorkspace extends Container {
                 if (remoteSnapshot.ready) {
                     const target = me.crossWindowParticipations.get(targetWorkspaceId)?.target;
                     remoteSnapshot.ready = await target?.awaitRemoteDragEmbodiment(sourceZone.dragComponent) === true;
-                    remoteSnapshot.embodiment = me.vesselProxyEmbodiment.snapshot(itemId);
+                    remoteSnapshot.embodiment = me.vesselProxyEmbodiment.snapshot(itemId)
+                }
+
+                // A vessel that rode the hand into the claim retires there, and the pane comes home.
+                if (remoteSnapshot.ready && firstVessel) {
+                    remoteSnapshot.claim = me.readCrossWindowClaimSettlement(me.crossWindowGestureContext);
+                    remoteSnapshot.ready = remoteSnapshot.claim.settled
                 }
 
                 if (remoteSnapshot.ready || attempt === 120) break;
@@ -2278,11 +2412,7 @@ class DemoBWorkspace extends Container {
                         targetScreenY,
                         1
                     )
-                }]});
-
-                let transition = sourceZone.vesselConversionSensor?.transitionPromise;
-
-                transition && (conversionSettlement = await transition)
+                }]})
             }
 
             if (!remoteSnapshot.ready) {
@@ -2312,18 +2442,13 @@ class DemoBWorkspace extends Container {
                     })
                 });
 
-                let conversion = {
-                        converted      : sourceZone.vesselConversionSensor?.converted ?? null,
-                        dragComponent  : sourceZone.dragComponent?.id ?? null,
-                        dragProxy      : sourceZone.dragProxy?.id ?? null,
-                        enabled        : sourceZone.enableVesselConversion,
-                        logicalRect    : sourceZone.vesselConversionLogicalRect ?? null,
-                        sourceRect     : sourceZone.vesselConversionSourceRect ?? null,
-                        targetConverted: sourceZone.vesselConversionSensor?.targetConverted ?? null,
-                        targetId       : sourceZone.vesselConversionTargetId ?? null,
-                        targetRect     : sourceZone.vesselConversionTargetRect ?? null,
-                        transitioning  : sourceZone.vesselConversionSensor?.transitioning ?? null,
-                        windowDragging : sourceZone.isWindowDragging
+                let claim = {
+                        dragComponent : sourceZone.dragComponent?.id ?? null,
+                        dragProxy     : sourceZone.dragProxy?.id ?? null,
+                        enabled       : sourceZone.enableVesselConversion,
+                        firstVessel,
+                        vessel        : me.readCrossWindowVesselIdentity(itemId),
+                        windowDragging: sourceZone.isWindowDragging
                     },
                     cancellation = await me.cancelCrossWindowGesture(me.crossWindowGestureContext);
 
@@ -2337,9 +2462,7 @@ class DemoBWorkspace extends Container {
                     debug  : {
                         candidateDiagnostics,
                         cancellation,
-                        conversion,
-                        conversionSettlement,
-                        parkReceipt  : me.lastVesselParkReceipt ?? null,
+                        claim,
                         readiness,
                         remoteSnapshot,
                         stagePlacement,
@@ -2354,38 +2477,18 @@ class DemoBWorkspace extends Container {
             me.crossWindowGestureContext.proxyMountCount = pane.mountCount;
 
             if (roundTrip) {
-                // Remote preview can settle before the asynchronously-acquired tear-out child has
-                // connected and published its exact source rect. Keep driving the real pointer
-                // cadence until strict conversion admission settles; a human gesture naturally
-                // supplies these frames while crossing the target, and the whitebox screenplay
-                // must not mistake preview readiness for physical park readiness.
-                for (let attempt = 0; attempt <= 120 && !me.isDestroyed; attempt++) {
-                    let sensor = sourceZone.vesselConversionSensor;
+                // The claim retired the vessel that rode the hand in; the pane is home and the target
+                // carries the header proxy. Leaving the target for the desktop is a boundary exit
+                // again, which acquires a fresh vessel through the ordinary fail-closed admission.
+                let claimSnapshot       = remoteSnapshot,
+                    acquisitionsAtClaim = me.tearOutAcquisitionAttempts,
+                    mountAtClaim        = pane.mountCount,
+                    leg                 = await me.driveCrossWindowDesktopLeg(me.crossWindowGestureContext, {
+                        label         : 'second',
+                        previousVessel: firstVessel
+                    });
 
-                    if (sensor?.converted && !sensor.transitioning && me.lastVesselParkReceipt?.parked === true) break;
-
-                    await me.interactionService.simulateEvent({events: [{
-                        delay   : 16,
-                        targetId: sourceButton.id,
-                        type    : 'mousemove',
-                        windowId: sourceButton.windowId,
-                        options : options(
-                            sourceX + 38 + attempt % 2,
-                            sourceY,
-                            targetScreenX + 6 + attempt % 2,
-                            targetScreenY,
-                            1
-                        )
-                    }]});
-
-                    let transition = sourceZone.vesselConversionSensor?.transitionPromise;
-
-                    transition && (conversionSettlement = await transition)
-                }
-
-                let sensor = sourceZone.vesselConversionSensor;
-
-                if (!sensor?.converted || sensor.transitioning || me.lastVesselParkReceipt?.parked !== true) {
+                if (!leg.vessel) {
                     let cancellation = await me.cancelCrossWindowGesture(me.crossWindowGestureContext);
 
                     me.restoreCrossWindowSourceProbe(sourceProbe);
@@ -2394,101 +2497,15 @@ class DemoBWorkspace extends Container {
 
                     return {
                         applied: false,
-                        errors : ['tear-out vessel did not reach strict park admission'],
-                        debug  : {
-                            cancellation,
-                            conversionSettlement,
-                            parkReceipt: me.lastVesselParkReceipt ?? null,
-                            remoteSnapshot,
-                            sensor     : {
-                                converted      : sensor?.converted ?? null,
-                                targetConverted: sensor?.targetConverted ?? null,
-                                transitioning  : sensor?.transitioning ?? null
-                            }
-                        }
+                        errors : ['leaving the target did not acquire a fresh vessel'],
+                        debug  : {cancellation, claimSnapshot, firstVessel, leg}
                     }
                 }
 
-                if (Number.isFinite(parkObservationMs) && parkObservationMs > 0) {
-                    await me.timeout(Math.min(parkObservationMs, 2000))
-                }
-
-                const identity = () => {
-                    let vessel = me.resolveTearOutVessel(itemId),
-                        route  = vessel?.nativeRoute;
-
-                    return {
-                        nativeHandleKey: route?.nativeHandleKey ?? null,
-                        windowId       : vessel?.windowId ?? null,
-                        windowName     : vessel?.windowName ?? null
-                    }
-                };
-
-                let firstIdentity      = identity(),
-                    acquisitionsAtPark = me.tearOutAcquisitionAttempts,
-                    voidX              = sourceX + 80,
-                    voidY              = sourceY + 160,
-                    voidScreenX        = sourceWindow.innerRect.x + voidX,
-                    voidScreenY        = sourceWindow.innerRect.y + voidY,
-                    outSnapshot;
-
-                for (let attempt = 0; attempt <= 120 && !me.isDestroyed; attempt++) {
-                    await me.interactionService.simulateEvent({events: [{
-                        delay   : 16,
-                        targetId: sourceButton.id,
-                        type    : 'mousemove',
-                        windowId: sourceButton.windowId,
-                        options : options(
-                            voidX + attempt % 2,
-                            voidY,
-                            voidScreenX + attempt % 2,
-                            voidScreenY,
-                            1
-                        )
-                    }]});
-
-                    let transition = sourceZone.vesselConversionSensor?.transitionPromise;
-
-                    transition && await transition;
-                    outSnapshot = me.readCrossWindowRemoteSnapshot(me.crossWindowGestureContext);
-
-                    if (
-                        sourceZone.vesselConversionSensor?.converted === false &&
-                        sourceZone.vesselConversionSensor?.transitioning === false &&
-                        !outSnapshot.engaged && !me.vesselParkHandlers.parkedVessel
-                    ) break
-                }
-
-                let restoredIdentity = identity(),
-                    restored         = sourceZone.vesselConversionSensor?.converted === false
-                        && sourceZone.vesselConversionSensor?.transitioning === false
-                        && !outSnapshot?.engaged && !me.vesselParkHandlers.parkedVessel;
-
-                if (!restored) {
-                    let cancellation = await me.cancelCrossWindowGesture(me.crossWindowGestureContext);
-
-                    me.restoreCrossWindowSourceProbe(sourceProbe);
-                    me.crossWindowGestureResolve = null;
-                    me.crossWindowGestureContext = null;
-
-                    return {
-                        applied: false,
-                        errors : ['converted vessel did not re-show after leaving the target'],
-                        debug  : {
-                            acquisitionsAtPark,
-                            cancellation,
-                            firstIdentity,
-                            outSnapshot,
-                            restoredIdentity,
-                            sensor: {
-                                converted    : sourceZone.vesselConversionSensor?.converted ?? null,
-                                transitioning: sourceZone.vesselConversionSensor?.transitioning ?? null
-                            }
-                        }
-                    }
-                }
-
-                let acquisitionsAfterRestore = me.tearOutAcquisitionAttempts;
+                let secondVessel                             = leg.vessel,
+                    acquisitionsAfterExit                    = me.tearOutAcquisitionAttempts,
+                    mountAtSecondVessel                      = pane.mountCount,
+                    {voidX, voidY, voidScreenX, voidScreenY} = leg.pointer;
 
                 await me.interactionService.simulateEvent({events: [{
                     targetId: sourceButton.id,
@@ -2510,7 +2527,7 @@ class DemoBWorkspace extends Container {
                     };
 
                     if (
-                        detached.entry?.windowId === firstIdentity.windowId &&
+                        detached.entry?.windowId === secondVessel.windowId &&
                         detached.catalogRetained && detached.itemAbsent
                     ) break;
 
@@ -2519,46 +2536,45 @@ class DemoBWorkspace extends Container {
 
                 await me.awaitProjectionIdle();
 
-                let terminalIdentity = identity(),
-                    sourceAfter      = WorkspaceDocument.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
-                    targetAfter      = WorkspaceDocument.clone(me.getWorkspaceDocument(targetWorkspaceId)),
-                    proof            = {
+                let terminalVessel = me.readCrossWindowVesselIdentity(itemId),
+                    sourceAfter    = WorkspaceDocument.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
+                    targetAfter    = WorkspaceDocument.clone(me.getWorkspaceDocument(targetWorkspaceId)),
+                    proof          = {
                         acquisitionAttempts: {
-                            afterRestore            : acquisitionsAfterRestore,
-                            atFirstPark             : acquisitionsAtPark,
-                            beforeGesture           : acquisitionAttemptsBefore,
-                            midGestureReacquisitions: acquisitionsAfterRestore - acquisitionsAtPark,
-                            totalGestureAttempts    : acquisitionsAfterRestore - acquisitionAttemptsBefore
+                            afterExit           : acquisitionsAfterExit,
+                            atClaim             : acquisitionsAtClaim,
+                            beforeGesture       : acquisitionAttemptsBefore,
+                            totalGestureAttempts: acquisitionsAfterExit - acquisitionAttemptsBefore
                         },
+                        claim : claimSnapshot.claim ?? null,
+                        claimSnapshot,
                         detached,
-                        firstIdentity,
-                        firstRemoteSnapshot: remoteSnapshot,
-                        outSnapshot,
-                        parkReceipt        : me.lastVesselParkReceipt ?? null,
-                        parkSlotCleared    : !me.vesselParkHandlers.parkedVessel,
-                        restoreReceipt     : me.lastVesselRestoreReceipt ?? null,
-                        restored,
-                        restoredIdentity,
-                        sameNativeHandle   : Boolean(firstIdentity.nativeHandleKey)
-                            && restoredIdentity.nativeHandleKey === firstIdentity.nativeHandleKey
-                            && terminalIdentity.nativeHandleKey === firstIdentity.nativeHandleKey,
-                        sameWindowId: Boolean(firstIdentity.windowId)
-                            && restoredIdentity.windowId === firstIdentity.windowId
-                            && terminalIdentity.windowId === firstIdentity.windowId,
+                        firstVessel,
+                        mounts: {
+                            atClaim       : mountAtClaim,
+                            atFirstVessel : firstVessel.mountCount,
+                            atSecondVessel: mountAtSecondVessel,
+                            beforeGesture : me.crossWindowGestureContext.mountCount,
+                            terminal      : pane.mountCount
+                        },
+                        secondVessel,
                         stats: {...me.crossWindowStats},
-                        terminalIdentity
+                        terminalVessel
                     },
                     checks = [
-                        ['exactly one tear-out acquisition occurred', proof.acquisitionAttempts.totalGestureAttempts === 1],
-                        ['out-conversion performed zero re-acquisitions', proof.acquisitionAttempts.midGestureReacquisitions === 0],
-                        ['out-conversion re-showed the same native handle', proof.sameNativeHandle],
-                        ['out-conversion retained the same window id', proof.sameWindowId],
-                        ['park used a strict exact-handle move', proof.parkReceipt?.parked === true],
-                        ['out-conversion used a strict exact-handle move', proof.restoreReceipt?.admitted === true],
-                        ['park ownership cleared after re-show', proof.parkSlotCleared],
+                        ['the desktop leg acquired exactly one vessel', acquisitionsAtClaim - acquisitionAttemptsBefore === 1],
+                        ['the claim retired that vessel', proof.claim?.vesselRetired === true],
+                        ['the pane came home on the claim', proof.claim?.paneHome === true],
+                        ['the target carried the header proxy without the pane', claimSnapshot.embodiment?.header === true
+                            && claimSnapshot.embodiment.ownsPane === false
+                            && claimSnapshot.embodiment.settled === true
+                            && claimSnapshot.embodiment.visible === true],
+                        ['leaving the target acquired exactly one fresh vessel', acquisitionsAfterExit - acquisitionsAtClaim === 1],
+                        ['the fresh vessel is a new generation', Boolean(secondVessel.windowId) && secondVessel.windowId !== firstVessel.windowId],
                         ['detached terminal retained the catalog item', detached?.catalogRetained === true],
                         ['detached terminal removed the item from the dock tree', detached?.itemAbsent === true],
-                        ['detached terminal adopted the exact vessel', detached?.entry?.windowId === firstIdentity.windowId],
+                        ['detached terminal adopted the fresh vessel', detached?.entry?.windowId === secondVessel.windowId],
+                        ['the terminal owner is the fresh vessel', terminalVessel.windowId === secondVessel.windowId],
                         ['remote transfer did not commit', me.crossWindowStats.transferCommits === 0],
                         ['source remote-drop-out did not fire', me.crossWindowStats.remoteDropOutFires === 0],
                         ['source local drop stayed suppressed', me.crossWindowStats.localDropFires === 0]
@@ -2597,12 +2613,16 @@ class DemoBWorkspace extends Container {
                         sourceDocument: sourceAfter,
                         targetDocument: targetAfter,
                         proof         : {
+                            acquisitionAttempts: me.tearOutAcquisitionAttempts - acquisitionAttemptsBefore,
                             cancellation,
+                            claim              : remoteSnapshot.claim ?? null,
                             cleanup,
-                            documentsUnchanged: JSON.stringify(sourceBefore) === JSON.stringify(sourceAfter)
+                            documentsUnchanged : JSON.stringify(sourceBefore) === JSON.stringify(sourceAfter)
                                 && JSON.stringify(targetBefore) === JSON.stringify(targetAfter),
+                            firstVessel,
                             remoteSnapshot,
-                            stats: {...me.crossWindowStats}
+                            stats            : {...me.crossWindowStats},
+                            vesselAfterCancel: me.readCrossWindowVesselIdentity(itemId)
                         }
                     };
 
@@ -3212,7 +3232,6 @@ class DemoBWorkspace extends Container {
                 }
 
                 me.tearOutHandlers.onVesselRetired({...entry, itemId, windowName: entry?.windowName ?? `tearout-${itemId}`});
-                me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
 
                 if (owned) {
                     // Physical death withdraws ownership: a successor gesture must neither inherit
@@ -3801,30 +3820,12 @@ class DemoBWorkspace extends Container {
             onDockCrossZoneDragCancel: data => me.onDockCrossZoneDragCancel(workspaceId, data),
             onDockCrossZoneDragMove  : data => me.onDockCrossZoneDragMove(workspaceId, data),
             onDockCrossZoneDrop      : data => me.onDockCrossZoneDrop(workspaceId, data),
-            onDockStackDragTerminal  : ({itemId, outcome}) =>
-                me.vesselParkHandlers?.onGestureTerminal({itemId, outcome}),
-            onDockVesselConversionIn : data => me.vesselParkHandlers.onConversionIn({
-                itemId    : data.itemId,
-                sourceRect: data.record?.sourceRect ?? null,
-                windowName: me.resolveTearOutVessel(data.itemId)?.windowName
-            }),
-            onDockVesselConversionOut: data => {
-                if (me.vesselProxyEmbodiment.isStaged(data.itemId)
-                    && !me.vesselProxyEmbodiment.restore({itemId: data.itemId})) return false;
-
-                return me.vesselParkHandlers.onConversionOut({
-                    rect: data.logicalRect ?? data.record?.sourceRect ?? null
-                })
-            },
-            onDockVesselConversionTerminal: data => me.vesselParkHandlers.onGestureTerminal(data),
-            onDockVesselConversionRetired : data => me.vesselParkHandlers.onVesselRetired(data),
-            onDockZoneDocumentChange      : (nextDocument, descriptor) => me.onWorkspaceDocumentChange(workspaceId, nextDocument, {descriptor}),
-            resolveComponentRef           : resolveComponentRef
+            onDockZoneDocumentChange : (nextDocument, descriptor) => me.onWorkspaceDocumentChange(workspaceId, nextDocument, {descriptor}),
+            resolveComponentRef      : resolveComponentRef
                 || ((reference, item, itemId) => me.resolvePane(itemId, item)),
-            resolveVesselConversionSourceRect: data => me.resolveVesselConversionSourceRect(data),
-            resolveRevealComponentRef        : (reference, item, itemId) => me.resolvePane(itemId, item),
+            resolveRevealComponentRef: (reference, item, itemId) => me.resolvePane(itemId, item),
             workspaceId,
-            ...(tearOut ? me.tearOutHandlers : null),
+            ...(tearOut ? me.tearOutHandlers.getProjectionCallbacks() : null),
             onDockTearOutExit: tearOut ? data => me.onDockTearOutExit(data) : undefined
         })
     }
@@ -3832,10 +3833,9 @@ class DemoBWorkspace extends Container {
     /**
      * @summary Retries any exact retained retirement before admitting a successor tear-out.
      *
-     * A strict close refusal preserves both pure-machine slots. The next boundary exit first retries
-     * that same exact generation; only success clears the park owner and permits a fresh popup. A
-     * second refusal restores the in-window embodiment and fails closed instead of wedging it in a
-     * detached state with no vessel.
+     * A strict close refusal preserves the tear-out slot. The next boundary exit first retries that
+     * same exact generation; only success permits a fresh popup. A second refusal restores the
+     * in-window embodiment and fails closed instead of wedging it in a detached state with no vessel.
      * @param {Object} data
      * @returns {Promise<Boolean>}
      * @protected
@@ -3844,39 +3844,14 @@ class DemoBWorkspace extends Container {
         let me     = this,
             active = me.tearOutHandlers.activeVessel;
 
-        if (active) {
-            const retired = await me.tearOutHandlers.retireActiveVessel(active);
-
-            if (!retired) {
-                data.sortZone?.endWindowDrag();
-                return false
-            }
-
-            me.vesselParkHandlers.onVesselRetired({itemId: active.itemId, retirement: true})
+        if (active && !await me.tearOutHandlers.retireActiveVessel(active)) {
+            data.sortZone?.endWindowDrag();
+            return false
         }
 
         await me.tearOutHandlers.onDockTearOutExit(data);
 
         return true
-    }
-
-    /**
-     * @summary Resolves one tear-out item's exact live vessel rect for conversion sampling.
-     *
-     * Gesture admission publishes the Group's connection; terminal adoption records its ownership.
-     * Both race orders retain the same runtime window identity, and only that identity may select the
-     * manager-owned live rect. The logical drag proxy is intentionally ignored.
-     * @param {Object} data
-     * @param {String|null} data.itemId
-     * @returns {Object|null}
-     * @protected
-     */
-    resolveVesselConversionSourceRect({itemId}) {
-        let me       = this,
-            windowId = me.resolveTearOutVessel(itemId)?.windowId,
-            rect     = windowId && Neo.manager?.Window?.get(windowId)?.innerRect;
-
-        return rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
     }
 
     /**
@@ -3889,38 +3864,6 @@ class DemoBWorkspace extends Container {
         return NativeVesselTransaction.resolveVessel({
             nativeWindows: this.nativeWindows, sourceId: this.vesselSourceId, windowNameFor: id => `tearout-${id}`
         }, itemId)
-    }
-
-    /**
-     * Parks the converted vessel behind its conversion target through the engine's default
-     * transaction. This host declares no geometry restore, so the park is position-only: an
-     * oversized source is refused rather than shrunk, because nothing here will give the extent
-     * back. See {@link Neo.dashboard.dock.window.NativeVesselTransaction}.
-     * @param {Object} vessel
-     * @returns {Promise<Boolean>}
-     * @protected
-     */
-    parkTearOutVessel(vessel) {
-        return this.vesselTransaction.parkVessel(vessel)
-    }
-
-    /**
-     * Re-shows the parked vessel at its pre-conversion origin through the engine's default
-     * transaction, which converts that content origin into the frame origin the native move
-     * consumes. @param {Object} vessel @returns {Promise<Boolean>} @protected
-     */
-    reshowTearOutVessel(vessel) {
-        return this.vesselTransaction.reshowVessel(vessel)
-    }
-
-    /**
-     * Retires the parked vessel and its orphan recovery together — the default owns that pairing.
-     * @param {Object} vessel
-     * @returns {Promise<Boolean>}
-     * @protected
-     */
-    disposeParkedTearOutVessel(vessel) {
-        return this.vesselTransaction.disposeVessel(vessel)
     }
 
     /**
@@ -4397,11 +4340,12 @@ class DemoBWorkspace extends Container {
             scope       : me
         });
         me.vesselReservations.clear();
-        me.vesselParkHandlers?.destroy();
         me.vesselProxyEmbodiment?.destroy();
         me.vesselProxyEmbodiment = null;
         me.tearOutEmbodiment?.destroy();
         me.tearOutEmbodiment = null;
+        me.tearOutHandlers?.destroy();
+        me.tearOutHandlers = null;
         me.crossWindowStagePromise   = null;
         me.crossWindowStageResolve   = null;
         me.crossWindowStageReject    = null;

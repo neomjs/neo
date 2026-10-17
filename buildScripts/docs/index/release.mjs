@@ -6,13 +6,18 @@ import matter          from 'gray-matter';
 import semver          from 'semver';
 import isEntryModule   from '../../util/isEntryModule.mjs';
 import {sanitizeInput} from '../../util/sanitizer.mjs';
+import {
+    contentPath,
+    requireContentRoot
+} from '../../util/contentRoot.mjs';
 
 /**
  * @module buildScripts.createReleaseIndex
  * @summary Generates a hierarchical JSON index of Release Notes for the Neo.mjs Portal application.
  *
- * This script scans local markdown files in `resources/content/release-notes` and constructs a
- * structured JSON index (`releases.json`). This index is consumed by the Portal's "Release Notes"
+ * This script scans the markdown release notes under the declared release-notes root (`--release-notes`; in an
+ * engine checkout the engine's own `.github/RELEASE_NOTES`) and constructs a structured JSON index
+ * (`releases.json`). This index is consumed by the Portal's "Release Notes"
  * section, allowing users to browse history grouped by Major Version.
  *
  * **Key Features:**
@@ -26,7 +31,6 @@ import {sanitizeInput} from '../../util/sanitizer.mjs';
  */
 
 const ROOT_DIR    = process.cwd();
-const RELEASE_DIR = path.resolve(ROOT_DIR, 'resources/content/release-notes');
 const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/releases.json');
 
 /**
@@ -35,25 +39,25 @@ const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/releases.
  * @property {String} version - The semantic version string (e.g., "11.18.0")
  * @property {String} date - ISO date string
  * @property {String} title - The display title of the release
- * @property {String} path - Relative path to the markdown file (for dynamic loading)
+ * @property {String} path - Path to the markdown file relative to the release-notes root (for dynamic loading)
  */
 
 /**
  * Core logic to scan and index release note markdown files.
  *
- * 1.  Recursively scans `resources/content/release-notes`, including chunk-N folders.
+ * 1.  Recursively scans the release-notes root, including any chunk-N folders.
  * 2.  Extracts version numbers and dates (handling both frontmatter and filesystem fallbacks).
  * 3.  Groups releases into Major Version buckets (e.g., "v1", "v2").
  * 4.  Sorts majors and minors descending.
  * 5.  Flattens the structure for `Neo.data.Store` consumption.
  *
  * @param {Object} options Configuration options
- * @param {String} [options.inputDir] - Directory containing markdown release notes (defaults to `resources/content/release-notes`)
+ * @param {String} options.releaseNotesRoot - Directory containing the markdown release notes; required, the index's paths are relative to it
  * @param {String} [options.outputFile] - Path to the output JSON file (defaults to `apps/portal/resources/data/releases.json`)
  * @returns {Promise<void>} Resolves when the JSON file is written
  */
 async function createReleaseIndex(options = {}) {
-    const inputDir   = options.inputDir || RELEASE_DIR;
+    const inputDir   = requireContentRoot(options.releaseNotesRoot, '--release-notes', 'createReleaseIndex');
     const outputFile = options.outputFile || OUTPUT_FILE;
 
     console.log(`Scanning release notes in: ${inputDir}`);
@@ -98,8 +102,8 @@ async function createReleaseIndex(options = {}) {
         return {
             version: cleanVersion,
             date,
-            // Preserve the real on-disk path incl. the chunk-N segment (mirrors tickets.mjs); read verbatim by the portal view's fetch()
-            path: path.relative(ROOT_DIR, filePath)
+            // Relative to the release-notes root, chunk-N segment included; the portal resolves it against the base it serves the notes from
+            path: contentPath(inputDir, filePath)
         };
     }));
 
@@ -188,7 +192,7 @@ async function createReleaseIndex(options = {}) {
  * Handles argument parsing using `commander` and invokes the main `createReleaseIndex` function.
  *
  * Supported flags:
- * - `-i, --input <path>`: Custom input directory
+ * - `-r, --release-notes <path>`: The release-notes root (required)
  * - `-o, --output <path>`: Custom output file path
  */
 async function runCli() {
@@ -197,7 +201,7 @@ async function runCli() {
     program
         .name('create-release-index')
         .description('Generates a JSON index of release notes from markdown files.')
-        .option('-i, --input <path>',  'Input directory path', sanitizeInput)
+        .requiredOption('-r, --release-notes <path>', 'Release-notes root', sanitizeInput)
         .option('-o, --output <path>', 'Output file path',     sanitizeInput);
 
     program.parse(process.argv);
@@ -205,8 +209,8 @@ async function runCli() {
     const opts = program.opts();
 
     await createReleaseIndex({
-        inputDir  : opts.input ? path.resolve(ROOT_DIR, opts.input) : undefined,
-        outputFile: opts.output ? path.resolve(ROOT_DIR, opts.output) : undefined
+        releaseNotesRoot: path.resolve(opts.releaseNotes),
+        outputFile      : opts.output ? path.resolve(ROOT_DIR, opts.output) : undefined
     });
 }
 

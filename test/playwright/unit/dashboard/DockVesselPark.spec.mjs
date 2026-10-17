@@ -28,14 +28,13 @@ test.afterEach(() => {
 });
 
 /**
- * @summary The in-gesture vessel park machine, driven end-to-end through its injected seams.
+ * @summary The native title-bar drop's park machine, driven end-to-end through its injected seams.
  *
- * Every witness is a contract pin from the ticket's AC set: conversion PARKS and never closes
- * (the activation wall is structural — the machine has no acquisition seam, and the round-trip
- * witness proves the full ledger touches only the three injected seams), out-conversion re-shows
- * the SAME window with the live-rect/origin-fallback rule, commit disposes exactly once with
- * every other outcome failing toward restore, and stale events (duplicate convert-in, slotless
- * out/terminal, mismatched itemId) are silent no-ops. The seams are the assertion surface.
+ * Every witness is a contract pin: a park PARKS and never closes (the activation wall is structural —
+ * the machine has no acquisition seam, and the ledger witness proves a full sequence touches only the
+ * three injected seams), commit disposes exactly once with every other outcome failing toward restore
+ * at the park origin, and stale events (duplicate convert-in, slotless terminal, mismatched itemId)
+ * are silent no-ops. The seams are the assertion surface.
  */
 test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
     test('a pre-import Neo overwrite controls the internal restore path', () => {
@@ -53,7 +52,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
                 reshowVessel: () => { calls++; return true; }
             });
             owner.onConversionIn({itemId: 'pane', windowName: 'window'});
-            const restored = owner.onConversionOut();
+            const restored = owner.onGestureTerminal({itemId: 'pane', outcome: 'cancelled'});
             const retained = owner.parkedVessel?.windowName;
             owner.destroy();
             process.stdout.write(JSON.stringify({
@@ -65,28 +64,29 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
         expect(result).toEqual({registered: true, restored: false, retained: 'window', calls: 0})
     });
 
-    test('a subclass can specialize live restore while retaining cancel recovery', () => {
-        class CancelOnlyPark extends VesselPark {
-            static config = {className: 'Test.Unit.Dashboard.VesselPark.CancelOnlyPark'}
+    test('a subclass can specialize the restore its terminal recovery runs', () => {
+        const audited = [], reshown = [];
 
-            /** @summary Refuses live re-show while keeping inherited terminal recovery. */
-            restore(vessel, rect, terminal=false) {
-                return terminal ? super.restore(vessel, rect, terminal) : false
+        class AuditedPark extends VesselPark {
+            static config = {className: 'Test.Unit.Dashboard.VesselPark.AuditedPark'}
+
+            /** @summary Records each restore before the inherited re-show. */
+            restore(vessel) {
+                audited.push(vessel.windowName);
+                return super.restore(vessel)
             }
         }
-        Neo.setupClass(CancelOnlyPark);
-        const reshown = [];
-        const owner   = Neo.create(CancelOnlyPark, {
+        Neo.setupClass(AuditedPark);
+        const owner = Neo.create(AuditedPark, {
             parkVessel  : () => true, disposeVessel: () => true,
             reshowVessel: data => { reshown.push(data); return true }
         });
         owners.add(owner);
 
         owner.onConversionIn({itemId: 'pane', windowName: 'window'});
-        expect(owner.onConversionOut()).toBe(false);
-        expect(owner.parkedVessel.windowName).toBe('window');
         expect(owner.onGestureTerminal({itemId: 'pane', outcome: 'cancel'})).toBe(true);
-        expect(reshown).toEqual([{itemId: 'pane', windowName: 'window', rect: null, terminal: true}]);
+        expect(audited).toEqual(['window']);
+        expect(reshown).toEqual([{itemId: 'pane', windowName: 'window', rect: null}]);
         expect(owner.parkedVessel).toBeNull()
     });
 
@@ -104,7 +104,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
         expect(effects).toBe(0)
     });
 
-    for (const terminal of ['out', 'cancel', 'committed']) {
+    for (const terminal of ['cancel', 'committed']) {
         test(`destroy during park fences a queued ${terminal} and late admission`, async () => {
             let resolvePark, effects = 0;
             const owner = createOwner({
@@ -113,7 +113,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
                 disposeVessel: () => { effects++; return true }
             });
             const admission = owner.onConversionIn({itemId: 'pane', windowName: 'window'});
-            const queued    = terminal === 'out' ? owner.onConversionOut() : owner.onGestureTerminal({itemId: 'pane', outcome: terminal});
+            const queued    = owner.onGestureTerminal({itemId: 'pane', outcome: terminal});
 
             owner.destroy();
             resolvePark(true);
@@ -134,8 +134,8 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
             };
             owner = createOwner({parkVessel: () => effect('park'), reshowVessel: () => effect('restore'), disposeVessel: () => effect('dispose')});
             const admitted = owner.onConversionIn({itemId: 'pane', windowName: 'window'});
-            const result   = phase === 'park' ? admitted : phase === 'restore'
-                ? owner.onConversionOut() : owner.onGestureTerminal({itemId: 'pane', outcome: 'committed'});
+            const result   = phase === 'park' ? admitted
+                : owner.onGestureTerminal({itemId: 'pane', outcome: phase === 'restore' ? 'cancelled' : 'committed'});
 
             expect(result).toBe(false);
             expect(owner.isDestroyed).toBe(true);
@@ -150,7 +150,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
             const pending = () => new Promise(resolve => resolveEffect = resolve);
             const owner   = createOwner({parkVessel: () => true, reshowVessel: phase === 'restore' ? pending : () => true, disposeVessel: phase === 'dispose' ? pending : () => true});
             owner.onConversionIn({itemId: 'pane', windowName: 'window'});
-            const result = phase === 'restore' ? owner.onConversionOut() : owner.onGestureTerminal({itemId: 'pane', outcome: 'committed'});
+            const result = owner.onGestureTerminal({itemId: 'pane', outcome: phase === 'restore' ? 'cancelled' : 'committed'});
 
             owner.destroy();
             resolveEffect(true);
@@ -213,39 +213,10 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
         expect(handlers.parkedVessel.windowName, 'the first vessel holds the slot').toBe('vessel-graph')
     });
 
-    test('conversion-out re-shows the SAME window at the supplied LIVE rect — the resume-under-the-pointer semantics', () => {
-        const {calls, handlers} = harness();
-        const liveRect          = rect(900, 300, 640, 480);
-
-        handlers.onConversionIn(inData());
-        handlers.onConversionOut({rect: liveRect});
-
-        expect(calls.reshown).toEqual([{
-            itemId: 'graph', rect: liveRect, terminal: false, windowName: 'vessel-graph'
-        }]);
-        expect(calls.disposed).toHaveLength(0);
-        expect(handlers.parkedVessel).toBeNull()
-    });
-
-    test('conversion-out without a supplied rect falls back to the recorded pre-conversion rect — origin semantics', () => {
+    test('a terminal with no slot is a stale event: zero seam calls', () => {
         const {calls, handlers} = harness();
 
-        handlers.onConversionIn(inData());
-        handlers.onConversionOut();
-
-        expect(calls.reshown).toEqual([{
-            itemId    : 'graph',
-            rect      : rect(500, 120, 640, 480),
-            terminal  : false,
-            windowName: 'vessel-graph'
-        }])
-    });
-
-    test('conversion-out with no slot is a stale event: zero seam calls', () => {
-        const {calls, handlers} = harness();
-
-        handlers.onConversionOut({rect: rect(0, 0, 100, 100)});
-
+        expect(handlers.onGestureTerminal({itemId: 'graph', outcome: 'rejected'})).toBe(false);
         expect(calls.reshown).toHaveLength(0);
         expect(calls.disposed).toHaveLength(0)
     });
@@ -297,7 +268,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
         expect(handlers.parkedVessel).toBeNull()
     });
 
-    test('every non-commit outcome RESTORES at the pre-conversion rect and never disposes — cancel, reject, and unknown alike', () => {
+    test('every non-commit outcome RESTORES at the pre-park rect and never disposes — cancel, reject, and unknown alike', () => {
         for (const outcome of ['cancelled', 'rejected', 'terminal-detached', undefined]) {
             const {calls, handlers} = harness();
 
@@ -308,7 +279,6 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
             expect(calls.reshown, `outcome "${outcome}" restores the window`).toEqual([{
                 itemId    : 'graph',
                 rect      : rect(500, 120, 640, 480),
-                terminal  : true,
                 windowName: 'vessel-graph'
             }]);
             expect(handlers.parkedVessel).toBeNull()
@@ -326,21 +296,21 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
         expect(handlers.parkedVessel?.itemId).toBe('graph')
     });
 
-    test('the full round-trip ledger — park, out, park again, commit — touches ONLY the three injected seams, dispose count exactly 1', () => {
+    test('the full ledger — park, refused restore, park again, commit — touches ONLY the three injected seams, dispose count exactly 1', () => {
         const {calls, handlers} = harness();
         const midRect           = rect(700, 200, 640, 480);
 
-        handlers.onConversionIn(inData());                          // over the target: park
-        handlers.onConversionOut({rect: midRect});                  // changed mind: same window back, no reopen
-        handlers.onConversionIn(inData({sourceRect: midRect}));     // over again: park again
-        handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'}); // dropped in: dispose
+        handlers.onConversionIn(inData());                                   // dropped over the target: park
+        handlers.onGestureTerminal({itemId: 'graph', outcome: 'rejected'});  // refused: the same window back, no reopen
+        handlers.onConversionIn(inData({sourceRect: midRect}));              // dropped again: park again
+        handlers.onGestureTerminal({itemId: 'graph', outcome: 'committed'}); // admitted: dispose
 
         // The activation-wall AC at contract tier: the machine exposes NO acquisition surface, so
-        // the complete ledger of platform effects across the round-trip is exactly these calls —
-        // zero mid-gesture window opens are possible by construction.
+        // the complete ledger of platform effects across the sequence is exactly these calls —
+        // zero window opens are possible by construction.
         expect(calls.parked).toHaveLength(2);
         expect(calls.reshown).toEqual([{
-            itemId: 'graph', rect: midRect, terminal: false, windowName: 'vessel-graph'
+            itemId: 'graph', rect: rect(500, 120, 640, 480), windowName: 'vessel-graph'
         }]);
         expect(calls.disposed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}]);
         expect(handlers.parkedVessel).toBeNull()
@@ -387,14 +357,14 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
 
         expect(handlers.onConversionIn(inData())).toBe(true);
 
-        await expect(handlers.onConversionOut({rect: rect(900, 300, 640, 480)})).resolves.toBe(false);
+        await expect(handlers.onGestureTerminal({itemId: 'graph', outcome: 'rejected'})).resolves.toBe(false);
         expect(handlers.parkedVessel?.windowName).toBe('vessel-graph');
 
         allowRestore = true;
 
-        await expect(handlers.onConversionOut({rect: rect(920, 320, 640, 480)})).resolves.toBe(true);
+        await expect(handlers.onGestureTerminal({itemId: 'graph', outcome: 'rejected'})).resolves.toBe(true);
         expect(calls).toHaveLength(2);
-        expect(calls[1].rect).toEqual(rect(920, 320, 640, 480));
+        expect(calls[1].rect).toEqual(rect(500, 120, 640, 480));
         expect(handlers.parkedVessel).toBeNull()
     });
 
@@ -483,7 +453,6 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
                 expect(calls.reshown).toEqual([{
                     itemId    : 'graph',
                     rect      : rect(500, 120, 640, 480),
-                    terminal  : true,
                     windowName: 'vessel-graph'
                 }])
             }

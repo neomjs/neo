@@ -12,8 +12,11 @@
 | Attribute | Value |
 |---|---|
 | **Status** | Accepted — 2026-07-10 (#14786; PR #14924 merged to `dev`). |
+| **After the split** | The Electron shell ships from [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution) (`harness/`, #17810), and the local plane it bootstraps from [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) (#17806). The Engine keeps this record as history. |
 | **Amended** | 2026-08-08 (#16747, [ADR 0038](0038-fm-client-topology.md) — the FM client topology, graduated from D#16720): §2.1's hosting frame and §2.6.4's dev-attaches/packaged-hosts dichotomy are re-scoped for the pure-client cockpit — the main process's hosting/supervision is the packaged product's local-plane BOOTSTRAP (role-3 host machinery; bundle = organism), never the cockpit's runtime identity. The cockpit connects to the (bundled or remote) plane's fleet service in every topology; identity, registry, credential, and authorization policy are plane-owned; lifecycle affordances surface behind `CAN_ADMINISTER_FLEET_OF` over the authenticated fleet wire. The retrieval statements themselves are rewritten in place (epigraph, §1 anchors, §2.1 heading + settled frame + binding 1, §2.6.4) with provenance brackets; ADR 0038 §3.3 is the canonical statement. |
 | **Author** | @neo-opus-vega (Vega, Claude Fable 5, Claude Code) — #13377 epic steward. |
+| **Runtime-continuity amendment** | 2026-10-13 (#19725, graduated at [D19723](https://github.com/orgs/neomjs/discussions/19723)): §2.5 adds immutable runtime generations for surviving managed seats, consuming [Institution #674](https://github.com/neomjs/neo-agent-institution/issues/674) and its [package-identity fold](https://github.com/neomjs/neo-agent-institution/issues/674#issuecomment-6151465185). [ADR 0038 §2.5.2](0038-fm-client-topology.md#252-native-launch-admission-generation-custody-and-recovery) supplies the clean-handoff admission contract. Decision authority, not executable or installed delivery. |
+| **Platform amendment** | 2026-10-16 (#19818, operator decision in session; no Discussion — the v1 scope is a product boundary, the seam rule design-seat substrate, this amendment's cross-family review the challenge path): §2.7 narrows §2.5.1's artifact set for v1 to macOS on Apple Silicon, fixes the post-v1 order (Linux arm64 in a container → x64 macOS → Windows; each demand-gated, its own leaf with a native smoke and receipt) and names the OS seam — the shell carries no platform branches; seat launch/wake OS specifics live in the Brain's launch/wake layer, keyed by harness kind × platform. |
 | **Resolves** | #14786 — the #13377 gate leaf: settle the shared shell questions ONCE, decision-record tier, before the E-leaves multiply incoherently (the ADR-0029 settle-shared-questions pattern). |
 | **Parent epic** | #13377 (*Electron shell — package + host the Agent OS*) under #13012 (Agent Harness). |
 | **Depends on** | **ADR 0020** (the embodiment vessel — extended, never superseded; §3 fixes the shell decision, the in-process target + child-process fallback, source-tree discipline, and PATs-Brain-side); **ADR 0029** (docking design — its §2.1 state-class table, window-manager boundaries, and semantic-restore rules are consumed, not reopened). |
@@ -146,6 +149,15 @@ adoption.
    one. The shell's popup admission follows the engine's staging contract, and a change to either
    re-reads the other. A handler that admits documents alone refuses every product popup, and does
    so silently (`windowOpen` resolves `false`).
+   **The external hand-off** *(amended 2026-10-03, #19380 — for
+   neomjs/neo-agent-institution#493)*: a denied window-open whose URL is `https:` on an allowlisted
+   host and carries no credentials is handed to the system browser with `shell.openExternal`; the
+   in-app window stays denied. The allowlist is `github.com`, the one host the cockpit's citations
+   and merge-queue rows link to; an addition amends this paragraph. `will-navigate` is unchanged —
+   same-window off-origin navigation stays denied — so nothing foreign ever renders inside the
+   shell: the policy still decides what the shell SHOWS, and the hand-off decides only where an
+   operator's own click on a pull request lands. A URL the hand-off refuses opens nothing, as
+   before.
 3. **Permissions and content:** a `setPermissionRequestHandler` that denies by default with a
    named, minimal allowlist (empty until a leaf needs one — additions amend this section); a
    restrictive CSP served by the `app://` handler for every document; no remote documents,
@@ -264,7 +276,7 @@ adoption.
    once the window settles. The caret, selection, undo and ⌘V through the Edit menu come with it.
 10. **The first-run setup broker is a named broker** *(amended 2026-10-02, #19366 — for
     neomjs/neo-agent-institution#384; 2026-10-03, #19377 — the effect channel is wired,
-    neomjs/neo-agent-institution#440; 2026-10-03, #19382 — a fresh run can be requested,
+    neomjs/neo-agent-institution#440; 2026-10-17, #19382 — a fresh run can be requested,
     neomjs/neo-agent-institution#475)*: the cockpit's setup card projects the first-run recipe
     (ADR 0041) inline, and only the shell's main process has host authority to evaluate it, record
     a consent, keep a credential and run a host effect. The preload exposes six capabilities, each
@@ -280,7 +292,8 @@ adoption.
       it held stays on disk as history, unread and unchanged — nothing is deleted and no receipt is
       replayed; what is already in place reads `ok` from the host's own observation. It is the one
       request a broker still answers when the record it holds cannot be read. The request names no
-      run (the broker's binding is the run), so a fresh run cannot contradict a resume.
+      run (the broker's binding is the run), so a fresh run cannot contradict a resume. A `fresh`
+      that is not a boolean is refused by name.
     - `setupProbe()` → `{ok: true, probe}`, the placement probe's JSON; `setupPresets()` →
       `{ok: true, presets}`, the preset table. Both are main's reads; what the renderer holds of
       them is a projection of main's last answer, never a budget or a table of its own.
@@ -293,15 +306,22 @@ adoption.
       owner-only file under the host setup root's `credentials/` and records the file's PATH as the
       consent (ADR 0041: the record holds references, never secrets). The reply names the path. A
       canceled window refuses `canceled`.
-    - `setupEffect({effectId})` → `{ok: true, evaluation}`: the shell runs the one consented host
-      effect through the Brain's shared effect orchestration (the CLI's own module) — its settle
-      pass first, then the named effect in the recipe's order rules, where an earlier effect that
-      is not `ok` halts it — and answers with the re-evaluated run. A refusal the orchestration
-      reports (the preset's env set, the credential composition) writes nothing and answers
+    - `setupEffect({effectId, newAttempt})` → `{ok: true, evaluation}`: the shell runs the one
+      consented host effect through the Brain's shared effect orchestration (the CLI's own
+      module) — its settle pass first, then the named effect in the recipe's order rules, where an
+      earlier effect that is not `ok` halts it — and answers with the re-evaluated run. An effect
+      that ran answers the run whatever came of it: its receipt moved, and its row carries the
+      outcome and the reason (a witness written whose recall has not landed; a write the plane
+      refused). Only a report that moved nothing (the preset's env set, the credential
+      composition, a halt behind an unsettled effect) writes nothing and answers
       `{ok: false, reason, effectId}` in the orchestration's words; the card shows it as the
-      shell's word on that effect. Only a shell that cannot run effects at all (`not-packaged`,
-      `no-brain-root`) turns the card's row into the operator's instruction: run the CLI on the
-      host, then re-check. No second implementation of the effects exists in main.
+      shell's word on that effect. `newAttempt: true` is the operator's explicit consent to write
+      the first-run witness again: admitted only for `effectId: 'verify'`, and only when the
+      Brain's evaluated row names a new attempt as its exit; anywhere else it is refused by name
+      and nothing runs. Its stated cost is a possible second row on the plane. Neither main nor
+      the card reads a reason sentence to decide. Only a shell that cannot run effects at all
+      (`not-packaged`, `no-brain-root`) turns the card's row into the operator's instruction: run
+      the CLI on the host, then re-check. No second implementation of the effects exists in main.
 
     Across these six channels no credential value crosses the IPC in either direction; the window
     of item 9 remains the one renderer that holds one.
@@ -313,12 +333,52 @@ adoption.
     consent or bind a path to another window's value. Every operation starts from the record on
     disk, never from a copy the broker kept: an effect whose acknowledgement write the host
     rejected is found `pending` by the next request and settled by observation (ADR 0041), and a
-    record the broker cannot read refuses every operation but a fresh run. This is broker-local
-    ordering, not a cross-process exclusion: the CLI and the shell are not expected to drive one
-    run at the same time, and the record's digest-checked receipts make a crossed write visible as
+    record the broker cannot read refuses the operation. This is broker-local ordering, not a
+    cross-process exclusion: the CLI and the shell are not expected to drive one run at the same
+    time, and the record's digest-checked receipts make a crossed write visible as
     `reconcile-required`, never as a replay. The renderer holds no credential value, no path it did
     not receive from main, and no stored status: every row it shows is main's fresh evaluation, and
     a read that fails turns every row `unknown` with the read's reason.
+11. **Moving the seat root is a named broker** *(amended 2026-10-06, #19428 — for
+    neomjs/neo-agent-institution#573 and neomjs/neo-agent-institution#582)*: a packaged shell
+    keeps its agents' seats under one recorded root (`seat-root.json` under Electron `userData`,
+    written by the first launch's choice), and only main has the host authority to move them: the
+    Brain's dry run, a consent that persists the move's inputs, a relaunch, and the transition the
+    next boot settles before the Fleet child (#573). The preload exposes three capabilities, each
+    `ipcRenderer.invoke('shell-seat-root-<name>')`. Every handler validates the sender per
+    §2.3.4 — an untrusted sender rejects the invoke. The answers are the transition's own DTOs,
+    unwrapped. A consent refusal is `{state: 'refused', code, reason}`: the view decides on `code`
+    and shows `reason`, the sentence, and never decides on it. A shell that cannot run the move
+    refuses the plan and the consent the same way, with code `not-packaged` or `no-brain-root`.
+    - `seatRootStatus()` → pull-shaped like §2.3.7: `{packaged, root, pending, outcome}`.
+      `root` is the record (`{root, origin, recordedAt}`), `null` when there is none, or
+      `{unreadable: reason}` when it exists and cannot be read. `pending` is a consented move's
+      inputs (`{from, to, archive, rows, outOfScope, consentedAt}`), `null`, or
+      `{unreadable: reason}` the same way; a committed move keeps them, since every later boot
+      resumes its retirement from them. `outcome` is this boot's settlement,
+      `{state: 'none' | 'committed' | 'refused' | 'held', reason?, retirement?}`, which main keeps
+      in memory, so an unreadable record never hides it. The status answers while the Fleet boot is
+      held, since a held move is when the operator needs it.
+    - `seatRootPlan()` → the Brain's dry run for moving the recorded root to the root the Brain
+      resolves without a recorded override:
+      `{state: 'planned' | 'refused', reason?, from, to, rows, fingerprint}`, each row
+      `{id, seatHome, destination, state, materialized, reason?}`. The Brain's refusal carries
+      `reason` alone. The shell refuses with a code before asking the Brain: `no-seat-root` when
+      no root is recorded, `nothing-to-move` when the recorded root already is that root.
+    - `seatRootConsent({fingerprint})` → main re-plans and consents only to the plan the operator
+      saw: the fingerprint is the one value the renderer supplies, and the roots, rows, archive and
+      move id stay main's. It persists the move's inputs and relaunches, answering
+      `{state: 'consented'}`. Otherwise it writes nothing and refuses with a code: `plan-changed`
+      (the seats changed since the plan was shown), `already-consented`, `no-seat-root`,
+      `plan-refused` or `nothing-to-move`.
+
+    **Custody:** the move's inputs are one owner-only file beside the root record
+    (`seat-root-move.json`), written only through the consent channel. The boot that settles the
+    move reads it, and deletes it when it refuses the move (#573); the root record changes only as
+    the transition's commit. No credential crosses these channels and no credential window is
+    involved. The renderer holds no root, row or fingerprint it did not receive from main and no
+    state of its own. It shows main's latest answer; an invoke that rejects or a read that fails
+    shows `unknown`, and the view offers no consent on an unknown status.
 
 **Falsifier:** any leaf needing a renderer capability the preload cannot express through a named,
 allowlisted intent amends THIS section first (ADR-0005 lifecycle) — it never flips a window to
@@ -358,7 +418,8 @@ amends ADR 0029 and this section together, before implementation.
    (signed), Linux `AppImage` — built by an electron-builder-class pipeline from the packaging
    root (own `package.json`, wraps BUILT Body + Brain; ADR 0020 §3 source-tree discipline). "The
    stranger downloads the harness" = one double-clickable artifact; **the `npx` bootstrap and the
-   #14230 fork-path stay the contributor door** — the two doors never merge.
+   #14230 fork-path stay the contributor door** — the two doors never merge. *[v1 ships one of
+   these artifacts, macOS on Apple Silicon — §2.7 (2026-10-16, #19818).]*
 2. **Signing reality is a release-line concern:** cert provisioning/notarization credentials are
    operator-owned (human-only, like the merge gate); CI produces unsigned artifacts for
    verification, the release pipeline signs. No leaf embeds signing material in repo tooling.
@@ -374,6 +435,78 @@ amends ADR 0029 and this section together, before implementation.
 **Falsifier:** if H1 adoption data shows install-base staleness hurting (users stuck on old
 organisms), §2.5.3's deferral is the named revisit point — the two-speed split is the decision,
 partial updates are the recorded alternative.
+
+#### Runtime generations for managed seats
+
+The whole package remains the delivery unit. A managed seat's executable and MCP runtime must
+be independent of the replaceable app bundle for the lifetime of that seat. The 2026-10-13
+[installed update](https://github.com/neomjs/neo-agent-institution/issues/12#issuecomment-6149794862)
+required 31 minutes 18 seconds from checkpoint request to completed installation, before
+recipient recovery checks. That interval includes coordination, not just installer execution.
+The bundle-use guard correctly refused replacement while seat processes used its files.
+
+1. **One immutable generation per package identity.** The shell's install/boot owner materialises
+   the packaged runtime under `<userData>/brain/runtime/<generation-id>/`. The id is the SHA-256
+   of the UTF-8 JSON array `[productRevision, brainRevision, engineRevision, electronVersion]`,
+   in that order, using the complete values from `organism-build-info.json`. The revisions are
+   not abbreviated; staging time and installation path are not identity. Product revision alone
+   is insufficient: two retained `4183eccd` packages contain different Brain and Engine revisions
+   ([measured control](https://github.com/neomjs/neo-agent-institution/issues/674#issuecomment-6151438208)).
+2. **Verify the execution closure before publishing it.** A generation includes the packaged
+   Node-capable executable, its required native libraries, the organism modules and their locked
+   dependencies. It must run without loading code or native libraries from the replaceable
+   bundle, a mutable `current` link, or an operator-installed runtime. Native-module compatibility
+   and target-platform compatibility are checked before selection. The ledger separately records
+   a digest of the runtime/executable payload, its path and installation time. Reinstalling the
+   same identity and verified payload is a no-op; the same identity with different payload is a
+   named `non-reproducible build` refusal. Incomplete publication, integrity failure or an unknown
+   binding selects nothing. The exact payload manifest and atomic publication belong to the
+   implementing leaf; its evidence must cover file bytes, executable modes and link targets.
+3. **Pin one actual managed Start.** The seat command, executable, launcher target and projected
+   hooks bind to that runtime generation. A package installation does not rewrite or restart a
+   surviving seat. Its next explicit managed Start selects the installed generation. The existing
+   host lifecycle owns the pin and re-adopts it with the seat's verified process lease; a second
+   process supervisor or a filesystem-only inference is not a substitute.
+4. **Keep runtime identity distinct from admission authority.** A runtime generation identifies
+   immutable code; an admission generation is the revocable authority of one managed Start.
+   [ADR 0038 §2.5.2](0038-fm-client-topology.md#252-native-launch-admission-generation-custody-and-recovery)
+   requires positive durable succession proof, recovery of the existing owned profile capability,
+   the original issuer endpoint and current proofs from the original credential owners. Runtime
+   relocation alone cannot preserve later-child admission. Before replacing the issuer, the product
+   proves compatible pins and recoverable inputs, completes pending durable transitions, and awaits
+   endpoint release. Unproved prerequisites remain a named refusal or legacy migration case;
+   an old active record after an unclean issuer loss is not authority. App rollback never rolls back
+   admission revocations or security state, and no running profile is rewritten.
+5. **Retire only a generation proved unused.** The installed package and rollback target retain
+   their generations. A surviving seat's pin and any remaining child process also retain theirs:
+   zero currently running MCP children does not mean an idle seat cannot launch another child.
+   Unknown ownership or liveness retains the generation and names the uncertainty. Retirement
+   must exclude concurrent admission or Start acquiring a new reference between its check and
+   removal. The host generation lifecycle owns this decision, using the existing seat lifecycle
+   and admission authorities rather than a second counter that can silently drift.
+6. **Preserve the installer and the operator's choices.** Whole-package staging, verified slot
+   replacement, custody comparison and the one-slot rollback remain the canonical install path.
+   The bundle-use guard remains unchanged. Legacy seats still bound to the bundle require a
+   managed migration restart and remain a named refusal until migrated; the installer never kills
+   them. For compatible generation-bound seats meeting the clean-handoff contract, a routine package
+   update requires no peer checkpoint or session reopening. The cockpit distinguishes each seat's
+   running generation from the installed one; moving a live seat to the new generation remains an
+   explicit restart choice. A vendor-harness update that ends the seat process also ends that Start;
+   it is outside this surviving-seat promise.
+
+**Delivery and retirement of the transitional guidance:** neomjs/neo-agent-institution#674 owns generation
+materialisation, retention, installer integration and its display; neomjs/neo-agent-brain#980 owns the seat
+binding, admission continuity and hook projection. The current stop-all update guide stays
+accurate until those implementations pass the installed witness, then its ordinary update path
+is replaced. E7's automatic feed/signing work remains separate; this clause does not enable
+partial in-place updates or change the release-line credential boundary.
+
+**Required installed witness:** update the canonical app with every generation-bound seat
+running; verify unchanged custody, old/new generation coexistence, each seat's native tools and
+a later MCP-child reconnect without restarting that seat. Then exercise an explicitly selected
+seat restart onto the new generation, rollback reachability, safe retirement and unknown-liveness
+retention. Preserve failed or unobserved checks on neomjs/neo-agent-institution#12; a green package smoke or an
+already-running child answering is not the complete witness.
 
 ### §2.6 Dev/prod parity — one harness root, two origins, identical topology (Q6)
 
@@ -404,6 +537,60 @@ partial updates are the recorded alternative.
 **Falsifier:** any leaf introducing a `process.versions.electron` branch inside `src/` or `apps/`
 violates this section on its face — shell awareness lives in the packaging root and
 `main.addon.*` enhancement points only.
+
+### §2.7 Amendment — Target platforms for v1 and the OS seam (2026-10-16, #19818)
+
+> Operator decision of 2026-10-16, recorded by the design seat; no Discussion — the v1 scope is a
+> product boundary (Tier 4), the seam rule is design-seat substrate, and this amendment's
+> cross-family review is the challenge path. §2.5's artifact class, signing and update decisions
+> stand; this section scopes them in time.
+
+1. **v1 ships one artifact: macOS on Apple Silicon.** §2.5.1's three installers remain the end
+   state, not the v1 scope. The pipeline is single-architecture by construction, not by Electron's
+   limits: `harness/electron-builder.yml:54` emits `zip` for `arch: arm64` only; `pack.mjs` stages
+   one organism directory and rebuilds its dependencies for the **host** architecture
+   (`@electron/rebuild` without `--arch`, `pack.mjs:783–820` at Institution `3ec914d`); and
+   `runtimeGeneration.mjs:585–587` verifies the observed architecture at publication, so a
+   cross-architecture shell over host-built natives refuses itself. Electron 43.5.0 publishes
+   `darwin-x64`, `darwin-arm64`, `linux-arm64` and `linux-x64` release assets.
+2. **The order after v1 — each step demand-gated and its own packaging leaf,** with a native smoke
+   on the target and an artifact receipt, never a config-flag toggle: **(a) Linux arm64 in a Docker
+   container** first — the development host's architecture, a plane that already runs as Linux
+   containers, hosted CI with arm64 Linux runners, and the registry's `runsAs: 'cli'` kinds as the
+   seats (`codex`, `claude-code`, `opencode`, `kimi-code` — `src/fleet/contract/harnessTypes.mjs:20-29`
+   at Brain `c9d894c6`); the `runsAs: 'app'` kinds (`claude-desktop`, `codex-desktop`, `antigravity`,
+   the last gated to `darwin`/`arm64` at `ai/services/fleet/probeAntigravityRuntime.mjs:28,71`) have
+   no Linux form today — the seed of a hosted institution; **(b) x64 macOS** when a concrete machine needs it (macOS 26 is Apple's last
+   Intel release; the tail shrinks); **(c) Windows** on the first outside team that runs it —
+   per-harness launch and wake adapters, Docker Desktop over WSL2 for the plane, Windows signing
+   beside §2.5.2's notarization, an installer, a machine, a runner.
+3. **The OS seam.** The shell carries no platform branches beyond the four files that hold them
+   today — `harness/install.mjs:865`, `harness/main.mjs:382,403`, `harness/prepareAssets.mjs:53` (a
+   build-time script) and `harness/runtimeGeneration.mjs:89,519` (Institution `4fd5945`).
+   OS-specific **seat launch, resume, runtime probing and wake** behaviour lives in the Brain's
+   launch/wake layer — `ai/services/fleet/*`, `ai/scripts/lifecycle/*`, `ai/daemons/wake/*` (Brain
+   `c9d894c6`) — whose active platform branches sit in `resumeHarness.mjs` (a `tmux` adapter for
+   non-`darwin` hosts at :218; `win32` paths at :149,182), `windowsBatchSpawn.mjs`,
+   `probeAntigravityRuntime.mjs`, `manageCodexDesktopRuntime.mjs` (the `.app` bundle shape at
+   :61-65), `runtimeGeneration.mjs`, `excludeManagedWorkspaceFiles.mjs`, `localWakeAdapters.mjs`,
+   `daemon.mjs` and `receiver.mjs`; `deriveHarnessLaunchSpec.mjs` keys on
+   harness kind and carries no platform branch yet — it is the dispatch site where harness kind ×
+   platform lands. Generic host portability elsewhere (command names, path separators, benchmark
+   and maintenance scripts) is not this seam's subject. The first non-macOS leaf makes the seam
+   explicit (one adapter per harness kind × platform) and carries the platform-branch census as its
+   first deliverable; until then the layer is the seam de facto, and no new seat launch, resume or
+   wake code branches on platform outside it.
+4. **Identity portability is not a platform question.** No walk and no platform leaf moves a peer:
+   a cold first run is a fresh institution with a guest seat. A seat move's minimum is the seat's
+   harness-local memory, its credential and its seat definition; the shared record stays with the
+   plane (Brain #571's lane, copy-never-move).
+
+**Falsifier:** a new `process.platform`, `darwin`, `win32` or `linux` branch in the shell outside the
+four files of item 3, or seat launch, resume, runtime-probing or wake code that branches on platform
+outside the layer named there, violates this section on its face — the same shape as §2.6's
+`process.versions.electron` falsifier; the baseline trees at Institution `4fd5945` and Brain
+`c9d894c6` pass it. A platform target added as a flag without its native smoke and receipt violates
+item 2.
 
 ## 3. Consequences
 
@@ -445,7 +632,7 @@ violates this section on its face — shell awareness lives in the packaging roo
 |---|---|---|
 | E1 — build root (#13033, exists, owner @neo-opus-ada) | **as its live Contract Ledger stands:** packaging root + main entry, hosting-arm spike, Agent-OS boot, first harness window, popup windows joining the shared workers, and the window-management bridge enhancement points | §2.1, §2.6 (frame only — the leaf's ledger is consumed unchanged) |
 | E2 — origin + scheme hardening (post-E1) | `app://` privileged scheme with C1's FULL privilege set (`supportFetchAPI` normative), stable origin, CSP delivery, the fetch/JSON smoke, harness-smoke re-run ownership | §2.2 C1/C5/C6, §2.3.3, §2.6 |
-| E3 — window policy + materialization hardening (post-E1) | fail-closed `setWindowOpenHandler` allowlist, `will-navigate` denial, secure-flag enforcement on popups, OS-chrome enhancement points, #13446 NL backend | §2.2 C3, §2.3.1–.4, §2.4 |
+| E3 — window policy + materialization hardening (post-E1) | fail-closed `setWindowOpenHandler` allowlist + the allowlisted external hand-off to the system browser, `will-navigate` denial, secure-flag enforcement on popups, OS-chrome enhancement points, #13446 NL backend | §2.2 C3, §2.3.1–.4, §2.4 |
 | E4 — Brain lifecycle service | start/stop/restart with settle-or-reject, port management, data-root injection | §2.1.1–.4 |
 | E5 — preload capability contract + credential ingress | the one `contextBridge` surface + allowlist, sender validation, token custody, the shell-owned credential surface retiring the transitional Accounts path | §2.3.4–.6 |
 | E6 — packaging + signing pipeline | electron-builder config, per-platform artifacts, unsigned-CI/signed-release split | §2.5 |

@@ -259,14 +259,18 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         }).toBe(5);
         await expect(shellRoot, 'the DOM must contain exactly one projected root shell').toHaveCount(1);
 
-        const directChildren = asArray(await app.findInstances(
-                {parentId: holderId},
-                ['id', 'dockNodeId', 'dockNodeType', 'mounted']
-            )),
-            projectionRoots = directChildren.filter(record => values(record).dockNodeType === 'edge-zone'),
-            consistency     = await app.verifyComponentConsistency(holderId);
+        // Both gates above pass while the projection still swaps the bootstrap root shell for the real one,
+        // so wait for a single mounted shell. Bounded: a shell that never leaves is the poisoned mount.
+        await expect.poll(async () => asArray(await app.findInstances(
+            {parentId: holderId},
+            ['dockNodeType', 'mounted']
+        )).filter(record => values(record).dockNodeType === 'edge-zone').map(record => values(record).mounted), {
+            message: 'worker ownership settles on one mounted projected root shell',
+            timeout: 5000
+        }).toEqual([true]);
 
-        expect(projectionRoots, 'worker ownership contains one projected root shell').toHaveLength(1);
+        const consistency = await app.verifyComponentConsistency(holderId);
+
         expect(consistency.consistent, `workspace items/vdom/DOM: ${JSON.stringify(consistency)}`).toBe(true);
 
         const readEdgeResizeParticipants = async () => {

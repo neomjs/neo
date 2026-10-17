@@ -29,6 +29,7 @@ import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs
 import Buffered           from '../../../../src/list/Buffered.mjs';
 import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import Store              from '../../../../src/data/Store.mjs';
+import VDomUpdate         from '../../../../src/manager/VDomUpdate.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 class PooledRow extends Component {
@@ -283,6 +284,57 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
         expect(label.text).toBe('Record 2');
         expect(label.vdom.text).toBe('Record 2');
         expect(label.vnode.textContent).toBe('Record 2')
+    });
+
+    /**
+     * A scroll re-binds the pool silently. A row's own update that waited behind the list's previous repaint merges
+     * into the queued one at landing, and the merge gives it an allow-list: unless the re-bind declares itself dense,
+     * sparse tree generation prunes every other row as clean, and each keeps the vnode of the record it showed before.
+     */
+    test('a scroll re-bind ships every row when a row update merges into its repaint (#19762)', async () => {
+        await createList({count: 100});
+        await list.timeout(20);
+
+        const
+            originalUpdateBatch = VdomHelper.updateBatch,
+            probe               = list.items[0],
+            merges              = [];
+
+        // Records whether the probe row was merged into each list payload at collection
+        list.getVdomUpdatePayload = function(ids, depth) {
+            merges.push(VDomUpdate.getMergedChildIds(this.id)?.has(probe.id) === true);
+
+            return Object.getPrototypeOf(this).getVdomUpdatePayload.call(this, ids, depth)
+        };
+
+        // One worker round trip of latency, so the first repaint is still in the air when the row updates
+        VdomHelper.updateBatch = async function(data) {
+            await new Promise(resolve => setTimeout(resolve, 20));
+            return originalUpdateBatch.call(this, data)
+        };
+
+        try {
+            list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 400});
+            await list.timeout(5);
+            expect(list.isVdomUpdating, 'the first repaint is in the air').toBe(true);
+
+            probe.addCls('merged-probe');
+            list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 1000});
+
+            await list.timeout(150);
+            expect(list.isVdomUpdating || list.needsVdomUpdate, 'no repaint is left to carry the rows').toBe(false);
+            expect(merges, 'the queued repaint was collected with the probe row merged into it').toContain(true);
+
+            const stale = list.items
+                .filter(row => row.vnode?.textContent !== row.record.name)
+                .map(row => `${row.id}: vnode ${row.vnode?.textContent}, record ${row.record.name}`);
+
+            expect(list.mountedRange[0], 'the second scroll moved the pool').toBeGreaterThan(20);
+            expect(stale, 'every re-bound row reached its vnode').toEqual([])
+        } finally {
+            VdomHelper.updateBatch = originalUpdateBatch;
+            delete list.getVdomUpdatePayload
+        }
     });
 
     test('resize grows and shrinks the pool, destroying only excess component slots', async () => {

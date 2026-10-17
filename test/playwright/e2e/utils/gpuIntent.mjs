@@ -43,20 +43,52 @@ export const GPU_INTENT_ARGS = [
 ];
 
 /**
+ * @summary Playwright's own disabled Chrome features, copied verbatim from its `chromiumSwitches`.
+ *
+ * Playwright launches Chrome with these as `--disable-features` and appends user args after them, and
+ * Chrome keeps only the last `--disable-features`. Any list of ours therefore replaces this one unless
+ * it repeats it. `glState.spec.mjs` fails when the installed Playwright's list stops matching.
+ * @type {String[]}
+ */
+export const PLAYWRIGHT_DISABLED_FEATURES = [
+    'AvoidUnnecessaryBeforeUnloadCheckSync',
+    'DestroyProfileOnBrowserClose',
+    'DialMediaRouteProvider',
+    'GlobalMediaControls',
+    'HttpsUpgrades',
+    'LensOverlay',
+    'MediaRouter',
+    'PaintHolding',
+    'ThirdPartyStoragePartitioning',
+    'BlockOriginHeaderModificationOnRedirect',
+    'Translate',
+    'AutoDeElevate',
+    'OptimizationHints',
+    'NetworkTimeServiceQuerying',
+    'AimEnabled',
+    'msForceBrowserSignIn',
+    'msEdgeUpdateLaunchServicesPreferredVersion'
+];
+
+/**
  * @summary Shared browser isolation, memory, throttling, screen, and sandbox arguments.
  *
  * The explicit engine profile uses this list unchanged. The presenting profile removes the
  * frame-rate override which suppresses compositor frames on headed Retina hosts.
  *
- * `--screen-info` gives headless Chrome a 1920×1080 screen instead of its 800×600 default. The
+ * `--screen-info` gives headless Chrome a 2560×1440 screen instead of its 800×600 default. The
  * window manager clamps a script-moved popup into the screen, so on the default a 480 px popup's
  * `moveTo(900, 20)` lands at x = 320 and the product's own placement cannot follow a target the
- * test staged beyond it. `contextOptions.screen` changes only what `window.screen` reports, and
- * measured with this configuration's `chrome` channel, `--window-size` left the screen at 800 px.
+ * test staged beyond it. The multi-window journeys drive popups beside a 1280×720 main window, which
+ * 1920×1080 still leaves too little room for. `contextOptions.screen` changes only what `window.screen`
+ * reports, and measured with this configuration's `chrome` channel, `--window-size` left the screen at 800 px.
+ *
+ * `TouchpadOverscrollHistoryNavigation` is disabled because Chrome reads CDP's precise wheel deltas as a
+ * touchpad swipe, and a horizontal overscroll then navigates the page under test back.
  * @type {String[]}
  */
 export const BASE_LAUNCH_ARGS = [
-    '--screen-info={1920x1080}',
+    '--screen-info={2560x1440}',
     '--disable-frame-rate-limit',
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -67,7 +99,7 @@ export const BASE_LAUNCH_ARGS = [
     '--disable-dev-shm-usage',
     '--disable-ipc-flooding-protection',
     '--force-gpu-mem-available-mb=4096',
-    '--disable-features=IsolateOrigins,site-per-process'
+    `--disable-features=${[...PLAYWRIGHT_DISABLED_FEATURES, 'IsolateOrigins', 'site-per-process', 'TouchpadOverscrollHistoryNavigation'].join(',')}`
 ];
 
 /**

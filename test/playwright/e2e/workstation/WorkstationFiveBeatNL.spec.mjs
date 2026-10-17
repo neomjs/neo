@@ -10,7 +10,7 @@ import * as core                                                    from '../../
 import PreviewContract                                              from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {test, expect}                                               from '../../fixtures.mjs';
 import {assertPreviewZoneAlignment, readComponentRects}             from '../utils/dockGeometry.mjs';
-import {pinToCaptureDisplay, placeNativeWindow, planSideBySide, readBrowserSurface,
+import {identifyNativeWindow, pinToCaptureDisplay, placeNativeWindow, planSideBySide, readBrowserSurface,
     readDisplayEnvelope}                                           from '../utils/filmStage.mjs';
 import {isFilmTake}                                                 from '../utils/gpuIntent.mjs';
 
@@ -220,19 +220,79 @@ async function awaitFilmGo(payload) {
 }
 
 /**
+ * @summary The environment every `swift -e` native-input script runs in: one module cache per
+ * user, so only the first compile on a machine pays for Cocoa's modules.
+ * @returns {Promise<Object>} the process environment plus the shared module-cache paths
+ */
+async function nativeInputEnv() {
+    const moduleCache = path.join(process.env.TMPDIR || '/tmp', 'neo-native-titlebar-swift-cache');
+
+    await fs.ensureDir(moduleCache);
+
+    return {...process.env, CLANG_MODULE_CACHE_PATH: moduleCache, SWIFT_MODULE_CACHE_PATH: moduleCache}
+}
+
+/**
+ * @summary Compiles the native-input imports before any gesture-timed witness opens: on a cold
+ * module cache the drag's own `swift -e` compile outlasts the 15 s witnesses beside it.
+ * @returns {Promise<Boolean>} whether the OS accepts literal HID events from this process tree
+ */
+async function warmNativeInput() {
+    const {stdout} = await execFileAsync('/usr/bin/swift', ['-e',
+        'import Cocoa\nimport Darwin\nimport Foundation\nprint(CGPreflightPostEventAccess())'
+    ], {env: await nativeInputEnv(), timeout: 120000});
+
+    return stdout.trim() === 'true'
+}
+
+/**
+ * @summary Lists the on-screen windows the native sensor can bind, as the window server reports them.
+ * @returns {Promise<Object[]>} `{height, number, width, x, y}` per window, frames in global points
+ */
+async function listNativeWindows() {
+    const {stdout} = await execFileAsync('/usr/bin/swift', ['-e', `
+import Cocoa
+let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+for info in windows {
+    guard let number = info[kCGWindowNumber as String] as? Int,
+          let bounds = info[kCGWindowBounds as String] as? NSDictionary,
+          let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { continue }
+    print("\\(number) \\(frame.minX) \\(frame.minY) \\(frame.width) \\(frame.height)")
+}
+`], {env: await nativeInputEnv(), timeout: 60000});
+
+    return stdout.trim().split('\n').filter(Boolean).map(line => {
+        const [number, x, y, width, height] = line.split(' ').map(Number);
+
+        return {height, number, width, x, y}
+    })
+}
+
+/**
  * @summary Performs one literal macOS HID titlebar drag with CoreGraphics mouse events.
  *
  * The path first enters popup content and exits through its titlebar so the product's ordinary
  * mouseout-owned movement observer is live. It then holds the OS mouse button throughout the
  * cross-window move and dwell. No CDP or Neo method moves the popup during this gesture.
+ *
+ * The window server resists a window whose edge meets another window's edge, so an open-loop
+ * path leaves the frame short of the hand. Like a hand that watches its corner, the script reads
+ * the bound popup window's frame back after the path and keeps dragging until its origin is on
+ * `land`, inside the coordinator's quiescence window so no early drop fires.
  * @param {Object} data
  * @param {{x:Number,y:Number}} data.end Global release coordinate over the target window.
+ * @param {{x:Number,y:Number}} data.land Global popup frame origin the hand must reach.
  * @param {{x:Number,y:Number}} data.prime Global point inside popup content.
  * @param {{x:Number,y:Number}} data.start Global popup-titlebar press coordinate.
- * @returns {Promise<Object>} Accessibility and physical mouse timing receipt.
+ * @param {Number} data.window The popup's window number, bound by {@link identifyNativeWindow}.
+ * @returns {Promise<Object>} Accessibility, physical mouse timing and landing receipt.
  */
-async function dragNativeTitlebar({end, prime, start}) {
-    const points = [end, prime, start];
+async function dragNativeTitlebar({end, land, prime, start, window}) {
+    const points = [end, land, prime, start];
+
+    if (!Number.isInteger(window)) {
+        throw new Error('native titlebar drag requires the popup window number its sensor reads')
+    }
 
     if (!points.every(point => Number.isFinite(point?.x) && Number.isFinite(point?.y))) {
         throw new Error('native titlebar drag requires finite global coordinates')
@@ -287,22 +347,49 @@ for step in 1...28 {
     Thread.sleep(forTimeInterval: 0.025)
 }
 
+let landX = ${literal(land.x)}
+let landY = ${literal(land.y)}
+
+let popupWindow = CGWindowID(${Number(window)})
+
+func popupOrigin() -> CGPoint? {
+    guard let info = (CGWindowListCopyWindowInfo([.optionIncludingWindow], popupWindow) as? [[String: Any]])?.first,
+          let bounds = info[kCGWindowBounds as String] as? NSDictionary else { return nil }
+
+    return CGRect(dictionaryRepresentation: bounds as CFDictionary)?.origin
+}
+
+var mouseX = endX
+var mouseY = endY
+var corrections = 0
+var sensorLost = false
+
+Thread.sleep(forTimeInterval: 0.04)
+
+for _ in 0..<6 {
+    guard let origin = popupOrigin() else { sensorLost = true; break }
+    guard abs(landX - origin.x) > 1 || abs(landY - origin.y) > 1 else { break }
+    mouseX += landX - origin.x
+    mouseY += landY - origin.y
+    corrections += 1
+    post(.leftMouseDragged, x: mouseX, y: mouseY)
+    Thread.sleep(forTimeInterval: 0.03)
+}
+
+let landed = popupOrigin()
+print("sensorLost=\\(sensorLost || landed == nil)")
+print("corrections=\\(corrections)")
+print("landedX=\\(landed?.x ?? .nan)")
+print("landedY=\\(landed?.y ?? .nan)")
 Thread.sleep(forTimeInterval: 0.14)
 print("mouseUpMs=\\(Int(Date().timeIntervalSince1970 * 1000))")
-post(.leftMouseUp, x: endX, y: endY)
+post(.leftMouseUp, x: mouseX, y: mouseY)
 Thread.sleep(forTimeInterval: 0.12)
-`,
-        moduleCache = path.join(process.env.TMPDIR || '/tmp', 'neo-native-titlebar-swift-cache');
-
-    await fs.ensureDir(moduleCache);
+`;
 
     try {
         const {stderr, stdout} = await execFileAsync('/usr/bin/swift', ['-e', script], {
-            env: {
-                ...process.env,
-                CLANG_MODULE_CACHE_PATH: moduleCache,
-                SWIFT_MODULE_CACHE_PATH: moduleCache
-            },
+            env    : await nativeInputEnv(),
             timeout: 60000
         });
         const receipt = Object.fromEntries(stdout.trim().split('\n').map(line => {
@@ -315,6 +402,9 @@ Thread.sleep(forTimeInterval: 0.12)
 
         return {
             access     : receipt.access === 'true',
+            corrections: Number(receipt.corrections),
+            sensorLost : receipt.sensorLost !== 'false',
+            landed     : {x: Number(receipt.landedX), y: Number(receipt.landedY)},
             mouseDownMs: Number(receipt.mouseDownMs),
             mouseUpMs  : Number(receipt.mouseUpMs)
         }
@@ -348,8 +438,11 @@ async function assertStageGeometryPublished(app, stageReceipt) {
             observed      = stageReceipt.after,
             delta         = managedWindow?.innerRect && managedWindow?.outerRect
                 ? [
-                    ...['x', 'y', 'width', 'height']
-                        .map(key => Math.abs(managedWindow.innerRect[key] - observed.inner[key])),
+                    // `observed.inner.x/y` is screenX/screenY, the FRAME origin: the manager's frame is outerRect
+                    Math.abs(managedWindow.outerRect.x - observed.inner.x),
+                    Math.abs(managedWindow.outerRect.y - observed.inner.y),
+                    Math.abs(managedWindow.innerRect.width  - observed.inner.width),
+                    Math.abs(managedWindow.innerRect.height - observed.inner.height),
                     Math.abs(managedWindow.outerRect.width  - observed.outer.width),
                     Math.abs(managedWindow.outerRect.height - observed.outer.height)
                 ]
@@ -1981,6 +2074,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(userAgent, 'a headless browser cannot witness an OS titlebar gesture')
             .not.toContain('HeadlessChrome');
+        expect(await warmNativeInput(), 'the OS must accept literal HID events before a timed witness opens')
+            .toBe(true);
 
         const {default: Operations} = await import('../../../../src/dashboard/dock/model/Operations.mjs');
 
@@ -2010,7 +2105,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(storeIdsBefore).toHaveLength(2);
         await popup.waitForSelector('.workstation-viewport', {timeout: 30000});
 
-        const documentBeforeReturn = await readDocument(app, wsId);
+        const
+            documentBeforeReturn = await readDocument(app, wsId),
+            vesselBeforeReturn   = await app.callMethod(wsId, 'getWorkspaceDocument', ['workstation-vessel:metrics']);
 
         expect(Object.values(documentBeforeReturn.nodes)
             .flatMap(node => node.items ?? [])
@@ -2098,6 +2195,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         ]), 'the exact physical target point must pass the participant hit test').toBe(true);
 
         const
+            coordinators      = await app.findInstances({className: 'Neo.manager.DragCoordinator'}, ['nativeWindowDropAnchorInset']),
+            anchorInset       = (Array.isArray(coordinators) ? coordinators[0] : coordinators)?.properties?.nativeWindowDropAnchorInset,
             mainChromeHeight  = mainPlacement.browser.outer.height - mainPlacement.browser.inner.height,
             popupChromeHeight = popupPlacement.browser.outer.height - popupPlacement.browser.inner.height,
             titlebarOffset    = Math.max(8, Math.min(18, popupChromeHeight / 2)),
@@ -2116,15 +2215,26 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 y: popupPlacement.bounds.top + popupChromeHeight
                     + Math.min(80, popupPlacement.browser.inner.height / 3)
             },
-            desiredPopupTop = targetCenter.y - popupPlacement.bounds.height / 2,
+            // The drop anchor is the popup's outer top-left corner (inset), never its centre: the hand
+            // brings that corner onto the target, which leaves two sides of the drop zone visible
             end = {
-                x: targetCenter.x,
-                y: desiredPopupTop + titlebarOffset
+                x: targetCenter.x - anchorInset + (start.x - popupPlacement.bounds.left),
+                y: targetCenter.y - anchorInset + titlebarOffset
             },
             popupStart = await popup.evaluate(() => ({
                 x: globalThis.screenX,
                 y: globalThis.screenY
             }));
+
+        expect(Number.isFinite(anchorInset), 'the coordinator must publish its native drop anchor inset').toBe(true);
+
+        // The hand's sensor reads this one window throughout, bound by its frame before the gesture
+        const popupWindow = identifyNativeWindow(await listNativeWindows(), {
+            height: popupPlacement.browser.outer.height,
+            width : popupPlacement.browser.outer.width,
+            x     : popupStart.x,
+            y     : popupStart.y
+        });
 
         await page.evaluate(() => {
             const
@@ -2255,7 +2365,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
                     if (coexistence.firstBothAt && !semanticSnapshot) {
                         semanticSnapshot = await app.callMethod(wsId, 'readCrossWindowGestureSnapshot', [{
-                            parkedItemId     : 'metrics',
+                            draggedItemId    : 'metrics',
                             targetWorkspaceId: 'workstation-main'
                         }])
                     }
@@ -2280,7 +2390,13 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 }
             })(),
             [nativeInput, moved, retainedAtFirst] = await Promise.all([
-                dragNativeTitlebar({end, prime, start}),
+                dragNativeTitlebar({
+                    end,
+                    land  : {x: targetCenter.x - anchorInset, y: targetCenter.y - anchorInset},
+                    prime,
+                    start,
+                    window: popupWindow
+                }),
                 movedPromise,
                 retainedPromise
             ]),
@@ -2313,6 +2429,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         }));
 
         expect(nativeInput.access, 'the OS accepted literal HID event authority').toBe(true);
+        expect(nativeInput.sensorLost, 'the bound popup window must stay readable through the landing').toBe(false);
+        expect(Math.max(
+            Math.abs(nativeInput.landed.x - (targetCenter.x - anchorInset)),
+            Math.abs(nativeInput.landed.y - (targetCenter.y - anchorInset))
+        ), `the hand must land the popup corner on the target (corrections: ${nativeInput.corrections})`)
+            .toBeLessThanOrEqual(2);
         expect(nativeInput.mouseUpMs).toBeGreaterThan(nativeInput.mouseDownMs);
         expect(Math.max(
             Math.abs(moved.x - popupStart.x),
@@ -2346,7 +2468,13 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         const
             expectedOperation = PreviewContract.previewToOperation(committedPreview),
-            expectedReturn    = Operations.applyOperation(documentBeforeReturn, expectedOperation);
+            // The vessel owns the torn-out record, so the return is a transfer back into main
+            expectedReturn    = Operations.transferItem(vesselBeforeReturn, documentBeforeReturn, {
+                itemId           : 'metrics',
+                sourceWorkspaceId: 'workstation-vessel:metrics',
+                targetWorkspaceId: 'workstation-main',
+                target           : expectedOperation
+            });
 
         expect(expectedOperation, 'the retained accepted preview must convert through the production contract')
             .toBeTruthy();
@@ -2359,7 +2487,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         await expect.poll(async () => {
             closeReceipt = (await app.getComponent(wsId, ['lastTearOutClose']))?.lastTearOutClose ?? null;
             nativeSnapshot = await app.callMethod(wsId, 'readCrossWindowGestureSnapshot', [{
-                parkedItemId     : 'metrics',
+                draggedItemId    : 'metrics',
                 targetWorkspaceId: 'workstation-main'
             }]);
 
@@ -2377,7 +2505,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(documentAfter,
             `the exact physical landing must commit its retained ${committedPreview.placement.kind} preview`)
-            .toEqual(expectedReturn.document);
+            .toEqual(expectedReturn.targetDocument);
         expect(Object.values(documentAfter.nodes)
             .flatMap(node => node.items ?? [])
             .filter(itemId => itemId === 'metrics')).toHaveLength(1);
@@ -2417,6 +2545,22 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             timeout  : 5000,
             intervals: [25, 50, 100]
         }).toEqual({preview: false, proxy: false});
+
+        // The return's cost by phase, relative to the OS mouse-up: main's re-projection receipt and the
+        // transfer's own phases. A receipt for the vessel-close latency, not an assertion.
+        const projectionReceipt = await app.getComponent(wsId, ['projectionCycle.timing', 'lastCrossWindowTransfer']),
+              timing            = projectionReceipt?.['projectionCycle.timing'] ?? null;
+
+        console.log('[native-titlebar][projection-timing]', JSON.stringify({
+            mouseUpMs                : nativeInput.mouseUpMs,
+            popupClosedAt,
+            popupClosedAfterMouseUpMs: popupClosedAt ? popupClosedAt - nativeInput.mouseUpMs : null,
+            timing,
+            timingAfterMouseUpMs     : Object.fromEntries(Object.entries(timing ?? {})
+                .filter(([, value]) => typeof value === 'number')
+                .map(([key, value]) => [key, value - nativeInput.mouseUpMs])),
+            transferPhases: projectionReceipt?.lastCrossWindowTransfer?.phases ?? null
+        }));
 
         expect(popupProbe).toHaveLength(1);
         expect(popupProbe[0].closed).toBe(true);
@@ -2548,12 +2692,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         const snapshot = dockResult.proof.remoteSnapshot;
 
+        // The target carries the drag and no vessel is left: none parks, none rides over it.
         expect(snapshot).toMatchObject({
             claimCount           : 1,
-            converted            : true,
             engaged              : true,
-            parkedItemId         : 'commits',
-            sourceVesselConnected: true,
+            sourceVesselConnected: false,
             targetProxy          : {
                 cls: expect.arrayContaining([
                     'neo-dock-dragproxy',
@@ -2570,10 +2713,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             targetWorkspaceId: 'workstation-vessel:metrics',
             winnerStableId   : 'workstation-vessel:metrics'
         });
-        expect(snapshot.sourceVesselWindowId, 'the parked physical source vessel must still exist pre-mouseup')
-            .toBeTruthy();
-        expect(snapshot.targetProxy.sourceWindowId, 'the proxy must reserve that exact parked source popup')
-            .toBe(snapshot.sourceVesselWindowId);
+        expect(snapshot.sourceVesselWindowId, 'no vessel survives the target\'s claim pre-mouseup').toBeNull();
+        expect(snapshot.targetProxy.sourceWindowId, 'the proxy reserves the pane in the window it lives in, not a vessel')
+            .not.toBe(snapshot.targetProxy.targetWindowId);
         expect(snapshot.targetProxy.targetWindowId, 'the visible proxy must belong to the target popup')
             .toBeTruthy();
         expect(snapshot.preview.previewId, 'the target must publish one semantic preview').toBeTruthy();
@@ -2961,10 +3103,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(dockResult.applied, 'commits must join metrics through one remote target').toBe(true);
             expect(dockResult.proof.remoteSnapshot).toMatchObject({
                 claimCount           : 1,
-                converted            : true,
                 engaged              : true,
-                parkedItemId         : 'commits',
-                sourceVesselConnected: true,
+                sourceVesselConnected: false,
                 targetProxy          : {
                     cls: expect.arrayContaining([
                         'neo-dock-dragproxy',
@@ -2981,8 +3121,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 targetWorkspaceId: 'workstation-vessel:metrics',
                 winnerStableId   : 'workstation-vessel:metrics'
             });
+            expect(dockResult.proof.remoteSnapshot.sourceVesselWindowId, 'no vessel survives the target\'s claim').toBeNull();
             expect(dockResult.proof.remoteSnapshot.targetProxy.sourceWindowId)
-                .toBe(dockResult.proof.remoteSnapshot.sourceVesselWindowId);
+                .not.toBe(dockResult.proof.remoteSnapshot.targetProxy.targetWindowId);
             expect(dockResult.proof.remoteSnapshot.rendered.previewId)
                 .toBe(dockResult.proof.remoteSnapshot.preview.previewId);
             expect(dockResult.proof.remoteSnapshot.preview.target.nodeId)
@@ -3022,6 +3163,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             });
 
             expect(returnResult.errors, JSON.stringify({
+                aimed           : returnResult.proof?.aimed,
                 sourceArm       : returnResult.proof?.sourceArm,
                 closeReceipt    : returnResult.proof?.closeReceipt,
                 phaseOrder      : returnResult.proof?.phaseOrder,

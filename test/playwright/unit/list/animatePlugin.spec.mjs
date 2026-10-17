@@ -540,6 +540,88 @@ test.describe('Neo.list.plugin.Animate', () => {
         list.destroy()
     });
 
+    test('repeated component sorts target the records actually displayed and settle only the latest intent', async () => {
+        const {list, store} = await createFixture({listClass: CardList, listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 200}});
+        const originalItems = [...list.items], before = [...itemNodes(list)];
+        let   settlements   = 0;
+        const createItems   = list.createItems.bind(list);
+        list.createItems = (...args) => { settlements++; return createItems(...args) };
+
+        store.sorters = [{property: 'name', direction: 'DESC'}];
+        await list.timeout(20);
+        store.sorters = [{property: 'name', direction: 'ASC'}];
+        await list.timeout(20);
+        expect(before[0].style.transform).toBe('translate(10px, 10px)');
+        expect(before[4].style.transform).toBe('translate(320px, 146px)');
+        expect(list.items).toEqual(originalItems);
+        await list.timeout(240);
+        expect(settlements).toBe(1);
+        expect(store.items.map(record => record.id)).toEqual([1, 2, 3, 4, 5]);
+        list.destroy()
+    });
+
+    test('a replacement load followed by a sort admits current content and newly joined records', async () => {
+        const {list, store} = await createFixture({listClass: CardList, listConfig: {itemWidth: 300}});
+        store.data = [{id: 1, name: 'updated', online: true}, {id: 6, name: 'joined', online: false}];
+        store.sorters = [{property: 'name', direction: 'ASC'}];
+        await list.timeout(120);
+        expect(itemNodes(list)).toHaveLength(2);
+        expect(list.items.slice(0, 2).map(item => item.text)).toEqual(['joined', 'updated']);
+        list.destroy()
+    });
+
+    test('index-pooled addresses resolve the displayed records and components throughout a sort', async () => {
+        const {list, store} = await createFixture({listClass: CardList, listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 200}});
+        store.sorters = [{property: 'name', direction: 'DESC'}];
+        await list.timeout(20);
+        itemNodes(list).forEach((node, index) => {
+            expect(list.getItemRecordId(node.id)).toBe(store.getKey(store.getAt(index)));
+            expect(node.cn[0].componentId).toBe(list.getComponentId(index));
+            expect(Neo.get(node.cn[0].componentId)).toBe(list.items[index])
+        });
+        list.destroy()
+    });
+
+    for (const [operation, mutate, ids] of [
+        ['add', store => store.add({id: 6, name: 'foxtrot', online: true}), [1, 2, 3, 4, 5, 6]],
+        ['remove', store => store.remove(3), [1, 2, 4, 5]],
+        ['clear', store => store.clear(), []],
+        ['replacement', store => { store.data = [{id: 1, name: 'updated', online: true}, {id: 6, name: 'joined', online: false}] }, [1, 6]]
+    ]) {
+        test(`ordinary ${operation} updates animated component descriptors before the mutation returns`, async () => {
+            const {list, store} = await createFixture({listClass: CardList, listConfig: {itemWidth: 300}}),
+                slots           = [...list.items];
+
+            try {
+                mutate(store);
+
+                const nodes = itemNodes(list);
+                expect(nodes, 'membership is current synchronously, before any microtask or frame').toHaveLength(ids.length);
+                expect(nodes.map(node => list.getItemRecordId(node.id))).toEqual(ids);
+                expect(nodes.map(node => Neo.get(node.cn[0].componentId).text)).toEqual(store.items.map(record => record.name));
+                nodes.forEach((node, index) => expect(Neo.get(node.cn[0].componentId)).toBe(list.items[index]));
+                // This consumer pools by index: it keeps usable slots, not a record-to-component map.
+                nodes.slice(0, Math.min(2, slots.length)).forEach((node, index) => {
+                    expect(Neo.get(node.cn[0].componentId)).toBe(slots[index])
+                })
+            } finally {
+                list.destroy()
+            }
+        })
+    }
+
+    test('an ordinary component load rebuilds synchronously and leaves no queued rebuild after destroy', async () => {
+        const {list, store} = await createFixture({listClass: CardList, listConfig: {itemWidth: 300}});
+        let   rebuilds      = 0;
+        list.createItems = () => { rebuilds++ };
+        store.data = [{id: 1, name: 'replacement', online: true}];
+        const beforeDestroy = rebuilds;
+        list.destroy();
+        await Promise.resolve();
+        expect(beforeDestroy, 'replacement reaches the original owner synchronously').toBeGreaterThan(0);
+        expect(rebuilds, 'destroy is followed by no deferred coarse-load work').toBe(beforeDestroy)
+    });
+
     test('a list destroyed inside a transition takes its settle timer with it', async () => {
         const {list, plugin, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 300}});
 

@@ -271,6 +271,7 @@ test.describe('Worker reply loss on null port lookup (#12958)', () => {
         const
             {app, inFlight, pending, vdom} = createChannelPair('win-channel'),
             [request]                      = inFlight,
+            rejection                      = pending.catch(reason => reason),
             errors                         = [],
             originalError                  = console.error;
 
@@ -289,6 +290,9 @@ test.describe('Worker reply loss on null port lookup (#12958)', () => {
         }
 
         expect(await settlement(pending), 'the caller is settled through the port-retirement contract').toBe('PortDisconnectedError');
+        const reason = await rejection;
+        expect(reason).toMatchObject({name: 'PortDisconnectedError', code: 'NEO_DEAD_PORT', windowId: 'win-channel'});
+        expect(app.isDeparture(reason), 'the emitted channel rejection identifies its recorded departure').toBe(true);
         expect(app.promises[request.id], 'and its pending entry is gone').toBeUndefined();
         expect(errors, 'the reply its window can no longer receive is not reported as a loss').toEqual([])
     });
@@ -512,7 +516,8 @@ test.describe('SharedWorker source-port lifecycle (#15906)', () => {
                 windowId: 'win-pending'
             },
             worker  = createSharedWorker([portEntry]),
-            pending = worker.promiseMessage('win-pending', {action: 'pendingReply'});
+            pending = worker.promiseMessage('win-pending', {action: 'pendingReply'}),
+            rejection = pending.catch(reason => reason);
 
         const [{id}] = captured.sent;
 
@@ -522,6 +527,24 @@ test.describe('SharedWorker source-port lifecycle (#15906)', () => {
         }, portEntry);
 
         await expect(pending).rejects.toThrow('Worker port disconnected before reply: port-pending');
+        const reason = await rejection;
+        expect(reason).toMatchObject({name: 'PortDisconnectedError', code: 'NEO_DEAD_PORT', windowId: 'win-pending'});
+        expect(worker.isDeparture(reason), 'no caller-supplied window is needed to classify the emitted reason').toBe(true);
+        expect(worker.promises[id]).toBeUndefined()
+    });
+
+    test('an in-flight non-window port failure remains a rejection without departure evidence', async () => {
+        const captured = createCapturingPort(),
+              entry    = {appNames: new Set(), id: 'backend-port', port: captured.port, windowId: null},
+              worker   = createSharedWorker([entry]),
+              pending  = worker.promiseMessage('backend-port', {action: 'pendingReply'}).catch(reason => reason),
+              [{id}]   = captured.sent;
+        expect(worker.removePort(entry)).toBe(true);
+        const reason = await pending;
+        expect(reason).toMatchObject({name: 'PortDisconnectedError', windowId: null});
+        expect(reason.message).toBe('Worker port disconnected before reply: backend-port');
+        expect(worker.isDeparture(reason)).toBe(false);
+        expect(worker.departedWindowIds.size).toBe(0);
         expect(worker.promises[id]).toBeUndefined()
     });
 
@@ -547,6 +570,9 @@ test.describe('SharedWorker source-port lifecycle (#15906)', () => {
         worker.removePort(oldEntry);
 
         expect(worker.promises[id]).toBeDefined();
+        worker.onMessage({data: {action: 'reply', data: 'stale-reply', replyId: id}}, oldEntry);
+        expect(worker.promises[id], 'the retired entry cannot settle the successor request').toBeDefined();
+        expect(successorPort.state.closed).toBe(false);
 
         worker.onMessage({
             data: {

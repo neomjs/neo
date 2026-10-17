@@ -304,6 +304,98 @@ For a column to be filterable, you must also set its `filterable` config to `tru
 text input filter for string fields and a number input filter for number fields. More complex filter types can be
 implemented by extending `Neo.grid.header.Filter`.
 
+### Grid Search Toolbar
+
+Set `searchToolbar` to an object to add a search toolbar above the grid. It is `null` by default, so existing grids
+keep their current layout until the feature is enabled.
+
+```javascript readonly
+{
+    module: GridContainer,
+    searchToolbar: {},
+    store,
+    columns: [
+        {text: 'Name',   dataField: 'name'},
+        {text: 'Status', dataField: 'status'}
+    ]
+}
+```
+
+The toolbar searches local, resolved field values with literal text. Whitespace separates terms, and every term must
+match somewhere in the selected search scope; the terms are combined with AND. A new search starts with the grid's
+searchable columns, including locked columns. Choose **All record fields** to also search values the grid does not
+display, or choose one named column. The scope menu identifies the selected choice and lists the stored search fields
+using column captions. A stored field absent from this grid is identified as **Record field: name**. A case toggle
+controls whether matching distinguishes letter case. Search does not
+interpret regular expressions.
+
+A column without searchable text or a configured text conversion stays listed as **not searchable**. The search
+field itself shows the query; it is not repeated as a filter chip. Effective header filters have removable chips,
+while application restrictions and inactive-search explanations remain visible beside them.
+
+The toolbar's `fieldText` config maps field names to `(value, item) => String` conversions, for example for Date
+fields. The hooks receive canonical field values and raw items; they do not call renderers or hydrate records.
+They are stored with the search on an explicit write. A toolbar that joins an existing search retains its stored
+hooks along with its field list.
+
+The search intent belongs to the Store, so grids sharing that Store share the search and the intent survives toolbar
+recreation. Clearing the text makes the search inactive while retaining its scope and case setting. Removing a
+header-filter chip removes that contribution. The toolbar's Clear filters action removes the grid-owned search,
+header, and value-picker filter roles together; application-owned filters remain active. Remote projections and tree
+grids cannot provide the complete local flat population this search requires, so the toolbar reports that limitation
+instead of applying a partial result.
+
+### Column Value Menus
+
+Set `columnMenu: true` on [Neo.grid.Container](../../../src/grid/Container.mjs) to add a value picker to its column headers.
+Each column can override the grid setting: `columnMenu: false` hides its menu, `true` enables it,
+and the default `null` follows the grid. The feature is off by default.
+
+```javascript readonly
+{
+    module: GridContainer,
+    columnMenu: true,
+    store,
+    columns: [
+        {dataField: 'status', text: 'Status', width: 180},
+        {dataField: 'region', text: 'Region', width: 180},
+        {dataField: 'notes', text: 'Notes', width: 240, columnMenu: false}
+    ]
+}
+```
+
+Open a menu with a right click, the header's arrow button, `Shift+F10`, or the context-menu key.
+The arrow appears on hover or keyboard focus and stays visible on devices without hover. Escape or
+an outside pointer dismisses the menu and returns focus to the header. The header retains its sort,
+resize and reorder interactions.
+
+Check one or more values to include them. Values within a column combine with OR; filters across
+columns combine with AND. Counts reflect the complete available Store population under the other
+active filters, including inline and application filters on the same column. They exclude this
+menu's own selection, so users can still see alternative values. The search field narrows the option
+labels with a case-insensitive literal substring; it does not filter grid records or alter checks.
+Date labels follow `Neo.config.locale`, showing only the date at exact local or UTC midnight and both the local date
+and time for other timestamps. UTC-midnight values use the UTC calendar date, so an ISO date-only value keeps
+its day across time zones. Empty strings display as `(blank)`, `null` as `(null)`, and `undefined` as
+`(undefined)`; other scalars keep their `String(value)` form. Labels do not merge typed option keys, so equal
+labels can represent distinct values, and formatting never calls a cell renderer.
+
+Selected values remain visible and removable when their count reaches zero or the search does not
+match them. New source values appear unchecked. Clear, or unchecking the final value, removes only
+this column menu's contribution. Inline header filters and application filters remain active.
+Two grids sharing a Store share these selections and counts; recreating a header reads the existing
+selection. Removing the menu leaves its Store-owned filter intact.
+
+The menu uses [Neo.list.ValuePicker](../../../src/list/ValuePicker.mjs), which buffers its option rows and displays up to 1,000
+unselected search matches by default. When more match, its footer asks the user to refine the search;
+selected options remain available in addition to that cap.
+
+Value counts require a complete, fully loaded local flat population with canonical comparable values.
+Normal Turbo Stores with simple canonical fields are supported without initializing offscreen records.
+Remote projections, incomplete data, trees, unknown fields, complex raw records and values that cannot
+be compared display an explanation instead of applying a partial filter. An application needing server
+facets must supply that authority separately; visible buffered rows cannot establish complete counts.
+
 ## Sorting
 
 Neo.mjs grids provide built-in support for sorting data by one or more columns. Sorting is primarily managed by the

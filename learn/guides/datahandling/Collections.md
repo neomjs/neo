@@ -252,6 +252,74 @@ re-filter of the collection. **It's important to note that simply mutating the `
 the `filters` property (e.g., `collection.filters = [...collection.filters];`) or modify properties of existing filter
 instances.**
 
+### Shared filter contributions
+
+`ownerRole` pairs with `property` to identify one contribution within a collection. Different roles on the same field
+remain separate. `getFilter(property)` keeps its first-match behavior; `getFilter(property, null)` explicitly finds an
+unowned filter, and `getFilter(property, 'header-picker')` finds that contribution. Grid and Table inline fields use
+`header-inline`, so multiple views of one Store share their respective inline and picker constraints.
+
+Assign a fresh filter array to replace contributions. Duplicate owned tuples are rejected before the previous filters
+are destroyed. Replacement is authoritative: an omitted contribution is removed. Keep roles stable for a contribution's
+lifetime, and use a new definition when retargeting it. Custom predicate functions and their scopes must outlive the
+Store intent; avoid capturing a transient header or popup. The built-in `typedIncluded` operator needs no UI scope.
+
+### Typed value counts on a local Store
+
+`typedIncluded` is a local include-set operator. It distinguishes strings, numbers, booleans, null, undefined and blank
+strings; valid Dates match by epoch and remain distinct from numeric timestamps. `Filter.getValueKey(value)` exposes
+the same typed key for option identity. Objects, arrays, NaN and invalid Dates are unsupported. Existing operators
+retain their behavior; remote consumers of `typedIncluded` are not supported.
+
+For example, count the alternatives under the region constraint while excluding only the status picker:
+
+```javascript readonly
+import Model from '../../src/data/Model.mjs';
+import Store from '../../src/data/Store.mjs';
+
+const store = Neo.create(Store, {
+    model: {module: Model, fields: [{name: 'id', type: 'Int'}, {name: 'status', type: 'String'}, {name: 'region', type: 'String'}]},
+    data : [{id: 1, status: 'Open', region: 'North'}, {id: 2, status: 'Closed', region: 'North'},
+            {id: 3, status: 'Closed', region: 'South'}],
+    filters: [{property: 'region', value: 'North'},
+              {property: 'status', ownerRole: 'header-picker', operator: 'typedIncluded', value: ['Open'],
+               reapplyOnRecordChange: true}]
+});
+await store.ready();
+store.filter(); // Apply filters supplied during initial construction before using the visible projection.
+
+const picker = store.getFilter('status', 'header-picker');
+const result = store.getFilterValues('status', picker);
+// An array of {key, value, count}: Open=1 and Closed=1. Visible membership stays id=1.
+// A surface uses result.refused / result.reason to render unsupported coverage honestly.
+```
+
+`getFilterValues(property, excludeFilter)` evaluates the complete `allItems` population, or the Store's items before
+filtering. It applies every predicate except that exact Filter instance, including other predicates on the same field.
+Buckets retain first-occurrence population order; the display consumer sorts labels. Returned Date values are detached
+from the source. `getFilteredItems(excludeFilter)` exposes the same observational evaluation without aggregation.
+A non-null exclusion must be a current Filter instance on that collection: a stale or foreign reference returns
+`unknown-filter` from `getFilterValues`, and throws from `getFilteredItems`. Re-resolve the contribution after replacement.
+Primitive callbacks see the full population; advanced callbacks see the preceding predicate's cohort. Callbacks must
+be observational and use those arguments for cohort-sensitive decisions. Counting preserves the current visible maps;
+it does not emulate a filtering writer's temporary map. It never removes/reapplies filters, emits filtering events,
+hydrates records or resolves fields.
+
+Coverage requires a fully loaded flat local Store with canonical values already available: eager Records, or raw
+simple-field Turbo items. Simple metadata does not authorize reconstructing missing defaults or coercing raw input.
+Expected refusal returns `{refused: true, reason}` with one of `unknown-filter`, `remote-projection`, `incomplete-population`,
+`unknown-field`, `raw-complex-fields`, `noncanonical-field`, `unsupported-value` or `tree-population`. Unexpected callback
+faults still propagate. A refusal is distinct from a valid empty array.
+
+With `reapplyOnRecordChange: true`, an enabled contribution makes a local Store reapply its complete conjunction once
+after a normal Record edit, before emitting the settled membership index. This survives view disposal and includes
+hidden records hydrated through `allItems`. Removing, replacing or disabling the opt-in stops it; ordinary unowned
+filters keep their existing edit behavior. Change primary keys through `store.updateKey(record, newKey)` so maps and
+opted-in membership settle together; direct key-field assignment does not maintain collection maps.
+Silent/raw writes are not observed: call `store.filter()` explicitly and
+invalidate your option projection after those writes. An empty selection removes its contribution; selecting every
+current value still represents those explicit values and excludes future categories until they are selected.
+
 ### Example: Filtering a Collection
 
 ```javascript readonly

@@ -819,7 +819,12 @@ class Overflow extends Plugin {
                 startKey      = geometry.dimension === 'width' ? 'left' : 'top',
                 coordinateKey = geometry.dimension === 'width' ? 'x' : 'y',
                 ownerStart    = Number(ownerRect?.[startKey] ?? ownerRect?.[coordinateKey]),
-                actionStart   = Number(actionRects[0]?.[startKey] ?? actionRects[0]?.[coordinateKey]),
+                // The rail begins at the first action that HAS a box. A collapsed action, or one whose insert has not
+                // landed yet (the drain pass after a drag, once its focus brought the contextual actions back),
+                // reports an all-zero rect: read as a coordinate, it would start the rail at the owner's own edge
+                // and withhold every unprotected tab for one pass.
+                firstAction   = actionRects.find(rect => Number(rect?.[geometry.dimension]) > 0),
+                actionStart   = Number(firstAction?.[startKey] ?? firstAction?.[coordinateKey]),
                 ownerSize     = Number(ownerRect?.[geometry.dimension]),
                 actionSize    = actionRects.reduce((sum, rect) => {
                     let size = Number(rect?.[geometry.dimension]);
@@ -889,11 +894,12 @@ class Overflow extends Plugin {
             // a "just a teardown race" assumption).
             //
             // `mounted` alone cannot make that call: it is App-Worker state, while the failure is a window's
-            // port going away, and a component stays mounted after its window closes. Both forms of departure
-            // are asked for — the owner unmounting here, and its window retiring its port elsewhere.
+            // port going away, and a component stays mounted after its window closes. Every form of departure
+            // is asked for — the owner unmounting here, its window retiring its port elsewhere, and the owner
+            // or this plugin being destroyed, which leaves `mounted` reading true.
             // Optional CALL, and the direction matters: a worker that cannot answer must not silence a defect.
             // `undefined` is falsy, so an environment without the predicate reports exactly as it did before.
-            if (owner.mounted && !Neo.currentWorker?.isWindowDeparted?.(owner.windowId)) {
+            if (!me.isDestroyed && !owner.isDestroyed && owner.mounted && !Neo.currentWorker?.isWindowDeparted?.(owner.windowId)) {
                 console.error('Neo.tab.plugin.Overflow: project() threw against a live owner', error)
             }
         } finally {

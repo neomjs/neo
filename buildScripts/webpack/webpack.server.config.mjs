@@ -1,3 +1,6 @@
+import fs                          from 'fs';
+import path                        from 'path';
+import {getEngineReleaseNotesRoot} from '../util/contentRoot.mjs';
 import {
     DEVELOPMENT_THEME_BUILD_COMMAND,
     inspectDevelopmentThemeAssets
@@ -128,6 +131,19 @@ const developmentThemeFreshnessHooks = createDevelopmentThemeFreshnessHooks();
  */
 const port = process.env.PORT ? Number(process.env.PORT) : undefined;
 
+/**
+ * The engine authors its release notes in `.github/RELEASE_NOTES`, and the static server serves no dot-directory, so
+ * the Portal's release notes would 404. This entry serves that one directory at its own path, the Portal's default
+ * `releaseNotesBasePath`, without serving dotfiles anywhere else (`.git`, `.env`). A workspace has no such directory.
+ * @type {Object[]}
+ */
+const releaseNotesRoot   = getEngineReleaseNotesRoot(process.cwd());
+const releaseNotesStatic = fs.existsSync(releaseNotesRoot) ? [{
+    directory : releaseNotesRoot,
+    publicPath: '/' + path.relative(process.cwd(), releaseNotesRoot).split(path.sep).join('/'),
+    watch     : false
+}] : [];
+
 export default {
     mode: 'production',
 
@@ -136,9 +152,9 @@ export default {
 
         port,
 
-        static: {
+        static: [{
             directory: process.cwd(),
             watch    : false
-        }
+        }, ...releaseNotesStatic]
     }
 };

@@ -92,5 +92,89 @@ startup_timeout_sec = 30
 tool_timeout_sec = 120
 enabled = true
 
+# Named tool approvals for Neo's Codex setup. Unlisted tools keep the client default.
+
+[mcp_servers."neo-mjs-github-workflow".tools]
+checkout_pull_request = { approval_mode = "approve" }
+create_discussion = { approval_mode = "approve" }
+create_issue = { approval_mode = "approve" }
+get_conversation = { approval_mode = "approve" }
+get_local_issue_by_id = { approval_mode = "approve" }
+get_pull_request_diff = { approval_mode = "approve" }
+get_viewer_permission = { approval_mode = "approve" }
+healthcheck = { approval_mode = "approve" }
+list_issues = { approval_mode = "approve" }
+list_labels = { approval_mode = "approve" }
+list_pull_requests = { approval_mode = "approve" }
+manage_discussion = { approval_mode = "approve" }
+manage_discussion_comment = { approval_mode = "approve" }
+manage_issue_assignees = { approval_mode = "approve" }
+manage_issue_comment = { approval_mode = "approve" }
+manage_issue_labels = { approval_mode = "approve" }
+manage_issue_projects = { approval_mode = "approve" }
+manage_pr_review = { approval_mode = "approve" }
+manage_pr_reviewers = { approval_mode = "approve" }
+signal_state_transition = { approval_mode = "approve" }
+update_issue_relationship = { approval_mode = "approve" }
+
+[mcp_servers."neo-mjs-knowledge-base".tools]
+ask_knowledge_base = { approval_mode = "approve" }
+get_class_hierarchy = { approval_mode = "approve" }
+get_document_by_id = { approval_mode = "approve" }
+healthcheck = { approval_mode = "approve" }
+list_agent_faqs = { approval_mode = "approve" }
+list_documents = { approval_mode = "approve" }
+query_documents = { approval_mode = "approve" }
+
+[mcp_servers."neo-mjs-memory-core".tools]
+add_memory = { approval_mode = "approve" }
+add_message = { approval_mode = "approve" }
+archive_message = { approval_mode = "approve" }
+get_all_summaries = { approval_mode = "approve" }
+get_context_frontier = { approval_mode = "approve" }
+get_message = { approval_mode = "approve" }
+get_neighbors = { approval_mode = "approve" }
+get_node = { approval_mode = "approve" }
+get_rem_pipeline_state = { approval_mode = "approve" }
+get_session_memories = { approval_mode = "approve" }
+healthcheck = { approval_mode = "approve" }
+list_messages = { approval_mode = "approve" }
+mark_read = { approval_mode = "approve" }
+pre_brief_session = { approval_mode = "approve" }
+query_hybrid_graph = { approval_mode = "approve" }
+query_raw_memories = { approval_mode = "approve" }
+query_summaries = { approval_mode = "approve" }
+record_turn_presence = { approval_mode = "approve" }
+resume_session = { approval_mode = "approve" }
+search_nodes = { approval_mode = "approve" }
+transition_task = { approval_mode = "approve" }
+
+[mcp_servers."neo-mjs-neural-link".tools]
+find_instances = { approval_mode = "approve" }
+get_component_tree = { approval_mode = "approve" }
+get_computed_styles = { approval_mode = "approve" }
+get_console_logs = { approval_mode = "approve" }
+get_dom_event_listeners = { approval_mode = "approve" }
+get_dom_event_summary = { approval_mode = "approve" }
+get_dom_rect = { approval_mode = "approve" }
+get_drag_state = { approval_mode = "approve" }
+get_instance_properties = { approval_mode = "approve" }
+get_method_source = { approval_mode = "approve" }
+get_record = { approval_mode = "approve" }
+get_route_history = { approval_mode = "approve" }
+get_window_topology = { approval_mode = "approve" }
+get_worker_topology = { approval_mode = "approve" }
+healthcheck = { approval_mode = "approve" }
+highlight_component = { approval_mode = "approve" }
+inspect_class = { approval_mode = "approve" }
+inspect_component_render_tree = { approval_mode = "approve" }
+inspect_state_provider = { approval_mode = "approve" }
+inspect_store = { approval_mode = "approve" }
+list_stores = { approval_mode = "approve" }
+query_component = { approval_mode = "approve" }
+query_vdom = { approval_mode = "approve" }
+set_route = { approval_mode = "approve" }
+simulate_event = { approval_mode = "approve" }
+
 [features]
 hooks = true

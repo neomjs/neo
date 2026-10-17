@@ -79,6 +79,19 @@ class GridContainer extends BaseGridContainer {
 
         this.columns = columns
     }
+
+    /**
+     * Triggered after the columnMenu config got changed.
+     * Fires `columnMenuChange`, so the Settings checkbox follows a change made anywhere else.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetColumnMenu(value, oldValue) {
+        super.afterSetColumnMenu(value, oldValue);
+
+        oldValue !== undefined && this.fire('columnMenuChange', {value})
+    }
 }
 
 export default Neo.setupClass(GridContainer);

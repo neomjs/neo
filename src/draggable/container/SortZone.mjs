@@ -63,6 +63,8 @@ class SortZone extends DragZone {
         /**
          * A CSS selector to identify the drag handle within a component.
          * If specified, the drag is initiated on this element, but the owning component is dragged.
+         * A distinct descendant handle must carry `neo-draggable` itself; the item root is not marked.
+         * Root handles and the legacy `.neo-draggable` selector keep the item root marked.
          * @member {String|null} dragHandleSelector=null
          */
         dragHandleSelector: null,
@@ -307,6 +309,27 @@ class SortZone extends DragZone {
             : this.dragHandleSelector;
 
         return Boolean(VDomUtil.find(item.vdom, {cls: handleCls}))
+    }
+
+    /**
+     * @summary Leaves a distinct descendant handle as the native target instead of marking its body.
+     * Whole-item mode and the legacy marker selector keep their behavior; a root handle (such as a
+     * tab header button) still receives the marker. Descendant handles keep their authored marker.
+     * @param {*} item
+     * @returns {Boolean}
+     * @protected
+     */
+    isItemRootDragTarget(item) {
+        if (!this.isDraggableItem(item)) return false;
+
+        const selector = this.dragHandleSelector;
+
+        if (!selector || selector === '.neo-draggable') return true;
+
+        const handleCls = selector.startsWith('.') ? selector.substring(1) : selector,
+              cls       = item.vdom.cls;
+
+        return Array.isArray(cls) ? cls.includes(handleCls) : cls === handleCls
     }
 
     /**

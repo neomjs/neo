@@ -65,6 +65,12 @@ const readWorkflow = name => yaml.load(fs.readFileSync(path.join(workflowsDir, n
 const CLASSIFIER = 'classify-test-scope.yml';
 
 /**
+ * Every test workflow and the job in it that calls {@link CLASSIFIER}.
+ * @type {String[][]}
+ */
+const CALLERS = [['test.yml', 'changes'], ['test-e2e.yml', 'changes'], ['test-e2e-brain.yml', 'changes']];
+
+/**
  * @summary The committed classifier source, read from the workflow on every call.
  *
  * Deliberately re-read rather than cached at module scope: the assertion is about what
@@ -133,7 +139,9 @@ const createRuntime = ({
                       }
                   },
                   repos: {
-                      getContent: async({ owner, repo, ref }) => {
+                      // A push compares its two commits rather than listing a pull request's files
+                      compareCommitsWithBasehead: async() => ({ data: { files: files.map(filename => ({ filename })) } }),
+                      getContent                : async({ owner, repo, ref }) => {
                           calls.getContent++;
                           calls.contentCalls.push(`${owner}/${repo}@${ref}`);
                           if (getContentError) throw new Error(getContentError);
@@ -154,6 +162,8 @@ const createRuntime = ({
           context = {
               eventName,
               payload  : {
+                  after       : 'after-sha',
+                  before      : 'before-sha',
                   pull_request: {
                       base: { sha: baseSha },
                       head: forkOwner
@@ -188,7 +198,7 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         // nobody asserted.
         const outputs = readWorkflow(CLASSIFIER).jobs.classify.outputs;
 
-        expect(Object.keys(outputs).sort()).toEqual(['run_components', 'run_e2e', 'run_unit', 'skip_reason']);
+        expect(Object.keys(outputs).sort()).toEqual(['e2e_brain_tier', 'run_components', 'run_e2e', 'run_unit', 'skip_reason']);
     });
 
     test('every job output is re-declared to callers', () => {
@@ -203,13 +213,27 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
             .toEqual(Object.keys(workflow.jobs.classify.outputs).sort());
     });
 
-    test('both test workflows gate on this classifier rather than their own copy', () => {
+    test('every test workflow gates on this classifier rather than its own copy', () => {
         // A second copy of the predicate is the outcome this extraction exists to prevent, and it
         // would be invisible to every other arm in this file: they all read ONE workflow, so a
         // caller that reverted to an inline classifier — or dropped the gate entirely, which is
         // the state the e2e tier was in before it consumed this one — would keep them green.
-        for (const [name, job] of [['test.yml', 'changes'], ['test-e2e.yml', 'changes']]) {
+        for (const [name, job] of CALLERS) {
             expect(readWorkflow(name).jobs[job].uses, name).toBe(`./.github/workflows/${CLASSIFIER}`);
+        }
+    });
+
+    test('a caller that narrows its token still lets the classifier read the pull request', () => {
+        // The classifier lists the pull request's files and reads its live head. A `permissions` block
+        // drops every scope it does not name, and a classify job that cannot read fails every pull request.
+        for (const [name, job] of CALLERS) {
+            const workflow    = readWorkflow(name),
+                  permissions = workflow.jobs[job].permissions ?? workflow.permissions;
+
+            if (permissions && typeof permissions === 'object') {
+                expect(permissions['pull-requests'], name).toMatch(/^(read|write)$/);
+                expect(permissions.contents, name).toMatch(/^(read|write)$/)
+            }
         }
     });
 
@@ -557,6 +581,53 @@ test.describe('Tests scope classifier — unavailable diffs', () => {
             run_unit      : 'true',
             skip_reason   : 'changed files unavailable'
         });
+    });
+
+});
+
+test.describe('Tests scope classifier — the Brain-gated tier never skips', () => {
+
+    /** @summary Runs the committed classifier and returns its outputs. @param {Object} options @returns {Promise<Object>} */
+    const classify = async options => {
+        const runtime = createRuntime(options);
+
+        await executeScript(scopeScript(), runtime);
+
+        return outputsOf(runtime)
+    };
+
+    test('a change inside the E2E impact boundary runs the full tier', async () => {
+        // Grid, the AI client and the Neural Link fixture, specs and config each sit inside the boundary
+        for (const file of ['src/grid/Body.mjs', 'src/ai/client/DockService.mjs', 'test/playwright/fixtures.mjs',
+            'test/playwright/e2e/grid/BigDataNL.spec.mjs', 'test/playwright/playwright.config.e2e.mjs']) {
+            expect((await classify({ files: [file] })).e2e_brain_tier, file).toBe('full');
+        }
+    });
+
+    test('an edit to the Brain-gated workflow alone runs its full tier, but not the engine tier', async () => {
+        const outputs = await classify({ files: ['.github/workflows/test-e2e-brain.yml'] });
+
+        expect(outputs.e2e_brain_tier).toBe('full');
+        expect(outputs.run_e2e, 'the engine tier keeps its own boundary').toBe('false');
+    });
+
+    test('a docs-only pull request still runs the smoke subset', async () => {
+        expect((await classify({ files: ['learn/guides/testing/WhiteboxE2E.md'] })).e2e_brain_tier).toBe('smoke');
+    });
+
+    test('a push runs the full tier whatever it changed', async () => {
+        const outputs = await classify({ eventName: 'push', files: ['learn/guides/testing/WhiteboxE2E.md'] });
+
+        expect(outputs.run_e2e, 'the push diff was classified, not treated as unavailable').toBe('false');
+        expect(outputs.e2e_brain_tier).toBe('full');
+    });
+
+    test('an unavailable diff fails toward the full tier', async () => {
+        expect((await classify({ files: [] })).e2e_brain_tier).toBe('full');
+    });
+
+    test('a superseded attempt runs only the smoke subset', async () => {
+        expect((await classify({ files: ['src/grid/Body.mjs'], liveHead: 'moved-on-sha' })).e2e_brain_tier).toBe('smoke');
     });
 
 });

@@ -70,6 +70,22 @@ test.describe('component columns build their cells on the column', () => {
         await expect(cell(page, 'name', two)).toHaveText('impact:Octo Two')
     });
 
+    test('same-key snapshots refresh plain and component cells without replacing their DOM', async ({page}) => {
+        const plain     = cell(page, 'followers', one),
+              component = cell(page, 'name', one);
+
+        await expect(component).toHaveText('impact:Octo One');
+        await component.evaluate(node => { node.dataset.snapshotWitness = 'retained' });
+
+        for (const [name, followers] of [['Updated One', 84], ['Octo One', 42]]) {
+            await page.getByRole('button', {name: 'Toggle snapshot', exact: true}).click();
+            await expect(plain).toHaveText(`${followers} followers`);
+            await expect(component).toHaveText(`impact:${name}`);
+            await expect(component).toHaveAttribute('data-snapshot-witness', 'retained');
+            await expect(cell(page, 'name', two)).toHaveText('impact:Octo Two');
+        }
+    });
+
     test('iconLink runs its formatters and keeps its cellCls', async ({page}) => {
         await expect(cell(page, 'topRepo', one).locator('a.neo-icon-link'), 'urlFormatter').toHaveAttribute('href', 'https://github.com/octo-one/engine');
         await expect(cell(page, 'topRepo', two).locator('a.neo-icon-link'), 'labelFormatter').toHaveText('7');

@@ -350,6 +350,10 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @summary Returns the original widget once after its popup closes.
+     * Retire popup ownership without rendering into the closed window, then replace any retained
+     * source reservation. A mounted source acknowledges its removal before reinsertion, so the
+     * unchanged reference cannot conceal a missing DOM node. Both removals preserve the widget.
      * @param {Object} data
      * @param {String} data.appName
      * @param {String} data.windowId
@@ -366,11 +370,28 @@ class Container extends BaseContainer {
 
         for (const [widgetName, detachedItem] of me.detachedItems.entries()) {
             if (detachedItem.windowId === windowId) {
+                if (detachedItem.returning) return;
+
                 console.log('onWindowDisconnect: Re-integrating widget', me.id, widgetName);
                 let {index, widget} = detachedItem;
 
-                me.insert(index, widget);
-                me.detachedItems.delete(widgetName);
+                detachedItem.returning = true;
+
+                try {
+                    widget.parent?.remove(widget, false, true);
+                    const retained = me.remove(widget, false, true);
+
+                    if (retained && me.mounted) {
+                        await me.promiseUpdate()
+                    }
+
+                    if (me.detachedItems.get(widgetName) !== detachedItem) return;
+
+                    me.insert(index, widget);
+                    me.detachedItems.delete(widgetName)
+                } finally {
+                    delete detachedItem.returning
+                }
                 break
             }
         }

@@ -34,6 +34,13 @@ class DateSelector extends Component {
          */
         baseCls: ['neo-dateselector'],
         /**
+         * Stores the arguments of the last day view rebuild which got requested while a month /
+         * year transition was running
+         * @member {Object|null} cachedDayViewRebuild=null
+         * @protected
+         */
+        cachedDayViewRebuild: null,
+        /**
          * Stores the last date change which got triggered while a month / year transition was running
          * @member {Date|null} cachedUpdate=null
          * @protected
@@ -253,7 +260,14 @@ class DateSelector extends Component {
                 me.afterSetValue(me.value, DateUtil.convertToyyyymmdd(me.cachedUpdate))
             }
 
-            me.cachedUpdate = null
+            me.cachedUpdate = null;
+
+            if (me.cachedDayViewRebuild) {
+                let {silent, syncIds} = me.cachedDayViewRebuild;
+
+                me.cachedDayViewRebuild = null;
+                me.recreateDayViewContent(silent, syncIds)
+            }
         }
     }
 
@@ -859,12 +873,22 @@ class DateSelector extends Component {
 
     /**
      * Recreates the current centerEl
+     *
+     * While a month / year transition is running, the centerEl is the transition's animation
+     * wrapper, and wiping it would leave the slide's own callbacks reading a vdom that no longer
+     * holds them. The rebuild is cached and replayed once the transition settles.
      * @param {Boolean} [silent=false]
      * @param {Boolean} [syncIds=true]
      * @protected
      */
     recreateDayViewContent(silent=false, syncIds=true) {
         let me = this;
+
+        if (me.isUpdating) {
+            me.cachedDayViewRebuild = {silent, syncIds};
+
+            return
+        }
 
         me.getCenterContentEl().cn = [];
         me.createDayViewContent(true);

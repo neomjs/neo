@@ -380,18 +380,20 @@ class RevealOverlay extends Container {
     }
 
     /**
-     * Moves REAL browser focus into the overlay (first focusable descendant — the pin control at
-     * minimum, the hosted pane's focusables once mounted). The owning rail calls this when a
-     * click-born reveal opens: focus-hold must be embodied, not a state label. Awaiting the
-     * component update is required because a genuinely hidden overlay cannot accept focus until
-     * the main thread has applied the visibility-class removal.
+     * Moves REAL browser focus into the overlay. The root is `tabIndex: -1`, so the root itself takes
+     * it. The owning rail calls this when a click-born reveal opens: focus-hold must be embodied, not
+     * a state label. Awaiting the component update is required because a genuinely hidden overlay
+     * cannot accept focus until the main thread has applied the visibility-class removal.
+     * A pointer-opened reveal passes `'pointer'`, so the root paints no user-agent ring even when the
+     * element focused before it had one; a keyboard-opened one passes none and keeps that ring.
+     * @param {String|null} [modality] 'pointer' | 'keyboard', see Neo.component.Base#focus
      * @returns {Promise<void>}
      */
-    async focusReveal() {
+    async focusReveal(modality) {
         await this.promiseUpdate();
 
         if (this.visible && !this.isDestroyed) {
-            this.focus(this.id, true)
+            this.focus(this.id, true, undefined, modality)
         }
     }
 

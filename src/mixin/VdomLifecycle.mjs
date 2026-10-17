@@ -13,6 +13,8 @@ import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 // optional-chained per-process environment constants (e.g. `isSharedWorker`); anything mutable
 // (counters, event registration) must resolve `Neo.currentWorker` at call time.
 const {currentWorker} = Neo;
+/** @type {Symbol} Identity of the current initialization attempt on each component. */
+const initializationAttempt = Symbol('vnodeInitializationAttempt');
 
 /**
  * @class Neo.mixin.VdomLifecycle
@@ -213,7 +215,7 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Internal method to send update requests to the vdom worker.
+     * @summary Publishes a disjoint VDOM batch with per-root protection and all-root adoption before settlement.
      *
      * **Teleportation / Batched Disjoint Updates:**
      * This method implements the core logic for "Teleportation". Instead of merging child updates
@@ -222,18 +224,41 @@ class VdomLifecycle extends Base {
      *
      * 1. **Recursive Collection:** We recursively collect all `mergedChildIds` from the component
      *    and its descendants.
-     * 2. **Disjoint Payloads:** For each component in the batch, we generate a "self-only" VDOM
-     *    payload (`updateDepth: 1`). This allows the VDOM engine to update the child directly
-     *    without needing the parent to "bridge" to it.
-     * 3. **Collision Filtering:** We filter out child updates that are already covered by a
-     *    parent update in the same batch (e.g., if the parent is doing a full tree update).
+     * 2. **Disjoint Payloads:** Each component retains its configured update depth. The VDOM
+     *    engine updates additional roots directly without requiring the initiator to bridge to them.
+     * 3. **Boundary Planning:** A root is absorbed only when its nearest emitted ancestor's payload
+     *    carries its whole scope ({@link #carriesScope}); every other root is emitted. Each payload stops at
+     *    the other emitted roots, leaving them as references in both trees, so every subtree is diffed
+     *    by exactly one payload.
+     * 4. **Flight Ownership:** Protect emitted and sparse-absorbed roots at their captured depths until
+     *    all returned trees are adopted. Each protected root owns its settlement; a dead carrier cancels live
+     *    co-roots with an error, never their destroy sentinel. Outcomes release deferred updates.
      *
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
      * @private
      */
     async executeVdomUpdate(resolve, reject) {
-        let me = this;
+        let me                      = this,
+            inFlightScopes          = new Map([[me.id, me]]),
+            componentMergedChildren = new Map();
+
+        /** @summary Removes only retired flight participants and the exact merge entries this batch collected. */
+        const discardReplacedScopes = () => {
+            for (const [id, component] of inFlightScopes) {
+                if (Neo.getComponent(id) !== component) {
+                    inFlightScopes.delete(id);
+
+                    for (const [ownerId, collected] of componentMergedChildren) {
+                        const entry    = collected.get(id),
+                              children = VDomUpdate.mergedCallbackMap.get(ownerId)?.children;
+
+                        collected.delete(id);
+                        if (entry && children?.get(id) === entry) children.delete(id)
+                    }
+                }
+            }
+        };
 
         (resolve || reject) && VDomUpdate.addPromiseCallback(me.id, resolve, reject);
 
@@ -249,12 +274,14 @@ class VdomLifecycle extends Base {
             await new Promise(resolve => setTimeout(resolve, 1));
 
             const
-                updates                 = {},
-                depths                  = new Map(),
-                processed               = new Set(), // Prevent duplicates and cycles
-                componentMergedChildren = new Map(); // Snapshot of merged children processed in this batch
+                updates   = {},
+                depths    = new Map(),
+                scopes    = new Map(), // collected id → the merged ids its payload expands, in collection order
+                processed = new Set(); // Prevent duplicates and cycles
 
-            const collectPayloads = (componentId) => {
+            let absorbedMeta, sparseScopes, absorbedScopes;
+
+            const collectScopes = (componentId) => {
                 if (processed.has(componentId)) return;
                 processed.add(componentId);
 
@@ -287,7 +314,10 @@ class VdomLifecycle extends Base {
                 VDomUpdate.claimPromiseCallbacks(componentId);
 
                 if (mergedChildIds) {
-                    componentMergedChildren.set(componentId, mergedChildIds);
+                    const entries = VDomUpdate.mergedCallbackMap.get(componentId).children;
+                    componentMergedChildren.set(componentId, new Map(
+                        [...mergedChildIds].map(childId => [childId, entries.get(childId)])
+                    ));
                     VDomUpdate.markMergedCollected(componentId, mergedChildIds);
                     mergedChildIds.forEach(childId => VDomUpdate.claimPromiseCallbacks(childId))
                 }
@@ -299,43 +329,93 @@ class VdomLifecycle extends Base {
                 // - `denseUpdate`: the owner changed descendants silently, so nothing within its depth is clean.
                 const ids = component.updateDepth !== 1 && !component.denseUpdate ? mergedChildIds : null;
 
-                // We pass null as the second arg to respect the component's configured updateDepth.
-                updates[componentId] = component.getVdomUpdatePayload(ids, null);
+                // Capture the actual sparse scope before payload creation resets depth and denseUpdate.
+                if (ids && component.updateDepth !== -1) {
+                    (sparseScopes ||= new Map()).set(componentId, ids)
+                }
+
+                scopes.set(componentId, ids);
 
                 // Recursively collect merged children
                 if (mergedChildIds) {
                     for (const childId of mergedChildIds) {
-                        collectPayloads(childId)
+                        collectScopes(childId)
                     }
                 }
             };
 
             // Start collection from the root of the update (me)
-            collectPayloads(me.id);
+            collectScopes(me.id);
 
-            // Collision Filtering:
-            // If a parent update covers this child, remove the child from the disjoint batch
-            for (const id in updates) {
-                if (Object.hasOwn(updates, id)) {
-                    let parent   = Neo.getComponent(id)?.parent,
-                        distance = 1;
+            // Boundary Planning: a root is absorbed only when its nearest emitted ancestor's payload carries its
+            // whole scope, so ancestors decide first. Every emitted root then bounds the other payloads.
+            const emitted = new Set(),
+                  levelOf = id => {let level = 0, item = Neo.getComponent(id); while ((item = item.parent)) level++; return level},
+                  levels  = new Map([...scopes.keys()].map(id => [id, levelOf(id)]));
 
-                    while (parent) {
-                        if (updates[parent.id]) {
-                            const parentDepth = depths.get(parent.id);
-                            // If parent covers this child, remove the child from the disjoint batch
-                            if (parentDepth === -1 || parentDepth > distance) {
-                                delete updates[id];
-                                break; // exit the while loop
-                            }
-                        }
-                        parent   = parent.parent;
-                        distance++
+            for (const id of [...scopes.keys()].sort((a, b) => levels.get(a) - levels.get(b))) {
+                let ancestor = Neo.getComponent(id).parent,
+                    distance = 1;
+
+                while (ancestor && !emitted.has(ancestor.id)) {
+                    ancestor = ancestor.parent;
+                    distance++
+                }
+
+                const ancestorDepth = ancestor && depths.get(ancestor.id);
+
+                if (ancestor?.carriesScope(ancestorDepth, sparseScopes?.get(ancestor.id), distance, id, depths.get(id), sparseScopes?.has(id))) {
+                    // A leapfrogged root still needs its own protection beyond the ancestor's depth.
+                    if (ancestorDepth !== -1 && ancestorDepth <= distance) (absorbedScopes ||= []).push(id)
+                } else {
+                    emitted.add(id)
+                }
+            }
+
+            // Collection order: a container clears its descendants' needsVdomUpdate as its payload is built.
+            for (const [id, ids] of scopes) {
+                // We pass null as the second arg to respect the component's configured updateDepth.
+                const payload = Neo.getComponent(id).getVdomUpdatePayload(ids, null, emitted.size > 1 ? emitted : null);
+
+                if (emitted.has(id)) {
+                    updates[id] = payload
+                } else if (payload.meta) {
+                    // An absorbed root's changes travel in its carrier's payload, so its meta travels with the batch
+                    (absorbedMeta ||= {})[id] = payload.meta
+                }
+            }
+
+            // Absorbing a payload must not retire the scope that owns late writes and callbacks.
+            const protectedRoots = Object.keys(updates);
+            if (absorbedScopes) {
+                for (const id of absorbedScopes) protectedRoots.push(id)
+            }
+
+            for (const id of protectedRoots) {
+                const component = Neo.getComponent(id);
+
+                component.isVdomUpdating = true;
+                VDomUpdate.registerInFlightUpdate(id, depths.get(id));
+                inFlightScopes.set(id, component)
+            }
+
+            // A protected root owns its callbacks; carrier destruction must not settle it as a child.
+            for (const [ownerId, collected] of componentMergedChildren) {
+                const children = VDomUpdate.mergedCallbackMap.get(ownerId)?.children;
+
+                for (const [childId, entry] of collected) {
+                    if (childId !== ownerId && inFlightScopes.has(childId)) {
+                        collected.delete(childId);
+                        if (entry && children?.get(childId) === entry) children.delete(childId)
                     }
                 }
             }
 
             const batchData = {updates};
+
+            if (absorbedMeta) {
+                batchData.meta = absorbedMeta
+            }
 
             // CRITICAL: SharedWorker Context Injection
             // This block MUST NOT be removed or simplified.
@@ -364,6 +444,16 @@ class VdomLifecycle extends Base {
              */
             me.afterExecuteVdomUpdate?.();
 
+            if (me.isDestroyed) throw Neo.isDestroyed;
+
+            discardReplacedScopes();
+
+            for (const id of Object.keys(updates)) {
+                if (inFlightScopes.has(id) && !Object.hasOwn(response.vnodes, id)) {
+                    throw new Error('VDOM batch reply omitted an emitted root')
+                }
+            }
+
             // Component could be destroyed while the update is running: a stale success payload
             // from a destroyed flight must never apply deltas or distribute vnodes.
             if (me.id && !me.isDestroyed) {
@@ -372,11 +462,12 @@ class VdomLifecycle extends Base {
                     await Neo.applyDeltas(me.windowId, response.deltas)
                 }
 
-                // Distribute results back to ALL components in the batch
+                // Adopt every root before any callback or post-update can start another flight.
+                const completed = new Map();
                 for (const id in response.vnodes) {
                     if (Object.hasOwn(response.vnodes, id)) {
                         const vnode     = response.vnodes[id];
-                        const component = Neo.getComponent(id);
+                        const component = inFlightScopes.get(id);
 
                         if (component && !component.isDestroyed) {
                             // Silent, since afterSetVnode() cannot pass the deltas the sync hands to every
@@ -384,45 +475,59 @@ class VdomLifecycle extends Base {
                             component._vnode = vnode;
                             component.syncVnodeTree(vnode, response.deltas || []);
 
-                            // Resolve the update for this component and its merged children
-                            // Note: response.deltas contains the aggregated deltas for the whole batch
-                            component.resolveVdomUpdate({
-                                deltas: response.deltas,
-                                vnode
-                            }, componentMergedChildren.get(id));
+                            completed.set(id, component)
                         }
                     }
                 }
+
+                // Absorbed scopes adopt through the covering root; they still own their settlement.
+                // A skipped initiator also retires here, leaving callbacks never claimed by a payload parked.
+                for (const [id, component] of inFlightScopes) {
+                    if (!Object.hasOwn(updates, id) && !component.isDestroyed) {
+                        completed.set(id, component)
+                    }
+                }
+
+                discardReplacedScopes();
+                for (const [id, component] of completed) {
+                    if (Neo.getComponent(id) !== component) discardReplacedScopes();
+                    if (!inFlightScopes.has(id)) continue;
+                    inFlightScopes.delete(id);
+                    component.resolveVdomUpdate({
+                        deltas: response.deltas,
+                        vnode : Object.hasOwn(response.vnodes, id) ? response.vnodes[id] : component.vnode
+                    }, componentMergedChildren.has(id) ? new Set(componentMergedChildren.get(id).keys()) : null)
+                }
             }
         } catch (err) {
-            me.isVdomUpdating = false;
-            // Ensure state is cleaned up on error
-            VDomUpdate.unregisterInFlightUpdate(me.id);
+            discardReplacedScopes();
+            const failedScopes = [...inFlightScopes];
+            inFlightScopes.clear();
 
-            // A failed flight must reject every promise parked on it — the initiator AND any
-            // children merged into the cycle (rejectCallbacks is the error-path twin of the
-            // resolveVdomUpdate -> executeCallbacks success path). Detect the fire-and-forget case
-            // first (no parked promise), so a genuinely silent failure still logs rather than
-            // vanishing — the symptom otherwise surfaces minutes later as "the DOM stopped
-            // following". Rejected updates do NOT adopt a vnode, so the next cycle re-diffs cleanly.
-            // A window that disconnected mid-flight settles the flight with `PortDisconnectedError`: teardown, not a failure.
-            err?.name === 'PortDisconnectedError' || VDomUpdate.hasPromiseCallbacks(me.id) || console.error('vdom update failed', me.id, err);
+            for (const [id, component] of failedScopes) {
+                component.isVdomUpdating = false;
+                VDomUpdate.unregisterInFlightUpdate(id)
+            }
 
-            VDomUpdate.rejectCallbacks(me.id, err);
+            // Only the destroyed instance receives its sentinel; live roots receive a batch cancellation.
+            const failureReason = err === Neo.isDestroyed
+                ? new Error('VDOM batch canceled by a destroyed component') : err;
 
-            // Components that yielded to this flight (isChildUpdating / isParentUpdating) wait in the
-            // post-update queue keyed on it, exactly as on success — and only the success path drained
-            // it, so a caller awaiting one of them stayed suspended for good. Release them here too:
-            // each runs its own flight against the current truth and settles on its own outcome.
-            VDomUpdate.triggerPostUpdates(me.id);
+            // Rejection releases every root without acknowledging a vnode it did not receive.
+            (failedScopes.length === 0 && err === Neo.isDestroyed) || err?.name === 'PortDisconnectedError'
+                || failedScopes.some(([id]) => VDomUpdate.hasPromiseCallbacks(id))
+                || console.error('vdom update failed', me.id, failureReason);
 
-            // Mirror of resolveVdomUpdate(): updates queued onto this flight while it was running
-            // are only ever drained by a follow-up cycle — without this, their content (and any
-            // attached promise callbacks) strand until the next organic update. A deterministic
-            // failure cannot hot-loop here: the retry consumes needsVdomUpdate, and with no new
-            // mutations a failing retry terminates after one bounded re-throw.
-            if (me.needsVdomUpdate) {
-                me.update()
+            for (const [id] of failedScopes) {
+                VDomUpdate.rejectCallbacks(id, failureReason);
+                VDomUpdate.triggerPostUpdates(id)
+            }
+
+            // A write queued during this flight still needs a fresh payload after either outcome.
+            for (const [, component] of failedScopes) {
+                if (!component.isDestroyed && component.needsVdomUpdate) {
+                    component.update()
+                }
             }
         }
     }
@@ -474,19 +579,21 @@ class VdomLifecycle extends Base {
      * to the Main Thread. The Main Thread's `DeltaUpdates` singleton fires an `update` event before
      * applying deltas, allowing addons (like optical pinning) to read this `meta` data and dynamically
      * adjust the deltas (like `translate3d` transforms) based on the *current* Main Thread state
-     * before they are painted.
+     * before they are painted, and an `updated` event after them. The meta is read once per payload: when
+     * another root's payload absorbs this one, the meta still travels with the batch.
      *
      * @param {Set<String>|null} mergedChildIds
      * @param {Number} [depth] Override the update depth
+     * @param {Set<String>|null} [boundaryIds=null] Roots of the same batch, left as references in both trees
      * @returns {Object} opts
      */
-    getVdomUpdatePayload(mergedChildIds, depth) {
+    getVdomUpdatePayload(mergedChildIds, depth, boundaryIds=null) {
         let me            = this,
             updateDepth   = depth ?? me.updateDepth,
             {vdom, vnode} = me,
             opts          = {
-                vdom : TreeBuilder.getVdomTree(vdom,   updateDepth, mergedChildIds),
-                vnode: TreeBuilder.getVnodeTree(vnode, updateDepth, mergedChildIds)
+                vdom : TreeBuilder.getVdomTree(vdom,   updateDepth, mergedChildIds, boundaryIds),
+                vnode: TreeBuilder.getVnodeTree(vnode, updateDepth, mergedChildIds, boundaryIds)
             };
 
         if (currentWorker?.isSharedWorker) {
@@ -578,6 +685,29 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * @summary Whether this component's payload, as captured for a batch, carries a collected root's whole scope.
+     *
+     * A full-depth payload carries everything. A sparse payload expands only its allowlist, and a dense one
+     * every component above its depth. Reaching a root carries the root's own nodes, which is all a depth-1
+     * or sparse root holds: a sparse root's allowlist members are collected and decided on their own. A dense
+     * root of depth c at distance k fits a dense depth-d payload only when k + c <= d.
+     * @param {Number} depth This component's captured update depth
+     * @param {Set<String>|undefined} ids This component's allowlist, when its payload is sparse
+     * @param {Number} distance The root's distance below this component
+     * @param {String} rootId
+     * @param {Number} rootDepth
+     * @param {Boolean} rootSparse
+     * @returns {Boolean}
+     * @protected
+     */
+    carriesScope(depth, ids, distance, rootId, rootDepth, rootSparse) {
+        if (depth === -1) return true;
+        if (ids ? !ids.has(rootId) : depth <= distance) return false;
+
+        return rootDepth === 1 || rootSparse || (!ids && rootDepth !== -1 && distance + rootDepth <= depth)
+    }
+
+    /**
      * Checks if a given updateDepth & distance would result in an update collision.
      * The check must use `<` because `updateDepth` is 1-based.
      *
@@ -607,15 +737,15 @@ class VdomLifecycle extends Base {
      *
      * Lifecycle contract for awaiting callers: the returned promise settles when the REAL
      * attempt settles. A theme-file deferral chains through the re-entered attempt instead of
-     * resolving early, and a rejected attempt releases `isVnodeInitializing` (component + app
-     * level) before rethrowing, so a caller-side retry on a later trigger is always possible.
+     * resolving early. Failure retires only this attempt, rejects its parked requests and retries
+     * dirty mounted work; a newer initialization or flight retains its state and callbacks.
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
      * @returns {Promise<any>} If getting there, we return the data from vdom.Helper: create(), containing the vnode.
      */
     async initVnode(mount) {
         let me                                                     = this,
             autoMount                                              = mount || me.autoMount,
-            {app}                                                  = me,
+            {app, id}                                              = me,
             {allowVdomUpdatesInTests, unitTestMode, useVdomWorker} = Neo.config;
 
         if (unitTestMode && !allowVdomUpdatesInTests) return;
@@ -641,6 +771,7 @@ class VdomLifecycle extends Base {
             })
         }
 
+        const attempt = me[initializationAttempt] = Symbol();
         me.isVnodeInitializing = true;
 
         if (!app.vnodeInitialized) {
@@ -661,7 +792,7 @@ class VdomLifecycle extends Base {
                 me._needsVdomUpdate = false;
                 me.afterSetNeedsVdomUpdate?.(false, true);
 
-                // The first render collects here, exactly as a flight does in collectPayloads()
+                // The first render collects here, exactly as a flight does in collectScopes()
                 VDomUpdate.claimPromiseCallbacks(me.id);
 
                 const data = await Promise.resolve(Neo.vdom.Helper.create({
@@ -699,26 +830,45 @@ class VdomLifecycle extends Base {
                 return data
             }
         } catch (err) {
-            // Mirror executeVdomUpdate()'s error contract: the in-flight state MUST be released on
-            // failure, or the component wedges permanently (isVdomUpdating never clears and the
-            // registry entry blocks every ancestor update via isChildUpdating). The initializing
-            // flags belong to the same contract: a rejection that left isVnodeInitializing=true
-            // silently blocked every future initVnode consumer gating on it — no retry could
-            // ever run for the component's lifetime.
-            me.isVdomUpdating       = false;
-            me.isVnodeInitializing  = false;
+            const isCurrent = () => Neo.getComponent(id) === me && !me.isDestroyed;
 
-            if (app && !app.vnodeInitialized) {
-                app.isVnodeInitializing = false
+            if (isCurrent() && me[initializationAttempt] === attempt) {
+                const postUpdates = VDomUpdate.postUpdateQueueMap.get(id) ?? null;
+                postUpdates && VDomUpdate.postUpdateQueueMap.remove(postUpdates);
+                me.isVdomUpdating      = false;
+                me.isVnodeInitializing = false;
+
+                if (app && !app.vnodeInitialized) {
+                    app.isVnodeInitializing = false
+                }
+
+                // Retire this attempt before rejection callbacks can start a newer flight.
+                VDomUpdate.unregisterInFlightUpdate(id);
+                try {
+                    VDomUpdate.rejectPromiseCallbacks(id, err)
+                } catch (error) {
+                    console.error('initVnode callback rejection failed', id, error)
+                }
+
+                if (isCurrent()) {
+                    try {
+                        VDomUpdate.triggerPostUpdates(id, postUpdates)
+                    } catch (error) {
+                        console.error('initVnode deferred update failed', id, error)
+                    }
+                }
+
+                if (isCurrent() && !me.isVdomUpdating && me.needsVdomUpdate) {
+                    me.update()
+                }
             }
 
-            VDomUpdate.unregisterInFlightUpdate(me.id);
-            // The render-path flavour of the release executeVdomUpdate()'s catch performs: whoever
-            // yielded to this flight runs its own now, instead of waiting on a completion that never comes.
-            VDomUpdate.triggerPostUpdates(me.id);
-
-            console.error('initVnode error', err, me.id);
+            console.error('initVnode error', err, id);
             throw err
+        } finally {
+            if (me[initializationAttempt] === attempt) {
+                delete me[initializationAttempt]
+            }
         }
     }
 
@@ -902,31 +1052,67 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Internal helper fn to resolve the Promise for updateVdom()
+     * @summary Settles an adopted root without letting callback failures strand work or retire a newer flight.
+     * Releases this flight before callbacks can start another one. Settlement errors belong to this root;
+     * other adopted roots still settle, and an already-started newer flight keeps its callbacks and registry.
+     * @see #initVnode Initial mount attempts own their earlier callback-failure cleanup.
      * @param {Object} [data] The return value of vdom.Helper.update()
      * @param {Set<String>|null} [mergedChildIds] IDs of children included in this update
      * @protected
      */
     resolveVdomUpdate(data, mergedChildIds) {
-        let me = this;
+        const me          = this,
+              id          = me.id,
+              postUpdates = VDomUpdate.postUpdateQueueMap.get(id) ?? null,
+              preUpdate   = VDomUpdate.preUpdateMap.get(id) ?? null;
+        let failure;
 
+        // Work registered by callbacks belongs to a subsequent flight, not these captured phases.
+        postUpdates && VDomUpdate.postUpdateQueueMap.remove(postUpdates);
+        preUpdate && VDomUpdate.preUpdateMap.delete(id);
+
+        // Retire the old registry entry before a callback can register a new flight under the same id.
+        VDomUpdate.unregisterInFlightUpdate(id);
         me.isVdomUpdating = false;
 
-        // Execute callbacks for merged updates
-        VDomUpdate.executeCallbacks(me.id, data, mergedChildIds);
+        try {
+            VDomUpdate.executeCallbacks(id, data, mergedChildIds)
+        } catch (error) {
+            failure = {error}
+        }
 
-        // The update is no longer in-flight
-        VDomUpdate.unregisterInFlightUpdate(me.id);
+        if (Neo.getComponent(id) === me && !me.isDestroyed) {
+            try {
+                VDomUpdate.triggerPostUpdates(id, postUpdates)
+            } catch (error) {
+                failure ||= {error}
+            }
+        }
 
-        // Trigger updates for components that were in-flight
-        VDomUpdate.triggerPostUpdates(me.id);
+        if (Neo.getComponent(id) === me && !me.isDestroyed) {
+            try {
+                VDomUpdate.executePreUpdates(id, preUpdate)
+            } catch (error) {
+                failure ||= {error}
+            }
+        }
 
-        // Execute callbacks which wanted to run before the next update cycle
-        VDomUpdate.executePreUpdates(me.id);
+        if (failure) {
+            let reported = false;
 
-        if (me.needsVdomUpdate) {
-            // This cycle settled what it claimed at payload collection. A promise registered after that point is
-            // still parked, describing a change only this next cycle carries — which is what settles it.
+            if (Neo.getComponent(id) === me && !me.isDestroyed && !me.isVdomUpdating) {
+                reported = VDomUpdate.promiseCallbackMap.get(id)?.some(entry => typeof entry.reject === 'function');
+                try {
+                    VDomUpdate.rejectPromiseCallbacks(id, failure.error)
+                } catch (error) {
+                    console.error('vdom callback rejection failed', id, error)
+                }
+            }
+
+            reported || console.error('vdom settlement failed', id, failure.error)
+        }
+
+        if (Neo.getComponent(id) === me && !me.isDestroyed && !me.isVdomUpdating && me.needsVdomUpdate) {
             me.update()
         }
     }
@@ -1090,6 +1276,7 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * @summary Keeps late requests on an active root, otherwise merges or starts the component's next render.
      * Gets called after the vdom config gets changed in case the component is already mounted (delta updates).
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
@@ -1125,6 +1312,12 @@ class VdomLifecycle extends Base {
         // if that cycle fails, instead of stranding resolve-only.
         (resolve || reject) && VDomUpdate.addPromiseCallback(me.id, resolve, reject);
 
+        // An active root owns late callbacks until its flight settles, even when its carrier has another write.
+        if (me.isVdomUpdating) {
+            me.needsVdomUpdate = true;
+            return
+        }
+
         // Attempt to merge into a parent's update cycle.
         // We do this even if silent, to ensure we catch the bus if a parent is departing.
         if (me.mergeIntoParentUpdate(parentId)) {
@@ -1132,7 +1325,7 @@ class VdomLifecycle extends Base {
             return
         }
 
-        if (me.isVdomUpdating || !me.vnodeInitialized || me.silentVdomUpdate) {
+        if (!me.vnodeInitialized || me.silentVdomUpdate) {
             me.needsVdomUpdate = true
         } else {
             // If an update is triggered on an unmounted component, we must wait for it to be mounted.

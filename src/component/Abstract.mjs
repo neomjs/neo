@@ -157,11 +157,16 @@ class Abstract extends Base {
      * available and interactive before executing subsequent logic.
      *
      * It also handles unmounting by resetting the promise, so it can be safely
-     * awaited again if the component is remounted.
+     * awaited again if the component is remounted, including after an unmount that skipped `afterSetMounted()`
+     * (`container.Base#insert` copies into another window with a raw `_mounted` write).
      * @returns {Promise<Neo.component.Base>}
      */
     get mountedPromise() {
         let me = this;
+
+        if (me._mountedPromise && !me.mountedPromiseResolve && !me.mounted) {
+            delete me._mountedPromise
+        }
 
         if (!me._mountedPromise) {
             me._mountedPromise = new Promise(resolve => {
@@ -351,9 +356,25 @@ class Abstract extends Base {
     }
 
     /**
-     *
+     * @summary Tears the component down, its render flight first, for classic and functional components alike.
      */
     destroy() {
+        let {id} = this;
+
+        // Destruction is a complete render-flight cancellation boundary, here because VdomLifecycle registers the
+        // flights for both component families (classic and functional):
+        // 1. Settle every promise parked on this component's flight (the initiator's public
+        //    promiseUpdate AND merged children) with the house destroy sentinel — and remove the
+        //    callback entry itself, or it leaks forever (executeCallbacks never fires for a dead
+        //    owner).
+        // 2. Release the in-flight registry entry: a lingering one makes every ancestor update
+        //    yield to it forever (nothing can ever settle it — the reply targets a dead
+        //    component), silently freezing the ancestor's delta stream.
+        // 3. Re-trigger ancestors already queued behind this component — exactly once.
+        VDomUpdate.rejectCallbacks(id, Neo.isDestroyed);
+        VDomUpdate.unregisterInFlightUpdate(id);
+        VDomUpdate.triggerPostUpdates(id);
+
         this.removeDomEvents();
         ComponentManager.unregister(this);
         this.stateProvider = null; // triggers destroy()

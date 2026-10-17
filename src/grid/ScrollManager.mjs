@@ -76,6 +76,24 @@ class ScrollManager extends Base {
     gridContainer = null
 
     /**
+     * True while the grid needs the `GridRowScrollPinning` addon: to pin rows during thumb drags, or to apply the
+     * scroll corrections of content-sized rows, which it does with pinning off as well.
+     * @member {Boolean} usesRowScrollAddon
+     */
+    get usesRowScrollAddon() {
+        return this.rowScrollPinning || !!this.gridContainer?.contentSizedRows
+    }
+
+    /**
+     * True while the grid needs the `GridRowHoverSync` addon: a row spans several bodies once columns are locked,
+     * and CSS `:hover` reaches only the body under the pointer.
+     * @member {Boolean} usesRowHoverSyncAddon
+     */
+    get usesRowHoverSyncAddon() {
+        return this.rowHoverSync && !!this.gridContainer?.hasLockedColumns
+    }
+
+    /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
@@ -103,22 +121,25 @@ class ScrollManager extends Base {
 
         if (value) {
             me.dragScroll && me.updateDragScrollAddon(true);
-            me.rowScrollPinning && me.updateRowScrollPinningAddon(true);
+            me.usesRowScrollAddon && me.updateRowScrollPinningAddon(true);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(true);
             me.updateGridHorizontalScrollSyncAddon(true)
         } else if (oldValue && me.windowId) {
             me.dragScroll && me.updateDragScrollAddon(false);
-            me.rowScrollPinning && me.updateRowScrollPinningAddon(false);
+            me.usesRowScrollAddon && me.updateRowScrollPinningAddon(false);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(false);
             me.updateGridHorizontalScrollSyncAddon(false)
         }
     }
 
     /**
+     * Content-sized rows keep the addon registered without pinning, for their scroll corrections.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
     afterSetRowScrollPinning(value, oldValue) {
         if (this.mounted) {
-            this.updateRowScrollPinningAddon(value)
+            this.updateRowScrollPinningAddon(this.usesRowScrollAddon)
         }
     }
 
@@ -131,21 +152,33 @@ class ScrollManager extends Base {
 
         if (oldValue && me.mounted) {
             me.dragScroll && me.updateDragScrollAddon(false, oldValue);
-            me.rowScrollPinning && me.updateRowScrollPinningAddon(false, oldValue);
+            me.usesRowScrollAddon && me.updateRowScrollPinningAddon(false, oldValue);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(false, oldValue);
             me.updateGridHorizontalScrollSyncAddon(false, oldValue);
 
             me.dragScroll && me.updateDragScrollAddon(true, value);
-            me.rowScrollPinning && me.updateRowScrollPinningAddon(true, value);
+            me.usesRowScrollAddon && me.updateRowScrollPinningAddon(true, value);
+            me.usesRowHoverSyncAddon && me.updateGridRowHoverSyncAddon(true, value);
             me.updateGridHorizontalScrollSyncAddon(true, value);
         }
     }
 
     /**
+     * @summary Retires every addon registration this manager can hold, whatever its flags say now.
+     *
+     * The grid destroys this manager directly, never through an unmount, so `afterSetMounted()` retires
+     * nothing here, and a flag switched off after registering does not always unregister by itself. An
+     * addon ignores an id it does not hold. An unregister needs only `id` and `windowId`, which outlive
+     * destruction, while a register still awaiting its addon returns once it finds this manager destroyed.
      * @param args
      */
     destroy(...args) {
-        this.updateRowScrollPinningAddon(false);
-        this.updateGridHorizontalScrollSyncAddon(false);
+        let me = this;
+
+        me.updateDragScrollAddon(false);
+        me.updateGridRowHoverSyncAddon(false);
+        me.updateRowScrollPinningAddon(false);
+        me.updateGridHorizontalScrollSyncAddon(false);
         super.destroy(...args)
     }
 
@@ -272,6 +305,8 @@ class ScrollManager extends Base {
         let me = this,
             addon = await Neo.currentWorker.getAddon('GridDragScroll', windowId);
 
+        if (active && me.isDestroyed) return;
+
         if (active) {
             let scrollerId = me.gridContainer.horizontalScrollbar?.id;
 
@@ -295,12 +330,15 @@ class ScrollManager extends Base {
         let me = this,
             addon = await Neo.currentWorker.getAddon('GridRowScrollPinning', windowId);
 
+        if (active && me.isDestroyed) return;
+
         if (active) {
             addon.register({
-                bodyIds    : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
+                bodyIds            : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
                 verticalScrollbarId: me.gridContainer.verticalScrollbar?.id,
                 viewId             : me.gridContainer.view.id,
-                id         : me.id,
+                id                 : me.id,
+                pin                : me.rowScrollPinning,
                 windowId
             })
         } else {
@@ -316,6 +354,8 @@ class ScrollManager extends Base {
     async updateGridRowHoverSyncAddon(active, windowId = this.windowId) {
         let me = this,
             addon = await Neo.currentWorker.getAddon('GridRowHoverSync', windowId);
+
+        if (active && me.isDestroyed) return;
 
         if (active) {
             addon.register({
@@ -336,6 +376,8 @@ class ScrollManager extends Base {
     async updateGridHorizontalScrollSyncAddon(active, windowId = this.windowId) {
         let me = this,
             addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', windowId);
+
+        if (active && me.isDestroyed) return;
 
         if (active) {
             let scrollerId = me.gridContainer.horizontalScrollbar?.id,

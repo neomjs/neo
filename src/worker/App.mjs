@@ -846,6 +846,16 @@ class App extends Base {
     }
 
     /**
+     * @summary Reports completed document font loads to window-scoped measurement consumers.
+     * @param {Object} msg
+     * @param {Object} msg.data
+     * @param {String} msg.data.windowId
+     */
+    onFontChange(msg) {
+        this.fire('fontChange', msg.data)
+    }
+
+    /**
      * A window of this worker regained focus, reported as the `windowFocus` event
      * @param {Object} msg
      * @param {Object} msg.data

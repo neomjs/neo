@@ -180,12 +180,14 @@ class Component extends ContentComponent {
     }
 
     /**
+     * @summary Resolves a corpus-relative markdown path against the base the corpus is served from
+     * (`corpusBasePath` in the Portal's `neo-config.json`).
      * @param {Object} record
      * @param {String} record.path
      * @returns {String|null}
      */
     getContentPath({path}) {
-        return path ? Neo.config.basePath + path : null
+        return path ? Neo.config.basePath + Neo.config.corpusBasePath + path : null
     }
 
     /**

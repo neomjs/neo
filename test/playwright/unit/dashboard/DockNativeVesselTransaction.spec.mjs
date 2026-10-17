@@ -20,73 +20,41 @@ import TransactionManager      from '../../../../src/manager/Transaction.mjs';
 import WindowManager           from '../../../../src/manager/Window.mjs';
 
 /**
- * The default park / re-show transaction behind `VesselPark`'s three seams.
- *
- * The contract under test is the one neither existing consumer expressed: **the authority key set
- * is a function of the transaction's declared restore obligation.** All ten keys are reported
- * always; `sourceResizeCapable` gates the refusal only when the transaction owes a geometry
- * restore. Both directions are asserted, because a witness that only shows the refusal cannot tell
- * a conditional gate from an unconditional one — which is exactly how the two consumers came to
- * disagree about what "authorized" means.
+ * The native window transactions dock hosts share: the parked vessel's re-show behind `VesselPark`'s
+ * `reshowVessel` seam, the tear-out close, and the workspace returns.
  */
 
 const
     ROUTE        = {nativeHandleKey: 'handle-1', targetWindowId: 'win-source'},
-    SCREEN       = {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1600},
     TARGET_ROUTE = {nativeHandleKey: 'handle-target', targetWindowId: 'win-target'};
 
 /**
- * @summary Registers the two windows the choreography measures, and doubles every platform call.
+ * @summary Registers the two windows the re-show measures, and doubles its one platform call.
  *
- * The park effect DISPATCHES — optional resize, then the park-move — so a descriptor alone cannot
- * exercise it. `calls` records the order, and whether a call happened at all: a park that still
- * focused would be asking for the z-order a real drag never grants.
+ * The re-show DISPATCHES the route's move, so a descriptor alone cannot exercise it. `calls`
+ * records whether the call happened at all, and its payload.
  * @param {Object} [outcomes={}] Per-call boolean results; anything omitted succeeds.
- * @param {Object} [options={}]
- * @param {Object|null} [options.screen=SCREEN] The target display's work area `getWindowData` answers.
- * @returns {{calls:String[],restore:Function}}
+ * @returns {{calls:Object[],restore:Function}}
  */
-const installPlatform = (outcomes={}, {screen=SCREEN}={}) => {
-    Neo.Main       ??= {};
-    Neo.main       ??= {};
-    Neo.main.addon ??= {};
+const installPlatform = (outcomes={}) => {
+    Neo.Main ??= {};
 
     const
         calls    = [],
-        previous = {
-            focus        : Neo.Main.windowNativeFocus,
-            getWindowData: Neo.Main.getWindowData,
-            moveTo       : Neo.Main.windowNativeMoveTo,
-            resizeTo     : Neo.Main.windowNativeResizeTo,
-            addon        : Neo.main?.addon?.DragDrop
-        },
-        answer   = (name, payload) => {
-            calls.push(name);
-            payload && calls.push(`${name}:${payload.x},${payload.y}`);
-            return Promise.resolve(outcomes[name] !== false)
-        };
+        previous = Neo.Main.windowNativeMoveTo;
 
     WindowManager.register({id: 'win-source', innerRect: new Rectangle(40, 60, 480, 320), outerRect: new Rectangle(40, 60, 480, 320), nativeRoute: ROUTE});
     WindowManager.register({id: 'win-target', innerRect: new Rectangle(0, 0, 800, 600),   outerRect: new Rectangle(0, 0, 800, 600),   nativeRoute: TARGET_ROUTE});
 
-    Neo.Main.getWindowData        = () => Promise.resolve({screen});
-    Neo.Main.windowNativeFocus    = () => answer('focus');
-    Neo.Main.windowNativeMoveTo   = data => answer('moveTo', data);
-    Neo.Main.windowNativeResizeTo = () => answer('resize');
-    Neo.main.addon.DragDrop = {
-        parkWindowDrag                : data => answer('park', data),
-        resumeWindowDrag              : data => answer('resume', data),
-        retireWindowDragOrphanRecovery: () => answer('retireOrphan')
+    Neo.Main.windowNativeMoveTo = data => {
+        calls.push(data);
+        return Promise.resolve(outcomes.moveTo !== false)
     };
 
     return {
         calls,
         restore() {
-            Neo.Main.getWindowData        = previous.getWindowData;
-            Neo.Main.windowNativeFocus    = previous.focus;
-            Neo.Main.windowNativeMoveTo   = previous.moveTo;
-            Neo.Main.windowNativeResizeTo = previous.resizeTo;
-            Neo.main.addon.DragDrop       = previous.addon;
+            Neo.Main.windowNativeMoveTo = previous;
             WindowManager.unregister('win-source');
             WindowManager.unregister('win-target')
         }
@@ -116,14 +84,49 @@ const stubRoutes = granted => {
     return previous
 };
 
-const descriptorFor = ({geometry=null, receipts}) => ({
-    ownerWindowId  : () => 'win-owner',
-    publishReceipt : (key, receipt) => {receipts[key] = receipt},
-    resolveVessel  : () => ({nativeRoute: ROUTE, windowId: 'win-source', windowName: 'vessel-1'}),
-    restoreGeometry: () => geometry,
-    retireVessel   : async () => true,
-    targetWindowId : () => 'win-target'
+const descriptorFor = ({receipts}) => ({
+    ownerWindowId : () => 'win-owner',
+    publishReceipt: receipt => {receipts.restore = receipt},
+    resolveVessel : () => ({nativeRoute: ROUTE, windowId: 'win-source', windowName: 'vessel-1'}),
+    targetWindowId: () => 'win-target'
 });
+
+/**
+ * @summary Shifts every frame origin, so a re-show reaches the subclass static or it reaches nothing.
+ */
+class ShiftedTransaction extends NativeVesselTransaction {
+    static config = {className: 'Test.Unit.DockNativeVesselTransaction.Shifted'}
+
+    /** @summary Adds a fixed offset to the base origin. @param {Object} rect @param {String} windowId @returns {Object|null} */
+    static toFrameOrigin(rect, windowId) {
+        const origin = super.toFrameOrigin(rect, windowId);
+        return origin && {x: origin.x + 100, y: origin.y + 200}
+    }
+}
+
+Neo.setupClass(ShiftedTransaction);
+
+/**
+ * @summary A subclass whose re-show comes from `Neo.overwrites`, applied at class setup.
+ */
+class OverwrittenTransaction extends NativeVesselTransaction {
+    static config = {className: 'Test.Unit.DockNativeVesselTransaction.Overwritten'}
+}
+
+const previousOverwrites = Neo.overwrites;
+
+Neo.overwrites = {Test: {Unit: {DockNativeVesselTransaction: {Overwritten: {
+    async reshowVessel(data) {
+        this.overwrittenReshow = data;
+        return false
+    }
+}}}}};
+
+try {
+    Neo.setupClass(OverwrittenTransaction)
+} finally {
+    Neo.overwrites = previousOverwrites
+}
 
 test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
     let platform = null,
@@ -136,61 +139,18 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         restore  = null
     });
 
-    test('the authority block is the fixed ten keys, in order, whatever the obligation', () => {
+    test('the authority block is the fixed ten keys, in order, and a capability is reported, not required', async () => {
         const receipts = {};
 
         restore  = stubRoutes({focus: true, position: true, resize: false});
         platform = installPlatform();
 
-        return NativeVesselTransaction.effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'})
-            .then(() => {
-                expect(Object.keys(receipts.park.authority), 'ten keys, fixed order').toEqual(
-                    NativeVesselTransaction.authorityKeys
-                );
-                expect(receipts.park.authority.sourceResizeCapable, 'reported even when not required').toBe(false)
-            })
-    });
+        const admitted = await Neo.create(NativeVesselTransaction, descriptorFor({receipts}))
+            .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'});
 
-    test('a position-only park ADMITS a route with no resize capability', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: false});
-        platform = installPlatform();
-
-        const admitted = await NativeVesselTransaction
-            .effectsFor(descriptorFor({geometry: null, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(admitted, 'no declared geometry restore ⇒ resize is not a prerequisite').toBe(true);
-        expect(receipts.park.owesResize, 'the obligation is recorded, not inferred').toBe(false)
-    });
-
-    test('a geometry-restoring park REFUSES the same route', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: false});
-        platform = installPlatform();
-
-        const admitted = await NativeVesselTransaction
-            .effectsFor(descriptorFor({geometry: {height: 200, width: 300}, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(admitted, 'a promised extent restore makes resize a prerequisite at park').toBe(false);
-        expect(receipts.park.owesResize).toBe(true)
-    });
-
-    test('the park clears any prior restore receipt, so a stale one cannot read as this gesture', async () => {
-        const receipts = {restore: {stale: true}};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-
-        await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(receipts.restore).toBeNull()
+        expect(admitted, 'a position restore needs no resize capability').toBe(true);
+        expect(Object.keys(receipts.restore.authority), 'ten keys, fixed order').toEqual(NativeVesselTransaction.authorityKeys);
+        expect(receipts.restore.authority.sourceResizeCapable, 'reported even when not required').toBe(false)
     });
 
     test('the re-show converts a content rect to the frame origin moveTo consumes', async () => {
@@ -199,7 +159,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         restore  = stubRoutes({focus: true, position: true, resize: true});
         platform = installPlatform();
 
-        const effects = NativeVesselTransaction.effectsFor(descriptorFor({receipts}));
+        const effects = Neo.create(NativeVesselTransaction, descriptorFor({receipts}));
 
         await effects.reshowVessel({itemId: 'item-1', rect: {x: 400, y: 300}, windowName: 'vessel-1'});
 
@@ -215,216 +175,31 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         restore  = stubRoutes({focus: true, position: true, resize: true});
         platform = installPlatform();
 
-        const admitted = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
+        const admitted = await Neo.create(NativeVesselTransaction, descriptorFor({receipts}))
             .reshowVessel({itemId: 'item-1', rect: null, windowName: 'vessel-1'});
 
         expect(admitted, 'no origin is a refusal, never a move to NaN').toBe(false);
         expect(receipts.restore.frame).toBeNull()
     });
 
-    test('the park moves the vessel clear of the target and focuses nothing (#19278)', async () => {
+    test('the re-show moves the exact route to the frame origin, and a refused move refuses it', async () => {
         const receipts = {};
 
         restore  = stubRoutes({focus: true, position: true, resize: true});
         platform = installPlatform();
 
-        const parked = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+        const reshow = () => Neo.create(NativeVesselTransaction, descriptorFor({receipts}))
+            .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'});
 
-        expect(parked).toBe(true);
-        expect(platform.calls.filter(call => !call.includes(':')), 'one move, no focus step').toEqual(['park']);
-        expect(receipts.park).toMatchObject({cleared: true, parked: true});
-        // the 480x320 frame's work-area corner farthest from the 800x600 target at the origin
-        expect(receipts.park.requested).toEqual({x: 1120, y: 680});
-        expect(receipts.park).not.toHaveProperty('refocused')
-    });
+        expect(await reshow()).toBe(true);
+        expect(platform.calls).toEqual([{...ROUTE, windowId: 'win-owner', x: 10, y: 20}]);
+        expect(receipts.restore).toMatchObject({admitted: true, moved: true});
 
-    test('a target focus route the park no longer uses does not refuse it', async () => {
-        const receipts = {};
+        platform.restore();
+        platform = installPlatform({moveTo: false});
 
-        restore  = stubRoutes({focus: false, position: true, resize: true});
-        platform = installPlatform();
-
-        const parked = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(parked).toBe(true);
-        expect(receipts.park.authority.targetFocusCapable, 'still reported').toBe(false)
-    });
-
-    test('a geometry-restoring park resizes before the move, and places the shrunk frame', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-
-        await NativeVesselTransaction
-            .effectsFor(descriptorFor({geometry: {height: 320, width: 480}, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(platform.calls.filter(call => !call.includes(':'))).toEqual(['resize', 'park']);
-        expect(receipts.park.resized).toBe(true)
-    });
-
-    test('a target spanning the work area still parks, and the receipt says it is not cleared', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform({}, {screen: {availHeight: 600, availLeft: 0, availTop: 0, availWidth: 800}});
-
-        const parked = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(parked, 'no corner is clear: the zones before the park are the belt').toBe(true);
-        expect(receipts.park.cleared).toBe(false)
-    });
-
-    test('a target display without a measurable work area refuses before any move', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform({}, {screen: null});
-
-        const parked = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(parked).toBe(false);
-        expect(receipts.park.refusedAt).toBe('screen');
-        expect(platform.calls).toEqual([])
-    });
-
-    test('a vessel without an outer frame that owes no resize is refused, not cleared against its inner rect', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-
-        WindowManager.unregister('win-source');
-        WindowManager.register({id: 'win-source', innerRect: new Rectangle(40, 60, 480, 320), nativeRoute: ROUTE});
-
-        const parked = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(parked).toBe(false);
-        expect(receipts.park.refusedAt).toBe('screen');
-        expect(platform.calls, 'nothing moves').toEqual([])
-    });
-
-    test('an inner-plane park that owes a resize clears the frame the outer-plane resize applies', async () => {
-        const
-            receipts = {},
-            resizes  = [];
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-
-        // Real chrome: each window's content sits 68 px below its frame
-        WindowManager.unregister('win-source');
-        WindowManager.unregister('win-target');
-        WindowManager.register({id: 'win-source', innerRect: new Rectangle(40, 128, 480, 252), outerRect: new Rectangle(40, 60, 480, 320), nativeRoute: ROUTE});
-        WindowManager.register({id: 'win-target', innerRect: new Rectangle(0, 68, 800, 532),   outerRect: new Rectangle(0, 0, 800, 600),   nativeRoute: TARGET_ROUTE});
-
-        Neo.Main.windowNativeResizeTo = ({height, width}) => {
-            resizes.push({height, width});
-            return Promise.resolve(true)
-        };
-
-        await NativeVesselTransaction
-            .effectsFor(descriptorFor({geometry: {height: 320, width: 480}, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(resizes, 'the inner-plane shrink, applied as the outer size').toEqual([{height: 252, width: 480}]);
-        // the corner farthest from the target that holds a 480x252 frame, the one the resize produces
-        expect(receipts.park.requested).toEqual({x: 1120, y: 748});
-        expect(receipts.park.cleared).toBe(true)
-    });
-
-    test('a source too large to hide behind the target refuses when nothing may shrink it', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-        // Bigger than the 800x600 target: it cannot be covered as-is.
-        // `manager.Base#register` refuses an id it already holds rather than replacing it, so the
-        // oversized source has to displace the fixture's window instead of shadowing it.
-        WindowManager.unregister('win-source');
-        WindowManager.register({
-            id         : 'win-source', innerRect: new Rectangle(0, 0, 1200, 900),
-            nativeRoute: ROUTE, outerRect: new Rectangle(0, 0, 1200, 900)
-        });
-
-        const admitted = await NativeVesselTransaction
-            .effectsFor(descriptorFor({geometry: null, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(admitted, 'no extent obligation ⇒ no licence to shrink ⇒ refuse').toBe(false);
-        expect(receipts.park.fits).toBe(false);
-        expect(platform.calls, 'refused before any platform effect').toEqual([])
-    });
-
-    test('the same oversized source is ADMITTED when the transaction owes an extent restore', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-        // `manager.Base#register` refuses an id it already holds rather than replacing it, so the
-        // oversized source has to displace the fixture's window instead of shadowing it.
-        WindowManager.unregister('win-source');
-        WindowManager.register({
-            id         : 'win-source', innerRect: new Rectangle(0, 0, 1200, 900),
-            nativeRoute: ROUTE, outerRect: new Rectangle(0, 0, 1200, 900)
-        });
-
-        const admitted = await NativeVesselTransaction
-            .effectsFor(descriptorFor({geometry: {height: 900, width: 1200}, receipts}))
-            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-        expect(admitted, 'the promise to restore the extent is what licences the shrink').toBe(true);
-        expect(receipts.park.fits).toBe(false);
-        expect(platform.calls.filter(call => !call.includes(':'))).toEqual(['resize', 'park']);
-        // the frame shrinks to the 800x600 target; beside it, the corner farthest from it is clear
-        expect(receipts.park).toMatchObject({cleared: true, requested: {x: 800, y: 400}})
-    });
-
-    test('a terminal restore ending a DRAG asks its owner before the route', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-
-        const admitted = await NativeVesselTransaction
-            .effectsFor({...descriptorFor({receipts}), terminalRestoreOwner: 'drag'})
-            .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, terminal: true, windowName: 'vessel-1'});
-
-        expect(admitted).toBe(true);
-        expect(receipts.restore.addonRestored, 'the drag owner performed it').toBe(true);
-        expect(platform.calls.filter(call => !call.includes(':')))
-            .toEqual(['resume']);
-        expect(platform.calls, 'the route was never addressed directly').not.toContain('moveTo')
-    });
-
-    test('a terminal restore ending a CONVERSION addresses the route directly', async () => {
-        const receipts = {};
-
-        restore  = stubRoutes({focus: true, position: true, resize: true});
-        platform = installPlatform();
-
-        // The default: no drag exists to hand back to, so asking one would succeed against a
-        // stale effect. Both consumers are real and they differ here, so it is declared.
-        const admitted = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
-            .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, terminal: true, windowName: 'vessel-1'});
-
-        expect(admitted).toBe(true);
-        expect(receipts.restore.addonRestored, 'no drag owner was consulted').toBeUndefined();
-        expect(platform.calls).toContain('moveTo');
-        expect(platform.calls, 'and the drag was never resumed').not.toContain('resume')
+        expect(await reshow()).toBe(false);
+        expect(receipts.restore).toMatchObject({moved: false, refusedAt: 'move'})
     });
 
     test('a windowName mismatch refuses the re-show even with every route granted', async () => {
@@ -433,71 +208,34 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         restore  = stubRoutes({focus: true, position: true, resize: true});
         platform = installPlatform();
 
-        const admitted = await NativeVesselTransaction
-            .effectsFor(descriptorFor({receipts}))
+        const admitted = await Neo.create(NativeVesselTransaction, descriptorFor({receipts}))
             .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'a-different-vessel'});
 
         expect(admitted).toBe(false)
     });
-});
 
-/**
- * Where the park puts the vessel so it covers none of the target. Every arm is a real frame on a
- * real work area: the corner's frame must stay whole inside the work area, and "farthest" only decides
- * between corners that overlap the target equally.
- */
-test.describe('Neo.dashboard.dock.window.NativeVesselTransaction.resolveClearPark', () => {
-    const park = (frame, screen, target) => NativeVesselTransaction.resolveClearPark({frame, screen, target});
+    test('a subclass static override reaches the frame the re-show hands the platform', async () => {
+        const receipts = {};
 
-    test('the frame takes the clear corner farthest from the target, whole inside the work area', () => {
-        const screen = {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1600};
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
 
-        expect(park({height: 320, width: 480}, screen, {height: 600, width: 800, x: 0, y: 0}))
-            .toEqual({cleared: true, x: 1120, y: 680});
-        // three corners clear an off-centre target; the farthest of them wins, not the first
-        expect(park({height: 300, width: 400}, screen, {height: 400, width: 600, x: 200, y: 100}))
-            .toEqual({cleared: true, x: 1200, y: 700})
+        expect(await Neo.create(ShiftedTransaction, descriptorFor({receipts}))
+            .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'})).toBe(true);
+        expect(platform.calls, 'the subclass frame reached the move').toEqual([{...ROUTE, windowId: 'win-owner', x: 110, y: 220}])
     });
 
-    test('a second display keeps the frame on its own work area', () => {
-        const screen = {availHeight: 900, availLeft: 1920, availTop: 0, availWidth: 1440};
+    test('a Neo.overwrites entry replaces the re-show a park seam dispatches', async () => {
+        const receipts = {},
+              owner    = Neo.create(OverwrittenTransaction, descriptorFor({receipts})),
+              seam     = args => owner.reshowVessel(args);
 
-        expect(park({height: 300, width: 400}, screen, {height: 600, width: 800, x: 2000, y: 100}))
-            .toEqual({cleared: true, x: 2960, y: 600})
-    });
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
 
-    test('a frame larger than the work area is refused before placement: no corner holds it whole', () => {
-        const screen = {availHeight: 800, availLeft: 0, availTop: 0, availWidth: 1000}, target = {height: 300, width: 400, x: 0, y: 0};
-
-        expect(park({height: 300, width: 1200}, screen, target), 'wider').toBeNull();
-        expect(park({height: 900, width: 400},  screen, target), 'taller').toBeNull();
-        expect(park({height: 800, width: 1000}, screen, target), 'exactly the work area still fits').toEqual({cleared: false, x: 0, y: 0})
-    });
-
-    test('a target without extent is refused: nothing can be cleared of it', () => {
-        const screen = {availHeight: 900, availLeft: 0, availTop: 0, availWidth: 1440}, frame = {height: 300, width: 400};
-
-        expect(park(frame, screen, {height: 0, width: 800, x: 0, y: 0})).toBeNull();
-        expect(park(frame, screen, {height: 600, width: -1, x: 0, y: 0})).toBeNull()
-    });
-
-    test('a target spanning the work area answers the least-overlapping corner, not cleared', () => {
-        const screen = {availHeight: 600, availLeft: 0, availTop: 0, availWidth: 800};
-
-        expect(park({height: 300, width: 400}, screen, {height: 600, width: 800, x: 0, y: 0}))
-            .toEqual({cleared: false, x: 0, y: 0})
-    });
-
-    test('an unmeasurable frame, work area or target answers null', () => {
-        const
-            frame  = {height: 300, width: 400},
-            screen = {availHeight: 900, availLeft: 0, availTop: 0, availWidth: 1440},
-            target = {height: 600, width: 800, x: 0, y: 0};
-
-        expect(park(frame, null, target)).toBeNull();
-        expect(park(frame, {...screen, availWidth: 0}, target)).toBeNull();
-        expect(park({...frame, height: NaN}, screen, target)).toBeNull();
-        expect(park(frame, screen, {...target, x: undefined})).toBeNull()
+        expect(await seam({itemId: 'item-1', rect: {x: 10, y: 20}, windowName: 'vessel-1'}), 'the overwrite answered').toBe(false);
+        expect(owner.overwrittenReshow).toMatchObject({itemId: 'item-1'});
+        expect(platform.calls, 'the base re-show never moved the window').toEqual([])
     });
 });
 
@@ -729,7 +467,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
 
     test.beforeEach(() => {
         Neo.Main ??= {};
-        previousMain = Object.fromEntries(['windowNativeIsClosed', 'windowOpen', 'clearTopologyIdentity', 'closeTopologyWindow']
+        previousMain = Object.fromEntries(['windowNativeIsClosed', 'windowOpen', 'clearTopologyIdentity', 'closeTopologyWindow', 'setTopologyIdentity']
             .map(key => [key, Neo.Main[key]]));
         previousLease = TransactionManager.reconnectLeaseMs;
         previousLogError = Neo.logError
@@ -771,7 +509,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         host = {
             id     : 'independent-dock-document-owner', groupId, set, sourceIdentity, policy,
             calls  : [], returned: [], effects: [], logs: [],
-            answers: {observe: true, open: false, clear: true, close: true},
+            answers: {observe: true, open: false, clear: true, close: true, set: true},
             source : {document: dockDocument(['pane-last', 'pane-first']), windowId: bound ? 'native-return-floating' : null},
             target : {document: dockDocument(['anchor']), windowId: 'native-return-landing'}
         };
@@ -784,6 +522,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         Neo.Main.windowOpen = data => dispatch('open', data);
         Neo.Main.clearTopologyIdentity = data => dispatch('clear', data);
         Neo.Main.closeTopologyWindow = data => dispatch('close', data);
+        Neo.Main.setTopologyIdentity = data => dispatch('set', data);
         Neo.logError = error => host.logs.push(error.message);
 
         host.listeners = {
@@ -1036,213 +775,77 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         await expect.poll(() => owner.effects.length).toBe(1);
         let resolveClear;
         owner.answers.clear = new Promise(resolve => resolveClear = resolve);
-        const result = await TransactionManager.redo({groupId: owner.groupId});
+        const reopenedToken = TransactionManager.getBinding(owner.groupId, FLOATING).generationToken;
+        const result        = await TransactionManager.redo({groupId: owner.groupId});
         await expect.poll(() => owner.calls.some(call => call.name === 'clear')).toBe(true);
         expect(TransactionManager.release(owner.source.windowId)).toBe(true);
         const successor = TransactionManager.reserve({groupId: owner.groupId, workspaceKey: FLOATING});
         owner.rebind(successor, 'native-return-new-lineage');
         resolveClear(true);
         await expect.poll(() => owner.effects.length).toBe(2);
+        // The clear names the lineage it was issued for, so the window's carrier refuses it once the
+        // successor wrote its own (Main.clearTopologyIdentity compares the token).
+        expect(owner.calls.find(call => call.name === 'clear').data.generationToken).toBe(reopenedToken);
+        expect(reopenedToken).not.toBe(successor.generationToken);
         expect(owner.calls.filter(call => call.name === 'close')).toEqual([]);
+        expect(owner.calls.filter(call => call.name === 'set'), 'the earlier lineage never writes its carrier back over the successor').toEqual([]);
         expect(owner.effects[1]).toMatchObject({transactionId: result.transactionId, observation: {closed: false}});
         expect(owner.source.windowId).toBe('native-return-new-lineage');
         expect(owner.source.document.items).toEqual({});
         expect(TransactionManager.get(owner.groupId).history.cursor).toBe(0)
     });
-    test.describe('the dispose effect: a receipt the host maps, and one bounded retry', () => {
-        const
-            entryFor      = windowName => ({nativeRoute: null, windowId: 'win-dispose-source', windowName}),
-            descriptorFor = ({receipts, retireVessel, entry=entryFor('vessel-1')}) => ({
-                ownerWindowId : () => 'win-owner',
-                publishReceipt: (key, receipt) => {receipts[key] = receipt},
-                resolveVessel : () => entry,
-                retireVessel,
-                targetWindowId: () => 'win-target'
-            }),
-            registerSource = () => WindowManager.register({
-                id: 'win-dispose-source', innerRect: new Rectangle(0, 0, 300, 200), outerRect: new Rectangle(0, 0, 300, 200)
-            });
 
-        test.afterEach(() => {
-            WindowManager.get('win-dispose-source') && WindowManager.unregister('win-dispose-source')
+    /**
+     * Re-opens the returned popup through Undo, then empties it into the landing by a committed write, as
+     * a whole-stack transfer does, while its window stays bound.
+     * @returns {Promise<Object>} The host.
+     */
+    const reopenedAndEmptied = async () => {
+        const owner = createHost();
+        await owner.release();
+        owner.answers.open = data => { owner.rebind(data.topologyIdentity, 'native-return-reopened'); return true };
+        await TransactionManager.undo({groupId: owner.groupId});
+        await expect.poll(() => owner.effects.length).toBe(1);
+        await owner.set.write({[SOURCE]: dockDocument([]), [TARGET]: dockDocument(['anchor', 'pane-first', 'pane-last'])}, {cause: 'transfer'});
+        owner.calls.length = 0;
+        return owner
+    };
+
+    test('an emptied re-opened window closes through its Group binding outside replay, and only while bound', async () => {
+        const owner = await reopenedAndEmptied();
+
+        expect(await NativeVesselTransaction.closeWorkspaceWindow(owner.set, SOURCE)).toBe(true);
+        expect(owner.calls.map(call => call.name)).toEqual(['clear', 'close']);
+        expect(owner.calls[0].data, 'the clear names the bound lineage').toEqual({
+            generationToken: TransactionManager.getBinding(owner.groupId, FLOATING).generationToken,
+            groupId        : owner.groupId,
+            windowId       : 'native-return-reopened'
         });
+        expect(owner.calls[1].data).toEqual({windowId: 'native-return-reopened'});
 
-        test('a first-call success reads one attempt, and the receipt is published before the retire runs', async () => {
-            const receipts     = {};
-            let   seenAtRetire = null;
+        owner.source.windowId = null;
+        owner.calls.length = 0;
+        expect(await NativeVesselTransaction.closeWorkspaceWindow(owner.set, SOURCE), 'no bound window, nothing to close').toBe(false);
+        expect(owner.calls).toEqual([])
+    });
 
-            const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
-                receipts,
-                retireVessel: async () => {
-                    seenAtRetire = {...receipts.dispose};
-                    return true
-                }
-            })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
+    test('a pane committed back into the still-bound source while the clear is deferred keeps the window and its carrier', async () => {
+        const owner = await reopenedAndEmptied(), token = TransactionManager.getBinding(owner.groupId, FLOATING).generationToken;
+        let resolveClear;
+        owner.answers.clear = new Promise(resolve => resolveClear = resolve);
 
-            expect(disposed).toBe(true);
-            expect(seenAtRetire, 'published first, amended in place').toMatchObject({admitted: false, attempts: 1, stage: 'retiring'});
-            expect(receipts.dispose).toMatchObject({
-                admitted: true, attempts: 1, entry: true, itemId: 'item-1', nameMatches: true, refusal: null, stage: 'retired', windowName: 'vessel-1'
-            })
-        });
+        const closing = NativeVesselTransaction.closeWorkspaceWindow(owner.set, SOURCE);
+        await expect.poll(() => owner.calls.some(call => call.name === 'clear')).toBe(true);
+        await owner.set.write({[SOURCE]: dockDocument(['pane-first']), [TARGET]: dockDocument(['anchor', 'pane-last'])}, {cause: 'transfer'});
+        const historyCount = TransactionManager.get(owner.groupId).history.count;
+        resolveClear(true);
 
-        test('a refused close with the vessel window alive is retried exactly once, and the second attempt admits', async () => {
-            const receipts = {}, calls = [];
-
-            registerSource();
-
-            const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
-                receipts,
-                retireVessel: async identity => {
-                    calls.push(identity);
-                    return calls.length > 1
-                }
-            })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-            expect(disposed).toBe(true);
-            expect(calls).toEqual([{itemId: 'item-1', windowName: 'vessel-1'}, {itemId: 'item-1', windowName: 'vessel-1'}]);
-            expect(receipts.dispose).toMatchObject({
-                admitted: true, attempts: 2, refusal: 'host-close-refused', stage: 'retired', windowAlive: true
-            })
-        });
-
-        test('a refused close whose window is already gone is never retried: one call, refused, window dead', async () => {
-            const receipts = {}, calls = [];
-
-            const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
-                receipts,
-                retireVessel: async identity => {
-                    calls.push(identity);
-                    return false
-                }
-            })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-            expect(disposed).toBe(false);
-            expect(calls).toHaveLength(1);
-            expect(receipts.dispose).toMatchObject({
-                admitted: false, attempts: 1, refusal: 'host-close-refused', stage: 'refused', windowAlive: false
-            })
-        });
-
-        test('a second refusal ends it: two calls, still refused', async () => {
-            const receipts = {}, calls = [];
-
-            registerSource();
-
-            const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
-                receipts,
-                retireVessel: async identity => {
-                    calls.push(identity);
-                    return false
-                }
-            })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-            expect(disposed).toBe(false);
-            expect(calls).toHaveLength(2);
-            expect(receipts.dispose).toMatchObject({admitted: false, attempts: 2, refusal: 'host-close-refused', stage: 'refused', windowAlive: true})
-        });
-
-        test('no registry entry, or a name that is not the parked vessel\'s, refuses once with its class — alive or not', async () => {
-            registerSource();
-
-            for (const [label, entry, refusal] of [
-                ['no entry',        null,                     'no-vessel'],
-                ['mismatched name', entryFor('vessel-other'), 'identity-mismatch']
-            ]) {
-                const receipts = {}, calls = [];
-
-                const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
-                    entry,
-                    receipts,
-                    retireVessel: async identity => {
-                        calls.push(identity);
-                        return false
-                    }
-                })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-                expect(disposed, label).toBe(false);
-                expect(calls, label).toHaveLength(1);
-                expect(receipts.dispose, label).toMatchObject({admitted: false, attempts: 1, entry: Boolean(entry), refusal, stage: 'refused'})
-            }
-        });
-
-        test('every call carries the lineage the registry named at the first call', async () => {
-            const receipts = {}, calls = [];
-
-            registerSource();
-
-            const disposed = await NativeVesselTransaction.effectsFor(descriptorFor({
-                entry       : {...entryFor('vessel-1'), generationToken: 'gen-1'},
-                receipts,
-                retireVessel: async identity => {
-                    calls.push(identity);
-                    return calls.length > 1
-                }
-            })).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-            expect(disposed).toBe(true);
-            expect(calls).toEqual([
-                {generationToken: 'gen-1', itemId: 'item-1', windowName: 'vessel-1'},
-                {generationToken: 'gen-1', itemId: 'item-1', windowName: 'vessel-1'}
-            ])
-        });
-
-        test('a vessel retired externally between the attempts is never closed by the retry: one call, no-vessel', async () => {
-            const receipts = {}, calls = [];
-            let   entry    = {...entryFor('vessel-1'), generationToken: 'gen-1'};
-
-            registerSource();
-
-            const disposed = await NativeVesselTransaction.effectsFor({
-                ...descriptorFor({
-                    receipts,
-                    retireVessel: async identity => {
-                        calls.push(identity);
-                        // The external owner observed the retirement while this close was refused.
-                        entry = null;
-                        return false
-                    }
-                }),
-                resolveVessel: () => entry
-            }).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-            expect(disposed).toBe(false);
-            expect(calls).toHaveLength(1);
-            expect(receipts.dispose).toMatchObject({admitted: false, attempts: 1, entry: true, refusal: 'no-vessel', stage: 'refused'})
-        });
-
-        test('a successor admitted under the same name between the attempts is never closed by the retry: one call, vessel-replaced', async () => {
-            const receipts = {}, calls = [];
-            let   entry    = {...entryFor('vessel-1'), generationToken: 'gen-1'};
-
-            registerSource();
-            WindowManager.register({
-                id: 'win-dispose-successor', innerRect: new Rectangle(0, 0, 300, 200), outerRect: new Rectangle(0, 0, 300, 200)
-            });
-
-            try {
-                const disposed = await NativeVesselTransaction.effectsFor({
-                    ...descriptorFor({
-                        receipts,
-                        retireVessel: async identity => {
-                            calls.push(identity);
-                            // A successor admission shares the name and takes a new window and token.
-                            entry = {...entryFor('vessel-1'), generationToken: 'gen-2', windowId: 'win-dispose-successor'};
-                            return false
-                        }
-                    }),
-                    resolveVessel: () => entry
-                }).disposeVessel({itemId: 'item-1', windowName: 'vessel-1'});
-
-                expect(disposed).toBe(false);
-                expect(calls).toEqual([{generationToken: 'gen-1', itemId: 'item-1', windowName: 'vessel-1'}]);
-                expect(receipts.dispose).toMatchObject({
-                    admitted: false, attempts: 1, entry: true, refusal: 'vessel-replaced', stage: 'refused', windowAlive: true
-                })
-            } finally {
-                WindowManager.unregister('win-dispose-successor')
-            }
-        })
-    })
-
+        expect(await closing, 'a repopulated source is no emptied vessel').toBe(false);
+        expect(owner.calls.filter(call => call.name === 'close')).toEqual([]);
+        expect(owner.calls.filter(call => call.name === 'set').map(call => call.data), 'the still-bound window gets its carrier back')
+            .toEqual([{generationToken: token, groupId: owner.groupId, onlyIfEmpty: true, windowId: 'native-return-reopened', workspaceKey: FLOATING}]);
+        expect(Object.keys(owner.source.document.items)).toEqual(['pane-first']);
+        expect(TransactionManager.get(owner.groupId).history.count, 'a refused close rewrites no history').toBe(historyCount);
+        expect(TransactionManager.getBinding(owner.groupId, FLOATING)?.windowId).toBe('native-return-reopened')
+    });
 });

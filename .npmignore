@@ -6,27 +6,9 @@
 # resolve the two. `prepack` prints what it dropped and for which path; `postpack` removes the copy
 # again, so nothing below the marker is committed.
 
-# The contents are excluded rather than the directory itself, because an ignore rule on `/dist`
-# cannot be undone: a negation never re-includes a file whose parent directory is excluded. Same
-# shape the `/apps/**/*` rules in `.gitignore` use for the same reason.
-/dist/*
-# `src/functional/util/HtmlTemplateProcessor.mjs` imports this bundle by relative path, and
-# `buildScripts/util/templateBuildProcessor.mjs` imports it at module scope — so an installed engine
-# needs it to RUN the dist/esm build, not merely to execute the tree that build emits. It cannot be
-# produced on the consumer side: parse5 and esbuild are both devDependencies.
-!/dist/parse5.mjs
-!/dist/marked.mjs
-!/dist/mermaid.mjs
-# `main.addon.MonacoEditor` loads every file in this directory: the editor, its stylesheet and font, and
-# its workers. monaco-editor and esbuild are both devDependencies.
-!/dist/monaco/
-# `src/util/HighlightJs.mjs` imports one of these two bundles, chosen by its public `debug` config, so both
-# ship. Re-include the directory, exclude its contents, re-include each file — the `/dist/*` shape above,
-# one level down.
-!/dist/highlight/
-/dist/highlight/*
-!/dist/highlight/highlight.custom.js
-!/dist/highlight/highlight.custom.min.js
+# Workspaces generate browser dependencies in their installed Engine copy.
+# The npm package contains their sources and build scripts, never generated output.
+/dist
 /docs/output
 # Generated SEO artifacts for the deployed portal site (buildScripts/docs/seo/generate.mjs).
 # Tracked so the deployment can serve them; 3.2 MiB combined and addressed to search-engine and

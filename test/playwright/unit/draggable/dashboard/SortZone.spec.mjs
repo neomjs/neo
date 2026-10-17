@@ -771,7 +771,8 @@ test.describe('Neo.draggable.dashboard.SortZone Directional Logic', () => {
                 id       : 'target-window',
                 innerRect: new Rectangle(100, 100, 300, 300),
                 outerRect: new Rectangle(100, 100, 300, 300)
-            }
+            },
+            {id: 'source-window'}
         ];
         WindowManager.map = new Map(WindowManager.items.map(item => [item.id, item]));
 

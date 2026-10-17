@@ -93,16 +93,29 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
         workspace = null
     });
 
-    test('a headless Workspace arms no geometry until its first real window binding', () => {
+    test('a headless Workspace arms no geometry until its first real window binding', async () => {
         const
-            originalWindowPosition = Neo.main.addon.WindowPosition,
-            calls                  = [];
+            originalGetAddon = Neo.currentWorker.getAddon,
+            {isSharedWorker} = Neo.currentWorker,
+            calls            = [],
+            loads            = [],
+            windowPosition   = {
+                setConfigs(data) {
+                    calls.push(data);
+                    return Promise.resolve()
+                }
+            };
 
-        Neo.main.addon.WindowPosition = {
-            setConfigs(data) {
-                calls.push(data);
-                return Promise.resolve()
+        // A SharedWorker app spans windows, and the engine loads the addon into the window it binds.
+        // A load is recorded synchronously, so a repeated binding that armed again would show at once.
+        Neo.currentWorker.isSharedWorker = true;
+        Neo.currentWorker.getAddon       = async (name, windowId) => {
+            if (name !== 'WindowPosition') {
+                return originalGetAddon(name, windowId)
             }
+
+            loads.push(windowId);
+            return windowPosition
         };
 
         try {
@@ -116,7 +129,7 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
                 windowId: 'bound-window'
             });
 
-            expect(calls, 'the real container binding arms both geometry streams exactly once').toEqual([{
+            await expect.poll(() => calls, 'the real container binding arms both geometry streams exactly once').toEqual([{
                 observeMovement: true,
                 observeResize  : true,
                 windowId       : 'bound-window'
@@ -124,11 +137,10 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
 
             workspace.windowId = 'bound-window';
 
-            expect(calls, 'setting the same binding again is idempotent').toHaveLength(1)
+            expect(loads, 'setting the same binding again is idempotent').toEqual(['bound-window'])
         } finally {
-            originalWindowPosition
-                ? Neo.main.addon.WindowPosition = originalWindowPosition
-                : delete Neo.main.addon.WindowPosition
+            Neo.currentWorker.getAddon       = originalGetAddon;
+            Neo.currentWorker.isSharedWorker = isSharedWorker
         }
     });
 
@@ -149,6 +161,48 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
         expect(tabs.get('editor-tabs').getTabBar().sortZoneConfig.dockItemIds).toEqual(['editor']);
         expect(tabs.get('side-tabs').getTabBar().sortZoneConfig.dockItemIds).toEqual(['preview', 'terminal']);
         expect(outcome.landedInPlace, 'a first projection is a normal staged result, never a fast path').toBe(false)
+    });
+
+    test('adoption settles when the document is in the host, before a post-projection hook that trails motion', async () => {
+        const order = [];
+        let adoptedAt, settledAt;
+
+        workspace = Neo.create(DockWorkspace, {dockModel: createDocument()});
+        // A host that sequences chrome behind the motion window (apps/workstation does) delays the
+        // settled surface, never the adoption.
+        workspace.afterRefreshDockWorkspace = () => new Promise(resolve => setTimeout(resolve, 150));
+        parent    = await bindAndMount(workspace);
+
+        const cycle = workspace.projectionCycle, refresh = workspace.refreshPromise;
+
+        expect(cycle?.adoption, 'the scheduling commit exposes the cycle\'s adoption').toBeInstanceOf(Promise);
+
+        cycle.adoption.then(() => {adoptedAt = Date.now(); order.push('adopted')});
+        refresh.then(() => {settledAt = Date.now(); order.push('settled')});
+
+        await settleRefreshTail(workspace);
+        await cycle.adoption;
+
+        expect(order).toEqual(['adopted', 'settled']);
+        expect(settledAt - adoptedAt, 'the hook\'s wait sits between adoption and the settled surface').toBeGreaterThanOrEqual(100);
+        expect((await cycle.adoption).landedInPlace, 'adoption resolves with the reconciler\'s outcome').toBe(false);
+
+        const {timing} = cycle;
+
+        expect(Object.keys(timing)).toEqual(expect.arrayContaining(['queuedAt', 'startedAt', 'reconciled', 'settledAt', 'landedInPlace', 'waitedForTail']));
+        expect(timing.reconciled, 'the receipt orders the reconcile before the settle').toBeLessThanOrEqual(timing.settledAt);
+        expect(timing.settledAt - timing.reconciled).toBeGreaterThanOrEqual(100);
+
+        // A cycle that never runs — the workspace is gone before its tick — settles the adoption with
+        // null rather than leaving a consumer hanging on it.
+        const lone       = Neo.create(DockWorkspace, {dockModel: createDocument()}),
+              skipped    = lone.projectDockZoneDocument(createDocument()),
+              {adoption} = lone.projectionCycle;
+
+        lone.destroy();
+        await skipped.catch(() => {});
+
+        expect(await adoption).toBeNull()
     });
 
     test('the standalone dock example keeps only its toolbar static and receives its shell from the engine', async () => {

@@ -197,6 +197,40 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.measuring, 'the latch still resets so future passes are not frozen').toBe(false)
     });
 
+    test('a throw after the owner or the plugin is destroyed is teardown, even while mounted still reads true', async () => {
+        // Destruction does not reset `mounted`: a destroyed owner still reads mounted, so destruction is asked for itself.
+        // The plugin projects while constructing, so the destroying measure is armed only after both exist.
+        let armed = false;
+
+        const rects          = ids => [ids].flat().map(() => ({bottom: 20, height: 20, left: 0, right: 100, top: 0, width: 100, x: 0, y: 0})),
+              ownerDestroyed = createPlugin(async function (ids) {
+                  if (!armed) return rects(ids);
+                  this.isDestroyed = true;
+                  throw Neo.isDestroyed
+              }),
+              pluginDestroyed = createPlugin(async ids => {
+                  if (!armed) return rects(ids);
+                  pluginDestroyed.isDestroyed = true;
+                  throw Neo.isDestroyed
+              }),
+              errors          = [],
+              orig            = console.error;
+
+        console.error = (...args) => { errors.push(args) };
+        armed = true;
+
+        try {
+            await ownerDestroyed.project(true).catch(() => {});
+            await pluginDestroyed.project(true).catch(() => {})
+        } finally {
+            console.error = orig
+        }
+
+        expect(ownerDestroyed.owner.mounted, 'control: the destroyed owner still reads mounted').toBe(true);
+        expect(errors.length, 'a destroyed owner or plugin is torn down, not a live-owner defect').toBe(0);
+        expect(ownerDestroyed.measuring || pluginDestroyed.measuring, 'both latches still reset').toBe(false)
+    });
+
     test('a project() arriving during an in-flight pass is coalesced, then drained once — never dropped, so the last state wins', async () => {
         let release,
             gate       = new Promise(resolve => { release = resolve }),
@@ -708,6 +742,47 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             .toBe(plugin.owner);
         expect(createdConfig.vdom['aria-label']).toBe('More tabs');
         expect(plugin.control, 'and assigns the fresh instance as the new control').not.toBeNull()
+    });
+
+    test('an action without a box (not mounted yet, or collapsed) never moves the rail to the owner edge (#19544)', async () => {
+        // After a header drag, the drain pass runs while the focus-returned contextual actions have items but no
+        // DOM yet: their rects are all zeros. Read as the rail's start, x=0 withheld every unprotected tab for a pass.
+        const pending = {hidden: false, id: 'action-pending'},
+              mounted = {hidden: false, id: 'action-mounted'};
+        let   pendingRect = {height: 0, left: 0, top: 0, width: 0, x: 0, y: 0};
+
+        const plugin = createPlugin(async ids => ids.map(id => id === 'tab-overflow-test-owner'
+            ? {height: 30, left: 0, top: 0, width: 772, x: 0, y: 0}
+            : id === pending.id
+                ? pendingRect
+                : id === mounted.id
+                    ? {height: 20, left: 692, top: 0, width: 20, x: 692, y: 0}
+                    : {height: 30, width: 70}));
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let split;
+        plugin.applySplit = (hidden, buttons, tabContainer, activeCap) => {
+            split = {activeCap, hidden}
+        };
+
+        plugin.owner.getActionItems = () => [pending, mounted];
+        plugin.naturalWidths         = {b1: 110, b2: 110};
+        await plugin.project(false);
+
+        expect(split.hidden, 'the mounted action at x=692 names the rail: both tabs fit').toEqual([]);
+
+        plugin.owner.getActionItems = () => [pending];
+        await plugin.project(false);
+
+        expect(split.hidden, 'with no laid-out action the owner width is the extent').toEqual([]);
+
+        // Control: once the same action has its box at the owner's edge, the rail really does start there.
+        pendingRect                 = {height: 20, left: 0, top: 0, width: 20, x: 0, y: 0};
+        plugin.owner.getActionItems = () => [pending, mounted];
+        await plugin.project(false);
+
+        expect(split.hidden, 'a laid-out action at x=0 is a real zero extent: only the active tab survives').toEqual(['b2']);
     });
 
     test('main-axis geometry reserves actions and maps all four toolbar orientations', async () => {

@@ -18,7 +18,7 @@ import {test, expect} from '../../fixtures.mjs';
  *
  * `DockFlip.play()` branch classification is recorded alongside (wrapped `play`,
  * `hasPreservedMarkerSet`, `hasLandedInPlace`) — including the outcome where the defect sits
- * outside DockFlip entirely. The branch trace, the designed same-row sort crossing, and the
+ * outside DockFlip entirely. The branch trace, the sort swap's committed label order, and the
  * interference canary are terminal positive controls: an interaction-disabled or branch-absent
  * run fails the witness even with an empty overlap set, so zero violations can never read green
  * from a gesture that never entered the repaired path.
@@ -83,11 +83,21 @@ test.describe('Workstation — a top-right tab drag never paints a header label 
             intervals: [50, 50, 100, 200]
         }).toBe(true);
 
-        const auditBox   = await auditButton.boundingBox(),
-              metricsBox = await metricsButton.boundingBox();
+        // The strip's header labels in DOM order, read from the toolbar that holds Audit
+        const headerOrder = () => page.evaluate(() => {
+            const audit = [...document.querySelectorAll('.neo-tab-header-button')].find(el => el.textContent.trim() === 'Audit');
+
+            return [...audit.closest('.neo-tab-header-toolbar').querySelectorAll('.neo-tab-header-button')].map(el => el.textContent.trim())
+        });
+
+        const auditBox    = await auditButton.boundingBox(),
+              metricsBox  = await metricsButton.boundingBox(),
+              orderBefore = await headerOrder();
 
         expect(auditBox,   'the Audit tab header button must be visible').toBeTruthy();
         expect(metricsBox, 'the Metrics tab header button must be visible').toBeTruthy();
+        expect(orderBefore.indexOf('Audit'), 'the gesture drags Audit left past Metrics, so Audit starts after it')
+            .toBeGreaterThan(orderBefore.indexOf('Metrics'));
 
         // Interference canary: headed runs share the OS cursor; stray real moves interleave.
         await page.evaluate(() => {
@@ -193,7 +203,8 @@ test.describe('Workstation — a top-right tab drag never paints a header label 
 
         await page.waitForTimeout(400);
 
-        const samples = await sampling;
+        const samples    = await sampling,
+              orderAfter = await headerOrder();
 
         // Discriminating measurement: per frame, every pair of DIFFERENT strings whose boxes
         // overlap by more than 2px on both axes, SPLIT BY LAYER CROSSING. The defect crosses the
@@ -260,10 +271,12 @@ test.describe('Workstation — a top-right tab drag never paints a header label 
         expect(canary.mouseup,   'interference canary: exactly the one gesture release').toBe(1);
         expect(canary.mousemove, 'interference canary: the gesture move stream fired').toBeGreaterThanOrEqual(15);
 
+        // The sort swap is proven by its committed order, not by a sampled frame: on the same gesture the sampler
+        // catches the slide-past overlap on about ten frames or on none, while the order flips every time.
         expect(
-            sameLayer.length,
-            'positive control: phase A exercised the sort machinery (the designed same-row slide-past crossing occurred)'
-        ).toBeGreaterThan(0);
+            orderAfter.indexOf('Audit'),
+            `positive control: phase A's sort swap moved Audit before Metrics (${orderBefore.join(', ')} → ${orderAfter.join(', ')})`
+        ).toBeLessThan(orderAfter.indexOf('Metrics'));
 
         const playOptions = flipLog.filter(e => e.m === 'play').map(e => JSON.parse(e.opts));
 

@@ -174,11 +174,8 @@ test.describe('Neo.calendar.view.month.Component: the month grid\'s structure', 
     test('neo-weekend follows the day, not the column, across a runtime weekStartDay change', async ({page}) => {
         await openFixture(page);
 
-        // The weekStartDay write goes first, while the sidebar date selector has no month
-        // transition in flight: that selector rebuilds its own day view in place. Moving the month
-        // first would leave the selector's slide reading back a vdom the second write had already
-        // reshaped, which is how the pair crashed when it ran the other way round. That crash is
-        // reported as #19172 [not-ticket-ref: authority]; this write order is the workaround for it.
+        // Either write can come first: the sidebar's day-view rebuild defers while a month
+        // transition is in flight (#19172 [not-ticket-ref: authority]).
         await drive(page, 'setWeekStartDay');
 
         await expect.poll(() => rowStarts(page), {message: 'the rows rebuild for the new first column'})
