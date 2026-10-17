@@ -143,6 +143,41 @@ test.describe('Workstation pop-out — default affordances and retained pane ide
         }
     });
 
+    test('a popped-out pane stays popped out after the pointer enters its window (#19841)', async ({page, context, neuralLink}) => {
+        // The popup opens over main, where the pane was. Its first pointer sample publishes geometry
+        // without moving it; read as a title-bar drag, the dwell docked the pane straight back.
+        await page.goto('/apps/workstation/index.html');
+        const header = page.locator(HEADER).filter({has: page.locator(TAB, {hasText: FEED_TITLE})}).first();
+        await expect(header).toBeVisible({timeout: 60000});
+        await header.locator(TAB, {hasText: FEED_TITLE}).first().click();
+
+        const app          = await neuralLink.connectToApp('Workstation'),
+              popupPromise = context.waitForEvent('page', {timeout: 45000});
+        await header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first().click();
+        const vessel = await popupPromise;
+
+        try {
+            const view = vessel.locator('.neo-grid-view').first();
+            await expect(view, 'the popup renders the Feed grid').toBeVisible({timeout: 45000});
+
+            const box = await view.boundingBox();
+            await vessel.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+            // out-waits: DragCoordinator nativeWindowDropDwellMs + nativeWindowDropSettleMs + nativeWindowDropHandoffMs
+            // (1630 ms), twice over: the window in which the false drop committed. Nothing happens in it, so it is waited out.
+            await vessel.waitForTimeout(3300);
+
+            expect(vessel.isClosed(), 'the popup is still open').toBe(false);
+            await expect(view, 'and still holds the Feed grid').toBeVisible();
+
+            const [workspace] = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']);
+            expect((await app.getComponent(workspace.id, ['lastTearOutClose'])).lastTearOutClose ?? null,
+                'main retired no vessel').toBeNull()
+        } finally {
+            !vessel.isClosed() && await vessel.close()
+        }
+    });
+
     test('closing a multi-pane popup after opener reload returns every pane in one Group row', async ({page, context, neuralLink}) => {
         await page.goto('/apps/workstation/index.html');
         const header = page.locator(HEADER).filter({has: page.locator(TAB, {hasText: FEED_TITLE})}).first();
