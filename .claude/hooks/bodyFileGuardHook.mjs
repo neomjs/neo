@@ -8,8 +8,9 @@
  * - a top-level `[ -n "$V" ] || exit 1` statement, then later `printf '%s' "$V" | gh … edit --body-file -`, with no
  *   statement between that assigns `V`, reads into it or branches.
  * The check may also be `[ ${#V} -gt N ]`, and `[[ ]]` stands for `[ ]`. A check is recognised only as those exact
- * words, never as text found elsewhere in the command, and `printf '%s'` is the only producer, since an empty format
- * or `echo`'s option parsing can print nothing for a nonempty value.
+ * words as written, never as text found elsewhere in the command: its operand and the printed value must be the
+ * double-quoted `"$V"`, since `[ -n '$V' ]` tests a literal and `[ -n $V ]` passes when V is empty. `printf '%s'` is
+ * the only producer, since an empty format or `echo`'s option parsing can print nothing for a nonempty value.
  *
  * Like the rg guard, it fails open on malformed payloads: a broken guard must never block ordinary tool use.
  */
@@ -27,8 +28,10 @@ const STATEMENT = new Set([';', '\n', '&']),
     UNSURE      = new Set(['if', 'then', 'else', 'elif', 'fi', 'case', 'esac', 'for', 'while', 'until', 'select', 'do', 'done',
         'function', '{', '}', '(', ')', '!', 'read', 'unset', 'eval', 'source', '.', 'mapfile', 'readarray', 'declare', 'local',
         'typeset', 'export', 'readonly']),
-    VARIABLE    = /^\$\{?([A-Za-z_]\w*)\}?$/,
-    ASSIGNMENT  = /^[A-Za-z_]\w*=/;
+    QUOTED      = /^"\$\{?([A-Za-z_]\w*)\}?"$/,
+    ASSIGNMENT  = /^[A-Za-z_]\w*=/,
+    // A word as the shell reads it, without its quotes and escapes: what a command word or a keyword is
+    text        = word => word.replace(/\\(.)/g, '$1').replace(/['"`]/g, '');
 
 /**
  * @summary Splits tokens into statements `{items, end}`: and-or items `{op, pipeline}`, each pipeline a list of commands,
@@ -53,29 +56,32 @@ function parse(tokens) {
 /** @summary The index of a command's word after leading `NAME=value` assignments and an `env` prefix. */
 function commandWord(command) {
     let i = 0;
-    while (ASSIGNMENT.test(command[i] ?? '')) i++;
-    if (command[i] === 'env') do i++; while (ASSIGNMENT.test(command[i] ?? ''));
+    while (ASSIGNMENT.test(text(command[i] ?? ''))) i++;
+    if (text(command[i] ?? '') === 'env') do i++; while (ASSIGNMENT.test(text(command[i] ?? '')));
     return i
 }
 
-/** @summary Whether a command is `gh pr|issue edit` reading its body from stdin. */
+/** @summary Whether a command is `gh pr|issue edit` reading its body from stdin, however its words are quoted. */
 function editsBodyFromStdin(command) {
-    const i = commandWord(command);
-    if (!/(?:^|\/)gh$/.test(command[i] ?? '') || !['pr', 'issue'].includes(command[i + 1]) || command[i + 2] !== 'edit') return false;
-    return command.slice(i + 3).some((token, k, rest) => token === '--body-file=-' || ((token === '--body-file' || token === '-F') && rest[k + 1] === '-'))
+    const words = command.map(text), i = commandWord(command);
+    if (!/(?:^|\/)gh$/.test(words[i] ?? '') || !['pr', 'issue'].includes(words[i + 1]) || words[i + 2] !== 'edit') return false;
+    return words.slice(i + 3).some((word, k, rest) => word === '--body-file=-' || ((word === '--body-file' || word === '-F') && rest[k + 1] === '-'))
 }
 
-/** @summary The variable that `printf '%s' "$V"` prints exactly, or null for any other producer. */
+/** @summary The variable that `printf '%s' "$V"`, as written, prints exactly, or null for any other producer. */
 function printedVariable(command) {
-    return command.length === 3 && command[0] === 'printf' && command[1] === '%s' ? VARIABLE.exec(command[2])?.[1] ?? null : null
+    return command.length === 3 && command[0] === 'printf' && ['%s', "'%s'", '"%s"'].includes(command[1]) ? QUOTED.exec(command[2])?.[1] ?? null : null
 }
 
-/** @summary Whether a command succeeds only when `name` is nonempty: `[ -n "$V" ]` or `[ ${#V} -gt N ]`, or `[[ ]]`. */
+/**
+ * @summary Whether a command, as written, succeeds only when `name` is nonempty: `[ -n "$V" ]` or `[ ${#V} -gt N ]`,
+ * or `[[ ]]`. The operand of `-n` must be double-quoted; `${#V}` always expands to a number.
+ */
 function checks(command, name) {
     const close = {'[': ']', '[[': ']]'}[command[0]], inner = command.slice(1, -1);
     if (!close || command.at(-1) !== close) return false;
-    return (inner.length === 2 && inner[0] === '-n' && VARIABLE.exec(inner[1])?.[1] === name) ||
-        (inner.length === 3 && inner[0] === `\${#${name}}` && inner[1] === '-gt' && /^\d+$/.test(inner[2]))
+    return (inner.length === 2 && inner[0] === '-n' && QUOTED.exec(inner[1])?.[1] === name) ||
+        (inner.length === 3 && [`\${#${name}}`, `"\${#${name}}"`].includes(inner[0]) && inner[1] === '-gt' && /^\d+$/.test(inner[2]))
 }
 
 /** @summary Whether a statement is exactly `[ check ] || exit N` with a nonzero N, run in the foreground. */
@@ -90,8 +96,8 @@ function exitCheck({items, end}, name) {
  * statement voids the check, so a block boundary never separates them and their nesting needs no count.
  */
 function unsure({items}, name) {
-    const tokens = items.flatMap(item => item.pipeline.flat()), assigns = new RegExp(`^${name}(\\+)?=|^${name}\\[`);
-    return tokens.some((token, i) => UNSURE.has(token) || assigns.test(token) || (token === 'printf' && tokens[i + 1] === '-v'))
+    const words = items.flatMap(item => item.pipeline.flat()).map(text), assigns = new RegExp(`^${name}(\\+)?=|^${name}\\[`);
+    return words.some((word, i) => UNSURE.has(word) || assigns.test(word) || (word === 'printf' && words[i + 1] === '-v'))
 }
 
 /** @summary Whether a piped edit at `statements[index]` is written by one of the two checked shapes. */
@@ -116,9 +122,10 @@ function checkedWrite(statements, index, pipeline) {
  * @returns {{subcommand: String}|null}
  */
 export function findUncheckedBodyPipe(command = '') {
-    const statements = parse(tokenizeShellCommand(command, {newlines: true}));
+    // Words as written: the checks read their quotes, everything else reads them as the shell does
+    const statements = parse(tokenizeShellCommand(command, {newlines: true, raw: true}));
     for (const [index, {items}] of statements.entries()) for (const {pipeline} of items) for (const piped of pipeline.slice(1)) {
-        if (editsBodyFromStdin(piped) && !checkedWrite(statements, index, pipeline)) return {subcommand: `${piped[commandWord(piped) + 1]} edit`}
+        if (editsBodyFromStdin(piped) && !checkedWrite(statements, index, pipeline)) return {subcommand: `${text(piped[commandWord(piped) + 1])} edit`}
     }
     return null
 }

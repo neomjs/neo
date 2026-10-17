@@ -19,30 +19,38 @@ const SHELL_SEPARATORS = new Set([';', '|', '||', '&&']);
  * @summary Tokenizes enough shell syntax to identify command words and simple separators without executing
  * or fully parsing Bash. Quoted strings stay single tokens; this is sufficient for `rg --replace "x" "y"`.
  * With `newlines`, an unquoted line break is a `'\n'` separator token, except after `|`, `&&` or `||`, and a
- * backslash before it continues the line.
+ * backslash before it continues the line. With `raw`, each word keeps its quotes and backslashes as written, so a
+ * caller can tell `"$V"` from `'$V'` and `$V`; the separators are the same either way.
  * @param {String} command
  * @param {Object} [options]
  * @param {Boolean} [options.newlines=false]
+ * @param {Boolean} [options.raw=false]
  * @returns {String[]}
  */
-export function tokenizeShellCommand(command = '', {newlines = false} = {}) {
+export function tokenizeShellCommand(command = '', {newlines = false, raw = false} = {}) {
     const tokens  = [];
     let   current = '';
+    let   written = '';
     let   quote   = null;
     let   escape  = false;
 
     function pushCurrent() {
-        if (current.length > 0) {
-            tokens.push(current);
-            current = '';
+        const word = raw ? written : current;
+        if (word.length > 0) {
+            tokens.push(word);
         }
+        current = '';
+        written = '';
     }
 
     for (let i = 0; i < command.length; i++) {
         const char = command[i];
 
         if (escape) {
-            if (!(newlines && char === '\n')) current += char;
+            if (!(newlines && char === '\n')) {
+                current += char;
+                written += '\\' + char;
+            }
             escape = false;
             continue
         }
@@ -58,11 +66,13 @@ export function tokenizeShellCommand(command = '', {newlines = false} = {}) {
             } else {
                 current += char;
             }
+            written += char;
             continue
         }
 
         if (char === '\'' || char === '"' || char === '`') {
             quote = char;
+            written += char;
             continue
         }
 
@@ -93,6 +103,7 @@ export function tokenizeShellCommand(command = '', {newlines = false} = {}) {
         }
 
         current += char;
+        written += char;
     }
 
     pushCurrent();

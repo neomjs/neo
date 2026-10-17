@@ -36,9 +36,15 @@ test.describe('bodyFileGuardHook — Claude PreToolUse Bash guard', () => {
             `V=''; printf '%s' "$V" | gh pr edit 1 --body-file -; [ -n "$V" ]`,
             `V=body; [ -n "$V" ] || exit 1; V=''; printf '%s' "$V" | gh pr edit 1 --body-file -`,
             `V=''; : '-n "$V"'; printf '%s' "$V" | gh pr edit 1 --body-file -`,
+            // A check that holds whatever V is: a single-quoted literal, an unquoted operand that vanishes when empty
+            `V=''; [ -n '$V' ] && printf '%s' "$V" | gh pr edit 1 --body-file -`,
+            `V=''; [ -n $V ] && printf '%s' "$V" | gh pr edit 1 --body-file -`,
             // Producers that can print nothing for a nonempty value
             `V=body; [ -n "$V" ] && printf '' "$V" | gh pr edit 1 --body-file -`,
             `V=-n; [ -n "$V" ] && echo "$V" | gh pr edit 1 --body-file -`,
+            `V=' '; [ -n "$V" ] && printf '%s' $V | gh pr edit 1 --body-file -`,
+            // A quoted command word is still the consumer
+            `printf '%s' "$V" | "gh" pr 'edit' 1 --body-file -`,
             // A check that only a branch or a subshell runs, or one sent to the background
             `if x; then [ -n "$V" ] || exit 1; fi; printf '%s' "$V" | gh pr edit 1 --body-file -`,
             `( [ -n "$V" ] || exit 1 ); printf '%s' "$V" | gh pr edit 1 --body-file -`,
@@ -64,9 +70,11 @@ test.describe('bodyFileGuardHook — Claude PreToolUse Bash guard', () => {
         expect(findUncheckedBodyPipe('gh pr view 1 --json body | jq .'), 'no edit').toBeNull()
     });
 
-    test('the shared tokenizer splits lines only when asked, so the rg guard reads commands as before', () => {
+    test('the shared tokenizer splits lines and keeps quotes only when asked, so the rg guard reads commands as before', () => {
         expect(tokenizeShellCommand('a |\n b\nc \\\nd')).toEqual(['a', '|', 'b', 'c', '\nd']);
-        expect(tokenizeShellCommand('a |\n b\nc \\\nd', {newlines: true})).toEqual(['a', '|', 'b', '\n', 'c', 'd'])
+        expect(tokenizeShellCommand('a |\n b\nc \\\nd', {newlines: true})).toEqual(['a', '|', 'b', '\n', 'c', 'd']);
+        expect(tokenizeShellCommand(`a "$V" '$V' b\\ c ''`)).toEqual(['a', '$V', '$V', 'b c']);
+        expect(tokenizeShellCommand(`a "$V" '$V' b\\ c ''`, {raw: true})).toEqual(['a', '"$V"', "'$V'", 'b\\ c', "''"])
     });
 
     test('PreToolUse decision blocks with the checked shapes and ignores other tools', () => {
