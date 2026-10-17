@@ -18,10 +18,14 @@ const SHELL_SEPARATORS = new Set([';', '|', '||', '&&']);
 /**
  * @summary Tokenizes enough shell syntax to identify command words and simple separators without executing
  * or fully parsing Bash. Quoted strings stay single tokens; this is sufficient for `rg --replace "x" "y"`.
+ * With `newlines`, an unquoted line break is a `'\n'` separator token, except after `|`, `&&` or `||`, and a
+ * backslash before it continues the line.
  * @param {String} command
+ * @param {Object} [options]
+ * @param {Boolean} [options.newlines=false]
  * @returns {String[]}
  */
-export function tokenizeShellCommand(command = '') {
+export function tokenizeShellCommand(command = '', {newlines = false} = {}) {
     const tokens  = [];
     let   current = '';
     let   quote   = null;
@@ -38,7 +42,7 @@ export function tokenizeShellCommand(command = '') {
         const char = command[i];
 
         if (escape) {
-            current += char;
+            if (!(newlines && char === '\n')) current += char;
             escape = false;
             continue
         }
@@ -64,6 +68,7 @@ export function tokenizeShellCommand(command = '') {
 
         if (/\s/.test(char)) {
             pushCurrent();
+            if (newlines && char === '\n' && tokens.length && !['|', '&&', '||', '\n'].includes(tokens.at(-1))) tokens.push('\n');
             continue
         }
 
