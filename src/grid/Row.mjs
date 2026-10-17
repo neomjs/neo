@@ -157,8 +157,9 @@ class Row extends Component {
     applyRendererOutput({cache, cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
         let {colspanField, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache;
 
-        // Premeasurement projects declared text only, without constructing component cells or an edit surface.
-        if (cache.measureOnly && column.component) return null;
+        // Premeasurement projects declared text only, without constructing component cells or an edit surface. A
+        // component column declares its cells' depth, also when it builds them from `defaults` like column.Tree.
+        if (cache.measureOnly && column.cellDepth) return null;
 
         let me            = this,
             cellCls       = ['neo-grid-cell'],
