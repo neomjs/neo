@@ -90,6 +90,21 @@ export function loadNeuralLinkModules(env = process.env) {
 }
 
 /**
+ * @summary Stops a Neural Link Bridge only when this process spawned it. `ConnectionService` holds a
+ * `bridgeProcess` only for a Bridge it spawned itself; a Bridge it found already listening (the operator's
+ * live `:8081`, another seat's) leaves it null, and that one is never stopped from here.
+ * @param {Object|null} connection The Brain's `ConnectionService`, or null when no test loaded it
+ * @returns {Promise<Boolean>} Whether a stop was requested
+ */
+export async function stopSpawnedBridge(connection) {
+    if (!connection?.bridgeProcess) return false;
+
+    await connection.manageConnection({action: 'stop'});
+
+    return true
+}
+
+/**
  * A line `Neo.worker.Base#forwardErrorToMainThread` mirrors into the page console: `<Name> Worker: …`.
  * @type {RegExp}
  */
@@ -242,23 +257,18 @@ export const test = base.extend({
     },
 
     /**
-     * @summary Stops, when this worker ends, the Neural Link Bridge that the worker's `neuralLink` spawned.
-     * `ConnectionService` holds a `bridgeProcess` only for a Bridge it spawned itself. A Bridge it found
-     * already listening (the operator's live `:8081`, another seat's) leaves it null and stays untouched.
-     * Worker-scoped because every test of the worker shares the Bridge, so a per-test stop would respawn it
-     * per test. The e2e configs run one worker: with several workers on one port, the first to end would stop
-     * the Bridge under the others, and its lifecycle would belong in a global teardown instead.
+     * @summary Stops, when this worker ends, the Neural Link Bridge that the worker's `neuralLink` spawned
+     * ({@link stopSpawnedBridge}). Worker-scoped because every test of the worker shares the Bridge, so a
+     * per-test stop would respawn it per test. The e2e configs run one worker: with several workers on one
+     * port, the first to end would stop the Bridge under the others, and its lifecycle would belong in a
+     * global teardown instead.
      */
     neuralLinkBridge: [async ({}, use) => {
         await use();
 
         // Only a worker whose tests requested `neuralLink` loaded the services; Engine-only projects never do
-        const connection = neuralLinkModulesPromise &&
-            (await neuralLinkModulesPromise.catch(() => null))?.NeuralLink_ConnectionService;
-
-        if (connection?.bridgeProcess) {
-            await connection.manageConnection({action: 'stop'})
-        }
+        await stopSpawnedBridge(neuralLinkModulesPromise &&
+            (await neuralLinkModulesPromise.catch(() => null))?.NeuralLink_ConnectionService)
     }, {scope: 'worker', auto: true}],
 
     neuralLink: async ({ browser, context, page }, use) => {
