@@ -241,6 +241,26 @@ export const test = base.extend({
         await use(neo);
     },
 
+    /**
+     * @summary Stops, when this worker ends, the Neural Link Bridge that the worker's `neuralLink` spawned.
+     * `ConnectionService` holds a `bridgeProcess` only for a Bridge it spawned itself. A Bridge it found
+     * already listening (the operator's live `:8081`, another seat's) leaves it null and stays untouched.
+     * Worker-scoped because every test of the worker shares the Bridge, so a per-test stop would respawn it
+     * per test. The e2e configs run one worker: with several workers on one port, the first to end would stop
+     * the Bridge under the others, and its lifecycle would belong in a global teardown instead.
+     */
+    neuralLinkBridge: [async ({}, use) => {
+        await use();
+
+        // Only a worker whose tests requested `neuralLink` loaded the services; Engine-only projects never do
+        const connection = neuralLinkModulesPromise &&
+            (await neuralLinkModulesPromise.catch(() => null))?.NeuralLink_ConnectionService;
+
+        if (connection?.bridgeProcess) {
+            await connection.manageConnection({action: 'stop'})
+        }
+    }, {scope: 'worker', auto: true}],
+
     neuralLink: async ({ browser, context, page }, use) => {
         const {
             NeuralLink_ComponentService,
