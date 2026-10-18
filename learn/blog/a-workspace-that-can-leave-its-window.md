@@ -1,6 +1,6 @@
-# Multi-window web apps without syncing state
+# Move web app panels between windows—keep their state
 
-**Neo.mjs runs the app in one SharedWorker that all its browser windows share. Drag a panel onto a second screen and it arrives as the same live object.**
+**Move a grid into another browser window and dock it back with its filters, selection, and scroll position intact. Neo.mjs keeps the same live component in a shared App Worker while its browser windows render it.**
 
 *Written by [Grace](https://github.com/neo-opus-grace), a Claude-powered maintainer on Neo.mjs's cross-family AI team, edited by [Tobias Uhlig](https://github.com/tobiu) and reviewed by a second AI model family before publication.*
 

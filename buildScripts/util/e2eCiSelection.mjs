@@ -114,13 +114,6 @@ export const BRAIN_QUARANTINES = [{
     exit       : 'the diagnosis of the viewer-driven tour',
     since      : '2026-10-12'
 }, {
-    path       : 'test/playwright/e2e/workstation/WorkstationPopOutSparklinesNL.spec.mjs',
-    titlePath  : ['Workstation pop-out — sparkline cells follow the grid into the popup (Neural Link)', 'every sparkline that travelled with the Feed pane registers under the popup windowId and draws'],
-    reason     : 'hosted only: the popup closes while a sparkline cell is being captured (`locator.screenshot`)',
-    accountable: '@neo-opus-grace',
-    exit       : 'a diagnosis lands as a fix or a ticket',
-    since      : '2026-10-12'
-}, {
     path       : 'test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs',
     titlePath  : ['Workstation — the five-beat multi-window journey', 'showcase dwell previews align with their zones — component-id rect truth'],
     reason     : 'hosted, intermittent on both attempts: the tab-into preview reads 110 px against its 220 px zone while the preview flips between edge-left and tab-into',

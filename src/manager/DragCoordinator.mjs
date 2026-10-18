@@ -147,6 +147,14 @@ class DragCoordinator extends Manager {
     nativeWindowDropCandidates = new Map()
 
     /**
+     * The origin each window last published, keyed by its `Neo.manager.Window` record, so a departed
+     * window takes its baseline with it. See {@link #recordNativeWindowOrigin}.
+     * @member {WeakMap<Object,Object>} nativeWindowOrigins=new WeakMap()
+     * @protected
+     */
+    nativeWindowOrigins = new WeakMap()
+
+    /**
      * The active pointer gesture's claim arbiter — minted lazily at the gesture's first move,
      * killed at every terminal (end or cancel), so its token's claims die with the gesture.
      * @member {Object|null} pointerClaimArbiter=null
@@ -1189,6 +1197,30 @@ class DragCoordinator extends Manager {
     }
 
     /**
+     * @summary Records the origin a window publishes and reports whether the window moved.
+     *
+     * Reads the `Neo.manager.Window` record, which takes each publication before this coordinator
+     * does. A window's first publication only sets its baseline, since there is no earlier origin it
+     * could have moved from; engine moves count too, so their echo is not a move either.
+     * @param {String} windowId
+     * @returns {Boolean} Whether the origin differs from the one this window last published.
+     * @protected
+     */
+    recordNativeWindowOrigin(windowId) {
+        const
+            record = Window.get(windowId),
+            rect   = record?.outerRect;
+
+        if (!rect) return false;
+
+        const last = this.nativeWindowOrigins.get(record);
+
+        this.nativeWindowOrigins.set(record, {x: rect.x, y: rect.y});
+
+        return !!last && (last.x !== rect.x || last.y !== rect.y)
+    }
+
+    /**
      * @summary Handles geometry updates for native OS-titlebar popup reintegration.
      *
      * Consumes high-frequency window geometry updates for native OS-titlebar popup drags,
@@ -1196,6 +1228,11 @@ class DragCoordinator extends Manager {
      * renders continuous hover preview per update; a terminal detached popup reintegrates
      * only after it remains over a remote dashboard target long enough to satisfy the
      * settle/dwell intent contract.
+     *
+     * Only a moved origin starts a gesture. A window also publishes when nothing moved it: its
+     * first sample, the viewport offset its first pointer sample measures, a resize that keeps
+     * its origin. A popped-out pane opens over main, where it was, so reading those as the OS
+     * dragging it would dock the pane straight back. A running gesture keeps every frame.
      * @param {Object} data
      * @param {String} data.windowId
      */
@@ -1203,6 +1240,7 @@ class DragCoordinator extends Manager {
         let me         = this,
             {windowId} = data,
             current    = me.nativeWindowDropCandidates.get(windowId),
+            moved      = me.recordNativeWindowOrigin(windowId),
             sourceDrag, candidate, dwellRemaining, firstSeenAt, delay, now, preview, previewId;
 
         if (data.nativeEffect) {
@@ -1222,6 +1260,10 @@ class DragCoordinator extends Manager {
             current?.phase === 'embodied' ||
             current?.phase?.startsWith('settling-')
         ) {
+            return
+        }
+
+        if (!current && !moved) {
             return
         }
 

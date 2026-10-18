@@ -36,7 +36,7 @@
             "date": "2026-10-09",
             "id": "blog/a-workspace-that-can-leave-its-window",
             "isLeaf": true,
-            "name": "Multi-window web apps without syncing state",
+            "name": "Move web app panels between windows—keep their state",
             "parentId": "2026",
             "path": "learn/blog/a-workspace-that-can-leave-its-window.md"
         },

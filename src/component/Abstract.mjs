@@ -356,9 +356,25 @@ class Abstract extends Base {
     }
 
     /**
-     *
+     * @summary Tears the component down, its render flight first, for classic and functional components alike.
      */
     destroy() {
+        let {id} = this;
+
+        // Destruction is a complete render-flight cancellation boundary, here because VdomLifecycle registers the
+        // flights for both component families (classic and functional):
+        // 1. Settle every promise parked on this component's flight (the initiator's public
+        //    promiseUpdate AND merged children) with the house destroy sentinel — and remove the
+        //    callback entry itself, or it leaks forever (executeCallbacks never fires for a dead
+        //    owner).
+        // 2. Release the in-flight registry entry: a lingering one makes every ancestor update
+        //    yield to it forever (nothing can ever settle it — the reply targets a dead
+        //    component), silently freezing the ancestor's delta stream.
+        // 3. Re-trigger ancestors already queued behind this component — exactly once.
+        VDomUpdate.rejectCallbacks(id, Neo.isDestroyed);
+        VDomUpdate.unregisterInFlightUpdate(id);
+        VDomUpdate.triggerPostUpdates(id);
+
         this.removeDomEvents();
         ComponentManager.unregister(this);
         this.stateProvider = null; // triggers destroy()

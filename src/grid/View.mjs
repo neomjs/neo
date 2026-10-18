@@ -114,10 +114,11 @@ class View extends Base {
     rowGeometry = null
 
     /**
-     * Content-sized rows: the padding and borders of a cell in px, as the last read found them
-     * @member {Number} #chrome=0
+     * Content-sized rows: the padding and borders of a cell in px, per data field, as the last read found them. They
+     * differ by column: a tree cell draws its helper lines without vertical padding.
+     * @member {Map<String, Number>} #chromes
      */
-    #chrome = 0
+    #chromes = new Map()
     /**
      * Content-sized rows: heights that arrived during a thumb drag, applied at its end
      * @member {Map|null} #heldHeights=null
@@ -517,6 +518,11 @@ class View extends Base {
      * content, as HTML or as text, at the same width. Identical bytes render differently in the two modes. A pass can
      * recycle a row while the view's update waits for other rows', and no flag shows that wait: a read would measure
      * the text the row showed before.
+     *
+     * A component cell shows once the row rendered its component there, and the component's last landed update
+     * rendered its root's classes and style, which shape the text's box, and its text: a pooled row re-binds its
+     * component silently, and that update can land after the row's. The component's `needsVdomUpdate` does not tell:
+     * the row's update can carry the component's vdom without clearing it.
      * @param {Neo.grid.Row} row
      * @param {Object} cell The cell's vdom
      * @returns {Boolean}
@@ -525,18 +531,41 @@ class View extends Base {
     #isShown(row, cell) {
         let text      = cell.cn[0],
             cellVnode = VNodeUtil.getById(row.vnode, cell.id),
-            textVnode = cellVnode?.childNodes[0];
+            textVnode = cellVnode?.childNodes[0],
+            component;
 
-        if (textVnode?.id !== text.id || cellVnode.style.width !== cell.style.width) {
+        if (cellVnode?.style.width !== cell.style.width) {
             return false
         }
 
-        if (Object.hasOwn(text, 'html')) {
-            return textVnode.innerHTML === text.html
+        if (text.componentId) {
+            component = Neo.getComponent(text.componentId);
+
+            // A tree cell's depth sets its root's indent, so the same label can wrap differently
+            return textVnode?.componentId === text.componentId && !!component?.vnode &&
+                Neo.isEqual(component.vnode.className, component.vdom.cls) &&
+                Neo.isEqual(component.vnode.style, component.vdom.style) &&
+                View.#showsText(VNodeUtil.getById(component.vnode, component.textVdom.id), component.textVdom)
+        }
+
+        return textVnode?.id === text.id && View.#showsText(textVnode, text)
+    }
+
+    /**
+     * Content-sized rows: true if a text's vnode shows the content its vdom describes, as HTML or as text. Identical
+     * bytes render differently in the two modes.
+     * @param {Object|null} vnode
+     * @param {Object} vdom
+     * @returns {Boolean}
+     * @private
+     */
+    static #showsText(vnode, vdom) {
+        if (Object.hasOwn(vdom, 'html')) {
+            return vnode?.innerHTML === vdom.html
         }
 
         // The string renderer keeps a text node's content escaped in its vnode
-        return textVnode.textContent === (Neo.config.useDomApiRenderer ? text.text : StringUtil.escapeHtml(text.text))
+        return vnode?.textContent === (Neo.config.useDomApiRenderer ? vdom.text : StringUtil.escapeHtml(vdom.text))
     }
 
     /**
@@ -686,7 +715,9 @@ class View extends Base {
      * @protected
      */
     measuredHeight(fields) {
-        return Math.max(this.gridContainer.rowHeight, Math.max(0, ...Object.values(fields)) + this.#chrome)
+        let chromes = this.#chromes;
+
+        return Math.max(this.gridContainer.rowHeight, ...Object.entries(fields).map(([field, height]) => height + (chromes.get(field) || 0)))
     }
 
     /**
@@ -715,7 +746,9 @@ class View extends Base {
 
         if (windowId === me.windowId && me.rowGeometry && me.gridContainer.columns.items.some(column => column.wrapText)) {
             me.#measureGeneration++;
-            me.#fontRefresh = {heights: new Map(), textHeights: new Map()};
+            // Only declared text has a hidden batch to replace the geometry with. Without one, e.g. when a tree
+            // column is the only one that wraps, the rows measure again where they show.
+            me.#fontRefresh = me.getMeasureColumns().length > 0 ? {heights: new Map(), textHeights: new Map()} : null;
             me.#measureKeys.clear();
             me.#measuredCells = new WeakMap();
             me.#heldHeights = null;
@@ -745,7 +778,8 @@ class View extends Base {
     }
 
     /**
-     * @summary Height-driving columns at their real region widths, including horizontally unmounted columns.
+     * @summary Height-driving text columns at their real region widths, including horizontally unmounted columns.
+     * A component column's cells are measured once they show, see {@link #measureRowHeights}.
      * @returns {Object[]}
      * @protected
      */
@@ -755,7 +789,7 @@ class View extends Base {
         this.bodies.forEach(body => body.columnPositions?.items.forEach((position, index) => {
             let column = this.gridContainer.columns.get(position.dataField);
 
-            column?.wrapText && position.width > 0 && !column.hidden &&
+            column?.wrapText && !column.cellDepth && position.width > 0 && !column.hidden &&
                 columns.push({body, column, index, width: `${position.width}px`})
         }));
 
@@ -890,7 +924,9 @@ class View extends Base {
                 !Neo.isEqual(signature, me.getMeasureColumns().map(({body, column, width}) =>
                     [body.id, column.id, column.dataField, width, column.renderer, column.cellCls, me.theme]))) return;
 
-            me.#chrome = Object.values(chrome).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+            // The projection renders text cells only, which share their padding and borders
+            chrome = Object.values(chrome).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+            targets.forEach(({column}) => me.#chromes.set(column.dataField, chrome));
             if (fontRefresh && rects.some(rect => !rect?.width)) return;
             if (fontRefresh && targets.some(({body, cell, id, revision}) => revision !== (me.#recordVersions.get(id) || 0) ||
                 !body.rowMeasureVdom?.cn.some(row => row.cn.includes(cell)))) {
@@ -964,14 +1000,16 @@ class View extends Base {
 
         wrapFields.size > 0 && me.bodies.forEach(body => body.items.forEach(row => {
             row.record && !row.isVdomUpdating && row.vdom.cn.forEach(cell => {
-                let text = cell.cn?.[0];
+                let text = cell.cn?.[0],
+                    // A component cell names the vdom of its wrapped text, as grid.column.component.Tree does
+                    textId = text?.cls?.includes('neo-grid-cell-text') ? text.id : row.components?.[cell.data?.field]?.textVdom?.id;
 
                 if (
                     wrapFields.has(cell.data?.field) && cell.style.display !== 'none' &&
-                    text?.cls?.includes('neo-grid-cell-text') && measured.get(cell) !== cell.style.width &&
+                    textId && measured.get(cell) !== cell.style.width &&
                     me.#isShown(row, cell)
                 ) {
-                    targets.push({cell, record: row.record, row, textId: text.id, width: cell.style.width})
+                    targets.push({cell, record: row.record, row, textId, width: cell.style.width})
                 }
             })
         }));
@@ -980,20 +1018,25 @@ class View extends Base {
             return
         }
 
-        [rects, chrome] = await Promise.all([
+        // One cell per field: the padding and borders differ by column
+        let chromeCells = [...new Map(targets.map(({cell}) => [cell.data.field, cell])).values()];
+
+        [rects, ...chrome] = await Promise.all([
             Neo.main.DomAccess.getLayoutRect({id: targets.map(target => target.textId), windowId: me.windowId}),
-            Neo.main.DomAccess.getComputedStyle({
-                id      : targets[0].cell.id,
+            ...chromeCells.map(cell => Neo.main.DomAccess.getComputedStyle({
+                id      : cell.id,
                 style   : ['border-bottom-width', 'border-top-width', 'padding-bottom', 'padding-top'],
                 windowId: me.windowId
-            })
+            }))
         ]);
 
         if (me.isDestroyed || !me.rowGeometry || generation !== me.#measureGeneration) {
             return
         }
 
-        me.#chrome = Object.values(chrome).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+        chromeCells.forEach((cell, index) => {
+            me.#chromes.set(cell.data.field, Object.values(chrome[index]).reduce((sum, value) => sum + (parseFloat(value) || 0), 0))
+        });
 
         targets.forEach(({cell, record, row, width}, index) => {
             let rect = rects[index],

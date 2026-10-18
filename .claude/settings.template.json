@@ -89,6 +89,11 @@
             "type": "command",
             "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/rgReplaceGuardHook.mjs\"",
             "timeout": 2
+          },
+          {
+            "type": "command",
+            "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/bodyFileGuardHook.mjs\"",
+            "timeout": 2
           }
         ]
       }

@@ -22,8 +22,26 @@ import * as core        from '../../../../src/core/_export.mjs';
 import Component        from '../../../../src/component/Base.mjs';
 import ComponentManager from '../../../../src/manager/Component.mjs';
 import Container        from '../../../../src/container/Base.mjs';
+import FunctionalBase   from '../../../../src/functional/component/Base.mjs';
 import VDomUpdate       from '../../../../src/manager/VDomUpdate.mjs';
 import VdomHelper       from '../../../../src/vdom/Helper.mjs';
+
+/**
+ * @summary The smallest functional component: one div, so its flight is the only thing under test.
+ * @class Test.Unit.Core.VdomDestroyCancellation.FunctionalChild
+ * @extends Neo.functional.component.Base
+ */
+class FunctionalChild extends FunctionalBase {
+    static config = {
+        className: 'Test.Unit.Core.VdomDestroyCancellation.FunctionalChild'
+    }
+
+    createVdom() {
+        return {tag: 'div', text: 'functional'}
+    }
+}
+
+FunctionalChild = Neo.setupClass(FunctionalChild);
 
 /**
  * The destruction-as-flight-cancellation-boundary pin: start a flight, destroy the initiator,
@@ -147,6 +165,64 @@ test.describe('VdomLifecycle destroy cancellation boundary', () => {
             VdomHelper.updateBatch = realUpdateBatch;
             Neo.applyDeltas        = realApplyDeltas;
             armed                  = null;
+            parent?.destroy?.()
+        }
+    });
+
+    /**
+     * The functional family reaches the same boundary: `functional.component.Base` extends `component.Abstract`, not
+     * `component.Base`. Its flight here never replies, as a lost reply would not.
+     */
+    test('a functional component destroyed mid-flight releases its flight, and its ancestor updates again', async () => {
+        const realUpdateBatch = VdomHelper.updateBatch,
+              realError       = console.error,
+              threshold       = VDomUpdate.watchdogThreshold,
+              wedged          = [],
+              settle          = (promise, ms) => Promise.race([
+                  promise.then(() => 'resolved', reason => reason),
+                  new Promise(resolve => setTimeout(() => resolve('pending'), ms))
+              ]);
+
+        let parent;
+
+        VdomHelper.updateBatch = function(data) {
+            return Object.keys(data?.updates || {}).includes('vdc-functional') ? new Promise(() => {}) : realUpdateBatch.call(this, data)
+        };
+        console.error = (...args) => String(args[0]).startsWith('vdom update wedged') && wedged.push(args[0]);
+        // The watchdog arms per flight, so the short threshold is set before the flight departs
+        VDomUpdate.watchdogThreshold = 50;
+
+        try {
+            parent = Neo.create(Container, {appName, id: 'vdc-functional-parent', items: [{module: FunctionalChild, id: 'vdc-functional'}]});
+
+            // Mounted: a headless component defers its own update, so only a mounted ancestor can yield to the child
+            await parent.initVnode(true);
+            parent.mounted = true;
+
+            const child  = Neo.getComponent('vdc-functional'),
+                  flight = child.promiseUpdate();
+
+            await new Promise(resolve => setTimeout(resolve, 20));
+            expect(VDomUpdate.inFlightUpdateMap.has('vdc-functional'), 'the flight must be registered in-flight').toBe(true);
+
+            // The container's own removal destroys the child and drops it from the parent's vdom
+            parent.remove(child);
+
+            // Soft, so a red run names every residue, not just the first
+            expect.soft(await settle(flight, 1000), 'the public promise rejects with the house destroy sentinel').toBe(Neo.isDestroyed);
+            expect.soft(VDomUpdate.inFlightUpdateMap.has('vdc-functional'), 'no in-flight residue').toBe(false);
+            expect.soft(VDomUpdate.descendantInFlightMap.get(parent.id)?.has('vdc-functional') ?? false, 'the ancestor no longer yields to it').toBe(false);
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+            expect.soft(wedged, 'a destroyed component is not reported as wedged').toEqual([]);
+            // A generous deadline: it only runs out on the red path, where the update never settles
+            expect(await settle(parent.promiseUpdate(), 2000), 'the ancestor\'s own update settles').toBe('resolved')
+        } finally {
+            VdomHelper.updateBatch       = realUpdateBatch;
+            console.error                = realError;
+            VDomUpdate.watchdogThreshold = threshold;
+            // A red run must not leak this flight into the next spec
+            VDomUpdate.unregisterInFlightUpdate('vdc-functional');
             parent?.destroy?.()
         }
     });

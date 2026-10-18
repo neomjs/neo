@@ -627,6 +627,21 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
     }
 
     /**
+     * One native title-bar frame: the OS moved the popup to where its record now stands. A publication
+     * that leaves a window where it was starts no gesture, so the frame records the window one pixel
+     * left of there first; the geometry every arm asserts stays the record's own.
+     * @param {String} windowId
+     */
+    function nativeFrame(windowId) {
+        const
+            record = WindowManager.get(windowId),
+            rect   = record?.outerRect;
+
+        rect && DragCoordinator.nativeWindowOrigins.set(record, {x: rect.x - 1, y: rect.y});
+        DragCoordinator.onWindowPositionChange({windowId})
+    }
+
+    /**
      * @param {String|null} stableId null creates a LEGACY zone (no stable identity)
      * @param {String} windowId
      * @param {Object} [options]
@@ -769,7 +784,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         DragCoordinator.register(source);
 
         try {
-            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+            nativeFrame('win-popup');
 
             const first = payloads.at(-1)?.dwell;
 
@@ -778,12 +793,55 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
                 durationMs: DragCoordinator.nativeWindowDropDwellMs
             });
 
-            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+            nativeFrame('win-popup');
 
             expect(payloads).toHaveLength(2);
             expect(payloads.at(-1).dwell.armedAt, 'the same hold keeps its start across frames').toBe(first.armedAt)
         } finally {
             // the commit timer is armed for the dwell — end the gesture before it can fire into a torn-down stage
+            DragCoordinator.clearNativeWindowDropCandidate('win-popup');
+            DragCoordinator.endNativeGesture?.('win-popup')
+        }
+    });
+
+    test('#19841 a publication that leaves a popup where it was starts no native drop — its first move does', () => {
+        // A window publishes geometry for more than movement: its boot sample, the viewport offset its
+        // first pointer sample measures, a resize that keeps its origin. A popped-out pane opens over
+        // main, where it was, so reading any of those as the OS dragging it docks the pane straight back.
+        const
+            draggedItem = {id: 'tab-1'},
+            payloads    = [],
+            target      = {
+                ...createZone('workspace-main', 'win-main'),
+                onRemoteDragMove(payload) { payloads.push(payload) }
+            },
+            source = {
+                ...createSource(),
+                windowId           : 'win-popup',
+                getNativeWindowDrag: windowId => windowId === 'win-popup'
+                    ? {draggedItem, embodyNativeHover: true, widgetName: 'tab-1'}
+                    : null
+            };
+
+        registerWindow('win-main',  0,   0,   800, 600);
+        registerWindow('win-popup', 100, 100, 300, 200);
+
+        DragCoordinator.register(target);
+        DragCoordinator.register(source);
+
+        try {
+            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'}); // the boot sample
+            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'}); // the first pointer sample's offset
+
+            expect(payloads, 'a popup that did not move hovers nothing').toEqual([]);
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup'), 'and arms no drop').toBe(false);
+
+            WindowManager.get('win-popup').outerRect = new Rectangle(101, 100, 300, 200); // the OS moves it
+            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+
+            expect(payloads, 'the first move starts the gesture').toHaveLength(1);
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(true)
+        } finally {
             DragCoordinator.clearNativeWindowDropCandidate('win-popup');
             DragCoordinator.endNativeGesture?.('win-popup')
         }
@@ -851,7 +909,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
             try {
                 for (frame = 0; frame < previewIds.length; frame++) {
-                    DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+                    nativeFrame('win-popup');
                     clock += 300   // the user travels; well inside the 1200ms hold
                 }
             } finally {
@@ -1136,12 +1194,12 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         DragCoordinator.register(source);
         DragCoordinator.register(legacy);
 
-        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+        nativeFrame('win-popup');
 
         expect(calls.filter(([name]) => name === 'move'), 'another Group\'s zone is never asked').toEqual([]);
 
         legacy.ownershipId = 'group-a';
-        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+        nativeFrame('win-popup');
 
         expect(calls.filter(([name]) => name === 'move').map(([, id]) => id)).toEqual(['win-target'])
     });
@@ -1381,8 +1439,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         DragCoordinator.register(target);
 
         // two geometry events while the popup's corner anchor (508, 508) sits over the target
-        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
-        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+        nativeFrame('win-popup');
+        nativeFrame('win-popup');
 
         // preview rendered per event, BEFORE any dwell elapsed; nothing committed
         expect(calls.filter(([name]) => name === 'move').length).toBe(2);
@@ -1397,7 +1455,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             outerRect: new Rectangle(3000, 3000, 300, 200)
         });
 
-        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+        nativeFrame('win-popup');
 
         expect(calls.filter(([name]) => name === 'leave')).toEqual([['leave', 'workspace-b']]);
         expect(DragCoordinator.nativeHoverTargets.size).toBe(0);
@@ -1405,7 +1463,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         // the source drag ends (popup no longer carries a drag): the gesture's token dies
         source.getNativeWindowDrag = () => null;
 
-        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+        nativeFrame('win-popup');
 
         expect(DragCoordinator.nativeClaimArbiters.size).toBe(0)
     });
@@ -1447,7 +1505,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         DragCoordinator.register(cornerOnly);
 
         try {
-            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+            nativeFrame('win-popup');
 
             // the corner's window previews, in ITS local space; the window under the centre is never asked
             expect(calls.filter(([name]) => name === 'move')).toEqual([['move', 'workspace-corner', 108, 108]]);
@@ -1462,13 +1520,13 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
             // the inset is the config: at 0 the anchor is the frame's exact corner
             DragCoordinator.nativeWindowDropAnchorInset = 0;
-            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+            nativeFrame('win-popup');
             expect(lastMove()).toEqual(['move', 'workspace-corner', 100, 100]);
 
             // without an outer rect the content rect's corner anchors, inset again
             DragCoordinator.nativeWindowDropAnchorInset = oldInset;
             WindowManager.get('win-popup').outerRect = null;
-            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+            nativeFrame('win-popup');
             expect(lastMove()).toEqual(['move', 'workspace-corner', 112, 138])
         } finally {
             DragCoordinator.nativeWindowDropAnchorInset = oldInset
@@ -1732,7 +1790,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
         try {
             // One geometry event over the target creates the candidate; force its commit now.
-            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+            nativeFrame('win-popup');
 
             const stale = DragCoordinator.nativeWindowDropCandidates.get('win-popup');
 
@@ -1744,7 +1802,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             expect(order.filter(entry => entry === 'suspend')).toHaveLength(1);
 
             // The user moved on: a new geometry event replaces the retained candidate...
-            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+            nativeFrame('win-popup');
 
             const fresh = DragCoordinator.nativeWindowDropCandidates.get('win-popup');
 
