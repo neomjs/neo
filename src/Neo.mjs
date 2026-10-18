@@ -446,7 +446,13 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                         me[_key] = value;
 
                         if (typeof me[beforeSet] === 'function') {
-                            value = me[beforeSet](value, oldValue);
+                            try {
+                                value = me[beforeSet](value, oldValue)
+                            } catch (error) {
+                                // A hook that rejects by throwing undoes the temporary state before the error leaves
+                                me[_key] = oldValue;
+                                throw error
+                            }
 
                             // If they don't return a value, that means no change
                             if (value === undefined) {
