@@ -187,6 +187,14 @@ class DragCoordinator extends Manager {
     claimTraceLimit = 40
 
     /**
+     * The last 20 gestures that ended without honoring the preview their window accepted, newest
+     * last ({@link #reportAbandonedGesture}). A session tail, like {@link #claimTrace}.
+     * @member {Object[]} abandonedGestures=[]
+     * @protected
+     */
+    abandonedGestures = []
+
+    /**
      * @summary Escape reached a window that owns no gesture: during a cross-window drag the vessel or the
      * target holds the keyboard focus. Every other window of the app is asked to cancel the drag it owns;
      * only the gesture's owner has one, and its cancel takes the ordinary path, `onDragCancel` included.
@@ -352,6 +360,53 @@ class DragCoordinator extends Manager {
     }
 
     /**
+     * @summary Reports a gesture that ended without honoring the preview its window accepted.
+     *
+     * Its caller is the gesture's terminal, so a gesture reports once, never per retry. A cancel, a
+     * remote commit, a release without an accepted preview and a refusal the operator sees never call
+     * it. The error names the item, the preview and the terminal, so a run fails on the gesture itself
+     * (the e2e `workerErrors` gate) rather than on a later assertion, or on nothing.
+     * @param {Object}      gesture
+     * @param {String}      gesture.itemId    The dragged item.
+     * @param {String}      gesture.path      `pointer` or `native`.
+     * @param {String|null} gesture.previewId The preview the window accepted.
+     * @param {String}      gesture.terminal  What the gesture ended in instead, e.g. `park-refused`.
+     */
+    reportAbandonedGesture({itemId, path, previewId, terminal}) {
+        const {abandonedGestures} = this;
+
+        abandonedGestures.push({at: Date.now(), itemId, path, previewId, terminal});
+        abandonedGestures.length > 20 && abandonedGestures.shift();
+
+        console.error(`DragCoordinator: a ${path} drag of ${itemId} ended in ${terminal} although its window accepted ${previewId}`)
+    }
+
+    /**
+     * @summary Ends a native drop its accepted preview did not land, and reports it.
+     * @param {String} windowId  The moving popup's window id.
+     * @param {Object} candidate The drop's native candidate.
+     * @param {String} terminal  What the drop ended in.
+     * @protected
+     */
+    abandonNativeDrop(windowId, candidate, terminal) {
+        const me = this;
+
+        me.reportNativeDrop(candidate, terminal);
+        me.clearNativeWindowDropCandidate(windowId);
+        me.endNativeGesture(windowId)
+    }
+
+    /**
+     * @summary Reports a native drop whose dwell completed over an accepted preview but did not land.
+     * @param {Object} candidate The drop's native candidate.
+     * @param {String} terminal  What the drop ended in.
+     * @protected
+     */
+    reportNativeDrop({draggedItem, dropPreviewId = null}, terminal) {
+        this.reportAbandonedGesture({itemId: draggedItem?.dockItemId ?? draggedItem?.id ?? null, path: 'native', previewId: dropPreviewId, terminal})
+    }
+
+    /**
      * @summary Retries a refused strict native park with the disposition backoff, bounded.
      *
      * The candidate stays retained in phase `park-retry` while it waits. It is NOT shielded from
@@ -377,8 +432,7 @@ class DragCoordinator extends Manager {
         candidate.parkAttempts = (candidate.parkAttempts || 0) + 1;
 
         if (candidate.parkAttempts > me.nativeWindowParkRetryLimit) {
-            me.clearNativeWindowDropCandidate(windowId);
-            me.endNativeGesture(windowId);
+            me.abandonNativeDrop(windowId, candidate, 'park-refused');
             return false
         }
 
@@ -497,8 +551,7 @@ class DragCoordinator extends Manager {
             }
 
             if (embodyNativeHover === true && !preview) {
-                me.clearNativeWindowDropCandidate(windowId);
-                me.endNativeGesture(windowId);
+                me.abandonNativeDrop(windowId, candidate, 'no-preview');
                 return
             }
 
@@ -515,8 +568,7 @@ class DragCoordinator extends Manager {
                 }
 
                 if (settled !== true) {
-                    me.clearNativeWindowDropCandidate(windowId);
-                    me.endNativeGesture(windowId);
+                    me.abandonNativeDrop(windowId, candidate, 'embodiment-unsettled');
                     return
                 }
 
@@ -538,8 +590,7 @@ class DragCoordinator extends Manager {
                 sourceSortZone.getNativeWindowDrag?.(windowId)?.draggedItem !== draggedItem ||
                 !targetSortZone.acceptsRemoteDrag(localX, localY)
             ) {
-                me.clearNativeWindowDropCandidate(windowId);
-                me.endNativeGesture(windowId);
+                me.abandonNativeDrop(windowId, candidate, 'handoff-lost');
                 return
             }
 
@@ -571,6 +622,9 @@ class DragCoordinator extends Manager {
             if (me.activeTargetZone === targetSortZone) {
                 me.activeTargetZone = null
             }
+
+            // the restore below shows the popup again, but never why the target refused it
+            operation || me.reportNativeDrop(candidate, 'target-refused');
 
             await me.settleNativeWindowDisposition(windowId, candidate, Boolean(operation))
         } catch (error) {
@@ -1588,8 +1642,9 @@ class DragCoordinator extends Manager {
             // live NOW — it says nothing about the collection loop, and nothing about which gesture
             // produced any given retained entry. Each entry carries its own `gestureToken` for that;
             // filter by it before reading, because the ring is a session tail and spans gestures.
-            claimTrace: [...me.claimTrace],
-            sortZones : Array.from(me.sortZones.entries()).map(([group, map]) => ({
+            claimTrace       : [...me.claimTrace],
+            abandonedGestures: [...me.abandonedGestures],
+            sortZones        : Array.from(me.sortZones.entries()).map(([group, map]) => ({
                 group,
                 windows: Array.from(map.keys())
             }))

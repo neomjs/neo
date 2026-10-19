@@ -466,7 +466,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             await runDragEnd(zone, {cancelled: false, clientX: 5000, clientY: 400});
 
             expect(fired.map(([name]) => name)).toEqual(['dockTearOutTerminal']);
-            expect(fired[0][1]).toEqual({itemId: 'graph', sortZone: zone, sourceNodeId: 'tabs-main'})
+            expect(fired[0][1], 'the release point rides along for the host\'s divergence check').toEqual({clientX: 5000, clientY: 400, itemId: 'graph', sortZone: zone, sourceNodeId: 'tabs-main'})
         });
 
         test('released DETACHED over its own window re-enters and drops where the in-window preview showed', async () => {

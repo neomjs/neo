@@ -14,6 +14,7 @@ import DockDragAffordances from '../../../../src/dashboard/dock/interaction/Drag
 import DockDropIndicators  from '../../../../src/dashboard/dock/interaction/DropIndicators.mjs';
 import DockPreview         from '../../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockWorkspace       from '../../../../src/dashboard/dock/Workspace.mjs';
+import DragCoordinator     from '../../../../src/manager/DragCoordinator.mjs';
 import Operations          from '../../../../src/dashboard/dock/model/Operations.mjs';
 import WindowManager       from '../../../../src/manager/Window.mjs';
 
@@ -688,6 +689,69 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
      * deep inside `left-tabs` — which is the whole point: without the root argument, zone inference
      * owns that pointer and the assertions below describe a different target.
      */
+    /**
+     * @summary Runs a gesture with the coordinator's reports captured instead of logged.
+     * @param {Function} gesture
+     * @returns {Promise<Object[]>} `{previewId, terminal}` per reported gesture
+     */
+    async function reportsOf(gesture) {
+        const error = console.error, logged = [];
+
+        DragCoordinator.abandonedGestures.length = 0;
+        console.error = (...args) => logged.push(args.join(' '));
+
+        try {
+            await gesture()
+        } finally {
+            console.error = error
+        }
+
+        expect(logged, 'one error per reported gesture').toHaveLength(DragCoordinator.abandonedGestures.length);
+
+        return DragCoordinator.abandonedGestures.map(({previewId, terminal}) => ({previewId, terminal}))
+    }
+
+    test('a release that lands nothing where the hover showed a split of its own zone reports it (#19869)', async () => {
+        const rig = compose();
+
+        rig.controller.dragGeometry = Promise.resolve(rig.controller.geometry = GEOMETRY());
+        rig.indicators.hostRect = GEOMETRY().hostRect;
+
+        // alpha's own zone, at its right edge: the hover infers a split there, the drop's inference skips the zone
+        const reports = await reportsOf(() => rig.controller.onDrop({clientX: 395, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'}));
+
+        expect(rig.committed).toHaveLength(0);
+        expect(reports).toEqual([{previewId: 'preview:alpha:left-tabs:split-after', terminal: 'no-operation'}]);
+        destroyAll(rig)
+    });
+
+    test('a tab-into of its own zone is the reorder\'s, and a landed release reports nothing (#19869)', async () => {
+        const rig = compose();
+
+        rig.controller.dragGeometry = Promise.resolve(rig.controller.geometry = GEOMETRY());
+        rig.indicators.hostRect = GEOMETRY().hostRect;
+
+        expect(await reportsOf(() => rig.controller.onDrop({clientX: 200, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'})), 'the own-zone tab-into').toEqual([]);
+
+        rig.controller.dragGeometry = Promise.resolve(rig.controller.geometry = GEOMETRY());
+
+        expect(await reportsOf(() => rig.controller.onDrop({clientX: 600, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'})), 'the landed tab-into').toEqual([]);
+        expect(rig.committed).toHaveLength(1);
+        destroyAll(rig)
+    });
+
+    test('a tear-out released where this window shows a preview reports it; one released outside does not (#19869)', async () => {
+        const rig = compose();
+
+        rig.controller.dragGeometry = Promise.resolve(rig.controller.geometry = GEOMETRY());
+        rig.indicators.hostRect = GEOMETRY().hostRect;
+
+        expect(await reportsOf(() => rig.controller.reportTearOut({clientX: 600, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'})))
+            .toEqual([{previewId: 'preview:alpha:right-tabs:tab-into', terminal: 'tear-out'}]);
+        expect(await reportsOf(() => rig.controller.reportTearOut({clientX: 1200, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'})), 'outside the window').toEqual([]);
+        destroyAll(rig)
+    });
+
     test.describe('the root-edge strip is wired on both gesture paths', () => {
         /** Captures the descriptor the owner is asked to apply, without disturbing the commit. */
         const withDescriptorCapture = rig => {

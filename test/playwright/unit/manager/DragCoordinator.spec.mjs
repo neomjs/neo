@@ -592,7 +592,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         DragCoordinator.nativeClaimArbiters.clear();
         DragCoordinator.nativeHoverTargets.clear();
         DragCoordinator.pointerClaimArbiter = null;
-        DragCoordinator.claimTrace.length   = 0
+        DragCoordinator.claimTrace.length   = 0;
+        DragCoordinator.abandonedGestures.length = 0
     }
 
     function clearWindows() {
@@ -1740,7 +1741,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             expect(order, 'one attempt, three retries, then the hover ends').toEqual(['suspend', 'suspend', 'suspend', 'suspend', 'leave']);
             expect(order).not.toContain('commit');
             expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup'), 'the exhausted gesture releases its candidate').toBe(false);
-            expect(DragCoordinator.nativeHoverTargets.has('win-popup')).toBe(false)
+            expect(DragCoordinator.nativeHoverTargets.has('win-popup')).toBe(false);
+            expect(DragCoordinator.abandonedGestures.map(gesture => gesture.terminal), 'four refused parks, one report (#19869)').toEqual(['park-refused'])
         } finally {
             DragCoordinator.nativeWindowParkRetryLimit     = oldLimit;
             DragCoordinator.nativeWindowDispositionRetryMs = oldRetry
@@ -1905,7 +1907,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
             expect(order).toEqual(['suspend', 'embody', 'await-renderer', 'commit', 'retire']);
             expect(order.indexOf('commit')).toBeLessThan(order.indexOf('retire'));
-            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false);
+            expect(DragCoordinator.abandonedGestures, 'a committed drop reports nothing').toEqual([])
         } finally {
             DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
         }
@@ -1971,7 +1974,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
             expect(order).toEqual(['suspend', 'embody', 'target-restored', 'source-restored']);
             expect(order).not.toContain('retire');
-            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false);
+            expect(DragCoordinator.abandonedGestures.map(gesture => gesture.terminal), 'a refusal the operator never sees is reported (#19869)').toEqual(['target-refused'])
         } finally {
             DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
         }
@@ -2003,7 +2007,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             candidate   = {
                 draggedItem, embodyNativeHover: true, localX: 20, localY: 30, offsetX: 10, offsetY: 10, proxyRect: {},
                 sourceSortZone: source, sourceWindowId: 'win-popup', targetSortZone: target, targetWindowId: 'win-main',
-                widgetName    : 'terminal'
+                widgetName    : 'terminal', dropPreviewId: 'preview:terminal:main-tabs:tab-into'
             };
 
         DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
@@ -2020,11 +2024,36 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
 
             expect(order).toEqual(['suspend', 'embody', 'previewable', 'commit', 'retire']);
-            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false);
+            expect(DragCoordinator.abandonedGestures).toEqual([])
         } finally {
             DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
         }
     });
+
+    for (const [terminal, settled, acceptsAfterHandoff] of [['embodiment-unsettled', false, true], ['handoff-lost', true, false]]) {
+        test(`a parked drop that ends in ${terminal} reports once and commits nothing (#19869)`, async () => {
+            const {candidate, order} = unpreviewedNativeDrop(async () => null),
+                  target             = candidate.targetSortZone,
+                  oldHandoff         = DragCoordinator.nativeWindowDropHandoffMs;
+            let asked = 0;
+
+            target.onRemoteDragMove          = () => {order.push('embody'); return {itemId: 'terminal'}};
+            target.awaitRemoteDragEmbodiment = () => settled;
+            // the first answer admits the park; the second is read after the handoff
+            target.acceptsRemoteDrag         = () => asked++ === 0 || acceptsAfterHandoff;
+            DragCoordinator.nativeWindowDropHandoffMs = 0;
+
+            try {
+                await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+                expect(order).not.toContain('commit');
+                expect(DragCoordinator.abandonedGestures.map(gesture => gesture.terminal)).toEqual([terminal])
+            } finally {
+                DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
+            }
+        })
+    }
 
     test('a drop the target still cannot preview, or one cancelled while it waits, commits nothing (#19868)', async () => {
         const oldHandoff = DragCoordinator.nativeWindowDropHandoffMs;
@@ -2036,6 +2065,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
             await DragCoordinator.commitNativeWindowDrop('win-popup', unanswered.candidate);
             await expect.poll(() => unanswered.order).toEqual(['suspend', 'embody', 'previewable', 'source-restored']);
+            expect(DragCoordinator.abandonedGestures.map(({itemId, previewId, terminal}) => ({itemId, previewId, terminal})), 'the dwell accepted a preview the drop never landed (#19869)')
+                .toEqual([{itemId: 'terminal', previewId: 'preview:terminal:main-tabs:tab-into', terminal: 'no-preview'}]);
 
             let answer;
 
@@ -2048,7 +2079,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             answer({itemId: 'terminal'});
             await committing;
 
-            await expect.poll(() => cancelled.order).toEqual(['suspend', 'embody', 'previewable', 'source-restored'])
+            await expect.poll(() => cancelled.order).toEqual(['suspend', 'embody', 'previewable', 'source-restored']);
+            expect(DragCoordinator.abandonedGestures, 'a cancel is no abandonment: still one report').toHaveLength(1)
         } finally {
             DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
         }
