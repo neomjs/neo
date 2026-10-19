@@ -391,19 +391,37 @@ class DragCoordinator extends Manager {
     abandonNativeDrop(windowId, candidate, terminal) {
         const me = this;
 
-        me.reportNativeDrop(candidate, terminal);
+        me.reportDrop({draggedItem: candidate.draggedItem, path: 'native', previewId: candidate.dropPreviewId, terminal});
         me.clearNativeWindowDropCandidate(windowId);
         me.endNativeGesture(windowId)
     }
 
     /**
-     * @summary Reports a native drop whose dwell completed over an accepted preview but did not land.
-     * @param {Object} candidate The drop's native candidate.
-     * @param {String} terminal  What the drop ended in.
+     * @summary Reports a drop that committed nothing although its window accepted a preview. A window
+     * that accepted none promised no landing, so that drop ends quietly.
+     * @param {Object}      drop
+     * @param {Object}      drop.draggedItem The coordinator's drag payload item.
+     * @param {String}      drop.path        `native` or `pointer`.
+     * @param {String|null} drop.previewId   The preview the window accepted, if any.
+     * @param {String}      drop.terminal    What the drop ended in.
      * @protected
      */
-    reportNativeDrop({draggedItem, dropPreviewId = null}, terminal) {
-        this.reportAbandonedGesture({itemId: draggedItem?.dockItemId ?? draggedItem?.id ?? null, path: 'native', previewId: dropPreviewId, terminal})
+    reportDrop({draggedItem, path, previewId, terminal}) {
+        previewId && this.reportAbandonedGesture({itemId: draggedItem?.dockItemId ?? draggedItem?.id ?? null, path, previewId, terminal})
+    }
+
+    /**
+     * @summary Whether a target still holds the drop it was handed: alive, still registered, and not
+     * moved on to a newer gesture. A target that lost the drop to a replacement refused nothing.
+     * @param {Object} target  The drop's target zone.
+     * @param {Object} payload The drag payload the target held at the release.
+     * @returns {Boolean}
+     * @protected
+     */
+    holdsDrop(target, payload) {
+        return !target.isDestroyed &&
+            this.sortZones.get(target.sortGroup)?.get(target.windowId) === target &&
+            (target.currentDragPayload ?? payload) === payload
     }
 
     /**
@@ -550,6 +568,9 @@ class DragCoordinator extends Manager {
                 }
             }
 
+            // the target's answer at the drop is the latest preview it accepted, also when no hover frame resolved one
+            preview?.previewId && (candidate.dropPreviewId = preview.previewId);
+
             if (embodyNativeHover === true && !preview) {
                 me.abandonNativeDrop(windowId, candidate, 'no-preview');
                 return
@@ -624,7 +645,7 @@ class DragCoordinator extends Manager {
             }
 
             // the restore below shows the popup again, but never why the target refused it
-            operation || me.reportNativeDrop(candidate, 'target-refused');
+            operation || me.reportDrop({draggedItem, path: 'native', previewId: candidate.dropPreviewId, terminal: 'target-refused'});
 
             await me.settleNativeWindowDisposition(windowId, candidate, Boolean(operation))
         } catch (error) {
@@ -1423,21 +1444,30 @@ class DragCoordinator extends Manager {
 
         try {
             if (me.activeTargetZone) {
+                const
+                    target = me.activeTargetZone,
+                    // read before the drop: the target clears both as it settles
+                    {currentDragPayload: payload, currentPreview: shown} = target,
+                    settle = operation => {
+                        if (operation) {
+                            !sourceSortZone.isDestroying && !sourceSortZone.isDestroyed && sourceSortZone.onRemoteDropOut(draggedItem)
+                        } else if (me.holdsDrop(target, payload)) {
+                            // the pointer twin of the native `target-refused`
+                            me.reportDrop({draggedItem, path: 'pointer', previewId: shown?.previewId, terminal: 'target-refused'})
+                        }
+
+                        return operation
+                    };
+
                 // Engagement is not commitment: only the target's accepted outcome retires the source.
                 try {
-                    let result = me.activeTargetZone.onRemoteDrop(draggedItem);
+                    let result = target.onRemoteDrop(draggedItem);
 
                     if (typeof result?.then === 'function') {
-                        return result.then(operation => {
-                            if (operation && !sourceSortZone.isDestroying && !sourceSortZone.isDestroyed) {
-                                sourceSortZone.onRemoteDropOut(draggedItem)
-                            }
-
-                            return operation
-                        })
-                    } else if (result && !sourceSortZone.isDestroying && !sourceSortZone.isDestroyed) {
-                        sourceSortZone.onRemoteDropOut(draggedItem)
+                        return result.then(settle)
                     }
+
+                    settle(result)
                 } finally {
                     me.activeTargetZone = null
                 }

@@ -45,7 +45,8 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         DragCoordinator.activeSourceZone = null;
         DragCoordinator.activeTransitionOwned = false;
         DragCoordinator.sortZones.clear();
-        DragCoordinator.nativeWindowDropCandidates.clear()
+        DragCoordinator.nativeWindowDropCandidates.clear();
+        DragCoordinator.abandonedGestures.length = 0
     });
 
     test.afterEach(() => {
@@ -136,6 +137,67 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
 
         expect(calls).toEqual([['onRemoteDrop', 'tab-1']])
+    });
+
+    /**
+     * @summary A registered target that showed `preview` at the release, then answers `outcome`. Its
+     * drop clears the release's payload and preview first, as `DragTarget#clearRemoteState` does.
+     * @param {*}           outcome   What `onRemoteDrop()` returns, or a function of the target returning it.
+     * @param {Object|null} [preview] What the target showed at the release.
+     * @returns {Object}
+     */
+    function createPreviewingTarget(outcome, preview = {previewId: 'preview:tab-1:main-tabs:tab-into'}) {
+        const target = {
+            sortGroup         : 'dock',
+            windowId          : 2,
+            currentDragPayload: {embodyProxy: true},
+            currentPreview    : preview,
+            onRemoteDrop(draggedItem) {
+                calls.push(['onRemoteDrop', draggedItem.id]);
+                target.currentDragPayload = target.currentPreview = null;
+                return typeof outcome === 'function' ? outcome(target) : outcome
+            }
+        };
+
+        DragCoordinator.register(target);
+        DragCoordinator.activeTargetZone = target;
+
+        return target
+    }
+
+    const reported = () => DragCoordinator.abandonedGestures.map(({itemId, path, previewId, terminal}) => ({itemId, path, previewId, terminal}));
+
+    test('a pointer drop its target refuses after showing a preview reports it, sync or async (#19869)', async () => {
+        const
+            source  = createSourceZone(),
+            refusal = {itemId: 'tab-1', path: 'pointer', previewId: 'preview:tab-1:main-tabs:tab-into', terminal: 'target-refused'};
+
+        createPreviewingTarget(null);
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        createPreviewingTarget(Promise.resolve(null));
+        await DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(reported()).toEqual([refusal, refusal]);
+        expect(calls.some(([name]) => name === 'onRemoteDropOut'), 'a refused drop retires nothing').toBe(false)
+    });
+
+    test('a pointer drop reports nothing when it commits, showed no preview, or its target lost it (#19869)', async () => {
+        const
+            source = createSourceZone(),
+            drop   = () => DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        createPreviewingTarget({type: 'transferItem'});
+        drop();
+        createPreviewingTarget(null, null);
+        drop();
+        createPreviewingTarget(target => Promise.resolve().then(() => {DragCoordinator.unregister(target); return null}));
+        await drop();
+        createPreviewingTarget(target => Promise.resolve().then(() => {target.currentDragPayload = {embodyProxy: true}; return null}));
+        await drop();
+
+        expect(reported()).toEqual([]);
+        expect(calls.filter(([name]) => name === 'onRemoteDropOut'), 'only the commit retires its source').toHaveLength(1)
     });
 
     test('unregister clears a departing zone that is the live target — a gone vessel cannot stay droppable', () => {
@@ -1723,7 +1785,9 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
                 sourceWindowId   : 'win-popup',
                 targetSortZone   : target,
                 targetWindowId   : 'win-main',
-                widgetName       : 'terminal'
+                widgetName       : 'terminal',
+                // the dwell resolved a preview, so the refused parks abandon a promise
+                dropPreviewId    : 'preview:terminal:main-tabs:tab-into'
             },
             oldLimit = DragCoordinator.nativeWindowParkRetryLimit,
             oldRetry = DragCoordinator.nativeWindowDispositionRetryMs;
@@ -1962,7 +2026,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
                 sourceWindowId   : 'win-popup',
                 targetSortZone   : target,
                 targetWindowId   : 'win-main',
-                widgetName       : 'terminal'
+                widgetName       : 'terminal',
+                dropPreviewId    : 'preview:terminal:main-tabs:tab-into'
             },
             oldHandoff = DragCoordinator.nativeWindowDropHandoffMs;
 
@@ -2081,6 +2146,44 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
             await expect.poll(() => cancelled.order).toEqual(['suspend', 'embody', 'previewable', 'source-restored']);
             expect(DragCoordinator.abandonedGestures, 'a cancel is no abandonment: still one report').toHaveLength(1)
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
+        }
+    });
+
+    test('a native drop whose window accepted no preview ends quietly (#19869)', async () => {
+        const {candidate, order} = unpreviewedNativeDrop(async () => null),
+              oldHandoff         = DragCoordinator.nativeWindowDropHandoffMs;
+
+        // no hover frame resolved a preview, and the target finds none at the drop either
+        delete candidate.dropPreviewId;
+        DragCoordinator.nativeWindowDropHandoffMs = 0;
+
+        try {
+            await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+            await expect.poll(() => order).toEqual(['suspend', 'embody', 'previewable', 'source-restored']);
+            expect(DragCoordinator.abandonedGestures, 'a window that accepted nothing was promised nothing').toEqual([])
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
+        }
+    });
+
+    test('a native drop whose target first accepts a preview at the drop, then refuses it, reports that preview (#19869)', async () => {
+        const {candidate, order} = unpreviewedNativeDrop(async () => null),
+              target             = candidate.targetSortZone,
+              oldHandoff         = DragCoordinator.nativeWindowDropHandoffMs;
+
+        delete candidate.dropPreviewId;
+        target.onRemoteDragMove = () => {order.push('embody'); return {itemId: 'terminal', previewId: 'preview:terminal:main-tabs:split-before'}};
+        target.onRemoteDrop     = () => {order.push('refuse'); return null};
+        DragCoordinator.nativeWindowDropHandoffMs = 0;
+
+        try {
+            await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+            expect(order).not.toContain('retire');
+            expect(DragCoordinator.abandonedGestures.map(({previewId, terminal}) => ({previewId, terminal})))
+                .toEqual([{previewId: 'preview:terminal:main-tabs:split-before', terminal: 'target-refused'}])
         } finally {
             DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
         }

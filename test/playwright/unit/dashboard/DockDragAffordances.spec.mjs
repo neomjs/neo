@@ -758,6 +758,33 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         destroyAll(rig)
     });
 
+    test('a release the owner refuses, or one that lands another preview, reports what the hover showed (#19869)', async () => {
+        const
+            rig                 = compose(),
+            {controller, owner} = rig,
+            apply               = owner.applyDockZoneOperation.bind(owner),
+            produce             = controller.producer.produce.bind(controller.producer),
+            arm                 = () => {controller.dragGeometry = Promise.resolve(controller.geometry = GEOMETRY())};
+
+        rig.indicators.hostRect = GEOMETRY().hostRect;
+
+        arm();
+        owner.applyDockZoneOperation = () => ({errors: ['refused']});
+
+        expect(await reportsOf(() => controller.onDrop({clientX: 600, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'})), 'the owner refused the tab-into it showed')
+            .toEqual([{previewId: 'preview:alpha:right-tabs:tab-into', terminal: 'operation-refused'}]);
+
+        // the release resolves right-tabs while the hover showed alpha's own split
+        arm();
+        owner.applyDockZoneOperation = apply;
+        controller.producer.produce  = args => produce(args.zones.some(zone => zone.nodeId === 'left-tabs') ? args : {...args, pointer: {x: 600, y: 300}});
+
+        expect(await reportsOf(() => controller.onDrop({clientX: 395, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'})), 'landed elsewhere')
+            .toEqual([{previewId: 'preview:alpha:left-tabs:split-after', terminal: 'other-operation'}]);
+        expect(rig.committed).toHaveLength(1);
+        destroyAll(rig)
+    });
+
     test.describe('the root-edge strip is wired on both gesture paths', () => {
         /** Captures the descriptor the owner is asked to apply, without disturbing the commit. */
         const withDescriptorCapture = rig => {
