@@ -17,6 +17,7 @@
 | **Author** | @neo-opus-vega (Vega, Claude Fable 5, Claude Code) — #13377 epic steward. |
 | **Runtime-continuity amendment** | 2026-10-13 (#19725, graduated at [D19723](https://github.com/orgs/neomjs/discussions/19723)): §2.5 adds immutable runtime generations for surviving managed seats, consuming [Institution #674](https://github.com/neomjs/neo-agent-institution/issues/674) and its [package-identity fold](https://github.com/neomjs/neo-agent-institution/issues/674#issuecomment-6151465185). [ADR 0038 §2.5.2](0038-fm-client-topology.md#252-native-launch-admission-generation-custody-and-recovery) supplies the clean-handoff admission contract. Decision authority, not executable or installed delivery. |
 | **Platform amendment** | 2026-10-16 (#19818, operator decision in session; no Discussion — the v1 scope is a product boundary, the seam rule design-seat substrate, this amendment's cross-family review the challenge path): §2.7 narrows §2.5.1's artifact set for v1 to macOS on Apple Silicon, fixes the post-v1 order (Linux arm64 in a container → x64 macOS → Windows; each demand-gated, its own leaf with a native smoke and receipt) and names the OS seam — the shell carries no platform branches; seat launch/wake OS specifics live in the Brain's launch/wake layer, keyed by harness kind × platform. |
+| **Refusal-scope amendment** | 2026-10-19 (#19857, the operator's 2026-10-18 directive on [Institution #732](https://github.com/neomjs/neo-agent-institution/issues/732); no Discussion — it narrows D19723's refusal to the seat it concerns, this amendment's cross-family review the challenge path): §2.5 item 4 refuses the continuity handoff only when the issuer itself cannot proceed; an unproved fact about one surviving seat revokes that seat's or server's admission instead. Implemented by [Brain #1143](https://github.com/neomjs/neo-agent-brain/issues/1143). |
 | **Resolves** | #14786 — the #13377 gate leaf: settle the shared shell questions ONCE, decision-record tier, before the E-leaves multiply incoherently (the ADR-0029 settle-shared-questions pattern). |
 | **Parent epic** | #13377 (*Electron shell — package + host the Agent OS*) under #13012 (Agent Harness). |
 | **Depends on** | **ADR 0020** (the embodiment vessel — extended, never superseded; §3 fixes the shell decision, the in-process target + child-process fallback, source-tree discipline, and PATs-Brain-side); **ADR 0029** (docking design — its §2.1 state-class table, window-manager boundaries, and semantic-restore rules are consumed, not reopened). |
@@ -474,9 +475,18 @@ The bundle-use guard correctly refused replacement while seat processes used its
    the original issuer endpoint and current proofs from the original credential owners. Runtime
    relocation alone cannot preserve later-child admission. Before replacing the issuer, the product
    proves compatible pins and recoverable inputs, completes pending durable transitions, and awaits
-   endpoint release. Unproved prerequisites remain a named refusal or legacy migration case;
-   an old active record after an unclean issuer loss is not authority. App rollback never rolls back
-   admission revocations or security state, and no running profile is rewritten.
+   endpoint release. The handoff still refuses by name when the issuer itself cannot proceed —
+   unproved custody, a failed durable publication, an unreleased endpoint, a pending Start, the
+   deadline — and a legacy seat remains a migration case (item 6). An unproved fact about one
+   surviving seat revokes only the authority that seat would have carried: a server that cannot
+   prove loses its grant; a seat whose pin, inputs or original Start cannot be proved loses its
+   admission generation, and its runtime generation stays retained (item 5). Each revocation names
+   the generation it ends, is durable before the issuer is replaced, and no later observation
+   restores it. The update stops no seat, and existing children keep their inputs. An old active
+   record after an unclean issuer loss is not authority: it crosses stale and admits nothing. App
+   rollback never rolls back admission revocations or security state, and no running profile is
+   rewritten. *[Refusal scope narrowed from the whole update to the unproved seat or server —
+   2026-10-19, #19857.]*
 5. **Retire only a generation proved unused.** The installed package and rollback target retain
    their generations. A surviving seat's pin and any remaining child process also retain theirs:
    zero currently running MCP children does not mean an idle seat cannot launch another child.
@@ -505,7 +515,9 @@ partial in-place updates or change the release-line credential boundary.
 running; verify unchanged custody, old/new generation coexistence, each seat's native tools and
 a later MCP-child reconnect without restarting that seat. Then exercise an explicitly selected
 seat restart onto the new generation, rollback reachability, safe retirement and unknown-liveness
-retention. Preserve failed or unobserved checks on neomjs/neo-agent-institution#12; a green package smoke or an
+retention. Repeat the update with one seat's server failing its proof, and again after an unclean
+issuer exit: each completes, the first revoking only that server's grant, the second carrying the
+running generations stale. Preserve failed or unobserved checks on neomjs/neo-agent-institution#12; a green package smoke or an
 already-running child answering is not the complete witness.
 
 ### §2.6 Dev/prod parity — one harness root, two origins, identical topology (Q6)
