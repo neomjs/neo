@@ -1,0 +1,39 @@
+name: Front Door Fingerprint
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'learn/benefits/Introduction.md'
+      - 'buildScripts/util/check-front-door-fingerprint.mjs'
+      - '.github/workflows/front-door-fingerprint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'learn/benefits/Introduction.md'
+      - 'buildScripts/util/check-front-door-fingerprint.mjs'
+      - '.github/workflows/front-door-fingerprint.yml'
+
+concurrency:
+  group: front-door-fingerprint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check-fingerprint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Check front-door integrity fingerprint (self-declaration stays true by construction)
+        run: node ./buildScripts/util/check-front-door-fingerprint.mjs
