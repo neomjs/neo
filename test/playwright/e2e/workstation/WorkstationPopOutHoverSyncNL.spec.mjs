@@ -17,6 +17,11 @@ import {test, expect} from '../../fixtures.mjs';
  * the main-thread addon instance in each window has its `suspendHover` / `resumeHover` wrapped with a
  * counter before the popup grid is scrolled. Nothing else is patched, and the wrappers call through.
  *
+ * `grid.ScrollManager` suspends on the first scroll event of a burst and resumes 150 ms after its last,
+ * so the judged scroll is counted only when it opens a burst of its own. The arm stops the Feed's
+ * producer, whose every tick scrolls the grid back to the top, and lets the popup's earlier burst end
+ * in the App Worker before the counters go on.
+ *
  * Runs in Playwright's default headless mode of the local Chrome channel the e2e config selects; no
  * `--headed` is passed. The popup is a real second window either way.
  *
@@ -29,6 +34,7 @@ import {test, expect} from '../../fixtures.mjs';
 const
     ACTION     = '.neo-toolbar-action',
     ADDON      = 'GridRowHoverSync',
+    BODY       = '.neo-grid-body',
     FEED_TITLE = 'Live Event Stream', // the Feed pane's tab title in the Workstation's boot document
     HEADER     = '.neo-tab-header-toolbar',
     POP_OUT    = 'window-restore',
@@ -64,6 +70,17 @@ const countAddonCalls = (page, addonName) => page.evaluate(name => {
 const readAddonCalls = (page, addonName) => page.evaluate(name => Neo.main?.addon?.[name]?.__hoverSyncCalls ?? null, addonName);
 
 /**
+ * Reads the popup grid's scroll from both sides: whether the window shows it past `topBefore`, whether
+ * the App Worker's grid body has synced that position, and whether the body's burst is still open.
+ */
+const readScrollState = async (app, view, bodyId, topBefore) => {
+    const shown                    = await view.evaluate(node => node.scrollTop),
+          {isScrolling, scrollTop} = await app.getComponent(bodyId, ['isScrolling', 'scrollTop']);
+
+    return {moved: shown > topBefore, synced: scrollTop === shown, scrolling: isScrolling}
+};
+
+/**
  * Counts the worker's deprecated-destination warnings that name the addon: the warning's second
  * argument is the routed payload, stringified, so the addon's class name is in the message.
  */
@@ -93,6 +110,14 @@ test.describe('Workstation pop-out — hover sync follows the grid into the popu
         await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
 
         const app = await neuralLink.connectToApp('Workstation');
+
+        // Every Feed tick adds rows, and a mounted grid scrolls to the top after each store mutation
+        // (`grid.Body#onStoreLoad`): a burst every 500 ms that no wheel made.
+        const feeds = await app.findInstances({className: 'Workstation.store.Feed'}, ['id']),
+              feed  = (Array.isArray(feeds) ? feeds : [feeds])[0];
+
+        expect(feed?.id, 'the provider-owned feed store must be findable').toBeTruthy();
+        await app.callMethod(feed.id, 'stop');
 
         const header = await focusPane(page, FEED_TITLE),
               popOut = header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first();
@@ -136,11 +161,21 @@ test.describe('Workstation pop-out — hover sync follows the grid into the popu
         // for that window (`worker.App#getAddon` → `Main.importAddon`), so the popup's hover-sync
         // addon does not exist until a scroll asks for it. One warm-up scroll loads it; the counters
         // go on afterwards, and only the second scroll is judged.
+        const topBefore = await view.evaluate(node => node.scrollTop);
+
         await vessel.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         await vessel.mouse.wheel(0, 120);
 
         await expect.poll(() => vessel.evaluate(name => !!Neo.main?.addon?.[name], ADDON),
             {message: 'the first scroll imports the hover-sync addon into the popup window', timeout: 15000}).toBe(true);
+
+        // A burst the popup's mount opened can import the addon before the warm-up's scroll even
+        // lands, and the warm-up joins it. Both must be over, or the judged scroll joins them too.
+        const bodyId = await vessel.locator(BODY).first().getAttribute('id');
+
+        await expect.poll(() => readScrollState(app, view, bodyId, topBefore),
+            {message: 'the warm-up scroll has landed in the App Worker and its burst has ended', timeout: 15000})
+            .toEqual({moved: true, synced: true, scrolling: false});
 
         expect(await countAddonCalls(page,   ADDON), 'the opener addon is counted').toBe(true);
         expect(await countAddonCalls(vessel, ADDON), 'the popup addon is counted').toBe(true);
@@ -156,8 +191,8 @@ test.describe('Workstation pop-out — hover sync follows the grid into the popu
         // The witness: the popup's addon is suspended and resumed; the opener's addon receives nothing.
         // Before the fix every call fell back to the first connected port — the opener — so the
         // counts were exactly reversed.
-        await expect.poll(() => readAddonCalls(vessel, ADDON), {message: 'the popup addon receives suspend and resume', timeout: 10000})
-            .toEqual(expect.arrayContaining(['suspendHover', 'resumeHover']));
+        await expect.poll(() => readAddonCalls(vessel, ADDON), {message: 'the popup addon is suspended and resumed once', timeout: 10000})
+            .toEqual(['suspendHover', 'resumeHover']);
 
         expect(await readAddonCalls(page, ADDON), 'the opener addon hears nothing about the popup\'s scroll').toEqual([]);
 
