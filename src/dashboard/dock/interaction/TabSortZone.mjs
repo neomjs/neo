@@ -577,8 +577,9 @@ class TabSortZone extends TabHeaderSortZone {
      * cross-zone commit path must not fire a second, now-invalid operation. Base cleanup still runs.
      *
      * A drag released while DETACHED ({@link Neo.draggable.container.SortZone#isWindowDragging})
-     * fires `dockTearOutTerminal` instead of the in-window drop — the one signal a host may commit
-     * a `detachItem` on. A cancel while detached routes `dockTearOutCancel` from
+     * outside this window fires `dockTearOutTerminal` instead of the in-window drop — the one signal
+     * a host may commit a `detachItem` on. Released inside it, the drag re-enters and drops where the
+     * in-window preview showed ({@link #isReleasedInside}). A cancel while detached routes `dockTearOutCancel` from
      * {@link #onDragCancel} BEFORE the generic base clears `isWindowDragging`; this method then
      * emits the regular cancel event after that vessel-cleanup signal.
      *
@@ -662,14 +663,21 @@ class TabSortZone extends TabHeaderSortZone {
             itemId && tabContainer?.fire('dockCrossZoneDragCancel', {itemId, sourceNodeId: me.dockSourceNodeId})
         } else if (!commitError && me.remoteDropCommitted) {
             me.remoteDropCommitted = false
-        } else if (me.isWindowDragging) {
+        } else if (me.isWindowDragging && !me.isReleasedInside(data)) {
             // Released while detached — THE terminal a dock host may commit a `detachItem` on
             // (model commit precedes any window close per the choreography contract). The zone
             // itself never mutates documents; deterministic outcome order is cancel → remote
             // transfer → tear-out terminal → in-window cross-zone drop.
             itemId && tabContainer?.fire('dockTearOutTerminal', {itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId})
-        } else if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
-            tabContainer.fire('dockCrossZoneDrop', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
+        } else {
+            // Released over this window while still detached: the proxy overlap never registered the
+            // re-entry, but the host painted its in-window preview under this pointer (onDragMove fires
+            // detached too), so that preview is the drop. The vessel retires first, as on any re-entry.
+            me.isWindowDragging && me.fire('dragBoundaryEntry', {draggedItem: me.dragComponent, proxyRect: null, sortZone: me});
+
+            if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
+                tabContainer.fire('dockCrossZoneDrop', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
+            }
         }
 
         await super.processDragEnd(data);
@@ -736,6 +744,21 @@ class TabSortZone extends TabHeaderSortZone {
         if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
             tabContainer.fire('dockCrossZoneDragMove', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
         }
+    }
+
+    /**
+     * @summary Whether a release landed inside this window's drag boundary, the area whose drop
+     * previews {@link #onDragMove} paints whether the drag is detached or not.
+     * @param {Object} data The drag-end payload.
+     * @returns {Boolean}
+     * @protected
+     */
+    isReleasedInside({clientX, clientY} = {}) {
+        const rect = this.boundaryContainerRect;
+
+        return Boolean(rect) && Neo.isNumber(clientX) && Neo.isNumber(clientY) &&
+            clientX >= rect.x && clientX <= (rect.right  ?? rect.x + rect.width) &&
+            clientY >= rect.y && clientY <= (rect.bottom ?? rect.y + rect.height)
     }
 
     /**

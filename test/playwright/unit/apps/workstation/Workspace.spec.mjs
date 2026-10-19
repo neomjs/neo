@@ -17,6 +17,7 @@ import Operations               from '../../../../../src/dashboard/dock/model/Op
 import Persistence              from '../../../../../src/dashboard/dock/model/Persistence.mjs';
 import DockParticipation        from '../../../../../src/dashboard/dock/window/Participation.mjs';
 import NativeVesselTransaction  from '../../../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
+import VesselPark               from '../../../../../src/dashboard/dock/window/VesselPark.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import TopologyLibrary    from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
@@ -407,8 +408,8 @@ test('an unready pointer read names the claim surfaces it crossed; a ready read 
         expect(unready.claimSurfaces).toEqual({
             participation: {affordances: true, targetId: 'main-target', targetWindowId: mainWindowId},
             coordinator  : {
-                activeTargetZoneId    : null, activeTargetWindowId: null,
-                arbiter               : {claimCount: 0, token: 'gesture-7', winnerStableId: null},
+                activeTargetZoneId: null, activeTargetWindowId: null,
+                arbiter           : {claimCount: 0, token: 'gesture-7', winnerStableId: null},
                 // the live gesture's passes only, the last three, newest last — gesture-6's record stays out
                 claimTrace            : passes.slice(2),
                 nativeArbiterWindowIds: [], nativeHoverWindowIds: ['some-native-window']
@@ -2319,8 +2320,8 @@ test.describe('Workstation.view.Workspace', () => {
         try {
             const chrome = workspace.resolveVesselStageTarget(state.windowId);
             expect(await workspace.tearOutEmbodiment.stage({itemId: 'alerts', windowId: state.windowId})).toBe(true);
-            const pane = workspace.paneCache.alerts,
-                  body = chrome.getCardContainer(),
+            const pane   = workspace.paneCache.alerts,
+                  body   = chrome.getCardContainer(),
                   remove = body.remove.bind(body), moves = [];
             body.remove = (...args) => {
                 moves.push(args);
@@ -2363,7 +2364,7 @@ test.describe('Workstation.view.Workspace', () => {
         const {state, workspaceId} = stageCommittedVessel(workspace);
         const viewport             = Neo.create(Container, {appName: workspace.appName,
             layout: {ntype: 'vbox', align: 'stretch'}, windowId: state.windowId});
-        const projection           = Promise.withResolvers();
+        const projection = Promise.withResolvers();
         Neo.apps[state.windowId] = {mainView: viewport, name: workspace.appName};
         state.renderTarget = viewport;
         state.host.refreshPromise = projection.promise;
@@ -4400,5 +4401,38 @@ test.describe('Workstation rail reveal extent', () => {
         // pane in its tabs node, and the resolver answers the owning edge, never a nested split share.
         expect(DockLayoutAdapter.resolveRevealExtent(initialDocument, 'graph'),     'the left edge').toBeCloseTo(0.11);
         expect(DockLayoutAdapter.resolveRevealExtent(initialDocument, 'inspector'), 'the bottom edge').toBeCloseTo(0.17)
+    })
+});
+
+test.describe('a released vessel retires its native park (prototype-call)', () => {
+    // A titlebar drop parks its vessel, and the coordinator's committed terminal disposes the park. A
+    // return that closes the vessel when main adopts releases the window first, which clears that
+    // terminal's candidate: the release has to retire the park, or the next titlebar drop is refused.
+    const parked = itemId => {
+        const park = Neo.create(VesselPark, {disposeVessel: () => true, parkVessel: () => true, reshowVessel: () => true});
+
+        expect(park.onConversionIn({itemId, windowName: `tearout-${itemId}`})).toBe(true);
+        return park
+    };
+
+    test('the release of the parked vessel\'s window retires the park, so the next titlebar drop parks', () => {
+        const park = parked('commits');
+
+        Workspace.prototype.retireReleasedPark.call({nativeVesselParkHandlers: park, resolveTearOutVessel: () => null},
+            {windowId: 'commits-window', workspaceKey: 'workstation-vessel:commits'});
+
+        expect(park.parkedVessel).toBeNull();
+        expect(park.onConversionIn({itemId: 'alerts', windowName: 'tearout-alerts'}), 'the second vessel parks').toBe(true)
+    });
+
+    test('a vessel matched by its window id retires too, and another window\'s release leaves the park alone', () => {
+        const park = parked('metrics'),
+              host = {nativeVesselParkHandlers: park, resolveTearOutVessel: itemId => ({itemId, windowId: 'metrics-window'})};
+
+        Workspace.prototype.retireReleasedPark.call(host, {windowId: 'feed-window', workspaceKey: 'workstation-vessel:feed'});
+        expect(park.parkedVessel?.itemId, 'an unrelated release').toBe('metrics');
+
+        Workspace.prototype.retireReleasedPark.call(host, {windowId: 'metrics-window', workspaceKey: 'workstation-vessel:stack'});
+        expect(park.parkedVessel).toBeNull()
     })
 });
