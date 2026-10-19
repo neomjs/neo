@@ -472,7 +472,7 @@ class DragCoordinator extends Manager {
 
             candidate.sourceSuspended = suspended !== false;
 
-            const preview = await targetSortZone.onRemoteDragMove({
+            const frame = {
                 draggedItem,
                 embodyProxy   : true,
                 localX,
@@ -482,7 +482,19 @@ class DragCoordinator extends Manager {
                 proxyRect,
                 sourceSortZone,
                 sourceWindowId: candidate.sourceWindowId
-            });
+            };
+
+            let preview = await targetSortZone.onRemoteDragMove(frame);
+
+            // A target still settling a previous return cannot answer yet, and the drop sends no later
+            // frame: it waits for the target once instead of ending the gesture.
+            if (embodyNativeHover === true && !preview) {
+                preview = await targetSortZone.answerWhenPreviewable?.(frame);
+
+                if (me.nativeWindowDropCandidates.get(windowId) !== candidate || candidate.cancelled) {
+                    return
+                }
+            }
 
             if (embodyNativeHover === true && !preview) {
                 me.clearNativeWindowDropCandidate(windowId);
