@@ -429,15 +429,21 @@ class WorkspaceSet extends Base {
 
     /**
      * @summary Reduces semantic operations against the document captured at the Group queue head.
+     *
+     * A member joining or leaving while the write prepares refuses it, as a tear-out vessel retiring when
+     * its drag comes home does. The operations reduce again at the queue head, so they are written once
+     * more rather than lost.
      * @param {String} workspaceKey
      * @param {Object[]} operations
      * @param {Object} [options={}] Group cause and provenance.
      * @returns {Promise<Object>} The committed Group transaction.
      */
     commit(workspaceKey, operations, options = {}) {
-        return this.write({[workspaceKey]: {operations}}, {
+        const write = () => this.write({[workspaceKey]: {operations}}, {
             cause: 'dock', descriptor: {operations, workspaceKey}, ...options
-        })
+        });
+
+        return write().catch(error => error?.code === 'participants-changed' ? write() : Promise.reject(error))
     }
 
     /**

@@ -731,6 +731,62 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
         expect(TransactionManager.get(groupId).history?.count ?? 0).toBe(0)
     });
 
+    /** @summary Holds main's first `refusals` preparations until the test releases each. @param {Number} refusals @returns {Object} */
+    function gatePreparation(refusals) {
+        const participant = TransactionManager.getParticipant(groupId, 'main'), prepare = participant.prepare, gate = {prepared: 0};
+        participant.prepare = async (...args) => {
+            const candidate = prepare(...args);
+            if (++gate.prepared <= refusals) await new Promise(resolve => gate.entered({release: resolve}));
+            return candidate
+        };
+        gate.next = () => new Promise(resolve => gate.entered = resolve);
+        return gate
+    }
+
+    test('an operation refused because a member left during preparation reduces again at the queue head and lands', async () => {
+        const main = holder('main'), gate = gatePreparation(1), entered = gate.next();
+        holder('popup');
+
+        const pending   = set.commit('main', [{operation: 'setItemLocked', itemId: 'main', locked: true}]);
+        const {release} = await entered;
+        // a tear-out vessel retiring as its drag comes home
+        expect(set.unregister('popup')).toBe(true);
+        release();
+
+        await pending;
+        expect(gate.prepared, 'reduced once more against the Group\'s current members').toBe(2);
+        expect(main.writes).toHaveLength(1);
+        expect(main.document.items.main.locked).toBe(true);
+        expect(TransactionManager.get(groupId).history.count).toBe(1)
+    });
+
+    test('an operation is reduced again once only, and a whole-document write is never re-sent', async () => {
+        const main = holder('main'), gate = gatePreparation(2);
+        holder('popup');
+        holder('vessel');
+
+        let   entered   = gate.next();
+        const operation = set.commit('main', [{operation: 'setItemLocked', itemId: 'main', locked: true}]);
+        for (const leaving of ['popup', 'vessel']) {
+            const {release} = await entered;
+            entered = gate.next();
+            set.unregister(leaving);
+            release()
+        }
+        await expect(operation).rejects.toMatchObject({code: 'participants-changed'});
+        expect(gate.prepared).toBe(2);
+
+        const written = gatePreparation(1), writeEntered = written.next();
+        holder('popup');
+        const replacement = write({main: document('main', 'after')});
+        const {release}   = await writeEntered;
+        set.unregister('popup');
+        release();
+        await expect(replacement, 'a document computed before the change could overwrite it').rejects.toMatchObject({code: 'participants-changed'});
+        expect(written.prepared).toBe(1);
+        expect(main.writes).toEqual([])
+    });
+
     test('a document key distinct from its window binding rejects a reload during preparation', async () => {
         const main = holder('workstation-main');
         set.register('workstation-main', {...main.seams, bindingKey: 'main', componentId: 'live-workspace'});

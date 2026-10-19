@@ -421,7 +421,8 @@ class DragAffordances extends Base {
             let result = me.owner.applyDockZoneOperation(descriptor);
 
             if (result && !result.errors?.length && result.document) {
-                me.owner.onDockZoneDocumentChange(result.document)
+                // the operation, not only its document: the Group reduces it again at its queue head
+                me.owner.onDockZoneDocumentChange(result.document, descriptor, me.owner)
             }
         }
     }
