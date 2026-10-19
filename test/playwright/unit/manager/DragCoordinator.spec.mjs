@@ -1977,6 +1977,83 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         }
     });
 
+    /**
+     * @summary Registers a parked native drop whose target answers its one frame with no preview.
+     * @param {Function} answerWhenPreviewable The target's answer once it can preview.
+     * @returns {Object} `{candidate, order}`
+     */
+    function unpreviewedNativeDrop(answerWhenPreviewable) {
+        const
+            draggedItem = {id: 'terminal'},
+            order       = [],
+            source      = {
+                getNativeWindowDrag: () => ({draggedItem, embodyNativeHover: true, sourceWindowId: 'win-popup', widgetName: 'terminal'}),
+                onRemoteDropOut    : () => {order.push('retire'); return true},
+                resumeWindowDrag   : () => {order.push('source-restored'); return true},
+                suspendWindowDrag  : () => {order.push('suspend'); return true}
+            },
+            target      = {
+                acceptsRemoteDrag        : () => true,
+                answerWhenPreviewable    : frame => {order.push('previewable'); return answerWhenPreviewable(frame)},
+                awaitRemoteDragEmbodiment: () => true,
+                onRemoteDragLeave        : () => {},
+                onRemoteDragMove         : () => {order.push('embody'); return null},
+                onRemoteDrop             : () => {order.push('commit'); return {type: 'addTab'}}
+            },
+            candidate   = {
+                draggedItem, embodyNativeHover: true, localX: 20, localY: 30, offsetX: 10, offsetY: 10, proxyRect: {},
+                sourceSortZone: source, sourceWindowId: 'win-popup', targetSortZone: target, targetWindowId: 'win-main',
+                widgetName    : 'terminal'
+            };
+
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+        return {candidate, order}
+    }
+
+    test('a target still settling a previous return answers the parked drop once it can, and the drop commits (#19868)', async () => {
+        const {candidate, order} = unpreviewedNativeDrop(async () => ({itemId: 'terminal'})),
+              oldHandoff         = DragCoordinator.nativeWindowDropHandoffMs;
+
+        DragCoordinator.nativeWindowDropHandoffMs = 0;
+
+        try {
+            await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+            expect(order).toEqual(['suspend', 'embody', 'previewable', 'commit', 'retire']);
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
+        }
+    });
+
+    test('a drop the target still cannot preview, or one cancelled while it waits, commits nothing (#19868)', async () => {
+        const oldHandoff = DragCoordinator.nativeWindowDropHandoffMs;
+
+        DragCoordinator.nativeWindowDropHandoffMs = 0;
+
+        try {
+            const unanswered = unpreviewedNativeDrop(async () => null);
+
+            await DragCoordinator.commitNativeWindowDrop('win-popup', unanswered.candidate);
+            await expect.poll(() => unanswered.order).toEqual(['suspend', 'embody', 'previewable', 'source-restored']);
+
+            let answer;
+
+            const
+                cancelled  = unpreviewedNativeDrop(() => new Promise(resolve => answer = resolve)),
+                committing = DragCoordinator.commitNativeWindowDrop('win-popup', cancelled.candidate);
+
+            await expect.poll(() => cancelled.order).toContain('previewable');
+            DragCoordinator.clearNativeWindowDropCandidate('win-popup');
+            answer({itemId: 'terminal'});
+            await committing;
+
+            await expect.poll(() => cancelled.order).toEqual(['suspend', 'embody', 'previewable', 'source-restored'])
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
+        }
+    });
+
     test('candidate cancellation during async native parking compensates the exact source and never embodies', async () => {
         const
             draggedItem = {id: 'terminal'},

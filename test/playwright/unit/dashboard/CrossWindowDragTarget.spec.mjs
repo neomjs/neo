@@ -107,6 +107,58 @@ test.describe('Neo.dashboard.dock.window.DragTarget (#14670 / ADR 0029 §2.3)', 
         target.destroy()
     });
 
+    test('a frame the owner cannot answer yet is answered once it can, one ask shared by every waiter (#19868)', async () => {
+        let asked = 0, settle, warm = false;
+
+        const
+            settled = new Promise(resolve => settle = resolve),
+            frame   = {draggedItem: {id: 'pane-a'}, localX: 40, localY: 8},
+            target  = Neo.create(CrossWindowDragTarget, {
+                awaitPreviewable: () => warm ? null : settled,
+                previewFor      : payload => {asked++; return warm ? {itemId: payload.draggedItem.id} : null},
+                sortGroup       : 'dock-main',
+                windowId        : 2
+            });
+
+        expect(target.onRemoteDragMove(frame), 'a cold owner answers the frame with none').toBeNull();
+
+        // a committed native drop sends this frame only, so it waits instead of a later frame
+        const answer = target.answerWhenPreviewable(frame);
+        warm = true;
+        settle(true);
+
+        await expect(answer).resolves.toEqual({itemId: 'pane-a'});
+        expect(target.currentPreview).toEqual({itemId: 'pane-a'});
+        expect(asked, 'the frame, then one second ask for both waiters').toBe(2);
+
+        target.destroy()
+    });
+
+    test('a frame no longer current, or an owner with nothing to await, is answered with none (#19868)', async () => {
+        let asked = 0, settle;
+
+        const
+            settled = new Promise(resolve => settle = resolve),
+            frame   = {draggedItem: {id: 'pane-a'}, localX: 40, localY: 8},
+            target  = Neo.create(CrossWindowDragTarget, {
+                awaitPreviewable: payload => payload.localX > 0 ? settled : null,
+                previewFor      : () => {asked++; return null},
+                sortGroup       : 'dock-main',
+                windowId        : 2
+            });
+
+        target.onRemoteDragMove(frame);
+        const answer = target.answerWhenPreviewable(frame);
+        target.onRemoteDragLeave();
+        settle(true);
+
+        await expect(answer, 'a leave wins over the waiting frame').resolves.toBeNull();
+        expect(asked, 'the frame was never asked again').toBe(1);
+        await expect(target.answerWhenPreviewable({draggedItem: {id: 'pane-a'}, localX: 0, localY: 8})).resolves.toBeNull();
+
+        target.destroy()
+    });
+
     test('an explicitly licensed target proxy stages, settles, then restores before leave cleanup', async () => {
         const
             draggedItem = {dockItemId: 'pane-a'},

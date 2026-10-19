@@ -302,11 +302,12 @@ class DragTarget extends Base {
     /**
      * @summary Answers a frame again once the owner can preview it.
      *
-     * A hand that stops sends no further frame. When the owner could not answer the last one yet,
-     * this asks it once more after {@link #awaitPreviewable} resolves — only while the frame is still
-     * this target's current payload, so a later frame, a leave, or a terminal always wins.
+     * A hand that stops sends no further frame, and a committed native drop sends exactly one. When
+     * the owner could not answer the last one yet, this asks it once more after
+     * {@link #awaitPreviewable} resolves — only while the frame is still this target's current
+     * payload, so a later frame, a leave, or a terminal always wins.
      * @param {Object} payload The frame that answered no preview.
-     * @protected
+     * @returns {Promise<Object|null>} The frame's preview once the owner answered it, else null.
      */
     answerWhenPreviewable(payload) {
         let me = this,
@@ -315,20 +316,26 @@ class DragTarget extends Base {
         try {
             ready = me.awaitPreviewable?.(payload)
         } catch {
-            return
+            return Promise.resolve(null)
         }
 
-        typeof ready?.then === 'function' && ready.then(previewable => {
-            if (previewable !== true || me.isDestroyed || me.currentDragPayload !== payload || me.currentPreview) return;
+        if (typeof ready?.then !== 'function') return Promise.resolve(null);
 
-            try {
-                me.currentPreview = me.previewFor?.(payload) ?? null
-            } catch (error) {
-                // no caller to rethrow to on this path, so the failure reports itself
-                me.releasePreviewFailure(payload);
-                console.error('DragTarget: the re-driven preview failed', error)
+        return ready.then(previewable => {
+            if (previewable !== true || me.isDestroyed || me.currentDragPayload !== payload) return null;
+
+            if (!me.currentPreview) {
+                try {
+                    me.currentPreview = me.previewFor?.(payload) ?? null
+                } catch (error) {
+                    // no caller to rethrow to on this path, so the failure reports itself
+                    me.releasePreviewFailure(payload);
+                    console.error('DragTarget: the re-driven preview failed', error)
+                }
             }
-        }, () => {})
+
+            return me.currentPreview
+        }, () => null)
     }
 
     /**

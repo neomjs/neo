@@ -13,10 +13,7 @@ import {popOut}              from '../utils/workstationPopOut.mjs';
 
 const
     asArray = value => Array.isArray(value) ? value : value ? [value] : [],
-    readId  = result => result?.properties?.id ?? result?.id ?? (Array.isArray(result) ? readId(result[0]) : null),
-    // a human's pause between two gestures: a return closes its vessel once main adopts, and main's
-    // projection settles after that
-    HUMAN_PAUSE = 1500;
+    readId  = result => result?.properties?.id ?? result?.id ?? (Array.isArray(result) ? readId(result[0]) : null);
 
 /**
  * @summary Where one item lives now: in a tabs node of the main document, and whether a vessel owns it.
@@ -193,8 +190,8 @@ test.describe('Workstation — a popup\'s pane comes home where main shows it wi
         const ctx = await boot({page, neuralLink});
 
         await popOutAndReturnByTitlebar({...ctx, itemId: 'commits', zoneNodeId: 'heavy-tabs'});
-        await page.waitForTimeout(HUMAN_PAUSE);
-        // the first return's vessel left its native park behind, which refused this one's park
+        // No pause: the first return's vessel left its native park behind, which refused this one's
+        // park, and main, still settling that return, could not preview this drop yet
         await popOutAndReturnByTitlebar({...ctx, itemId: 'alerts', zoneNodeId: 'heavy-tabs'});
 
         expect(ctx.pageErrors).toEqual([])
