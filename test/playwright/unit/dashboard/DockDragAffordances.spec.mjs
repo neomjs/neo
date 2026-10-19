@@ -295,7 +295,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         // The node whose RECT was measured, captured before the release clears the geometry.
         const measured = rig.controller.geometry.root.nodeId;
 
-        await rig.controller.onDrop({clientX: 400, clientY: 592, itemId: 'gamma', sourceNodeId: 'right-tabs'});
+        expect(await reportsOf(() => rig.controller.onDrop({clientX: 400, clientY: 592, itemId: 'gamma', sourceNodeId: 'right-tabs'})), 'a permitted root chip lands, so nothing reports').toEqual([]);
 
         expect(rig.committed).toHaveLength(1);
         // ONE resolution, read by both halves. Asserting only that each half says 'root' would
@@ -440,6 +440,12 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         await rig.controller.onDragMove({clientX: 400, clientY: 300, itemId: 'alpha', sourceNodeId: 'center-tabs'});
 
         expect(rig.preview.dockPreview, 'a menu-selected root chip is refused as well').toBe(null);
+
+        // ...and through the release: the chip the hover refused is no preview the drop abandons
+        rig.controller.indicators.hitTest = rig.controller.indicators.updatePointer;
+
+        expect(await reportsOf(() => rig.controller.onDrop({clientX: 400, clientY: 300, itemId: 'alpha', sourceNodeId: 'center-tabs'}))).toEqual([]);
+        expect(rig.committed, 'still nothing committed').toHaveLength(0);
         expect(stranded, `no node may be left empty — ${JSON.stringify(doc.nodes)}`).toEqual([]);
         expect(doc.nodes.shell.zones.center.nodeId, 'the shell keeps its content').toBe('center-tabs');
 

@@ -440,7 +440,8 @@ class DragAffordances extends Base {
     previewAt({itemId, pointer, sourceNodeId}) {
         const me = this, {geometry} = me, candidate = me.indicators?.hitTest(pointer);
 
-        if (candidate?.preview?.itemId === itemId) return candidate.preview;
+        // the hover guards both tiers, so the release reads both through the same guard
+        if (candidate?.preview?.itemId === itemId) return me.guardEmptyWrap(candidate.preview, itemId);
 
         return geometry ? me.guardEmptyWrap(me.producer.produce({itemId, pointer, root: geometry.root, sourceNodeId, zones: geometry.zones}), itemId) : null
     }
