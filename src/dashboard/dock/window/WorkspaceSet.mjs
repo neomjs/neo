@@ -432,18 +432,25 @@ class WorkspaceSet extends Base {
      *
      * A member joining or leaving while the write prepares refuses it, as a tear-out vessel retiring when
      * its drag comes home does. The operations reduce again at the queue head, so they are written once
-     * more rather than lost.
+     * more rather than lost: as they were admitted, whatever the caller changed since, and only into the
+     * Group that admitted them. A host bound to another Group by then gets the refusal instead.
      * @param {String} workspaceKey
      * @param {Object[]} operations
      * @param {Object} [options={}] Group cause and provenance.
      * @returns {Promise<Object>} The committed Group transaction.
      */
     commit(workspaceKey, operations, options = {}) {
-        const write = () => this.write({[workspaceKey]: {operations}}, {
-            cause: 'dock', descriptor: {operations, workspaceKey}, ...options
-        });
+        const
+            me       = this,
+            groupId  = me.resolveGroupId(),
+            admitted = Neo.clone({operations, options}, true),
+            write    = () => me.write({[workspaceKey]: {operations: admitted.operations}}, {
+                cause: 'dock', descriptor: {operations: admitted.operations, workspaceKey}, ...admitted.options
+            });
 
-        return write().catch(error => error?.code === 'participants-changed' ? write() : Promise.reject(error))
+        return write().catch(error => error?.code === 'participants-changed' && me.resolveGroupId() === groupId
+            ? write()
+            : Promise.reject(error))
     }
 
     /**

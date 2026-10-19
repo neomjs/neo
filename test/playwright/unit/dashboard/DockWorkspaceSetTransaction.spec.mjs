@@ -787,6 +787,53 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
         expect(main.writes).toEqual([])
     });
 
+    test('a retried operation writes what was admitted, not what its caller changed since (#19867 review)', async () => {
+        const main = holder('main'), gate = gatePreparation(1), entered = gate.next(), operations = [{operation: 'setItemLocked', itemId: 'main', locked: true}];
+        holder('popup');
+
+        const pending   = set.commit('main', operations);
+        const {release} = await entered;
+        operations[0].locked = false;
+        set.unregister('popup');
+        release();
+
+        await pending;
+        expect(gate.prepared).toBe(2);
+        expect(main.document.items.main.locked, 'the operation as admitted').toBe(true)
+    });
+
+    test('a retry does not follow a host rebound to another Group: the refusal surfaces, and neither Group is written (#19867 review)', async () => {
+        const
+            main     = holder('main'),
+            gate     = gatePreparation(1),
+            entered  = gate.next(),
+            bindingB = TransactionManager.bind({windowId: 'workspace-set-transaction-other-root', workspaceKey: 'main'}),
+            setB     = Neo.create(WorkspaceSet, {manager: TransactionManager, getGroupId: () => bindingB.groupId, documentModel: WorkspaceDocument}),
+            writesB  = [];
+        let documentB = document('main');
+
+        holder('popup');
+        expect(setB.register('main', {getDocument: () => documentB, setDocument: value => {writesB.push(value); documentB = value}})).toBe(true);
+        expect(bindingB.groupId).not.toBe(groupId);
+
+        try {
+            const pending   = set.commit('main', [{operation: 'setItemLocked', itemId: 'main', locked: true}]);
+            const {release} = await entered;
+            set.unregister('popup');
+            set.getGroupId = () => bindingB.groupId;
+            release();
+
+            await expect(pending).rejects.toMatchObject({code: 'participants-changed'});
+            expect(gate.prepared, 'no second attempt').toBe(1);
+            expect(main.writes).toEqual([]);
+            expect(writesB).toEqual([])
+        } finally {
+            set.getGroupId = () => groupId;
+            setB.destroy();
+            TransactionManager.retireGroup(bindingB.groupId)
+        }
+    });
+
     test('a document key distinct from its window binding rejects a reload during preparation', async () => {
         const main = holder('workstation-main');
         set.register('workstation-main', {...main.seams, bindingKey: 'main', componentId: 'live-workspace'});
