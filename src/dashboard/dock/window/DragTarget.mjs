@@ -196,6 +196,14 @@ class DragTarget extends Base {
     currentDragPayload = null
 
     /**
+     * The answer a frame without a preview waits for ({@link #answerWhenPreviewable}), so every later
+     * waiter for that frame joins it: `{payload, promise}`.
+     * @member {Object|null} pendingAnswer=null
+     * @protected
+     */
+    pendingAnswer = null
+
+    /**
      * Payloads whose leave-path restore the embodiment refused. Their generation stays live after
      * the leave, so a commit still pending for one of them is the only terminal left to retire it.
      * @member {WeakSet<Object>} #unrestoredPayloads
@@ -305,7 +313,9 @@ class DragTarget extends Base {
      * A hand that stops sends no further frame, and a committed native drop sends exactly one. When
      * the owner could not answer the last one yet, this asks it once more after
      * {@link #awaitPreviewable} resolves — only while the frame is still this target's current
-     * payload, so a later frame, a leave, or a terminal always wins.
+     * payload, so a later frame, a leave, or a terminal always wins. Every waiter for one frame shares
+     * one answer: a later one joins it while it is pending, and reads it once the owner has nothing
+     * left to await.
      * @param {Object} payload The frame that answered no preview.
      * @returns {Promise<Object|null>} The frame's preview once the owner answered it, else null.
      */
@@ -313,15 +323,19 @@ class DragTarget extends Base {
         let me = this,
             ready;
 
+        if (me.pendingAnswer?.payload === payload) return me.pendingAnswer.promise;
+
         try {
             ready = me.awaitPreviewable?.(payload)
         } catch {
             return Promise.resolve(null)
         }
 
-        if (typeof ready?.then !== 'function') return Promise.resolve(null);
+        if (typeof ready?.then !== 'function') {
+            return Promise.resolve(me.currentDragPayload === payload ? me.currentPreview : null)
+        }
 
-        return ready.then(previewable => {
+        const promise = ready.then(previewable => {
             if (previewable !== true || me.isDestroyed || me.currentDragPayload !== payload) return null;
 
             if (!me.currentPreview) {
@@ -335,7 +349,13 @@ class DragTarget extends Base {
             }
 
             return me.currentPreview
-        }, () => null)
+        }, () => null).finally(() => {
+            me.pendingAnswer?.promise === promise && (me.pendingAnswer = null)
+        });
+
+        me.pendingAnswer = {payload, promise};
+
+        return promise
     }
 
     /**

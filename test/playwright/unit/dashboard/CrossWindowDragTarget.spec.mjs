@@ -134,6 +134,33 @@ test.describe('Neo.dashboard.dock.window.DragTarget (#14670 / ADR 0029 §2.3)', 
         target.destroy()
     });
 
+    test('a waiter that arrives after the owner warmed joins the frame\'s pending answer, and a later one reads it (#19868)', async () => {
+        let settle, warm = false;
+
+        const
+            settled = new Promise(resolve => settle = resolve),
+            frame   = {draggedItem: {id: 'pane-a'}, localX: 40, localY: 8},
+            target  = Neo.create(CrossWindowDragTarget, {
+                awaitPreviewable: () => warm ? null : settled,
+                previewFor      : payload => warm ? {itemId: payload.draggedItem.id} : null,
+                sortGroup       : 'dock-main',
+                windowId        : 2
+            });
+
+        // cold: the frame's own answer starts waiting
+        target.onRemoteDragMove(frame);
+
+        // the measurement lands before the drop asks, and before the first answer wrote its preview
+        warm = true;
+        const answer = target.answerWhenPreviewable(frame);
+        settle(true);
+
+        await expect(answer).resolves.toEqual({itemId: 'pane-a'});
+        expect(await target.answerWhenPreviewable(frame), 'once answered, a later waiter reads the answer').toEqual({itemId: 'pane-a'});
+
+        target.destroy()
+    });
+
     test('a frame no longer current, or an owner with nothing to await, is answered with none (#19868)', async () => {
         let asked = 0, settle;
 
