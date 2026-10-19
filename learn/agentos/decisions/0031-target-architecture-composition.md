@@ -36,6 +36,9 @@ table names one owning surface per decision.
 
 One row per present ADR (§4 enforces this mechanically). *Seam* = the boundary or contract the
 decision owns; *Parent* = the composition record that already aggregates it, where one exists.
+A record keeps its row when its custody moves to another repository. 0020, 0032, 0034, 0037 and
+0038 are held by `neomjs/neo-agent-institution` (ADR 0040 §2.7.1); this repository keeps only
+their redirects.
 
 | ADR | Surface | Owned seam | Parent |
 |---|---|---|---|
@@ -121,6 +124,9 @@ A composition layer above an evolving corpus drifts unless kept current **by con
   the table in the same diff.
 - Id-based, never count-based (graduation constraint): the guard reads what exists; it assumes no
   slot numbering.
+- **Records, not files:** a numbered file whose frontmatter `type` is `redirect` points at a
+  record held elsewhere (the redirect convention of Brain ADR 0006, which owns its schema). It is
+  not a present ADR, and a record's row survives a custody move.
 
 ## §5 Boundaries
 

@@ -223,6 +223,6 @@ keep explaining why the surface matters and how to think with it.
 - `src/ai/Client.mjs` for the App Worker client, write guard, and transaction
   lifecycle.
 - `src/core/Base.mjs` for the `toJSON` Rich Blueprint substrate.
-- [ADR 0020](./decisions/0020-agent-harness-concept.md) and
+- [ADR 0020](https://github.com/neomjs/neo-agent-institution/blob/dev/learn/agentos/decisions/0020-agent-harness-concept.md) and
   [ADR 0021](./decisions/0021-extended-nl-multi-writer-write-enforcement.md)
   for embodiment/co-habitation and multi-writer write enforcement.
