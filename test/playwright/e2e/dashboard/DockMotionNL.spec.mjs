@@ -68,14 +68,16 @@ const connect = async (page, neuralLink) => {
 // (260ms) window — and then CLEAR (motion settled). Producer-side leaves are event-driven
 // (transitionend / animationend / FLIP play resolution); the clear bound includes the signal's
 // own fail-safe horizon so a lost end event fails the spec only if the BACKSTOP also fails.
-const expectSignalBracket = async (page, {appearMs = 1500, clearMs = 3500} = {}) => {
+// `selector` narrows the bracket to one producer's signal: any other motion still settling would
+// otherwise open and close it before the motion under test begins.
+const expectSignalBracket = async (page, {appearMs = 1500, clearMs = 3500, selector = SIGNAL} = {}) => {
     await expect.poll(
-        () => page.locator(SIGNAL).count(),
+        () => page.locator(selector).count(),
         { message: 'the dock-animating signal must APPEAR when motion starts', timeout: appearMs, intervals: [25] }
     ).toBeGreaterThan(0);
 
     await expect.poll(
-        () => page.locator(SIGNAL).count(),
+        () => page.locator(selector).count(),
         { message: 'the dock-animating signal must CLEAR when motion settles', timeout: clearMs, intervals: [50] }
     ).toBe(0);
 };
@@ -375,21 +377,29 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
         const railTab = page.locator('.neo-dashboard-dock-rail-tab', { hasText: 'Inspector' }).first();
         await expect(railTab, 'the inspector rail tab must render after auto-hiding').toBeVisible({ timeout: 10000 });
 
+        // the rail tab renders before the setup projection's own motion settles
+        await expect.poll(
+            () => page.locator(SIGNAL).count(),
+            {message: 'the auto-hide setup projection must settle before the reveal witness', timeout: 3500, intervals: [50]}
+        ).toBe(0);
+
         // the witness watches the VISIBLE overlay only — pre-entry frames (hidden overlay or
         // none) count as gaps, so every recorded sample is a real revealed-state paint
         const OVERLAY = '.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)';
         await startMotionSampler(page, OVERLAY);
 
+        // the overlay carries its own reveal signal, so the bracket closes on the reveal, not on
+        // any other producer's motion
         await Promise.all([
             railTab.click(),
-            expectSignalBracket(page)
+            expectSignalBracket(page, {selector: `.neo-dashboard-dock-reveal-overlay${SIGNAL}`})
         ]);
 
         // positive geometry: the entry GLIDES — the slide translates and the fade progresses,
         // so the revealed overlay paints through intermediate {position, opacity} states (a
         // hard cut yields at most the entry and settled states)
-        const { samples } = await readMotionSamples(page);
-        expect(samples.length, 'the entry witness must have observed the revealed overlay').toBeGreaterThan(5);
+        const { gaps, samples } = await readMotionSamples(page);
+        expect(samples.length, `the entry witness must have observed the revealed overlay (${gaps} frames without it)`).toBeGreaterThan(5);
         expect(samples.every(s => s.w > 0), 'a zero-width sample means the witness watched a dead node').toBe(true);
 
         const states = [...new Set(samples.map(s => `${s.x},${s.y},${s.o}`))];

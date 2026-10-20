@@ -469,6 +469,50 @@ async function assertStageGeometryPublished(app, stageReceipt) {
 }
 
 /**
+ * @summary Reads main's own layout beside a stack return that aimed outside main: the ratios show
+ * a scaled page, the scroll widths a dock that overflows its viewport, the transforms a motion
+ * still applied, and the aimed node's DOM rect where the page places it now. A rect that differs
+ * from the aimed one was read mid-motion.
+ * @param {Object} app Neural Link app wrapper.
+ * @param {import('@playwright/test').Page} page The main page.
+ * @param {String|null} nodeId The aimed dock node id.
+ * @returns {Promise<Object>}
+ */
+async function readReturnLayout(app, page, nodeId) {
+    const found = nodeId ? await app.findInstances({dockNodeId: nodeId}, ['id', 'windowId']) : [],
+          nodes = Array.isArray(found) ? found : found ? [found] : [];
+
+    return page.evaluate(nodes => {
+        const scroll     = el => el && {clientWidth: el.clientWidth, scrollLeft: el.scrollLeft, scrollWidth: el.scrollWidth},
+              transforms = el => {
+                  const found = [];
+
+                  for (; el && el !== document.documentElement; el = el.parentElement) {
+                      const {transform} = getComputedStyle(el);
+
+                      transform !== 'none' && found.push({id: el.id || el.className, transform})
+                  }
+
+                  return found
+              },
+              vv         = window.visualViewport;
+
+        return {
+            body            : scroll(document.body),
+            devicePixelRatio: window.devicePixelRatio,
+            document        : scroll(document.documentElement),
+            inner           : {height: window.innerHeight, width: window.innerWidth},
+            nodes           : nodes.map(({id, windowId}) => {
+                const el = document.getElementById(id);
+
+                return {id, windowId, rect: el?.getBoundingClientRect().toJSON() ?? null, parent: scroll(el?.parentElement), transforms: transforms(el)}
+            }),
+            visualViewport  : vv && {offsetLeft: vv.offsetLeft, scale: vv.scale, width: vv.width}
+        }
+    }, nodes)
+}
+
+/**
  * @summary Resolves the one surviving semantic tear-out page after transient popup generations.
  * @param {import('@playwright/test').Page} page
  * @param {String} itemId
@@ -520,8 +564,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * call that reports it).
      * @param {Object} fixtures `{page, neuralLink}`
      * @param {Object} [options={}]
-     * @param {Boolean} [options.navigate=true] Set false only after this runner's own reload, so
-     * the next worker read witnesses that exact navigation instead of hiding it behind a goto.
+     * @param {Boolean} [options.navigate=true] Set false after this runner's own reload, so the
+     * next worker read witnesses that exact navigation instead of hiding it behind a goto, or to
+     * reconnect a later take to the page that is already live.
      * @returns {Promise<Object>} `{app, disposeObservers, pageErrors, popupProbe, stageReceipt, wsId}`
      */
     async function boot({page, neuralLink}, {navigate=true}={}) {
@@ -1609,9 +1654,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
     /**
      * The showcase beat's dwell previews must ALIGN with their target zones — the
-     * systematic rect layer's second consumer. Dwell detection rides the preview contract
-     * object (worker truth); the painted rect is read by component DOM id (never class
-     * selectors); the gesture ends in cancel, so the document is untouched.
+     * systematic rect layer's second consumer. Dwell detection rides the driver's gate, the
+     * active indicator candidate (worker truth); the painted rect is read by component DOM
+     * id (never class selectors); the gesture ends in cancel, so the document is untouched.
      */
     test('showcase dwell previews align with their zones — component-id rect truth', async ({page, neuralLink}) => {
         const
@@ -1626,35 +1671,46 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(zoneIds[nodeId], `zone ${nodeId} must resolve a component id`).toBeTruthy()
         }
 
-        const dockHostId = readId(await app.queryComponent({reference: 'dock-host'}, ['id'])),
-              previewId  = readId(await app.queryComponent({reference: 'dock-preview'}, ['id']));
+        const dockHostId   = readId(await app.queryComponent({reference: 'dock-host'}, ['id'])),
+              indicatorsId = readId(await app.queryComponent({reference: 'drop-indicators'}, ['id'])),
+              previewId    = readId(await app.queryComponent({reference: 'dock-preview'}, ['id']));
 
-        expect(dockHostId, 'the dock host must resolve').toBeTruthy();
-        expect(previewId,  'the dock preview overlay must resolve').toBeTruthy();
+        expect(dockHostId,   'the dock host must resolve').toBeTruthy();
+        expect(indicatorsId, 'the drop indicator menu must resolve').toBeTruthy();
+        expect(previewId,    'the dock preview overlay must resolve').toBeTruthy();
 
-        const readPaintedPreview = async () => {
+        /**
+         * Samples one dwell: the active indicator candidate's preview id, which the driver gates each
+         * dwell on, and the painted preview's kind and rect, both read from one node in one evaluate.
+         * @returns {Promise<Object>} `{active, kind, rect}`; `kind` and `rect` are null while nothing measurable is painted
+         */
+        const readDwell = async () => {
             const [state, host] = await Promise.all([
-                    app.getComponent(previewId, ['dockPreview']),
+                    app.getComponent(indicatorsId, ['activeCandidate']),
                     readComponentRects(app, [dockHostId]).then(rects => rects[dockHostId])
                 ]),
-                dockPreview = state?.properties?.dockPreview ?? state?.dockPreview;
+                active = state?.activeCandidate?.preview?.previewId ?? null;
 
-            if (!dockPreview?.target?.nodeId) return null;
+            const {kind, style} = await page.evaluate(id => {
+                // the placement kind's own class: the group, feedback and cut classes share its prefix
+                const el      = document.getElementById(id)?.firstElementChild,
+                      kindCls = [...el?.classList ?? []].find(cls => /^neo-dock-preview-(edge|split|tab)-/.test(cls));
 
-            const style = await page.evaluate(id => {
-                const el = document.getElementById(id)?.firstElementChild;
-
-                return el?.style && {height: el.style.height, left: el.style.left, top: el.style.top, width: el.style.width}
+                return {
+                    kind : kindCls?.slice('neo-dock-preview-'.length) ?? null,
+                    style: el?.style && {height: el.style.height, left: el.style.left, top: el.style.top, width: el.style.width}
+                }
             }, previewId);
 
-            if (!style || !Number.parseFloat(style.width)) return null;
+            if (!style || !Number.parseFloat(style.width)) return {active, kind: null, rect: null};
 
             const num  = value => Number.parseFloat(value) || 0,
                   left = host.left + num(style.left),
                   top  = host.top  + num(style.top);
 
             return {
-                dockPreview,
+                active,
+                kind,
                 rect: {
                     bottom: top + num(style.height),
                     height: num(style.height),
@@ -1664,6 +1720,23 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                     width : num(style.width)
                 }
             }
+        };
+
+        /**
+         * Waits until the driver's gate holds for one placement and the paint shows its kind, and returns
+         * that sample. Mid-approach, a fallback preview can match the target and kind field for field;
+         * only the gate tells the dwell apart.
+         * @param {String} targetNodeId
+         * @param {String} kind
+         * @returns {Promise<Object>} `{active, kind, rect}`
+         */
+        const awaitDwell = async (targetNodeId, kind) => {
+            let dwell;
+
+            await expect.poll(async () => (dwell = await readDwell()), {intervals: [50, 100, 200], timeout: 15000})
+                .toMatchObject({active: `preview:audit:${targetNodeId}:${kind}`, kind});
+
+            return dwell
         };
 
         const stepPromise = callWorkstationGesture(app, wsId, 'executeCrossZoneShowcaseStep', [{
@@ -1677,18 +1750,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         }, rectPace]);
 
         // Dwell 1 — the edge band must hug the scale zone's bottom edge inside its budget
-        await expect.poll(readPaintedPreview, {intervals: [50, 100, 200], timeout: 15000})
-            .toMatchObject({dockPreview: {placement: {kind: 'edge-bottom'}, target: {nodeId: 'scale-tabs'}}});
-
-        const dwell1 = await readPaintedPreview();
+        const dwell1 = await awaitDwell('scale-tabs', 'edge-bottom');
 
         await assertPreviewZoneAlignment(app, {kind: 'edge-bottom', previewRect: dwell1.rect, zoneId: zoneIds['scale-tabs']});
 
         // Dwell 2 — the tab-into preview must equal the right-bottom zone rect
-        await expect.poll(readPaintedPreview, {intervals: [50, 100, 200], timeout: 15000})
-            .toMatchObject({dockPreview: {placement: {kind: 'tab-into'}, target: {nodeId: 'right-bottom-tabs'}}});
-
-        const dwell2 = await readPaintedPreview();
+        const dwell2 = await awaitDwell('right-bottom-tabs', 'tab-into');
 
         await assertPreviewZoneAlignment(app, {kind: 'tab-into', previewRect: dwell2.rect, zoneId: zoneIds['right-bottom-tabs']});
 
@@ -2996,7 +3063,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(commitsBefore, 'commits must be one live pane before it crosses a window').toBeTruthy();
 
             if (openingDocuments.length) {
-                expect(opening, 'the explicit reset survives reload before the second take')
+                expect(opening, 'the explicit reset restores the opening document for the second take')
                     .toEqual(openingDocuments[0])
             } else {
                 openingDocuments.push(opening)
@@ -3162,8 +3229,13 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 throw new Error(JSON.stringify({error: error.message, root, sourceClosed: targetPopup.isClosed()}))
             });
 
+            const returnLayout = returnResult.errors?.length
+                ? await readReturnLayout(app, page, returnResult.proof?.aimed?.nodeId ?? null).catch(error => ({error: error.message}))
+                : null;
+
             expect(returnResult.errors, JSON.stringify({
                 aimed           : returnResult.proof?.aimed,
+                layout          : returnLayout,
                 sourceArm       : returnResult.proof?.sourceArm,
                 closeReceipt    : returnResult.proof?.closeReceipt,
                 phaseOrder      : returnResult.proof?.phaseOrder,
@@ -3244,11 +3316,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             });
             logs.push(beatLog);
 
+            // the second take repeats every cross-window gesture in the same session, as a human
+            // would after Reset: no reload between takes
             if (run < journeyRuns - 1) {
                 const reset = await app.callMethod(wsId, 'resetTopology', []);
                 expect(reset.errors).toEqual([]);
-                expect(reset.reset, 'Reset restores the shipped topology for the next take').toBe(true);
-                await page.reload()
+                expect(reset.reset, 'Reset restores the shipped topology for the next take').toBe(true)
             }
 
             ctx.disposeObservers()

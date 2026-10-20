@@ -341,6 +341,19 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
+     * @summary The engine's tear-out terminal, after this window reports a release over its own accepted
+     * preview ({@link Neo.dashboard.dock.interaction.DragAffordances#reportTearOut}).
+     * @param {Object} data The `dockTearOutTerminal` payload.
+     * @returns {Boolean|Promise<Boolean>} The engine terminal's result.
+     * @protected
+     */
+    onDockTearOutTerminal(data) {
+        this.dragAffordances?.reportTearOut(data);
+
+        return this.tearOutHandlers.onDockTearOutTerminal(data)
+    }
+
+    /**
      * @summary Routes header-action pop-out through Workstation's augmented exit policy.
      * @param {Object} data
      * @returns {Promise<Boolean>}
@@ -442,6 +455,7 @@ class VesselWorkspace extends DockWorkspace {
             onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),
             onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data),
             onDockTearOutExit        : data => me.onDockTearOutExit(data),
+            onDockTearOutTerminal    : data => me.onDockTearOutTerminal(data),
             workspaceId              : VesselWorkspace.MAIN_WORKSPACE_ID
         }
     }

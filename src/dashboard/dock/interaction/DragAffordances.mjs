@@ -398,6 +398,7 @@ class DragAffordances extends Base {
         }
 
         let pointer   = {x: clientX, y: clientY},
+            shown     = me.previewAt({itemId, pointer, sourceNodeId}),
             preview   = null,
             candidate = me.indicators?.hitTest(pointer);
 
@@ -415,16 +416,61 @@ class DragAffordances extends Base {
 
         me.clear();
 
-        let descriptor = PreviewContract.previewToOperation(me.guardEmptyWrap(preview, itemId));
+        let descriptor = PreviewContract.previewToOperation(me.guardEmptyWrap(preview, itemId)),
+            result     = descriptor && me.owner.applyDockZoneOperation(descriptor),
+            landed     = Boolean(result && !result.errors?.length && result.document);
 
-        if (descriptor) {
-            let result = me.owner.applyDockZoneOperation(descriptor);
+        // the operation, not only its document: the Group reduces it again at its queue head
+        landed && me.owner.onDockZoneDocumentChange(result.document, descriptor, me.owner);
 
-            if (result && !result.errors?.length && result.document) {
-                // the operation, not only its document: the Group reduces it again at its queue head
-                me.owner.onDockZoneDocumentChange(result.document, descriptor, me.owner)
-            }
+        if (!landed || preview.previewId !== shown?.previewId) {
+            me.reportUnlanded(shown, sourceNodeId, landed ? 'other-operation' : descriptor ? 'operation-refused' : 'no-operation')
         }
+    }
+
+    /**
+     * @summary The preview the hover shows at a point, read without moving the indicator menu: the
+     * hovered indicator, else pointer inference over every zone, the drag's own included.
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Object} data.pointer      {x, y} in this window's client space.
+     * @param {String} data.sourceNodeId The tabs node the drag started in.
+     * @returns {Object|null}
+     */
+    previewAt({itemId, pointer, sourceNodeId}) {
+        const me = this, {geometry} = me, candidate = me.indicators?.hitTest(pointer);
+
+        // the hover guards both tiers, so the release reads both through the same guard
+        if (candidate?.preview?.itemId === itemId) return me.guardEmptyWrap(candidate.preview, itemId);
+
+        return geometry ? me.guardEmptyWrap(me.producer.produce({itemId, pointer, root: geometry.root, sourceNodeId, zones: geometry.zones}), itemId) : null
+    }
+
+    /**
+     * @summary Reports a release that did not land the preview the hover showed at its point
+     * ({@link Neo.manager.DragCoordinator#reportAbandonedGesture}).
+     *
+     * A tab-into of the drag's own zone is no report: the within-toolbar reorder lands it.
+     * @param {Object|null} shown        The preview the hover showed at the release point.
+     * @param {String|null} sourceNodeId The tabs node the drag started in.
+     * @param {String}      terminal     What the release ended in.
+     * @protected
+     */
+    reportUnlanded(shown, sourceNodeId, terminal) {
+        if (!shown || (shown.placement?.kind === 'tab-into' && shown.target?.nodeId === sourceNodeId)) return;
+
+        Neo.manager.DragCoordinator?.reportAbandonedGesture({itemId: shown.itemId, path: 'pointer', previewId: shown.previewId, terminal})
+    }
+
+    /**
+     * @summary Reports a tear-out released where this window showed a preview: the hand saw it, and the
+     * pane left for its popup instead. Outside the window no preview shows, whatever a late hover
+     * frame left painted, so a release there is the tear-out itself.
+     * @param {Object} data The `dockTearOutTerminal` payload: `{clientX, clientY, itemId, sourceNodeId}`.
+     */
+    reportTearOut({clientX, clientY, itemId, sourceNodeId}) {
+        Neo.isNumber(clientX) && Neo.isNumber(clientY) &&
+            this.reportUnlanded(this.previewAt({itemId, pointer: {x: clientX, y: clientY}, sourceNodeId}), null, 'tear-out')
     }
 
     /**

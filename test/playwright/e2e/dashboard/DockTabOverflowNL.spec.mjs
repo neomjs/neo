@@ -100,3 +100,45 @@ test.describe('dock tab-overflow action control', () => {
         expect(pageErrors, 'no unexpected page errors during the overflow journey').toEqual([])
     })
 });
+
+test.describe('dock tab-overflow action control after a tab reorder', () => {
+    test.setTimeout(120000);
+    test.use({ viewport: { width: 1400, height: 900 } });
+
+    test('a reordered group still shows the control once its tabs overflow, and the menu reaches them', async ({ page }) => {
+        await page.goto('/examples/dashboard/dock/');
+
+        const mainToolbar = page.locator('.neo-tab-header-toolbar').filter({ hasText: 'Strategy' }).first(),
+              control     = mainToolbar.getByRole('button', {name: 'More tabs', exact: true}),
+              tabs        = mainToolbar.locator('.neo-tab-header-button');
+
+        await expect(tabs).toHaveCount(7, {timeout: 45000});
+        await expect(control, 'every tab fits at full width').toHaveCount(0);
+
+        // Strategy onto Swarm's centre crosses one midpoint, a single swap. The dock commits it through a
+        // projection that moves the group's retained tab chrome, together with the toolbar that holds the control.
+        const strategyBox = await tabs.filter({ hasText: /^Strategy$/ }).boundingBox(),
+              swarmBox    = await tabs.filter({ hasText: /^Swarm$/ }).boundingBox();
+
+        await page.mouse.move(strategyBox.x + strategyBox.width / 2, strategyBox.y + strategyBox.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(swarmBox.x + swarmBox.width / 2, swarmBox.y + swarmBox.height / 2, { steps: 30 });
+        await page.mouse.up();
+
+        await expect.poll(async () => (await tabs.allTextContents()).map(text => text.trim()).slice(0, 2)).toEqual(['Swarm', 'Strategy']);
+        await expect(control, 'every tab still fits after the swap').toHaveCount(0);
+
+        await page.setViewportSize({ width: 600, height: 800 });
+        await expect(control, 'the overflowing group shows its control').toBeVisible({ timeout: 10000 });
+
+        await control.click();
+        const menuItems = page.locator('.neo-menu-list:visible .neo-list-item').filter({ hasText: /\S/ });
+        await expect(menuItems.first()).toBeVisible({ timeout: 10000 });
+
+        const hiddenText = (await menuItems.first().innerText()).trim();
+
+        await menuItems.filter({ hasText: hiddenText }).click();
+        await expect(page.locator('.neo-tab-header-button.pressed:visible').filter({ hasText: hiddenText }))
+            .toHaveCount(1, { timeout: 10000 })
+    })
+});
