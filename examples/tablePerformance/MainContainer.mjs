@@ -1,6 +1,7 @@
 import Container      from '../../src/container/Base.mjs';
 import NumberField    from '../../src/form/field/Number.mjs';
 import TableContainer from '../../src/table/Container.mjs';
+import fields         from './fields.mjs';
 
 /**
  * @class Neo.examples.tablePerformance.MainContainer
@@ -74,6 +75,7 @@ class MainContainer extends Container {
             module    : TableContainer,
             bodyConfig: {useRowRecordIds: false},
             reference : 'table',
+            store     : {model: {fields}},
             width     : '100%',
 
             columnDefaults: {
@@ -143,7 +145,7 @@ class MainContainer extends Container {
             rows      = me.getReference('amount-rows-field').value,
             inputData = me.up('viewport').createRandomData(columns, rows);
 
-        table.createViewData(inputData)
+        table.store.data = inputData
     }
 
     /**
