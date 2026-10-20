@@ -114,13 +114,6 @@ export const BRAIN_QUARANTINES = [{
     exit       : 'the diagnosis of the viewer-driven tour',
     since      : '2026-10-12'
 }, {
-    path       : 'test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs',
-    titlePath  : ['Workstation — the five-beat multi-window journey', 'showcase dwell previews align with their zones — component-id rect truth'],
-    reason     : 'hosted, intermittent on both attempts: the tab-into preview reads 110 px against its 220 px zone while the preview flips between edge-left and tab-into',
-    accountable: '@neo-opus-grace',
-    exit       : 'a diagnosis lands as a fix or a ticket',
-    since      : '2026-10-13'
-}, {
     path       : 'test/playwright/e2e/workstation/WorkstationReclaimEmbodimentNL.spec.mjs',
     titlePath  : ['Workstation reclaim route (Neural Link)', 'Reset and Undo carry the same live pane across the window boundary, and a read after the transit finds it embodied'],
     reason     : 'hosted, intermittent on both attempts: after the transit the home strip projects no tab for the reclaimed item',
