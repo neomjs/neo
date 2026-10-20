@@ -194,7 +194,11 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
     test('a quarantine whose strings are all in the source but which is not a registered path fails', () => {
         // Each title below exists verbatim in the file, so a check of the source text passes all three.
         // Only the path Playwright registers tells them apart: a dropped describe, a new enclosing one.
-        const [entry]   = BRAIN_QUARANTINES,
+        // The entry is a literal, so the test outlives an empty quarantine list.
+        const entry = {
+                  path     : 'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
+                  titlePath: ['Workstation — the film tour plays from the toolbar', 'Start film tour runs all scenes; the viewer\'s Continue clicks open every window']
+              },
               [, title] = entry.titlePath,
               dropped   = {...entry, titlePath: [title]},
               wrapped   = {...entry, titlePath: ['hosted profile', ...entry.titlePath]};

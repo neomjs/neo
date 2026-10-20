@@ -99,21 +99,7 @@ export const BRAIN_CAPABILITIES = [{
  * exclusion it was meant to avoid.
  * @member {Object[]} BRAIN_QUARANTINES
  */
-export const BRAIN_QUARANTINES = [{
-    path       : 'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
-    titlePath  : ['Workstation — the film tour plays from the toolbar', 'Start film tour runs all scenes; the viewer\'s Continue clicks open every window'],
-    reason     : 'hosted only: the tour stops at journey hop 3 because no fresh vessel is born, then waits out its 200 s receipt',
-    accountable: '@neo-opus-grace',
-    exit       : 'a diagnosis; if it is headless multi-window, both film tours move to a capability',
-    since      : '2026-10-12'
-}, {
-    path       : 'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
-    titlePath  : ['Workstation — the film tour plays from the toolbar', 'under autoGates the film runs unattended: earlier windows close and the signature matrix stays open'],
-    reason     : 'hosted only: the same stop at journey hop 3 as the viewer-driven tour',
-    accountable: '@neo-opus-grace',
-    exit       : 'the diagnosis of the viewer-driven tour',
-    since      : '2026-10-12'
-}];
+export const BRAIN_QUARANTINES = [];
 
 /**
  * Days a quarantine may stand before every receipt flags it as stale.
