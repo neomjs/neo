@@ -769,7 +769,7 @@ class TourController extends Controller {
 
         try {
             workspace.dockModel = WorkspaceDocument.clone(initialDocument);
-            await me.trap(workspace.refreshDockWorkspace(null, workspace.dockModel, {geometryOnly: true}));
+            await me.trap(TourController.queueDockRefresh(workspace, workspace.dockModel, {geometryOnly: true}));
 
             // The entry projection is finished and the replay has not begun. Published because a
             // frame-capturing consumer cannot otherwise tell the two apart: both happen inside one
@@ -802,12 +802,33 @@ class TourController extends Controller {
                 // restore failure as a namespaced entry in the returned errors; a thrown primary
                 // owns the return channel and the restore failure stays suppressed.
                 completed
-                    ? await workspace.refreshDockWorkspace()
-                    : await workspace.refreshDockWorkspace().catch(error => {
+                    ? await TourController.queueDockRefresh(workspace, liveDocument)
+                    : await TourController.queueDockRefresh(workspace, liveDocument).catch(error => {
                         out?.errors?.push(`restore projection failed: ${error.message}`)
                     })
             }
         }
+    }
+
+    /**
+     * @summary Projects a document assigned to the workspace directly, after the projection in flight settles.
+     *
+     * The refresh joins the settled tail of the workspace's `refreshPromise`, as its commits do: a reconcile
+     * started beside an in-flight one (the cold-hydrate projection after a reload) leaves a second shell in
+     * the dock host. Static, because a cancelled replay restores after its controller is destroyed.
+     * @param {Workstation.view.Workspace} workspace
+     * @param {Object} document The document to project, held by identity.
+     * @param {Object} [refreshOptions={}] The options `refreshDockWorkspace` receives.
+     * @returns {Promise<void>} This projection's own outcome, rejection included.
+     * @protected
+     * @static
+     */
+    static queueDockRefresh(workspace, document, refreshOptions={}) {
+        const tail = workspace.refreshPromise?.catch(() => {}) || Promise.resolve();
+
+        return workspace.refreshPromise = tail.then(() => {
+            if (!workspace.isDestroyed) return workspace.refreshDockWorkspace(null, document, refreshOptions)
+        })
     }
 
     /**
