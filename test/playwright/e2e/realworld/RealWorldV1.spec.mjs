@@ -122,6 +122,9 @@ test.describe('RealWorld v1 (#19917)', () => {
         // The tags are set before the body's html arrives from the main thread
         await expect(page.locator('.article-content')).toContainText(article.body);
         await expect(page.locator('.article-content .tag-list li')).toHaveText(article.tagList);
+        // The banner and the article actions each show the article's date, as the page's time zone reads it
+        const date = await page.evaluate(createdAt => new Intl.DateTimeFormat('en-US', {day: 'numeric', month: 'long', year: 'numeric'}).format(new Date(createdAt)), article.createdAt);
+        await expect(page.locator('.article-meta .date')).toHaveText([date, date]);
         await expect(page.locator('.card-text')).toHaveText([comments[0].body]);
         await expect(page.locator('.comment-form')).toHaveCount(1)
     })

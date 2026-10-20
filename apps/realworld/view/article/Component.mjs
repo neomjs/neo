@@ -123,7 +123,7 @@ class Component extends BaseComponent {
                         {tag: 'a', flag: 'userimage', cn: [{tag: 'img'}]},
                         {cls: ['info'], cn: [
                             {tag: 'a', cls: ['author'], flag: 'username'},
-                            {tag: 'span', cls: ['date'], text: 'January 20th'}
+                            {tag: 'span', cls: ['date'], flag: 'createdAt'}
                         ]},
                         {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'], flag: 'follow-button', cn: [
                             {tag: 'i', flag: 'followIcon'},
@@ -302,11 +302,16 @@ class Component extends BaseComponent {
      */
     afterSetCreatedAt(value, oldValue) {
         if (value) {
-            VDomUtil.getByFlag(this.vdom, 'createdAt').text = new Intl.DateTimeFormat('en-US', {
+            let text = new Intl.DateTimeFormat('en-US', {
                 day  : 'numeric',
                 month: 'long',
                 year : 'numeric'
             }).format(new Date(value));
+
+            // The banner and the article actions each show the date
+            VDomUtil.getFlags(this.vdom, 'createdAt').forEach(node => {
+                node.text = text
+            });
 
             this.update();
         }
