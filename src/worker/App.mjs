@@ -430,7 +430,9 @@ class App extends Base {
     }
 
     /**
-     * In case you don't want to include prototype based CSS files, use the className param instead
+     * In case you don't want to include prototype based CSS files, use the className param instead.
+     * Each file sent counts in `countLoadingThemeFiles` until its reply settles, resolved or rejected: a window that
+     * departs mid-load rejects it, and a count left up would hold every window's vdom work.
      * @param {String} windowId
      * @param {Neo.core.Base} [proto]
      * @param {String} [className]
@@ -487,7 +489,7 @@ class App extends Base {
                         className: mapClassName || className,
                         folders  : themeFolders,
                         windowId
-                    }).then(() => {
+                    }).finally(() => {
                         me.countLoadingThemeFiles--
                     })
                 }
@@ -887,15 +889,24 @@ class App extends Base {
      * SharedWorkers; the topology admission runs for both worker types — this is the first moment the
      * window has a live app, and the window's config carries the identity its carrier presented. The
      * manager is loaded by the first multi-window participant, never here: an app that loaded none is
-     * admitted by the manager's own sweep the moment one does.
+     * admitted by the manager's own sweep the moment one does. The app module imports asynchronously, so a
+     * SharedWorker can see the registration after the window's port retired: that window is gone, and its app
+     * registers nothing — a binding admitted for it would hold its slot with no disconnect left to release it.
      * @param {String} appName
      * @param {String} windowId
      */
     registerApp(appName, windowId) {
+        let me   = this,
+            port = me.getPort({windowId});
+
+        if (me.isSharedWorker && !port) {
+            return
+        }
+
         // register the name as fast as possible
-        this.onRegisterApp({appName}, this.getPort({windowId}));
+        me.onRegisterApp({appName}, port);
         Neo.manager.Transaction?.admit({topologyIdentity: Neo.windowConfigs?.[windowId]?.topologyIdentity, windowId});
-        this.sendMessage(windowId, {action: 'registerAppName', appName})
+        me.sendMessage(windowId, {action: 'registerAppName', appName})
     }
 
     /**
