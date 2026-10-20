@@ -57,7 +57,7 @@ class Form extends Base {
         if (!item.ignoreLayout) {
             if (item.ntype === 'fieldset') {
                 item.wrapperCls = NeoArray.union(item.wrapperCls, 'neo-layout-form-subfieldset')
-            } else if (child.ntype === 'legend') {
+            } else if (item.ntype === 'legend') {
                 item.wrapperCls = NeoArray.union(item.wrapperCls, 'neo-layout-form-legend')
             } else {
                 item.wrapperCls = NeoArray.union(item.wrapperCls, 'neo-layout-form-item')

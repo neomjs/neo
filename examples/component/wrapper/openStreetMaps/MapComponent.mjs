@@ -52,18 +52,19 @@ class MapComponent extends OpenStreetMapsComponent {
             }
         },
         /**
-         * Limit zoom to prevent over-zooming beyond useful detail
-         * @member {Number} maxZoom=18
-         * @reactive
-         */
-        maxZoom: 18,
-        /**
          * Ensure only Iceland is visible
          * @member {Number} zoom=6
          * @reactive
          */
         zoom: 6
     }
+
+    /**
+     * Limit zoom to prevent over-zooming beyond useful detail. A class field like the one it
+     * overrides in Neo.component.wrapper.OpenStreetMaps: a static config entry would shadow it.
+     * @member {Number} maxZoom=18
+     */
+    maxZoom = 18
 
     /**
      * @param {Object} config

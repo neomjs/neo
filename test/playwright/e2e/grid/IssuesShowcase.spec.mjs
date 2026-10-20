@@ -2,8 +2,9 @@ import {expect, test} from '../../fixtures.mjs';
 
 /**
  * @summary `examples/grid/issues`, neomjs/neo's own issues from a committed snapshot: every row is as tall as its
- * tallest wrapped text in all three bodies, a locked column's header menu filters by value and clears, and the
- * snapshot's days read the same in every time zone.
+ * tallest wrapped text in all three bodies, a locked column's header menu filters by value and clears, its filter list
+ * draws cleanly in both neo themes, only the sorted header announces `aria-sort`, and the snapshot's days read the
+ * same in every time zone.
  *
  * The oracle is the browser's layout, as in `ContentSizedRowsExample`: a row needs its tallest `.neo-grid-cell-text`
  * plus the cell's padding and borders. The example loads its snapshot from neomjs/pages through the GitHub CDN; the
@@ -196,6 +197,64 @@ test.describe('Grid issues showcase', () => {
         await expect(header).not.toHaveClass(/neo-grid-column-filtered/);
         await expect(trigger).toHaveAttribute('aria-label', 'Filter State');
         await expect.poll(opacity).toBe('0')
+    });
+
+    test('only the sorted header announces its direction, through aria-sort (#19913)', async ({page}) => {
+        const header = name => page.locator(GRID).getByRole('columnheader', {name, exact: true}),
+              sorted = page.locator(`${GRID} [aria-sort]`);
+
+        // The showcase opens sorted by # descending
+        await expect(header('#')).toHaveAttribute('aria-sort', 'descending');
+        await expect(sorted).toHaveCount(1);
+
+        await header('Title').click();
+
+        await expect(header('Title')).toHaveAttribute('aria-sort', 'ascending');
+        await expect(header('#')).not.toHaveAttribute('aria-sort');
+        await expect(sorted).toHaveCount(1)
+    });
+
+    test('the filter list draws its focus ring inside the row and its rows on the menu surface, in both themes (#19928)', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              // Each theme reports its own reading, so a failure in neo-light still shows neo-dark's
+              soft    = expect.configure({soft: true}),
+              // The list scrolls, so a ring reaching outside its row is clipped at the sides only, and a row that
+              // paints its own colour shows as a band on the menu
+              read    = () => menu.evaluate(node => {
+                  const active = node.querySelector('.neo-list-item.neo-navigator-active-item'),
+                        plain  = node.querySelector('.neo-list-item:not([aria-selected="true"]):not(.neo-navigator-active-item)'),
+                        ring   = getComputedStyle(active),
+                        paint  = item => {
+                            for (let element = item; element; element = element.parentElement) {
+                                const color = getComputedStyle(element).backgroundColor;
+                                if (color !== 'rgba(0, 0, 0, 0)') return color
+                            }
+                            return null
+                        };
+
+                  return {
+                      ringInside  : parseFloat(ring.outlineOffset) <= -parseFloat(ring.outlineWidth),
+                      rowOnSurface: paint(plain) === getComputedStyle(node).backgroundColor
+                  }
+              }),
+              pick    = async state => {
+                  await wrapper.hover();
+                  await wrapper.locator('.neo-grid-menu-trigger').click();
+                  await menu.locator('[role="option"]').filter({hasText: state}).click();
+                  await expect(menu.locator('.neo-navigator-active-item')).toHaveText(new RegExp(state))
+              };
+
+        await pick('Closed');
+        await soft.poll(read).toEqual({ringInside: true, rowOnSurface: true});
+
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
+        await page.locator('.issues-theme-button').click();
+        await expect(page.locator('.neo-examples-grid-issues')).toHaveClass(/neo-theme-neo-dark/);
+
+        await pick('Duplicate');
+        await soft.poll(read).toEqual({ringInside: true, rowOnSurface: true})
     })
 });
 

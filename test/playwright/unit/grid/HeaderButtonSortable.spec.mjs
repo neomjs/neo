@@ -11,6 +11,8 @@
  * @see Neo.table.header.Button#onClick
  * @see Neo.grid.header.Button#afterSetIsSorted
  * @see Neo.table.header.Button#afterSetIsSorted
+ * @see Neo.grid.header.Button#removeSortingCss
+ * @see Neo.table.header.Button#removeSortingCss
  */
 import {setup} from '../../setup.mjs';
 
@@ -81,6 +83,41 @@ test.describe('Header buttons and sortable', () => {
             expect(button.isSorted).toBeNull();
 
             button.destroy()
+        })
+    }
+
+    for (const [name, HeaderButton] of [['grid', GridHeaderButton], ['table', TableHeaderButton]]) {
+        test(`a ${name} header: removeSortingCss() updates only a header that carries aria-sort`, () => {
+            const
+                create       = () => Neo.create(HeaderButton, {dataField: 'index', sortable: true, useRippleEffect: false}),
+                columnHeader = button => name === 'grid' ? button.getVdomRoot() : button.vdom,
+                countUpdates = button => {
+                    const counter = {count: 0}, {update} = button;
+                    button.update = function() {counter.count++; return update.call(this)};
+                    return counter
+                },
+                idle  = create(),
+                stale = create();
+
+            // The steady state after an earlier sort: every other header is hidden and carries no aria-sort.
+            // The container clears all of them on each sort.
+            idle.removeSortingCss();
+
+            // A sorted header that sortable: false hid afterwards writes the same classes back, which does not update
+            stale.isSorted = 'ASC';
+            stale.sortable = false;
+
+            const idleUpdates = countUpdates(idle), staleUpdates = countUpdates(stale);
+
+            idle .removeSortingCss();
+            stale.removeSortingCss();
+
+            expect(idleUpdates.count).toBe(0);
+            expect(columnHeader(stale)['aria-sort']).toBeUndefined();
+            expect(staleUpdates.count).toBe(1);
+
+            idle .destroy();
+            stale.destroy()
         })
     }
 });

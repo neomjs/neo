@@ -36,7 +36,7 @@ we are taking a giant leap forward.
 >
 > The result is a testament to how a human-AI partnership can tackle and optimize critical infrastructure, with the human
 > providing architectural vision and the agents handling the complex implementation. You can explore the full source code
-> of this collaboration **[here](https://github.com/neomjs/neo/tree/dev/buildScripts/docs/jsdoc-x)**.
+> of this collaboration **[here](https://github.com/neomjs/neo/tree/dev/buildScripts/docs/docletPipeline)**.
 
 For a core team that's primarily one person, this velocity should be impossible.
 
@@ -1876,7 +1876,7 @@ Ready to explore the AI-native workflow?
 - [Working with Agents](https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md) - General guidance
 - [AI Quick Start](https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md) - First session checklist
 - [Codebase Overview](https://github.com/neomjs/neo/blob/dev/learn/guides/fundamentals/CodebaseOverview.md) - What agents read at startup
-- [MCP Server Source Code](https://github.com/neomjs/neo/tree/dev/ai/mcp/server) - The full source code for all three MCP servers.
+- [MCP Server Source Code](https://github.com/neomjs/neo-agent-brain/tree/dev/ai/mcp/server) - The full source code for all three MCP servers.
 - [Agent Protocol (AGENTS.md)](https://github.com/neomjs/neo/blob/dev/AGENTS.md) - The behavioral rules (inside the context window of each session)
 - [Agent Startup (AGENTS_STARTUP.md)](https://github.com/neomjs/neo/blob/83e0c2fc78d047510ba0b8fb81fb46347f5c2e81/AGENTS_STARTUP.md) - Session initialization
 

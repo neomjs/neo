@@ -44,6 +44,21 @@ class MockComponent extends Component {
 }
 MockComponent = Neo.setupClass(MockComponent);
 
+/** A mount hook that throws before it reaches super, like a list subscribing to an absent Navigator addon. */
+const mountHookFailure = new TypeError("Cannot read properties of undefined (reading 'subscribe')");
+
+class MountHookThrower extends Component {
+    static config = {
+        className: 'Test.Unit.Vdom.VdomLifecycle.MountHookThrower'
+    }
+
+    afterSetMounted(value, oldValue) {
+        if (value) throw mountHookFailure;
+        super.afterSetMounted(value, oldValue)
+    }
+}
+MountHookThrower = Neo.setupClass(MountHookThrower);
+
 /**
  * @summary Verifies the state consistency of the VdomLifecycle mixin.
  *
@@ -298,6 +313,28 @@ test.describe('VDOM settlement exceptions', () => {
         expect(fresh.isVnodeInitializing).toBe(false);
         expect(VDomUpdate.inFlightUpdateMap.has(fresh.id)).toBe(false);
         expect(VDomUpdate.promiseCallbackMap.has(fresh.id)).toBe(false)
+    });
+
+    test('a throwing mount hook leaves its later siblings synced and the parent adopted (#19916)', async () => {
+        const ids = ['thrower', 'later-a', 'later-b'].map(name => `${root.id}-${name}`);
+
+        root.add([{module: MountHookThrower, id: ids[0]}, {module: Component, id: ids[1]}, {module: Component, id: ids[2]}], true);
+        root.updateDepth = -1; // what a non-silent add() sends
+        const flight = track(root.promiseUpdate());
+        await flight.promise;
+
+        const later = ids.slice(1).map(id => Neo.getComponent(id));
+
+        expect({
+            flight : flight.state,
+            later  : later.map(item => ({vnode: item.vnode?.id, mounted: item.mounted})),
+            adopted: root.vnode.childNodes.map(node => node.componentId)
+        }).toEqual({
+            flight : 'fulfilled',
+            later  : ids.slice(1).map(id => ({vnode: id, mounted: true})),
+            adopted: [child.id, ...ids]
+        });
+        expect(logged).toContainEqual(['syncVnodeTree: a mount hook failed', ids[0], mountHookFailure])
     });
 
     test('initial failure rejection preserves the newer flight and phase work it starts', async () => {

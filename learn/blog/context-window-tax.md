@@ -361,5 +361,5 @@ This work provides a concrete reference implementation of Anthropic's Code Execu
 
 **Reproduce our results:**
 *   **Repository:** [Neo.mjs on GitHub](https://github.com/neomjs/neo)
-*   **Migration Script:** [ai/examples/migrate_timestamps.mjs](https://github.com/neomjs/neo/blob/dev/ai/examples/migrate_timestamps.mjs)
-*   **Triage Script:** [ai/examples/self-healing.mjs](https://github.com/neomjs/neo/blob/dev/ai/examples/self-healing.mjs)
+*   **Migration Script:** [ai/examples/migrate_timestamps.mjs](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/examples/migrate_timestamps.mjs)
+*   **Triage Script:** [ai/examples/self-healing.mjs](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/examples/self-healing.mjs)
