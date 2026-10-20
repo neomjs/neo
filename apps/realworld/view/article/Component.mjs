@@ -114,7 +114,8 @@ class Component extends BaseComponent {
             ]},
             {cls: ['container', 'page'], cn: [
                 {cls: ['row', 'article-content'], cn: [
-                    {cls: ['col-md-12'], flag: 'body', cn: []}
+                    // cn[0]: the body's html (afterSetBody), cn[1]: the tag list (afterSetTagList), which arrives first
+                    {cls: ['col-md-12'], flag: 'body', cn: [{removeDom: true}]}
                 ]},
                 {tag: 'hr'},
                 {cls: ['article-actions'], flag: 'article-actions', cn: [
@@ -282,10 +283,11 @@ class Component extends BaseComponent {
                         ...config
                     });
                 } else {
-                    me.commentComponents[index].set(config, true);
+                    // A referenced comment renders its own changes: the parent's update leaves it in place
+                    me.commentComponents[index].set(config);
                 }
 
-                container.cn.push(me.commentComponents[index].vdom);
+                container.cn.push(me.commentComponents[index].createVdomReference());
             });
 
             me.update();
