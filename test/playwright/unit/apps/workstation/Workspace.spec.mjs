@@ -1674,6 +1674,29 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    test('the shell and tab-chrome receipts read the incoming shell while a projection swaps', () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+
+        try {
+            const
+                host     = workspace.getReference('dock-host'),
+                incoming = host.items[0],
+                receipt  = workspace.getTabChromeIdentity('heavy-tabs');
+
+            expect(workspace.getShellIdentity(), 'a settled host: the committed shell').toBe(incoming.id);
+            expect(receipt?.containerId, 'a settled host: the projected tab').toBeTruthy();
+
+            // The staged reconcile's swap: the outgoing shell keeps the shell index, retired and already
+            // emptied of its tabs, beside the incoming shell that holds them.
+            host.insert(0, {module: Container, cls: ['neo-dashboard-dock-shell-retiring']}, true);
+
+            expect(workspace.getShellIdentity(), 'mid-swap: the incoming shell').toBe(incoming.id);
+            expect(workspace.getTabChromeIdentity('heavy-tabs'), 'mid-swap: the same tab, read from the incoming shell').toEqual(receipt)
+        } finally {
+            workspace.destroy()
+        }
+    });
+
     test('native-titlebar source discovery uses the full popup document and stops after Group undo', async () => {
         const
             workspace   = Neo.create(Workspace, {windowId: Neo.config.windowId}),
