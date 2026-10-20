@@ -354,7 +354,7 @@ class ValuePicker extends Buffered {
         const node = super.createPooledItem(item), selected = this.#selectedKeys.has(this.store.getKey(item.record));
         selected && node.cls.push('neo-selected');
         node.role = 'option';
-        node['aria-label'] = this.getOptionLabel(item.record) + ', ' + (item.record.count ?? 0) + ' matches';
+        node['aria-label'] = this.getOptionLabel(item.record) + ', ' + (item.record.count ?? 0) + (item.record.count === 1 ? ' match' : ' matches');
         node['aria-selected'] = selected;
         return node
     }

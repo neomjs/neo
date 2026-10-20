@@ -254,6 +254,17 @@ test.describe('Neo.list.ValuePicker', () => {
         expect(text(rows(list)[0].cn[0])).toBe('Match 0')
     });
 
+    test('option aria-label uses singular "match" for a count of one and plural otherwise', async () => {
+        await createList({}, [
+            {key: 'number:0', value: 0, label: 'Value 0', count: 1},
+            {key: 'number:1', value: 1, label: 'Value 1', count: 0},
+            {key: 'number:2', value: 2, label: 'Value 2', count: 2}
+        ]);
+        expect(rows(list).map(node => node['aria-label'])).toEqual([
+            'Value 0, 1 match', 'Value 1, 0 matches', 'Value 2, 2 matches'
+        ])
+    });
+
     test('queued admission edits cannot refresh a replacement or destroyed list', async () => {
         const old = await createList({}, data(5));
         old.get('number:0').label = 'Queued';
