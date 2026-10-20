@@ -1609,9 +1609,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
     /**
      * The showcase beat's dwell previews must ALIGN with their target zones — the
-     * systematic rect layer's second consumer. Dwell detection rides the preview contract
-     * object (worker truth); the painted rect is read by component DOM id (never class
-     * selectors); the gesture ends in cancel, so the document is untouched.
+     * systematic rect layer's second consumer. Dwell detection rides the driver's gate, the
+     * active indicator candidate (worker truth); the painted rect is read by component DOM
+     * id (never class selectors); the gesture ends in cancel, so the document is untouched.
      */
     test('showcase dwell previews align with their zones — component-id rect truth', async ({page, neuralLink}) => {
         const
@@ -1626,35 +1626,46 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(zoneIds[nodeId], `zone ${nodeId} must resolve a component id`).toBeTruthy()
         }
 
-        const dockHostId = readId(await app.queryComponent({reference: 'dock-host'}, ['id'])),
-              previewId  = readId(await app.queryComponent({reference: 'dock-preview'}, ['id']));
+        const dockHostId   = readId(await app.queryComponent({reference: 'dock-host'}, ['id'])),
+              indicatorsId = readId(await app.queryComponent({reference: 'drop-indicators'}, ['id'])),
+              previewId    = readId(await app.queryComponent({reference: 'dock-preview'}, ['id']));
 
-        expect(dockHostId, 'the dock host must resolve').toBeTruthy();
-        expect(previewId,  'the dock preview overlay must resolve').toBeTruthy();
+        expect(dockHostId,   'the dock host must resolve').toBeTruthy();
+        expect(indicatorsId, 'the drop indicator menu must resolve').toBeTruthy();
+        expect(previewId,    'the dock preview overlay must resolve').toBeTruthy();
 
-        const readPaintedPreview = async () => {
+        /**
+         * Samples one dwell: the active indicator candidate's preview id, which the driver gates each
+         * dwell on, and the painted preview's kind and rect, both read from one node in one evaluate.
+         * @returns {Promise<Object>} `{active, kind, rect}`; `kind` and `rect` are null while nothing measurable is painted
+         */
+        const readDwell = async () => {
             const [state, host] = await Promise.all([
-                    app.getComponent(previewId, ['dockPreview']),
+                    app.getComponent(indicatorsId, ['activeCandidate']),
                     readComponentRects(app, [dockHostId]).then(rects => rects[dockHostId])
                 ]),
-                dockPreview = state?.properties?.dockPreview ?? state?.dockPreview;
+                active = state?.activeCandidate?.preview?.previewId ?? null;
 
-            if (!dockPreview?.target?.nodeId) return null;
+            const {kind, style} = await page.evaluate(id => {
+                // the placement kind's own class: the group, feedback and cut classes share its prefix
+                const el      = document.getElementById(id)?.firstElementChild,
+                      kindCls = [...el?.classList ?? []].find(cls => /^neo-dock-preview-(edge|split|tab)-/.test(cls));
 
-            const style = await page.evaluate(id => {
-                const el = document.getElementById(id)?.firstElementChild;
-
-                return el?.style && {height: el.style.height, left: el.style.left, top: el.style.top, width: el.style.width}
+                return {
+                    kind : kindCls?.slice('neo-dock-preview-'.length) ?? null,
+                    style: el?.style && {height: el.style.height, left: el.style.left, top: el.style.top, width: el.style.width}
+                }
             }, previewId);
 
-            if (!style || !Number.parseFloat(style.width)) return null;
+            if (!style || !Number.parseFloat(style.width)) return {active, kind: null, rect: null};
 
             const num  = value => Number.parseFloat(value) || 0,
                   left = host.left + num(style.left),
                   top  = host.top  + num(style.top);
 
             return {
-                dockPreview,
+                active,
+                kind,
                 rect: {
                     bottom: top + num(style.height),
                     height: num(style.height),
@@ -1664,6 +1675,23 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                     width : num(style.width)
                 }
             }
+        };
+
+        /**
+         * Waits until the driver's gate holds for one placement and the paint shows its kind, and returns
+         * that sample. Mid-approach, a fallback preview can match the target and kind field for field;
+         * only the gate tells the dwell apart.
+         * @param {String} targetNodeId
+         * @param {String} kind
+         * @returns {Promise<Object>} `{active, kind, rect}`
+         */
+        const awaitDwell = async (targetNodeId, kind) => {
+            let dwell;
+
+            await expect.poll(async () => (dwell = await readDwell()), {intervals: [50, 100, 200], timeout: 15000})
+                .toMatchObject({active: `preview:audit:${targetNodeId}:${kind}`, kind});
+
+            return dwell
         };
 
         const stepPromise = callWorkstationGesture(app, wsId, 'executeCrossZoneShowcaseStep', [{
@@ -1677,18 +1705,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         }, rectPace]);
 
         // Dwell 1 — the edge band must hug the scale zone's bottom edge inside its budget
-        await expect.poll(readPaintedPreview, {intervals: [50, 100, 200], timeout: 15000})
-            .toMatchObject({dockPreview: {placement: {kind: 'edge-bottom'}, target: {nodeId: 'scale-tabs'}}});
-
-        const dwell1 = await readPaintedPreview();
+        const dwell1 = await awaitDwell('scale-tabs', 'edge-bottom');
 
         await assertPreviewZoneAlignment(app, {kind: 'edge-bottom', previewRect: dwell1.rect, zoneId: zoneIds['scale-tabs']});
 
         // Dwell 2 — the tab-into preview must equal the right-bottom zone rect
-        await expect.poll(readPaintedPreview, {intervals: [50, 100, 200], timeout: 15000})
-            .toMatchObject({dockPreview: {placement: {kind: 'tab-into'}, target: {nodeId: 'right-bottom-tabs'}}});
-
-        const dwell2 = await readPaintedPreview();
+        const dwell2 = await awaitDwell('right-bottom-tabs', 'tab-into');
 
         await assertPreviewZoneAlignment(app, {kind: 'tab-into', previewRect: dwell2.rect, zoneId: zoneIds['right-bottom-tabs']});
 
