@@ -99,7 +99,21 @@ export const BRAIN_CAPABILITIES = [{
  * exclusion it was meant to avoid.
  * @member {Object[]} BRAIN_QUARANTINES
  */
-export const BRAIN_QUARANTINES = [];
+export const BRAIN_QUARANTINES = [{
+    path       : 'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
+    titlePath  : ['Workstation — the film tour plays from the toolbar', 'Start film tour runs all scenes; the viewer\'s Continue clicks open every window'],
+    reason     : 'hosted: journey hop 4 can refuse the drag while the vessel slot is free and no theme file is in flight (the hop diag), and the film arms take about three minutes of one shard\'s five-minute step',
+    accountable: '@neo-opus-grace',
+    exit       : '#19919: hop 4 diagnosed and fixed, and the spec fits its shard',
+    since      : '2026-10-20'
+}, {
+    path       : 'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
+    titlePath  : ['Workstation — the film tour plays from the toolbar', 'under autoGates the film runs unattended: earlier windows close and the signature matrix stays open'],
+    reason     : 'hosted: the same hop-4 refusal as the viewer-driven tour',
+    accountable: '@neo-opus-grace',
+    exit       : '#19919',
+    since      : '2026-10-20'
+}];
 
 /**
  * Days a quarantine may stand before every receipt flags it as stale.
