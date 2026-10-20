@@ -196,6 +196,21 @@ test.describe('Grid issues showcase', () => {
         await expect(header).not.toHaveClass(/neo-grid-column-filtered/);
         await expect(trigger).toHaveAttribute('aria-label', 'Filter State');
         await expect.poll(opacity).toBe('0')
+    });
+
+    test('only the sorted header announces its direction, through aria-sort (#19913)', async ({page}) => {
+        const header = name => page.locator(GRID).getByRole('columnheader', {name, exact: true}),
+              sorted = page.locator(`${GRID} [aria-sort]`);
+
+        // The showcase opens sorted by # descending
+        await expect(header('#')).toHaveAttribute('aria-sort', 'descending');
+        await expect(sorted).toHaveCount(1);
+
+        await header('Title').click();
+
+        await expect(header('Title')).toHaveAttribute('aria-sort', 'ascending');
+        await expect(header('#')).not.toHaveAttribute('aria-sort');
+        await expect(sorted).toHaveCount(1)
     })
 });
 

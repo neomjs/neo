@@ -424,9 +424,12 @@ class Button extends BaseButton {
 
         // This path resets _isSorted directly, so it bypasses afterSetIsSorted() and owns the aria-sort clear.
         // It cannot lean on the class change below either: a header that was already hidden writes the same
-        // cls array back and produces no update, which would leave the stale attribute in the DOM.
-        delete me.vdom['aria-sort'];
-        me.update();
+        // cls array back and produces no update, which would leave the stale attribute in the DOM. The container
+        // runs this on every other header on each sort, and only the one losing its sort carries the attribute.
+        if ('aria-sort' in me.vdom) {
+            delete me.vdom['aria-sort'];
+            me.update()
+        }
 
         NeoArray.add(cls, 'neo-sort-hidden');
 
