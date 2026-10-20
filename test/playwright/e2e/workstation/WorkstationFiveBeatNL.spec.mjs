@@ -470,8 +470,9 @@ async function assertStageGeometryPublished(app, stageReceipt) {
 
 /**
  * @summary Reads main's own layout beside a stack return that aimed outside main: the ratios show
- * a scaled page, the scroll widths a dock that overflows its viewport, and the aimed node's DOM
- * rect where the page itself places it.
+ * a scaled page, the scroll widths a dock that overflows its viewport, the transforms a motion
+ * still applied, and the aimed node's DOM rect where the page places it now. A rect that differs
+ * from the aimed one was read mid-motion.
  * @param {Object} app Neural Link app wrapper.
  * @param {import('@playwright/test').Page} page The main page.
  * @param {String|null} nodeId The aimed dock node id.
@@ -482,8 +483,19 @@ async function readReturnLayout(app, page, nodeId) {
           nodes = Array.isArray(found) ? found : found ? [found] : [];
 
     return page.evaluate(nodes => {
-        const scroll = el => el && {clientWidth: el.clientWidth, scrollLeft: el.scrollLeft, scrollWidth: el.scrollWidth},
-              vv     = window.visualViewport;
+        const scroll     = el => el && {clientWidth: el.clientWidth, scrollLeft: el.scrollLeft, scrollWidth: el.scrollWidth},
+              transforms = el => {
+                  const found = [];
+
+                  for (; el && el !== document.documentElement; el = el.parentElement) {
+                      const {transform} = getComputedStyle(el);
+
+                      transform !== 'none' && found.push({id: el.id || el.className, transform})
+                  }
+
+                  return found
+              },
+              vv         = window.visualViewport;
 
         return {
             body            : scroll(document.body),
@@ -493,7 +505,7 @@ async function readReturnLayout(app, page, nodeId) {
             nodes           : nodes.map(({id, windowId}) => {
                 const el = document.getElementById(id);
 
-                return {id, windowId, rect: el?.getBoundingClientRect().toJSON() ?? null, parent: scroll(el?.parentElement)}
+                return {id, windowId, rect: el?.getBoundingClientRect().toJSON() ?? null, parent: scroll(el?.parentElement), transforms: transforms(el)}
             }),
             visualViewport  : vv && {offsetLeft: vv.offsetLeft, scale: vv.scale, width: vv.width}
         }
