@@ -3,7 +3,9 @@ import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../../src/Neo.mjs';
 import * as core          from '../../../../../src/core/_export.mjs';
 import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
+import WorkspaceDocument  from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
+import {initialDocument}  from '../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
 setup({appConfig: {name: 'WorkstationTourControllerTest'}});
 
@@ -361,16 +363,87 @@ test('cancelling a replay probe waits for its displaced-document restoration', a
         await entered.promise;
         let   settled      = false;
         const cancellation = controller.cancelTour().then(() => {settled = true});
-        await restoring.promise;
+        await new Promise(setImmediate);
         expect(workspace.dockModel).toBe(live);
+        expect(calls, 'the restore projection waits for the entry projection still in flight').toBe(1);
+        entry.resolve();
+        await restoring.promise;
         await new Promise(setImmediate);
         expect(settled).toBe(false);
-        entry.resolve();
         restore.resolve();
         await cancellation;
         await expect(run).rejects.toBe(Neo.isDestroyed);
         expect(calls).toBe(2)
     } finally {entry.resolve(); restore.resolve(); workspace.destroy()}
+});
+
+/**
+ * @summary Waits until the workspace's refresh tail stops moving: a settled refresh may have chained another.
+ * @param {Workstation.view.Workspace} workspace
+ * @returns {Promise<void>}
+ */
+async function settleRefreshTail(workspace) {
+    let tail;
+
+    do {
+        tail = workspace.refreshPromise;
+        await Promise.resolve(tail).catch(() => {})
+    } while (tail !== workspace.refreshPromise)
+}
+
+test('a spec tour started while a reload hydrates its topology projects after it: one shell, one right-top-tabs', async () => {
+    // A reload cold-hydrates the persisted topology through the Group, and its staged projection is still
+    // in flight when the tour asks for its entry projection. The hold keeps the hydrate's visibility-swap
+    // flight in the air: the outgoing shell is hidden and emptied, not yet removed.
+    const MAIN      = Workspace.MAIN_WORKSPACE_ID,
+          binding   = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: MAIN}),
+          saved     = WorkspaceDocument.clone(initialDocument),
+          workspace = Neo.create(Workspace, {
+              initialTopology: {workspaces: {[MAIN]: saved}},
+              topologyGroupId: binding.groupId,
+              windowId       : Neo.config.windowId
+          }),
+          controller = await workspace.getController().getTourController(),
+          host       = workspace.getReference('dock-host'),
+          update     = host.promiseUpdate.bind(host),
+          refresh    = workspace.refreshDockWorkspace.bind(workspace),
+          release    = deferred(), refreshes = [],
+          script     = {
+              schema: 'neo.tour.script.v1', id: 'reload-race', title: 'Reload race',
+              scenes: [{id: 's', title: 'Scene', steps: [{type: 'pause', ms: 0}]}]
+          };
+    let held = false, count = 0;
+    host.promiseUpdate = () => {
+        if (held || !host.items[0]?.hidden) return update();
+        held = true;
+        return release.promise.then(update)
+    };
+    workspace.refreshDockWorkspace = async (...args) => {
+        const index = count++;
+        refreshes.push(`enter ${index}`);
+        try {return await refresh(...args)} finally {refreshes.push(`exit ${index}`)}
+    };
+    try {
+        const hydrate = TransactionManager.write({
+            cause       : 'cold-hydrate',
+            changes     : [{workspaceKey: MAIN, input: saved}],
+            cursorAction: 'preserve',
+            descriptor  : {operation: 'hydrateTopology', layoutId: 'default'},
+            groupId     : binding.groupId,
+            provenance  : {source: 'cold-hydrate'}
+        });
+        await expect.poll(() => held, {message: 'the hydrate projection reaches its visibility swap'}).toBe(true);
+        const run = controller.runTourSpec(script);
+        for (let tick = 0; tick < 3; tick++) await new Promise(setImmediate);
+        release.resolve();
+        const result = await run;
+        await hydrate;
+        await settleRefreshTail(workspace);
+        expect(host.items.filter(item => item.dockNodeType), 'the dock host holds exactly one shell').toHaveLength(1);
+        expect(host.down({dockNodeId: 'right-top-tabs', dockNodeType: 'tabs'}, false), 'and one right-top-tabs').toHaveLength(1);
+        expect(refreshes, 'the entry projection starts once the hydrate one settled').toEqual(['enter 0', 'exit 0', 'enter 1', 'exit 1']);
+        expect(result.completed).toBe(true)
+    } finally {release.resolve(); workspace.destroy(); TransactionManager.retireGroup(binding.groupId)}
 });
 
 test('cancellation during final settlement returns cancellation rather than reading a disposed owner', async () => {
