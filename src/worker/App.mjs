@@ -430,7 +430,9 @@ class App extends Base {
     }
 
     /**
-     * In case you don't want to include prototype based CSS files, use the className param instead
+     * In case you don't want to include prototype based CSS files, use the className param instead.
+     * Each file sent counts in `countLoadingThemeFiles` until its reply settles, resolved or rejected: a window that
+     * departs mid-load rejects it, and a count left up would hold every window's vdom work.
      * @param {String} windowId
      * @param {Neo.core.Base} [proto]
      * @param {String} [className]
@@ -487,7 +489,7 @@ class App extends Base {
                         className: mapClassName || className,
                         folders  : themeFolders,
                         windowId
-                    }).then(() => {
+                    }).finally(() => {
                         me.countLoadingThemeFiles--
                     })
                 }
