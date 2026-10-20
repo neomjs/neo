@@ -131,17 +131,17 @@ test.describe('Grid header value-menu shared state and lifetime', () => {
         async ({page, neuralLink}) => {
             const state  = await menuFor(await setup(page, neuralLink, [application, region, inline(null)]));
             const before = await filters(state), surface = await open(page, state, true);
-            await expect(surface.getByRole('option', {name: 'Open, 1 matches', exact: true})).toBeVisible();
-            await expect(surface.getByRole('option', {name: 'Closed, 1 matches', exact: true})).toBeVisible();
+            await expect(surface.getByRole('option', {name: 'Open, 1 match', exact: true})).toBeVisible();
+            await expect(surface.getByRole('option', {name: 'Closed, 1 match', exact: true})).toBeVisible();
             expect(await filters(state)).toEqual(before);
-            await surface.getByRole('option', {name: 'Open, 1 matches', exact: true}).click();
+            await surface.getByRole('option', {name: 'Open, 1 match', exact: true}).click();
             await expect.poll(() => selected(state)).toEqual(['Open']);
             await expect.poll(async () => (await state.app.getComponent(state.storeId, ['count'])).count).toBe(1);
             expect((await filters(state)).filter(item => item.ownerRole !== 'header-picker')).toEqual(before);
-            await surface.getByRole('option', {name: 'Open, 1 matches', exact: true}).click();
+            await surface.getByRole('option', {name: 'Open, 1 match', exact: true}).click();
             await expect.poll(() => selected(state)).toEqual([]);
             expect(await filters(state)).toEqual(before);
-            await surface.getByRole('option', {name: 'Closed, 1 matches', exact: true}).click();
+            await surface.getByRole('option', {name: 'Closed, 1 match', exact: true}).click();
             await expect.poll(() => selected(state)).toEqual(['Closed']);
             await surface.getByRole('button', {name: 'Clear', exact: true}).click();
             await expect.poll(() => filters(state)).toEqual(before);
@@ -257,9 +257,9 @@ test.describe('Grid header value-menu shared state and lifetime', () => {
             }]});
             const left = await open(page, a), right = await open(page, b);
             for (const surface of [left, right]) {
-                await expect(surface.getByRole('option', {name: 'Open, 1 matches', exact: true})).toHaveAttribute('aria-selected', 'true');
+                await expect(surface.getByRole('option', {name: 'Open, 1 match', exact: true})).toHaveAttribute('aria-selected', 'true');
                 await expect(surface.getByRole('option', {name: 'Missing, 0 matches', exact: true})).toHaveAttribute('aria-selected', 'true');
-                await expect(surface.getByRole('option', {name: 'Closed, 1 matches', exact: true})).toHaveAttribute('aria-selected', 'false')
+                await expect(surface.getByRole('option', {name: 'Closed, 1 match', exact: true})).toHaveAttribute('aria-selected', 'false')
             }
             const before = await filters(a);
             await state.app.callMethod(state.storeId, 'add', [{id: 6, status: 'Open', region: 'North'}]);
@@ -268,13 +268,13 @@ test.describe('Grid header value-menu shared state and lifetime', () => {
             }
             await state.app.callMethod(state.gridId, 'bulkUpdateRecords', [[{id: 1, status: 'Closed'}]]);
             for (const surface of [left, right]) {
-                await expect(surface.getByRole('option', {name: 'Open, 1 matches', exact: true})).toHaveAttribute('aria-selected', 'true');
+                await expect(surface.getByRole('option', {name: 'Open, 1 match', exact: true})).toHaveAttribute('aria-selected', 'true');
                 await expect(surface.getByRole('option', {name: 'Closed, 2 matches', exact: true})).toBeVisible()
             }
             expect(await filters(a)).toEqual(before);
             await select(b, []);
             for (const surface of [left, right]) {
-                await expect(surface.getByRole('option', {name: 'Open, 1 matches', exact: true})).toHaveAttribute('aria-selected', 'false');
+                await expect(surface.getByRole('option', {name: 'Open, 1 match', exact: true})).toHaveAttribute('aria-selected', 'false');
                 await expect(surface.getByRole('option', {name: /^Missing, /})).toHaveCount(0)
             }
         });
@@ -332,7 +332,7 @@ test.describe('Grid header value-menu shared state and lifetime', () => {
             expect(await filters(state)).toEqual(sourceIntent);
 
             await open(page, recreated);
-            await expect(page.locator(`#${recreated.surfaceId}`).getByRole('option', {name: 'Open, 1 matches', exact: true}))
+            await expect(page.locator(`#${recreated.surfaceId}`).getByRole('option', {name: 'Open, 1 match', exact: true}))
                 .toHaveAttribute('aria-selected', 'true');
 
             await watchRecounts(state.app);
@@ -346,12 +346,12 @@ test.describe('Grid header value-menu shared state and lifetime', () => {
 
             const replacement = [{property: 'region', ownerRole: 'application', operator: 'typedIncluded', value: ['Open']}];
             await state.app.setProperties(next.id, {filters: replacement});
-            await expect(page.locator(`#${recreated.surfaceId}`).getByRole('option', {name: 'Open, 1 matches', exact: true}))
+            await expect(page.locator(`#${recreated.surfaceId}`).getByRole('option', {name: 'Open, 1 match', exact: true}))
                 .toHaveAttribute('aria-selected', 'false');
             expect(await filters(recreated)).toEqual(replacement.map(item => expect.objectContaining(item)));
             await state.app.setProperties(next.id, {filters: [{property: 'region', ownerRole: 'header-picker',
                 operator: 'typedIncluded', reapplyOnRecordChange: true, value: ['Open']}]});
-            await expect(page.locator(`#${recreated.surfaceId}`).getByRole('option', {name: 'Open, 1 matches', exact: true}))
+            await expect(page.locator(`#${recreated.surfaceId}`).getByRole('option', {name: 'Open, 1 match', exact: true}))
                 .toHaveAttribute('aria-selected', 'true');
             const finalIntent = await filters(recreated), owned = {surface: recreated.surfaceId, options: recreated.optionsId,
                 picker: recreated.pickerId, trigger: recreated.triggerId, plugin: recreated.pluginId};
