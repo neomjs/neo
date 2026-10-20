@@ -178,6 +178,12 @@ class Button extends BaseButton {
         let me        = this,
             container = me.up('grid-container');
 
+        // WAI-ARIA 1.2 allows aria-sort on a columnheader only, which this button is ('role' above, applied to the
+        // same node getVdomRoot() returns). The arrow class below is invisible to a screen reader, so the attribute
+        // is the announcement. A null direction has to remove it, or a header that clears its sort keeps announcing
+        // the direction it no longer has.
+        me.changeVdomRootKey('aria-sort', value === 'ASC' ? 'ascending' : value === 'DESC' ? 'descending' : null);
+
         switch (value) {
             case null:
                 me.addCls('neo-sort-hidden');
@@ -543,6 +549,9 @@ class Button extends BaseButton {
     removeSortingCss() {
         let me    = this,
             {cls} = me;
+
+        // This path resets _isSorted directly, so it bypasses afterSetIsSorted() and owns the aria-sort clear
+        me.changeVdomRootKey('aria-sort', null);
 
         NeoArray.add(cls, 'neo-sort-hidden');
 
