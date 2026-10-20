@@ -46,6 +46,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/dashboard',
     'test/playwright/e2e/grid',
     'test/playwright/e2e/portal',
+    'test/playwright/e2e/realworld',
     'test/playwright/e2e/rendering/DeltaUpdatesChangeNodeName.spec.mjs',
     'test/playwright/e2e/rendering/GraphScene.spec.mjs',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',

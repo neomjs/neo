@@ -176,8 +176,10 @@ class Component extends BaseComponent {
 
         me.createCommentComponent = Neo.create({
             module   : CreateCommentComponent,
+            appName  : me.appName,
             parentId : me.id,
-            userImage: currentUser?.image || null
+            userImage: currentUser?.image || null,
+            windowId : me.windowId
         });
 
         VDomUtil.getByFlag(me.vdom, 'comments-section').cn.unshift(me.createCommentComponent.createVdomReference());
@@ -274,7 +276,9 @@ class Component extends BaseComponent {
                 if (!me.commentComponents[index]) {
                     me.commentComponents[index] = Neo.create({
                         module  : me.commentComponent,
+                        appName : me.appName,
                         parentId: me.id,
+                        windowId: me.windowId,
                         ...config
                     });
                 } else {

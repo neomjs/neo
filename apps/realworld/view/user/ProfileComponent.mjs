@@ -156,7 +156,9 @@ class ProfileComponent extends Component {
                 if (!me.previewComponents[index]) {
                     me.previewComponents[index] = Neo.create({
                         module  : PreviewComponent,
+                        appName : me.appName,
                         parentId: me.id,
+                        windowId: me.windowId,
                         ...config
                     });
                 } else {

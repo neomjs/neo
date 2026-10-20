@@ -126,7 +126,9 @@ class HomeComponent extends Component {
 
         me.tagList = Neo.create({
             module  : TagListComponent,
+            appName : me.appName,
             parentId: me.id,
+            windowId: me.windowId,
 
             listeners: {
                 tagChange: me.onTagChange,
@@ -169,7 +171,9 @@ class HomeComponent extends Component {
                 if (!me.previewComponents[index]) {
                     me.previewComponents[index] = Neo.create({
                         module  : PreviewComponent,
+                        appName : me.appName,
                         parentId: me.id,
+                        windowId: me.windowId,
                         ...config
                     });
                 } else {
