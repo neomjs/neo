@@ -140,6 +140,11 @@ class MainContainerController extends Controller {
             idMap  = await me.getIdMap(),
             folder = idMap?.[itemId] && store.get(idMap[itemId]);
 
+        // The map lists every ticket the index holds: an id it does not name is not a ticket here
+        if (idMap && !idMap[itemId]) {
+            return null
+        }
+
         if (folder) {
             await tree.onFolderItemClick(folder);
 
