@@ -58,6 +58,24 @@ test.describe('Neo.component.Markdown', () => {
         expect(result, 'and the authored inline code survives unchanged').toContain('`$`')
     });
 
+    test('a ticket id inside a Markdown link stays part of that link, and a bare one still becomes a ticket link', () => {
+        // A blog post's link to a Discussion, whose text names the Discussion's number, rendered as two links, and
+        // the second one opened the tickets view for that number
+        const component = Object.create(Markdown.prototype);
+
+        Object.assign(component, {
+            issuesUrl        : '#/news/tickets/',
+            renderFrontmatter: false,
+            replaceTicketIds : true
+        });
+
+        const result = component.modifyMarkdown('See [PR #14458](https://example.com/pull/14458) and #10074.\n');
+
+        expect(result, 'the link is left as written').toContain('[PR #14458](https://example.com/pull/14458)');
+        expect(result, 'no ticket link for the id inside it').not.toContain('href="#/news/tickets/14458"');
+        expect(result, 'the bare id').toContain('<a href="#/news/tickets/10074">#10074</a>')
+    });
+
     test('wrapMarkdownTables wraps each rendered Markdown table', () => {
         const html = '<table><tbody><tr><td>One</td></tr></tbody></table><p>Between</p><table class="wide"><tbody><tr><td>Two</td></tr></tbody></table>';
 
