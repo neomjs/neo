@@ -45,6 +45,9 @@
     }
 
     .neo-value-picker {
+        // Its rows sit on the menu's surface: a standalone list's row colour reads as a band here
+        --list-item-background-color: transparent;
+
         background-color: var(--grid-header-button-background-color);
     }
 }
