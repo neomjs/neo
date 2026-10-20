@@ -520,8 +520,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * call that reports it).
      * @param {Object} fixtures `{page, neuralLink}`
      * @param {Object} [options={}]
-     * @param {Boolean} [options.navigate=true] Set false only after this runner's own reload, so
-     * the next worker read witnesses that exact navigation instead of hiding it behind a goto.
+     * @param {Boolean} [options.navigate=true] Set false after this runner's own reload, so the
+     * next worker read witnesses that exact navigation instead of hiding it behind a goto, or to
+     * reconnect a later take to the page that is already live.
      * @returns {Promise<Object>} `{app, disposeObservers, pageErrors, popupProbe, stageReceipt, wsId}`
      */
     async function boot({page, neuralLink}, {navigate=true}={}) {
@@ -2996,7 +2997,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(commitsBefore, 'commits must be one live pane before it crosses a window').toBeTruthy();
 
             if (openingDocuments.length) {
-                expect(opening, 'the explicit reset survives reload before the second take')
+                expect(opening, 'the explicit reset restores the opening document for the second take')
                     .toEqual(openingDocuments[0])
             } else {
                 openingDocuments.push(opening)
@@ -3244,11 +3245,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             });
             logs.push(beatLog);
 
+            // the second take repeats every cross-window gesture in the same session, as a human
+            // would after Reset: no reload between takes
             if (run < journeyRuns - 1) {
                 const reset = await app.callMethod(wsId, 'resetTopology', []);
                 expect(reset.errors).toEqual([]);
-                expect(reset.reset, 'Reset restores the shipped topology for the next take').toBe(true);
-                await page.reload()
+                expect(reset.reset, 'Reset restores the shipped topology for the next take').toBe(true)
             }
 
             ctx.disposeObservers()

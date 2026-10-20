@@ -668,7 +668,7 @@ class TabSortZone extends TabHeaderSortZone {
             // (model commit precedes any window close per the choreography contract). The zone
             // itself never mutates documents; deterministic outcome order is cancel → remote
             // transfer → tear-out terminal → in-window cross-zone drop.
-            itemId && tabContainer?.fire('dockTearOutTerminal', {itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId})
+            itemId && tabContainer?.fire('dockTearOutTerminal', {clientX, clientY, itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId})
         } else {
             // Released over this window while still detached: the proxy overlap never registered the
             // re-entry, but the host painted its in-window preview under this pointer (onDragMove fires
