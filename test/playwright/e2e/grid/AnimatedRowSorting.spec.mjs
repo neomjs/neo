@@ -168,6 +168,25 @@ test.describe('grid: AnimateRows on the pooled body', () => {
         expect(offsets.at(-1)).toBe(2 * rowHeight)
     });
 
+    test('a filter refined after a header sort keeps the rows in the sorted order', async ({page}) => {
+        await openExample(page);
+
+        const before    = await displayedRows(page),
+              rowHeight = before[1].offset - before[0].offset,
+              field     = page.locator('input').first();
+
+        // Filtered first, so the store's unfiltered projection already exists when the sort runs
+        await field.fill('a');
+        await page.locator('.neo-grid-header-button', {hasText: /^\s*Firstname\s*$/}).click();
+        await expectSettled(page, ['Amanda', 'Carol', 'Max', 'Paul', 'Sam', 'Sarah', 'William'], rowHeight);
+
+        await field.fill('am');
+        await expectSettled(page, ['Amanda', 'Sam', 'William'], rowHeight);
+
+        await field.fill('');
+        await expectSettled(page, ['Amanda', 'Carol', 'Max', 'Paul', 'Sam', 'Sarah', 'William'], rowHeight)
+    });
+
     test('outside a sort or filter, the rows carry no transition', async ({page}) => {
         await openExample(page);
 
