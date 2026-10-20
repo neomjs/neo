@@ -719,8 +719,12 @@ class Container extends Component {
                 vdom = item.vdom
             } else {
                 // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
-                // since it will most likely get activated right away
-                me.layout?.applyChildAttributes(item, index, true);
+                // since it will most likely get activated right away.
+                // Before onConstructed() the layout is still its config object (e.g. menu.Panel adding its list from
+                // afterSetList()): createItems() applies the child attributes once the instance exists.
+                if (me.layout instanceof LayoutBase) {
+                    me.layout.applyChildAttributes(item, index, true)
+                }
                 vdom = item.createVdomReference()
             }
 
