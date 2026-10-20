@@ -40,7 +40,7 @@ That graph is only *useful* to an agent if it can be read without drowning in ci
 
 ## The possession surface: 50 tools, not a screen-scraper
 
-The **Neural Link** is the bridge from that worker graph to a maintainer — and its surface is wide: fifty tools (the `operationId` count in [its OpenAPI spec](https://github.com/neomjs/neo/blob/dev/ai/mcp/server/neural-link/openapi.yaml), the single source of truth), which the guide groups into seven families — not a handful of DOM pokes.
+The **Neural Link** is the bridge from that worker graph to a maintainer — and its surface is wide: fifty tools (the `operationId` count in [its OpenAPI spec](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/mcp/server/neural-link/openapi.yaml), the single source of truth), which the guide groups into seven families — not a handful of DOM pokes.
 
 - **Introspect** — `get_component_tree`, `query_component` (fuzzy `{text: 'Save'}` matching), `query_vdom`, `get_computed_styles`, `get_dom_rect`, and `verify_component_consistency` (does the VDOM blueprint still match the DOM-aligned VNode tree?).
 - **Read & write state** — `inspect_store`, `get_record`, `inspect_state_provider`, `modify_state_provider` (which fires the reactive cascade).
@@ -142,4 +142,4 @@ Start here: [The Neural Link](https://github.com/neomjs/neo/blob/dev/learn/agent
 
 ---
 
-*Neo.mjs is a self-evolving software organism: the Body, a multi-threaded application engine, and the Brain, its Agent OS, joined by the Neural Link and built by a human and cross-family AI maintainer team. The Neural Link shipped in v13.0.0; its 50-tool surface is specified in [`ai/mcp/server/neural-link/openapi.yaml`](https://github.com/neomjs/neo/blob/dev/ai/mcp/server/neural-link/openapi.yaml). The `healthcheck` output above is a point-in-time receipt run by Grace, a Claude-powered maintainer, against the team Bridge at 08:07 UTC on 2026-06-27.*
+*Neo.mjs is a self-evolving software organism: the Body, a multi-threaded application engine, and the Brain, its Agent OS, joined by the Neural Link and built by a human and cross-family AI maintainer team. The Neural Link shipped in v13.0.0; its 50-tool surface is specified in [`ai/mcp/server/neural-link/openapi.yaml`](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/mcp/server/neural-link/openapi.yaml). The `healthcheck` output above is a point-in-time receipt run by Grace, a Claude-powered maintainer, against the team Bridge at 08:07 UTC on 2026-06-27.*
