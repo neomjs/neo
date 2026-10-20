@@ -1149,6 +1149,10 @@ class VdomLifecycle extends Base {
      * Every component that receives a vnode here, this one included, then gets {@link #afterVnodeSync} with the
      * deltas of the render that produced it.
      *
+     * A child's mount runs subclass and app code (`afterSetMounted()`). One that throws is logged and the sync goes
+     * on: the later children still get their vnodes, the unmount pass runs and this component adopts its own. After
+     * an update, whose deltas are already in the DOM, stopping would make the next update insert those nodes again.
+     *
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      * @param {Object[]|null} [deltas=null] What the render that produced the vnode wrote, null for a first render
      */
@@ -1202,9 +1206,13 @@ class VdomLifecycle extends Base {
                 component._vnode = ComponentManager.addVnodeComponentReferences(childVnode, component.id);
 
                 component.vnodeInitialized = true;
-                component.mounted          = true;
 
-                component.afterVnodeSync(deltas)
+                try {
+                    component.mounted = true;
+                    component.afterVnodeSync(deltas)
+                } catch (error) {
+                    console.error('syncVnodeTree: a mount hook failed', component.id, error)
+                }
             } else {
                 console.warn('syncVnodeTree: Could not replace the child vnode for', component.id)
             }
