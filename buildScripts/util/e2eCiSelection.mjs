@@ -49,6 +49,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/DeltaUpdatesChangeNodeName.spec.mjs',
     'test/playwright/e2e/rendering/GraphScene.spec.mjs',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
+    'test/playwright/e2e/rendering/MergedChildWindowId.spec.mjs',
     'test/playwright/e2e/rendering/MountHookIsolation.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs',
     'test/playwright/e2e/table'

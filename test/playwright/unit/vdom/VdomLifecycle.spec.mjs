@@ -1030,4 +1030,149 @@ test.describe('Incomplete disjoint VDOM flights', () => {
         }
     });
 
+    for (const sameWindow of [false, true]) {
+        test(`a leaf whose windowId ${sameWindow ? 'matches' : 'differs from'} its owner renders when updated during the owner's yield (#19922)`, async () => {
+            const prefix = `vdom-window-mismatch-${sameWindow ? 'same' : 'diff'}-${++testRun}`,
+                  host   = Neo.create(Component, {
+                      appName,
+                      id      : `${prefix}-host`,
+                      windowId: 1,
+                      vdom    : {
+                          tag: 'div',
+                          id : `${prefix}-host`,
+                          cn : [{tag: 'div', id: `${prefix}-articles`, text: 'loading'}]
+                      }
+                  }),
+                  tagList   = Neo.create(Component, {
+                      appName,
+                      id      : `${prefix}-tags`,
+                      parentId: host.id,
+                      windowId: sameWindow ? host.windowId : null,
+                      vdom    : {
+                          tag: 'div',
+                          id : `${prefix}-tags`,
+                          cn : [{tag: 'div', id: `${prefix}-sidebar`, cls: ['sidebar'], cn: []}]
+                      }
+                  });
+
+            host.vdom.cn.push(tagList.createVdomReference());
+            await host.initVnode(true);
+            host.mounted = true;
+            await host.promiseUpdate();
+
+            try {
+                // Start the owner's flight via set() (silentVdomUpdate → needsVdomUpdate=true → promiseUpdate());
+                // it yields at setTimeout(1) with both isVdomUpdating=true and needsVdomUpdate=true.
+                const hostFlight = host.set({cls: ['changed']});
+                expect(host.isVdomUpdating && host.needsVdomUpdate).toBe(true);
+
+                // Inside the owner's yield, update the leaf and track when its promiseUpdate() settles
+                let leafSettled   = 'pending',
+                    pillsAtSettle = -1;
+
+                tagList.vdom.cn[0].cn = ['welcome', 'implementations', 'codebaseShow'].map(tag => ({
+                    tag : 'a',
+                    cls : ['tag-pill'],
+                    id  : `${tagList.id}__${tag}`,
+                    text: tag
+                }));
+
+                const leafFlight = tagList.promiseUpdate().then(() => {
+                    leafSettled   = 'resolved';
+                    pillsAtSettle = tagList.vnode?.childNodes?.[0]?.childNodes?.length ?? 0
+                });
+
+                await Promise.all([hostFlight, leafFlight]);
+
+                expect({
+                    pills          : tagList.vnode?.childNodes?.[0]?.childNodes?.length ?? 0,
+                    pillsAtSettle,
+                    needsVdomUpdate: tagList.needsVdomUpdate,
+                    leafSettled
+                }).toEqual({
+                    pills          : 3,
+                    pillsAtSettle  : 3,
+                    needsVdomUpdate: false,
+                    leafSettled    : 'resolved'
+                })
+            } finally {
+                tagList.isDestroyed || tagList.destroy();
+                host.isDestroyed    || host.destroy()
+            }
+        })
+    }
+
+    test('a merged child whose windowId changes before collection is handed back as its own flight (#19922)', async () => {
+        const prefix = `vdom-window-late-change-${++testRun}`,
+              host   = Neo.create(Component, {
+                  appName,
+                  id      : `${prefix}-host`,
+                  windowId: 1,
+                  vdom    : {
+                      tag: 'div',
+                      id : `${prefix}-host`,
+                      cn : [{tag: 'div', id: `${prefix}-articles`, text: 'loading'}]
+                  }
+              }),
+              tagList = Neo.create(Component, {
+                  appName,
+                  id      : `${prefix}-tags`,
+                  parentId: host.id,
+                  windowId: 1,
+                  vdom    : {
+                      tag: 'div',
+                      id : `${prefix}-tags`,
+                      cn : [{tag: 'div', id: `${prefix}-sidebar`, cls: ['sidebar'], cn: []}]
+                  }
+              });
+
+        host.vdom.cn.push(tagList.createVdomReference());
+        await host.initVnode(true);
+        host.mounted = true;
+        await host.promiseUpdate();
+
+        try {
+            const hostFlight = host.set({cls: ['changed']});
+            expect(host.isVdomUpdating && host.needsVdomUpdate).toBe(true);
+
+            let leafSettled   = 'pending',
+                pillsAtSettle = -1;
+
+            tagList.vdom.cn[0].cn = ['welcome', 'implementations'].map(tag => ({
+                tag : 'a',
+                cls : ['tag-pill'],
+                id  : `${tagList.id}__${tag}`,
+                text: tag
+            }));
+
+            // Merge is accepted while windowIds match (1 === 1)
+            const leafFlight = tagList.promiseUpdate().then(() => {
+                leafSettled   = 'resolved';
+                pillsAtSettle = tagList.vnode?.childNodes?.[0]?.childNodes?.length ?? 0
+            });
+
+            expect(VDomUpdate.mergedCallbackMap.get(host.id)?.children.has(tagList.id)).toBe(true);
+
+            // Before collection runs after the macrotask yield, the child moves to another window
+            tagList.windowId = 'vdom-moved-window';
+
+            await Promise.all([hostFlight, leafFlight]);
+
+            expect({
+                pills          : tagList.vnode?.childNodes?.[0]?.childNodes?.length ?? 0,
+                pillsAtSettle,
+                needsVdomUpdate: tagList.needsVdomUpdate,
+                leafSettled
+            }).toEqual({
+                pills          : 2,
+                pillsAtSettle  : 2,
+                needsVdomUpdate: false,
+                leafSettled    : 'resolved'
+            })
+        } finally {
+            tagList.isDestroyed || tagList.destroy();
+            host.isDestroyed    || host.destroy()
+        }
+    });
+
 });
