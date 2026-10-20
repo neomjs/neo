@@ -469,6 +469,38 @@ async function assertStageGeometryPublished(app, stageReceipt) {
 }
 
 /**
+ * @summary Reads main's own layout beside a stack return that aimed outside main: the ratios show
+ * a scaled page, the scroll widths a dock that overflows its viewport, and the aimed node's DOM
+ * rect where the page itself places it.
+ * @param {Object} app Neural Link app wrapper.
+ * @param {import('@playwright/test').Page} page The main page.
+ * @param {String|null} nodeId The aimed dock node id.
+ * @returns {Promise<Object>}
+ */
+async function readReturnLayout(app, page, nodeId) {
+    const found = nodeId ? await app.findInstances({dockNodeId: nodeId}, ['id', 'windowId']) : [],
+          nodes = Array.isArray(found) ? found : found ? [found] : [];
+
+    return page.evaluate(nodes => {
+        const scroll = el => el && {clientWidth: el.clientWidth, scrollLeft: el.scrollLeft, scrollWidth: el.scrollWidth},
+              vv     = window.visualViewport;
+
+        return {
+            body            : scroll(document.body),
+            devicePixelRatio: window.devicePixelRatio,
+            document        : scroll(document.documentElement),
+            inner           : {height: window.innerHeight, width: window.innerWidth},
+            nodes           : nodes.map(({id, windowId}) => {
+                const el = document.getElementById(id);
+
+                return {id, windowId, rect: el?.getBoundingClientRect().toJSON() ?? null, parent: scroll(el?.parentElement)}
+            }),
+            visualViewport  : vv && {offsetLeft: vv.offsetLeft, scale: vv.scale, width: vv.width}
+        }
+    }, nodes)
+}
+
+/**
  * @summary Resolves the one surviving semantic tear-out page after transient popup generations.
  * @param {import('@playwright/test').Page} page
  * @param {String} itemId
@@ -3162,8 +3194,13 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 throw new Error(JSON.stringify({error: error.message, root, sourceClosed: targetPopup.isClosed()}))
             });
 
+            const returnLayout = returnResult.errors?.length
+                ? await readReturnLayout(app, page, returnResult.proof?.aimed?.nodeId ?? null).catch(error => ({error: error.message}))
+                : null;
+
             expect(returnResult.errors, JSON.stringify({
                 aimed           : returnResult.proof?.aimed,
+                layout          : returnLayout,
                 sourceArm       : returnResult.proof?.sourceArm,
                 closeReceipt    : returnResult.proof?.closeReceipt,
                 phaseOrder      : returnResult.proof?.phaseOrder,
