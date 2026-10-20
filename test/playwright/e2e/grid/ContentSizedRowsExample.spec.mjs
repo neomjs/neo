@@ -818,6 +818,18 @@ test.describe('Content-sized rows example', () => {
             await expectRowsFitTheirText(page)
         });
 
+        test('10. the fixed-height control keeps the row under the top edge, switched off and on again', async ({page}) => {
+            // Mid-list, where content-sized offsets run far ahead of `index × rowHeight`
+            const reading = edgeRow(await scrollTo(page, 300000)).id;
+
+            await page.getByText('Content-sized rows', {exact: true}).click();
+            await expect.poll(async () => (await gridState(page)).extent, {message: 'the fixed extent'}).toBe((COUNT + 1) * ROW);
+            expect(edgeRow(await settle(page)).id, 'switched to fixed rows').toBe(reading);
+
+            await page.getByText('Content-sized rows', {exact: true}).click();
+            expect(edgeRow(await settle(page)).id, 'switched back to content-sized rows').toBe(reading)
+        });
+
         test('wheel throughput at ordinary and fast speeds', async ({page}) => {
             // The control: a view at rest has no arrivals
             await page.evaluate(grid => window.startSampling(grid, false), GRID);
