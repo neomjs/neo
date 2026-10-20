@@ -134,7 +134,15 @@ class Button extends BaseButton {
      */
     afterSetIsSorted(value, oldValue) {
         let me        = this,
-            container = me.up('table-container');
+            container = me.up('table-container'),
+            // WAI-ARIA 1.2 allows aria-sort on a columnheader only. In a table that is the <th> this button sits
+            // in, not the button itself, so the attribute cannot ride on changeVdomRootKey(): that one addresses
+            // getVdomRoot(), which this class points at the native button for the top level style attributes.
+            // The class change below rides in the same vdom update, so the write needs no update() of its own.
+            header    = me.vdom;
+
+        if (value) header['aria-sort'] = value === 'ASC' ? 'ascending' : 'descending';
+        else delete header['aria-sort'];
 
         switch (value) {
             case null:
@@ -413,6 +421,12 @@ class Button extends BaseButton {
     removeSortingCss() {
         let me    = this,
             {cls} = me;
+
+        // This path resets _isSorted directly, so it bypasses afterSetIsSorted() and owns the aria-sort clear.
+        // It cannot lean on the class change below either: a header that was already hidden writes the same
+        // cls array back and produces no update, which would leave the stale attribute in the DOM.
+        delete me.vdom['aria-sort'];
+        me.update();
 
         NeoArray.add(cls, 'neo-sort-hidden');
 

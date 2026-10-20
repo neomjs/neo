@@ -3,6 +3,6 @@
     "basePath"        : "../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["LocalStorage", "Markdown", "Stylesheet"],
+    "mainThreadAddons": ["LocalStorage", "Markdown", "Navigator", "Stylesheet"],
     "themes"          : ["neo-theme-dark", "neo-theme-light"]
 }

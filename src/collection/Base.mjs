@@ -891,7 +891,8 @@ class Collection extends Base {
     }
 
     /**
-     * @summary Applies the same predicate evaluation as getFilteredItems, then commits membership and events.
+     * @summary Applies the same predicate evaluation as getFilteredItems, re-applies the sorters, then commits membership
+     * and events.
      * @param {Boolean} [silent=false]
      * @protected
      */
@@ -901,7 +902,8 @@ class Collection extends Base {
             countAllFilters = filters.length,
             countFilters    = 0,
             i               = 0,
-            needsSorting    = false,
+            // `allItems` keeps the order it had when it was created, so either branch re-applies the sorters
+            needsSorting    = me.sorters.length > 0,
             oldItems        = me._items.slice(),
             config;
 
@@ -912,10 +914,6 @@ class Collection extends Base {
         }
 
         if (countFilters === 0 && me.allItems) {
-            if (me.sorters.length > 0) {
-                needsSorting = true
-            }
-
             // We cannot use clearSilent() here, since it would clear allItems as well
             me._items.splice(0, me.count);
             me.map.clear();

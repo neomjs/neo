@@ -1297,13 +1297,22 @@ class View extends Base {
      * Creates the {@link #rowGeometry} when {@link #contentSizedRows} is on, or retires it when it is off, and
      * hands it to the vertical scrollbar, the one extent consumer outside the bodies. Each body fires
      * `rowGeometryChange` before a switch after the first layout re-renders every row through
-     * {@link #refreshRowGeometry}, so a body plugin adapts first.
+     * {@link #refreshRowGeometry}, so a body plugin adapts first. The row at the scroll offset keeps its place: one
+     * mode measures its offset and the other counts it, so the switch scrolls by the difference, as a moved anchor
+     * row does in {@link #changeRowHeights}.
      * @protected
      */
     updateRowGeometry() {
-        let me              = this,
-            {gridContainer} = me,
-            scrollbar       = gridContainer.verticalScrollbar;
+        let me                       = this,
+            {gridContainer}          = me,
+            {rowHeight}              = gridContainer,
+            scrollbar                = gridContainer.verticalScrollbar,
+            {rowGeometry, scrollTop} = me,
+            anchor                   = rowGeometry ? rowGeometry.indexAt(scrollTop) : Math.floor(scrollTop / rowHeight),
+            offsetOf                 = geometry => geometry ? geometry.offsetAt(anchor) : anchor * rowHeight,
+            heightOf                 = geometry => geometry ? geometry.offsetAt(anchor + 1) - geometry.offsetAt(anchor) : rowHeight,
+            // How far into the anchor row the view starts, as a share of its height
+            inside                   = (scrollTop - offsetOf(rowGeometry)) / (heightOf(rowGeometry) || 1);
 
         if (me.contentSizedRows && !me.rowGeometry) {
             // A new geometry knows no heights: every mounted row is measured again
@@ -1333,7 +1342,18 @@ class View extends Base {
 
         me.bodies.forEach(body => body.fire('rowGeometryChange', {rowGeometry: me.rowGeometry}));
 
-        me.mounted && me.refreshRowGeometry(true)
+        if (me.mounted) {
+            let next       = me.rowGeometry,
+                correction = Math.round(offsetOf(next) + inside * heightOf(next)) - scrollTop;
+
+            if (correction !== 0) {
+                me.#scrollCorrection += correction;
+                me.#scrollEpoch++;
+                me.scrollTop = scrollTop + correction
+            }
+
+            me.refreshRowGeometry(true)
+        }
     }
 }
 

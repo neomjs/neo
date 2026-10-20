@@ -437,6 +437,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             dockItemIds        : ['audit', 'graph', 'inbox'],
             dockSourceNodeId   : 'tabs-main',
             dragComponent      : null,
+            isReleasedInside   : DockTabSortZone.prototype.isReleasedInside,
             isWindowDragging   : false,
             owner              : {up: () => ({fire: (name, data) => fired.push([name, data])})},
             releaseVoidsReorder: () => false,
@@ -465,7 +466,36 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             await runDragEnd(zone, {cancelled: false, clientX: 5000, clientY: 400});
 
             expect(fired.map(([name]) => name)).toEqual(['dockTearOutTerminal']);
-            expect(fired[0][1]).toEqual({itemId: 'graph', sortZone: zone, sourceNodeId: 'tabs-main'})
+            expect(fired[0][1], 'the release point rides along for the host\'s divergence check').toEqual({clientX: 5000, clientY: 400, itemId: 'graph', sortZone: zone, sourceNodeId: 'tabs-main'})
+        });
+
+        test('released DETACHED over its own window re-enters and drops where the in-window preview showed', async () => {
+            const fired = [];
+            const zone  = zoneFor(fired, {
+                boundaryContainerRect: {height: 800, width: 1280, x: 0, y: 0},
+                fire                 : (name, data) => fired.push([name, data]),
+                isWindowDragging     : true
+            });
+
+            // the recording's release: the vessel rode the hand back over main's right column, short of
+            // the reattach overlap, and main painted an accepted preview under the pointer
+            await runDragEnd(zone, {cancelled: false, clientX: 1210, clientY: 200});
+
+            expect(fired.map(([name]) => name), 'the re-entry retires the vessel before the drop').toEqual(['dragBoundaryEntry', 'dockCrossZoneDrop']);
+            expect(fired[1][1]).toEqual({clientX: 1210, clientY: 200, itemId: 'graph', sourceNodeId: 'tabs-main'})
+        });
+
+        test('released DETACHED just outside its window still detaches', async () => {
+            const fired = [];
+            const zone  = zoneFor(fired, {
+                boundaryContainerRect: {height: 800, width: 1280, x: 0, y: 0},
+                fire                 : (name, data) => fired.push([name, data]),
+                isWindowDragging     : true
+            });
+
+            await runDragEnd(zone, {cancelled: false, clientX: 1281, clientY: 200});
+
+            expect(fired.map(([name]) => name)).toEqual(['dockTearOutTerminal'])
         });
 
         test('cancelled while DETACHED retires the vessel before generic cleanup clears the detached fact', async () => {

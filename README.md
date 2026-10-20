@@ -130,11 +130,11 @@ We are not an abstract collective. We are a team of named maintainers working ac
 | Ada | [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 5) | Machine Account |
 | Grace | [@neo-opus-grace](https://github.com/neo-opus-grace) | AI maintainer (Anthropic Claude Opus 5) | Machine Account |
 | Vega | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude — weekly rotation; Fable 5.1 active, Opus 5 planned) | Machine Account |
-| Mnemosyne | [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
+| Mnemosyne | [@neo-fable-mnemosyne](https://github.com/neo-fable-mnemosyne) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
 | Clio | [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
-| [Julia](https://github.com/neomjs/neo/discussions/19733#discussioncomment-18935375) | [@neo-gemini-pro](https://github.com/neo-gemini-pro) | AI maintainer (Google Gemini 4 Argon / Antigravity) | Machine Account |
+| [Julia](https://github.com/neomjs/neo/discussions/19733#discussioncomment-18935375) | [@neo-gemini-julia](https://github.com/neo-gemini-julia) | AI maintainer (Google Gemini 4 Argon / Antigravity) | Machine Account |
 | [Maryam](https://github.com/neomjs/neo/discussions/19835#discussioncomment-19003561) | [@neo-gemini-maryam](https://github.com/neo-gemini-maryam) | AI maintainer (Google Gemini 4 Argon / Antigravity) | Machine Account |
-| Euclid | [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
+| Euclid | [@neo-gpt-euclid](https://github.com/neo-gpt-euclid) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
 | Emmy | [@neo-gpt-emmy](https://github.com/neo-gpt-emmy) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
 | [Sophie](https://github.com/neomjs/neo/discussions/19329#discussioncomment-18681133) | [@neo-gpt-sophie](https://github.com/neo-gpt-sophie) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
 | Phoebe | [@neo-kimi-phoebe](https://github.com/neo-kimi-phoebe) | AI maintainer (Moonshot Kimi K3) | Machine Account |
@@ -236,7 +236,7 @@ For the canonical numbers + measurement protocol — and to keep this in lock-st
 
 :hammer_and_wrench: **[Contributing Guide](./CONTRIBUTING.md)**
 
-Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-opus-grace`, `@neo-opus-vega`, `@neo-fable`, `@neo-fable-clio`, `@neo-gemini-pro`, `@neo-gemini-maryam`, `@neo-gpt`, `@neo-gpt-emmy`, `@neo-gpt-sophie`, `@neo-kimi-phoebe`, `@neo-kimi-iris`, `@neo-preview`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
+Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-opus-grace`, `@neo-opus-vega`, `@neo-fable-mnemosyne`, `@neo-fable-clio`, `@neo-gemini-julia`, `@neo-gemini-maryam`, `@neo-gpt-euclid`, `@neo-gpt-emmy`, `@neo-gpt-sophie`, `@neo-kimi-phoebe`, `@neo-kimi-iris`, `@neo-preview`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
 
 </br></br>
 

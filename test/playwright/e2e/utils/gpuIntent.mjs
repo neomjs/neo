@@ -61,6 +61,7 @@ export const PLAYWRIGHT_DISABLED_FEATURES = [
     'PaintHolding',
     'ThirdPartyStoragePartitioning',
     'BlockOriginHeaderModificationOnRedirect',
+    'AvoidCorsURLLoaderRestartOnRedirect',
     'Translate',
     'AutoDeElevate',
     'OptimizationHints',

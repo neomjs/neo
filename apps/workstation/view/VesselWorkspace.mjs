@@ -341,6 +341,19 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
+     * @summary The engine's tear-out terminal, after this window reports a release over its own accepted
+     * preview ({@link Neo.dashboard.dock.interaction.DragAffordances#reportTearOut}).
+     * @param {Object} data The `dockTearOutTerminal` payload.
+     * @returns {Boolean|Promise<Boolean>} The engine terminal's result.
+     * @protected
+     */
+    onDockTearOutTerminal(data) {
+        this.dragAffordances?.reportTearOut(data);
+
+        return this.tearOutHandlers.onDockTearOutTerminal(data)
+    }
+
+    /**
      * @summary Routes header-action pop-out through Workstation's augmented exit policy.
      * @param {Object} data
      * @returns {Promise<Boolean>}
@@ -442,6 +455,7 @@ class VesselWorkspace extends DockWorkspace {
             onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),
             onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data),
             onDockTearOutExit        : data => me.onDockTearOutExit(data),
+            onDockTearOutTerminal    : data => me.onDockTearOutTerminal(data),
             workspaceId              : VesselWorkspace.MAIN_WORKSPACE_ID
         }
     }
@@ -1498,9 +1512,28 @@ class VesselWorkspace extends DockWorkspace {
         if (windowId) {
             Neo.manager.DragCoordinator?.clearNativeWindowDropCandidate(windowId, {restoreSource: false});
             Neo.manager.DragCoordinator?.endNativeGesture(windowId);
-            me.vesselProxyEmbodiment.restoreByWindow(windowId)
+            me.vesselProxyEmbodiment.restoreByWindow(windowId);
+            me.retireReleasedPark(data)
         }
         return super.onNativeWindowRelease(data)
+    }
+
+    /**
+     * @summary A released vessel takes its native park with it. The coordinator's committed terminal
+     * disposes a park, and the candidate this release cleared never reaches it, so a slot left behind
+     * would refuse every later titlebar drop.
+     * @param {Object} data
+     * @param {String} data.windowId
+     * @param {String} [data.workspaceKey]
+     * @protected
+     */
+    retireReleasedPark({windowId, workspaceKey}) {
+        const park   = this.nativeVesselParkHandlers,
+              itemId = (park?.transition?.vessel ?? park?.parkedVessel)?.itemId;
+
+        if (itemId && (workspaceKey === VesselWorkspace.vesselWorkspaceId(itemId) || this.resolveTearOutVessel(itemId)?.windowId === windowId)) {
+            park.onVesselRetired({itemId, retirement: true})
+        }
     }
 
     /**

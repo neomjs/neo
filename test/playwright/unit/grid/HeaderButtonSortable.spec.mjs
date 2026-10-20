@@ -5,8 +5,12 @@
  * `afterSetSortable(false)` hides the sort glyph. A click used to cycle `isSorted` anyway, which showed the glyph and,
  * inside a container, sorted the Store by the column's `dataField`.
  *
+ * A sorted header also has to announce its direction: the arrow is a CSS class, which a screen reader cannot see.
+ *
  * @see Neo.grid.header.Button#onClick
  * @see Neo.table.header.Button#onClick
+ * @see Neo.grid.header.Button#afterSetIsSorted
+ * @see Neo.table.header.Button#afterSetIsSorted
  */
 import {setup} from '../../setup.mjs';
 
@@ -46,6 +50,35 @@ test.describe('Header buttons and sortable', () => {
             expect(button.isSorted).toBe('ASC');
             expect(button.cls).not.toContain('neo-sort-hidden');
             expect(handled).toBe(2);
+
+            button.destroy()
+        })
+    }
+
+    for (const [name, HeaderButton] of [['grid', GridHeaderButton], ['table', TableHeaderButton]]) {
+        test(`a ${name} header: the sort direction is announced through aria-sort, and an unsorted one announces none`, () => {
+            const button = Neo.create(HeaderButton, {
+                dataField      : 'index',
+                sortable       : true,
+                useRippleEffect: false
+            });
+
+            // aria-sort is valid on a columnheader only: the grid button *is* one, while a table header is the <th>
+            const columnHeader = () => name === 'grid' ? button.getVdomRoot() : button.vdom;
+
+            expect(columnHeader()['aria-sort']).toBeUndefined();
+
+            button.isSorted = 'ASC';
+            expect(columnHeader()['aria-sort']).toBe('ascending');
+
+            button.isSorted = 'DESC';
+            expect(columnHeader()['aria-sort']).toBe('descending');
+
+            // removeSortingCss() resets _isSorted directly, so it has to clear the attribute on its own
+            button.removeSortingCss();
+
+            expect(columnHeader()['aria-sort']).toBeUndefined();
+            expect(button.isSorted).toBeNull();
 
             button.destroy()
         })
