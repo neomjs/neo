@@ -1,6 +1,11 @@
 // The wrapper's own geometry is the header button's (grid/header/Button.scss)
 .neo-grid-menu-wrapper {
     > .neo-grid-menu-trigger {
+        // The arrow is button text: colour it like the header's own glyphs (the sort icons)
+        --button-text-color       : var(--grid-header-button-glyph-color);
+        --button-text-color-active: var(--grid-header-button-glyph-color-hover);
+        --button-text-color-hover : var(--grid-header-button-glyph-color-hover);
+
         background : transparent;
         border     : 0;
         bottom     : 3px;
