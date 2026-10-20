@@ -550,8 +550,9 @@ class Button extends BaseButton {
         let me    = this,
             {cls} = me;
 
-        // This path resets _isSorted directly, so it bypasses afterSetIsSorted() and owns the aria-sort clear
-        me.changeVdomRootKey('aria-sort', null);
+        // This path resets _isSorted directly, so it bypasses afterSetIsSorted() and owns the aria-sort clear. The
+        // container runs it on every other header on each sort, and only the one losing its sort carries the attribute
+        'aria-sort' in me.getVdomRoot() && me.changeVdomRootKey('aria-sort', null);
 
         NeoArray.add(cls, 'neo-sort-hidden');
 
