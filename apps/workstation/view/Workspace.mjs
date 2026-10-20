@@ -313,13 +313,16 @@ class Workspace extends VesselWorkspace {
     }
 
     /**
-     * The current projection shell's instance id — the discriminator between the reconciler's
-     * stable-topology fast path (shell retained) and the staged full path (shell replaced).
-     * Pane instances AND their DOM survive either path; only the shell identity flips.
+     * @summary The live projection shell's instance id: during a staged projection's visibility swap,
+     * the incoming shell's ({@link Neo.dashboard.dock.projection.Reconciler#liveShell}).
+     *
+     * The discriminator between the reconciler's stable-topology fast path (shell retained) and the
+     * staged full path (shell replaced). Pane instances AND their DOM survive either path; only the
+     * shell identity flips.
      * @returns {String|null}
      */
     getShellIdentity() {
-        return this.getReference('dock-host')?.items?.[0]?.id ?? null
+        return DockProjectionReconciler.liveShell(this.getDockHost(), this.dockShellIndex)?.id ?? null
     }
 
     /**
@@ -505,13 +508,14 @@ class Workspace extends VesselWorkspace {
     }
 
     /**
-     * @summary Returns a serializable identity receipt for one live logical tab surface.
+     * @summary Returns a serializable identity receipt for one live logical tab surface. During a staged
+     * projection's visibility swap it reads the incoming shell, which by then holds the projected tabs.
      * @param {String} nodeId
      * @returns {Object|null}
      */
     getTabChromeIdentity(nodeId) {
         const
-            shell = this.getReference('dock-host')?.items[0],
+            shell = DockProjectionReconciler.liveShell(this.getDockHost(), this.dockShellIndex),
             tab   = DockProjectionReconciler.collectProjectedTabs(shell).get(nodeId);
 
         if (!tab) return null;
