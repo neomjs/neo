@@ -180,7 +180,7 @@ class Component extends BaseComponent {
             userImage: currentUser?.image || null
         });
 
-        VDomUtil.getByFlag(me.vdom, 'comments-section').cn.unshift(me.createCommentComponent.vdom);
+        VDomUtil.getByFlag(me.vdom, 'comments-section').cn.unshift(me.createCommentComponent.createVdomReference());
         me.update();
 
         super.onConstructed();

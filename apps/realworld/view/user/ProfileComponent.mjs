@@ -220,7 +220,7 @@ class ProfileComponent extends Component {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetMyProfile(value, oldValue) {console.log('afterSetMyProfile', value);
+    afterSetMyProfile(value, oldValue) {
         if (Neo.isBoolean(oldValue)) {
             let vdom = this.vdom;
 
@@ -256,7 +256,7 @@ class ProfileComponent extends Component {
     /**
      * @param {Object} value
      */
-    onCurrentUserChange(value) {console.log('onCurrentUserChange', value);
+    onCurrentUserChange(value) {
         this.myProfile = this.username === value?.username;
     }
 

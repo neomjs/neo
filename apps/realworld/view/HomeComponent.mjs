@@ -134,7 +134,7 @@ class HomeComponent extends Component {
             }
         });
 
-        me.vdom.cn[1].cn[0].cn.push(me.tagList.vdom);
+        me.vdom.cn[1].cn[0].cn.push(me.tagList.createVdomReference());
         me.update();
     }
 
@@ -280,7 +280,7 @@ class HomeComponent extends Component {
                 id : me.id + '__nav-item_' + index,
                 cn : [{
                     tag : 'a',
-                    cls : cls,
+                    cls,
                     href: '',
                     text: item.name,
                     id  : me.id + '__nav-item-link_' + index,
@@ -313,8 +313,6 @@ class HomeComponent extends Component {
     afterSetPageSize(value, oldValue) {
         let me = this,
             i  = 0;
-
-        console.log('afterSetPageSize', value);
 
         for (; i < value; i++) {
 
