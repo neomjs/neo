@@ -234,6 +234,16 @@ test.describe('Neo.list.ValuePicker', () => {
         expect(list.focusIndex).toBeNull()
     });
 
+    test('a single match is announced as "1 match"; other counts keep "matches"', async () => {
+        await createList({}, data(3));
+
+        expect(rows(list).map(node => node['aria-label'])).toEqual([
+            'Value 0, 0 matches',
+            'Value 1, 1 match',
+            'Value 2, 2 matches'
+        ])
+    });
+
     test('500 count edits render mounted counts without admission; label edits coalesce once', async () => {
         const store    = await createList();
         const original = list.refreshOptions;
