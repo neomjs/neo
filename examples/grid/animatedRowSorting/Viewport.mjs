@@ -78,10 +78,13 @@ class Viewport extends BaseViewport {
     }
 
     /**
+     * Each body owns its AnimateRows plugin, the locked Id body included, so every body takes the new duration
      * @param {Object} data
      */
     onTransitionDurationFieldChange(data) {
-        this.getReference('grid').view.getPlugin('grid-animate-rows').transitionDuration = data.value
+        this.getReference('grid').view.bodies.forEach(body => {
+            body.getPlugin('grid-animate-rows').transitionDuration = data.value
+        })
     }
 }
 

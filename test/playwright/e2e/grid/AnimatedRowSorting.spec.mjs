@@ -3,7 +3,7 @@ import {expect, test} from '../../fixtures.mjs';
 /**
  * @summary `examples/grid/animatedRowSorting`: a header sort and a filter move each row to its record's new offset
  * through a transition, the locked Id column's rows move with them, and outside that window the rows carry no
- * transition, so scrolling never animates.
+ * transition, so scrolling never animates. The example's Transition Duration field sets that transition on every body.
  *
  * The body's rows are a fixed pool whose slots take new records
  * (`learn/guides/datahandling/PooledGridAnimation.md`), so the spec follows a record by its Firstname cell, never
@@ -180,5 +180,51 @@ test.describe('grid: AnimateRows on the pooled body', () => {
         await page.locator('.neo-grid-header-button', {hasText: /^\s*Lastname\s*$/}).click();
         await expectSettled(page, ['Sam', 'Carol', 'Max', 'Amanda', 'Sarah', 'Paul', 'William'], rowHeight);
         await expect.poll(async () => (await displayedRows(page)).map(row => row.transitions)).toEqual(Array(7).fill('0s'))
+    });
+
+    test('the Transition Duration field sets every body\'s duration, and a sort moves both bodies with it', async ({page}) => {
+        await openExample(page);
+
+        const before    = await displayedRows(page),
+              rowHeight = before[1].offset - before[0].offset;
+
+        // 500 ms, three steps of 100 up
+        for (let step = 0; step < 3; step++) {
+            await page.locator('.neo-spin-button.neo-up').click()
+        }
+
+        await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('.neo-grid-body')]
+            .map(body => getComputedStyle(body).getPropertyValue('--neo-duration').trim()))).toEqual(['800ms', '800ms']);
+
+        // Per body, every transition duration its rows carry while the sort runs
+        await page.evaluate(() => {
+            window.__durations = [];
+            window.__sampling  = true;
+
+            const read = () => {
+                document.querySelectorAll('.neo-grid-body').forEach((body, index) => {
+                    const seen = window.__durations[index] ??= [];
+
+                    body.querySelectorAll('.neo-grid-row').forEach(row => {
+                        const {transitionDuration} = getComputedStyle(row);
+                        transitionDuration !== '0s' && !seen.includes(transitionDuration) && seen.push(transitionDuration)
+                    })
+                });
+
+                window.__sampling && requestAnimationFrame(read)
+            };
+
+            requestAnimationFrame(read)
+        });
+
+        await page.locator('.neo-grid-header-button', {hasText: /^\s*Firstname\s*$/}).click();
+        await expectSettled(page, ['Amanda', 'Carol', 'Max', 'Paul', 'Sam', 'Sarah', 'William'], rowHeight);
+
+        const durations = await page.evaluate(() => {
+            window.__sampling = false;
+            return window.__durations
+        });
+
+        expect(durations, 'the locked and the center body').toEqual([['0.8s, 0.8s, 0.8s'], ['0.8s, 0.8s, 0.8s']])
     })
 });
