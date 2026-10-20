@@ -550,9 +550,11 @@ class Worker extends Base {
     }
 
     /**
-     * Only relevant for SharedWorkers
+     * Only relevant for SharedWorkers. A disconnect naming an app retires the port once its last app left; one naming
+     * none is the whole window's, sent when it unloads before learning any app name, and retires the port whatever
+     * apps this worker registered on it.
      * @param {Object} data
-     * @param {String} data.appName
+     * @param {String} [data.appName]
      * @param {String} data.windowId
      * @param {Object} [sourcePort]
      */
@@ -570,7 +572,7 @@ class Worker extends Base {
             return
         }
 
-        if (sourcePort?.appNames instanceof Set) {
+        if (appName && sourcePort?.appNames instanceof Set) {
             sourcePort.appNames.delete(appName);
             sourcePort.appNames.size || me.removePort(sourcePort)
         } else if (sourcePort) {

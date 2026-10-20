@@ -476,15 +476,22 @@ class DomEvents extends Base {
     }
 
     /**
-     * Only in use if Neo.config.useSharedWorkers = true
+     * Only in use if Neo.config.useSharedWorkers = true. Disconnects each app this window knows of; a window that knows
+     * none yet — it unloads before its first `registerAppName` arrives, while the workers already hold its port —
+     * disconnects as a whole.
      * @param {Object} event
      */
     onBeforeUnload(event) {
-        let {Manager} = Neo.worker;
+        let {Manager}            = Neo.worker,
+            {appNames, windowId} = Manager;
 
-        Manager.appNames.forEach(appName => {
-            Manager.broadcast({action: 'disconnect', appName, windowId: Manager.windowId})
-        })
+        if (appNames.length) {
+            appNames.forEach(appName => {
+                Manager.broadcast({action: 'disconnect', appName, windowId})
+            })
+        } else {
+            Manager.broadcast({action: 'disconnect', windowId})
+        }
     }
 
     /**

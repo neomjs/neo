@@ -889,15 +889,24 @@ class App extends Base {
      * SharedWorkers; the topology admission runs for both worker types — this is the first moment the
      * window has a live app, and the window's config carries the identity its carrier presented. The
      * manager is loaded by the first multi-window participant, never here: an app that loaded none is
-     * admitted by the manager's own sweep the moment one does.
+     * admitted by the manager's own sweep the moment one does. The app module imports asynchronously, so a
+     * SharedWorker can see the registration after the window's port retired: that window is gone, and its app
+     * registers nothing — a binding admitted for it would hold its slot with no disconnect left to release it.
      * @param {String} appName
      * @param {String} windowId
      */
     registerApp(appName, windowId) {
+        let me   = this,
+            port = me.getPort({windowId});
+
+        if (me.isSharedWorker && !port) {
+            return
+        }
+
         // register the name as fast as possible
-        this.onRegisterApp({appName}, this.getPort({windowId}));
+        me.onRegisterApp({appName}, port);
         Neo.manager.Transaction?.admit({topologyIdentity: Neo.windowConfigs?.[windowId]?.topologyIdentity, windowId});
-        this.sendMessage(windowId, {action: 'registerAppName', appName})
+        me.sendMessage(windowId, {action: 'registerAppName', appName})
     }
 
     /**
