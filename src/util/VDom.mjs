@@ -448,7 +448,7 @@ class VDom extends Base {
             }
 
             if (childNodes) {
-                cn  = childNodes.map(item => VDom.getVdom(item));
+                cn  = childNodes.map(item => item && VDom.getVdom(item));
                 // The vnode.childNodes array is already filtered by the worker.
                 // We must filter the component's vdom.cn array identically to ensure
                 // both arrays are structurally aligned for the sync loop.

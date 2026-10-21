@@ -124,6 +124,54 @@ test.describe('VdomLifecycle State', () => {
         comp.destroy();
     });
 });
+/**
+ * @summary A missing child in `vdom.cn` (a hole, `null`, `undefined` or `false`) renders nothing, the way the vdom worker
+ * skips it. Reading the first three as a node threw: a component holding one from the start never got a vnode and its
+ * later updates hung, and one that gained it after rendering rejected the update and kept its old children.
+ */
+test.describe('A missing child in vdom.cn', () => {
+    const leaveMissingChild = {
+        hole     : cn => {cn[1] = cn[0]; delete cn[0]},
+        null     : cn => {cn.unshift(null)},
+        undefined: cn => {cn.unshift(undefined)},
+        false    : cn => {cn.unshift(false)}
+    };
+
+    let comp;
+
+    test.afterEach(() => {
+        comp?.destroy();
+        comp = null
+    });
+
+    Object.entries(leaveMissingChild).forEach(([kind, leaveMissing]) => {
+        test(`a missing child (${kind}) present before the first render`, async () => {
+            comp = Neo.create(Component, {appName, vdom: {cn: [{tag: 'span', text: 'tags'}]}});
+            leaveMissing(comp.vdom.cn);
+
+            await comp.initVnode();
+            comp.mounted = true;
+
+            comp.vdom.cn.at(-1).text = 'more tags';
+            await comp.promiseUpdate();
+
+            expect(comp.vnode.childNodes.map(node => node.textContent)).toEqual(['more tags'])
+        });
+
+        test(`a missing child (${kind}) arriving after a dense first render`, async () => {
+            comp = Neo.create(Component, {appName, vdom: {cn: [{tag: 'span', text: 'tags'}]}});
+
+            await comp.initVnode();
+            comp.mounted = true;
+
+            leaveMissing(comp.vdom.cn);
+            comp.vdom.cn.at(-1).text = 'more tags';
+            await comp.promiseUpdate();
+
+            expect(comp.vnode.childNodes.map(node => node.textContent)).toEqual(['more tags'])
+        })
+    })
+});
 /** @summary Settlement failures release their own work while preserving acknowledged peers and newer flights. */
 test.describe('VDOM settlement exceptions', () => {
     let root, peer, child, gates, flights, extra, logged, run = 0;
