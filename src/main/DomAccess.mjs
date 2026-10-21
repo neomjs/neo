@@ -359,10 +359,17 @@ class DomAccess extends Base {
      * cannot tie an async worker→main programmatic focus back to the originating pointer gesture, so the caller
      * states it. Undefined preserves user-agent behavior.
      * @param {Boolean} [data.preventScroll=false]
+     * @param {String}  [data.unlessFocusWithin] The id of a container whose current focus wins: while focus sits
+     * inside it, the call leaves focus where it is. A worker decides focus one round trip late, so a choice the user
+     * made in between, such as a picked list item, would otherwise be taken back.
      * @returns {Object} obj.id => the passed id
      */
-    focus({children, id, modality, preventScroll}) {
+    focus({children, id, modality, preventScroll, unlessFocusWithin}) {
         let node = this.getElement(id);
+
+        if (unlessFocusWithin && this.getElement(unlessFocusWithin)?.contains(document.activeElement)) {
+            return {id}
+        }
 
         if (node) {
             // The children property means focus inner elements if possible.

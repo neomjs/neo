@@ -195,11 +195,13 @@ class Menu extends Plugin {
         me.surface = Neo.create(Container, {
             appName : owner.appName, windowId: owner.windowId, parentComponent: owner,
             parentId: 'document.body', floating: true, hidden: true, width: 320,
-            cls     : ['neo-grid-column-menu'], role: 'dialog',
-            align   : {edgeAlign: 't0-b0', axisLock: true, target: owner.id},
-            layout  : {ntype: 'vbox', align: 'stretch'},
-            vdom    : {'aria-label': `Filter ${owner.text || owner.dataField}`},
-            items   : [
+            // open() owns the initial focus, so it can yield to a value picked before it lands
+            focusOnMount: false,
+            cls         : ['neo-grid-column-menu'], role: 'dialog',
+            align       : {edgeAlign: 't0-b0', axisLock: true, target: owner.id},
+            layout      : {ntype: 'vbox', align: 'stretch'},
+            vdom        : {'aria-label': `Filter ${owner.text || owner.dataField}`},
+            items       : [
                 {module: Text, labelText: 'Search values', labelPosition: 'top', reference: 'search',
                     listeners: {change: ({value}) => {me.valuePicker.searchValue = value || ''}}},
                 {module: ValuePicker, reference: 'values', store: me.optionsStore,
@@ -216,6 +218,9 @@ class Menu extends Plugin {
 
     /**
      * @summary Opens the same surface from pointer, touch or keyboard and reads fresh authoritative state.
+     *
+     * The search field takes focus one round trip after the surface shows, so a value picked in between keeps focus:
+     * the main thread skips the search focus while focus already sits inside the surface.
      * @returns {Promise}
      */
     async open() {
@@ -227,7 +232,10 @@ class Menu extends Plugin {
         this.refreshOptions();
         this.surface.hidden = false;
         await this.surface.promiseUpdate();
-        if (!this.isDestroyed && serial === this.#openSerial && !this.surface.hidden) this.surface.getItem('search').focus()
+        if (!this.isDestroyed && serial === this.#openSerial && !this.surface.hidden) {
+            const {surface} = this;
+            Neo.main.DomAccess.focus({id: surface.getItem('search').getInputElId(), unlessFocusWithin: surface.id, windowId: surface.windowId})
+        }
     }
 
     /** @summary Dismisses the complete island and restores native header focus. */

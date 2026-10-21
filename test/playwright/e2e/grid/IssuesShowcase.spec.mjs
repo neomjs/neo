@@ -299,6 +299,45 @@ test.describe('Grid issues showcase', () => {
 
         await trigger.focus();
         await expect.poll(read).toEqual({aligned: true, scrolled: true, synced: true})
+    });
+
+    test('a value picked before the menu\'s search focus lands keeps its focus (#19961)', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              option  = menu.locator('[role="option"]').filter({hasText: 'Closed'}),
+              open    = async () => {
+                  await wrapper.hover();
+                  await wrapper.locator('.neo-grid-menu-trigger').click();
+                  await expect(option).toBeVisible()
+              };
+
+        // Without a pick, the search field takes focus
+        await open();
+        await expect(menu.getByLabel('Search values')).toBeFocused();
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
+
+        // Hold the menu's focus calls on the main thread, so the pick lands first, as it does behind a busy worker
+        await page.evaluate(() => {
+            const DomAccess = Neo.main.DomAccess, focus = DomAccess.focus;
+            window.heldFocus = [];
+            DomAccess.focus = function(data) {
+                if (document.getElementById(data.id)?.closest('.neo-grid-column-menu')) {
+                    return new Promise(resolve => window.heldFocus.push(() => resolve(focus.call(this, data))))
+                }
+                return focus.call(this, data)
+            }
+        });
+
+        await open();
+        await option.click();
+        await expect(menu.locator('.neo-navigator-active-item')).toHaveText(/Closed/);
+        await expect.poll(() => page.evaluate(() => window.heldFocus.length)).toBeGreaterThan(0);
+
+        // A release runs the held focus synchronously, so what follows reads the state after it landed
+        await page.evaluate(() => window.heldFocus.forEach(release => release()));
+        await expect(menu.getByLabel('Search values')).not.toBeFocused();
+        await expect(menu.locator('.neo-navigator-active-item')).toHaveText(/Closed/)
     })
 });
 
