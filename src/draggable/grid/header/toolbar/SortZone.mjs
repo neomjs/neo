@@ -431,7 +431,7 @@ class SortZone extends BaseSortZone {
             column.locked = newLocked
         } else {
             owner.items.forEach((item, index) => {
-                item.vdom['aria-colindex'] = index + 1 // 1 based
+                item.getVdomRoot()['aria-colindex'] = index + 1 // 1 based
             });
 
             owner.updateDepth = 2;
@@ -484,6 +484,8 @@ class SortZone extends BaseSortZone {
      * @param {Object} data
      */
     async onDragStart(data) {
+        if ([...(data.targetPath || []), ...data.path].some(node => node.cls?.includes('neo-grid-menu-trigger'))) return;
+
         let me = this;
 
         // Avoid conflicts with grid.header.plugin.Resizable

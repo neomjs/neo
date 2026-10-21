@@ -4,17 +4,18 @@ import {fiveBeatFilmScript}                      from '../../../../apps/workstat
 
 /**
  * @summary The flagship film plays from the Workstation's own toolbar: **Start film tour** runs the
- * nine scenes, each window scene waits at a gate until the viewer clicks **Continue** (the user
+ * all scenes, each window scene waits at a gate until the viewer clicks **Continue** (the user
  * activation its first `window.open` needs; the journey's later births inside the same held drag
  * rest on the site's pop-up permission, which Playwright grants by launch flag), and the tour's
  * receipt carries one settled cue per beat —
  * tear-out born mid-gesture, the journey's three vessels born and retired under one pointer-down
  * and its drop into the first vessel, the stack returned home, a perspective restored, one
- * mutation undone and redone.
+ * mutation undone and redone, and the arrangement saved during the journey restored across windows:
+ * its window born again around both panes and brought home.
  *
  * The gestures themselves are the five-beat witness's authority
  * (`WorkstationFiveBeatNL.spec.mjs`); this spec witnesses that the screenplay drives them from a
- * button, through gates, and that the windows it opens are all closed again by the signature.
+ * button, through gates, and that every earlier window closes while the signature keeps the matrix's.
  */
 
 const
@@ -92,7 +93,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
      * gate continued the expected way, and each window effect proven by its own receipt.
      * @param {Object} receipt The settled tour receipt.
      * @param {Object} options
-     * @param {String} options.continued `'viewer'` or `'auto'` — how the two gates settled.
+     * @param {String} options.continued `'viewer'` or `'auto'` — how the gates settled.
      * @param {String[]} options.pageErrors
      */
     function assertFilmReceipt(receipt, {continued, pageErrors}) {
@@ -107,10 +108,10 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(receipt.scriptId).toBe(fiveBeatFilmScript.id);
         expect(receipt.log).toHaveLength(fiveBeatFilmScript.scenes.flatMap(scene => scene.steps).length);
 
-        // one settled receipt per cue, in screenplay order; two gates, each settled the same way
+        // one settled receipt per cue, in screenplay order; four gates, each settled the same way
         expect(receipt.cueReceipts.map(entry => entry.cue.type)).toEqual(filmCues);
         expect(receipt.cueReceipts.filter(entry => entry.cue.type === 'gate').map(entry => entry.receipt.continued))
-            .toEqual([continued, continued, continued]);
+            .toEqual([continued, continued, continued, continued]);
 
         const byType = type => receipt.cueReceipts.filter(entry => entry.cue.type === type).map(entry => entry.receipt);
 
@@ -176,11 +177,13 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
             expect(drive.proof?.sizesAfter?.[1]).toBeCloseTo(requested[1], 2)
         }
 
-        // scene 9 — capture, restore, undo, redo, each with the membership it produced
-        const [capture] = byType('perspective-capture'),
-              [restore] = byType('perspective-restore'),
-              [undo]    = byType('undo'),
-              [redo]    = byType('redo');
+        // scene 8 — capture, restore, undo, redo, each with the membership it produced; the two
+        // perspective cues are found by name, since the journey captures the cross-window one first
+        const byName  = (type, name) => byType(type).find(entry => entry.name === name),
+              capture = byName('perspective-capture', 'film-baseline'),
+              restore = byName('perspective-restore', 'film-baseline'),
+              [undo]  = byType('undo'),
+              [redo]  = byType('redo');
 
         expect(capture.applied).toBe(true);
         expect(restore.applied, 'the perspective must restore the captured arrangement').toBe(true);
@@ -191,6 +194,42 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(undo.tabs['scale-tabs']).not.toContain('security');
         expect(redo.applied).toBe(true);
         expect(redo.tabs['scale-tabs']).toContain('security');
+
+        // scene 9 — the arrangement saved while Metrics' window held both panes comes back: the
+        // restore returns them to the closed window's workspace, the open births that window again,
+        // and its stack grip returns both panes before the empty window retires
+        const acrossCapture  = byName('perspective-capture', 'film-two-windows'),
+              acrossRestore  = byName('perspective-restore', 'film-two-windows'),
+              [reborn]       = byType('workspace-open'),
+              [returnedHome] = byType('stack-return'),
+              roomItems      = Object.values(acrossRestore.tabs).flat();
+
+        expect(acrossCapture, 'the two-window arrangement is captured at the end of the journey').toMatchObject({applied: true, stored: true});
+        expect(acrossRestore.applied, 'the restore applies the two-window arrangement').toBe(true);
+        expect(roomItems, 'the restore takes Metrics out of the room').not.toContain('metrics');
+        expect(roomItems, 'and Commits with it').not.toContain('commits');
+        expect(reborn, 'the window is born again around them').toEqual({applied: true, errors: [], workspaceKey: 'workstation-vessel:metrics'});
+        expect(returnedHome, 'dragging the re-born stack returns both panes and closes its emptied window')
+            .toMatchObject({applied: true, errors: [], proof: {
+                sourceWindowGone: true,
+                sourceItemIds   : expect.arrayContaining(['metrics', 'commits']),
+                phaseOrder      : ['documents-adopted', 'projections-settled', 'close-dispatched', 'close-acknowledged'],
+                transfer        : {descriptor: {operation: 'transferNode'}, topologyExited: true}
+            }});
+        expect(returnedHome.proof.sourceItemIds, 'the restored stack carries exactly the two captured panes').toHaveLength(2);
+        for (const itemId of ['metrics', 'commits']) {
+            expect(returnedHome.proof.mainDocument.items, `${itemId} belongs to main after the stack return`).toHaveProperty(itemId)
+        }
+
+        const currentCapture = byName('perspective-capture', 'film-before-cross-window'),
+              currentRestore = byName('perspective-restore', 'film-before-cross-window');
+
+        expect(currentCapture, 'the later room arrangement is retained before demonstrating the earlier topology')
+            .toMatchObject({applied: true, stored: true});
+        expect(currentRestore, 'the room resumes only after the restored stack returned and its window closed')
+            .toMatchObject({applied: true, errors: []});
+        expect(currentRestore.tabs['scale-tabs'], 'Security stays beside Scale so the final tear-out cannot prune their group')
+            .toEqual(expect.arrayContaining(['scale', 'security']));
 
         // the close: the matrix leaves the room in a window of its own, that window grows beside the
         // room through its owner-granted resize route, one flick's momentum carries the rows on, and
@@ -220,7 +259,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(receipt.feed.growth).toBeGreaterThan(0)
     }
 
-    test('Start film tour runs all nine scenes; the viewer\'s Continue clicks open every window', async ({page, neuralLink}) => {
+    test('Start film tour runs all scenes; the viewer\'s Continue clicks open every window', async ({page, neuralLink}) => {
         const {app, dispose, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
         try {
@@ -285,11 +324,10 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
             receipt.completed || await dumpDiagnostics('incomplete receipt');
 
-            expect(gatesSeen, 'the viewer continued every gate: the tear-out, the journey and the close').toHaveLength(3);
+            expect(gatesSeen, 'the viewer continued every gate: tear-out, journey, restored window and signature').toHaveLength(4);
             assertFilmReceipt(receipt, {continued: 'viewer', pageErrors});
 
-            // every window the film opened was closed again by the signature
-            expect(popupProbe.length, 'five windows are born: the tear-out, the journey\'s three and the matrix of the close').toBeGreaterThanOrEqual(5);
+            expect(popupProbe.length, 'six windows are born: tear-out, three journey generations, restored window and signature matrix').toBeGreaterThanOrEqual(6);
             // every window but the close's lives and dies inside the film; the matrix keeps its own
             await expect.poll(() => popupProbe.filter(fact => !fact.closed).length, {timeout: 15000}).toBe(1);
 
@@ -299,7 +337,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         }
     });
 
-    test('under autoGates the film runs unattended: no gate waits for a viewer, and the same windows are born and closed', async ({page, neuralLink}) => {
+    test('under autoGates the film runs unattended: earlier windows close and the signature matrix stays open', async ({page, neuralLink}, testInfo) => {
         const {app, dispose, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
         try {
@@ -345,6 +383,8 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
             const receipt = await callWorkstationTour(app, wsId, 'getTourReceipt');
 
+            await testInfo.attach('film-tour-receipt', {body: JSON.stringify(receipt, null, 2), contentType: 'application/json'});
+
             // the controller's own clock: start to settlement, the picture's total before any voice
             console.log(`[film-probe] auto receipt settled: elapsed ${receipt.elapsedMs}ms`);
 
@@ -352,7 +392,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
             await expect(page.locator('.workstation-tour-continue')).toBeHidden();
             assertFilmReceipt(receipt, {continued: 'auto', pageErrors});
 
-            expect(popupProbe.length, 'five windows are born without a click: the tear-out, the journey\'s three and the matrix of the close').toBeGreaterThanOrEqual(5);
+            expect(popupProbe.length, 'six windows are born without a click: tear-out, three journey generations, restored window and signature matrix').toBeGreaterThanOrEqual(6);
             await expect.poll(() => popupProbe.filter(fact => !fact.closed).length, {message: 'the matrix keeps its own window; every other one closed', timeout: 15000}).toBe(1);
 
             expect(pageErrors).toEqual([])

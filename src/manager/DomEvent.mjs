@@ -56,6 +56,7 @@ const globalDomEvents = [
     'scroll',
     'selectionchange',
     'touchmove',
+    'touchstart',
     'wheel'
 ];
 

@@ -22,7 +22,7 @@ The `Neo.data.TreeStore` solves this by acting as a highly optimized architectur
 
 The complexity is managed entirely by the data layer, allowing UI components like `Neo.grid.Container` to render TreeGrids without knowing they are rendering a tree.
 
-> **`TreeStore` is not grid-only.** The Projection Layer is what a virtual scroller needs, so the grid is the most demanding consumer — but it is not the only shape. Components that render **one level at a time** — a cascading menu, a breadcrumb, a column browser — never touch the projection at all. They read the Structural Layer through `getChildren()` and let the hierarchy stay collapsed while they render it. `Neo.menu.List` works this way. If your consumer renders a level rather than a scrollable flat list, read the [Reading one level](#reading-one-level) section below rather than the projection semantics above.
+> **`TreeStore` is not grid-only.** The Projection Layer is what a virtual scroller needs, so the grid is the most demanding consumer — but it is not the only shape. Components that render **one level at a time** — a cascading menu, a breadcrumb, a column browser — never touch the projection at all. They read the Structural Layer through `getChildren()` and let the hierarchy stay collapsed while they render it. `Neo.menu.List` works this way. If your consumer renders a level rather than a scrollable flat list, read the "Reading one level" section below rather than the projection semantics above.
 
 ### The RecordFactory: Bypassing the ORM Memory Trap
 

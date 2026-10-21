@@ -17,6 +17,7 @@ import Operations               from '../../../../../src/dashboard/dock/model/Op
 import Persistence              from '../../../../../src/dashboard/dock/model/Persistence.mjs';
 import DockParticipation        from '../../../../../src/dashboard/dock/window/Participation.mjs';
 import NativeVesselTransaction  from '../../../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
+import VesselPark               from '../../../../../src/dashboard/dock/window/VesselPark.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import TopologyLibrary    from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
@@ -75,6 +76,91 @@ test('an emptied vessel re-opened for its workspace closes through its Group bin
         NativeVesselTransaction.closeWorkspaceWindow = original
     }
 });
+
+test('a restored window opens at its Group hint relative to the opener frame without changing either input', () => {
+    const manager     = Neo.manager.Window, originalGet = manager.get,
+          reservation = Object.freeze({workspaceKey: 'restored-room', groupId: 'restored-group'}),
+          hint        = Object.freeze({dx: 98.35, dy: -21.6, width: 640, height: 400}),
+          hints       = Object.freeze({'restored-room': hint}),
+          geometry    = Object.freeze({
+              outerRect: Object.freeze({x: 270.4, y: 95.4, width: 1600, height: 1000}),
+              innerRect: Object.freeze({x: 275.4, y: 162.4, width: 1590, height: 933})
+          });
+    manager.get = windowId => {expect(windowId).toBe('opener-window'); return geometry};
+    try {
+        const config = Workspace.prototype.getNativeWindowOpenConfig.call({
+            windowId: 'opener-window', theme: 'neo-dark', getPlacementHints: () => hints
+        }, reservation);
+        expect(Object.fromEntries(config.windowFeatures.split(',').map(part => part.split('='))))
+            .toEqual({width: '700', height: '600', left: '369', top: '74'});
+        expect(config.topologyIdentity).toBe(reservation);
+        expect(config.windowId).toBe('opener-window');
+        expect(new URL(config.url, 'https://example.test/workstation/').searchParams.get('workspace')).toBe('restored-room');
+        expect(hints['restored-room']).toBe(hint);
+        expect(hint).toEqual({dx: 98.35, dy: -21.6, width: 640, height: 400});
+        expect(geometry.outerRect).toEqual({x: 270.4, y: 95.4, width: 1600, height: 1000})
+    } finally {manager.get = originalGet}
+});
+
+test('missing or nonfinite opener geometry and placement hints preserve a size-only window open', () => {
+    const manager     = Neo.manager.Window, originalGet = manager.get,
+          reservation = {workspaceKey: 'restored-room', groupId: 'restored-group'};
+    for (const [geometry, hint] of [
+        [undefined, {dx: 10, dy: 20}],
+        [{innerRect: {x: 300, y: 400}}, {dx: 10, dy: 20}],
+        [{outerRect: {x: NaN, y: 200}}, {dx: 10, dy: 20}],
+        [{outerRect: {x: 100, y: Infinity}}, {dx: 10, dy: 20}],
+        [{outerRect: {x: 100, y: 200}}, undefined],
+        [{outerRect: {x: 100, y: 200}}, {dx: undefined, dy: 20}],
+        [{outerRect: {x: 100, y: 200}}, {dx: 10, dy: NaN}],
+        [{outerRect: {x: 100, y: 200}}, {dx: -Infinity, dy: 20}]
+    ]) {
+        manager.get = () => geometry;
+        try {
+            const config = Workspace.prototype.getNativeWindowOpenConfig.call({
+                windowId: 'opener-window', theme: 'neo-dark', getPlacementHints: () => ({'restored-room': hint})
+            }, reservation);
+            expect(config.windowFeatures).toBe('width=700,height=600');
+            expect(config.topologyIdentity).toBe(reservation);
+            expect(config.url).toBe('./index.html?workspace=restored-room&theme=neo-dark');
+            expect(config.windowName).toMatch(/^workstation-restored-/)
+        } finally {manager.get = originalGet}
+    }
+});
+
+for (const path of ['tear-out record', 'Group binding']) {
+    for (const replacementWindowId of [null, 'successor-window']) {
+        test(`${path} retirement cannot mark a ${replacementWindowId === null ? 'detached' : 'rebound'} window close-requested`, async () => {
+            const original  = NativeVesselTransaction.closeWorkspaceWindow, closing = Promise.withResolvers(), calls = [],
+                  state     = {document: {items: {}}, itemId: 'feed', windowId: 'retiring-window', closeRequested: false},
+                  vessel    = {itemId: 'feed', windowId: 'retiring-window'},
+                  workspace = {
+                      id                  : 'retirement-owner', getPopupState: () => state,
+                      resolveTearOutVessel: () => path === 'tear-out record' ? vessel : null,
+                      nativeWindows       : {retire: (sourceId, value) => {calls.push([sourceId, value]); return closing.promise}},
+                      workspaceSet        : {getParticipant: () => ({nativeWindow: {windowId: () => state.windowId}})}
+                  };
+            NativeVesselTransaction.closeWorkspaceWindow = (set, workspaceId) => {
+                calls.push([set, workspaceId]);
+                return closing.promise
+            };
+            try {
+                const flight = Workspace.prototype.retireReturnedVessel.call(workspace, 'workstation-vessel:feed');
+                expect(calls).toEqual(path === 'tear-out record'
+                    ? [['retirement-owner', vessel]] : [[workspace.workspaceSet, 'workstation-vessel:feed']]);
+                expect(state.closeRequested).toBe(false);
+                state.windowId = replacementWindowId;
+                closing.resolve(true);
+                expect(await flight).toBe(true);
+                expect(state.windowId).toBe(replacementWindowId);
+                expect(state.closeRequested).toBe(false)
+            } finally {
+                closing.resolve(true);
+                NativeVesselTransaction.closeWorkspaceWindow = original
+            }
+        })
+    }
+}
 
 test('Reset awaits bound popup projections without waiting for a headless owner to remount', async () => {
     const live    = Promise.withResolvers(), headless = Promise.withResolvers();
@@ -268,6 +354,87 @@ test('pointer readiness reads current popup and supplied main visual owners', ()
         expect(read().ready).toBe(false);
         visuals.preview = null;
         expect(read().ready).toBe(false)
+    }
+});
+
+test('an unready pointer read names the claim surfaces it crossed; a ready read carries none', () => {
+    const workspaceId = Workspace.MAIN_WORKSPACE_ID, mainWindowId = 'claim-surfaces-main', vesselWindowId = 'claim-surfaces-vessel',
+          preview     = {previewId: 'surfaces-preview'},
+          target      = {id: 'main-target', windowId: mainWindowId, currentPreview: preview},
+          visuals     = {
+              preview   : {dockPreview: preview},
+              indicators: {activeCandidate: {preview}, candidateSet: {itemId: 'metrics', cross: [], root: {chips: []}}, cls: []}
+          },
+          // One claim-pass record per pointer move, as DragCoordinator#recordClaimResolution stamps it: the
+          // source zone skipped, main's zone asked and answering differently each pass.
+          pass        = (gestureToken, mainCandidate) => ({
+              sortGroup : 'dock', sourceOwnershipId: 'group-a', groupSize: 2, outcome: 'no-claim', claimedStableId: null, retiredStableIds: [],
+              candidates: [{windowId: vesselWindowId, skipped: 'source-or-excluded'}, {windowId: mainWindowId, stableTargetId: workspaceId, ...mainCandidate}],
+              gestureToken
+          }),
+          passes      = [
+              pass('gesture-6', {innerResolved: true, intersects: true, accepts: true}),
+              pass('gesture-7', {innerResolved: false, intersects: null, accepts: null}),
+              pass('gesture-7', {innerResolved: true, intersects: false, accepts: null}),
+              pass('gesture-7', {innerResolved: true, intersects: true, accepts: false}),
+              pass('gesture-7', {skipped: 'ownership', ownershipId: 'group-b', released: false})
+          ],
+          coordinator = {
+              activeTargetZone   : null,
+              claimTrace         : passes,
+              nativeClaimArbiters: new Map(),
+              nativeHoverTargets : new Map([['some-native-window', {}]]),
+              pointerClaimArbiter: {claimCount: 0, token: 'gesture-7', resolve: () => null}
+          },
+          sourceZone  = {id: 'vessel-stack-zone', windowId: vesselWindowId, dockGroupNodeId: 'stack', stackDragActive: true, dragProxy: {}, dragCoordinator: coordinator},
+          workspace   = {
+              constructor    : Workspace,
+              id             : 'claim-surfaces-workspace', windowId: mainWindowId,
+              participation  : {target, affordances: visuals},
+              dragAffordances: visuals,
+              nativeWindows  : {
+                  ownerEntries      : () => [['metrics', {windowId: 'claim-surfaces-vessel-0', windowName: 'vessel-metrics-1'}]],
+                  connectionEntries : () => [['commits', {}]],
+                  pendingRetirements: () => [{itemId: 'audit', windowName: 'vessel-audit-0'}]
+              }
+          },
+          read = () => Workspace.prototype.readCrossWindowGestureSnapshot.call(workspace, {sourceZone, targetWorkspaceId: workspaceId});
+
+    Neo.manager.Window.register({id: mainWindowId, innerRect: {x: 0, y: 0, width: 1200, height: 800}});
+    Neo.manager.Window.register({id: vesselWindowId, innerRect: {x: 1300, y: 60, width: 500, height: 400}});
+    try {
+        const unready = read();
+        expect(unready.ready).toBe(false);
+        expect(unready.claimSurfaces).toEqual({
+            participation: {affordances: true, targetId: 'main-target', targetWindowId: mainWindowId},
+            coordinator  : {
+                activeTargetZoneId: null, activeTargetWindowId: null,
+                arbiter           : {claimCount: 0, token: 'gesture-7', winnerStableId: null},
+                // the live gesture's passes only, the last three, newest last — gesture-6's record stays out
+                claimTrace            : passes.slice(2),
+                nativeArbiterWindowIds: [], nativeHoverWindowIds: ['some-native-window']
+            },
+            sourceZone: {dockGroupNodeId: 'stack', dragProxy: true, id: 'vessel-stack-zone', stackDragActive: true, windowId: vesselWindowId},
+            windows   : {
+                main  : {id: mainWindowId, innerRect: {x: 0, y: 0, width: 1200, height: 800}},
+                source: {id: vesselWindowId, innerRect: {x: 1300, y: 60, width: 500, height: 400}}
+            },
+            owners: {
+                connections       : ['commits'],
+                owned             : [{itemId: 'metrics', windowId: 'claim-surfaces-vessel-0', windowName: 'vessel-metrics-1'}],
+                pendingRetirements: [{itemId: 'audit', windowName: 'vessel-audit-0'}]
+            }
+        });
+        expect(unready.claimSurfaces.coordinator.claimTrace[0], 'the record is a copy, not the ring\'s entry').not.toBe(passes[2]);
+
+        coordinator.activeTargetZone = target;
+        coordinator.pointerClaimArbiter = {claimCount: 1, resolve: () => ({stableId: workspaceId})};
+        const ready = read();
+        expect(ready.ready).toBe(true);
+        expect(ready).not.toHaveProperty('claimSurfaces')
+    } finally {
+        Neo.manager.Window.unregister(mainWindowId);
+        Neo.manager.Window.unregister(vesselWindowId)
     }
 });
 
@@ -1507,6 +1674,29 @@ test.describe('Workstation.view.Workspace', () => {
         }
     });
 
+    test('the shell and tab-chrome receipts read the incoming shell while a projection swaps', () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+
+        try {
+            const
+                host     = workspace.getReference('dock-host'),
+                incoming = host.items[0],
+                receipt  = workspace.getTabChromeIdentity('heavy-tabs');
+
+            expect(workspace.getShellIdentity(), 'a settled host: the committed shell').toBe(incoming.id);
+            expect(receipt?.containerId, 'a settled host: the projected tab').toBeTruthy();
+
+            // The staged reconcile's swap: the outgoing shell keeps the shell index, retired and already
+            // emptied of its tabs, beside the incoming shell that holds them.
+            host.insert(0, {module: Container, cls: ['neo-dashboard-dock-shell-retiring']}, true);
+
+            expect(workspace.getShellIdentity(), 'mid-swap: the incoming shell').toBe(incoming.id);
+            expect(workspace.getTabChromeIdentity('heavy-tabs'), 'mid-swap: the same tab, read from the incoming shell').toEqual(receipt)
+        } finally {
+            workspace.destroy()
+        }
+    });
+
     test('native-titlebar source discovery uses the full popup document and stops after Group undo', async () => {
         const
             workspace   = Neo.create(Workspace, {windowId: Neo.config.windowId}),
@@ -2153,8 +2343,8 @@ test.describe('Workstation.view.Workspace', () => {
         try {
             const chrome = workspace.resolveVesselStageTarget(state.windowId);
             expect(await workspace.tearOutEmbodiment.stage({itemId: 'alerts', windowId: state.windowId})).toBe(true);
-            const pane = workspace.paneCache.alerts,
-                  body = chrome.getCardContainer(),
+            const pane   = workspace.paneCache.alerts,
+                  body   = chrome.getCardContainer(),
                   remove = body.remove.bind(body), moves = [];
             body.remove = (...args) => {
                 moves.push(args);
@@ -2197,7 +2387,7 @@ test.describe('Workstation.view.Workspace', () => {
         const {state, workspaceId} = stageCommittedVessel(workspace);
         const viewport             = Neo.create(Container, {appName: workspace.appName,
             layout: {ntype: 'vbox', align: 'stretch'}, windowId: state.windowId});
-        const projection           = Promise.withResolvers();
+        const projection = Promise.withResolvers();
         Neo.apps[state.windowId] = {mainView: viewport, name: workspace.appName};
         state.renderTarget = viewport;
         state.host.refreshPromise = projection.promise;
@@ -4234,5 +4424,38 @@ test.describe('Workstation rail reveal extent', () => {
         // pane in its tabs node, and the resolver answers the owning edge, never a nested split share.
         expect(DockLayoutAdapter.resolveRevealExtent(initialDocument, 'graph'),     'the left edge').toBeCloseTo(0.11);
         expect(DockLayoutAdapter.resolveRevealExtent(initialDocument, 'inspector'), 'the bottom edge').toBeCloseTo(0.17)
+    })
+});
+
+test.describe('a released vessel retires its native park (prototype-call)', () => {
+    // A titlebar drop parks its vessel, and the coordinator's committed terminal disposes the park. A
+    // return that closes the vessel when main adopts releases the window first, which clears that
+    // terminal's candidate: the release has to retire the park, or the next titlebar drop is refused.
+    const parked = itemId => {
+        const park = Neo.create(VesselPark, {disposeVessel: () => true, parkVessel: () => true, reshowVessel: () => true});
+
+        expect(park.onConversionIn({itemId, windowName: `tearout-${itemId}`})).toBe(true);
+        return park
+    };
+
+    test('the release of the parked vessel\'s window retires the park, so the next titlebar drop parks', () => {
+        const park = parked('commits');
+
+        Workspace.prototype.retireReleasedPark.call({nativeVesselParkHandlers: park, resolveTearOutVessel: () => null},
+            {windowId: 'commits-window', workspaceKey: 'workstation-vessel:commits'});
+
+        expect(park.parkedVessel).toBeNull();
+        expect(park.onConversionIn({itemId: 'alerts', windowName: 'tearout-alerts'}), 'the second vessel parks').toBe(true)
+    });
+
+    test('a vessel matched by its window id retires too, and another window\'s release leaves the park alone', () => {
+        const park = parked('metrics'),
+              host = {nativeVesselParkHandlers: park, resolveTearOutVessel: itemId => ({itemId, windowId: 'metrics-window'})};
+
+        Workspace.prototype.retireReleasedPark.call(host, {windowId: 'feed-window', workspaceKey: 'workstation-vessel:feed'});
+        expect(park.parkedVessel?.itemId, 'an unrelated release').toBe('metrics');
+
+        Workspace.prototype.retireReleasedPark.call(host, {windowId: 'metrics-window', workspaceKey: 'workstation-vessel:stack'});
+        expect(park.parkedVessel).toBeNull()
     })
 });

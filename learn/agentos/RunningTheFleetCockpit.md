@@ -2,7 +2,7 @@
 
 > **Concepts:** the architecture this runbook operates — the topology, roles, identity facts, and
 > the truth pipeline — is taught at [Fleet Manager Architecture](FleetManagerArchitecture.md);
-> the decisions behind it live in [ADR 0038](decisions/0038-fm-client-topology.md).
+> the decisions behind it live in [ADR 0038](https://github.com/neomjs/neo-agent-institution/blob/dev/learn/agentos/decisions/0038-fm-client-topology.md).
 
 The Fleet Manager cockpit is the operator's mission-control surface: the live agent roster, the
 activity stream, per-agent drill-in, and the lifecycle controls (start / stop / restart, the

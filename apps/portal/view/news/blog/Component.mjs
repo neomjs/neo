@@ -1,6 +1,7 @@
 import ContentComponent from '../../../../../src/app/content/Component.mjs';
 
 /**
+ * @summary Renders Markdown blog posts and routes relative `.md` links to the blog or learn views.
  * @class Portal.view.news.blog.Component
  * @extends Neo.app.content.Component
  */
@@ -11,6 +12,10 @@ class Component extends ContentComponent {
          * @protected
          */
         className: 'Portal.view.news.blog.Component',
+        /**
+         * @member {String} contentRoute='#/'
+         */
+        contentRoute: '#/',
         /**
          * @member {String} issuesUrl='#/news/tickets/'
          */
@@ -24,6 +29,22 @@ class Component extends ContentComponent {
      */
     getContentPath({path}) {
         return path ? Neo.config.basePath + path : null
+    }
+
+    /**
+     * @summary Routes resolved `learn/blog/` targets to `news/blog/` and all other `learn/` targets to `learn/`.
+     * @param {String} target a relative link target, fragment already stripped
+     * @returns {String|null}
+     * @protected
+     */
+    resolveContentId(target) {
+        const id = super.resolveContentId(target);
+
+        if (!id) {
+            return null
+        }
+
+        return id.startsWith('blog/') ? `news/blog/${id}` : `learn/${id}`
     }
 }
 

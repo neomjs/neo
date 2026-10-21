@@ -650,15 +650,17 @@ class DomAccess extends Base {
      * App-worker components can be born with an animation class before their local DOM listeners
      * finish mounting. The main thread already owns the physical animation, so `Animation.finished`
      * is the race-free settlement authority. A missing, already-finished, or cancelled animation
-     * resolves safely; presentation must never wedge projection truth.
+     * resolves safely; presentation must never wedge projection truth. The node's own pseudo-elements
+     * count as the node (an overlay drawn by `::after`); descendants do not.
      * @param {Object} data
-     * @param {String} data.animationName CSS animation name to match on the node itself.
+     * @param {String} data.animationName CSS animation name to match on the node or its pseudo-elements.
      * @param {String} data.id Physical DOM node id.
      * @returns {Promise<Boolean>} Whether a live named animation was observed.
      */
     async waitForAnimation({animationName, id}) {
-        let animation = this.getElement(id)?.getAnimations?.()
-            .find(candidate => candidate.animationName === animationName);
+        let node      = this.getElement(id),
+            animation = node?.getAnimations?.({subtree: true})
+                .find(candidate => candidate.animationName === animationName && candidate.effect?.target === node);
 
         if (!animation) {
             return false

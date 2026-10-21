@@ -79,8 +79,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || '[1, 2, 3]') }}
-        shards: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || '[3]') }}
+        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || '[1, 2, 3, 4]') }}
+        shards: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || '[4]') }}
     # Bounds provisioning plus tests. The test-time ceiling is the step below; this
     # exists so a hung install cannot occupy a runner indefinitely.
     # The gate keeps its twelve minutes: provisioning plus a five-minute test step, so a hung
@@ -353,3 +353,20 @@ jobs:
         with:
           name: test-results-e2e-engine-${{ github.run_id }}-shard-${{ matrix.shard }}
           path: test/playwright/test-results/
+
+  # The context the ruleset requires. A shard's name carries the shard count, which the header's
+  # rule changes whenever the tier grows, so requiring the shards by name blocks every pull
+  # request the moment a sibling is added. One shard that did not succeed fails this.
+  e2e-engine-gate:
+    name: e2e-engine
+    if: ${{ always() && github.event_name != 'workflow_dispatch' }}
+    needs: e2e-engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every shard succeeded
+        env:
+          SHARDS: ${{ needs.e2e-engine.result }}
+        run: |
+          echo "e2e-engine shards: ${SHARDS}"
+          test "${SHARDS}" = success

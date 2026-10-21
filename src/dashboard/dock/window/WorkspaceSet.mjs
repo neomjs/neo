@@ -265,7 +265,8 @@ class WorkspaceSet extends Base {
      * @param {Function} [seams.setDocument] `(document)` adopts a committed document; a
      *     participant without one is read-only to `adoptTransfer` (fail closed).
      * @param {Function} [seams.getRevision] Owner-supplied revision stamp; otherwise reference changes are counted.
-     * @param {Function} [seams.project] Post-commit context includes `preserveItemIds` owned by sibling documents.
+     * @param {Function} [seams.project] Post-commit context includes `preserveItemIds` owned by sibling documents,
+     *     and `isCurrent()`, false once a newer commit adopted this workspace's next document.
      * @param {Function} [seams.dispose] Releases this owner when its Group explicitly retires.
      * @param {String} [seams.bindingKey=workspaceId] Window slot whose lineage and generation fence this document.
      * @param {String} [seams.componentId] Opaque live owner lookup; excluded from captured document truth.
@@ -377,11 +378,16 @@ class WorkspaceSet extends Base {
             }
         }
 
-        if (typeof project === 'function') entry.project = context => project({
-            ...context,
-            preserveItemIds: participantKeys().filter(key => key !== workspaceId)
-                .flatMap(key => Object.keys(context.snapshot.participants[key]?.items ?? {}))
-        });
+        if (typeof project === 'function') entry.project = context => {
+            const {revision} = entry.capture();
+            return project({
+                ...context,
+                // A failed newer write compensates with a cloned document but restores the revision
+                isCurrent      : () => entry.capture().revision === revision,
+                preserveItemIds: participantKeys().filter(key => key !== workspaceId)
+                    .flatMap(key => Object.keys(context.snapshot.participants[key]?.items ?? {}))
+            })
+        };
         if (componentId !== undefined) entry.componentId = componentId;
         if (nativeWindow !== undefined) entry.nativeWindow = nativeWindow;
         if (typeof resolveReturnDescriptor === 'function') entry.resolveReturnDescriptor = resolveReturnDescriptor;
@@ -423,15 +429,28 @@ class WorkspaceSet extends Base {
 
     /**
      * @summary Reduces semantic operations against the document captured at the Group queue head.
+     *
+     * A member joining or leaving while the write prepares refuses it, as a tear-out vessel retiring when
+     * its drag comes home does. The operations reduce again at the queue head, so they are written once
+     * more rather than lost: as they were admitted, whatever the caller changed since, and only into the
+     * Group that admitted them. A host bound to another Group by then gets the refusal instead.
      * @param {String} workspaceKey
      * @param {Object[]} operations
      * @param {Object} [options={}] Group cause and provenance.
      * @returns {Promise<Object>} The committed Group transaction.
      */
     commit(workspaceKey, operations, options = {}) {
-        return this.write({[workspaceKey]: {operations}}, {
-            cause: 'dock', descriptor: {operations, workspaceKey}, ...options
-        })
+        const
+            me       = this,
+            groupId  = me.resolveGroupId(),
+            admitted = Neo.clone({operations, options}, true),
+            write    = () => me.write({[workspaceKey]: {operations: admitted.operations}}, {
+                cause: 'dock', descriptor: {operations: admitted.operations, workspaceKey}, ...admitted.options
+            });
+
+        return write().catch(error => error?.code === 'participants-changed' && me.resolveGroupId() === groupId
+            ? write()
+            : Promise.reject(error))
     }
 
     /**

@@ -76,7 +76,8 @@ Scripts used by the maintainers to publish new versions of the platform.
 | Script | Description |
 | :--- | :--- |
 | `prepare.mjs` | Handles version bumping, changelog generation, and git tagging. |
-| `publish.mjs` | Automates the NPM publish process, ensuring clean builds. |
+| `publish.mjs` | Releases in two phases joined by the operator's merge: `prepare --ticket <N>` opens the release PR to `dev`; `finish` squashes the merged PR onto `main` and creates the GitHub release, which publishes to npm. Re-running a phase resumes it; `--rehearse` reports the push gates. |
+| `releaseState.mjs` | Decides a release phase's next step from what the remote already shows. |
 
 ---
 

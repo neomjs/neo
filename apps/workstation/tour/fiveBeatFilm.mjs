@@ -24,6 +24,7 @@
  * folds into its edge rail, is revealed, and comes back), the resize (the main boundary follows a
  * real pointer drag, both panes re-flowing live, and commits once on release), the drop-zone
  * showcase that puts the travelled pane wherever the viewer likes, perspectives with undo/redo,
+ * the saved two-window arrangement restored and its re-born stack dragged home,
  * and the living close. The picture sets the pace: every pointer walk runs at hand tempo (a sample
  * every 33 ms, the leg's `moveSteps` sized to about a second of travel), a hold inside a gesture
  * and a cue-free reading beat are each at most 1.5 s, and no gesture or beat is stretched to fit a
@@ -42,16 +43,16 @@
  * the no-window fallback.
  *
  * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
- * real duration and the cut re-paces around them. The scenes sum to exactly 91s inside the
- * 90–150s envelope, 1s above the `minSeconds` floor: a budget edit trades seconds within the 91s
- * sum, and captured gesture durations plus the edit-layer cut-in re-pace upward from there. A
+ * real duration and the cut re-paces around them. The scenes sum to exactly 99s inside the
+ * 90–150s envelope: a budget edit trades seconds within the 99s sum, and captured gesture
+ * durations plus the edit-layer cut-in re-pace upward from there. A
  * `pause` step's `ms` is a floor the runner waits while the host performs the cue, not a wait
  * after it: a cue's picture time is its gesture, and a cue-free `pause` after an instant document
  * operation is the only time a viewer gets to read that outcome. The headless film witness's beat
  * log is the clock these options are measured against before any take.
  *
  * Claim discipline (revalidated against the current witnesses at authoring time):
- * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 2, 3, 4, 9)
+ * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 2, 3, 4, 10)
  * - zero-mutation return       → the journey's `main` hop retires the vessel mid-gesture with the
  *                                committed document byte-identical (scene 3)
  * - mid-gesture window birth   → `proof.born` before pointer-up; the journey births three
@@ -67,7 +68,10 @@
  * - perspective restore        → store-backed capture/restore with exact-baseline document
  *                                fidelity, fail-closed on unknown names (scene 8)
  * - undo/redo round-trip       → one dock mutation walked back and replayed on the Group cursor (scene 8)
- * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 9)
+ * - cross-window restore       → a topology restore returns both panes to their closed window's
+ *                                workspace and opens nothing; the gated `workspace-open` births that
+ *                                window again around them; a stack drag brings them home and retires it (scene 9)
+ * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 10)
  * Narration makes NO cross-platform, default-selection, or portability claims, and carries no
  * competitive comparisons — captions inherit the spec's macOS-headed claim boundary.
  *
@@ -96,7 +100,7 @@ const filmPace = Object.freeze({birthAttempts: 240, curve: 0.18, moveDelay: 33, 
  */
 export const filmCueTypes = Object.freeze([
     'scroll', 'canvas-update', 'cross-zone-showcase', 'rail', 'resize', 'gate', 'tear-out',
-    'journey', 'native-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo',
+    'journey', 'native-return', 'stack-return', 'perspective-capture', 'perspective-restore', 'workspace-open', 'undo', 'redo',
     'grid-drag-scroll', 'vessel-resize'
 ]);
 
@@ -174,7 +178,7 @@ export const fiveBeatFilmScript = Object.freeze({
         title        : 'One drag, every boundary',
         targetSeconds: 18,
         narration    : 'Now take Commits. Out — a window is born under the pointer. Back over the room — it folds back into its tab; nothing happened. Out again. Into Metrics’ window — it takes the drag as its own tab, the zones glow. Out once more. And in, to stay. One drag. Nothing reloads.',
-        beats        : ['the viewer opens the door: one click is the activation for the journey’s first window; the births that follow inside the same drag rest on the site’s one-time pop-up permission', 'out: a vessel is born under the pointer', 'back over main: the vessel retires, the tab proxy resumes, the document is untouched', 'out again: a window again', 'over Metrics’ window: it carries the drag as its tab-header proxy, its zones glow', 'out once more: a window again', 'the drop composes A+B in Metrics’ window'],
+        beats        : ['the viewer opens the door: one click is the activation for the journey’s first window; the births that follow inside the same drag rest on the site’s one-time pop-up permission', 'out: a vessel is born under the pointer', 'back over main: the vessel retires, the tab proxy resumes, the document is untouched', 'out again: a window again', 'over Metrics’ window: it carries the drag as its tab-header proxy, its zones glow', 'out once more: a window again', 'the drop composes A+B in Metrics’ window', 'the two-window arrangement is saved as a perspective — a document read, the picture unchanged'],
         steps        : [{
             type   : 'pause',
             ms     : 0,
@@ -202,6 +206,14 @@ export const fiveBeatFilmScript = Object.freeze({
             type   : 'pause',
             ms     : 1000,
             caption: 'two windows compose — a breath before the stack comes home'
+        }, {
+            // A topology capture records every window's document while Metrics' window holds both
+            // panes. It reads the documents and changes nothing on screen; the across-windows scene
+            // restores it after the stack has come home.
+            type   : 'pause',
+            ms     : 0,
+            cue    : {type: 'perspective-capture', name: 'film-two-windows', captureScope: 'topology', title: 'Two windows'},
+            caption: 'the two-window arrangement is saved as a perspective'
         }]
     }, {
         id           : 'film-reintegration',
@@ -364,6 +376,52 @@ export const fiveBeatFilmScript = Object.freeze({
             ms     : 1500,
             cue    : {type: 'redo'},
             caption: 'redo replays it — Security is in the matrix group once more'
+        }]
+    }, {
+        id           : 'film-perspective-across-windows',
+        title        : 'An arrangement across windows comes back',
+        targetSeconds: 8,
+        narration    : 'The two-window arrangement from the journey was saved as well. Restore it — Metrics and Commits leave the room for their window, and the window is born again around them. Drag their stack home, and the empty window closes.',
+        beats        : ['save the current room before restoring the earlier two-window arrangement', 'restore the two-window perspective: both panes leave the room for their closed window’s workspace', 'the viewer opens the door: the window is born again around the same live panes', 'a beat to read the re-born window', 'dragging the stack home returns both panes and retires the empty window', 'resume the current room after the window closes'],
+        steps        : [{
+            // Keep the room's later edits while the earlier two-window arrangement is demonstrated.
+            type   : 'pause',
+            ms     : 0,
+            cue    : {type: 'perspective-capture', name: 'film-before-cross-window', captureScope: 'window', title: 'Before cross-window restore'},
+            caption: 'the current room is saved before the earlier two-window arrangement returns'
+        }, {
+            // A restore is semantic: it returns both panes to the workspace of their closed window
+            // and opens nothing. The window is the gated birth that follows.
+            type   : 'pause',
+            ms     : 1000,
+            cue    : {type: 'perspective-restore', name: 'film-two-windows'},
+            caption: 'one restore: Metrics and Commits return to the workspace of their closed window'
+        }, {
+            type   : 'pause',
+            ms     : 0,
+            cue    : {type: 'gate', prompt: 'Continue — their window is born again'},
+            caption: 'Your click opens the window the two panes were saved in.'
+        }, {
+            type   : 'pause',
+            ms     : 1000,
+            cue    : {type: 'workspace-open', workspaceKey: 'workstation-vessel:metrics'},
+            caption: 'the window is born again around the same live panes'
+        }, {
+            type   : 'pause',
+            ms     : 1500,
+            caption: 'the re-born window holds both panes — a beat to read it'
+        }, {
+            // The stack grip carries the committed document even when its window has no tear-out
+            // record. Returning both panes empties the source; its Group binding owns retirement.
+            type   : 'pause',
+            ms     : 1200,
+            cue    : {type: 'stack-return', ownerItemId: 'metrics', options: {moveDelay: 33, showCursor: true}},
+            caption: 'drag the stack home: both panes return, and the empty window closes'
+        }, {
+            type   : 'pause',
+            ms     : 0,
+            cue    : {type: 'perspective-restore', name: 'film-before-cross-window'},
+            caption: 'the room resumes its latest arrangement after the window closes'
         }]
     }, {
         id           : 'film-signature',

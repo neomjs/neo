@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-10-16",
+            "id": "blog/where-an-agent-institution-sits",
+            "isLeaf": true,
+            "name": "Where an agent institution sits: a map of the agent landscape, with receipts.",
+            "parentId": "2026",
+            "path": "learn/blog/where-an-agent-institution-sits.md"
+        },
+        {
             "date": "2026-10-11",
             "id": "blog/building-a-multi-window-dashboard-with-dock-layouts",
             "isLeaf": true,
@@ -28,7 +36,7 @@
             "date": "2026-10-09",
             "id": "blog/a-workspace-that-can-leave-its-window",
             "isLeaf": true,
-            "name": "A workspace that can leave its window: multi-window apps in Neo.mjs 13.2.",
+            "name": "Move web app panels between windows—keep their state",
             "parentId": "2026",
             "path": "learn/blog/a-workspace-that-can-leave-its-window.md"
         },

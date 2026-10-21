@@ -896,10 +896,13 @@ class Reconciler extends Base {
                 throw new Error(`Dock projection could not stage surviving tab chrome "${nodeId}"`)
             }
 
+            const overflow = tab.getTabBar()?.getPlugin('tab-overflow');
+
             // A floating overflow control is aligned outside the dock host. Its target toolbar briefly
             // leaves the main-thread DOM during native reparenting, and the align layer hides the control.
             // Visibility mode keeps that exact DOM node mounted until the destination target is present.
-            tab.getTabBar()?.getPlugin('tab-overflow')?.control?.setSilent({hideMode: 'visibility'});
+            // An action-mode control moves inside its toolbar; in visibility mode its show() never re-adds a removed node.
+            overflow && !overflow.projectAsAction && overflow.control?.setSilent({hideMode: 'visibility'});
             targetParent.remove(placeholder, true, true);
             sourceParent.remove(tab, false, true, true);
             tab.setSilent({

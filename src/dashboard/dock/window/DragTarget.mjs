@@ -196,6 +196,22 @@ class DragTarget extends Base {
     currentDragPayload = null
 
     /**
+     * The answer a frame without a preview waits for ({@link #answerWhenPreviewable}), so every later
+     * waiter for that frame joins it: `{payload, promise}`.
+     * @member {Object|null} pendingAnswer=null
+     * @protected
+     */
+    pendingAnswer = null
+
+    /**
+     * Payloads whose leave-path restore the embodiment refused. Their generation stays live after
+     * the leave, so a commit still pending for one of them is the only terminal left to retire it.
+     * @member {WeakSet<Object>} #unrestoredPayloads
+     * @private
+     */
+    #unrestoredPayloads = new WeakSet()
+
+    /**
      * The declared ownership the coordinator admits candidates by (docking design record §2.3): the seam's answer,
      * `null` while unresolved, never `undefined` — see {@link #resolveOwnershipId}.
      * @member {String|null} ownershipId
@@ -294,33 +310,52 @@ class DragTarget extends Base {
     /**
      * @summary Answers a frame again once the owner can preview it.
      *
-     * A hand that stops sends no further frame. When the owner could not answer the last one yet,
-     * this asks it once more after {@link #awaitPreviewable} resolves — only while the frame is still
-     * this target's current payload, so a later frame, a leave, or a terminal always wins.
+     * A hand that stops sends no further frame, and a committed native drop sends exactly one. When
+     * the owner could not answer the last one yet, this asks it once more after
+     * {@link #awaitPreviewable} resolves — only while the frame is still this target's current
+     * payload, so a later frame, a leave, or a terminal always wins. Every waiter for one frame shares
+     * one answer: a later one joins it while it is pending, and reads it once the owner has nothing
+     * left to await.
      * @param {Object} payload The frame that answered no preview.
-     * @protected
+     * @returns {Promise<Object|null>} The frame's preview once the owner answered it, else null.
      */
     answerWhenPreviewable(payload) {
         let me = this,
             ready;
 
+        if (me.pendingAnswer?.payload === payload) return me.pendingAnswer.promise;
+
         try {
             ready = me.awaitPreviewable?.(payload)
         } catch {
-            return
+            return Promise.resolve(null)
         }
 
-        typeof ready?.then === 'function' && ready.then(previewable => {
-            if (previewable !== true || me.isDestroyed || me.currentDragPayload !== payload || me.currentPreview) return;
+        if (typeof ready?.then !== 'function') {
+            return Promise.resolve(me.currentDragPayload === payload ? me.currentPreview : null)
+        }
 
-            try {
-                me.currentPreview = me.previewFor?.(payload) ?? null
-            } catch (error) {
-                // no caller to rethrow to on this path, so the failure reports itself
-                me.releasePreviewFailure(payload);
-                console.error('DragTarget: the re-driven preview failed', error)
+        const promise = ready.then(previewable => {
+            if (previewable !== true || me.isDestroyed || me.currentDragPayload !== payload) return null;
+
+            if (!me.currentPreview) {
+                try {
+                    me.currentPreview = me.previewFor?.(payload) ?? null
+                } catch (error) {
+                    // no caller to rethrow to on this path, so the failure reports itself
+                    me.releasePreviewFailure(payload);
+                    console.error('DragTarget: the re-driven preview failed', error)
+                }
             }
-        }, () => {})
+
+            return me.currentPreview
+        }, () => null).finally(() => {
+            me.pendingAnswer?.promise === promise && (me.pendingAnswer = null)
+        });
+
+        me.pendingAnswer = {payload, promise};
+
+        return promise
     }
 
     /**
@@ -367,7 +402,10 @@ class DragTarget extends Base {
         let me      = this,
             payload = me.currentDragPayload;
 
-        payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload);
+        if (payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload) === false) {
+            me.#unrestoredPayloads.add(payload)
+        }
+
         me.currentDragPayload = null;
         me.currentPreview     = null;
         me.clearPreview?.()
@@ -431,12 +469,16 @@ class DragTarget extends Base {
         }
 
         const settle = committed => {
-            const current = me.currentDragPayload === payload && !me.isDestroyed;
+            const
+                current  = me.currentDragPayload === payload && !me.isDestroyed,
+                orphaned = committed && !me.isDestroyed && !me.currentDragPayload && me.#unrestoredPayloads.has(payload);
 
-            // A target can unregister while an async owner commit is pending. Its leave path has
-            // already restored this exact embodiment; a late completion must neither promote that
-            // stale generation nor advertise a commit to the coordinator/source disposer.
-            if (current && payload?.embodyProxy === true) {
+            // A target can unregister while an async owner commit is pending. Its leave path restores
+            // this exact embodiment, and a late completion must not advertise a commit to the
+            // coordinator/source disposer, nor settle a generation it no longer owns: the embodiment
+            // identity names no generation, so a restored one's successor would match it. Only the
+            // generation a refused restore left live, with no successor hovering, is still this drop's.
+            if (payload?.embodyProxy === true && (current || orphaned)) {
                 me[committed ? 'promoteDragEmbodiment' : 'restoreDragEmbodiment']?.(payload)
             }
 

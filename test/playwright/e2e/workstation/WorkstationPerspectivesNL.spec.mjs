@@ -1,4 +1,5 @@
 import {test, expect, loadNeuralLinkModules} from '../../fixtures.mjs';
+import {callWorkstationTour}                 from '../utils/workstationTour.mjs';
 
 const {NeuralLink_DockService} = await loadNeuralLinkModules();
 
@@ -291,6 +292,90 @@ test.describe('Workstation — a shipped restore across a real popup (Neural Lin
                 .toBeEnabled({timeout: 10000})
         } finally {
             popup && !popup.isClosed() && await popup.close()
+        }
+
+        expect(pageErrors).toEqual([])
+    })
+})
+
+/**
+ * @summary Rendered witness for the film's cross-window perspective, driven through the film's own cues:
+ * a topology perspective captured while a pane lives in a vessel window keeps that window's document,
+ * and restoring it after the window closed puts the pane back where it was captured.
+ *
+ * The restore is semantic: it moves the pane out of main into the vessel's now-disconnected workspace and opens
+ * nothing, because a window only opens from an explicit request. That request is the `workspace-open` cue
+ * (`WorkspaceController#openTopologyWorkspace`), and it re-births the window with the same live pane. At every
+ * step the pane has exactly one owning document and at most one embodiment. The restore also proves the
+ * capture cue saved the working layout back: an automatic save into the captured record would have erased the
+ * vessel's pane from it.
+ */
+test.describe('Workstation — a perspective across windows re-births its closed window (Neural Link)', () => {
+    test('a topology restore returns the pane to its closed vessel, and opening that workspace re-births the window', async ({page, neuralLink}) => {
+        test.setTimeout(180000);
+
+        const pageErrors = [];
+        let   popup      = null,
+              reborn     = null;
+
+        page.on('pageerror', error => pageErrors.push(String(error)));
+
+        try {
+            await page.goto('/apps/workstation/index.html');
+            await page.waitForSelector('.workstation-dock-host',               {timeout: 60000});
+            await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
+
+            const app         = await neuralLink.connectToApp('Workstation'),
+                  workspaceId = await workspaceFor(app, await readWindowId(page)),
+                  paneId      = await app.callMethod(workspaceId, 'getPaneIdentity', [ITEM]),
+                  cue         = value => callWorkstationTour(app, workspaceId, 'executeCue', [value]),
+                  activeOf    = async () => (await app.getComponent(workspaceId, ['topologyCollection'])).topologyCollection.activeLayoutId,
+                  hostOf      = async key => (await app.callMethod(workspaceId, 'controller.getTopologyState')).workspaceHosts[key];
+
+            popup = await popOut(page, app, workspaceId, paneId);
+            await expect(popup.locator(`#${paneId}`), 'the vessel renders the live pane').toBeVisible({timeout: 30000});
+
+            const [vesselKey] = await holdersOf(app, workspaceId),
+                  working     = await activeOf();
+
+            expect(vesselKey, 'the pane lives in its vessel document').not.toBe(MAIN);
+            expect(await cue({type: 'perspective-capture', name: 'across-windows', captureScope: 'topology', title: 'Across windows'}))
+                .toMatchObject({applied: true, stored: true, errors: []});
+            expect(await activeOf(), 'the capture cue saved the working layout back').toBe(working);
+
+            await popup.close({runBeforeUnload: true});
+            await expect.poll(() => holdersOf(app, workspaceId), {...POLL, message: 'the native close returns the pane to main'})
+                .toEqual([MAIN]);
+            await expect(page.locator(`#${paneId}`), 'and main shows it').toBeVisible({timeout: 30000});
+
+            expect(await cue({type: 'perspective-restore', name: 'across-windows'})).toMatchObject({applied: true, errors: []});
+            expect(await holdersOf(app, workspaceId), 'the restore returns the pane to its vessel document').toEqual([vesselKey]);
+            expect(await hostOf(vesselKey), 'whose window stays closed: a semantic restore opens nothing')
+                .toMatchObject({disconnected: true, windowId: null});
+            expect(page.context().pages(), 'no window was requested').toHaveLength(1);
+
+            const rebornPromise = page.waitForEvent('popup', {timeout: 30000});
+
+            expect(await cue({type: 'workspace-open', workspaceKey: vesselKey}), 'the explicit open mounts the workspace in a new window')
+                .toEqual({applied: true, errors: [], workspaceKey: vesselKey});
+            reborn = await rebornPromise;
+
+            await expect(reborn.locator(`#${paneId}`), 'the re-born window shows the same live pane').toBeVisible({timeout: 30000});
+            expect(await page.locator(`#${paneId}`).count(), 'with no second embodiment in main').toBe(0);
+            expect(await holdersOf(app, workspaceId), 'and one owning document').toEqual([vesselKey]);
+            expect(await embodimentOf(app, paneId), 'the live pane is mounted in the re-born window')
+                .toEqual({windowId: await readWindowId(reborn), mounted: true, isDestroyed: false});
+            expect(await hostOf(vesselKey)).toMatchObject({disconnected: false});
+
+            // the user's own close is the re-born window's way home
+            await reborn.close({runBeforeUnload: true});
+            await expect.poll(() => holdersOf(app, workspaceId), {...POLL, message: 'closing the re-born window returns the pane to main'})
+                .toEqual([MAIN]);
+            await expect(page.locator(`#${paneId}`), 'and main shows it again').toBeVisible({timeout: 30000})
+        } finally {
+            for (const window of [popup, reborn]) {
+                window && !window.isClosed() && await window.close({runBeforeUnload: true})
+            }
         }
 
         expect(pageErrors).toEqual([])

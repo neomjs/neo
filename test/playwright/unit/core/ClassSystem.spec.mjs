@@ -76,6 +76,45 @@ test.describe('ClassSystem', () => {
         expectations.forEach(item => expect(item.value, item.description).toBe(item.expected));
     });
 
+    test('a beforeSet that throws leaves the previous value and runs no afterSet (#19851)', () => {
+        const calls = [];
+
+        class Guarded extends core.Base {
+            static config = {
+                className: 'Test.Unit.Core.ClassSystem.Guarded',
+                foo_     : 'start'
+            }
+
+            afterSetFoo(value, oldValue) {
+                calls.push([value, oldValue])
+            }
+
+            beforeSetFoo(value) {
+                if (value === 'bad') throw new TypeError('rejected');
+                // A cancel and a transform keep their meaning beside the throw
+                return value === 'cancel' ? undefined : value === 'upper' ? 'UPPER' : value
+            }
+        }
+
+        Neo.setupClass(Guarded);
+
+        const instance = Neo.create(Guarded);
+        calls.length = 0;
+
+        instance.foo = 'good';
+        expect(() => { instance.foo = 'bad' }).toThrow(TypeError);
+        expect(instance.foo, 'the rejected value never becomes the config\'s value').toBe('good');
+        instance.foo = 'cancel';
+        expect(instance.foo, 'a cancel keeps the value').toBe('good');
+        instance.foo = 'upper';
+        expect(instance.foo, 'a transform applies').toBe('UPPER');
+        // The batched path runs the same setter
+        expect(() => instance.set({foo: 'bad'})).toThrow(TypeError);
+        expect(instance.foo).toBe('UPPER');
+        expect(calls, 'afterSet ran for the accepted changes only').toEqual([['good', 'start'], ['UPPER', 'good']]);
+        instance.destroy()
+    });
+
     test('unitTestMode setupClass returns the existing SINGLETON instead of throwing (#15364)', () => {
         // The namespace-collision guard honors the documented singleton arbitration ("whichever
         // registers first wins"): a re-registered singleton returns the existing instance, exactly as

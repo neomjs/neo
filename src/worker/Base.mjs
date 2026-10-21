@@ -491,6 +491,8 @@ class Worker extends Base {
 
     /**
      * @summary Retires one exact SharedWorker port generation and releases its message handler.
+     * Pending replies retain their disconnection name and carry the dead-port code and target window,
+     * so consumers can apply the same recorded-departure predicate before or after dispatch.
      * @param {Object} portEntry
      * @returns {Boolean} True when the entry was live and removed
      */
@@ -522,7 +524,11 @@ class Worker extends Base {
         Object.entries(me.promises).forEach(([id, promise]) => {
             if (promise.portEntry === portEntry || (windowGone && !promise.portEntry && promise.windowId === portEntry.windowId)) {
                 delete me.promises[id];
-                promise.reject(Object.assign(new Error(`Worker port disconnected before reply: ${portEntry.id}`), {name: 'PortDisconnectedError'}))
+                promise.reject(Object.assign(new Error(`Worker port disconnected before reply: ${portEntry.id}`), {
+                    code    : 'NEO_DEAD_PORT',
+                    name    : 'PortDisconnectedError',
+                    windowId: portEntry.windowId
+                }))
             }
         });
 
@@ -544,9 +550,11 @@ class Worker extends Base {
     }
 
     /**
-     * Only relevant for SharedWorkers
+     * Only relevant for SharedWorkers. A disconnect naming an app retires the port once its last app left; one naming
+     * none is the whole window's, sent when it unloads before learning any app name, and retires the port whatever
+     * apps this worker registered on it.
      * @param {Object} data
-     * @param {String} data.appName
+     * @param {String} [data.appName]
      * @param {String} data.windowId
      * @param {Object} [sourcePort]
      */
@@ -564,7 +572,7 @@ class Worker extends Base {
             return
         }
 
-        if (sourcePort?.appNames instanceof Set) {
+        if (appName && sourcePort?.appNames instanceof Set) {
             sourcePort.appNames.delete(appName);
             sourcePort.appNames.size || me.removePort(sourcePort)
         } else if (sourcePort) {

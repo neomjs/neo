@@ -336,6 +336,30 @@ export function planSideBySide(envelope, {gap=24, minHeight=700, minWidth=1200}=
 }
 
 /**
+ * @summary Binds a native-window sensor to exactly one on-screen window: the one whose frame is the
+ * window's known frame BEFORE the gesture moves it.
+ *
+ * Nearness to where the gesture should end is no identity: a foreign window of the same size sitting
+ * there would read as a perfect landing, and so would the intended window's absence. A sensor that
+ * feeds a correction loop and a landing receipt has to read one window throughout, or fail.
+ * @param {Object[]} windows On-screen windows as `{height, number, width, x, y}`.
+ * @param {Object} frame The window's current frame as `{height, width, x, y}`.
+ * @param {Number} [tolerance=1] Per-edge slack between the two coordinate sources.
+ * @returns {Number} The bound window number.
+ * @throws {Error} When no window or more than one matches the frame.
+ */
+export function identifyNativeWindow(windows, frame, tolerance=1) {
+    const matches = windows.filter(window =>
+        ['height', 'width', 'x', 'y'].every(key => Math.abs(window[key] - frame[key]) <= tolerance));
+
+    if (matches.length !== 1) {
+        throw new Error(`native window sensor: ${matches.length} windows match ${JSON.stringify(frame)}, need exactly one`)
+    }
+
+    return matches[0].number
+}
+
+/**
  * @summary Reports whether two window rects share any area.
  *
  * Separate from the planners because "are these already apart" is the question a caller asks BEFORE

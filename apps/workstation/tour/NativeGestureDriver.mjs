@@ -811,7 +811,7 @@ class NativeGestureDriver extends GestureDriver {
                     return {
                         applied: false,
                         errors : ['main workspace did not reach one semantic + rendered stack-return claim'],
-                        proof  : {cancellation, remoteSnapshot}
+                        proof  : {aimed: {nodeId: returnNodeId ?? null, rect: returnRect ?? null}, cancellation, remoteSnapshot}
                     }
                 }
 
@@ -1411,7 +1411,9 @@ class NativeGestureDriver extends GestureDriver {
 
                         continuity.push({destroyed: live?.isDestroyed === true, hop: hopIndex, paneId: live?.id ?? null, same: live != null && live === pane})
                     },
-                    diag = () => `isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} vesselOpen=${JSON.stringify(me.lastVesselOpen ?? null)} connects=${Boolean(me.nativeWindows?.getConnection(me.id, itemId))} staged=${me.tearOutEmbodiment.isStaged(itemId)} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} pointer=${JSON.stringify(pointer)}`,
+                    // Also the vessel slot's binder with its port, read per call, and the worker's theme files in flight:
+                    // a binder without a port refuses every later reservation, a count above 0 holds every mount
+                    diag = (binder = me.workspaceSet.manager.getBinding(me.topologyGroupId, me.tearOutWorkspaceKey(itemId))?.windowId ?? null) => `isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} vesselOpen=${JSON.stringify(me.lastVesselOpen ?? null)} connects=${Boolean(me.nativeWindows?.getConnection(me.id, itemId))} staged=${me.tearOutEmbodiment.isStaged(itemId)} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} binder=${binder} binderPort=${binder && Boolean(Neo.currentWorker.getPort({windowId: binder}))} themeFileLoads=${Neo.currentWorker.countLoadingThemeFiles} pointer=${JSON.stringify(pointer)}`,
                     fail = async (error, extra={}) => {
                         let cancellation = await driver.cancelTearOutGesture(run, button, pointer, {sortZone});
 

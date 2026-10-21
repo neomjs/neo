@@ -350,6 +350,8 @@ class TourController extends Controller {
                 return this.capturePerspectiveCue(cue)
             case 'perspective-restore':
                 return this.restorePerspectiveCue(cue)
+            case 'workspace-open':
+                return this.openWorkspaceCue(cue)
             case 'undo':
             case 'redo':
                 return this.historyCue(cue.type)
@@ -361,23 +363,65 @@ class TourController extends Controller {
     /**
      * @summary Captures the live arrangement into the workspace's perspective store through the
      * same seam an agent uses (`capture_perspective`), so the film's claim is the product's path.
+     *
+     * A `topology` capture records every window's document and selects the new record, so the cue
+     * saves the working layout back at once: the next automatic save would otherwise overwrite the
+     * capture with whatever the room looks like by then.
      * @param {Object} cue
      * @param {String} cue.name The perspective name; a second capture under it replaces the first.
+     * @param {String} [cue.captureScope='window'] `'window'` (main's document) or `'topology'` (every window's)
      * @param {String} [cue.layoutId=cue.name] The record's stable technical id; the name doubles as it.
      * @param {String} [cue.title]
      * @returns {Promise<Object>} `{applied, errors, name, stored}`
      */
-    async capturePerspectiveCue({layoutId, name, title}) {
+    async capturePerspectiveCue({captureScope='window', layoutId, name, title}) {
         const workspace = this.workspace,
+              working   = captureScope === 'topology' ? workspace.topologyCollection?.activeLayoutId ?? null : null,
               result    = await this.trap(workspace.dockService.capturePerspective({
+                  captureScope,
                   componentId    : workspace.id,
                   layoutId       : layoutId ?? name,
                   perspectiveName: name,
                   replace        : true,
                   title
-              }));
+              })),
+              resumed   = result.captured === true && working ? await this.trap(workspace.saveTopology(working)) : null,
+              errors    = [...result.errors ?? [], ...resumed?.errors ?? []];
+        if (result.captured === true && working && !(resumed?.persisted === true && resumed.current === true)) {
+            errors.push('the working topology did not resume with a current persistence receipt')
+        }
 
-        return {applied: result.captured === true, errors: result.errors ?? [], name, stored: result.stored === true}
+        return {applied: result.captured === true && errors.length === 0, errors, name, stored: result.stored === true}
+    }
+
+    /**
+     * @summary Opens a Group workspace's window through the controller's explicit seam, then waits
+     * until its document is mounted there.
+     *
+     * A perspective restore is semantic: it can return a pane to a workspace whose window is closed,
+     * and it opens nothing. This cue is the explicit request that re-births that window.
+     * @param {Object} cue
+     * @param {String} cue.workspaceKey The Group workspace, e.g. `workstation-vessel:metrics`
+     * @returns {Promise<Object>} `{applied, errors, workspaceKey}`; `applied` once the window shows the workspace.
+     */
+    async openWorkspaceCue({workspaceKey}) {
+        const me        = this,
+              workspace = me.workspace,
+              result    = await me.trap(workspace.controller.openTopologyWorkspace(workspaceKey)),
+              // The window's bind mounts the workspace's existing host directly. The popup state's
+              // `mountPromise` can belong to an earlier mount of that workspace, so the cue waits for
+              // the host itself to be mounted in the new window.
+              mounted   = result?.opened === true && await me.waitFor(() => {
+                  const state = workspace.getPopupState(workspaceKey);
+
+                  return state?.disconnected === false && state.host?.mounted === true && state.host.windowId === state.windowId
+              }, {attempts: 600});
+
+        return {
+            applied: mounted === true,
+            errors : result?.errors?.length ? result.errors : mounted ? [] : [`workspace "${workspaceKey}" did not mount in its window`],
+            workspaceKey
+        }
     }
 
     /**
@@ -725,7 +769,7 @@ class TourController extends Controller {
 
         try {
             workspace.dockModel = WorkspaceDocument.clone(initialDocument);
-            await me.trap(workspace.refreshDockWorkspace(null, workspace.dockModel, {geometryOnly: true}));
+            await me.trap(TourController.queueDockRefresh(workspace, workspace.dockModel, {geometryOnly: true}));
 
             // The entry projection is finished and the replay has not begun. Published because a
             // frame-capturing consumer cannot otherwise tell the two apart: both happen inside one
@@ -758,12 +802,33 @@ class TourController extends Controller {
                 // restore failure as a namespaced entry in the returned errors; a thrown primary
                 // owns the return channel and the restore failure stays suppressed.
                 completed
-                    ? await workspace.refreshDockWorkspace()
-                    : await workspace.refreshDockWorkspace().catch(error => {
+                    ? await TourController.queueDockRefresh(workspace, liveDocument)
+                    : await TourController.queueDockRefresh(workspace, liveDocument).catch(error => {
                         out?.errors?.push(`restore projection failed: ${error.message}`)
                     })
             }
         }
+    }
+
+    /**
+     * @summary Projects a document assigned to the workspace directly, after the projection in flight settles.
+     *
+     * The refresh joins the settled tail of the workspace's `refreshPromise`, as its commits do: a reconcile
+     * started beside an in-flight one (the cold-hydrate projection after a reload) leaves a second shell in
+     * the dock host. Static, because a cancelled replay restores after its controller is destroyed.
+     * @param {Workstation.view.Workspace} workspace
+     * @param {Object} document The document to project, held by identity.
+     * @param {Object} [refreshOptions={}] The options `refreshDockWorkspace` receives.
+     * @returns {Promise<void>} This projection's own outcome, rejection included.
+     * @protected
+     * @static
+     */
+    static queueDockRefresh(workspace, document, refreshOptions={}) {
+        const tail = workspace.refreshPromise?.catch(() => {}) || Promise.resolve();
+
+        return workspace.refreshPromise = tail.then(() => {
+            if (!workspace.isDestroyed) return workspace.refreshDockWorkspace(null, document, refreshOptions)
+        })
     }
 
     /**

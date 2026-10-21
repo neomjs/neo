@@ -341,6 +341,19 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
+     * @summary The engine's tear-out terminal, after this window reports a release over its own accepted
+     * preview ({@link Neo.dashboard.dock.interaction.DragAffordances#reportTearOut}).
+     * @param {Object} data The `dockTearOutTerminal` payload.
+     * @returns {Boolean|Promise<Boolean>} The engine terminal's result.
+     * @protected
+     */
+    onDockTearOutTerminal(data) {
+        this.dragAffordances?.reportTearOut(data);
+
+        return this.tearOutHandlers.onDockTearOutTerminal(data)
+    }
+
+    /**
      * @summary Routes header-action pop-out through Workstation's augmented exit policy.
      * @param {Object} data
      * @returns {Promise<Boolean>}
@@ -442,6 +455,7 @@ class VesselWorkspace extends DockWorkspace {
             onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),
             onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data),
             onDockTearOutExit        : data => me.onDockTearOutExit(data),
+            onDockTearOutTerminal    : data => me.onDockTearOutTerminal(data),
             workspaceId              : VesselWorkspace.MAIN_WORKSPACE_ID
         }
     }
@@ -641,13 +655,34 @@ class VesselWorkspace extends DockWorkspace {
                 transactionId: committed.transactionId, phases: ['documents-adopted'],
                 reconciled   : false, closeRequested: false, topologyExited: false
             };
-            const source = me.getPopupState(sourceWorkspaceId), target = me.getPopupState(targetWorkspaceId);
+            const source   = me.getPopupState(sourceWorkspaceId), target = me.getPopupState(targetWorkspaceId);
+            let   departed = null;
             if (descriptor.operation === 'transferNode' && targetWorkspaceId === VesselWorkspace.MAIN_WORKSPACE_ID
                 && source && !Object.keys(source.document.items).length) {
                 const viewport = source.app?.mainView;
-                viewport && !viewport.isDestroyed && viewport.addCls('workstation-vessel-departing')
+                if (viewport && !viewport.isDestroyed) {
+                    viewport.addCls('workstation-vessel-departing');
+                    // The designed exit (Viewport.scss): the theme-ground overlay fades in over `--motion-panel`
+                    // and holds before the OS close. Awaited through the browser's own Animation API in the
+                    // vessel's window once the class has reached its DOM, then held one beat so the opaque ground
+                    // is what the window dies on. Presentation never refuses a transfer: a view that cannot
+                    // report its update, a main thread without the primitive, a missing or instant animation
+                    // all settle at once.
+                    departed = Promise.resolve()
+                        .then(() => viewport.promiseUpdate?.())
+                        .then(() => Neo.main?.DomAccess?.waitForAnimation?.({
+                            animationName: 'workstation-vessel-depart', id: viewport.id, windowId: source.windowId
+                        }))
+                        .then(() => me.timeout(80))
+                        .catch(() => null)
+                }
             }
-            await Promise.all([me.refreshPromise, source?.host?.refreshPromise, target?.host?.refreshPromise]);
+            // Main's ADOPTION, not its settled surface: the retire below needs the pane in main's DOM, which
+            // the reconcile lands; main's FLIP motion and the chrome settle that afterRefreshDockWorkspace
+            // trails are presentation the emptied vessel need not outlive. A cycle that adopted nothing
+            // (skipped, superseded, repaired) settles null, and the settled surface stays the gate.
+            const adopted = await me.projectionCycle?.adoption;
+            await Promise.all([adopted == null ? me.refreshPromise : null, source?.host?.refreshPromise, target?.host?.refreshPromise, departed]);
             receipt.reconciled = true;
             receipt.phases.push('projections-settled');
             if (source && !Object.keys(source.document.items).length) {
@@ -822,12 +857,15 @@ class VesselWorkspace extends DockWorkspace {
 
         // Through the engine's retirement, not the platform seam directly: the fence it holds keeps a
         // late bind for the same item cleanup-only while the close is in flight.
-        const closed = vessel
+        const windowId = state.windowId,
+              closed   = vessel
             ? await me.nativeWindows.retire(me.id, vessel)
             : await NativeVesselTransaction.closeWorkspaceWindow(me.workspaceSet, workspaceId);
 
         if (closed) {
-            state.closeRequested = true;
+            // The retirement can settle after the window already detached. A close request describes
+            // only the window still bound to this state, never a later one born for the same workspace.
+            if (state.windowId === windowId) state.closeRequested = true;
 
             if (
                 me.lastCrossWindowTransfer?.sourceWorkspaceId === workspaceId &&
@@ -1474,19 +1512,42 @@ class VesselWorkspace extends DockWorkspace {
         if (windowId) {
             Neo.manager.DragCoordinator?.clearNativeWindowDropCandidate(windowId, {restoreSource: false});
             Neo.manager.DragCoordinator?.endNativeGesture(windowId);
-            me.vesselProxyEmbodiment.restoreByWindow(windowId)
+            me.vesselProxyEmbodiment.restoreByWindow(windowId);
+            me.retireReleasedPark(data)
         }
         return super.onNativeWindowRelease(data)
     }
 
     /**
-     * @summary Supplies the restored Workstation page and native-window presentation.
+     * @summary A released vessel takes its native park with it. The coordinator's committed terminal
+     * disposes a park, and the candidate this release cleared never reaches it, so a slot left behind
+     * would refuse every later titlebar drop.
+     * @param {Object} data
+     * @param {String} data.windowId
+     * @param {String} [data.workspaceKey]
+     * @protected
+     */
+    retireReleasedPark({windowId, workspaceKey}) {
+        const park   = this.nativeVesselParkHandlers,
+              itemId = (park?.transition?.vessel ?? park?.parkedVessel)?.itemId;
+
+        if (itemId && (workspaceKey === VesselWorkspace.vesselWorkspaceId(itemId) || this.resolveTearOutVessel(itemId)?.windowId === windowId)) {
+            park.onVesselRetired({itemId, retirement: true})
+        }
+    }
+
+    /**
+     * @summary Supplies the restored Workstation page at its Group-owned relative frame position.
      * @param {Object} reservation The shared manager's reserved workspace identity.
      * @returns {Object}
      */
     getNativeWindowOpenConfig(reservation) {
-        const params = new URLSearchParams({workspace: reservation.workspaceKey, theme: this.theme});
-        return {topologyIdentity: reservation, url: `./index.html?${params}`, windowFeatures: 'width=700,height=600',
+        const params   = new URLSearchParams({workspace: reservation.workspaceKey, theme: this.theme}),
+              hint     = this.getPlacementHints()[reservation.workspaceKey],
+              frame    = WindowManager.get(this.windowId)?.outerRect,
+              placed   = [frame?.x, frame?.y, hint?.dx, hint?.dy].every(Number.isFinite),
+              position = placed ? `,left=${Math.round(frame.x + hint.dx)},top=${Math.round(frame.y + hint.dy)}` : '';
+        return {topologyIdentity: reservation, url: `./index.html?${params}`, windowFeatures: `width=700,height=600${position}`,
             windowId: this.windowId, windowName: `workstation-restored-${crypto.randomUUID()}`}
     }
 

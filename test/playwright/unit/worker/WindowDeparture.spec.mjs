@@ -30,6 +30,7 @@ function create() {
     const instance = Object.create(WorkerBase.prototype);
 
     Object.assign(instance, {
+        channelPorts     : {},
         departedWindowIds: new Set(),
         isSharedWorker   : true,
         ports            : [],
@@ -50,7 +51,8 @@ function create() {
  * @returns {Object} the port entry
  */
 function addPort(instance, windowId, appName='App') {
-    const entry = {appNames: new Set([appName]), id: windowId, port: {onmessage: null, close() {}}, windowId};
+    const sent = [], entry = {appNames: new Set([appName]), id: windowId,
+        port: {onmessage: null, close() {}, postMessage: message => sent.push(message)}, sent, windowId};
 
     instance.ports.push(entry);
 
@@ -213,6 +215,49 @@ test.describe('Neo.worker.Base#onUnhandledRejection', () => {
         expect(event.defaultPrevented).toBe(true);
         // Settled, not lost: a component that keeps calling into a gone window stays measurable.
         expect(worker.settledDepartureCount).toBe(1)
+    });
+
+    test('an in-flight request rejected by port retirement settles at the shared unhandled boundary', async () => {
+        const entry   = addPort(worker, 'win-pending'),
+              pending = worker.promiseMessage('win-pending', {action: 'pendingReply', windowId: 'win-pending'})
+                  .catch(reason => reason);
+        expect(entry.sent).toHaveLength(1);
+        worker.removePort(entry);
+        const reason = await pending, event = rejectionEvent(reason);
+        expect(worker.isDeparture(reason)).toBe(true);
+        worker.onUnhandledRejection(event);
+        expect(forwarded).toEqual([]);
+        expect(event.defaultPrevented).toBe(true);
+        expect(worker.settledDepartureCount).toBe(1)
+    });
+
+    test('a dispatched non-window port rejection remains visible at the shared unhandled boundary', async () => {
+        const entry = addPort(worker, null);
+        entry.id = 'backend-port';
+        const pending = worker.promiseMessage('backend-port', {action: 'pendingReply'}).catch(reason => reason);
+        expect(entry.sent).toHaveLength(1);
+        worker.removePort(entry);
+        const event = rejectionEvent(await pending);
+        worker.onUnhandledRejection(event);
+        expect(forwarded).toHaveLength(1);
+        expect(event.defaultPrevented).toBe(false);
+        expect(worker.settledDepartureCount).toBe(0)
+    });
+
+    test('a rejection emitted for another worker\'s departed window remains visible here', async () => {
+        worker.removePort(addPort(worker, 'win-local'));
+        const foreign = create(), entry = addPort(foreign, 'win-foreign'),
+              pending = foreign.promiseMessage('win-foreign', {action: 'pendingReply', windowId: 'win-foreign'})
+                  .catch(reason => reason);
+        expect(entry.sent).toHaveLength(1);
+        foreign.removePort(entry);
+        const reason = await pending, event = rejectionEvent(reason);
+        expect(foreign.isDeparture(reason)).toBe(true);
+        expect(worker.isDeparture(reason)).toBe(false);
+        worker.onUnhandledRejection(event);
+        expect(forwarded).toHaveLength(1);
+        expect(event.defaultPrevented).toBe(false);
+        expect(worker.settledDepartureCount).toBe(0)
     });
 
     test('without a windowId, the destination identifies the departed window', async () => {

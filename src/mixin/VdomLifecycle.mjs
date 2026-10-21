@@ -279,7 +279,7 @@ class VdomLifecycle extends Base {
                 scopes    = new Map(), // collected id → the merged ids its payload expands, in collection order
                 processed = new Set(); // Prevent duplicates and cycles
 
-            let sparseScopes, absorbedScopes;
+            let absorbedMeta, sparseScopes, absorbedScopes, foreignWindowChildren;
 
             const collectScopes = (componentId) => {
                 if (processed.has(componentId)) return;
@@ -296,6 +296,25 @@ class VdomLifecycle extends Base {
                 // updates from components that have moved to a different window.
                 // Doing so would cause deltas meant for Window B to be sent to Window A.
                 if (component.windowId !== me.windowId) return;
+
+                // Evict merged children whose windowId diverged before collection so they are neither
+                // marked collected nor claimed by this window's flight, and can run their own flight.
+                const mergedItem = VDomUpdate.mergedCallbackMap.get(componentId);
+
+                if (mergedItem) {
+                    for (const childId of mergedItem.children.keys()) {
+                        const child = Neo.getComponent(childId);
+
+                        if (child && !child.isDestroyed && child.windowId !== me.windowId) {
+                            mergedItem.children.delete(childId);
+                            (foreignWindowChildren ||= new Set()).add(child)
+                        }
+                    }
+
+                    if (mergedItem.children.size === 0) {
+                        VDomUpdate.mergedCallbackMap.remove(componentId)
+                    }
+                }
 
                 // For every component, we check its own merged children
                 const mergedChildIds = VDomUpdate.getMergedChildIds(componentId);
@@ -377,7 +396,12 @@ class VdomLifecycle extends Base {
                 // We pass null as the second arg to respect the component's configured updateDepth.
                 const payload = Neo.getComponent(id).getVdomUpdatePayload(ids, null, emitted.size > 1 ? emitted : null);
 
-                if (emitted.has(id)) updates[id] = payload
+                if (emitted.has(id)) {
+                    updates[id] = payload
+                } else if (payload.meta) {
+                    // An absorbed root's changes travel in its carrier's payload, so its meta travels with the batch
+                    (absorbedMeta ||= {})[id] = payload.meta
+                }
             }
 
             // Absorbing a payload must not retire the scope that owns late writes and callbacks.
@@ -406,7 +430,19 @@ class VdomLifecycle extends Base {
                 }
             }
 
+            if (foreignWindowChildren) {
+                for (const child of foreignWindowChildren) {
+                    if (!child.isDestroyed && !child.isVdomUpdating && child.needsVdomUpdate) {
+                        child.update()
+                    }
+                }
+            }
+
             const batchData = {updates};
+
+            if (absorbedMeta) {
+                batchData.meta = absorbedMeta
+            }
 
             // CRITICAL: SharedWorker Context Injection
             // This block MUST NOT be removed or simplified.
@@ -570,7 +606,8 @@ class VdomLifecycle extends Base {
      * to the Main Thread. The Main Thread's `DeltaUpdates` singleton fires an `update` event before
      * applying deltas, allowing addons (like optical pinning) to read this `meta` data and dynamically
      * adjust the deltas (like `translate3d` transforms) based on the *current* Main Thread state
-     * before they are painted.
+     * before they are painted, and an `updated` event after them. The meta is read once per payload: when
+     * another root's payload absorbs this one, the meta still travels with the batch.
      *
      * @param {Set<String>|null} mergedChildIds
      * @param {Number} [depth] Override the update depth
@@ -931,7 +968,8 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Traverses the parent chain to find an ancestor that is pending a VDOM update.
+     * @summary Traverses the parent chain to merge this update into a same-window ancestor pending a VDOM update.
+     *
      * If found, and if the update scope allows (see `canMergeUpdate`), this component's
      * update is merged into the ancestor's cycle.
      *
@@ -952,7 +990,7 @@ class VdomLifecycle extends Base {
 
             if (parent) {
                 // We are checking for parent.updateDepth, since we care about the depth of the next update cycle
-                if (parent.needsVdomUpdate && me.canMergeUpdate(parent.updateDepth, distance)) {
+                if (parent.needsVdomUpdate && parent.windowId === me.windowId && me.canMergeUpdate(parent.updateDepth, distance)) {
                     VDomUpdate.registerMerged(parent.id, me.id, me.updateDepth, distance);
                     return true
                 }
@@ -1139,6 +1177,10 @@ class VdomLifecycle extends Base {
      * Every component that receives a vnode here, this one included, then gets {@link #afterVnodeSync} with the
      * deltas of the render that produced it.
      *
+     * A child's mount runs subclass and app code (`afterSetMounted()`). One that throws is logged and the sync goes
+     * on: the later children still get their vnodes, the unmount pass runs and this component adopts its own. After
+     * an update, whose deltas are already in the DOM, stopping would make the next update insert those nodes again.
+     *
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      * @param {Object[]|null} [deltas=null] What the render that produced the vnode wrote, null for a first render
      */
@@ -1192,9 +1234,13 @@ class VdomLifecycle extends Base {
                 component._vnode = ComponentManager.addVnodeComponentReferences(childVnode, component.id);
 
                 component.vnodeInitialized = true;
-                component.mounted          = true;
 
-                component.afterVnodeSync(deltas)
+                try {
+                    component.mounted = true;
+                    component.afterVnodeSync(deltas)
+                } catch (error) {
+                    console.error('syncVnodeTree: a mount hook failed', component.id, error)
+                }
             } else {
                 console.warn('syncVnodeTree: Could not replace the child vnode for', component.id)
             }

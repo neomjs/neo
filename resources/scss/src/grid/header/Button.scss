@@ -72,6 +72,17 @@
         z-index: 5;
     }
 
+    // A filtered column without a menu marks its own header, since no trigger can show the state
+    &.neo-grid-column-filtered:not(.neo-grid-menu-enabled)::before {
+        background-color: var(--grid-header-button-filtered-color, currentColor);
+        bottom          : 0;
+        content         : '';
+        height          : 2px;
+        left            : 0;
+        position        : absolute;
+        right           : 0;
+    }
+
     &.neo-drag-over {
         background-image: linear-gradient(green, darkgreen);;
     }
@@ -130,5 +141,26 @@
             // width (a torn-out pane is a narrow window too, and its header must not grow)
             font-size: var(--grid-header-button-font-size);
         }
+    }
+}
+
+// A header with a column menu wraps its button before the first render. The menu plugin loads lazily,
+// so the wrapper's geometry lives here: the header toolbar measures it as soon as it mounts.
+.neo-grid-menu-wrapper {
+    display    : flex;
+    flex-shrink: 0;
+    position   : relative;
+
+    > .neo-grid-header-button {
+        flex         : 1 1 auto;
+        min-width    : 0;
+        padding-right: 30px;
+        width        : 100%;
+    }
+
+    // A locked button paints at z-index 5; its menu trigger joins that level and follows it, so it stays on top
+    > .neo-locked-start ~ .neo-grid-menu-trigger,
+    > .neo-locked-end ~ .neo-grid-menu-trigger {
+        z-index: 5;
     }
 }

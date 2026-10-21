@@ -74,6 +74,15 @@ class Tree extends Component {
     }
 
     /**
+     * Content-sized rows: the vdom of the label, whose height a wrapText tree column needs. `grid.View` measures a
+     * component cell through this getter, as it measures a text cell through its `.neo-grid-cell-text`.
+     * @member {Object} textVdom
+     */
+    get textVdom() {
+        return this.vdom.cn[2]
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -81,10 +90,23 @@ class Tree extends Component {
 
         let me = this;
 
+        me.vdom.cn[2].id = `${me.id}__content`;
+
         me.addDomListeners({
             click   : me.onToggleClick,
             delegate: '.neo-tree-toggle'
         })
+    }
+
+    /**
+     * Content-sized rows: an update of this cell can land after its row's, e.g. once a pooled row re-bound it, and
+     * the grid view measures the label it rendered.
+     * @protected
+     */
+    afterExecuteVdomUpdate() {
+        let gridBody = this.parent?.parent;
+
+        gridBody?.rowGeometry && gridBody.gridContainer.view.scheduleRowMeasure()
     }
 
     /**

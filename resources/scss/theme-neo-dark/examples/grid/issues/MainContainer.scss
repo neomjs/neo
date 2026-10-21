@@ -1,0 +1,26 @@
+:where(.neo-theme-neo-dark) { // .neo-examples-grid-issues
+    --examples-grid-issues-area-border: #3a3648;
+    --examples-grid-issues-area-fg    : #cfc9e3;
+    --examples-grid-issues-avatar-fg  : #f1effa;
+    --examples-grid-issues-avatar-tone: 32% 36%;
+    --examples-grid-issues-background : #15131c;
+    --examples-grid-issues-border     : #2c2938;
+    --examples-grid-issues-bug-bg     : rgba(255, 107, 112, .14);
+    --examples-grid-issues-bug-fg     : #ff8a8f;
+    --examples-grid-issues-closed-bg  : rgba(167, 139, 250, .16);
+    --examples-grid-issues-closed-fg  : #c4b2ff;
+    --examples-grid-issues-epic-bg    : rgba(251, 191, 36, .14);
+    --examples-grid-issues-epic-fg    : #fbcf6a;
+    --examples-grid-issues-feature-bg : rgba(96, 165, 250, .15);
+    --examples-grid-issues-feature-fg : #93bbff;
+    --examples-grid-issues-hover      : #211e2b;
+    --examples-grid-issues-muted-color: #7f7a93;
+    --examples-grid-issues-neutral-bg : rgba(148, 163, 184, .14);
+    --examples-grid-issues-neutral-fg : #a7b0bf;
+    --examples-grid-issues-open-bg    : rgba(52, 211, 153, .14);
+    --examples-grid-issues-open-fg    : #5fe0a5;
+    --examples-grid-issues-shadow     : 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+    --examples-grid-issues-surface    : #1c1a25;
+    --examples-grid-issues-text-color : #b3aec6;
+    --examples-grid-issues-title-color: #f1effa;
+}

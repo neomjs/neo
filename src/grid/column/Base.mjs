@@ -38,6 +38,12 @@ class Column extends Base {
          */
         cellCls: null,
         /**
+         * Overrides the Grid's column menu opt-in; null inherits it.
+         * @member {Boolean|null} columnMenu_=null
+         * @reactive
+         */
+        columnMenu_: null,
+        /**
          * The field name of the data.Model to read the value from.
          * Must be unique within the grid instance.
          *
@@ -91,7 +97,8 @@ class Column extends Base {
          * Three sources can name it, and this config is the first: an instance set here wins. A `renderer` string
          * resolves against an instance and records it here — `'up.name'` the ancestor that defines the method,
          * a plain name the column itself, which is what the default `cellRenderer` and every subclass override of
-         * it need to reach their own configs. A `renderer` function names no instance and runs on the grid
+         * it need to reach their own configs, and a plain name the column does not define the closest view
+         * controller above the grid that does. A `renderer` function names no instance and runs on the grid
          * Container. The strings `'this'` and `'me'` mean the column, as {@link Neo.grid.column.Component} sets.
          * @member {Neo.core.Base|String|null} rendererScope=null
          */
@@ -111,7 +118,15 @@ class Column extends Base {
          * @member {Number|null} windowId_=null
          * @reactive
          */
-        windowId_: null
+        windowId_: null,
+        /**
+         * Content-sized rows: true lets this column's text wrap and drive the row height. Rows take the tallest
+         * wrapped text of their `wrapText` columns, and never less than the grid's `rowHeight`. Applies to
+         * renderers that return text or html. Without `contentSizedRows` on the grid it has no effect.
+         * @member {Boolean} wrapText_=false
+         * @reactive
+         */
+        wrapText_: false
     }
 
     /**
@@ -124,9 +139,8 @@ class Column extends Base {
             let me            = this,
                 gridContainer = me.parent,
                 body          = gridContainer?.body,
-                headerToolbar = gridContainer?.headerToolbar,
                 colPositions  = body?.columnPositions,
-                button        = headerToolbar?.getColumn(oldValue),
+                button        = gridContainer?.getButton(oldValue),
                 pos           = colPositions?.get(oldValue);
 
             if (pos) {
@@ -142,6 +156,21 @@ class Column extends Base {
             if (button) {
                 button.dataField = value
             }
+
+            // The stored search scope stays fixed; only its caption relative to these columns changes.
+            gridContainer?.syncSearchToolbar()
+        }
+    }
+
+    /**
+     * @summary Projects this column's menu override into its current physical header.
+     * @param {Boolean|null} value
+     * @param {Boolean|null} oldValue
+     */
+    afterSetColumnMenu(value, oldValue) {
+        if (oldValue !== undefined && this.parent) {
+            const button = this.parent.getButton(this.dataField);
+            if (button) button.columnMenu = value ?? this.parent.columnMenu
         }
     }
 
@@ -214,6 +243,17 @@ class Column extends Base {
     }
 
     /**
+     * Triggered after the wrapText config got changed. A content-sized grid forgets its measured row heights and
+     * measures the rows it renders again.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetWrapText(value, oldValue) {
+        oldValue !== undefined && this.parent?.view?.resetRowHeights()
+    }
+
+    /**
      * Triggered before the hideMode config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -233,15 +273,24 @@ class Column extends Base {
         let me          = this,
             {fn, scope} = resolveCallback(value, me);
 
+        // A column is no component and has no controller of its own, so a plain name only a view controller defines
+        // is looked up through the grid's: the closest controller above it that defines the method runs it, as it
+        // would a component's string handler. The column is asked first, so a controller method of the same name
+        // never takes over `cellRenderer` or a subclass override of it.
+        if (!fn && Neo.isString(value) && !value.startsWith('up.')) {
+            scope = me.parent?.getController?.()?.getHandlerScope(value, null) || scope;
+            fn    = scope[value]
+        }
+
         // A name is resolved against an instance, and that instance is the one the method must run on: `up.name`
-        // names an ancestor, a plain name names the column itself — `cellRenderer` and every subclass override of
-        // it read their own configs. A function carries no such instance and falls through to the grid Container.
-        // An explicit rendererScope stays the author's choice, whichever of the two configs is applied first.
+        // names an ancestor, a plain name names the column itself or the view controller that defines it. A
+        // function carries no such instance and falls through to the grid Container. An explicit rendererScope
+        // stays the author's choice, whichever of the two configs is applied first.
         if (Neo.isString(value) && fn && !me.rendererScope) {
             me.rendererScope = scope
         }
 
-        // If no fn is found inside the parent tree, return the plain value for view controllers to match
+        // A name nothing defines stays the plain value
         return fn || value
     }
 
@@ -270,6 +319,7 @@ class Column extends Base {
             out = super.toJSON();
 
         out.dataField = me.dataField;
+        out.columnMenu = me.columnMenu;
         out.type      = me.type;
 
         if (Neo.isString(me.renderer)) {

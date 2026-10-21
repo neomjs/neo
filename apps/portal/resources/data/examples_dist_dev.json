@@ -1,11 +1,11 @@
 [{
-    "id"           : 28,
+    "id"           : 27,
     "environments" : ["Desktop"],
-    "image"        : "devmode/dockDemo.png",
-    "name"         : "Dock Layouts",
+    "image"        : "devmode/workstation-13-2.jpg",
+    "name"         : "Workstation",
     "sharedWorkers": true,
-    "sourceUrl"    : "examples/dashboard/choreography",
-    "url"          : "dist/development/examples/dashboard/choreography/index.html"
+    "sourceUrl"    : "apps/workstation",
+    "url"          : "dist/development/apps/workstation/index.html"
 }, {
     "id"          : 26,
     "environments": ["Desktop", "Mobile"],
@@ -13,13 +13,6 @@
     "name"        : "GitHub Meritocracy Index",
     "sourceUrl"   : "https://github.com/neomjs/devindex",
     "url"         : "https://neomjs.com/devindex/dist/development/apps/devindex/"
-}, {
-    "id"          : 27,
-    "environments": ["Desktop"],
-    "image"       : "devmode/workstation.png",
-    "name"        : "Workstation",
-    "sourceUrl"   : "apps/workstation",
-    "url"         : "dist/development/apps/workstation/index.html"
 }, {
     "id"          : 25,
     "environments": ["Desktop", "Mobile"],
@@ -41,6 +34,13 @@
     "name"        : "Buffered Data Grid with 5M cells",
     "sourceUrl"   : "examples/grid/bigData",
     "url"         : "dist/development/examples/grid/bigData/index.html"
+}, {
+    "id"          : 29,
+    "environments": ["Desktop", "Mobile"],
+    "image"       : "devmode/grid-issues-13-3.jpg",
+    "name"        : "GitHub Issues Grid",
+    "sourceUrl"   : "examples/grid/issues",
+    "url"         : "dist/development/examples/grid/issues/index.html"
 }, {
     "id"       : 22,
     "image"    : "devmode/calendar-preview.png",
@@ -167,6 +167,14 @@
     "name"     : "Liquid Glass effect",
     "sourceUrl": "https://github.com/neomjs/liquid-glass-demo/blob/main/apps/myapp/view/GlassComponent.mjs",
     "url"      : "https://neomjs.github.io/pages2/workspace/neo-liquid-glass-demo/dist/development/apps/myapp/index.html"
+}, {
+    "id"           : 28,
+    "environments" : ["Desktop"],
+    "image"        : "devmode/dock-choreography-13-2.jpg",
+    "name"         : "Dock Choreography Demo",
+    "sharedWorkers": true,
+    "sourceUrl"    : "examples/dashboard/choreography",
+    "url"          : "dist/development/examples/dashboard/choreography/index.html"
 }, {
     "hidden"   : true,
     "id"       : 2,

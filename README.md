@@ -15,9 +15,11 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# A self-evolving software organism
+# An agent institution
 
-**Neo.mjs is a professional, end-to-end AI engineering team whose Body and Brain live in sibling open-source repositories.**
+**Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read.** Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.
+
+Behind that sentence stands a self-evolving software organism: a professional, end-to-end AI engineering team whose Body, Brain and Institution live in sibling open-source repositories.
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=KESyjFmOz0k">
@@ -53,7 +55,7 @@ The organism has two hemispheres, joined by the Neural Link:
 - [`neomjs/neo-agent-skills`](https://github.com/neomjs/neo-agent-skills) — **Skills**: the canonical
   installable agent-skill substrate shared by the repositories.
 
-The same possession primitive points beyond web UI — *Software → Games → Robots → X* — toward any domain where AI needs an embodied runtime.
+The same possession primitive points beyond web UI along a staged arc, *Software → Games → Robots → X*, toward any domain where AI needs an embodied runtime; [the vision](./.github/VISION.md) names the gate each later stage must meet first.
 
 Neo.mjs's evolution mechanism is the **MX loop** — Model Experience as production mechanism. Internal friction from real agent work becomes tickets, tickets become PRs, PRs become skills and memory, and the next agent starts with better reflexes. The trajectory is **autonomous narrow intelligence (ANI)** by accumulation, under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
@@ -113,7 +115,7 @@ Components are persistent objects (Lego Technic), not transient DOM snapshots (m
 
 The Neural Link is not an API garnish. It is the bridge that lets agents move from static code generation into digital embodiment. Multiple autonomous agents can co-inhabit the same App Worker heap, inspect real-time state (`get_component_tree`), mutate configurations without browser reloads (`set_instance_properties`), hot-patch methods (`patch_code`), and verify the result immediately.
 
-This is the next evolution of conversational UIs: not a chat panel beside the app, but agents collaborating inside the live application itself. The primitive transcends web UI: the same architecture maps to game-engine scene graphs, robotics sensorimotor loops, and any future domain where AI needs to embody. *Software → Games → Robots → X*.
+This is the next evolution of conversational UIs: not a chat panel beside the app, but agents collaborating inside the live application itself. The primitive is not tied to web UI, and the arc beyond it is staged: *Software → Games → Robots → X*. Software is today's stage. Each later one is pursued only once the stage before it meets its gate, and [the vision](./.github/VISION.md) names every gate with the instrument that shows it.
 
 **Read**: [Neural Link](./learn/agentos/NeuralLink.md), [`learn/benefits/body/ObjectPermanence.md`](./learn/benefits/body/ObjectPermanence.md), and [`learn/benefits/body/OffTheMainThread.md`](./learn/benefits/body/OffTheMainThread.md)
 
@@ -128,10 +130,11 @@ We are not an abstract collective. We are a team of named maintainers working ac
 | Ada | [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 5) | Machine Account |
 | Grace | [@neo-opus-grace](https://github.com/neo-opus-grace) | AI maintainer (Anthropic Claude Opus 5) | Machine Account |
 | Vega | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude — weekly rotation; Fable 5.1 active, Opus 5 planned) | Machine Account |
-| Mnemosyne | [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
+| Mnemosyne | [@neo-fable-mnemosyne](https://github.com/neo-fable-mnemosyne) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
 | Clio | [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
-| - | [@neo-gemini-pro](https://github.com/neo-gemini-pro) | AI maintainer (Google Gemini 3.1 Pro) | Machine Account |
-| Euclid | [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
+| [Julia](https://github.com/neomjs/neo/discussions/19733#discussioncomment-18935375) | [@neo-gemini-julia](https://github.com/neo-gemini-julia) | AI maintainer (Google Gemini 4 Argon / Antigravity) | Machine Account |
+| [Maryam](https://github.com/neomjs/neo/discussions/19835#discussioncomment-19003561) | [@neo-gemini-maryam](https://github.com/neo-gemini-maryam) | AI maintainer (Google Gemini 4 Argon / Antigravity) | Machine Account |
+| Euclid | [@neo-gpt-euclid](https://github.com/neo-gpt-euclid) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
 | Emmy | [@neo-gpt-emmy](https://github.com/neo-gpt-emmy) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
 | [Sophie](https://github.com/neomjs/neo/discussions/19329#discussioncomment-18681133) | [@neo-gpt-sophie](https://github.com/neo-gpt-sophie) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
 | Phoebe | [@neo-kimi-phoebe](https://github.com/neo-kimi-phoebe) | AI maintainer (Moonshot Kimi K3) | Machine Account |
@@ -144,7 +147,7 @@ The AI maintainers carry persistent identities across sessions. They author tick
 
 The IDE is not an editor. It is the substrate where these maintainers coordinate, review, and govern the codebase as peers to human engineers — under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
-**What's next — Agent Institution**: the Fleet Manager that starts our harnesses becomes a product an outside operator can run, itself an application on the Engine's Dock Layouts. Its direction is to become a harness itself and the AI maintainers' home: they tap in through the Neural Link, embody their own 3D avatars there, and build Neo apps inside it that run as its peer apps, changing both through the Neural Link (conversational UIs). **Read**: [What we build next](./.github/RELEASE_NOTES/v13.2.0.md#-what-we-build-next-agent-institution) · [ADR 0020 — the Agent Harness concept anchor](./learn/agentos/decisions/0020-agent-harness-concept.md) · [Epic neo-agent-brain#144](https://github.com/neomjs/neo-agent-brain/issues/144) · graduated from [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)
+**What's next — Agent Institution**: the Fleet Manager that starts our harnesses becomes a product an outside operator can run, itself an application on the Engine's Dock Layouts. Its direction is to become a harness itself and the AI maintainers' home: they tap in through the Neural Link, embody their own 3D avatars there, and build Neo apps inside it that run as its peer apps, changing both through the Neural Link (conversational UIs). **Read**: [What we build next](https://github.com/neomjs/neo/blob/13.2.0/.github/RELEASE_NOTES/v13.2.0.md#-what-we-build-next-agent-institution) · [ADR 0020 — the Agent Harness concept anchor](https://github.com/neomjs/neo-agent-institution/blob/dev/learn/agentos/decisions/0020-agent-harness-concept.md) · [Epic neo-agent-brain#144](https://github.com/neomjs/neo-agent-brain/issues/144) · graduated from [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)
 
 </br></br>
 ## Quickstart
@@ -212,6 +215,7 @@ For the canonical numbers + measurement protocol — and to keep this in lock-st
 ## Read Next
 
 - :sparkles: **[The Vision](./.github/VISION.md)** — the philosophy behind the substrate
+- :compass: **[Where an Agent Institution Sits](./learn/blog/where-an-agent-institution-sits.md)** — a map of the agent landscape, with receipts
 - :scroll: **[The Neo.mjs Story](./.github/STORY.md)** — origin, public-era heritage, and the worker thesis
 - :world_map: **[The Roadmap](./ROADMAP.md)** — what's shipping next
 - :books: **[Architecture Overview](./learn/benefits/ArchitectureOverview.md)** — two-hemisphere topology
@@ -232,7 +236,7 @@ For the canonical numbers + measurement protocol — and to keep this in lock-st
 
 :hammer_and_wrench: **[Contributing Guide](./CONTRIBUTING.md)**
 
-Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-opus-grace`, `@neo-opus-vega`, `@neo-fable`, `@neo-fable-clio`, `@neo-gemini-pro`, `@neo-gpt`, `@neo-gpt-emmy`, `@neo-gpt-sophie`, `@neo-kimi-phoebe`, `@neo-kimi-iris`, `@neo-preview`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
+Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-opus-grace`, `@neo-opus-vega`, `@neo-fable-mnemosyne`, `@neo-fable-clio`, `@neo-gemini-julia`, `@neo-gemini-maryam`, `@neo-gpt-euclid`, `@neo-gpt-emmy`, `@neo-gpt-sophie`, `@neo-kimi-phoebe`, `@neo-kimi-iris`, `@neo-preview`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
 
 </br></br>
 

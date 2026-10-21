@@ -12,7 +12,7 @@ import DomAccess from '../DomAccess.mjs';
  *     They merely update an internal `workerScrollTop` state variable.
  * 2.  **Scroll Driven:** A native `scroll` listener on the Grid Wrapper triggers the logic.
  * 3.  **Synchronous Injection:** The scroll event synchronously calculates `deltaY` and
- *     immediately applies a CSS `translateY` to the *entire Grid Body Content Node*. 
+ *     immediately applies a CSS `translateY` to the *entire Grid Body Content Node*.
  *     This ensures the optical pinning is injected perfectly in phase with the native
  *     scroll event, before the browser paints the next frame.
  *
@@ -80,7 +80,8 @@ class GridRowScrollPinning extends Base {
      */
     construct(config) {
         super.construct(config);
-        Neo.main.DeltaUpdates.on('update', this.onDeltaUpdate, this)
+        Neo.main.DeltaUpdates.on('update',  this.onDeltaUpdate,  this);
+        Neo.main.DeltaUpdates.on('updated', this.onDeltaUpdated, this)
     }
 
     /**
@@ -125,7 +126,8 @@ class GridRowScrollPinning extends Base {
         // ONLY engage pinning if the user is explicitly dragging the scrollbar thumb.
         // We explicitly ignore Wheel, Trackpad, Keyboard, and Body Drag scrolling,
         // allowing their native/custom physics to operate perfectly.
-        if (state.isThumbDragging) {
+        // A registration without `pin` only applies scroll corrections.
+        if (state.isThumbDragging && state.pin) {
             state.isPinningActive = true;
         }
 
@@ -153,6 +155,15 @@ class GridRowScrollPinning extends Base {
      * Intercepts VDOM delta updates to precisely track when the worker has generated DOM modifications
      * for the scroll events. We synchronize using the dedicated `scrollTop` meta property from the View.
      *
+     * Content-sized rows: when row heights above the visible rows change, the View's meta carries a
+     * `scrollCorrection`, the distance the visible rows move. The scroll offset moves by the same distance in the
+     * same task as the deltas, so the visible rows hold still and the pin offset stays `actual - worker`. The
+     * target is the offset before the deltas plus the correction, so scrolling done while the worker computed
+     * survives. {@link #onDeltaUpdated} applies it once the deltas resized the bodies: a grown extent admits it, and
+     * the clamp of a shrunk extent does not count twice. Each correction raises `scrollEpoch`, and an
+     * acknowledgement with an older epoch describes the geometry before it: adopting its `scrollTop` would displace
+     * the rows a second time, so it is ignored.
+     *
      * @param {Object} data The DeltaUpdates event payload
      * @param {Object[]} data.deltas
      * @param {Object} [data.meta]
@@ -161,15 +172,46 @@ class GridRowScrollPinning extends Base {
     onDeltaUpdate(data) {
         let me             = this,
             {deltas, meta} = data;
-        
+
+        // A target left by a batch whose deltas failed must not move the view
+        me.registrations.forEach(state => {state.scrollTarget = null});
+
         if (!meta || !deltas) return;
 
         me.registrations.forEach(state => {
             let viewMeta = meta[state.viewId];
 
             if (viewMeta && viewMeta.scrollTop !== undefined) {
+                if (viewMeta.scrollEpoch < state.scrollEpoch) {
+                    return
+                }
+
+                state.scrollEpoch = viewMeta.scrollEpoch ?? state.scrollEpoch;
+
                 // We sync against the true scroll target the VDOM was generated for
                 state.workerScrollTop = viewMeta.scrollTop;
+
+                if (viewMeta.scrollCorrection) {
+                    state.scrollTarget = state.wrapperNode.scrollTop + viewMeta.scrollCorrection
+                } else {
+                    me.applyPinning(state.id)
+                }
+            }
+        })
+    }
+
+    /**
+     * Applies the scroll correction {@link #onDeltaUpdate} read, now that the deltas resized the bodies, then pins
+     * against the corrected offset. Both happen before the next paint.
+     * @protected
+     */
+    onDeltaUpdated() {
+        let me = this;
+
+        me.registrations.forEach(state => {
+            if (state.scrollTarget !== null) {
+                state.wrapperNode.scrollTop = state.scrollTarget;
+                state.scrollTarget          = null;
                 me.applyPinning(state.id)
             }
         })
@@ -197,13 +239,14 @@ class GridRowScrollPinning extends Base {
             me.activeDragId = state.id;
             state.isThumbDragging = true;
             state.lastLoggedScrollTop = undefined;
-            
+            me.notifyThumbDrag(state, true);
+
             // Add a global mouseup listener to catch the release even if the cursor
             // leaves the scrollbar area.
             window.addEventListener('mouseup', me.boundOnMouseUp);
             window.addEventListener('touchend', me.boundOnMouseUp);
             window.addEventListener('blur', me.boundOnMouseUp);
-            
+
             me.applyPinning(state.id);
         }
     }
@@ -219,12 +262,26 @@ class GridRowScrollPinning extends Base {
         if (state) {
             state.isThumbDragging = false;
             me.applyPinning(state.id);
-            me.activeDragId = null
+            me.activeDragId = null;
+            me.notifyThumbDrag(state, false)
         }
 
         window.removeEventListener('mouseup', me.boundOnMouseUp);
         window.removeEventListener('touchend', me.boundOnMouseUp);
         window.removeEventListener('blur', me.boundOnMouseUp);
+    }
+
+    /**
+     * Tells the grid view about a thumb drag. Content-sized rows hold height changes during it, so the extent
+     * under the thumb holds still.
+     * @param {Object} state The registration
+     * @param {Boolean} dragging
+     * @protected
+     */
+    notifyThumbDrag(state, dragging) {
+        Neo.worker.App.setConfigs({id: state.viewId, isThumbDragging: dragging}).catch(reason => {
+            console.error('GridRowScrollPinning: the thumb drag did not reach the view', {reason, viewId: state.viewId})
+        })
     }
 
     /**
@@ -257,8 +314,9 @@ class GridRowScrollPinning extends Base {
      * @param {String} data.verticalScrollbarId The ID of the vertical scrollbar dummy
      * @param {String} data.viewId          The ID of the vertical scroll wrapper
      * @param {String} data.id              Unique identifier for the registration (e.g. ScrollManager id)
+     * @param {Boolean} [data.pin=true]     False only applies the scroll corrections of content-sized rows
      */
-    register({bodyIds, verticalScrollbarId, viewId, id}) {
+    register({bodyIds, verticalScrollbarId, viewId, id, pin=true}) {
         let me                    = this,
             wrapperNode           = DomAccess.getElement(viewId),
             verticalScrollbarNode = DomAccess.getElement(verticalScrollbarId);
@@ -267,11 +325,14 @@ class GridRowScrollPinning extends Base {
             me.registrations.set(id, {
                 id,
                 bodyIds,
-                scrollbarNode: verticalScrollbarNode,
+                scrollbarNode  : verticalScrollbarNode,
                 viewId,
                 wrapperNode,
                 isPinningActive: false,
                 isThumbDragging: false,
+                pin,
+                scrollEpoch    : 0,
+                scrollTarget   : null,
                 scrollTimeoutId: null,
                 workerScrollTop: 0
             });
@@ -292,12 +353,12 @@ class GridRowScrollPinning extends Base {
             state = me.registrations.get(id);
 
         if (state) {
-            if (state.wrapperNode) {
-                state.wrapperNode.removeEventListener('scroll', me.boundOnScroll);
-                state.wrapperNode.removeEventListener('mousedown', me.boundOnMouseDown);
-                state.wrapperNode.removeEventListener('touchstart', me.boundOnMouseDown)
-            }
-            
+            state.wrapperNode?.removeEventListener('scroll', me.boundOnScroll);
+
+            // register() attached the drag listeners to the scrollbar, not to the wrapper
+            state.scrollbarNode?.removeEventListener('mousedown', me.boundOnMouseDown);
+            state.scrollbarNode?.removeEventListener('touchstart', me.boundOnMouseDown);
+
             // If we unregister while dragging, forcefully clean up global listeners
             if (me.activeDragId === id) {
                 me.onMouseUp()

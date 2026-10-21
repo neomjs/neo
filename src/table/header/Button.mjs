@@ -38,9 +38,11 @@ class Button extends BaseButton {
          */
         cellAlign_: 'left',
         /**
-         * @member {String|null} dataField=null
+         * The Store field addressed by this header's sort and inline filter projection.
+         * @member {String|null} dataField_=null
+         * @reactive
          */
-        dataField: null,
+        dataField_: null,
         /**
          * Sort direction when clicking on an unsorted button
          * @member {String} defaultSortDirection='ASC'
@@ -121,6 +123,9 @@ class Button extends BaseButton {
         ]}
     }
 
+    /** @member {Promise|null} headerFilterReady=null @protected */
+    headerFilterReady = null
+
     /**
      * Triggered after the isSorted config got changed
      * @param {String|null} value
@@ -129,7 +134,15 @@ class Button extends BaseButton {
      */
     afterSetIsSorted(value, oldValue) {
         let me        = this,
-            container = me.up('table-container');
+            container = me.up('table-container'),
+            // WAI-ARIA 1.2 allows aria-sort on a columnheader only. In a table that is the <th> this button sits
+            // in, not the button itself, so the attribute cannot ride on changeVdomRootKey(): that one addresses
+            // getVdomRoot(), which this class points at the native button for the top level style attributes.
+            // The class change below rides in the same vdom update, so the write needs no update() of its own.
+            header    = me.vdom;
+
+        if (value) header['aria-sort'] = value === 'ASC' ? 'ascending' : 'descending';
+        else delete header['aria-sort'];
 
         switch (value) {
             case null:
@@ -187,12 +200,30 @@ class Button extends BaseButton {
             } else {
                 delete me.filterField.vdom.removeDom
             }
+            me.ensureHeaderFilterProjection()
         } else if (me.filterField) {
             me.filterField.vdom.removeDom = true
         }
 
         me.updateDepth = 2;
         me.update()
+    }
+
+    /**
+     * @summary Attaches the shared inline projection once without introducing a Table menu surface.
+     * @returns {Promise}
+     */
+    ensureHeaderFilterProjection() {
+        return this.headerFilterReady ||= import('../../plugin/HeaderFilter.mjs').then(({default: module}) => {
+            if (!this.isDestroyed && !this.isDestroying) {
+                let plugin = this.getPlugin('plugin-header-filter');
+                if (!plugin) {
+                    this.plugins = [...(this.plugins || []), {module}];
+                    plugin = this.getPlugin('plugin-header-filter')
+                }
+                plugin.syncField()
+            }
+        })
     }
 
     /**
@@ -256,6 +287,7 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Updates the shared inline contribution without replacing picker or application predicates.
      * @param {Object} data
      */
     changeFilterOperator(data) {
@@ -263,22 +295,19 @@ class Button extends BaseButton {
             tableContainer = me.up('table-container'),
             store          = tableContainer?.store,
             operator       = data.value,
-            filter, filters;
+            filter;
 
         if (store) {
-            filter = store.getFilter(me.dataField);
+            filter = store.getFilter(me.dataField, 'header-inline');
 
             if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
-                    value   : null,
+                store.filters = [...store.filters, {
                     ...me.filterConfig,
-                    operator
-                });
-
-                store.filters = filters
+                    property : me.dataField,
+                    value    : null,
+                    operator,
+                    ownerRole: 'header-inline'
+                }]
             } else {
                 filter.operator = operator
             }
@@ -286,6 +315,7 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Writes input into the shared inline contribution; filterConfig supplies creation defaults only.
      * @param {Object} data
      */
     changeFilterValue(data) {
@@ -293,14 +323,14 @@ class Button extends BaseButton {
             tableContainer = me.up('table-container'),
             store          = tableContainer?.store,
             {value}        = data,
-            field, filter, filters, model;
+            field, filter, model;
 
         if (store) {
-            filter = store.getFilter(me.dataField);
+            filter = store.getFilter(me.dataField, 'header-inline');
             model  = store.model;
             field  = model && model.getField(me.dataField);
 
-            if (value && field.type.toLowerCase() === 'date') {
+            if (value && field?.type?.toLowerCase() === 'date') {
                 value = new Date(value)
             }
 
@@ -309,16 +339,13 @@ class Button extends BaseButton {
             }
 
             if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
+                store.filters = [...store.filters, {
                     operator: 'like',
                     ...me.filterConfig,
-                    value
-                });
-
-                store.filters = filters
+                    property : me.dataField,
+                    value,
+                    ownerRole: 'header-inline'
+                }]
             } else {
                 filter.value = value
             }
@@ -353,10 +380,16 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Sorts header gestures without treating inline filter controls as sort actions.
      * @param {Object} data
      * @protected
      */
     onClick(data) {
+        const {filterField} = this;
+        if (filterField && data.path.some(node => node.id === filterField.id)) {
+            return
+        }
+
         let me = this,
             map;
 
@@ -374,7 +407,10 @@ class Button extends BaseButton {
             }
         }
 
-        me.isSorted = map[me.isSorted + ''];
+        // A non-sortable header keeps its click (the button handler), but never starts a sort
+        if (me.sortable) {
+            me.isSorted = map[me.isSorted + '']
+        }
 
         super.onClick(data)
     }
@@ -385,6 +421,15 @@ class Button extends BaseButton {
     removeSortingCss() {
         let me    = this,
             {cls} = me;
+
+        // This path resets _isSorted directly, so it bypasses afterSetIsSorted() and owns the aria-sort clear.
+        // It cannot lean on the class change below either: a header that was already hidden writes the same
+        // cls array back and produces no update, which would leave the stale attribute in the DOM. The container
+        // runs this on every other header on each sort, and only the one losing its sort carries the attribute.
+        if ('aria-sort' in me.vdom) {
+            delete me.vdom['aria-sort'];
+            me.update()
+        }
 
         NeoArray.add(cls, 'neo-sort-hidden');
 

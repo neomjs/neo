@@ -1,0 +1,53 @@
+// The wrapper's own geometry is the header button's (grid/header/Button.scss)
+.neo-grid-menu-wrapper {
+    > .neo-grid-menu-trigger {
+        // The arrow is button text: colour it like the header's own glyphs (the sort icons)
+        --button-text-color       : var(--grid-header-button-glyph-color);
+        --button-text-color-active: var(--grid-header-button-glyph-color-hover);
+        --button-text-color-hover : var(--grid-header-button-glyph-color-hover);
+
+        background : transparent;
+        border     : 0;
+        bottom     : 3px;
+        height     : auto; // top and bottom size it, not the theme's button height
+        min-width  : 20px;
+        opacity    : 0;
+        padding    : 0;
+        position   : absolute;
+        right      : 6px;
+        top        : 3px;
+        width      : 20px;
+    }
+
+    // A filtered column keeps its trigger shown: the state must not depend on hover or focus
+    &:hover > .neo-grid-menu-trigger,
+    &:focus-within > .neo-grid-menu-trigger,
+    > .neo-grid-column-filtered ~ .neo-grid-menu-trigger {
+        opacity: 1;
+    }
+}
+
+@media (hover: none) {
+    .neo-grid-menu-wrapper > .neo-grid-menu-trigger {
+        opacity: 1;
+    }
+}
+
+.neo-grid-column-menu {
+    background-color: var(--grid-header-button-background-color);
+    border          : 1px solid var(--grid-header-button-border-right-color);
+    border-radius   : 4px;
+    box-shadow      : 0 4px 16px rgba(0, 0, 0, .25);
+    padding         : 8px;
+
+    .neo-form-field {
+        margin-bottom: 8px;
+    }
+
+    .neo-value-picker {
+        // Its rows sit on the menu's surface: a standalone list's row colour reads as a band here
+        --list-item-background-color: transparent;
+
+        background-color: var(--grid-header-button-background-color);
+    }
+}

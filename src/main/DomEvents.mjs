@@ -131,6 +131,13 @@ class DomEvents extends Base {
     mouseMoveReqId = null
 
     /**
+     * Native font subscription owned by this document.
+     * @member {Object|null} #fontEvents=null
+     */
+    #fontEvents = null
+
+    /**
+     * @summary Registers main-thread DOM and native font events.
      * @param {Object} config
      */
     construct(config) {
@@ -149,6 +156,35 @@ class DomEvents extends Base {
         if (Neo.config.useSharedWorkers) {
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me))
         }
+
+        // Unsupported browsers keep the measurements made with their currently available fonts.
+        const fonts = document.fonts;
+
+        if (typeof fonts?.addEventListener === 'function' && typeof fonts.removeEventListener === 'function') {
+            const listener = me.onFontChange.bind(me);
+
+            me.#fontEvents = {fonts, listener};
+            fonts.addEventListener('loadingdone',  listener);
+            fonts.addEventListener('loadingerror', listener)
+        }
+    }
+
+    /**
+     * @summary Releases the native font listeners with their main-thread owner.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        if (me.#fontEvents) {
+            const {fonts, listener} = me.#fontEvents;
+
+            fonts.removeEventListener('loadingdone',  listener);
+            fonts.removeEventListener('loadingerror', listener);
+            me.#fontEvents = null
+        }
+
+        super.destroy(...args)
     }
 
     /**
@@ -440,15 +476,22 @@ class DomEvents extends Base {
     }
 
     /**
-     * Only in use if Neo.config.useSharedWorkers = true
+     * Only in use if Neo.config.useSharedWorkers = true. Disconnects each app this window knows of; a window that knows
+     * none yet — it unloads before its first `registerAppName` arrives, while the workers already hold its port —
+     * disconnects as a whole.
      * @param {Object} event
      */
     onBeforeUnload(event) {
-        let {Manager} = Neo.worker;
+        let {Manager}            = Neo.worker,
+            {appNames, windowId} = Manager;
 
-        Manager.appNames.forEach(appName => {
-            Manager.broadcast({action: 'disconnect', appName, windowId: Manager.windowId})
-        })
+        if (appNames.length) {
+            appNames.forEach(appName => {
+                Manager.broadcast({action: 'disconnect', appName, windowId})
+            })
+        } else {
+            Manager.broadcast({action: 'disconnect', windowId})
+        }
     }
 
     /**
@@ -837,6 +880,21 @@ class DomEvents extends Base {
                 windowId       : Neo.worker.Manager.windowId
             }
         })
+    }
+
+    /**
+     * @summary Announces a completed or failed font load in this document's current window.
+     * @protected
+     */
+    onFontChange() {
+        const binding = this.#fontEvents;
+
+        if (binding && !this.isDestroyed) {
+            Neo.worker.Manager.sendMessage('app', {
+                action: 'fontChange',
+                data  : {windowId: Neo.worker.Manager.windowId}
+            })
+        }
     }
 
     /**

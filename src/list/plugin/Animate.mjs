@@ -36,6 +36,17 @@ class Animate extends Base {
      * @protected
      */
     measureToken = 0
+    /** @summary Fences delayed filter and settlement work against the latest presentation intent. */
+    motionSerial = 0
+    /** @summary Associates each rendered descriptor with the record it actually presents. */
+    renderedRecords = new WeakMap()
+    /** @summary A filter retains leaving descriptors until its settlement rebuild. */
+    pendingFilter = false
+    /** @summary The component list's original coarse-load consumer and installed wrapper. */
+    ownerOnStoreLoad = null
+    ownerLoadHandler = null
+    /** @summary Index-pooled components retain their rendered addresses until settlement. */
+    indexedMotion = null
 
     static config = {
         /**
@@ -157,6 +168,12 @@ class Animate extends Base {
         me.adjustCreateItem();
 
         me.ownerOnStoreRecordChange = owner.onStoreRecordChange.bind(owner);
+
+        if (Neo.list.Component && owner instanceof Neo.list.Component) {
+            me.ownerOnStoreLoad = owner.onStoreLoad.bind(owner);
+            me.ownerLoadHandler = me.onStoreLoad.bind(me);
+            owner.onStoreLoad = me.ownerLoadHandler
+        }
 
         owner.onStoreFilter       = me.onStoreFilter      .bind(me);
         owner.onStoreRecordChange = me.onStoreRecordChange.bind(me);
@@ -410,6 +427,7 @@ class Animate extends Base {
         });
 
         item.style = style;
+        me.renderedRecords.set(item, record);
 
         return item
     }
@@ -423,6 +441,11 @@ class Animate extends Base {
             ownerId = me.owner?.id;
 
         clearTimeout(me.transitionTimeoutId);
+        me.motionSerial++;
+        if (me.ownerOnStoreLoad && me.owner?.onStoreLoad === me.ownerLoadHandler) {
+            me.owner.onStoreLoad = me.ownerOnStoreLoad
+        }
+        me.endIndexedMotion();
 
         me.owner?.un({createItems: me.onOwnerCreateItems, scope: me});
         me.addResizeObserver(false);
@@ -542,6 +565,60 @@ class Animate extends Base {
     }
 
     /**
+     * @summary Leaves an identified coarse sort notification to its fine sort handler.
+     * Ordinary membership/replacement loads reach the original mount-aware owner synchronously;
+     * only Store's explicit sort origin may skip that rebuild before sortItems moves the cards.
+     * @param {Object} data
+     * @param {Boolean} [data.isSort] The coarse notification emitted by Store.onCollectionSort.
+     */
+    onStoreLoad(data) {
+        if (this.isDestroyed || data?.isSort === true) return;
+        this.motionSerial++;
+        this.pendingFilter = false;
+        this.endIndexedMotion();
+        clearTimeout(this.transitionTimeoutId);
+        this.transitionTimeoutId = null;
+        return this.ownerOnStoreLoad(data)
+    }
+
+    /**
+     * @summary Keeps released index-pooled addresses bound to the displayed records during motion.
+     * @param {Map} nodes Record keys to their displayed descriptors.
+     * @param {Array} released Component/id pairs released by sortItems.
+     */
+    beginIndexedMotion(nodes, released) {
+        const owner = this.owner;
+        if (!this.indexedMotion) {
+            const state = this.indexedMotion = {
+                getComponentId : owner.getComponentId,
+                getItemId      : owner.getItemId,
+                getItemRecordId: owner.getItemRecordId,
+                nodes
+            };
+            owner.getComponentId = index => owner.items[index]?.id || state.getComponentId.call(owner, index);
+            owner.getItemId = recordOrId => state.nodes.get(recordOrId?.isRecord ? owner.getRecordId(recordOrId) : recordOrId)?.id || state.getItemId.call(owner, recordOrId);
+            owner.getItemRecordId = id => {
+                const node = [...state.nodes.values()].find(node => node.id === id), record = this.renderedRecords.get(node);
+                return record ? owner.store.getKey(record) : state.getItemRecordId.call(owner, id)
+            }
+        }
+        this.indexedMotion.nodes = nodes;
+        released.forEach(([item, id]) => item.setSilent({id}))
+    }
+
+    /** @summary Restores index addressing and releases ids before the owner's normal rebuild. */
+    endIndexedMotion() {
+        const state = this.indexedMotion, owner = this.owner;
+        if (state) {
+            owner.getComponentId = state.getComponentId;
+            owner.getItemId = state.getItemId;
+            owner.getItemRecordId = state.getItemRecordId;
+            owner.items.forEach(item => { if (!item.isDestroyed) item.setSilent({id: null}) });
+            this.indexedMotion = null
+        }
+    }
+
+    /**
      *
      */
     onOwnerMounted() {
@@ -576,6 +653,9 @@ class Animate extends Base {
             intercept           = !!transitionTimeoutId,
             vdom                = owner.vdom,
             index, item, map, position;
+
+        const serial = ++me.motionSerial;
+        me.pendingFilter = true;
 
         if (transitionTimeoutId) {
             clearTimeout(transitionTimeoutId);
@@ -624,6 +704,7 @@ class Animate extends Base {
 
         // ensure to get into the next animation frame
         me.timeout(50).then(() => {
+            if (serial !== me.motionSerial) return;
             // new items are already added into the vdom, while old items are not yet removed — and the
             // owner may have rebuilt its items since. A store index names the wrong row in both cases,
             // so every read in this frame resolves by id.
@@ -684,6 +765,10 @@ class Animate extends Base {
     onStoreSort(data) {
         let me = this;
 
+        me.motionSerial++;
+        clearTimeout(me.transitionTimeoutId);
+        me.transitionTimeoutId = null;
+
         if (Neo.list.Component && me.owner instanceof Neo.list.Component) {
             me.sortComponentList(data);
         } else {
@@ -737,23 +822,32 @@ class Animate extends Base {
      * @param {Neo.data.Store} data.scope
      */
     sortComponentList(data) {
-        let me    = this,
-            owner = me.owner,
-            key   = owner.getKeyProperty(),
-            // the vdom children still sit in the PREVIOUS store order — mapping each record's new
-            // index back through the previous record keys finds its node positionally, without
-            // touching component item ids (sortItems() nulls those; the earlier implementation
-            // re-read them here and crashed on any real component list)
-            previousKeys = data.previousItems.map(e => e[key]),
-            vdom         = owner.getVdomRoot(),
-            fromIndex, node, position;
+        let me      = this,
+            owner   = me.owner,
+            key     = owner.getKeyProperty(),
+            vdom    = owner.getVdomRoot(),
+            nodes   = new Map(vdom.cn.map(node => [me.renderedRecords.get(node)?.[key], node])),
+            rebuild = me.pendingFilter || vdom.cn.length !== data.items.length ||
+                data.items.some(record => me.renderedRecords.get(nodes.get(record[key])) !== record),
+            node, position;
 
-        owner.sortItems(data);
+        me.pendingFilter = false;
+        if (rebuild) {
+            // A membership/replacement load or interrupted filter needs current content, not an
+            // old pool permutation. Its keyed survivors still reuse their physical nodes.
+            me.endIndexedMotion();
+            me.ownerOnStoreLoad(data);
+            nodes = new Map(vdom.cn.map(node => [me.renderedRecords.get(node)?.[key], node]))
+        } else {
+            const ids = owner.items.map(item => [item, item.id]);
+            owner.sortItems(data);
+            const released = ids.filter(([item, id]) => id && !item.id);
+            if (released.length) me.beginIndexedMotion(nodes, released)
+        }
 
         if (vdom.cn.length > 0) {
             data.items.forEach((record, index) => {
-                fromIndex = previousKeys.indexOf(record[key]);
-                node      = vdom.cn[fromIndex];
+                node = nodes.get(record[key]);
 
                 if (node) {
                     position = me.getItemPosition(record, index);
@@ -762,11 +856,11 @@ class Animate extends Base {
                 }
             });
 
+            // Logical descriptor order follows Store order; physical addresses stay stable.
+            vdom.cn = data.items.map(record => nodes.get(record[key]));
+
             owner.update();
 
-            // settle like the base-list path: after the transition, re-create the items so the
-            // vdom order and the index-coupled component item ids re-normalize to the new store
-            // order (without this, a later reposition pass maps against stale ids)
             me.triggerTransitionCallback()
         }
     }
@@ -775,11 +869,15 @@ class Animate extends Base {
      *
      */
     triggerTransitionCallback() {
-        let me = this;
+        let me = this, serial = me.motionSerial;
+
+        clearTimeout(me.transitionTimeoutId);
 
         me.transitionTimeoutId = setTimeout(() => {
             me.transitionTimeoutId = null;
-
+            if (serial !== me.motionSerial) return;
+            me.pendingFilter = false;
+            me.endIndexedMotion();
             me.owner.createItems()
         }, me.transitionDuration)
     }

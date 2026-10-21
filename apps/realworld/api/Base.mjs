@@ -77,30 +77,15 @@ class Base extends CoreBase {
     onAppRendered() {
         const me = this;
 
-        if (Base.token) {
-            me.onReady(Base.token);
-        } else if (!Base.initialTokenRequestSent) {
-            Base.initialTokenRequestSent = true;
-
-            Neo.main.addon.LocalStorage.readLocalStorageItem({
-                key: LOCAL_STORAGE_KEY
-            }).then(data => {
-                const token = data.value;
-
-                if (token) {
-                    Base.token = token;
-                }
-
-                me.onReady(token);
+        // Every API singleton waits for the same stored-token read: the first rendered one starts it
+        Base.tokenPromise ??= Neo.main.addon.LocalStorage.readLocalStorageItem({key: LOCAL_STORAGE_KEY})
+            .then(data => {
+                Base.token   = data.value || null;
                 Base.isReady = true;
-                Base.fire('ready', token)
-            })
-        } else {
-            Base.on({
-                ready: me.onReady,
-                scope: me
-            })
-        }
+                return Base.token
+            });
+
+        Base.tokenPromise.then(token => me.onReady(token))
     }
 
     /**
@@ -205,7 +190,7 @@ class Base extends CoreBase {
         return Neo.Xhr.promiseJson({
             data   : opts.data,
             method : 'POST',
-            params : params,
+            params,
             url    : this.createUrl(opts),
 
             headers: {
@@ -235,7 +220,7 @@ class Base extends CoreBase {
         return Neo.Xhr.promiseJson({
             data   : opts.data,
             method : 'PUT',
-            params : params,
+            params,
             url    : this.createUrl(opts),
 
             headers: {
@@ -249,7 +234,7 @@ class Base extends CoreBase {
     }
 }
 
-Base.initialTokenRequestSent = false;
-Base.token                   = null;
+Base.token        = null;
+Base.tokenPromise = null;
 
 export default Neo.setupClass(Base);

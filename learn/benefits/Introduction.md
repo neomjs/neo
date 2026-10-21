@@ -122,7 +122,7 @@ The current mechanisms below live in [`neomjs/neo-agent-brain`](https://github.c
 
 ### 🔌 The Neural Link — the possession interface
 
-The bridge between hemispheres. Through it an agent doesn't just generate code for someone else to run — it reaches into a *live* application: reads the real component tree, inspects a store, mutates a config, hot-patches a method, verifies the result immediately. Multiple agents co-inhabit one running app at once. Most agentic coding operates on source text plus a test harness; almost none of it inhabits a running, stateful runtime — this capability is tied to the Body's object-permanence design, which is why it can't be replicated by bolting an agent onto a framework that melts its components on every render. The primitive points past the web, too: *Software → Games → Robots → X* — any domain where an intelligence needs an embodied runtime.
+The bridge between hemispheres. Through it an agent doesn't just generate code for someone else to run — it reaches into a *live* application: reads the real component tree, inspects a store, mutates a config, hot-patches a method, verifies the result immediately. Multiple agents co-inhabit one running app at once. Most agentic coding operates on source text plus a test harness; almost none of it inhabits a running, stateful runtime — this capability is tied to the Body's object-permanence design, which is why it can't be replicated by bolting an agent onto a framework that melts its components on every render. The primitive points past the web, too, along a staged arc: *Software → Games → Robots → X* — any domain where an intelligence needs an embodied runtime, each later stage behind the gate [the vision](https://github.com/neomjs/neo/blob/dev/.github/VISION.md) names.
 
 ### Why they are one organism
 
@@ -303,7 +303,7 @@ Source pointers below name the current owning repository. Dated counts and their
 <details>
 <summary>Integrity fingerprint (lint-enforced)</summary>
 
-This document is **55,414 bytes / 337 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
+This document is **56,728 bytes / 337 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
 
 </details>
 

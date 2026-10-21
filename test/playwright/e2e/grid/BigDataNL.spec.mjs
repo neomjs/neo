@@ -43,4 +43,46 @@ test.describe('Desktop: Neural Link Baseline Validation (Grid BigData)', () => {
         // Verify default value of the combobox (Neo stores String store items as objects with an 'id' property)
         expect(rowAmountCombo.properties.value.id).toBe('20000');
     });
+
+    test('the Column menus checkbox switches the header menus and follows the grid', async ({ page, neuralLink }) => {
+        await page.goto('/examples/grid/bigData/index.html');
+
+        const app   = await neuralLink.connectToApp('Neo.examples.grid.bigData'),
+              field = page.locator('.neo-checkboxfield', {hasText: 'Column menus'}),
+              input = field.locator('input'),
+              // The native input is visually hidden behind the field's icon; the label is what a pointer reaches
+              toggle = field.locator('.neo-checkbox-value-label');
+
+        await page.waitForSelector('.neo-grid-container', {state: 'visible', timeout: 30000});
+
+        const [grid]      = await app.queryComponent({className: 'Neo.examples.grid.bigData.GridContainer'}, ['id']),
+              gridMenu    = async () => (await app.queryComponent({className: 'Neo.examples.grid.bigData.GridContainer'}, ['columnMenu']))[0].properties.columnMenu,
+              headerMenus = async () => (await app.queryComponent({className: 'Neo.grid.header.Button'}, ['columnMenu'])).map(button => button.properties.columnMenu);
+
+        // The Settings panel starts collapsed off-screen
+        await page.locator('.controls-container-button').click();
+        await expect(page.locator('.neo-examples-bigdata-controls-container')).toHaveClass(/neo-expanded/);
+
+        // The checkbox starts at the grid's own value
+        await expect(input).not.toBeChecked();
+        expect(await gridMenu()).toBe(false);
+
+        await toggle.click();
+        await expect(input).toBeChecked();
+        await expect.poll(gridMenu).toBe(true);
+        await expect.poll(async () => (await headerMenus()).every(Boolean), {message: 'every header button follows the grid'}).toBe(true);
+        await expect.poll(async () => {
+            const plugins = await app.findInstances({className: 'Neo.grid.header.plugin.Menu'}, ['trigger.id']);
+            return plugins.filter(plugin => plugin.properties['trigger.id']).length
+        }, {message: 'the headers carry their menu triggers'}).toBeGreaterThan(0);
+
+        await toggle.click();
+        await expect(input).not.toBeChecked();
+        await expect.poll(gridMenu).toBe(false);
+        await expect.poll(async () => (await headerMenus()).some(Boolean), {message: 'no header keeps its menu'}).toBe(false);
+
+        // A change made on the grid itself, the way the Neural Link makes it, moves the checkbox
+        await app.setProperties(grid.id, {columnMenu: true});
+        await expect(input).toBeChecked()
+    });
 });

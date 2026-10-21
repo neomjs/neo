@@ -627,9 +627,15 @@ class DockFlip extends Base {
             }
 
             moves.forEach(({el, fixedStage, hadStageClass, styleSnapshot}) => {
-                styleSnapshot && Object.entries(styleSnapshot).forEach(([property, value]) => {
-                    el.style[property] = value
-                });
+                if (styleSnapshot) {
+                    // Restoring inline strings alone leaves an existing CSS transition running.
+                    el.style.transition = 'none';
+                    Object.entries(styleSnapshot).forEach(([property, value]) => {
+                        property !== 'transition' && (el.style[property] = value)
+                    });
+                    el.getAnimations(); // Flush restored geometry before reinstating the caller's transition policy.
+                    el.style.transition = styleSnapshot.transition
+                }
 
                 fixedStage && !hadStageClass && el.classList.remove('neo-dock-flip-fixed-stage')
             });

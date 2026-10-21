@@ -107,6 +107,85 @@ test.describe('Neo.dashboard.dock.window.DragTarget (#14670 / ADR 0029 §2.3)', 
         target.destroy()
     });
 
+    test('a frame the owner cannot answer yet is answered once it can, one ask shared by every waiter (#19868)', async () => {
+        let asked = 0, settle, warm = false;
+
+        const
+            settled = new Promise(resolve => settle = resolve),
+            frame   = {draggedItem: {id: 'pane-a'}, localX: 40, localY: 8},
+            target  = Neo.create(CrossWindowDragTarget, {
+                awaitPreviewable: () => warm ? null : settled,
+                previewFor      : payload => {asked++; return warm ? {itemId: payload.draggedItem.id} : null},
+                sortGroup       : 'dock-main',
+                windowId        : 2
+            });
+
+        expect(target.onRemoteDragMove(frame), 'a cold owner answers the frame with none').toBeNull();
+
+        // a committed native drop sends this frame only, so it waits instead of a later frame
+        const answer = target.answerWhenPreviewable(frame);
+        warm = true;
+        settle(true);
+
+        await expect(answer).resolves.toEqual({itemId: 'pane-a'});
+        expect(target.currentPreview).toEqual({itemId: 'pane-a'});
+        expect(asked, 'the frame, then one second ask for both waiters').toBe(2);
+
+        target.destroy()
+    });
+
+    test('a waiter that arrives after the owner warmed joins the frame\'s pending answer, and a later one reads it (#19868)', async () => {
+        let settle, warm = false;
+
+        const
+            settled = new Promise(resolve => settle = resolve),
+            frame   = {draggedItem: {id: 'pane-a'}, localX: 40, localY: 8},
+            target  = Neo.create(CrossWindowDragTarget, {
+                awaitPreviewable: () => warm ? null : settled,
+                previewFor      : payload => warm ? {itemId: payload.draggedItem.id} : null,
+                sortGroup       : 'dock-main',
+                windowId        : 2
+            });
+
+        // cold: the frame's own answer starts waiting
+        target.onRemoteDragMove(frame);
+
+        // the measurement lands before the drop asks, and before the first answer wrote its preview
+        warm = true;
+        const answer = target.answerWhenPreviewable(frame);
+        settle(true);
+
+        await expect(answer).resolves.toEqual({itemId: 'pane-a'});
+        expect(await target.answerWhenPreviewable(frame), 'once answered, a later waiter reads the answer').toEqual({itemId: 'pane-a'});
+
+        target.destroy()
+    });
+
+    test('a frame no longer current, or an owner with nothing to await, is answered with none (#19868)', async () => {
+        let asked = 0, settle;
+
+        const
+            settled = new Promise(resolve => settle = resolve),
+            frame   = {draggedItem: {id: 'pane-a'}, localX: 40, localY: 8},
+            target  = Neo.create(CrossWindowDragTarget, {
+                awaitPreviewable: payload => payload.localX > 0 ? settled : null,
+                previewFor      : () => {asked++; return null},
+                sortGroup       : 'dock-main',
+                windowId        : 2
+            });
+
+        target.onRemoteDragMove(frame);
+        const answer = target.answerWhenPreviewable(frame);
+        target.onRemoteDragLeave();
+        settle(true);
+
+        await expect(answer, 'a leave wins over the waiting frame').resolves.toBeNull();
+        expect(asked, 'the frame was never asked again').toBe(1);
+        await expect(target.answerWhenPreviewable({draggedItem: {id: 'pane-a'}, localX: 0, localY: 8})).resolves.toBeNull();
+
+        target.destroy()
+    });
+
     test('an explicitly licensed target proxy stages, settles, then restores before leave cleanup', async () => {
         const
             draggedItem = {dockItemId: 'pane-a'},
@@ -313,6 +392,75 @@ test.describe('Neo.dashboard.dock.window.DragTarget (#14670 / ADR 0029 §2.3)', 
             'a completion whose target generation departed must not advertise a source-retiring commit').toBeNull();
         expect(promoted).toEqual([]);
         expect(restored, 'destroy restores the staged generation exactly once').toEqual(['pane-a'])
+    });
+
+    test('a late committed completion promotes only the generation its refused leave restore left live', async () => {
+        const
+            promoted = [],
+            restored = [];
+        let restoreAnswer, settleCommit;
+
+        const
+            target = Neo.create(CrossWindowDragTarget, {
+                commitOperation      : () => new Promise(resolve => settleCommit = resolve),
+                previewFor           : () => ({feedback: {state: 'accepted'}, itemId: 'pane-a'}),
+                previewToOperation   : () => ({operation: 'addTab', itemId: 'pane-a', tabsNodeId: 't1'}),
+                promoteDragEmbodiment: payload => promoted.push(payload.draggedItem.dockItemId),
+                restoreDragEmbodiment: payload => (restored.push(payload.draggedItem.dockItemId), restoreAnswer),
+                sortGroup            : 'dock-main',
+                stageDragEmbodiment  : () => true,
+                windowId             : 2
+            }),
+            gesture = () => ({
+                draggedItem: {dockItemId: 'pane-a'},
+                embodyProxy: true,
+                localX     : 4,
+                localY     : 4
+            }),
+            // A native source window retires while the owner commit is pending: its release leaves the target
+            dropAndLeave = (answer, beforeSettle) => {
+                const payload = gesture();
+
+                restoreAnswer = answer;
+                target.onRemoteDragMove(payload);
+
+                const dropping = target.onRemoteDrop(payload.draggedItem);
+
+                target.onRemoteDragLeave();
+                beforeSettle?.();
+                return dropping
+            };
+
+        let dropping = dropAndLeave(false);
+        settleCommit({applied: true});
+
+        expect(await dropping, 'a departed payload still advertises no commit to the source disposer').toBeNull();
+        expect(promoted, 'the generation the refused restore left live is promoted').toEqual(['pane-a']);
+
+        dropping = dropAndLeave(true);
+        settleCommit({applied: true});
+
+        expect(await dropping).toBeNull();
+        expect(promoted, 'a restored generation is gone: the late commit settles nothing').toEqual(['pane-a']);
+
+        const successor = gesture();
+
+        dropping = dropAndLeave(false, () => target.onRemoteDragMove(successor));
+        settleCommit({applied: true});
+
+        expect(await dropping).toBeNull();
+        expect(promoted, 'a successor hovering owns the embodiment').toEqual(['pane-a']);
+        expect(target.currentDragPayload).toBe(successor);
+
+        target.onRemoteDragLeave();
+        dropping = dropAndLeave(false);
+        settleCommit(null);
+
+        expect(await dropping).toBeNull();
+        expect(promoted, 'a refused completion promotes nothing').toEqual(['pane-a']);
+        expect(restored, 'and restores nothing a second time').toEqual(['pane-a', 'pane-a', 'pane-a', 'pane-a', 'pane-a']);
+
+        target.destroy()
     });
 
     test('a target destroyed during an async rejection restores its staged generation exactly once', async () => {

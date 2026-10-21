@@ -696,6 +696,8 @@ test.describe('Neo.draggable.dashboard.SortZone Directional Logic', () => {
         ];
         WindowManager.map = new Map(WindowManager.items.map(item => [item.id, item]));
 
+        // The OS moved the popup here: a publication that leaves it where it was starts no gesture
+        DragCoordinator.nativeWindowOrigins.set(WindowManager.get('popup-item1'), {x: 149, y: 130});
         DragCoordinator.onWindowPositionChange({windowId: 'popup-item1'});
 
         await new Promise(resolve => setTimeout(resolve, 20));
@@ -771,10 +773,13 @@ test.describe('Neo.draggable.dashboard.SortZone Directional Logic', () => {
                 id       : 'target-window',
                 innerRect: new Rectangle(100, 100, 300, 300),
                 outerRect: new Rectangle(100, 100, 300, 300)
-            }
+            },
+            {id: 'source-window'}
         ];
         WindowManager.map = new Map(WindowManager.items.map(item => [item.id, item]));
 
+        // The OS moved the popup here: a publication that leaves it where it was starts no gesture
+        DragCoordinator.nativeWindowOrigins.set(WindowManager.get('popup-item1'), {x: 149, y: 130});
         DragCoordinator.onWindowPositionChange({windowId: 'popup-item1'});
         expect(DragCoordinator.nativeWindowDropCandidates.size).toBe(1);
 

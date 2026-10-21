@@ -145,7 +145,7 @@ class Commit extends Base {
             if (group.participants.get(key) !== entry) return true;
             const now = this.capture(entry), captured = captures.get(key);
             return now.generation !== captured.generation || now.revision !== captured.revision
-        })) throw new Error('participant membership, generation or revision changed during preparation');
+        })) throw Object.assign(new Error('participant membership, generation or revision changed during preparation'), {code: 'participants-changed'});
 
         const checkpoint = history?.captureState(), previousSnapshot = group.snapshot ?? null;
         const invoked    = [], notificationErrors = [], queuedBefore = new Set(EffectManager.queuedEffects);

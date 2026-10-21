@@ -610,6 +610,8 @@ class Buffered extends ComponentList {
         // adding the item's own nested depth, otherwise mounted child components stop at
         // `neoIgnore` and keep the record that first occupied their physical slot.
         me.updateDepth = Math.max(me.updateDepth, 1 + TreeBuilder.getComponentDepth(component));
+        // The re-bind is silent, so a row update merging into this cycle must not make it sparse
+        me.denseUpdate = true;
 
         return component
     }

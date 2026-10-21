@@ -146,55 +146,60 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * Changes the tag name (nodeName) of an existing HTMLElement in the DOM.
+     * @summary Changes the tag name (nodeName) of an existing HTMLElement in the DOM and returns the replacement node.
      * This operation is performed by creating a new HTML element with the desired `nodeName`,
      * preserving attributes, live control properties, and child-node identity from the original `node`,
      * and then replacing the original `node` with the newly created element within its parent.
      *
      * @param {HTMLElement} node     The existing DOM HTMLElement whose tag name needs to be changed.
      * @param {String}      nodeName The new tag name (e.g., 'div', 'span', 'p') for the element.
+     * @returns {HTMLElement|null}
      */
     changeNodeName(node, nodeName) {
+        if (!node) {
+            return null
+        }
+
         let {attributes} = node,
             clone        = document.createElement(nodeName),
             i            = 0,
             len          = attributes.length,
             attribute;
 
-        if (node) {
-            for (; i < len; i++) {
-                attribute = attributes.item(i);
-                clone.setAttribute(attribute.nodeName, attribute.nodeValue)
-            }
-
-            while (node.firstChild) {
-                clone.appendChild(node.firstChild)
-            }
-
-            if (node.value !== undefined && node.value !== clone.value) {
-                clone.value = node.value
-            }
-
-            for (const key of voidAttributes) {
-                if (node[key] !== undefined && node[key] !== clone[key]) {
-                    clone[key] = node[key]
-                }
-            }
-
-            if (node.selectedIndex !== undefined && node.selectedIndex !== clone.selectedIndex) {
-                clone.selectedIndex = node.selectedIndex
-            }
-
-            if (node.scrollTop > 0) {
-                clone.scrollTop = node.scrollTop
-            }
-
-            if (node.scrollLeft > 0) {
-                clone.scrollLeft = node.scrollLeft
-            }
-
-            node.parentNode.replaceChild(clone, node)
+        for (; i < len; i++) {
+            attribute = attributes.item(i);
+            clone.setAttribute(attribute.nodeName, attribute.nodeValue)
         }
+
+        while (node.firstChild) {
+            clone.appendChild(node.firstChild)
+        }
+
+        if (node.value !== undefined && node.value !== clone.value) {
+            clone.value = node.value
+        }
+
+        for (const key of voidAttributes) {
+            if (node[key] !== undefined && node[key] !== clone[key]) {
+                clone[key] = node[key]
+            }
+        }
+
+        if (node.selectedIndex !== undefined && node.selectedIndex !== clone.selectedIndex) {
+            clone.selectedIndex = node.selectedIndex
+        }
+
+        if (node.scrollTop > 0) {
+            clone.scrollTop = node.scrollTop
+        }
+
+        if (node.scrollLeft > 0) {
+            clone.scrollLeft = node.scrollLeft
+        }
+
+        node.parentNode.replaceChild(clone, node);
+
+        return clone
     }
 
     /**
@@ -854,7 +859,7 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * Updates various properties of an existing DOM node based on the provided delta.
+     * @summary Updates properties of an existing DOM node based on the provided delta, rebinding on `nodeName` replacement.
      * This includes updating attributes, class names, inner HTML, node name, and inline styles.
      * It handles specific cases for attribute types (e.g., boolean attributes, 'value')
      * and style properties (e.g., '!important').
@@ -913,7 +918,7 @@ class DeltaUpdates extends Base {
                         node.innerHTML = value || '';
                         break
                     case 'nodeName':
-                        me.changeNodeName(node, value);
+                        node = me.changeNodeName(node, value);
                         break
                     case 'outerHTML':
                         node.outerHTML = value || '';
@@ -1160,7 +1165,11 @@ class DeltaUpdates extends Base {
         }
 
         // The ledger mirrors what reached the DOM: commit only after the batch applied.
-        coherenceCommit?.()
+        coherenceCommit?.();
+
+        // Fire an event after the deltas applied, in the same task and before the next paint. Listeners that
+        // depend on the geometry the deltas produce, like a scroll offset only a grown extent admits, act here.
+        me.fire('updated', data)
     }
 }
 

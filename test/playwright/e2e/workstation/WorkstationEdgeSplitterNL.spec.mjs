@@ -32,7 +32,7 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
     const asArray = value => Array.isArray(value) ? value : value ? [value] : [];
     const values  = record => record?.properties || record || {};
 
-    test('both axes preserve the active tab; Escape restores without committing', async ({page, neuralLink}) => {
+    test('both axes preserve the active tab; Escape restores without committing', async ({page, neuralLink, workerErrors}) => {
         const pageErrors = [];
 
         page.on('pageerror', error => {
@@ -78,6 +78,9 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
                 try {
                     resizeConfig = await app.callMethod(id, 'getResizeConfig', [])
                 } catch {
+                    // A projection tick replaced this generation between the listing and the call. The client logs the
+                    // miss as a worker error: this probe caused it, so it names that one line and no other.
+                    workerErrors.expect(new RegExp(`Failed to handle message Instance not found: ${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`));
                     continue
                 }
 

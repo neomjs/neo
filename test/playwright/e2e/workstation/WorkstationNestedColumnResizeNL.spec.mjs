@@ -17,8 +17,28 @@ import {test, expect} from '../../fixtures.mjs';
  *   -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
 test.describe('Workstation nested dock column follows its outer splitter (#17985)', () => {
-    test.setTimeout(120000);
+    const scenarioTimeout = 120000;
+    test.setTimeout(scenarioTimeout);
     test.use({viewport: {height: 900, width: 1600}});
+
+    test.afterEach(async ({page}) => {
+        if (!page.isClosed()) {
+            await page.evaluate(() => {
+                const motion = window.__nestedResizeMotion;
+                if (motion) {
+                    Neo.main.addon.DockFlip.land({hostId: motion.workspaceId});
+                    motion.restore();
+                    delete window.__nestedResizeMotion
+                }
+                const witness = window.__nestedResizeAdmission;
+                if (!witness) return;
+                witness.mouse.set({delay: witness.delay});
+                witness.flip.landFromPath = witness.land;
+                witness.resize.start = witness.start;
+                delete window.__nestedResizeAdmission
+            })
+        }
+    });
 
     /**
      * @param {Object|Object[]|null} result
@@ -233,6 +253,72 @@ test.describe('Workstation nested dock column follows its outer splitter (#17985
         await page.mouse.up()
     }
 
+    for (const pending of [false, true]) {
+        test(`landing during ${pending ? 'the inverse frame' : 'a running transition'} preserves unrelated animation`, async ({page, neuralLink}) => {
+            await boot(page, neuralLink);
+            const report = await page.evaluate(async pending => {
+                const flip = Neo.main.addon.DockFlip,
+                    host   = document.createElement('div'),
+                    source = document.createElement('div'),
+                    target = document.createElement('div'),
+                    pane   = document.createElement('div');
+
+                host.id = 'dock-transition-landing-control';
+                host.className = 'neo-dashboard';
+                host.style.cssText = 'display:flex;gap:20px;position:fixed;left:0;top:0;--dock-transition-duration:280ms;--dock-transition-easing:linear';
+                source.style.cssText = 'width:300px;height:100px;overflow:hidden';
+                target.style.cssText = 'width:100px;height:100px;overflow:hidden';
+                pane.className = 'dock-transition-control-pane';
+                pane.style.cssText = 'width:100%;height:100%;transform:translateX(7px);transform-origin:center top;opacity:.8;transition:transform 2s linear';
+                source.append(pane);
+                host.append(source, target);
+                document.body.append(host);
+                const original = pane.style.cssText,
+                    unrelated  = pane.animate([{backgroundColor: 'red'}, {backgroundColor: 'blue'}],
+                        {duration: 10000, iterations: Infinity});
+
+                try {
+                    flip.captureFirst({hostId: host.id, markerPrefix: 'dock-transition-control-'});
+                    target.append(pane);
+                    const played      = flip.play({hostId: host.id, markerPrefix: 'dock-transition-control-'}),
+                        invertedWidth = pane.getBoundingClientRect().width;
+                    let before;
+
+                    for (let frame = 0; frame < 40; frame++) {
+                        if (pending) {
+                            before = {width: invertedWidth, transitions: 0};
+                            break
+                        }
+                        await new Promise(resolve => requestAnimationFrame(resolve));
+                        before = {width: pane.getBoundingClientRect().width,
+                            transitions: pane.getAnimations().filter(animation => animation.transitionProperty).length};
+                        if (before.transitions && before.width > 120) break
+                    }
+                    const landed = flip.land({hostId: host.id}),
+                        after    = {width: pane.getBoundingClientRect().width,
+                            transform       : getComputedStyle(pane).transform,
+                            transitions     : pane.getAnimations().filter(animation => animation.transitionProperty).length,
+                            sameInline      : pane.style.cssText === original,
+                            unrelatedRunning: unrelated.playState === 'running'};
+
+                    return {invertedWidth, before, after, landed, played: await played}
+                } finally {
+                    flip.land({hostId: host.id});
+                    unrelated.cancel();
+                    host.remove()
+                }
+            }, pending);
+
+            expect(report.invertedWidth, 'the inverse was observed before the transition release').toBeGreaterThan(120);
+            if (!pending) expect(report.before.transitions, 'the control enters a real CSS transition').toBeGreaterThan(0);
+            expect(report.before.width, 'the transition visibly differs from the committed layout').toBeGreaterThan(120);
+            expect(report.landed).toBe(true);
+            expect(report.played).toBe(false);
+            expect(report.after).toEqual({width: 100, transform: 'matrix(1, 0, 0, 1, 7, 0)',
+                transitions: 0, sameInline: true, unrelatedRunning: true})
+        });
+    }
+
     test('both stacked panes follow a real outer resize during preview and after commit', async ({page, neuralLink}) => {
         const {app, workspaceId} = await boot(page, neuralLink),
               heavyBeforeId      = readId(await app.queryComponent({dockNodeId: 'heavy-tabs', ntype: 'tab-container'}, ['id'])),
@@ -267,6 +353,22 @@ test.describe('Workstation nested dock column follows its outer splitter (#17985
             .not.toHaveClass(/neo-dashboard-dock-animating/, {timeout: 10000});
         await expect(page.locator('.neo-dock-flip-fixed-stage'),
             'the first structural move leaves no fixed-stage residue').toHaveCount(0);
+
+        await page.evaluate(({workspaceId, duration}) => {
+            const host    = document.getElementById(workspaceId),
+                tokenHost = host.matches('.neo-dashboard') ? host : host.querySelector('.neo-dashboard') || host,
+                property  = '--dock-transition-duration', previous = tokenHost.style.getPropertyValue(property),
+                priority  = tokenHost.style.getPropertyPriority(property);
+            window.__nestedResizeMotion = {
+                workspaceId,
+                restore() {
+                    previous ? tokenHost.style.setProperty(property, previous, priority) : tokenHost.style.removeProperty(property)
+                }
+            };
+            // The real second-drop motion outlives any successful execution of this test. Native
+            // admission still lands it immediately and restores the token before resize release.
+            tokenHost.style.setProperty(property, duration + 'ms')
+        }, {workspaceId, duration: scenarioTimeout});
 
         await dragTabToPoint(page, {
             placement   : 'edge-top',
@@ -349,32 +451,64 @@ test.describe('Workstation nested dock column follows its outer splitter (#17985
 
         const nestedSizes = JSON.stringify(documentAfterDrop.nodes[nested.nestedId].sizes);
 
+        await page.evaluate(async ids => {
+            const flip  = Neo.main.addon.DockFlip,
+                resize  = Neo.main.addon.DragDrop.dragResize,
+                mouse   = await Neo.main.addon.DragDrop.getMouseSensor(),
+                witness = window.__nestedResizeAdmission = {
+                    delay: mouse.delay, flip, land: flip.landFromPath, mouse,
+                    resize, start: resize.start, landings: [], admissions: []
+                },
+                owns = path => path.some(node => node.id === ids.splitter),
+                snapshot = () => ({
+                    animating: document.querySelector('.workstation-workspace')
+                        .classList.contains('neo-dashboard-dock-animating'),
+                    panes: [ids.feedPane, ids.heavyPane].map(id => {
+                        const element = document.getElementById(id), style = getComputedStyle(element);
+                        return {fixedStage: element.classList.contains('neo-dock-flip-fixed-stage'),
+                            inlineWidth: element.style.width, position: style.position,
+                            transform  : style.transform, width: element.getBoundingClientRect().width}
+                    })
+                });
+
+            // Keep the real distance threshold and trusted pointer path; remove only the sensor's dwell.
+            mouse.set({delay: 0});
+            flip.landFromPath = function(path) {
+                if (!owns(path)) return witness.land.call(this, path);
+                const before = snapshot(), landed = witness.land.call(this, path);
+                witness.landings.push({before, after: snapshot(), landed});
+                window.__nestedResizeMotion.restore();
+                return landed
+            };
+            resize.start = function(path, ...args) {
+                owns(path) && witness.admissions.push(snapshot());
+                return witness.start.call(this, path, ...args)
+            }
+        }, ids);
+
+        // Intentional latency fault: prove overlap survives a runner delay longer than normal motion.
+        const delayed = await page.evaluate(async () => {
+            const start = performance.now();
+            await new Promise(resolve => setTimeout(resolve, 400));
+            return performance.now() - start
+        });
+        expect(delayed).toBeGreaterThanOrEqual(400);
+
         await page.mouse.move(sx, sy);
         await page.mouse.down();
-        await page.waitForTimeout(105); // measured splitter Mouse-sensor arm, not settlement
-
-        const admission = await page.evaluate(({feedPane, heavyPane}) => ({
-            animating: document.querySelector('.workstation-workspace')
-                ?.classList.contains('neo-dashboard-dock-animating'),
-            panes: [feedPane, heavyPane].map(id => {
-                const element = document.getElementById(id),
-                      style   = getComputedStyle(element);
-
-                return {
-                    fixedStage : element.classList.contains('neo-dock-flip-fixed-stage'),
-                    inlineWidth: element.style.width,
-                    position   : style.position,
-                    width      : element.getBoundingClientRect().width
-                }
-            })
-        }), ids);
-
-        expect(admission.animating, 'MotionSignal is active at the actual splitter admission boundary').toBe(true);
-        expect(admission.panes.every(value => value.fixedStage && value.position === 'fixed' && value.inlineWidth),
-            `both panes are still fixed-stage immediately before splitter motion: ${JSON.stringify(admission.panes)}`)
-            .toBe(true);
 
         await page.mouse.move(sx + 350, sy, {steps: 4});
+
+        const admission = await page.evaluate(() => ({
+            landing: window.__nestedResizeAdmission.landings[0],
+            resize : window.__nestedResizeAdmission.admissions[0]
+        }));
+        expect(admission.landing.before.animating, 'the real native event intersects active structural motion').toBe(true);
+        expect(admission.landing.before.panes.every(value => value.fixedStage && value.position === 'fixed' && value.inlineWidth),
+            'both panes enter native landing with actual fixed-stage ownership').toBe(true);
+        expect(admission.landing.landed, 'native admission lands the path-owned presentation').toBe(true);
+        expect(admission.resize.panes.every(value => !value.fixedStage && value.position !== 'fixed' && value.transform === 'none'),
+            `Resize.start observes fully landed pane geometry: ${JSON.stringify(admission.resize.panes)}`).toBe(true);
 
         const
             mid            = await readGeometry(page, ids),
@@ -422,7 +556,6 @@ test.describe('Workstation nested dock column follows its outer splitter (#17985
 
         await page.mouse.move(cancelX, cancelY);
         await page.mouse.down();
-        await page.waitForTimeout(105); // measured splitter Mouse-sensor arm, not settlement
         await page.mouse.move(cancelX - 180, cancelY, {steps: 4});
 
         const

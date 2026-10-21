@@ -13,6 +13,7 @@ const
     regexNewLines     = /^\n+|\n+$/g,
     regexCodeBlock    = /(?<!\\)(`{3,})(\w*)(?:[^\n]*)?\n([\s\S]*?)\n\s*\1/g,
     regexInlineCode   = /`([^`]+)`/g,
+    regexLink         = /\[[^\]\n]*\]\([^)\s]*\)/g,
     regexTicketId     = /(^|[\s(])#(\d+)\b/g;
 
 /**
@@ -324,7 +325,14 @@ class Markdown extends Component {
                 return token;
             });
 
-            // 3. Perform ticket replacement
+            // 3. Protect Markdown links: an id in a link's text or URL belongs to that link
+            content = content.replace(regexLink, (match) => {
+                const token = `__NEO_LINK_${placeholderIndex++}__`;
+                placeholders.push({ token, value: match });
+                return token;
+            });
+
+            // 4. Perform ticket replacement
             content = content.replace(regexTicketId, (match, prefix, id) => {
                 const
                     isInternal = me.issuesUrl.startsWith('#'),
@@ -334,7 +342,7 @@ class Markdown extends Component {
                 return `${prefix}<a href="${url}"${target}>#${id}</a>`
             });
 
-            // 4. Restore protected blocks (in reverse order to handle nesting if any, though regex usually handles top-level)
+            // 5. Restore protected blocks (in reverse order to handle nesting if any, though regex usually handles top-level)
             // Note: Simple loop is fine as tokens are unique strings
             // The replacement is a FUNCTION, not the string itself. A string replacement gives the
             // restored code special meaning: `$&`, `` $` ``, `$'` and `$n` are substitution patterns,

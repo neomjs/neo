@@ -1,15 +1,20 @@
 import {internalId}    from '../core/ConfigSymbols.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Collection      from '../collection/Base.mjs';
+import Filter          from '../collection/Filter.mjs';
 import Model           from './Model.mjs';
 import Observable      from '../core/Observable.mjs';
 import Pipeline        from './Pipeline.mjs';
 import RecordFactory   from './RecordFactory.mjs';
+import SearchFilter    from '../collection/SearchFilter.mjs';
 import StoreManager    from '../manager/Store.mjs';
 
 const
     initialIndexSymbol   = Symbol.for('initialIndex'),
-    pushInsertStrategies = new Set(['insert', 'reload', 'reloadWhenUncertain', 'upsert']);
+    updatingIndexSymbol  = Symbol.for('updatingIndex'),
+    pushInsertStrategies = new Set(['insert', 'reload', 'reloadWhenUncertain', 'upsert']),
+    // Model field types whose values a SearchFilter can match as text without a fieldText hook
+    plainTextFieldTypes  = new Set(['auto', 'boolean', 'float', 'int', 'integer', 'number', 'string']);
 
 /**
  * @class Neo.data.Store
@@ -77,6 +82,12 @@ class Store extends Collection {
      * @private
      */
     #appendNotification = false;
+    /**
+     * Record notifications deferred while an opted-in key transaction commits its maps.
+     * @member {Map} #keyChanges=new Map()
+     * @private
+     */
+    #keyChanges = new Map();
 
     /**
      * True automatically applies the core.Observable mixin
@@ -575,9 +586,10 @@ class Store extends Collection {
     }
 
     /**
-     *
+     * @summary Detaches the owned unfiltered projection's edit forwarding before destroying Store resources.
      */
     destroy() {
+        this.allItems?.un('recordChange', this.onAllItemsRecordChange, this);
         StoreManager.unregister(this);
 
         super.destroy()
@@ -622,6 +634,7 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Creates the unfiltered projection without auto-loading and forwards its lazy record edits.
      * Overrides collection.Base to prevent the allItems collection from auto-loading
      * @param {Object} config
      * @returns {Neo.collection.Base}
@@ -629,7 +642,11 @@ class Store extends Collection {
      */
     createAllItems(config) {
         config.autoLoad = false;
-        return super.createAllItems(config)
+        // Membership is copied and mirrored by Collection; replaying initial data here creates a second population.
+        config.data = null;
+        const allItems = super.createAllItems(config);
+        allItems.on('recordChange', this.onAllItemsRecordChange, this);
+        return allItems
     }
 
     /**
@@ -676,7 +693,7 @@ class Store extends Collection {
         if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
             const
                 activeFilters    = me.filters.filter(f => !f.disabled && f.value !== null),
-                filterProperties = activeFilters.map(f => f.property),
+                filterProperties = activeFilters.flatMap(f => f.fields || (f.property === null ? [] : [f.property])),
                 len              = filterProperties.length;
 
             if (len > 0) {
@@ -779,6 +796,100 @@ class Store extends Collection {
      */
     getAt(index) {
         return this.hydrateRecord(super.getAt(index), index);
+    }
+
+    /**
+     * @summary Counts canonical scalar values under every predicate except one exact contribution, without source writes.
+     * The complete flat local population must already expose canonical values. Raw complex fields, incomplete
+     * loads, remote projections and trees are unsupported. Callbacks must be observational; this method never
+     * resolves fields or hydrates records. Date values in the result are detached from the source.
+     * @param {String} property
+     * @param {Neo.collection.Filter|null} excludeFilter=null
+     * Buckets retain first-occurrence population order. Expected refusal returns {refused: true, reason}:
+     * unknown-filter, remote-projection, incomplete-population, unknown-field, raw-complex-fields,
+     * noncanonical-field, unsupported-value, tree-population (TreeStore).
+     * Unexpected callback failures propagate.
+     * @returns {Object[]|Object}
+     */
+    getFilterValues(property, excludeFilter=null) {
+        // A filter's read set is its declared fields, else its property; callbacks without fields read nothing checked.
+        const me       = this, items = me.allItems?._items || me._items,
+            properties = new Set([property, ...me.filters.filter(filter => !filter.disabled && filter !== excludeFilter)
+                .flatMap(filter => filter.fields || (filter.filterBy || filter.property === null ? [] : [filter.property]))]);
+
+        if (excludeFilter !== null && !me.filters.includes(excludeFilter)) {
+            return {refused: true, reason: 'unknown-filter'}
+        }
+        if (me.isPipelinePushProjectionUncertain()) {
+            return {refused: true, reason: 'remote-projection'}
+        }
+        if (me.isLoading || me.isStreaming || (me.pipeline && !me.isLoaded)) {
+            return {refused: true, reason: 'incomplete-population'}
+        }
+        if (!me.model?.getField(property)) return {refused: true, reason: 'unknown-field'};
+
+        for (const item of items) {
+            if (!RecordFactory.isRecord(item)) {
+                if (me.model.hasComplexFields || me.model.hasNestedFields) {
+                    return {refused: true, reason: 'raw-complex-fields'}
+                }
+                for (const name of properties) {
+                    const field = me.model.getField(name), value = item[name], type = field?.type?.toLowerCase();
+                    if (!field || !Object.hasOwn(item, name) || (value === undefined && Object.hasOwn(field, 'defaultValue')) ||
+                        (type === 'date' && !(value instanceof Date)) ||
+                        (value && ((type === 'string' || type === 'html') && typeof value !== 'string' ||
+                            (type === 'int' || type === 'integer') && !Number.isInteger(value) ||
+                            type === 'float' && typeof value !== 'number')) ||
+                        (type === 'string' && typeof value === 'string' && /<[^>]+>/.test(value))) {
+                        return {refused: true, reason: 'noncanonical-field'}
+                    }
+                }
+            }
+            const value = item[property];
+            try {
+                Filter.getValueKey(value)
+            } catch (error) {
+                return {refused: true, reason: 'unsupported-value'}
+            }
+        }
+
+        const buckets = new Map();
+        for (const item of me.getFilteredItems(excludeFilter)) {
+            const value = item[property], key = Filter.getValueKey(value), bucket = buckets.get(key);
+            if (bucket) bucket.count++;
+            else buckets.set(key, {key, value: value instanceof Date ? new Date(value) : value, count: 1})
+        }
+        return [...buckets.values()]
+    }
+
+    /**
+     * @summary Checks before writing a SearchFilter whether this Store can search `fields`; null means it can.
+     * Remote or pipeline-pushed populations are not searchable locally. A field needs a Model entry, and without
+     * a `fieldText` hook it must hold plain text: Auto, Boolean, Float, Int, Integer, Number or String.
+     * @param {String[]} fields
+     * @param {Object|null} [fieldText=null] Per-field `(value, item) => String` hooks
+     * @returns {String|null} 'remote-projection', 'unknown-field' or 'unsupported-field'
+     */
+    getSearchRefusal(fields, fieldText=null) {
+        const me = this;
+
+        if (me.remoteFilter || me.isPipelinePushProjectionUncertain()) {
+            return 'remote-projection'
+        }
+
+        for (const name of fields) {
+            const field = me.model?.getField(name);
+
+            if (!field) {
+                return 'unknown-field'
+            }
+
+            if (!SearchFilter.getHook(fieldText, name) && !plainTextFieldTypes.has(field.type?.toLowerCase() ?? 'auto')) {
+                return 'unsupported-field'
+            }
+        }
+
+        return null
     }
 
     /**
@@ -956,8 +1067,12 @@ class Store extends Collection {
 
         if (!me.autoInitRecords && !RecordFactory.isRecord(item) && me.filters.length > 0) {
             me.filters.forEach(filter => {
-                if (!filter.disabled && filter.value !== null && !Object.hasOwn(item, filter.property)) {
-                    item[filter.property] = me.resolveField(item, filter.property)
+                if (!filter.disabled && filter.value !== null) {
+                    for (const property of filter.fields || (filter.property === null ? [] : [filter.property])) {
+                        if (!Object.hasOwn(item, property)) {
+                            item[property] = me.resolveField(item, property)
+                        }
+                    }
                 }
             })
         }
@@ -1188,22 +1303,28 @@ class Store extends Collection {
      * both events runs its `sort` handler *after* the `load` handler has already rebuilt the view, because
      * this store registers its own collection listener in `construct()` — before any component can bind. That
      * second handler is therefore looking at already-corrected state.
+     *
+     * The coarse payload carries `isSort: true`, so a consumer of both granularities can leave
+     * presentation to its fine sort handler without delaying ordinary membership loads.
      */
     onCollectionSort() {
         let me = this;
 
         if (me.isConstructed) {
-            me.fire('load', {items: me.items})
+            me.fire('load', {items: me.items, isSort: true})
         }
     }
 
     /**
-     *
+     * @summary Establishes the unfiltered population before initial data can be restricted by declared filters.
      */
     onConstructed() {
         super.onConstructed();
 
         let me = this;
+
+        if (!me.allItems && !me.hasNtype('tree-store') && me.filters.some(filter => !filter.disabled &&
+            (filter.filterBy || !filter.includeEmptyValues || !Neo.isEmpty(filter.value)))) me.filter(true);
 
         if (me.data) {
             me.afterSetData(me.data)
@@ -1379,6 +1500,7 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Reapplies opted-in local filters before publishing the record's settled membership index.
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
      * @param {Object} data
@@ -1387,10 +1509,70 @@ class Store extends Collection {
      * @param {Object} data.record
      */
     onRecordChange(data) {
+        if (this.#keyChanges.has(data.record)) {
+            this.#keyChanges.set(data.record, data);
+            return
+        }
+        if (this.shouldReapplyFilters(data.record)) this.filter();
+
         this.fire('recordChange', {
             ...data,
             index: this.indexOf(data.record)
         })
+    }
+
+    /**
+     * @summary Forwards current projection-owned edits; notification lifetime is independent of filter reapplication.
+     * @param {Object} data
+     * @protected
+     */
+    onAllItemsRecordChange(data) {
+        if (!this.isDestroyed && (this.#keyChanges.has(data.record) ||
+            this.allItems?.map.get(this.getKey(data.record)) === data.record)) {
+            this.onRecordChange(data)
+        }
+    }
+
+    /**
+     * @summary Checks current opt-in and exact population identity, excluding stale retained records.
+     * @param {Object} record
+     * @returns {Boolean}
+     * @protected
+     */
+    shouldReapplyFilters(record) {
+        const population = this.allItems || this;
+        return !this.isDestroyed && !this.isPipelinePushProjectionUncertain() && !this.isLoading && !this.isStreaming &&
+            population.map.get(this.getKey(record)) === record &&
+            this.filters.some(filter => filter.reapplyOnRecordChange && !filter.disabled &&
+                (filter.filterBy || !filter.includeEmptyValues || !Neo.isEmpty(filter.value)))
+    }
+
+    /**
+     * @summary Lets the existing key writer commit before an opted-in filter publishes settled membership.
+     * Non-opted-in updates retain Collection's behavior. Record and updateKey notifications see final maps.
+     * @param {Object} item
+     * @param {String|Number} newKey
+     */
+    updateKey(item, newKey) {
+        const oldKey = this.getKey(item);
+        if (oldKey === newKey || !this.shouldReapplyFilters(item) || this.hasNtype('tree-store')) {
+            return super.updateKey(item, newKey)
+        }
+
+        let change;
+        this.#keyChanges.set(item, null);
+        this[updatingIndexSymbol]++;
+        try {
+            super.updateKey(item, newKey);
+            change = this.#keyChanges.get(item)
+        } finally {
+            this[updatingIndexSymbol]--;
+            this.#keyChanges.delete(item)
+        }
+
+        if (change) this.onRecordChange(change);
+        else if (this.shouldReapplyFilters(item)) this.filter();
+        if (this[updatingIndexSymbol] === 0) this.fire('updateKey', {item, newKey, oldKey, scope: this})
     }
 
     /**

@@ -1,8 +1,27 @@
-import {test, expect}                                from '@playwright/test';
-import fs                                            from 'node:fs';
-import os                                            from 'node:os';
-import path                                          from 'node:path';
-import {EXCLUSIONS, populations, RUN_PATHS, summary} from '../../../../../buildScripts/util/e2eCiSelection.mjs';
+import {test, expect} from '@playwright/test';
+import fs             from 'node:fs';
+import os             from 'node:os';
+import path           from 'node:path';
+import {
+    assertBrainDeclarations,
+    assertQuarantinesResolve,
+    BRAIN_CAPABILITIES,
+    BRAIN_QUARANTINES,
+    BRAIN_RETRY_BRIDGE,
+    BRAIN_SMOKE,
+    BRAIN_TIERS,
+    brainPaths,
+    brainReceipt,
+    brainRetries,
+    brainSelection,
+    brainTestList,
+    EXCLUSIONS,
+    flakyTests,
+    populations,
+    QUARANTINE_STALE_DAYS,
+    RUN_PATHS,
+    summary
+} from '../../../../../buildScripts/util/e2eCiSelection.mjs';
 
 /**
  * The e2e tier's coverage summary is an honesty guard: `testIgnore` DESELECTS the Brain-dependent
@@ -148,5 +167,232 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
             expect(entry.reason, `${entry.path} reason`).toBeTruthy();
             expect(['cause', 'observed', 'partial'], `${entry.path} kind`).toContain(entry.kind);
         }
+    });
+});
+
+test.describe('e2e CI selection — the Brain-gated tier', () => {
+    const root = path.resolve(import.meta.dirname, '../../../../..'),
+          run  = {shard: '2/6', event: 'push', attempt: '1', engineSha: 'e'.repeat(40), brainSha: 'b'.repeat(40)};
+
+    test('selects exactly the specs the neuralLink fixture gates', () => {
+        const paths = brainPaths(root);
+
+        expect(paths).toHaveLength(populations(root).ignored);
+
+        for (const file of paths) {
+            expect(fs.readFileSync(path.join(root, file), 'utf8'), file).toMatch(/\bneuralLink\b/)
+        }
+    });
+
+    test('every declaration names a Brain-gated spec, and every quarantine selects exactly one registered test', () => {
+        // The tier asserts its declarations only after checking out a Brain, and never resolves quarantine
+        // titles; this arm fails either kind of stale entry in the unit tier every pull request already runs.
+        expect(() => assertBrainDeclarations({root})).not.toThrow();
+        expect(() => assertQuarantinesResolve({root})).not.toThrow();
+    });
+
+    test('a quarantine whose strings are all in the source but which is not a registered path fails', () => {
+        // Each title below exists verbatim in the file, so a check of the source text passes all three.
+        // Only the path Playwright registers tells them apart: a dropped describe, a new enclosing one.
+        // The entry is a literal, so the test outlives an empty quarantine list.
+        const entry = {
+                  path     : 'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
+                  titlePath: ['Workstation — the film tour plays from the toolbar', 'Start film tour runs all scenes; the viewer\'s Continue clicks open every window']
+              },
+              [, title] = entry.titlePath,
+              dropped   = {...entry, titlePath: [title]},
+              wrapped   = {...entry, titlePath: ['hosted profile', ...entry.titlePath]};
+
+        expect(() => assertQuarantinesResolve({quarantines: [entry], root}), 'control: the real entry').not.toThrow();
+        expect(() => assertQuarantinesResolve({quarantines: [dropped, wrapped], root}))
+            .toThrow(new RegExp(`spec\\.mjs › ${title.slice(0, 20)}[\\s\\S]*› hosted profile ›`));
+    });
+
+    test('a declaration naming a file that is not Brain-gated fails, and names it', () => {
+        const tmp  = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-brain-declarations-')),
+              file = 'test/playwright/e2e/grid/GatedNL.spec.mjs';
+
+        fs.mkdirSync(path.join(tmp, 'test/playwright/e2e/grid'), {recursive: true});
+        fs.writeFileSync(path.join(tmp, file), "test('sorts', async ({neuralLink}) => {})");
+
+        expect(() => assertBrainDeclarations({capabilities: [{paths: [file]}], quarantines: [{path: file}], smoke: [], root: tmp}), 'control')
+            .not.toThrow();
+        expect(() => assertBrainDeclarations({capabilities: [{paths: ['test/playwright/e2e/grid/Gone.spec.mjs']}], quarantines: [], smoke: [], root: tmp}))
+            .toThrow('test/playwright/e2e/grid/Gone.spec.mjs');
+        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [{path: 'test/playwright/e2e/grid/Moved.spec.mjs'}], smoke: [], root: tmp}))
+            .toThrow('test/playwright/e2e/grid/Moved.spec.mjs');
+        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [], smoke: ['test/playwright/e2e/grid/Renamed.spec.mjs'], root: tmp}))
+            .toThrow('test/playwright/e2e/grid/Renamed.spec.mjs');
+
+        fs.rmSync(tmp, {recursive: true, force: true})
+    });
+
+    test('a smoke file is refused while a capability or a quarantine touches it, and named', () => {
+        const tmp    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-brain-smoke-')),
+              file   = 'test/playwright/e2e/grid/GatedNL.spec.mjs',
+              assert = declarations => assertBrainDeclarations({capabilities: [], quarantines: [], smoke: [file], root: tmp, ...declarations});
+
+        fs.mkdirSync(path.join(tmp, 'test/playwright/e2e/grid'), {recursive: true});
+        fs.writeFileSync(path.join(tmp, file), "test('sorts', async ({neuralLink}) => {})");
+
+        expect(() => assert({}), 'control').not.toThrow();
+        expect(() => assert({quarantines: [{path: file}]})).toThrow(`capability-gated or quarantined:\n- ${file}`);
+        expect(() => assert({capabilities: [{paths: [file]}]})).toThrow(`capability-gated or quarantined:\n- ${file}`);
+
+        fs.rmSync(tmp, {recursive: true, force: true})
+    });
+
+    test('the smoke tier selects exactly its declared files, and an unknown tier is refused', () => {
+        expect(brainSelection({env: {}, root, tier: 'smoke'}).paths.toSorted()).toEqual(BRAIN_SMOKE.toSorted());
+        expect(brainSelection({env: {}, root}).paths, 'the default tier is full').toEqual(brainSelection({env: {}, root, tier: 'full'}).paths);
+        expect(() => brainSelection({env: {}, root, tier: 'smok'})).toThrow("Unknown Brain-gated tier 'smok'");
+    });
+
+    test('a capability excludes its files only while its variable is unset', () => {
+        const unset = brainSelection({env: {}, root}),
+              set   = brainSelection({env: Object.fromEntries(BRAIN_CAPABILITIES.map(entry => [entry.requires, 'provisioned'])), root});
+
+        for (const file of BRAIN_CAPABILITIES.flatMap(entry => entry.paths)) {
+            expect(unset.paths, `${file} is out while its capability is unset`).not.toContain(file);
+        }
+
+        expect(unset.paths).toHaveLength(unset.gated.length - BRAIN_CAPABILITIES.flatMap(entry => entry.paths).length);
+        expect(set.paths, 'and the whole tier returns once every capability is provisioned').toEqual(set.gated);
+    });
+
+    test('the quarantine list names its files the way Playwright resolves them, relative to the e2e testDir', () => {
+        const lines = brainTestList().split('\n').filter(Boolean);
+
+        expect(lines).toHaveLength(BRAIN_QUARANTINES.length);
+
+        for (const line of lines) {
+            expect(fs.existsSync(path.join(root, 'test/playwright/e2e', line.split(' › ')[0])), line).toBe(true);
+        }
+    });
+
+    test('a receipt states the run, both SHAs, the time against the ceiling, the selection and the outcome', () => {
+        const report         = {suites: [{file: 'core/A.spec.mjs'}, {file: 'grid/B.spec.mjs'}], stats: {expected: 5, unexpected: 1, flaky: 0, skipped: 2}},
+              text           = brainReceipt({report, run, seconds: 312, env: {}, root}),
+              {gated, paths} = brainSelection({env: {}, root});
+
+        expect(text).toContain('shard 2/6');
+        expect(text).toContain('push, attempt 1');
+        expect(text).toContain(run.engineSha);
+        expect(text).toContain(run.brainSha);
+        expect(text).toContain('5m 12s against the 5m 0s ceiling (**over**)');
+        expect(text).toContain(`${paths.length} of the ${gated.length} Brain-gated spec files, with ${BRAIN_QUARANTINES.length} of their tests quarantined`);
+        expect(text).toContain('2 files · 5 passed, 1 failed, 0 flaky, 2 skipped');
+        expect(text).toContain('- `grid/B.spec.mjs`');
+        expect(brainReceipt({report, run, seconds: 300, env: {}, root})).not.toContain('**over**');
+    });
+
+    test('a receipt names its tier, and a run that names none is the full tier', () => {
+        const receipt = tier => brainReceipt({report: null, run: {...run, tier}, seconds: null, env: {}, root});
+
+        expect(receipt(undefined)).toContain('### Brain-gated e2e · full tier · shard 2/6');
+        expect(receipt(undefined)).toContain(`- **Tier:** full — ${BRAIN_TIERS.full}.`);
+        expect(receipt('smoke')).toContain('### Brain-gated e2e · smoke tier · shard 2/6');
+        expect(receipt('smoke')).toContain(`- **Tier:** smoke — ${BRAIN_TIERS.smoke}.`);
+    });
+
+    test('a smoke receipt counts only the smoke files, with no declaration to explain', () => {
+        const text    = brainReceipt({report: null, run: {...run, tier: 'smoke'}, seconds: null, env: {}, root}),
+              {gated} = brainSelection({env: {}, root});
+
+        expect(text).toContain(`${BRAIN_SMOKE.length} of the ${gated.length} Brain-gated spec files, with 0 of their tests quarantined`);
+        expect(text).not.toContain('**Quarantined:**');
+        expect(text).not.toContain('**Excluded while');
+    });
+
+    test('every full-tier receipt prints each declaration: an unset capability with its exit, a quarantine with its owner', () => {
+        const text = brainReceipt({report: null, run, seconds: null, env: {}, root});
+
+        for (const entry of BRAIN_CAPABILITIES) {
+            expect(text).toContain(`Excluded while \`${entry.requires}\` is unset`);
+            expect(text).toContain(`${entry.exit} (${entry.tracker})`);
+        }
+
+        for (const entry of BRAIN_QUARANTINES) {
+            expect(text).toContain(`${entry.titlePath.at(-1)} — ${entry.reason}. Accountable: ${entry.accountable}. Exit: ${entry.exit}.`);
+        }
+    });
+
+    test('a quarantine older than a week is flagged stale on every receipt', () => {
+        // Aged against the oldest entry rather than a fixed date, so a later entry cannot move the boundary
+        if (!BRAIN_QUARANTINES.length) {
+            return
+        }
+
+        const oldest  = Math.min(...BRAIN_QUARANTINES.map(entry => Date.parse(entry.since))),
+              receipt = days => brainReceipt({report: null, run, seconds: null, env: {}, now: new Date(oldest + days * 86400000), root});
+
+        expect(receipt(QUARANTINE_STALE_DAYS)).not.toContain('(**stale**)');
+        expect(receipt(QUARANTINE_STALE_DAYS + 1)).toContain(`${QUARANTINE_STALE_DAYS + 1} days (**stale**)`);
+    });
+
+    test('the retry bridge retries through its end date and not a moment after', () => {
+        const until = BRAIN_RETRY_BRIDGE.until;
+
+        expect(brainRetries(new Date(`${until}T00:00:00Z`))).toBe(BRAIN_RETRY_BRIDGE.retries);
+        expect(brainRetries(new Date(`${until}T23:59:59.999Z`)), 'the last millisecond of its day').toBe(BRAIN_RETRY_BRIDGE.retries);
+        expect(brainRetries(new Date(Date.parse(`${until}T23:59:59.999Z`) + 1)), 'the day after').toBe(0);
+    });
+
+    test('every receipt names each test that needed the retry, with its first attempt\'s error', () => {
+        // Playwright marks a test `flaky` when an attempt failed and a later one passed, and `unexpected`
+        // when every attempt failed. Only the first kind needed the retry; the second stays a failure.
+        const attempt = (status, message) => ({status, ...message ? {error: {message: `\u001b[31m${message}\u001b[39m\nstack`}} : {}}),
+              report  = {
+                  stats : {expected: 1, unexpected: 1, flaky: 1, skipped: 0},
+                  suites: [{file: 'grid/A.spec.mjs', specs: [], suites: [{title: 'Grid', specs: [
+                      {file: 'grid/A.spec.mjs', title: 'heals on retry',  tests: [{status: 'flaky',      results: [attempt('failed', 'Request timed out'), attempt('passed')]}]},
+                      {file: 'grid/A.spec.mjs', title: 'red every time',  tests: [{status: 'unexpected', results: [attempt('failed', 'boom'), attempt('failed', 'boom')]}]},
+                      {file: 'grid/A.spec.mjs', title: 'green first time', tests: [{status: 'expected',  results: [attempt('passed')]}]}
+                  ]}]}]
+              },
+              text    = brainReceipt({report, run, seconds: 120, retries: 1, env: {}, root});
+
+        expect(flakyTests(report)).toEqual([{error: 'Request timed out', file: 'grid/A.spec.mjs', title: 'Grid › heals on retry'}]);
+        expect(text).toContain('**Needed the retry:** `grid/A.spec.mjs` › Grid › heals on retry — first attempt: Request timed out');
+        expect(text, 'a test red on every attempt is a failure, not a retry').not.toContain('red every time');
+    });
+
+    test('the first attempt\'s error is read from every shape Playwright serializes', () => {
+        // A thrown Error carries `message`, anything else thrown only `value`, and the `errors` envelope can
+        // carry an error with no `error` field beside it. A blank field must not hide a populated one.
+        const flaky  = result => ({status: 'flaky', results: [{status: 'failed', ...result}, {status: 'passed'}]}),
+              spec   = (title, result) => ({file: 'grid/A.spec.mjs', title, tests: [flaky(result)]}),
+              report = {stats: {expected: 0, unexpected: 0, flaky: 7, skipped: 0}, suites: [{file: 'grid/A.spec.mjs', specs: [
+                  spec('an Error',                   {error: {message: 'thrown Error', stack: 'Error: thrown Error\n    at x'}}),
+                  spec('a thrown value',             {error: {value: 'a string was thrown'}}),
+                  spec('only the envelope',          {errors: [{message: 'from the errors envelope'}]}),
+                  spec('an empty message, stack',    {error: {message: '', stack: 'Error\n    at x'}}),
+                  spec('an empty message, envelope', {error: {message: ''}, errors: [{message: 'recorded envelope'}]}),
+                  spec('a blank first line',         {error: {message: '\u001b[31m\u001b[39m\nafter a blank line'}}),
+                  spec('nothing recorded',           {})
+              ]}]};
+
+        expect(flakyTests(report).map(test => test.error)).toEqual([
+            'thrown Error', 'a string was thrown', 'from the errors envelope', 'Error', 'recorded envelope', 'after a blank line',
+            'no error recorded'
+        ]);
+    });
+
+    test('the receipt reports the retry count the run selected, not one recomputed at its end', () => {
+        // A run that starts on the bridge's last day and finishes after midnight still retried
+        const after = new Date(Date.parse(`${BRAIN_RETRY_BRIDGE.until}T23:59:59.999Z`) + 1),
+              text  = retries => brainReceipt({report: null, run, seconds: null, retries, env: {}, now: after, root});
+
+        expect(text(1)).toContain(`**Retries:** 1 for this run, from the bridge through ${BRAIN_RETRY_BRIDGE.until}`);
+        expect(brainRetries(after), 'a run started after the bridge ends selects none').toBe(0);
+        expect(text(0)).toContain('**Retries:** none for this run');
+        expect(text(null)).toContain('**Retries:** unknown, because the run step recorded none');
+    });
+
+    test('a step that never finished and a run without a report say so, rather than reading as zero', () => {
+        const text = brainReceipt({report: null, run, seconds: null, env: {}, root});
+
+        expect(text).toContain('none, because the step did not finish');
+        expect(text).toContain('**This shard:** unknown, because the run wrote no Playwright report');
     });
 });

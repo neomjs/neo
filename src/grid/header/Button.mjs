@@ -37,9 +37,17 @@ class Button extends BaseButton {
          */
         cellAlign_: 'left',
         /**
-         * @member {String|null} dataField=null
+         * Enables the optional value-filter surface on this header.
+         * @member {Boolean} columnMenu_=false
+         * @reactive
          */
-        dataField: null,
+        columnMenu_: false,
+        /**
+         * The Store field addressed by this header's sort and filter projections.
+         * @member {String|null} dataField_=null
+         * @reactive
+         */
+        dataField_: null,
         /**
          * Sort direction when clicking on an unsorted button
          * @member {String} defaultSortDirection='ASC'
@@ -72,6 +80,14 @@ class Button extends BaseButton {
          * @reactive
          */
         iconPosition: 'right',
+        /**
+         * True while the Store holds an effective header-owned filter (inline or picker) for this column.
+         * The grid container derives it from the Store, so the header shows the state with or without a menu.
+         * @member {Boolean} isFiltered_=false
+         * @protected
+         * @reactive
+         */
+        isFiltered_: false,
         /**
          * 'ASC', 'DESC' or null
          * @member {String|null} isSorted_=null
@@ -115,6 +131,43 @@ class Button extends BaseButton {
         useTriStateSorting_: false
     }
 
+    /** @member {Promise|null} headerFilterReady=null @protected */
+    headerFilterReady = null
+    /** @member {Number} columnMenuSerial=0 @protected */
+    columnMenuSerial = 0
+    /** @member {Boolean} menuRootWrapped=false @protected */
+    menuRootWrapped = false
+
+    /**
+     * @summary A header rebound to another field takes that field's filtered state from the grid's Store.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetDataField(value, oldValue) {
+        if (oldValue !== undefined) {
+            const container = this.up('grid-container');
+            if (container) this.isFiltered = container.isColumnFiltered(value)
+        }
+    }
+
+    /**
+     * @summary Marks the header root and describes it as filtered. With a menu, the menu keeps its trigger shown;
+     * without one, the header shows its own mark (Button.scss).
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsFiltered(value, oldValue) {
+        const root = this.getVdomRoot();
+
+        if (value) root['aria-description'] = 'Filtered';
+        else delete root['aria-description'];
+
+        // The class always changes with the state, so its update carries the description too
+        this.toggleCls('neo-grid-column-filtered', value)
+    }
+
     /**
      * Triggered after the isSorted config got changed
      * @param {String|null} value
@@ -124,6 +177,12 @@ class Button extends BaseButton {
     afterSetIsSorted(value, oldValue) {
         let me        = this,
             container = me.up('grid-container');
+
+        // WAI-ARIA 1.2 allows aria-sort on a columnheader only, which this button is ('role' above, applied to the
+        // same node getVdomRoot() returns). The arrow class below is invisible to a screen reader, so the attribute
+        // is the announcement. A null direction has to remove it, or a header that clears its sort keeps announcing
+        // the direction it no longer has.
+        me.changeVdomRootKey('aria-sort', value === 'ASC' ? 'ascending' : value === 'DESC' ? 'descending' : null);
 
         switch (value) {
             case null:
@@ -225,12 +284,129 @@ class Button extends BaseButton {
             } else {
                 delete me.filterField.vdom.removeDom
             }
+            me.ensureHeaderFilterProjection()
         } else if (me.filterField) {
             me.filterField.vdom.removeDom = true
         }
 
         me.updateDepth = 2;
         me.update()
+    }
+
+    /**
+     * @summary Attaches the shared inline projection once; late imports cannot attach to a retired header.
+     * @returns {Promise}
+     */
+    ensureHeaderFilterProjection() {
+        return this.headerFilterReady ||= import('../../plugin/HeaderFilter.mjs').then(({default: module}) => {
+            if (!this.isDestroyed && !this.isDestroying) {
+                let plugin = this.getPlugin('plugin-header-filter');
+                if (!plugin) {
+                    this.plugins = [...(this.plugins || []), {module}];
+                    plugin = this.getPlugin('plugin-header-filter')
+                }
+                plugin.syncField()
+            }
+        })
+    }
+
+    /**
+     * @summary Lazily enables the menu while keeping its default free of trigger and handler registration.
+     * @param {Boolean} value
+     */
+    afterSetColumnMenu(value) {
+        const serial = this.columnMenuSerial = (this.columnMenuSerial || 0) + 1;
+        if (!value) {
+            this.getPlugin('plugin-grid-header-menu')?.destroy();
+            return
+        }
+        import('./plugin/Menu.mjs').then(({default: module}) => {
+            if (!this.isDestroyed && !this.isDestroying && this.columnMenu && this.columnMenuSerial === serial &&
+                !this.getPlugin('plugin-grid-header-menu')) {
+                this.plugins = [...(this.plugins || []), {module}]
+            }
+        })
+    }
+
+    /**
+     * @summary A header configured with `columnMenu` takes its wrapper shape before its first render.
+     *
+     * The lazily loaded menu plugin only installs the trigger then; a root swap from it could land while the grid's
+     * first render is in flight.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.columnMenu && this.wrapColumnMenuRoot()
+    }
+
+    /**
+     * @summary Wraps a header created without a menu, then re-measures its toolbar: the wrapper reserves the trigger's
+     * space, which widens a content-sized column.
+     */
+    prepareColumnMenuWrapper() {
+        if (this.menuRootWrapped) return;
+        const parent = this.parent, reference = this.wrapColumnMenuRoot();
+        this.updateDepth = -1;
+        if (reference) {
+            parent.updateDepth = -1;
+            parent.measureAfterUpdate()
+        } else {
+            this.update()
+        }
+    }
+
+    /**
+     * @summary Creates a stable sibling-trigger wrapper while retaining the native sort button and its focus identity.
+     * Re-points the parent's reference to the wrapper, without an update.
+     * @returns {Object|undefined} The parent's reference node, when the parent already holds one
+     */
+    wrapColumnMenuRoot() {
+        const root = this.vdom;
+        this.menuRootWrapped = true;
+        this._vdom = {tag: 'div', cls: ['neo-grid-menu-wrapper'], cn: [root]};
+        this.ensureStableIds();
+        const reference = this.parent?.getVdomItemsRoot().cn.find(node => node.componentId === this.id);
+        if (reference) Object.assign(reference, this.createVdomReference());
+        this.wrapperCls = [...(this.wrapperCls || []), 'neo-grid-menu-wrapper'];
+        this.afterSetWidth(this.width);
+        return reference
+    }
+
+    /**
+     * @summary Sizes the whole composed header; its sort button continues to span that complete column.
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     */
+    afterSetWidth(value, oldValue) {
+        super.afterSetWidth(value, oldValue);
+        if (this.menuRootWrapped) {
+            delete this.getVdomRoot().width;
+            this.wrapperStyle = {width: typeof value === 'number' ? `${value}px` : value}
+        }
+    }
+
+    /** @summary Returns the native sort-button vdom. @returns {Object} */
+    getVdomRoot() {
+        return this.menuRootWrapped ? this.vdom.cn[0] : super.getVdomRoot()
+    }
+
+    /** @summary Returns the native sort vnode, including the pending wrapper transition. @returns {Object} */
+    getVnodeRoot() {
+        return this.vnode?.id === `${this.id}__wrapper` ? this.vnode.childNodes[0] : super.getVnodeRoot()
+    }
+
+    /**
+     * @summary Lets the parent own a root-shape transition; a child diff requires unchanged root identity.
+     * @param {Function} [resolve]
+     * @param {Function} [reject]
+     */
+    updateVdom(resolve, reject) {
+        if (this.menuRootWrapped && this.vnode && this.vnode.id !== this.vdom.id && this.parent?.vnode) {
+            this.parent.updateDepth = -1;
+            this.parent.promiseUpdate().then(resolve, reject);
+            return
+        }
+        super.updateVdom(resolve, reject)
     }
 
     /**
@@ -268,11 +444,15 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Sorts header gestures without treating inline filter controls as sort actions.
      * @param {Object} data
      * @protected
      */
     onClick(data) {
-        if (data.path[0].cls.includes('neo-resizable')) {
+        const {filterField} = this;
+        if (data.path.some(node => node.cls?.includes('neo-grid-menu-trigger') ||
+                filterField && node.id === filterField.id) ||
+            data.path[0].cls.includes('neo-resizable')) {
             return
         }
 
@@ -293,12 +473,16 @@ class Button extends BaseButton {
             }
         }
 
-        me.isSorted = map[me.isSorted + ''];
+        // A non-sortable header keeps its click (the button handler), but never starts a sort
+        if (me.sortable) {
+            me.isSorted = map[me.isSorted + '']
+        }
 
         super.onClick(data)
     }
 
     /**
+     * @summary Updates this Store/field's shared inline contribution without touching picker or application filters.
      * @param {Object} data
      */
     changeFilterOperator(data) {
@@ -306,22 +490,19 @@ class Button extends BaseButton {
             gridContainer = me.up('grid-container'),
             store         = gridContainer?.store,
             operator      = data.value,
-            filter, filters;
+            filter;
 
         if (store) {
-            filter = store.getFilter(me.dataField);
+            filter = store.getFilter(me.dataField, 'header-inline');
 
             if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
+                store.filters = [...store.filters, {
+                    ...me.filterConfig,
+                    property : me.dataField,
                     operator,
-                    value   : null,
-                    ...me.filterConfig
-                });
-
-                store.filters = filters
+                    value    : null,
+                    ownerRole: 'header-inline'
+                }]
             } else {
                 filter.operator = operator
             }
@@ -329,6 +510,7 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Writes input into the shared inline contribution; filterConfig supplies creation defaults only.
      * @param {Object} data
      */
     changeFilterValue(data) {
@@ -336,28 +518,25 @@ class Button extends BaseButton {
             gridContainer = me.up('grid-container'),
             store         = gridContainer?.store,
             {value}       = data,
-            field, filter, filters, model;
+            field, filter, model;
 
         if (store) {
-            filter = store.getFilter(me.dataField);
+            filter = store.getFilter(me.dataField, 'header-inline');
             model  = store.model;
             field  = model.getField(me.dataField);
 
-            if (value && field?.type.toLowerCase() === 'date') {
+            if (value && field?.type?.toLowerCase() === 'date') {
                 value = new Date(value)
             }
 
             if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
+                store.filters = [...store.filters, {
                     operator: 'like',
+                    ...me.filterConfig,
+                    property : me.dataField,
                     value,
-                    ...me.filterConfig
-                });
-
-                store.filters = filters
+                    ownerRole: 'header-inline'
+                }]
             } else {
                 filter.value = value
             }
@@ -370,6 +549,10 @@ class Button extends BaseButton {
     removeSortingCss() {
         let me    = this,
             {cls} = me;
+
+        // This path resets _isSorted directly, so it bypasses afterSetIsSorted() and owns the aria-sort clear. The
+        // container runs it on every other header on each sort, and only the one losing its sort carries the attribute
+        'aria-sort' in me.getVdomRoot() && me.changeVdomRootKey('aria-sort', null);
 
         NeoArray.add(cls, 'neo-sort-hidden');
 
@@ -386,10 +569,12 @@ class Button extends BaseButton {
         return {
             ...super.toJSON(),
             cellAlign           : me.cellAlign,
+            columnMenu          : me.columnMenu,
             dataField           : me.dataField,
             defaultSortDirection: me.defaultSortDirection,
             editorConfig        : me.serializeConfig(me.editorConfig),
             filterConfig        : me.serializeConfig(me.filterConfig),
+            isFiltered          : me.isFiltered,
             isSorted            : me.isSorted,
             resizable           : me.resizable,
             showHeaderFilter    : me.showHeaderFilter,
