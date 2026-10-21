@@ -536,7 +536,8 @@ class DomEvents extends Base {
         me.flushPendingMouseMove();
         me.sendMessageToApp(me.getMouseEventData(event));
 
-        if (event.ctrlKey || me.testPathInclusion(event, preventContextmenuTargets)) {
+        if (event.ctrlKey || !event.target?.closest?.('.neo-form-field, input, textarea, [contenteditable="true"]') &&
+            me.testPathInclusion(event, preventContextmenuTargets)) {
             event.preventDefault()
         }
     }

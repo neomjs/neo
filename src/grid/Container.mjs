@@ -458,7 +458,8 @@ class GridContainer extends BaseContainer {
                     const button = this.getButton(column.dataField);
                     if (button) button.columnMenu = value
                 }
-            })
+            });
+            this.headerWrapper.syncColumnMenuState()
         }
     }
 
