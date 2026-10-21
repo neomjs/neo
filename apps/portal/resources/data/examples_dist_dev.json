@@ -35,6 +35,13 @@
     "sourceUrl"   : "examples/grid/bigData",
     "url"         : "dist/development/examples/grid/bigData/index.html"
 }, {
+    "id"          : 29,
+    "environments": ["Desktop", "Mobile"],
+    "image"       : "devmode/grid-issues-13-3.jpg",
+    "name"        : "GitHub Issues Grid",
+    "sourceUrl"   : "examples/grid/issues",
+    "url"         : "dist/development/examples/grid/issues/index.html"
+}, {
     "id"       : 22,
     "image"    : "devmode/calendar-preview.png",
     "name"     : "Calendar",
