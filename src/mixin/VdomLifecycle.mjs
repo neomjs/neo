@@ -279,7 +279,7 @@ class VdomLifecycle extends Base {
                 scopes    = new Map(), // collected id → the merged ids its payload expands, in collection order
                 processed = new Set(); // Prevent duplicates and cycles
 
-            let absorbedMeta, sparseScopes, absorbedScopes;
+            let absorbedMeta, sparseScopes, absorbedScopes, foreignWindowChildren;
 
             const collectScopes = (componentId) => {
                 if (processed.has(componentId)) return;
@@ -296,6 +296,25 @@ class VdomLifecycle extends Base {
                 // updates from components that have moved to a different window.
                 // Doing so would cause deltas meant for Window B to be sent to Window A.
                 if (component.windowId !== me.windowId) return;
+
+                // Evict merged children whose windowId diverged before collection so they are neither
+                // marked collected nor claimed by this window's flight, and can run their own flight.
+                const mergedItem = VDomUpdate.mergedCallbackMap.get(componentId);
+
+                if (mergedItem) {
+                    for (const childId of mergedItem.children.keys()) {
+                        const child = Neo.getComponent(childId);
+
+                        if (child && !child.isDestroyed && child.windowId !== me.windowId) {
+                            mergedItem.children.delete(childId);
+                            (foreignWindowChildren ||= new Set()).add(child)
+                        }
+                    }
+
+                    if (mergedItem.children.size === 0) {
+                        VDomUpdate.mergedCallbackMap.remove(componentId)
+                    }
+                }
 
                 // For every component, we check its own merged children
                 const mergedChildIds = VDomUpdate.getMergedChildIds(componentId);
@@ -407,6 +426,14 @@ class VdomLifecycle extends Base {
                     if (childId !== ownerId && inFlightScopes.has(childId)) {
                         collected.delete(childId);
                         if (entry && children?.get(childId) === entry) children.delete(childId)
+                    }
+                }
+            }
+
+            if (foreignWindowChildren) {
+                for (const child of foreignWindowChildren) {
+                    if (!child.isDestroyed && !child.isVdomUpdating && child.needsVdomUpdate) {
+                        child.update()
                     }
                 }
             }
@@ -941,7 +968,8 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Traverses the parent chain to find an ancestor that is pending a VDOM update.
+     * @summary Traverses the parent chain to merge this update into a same-window ancestor pending a VDOM update.
+     *
      * If found, and if the update scope allows (see `canMergeUpdate`), this component's
      * update is merged into the ancestor's cycle.
      *
@@ -962,7 +990,7 @@ class VdomLifecycle extends Base {
 
             if (parent) {
                 // We are checking for parent.updateDepth, since we care about the depth of the next update cycle
-                if (parent.needsVdomUpdate && me.canMergeUpdate(parent.updateDepth, distance)) {
+                if (parent.needsVdomUpdate && parent.windowId === me.windowId && me.canMergeUpdate(parent.updateDepth, distance)) {
                     VDomUpdate.registerMerged(parent.id, me.id, me.updateDepth, distance);
                     return true
                 }
