@@ -34,7 +34,7 @@ class CreateCommentComponent extends Component {
                 {tag: 'textarea', cls: ['form-control'], placeholder: 'Write a comment...', rows: 3}
             ]},
             {cls: ['card-footer'], cn: [
-                {tag: 'img', cls: ['comment-author-img'], src: 'https://static.productionready.io/images/smiley-cyrus.jpg'},  // https://github.com/gothinkster/realworld/issues/442
+                {tag: 'img', cls: ['comment-author-img'], src: 'https://cdn.jsdelivr.net/gh/realworld-apps/realworld@ebbcdeb8d55b42a3a613c787560498b8ef10003f/assets/media/default-avatar.svg'},
                 {vtype: 'text', html: '&nbsp;'},
                 {tag: 'span', cls: ['comment-author']},
                 {tag: 'button', cls: ['btn', 'btn-sm', 'btn-primary'], text: 'Post Comment', type: 'button'}

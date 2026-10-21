@@ -126,7 +126,9 @@ class HomeComponent extends Component {
 
         me.tagList = Neo.create({
             module  : TagListComponent,
+            appName : me.appName,
             parentId: me.id,
+            windowId: me.windowId,
 
             listeners: {
                 tagChange: me.onTagChange,
@@ -134,7 +136,7 @@ class HomeComponent extends Component {
             }
         });
 
-        me.vdom.cn[1].cn[0].cn.push(me.tagList.vdom);
+        me.vdom.cn[1].cn[0].cn.push(me.tagList.createVdomReference());
         me.update();
     }
 
@@ -169,7 +171,9 @@ class HomeComponent extends Component {
                 if (!me.previewComponents[index]) {
                     me.previewComponents[index] = Neo.create({
                         module  : PreviewComponent,
+                        appName : me.appName,
                         parentId: me.id,
+                        windowId: me.windowId,
                         ...config
                     });
                 } else {
@@ -280,7 +284,7 @@ class HomeComponent extends Component {
                 id : me.id + '__nav-item_' + index,
                 cn : [{
                     tag : 'a',
-                    cls : cls,
+                    cls,
                     href: '',
                     text: item.name,
                     id  : me.id + '__nav-item-link_' + index,
@@ -313,8 +317,6 @@ class HomeComponent extends Component {
     afterSetPageSize(value, oldValue) {
         let me = this,
             i  = 0;
-
-        console.log('afterSetPageSize', value);
 
         for (; i < value; i++) {
 
