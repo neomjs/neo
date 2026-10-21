@@ -516,7 +516,10 @@ class Container extends Component {
         itemsRoot.cn = [];
 
         items.forEach((item, index) => {
-            items[index] = item = me.createItem(item, index);
+            item = me.createItem(item, index);
+            // Creating the item can insert() a sibling, which stores a shallow copy of items, taken while this
+            // item was still a config: the created instance goes into the array the container holds now.
+            me._items[index] = item;
 
             if (item instanceof Neo.core.Base) {
                 layout?.applyChildAttributes(item, index);
@@ -530,15 +533,11 @@ class Container extends Component {
             itemsRoot.cn.splice(index, 0, vdom)
         });
 
-        // Such an insert() stores a shallow copy of items, taken while this item and the ones after it were
-        // still configs. This array holds the inserted sibling too, and every created instance.
-        me._items = items;
-
         // We need to add items into the vdom
         me.updateDepth = -1;
         me.isConstructed && me.update();
 
-        me.fire('itemsCreated', {id: me.id, items})
+        me.fire('itemsCreated', {id: me.id, items: me._items})
     }
 
     /**
