@@ -453,13 +453,19 @@ class GridContainer extends BaseContainer {
      */
     afterSetColumnMenu(value, oldValue) {
         if (oldValue !== undefined && this.headerWrapper) {
-            this.columns?.items?.forEach(column => {
-                if (column.columnMenu === null) {
-                    const button = this.getButton(column.dataField);
-                    if (button) button.columnMenu = value
-                }
-            });
-            this.headerWrapper.syncColumnMenuState()
+            const wrapper = this.headerWrapper;
+            wrapper.syncingColumnMenuState = true;
+            try {
+                this.columns?.items?.forEach(column => {
+                    if (column.columnMenu === null) {
+                        const button = this.getButton(column.dataField);
+                        if (button) button.columnMenu = value
+                    }
+                })
+            } finally {
+                wrapper.syncingColumnMenuState = false
+            }
+            wrapper.syncColumnMenuState()
         }
     }
 

@@ -286,10 +286,17 @@ class Wrapper extends BaseContainer {
     }
 
     /**
+     * @member {Boolean} syncingColumnMenuState=false
+     * @protected
+     */
+    syncingColumnMenuState = false
+
+    /**
      * @summary Toggles `neo-grid-menu-hint` on menu-disabled header buttons while the grid has at least one
      * menu-enabled column, registers context-menu prevention for that class, and dismisses any stale hint.
      */
     syncColumnMenuState() {
+        if (this.syncingColumnMenuState) return;
         const active = this.hasColumnMenus();
 
         for (const toolbar of this.getToolbars()) {

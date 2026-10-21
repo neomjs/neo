@@ -322,6 +322,7 @@ class Button extends BaseButton {
             if (oldValue !== undefined) this.up('grid-header-wrapper')?.syncColumnMenuState();
             return
         }
+        if (this.isConstructed) this.prepareColumnMenuWrapper();
         if (oldValue !== undefined) this.up('grid-header-wrapper')?.syncColumnMenuState();
         import('./plugin/Menu.mjs').then(({default: module}) => {
             if (!this.isDestroyed && !this.isDestroying && this.columnMenu && this.columnMenuSerial === serial &&
@@ -399,12 +400,36 @@ class Button extends BaseButton {
     }
 
     /**
+     * @summary Diffs only the unwrapped sort button when a pre-wrap child flight collects before the parent mounts the
+     * wrapper, and re-arms the child so settlement hands the wrapper transition to the parent.
+     * @param {Set<String>|null} mergedChildIds
+     * @param {Number} [depth]
+     * @param {Set<String>|null} [boundaryIds=null]
+     * @returns {Object}
+     */
+    getVdomUpdatePayload(mergedChildIds, depth, boundaryIds=null) {
+        if (this.menuRootWrapped && this.vnode && this.vnode.id !== this.vdom.id) {
+            const vdom = this._vdom;
+            this._vdom = this.getVdomRoot();
+            try {
+                return super.getVdomUpdatePayload(mergedChildIds, depth, boundaryIds)
+            } finally {
+                this._vdom = vdom;
+                this._needsVdomUpdate = true;
+                this._updateDepth = -1
+            }
+        }
+        return super.getVdomUpdatePayload(mergedChildIds, depth, boundaryIds)
+    }
+
+    /**
      * @summary Lets the parent own a root-shape transition; a child diff requires unchanged root identity.
      * @param {Function} [resolve]
      * @param {Function} [reject]
      */
     updateVdom(resolve, reject) {
         if (this.menuRootWrapped && this.vnode && this.vnode.id !== this.vdom.id && this.parent?.vnode) {
+            this._needsVdomUpdate = false;
             this.parent.updateDepth = -1;
             this.parent.promiseUpdate().then(resolve, reject);
             return

@@ -643,5 +643,68 @@ test.describe('Grid header value menu', () => {
         } finally {
             Neo.main.DomAccess.align = prevAlign
         }
+    });
+
+    test('enabling columnMenu at runtime wraps headers synchronously and coalesces sibling hint sync (#19965)', async () => {
+        const errors    = [],
+              origError = console.error;
+        console.error = (...args) => {
+            errors.push(args);
+            origError(...args)
+        };
+
+        try {
+            const source = storeFor(),
+                  grid   = gridFor(source),
+                  status = grid.getButton('status'),
+                  other  = grid.getButton('other');
+
+            await grid.initVnode();
+            grid.mounted = true;
+
+            let   otherHintToggles = 0;
+            const origOtherToggle  = other.toggleCls.bind(other);
+            other.toggleCls = (cls, add) => {
+                if (cls === 'neo-grid-menu-hint' && add === true) otherHintToggles++;
+                return origOtherToggle(cls, add)
+            };
+
+            // 1. Grid-wide runtime enable: `other` never transiently receives `neo-grid-menu-hint` mid-loop,
+            // and both headers wrap synchronously before their plugins finish loading.
+            grid.columnMenu = true;
+            expect(otherHintToggles).toBe(0);
+            expect(status.menuRootWrapped).toBe(true);
+            expect(other.menuRootWrapped).toBe(true);
+            await expect.poll(() => status.getPlugin('plugin-grid-header-menu') && other.getPlugin('plugin-grid-header-menu')).toBeTruthy();
+            await grid.headerToolbar.promiseUpdate();
+            expect(status.vnode.id).toBe(`${status.id}__wrapper`);
+            expect(other.vnode.id).toBe(`${other.id}__wrapper`);
+
+            // 2. Single-button runtime transition from `neo-grid-menu-hint` -> `columnMenu: true`:
+            // wraps root before `syncColumnMenuState` strips `neo-grid-menu-hint` so no child root-mismatch diff occurs.
+            const grid2 = gridFor(source, {
+                      columnMenu: true,
+                      columns   : [
+                          {dataField: 'status', text: 'Status', width: 180},
+                          {dataField: 'other',  text: 'Other',  width: 180, columnMenu: false}
+                      ]
+                  }),
+                  other2 = grid2.getButton('other');
+
+            await grid2.initVnode();
+            grid2.mounted = true;
+            expect(other2.cls).toContain('neo-grid-menu-hint');
+            expect(other2.menuRootWrapped).toBe(false);
+
+            other2.columnMenu = true;
+            expect(other2.menuRootWrapped).toBe(true);
+            expect(other2.cls).not.toContain('neo-grid-menu-hint');
+            await expect.poll(() => other2.getPlugin('plugin-grid-header-menu')).toBeTruthy();
+            await grid2.headerToolbar.promiseUpdate();
+            expect(other2.vnode.id).toBe(`${other2.id}__wrapper`);
+            expect(errors).toEqual([])
+        } finally {
+            console.error = origError
+        }
     })
 });
