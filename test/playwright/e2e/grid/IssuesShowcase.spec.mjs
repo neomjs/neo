@@ -255,6 +255,30 @@ test.describe('Grid issues showcase', () => {
 
         await pick('Duplicate');
         await soft.poll(read).toEqual({ringInside: true, rowOnSurface: true})
+    });
+
+    test('a header focused outside the centre clip brings its column along (#19955)', async ({page}) => {
+        // At this width the centre region overflows, and the Area menu trigger sits past its clip
+        await page.setViewportSize({width: 800, height: 600});
+
+        const trigger = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'Area'}).locator('.neo-grid-menu-trigger'),
+              read    = () => page.evaluate(grid => {
+                  const header = [...document.querySelectorAll(`${grid} .neo-grid-header-button`)].find(node => node.textContent.trim() === 'Area'),
+                        cell   = [...document.querySelectorAll(`${grid} .neo-grid-row [data-field="area"]`)]
+                            .find(node => !node.closest('.neo-grid-row-measure') && node.getBoundingClientRect().width > 0),
+                        toolbar   = header.closest('.neo-grid-header-toolbar'),
+                        scrollbar = document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`);
+
+                  return {
+                      // The header stays over its own cells, and the focus did move the centre header
+                      aligned : Math.abs(header.getBoundingClientRect().left - cell.getBoundingClientRect().left) <= 1,
+                      scrolled: toolbar.scrollLeft > 0,
+                      synced  : toolbar.scrollLeft === scrollbar.scrollLeft
+                  }
+              }, GRID);
+
+        await trigger.focus();
+        await expect.poll(read).toEqual({aligned: true, scrolled: true, synced: true})
     })
 });
 
