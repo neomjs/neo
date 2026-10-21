@@ -174,6 +174,74 @@ test.describe('Grid header value-menu native interactions', () => {
         await expect(page.locator('.neo-grid-column-menu')).toHaveCount(0)
     });
 
+    test('menu-disabled header in a grid with menus shows the off hint and never the browser menu while menu-free grids stay unchanged', async ({page, neuralLink}) => {
+        const state   = await openGrid(page, neuralLink),
+              header  = page.locator(`#${state.headerId}`),
+              before  = await headerTruth(state),
+              headers = await state.app.queryComponent({className: 'Neo.grid.header.Button'}, ['id', 'dataField']),
+              sibling = headers.find(item => item.properties.dataField === 'lastname');
+        expect(sibling).toBeTruthy();
+
+        // 1. Grid without any header menus: right-click does not prevent default and opens no surface
+        await page.evaluate(() => {
+            window.__headerContextDefault = null;
+            document.addEventListener('contextmenu', event => queueMicrotask(() => {
+                window.__headerContextDefault = {prevented: event.defaultPrevented, trusted: event.isTrusted}
+            }), {once: true})
+        });
+        await header.click({button: 'right', position: {x: 40, y: 15}});
+        await expect.poll(() => page.evaluate(() => window.__headerContextDefault)).toEqual({prevented: false, trusted: true});
+        await expect(page.locator('.neo-grid-column-menu')).toHaveCount(0);
+
+        // 2. Enable a value menu on `lastname` while `firstname` stays `columnMenu: false` (unwrapped, no trigger)
+        await state.app.setProperties(sibling.id, {columnMenu: true});
+        await expect.poll(async () => {
+            const plugins = await state.app.findInstances({className: 'Neo.grid.header.plugin.Menu'}, ['id', 'owner.id']);
+            return plugins.length === 1 && plugins[0].properties['owner.id'] === sibling.id
+        }).toBe(true);
+
+        expect((await state.app.getComponent(state.headerId, ['columnMenu', 'menuRootWrapped']))).toEqual({
+            columnMenu     : false,
+            menuRootWrapped: false
+        });
+
+        await page.evaluate(() => {
+            window.__headerContextDefault = null;
+            document.addEventListener('contextmenu', event => queueMicrotask(() => {
+                window.__headerContextDefault = {prevented: event.defaultPrevented, trusted: event.isTrusted}
+            }), {once: true})
+        });
+        await header.click({button: 'right', position: {x: 40, y: 15}});
+        await expect.poll(() => page.evaluate(() => window.__headerContextDefault)).toEqual({prevented: true, trusted: true});
+
+        const wrappers = await state.app.queryComponent({className: 'Neo.grid.header.Wrapper'}, ['id', 'cls']);
+        expect(wrappers).toHaveLength(1);
+        expect(wrappers[0].properties.cls).toContain('neo-grid-has-column-menus');
+
+        const hint = page.locator('.neo-grid-column-menu');
+        await expect(hint).toBeVisible();
+        await expect(hint.locator('[role="status"]')).toHaveText('Value filtering is off for this column.');
+        await expect(hint.locator('input')).toHaveCount(0);
+        await expect(hint.locator('[role="listbox"]')).toHaveCount(0);
+
+        const headerBox = await header.boundingBox(), hintBox = await hint.boundingBox();
+        expect(Math.abs(hintBox.x - headerBox.x), 'hint aligns to the menu-disabled header').toBeLessThanOrEqual(1);
+        expect(Math.abs(hintBox.y - headerBox.y - headerBox.height), 'hint starts below the header').toBeLessThanOrEqual(1);
+        expect(await headerTruth(state)).toEqual(before);
+
+        // Escape dismisses the hint and keeps focus on the header; Shift+F10 reopens and outside click dismisses
+        await page.keyboard.press('Escape');
+        await expect(hint).toHaveCount(0);
+        await expect(header).toBeFocused();
+
+        await page.keyboard.press('Shift+F10');
+        await expect(hint).toBeVisible();
+        const bodyBox = await page.locator(`#${state.bodyId}`).boundingBox();
+        await page.mouse.click(bodyBox.x + bodyBox.width - 40, bodyBox.y + 200);
+        await expect(hint).toHaveCount(0);
+        expect(await headerTruth(state)).toEqual(before)
+    });
+
     test('right-click, sibling trigger and keyboard open without sorting; inside pointers and dismissal preserve the island', async ({page, neuralLink}) => {
         const state = await openGrid(page, neuralLink, true), header = page.locator(`#${state.headerId}`),
             trigger = page.locator(`#${state.triggerId}`), before = await headerTruth(state);
