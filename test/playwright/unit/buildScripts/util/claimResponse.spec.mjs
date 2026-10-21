@@ -79,7 +79,23 @@ test.describe('buildScripts/util/claimResponse', () => {
         });
 
         test('questions, refusals and code are not claims', () => {
-            for (const body of ['How do I run only my spec?', 'Is this still available?', 'Is anyone claiming this?', 'Are you taking #19930?', "I don't want to work on this, just a note.", '```\n// I\'d like to work on this\n```']) {
+            for (const body of [
+                'How do I run only my spec?',
+                'Is this still available?',
+                'Is anyone claiming this?',
+                'Are you taking #19930?',
+                "I don't want to work on this, just a note.",
+                "I'm starting the dev server with `npm run server-start` and the weekview throws a TypeError.",
+                "I'm starting the example in Firefox and the popover never opens.",
+                'I am taking the same steps as in the description and it still fails on dev.',
+                "I'll take the feedback into account.",
+                'Let me take the screenshot again, the first one was blurry.',
+                'Taking the example from the docs, I get this error:',
+                'Picking up the thread from yesterday: the bug still reproduces on dev.',
+                "I'm handling the same error in my own app; here is the stack trace.",
+                "I'm working on the docs side of this in another repo, not the fix.",
+                '```\n// I\'d like to work on this\n```'
+            ]) {
                 expect(isClaim(body), body).toBe(false)
             }
         });

@@ -39,6 +39,7 @@ export const CLAIM_WINDOW_DAYS = 7;
 const
     DAY_MS              = 24 * 60 * 60 * 1000,
     MARKER_PREFIX       = '<!-- claim-responder:',
+    CLAIM_TARGET        = String.raw`(this|it|#\d+|the\s[^\n]{1,80}?\brow\b)`,
     WITHDRAWAL_PATTERNS = Object.freeze([
         /\bstepping\s+(back|away)\b/i,
         /\b(no\s+longer|not)\s+(able|going|planning)\s+to\s+work\b/i,
@@ -52,9 +53,9 @@ const
         /\b(can|could|may)\s+i\s+(please\s+)?(work|take|claim|pick|handle|tackle|have|get|be\s+assigned)\b/i,
         /\bassign(ed)?\s+(this|it)\s+to\s+me\b/i,
         /\b(please\s+)?assign\s+me\b/i,
-        /\b(i'?ll|i will|let me)\s+(also\s+)?(take|work\s+on|pick\s+up|handle|tackle|claim)\s+(this|it|the\b|#\d+)/i,
-        /\b(i'?m|i am)\s+(already\s+|also\s+)?(working\s+on|starting(\s+work\s+on)?|taking|claiming|picking\s+up|tackling|handling)\s+(this|it|the\b|#\d+)/i,
-        /(?:^|[.!?\n]\s*)(claiming|taking|picking\s+up)\s+(this|it|the\b|#\d+)/im,
+        new RegExp(String.raw`\b(i'?ll|i will|let me)\s+(also\s+)?(take|work\s+on|pick\s+up|handle|tackle|claim)\s+${CLAIM_TARGET}`, 'i'),
+        new RegExp(String.raw`\b(i'?m|i am)\s+(already\s+|also\s+)?(working\s+on|starting\s+work\s+on|taking|claiming|picking\s+up|tackling|handling)\s+${CLAIM_TARGET}`, 'i'),
+        new RegExp(String.raw`(?:^|[.!?\n]\s*)(claiming|taking|picking\s+up)\s+${CLAIM_TARGET}`, 'im'),
         /^\s*\/(assign|claim|take)\b/im
     ]);
 
