@@ -452,9 +452,9 @@ class SortZone extends BaseSortZone {
         // Until the next manual scroll, headers and cells render offset by the full scroll
         // amount, and a drag started in that window has its term contradict the toolbar's
         // actual position. Re-apply the worker-side scroll truth to the toolbar element once
-        // the restore has settled.
+        // the restore has settled: its own update above can still be in flight.
         if (owner.scrollLeft > 0) {
-            await me.timeout(30);
+            await owner.promiseUpdate();
 
             await Neo.main.DomAccess.scrollTo({
                 direction: 'left',

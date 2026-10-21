@@ -338,6 +338,48 @@ test.describe('Grid issues showcase', () => {
         await expect.poll(read).toEqual({aligned: true, scrolled: true, synced: true})
     });
 
+    test('a header that loses its overflow for a moment leaves the grid scrolled (#19977)', async ({page}) => {
+        // At this width the centre region overflows
+        await page.setViewportSize({width: 800, height: 600});
+
+        const toolbarOf = grid => [...document.querySelectorAll(`${grid} .neo-grid-header-button`)]
+                  .find(node => node.textContent.trim() === 'Area').closest('.neo-grid-header-toolbar'),
+              read      = () => page.evaluate(([grid, toolbarOf]) => ({
+                  header   : Math.round(eval(toolbarOf)(grid).scrollLeft),
+                  scrollbar: Math.round(document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`).scrollLeft)
+              }), [GRID, toolbarOf.toString()]);
+
+        // Scrolled through the scrollbar, the single source of the horizontal position
+        await page.evaluate(grid => {
+            const node = document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`);
+            node.scrollLeft = node.scrollWidth
+        }, GRID);
+        await expect.poll(async () => {
+            const {header, scrollbar} = await read();
+            return scrollbar > 0 && header === scrollbar
+        }, {message: 'the header follows the scrolled grid'}).toBe(true);
+
+        const {scrollbar} = await read();
+
+        // The header's items leave the flow for two frames, as a column drop's restore takes them out: the browser
+        // clamps the header, and the clamp's scroll event follows
+        const clamped = await page.evaluate(async ([grid, toolbarOf]) => {
+            const toolbar = eval(toolbarOf)(grid),
+                  frame   = () => new Promise(resolve => requestAnimationFrame(resolve));
+
+            [...toolbar.children].forEach(child => {child.style.display = 'none'});
+            const value = toolbar.scrollLeft;
+            await frame();
+            await frame();
+            [...toolbar.children].forEach(child => {child.style.display = ''});
+            return value
+        }, [GRID, toolbarOf.toString()]);
+
+        expect(clamped, 'the header clamped').toBe(0);
+        await page.waitForTimeout(200);
+        expect((await read()).scrollbar, 'the clamp leaves the grid where it was').toBe(scrollbar)
+    });
+
     test('a value picked before the menu\'s search focus lands keeps its focus (#19961)', async ({page}) => {
         const menu    = page.locator('.neo-grid-column-menu'),
               wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),

@@ -42,14 +42,19 @@ class GridHorizontalScrollSync extends Base {
      *
      * A header scroll that {@link #onScroll} caused is its echo and is ignored. Comparing against the scrollbar's
      * current value instead would pull a scrollbar that moved again since that write back to the older position.
+     *
+     * So is a header that cannot reach the scrollbar's position: layout clamped it, as a column drop does while its
+     * items are out of the flow. Routing that value would scroll the whole grid away.
      * @param {Object} registration
      * @param {Event}  event
      */
     onHeaderScroll(registration, event) {
-        let scrollLeft   = event.target.scrollLeft,
+        let headerNode   = event.target,
+            scrollLeft   = headerNode.scrollLeft,
             scrollerNode = DomAccess.getElement(registration.scrollerId);
 
-        if (scrollerNode && scrollLeft !== registration.headerScrollLeft) {
+        if (scrollerNode && scrollLeft !== registration.headerScrollLeft &&
+            scrollerNode.scrollLeft <= headerNode.scrollWidth - headerNode.clientWidth + 1) {
             scrollerNode.scrollLeft = scrollLeft
         }
     }
