@@ -118,7 +118,9 @@ class Menu extends Plugin {
         }
         if (owner.windowId) {
             Neo.main.DomEvents.registerPreventDefaultTargets({
-                cls: 'neo-grid-menu-enabled', name: 'contextmenu', windowId: owner.windowId
+                // The trigger is a sibling of the header button, so its own event path never carries the
+                // header's class: without the trigger, a right-click on the arrow opens the browser's menu.
+                cls: ['neo-grid-menu-enabled', 'neo-grid-menu-trigger'], name: 'contextmenu', windowId: owner.windowId
             })
         }
     }
