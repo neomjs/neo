@@ -199,6 +199,26 @@ test.describe('Grid issues showcase', () => {
         await expect.poll(opacity).toBe('0')
     });
 
+    test('a right-click on the header arrow keeps the browser menu closed and opens the value menu (#19952)', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              trigger = wrapper.locator('.neo-grid-menu-trigger');
+
+        // The browser's own menu is the one to keep away: it shows up unless the arrow's contextmenu event is
+        // default-prevented, which the framework only does for paths carrying a registered target class.
+        await page.evaluate(() => {
+            window.__arrowContext = null;
+            document.addEventListener('contextmenu', event => queueMicrotask(() => {
+                window.__arrowContext = {prevented: event.defaultPrevented, trusted: event.isTrusted}
+            }), {once: true})
+        });
+
+        await trigger.click({button: 'right'});
+
+        await expect.poll(() => page.evaluate(() => window.__arrowContext)).toEqual({prevented: true, trusted: true});
+        await expect(menu).toBeVisible()
+    });
+
     test('only the sorted header announces its direction, through aria-sort (#19913)', async ({page}) => {
         const header = name => page.locator(GRID).getByRole('columnheader', {name, exact: true}),
               sorted = page.locator(`${GRID} [aria-sort]`);
