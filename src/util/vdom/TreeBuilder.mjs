@@ -57,6 +57,11 @@ class TreeBuilder extends Base {
                     currentItem = item,
                     childDepth;
 
+                // A missing child (a hole in a sparse array, null or undefined) renders nothing, as in vdom.Helper#createVnode
+                if (item == null) {
+                    continue
+                }
+
                 if (currentItem.componentId) {
                     const component = ComponentManager.get(currentItem.componentId);
 
