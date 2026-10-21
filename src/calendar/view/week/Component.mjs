@@ -258,7 +258,7 @@ class Component extends BaseComponent {
 
         me.needsEventUpdate && me.updateEvents(false);
 
-        me.headerCreated = true
+        // me.headerCreated = true
     }
 
     /**
@@ -342,8 +342,8 @@ class Component extends BaseComponent {
     afterSetCurrentDate(value, oldValue) {
         let me = this;
 
-        if (me.isConstructed) {
-            me.updateHeader(false, true);
+        if (value && me.isConstructed) {
+            me.updateHeader(!me.headerCreated, true);
             me.updateEvents()
         }
     }
@@ -963,6 +963,13 @@ class Component extends BaseComponent {
             header         = me.getHeaderContainer(),
             i              = 0,
             columnCls, currentDate, currentDay, dateCls, headerId, removeDom;
+        if(!date){
+            return;
+        }
+
+        if (!me.headerCreated) {
+            create = true;
+        }
 
         me.setFirstColumnDate(date);
 
@@ -1009,6 +1016,8 @@ class Component extends BaseComponent {
 
             date.setDate(date.getDate() + 1)
         }
+
+        me.headerCreated = true;
 
         !silent && me.update()
     }
