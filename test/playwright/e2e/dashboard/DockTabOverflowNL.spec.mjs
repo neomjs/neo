@@ -15,6 +15,37 @@ import { test, expect } from '../../fixtures.mjs';
  *
  * Run: NEO_E2E_PORT=8094 npx playwright test dashboard/DockTabOverflowNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
+
+/**
+ * @summary Drags one tab header button onto the centre of another, travelling only once the drag is armed.
+ *
+ * The press first passes the mouse sensor's minimum distance, then waits for the toolbar's
+ * `neo-is-dragging`, the App Worker's sign that the SortZone armed the drag. Shortly after first paint the
+ * dock can still rebuild its tab header buttons, and a gesture that travels and releases inside that
+ * window never arms.
+ * @param {import('@playwright/test').Page} page
+ * @param {import('@playwright/test').Locator} toolbar
+ * @param {import('@playwright/test').Locator} source
+ * @param {import('@playwright/test').Locator} target
+ */
+async function dragTabOnto(page, toolbar, source, target) {
+    await expect(source).toBeVisible();
+
+    const from = await source.boundingBox(),
+          x    = from.x + from.width / 2,
+          y    = from.y + from.height / 2;
+
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 8, y, {steps: 2});
+    await expect(toolbar, 'the press arms a drag').toHaveClass(/\bneo-is-dragging\b/);
+
+    const to = await target.boundingBox();
+
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {steps: 30});
+    await page.mouse.up()
+}
+
 test.describe('dock tab-overflow action control', () => {
     test.setTimeout(120000);
     test.use({ viewport: { width: 600, height: 800 } });
@@ -117,13 +148,7 @@ test.describe('dock tab-overflow action control after a tab reorder', () => {
 
         // Strategy onto Swarm's centre crosses one midpoint, a single swap. The dock commits it through a
         // projection that moves the group's retained tab chrome, together with the toolbar that holds the control.
-        const strategyBox = await tabs.filter({ hasText: /^Strategy$/ }).boundingBox(),
-              swarmBox    = await tabs.filter({ hasText: /^Swarm$/ }).boundingBox();
-
-        await page.mouse.move(strategyBox.x + strategyBox.width / 2, strategyBox.y + strategyBox.height / 2);
-        await page.mouse.down();
-        await page.mouse.move(swarmBox.x + swarmBox.width / 2, swarmBox.y + swarmBox.height / 2, { steps: 30 });
-        await page.mouse.up();
+        await dragTabOnto(page, mainToolbar, tabs.filter({ hasText: /^Strategy$/ }), tabs.filter({ hasText: /^Swarm$/ }));
 
         await expect.poll(async () => (await tabs.allTextContents()).map(text => text.trim()).slice(0, 2)).toEqual(['Swarm', 'Strategy']);
         await expect(control, 'every tab still fits after the swap').toHaveCount(0);
