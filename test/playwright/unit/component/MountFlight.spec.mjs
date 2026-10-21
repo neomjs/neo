@@ -197,39 +197,46 @@ test.describe('component.Base: an update flight that lands after a document.body
         instances.forEach(instance => !instance.isDestroyed && instance.destroy())
     });
 
-    test('mounts no child, and the next show mounts them again (#19966)', async () => {
-        const held = [],
-              tick = () => new Promise(resolve => setTimeout(resolve, 0));
+    // The flight's own root is either the unmounted root, or a container inside it that the unmount only cascades to
+    for (const nested of [false, true]) {
+        test(`${nested ? 'a nested container\'s' : 'the root\'s'} update mounts no child, and the next show mounts them again (${nested ? '#19969' : '#19966'})`, async () => {
+            const held = [],
+                  tick = () => new Promise(resolve => setTimeout(resolve, 0));
 
-        // Inserts and removes land at once, an update's deltas wait for the arm
-        Neo.applyDeltas = async (windowId, deltas) => {
-            if (![deltas].flat().some(delta => delta.action === 'insertNode' || delta.action === 'removeNode')) {
-                await new Promise(resolve => held.push(resolve))
-            }
-        };
+            // Inserts and removes land at once, an update's deltas wait for the arm
+            Neo.applyDeltas = async (windowId, deltas) => {
+                if (![deltas].flat().some(delta => delta.action === 'insertNode' || delta.action === 'removeNode')) {
+                    await new Promise(resolve => held.push(resolve))
+                }
+            };
 
-        const container = Neo.create(Container, {appName, hidden: true, items: [{module: Child}], parentId: 'document.body', windowId: 1}),
-              child     = container.items[0];
+            const container = Neo.create(Container, {
+                      appName, hidden: true, parentId: 'document.body', windowId: 1,
+                      items: nested ? [{module: Container, items: [{module: Child}]}] : [{module: Child}]
+                  }),
+                  flier = nested ? container.items[0] : container,
+                  child = nested ? flier.items[0] : container.items[0];
 
-        instances.push(container);
+            instances.push(container);
 
-        container.hidden = false;
-        await tick();
-        expect(child.transitions, 'the first show mounts the child').toEqual([true]);
+            container.hidden = false;
+            await tick();
+            expect(child.transitions, 'the first show mounts the child').toEqual([true]);
 
-        container.cls = ['flight'];
-        await tick();
-        expect(held.length, 'the update is in flight').toBe(1);
+            flier.cls = ['flight'];
+            await tick();
+            expect(held.length, 'the update is in flight').toBe(1);
 
-        container.hidden = true;
-        expect(child.transitions, 'the unmount reaches the child').toEqual([true, false]);
+            container.hidden = true;
+            expect(child.transitions, 'the unmount reaches the child').toEqual([true, false]);
 
-        held.splice(0).forEach(resolve => resolve());
-        await tick();
-        expect(child.mounted, 'the late landing leaves the child unmounted').toBe(false);
+            held.splice(0).forEach(resolve => resolve());
+            await tick();
+            expect(child.mounted, 'the late landing leaves the child unmounted').toBe(false);
 
-        container.hidden = false;
-        await tick();
-        expect(child.transitions, 'the next show runs the child mount again').toEqual([true, false, true])
-    })
+            container.hidden = false;
+            await tick();
+            expect(child.transitions, 'the next show runs the child mount again').toEqual([true, false, true])
+        })
+    }
 });

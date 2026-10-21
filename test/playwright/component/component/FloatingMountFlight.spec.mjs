@@ -10,6 +10,9 @@ import {test, expect} from '@playwright/test';
  *
  * The three `setConfigs` calls are fired without awaiting, so all of them reach the App Worker while the first
  * flight is in the air.
+ *
+ * An update that left before such a component hides lands on a removed tree, and must leave every component below
+ * it unmounted, so their mount hooks run again on the next show.
  */
 
 /**
@@ -81,5 +84,51 @@ test.describe('Neo.component.Base: one mount flight for a body-rooted component'
 
         await page.waitForTimeout(300);
         expect(await countNodes(page, id)).toBe(1)
+    })
+});
+
+test.describe('Neo.component.Base: an update that lands after a body-rooted component hides', () => {
+    test.beforeEach(async ({page}) => {
+        await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
+        await page.waitForSelector('#component-test-viewport', {state: 'attached'})
+    });
+
+    test('a list inside a nested container rejoins the Navigator when its root shows again (#19969)', async ({page}) => {
+        const {id} = await page.evaluate(() => Neo.worker.App.createNeoInstance({
+                  importPath: '../list/Base.mjs',
+                  ntype     : 'container',
+                  items     : [{ntype: 'container', items: [{ntype: 'list'}]}]
+              })),
+              app        = page.workers().find(worker => worker.url().includes('/worker/App')),
+              listId     = await app.evaluate(id => Neo.getComponent(id).items[0].items[0].id, id),
+              subscribed = () => page.evaluate(id => Boolean(document.getElementById(id)?.$navigator), listId);
+
+        await expect.poll(subscribed, {message: 'the first show subscribes the list'}).toBe(true);
+
+        // The nested container's own update leaves for the VDom worker, and the root hides before it lands
+        await app.evaluate(id => {
+            const root   = Neo.getComponent(id),
+                  nested = root.items[0],
+                  helper = Neo.vdom.Helper,
+                  send   = helper.updateBatch;
+
+            helper.updateBatch = function(data) {
+                const flight = send.call(this, data);
+
+                if (data.updates[nested.id]) {
+                    helper.updateBatch = send;
+                    root.hidden = true
+                }
+
+                return flight
+            };
+
+            nested.update()
+        }, id);
+        await expect(page.locator(`[id="${id}"]`)).toHaveCount(0);
+
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, hidden: false}), id);
+        await expect(page.locator(`[id="${listId}"]`)).toHaveCount(1);
+        await expect.poll(subscribed, {message: 'the shown list is subscribed again'}).toBe(true)
     })
 });
