@@ -79,6 +79,18 @@ async function readRows(page) {
     }, GRID)
 }
 
+/**
+ * The page's App Worker, for arms that drive the engine where no pointer can time it.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<import('@playwright/test').Worker>}
+ */
+async function appWorker(page) {
+    const isApp = worker => worker.url().includes('/worker/App');
+
+    await expect.poll(() => page.workers().some(isApp)).toBe(true);
+    return page.workers().find(isApp)
+}
+
 test.describe('Grid issues showcase', () => {
     test.beforeEach(async ({page}) => {
         await page.setViewportSize({width: 1600, height: 900});
@@ -363,6 +375,48 @@ test.describe('Grid issues showcase', () => {
         await page.evaluate(() => window.heldFocus.forEach(release => release()));
         await expect(menu.getByLabel('Search values')).not.toBeFocused();
         await expect(menu.locator('.neo-navigator-active-item')).toHaveText(/Closed/)
+    });
+
+    test('a menu closed while its surface update is in flight keeps its value navigation when reopened (#19966)', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              option  = menu.locator('[role="option"]').filter({hasText: 'Duplicate'}),
+              worker  = await appWorker(page),
+              open    = async () => {
+                  await wrapper.hover();
+                  await wrapper.locator('.neo-grid-menu-trigger').click();
+                  await expect(option).toBeVisible()
+              };
+
+        await open();
+
+        // The surface's update leaves for the VDom worker and the menu closes before it lands, as an Escape can
+        // right after a pick
+        await worker.evaluate(() => {
+            const plugin = Neo.manager.Component.items
+                      .find(item => item.dataField === 'state' && item.getPlugin?.('plugin-grid-header-menu')?.surface)
+                      .getPlugin('plugin-grid-header-menu'),
+                  helper = Neo.vdom.Helper,
+                  send   = helper.updateBatch;
+
+            helper.updateBatch = function(data) {
+                const flight = send.call(this, data);
+
+                if (data.updates[plugin.surface.id]) {
+                    helper.updateBatch = send;
+                    plugin.close(false)
+                }
+
+                return flight
+            };
+
+            plugin.surface.update()
+        });
+        await expect(menu).toBeHidden();
+
+        await open();
+        await option.click();
+        await expect(menu.locator('.neo-navigator-active-item')).toHaveText(/Duplicate/)
     })
 });
 

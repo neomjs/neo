@@ -1177,6 +1177,9 @@ class VdomLifecycle extends Base {
      * Every component that receives a vnode here, this one included, then gets {@link #afterVnodeSync} with the
      * deltas of the render that produced it.
      *
+     * A flight that lands after this component's `unmount()` still hands out its vnodes, but mounts no child: their
+     * DOM is gone, and this component's next mount mounts them, so their mount hooks run again.
+     *
      * A child's mount runs subclass and app code (`afterSetMounted()`). One that throws is logged and the sync goes
      * on: the later children still get their vnodes, the unmount pass runs and this component adopts its own. After
      * an update, whose deltas are already in the DOM, stopping would make the next update insert those nodes again.
@@ -1208,7 +1211,8 @@ class VdomLifecycle extends Base {
         VNodeUtil.unlinkRetiredReferences(me.vnode);
 
         let vnodeMap           = VNodeUtil.createMap(me.vnode),
-            childComponentsSet = new Set(childComponents);
+            childComponentsSet = new Set(childComponents),
+            mountsChildren     = me.mounted || !me.vdom.removeDom;
 
         // we need one separate iteration first to ensure all wrapper nodes get registered
         for (let i = 0, len = childComponents.length; i < len; i++) {
@@ -1236,7 +1240,7 @@ class VdomLifecycle extends Base {
                 component.vnodeInitialized = true;
 
                 try {
-                    component.mounted = true;
+                    if (mountsChildren) component.mounted = true;
                     component.afterVnodeSync(deltas)
                 } catch (error) {
                     console.error('syncVnodeTree: a mount hook failed', component.id, error)

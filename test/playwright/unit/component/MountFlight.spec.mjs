@@ -28,6 +28,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Component      from '../../../../src/component/Base.mjs';
+import Container      from '../../../../src/container/Base.mjs';
 import VdomHelper     from '../../../../src/vdom/Helper.mjs';
 
 // Imported for its side effect: `manager/Instance.mjs` assigns `Neo.get`, which teardown needs.
@@ -168,5 +169,67 @@ test.describe('component.Base: one mount attempt for a document.body-rooted comp
         expect(deltas.removes.map(delta => delta.id), 'the landing removes the node the hide asked away')
             .toEqual([component.vdom.id]);
         expect(component.mounted, 'a hidden component does not stay painted').toBe(false)
+    })
+});
+
+test.describe('component.Base: an update flight that lands after a document.body-rooted unmount', () => {
+    let applyDeltas, instances;
+
+    // Records each mount transition (not the initial value), so a missed one is visible
+    class Child extends Component {
+        static config = {className: 'Neo.test.MountFlightChild'}
+        transitions = []
+        afterSetMounted(value, oldValue) {
+            super.afterSetMounted(value, oldValue);
+            oldValue !== undefined && this.transitions.push(value)
+        }
+    }
+
+    Neo.setupClass(Child);
+
+    test.beforeEach(() => {
+        applyDeltas = Neo.applyDeltas;
+        instances   = []
+    });
+
+    test.afterEach(() => {
+        Neo.applyDeltas = applyDeltas;
+        instances.forEach(instance => !instance.isDestroyed && instance.destroy())
+    });
+
+    test('mounts no child, and the next show mounts them again (#19966)', async () => {
+        const held = [],
+              tick = () => new Promise(resolve => setTimeout(resolve, 0));
+
+        // Inserts and removes land at once, an update's deltas wait for the arm
+        Neo.applyDeltas = async (windowId, deltas) => {
+            if (![deltas].flat().some(delta => delta.action === 'insertNode' || delta.action === 'removeNode')) {
+                await new Promise(resolve => held.push(resolve))
+            }
+        };
+
+        const container = Neo.create(Container, {appName, hidden: true, items: [{module: Child}], parentId: 'document.body', windowId: 1}),
+              child     = container.items[0];
+
+        instances.push(container);
+
+        container.hidden = false;
+        await tick();
+        expect(child.transitions, 'the first show mounts the child').toEqual([true]);
+
+        container.cls = ['flight'];
+        await tick();
+        expect(held.length, 'the update is in flight').toBe(1);
+
+        container.hidden = true;
+        expect(child.transitions, 'the unmount reaches the child').toEqual([true, false]);
+
+        held.splice(0).forEach(resolve => resolve());
+        await tick();
+        expect(child.mounted, 'the late landing leaves the child unmounted').toBe(false);
+
+        container.hidden = false;
+        await tick();
+        expect(child.transitions, 'the next show runs the child mount again').toEqual([true, false, true])
     })
 });
