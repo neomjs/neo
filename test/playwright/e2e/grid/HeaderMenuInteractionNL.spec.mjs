@@ -191,7 +191,7 @@ test.describe('Grid header value-menu native interactions', () => {
         });
         await header.click({button: 'right', position: {x: 40, y: 15}});
         await expect.poll(() => page.evaluate(() => window.__headerContextDefault)).toEqual({prevented: false, trusted: true});
-        await expect(page.locator('.neo-grid-column-menu')).toHaveCount(0);
+        await expect(page.locator('.neo-grid-column-menu, .neo-grid-column-menu-hint')).toHaveCount(0);
 
         // 2. Enable a value menu on `lastname` while `firstname` stays `columnMenu: false` (unwrapped, no trigger)
         await state.app.setProperties(sibling.id, {columnMenu: true});
@@ -200,10 +200,14 @@ test.describe('Grid header value-menu native interactions', () => {
             return plugins.length === 1 && plugins[0].properties['owner.id'] === sibling.id
         }).toBe(true);
 
-        expect((await state.app.getComponent(state.headerId, ['columnMenu', 'menuRootWrapped']))).toEqual({
+        const headerProps  = await state.app.getComponent(state.headerId, ['cls', 'columnMenu', 'menuRootWrapped']),
+              siblingProps = await state.app.getComponent(sibling.id, ['cls']);
+        expect(headerProps).toMatchObject({
             columnMenu     : false,
             menuRootWrapped: false
         });
+        expect(headerProps.cls).toContain('neo-grid-menu-hint');
+        expect(siblingProps.cls).not.toContain('neo-grid-menu-hint');
 
         await page.evaluate(() => {
             window.__headerContextDefault = null;
@@ -214,12 +218,9 @@ test.describe('Grid header value-menu native interactions', () => {
         await header.click({button: 'right', position: {x: 40, y: 15}});
         await expect.poll(() => page.evaluate(() => window.__headerContextDefault)).toEqual({prevented: true, trusted: true});
 
-        const wrappers = await state.app.queryComponent({className: 'Neo.grid.header.Wrapper'}, ['id', 'cls']);
-        expect(wrappers).toHaveLength(1);
-        expect(wrappers[0].properties.cls).toContain('neo-grid-has-column-menus');
-
-        const hint = page.locator('.neo-grid-column-menu');
+        const hint = page.locator('.neo-grid-column-menu-hint');
         await expect(hint).toBeVisible();
+        await expect(page.locator('.neo-grid-column-menu')).toHaveCount(0);
         await expect(hint.locator('[role="status"]')).toHaveText('Value filtering is off for this column.');
         await expect(hint.locator('input')).toHaveCount(0);
         await expect(hint.locator('[role="listbox"]')).toHaveCount(0);
@@ -239,7 +240,21 @@ test.describe('Grid header value-menu native interactions', () => {
         const bodyBox = await page.locator(`#${state.bodyId}`).boundingBox();
         await page.mouse.click(bodyBox.x + bodyBox.width - 40, bodyBox.y + 200);
         await expect(hint).toHaveCount(0);
-        expect(await headerTruth(state)).toEqual(before)
+        expect(await headerTruth(state)).toEqual(before);
+
+        // 3. Inline filter input inside a header in a grid with menus keeps the browser context menu (`defaultPrevented: false`)
+        await state.app.setProperties(state.headerId, {showHeaderFilter: true});
+        const filterInput = header.locator('input.neo-textfield-input');
+        await expect(filterInput).toBeVisible();
+        await page.evaluate(() => {
+            window.__headerContextDefault = null;
+            document.addEventListener('contextmenu', event => queueMicrotask(() => {
+                window.__headerContextDefault = {prevented: event.defaultPrevented, trusted: event.isTrusted}
+            }), {once: true})
+        });
+        await filterInput.click({button: 'right'});
+        await expect.poll(() => page.evaluate(() => window.__headerContextDefault)).toEqual({prevented: false, trusted: true});
+        await expect(hint).toHaveCount(0)
     });
 
     test('right-click, sibling trigger and keyboard open without sorting; inside pointers and dismissal preserve the island', async ({page, neuralLink}) => {

@@ -579,21 +579,24 @@ test.describe('Grid header value menu', () => {
 
             // Default-off grid: zero menu-enabled columns -> no prevent-default class and no hint surface
             expect(wrapper.hasColumnMenus()).toBe(false);
-            expect(wrapper.cls).not.toContain('neo-grid-has-column-menus');
+            expect(status.cls).not.toContain('neo-grid-menu-hint');
+            expect(other.cls).not.toContain('neo-grid-menu-hint');
             wrapper.onHeaderContextMenu({path: [{id: status.id, cls: status.cls}]});
             wrapper.onHeaderKeyDown({key: 'ContextMenu', path: [{id: status.id, cls: status.cls}]});
-            expect(wrapper.hintSurface).toBeNull();
+            expect(wrapper.getMenuPlugin()).toBeNull();
 
-            // Enable menus on the grid: `other` inherits true, `status` keeps explicit false
+            // Enable menus on the grid: `other` inherits true, `status` keeps explicit false and gets `neo-grid-menu-hint`
             grid.columnMenu = true;
             await expect.poll(() => other.getPlugin('plugin-grid-header-menu')).toBeTruthy();
             expect(wrapper.hasColumnMenus()).toBe(true);
-            expect(wrapper.cls).toContain('neo-grid-has-column-menus');
+            expect(status.cls).toContain('neo-grid-menu-hint');
+            expect(other.cls).not.toContain('neo-grid-menu-hint');
+            expect(wrapper.cls).not.toContain('neo-grid-has-column-menus');
             expect(status.columnMenu).toBe(false);
             expect(status.menuRootWrapped).toBe(false);
             expect(status.getPlugin('plugin-grid-header-menu')).toBeNull();
 
-            // Opening the value menu on `other`, then right-clicking `status` closes `other`'s menu and opens the hint
+            // Opening the value menu on `other`, then right-clicking `status` reuses `otherMenu.surface` in hint mode
             const otherMenu = other.getPlugin('plugin-grid-header-menu');
             otherMenu.createSurface();
             otherMenu.refreshOptions();
@@ -601,34 +604,42 @@ test.describe('Grid header value menu', () => {
             otherMenu.surface.hidden = false;
 
             wrapper.onHeaderContextMenu({path: [{id: status.id, cls: status.cls}]});
-            await expect.poll(() => wrapper.hintSurface?.hidden === false).toBe(true);
-            expect(otherMenu.surface.hidden).toBe(true);
-            expect(wrapper.hintSurface.align).toMatchObject({edgeAlign: 't0-b0', axisLock: true, target: status.id});
-            expect(wrapper.hintSurface.vdom['aria-label']).toBe('Filter Status');
-            expect(wrapper.hintSurface.getItem('status').html).toBe('Value filtering is off for this column.');
+            await expect.poll(() => otherMenu.hintTarget === status && otherMenu.surface.hidden === false).toBe(true);
+            expect(otherMenu.surface.cls).toContain('neo-grid-column-menu-hint');
+            expect(otherMenu.surface.cls).not.toContain('neo-grid-column-menu');
+            expect(otherMenu.surface.align).toMatchObject({edgeAlign: 't0-b0', axisLock: true, target: status.id});
+            expect(otherMenu.surface.vdom['aria-label']).toBe('Filter Status');
+            expect(otherMenu.surface.getItem('search').hidden).toBe(true);
+            expect(otherMenu.valuePicker.hidden).toBe(true);
+            expect(otherMenu.surface.getItem('status').hidden).toBe(false);
+            expect(otherMenu.surface.getItem('status').html).toBe('Value filtering is off for this column.');
 
             // Escape dismisses the hint; Shift+F10 reopens it; right-clicking `other` closes the hint
             wrapper.onHeaderKeyDown({key: 'Escape', path: [{id: status.id, cls: status.cls}]});
-            expect(wrapper.hintSurface.hidden).toBe(true);
+            expect(otherMenu.surface.hidden).toBe(true);
+            expect(otherMenu.hintTarget).toBeNull();
 
             wrapper.onHeaderKeyDown({key: 'F10', shiftKey: true, path: [{id: status.id, cls: status.cls}]});
-            await expect.poll(() => wrapper.hintSurface.hidden).toBe(false);
+            await expect.poll(() => otherMenu.hintTarget === status && otherMenu.surface.hidden === false).toBe(true);
 
             wrapper.onHeaderContextMenu({path: [{id: other.id, cls: other.cls}]});
-            expect(wrapper.hintSurface.hidden).toBe(true);
+            expect(otherMenu.surface.hidden).toBe(true);
+            expect(otherMenu.hintTarget).toBeNull();
 
             // Inline filter field contextmenu inside a menu-disabled header is not intercepted as a header hint
             status.showHeaderFilter = true;
             wrapper.onHeaderContextMenu({path: [{id: status.filterField.id, cls: status.filterField.cls}, {id: status.id, cls: status.cls}]});
-            expect(wrapper.hintSurface.hidden).toBe(true);
+            expect(otherMenu.surface.hidden).toBe(true);
 
-            // Disabling all column menus removes the prevent-default class and closes any open hint
-            await wrapper.openHint(status);
-            expect(wrapper.hintSurface.hidden).toBe(false);
+            // Disabling all column menus removes `neo-grid-menu-hint` and closes any open hint
+            await otherMenu.openHint(status);
+            const surface = otherMenu.surface;
+            expect(surface.hidden).toBe(false);
             grid.columnMenu = false;
             expect(wrapper.hasColumnMenus()).toBe(false);
-            expect(wrapper.cls).not.toContain('neo-grid-has-column-menus');
-            expect(wrapper.hintSurface.hidden).toBe(true)
+            expect(status.cls).not.toContain('neo-grid-menu-hint');
+            expect(otherMenu.isDestroyed).toBe(true);
+            expect(surface.isDestroyed).toBe(true)
         } finally {
             Neo.main.DomAccess.align = prevAlign
         }

@@ -1,5 +1,4 @@
 import BaseContainer from '../../container/Base.mjs';
-import Component     from '../../component/Base.mjs';
 
 /**
  * @summary The dedicated orchestrator for a grid's header region within the multi-body architecture.
@@ -67,17 +66,6 @@ class Wrapper extends BaseContainer {
         layout: {ntype: 'hbox', align: 'stretch'}
     }
 
-    /** @member {Neo.grid.header.Button|null} hintButton=null @protected */
-    hintButton = null
-    /** @member {Neo.container.Base|null} hintSurface=null @protected */
-    hintSurface = null
-    /** @member {Number} #hintOpenSerial=0 @private */
-    #hintOpenSerial = 0
-    /** @member {Object[]|null} #outsideListener=null @private */
-    #outsideListener = null
-    /** @member {Neo.component.Base|null} #outsideOwner=null @private */
-    #outsideOwner = null
-
     /**
      * @summary Registers main-thread context-menu prevention when a detached grid is attached or moved to a window.
      * @param {String|null} value
@@ -89,12 +77,8 @@ class Wrapper extends BaseContainer {
 
         if (value && this.hasColumnMenus()) {
             Neo.main.DomEvents.registerPreventDefaultTargets({
-                cls: 'neo-grid-has-column-menus', name: 'contextmenu', windowId: value
+                cls: 'neo-grid-menu-hint', name: 'contextmenu', windowId: value
             })
-        }
-
-        if (this.hintSurface) {
-            this.hintSurface.windowId = value
         }
     }
 
@@ -280,6 +264,20 @@ class Wrapper extends BaseContainer {
     }
 
     /**
+     * @summary Returns the first active column-menu plugin in this header wrapper, if any.
+     * @returns {Neo.grid.header.plugin.Menu|null}
+     */
+    getMenuPlugin() {
+        for (const toolbar of this.getToolbars()) {
+            for (const item of toolbar.items || []) {
+                const plugin = item.getPlugin('plugin-grid-header-menu');
+                if (plugin) return plugin
+            }
+        }
+        return null
+    }
+
+    /**
      * @summary True while at least one header button in this grid enables its value menu.
      * @returns {Boolean}
      */
@@ -288,21 +286,27 @@ class Wrapper extends BaseContainer {
     }
 
     /**
-     * @summary Registers main-thread context-menu prevention only while the grid has at least one menu-enabled column,
-     * and dismisses any open disabled-column hint if its header gained a menu or all menus were disabled.
+     * @summary Toggles `neo-grid-menu-hint` on menu-disabled header buttons while the grid has at least one
+     * menu-enabled column, registers context-menu prevention for that class, and dismisses any stale hint.
      */
     syncColumnMenuState() {
         const active = this.hasColumnMenus();
-        this.toggleCls('neo-grid-has-column-menus', active);
+
+        for (const toolbar of this.getToolbars()) {
+            for (const item of toolbar.items || []) {
+                item.toggleCls('neo-grid-menu-hint', active && !item.columnMenu)
+            }
+        }
 
         if (active && this.windowId) {
             Neo.main.DomEvents.registerPreventDefaultTargets({
-                cls: 'neo-grid-has-column-menus', name: 'contextmenu', windowId: this.windowId
+                cls: 'neo-grid-menu-hint', name: 'contextmenu', windowId: this.windowId
             })
         }
 
-        if (!active || this.hintButton?.columnMenu || this.hintButton?.isDestroyed) {
-            this.closeHint()
+        const menu = this.getMenuPlugin();
+        if (!active || menu?.hintTarget?.columnMenu || menu?.hintTarget?.isDestroyed) {
+            menu?.closeHint()
         }
     }
 
@@ -320,99 +324,19 @@ class Wrapper extends BaseContainer {
     }
 
     /**
-     * @summary Creates the shared floating status surface for menu-disabled headers in menu-enabled grids.
-     * @param {Neo.grid.header.Button} button
-     */
-    createHintSurface(button) {
-        const me = this;
-        me.hintSurface = Neo.create(BaseContainer, {
-            appName        : me.appName,
-            windowId       : me.windowId,
-            parentComponent: me,
-            parentId       : 'document.body',
-            floating       : true,
-            hidden         : true,
-            cls            : ['neo-grid-column-menu'],
-            role           : 'dialog',
-            align          : {edgeAlign: 't0-b0', axisLock: true, target: button.id},
-            layout         : {ntype: 'vbox', align: 'stretch'},
-            vdom           : {'aria-label': `Filter ${button.text || button.dataField}`},
-            items          : [{
-                module   : Component,
-                reference: 'status',
-                role     : 'status',
-                html     : 'Value filtering is off for this column.'
-            }]
-        });
-        me.hintSurface.addDomListeners({keydown: {fn: me.onHintKeyDown, scope: me, bubble: true}});
-        me.observeConfig(me.hintSurface, 'mounted', value => me.syncOutsideListener(value))
-    }
-
-    /**
-     * @summary Opens the floating disabled-column hint under `button` and closes any open value menu.
-     * @param {Neo.grid.header.Button} button
-     * @returns {Promise}
-     */
-    async openHint(button) {
-        if (this.isDestroyed || this.isDestroying || !button || button.isDestroyed || button.columnMenu || !this.hasColumnMenus()) return;
-        const serial = ++this.#hintOpenSerial;
-        for (const toolbar of this.getToolbars()) {
-            for (const item of toolbar.items || []) {
-                item.getPlugin('plugin-grid-header-menu')?.close()
-            }
-        }
-        await this.trap((button.parent || button).promiseUpdate());
-        if (this.isDestroyed || this.isDestroying || button.isDestroyed || button.columnMenu || !this.hasColumnMenus() ||
-            serial !== this.#hintOpenSerial) return;
-        this.hintButton = button;
-        if (!this.hintSurface) {
-            this.createHintSurface(button)
-        } else {
-            this.hintSurface.align = {edgeAlign: 't0-b0', axisLock: true, target: button.id};
-            this.hintSurface.vdom['aria-label'] = `Filter ${button.text || button.dataField}`
-        }
-        const wasOpen = !this.hintSurface.hidden;
-        this.hintSurface.hidden = false;
-        if (wasOpen) this.hintSurface.update();
-        await this.hintSurface.promiseUpdate();
-        if (!this.isDestroyed && serial === this.#hintOpenSerial && !this.hintSurface.hidden) {
-            if (wasOpen && this.hintSurface.mounted && this.windowId) {
-                await this.hintSurface.alignTo()
-            }
-            button.focus()
-        }
-    }
-
-    /**
-     * @summary Dismisses the disabled-column hint and optionally restores focus to the header that opened it.
-     * @param {Boolean} [restoreFocus=false]
-     */
-    closeHint(restoreFocus=false) {
-        ++this.#hintOpenSerial;
-        const button = this.hintButton;
-        this.hintButton = null;
-        if (!this.hintSurface || this.hintSurface.hidden) return;
-        this.hintSurface.hidden = true;
-        this.syncOutsideListener(false);
-        if (restoreFocus && button && !button.isDestroyed) {
-            button.focus()
-        }
-    }
-
-    /**
      * @summary Shows the disabled-column hint on right-click of a menu-disabled header in a menu-enabled grid.
      * @param {Object} data
      */
     onHeaderContextMenu(data) {
-        const button = this.resolveHeaderButton(data);
-        if (!button || button.columnMenu || !this.hasColumnMenus()) {
-            this.closeHint();
+        const button = this.resolveHeaderButton(data),
+              menu   = this.getMenuPlugin();
+        if (!menu || !button || button.columnMenu || !this.hasColumnMenus()) {
+            menu?.closeHint();
             return
         }
-        if (button.filterField && (data.path || []).some(node => node.id === button.filterField.id)) {
-            return
+        if (!menu.isFilterFieldEvent(data, button)) {
+            menu.openHint(button)
         }
-        this.openHint(button)
     }
 
     /**
@@ -420,71 +344,20 @@ class Wrapper extends BaseContainer {
      * @param {Object} data
      */
     onHeaderKeyDown(data) {
-        const button = this.resolveHeaderButton(data);
+        const button = this.resolveHeaderButton(data),
+              menu   = this.getMenuPlugin();
+        if (!menu) return;
         if (data.key === 'Escape') {
-            if (this.hintSurface && !this.hintSurface.hidden) {
-                this.closeHint(true)
-            }
+            menu.closeHint(true);
             return
         }
-        if (this.hintSurface && !this.hintSurface.hidden && button && button !== this.hintButton) {
-            this.closeHint()
+        if (menu.hintTarget && button && button !== menu.hintTarget) {
+            menu.closeHint()
         }
-        if (data.key === 'ContextMenu' || data.key === 'F10' && data.shiftKey) {
-            if (!button || button.columnMenu || !this.hasColumnMenus()) return;
-            if (button.filterField && (data.path || []).some(node => node.id === button.filterField.id)) return;
-            this.openHint(button)
+        if ((data.key === 'ContextMenu' || data.key === 'F10' && data.shiftKey) &&
+            button && !button.columnMenu && this.hasColumnMenus() && !menu.isFilterFieldEvent(data, button)) {
+            menu.openHint(button)
         }
-    }
-
-    /**
-     * @summary Dismisses the hint surface on Escape from within the floating surface.
-     * @param {Object} data
-     */
-    onHintKeyDown(data) {
-        if (data.key === 'Escape') this.closeHint(true)
-    }
-
-    /**
-     * @summary Keeps the outside-pointer listener bound only while the hint surface is mounted.
-     * @param {Boolean} attach
-     */
-    syncOutsideListener(attach) {
-        if (attach && !this.#outsideOwner) {
-            const owner = this.app?.mainView;
-            if (owner) {
-                this.#outsideListener ||= [
-                    {mousedown: this.onOutsidePointer, scope: this},
-                    {touchstart: this.onOutsidePointer, scope: this}
-                ];
-                owner.addDomListeners(this.#outsideListener);
-                this.#outsideOwner = owner
-            }
-        } else if (!attach && this.#outsideOwner) {
-            this.#outsideOwner.removeDomListeners(this.#outsideListener);
-            this.#outsideOwner = null
-        }
-    }
-
-    /**
-     * @summary Closes the hint surface when a pointer-down occurs outside the surface.
-     * @param {Object} data
-     */
-    onOutsidePointer(data) {
-        const ids = new Set([this.hintSurface?.id]);
-        if (!(data.path || []).some(node => ids.has(node.id))) this.closeHint()
-    }
-
-    /**
-     * @param {...*} args
-     */
-    destroy(...args) {
-        this.#hintOpenSerial++;
-        this.syncOutsideListener(false);
-        this.hintButton = null;
-        this.hintSurface?.destroy(true);
-        this.hintSurface = null;
-        super.destroy(...args)
     }
 }
 
