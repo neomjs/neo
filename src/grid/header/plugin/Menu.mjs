@@ -207,11 +207,13 @@ class Menu extends Plugin {
         me.surface = Neo.create(Container, {
             appName : owner.appName, windowId: owner.windowId, parentComponent: owner,
             parentId: 'document.body', floating: true, hidden: true, width: 320,
-            cls     : ['neo-grid-column-menu'], role: 'dialog',
-            align   : {edgeAlign: 't0-b0', axisLock: true, target: owner.id},
-            layout  : {ntype: 'vbox', align: 'stretch'},
-            vdom    : {'aria-label': `Filter ${owner.text || owner.dataField}`},
-            items   : [
+            // open() owns the initial focus, so it can yield to a value picked before it lands
+            focusOnMount: false,
+            cls         : ['neo-grid-column-menu'], role: 'dialog',
+            align       : {edgeAlign: 't0-b0', axisLock: true, target: owner.id},
+            layout      : {ntype: 'vbox', align: 'stretch'},
+            vdom        : {'aria-label': `Filter ${owner.text || owner.dataField}`},
+            items       : [
                 {module: Text, labelText: 'Search values', labelPosition: 'top', reference: 'search',
                     listeners: {change: ({value}) => {me.valuePicker.searchValue = value || ''}}},
                 {module: ValuePicker, reference: 'values', store: me.optionsStore,
@@ -228,6 +230,9 @@ class Menu extends Plugin {
 
     /**
      * @summary Opens the floating surface in value-picker mode (default) or disabled-column hint mode (`hintButton`).
+     *
+     * The search field takes focus one round trip after the surface shows, so a value picked in between keeps focus:
+     * the main thread skips the search focus while focus already sits inside the surface.
      * @param {Neo.grid.header.Button|null} [hintButton=null]
      * @returns {Promise}
      */
@@ -261,8 +266,13 @@ class Menu extends Plugin {
         if (retarget) this.surface.update();
         await this.surface.promiseUpdate();
         if (!this.isDestroyed && serial === this.#openSerial && !this.surface.hidden) {
-            if (retarget && this.surface.mounted && this.owner.windowId) await this.surface.alignTo();
-            (isHint ? button : this.surface.getItem('search')).focus()
+            const {surface} = this;
+            if (retarget && surface.mounted && this.owner.windowId) await surface.alignTo();
+            if (isHint) {
+                button.focus()
+            } else {
+                Neo.main.DomAccess.focus({id: surface.getItem('search').getInputElId(), unlessFocusWithin: surface.id, windowId: surface.windowId})
+            }
         }
     }
 
