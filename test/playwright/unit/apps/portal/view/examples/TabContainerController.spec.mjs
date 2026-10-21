@@ -130,14 +130,14 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
             .map(record => record.id)
             .sort((a, b) => a - b);
 
-        expect(productionIds, 'dist/prod keeps the shift-created 1–28 sequence contiguous')
-            .toEqual(Array.from({length: 28}, (unused, index) => index + 1));
+        expect(productionIds, 'dist/prod keeps its ids contiguous: the shift-created 1–28, then the issues showcase')
+            .toEqual(Array.from({length: 29}, (unused, index) => index + 1));
 
         const productionStore = Neo.create(ExamplesStore, {
             data: registries['examples_dist_prod.json']
         });
 
-        expect(productionStore.count, 'all 28 shipped rows survive the keyed Store load').toBe(28);
+        expect(productionStore.count, 'all 29 shipped rows survive the keyed Store load').toBe(29);
         expect(productionStore.get(26)?.name, 'Calendar remains reachable by its repaired id').toBe('Calendar');
 
         productionStore.destroy()
@@ -196,6 +196,35 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
                 url      : devIndexUrl
             });
             expect(devIndex.hidden ?? false).toBe(false)
+        })
+    });
+
+    test('lists the grid issues showcase once in every mode, behind its cover, between Workstation and choreography', () => {
+        const registries = [
+            {file: 'examples_devmode.json',   url: 'examples/grid/issues/index.html'},
+            {file: 'examples_dist_dev.json',  url: 'dist/development/examples/grid/issues/index.html'},
+            {file: 'examples_dist_esm.json',  url: 'dist/esm/examples/grid/issues/index.html'},
+            {file: 'examples_dist_prod.json', url: 'dist/production/examples/grid/issues/index.html'}
+        ];
+
+        registries.forEach(({file, url}) => {
+            const
+                records  = JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8')),
+                visible  = records.filter(record => !record.hidden),
+                showcase = records.filter(record => record.sourceUrl === 'examples/grid/issues');
+
+            expect(showcase, `${file}: the showcase is listed once`).toHaveLength(1);
+            expect(showcase[0]).toMatchObject({
+                id   : 29,
+                image: 'devmode/grid-issues-13-3.jpg',
+                name : 'GitHub Issues Grid',
+                url
+            });
+            // Visible, and neither the lead card nor the closing one: those stay Workstation and choreography
+            expect(visible.indexOf(showcase[0]), `${file}: after the Workstation`).toBeGreaterThan(0);
+            expect(visible.indexOf(showcase[0]), `${file}: before the choreography demo`).toBeLessThan(visible.length - 1);
+            // The Portal serves covers from neomjs/pages; the engine keeps the original it copies there
+            expect(fs.existsSync(path.join(repoRoot, 'apps/portal/resources/images/examples', showcase[0].image))).toBe(true)
         })
     })
 });
