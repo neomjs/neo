@@ -242,6 +242,38 @@ test.describe('Neo.menu.List spawn animation', () => {
             .toMatch(/^neo-menu-spawn-from-(top|bottom|left|right)$/)
     });
 
+    test('a menu shown again the moment its node leaves is aligned (#19973)', async ({page}) => {
+        menuId = await createMenu(page, {animateSpawn: true});
+        await expect(page.locator('.neo-menu-list')).toHaveCount(1);
+
+        // Shown again before any deferred unmount runs, so only the parent update that removed the node can have
+        // marked the menu unmounted, and only a mount transition re-aligns it
+        await page.evaluate(async id => {
+            const removed = new Promise(resolve => {
+                const observer = new MutationObserver(() => {
+                    if (!document.getElementById(id)) {
+                        observer.disconnect();
+                        resolve()
+                    }
+                });
+
+                observer.observe(document.body, {childList: true, subtree: true})
+            });
+
+            Neo.worker.App.setConfigs({id, hidden: true});
+            await removed;
+            await Neo.worker.App.setConfigs({id, hidden: false})
+        }, menuId);
+
+        await expect.poll(async () => page.evaluate(id => {
+            const node = document.getElementById(id);
+
+            if (!node) return 'absent';
+
+            return [...node.classList].find(cls => cls.startsWith('neo-aligned-')) ?? 'unaligned'
+        }, menuId), {message: 'the menu shown again is aligned'}).toMatch(/^neo-aligned-/)
+    });
+
     test('propagates a later animateSpawn change to an already-cached submenu, both ways', async ({page}) => {
         // Created with the flag OFF, so the submenu is cached without it — the exact case a
         // creation-time copy cannot reach.
