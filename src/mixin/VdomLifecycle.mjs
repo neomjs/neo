@@ -1281,7 +1281,8 @@ class VdomLifecycle extends Base {
      * a node MOVED out of a removed parent in the same update — the worker emits its `removeNode`
      * deltas after every `moveNode` for exactly that reuse, and here the test runs at every depth,
      * so a moved descendant keeps its vnode and its mounted flag. Floating children (dialogs,
-     * popups) render outside their parent's node and are never tested.
+     * popups) render outside their parent's node and are not tested, unless their own vdom carries
+     * `removeDom`: a hidden floating item rendered inside this node left with this update.
      *
      * `mounted` is state tracking, not a DOM operation: the node is already gone, this records it.
      * A class whose children track their own presence can override this to narrow or skip the pass.
@@ -1299,7 +1300,7 @@ class VdomLifecycle extends Base {
             child = children[i];
 
             // cheapest test first: a present child (the common case) costs one Set lookup
-            if (!presentSet.has(child) && !vnodeMap.get(child.vdom.id) && !child.floating) {
+            if (!presentSet.has(child) && !vnodeMap.get(child.vdom.id) && (!child.floating || child.vdom.removeDom)) {
                 child._vnode  = null;
                 child.mounted = false;
 
