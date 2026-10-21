@@ -525,8 +525,14 @@ class Container extends Component {
                 vdom = item.vdom
             }
 
-            itemsRoot.cn.push(vdom)
+            // Creating an item can insert a sibling into this container (the Popover plugin adds its popover to
+            // the owner's parent), and that sibling's vnode is already in cn: the item's own vnode goes before it.
+            itemsRoot.cn.splice(index, 0, vdom)
         });
+
+        // Such an insert() stores a shallow copy of items, taken while this item and the ones after it were
+        // still configs. This array holds the inserted sibling too, and every created instance.
+        me._items = items;
 
         // We need to add items into the vdom
         me.updateDepth = -1;
