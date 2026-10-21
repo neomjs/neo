@@ -20,8 +20,13 @@ class SearchToolbar extends Toolbar {
         ntype: 'grid-search-toolbar',
         /** @member {String[]} baseCls=['neo-grid-search-toolbar','neo-toolbar'] @protected */
         baseCls: ['neo-grid-search-toolbar', 'neo-toolbar'],
-        /** @member {Object} layout={ntype:'vbox',align:'stretch'} @reactive */
-        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * One wrapping row: the filter summary sits beside the search controls, so the first filter does not
+         * push the grid, or an open header menu, down. It wraps below them only when the row is too narrow.
+         * @member {Object} layout={ntype:'hbox',align:'center',wrap:'wrap',gap:'8px'}
+         * @reactive
+         */
+        layout: {ntype: 'hbox', align: 'center', wrap: 'wrap', gap: '8px'},
         /** @member {Neo.grid.Container|null} gridContainer_=null @reactive */
         gridContainer_: null,
         /** @member {Neo.data.Store|null} store_=null @reactive */
@@ -45,7 +50,7 @@ class SearchToolbar extends Toolbar {
         const me = this;
         me.items = [{
             module: Toolbar,
-            flex  : 'none',
+            flex  : '1 1 24rem',
             cls   : ['neo-grid-search-controls'],
             layout: {ntype: 'hbox', align: 'center', wrap: 'wrap', gap: '8px'},
             items : [{
@@ -63,10 +68,10 @@ class SearchToolbar extends Toolbar {
                 handler: () => me.writeSearch({caseSensitive: !me.getSearchFilter()?.caseSensitive})
             }]
         }, {
-            module: Container, reference: 'summary', cls: ['neo-grid-filter-summary'], flex: 'none',
+            module: Container, reference: 'summary', cls: ['neo-grid-filter-summary'], flex: '0 1 auto',
             layout: {ntype: 'hbox', align: 'center', wrap: 'wrap', gap: '4px'},
             items : [{
-                module: Container, reference: 'entries', cls: ['neo-grid-filter-entries'], flex: '1 1 12rem',
+                module: Container, reference: 'entries', cls: ['neo-grid-filter-entries'], flex: '0 1 auto',
                 layout: {ntype: 'hbox', align: 'center', wrap: 'wrap', gap: '4px'}, items: []
             }, {
                 module: Button, reference: 'clear', cls: ['neo-grid-filter-clear'], text: 'Clear filters',

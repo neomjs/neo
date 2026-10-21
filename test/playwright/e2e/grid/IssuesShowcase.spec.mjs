@@ -162,6 +162,31 @@ test.describe('Grid issues showcase', () => {
         await expect.poll(states).toEqual(all)
     });
 
+    test('the first filter and the last unchecked leave the header and the open menu in place (#19953)', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              summary = page.locator(`${GRID} .neo-grid-filter-summary`),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              option  = menu.locator('[role="option"]').filter({hasText: 'Closed'}),
+              shift   = async before => {
+                  const header = await wrapper.boundingBox(), item = await option.boundingBox();
+                  return Math.max(Math.abs(header.y - before.header), Math.abs(item.y - before.option))
+              };
+
+        await wrapper.hover();
+        await wrapper.locator('.neo-grid-menu-trigger').click();
+        await expect(option).toBeVisible();
+        const before = {header: (await wrapper.boundingBox()).y, option: (await option.boundingBox()).y};
+
+        // The pointer stays on the value it just checked: the summary joins the search controls' row
+        await option.click();
+        await expect(summary).toContainText('State: Closed');
+        expect(await shift(before)).toBeLessThan(1);
+
+        await option.click();
+        await expect(summary).toBeHidden();
+        expect(await shift(before)).toBeLessThan(1)
+    });
+
     test('a filtered locked column keeps its header marked while its menu is closed (#19793)', async ({page}) => {
         const menu    = page.locator('.neo-grid-column-menu'),
               wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
