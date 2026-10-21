@@ -20,6 +20,7 @@ permissions:
 concurrency:
   group: claim-responder-${{ github.event.issue.number }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   respond:
@@ -45,7 +46,14 @@ jobs:
           script: |
             const {curatedLabel, decideReply} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
             const {owner, repo}                = context.repo;
-            const {comment, issue}             = context.payload;
+            const {comment, issue: eventIssue} = context.payload;
+            const {data: issue}                = await github.rest.issues.get({owner, repo, issue_number: eventIssue.number});
+            const label                        = curatedLabel(issue);
+
+            if (issue.state !== 'open' || !label) {
+              core.info('No reply: issue is closed or no longer curated.');
+              return
+            }
 
             const comments = await github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issue.number, per_page: 100});
 
@@ -65,7 +73,7 @@ jobs:
               .map(pullRequest => ({number: pullRequest.number, author: pullRequest.author?.login, repository: pullRequest.repository?.nameWithOwner}));
 
             const search = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${owner}/${repo} is:issue is:open label:"${curatedLabel(issue)}" no:assignee -linked:pr`,
+              q: `repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`,
               per_page: 50
             });
 
