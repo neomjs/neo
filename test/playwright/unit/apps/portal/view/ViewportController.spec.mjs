@@ -9,6 +9,7 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../../../src/Neo.mjs';
 import * as core          from '../../../../../../src/core/_export.mjs';
+import Component          from '../../../../../../src/component/Base.mjs';
 import ViewportController from '../../../../../../apps/portal/view/ViewportController.mjs';
 
 /**
@@ -23,14 +24,15 @@ import ViewportController from '../../../../../../apps/portal/view/ViewportContr
 test.describe('Portal.view.ViewportController — the theme switch survives its decorative reveal', () => {
     /**
      * Runs `onSwitchTheme` against a stubbed engine and reports what the theme did.
-     * @param {Object} config {data, reject, startResult, startingTheme}
+     * @param {Object} config {bootTheme, data, reject, startResult, startingTheme}
      * @returns {Promise<Object>} {calls, themeAfter, threw}
      */
-    async function switchThemeWith({data = {clientX: 40, clientY: 12}, noEvent = false, reject = false, startResult = true, startingTheme = 'neo-theme-neo-light'} = {}) {
+    async function switchThemeWith({bootTheme = null, data = {clientX: 40, clientY: 12}, noEvent = false, reject = false, startResult = true, startingTheme = 'neo-theme-neo-light'} = {}) {
         const
             originalDomAccess = Neo.main.DomAccess,
             domAccess         = originalDomAccess ?? Neo.ns('Neo.main.DomAccess', true),
             originalStart     = domAccess.startViewTransition,
+            originalThemes    = Neo.config.themes,
             calls             = [];
 
         let themeAfter = null,
@@ -49,11 +51,17 @@ test.describe('Portal.view.ViewportController — the theme switch survives its 
         // The SHIPPED method, run against the minimal `this` it actually reads. Constructing the
         // controller would boot the viewport's services (the SEO fetch among them) to exercise five
         // lines, and the extra machinery would be noise this arm cannot fail on meaningfully.
+        // The component carries the engine's real `getTheme()`, so a viewport whose `theme` is
+        // still null resolves the boot theme exactly the way the shipped Portal does.
         const context = {
-            component: {theme: startingTheme},
+            component: {cls: [], getTheme: Component.prototype.getTheme, parent: null, theme: startingTheme, windowId: 1},
             windowId : 1,
             setTheme : theme => {themeAfter = theme}
         };
+
+        if (bootTheme) {
+            Neo.config.themes = [bootTheme]
+        }
 
         try {
             // `noEvent` calls with NO argument, which is the real shape. Passing `data: undefined`
@@ -66,7 +74,9 @@ test.describe('Portal.view.ViewportController — the theme switch survives its 
         } finally {
             originalStart
                 ? domAccess.startViewTransition = originalStart
-                : delete domAccess.startViewTransition
+                : delete domAccess.startViewTransition;
+
+            Neo.config.themes = originalThemes
         }
 
         return {calls, themeAfter, threw}
@@ -111,5 +121,58 @@ test.describe('Portal.view.ViewportController — the theme switch survives its 
         const {themeAfter} = await switchThemeWith({startingTheme: 'neo-theme-neo-dark'});
 
         expect(themeAfter, 'the toggle is a toggle, not a one-way trip').toBe('neo-theme-neo-light')
+    });
+
+    test('the first click on a fresh dark boot switches to light', async () => {
+        // #19902: the Portal boots `neo-theme-neo-dark` (themes[0]) and `viewport.theme` stays null
+        // until the first switch. Assuming light here made the first click "switch" to the dark
+        // theme already on screen, so nothing visibly happened until the second click.
+        const {themeAfter} = await switchThemeWith({bootTheme: 'neo-theme-neo-dark', startingTheme: null});
+
+        expect(themeAfter, 'one click leaves the boot theme').toBe('neo-theme-neo-light')
+    });
+
+    test('the first click on a fresh light boot switches to dark', async () => {
+        const {themeAfter} = await switchThemeWith({bootTheme: 'neo-theme-neo-light', startingTheme: null});
+
+        expect(themeAfter, 'the fallback follows the boot theme, not a hardcoded one').toBe('neo-theme-neo-dark')
+    })
+});
+
+test.describe('Portal.view.ViewportController — the theme button icon matches the theme on screen', () => {
+    /**
+     * Runs a controller method against a stub button and reports the icon it ends up with.
+     * @param {String} method
+     * @param {String} theme
+     * @returns {String}
+     */
+    function iconAfter(method, theme) {
+        const btn = {iconCls: 'fa-solid fa-moon'};
+
+        const context = {
+            component            : {},
+            getReference         : ref => ref === 'theme-switch-button' ? btn : null,
+            updateThemeSwitchIcon: ViewportController.prototype.updateThemeSwitchIcon,
+            windowId             : 1
+        };
+
+        ViewportController.prototype[method].call(context, theme, false);
+
+        return btn.iconCls
+    }
+
+    test('a dark theme on screen shows the sun', () => {
+        // The Portal's button starts as a moon, but it boots dark. This sync is what the
+        // no-stored-theme path in `onConstructed` runs, so the first icon is right as well.
+        expect(iconAfter('updateThemeSwitchIcon', 'neo-theme-neo-dark')).toBe('fa-solid fa-sun')
+    });
+
+    test('a light theme on screen shows the moon', () => {
+        expect(iconAfter('updateThemeSwitchIcon', 'neo-theme-neo-light')).toBe('fa-solid fa-moon')
+    });
+
+    test('setTheme keeps the icon in step with every switch', () => {
+        expect(iconAfter('setTheme', 'neo-theme-neo-dark')).toBe('fa-solid fa-sun');
+        expect(iconAfter('setTheme', 'neo-theme-neo-light')).toBe('fa-solid fa-moon')
     })
 });

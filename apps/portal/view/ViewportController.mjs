@@ -198,6 +198,11 @@ class ViewportController extends Controller {
                 me.setTheme(value, false)
             } else if (Neo.config.prefersDarkTheme) {
                 me.setTheme('neo-theme-neo-dark', false)
+            } else {
+                // Nothing stored and no dark preference: the Portal keeps the theme it booted with
+                // (`themes[0]` in neo-config.json). The button's static icon does not know that
+                // theme, so sync it here without setting a theme or writing to storage.
+                me.updateThemeSwitchIcon(me.component.getTheme())
             }
         })
     }
@@ -274,9 +279,12 @@ class ViewportController extends Controller {
      * @param {Object} data
      */
     async onSwitchTheme(data) {
+        // `viewport.theme` stays null until the first switch, while the screen already shows the boot
+        // theme (`themes[0]`). `getTheme()` answers what is actually on screen, so the first click
+        // toggles away from it instead of assuming light and "switching" to the dark theme already shown.
         let me       = this,
             viewport = me.component,
-            oldTheme = viewport.theme || 'neo-theme-neo-light',
+            oldTheme = viewport.getTheme(),
             newTheme = oldTheme === 'neo-theme-neo-light' ? 'neo-theme-neo-dark' : 'neo-theme-neo-light';
 
         // The reveal geometry belongs to the realm that owns the DOM: the App worker knows where
@@ -358,15 +366,11 @@ class ViewportController extends Controller {
      * @param {Boolean} [updateStorage=true]
      */
     setTheme(theme, updateStorage=true) {
-        let me      = this,
-            btn     = me.getReference('theme-switch-button'),
-            iconCls = theme === 'neo-theme-neo-dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        let me = this;
 
         me.component.theme = theme;
 
-        if (btn) {
-            btn.iconCls = iconCls
-        }
+        me.updateThemeSwitchIcon(theme);
 
         if (updateStorage) {
             Neo.main.addon.LocalStorage.updateLocalStorageItem({
@@ -414,6 +418,19 @@ class ViewportController extends Controller {
             if (headerCanvas) {
                 headerCanvas.activeId = activeBtn?.id || null
             }
+        }
+    }
+
+    /**
+     * Shows the icon for the theme the button switches to: a sun while the dark theme is on screen,
+     * a moon while the light theme is.
+     * @param {String} theme The theme currently on screen
+     */
+    updateThemeSwitchIcon(theme) {
+        let btn = this.getReference('theme-switch-button');
+
+        if (btn) {
+            btn.iconCls = theme === 'neo-theme-neo-dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon'
         }
     }
 }
