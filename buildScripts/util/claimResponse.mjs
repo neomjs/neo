@@ -52,8 +52,9 @@ const
         /\b(can|could|may)\s+i\s+(please\s+)?(work|take|claim|pick|handle|tackle|have|get|be\s+assigned)\b/i,
         /\bassign(ed)?\s+(this|it)\s+to\s+me\b/i,
         /\b(please\s+)?assign\s+me\b/i,
-        /\b(i'?ll|i will|let me)\s+(take|work\s+on|pick\s+up|handle|tackle|claim)\s+(this|it)\b/i,
-        /\bi'?m\s+(already\s+)?working\s+on\s+(this|it)\b/i,
+        /\b(i'?ll|i will|let me)\s+(also\s+)?(take|work\s+on|pick\s+up|handle|tackle|claim)\s+(this|it|the\b|#\d+)/i,
+        /\b(i'?m|i am)\s+(already\s+|also\s+)?(working\s+on|starting(\s+work\s+on)?|taking|claiming|picking\s+up|tackling|handling)\s+(this|it|the\b|#\d+)/i,
+        /(?:^|[.!?\n]\s*)(claiming|taking|picking\s+up)\s+(this|it|the\b|#\d+)/im,
         /^\s*\/(assign|claim|take)\b/im
     ]);
 
