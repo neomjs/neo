@@ -38,7 +38,7 @@ class Viewport extends BaseViewport {
             j;
 
         for (; i < amountRows; i++) {
-            data.push({});
+            data.push({id: i});
 
             for (j=0; j < amountColumns; j++) {
                 data[i]['column' + j] = 'Column' + (j + 1) + ' - ' + Math.round(Math.random() / 1.5);
