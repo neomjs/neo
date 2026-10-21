@@ -114,7 +114,8 @@ class Component extends BaseComponent {
             ]},
             {cls: ['container', 'page'], cn: [
                 {cls: ['row', 'article-content'], cn: [
-                    {cls: ['col-md-12'], flag: 'body', cn: []}
+                    // cn[0]: the body's html (afterSetBody), cn[1]: the tag list (afterSetTagList), which arrives first
+                    {cls: ['col-md-12'], flag: 'body', cn: [{removeDom: true}]}
                 ]},
                 {tag: 'hr'},
                 {cls: ['article-actions'], flag: 'article-actions', cn: [
@@ -122,7 +123,7 @@ class Component extends BaseComponent {
                         {tag: 'a', flag: 'userimage', cn: [{tag: 'img'}]},
                         {cls: ['info'], cn: [
                             {tag: 'a', cls: ['author'], flag: 'username'},
-                            {tag: 'span', cls: ['date'], text: 'January 20th'}
+                            {tag: 'span', cls: ['date'], flag: 'createdAt'}
                         ]},
                         {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'], flag: 'follow-button', cn: [
                             {tag: 'i', flag: 'followIcon'},
@@ -176,11 +177,13 @@ class Component extends BaseComponent {
 
         me.createCommentComponent = Neo.create({
             module   : CreateCommentComponent,
+            appName  : me.appName,
             parentId : me.id,
-            userImage: currentUser?.image || null
+            userImage: currentUser?.image || null,
+            windowId : me.windowId
         });
 
-        VDomUtil.getByFlag(me.vdom, 'comments-section').cn.unshift(me.createCommentComponent.vdom);
+        VDomUtil.getByFlag(me.vdom, 'comments-section').cn.unshift(me.createCommentComponent.createVdomReference());
         me.update();
 
         super.onConstructed();
@@ -274,14 +277,17 @@ class Component extends BaseComponent {
                 if (!me.commentComponents[index]) {
                     me.commentComponents[index] = Neo.create({
                         module  : me.commentComponent,
+                        appName : me.appName,
                         parentId: me.id,
+                        windowId: me.windowId,
                         ...config
                     });
                 } else {
-                    me.commentComponents[index].set(config, true);
+                    // A referenced comment renders its own changes: the parent's update leaves it in place
+                    me.commentComponents[index].set(config);
                 }
 
-                container.cn.push(me.commentComponents[index].vdom);
+                container.cn.push(me.commentComponents[index].createVdomReference());
             });
 
             me.update();
@@ -296,11 +302,16 @@ class Component extends BaseComponent {
      */
     afterSetCreatedAt(value, oldValue) {
         if (value) {
-            VDomUtil.getByFlag(this.vdom, 'createdAt').text = new Intl.DateTimeFormat('en-US', {
+            let text = new Intl.DateTimeFormat('en-US', {
                 day  : 'numeric',
                 month: 'long',
                 year : 'numeric'
             }).format(new Date(value));
+
+            // The banner and the article actions each show the date
+            VDomUtil.getFlags(this.vdom, 'createdAt').forEach(node => {
+                node.text = text
+            });
 
             this.update();
         }

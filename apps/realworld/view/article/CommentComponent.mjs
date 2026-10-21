@@ -155,9 +155,7 @@ class CommentComponent extends Component {
      * Not supported yet
      * @param {Object} data
      */
-    onEditButtonClick(data) {
-        console.log('onEditButtonClick');
-    }
+    onEditButtonClick(data) {}
 }
 
 export default Neo.setupClass(CommentComponent);

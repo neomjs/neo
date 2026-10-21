@@ -414,12 +414,17 @@ class MainContainerController extends ComponentController {
         let me = this;
 
         if (!me[key]) {
+            let {appName, id, windowId} = me.component;
+
             module = await module();
 
+            // Born with its window: the children a view creates in onConstructed() copy it from the view
             me[key] = Neo.create({
                 module  : module.default,
-                parentId: me.component.id,
-                reference
+                appName,
+                parentId: id,
+                reference,
+                windowId
             });
         }
 
