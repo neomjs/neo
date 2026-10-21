@@ -11,6 +11,10 @@ const today = {
 };
 
 /**
+ * @summary Renders a month once its date and bound weekday formatter are available.
+ *
+ * Defers its initial grid until both inputs arrive, then reacts to their changes.
+ *
  * @class Neo.date.DayViewComponent
  * @extends Neo.component.Base
  */
@@ -45,10 +49,11 @@ class DayViewComponent extends Base {
          */
         currentDate_: null,
         /**
-         * @member {Intl.DateTimeFormat|null} intlFormatDay=null
+         * @member {Intl.DateTimeFormat|null} intlFormatDay_=null
          * @protected
+         * @reactive
          */
-        intlFormatDay: null,
+        intlFormatDay_: null,
         /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
@@ -77,6 +82,16 @@ class DayViewComponent extends Base {
      * @protected
      */
     afterSetCurrentDate(value, oldValue) {
+        this.isConstructed && this.recreateContent(false)
+    }
+
+    /**
+     * @summary Rebuilds the day view when its bound weekday formatter arrives or changes.
+     * @param {Intl.DateTimeFormat|null} value    The new weekday formatter.
+     * @param {Intl.DateTimeFormat|null} oldValue The previous weekday formatter.
+     * @protected
+     */
+    afterSetIntlFormatDay(value, oldValue) {
         this.isConstructed && this.recreateContent(false)
     }
 
@@ -124,13 +139,19 @@ class DayViewComponent extends Base {
     }
 
     /**
-     * @param {Boolean} silent=false true to update the vdom silently
-     * @param {Object} [containerEl]
+     * @summary Builds the month grid only after both rendering inputs are available.
+     * @param {Boolean} silent=false  True to update the vdom silently.
+     * @param {Object}  [containerEl] The target VDOM node, defaulting to this component's VDOM.
      */
     createContent(silent=false, containerEl) {
-        let me              = this,
-            {currentDate}   = me,
-            currentDay      = currentDate.getDate(),
+        let me            = this,
+            {currentDate} = me;
+
+        if (!currentDate || !me.intlFormatDay) {
+            return
+        }
+
+        let currentDay      = currentDate.getDate(),
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
@@ -168,7 +189,7 @@ class DayViewComponent extends Base {
                     id      : cellId,
                     cls     : hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'],
                     tabIndex: hasContent ? -1 : null,
-                    cn: [{
+                    cn      : [{
                         cls : ['neo-cell-content'],
                         text: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
                     }]
