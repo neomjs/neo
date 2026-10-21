@@ -313,13 +313,16 @@ class Button extends BaseButton {
     /**
      * @summary Lazily enables the menu while keeping its default free of trigger and handler registration.
      * @param {Boolean} value
+     * @param {Boolean} [oldValue]
      */
-    afterSetColumnMenu(value) {
+    afterSetColumnMenu(value, oldValue) {
         const serial = this.columnMenuSerial = (this.columnMenuSerial || 0) + 1;
         if (!value) {
             this.getPlugin('plugin-grid-header-menu')?.destroy();
+            if (oldValue !== undefined) this.up('grid-header-wrapper')?.syncColumnMenuState();
             return
         }
+        if (oldValue !== undefined) this.up('grid-header-wrapper')?.syncColumnMenuState();
         import('./plugin/Menu.mjs').then(({default: module}) => {
             if (!this.isDestroyed && !this.isDestroying && this.columnMenu && this.columnMenuSerial === serial &&
                 !this.getPlugin('plugin-grid-header-menu')) {
