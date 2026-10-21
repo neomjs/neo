@@ -124,7 +124,7 @@ test.describe('Portal.view.ViewportController — the theme switch survives its 
     });
 
     test('the first click on a fresh dark boot switches to light', async () => {
-        // #19902: the Portal boots `neo-theme-neo-dark` (themes[0]) and `viewport.theme` stays null
+        // The Portal boots `neo-theme-neo-dark` (themes[0]) and `viewport.theme` stays null
         // until the first switch. Assuming light here made the first click "switch" to the dark
         // theme already on screen, so nothing visibly happened until the second click.
         const {themeAfter} = await switchThemeWith({bootTheme: 'neo-theme-neo-dark', startingTheme: null});
