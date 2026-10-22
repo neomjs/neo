@@ -250,7 +250,7 @@ class Component extends BaseComponent {
 
         me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.createVdomReference());
 
-        if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
+        if (me.calendarStore?.getCount() > 0 && me.eventStore?.getCount() > 0) {
             me.needsEventUpdate = true
         }
 
@@ -845,6 +845,8 @@ class Component extends BaseComponent {
      */
     updateEvents(silent=false, startIndex=0, endIndex=this.totalColumns) {
         let me = this;
+
+        if(!me.currentDate) return;
 
         if (!me.mounted) {
             me.needsEventUpdate = true
