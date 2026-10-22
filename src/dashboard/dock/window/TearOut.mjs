@@ -98,9 +98,10 @@ class TearOut extends Base {
          */
         onDocumentChange: null,
         /**
-         * Host vessel-ownership write: `(itemId, entry|null, connection, isMerge) => void` — `entry`
-         * records post-terminal vessel ownership, `null` withdraws it. Vessel bookkeeping stays with the
-         * host: `window/Participation` and the admission/retirement paths read it.
+         * Host vessel-ownership write: `(itemId, entry|null, connection, isMerge, workspaceKey) => void` —
+         * `entry` records post-terminal vessel ownership, `null` withdraws it. `workspaceKey` names the vessel
+         * whose record changes; a withdrawal passes it, since an item can outlive its vessel in another one.
+         * Vessel bookkeeping stays with the host: `window/Participation` and the admission/retirement paths read it.
          * @member {Function|null} onPaneAdopted=null
          */
         onPaneAdopted: null,
@@ -472,6 +473,7 @@ class TearOut extends Base {
                   generation     : vessel.generation      ?? connection?.generation      ?? null,
                   generationToken: vessel.generationToken ?? connection?.generationToken ?? null,
                   gestureToken   : vessel.gestureToken    ?? connection?.gestureToken    ?? null,
+                  itemId,
                   windowId       : connection?.windowId ?? null,
                   windowName     : vessel.windowName || connection?.windowName || `tearout-${itemId}`,
                   workspaceKey   : vessel.workspaceKey ?? connection?.workspaceKey ?? null
@@ -538,7 +540,7 @@ class TearOut extends Base {
               pane   = me.releasePane(itemId),
               vessel = {...entry, itemId};
 
-        me.onPaneAdopted(itemId, null);
+        me.onPaneAdopted(itemId, null, null, false, entry?.workspaceKey ?? null);
 
         Promise.resolve(me.retireVessel(vessel)).then(closed => {
             closed && !me.isDestroyed && me.onVesselRetired(vessel)
@@ -682,7 +684,7 @@ class TearOut extends Base {
         me.onVesselRetired({...entry, ...admission, itemId});
 
         if (committed) {
-            me.onPaneAdopted(itemId, null);
+            me.onPaneAdopted(itemId, null, null, false, entry?.workspaceKey ?? null);
             await me.reintegrateItem(itemId, pane)
         } else {
             admission?.context?.sortZone?.endWindowDrag()

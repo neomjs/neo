@@ -1540,7 +1540,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                     workspace: createWorkspaceStub({
                         dockModel    : sourceDoc(),
                         resolvePane  : itemId => (itemId === 'terminal' ? pane : null),
-                        nativeWindows: {ownerEntries: () => [['terminal', {windowId: 'popup-1'}]]}
+                        nativeWindows: {ownerEntries: () => [['popup:terminal', {itemId: 'terminal', windowId: 'popup-1'}]]}
                     }),
                     workspaceId: 'A'
                 });
@@ -1567,7 +1567,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                     nodes : {'popup-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}}
                 },
                 workspace = createWorkspaceStub({
-                    nativeWindows: {ownerEntries: () => [['terminal', {windowId: 'popup-singleton', workspaceKey: 'popup-document'}]]},
+                    nativeWindows: {ownerEntries: () => [['popup-document', {itemId: 'terminal', windowId: 'popup-singleton', workspaceKey: 'popup-document'}]]},
                     resolvePane  : itemId => itemId === 'terminal' ? pane : null
                 });
             workspace.id = 'native-singleton-source';
@@ -1622,11 +1622,12 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             workspace.nativeWindows.registerSource(workspace.id, {
                 keyFor: () => 'popup-document', open: async () => null, close: async () => true
             });
-            workspace.nativeWindows.recordOwner(workspace.id, 'terminal', {
-                windowId: 'native-popup-live', workspaceKey: 'popup-document'
+            // Two vessels over the popup's document, each opened for its own item
+            workspace.nativeWindows.recordOwner(workspace.id, 'popup-document', {
+                itemId: 'terminal', windowId: 'native-popup-live', workspaceKey: 'popup-document'
             });
-            workspace.nativeWindows.recordOwner(workspace.id, 'strategy', {
-                windowId: 'native-popup-center-owner', workspaceKey: 'popup-document'
+            workspace.nativeWindows.recordOwner(workspace.id, 'popup-document:2', {
+                itemId: 'strategy', windowId: 'native-popup-center-owner', workspaceKey: 'popup-document'
             });
 
             try {
@@ -1696,8 +1697,8 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             workspace.nativeWindows.registerSource(workspace.id, {
                 keyFor: () => 'popup-document', open: async () => null, close: async () => true
             });
-            workspace.nativeWindows.recordOwner(workspace.id, 'metrics', {
-                windowId: 'native-stack-live', workspaceKey: 'popup-document'
+            workspace.nativeWindows.recordOwner(workspace.id, 'popup-document', {
+                itemId: 'metrics', windowId: 'native-stack-live', workspaceKey: 'popup-document'
             });
 
             let participation, otherGroupId, otherSet;

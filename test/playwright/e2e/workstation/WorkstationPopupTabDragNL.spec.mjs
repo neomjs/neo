@@ -21,9 +21,13 @@ import {participations, popOut}       from '../utils/workstationPopOut.mjs';
  *    riding vessel and gives the pane back to the popup, which still owns it, instead of keeping it as if a
  *    transfer had committed.
  * 5. A popup whose last tab tears out retires, as one emptied by any other transfer does.
+ * 6. The tab a popup was opened for tears out of that popup into a vessel under the next key of its item,
+ *    and the popup keeps its other tab. A warm reload of either window rebinds its own key.
+ * 7. An item torn out of main while its old popup keeps another tab opens a vessel of its own, too.
  *
  * Without the drag contract every arm fails on its first read: the popup's strip is unarmed, and no vessel
- * is admitted. Without the source owning its frame, arms 2 and 4 fail at main's claim.
+ * is admitted. Without the source owning its frame, arms 2 and 4 fail at main's claim. With vessels keyed
+ * by their item, arms 6 and 7 admit no vessel, since the old popup holds the item's key.
  *
  * Run: NEO_AGENTOS_RUNTIME_ROOT=<abs path to neo-agent-brain> NEO_NL_PORT=<free port> \
  *      npx playwright test WorkstationPopupTabDragNL -c test/playwright/playwright.config.e2e.mjs --workers=1
@@ -386,6 +390,114 @@ test.describe('Workstation popup tab drag (Neural Link)', () => {
                 message: 'the release transfers Audit into its own vessel', timeout: 20000
             }).toEqual(['audit']);
             await expect.poll(() => popup.isClosed(), {message: 'the emptied popup retires', timeout: 20000}).toBe(true)
+        } finally {
+            vessel && !vessel.isClosed() && await vessel.close().catch(() => {})
+        }
+    });
+
+    test('the tab a popup was opened for tears out of it, and the popup keeps its other tab', async ({page, neuralLink}) => {
+        const {app, popup, popupKey, wsId} = await openTwoTabPopup(page, neuralLink),
+              vesselKey                    = 'workstation-vessel:metrics:2',
+              paneId                       = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
+              viewport                     = await popup.evaluate(() => ({height: innerHeight, width: innerWidth})),
+              outside                      = {x: viewport.width + 180, y: viewport.height + 180},
+              vesselPromise                = page.waitForEvent('popup', {timeout: 30000});
+
+        vesselPromise.catch(() => {});
+        await expectMainCovers(page, popup, outside, false, 'the desktop point');
+
+        let vessel = null;
+
+        try {
+            await pressTab(popup, 'Metrics');
+            await popup.mouse.move(outside.x, outside.y, {steps: 36});
+
+            await expect.poll(async () => (await app.getComponent(wsId, ['tearOutHandlers.activeVessel']))['tearOutHandlers.activeVessel']?.itemId ?? null, {
+                message: 'leaving the popup admits a vessel for the tab the popup was opened for',
+                timeout: 15000
+            }).toBe('metrics');
+
+            // A new window, not the popup reused under the same name
+            vessel = await vesselPromise;
+            await vessel.waitForLoadState('domcontentloaded');
+            await popup.mouse.up();
+
+            await expect.poll(async () => {
+                const catalogs = await captureCatalogsByParticipant(app, wsId);
+
+                return {holders: Object.keys(catalogs).filter(key => catalogs[key]?.includes('metrics')), popup: catalogs[popupKey]}
+            }, {message: 'the release moves Metrics into a vessel of its own and leaves Audit in the popup', timeout: 20000})
+                .toEqual({holders: [vesselKey], popup: ['audit']});
+
+            await expect(vessel.locator(`#${paneId}`), 'the new vessel adopts Metrics\' pane').toBeVisible({timeout: 15000});
+            await expect(popup.locator('.neo-tab-header-button', {hasText: 'Audit'}), 'the popup keeps working with Audit').toBeVisible();
+
+            // A warm reload of either window rebinds its own key: the same lineage, the next generation, the same pane
+            const groupId = (await app.getComponent(wsId, ['nativeWindows.groupId']))['nativeWindows.groupId'],
+                  binding = key => app.callMethod(wsId, 'transactionManager.getBinding', [groupId, key]);
+
+            for (const [target, key, itemId] of [[popup, popupKey, 'audit'], [vessel, vesselKey, 'metrics']]) {
+                const before = await binding(key),
+                      pane   = await app.callMethod(wsId, 'getPaneIdentity', [itemId]);
+
+                await target.reload();
+                await expect(target.locator(`#${pane}`), `${key} renders the same ${itemId} pane after a warm reload`)
+                    .toBeVisible({timeout: 30000});
+                await expect.poll(async () => (await binding(key))?.generation, {message: `${key} rebinds its own slot`, timeout: 15000})
+                    .toBe(before.generation + 1);
+                expect((await binding(key)).generationToken, `${key} keeps its lineage`).toBe(before.generationToken)
+            }
+
+            const catalogs = await captureCatalogsByParticipant(app, wsId);
+
+            expect({popup: catalogs[popupKey], vessel: catalogs[vesselKey]}, 'each window keeps its tab under its own key')
+                .toEqual({popup: ['audit'], vessel: ['metrics']})
+        } finally {
+            vessel && !vessel.isClosed() && await vessel.close().catch(() => {})
+        }
+    });
+
+    test('an item torn out of main while its old popup keeps another tab opens a vessel of its own', async ({page, neuralLink}) => {
+        const {app, popup, popupKey, wsId} = await openTwoTabPopup(page, neuralLink),
+              viewport                     = await page.evaluate(() => ({height: innerHeight, width: innerWidth})),
+              // Below main, where no popup lies: the popup opened over main, inside its height
+              outside                      = {x: 100, y: viewport.height + 150},
+              vesselPromise                = page.waitForEvent('popup', {timeout: 30000});
+
+        vesselPromise.catch(() => {});
+
+        expect(await app.callMethod(wsId, 'commitCrossWindowTransfer', [{
+            sourceWorkspaceId: popupKey, targetWorkspaceId: 'workstation-main',
+            descriptor       : {
+                operation        : 'transferItem', itemId: 'metrics',
+                sourceWorkspaceId: popupKey, targetWorkspaceId: 'workstation-main',
+                target           : {operation: 'addTab', tabsNodeId: 'heavy-tabs'}
+            }
+        }]), 'Metrics returns to main').toBe(true);
+        await expect(popup.locator('.neo-tab-header-button', {hasText: 'Metrics'})).toHaveCount(0, {timeout: 15000});
+        expect(popupKey, 'the popup keeps the key it was opened for').toBe('workstation-vessel:metrics');
+
+        let vessel = null;
+
+        try {
+            await pressTab(page, 'Metrics');
+            await page.mouse.move(outside.x, outside.y, {steps: 36});
+
+            await expect.poll(async () => (await app.getComponent(wsId, ['tearOutHandlers.activeVessel']))['tearOutHandlers.activeVessel']?.itemId ?? null, {
+                message: 'leaving main admits a vessel for Metrics',
+                timeout: 15000
+            }).toBe('metrics');
+
+            vessel = await vesselPromise;
+            await vessel.waitForLoadState('domcontentloaded');
+            await page.mouse.up();
+
+            await expect.poll(async () => {
+                const catalogs = await captureCatalogsByParticipant(app, wsId);
+
+                return {holders: Object.keys(catalogs).filter(key => catalogs[key]?.includes('metrics')), popup: catalogs[popupKey]}
+            }, {message: 'Metrics lands in a vessel under a key of its own, and Audit stays in the old popup', timeout: 20000})
+                .toEqual({holders: ['workstation-vessel:metrics:2'], popup: ['audit']})
         } finally {
             vessel && !vessel.isClosed() && await vessel.close().catch(() => {})
         }

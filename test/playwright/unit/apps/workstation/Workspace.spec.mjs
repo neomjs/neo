@@ -393,8 +393,8 @@ test('an unready pointer read names the claim surfaces it crossed; a ready read 
               participation  : {target, affordances: visuals},
               dragAffordances: visuals,
               nativeWindows  : {
-                  ownerEntries      : () => [['metrics', {windowId: 'claim-surfaces-vessel-0', windowName: 'vessel-metrics-1'}]],
-                  connectionEntries : () => [['commits', {}]],
+                  ownerEntries      : () => [['workstation-vessel:metrics', {itemId: 'metrics', windowId: 'claim-surfaces-vessel-0', windowName: 'vessel-metrics-1'}]],
+                  connectionEntries : () => [['workstation-vessel:commits', {itemId: 'commits'}]],
                   pendingRetirements: () => [{itemId: 'audit', windowName: 'vessel-audit-0'}]
               }
           },
@@ -1088,7 +1088,7 @@ test.describe('Workstation.view.Workspace', () => {
                 }]
             ]);
 
-        workspace.nativeWindows.sources.get(workspace.id).connections.set('audit', {
+        workspace.nativeWindows.sources.get(workspace.id).connections.set('workstation-vessel:audit', {itemId: 'audit', workspaceKey: 'workstation-vessel:audit',
             nativeRoute: sourceRoute,
             windowId   : 'source-window',
             windowName : 'tearout-audit'
@@ -1157,7 +1157,7 @@ test.describe('Workstation.view.Workspace', () => {
                 entryWindowId = 'entryWindowId' in overrides ? overrides.entryWindowId : 'source-window',
                 workspace     = Neo.create(Workspace, {windowId: Neo.config.windowId});
 
-            workspace.nativeWindows.sources.get(workspace.id).connections.set('audit', {
+            workspace.nativeWindows.sources.get(workspace.id).connections.set('workstation-vessel:audit', {itemId: 'audit', workspaceKey: 'workstation-vessel:audit',
                 nativeRoute: {
                     capabilities   : {close: true, focus: true, position: true, resize: true},
                     nativeHandleKey: 'handle-source',
@@ -1219,7 +1219,7 @@ test.describe('Workstation.view.Workspace', () => {
                 targetWindowId : 'source-window'
             };
 
-        workspace.nativeWindows.sources.get(workspace.id).connections.set('audit', {
+        workspace.nativeWindows.sources.get(workspace.id).connections.set('workstation-vessel:audit', {itemId: 'audit', workspaceKey: 'workstation-vessel:audit',
             nativeRoute: sourceRoute,
             windowId   : 'source-window',
             windowName : 'tearout-audit'
@@ -1273,7 +1273,7 @@ test.describe('Workstation.view.Workspace', () => {
             targetWindowId
         });
 
-        workspace.nativeWindows.sources.get(workspace.id).connections.set('audit', {
+        workspace.nativeWindows.sources.get(workspace.id).connections.set('workstation-vessel:audit', {itemId: 'audit', workspaceKey: 'workstation-vessel:audit',
             nativeRoute: route('source-window'),
             windowId   : 'source-window',
             windowName : 'tearout-audit'
@@ -1720,8 +1720,8 @@ test.describe('Workstation.view.Workspace', () => {
                 targetWorkspaceId: workspaceId,
                 target           : {operation: 'addTab', tabsNodeId: Workspace.vesselTabsNodeId(itemId)}
             }, {provenance: {origin: 'human'}});
-            workspace.nativeWindows.recordOwner(workspace.id, itemId, {
-                ...reservation, windowId: 'window-alerts', windowName: 'tearout-alerts'
+            workspace.nativeWindows.recordOwner(workspace.id, reservation.workspaceKey, {
+                itemId, ...reservation, windowId: 'window-alerts', windowName: 'tearout-alerts'
             });
             participation = await workspace.syncDockParticipation({recompose: true});
 
@@ -1771,7 +1771,7 @@ test.describe('Workstation.view.Workspace', () => {
             targetRect          = {height: 700, width: 1000, x: 30, y: 50};
 
         try {
-            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: sourceWindowId, windowName: 'tearout-alerts'});
+            workspace.nativeWindows.recordOwner(workspace.id, 'workstation-vessel:alerts', {itemId: 'alerts',windowId: sourceWindowId, windowName: 'tearout-alerts'});
             workspace.vesselConversionTargetWindowId = ownerWindowId;
 
             Neo.manager.Window.get = windowId => ({
@@ -1829,7 +1829,7 @@ test.describe('Workstation.view.Workspace', () => {
             });
 
         try {
-            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {
+            workspace.nativeWindows.recordOwner(workspace.id, 'workstation-vessel:alerts', {itemId: 'alerts',
                 windowId  : sourceWindowId,
                 windowName: 'tearout-alerts'
             });
@@ -1929,7 +1929,7 @@ test.describe('Workstation.view.Workspace', () => {
             });
 
         try {
-            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: sourceWindowId, windowName: 'tearout-alerts'});
+            workspace.nativeWindows.recordOwner(workspace.id, 'workstation-vessel:alerts', {itemId: 'alerts',windowId: sourceWindowId, windowName: 'tearout-alerts'});
             workspace.vesselConversionTargetWindowId = targetWindowId;
 
             Neo.manager.Window.get = windowId => ({
@@ -2001,7 +2001,7 @@ test.describe('Workstation.view.Workspace', () => {
             });
 
         try {
-            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: sourceWindowId, windowName: 'tearout-alerts'});
+            workspace.nativeWindows.recordOwner(workspace.id, 'workstation-vessel:alerts', {itemId: 'alerts',windowId: sourceWindowId, windowName: 'tearout-alerts'});
             workspace.vesselConversionTargetWindowId = targetWindowId;
 
             Neo.manager.Window.get = windowId => ({
@@ -2191,8 +2191,10 @@ test.describe('Workstation.view.Workspace', () => {
                   departed  = stubPane(inFlight),
                   deadPort  = stubPane(async () => { throw {code: 'NEO_DEAD_PORT', windowId: 'vessel-window'} }),
                   neverSeen = stubPane(async () => { throw {code: 'NEO_DEAD_PORT', windowId: 'never-connected'} }),
+                  // the frame rode an ancestor's flight, and the leaving window's tree destroyed that ancestor
+                  carrier   = stubPane(async () => { throw Neo.isDestroyed }),
                   destroyed = stubPane(async pane => { pane.isDestroyed = true; throw new Error('destroyed') });
-            for (const pane of [rendered, failed, departed, deadPort, neverSeen, destroyed]) {
+            for (const pane of [rendered, failed, departed, deadPort, neverSeen, carrier, destroyed]) {
                 await state.host.repaintLandedPane(pane)
             }
             const layered = ['add workstation-pane-repaint', 'render', 'remove workstation-pane-repaint'];
@@ -2201,6 +2203,7 @@ test.describe('Workstation.view.Workspace', () => {
             expect(departed.order, 'a pane whose window left mid-frame takes the layer off as well').toEqual(layered);
             expect(deadPort.order).toEqual(layered);
             expect(neverSeen.order).toEqual(layered);
+            expect(carrier.order, 'a live pane whose frame\'s carrier was destroyed takes the layer off').toEqual(layered);
             expect(destroyed.order, 'a destroyed pane is not touched again').toEqual(['add workstation-pane-repaint', 'render']);
             expect(errors, 'a failed render and a dead port the worker never saw leave are reported; departures are not')
                 .toEqual(Array(2).fill('PopupWorkspace: the landed pane\'s repaint render failed'))
@@ -2224,11 +2227,9 @@ test.describe('Workstation.view.Workspace', () => {
         manager.getParticipant(groupId, workspaceId).project                 = async () => {};
         workspace.retireReturnedVessel = async () => true;
         try {
-            for (const itemId of ['alerts', 'security']) {
-                workspace.nativeWindows.recordOwner(workspace.id, itemId, {
-                    windowId: state.windowId, windowName: `tearout-${itemId}`, workspaceKey: workspaceId
-                })
-            }
+            workspace.nativeWindows.recordOwner(workspace.id, workspaceId, {
+                itemId: 'alerts', windowId: state.windowId, windowName: 'tearout-alerts', workspaceKey: workspaceId
+            });
             expect(await workspace.commitCrossWindowTransfer({
                 descriptor: {operation: 'transferNode', nodeId: WorkspaceDocument.resolveStackRoot(state.document),
                     sourceWorkspaceId: workspaceId, targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
@@ -2237,8 +2238,7 @@ test.describe('Workstation.view.Workspace', () => {
             })).toBe(true);
             expect(Object.keys(state.document.items)).toHaveLength(0);
             expect(workspace.dockModel.items.alerts).toEqual(initialDocument.items.alerts);
-            expect(workspace.nativeWindows.getOwner(workspace.id, 'alerts'), 'main owns the returned item').toBeNull();
-            expect(workspace.nativeWindows.getOwner(workspace.id, 'security'), 'main owns the rider too').toBeNull();
+            expect(workspace.nativeWindows.getOwner(workspace.id, workspaceId), 'main owns the returned items, so the vessel owns nothing').toBeNull();
             expect(workspace.workspaceSet.has(workspaceId), 'the emptied vessel stays registered for a warm reload').toBe(true)
         } finally {
             state.host.destroy();
@@ -2424,8 +2424,8 @@ test.describe('Workstation.view.Workspace', () => {
         manager.getParticipant(groupId, workspaceId).project                 = async () => {};
         workspace.retireReturnedVessel = async () => false;
         try {
-            workspace.nativeWindows.recordOwner(workspace.id, 'alerts', {
-                windowId: state.windowId, windowName: 'tearout-alerts', workspaceKey: workspaceId
+            workspace.nativeWindows.recordOwner(workspace.id, workspaceId, {
+                itemId: 'alerts', windowId: state.windowId, windowName: 'tearout-alerts', workspaceKey: workspaceId
             });
             expect(await workspace.commitCrossWindowTransfer({
                 descriptor: {operation: 'transferNode', nodeId: WorkspaceDocument.resolveStackRoot(state.document),
@@ -2433,7 +2433,7 @@ test.describe('Workstation.view.Workspace', () => {
                     target           : {targetNodeId: 'heavy-tabs', placement: {kind: 'tab-into'}}},
                 sourceWorkspaceId: workspaceId, targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID
             })).toBe(true);
-            expect(workspace.nativeWindows.getOwner(workspace.id, 'alerts')).toMatchObject({windowName: 'tearout-alerts'})
+            expect(workspace.nativeWindows.getOwner(workspace.id, workspaceId)).toMatchObject({windowName: 'tearout-alerts'})
         } finally {
             state.host.destroy();
             workspace.destroy()
@@ -2602,7 +2602,7 @@ test.describe('Workstation.view.Workspace', () => {
             expect(workspace.lastVesselRestoreReceipt).toBe(success);
             expect(workspace.lastCrossWindowTransfer.topologyExited).toBe(true);
             expect(released).toEqual(['alerts', 'security']);
-            expect(cleared).toEqual([[workspace.id, 'alerts', null], [workspace.id, 'security', null]])
+            expect(cleared, 'the returned vessel\'s own record').toEqual([[workspace.id, workspaceId, null]])
         } finally {
             workspace.tearOutHandlers.releasePane = releasePane;
             workspace.nativeWindows.recordOwner = recordOwner;
@@ -2683,7 +2683,7 @@ test.describe('Workstation.view.Workspace', () => {
             })).toBe(true);
 
             workspace.tearOutHandlers.recordPlacement('alerts', {index: 0, tabsNodeId: 'heavy-tabs'});
-            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {
+            workspace.nativeWindows.recordOwner(workspace.id, 'workstation-vessel:alerts', {itemId: 'alerts',
                 generationToken: 'lineage-3',
                 windowId       : 'window-alerts',
                 windowName     : 'tearout-alerts'
@@ -2767,7 +2767,7 @@ test.describe('Workstation.view.Workspace', () => {
 
         try {
             await workspace.participationPromise;
-            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: 'window-alerts'});
+            workspace.nativeWindows.recordOwner(workspace.id, 'workstation-vessel:alerts', {itemId: 'alerts',windowId: 'window-alerts'});
             const state = registerPopupState(workspace, workspaceId, {
                 document: {
                     schema: WorkspaceDocument.SCHEMA, root: 'target-tabs',
@@ -2810,7 +2810,7 @@ test.describe('Workstation.view.Workspace', () => {
             calls           = [];
 
         try {
-            workspace.nativeWindows.sources.get(workspace.id).connections.set("alerts", {
+            workspace.nativeWindows.sources.get(workspace.id).connections.set('workstation-vessel:alerts', {itemId: 'alerts', workspaceKey: 'workstation-vessel:alerts',
                 generationToken: 'lineage-3',
                 windowId       : 'tear-child',
                 windowName     : 'tearout-alerts'
@@ -2828,14 +2828,15 @@ test.describe('Workstation.view.Workspace', () => {
 
             await releaseVessel(workspace, 'tear-child');
 
-            expect(workspace.nativeWindows.getConnection(workspace.id, 'alerts')).toBeNull();
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'workstation-vessel:alerts')).toBeNull();
             expect(calls).toEqual([
                 ['proxy', 'tear-child'],
                 ['tear-out', {
                     generationToken: 'lineage-3',
                     itemId         : 'alerts',
                     windowId       : 'tear-child',
-                    windowName     : 'tearout-alerts'
+                    windowName     : 'tearout-alerts',
+                    workspaceKey   : 'workstation-vessel:alerts'
                 }],
                 ['park', {itemId: 'alerts', retirement: true}]
             ])
@@ -3099,12 +3100,12 @@ test.describe('Workstation.view.Workspace', () => {
         };
 
         try {
-            workspace.nativeWindows.sources.get(workspace.id).connections.set("alerts", {generationToken: 'lineage-2', windowId: 'tear-live', windowName: 'tearout-alerts'});
+            workspace.nativeWindows.sources.get(workspace.id).connections.set('workstation-vessel:alerts', {itemId: 'alerts', workspaceKey: 'workstation-vessel:alerts',generationToken: 'lineage-2', windowId: 'tear-live', windowName: 'tearout-alerts'});
 
             await expect(workspace.closeTearOutVessel({generationToken: 'lineage-1', itemId: 'alerts', windowName: 'tearout-alerts'}))
                 .resolves.toBe(false);
             expect(workspace.lastTearOutClose).toMatchObject({identity: {lineageMatches: false}, stage: 'identity-refused'});
-            expect(workspace.nativeWindows.getConnection(workspace.id, 'alerts'), 'the live vessel survives the stale retirement').toMatchObject({windowId: 'tear-live'});
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'workstation-vessel:alerts'), 'the live vessel survives the stale retirement').toMatchObject({windowId: 'tear-live'});
             expect(closes, 'nothing reached the platform').toEqual([]);
 
             await expect(workspace.closeTearOutVessel({generationToken: 'lineage-2', itemId: 'alerts', windowName: 'tearout-alerts'}))
@@ -4484,7 +4485,7 @@ test.describe('a released vessel retires its native park (prototype-call)', () =
     const parked = itemId => {
         const park = Neo.create(VesselPark, {disposeVessel: () => true, parkVessel: () => true, reshowVessel: () => true});
 
-        expect(park.onConversionIn({itemId, windowName: `tearout-${itemId}`})).toBe(true);
+        expect(park.onConversionIn({itemId, windowName: `tearout-${itemId}`, workspaceKey: `workstation-vessel:${itemId}`})).toBe(true);
         return park
     };
 

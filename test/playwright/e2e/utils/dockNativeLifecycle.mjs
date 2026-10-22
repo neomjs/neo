@@ -2,6 +2,9 @@ import {expect} from '@playwright/test';
 
 /**
  * @summary Reads the Group's native records and rejects an unavailable observation source.
+ *
+ * `connections` and `owners` are keyed by the item each record was opened for, the newest record winning,
+ * as an item's vessel is read; `connectionsByKey` and `ownersByKey` keep the registry's own Group keys.
  * @param {Object} app Connected Neural Link application.
  * @param {String} workspaceId Workspace component id.
  * @returns {Promise<Object>} Separate provisional connections, committed owners and pending retirements.
@@ -25,5 +28,13 @@ export async function readNativeLifecycle(app, workspaceId) {
     expect(Array.isArray(owners)).toBe(true);
     expect(Array.isArray(retirements)).toBe(true);
 
-    return {groupId, sourceId, connections: Object.fromEntries(connections), owners: Object.fromEntries(owners), retirements}
+    const byItem = entries => Object.fromEntries(entries.map(([, entry]) => [entry.itemId, entry]));
+
+    return {
+        groupId, sourceId, retirements,
+        connections     : byItem(connections),
+        connectionsByKey: Object.fromEntries(connections),
+        owners          : byItem(owners),
+        ownersByKey     : Object.fromEntries(owners)
+    }
 }

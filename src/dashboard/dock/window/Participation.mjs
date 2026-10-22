@@ -559,12 +559,13 @@ class Participation extends Base {
         if (!match) return null;
 
         const
-            [itemId, entry] = match,
-            ownershipId     = me.ownershipId,
-            registered      = Boolean(me.workspaceSet?.has(entry.workspaceKey)),
-            sourceId        = registered ? entry.workspaceKey : me.workspaceId,
-            document        = registered ? me.workspaceSet.getDocument(sourceId) : workspace.dockModel,
-            itemIds         = Object.keys(document?.items ?? {});
+            [, entry]   = match,
+            {itemId}    = entry,
+            ownershipId = me.ownershipId,
+            registered  = Boolean(me.workspaceSet?.has(entry.workspaceKey)),
+            sourceId    = registered ? entry.workspaceKey : me.workspaceId,
+            document    = registered ? me.workspaceSet.getDocument(sourceId) : workspace.dockModel,
+            itemIds     = Object.keys(document?.items ?? {});
 
         if (registered && itemIds.length === 0) {
             return null

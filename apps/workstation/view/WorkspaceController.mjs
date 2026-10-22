@@ -49,7 +49,8 @@ class WorkspaceController extends Controller {
      *   under) rebound to a new window — a reload of the main window while this worker lives — so the root
      *   moves itself into the new render target;
      * - a restored `?workspace=<key>` window bound under `key`;
-     * - a reloaded vessel window bound under its item's key.
+     * - a reloaded vessel window bound under a key opened for the item its URL names: the item's own key, or
+     *   a later one the native registry records for that item.
      *
      * A vessel connecting for the first time belongs to the tear-out lifecycle, which registers its target
      * itself; this handler recognises an already-mounted host and leaves it alone.
@@ -82,10 +83,11 @@ class WorkspaceController extends Controller {
             return true
         }
 
-        const declared = intent.mode === 'workspace' ? intent.key
-            : intent.mode === 'popout' ? root.tearOutWorkspaceKey(intent.key) : null;
+        const declared = intent.mode === 'workspace' ? binding.workspaceKey === intent.key
+            : intent.mode === 'popout' && (binding.workspaceKey === root.tearOutWorkspaceKey(intent.key) ||
+                root.nativeWindows?.getOwner(root.id, binding.workspaceKey)?.itemId === intent.key);
 
-        if (declared !== binding.workspaceKey) return false;
+        if (!declared) return false;
 
         const state = root.getPopupState(binding.workspaceKey);
 

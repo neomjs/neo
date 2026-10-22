@@ -310,7 +310,7 @@ class VesselWorkspace extends DockWorkspace {
         });
 
         me.nativeVesselParkHandlers = Neo.create(VesselPark, {
-            disposeVessel: ({itemId}) => me.retireReturnedVessel(VesselWorkspace.vesselWorkspaceId(itemId)),
+            disposeVessel: ({itemId, workspaceKey}) => me.retireReturnedVessel(workspaceKey ?? me.nativeWindows?.keyOf(me.id, itemId)),
             parkVessel   : vessel => me.parkTearOutVessel(vessel),
             reshowVessel : args => me.vesselTransaction.reshowVessel(args)
         });
@@ -508,12 +508,15 @@ class VesselWorkspace extends DockWorkspace {
                 outcome: 'committed'
             }),
             suspendNativeWindowDrag: (itemId, data) => {
+                const vessel = me.resolveTearOutVessel(itemId);
+
                 me.vesselConversionTargetWindowId = data?.targetWindowId ?? null;
 
                 return me.nativeVesselParkHandlers.onConversionIn({
                     itemId,
-                    sourceRect: me.resolveVesselRestoreAnchor(itemId),
-                    windowName: me.resolveTearOutVessel(itemId)?.windowName
+                    sourceRect  : me.resolveVesselRestoreAnchor(itemId),
+                    windowName  : vessel?.windowName,
+                    workspaceKey: vessel?.workspaceKey
                 })
             }
         }
@@ -524,8 +527,8 @@ class VesselWorkspace extends DockWorkspace {
      * @param {Object} data
      * @returns {Promise<Object|null>}
      */
-    async registerVesselWorkspaceTarget({app, itemId, windowId}) {
-        const state = this.getPopupState(VesselWorkspace.vesselWorkspaceId(itemId));
+    async registerVesselWorkspaceTarget({app, itemId, windowId, workspaceKey}) {
+        const state = this.getPopupState(workspaceKey);
         if (!state?.host || !app?.mainView) return null;
         state.itemId = itemId;
         if (state.windowId === windowId && state.host.parent === app.mainView) {
@@ -545,14 +548,13 @@ class VesselWorkspace extends DockWorkspace {
     /**
      * Retires one vessel target's registry and arbitration identities. Window destruction owns the
      * rendered subtree; this method only destroys live refs when the render target still exists.
-     * @param {String} itemId
+     * @param {String} workspaceKey The vessel's Group key.
      * @returns {Boolean}
      * @protected
      */
-    retireVesselWorkspaceTarget(itemId) {
-        let me          = this,
-            workspaceId = VesselWorkspace.vesselWorkspaceId(itemId),
-            state       = workspaceId && me.getPopupState(workspaceId);
+    retireVesselWorkspaceTarget(workspaceKey) {
+        let me    = this,
+            state = workspaceKey && me.getPopupState(workspaceKey);
 
         if (!state) return false;
 
@@ -731,10 +733,9 @@ class VesselWorkspace extends DockWorkspace {
                 // popup Workspace stays registered for a warm reload), and a record left behind receives the
                 // NEXT tear-out of the same item as a late binding of THIS adoption: the new vessel opens
                 // owned, skips the connect-first stage, and shows nothing.
-                if (closed && targetWorkspaceId === VesselWorkspace.MAIN_WORKSPACE_ID) {
-                    departing
-                        .filter(itemId => !Object.hasOwn(source.document.items, itemId))
-                        .forEach(itemId => me.nativeWindows?.recordOwner(me.id, itemId, null))
+                if (closed && targetWorkspaceId === VesselWorkspace.MAIN_WORKSPACE_ID &&
+                    departing.some(itemId => !Object.hasOwn(source.document.items, itemId))) {
+                    me.nativeWindows?.recordOwner(me.id, sourceWorkspaceId, null)
                 }
             }
             return true
@@ -879,7 +880,7 @@ class VesselWorkspace extends DockWorkspace {
     async retireReturnedVessel(workspaceId) {
         let me      = this,
             state   = me.getPopupState(workspaceId),
-            vessel  = state && me.resolveTearOutVessel(state.itemId),
+            vessel  = state && me.resolveTearOutVessel(state.itemId, workspaceId),
             bound   = !vessel && me.workspaceSet?.getParticipant(workspaceId)?.nativeWindow?.windowId(),
             receipt = me.lastCrossWindowTransfer;
 
@@ -1114,7 +1115,7 @@ class VesselWorkspace extends DockWorkspace {
     async openTearOutVessel({itemId, proxyRect, sortZone, sourceRect=null, topologyIdentity}) {
         let me         = this,
             {windowId} = me,
-            windowName = `tearout-${itemId}`;
+            windowName = me.tearOutWindowName(itemId, topologyIdentity?.workspaceKey);
 
         // Diagnostic trail for the birth gate: absence has three distinct layers (admission
         // refused / platform refused the window / window granted but never bound), and the
@@ -1191,21 +1192,42 @@ class VesselWorkspace extends DockWorkspace {
                 const owner = me.resolveItemWorkspaceId(itemId);
 
                 // Laid out by the gesture's source, main or a popup, until a committed transfer moves it into its vessel
-                return owner !== null && owner !== me.tearOutWorkspaceKey(itemId) &&
+                return owner !== null && owner !== vessel.workspaceKey &&
                     WorkspaceDocument.findContainingTabsId(me.getWorkspaceDocument(owner), itemId) !== null
             },
-            windowNameFor : itemId => `tearout-${itemId}`
+            windowNameFor : (itemId, workspaceKey) => me.tearOutWindowName(itemId, workspaceKey)
         }, vessel)
+    }
+
+    /**
+     * @summary Names a vessel's window `tearout-<itemId>`, plus the suffix its Group key was minted with.
+     * @param {String} itemId
+     * @param {String} [workspaceKey] The vessel's Group key.
+     * @returns {String}
+     * @protected
+     */
+    tearOutWindowName(itemId, workspaceKey) {
+        return `tearout-${itemId}${this.tearOutKeySuffix(itemId, workspaceKey)}`
+    }
+
+    /**
+     * @summary The Group key of an item's newest tear-out vessel, or null.
+     * @param {String} itemId
+     * @returns {String|null}
+     */
+    tearOutVesselKey(itemId) {
+        return this.nativeWindows?.keyOf(this.id, itemId) ?? null
     }
 
     /**
      * @summary Resolves the exact live vessel identity for one torn item, connect- or commit-side.
      * @param {String} itemId
+     * @param {String} [workspaceKey] The vessel's Group key; without it the item's newest vessel answers.
      * @returns {Object|null}
      * @protected
      */
-    resolveTearOutVessel(itemId) {
-        let entry = this.nativeWindows?.getConnection(this.id, itemId) ?? this.nativeWindows?.getOwner(this.id, itemId);
+    resolveTearOutVessel(itemId, workspaceKey=this.nativeWindows?.keyOf(this.id, itemId)) {
+        let entry = this.nativeWindows?.getConnection(this.id, workspaceKey) ?? this.nativeWindows?.getOwner(this.id, workspaceKey);
 
         if (!entry?.windowId) return null;
 
@@ -1213,7 +1235,7 @@ class VesselWorkspace extends DockWorkspace {
             ...entry,
             itemId,
             nativeRoute: entry.nativeRoute ?? Neo.manager?.Window?.get(entry.windowId)?.nativeRoute ?? null,
-            windowName : entry.windowName ?? `tearout-${itemId}`
+            windowName : entry.windowName ?? this.tearOutWindowName(itemId, workspaceKey)
         }
     }
 
@@ -1232,9 +1254,9 @@ class VesselWorkspace extends DockWorkspace {
      * @returns {Promise<Boolean>}
      * @protected
      */
-    async parkTearOutVessel({itemId, windowName}) {
+    async parkTearOutVessel({itemId, windowName, workspaceKey}) {
         let me           = this,
-            entry        = me.resolveTearOutVessel(itemId),
+            entry        = workspaceKey ? me.resolveTearOutVessel(itemId, workspaceKey) : me.resolveTearOutVessel(itemId),
             route        = entry?.nativeRoute,
             sourceWindow = Neo.manager?.Window?.get(entry?.windowId),
             targetWindow = Neo.manager?.Window?.get(me.vesselConversionTargetWindowId),
@@ -1421,7 +1443,7 @@ class VesselWorkspace extends DockWorkspace {
             await me.onDockZoneDocumentChange(document, operation);
             return true
         }
-        const workspaceId       = vessel.workspaceKey ?? VesselWorkspace.vesselWorkspaceId(itemId);
+        const workspaceId       = vessel.workspaceKey;
         const sourceWorkspaceId = me.resolveItemWorkspaceId(itemId);
         const existing          = me.getPopupState(workspaceId);
         let   state             = existing, committed = false;
@@ -1439,7 +1461,7 @@ class VesselWorkspace extends DockWorkspace {
                 }
             }, {provenance: {origin: 'human'}});
             state.committed = committed = true;
-            me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows?.getConnection(me.id, itemId) || null);
+            me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows?.getConnection(me.id, workspaceId) || null);
             const source = sourceWorkspaceId !== VesselWorkspace.MAIN_WORKSPACE_ID && me.getPopupState(sourceWorkspaceId);
             if (source) {
                 // Before the vessel mounts, so the vessel's own outcome cannot keep an emptied popup open. The
@@ -1447,9 +1469,9 @@ class VesselWorkspace extends DockWorkspace {
                 await source.host?.refreshPromise;
                 await me.retireReturnedVessel(sourceWorkspaceId)
             }
-            const connection = me.nativeWindows?.getOwner(me.id, itemId);
+            const connection = me.nativeWindows?.getOwner(me.id, workspaceId);
             if (connection?.windowId) await me.registerVesselWorkspaceTarget({
-                app: Neo.apps[connection.windowId], itemId, windowId: connection.windowId
+                app: Neo.apps[connection.windowId], itemId, windowId: connection.windowId, workspaceKey: workspaceId
             });
             return true
         } catch (error) {
@@ -1489,9 +1511,10 @@ class VesselWorkspace extends DockWorkspace {
         let me = this;
 
         connection && me.registerVesselWorkspaceTarget({
-            app     : Neo.apps[connection.windowId],
+            app         : Neo.apps[connection.windowId],
             itemId,
-            windowId: connection.windowId
+            windowId    : connection.windowId,
+            workspaceKey: connection.workspaceKey
         }).catch(error => {
             me.lastCrossWindowTransfer = {applied: false, errors: [error.message]}
         })
@@ -1534,7 +1557,7 @@ class VesselWorkspace extends DockWorkspace {
             return me.tearOutEmbodiment.promote({itemId, windowId}) !== false
         }
 
-        if (me.getPopupState(VesselWorkspace.vesselWorkspaceId(itemId))?.host) return true;
+        if (me.getPopupState(target.workspaceKey)?.host) return true;
         return super.reparentDockPane(me.paneCache[itemId] || pane, target, itemId)
     }
 
@@ -1552,10 +1575,11 @@ class VesselWorkspace extends DockWorkspace {
      * @protected
      */
     async afterTearOutWindowConnect({app, connection, itemId, windowId}) {
-        let me = this;
+        let me             = this,
+            {workspaceKey} = connection;
 
-        if (me.nativeWindows?.getOwner(me.id, itemId)?.windowId === windowId) {
-            await me.registerVesselWorkspaceTarget({app, itemId, windowId});
+        if (me.nativeWindows?.getOwner(me.id, workspaceKey)?.windowId === windowId) {
+            await me.registerVesselWorkspaceTarget({app, itemId, windowId, workspaceKey});
             return
         }
 
@@ -1566,7 +1590,7 @@ class VesselWorkspace extends DockWorkspace {
         // generation must never publish itself. A terminal landing meanwhile promoted the stage.
         if (
             staged && (me.isDestroyed || (
-                me.nativeWindows?.getConnection(me.id, itemId) !== connection && me.nativeWindows?.getOwner(me.id, itemId)?.windowId !== windowId
+                me.nativeWindows?.getConnection(me.id, workspaceKey) !== connection && me.nativeWindows?.getOwner(me.id, workspaceKey)?.windowId !== windowId
             ))
         ) {
             me.tearOutEmbodiment.restore({itemId, windowId})
@@ -1601,9 +1625,10 @@ class VesselWorkspace extends DockWorkspace {
      */
     retireReleasedPark({windowId, workspaceKey}) {
         const park   = this.nativeVesselParkHandlers,
-              itemId = (park?.transition?.vessel ?? park?.parkedVessel)?.itemId;
+              vessel = park?.transition?.vessel ?? park?.parkedVessel,
+              itemId = vessel?.itemId;
 
-        if (itemId && (workspaceKey === VesselWorkspace.vesselWorkspaceId(itemId) || this.resolveTearOutVessel(itemId)?.windowId === windowId)) {
+        if (itemId && (workspaceKey === vessel.workspaceKey || this.resolveTearOutVessel(itemId, vessel.workspaceKey)?.windowId === windowId)) {
             park.onVesselRetired({itemId, retirement: true})
         }
     }
@@ -1642,14 +1667,15 @@ class VesselWorkspace extends DockWorkspace {
      * workspace survives headless, the vessel target retire with it.
      * @param {Object} data
      * @param {String} data.itemId
+     * @param {String} data.workspaceKey The released vessel's Group key.
      * @param {Boolean} [data.recovered=true] `false` when the vessel's workspace stays registered headless.
      * @protected
      */
-    afterTearOutWindowDisconnect({itemId, recovered=true}) {
+    afterTearOutWindowDisconnect({itemId, recovered=true, workspaceKey}) {
         let me = this;
 
         me.nativeVesselParkHandlers.onVesselRetired({itemId, retirement: true});
-        recovered && me.retireVesselWorkspaceTarget(itemId)
+        recovered && me.retireVesselWorkspaceTarget(workspaceKey)
     }
 
     /**

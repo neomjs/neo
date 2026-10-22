@@ -190,8 +190,8 @@ function describeClaimSurfaces(workspace, {coordinator=null, nativeWindowId=null
             source: {id: sourceWindowId, innerRect: rectOf(sourceWindowId)}
         },
         owners: registry ? {
-            connections       : registry.connectionEntries(workspace.id).map(([itemId]) => itemId),
-            owned             : registry.ownerEntries(workspace.id).map(([itemId, entry]) => ({itemId, windowId: entry?.windowId ?? null, windowName: entry?.windowName ?? null})),
+            connections       : registry.connectionEntries(workspace.id).map(([, entry]) => entry?.itemId ?? null),
+            owned             : registry.ownerEntries(workspace.id).map(([, entry]) => ({itemId: entry?.itemId ?? null, windowId: entry?.windowId ?? null, windowName: entry?.windowName ?? null})),
             pendingRetirements: registry.pendingRetirements(workspace.id).map(vessel => ({itemId: vessel?.itemId ?? null, windowName: vessel?.windowName ?? null}))
         } : null
     }
