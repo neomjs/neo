@@ -833,15 +833,16 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                     onDragEnd   : () => calls.push('coordinator-end'),
                     onDragMove  : () => calls.push('coordinator-move')
                 },
-                enableCrossZoneDrag: false,
-                isReleasedInside   : () => true,
-                isWindowDragging   : false,
-                owner              : {up: () => ({fire: name => calls.push(name)})},
-                releaseVoidsReorder: () => true,
-                remoteDropCommitted: false,
-                sortGroup          : 'dock-demo',
-                stackDragActive    : false,
-                startIndex         : 2
+                enableCrossZoneDrag : false,
+                isReleasedInside    : () => true,
+                isWindowDragging    : false,
+                owner               : {up: () => ({fire: name => calls.push(name)})},
+                releaseVoidsReorder : () => true,
+                remoteDropCommitted : false,
+                resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
+                sortGroup           : 'dock-demo',
+                stackDragActive     : false,
+                startIndex          : 2
             };
 
             try {
