@@ -105,6 +105,8 @@ class TopologyLibrary extends Base {
     #retirement = null
     /** @member {Number|null} #retryTimer=null */
     #retryTimer = null
+    /** @member {String|null} #refusal=null The last reported refusal, so a repeating one warns once. */
+    #refusal = null
 
     /**
      * @summary Retains one Group and observes its existing binding lease, independently of windows.
@@ -162,13 +164,31 @@ class TopologyLibrary extends Base {
 
         try {
             const {topology, errors} = attachment.capture();
-            if (errors.length) return {persisted: false, current: false, errors};
+            if (errors.length) return this.#refuse(errors);
             const saved = this.save(topology, {activate: true, replace: true});
-            if (saved.errors.length) return {persisted: false, current: false, errors: saved.errors};
+            if (saved.errors.length) return this.#refuse(saved.errors);
+            this.#refusal = null;
             return {...await this.persist(), topology}
         } catch (error) {
-            return {persisted: false, current: false, errors: [String(error?.message ?? error)]}
+            return this.#refuse([String(error?.message ?? error)])
         }
+    }
+
+    /**
+     * @summary Records and reports a refused auto-save. The commit listener discards the receipt, so
+     * without this a broken capture keeps the stored layout and every later commit fails unnoticed.
+     * @param {String[]} errors
+     * @returns {Object} The refusal receipt.
+     * @private
+     */
+    #refuse(errors) {
+        const key = errors.join('\n');
+        this.lastErrors = errors;
+        if (key !== this.#refusal) {
+            this.#refusal = key;
+            console.warn('Topology auto-save refused; the stored layout keeps its last saved state', errors)
+        }
+        return {persisted: false, current: false, errors}
     }
 
     /**

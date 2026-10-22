@@ -457,6 +457,41 @@ test.describe('Neo.dashboard.dock.persistence.TopologyLibrary', () => {
         expect(Transaction.get(group.id)).toBeNull()
     });
 
+    test('a refused auto-save capture warns once per distinct error set and is recorded, never swallowed', async () => {
+        const group  = createGroup(), record = topology('refusal'), warnings = [], warn = console.warn;
+        let   errors = ['fallbackTarget node "split-root-0" does not exist in workspace "main"'];
+
+        library.persistenceAdapter = {write: async () => {}};
+        library.attachGroup({
+            capture     : () => errors.length ? {topology: null, errors} : {topology: record, errors: []},
+            dispose     : () => {},
+            groupId     : group.id,
+            manager     : Transaction,
+            retryDelayMs: 60000
+        });
+        console.warn = (...args) => warnings.push(args);
+
+        try {
+            expect(await library.persistCurrent()).toMatchObject({persisted: false, errors});
+            await library.persistCurrent();
+            expect(warnings).toHaveLength(1);
+            expect(warnings[0]).toContainEqual(errors);
+            expect(library.lastErrors).toEqual(errors);
+
+            errors = ['another refusal'];
+            await library.persistCurrent();
+            expect(warnings).toHaveLength(2);
+
+            errors = [];
+            expect(await library.persistCurrent()).toMatchObject({persisted: true});
+            errors = ['another refusal'];
+            await library.persistCurrent();
+            expect(warnings, 'a break that returns after a successful save is reported again').toHaveLength(3)
+        } finally {
+            console.warn = warn
+        }
+    });
+
     test('Group retirement cannot discard an external reference and succeeds after its exact release', async () => {
         const group = createGroup(), owner = {};
 
