@@ -13,23 +13,36 @@ const
     hiddenCalls = [],
     elements    = new Map();
 
+const defaultStyleValues = {
+    'backdrop-filter': 'none',
+    contain          : 'none',
+    filter           : 'none',
+    overflow         : 'visible',
+    perspective      : 'none',
+    position         : 'static',
+    transform        : 'none',
+    'will-change'    : 'auto'
+};
+
 const defaultView = {
-    getComputedStyle() {
+    getComputedStyle(node) {
         return {
-            getPropertyValue() {
-                return '0px'
+            getPropertyValue(prop) {
+                return node?.computedStyle?.[prop] ?? defaultStyleValues[prop] ?? '0px'
             }
         }
     }
 };
 
-function createElement(id, {height, width, x, y}, offsetParent=null) {
+function createElement(id, {height, width, x, y}, offsetParent=null, computedStyle=null) {
     return {
         id,
+        computedStyle,
         connected    : true,
         nodeType     : 1,
         offsetParent,
-        parentElement: null,
+        ownerDocument: {defaultView, documentElement: {id: 'document-element'}},
+        parentElement: offsetParent,
         style        : {},
         // Backed by one Set, so the three methods agree with each other. `contains` is not decoration:
         // `align()` reads it to decide whether the resolved zone class is already on the subject, and a
@@ -72,7 +85,8 @@ globalThis.document = {
 };
 
 body.ownerDocument = subject.ownerDocument = target.ownerDocument = {
-    defaultView
+    defaultView,
+    documentElement: globalThis.document.documentElement
 };
 
 elements.set('body', body);
@@ -249,5 +263,96 @@ test.describe('Neo.main.DomAccess alignment targets', () => {
 
         expect(hiddenCalls).toEqual([{id: 'subject', hidden: true}]);
         expect(DomAccess._aligns?.has('subject') || false).toBe(false)
+    });
+
+    test('getClippedRect returns the fixed-container-clipped rect for a target under position:fixed outside static overflow:hidden ancestors', async () => {
+        const
+            staticSplit   = createElement('dock-split',     {x: 233,  y: 80, width: 955,  height: 604}, body,          {overflow: 'hidden',  position: 'static'}),
+            maximizedPane = createElement('maximized-pane', {x: 0,    y: 0,  width: 1440, height: 900}, null,          {overflow: 'hidden',  position: 'fixed'}),
+            headerToolbar = createElement('header-toolbar', {x: 0,    y: 0,  width: 1440, height: 36},  maximizedPane, {overflow: 'visible', position: 'relative'}),
+            overflowBtn   = createElement('overflow-btn',   {x: 1288, y: 6,  width: 24,   height: 24},  headerToolbar, {overflow: 'visible', position: 'relative'});
+
+        maximizedPane.parentElement = staticSplit;
+        elements.set('overflow-btn', overflowBtn);
+
+        const clipped = DomAccess.getClippedRect({id: overflowBtn});
+
+        expect(clipped && {x: clipped.x, y: clipped.y, width: clipped.width, height: clipped.height})
+            .toEqual({x: 1288, y: 6, width: 24, height: 24});
+
+        await alignSubject({
+            constrainTo: 'body',
+            target     : 'overflow-btn'
+        });
+
+        expect(hiddenCalls).toEqual([]);
+        expect(DomAccess._aligns.has('subject')).toBe(true);
+
+        // When a descendant overhangs the fixed container's own overflow:hidden bounds, getClippedRect clips to the fixed container.
+        const overhangingBtn = createElement('overhanging-btn', {x: 1420, y: 6, width: 40, height: 24}, headerToolbar, {overflow: 'visible', position: 'relative'});
+
+        const fixedClipped = DomAccess.getClippedRect({id: overhangingBtn});
+        expect(fixedClipped && {x: fixedClipped.x, y: fixedClipped.y, width: fixedClipped.width, height: fixedClipped.height})
+            .toEqual({x: 1420, y: 6, width: 20, height: 24})
+    });
+
+    test('getClippedRect clips a target under position:fixed by its own scroll container and by a transformed fixed-containing ancestor', () => {
+        const
+            fixedPane       = createElement('fixed-pane',   {x: 0,   y: 0,   width: 1440, height: 900}, null,      {overflow: 'hidden', position: 'fixed'}),
+            scrollContainer = createElement('scroller',     {x: 100, y: 100, width: 300,  height: 200}, fixedPane, {overflow: 'auto',   position: 'static'}),
+            partialTarget   = createElement('partial-item', {x: 350, y: 120, width: 100,  height: 40},  fixedPane, {overflow: 'visible', position: 'static'}),
+            hiddenTarget    = createElement('hidden-item',  {x: 450, y: 120, width: 80,   height: 40},  fixedPane, {overflow: 'visible', position: 'static'});
+
+        fixedPane.parentElement     = body;
+        partialTarget.parentElement = scrollContainer;
+        hiddenTarget.parentElement  = scrollContainer;
+
+        const partialRect = DomAccess.getClippedRect({id: partialTarget});
+        expect(partialRect && {x: partialRect.x, y: partialRect.y, width: partialRect.width, height: partialRect.height})
+            .toEqual({x: 350, y: 120, width: 50, height: 40});
+
+        expect(DomAccess.getClippedRect({id: hiddenTarget})).toBe(false);
+
+        // If an ancestor above position:fixed establishes a fixed containing block (e.g. transform), its overflow clips.
+        const transformedHost = createElement('transformed-host', {x: 200, y: 50, width: 600, height: 400}, body, {
+            overflow : 'hidden',
+            position : 'static',
+            transform: 'translate3d(0px, 0px, 0px)'
+        });
+        fixedPane.parentElement = transformedHost;
+
+        const outsideTransformed = createElement('outside-transformed', {x: 900, y: 60, width: 30, height: 30}, fixedPane, {overflow: 'visible', position: 'static'});
+
+        expect(DomAccess.getClippedRect({id: outsideTransformed})).toBe(false)
+    });
+
+    test('getClippedRect skips intermediate static overflow:hidden boxes for position:absolute targets and clips at the positioned ancestor', () => {
+        const
+            positionedHost = createElement('positioned-host', {x: 100, y: 50,  width: 400, height: 300}, body,           {overflow: 'hidden',  position: 'relative'}),
+            staticClip     = createElement('static-clip',     {x: 100, y: 50,  width: 120, height: 80},  positionedHost, {overflow: 'hidden',  position: 'static'}),
+            absTarget      = createElement('abs-target',      {x: 450, y: 200, width: 100, height: 40},  positionedHost, {overflow: 'visible', position: 'absolute'});
+
+        absTarget.parentElement = staticClip;
+
+        const clipped = DomAccess.getClippedRect({id: absTarget});
+        expect(clipped && {x: clipped.x, y: clipped.y, width: clipped.width, height: clipped.height})
+            .toEqual({x: 450, y: 200, width: 50, height: 40})
+    });
+
+    test('getClippedRect handles display:none subtrees and zero-dimension clipping ancestors without boolean intersection coercion', () => {
+        const
+            zeroOuter    = createElement('zero-outer',  {x: 0,  y: 0,  width: 0, height: 0}, body,      {overflow: 'hidden',  position: 'static'}),
+            zeroInner    = createElement('zero-inner',  {x: 0,  y: 0,  width: 0, height: 0}, zeroOuter, {overflow: 'hidden',  position: 'static'}),
+            unlaidTarget = createElement('unlaid-node', {x: 0,  y: 0,  width: 0, height: 0}, null,      {overflow: 'visible', position: 'static'}),
+            zeroClipHost = createElement('zero-clip',   {x: 50, y: 50, width: 0, height: 0}, body,      {overflow: 'hidden',  position: 'relative'}),
+            liveChild    = createElement('live-child',  {x: 40, y: 40, width: 30, height: 30}, zeroClipHost, {overflow: 'visible', position: 'static'});
+
+        unlaidTarget.parentElement = zeroInner;
+
+        const unlaidRect = DomAccess.getClippedRect({id: unlaidTarget});
+        expect(unlaidRect && {x: unlaidRect.x, y: unlaidRect.y, width: unlaidRect.width, height: unlaidRect.height})
+            .toEqual({x: 0, y: 0, width: 0, height: 0});
+
+        expect(DomAccess.getClippedRect({id: liveChild})).toBe(false)
     })
 });
