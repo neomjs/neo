@@ -14,6 +14,8 @@
     font-weight        : 400;
     height             : 100%;
     line-height        : 19px;
+    // A grid no ancestor bounds would size to its rows and pool one per record: never taller than its window
+    max-height         : 100vh;
     min-height         : 0;
     overflow-anchor    : none;
     overflow-x         : hidden;
