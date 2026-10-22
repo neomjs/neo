@@ -692,9 +692,11 @@ class Workspace extends Container {
     construct(config) {
         super.construct(config);
 
-        // Closing a node's last item prunes its empty TabContainer. The surviving workspace
-        // root is therefore the semantic focus fallback and must accept programmatic focus.
-        if (this.enableDockCloseAction) this.vdom.tabIndex = -1;
+        if (this.enableDockCloseAction) {
+            // Closing a node's last item prunes its empty TabContainer. The surviving workspace
+            // root is therefore the semantic focus fallback and must accept programmatic focus.
+            this.vdom.tabIndex = -1
+        }
 
         this.dockPreviewProducer = Neo.create(PreviewProducer);
 
@@ -772,7 +774,22 @@ class Workspace extends Container {
      * @protected
      */
     afterSetHeaderActionsShowOnHover(value, oldValue) {
-        oldValue !== undefined && Reconciler.collectProjectedTabs(Reconciler.liveShell(this.getDockHost(), this.dockShellIndex)).forEach(tab => tab.getTabBar?.() && (tab.getTabBar().showOnHover = value === true))
+        if (oldValue !== undefined) {
+            let host = this.getDockHost();
+
+            if (host?.items?.length) {
+                let shell = Reconciler.liveShell(host, this.dockShellIndex),
+                    tabs  = Reconciler.collectProjectedTabs(shell);
+
+                tabs.forEach(tab => {
+                    let bar = tab.getTabBar?.();
+
+                    if (bar) {
+                        bar.showOnHover = value === true
+                    }
+                })
+            }
+        }
     }
 
     /**
@@ -1669,7 +1686,9 @@ class Workspace extends Container {
      * @returns {Neo.container.Base|null}
      */
     getDockHost() {
-        return this.dockHostReference ? this.getReference(this.dockHostReference) : this
+        let {dockHostReference} = this;
+
+        return dockHostReference ? this.getReference(dockHostReference) : this
     }
 
     /**
@@ -2441,7 +2460,7 @@ class Workspace extends Container {
                 // nowhere to arrive.
                 onDockHeaderAction      : me.onDockHeaderAction.bind(me),
                 enableDockCloseAction   : me.enableDockCloseAction,
-                headerActionsShowOnHover: options.headerActionsShowOnHover ?? options.showOnHover ?? me.headerActionsShowOnHover,
+                headerActionsShowOnHover: options.headerActionsShowOnHover ?? me.headerActionsShowOnHover,
                 ...(me.enableDockLockAction && {
                     dockLockIconCls     : me.dockLockIconCls,
                     dockUnlockIconCls   : me.dockUnlockIconCls,
@@ -2781,9 +2800,11 @@ class Workspace extends Container {
     resolveProjectedPane(itemId, item) {
         const returning = this.tearOutHandlers?.takeReturningPane?.(itemId);
 
-        if (returning && !returning.isDestroyed) {
-            returning.parent?.remove(returning, false);
-            return returning
+        if (returning) {
+            if (!returning.isDestroyed) {
+                returning.parent?.remove(returning, false);
+                return returning
+            }
         }
 
         return this.decorateFlipMarker(this.resolvePane(itemId, item), itemId)

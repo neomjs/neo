@@ -715,4 +715,44 @@ test.describe('Neo tab header actions', () => {
         expect(isWithheld(pin)).toBe(true);
         expect(isWithheld(close)).toBe(false)
     });
+
+    test('bindActionItems stamps the gate once for a gated ActionButton press and withholds a plain button that starts pressed once unpressed', () => {
+        const tabs = own(Neo.create(TabContainer, {
+            appName,
+            headerActions: [
+                {action: 'lock', ntype: 'toolbar-action-button', iconCls: 'fa fa-lock',      showOnFocus: true, pressed: false},
+                {action: 'pin',                                  iconCls: 'fa fa-thumbtack', showOnFocus: true, pressed: true}
+            ],
+            items: [{
+                module: Component,
+                header: {text: 'One'}
+            }]
+        }));
+
+        const bar        = tabs.getTabBar(),
+              lock       = tabs.getAction('lock'),
+              pin        = tabs.getAction('pin'),
+              isWithheld = item => item.cls.includes('neo-toolbar-action-context-inactive');
+
+        // `pin` is a plain `button.Base` that started `pressed: true`, so it starts revealed while unfocused
+        expect(isWithheld(lock)).toBe(true);
+        expect(isWithheld(pin)).toBe(false);
+
+        let   gateCalls = 0;
+        const origApply = bar.applyContextualActionState.bind(bar);
+        bar.applyContextualActionState = (...args) => {
+            gateCalls++;
+            return origApply(...args)
+        };
+
+        // 1. Pressing a gated `ActionButton` stamps the gate exactly once (via `ActionButton#afterSetPressed`, not a duplicate observer)
+        lock.pressed = true;
+        expect(gateCalls).toBe(1);
+        expect(isWithheld(lock)).toBe(false);
+
+        // 2. Unpressing the plain `button.Base` that started `pressed: true` while unfocused and unhovered withholds it
+        pin.pressed = false;
+        expect(gateCalls).toBe(2);
+        expect(isWithheld(pin)).toBe(true)
+    });
 });

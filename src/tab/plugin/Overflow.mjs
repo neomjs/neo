@@ -1,6 +1,5 @@
-import Button   from '../../button/Base.mjs';
-import NeoArray from '../../util/Array.mjs';
-import Plugin   from '../../plugin/Base.mjs';
+import Button from '../../button/Base.mjs';
+import Plugin from '../../plugin/Base.mjs';
 
 /**
  * @summary The tab-overflow affordance for a projected tab header toolbar: when headers exceed the
@@ -881,31 +880,11 @@ class Overflow extends Plugin {
                     ? actionItems.filter(item => (item.cls || []).includes('neo-toolbar-action-context-inactive'))
                     : [],
                 needRevealProbe = owner.showOnHover === true && withheldActions.length > 0
-                    && (recapture || !Number.isFinite(me.revealedClusterSpan)),
-                priorVisibilities;
+                    && (recapture || !Number.isFinite(me.revealedClusterSpan));
 
             if (needRevealProbe) {
                 me.measuringWithheldActions = true;
-                priorVisibilities = withheldActions.map(item => {
-                    let cls             = [...(item.cls || [])],
-                        style           = {...(item.style || {})},
-                        vdom            = item.vdom,
-                        prevVis         = style.visibility,
-                        hadprevVis      = Object.hasOwn(style, 'visibility'),
-                        hadRemoveDom    = Boolean(vdom && Object.hasOwn(vdom, 'removeDom')),
-                        prevDomWithheld = item.domWithheld;
-
-                    NeoArray.remove(cls, 'neo-toolbar-action-context-inactive');
-                    style.visibility = 'hidden';
-                    item.domWithheld = false;
-                    vdom && delete vdom.removeDom;
-                    item.cls         = cls;
-                    item.style       = style;
-
-                    return {hadprevVis, hadRemoveDom, item, prevDomWithheld, prevVis}
-                });
-                owner.updateDepth = -1;
-                await owner.promiseUpdate?.()
+                await owner.setContextualActionMeasureReveal?.(true)
             }
 
             let controlId = me.control?.mounted ? me.control.id : null,
@@ -913,30 +892,7 @@ class Overflow extends Plugin {
                 rects     = await owner.getLayoutRect(ids);
 
             if (needRevealProbe) {
-                priorVisibilities.forEach(({hadprevVis, hadRemoveDom, item, prevDomWithheld, prevVis}) => {
-                    let cls   = [...(item.cls || [])],
-                        style = {...(item.style || {})},
-                        vdom  = item.vdom;
-
-                    if (!owner.contextualActionsVisible && !item.pressed) {
-                        NeoArray.add(cls, 'neo-toolbar-action-context-inactive');
-                        item.domWithheld = prevDomWithheld;
-                        if (vdom && hadRemoveDom) {
-                            vdom.removeDom = true
-                        }
-                    }
-
-                    if (hadprevVis) {
-                        style.visibility = prevVis
-                    } else {
-                        delete style.visibility
-                    }
-
-                    item.cls   = cls;
-                    item.style = style
-                });
-                owner.updateDepth = -1;
-                await owner.promiseUpdate?.();
+                await owner.setContextualActionMeasureReveal?.(false);
                 me.measuringWithheldActions = false
             }
 

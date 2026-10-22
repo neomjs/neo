@@ -151,8 +151,8 @@ feel cheap even when it is correct.
 By default, a pane's contextual header actions (`reload`, `pin`, `lock`, `pop-out`) stay withheld until that pane holds
 focus (`showOnFocus: true`), keeping inactive headers visually quiet while `close` and any pressed toggle (`pin`, `lock`)
 remain visible. When a composition wants pointer hover to reveal an unfocused pane's contextual actions as well, set
-`headerActionsShowOnHover: true` on `Neo.dashboard.dock.Workspace` (or pass `headerActionsShowOnHover: true` /
-`showOnHover: true` to `LayoutAdapter.project`). That threads `showOnHover: true` to every projected tab header toolbar
+`headerActionsShowOnHover: true` on `Neo.dashboard.dock.Workspace` (or pass `headerActionsShowOnHover: true` to
+`LayoutAdapter.project`). That threads `showOnHover: true` to every projected tab header toolbar
 so `contextualActionsVisible` responds to `focus || (showOnHover && hover)`, while `Neo.tab.plugin.Overflow` reserves
 the full revealed action-cluster span up front so hovering into and out of a dense tab strip never shifts its overflow
 partition.

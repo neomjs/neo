@@ -139,6 +139,13 @@ class Toolbar extends Container {
     focusSubjectHovered = false
 
     /**
+     * Whether focus-gated actions are temporarily revealed (`visibility: 'hidden'`) for layout measurement.
+     * @member {Boolean}
+     * @protected
+     */
+    measuringContextualActions = false
+
+    /**
      * Reconciles a live action-collection replacement after construction. Initial materialisation
      * stays inside createItems() so the toolbar still commits one child tree.
      * @param {Object[]|String[]|null} value
@@ -267,7 +274,7 @@ class Toolbar extends Container {
      */
     applyContextualActionState(silent=false) {
         let me      = this,
-            visible = me.contextualActionsVisible,
+            visible = me.contextualActionsVisible || me.measuringContextualActions === true,
             touched = false;
 
         me.getActionItems().forEach(item => {
@@ -362,15 +369,76 @@ class Toolbar extends Container {
     }
 
     /**
-     * Subscribes the focus gate to its subject.
+     * Temporarily reveals withheld focus-gated actions (`visibility: 'hidden'`) so a layout
+     * consumer such as {@link Neo.tab.plugin.Overflow} can measure their full main-axis extent,
+     * or restores them by re-deriving state through {@link #applyContextualActionState}.
      *
-     * Idempotent and safe to call early: the subject may not exist yet when a toolbar is built as
-     * an early child, so the first attempt can resolve nothing. It then leaves the toolbar unwired
-     * rather than marking it done, and the owner's `onConstructed` or this toolbar's mount retries.
-     * Binding once at a single moment would be either too early for the subject or too late for a
-     * toolbar that never mounts.
-     * @protected
+     * The toolbar remains the sole writer of an action's withhold layer (`cls`, `style`,
+     * `domWithheld`, `vdom.removeDom`), using `setSilent` per action and a single owner update.
+     * @param {Boolean} active `true` to stage the hidden measurement reveal; `false` to restore.
+     * @returns {Promise<void>|undefined}
      */
+    setContextualActionMeasureReveal(active) {
+        let me      = this,
+            touched = false;
+
+        if (active) {
+            me.getActionItems().forEach(item => {
+                if (!me.isFocusGatedAction(item) || !(item.cls || []).includes('neo-toolbar-action-context-inactive')) {
+                    return
+                }
+
+                let style  = {...(item.style || {})},
+                    hadVis = Object.hasOwn(style, 'visibility');
+
+                if (!Object.hasOwn(item, '_toolbarActionMeasureVisibility')) {
+                    item._toolbarActionMeasureVisibility = hadVis ? {hadVis: true, value: style.visibility} : {hadVis: false}
+                }
+
+                style.visibility = 'hidden';
+                item.setSilent({style});
+                touched = true
+            });
+
+            me.measuringContextualActions = true;
+            me.applyContextualActionState(true);
+
+            if (touched) {
+                me.updateDepth = -1;
+                return me.promiseUpdate ? me.promiseUpdate() : me.update?.()
+            }
+        } else {
+            me.measuringContextualActions = false;
+
+            me.getActionItems().forEach(item => {
+                if (!Object.hasOwn(item, '_toolbarActionMeasureVisibility')) {
+                    return
+                }
+
+                let saved = item._toolbarActionMeasureVisibility,
+                    style = {...(item.style || {})};
+
+                delete item._toolbarActionMeasureVisibility;
+
+                if (saved.hadVis) {
+                    style.visibility = saved.value
+                } else {
+                    delete style.visibility
+                }
+
+                item.setSilent({style});
+                touched = true
+            });
+
+            me.applyContextualActionState(true);
+
+            if (touched) {
+                me.updateDepth = -1;
+                return me.promiseUpdate ? me.promiseUpdate() : me.update?.()
+            }
+        }
+    }
+
     /**
      * Triggered after the showOnHover config got changed.
      * @param {Boolean} value
@@ -481,9 +549,10 @@ class Toolbar extends Container {
             }, me);
 
             // Standard `button.Base` items used directly in a toolbar's `actions` array carry a
-            // reactive `pressed` config without `toolbar.button.Action`'s override; keep their
-            // context-inactive class in step when `pressed` changes while unfocused/unhovered.
-            if (me.isFocusGatedAction(item) && !item.isActionButton && item.getConfig?.('pressed') !== undefined) {
+            // reactive `pressed` config without `Neo.toolbar.ActionButton`'s override; bind on the
+            // declared `showOnFocus === true` gate so items that start `pressed: true` still
+            // re-evaluate `applyContextualActionState()` when unpressed while unfocused/unhovered.
+            if (item.showOnFocus === true && !(item instanceof ActionButton) && item.getConfig?.('pressed') !== undefined) {
                 me.observeConfig(item, 'pressed', () => {
                     me.applyContextualActionState()
                 })

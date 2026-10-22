@@ -2066,10 +2066,12 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
  * instead, against the real plugin rather than a synthetic one.
  */
 test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers every registration', () => {
-    let Overflow;
+    let Overflow,
+        Toolbar;
 
     test.beforeAll(async () => {
-        Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default
+        Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default;
+        Toolbar  = (await import('../../../../../src/toolbar/Base.mjs')).default
     });
 
     test('a remount releases the DOM listener as well as the seven Observable subscriptions', () => {
@@ -2128,10 +2130,22 @@ test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers ever
             vdom : {}
         });
 
+        const makeAction = (id, action, showOnFocus) => ({
+            action,
+            cls        : showOnFocus ? ['neo-toolbar-action-context-inactive'] : [],
+            domWithheld: showOnFocus,
+            hidden     : false,
+            id,
+            setSilent(values) { Object.assign(this, values) },
+            showOnFocus,
+            style: {},
+            vdom : showOnFocus ? {removeDom: true} : {}
+        });
+
         const buttons = ['t1', 't2', 't3', 't4'].map(makeButton),
-              reload  = {action: 'reload', cls: ['neo-toolbar-action-context-inactive'], hidden: false, id: 'act-reload', showOnFocus: true, style: {}},
-              pin     = {action: 'pin',    cls: ['neo-toolbar-action-context-inactive'], hidden: false, id: 'act-pin',    showOnFocus: true, style: {}},
-              close   = {action: 'close',  cls: [],                                      hidden: false, id: 'act-close',  showOnFocus: false, style: {}},
+              reload  = makeAction('act-reload', 'reload', true),
+              pin     = makeAction('act-pin',    'pin',    true),
+              close   = makeAction('act-close',  'close',  false),
               actions = [reload, pin, close];
 
         const rectFor = id => {
@@ -2153,49 +2167,52 @@ test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers ever
 
         const parent = {activeIndex: 0, on: () => {}, un: () => {}},
               owner  = {
-                  appName                 : 'NeoTabPluginOverflowTest',
-                  contextualActionsVisible: false,
-                  id                      : 'hover-owner',
-                  items                   : buttons,
-                  mounted                 : true,
+                  appName                         : 'NeoTabPluginOverflowTest',
+                  contextualActionsVisible        : false,
+                  id                              : 'hover-owner',
+                  items                           : buttons,
+                  mounted                         : true,
                   parent,
-                  showOnHover             : true,
-                  theme                   : 'neo-theme-neo-dark',
-                  windowId                : 1,
-                  add                     : cfg => ({...cfg, destroy: () => {}, id: 'ctrl-1', mounted: true}),
-                  addDomListeners         : () => {},
-                  fire                    : () => {},
-                  getActionItems          : () => actions,
-                  getLayoutRect           : async ids => ids.map(rectFor),
-                  getTabButtons           : () => buttons,
-                  getTheme                : () => 'neo-theme-neo-dark',
-                  on                      : () => {},
-                  promiseUpdate           : async () => {},
-                  remove                  : () => {},
-                  removeDomListeners      : () => {},
-                  un                      : () => {},
-                  up                      : () => parent,
-                  update                  : () => {}
+                  showOnHover                     : true,
+                  theme                           : 'neo-theme-neo-dark',
+                  windowId                        : 1,
+                  add                             : cfg => ({...cfg, destroy: () => {}, id: 'ctrl-1', mounted: true}),
+                  addDomListeners                 : () => {},
+                  applyContextualActionState      : Toolbar.prototype.applyContextualActionState,
+                  fire                            : () => {},
+                  getActionItems                  : () => actions,
+                  getLayoutRect                   : async ids => ids.map(rectFor),
+                  getTabButtons                   : () => buttons,
+                  getTheme                        : () => 'neo-theme-neo-dark',
+                  isFocusGatedAction              : Toolbar.prototype.isFocusGatedAction,
+                  on                              : () => {},
+                  promiseUpdate                   : async () => {},
+                  remove                          : () => {},
+                  removeDomListeners              : () => {},
+                  setContextualActionMeasureReveal: Toolbar.prototype.setContextualActionMeasureReveal,
+                  syncActionDomPresence           : Toolbar.prototype.syncActionDomPresence,
+                  un                              : () => {},
+                  up                              : () => parent,
+                  update                          : () => {}
               },
               plugin = Neo.create(Overflow, {
                   appName: 'NeoTabPluginOverflowTest',
+                  control: {alignTo() {}, destroy() {}, iconCls: 'fa fa-ellipsis', id: 'ctrl-1', mounted: true},
                   owner
               });
 
         await plugin.whenProjectionIdle();
         const beforeHoverVisible = buttons.filter(b => !b.hidden).map(b => b.id);
 
-        // Simulate pointer hover revealing the focus-gated actions
+        // Simulate pointer hover revealing the focus-gated actions through the toolbar's own gate
         owner.contextualActionsVisible = true;
-        reload.cls = [];
-        pin.cls    = [];
+        owner.applyContextualActionState(true);
         await plugin.project(false);
         const duringHoverVisible = buttons.filter(b => !b.hidden).map(b => b.id);
 
-        // Simulate pointer leaving and re-withholding the focus-gated actions
+        // Simulate pointer leaving and re-withholding the focus-gated actions through the toolbar's own gate
         owner.contextualActionsVisible = false;
-        reload.cls = ['neo-toolbar-action-context-inactive'];
-        pin.cls    = ['neo-toolbar-action-context-inactive'];
+        owner.applyContextualActionState(true);
         await plugin.project(false);
         const afterHoverVisible = buttons.filter(b => !b.hidden).map(b => b.id);
 

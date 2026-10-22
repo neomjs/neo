@@ -1619,7 +1619,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             expect(mainTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull()
         });
 
-        test('headerActionsShowOnHover (and showOnHover alias) threads showOnHover to every projected tab header toolbar', () => {
+        test('headerActionsShowOnHover threads showOnHover to every projected tab header toolbar', () => {
             const defaultResult = DockLayoutAdapter.project(createEdgeZoneModel(), {
                 resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             });
@@ -1635,16 +1635,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             const enabledMain = enabledResult.items[0].items.find(item => item.dockNodeId === 'main-tabs');
             const enabledSide = enabledResult.items[0].items.find(item => item.dockNodeId === 'side-split');
             expect(enabledMain.headerToolbar.showOnHover).toBe(true);
-            expect(enabledSide.items[0].headerToolbar.showOnHover).toBe(true);
-
-            const aliasResult = DockLayoutAdapter.project(createEdgeZoneModel(), {
-                showOnHover        : true,
-                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
-            });
-            const aliasMain = aliasResult.items[0].items.find(item => item.dockNodeId === 'main-tabs');
-            const aliasSide = aliasResult.items[0].items.find(item => item.dockNodeId === 'side-split');
-            expect(aliasMain.headerToolbar.showOnHover).toBe(true);
-            expect(aliasSide.items[0].headerToolbar.showOnHover).toBe(true)
+            expect(enabledSide.items[0].headerToolbar.showOnHover).toBe(true)
         })
     });
 });
