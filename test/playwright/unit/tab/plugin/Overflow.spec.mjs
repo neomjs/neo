@@ -162,9 +162,11 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
               plugin      = createPlugin(async ids => ids.map(() => ({height: 20, width: 50, x: 0, y: 0})));
 
         plugin.owner.getDomRect = async ids => { visualReads.push(ids); return [] };
+        plugin.syncControl      = () => {}; // no live overflow menu: its store would outlive this test
         await plugin.project(true);
 
-        expect(visualReads, 'neither the natural widths nor the strip extent come from the visual box').toEqual([])
+        expect(visualReads, 'neither the natural widths nor the strip extent come from the visual box').toEqual([]);
+        plugin.destroy()
     });
 
     test('a getLayoutRect throw against a LIVE owner surfaces the defect (console.error) and still releases the latch', async () => {
@@ -1144,13 +1146,14 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             await updateGate
         };
         plugin.owner.update = () => {};
-        plugin.naturalWidths = {b1: 50, b2: 50};
+        // b2 has no cached width, so the recapture has to restore it for its measure window.
+        plugin.naturalWidths = {b1: 50};
         plugin.syncControl = () => {};
 
         const recapture = plugin.project(true);
 
         await updateStarted;
-        expect(buttons[1].hidden, 'recapture temporarily restores the hidden tab').toBe(false);
+        expect(buttons[1].hidden, 'recapture temporarily restores the uncached hidden tab').toBe(false);
 
         plugin.owner.sortZone = {
             dragEndActive      : false,
@@ -1171,6 +1174,57 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.sortDragProjectionQueued).toBe(false);
 
         plugin.owner.sortZone.sortSnapshotPending = false;
+        plugin.destroy()
+    });
+
+    test('a recapture keeps a withheld tab with a cached width out of the strip and keeps its width', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
+                  ? [{height: 25, left: 0, top: 0, width: 70, x: 0, y: 0}]
+                  : [{height: 20, width: 50}, {height: 0, width: 0}]),
+              updates = [],
+              b2      = {cls: [], hidden: true, id: 'b2', maxWidth: null, vdom: {removeDom: true},
+                  addCls() {}, removeCls() {}, setSilent(values) { Object.assign(this, values) }};
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        plugin.owner.items         = [{cls: [], hidden: false, id: 'b1', maxWidth: null, vdom: {},
+            addCls() {}, removeCls() {}, setSilent(values) { Object.assign(this, values) }}, b2];
+        plugin.owner.promiseUpdate = async () => { updates.push(b2.hidden) };
+        plugin.owner.update        = () => {};
+        plugin.naturalWidths       = {b1: 50, b2: 80};
+        plugin.naturalWidthLabels  = {b1: Overflow.labelOf(plugin.owner.items[0]), b2: Overflow.labelOf(b2)};
+        plugin.syncControl         = () => {};
+
+        await plugin.project(true);
+
+        expect(updates, 'no update ever showed the withheld tab').not.toContain(false);
+        expect(b2.vdom.removeDom, 'the withheld tab never left its removed state').toBe(true);
+        expect(plugin.naturalWidths.b2, 'its cached width survives the recapture').toBe(80);
+        plugin.destroy()
+    });
+
+    test('a recapture measures a withheld tab again once its label changed', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
+                  ? [{height: 25, left: 0, top: 0, width: 70, x: 0, y: 0}]
+                  : [{height: 20, width: 50}, {height: 20, width: 120}]),
+              updates = [],
+              b2      = {cls: [], hidden: true, id: 'b2', maxWidth: null, text: 'renamed', vdom: {removeDom: true},
+                  addCls() {}, removeCls() {}, setSilent(values) { Object.assign(this, values) }};
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        plugin.owner.items         = [{cls: [], hidden: false, id: 'b1', maxWidth: null, vdom: {},
+            addCls() {}, removeCls() {}, setSilent(values) { Object.assign(this, values) }}, b2];
+        plugin.owner.promiseUpdate = async () => { updates.push(b2.hidden) };
+        plugin.owner.update        = () => {};
+        plugin.naturalWidths       = {b1: 50, b2: 80};
+        plugin.naturalWidthLabels  = {b1: Overflow.labelOf(plugin.owner.items[0]), b2: Overflow.labelOf({text: 'original'})};
+        plugin.syncControl         = () => {};
+
+        await plugin.project(true);
+
+        expect(updates, 'the renamed withheld tab was restored for its measure window').toContain(false);
+        expect(plugin.naturalWidths.b2, 'its width is measured under the new label').toBe(120);
         plugin.destroy()
     });
 

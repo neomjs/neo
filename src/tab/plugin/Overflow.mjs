@@ -67,6 +67,17 @@ class Overflow extends Plugin {
     }
 
     /**
+     * @summary The parts of a tab button that decide its natural width: its text and its icon.
+     * A cached width measured under another label no longer describes the button.
+     * @param {Object} button A tab button, or any object with `text` / `iconCls`
+     * @returns {String}
+     * @static
+     */
+    static labelOf(button) {
+        return `${button.text ?? ''}|${[].concat(button.iconCls ?? []).join(' ')}`
+    }
+
+    /**
      * The pure overflow decision — active-never-hidden packing with overflow-only control-width reservation.
      * Headless + deterministic (unit-covered): given header widths, the strip extent, the protected ids and the
      * reserved control width, it returns the visible/hidden id partition. It lives here as the plugin's own
@@ -201,6 +212,12 @@ class Overflow extends Plugin {
      */
     naturalWidths = null
     /**
+     * The label ({@link Neo.tab.plugin.Overflow.labelOf}) each cached natural width was measured with, keyed by
+     * tab-button id. A withheld or capped button whose label changed since is measured again.
+     * @member {Object|null} naturalWidthLabels=null
+     */
+    naturalWidthLabels = null
+    /**
      * Signature of the hidden set the control currently reflects (`index:text:iconCls` per entry).
      * Projections fire on many no-op events (resize, activation, the render-truth edges), and
      * rewriting identical menu items is not free: it rebuilds the dropdown list and closes an OPEN
@@ -313,8 +330,10 @@ class Overflow extends Plugin {
             });
             if (me.owner.getConfig?.('dock')) {
                 me.observeConfig(me.owner, 'dock', () => {
+                    // Cached widths are extents of the old main axis: the recapture must measure every button.
                     me.dockRecapturePending = true;
-                    me.measuredControlWidth = null
+                    me.measuredControlWidth = null;
+                    me.naturalWidths        = null
                 })
             }
         }
@@ -758,8 +777,17 @@ class Overflow extends Plugin {
 
             // 1. Natural widths — measured once while every button is visible, then cached.
             if (recapture || !me.naturalWidths) {
-                const removedButtons = buttons.filter(button => button.hidden),
-                      cappedButtons  = buttons.filter(button => me.appliedCaps?.has(button.id));
+                // A cached width stays authoritative for a button the split withholds or caps. A reorder
+                // changes order, not widths, and restoring such a button to measure it again would paint it
+                // in the live strip (or past its cap) until the split re-applies. Only a withheld or capped
+                // button with no cached width for its current label is restored for the measure window.
+                const previousWidths = me.naturalWidths || {},
+                      previousLabels = me.naturalWidthLabels || {},
+                      isCached       = button => previousWidths[button.id] > 0 && previousLabels[button.id] === Overflow.labelOf(button),
+                      isConstrained  = button => button.hidden || me.appliedCaps?.has(button.id),
+                      keptButtons    = new Set(buttons.filter(button => isConstrained(button) && isCached(button))),
+                      removedButtons = buttons.filter(button => button.hidden && !keptButtons.has(button)),
+                      cappedButtons  = buttons.filter(button => me.appliedCaps?.has(button.id) && !keptButtons.has(button));
 
                 // A plugin-installed cap (applySplit) bounds the live rect below the natural width, so
                 // measuring through it would poison the cache with the capped value. Restore the CALLER's
@@ -775,7 +803,7 @@ class Overflow extends Plugin {
                     button[cap.maxSize] = cap.value
                 });
 
-                // A prior split removes overflowing buttons from DOM. Restore them under this method's
+                // A prior split removes overflowing buttons from DOM. Restore the uncached ones under this method's
                 // measuring latch, then reconcile their closest common parent once so getLayoutRect observes
                 // natural geometry. Any resize raised by that update queues behind the latch and drains as
                 // an extent-only pass after this authoritative capture.
@@ -791,18 +819,17 @@ class Overflow extends Plugin {
                     await owner.promiseUpdate()
                 }
 
-                let previousWidths = me.naturalWidths || {},
-                    rects          = await owner.getLayoutRect(buttons.map(button => button.id));
+                let rects = await owner.getLayoutRect(buttons.map(button => button.id));
 
-                me.naturalWidths = {};
+                me.naturalWidths      = {};
+                me.naturalWidthLabels = {};
                 buttons.forEach((button, index) => {
-                    // A recapture can run after the previous split removed overflowing headers from DOM.
-                    // Their live rect is then zero by construction, not because their natural width changed.
-                    // Keep the last positive measurement for those stable button identities; newly inserted
-                    // buttons are visible on their first mutation pass and therefore still enter the cache.
-                    me.naturalWidths[button.id] = Math.ceil(
-                        rects[index]?.[geometry.dimension] || previousWidths[button.id] || 0
-                    )
+                    // A kept button's live rect is zero (withheld) or capped, so its cached width answers.
+                    // Newly inserted buttons are visible on their first mutation pass and enter the cache.
+                    me.naturalWidths[button.id] = keptButtons.has(button)
+                        ? previousWidths[button.id]
+                        : Math.ceil(rects[index]?.[geometry.dimension] || previousWidths[button.id] || 0);
+                    me.naturalWidthLabels[button.id] = Overflow.labelOf(button)
                 })
             }
 
