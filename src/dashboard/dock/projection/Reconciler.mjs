@@ -973,17 +973,39 @@ class Reconciler extends Base {
             throw new Error('Dock projection reconciliation requires a live item resolver')
         }
 
-        currentTabs.forEach(tab => {
+        currentTabs.forEach((tab, nodeId) => {
             const
                 bar     = tab.getTabBar(),
                 body    = tab.getCardContainer(),
-                itemIds = bar.sortZoneConfig?.dockItemIds || [],
-                // Two parallel arrays with nothing but the index tying them together, so the zip is
-                // evidence only where nothing contradicts it: equal lengths prove a COUNT, never an
-                // order. A pane naming its own item therefore answers for itself, and an unstamped
-                // one answers by position only while the lengths agree. Every other id asks the
-                // resolver instead of binding to a SIBLING's pane, which strands both of them.
-                paired  = itemIds.length === body.items.length;
+                itemIds = [...(bar.sortZoneConfig?.dockItemIds || [])];
+
+            // Cross-window transfers can claim a departing pane from this body before the surviving
+            // source strip reconciles; retire its pre-detached bar button before length-pairing.
+            if (itemIds.length > body.items.length && bar.getTabButtons().length === itemIds.length) {
+                for (let index = itemIds.length - 1; index >= 0; index--) {
+                    const itemId = itemIds[index];
+
+                    if (
+                        !desiredItemIds.has(itemId)
+                        && !body.items.some(pane => pane?.dockItemId === itemId)
+                        && !body.items.includes(resolveItem(itemId))
+                    ) {
+                        bar.removeTabAt(index, true, true);
+                        itemIds.splice(index, 1);
+
+                        if (plans.has(nodeId)) {
+                            commitBars.add(bar)
+                        }
+                    }
+                }
+            }
+
+            // Two parallel arrays with nothing but the index tying them together, so the zip is
+            // evidence only where nothing contradicts it: equal lengths prove a COUNT, never an
+            // order. A pane naming its own item therefore answers for itself, and an unstamped
+            // one answers by position only while the lengths agree. Every other id asks the
+            // resolver instead of binding to a SIBLING's pane, which strands both of them.
+            const paired = itemIds.length === body.items.length;
 
             itemIds.forEach((itemId, index) => {
                 const pane = body.items[index];
@@ -1163,13 +1185,19 @@ class Reconciler extends Base {
             });
 
         retirementsByBody.forEach(retirements => {
-            retirements.sort((a, b) => b.state.index - a.state.index).forEach(({itemId, state}) => {
+            retirements.sort((a, b) => b.state.index - a.state.index).forEach(({itemId, pane, state}) => {
                 if (!state.button) {
                     throw new Error(`Dock projection could not retire item "${itemId}" without its tab button`)
                 }
 
-                state.body.removeAt(state.index, !preservedItems.has(itemId), true);
-                state.bar.removeTabAt(state.index, true, true)
+                const destroyPane = !preservedItems.has(itemId) || pane?.ntype === 'dock-vessel-placeholder';
+
+                state.body.removeAt(state.index, destroyPane, true);
+                state.bar.removeTabAt(state.index, true, true);
+
+                if ([...plans.values()].some(plan => plan.tab === state.tab)) {
+                    commitBars.add(state.bar)
+                }
             })
         });
 
