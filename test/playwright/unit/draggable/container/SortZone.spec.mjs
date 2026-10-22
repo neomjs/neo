@@ -166,6 +166,48 @@ test.describe('Neo.draggable.container.SortZone', () => {
         expect(sortZone.sortableItems[2].id).toBe('btnD');
     });
 
+    test('excludes unrendered overflow-withheld items from sortableItems while preserving getDraggableItems membership', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const [btnA, btnB, , , btnD] = container.items;
+
+        // Simulate tab-overflow withholding btnD from the DOM (hidden: true, vdom.removeDom: true)
+        btnD.hidden         = true;
+        btnD.vdom.removeDom = true;
+
+        let measuredIds = [];
+        Container.prototype.getDomRect = ids => {
+            measuredIds = ids;
+            return Promise.resolve(ids.map((id, idx) => new Rectangle(
+                idx === 0 ? 400 : 400 + (idx - 1) * 110,
+                120,
+                idx === 0 ? 300 : 100,
+                32
+            )))
+        };
+
+        sortZone.adjustItemRectsToParent = true;
+
+        expect(sortZone.getDraggableItems().map(item => item.id), 'draggable membership keeps withheld items for class marking').toEqual([
+            'btnA', 'btnB', 'btnD'
+        ]);
+        expect(sortZone.getSortableItems().map(item => item.id), 'active sort snapshot admits only rendered items').toEqual([
+            'btnA', 'btnB'
+        ]);
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnB', cls: ['neo-draggable'], rect: {left: 510, top: 120, width: 100, height: 32}}]
+        });
+
+        expect(measuredIds, 'unmounted overflow items are never queried via getDomRect').toEqual([
+            container.id, 'btnA', 'btnB'
+        ]);
+        expect(sortZone.sortableItems.map(item => item.id)).toEqual(['btnA', 'btnB']);
+        expect(sortZone.startIndex).toBe(1);
+        expect(btnD.wrapperStyle?.position, 'withheld item receives no absolute drag wrapperStyle').toBeUndefined()
+    });
+
     test('Correctly moves item from end to start (skipping non-sortables)', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         sortZone = container.sortZone;

@@ -2720,7 +2720,9 @@ test.describe('Workstation.view.Workspace', () => {
             // placement consumption happens: a bare stub would leave the record uneaten and the
             // assertions below would be reading a return that never ran.
             workspace.tearOutHandlers = {
-                forgetPlacement: itemId => originalTearOut.forgetPlacement(itemId),
+                forgetPlacement       : itemId => originalTearOut.forgetPlacement(itemId),
+                // a popup re-projecting on its new window projects the root's drag contract
+                getProjectionCallbacks: () => originalTearOut.getProjectionCallbacks(),
                 onVesselRetired() {},
                 peekPlacement  : itemId => originalTearOut.peekPlacement(itemId),
                 reintegrateItem: (itemId, pane) => originalTearOut.reintegrateItem(itemId, pane),
@@ -2901,6 +2903,54 @@ test.describe('Workstation.view.Workspace', () => {
             // born at the proxy's position, under the hand, whatever the size
             expect(calls.map(call => featuresOf(call).left)).toEqual(['50', '50', '50', '50']);
             expect(workspace.tearOutVesselDims).toEqual({height: 500, width: 640})
+        } finally {
+            Neo.Main.getByPath     = originalGetByPath;
+            Neo.Main.getWindowData = originalWindowData;
+            Neo.Main.windowOpen    = originalWindowOpen;
+            workspace.destroy()
+        }
+    });
+
+    test('a tab torn out of a popup is placed from the popup\'s frame, and main still opens its vessel', async () => {
+        const
+            workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light', windowId: Neo.config.windowId}),
+            originalGetByPath  = Neo.Main.getByPath,
+            originalWindowData = Neo.Main.getWindowData,
+            originalWindowOpen = Neo.Main.windowOpen,
+            frames             = {[Neo.config.windowId]: {screenLeft: 10, screenTop: 20}, 'popup-window': {screenLeft: 1070, screenTop: 143}},
+            measured           = [],
+            calls              = [];
+
+        Neo.Main.getWindowData = async ({windowId}) => {
+            measured.push(windowId);
+
+            return {
+                innerHeight: 700, innerWidth: 1200, outerHeight: 700, outerWidth: 1200,
+                screen     : {availHeight: 1080, availLeft: 0, availTop: 0, availWidth: 1920},
+                ...frames[windowId]
+            }
+        };
+        Neo.Main.getByPath  = async () => ({defaultTheme: 'neo-theme-neo-light', schemes: {'neo-theme-neo-light': 'light'}});
+        Neo.Main.windowOpen = async data => {
+            calls.push(data);
+
+            return true
+        };
+
+        try {
+            await workspace.openTearOutVessel({
+                itemId          : 'audit',
+                proxyRect       : {height: 36, width: 140, x: 40, y: 60},
+                sortZone        : {windowId: 'popup-window'},
+                topologyIdentity: {generationToken: 'lineage-audit', groupId: 'group-a', workspaceKey: 'popup:audit'}
+            });
+
+            // the proxy rect is in the popup's client space, so the popup's frame places the vessel
+            expect(measured).toEqual(['popup-window']);
+            expect(calls[0].windowFeatures).toContain('left=1110');
+            expect(calls[0].windowFeatures).toContain('top=203');
+            // the opener holds the vessel's handle: main, which outlives every popup
+            expect(calls[0].windowId).toBe(Neo.config.windowId)
         } finally {
             Neo.Main.getByPath     = originalGetByPath;
             Neo.Main.getWindowData = originalWindowData;

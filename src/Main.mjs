@@ -1079,7 +1079,8 @@ class Main extends core.Base {
     }
 
     /**
-     * Move a popup window
+     * @summary Moves a popup window. Its handle lives in the window that opened it, and a drag running in a popup
+     * can move a vessel the main window opened, so a window holding no handle by that name asks its opener.
      * @param {Object} data
      * @param {String} data.windowName
      * @param {Number|String} data.x
@@ -1087,7 +1088,17 @@ class Main extends core.Base {
      * @returns {Promise<Boolean>} True when the popup reaches the requested screen coordinates.
      */
     async windowMoveTo(data) {
-        return this.#moveWindow(this.openWindows[data.windowName]?.win, data.x, data.y)
+        const win = this.openWindows[data.windowName]?.win;
+
+        if (!win) {
+            try {
+                const openerMain = window.opener?.Neo?.Main;
+
+                if (openerMain) return openerMain.windowMoveTo(data)
+            } catch {/* A cross-origin opener throws on access, and holds no handle of this app */}
+        }
+
+        return this.#moveWindow(win, data.x, data.y)
     }
 
     /**

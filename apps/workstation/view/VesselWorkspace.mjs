@@ -341,14 +341,15 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary The engine's tear-out terminal, after this window reports a release over its own accepted
-     * preview ({@link Neo.dashboard.dock.interaction.DragAffordances#reportTearOut}).
+     * @summary The engine's tear-out terminal, after the window that ran the gesture reports a release over its
+     * own accepted preview ({@link Neo.dashboard.dock.interaction.DragAffordances#reportTearOut}).
      * @param {Object} data The `dockTearOutTerminal` payload.
+     * @param {Neo.dashboard.dock.interaction.DragAffordances|null} affordances That window's preview controller.
      * @returns {Boolean|Promise<Boolean>} The engine terminal's result.
      * @protected
      */
-    onDockTearOutTerminal(data) {
-        this.dragAffordances?.reportTearOut(data);
+    onDockTearOutTerminal(data, affordances) {
+        affordances?.reportTearOut(data);
 
         return this.tearOutHandlers.onDockTearOutTerminal(data)
     }
@@ -423,40 +424,63 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * The workstation's full multi-window projection surface: cross-window participation, the
-     * tear-out and claim opt-ins with the exit seam this host wraps, the drag-affordance
-     * layer's cross-zone seams, and the stable workspace identity. The class threads the reducer,
-     * the view-sync and the resolvers onto every projection; this hook contributes everything
-     * that is genuinely this host's.
+     * @summary The drag contract every window of the Group projects onto its tab strips.
+     * @description The root owns the vessel lifecycle, so the tear-out machine, its exit and its terminal are
+     * always this host's, wherever the gesture runs. The window running it supplies its own boundary, drop
+     * previews and identity. A popup that listed only part of this contract got strips that could only resort.
+     * @param {Object}   owner The window whose strips project the contract.
+     * @param {Function} owner.affordances         `() => DragAffordances|null`, its preview controller.
+     * @param {String}   owner.boundaryContainerId The component a tab must leave to tear out.
+     * @param {String}   owner.workspaceId         The Group participant whose strips these are.
+     * @returns {Object}
+     */
+    getDockDragContract({affordances, boundaryContainerId, workspaceId}) {
+        let me = this;
+
+        return {
+            // The engine's tear-out opt-in and its gesture handler bundle come first; this host wraps the
+            // exit (retiring a retained vessel first) and the terminal (the window's own release report).
+            enableDockTearOut: true,
+            ...me.tearOutHandlers.getProjectionCallbacks(),
+            // Cross-window participation (§2.3): every projected tab zone registers as a
+            // coordinator-visible drag source under one sort group; the workspace id rides the
+            // payload for the receiving window's `transferItem` resolution.
+            crossWindowSortGroup          : VesselWorkspace.CROSS_WINDOW_SORT_GROUP,
+            // Tear-out boundary (§2.8): exiting a source toolbar remains ordinary cross-zone motion;
+            // only leaving the window's root enters the vessel outcome machine.
+            dockTearOutBoundaryContainerId: boundaryContainerId,
+            // A window of the Group that claims the pointer carries the drag as the tab-header proxy,
+            // and the vessel riding the hand retires — the projection threads the opt-in.
+            enableVesselConversion   : true,
+            onDockCrossZoneDragCancel: data => affordances()?.onDragCancel(data),
+            onDockCrossZoneDragMove  : data => affordances()?.onDragMove(data),
+            onDockCrossZoneDrop      : data => affordances()?.onDrop(data),
+            onDockTearOutExit        : data => me.onDockTearOutExit(data),
+            onDockTearOutTerminal    : data => me.onDockTearOutTerminal(data, affordances()),
+            workspaceId
+        }
+    }
+
+    /**
+     * @summary The workstation's full multi-window projection surface: the Group's drag contract over
+     * this window's root and affordances, plus the flagship's own reveal floor. The class threads the
+     * reducer, the view-sync and the resolvers onto every projection; this hook contributes
+     * everything that is genuinely this host's.
      * @returns {Object}
      */
     getDockProjectionOptions() {
         let me = this;
 
         return {
-            // The engine's tear-out opt-in and its gesture handler bundle come first; this host wraps
-            // one of them (the exit, retiring a retained vessel first) and adds the flagship's own surfaces.
             ...super.getDockProjectionOptions(),
+            ...me.getDockDragContract({
+                affordances        : () => me.dragAffordances,
+                boundaryContainerId: me.id,
+                workspaceId        : VesselWorkspace.MAIN_WORKSPACE_ID
+            }),
             // Dense Workstation panes need more than the engine's compact 25% reveal floor. The
             // committed edge extent still wins whenever it is larger.
-            defaultRevealFraction      : 0.35,
-            // Cross-window participation (§2.3): every projected tab zone registers as a
-            // coordinator-visible drag source under one sort group; the workspace id rides the
-            // payload for the receiving window's `transferItem` resolution.
-            crossWindowSortGroup        : VesselWorkspace.CROSS_WINDOW_SORT_GROUP,
-            // Tear-out boundary (§2.8): every tab zone shares the Workstation root as its physical
-            // window boundary. Exiting a source toolbar remains ordinary cross-zone motion; only
-            // leaving this app/window root enters the vessel outcome machine.
-            dockTearOutBoundaryContainerId: me.id,
-            // A window of the Group that claims the pointer carries the drag as the tab-header proxy,
-            // and the vessel riding the hand retires — the projection threads the opt-in.
-            enableVesselConversion   : true,
-            onDockCrossZoneDragCancel: data => me.dragAffordances.onDragCancel(data),
-            onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),
-            onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data),
-            onDockTearOutExit        : data => me.onDockTearOutExit(data),
-            onDockTearOutTerminal    : data => me.onDockTearOutTerminal(data),
-            workspaceId              : VesselWorkspace.MAIN_WORKSPACE_ID
+            defaultRevealFraction: 0.35
         }
     }
 
@@ -553,6 +577,20 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
+     * @summary Resolves the Group participant whose catalog owns an item: main, or the popup a drag started in.
+     * Main is asked first, because a root with no Group yet still owns its own items.
+     * @param {String} itemId
+     * @returns {String|null}
+     * @protected
+     */
+    resolveItemWorkspaceId(itemId) {
+        const me = this;
+
+        return [VesselWorkspace.MAIN_WORKSPACE_ID, ...(me.workspaceSet?.ids() ?? [])]
+            .find(key => Object.hasOwn(me.getWorkspaceDocument(key)?.items ?? {}, itemId)) ?? null
+    }
+
+    /**
      * @summary Resolves popup presentation state through its registered Group participant.
      * @param {String} workspaceId
      * @returns {Object|null}
@@ -607,10 +645,10 @@ class VesselWorkspace extends DockWorkspace {
      * @protected
      */
     createVesselWorkspaceDocument(itemId) {
-        let item       = this.dockModel?.items?.[itemId],
-            tabsNodeId = VesselWorkspace.vesselTabsNodeId(itemId);
+        let tabsNodeId = VesselWorkspace.vesselTabsNodeId(itemId);
 
-        if (!item || !tabsNodeId) return null;
+        // Any participant may hold the item: a tab can tear out of a popup as well as out of main
+        if (!tabsNodeId || !this.resolveItemWorkspaceId(itemId)) return null;
 
         return {
             schema: WorkspaceDocument.SCHEMA,
@@ -830,10 +868,10 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * Closes an emptied vessel only after the main target projection has adopted the committed
-     * stack. Physical disconnect remains the topology-exit terminal. A torn-out vessel closes through
-     * its tear-out record; a window re-opened for the workspace (Undo, a perspective) has none and
-     * closes through its Group binding, as a Redo does.
+     * Closes an emptied vessel only after the projection its panes moved into has adopted them,
+     * main's or a fresh vessel's. Physical disconnect remains the topology-exit terminal. A
+     * torn-out vessel closes through its tear-out record; a window re-opened for the workspace
+     * (Undo, a perspective) has none and closes through its Group binding, as a Redo does.
      * @param {String} workspaceId
      * @returns {Promise<Boolean>}
      * @protected
@@ -1061,16 +1099,19 @@ class VesselWorkspace extends DockWorkspace {
      * `Main.windowOpen`: the popup's frame takes over the pane's footprint on screen, and its body
      * is smaller by the window chrome on purpose. A popup larger than the widget it replaces is the
      * unwanted outcome, so no chrome is added to keep the content area. It is born at the proxy's
-     * position, under the hand.
+     * position, under the hand: the proxy rect is in the client space of the window the gesture runs
+     * in, which is a popup for a tab leaving one. This window still opens it, as it opens every vessel,
+     * so the vessel's handle and lifetime stay with the root.
      * @param {Object} request
      * @param {String} request.itemId
      * @param {Object} request.proxyRect
+     * @param {Neo.dashboard.dock.interaction.TabSortZone} [request.sortZone] The zone running the gesture.
      * @param {Object|null} [request.sourceRect] The card body the pane filled, from the exit payload.
      * @param {Object} request.topologyIdentity The reserved slot, written into the vessel's carrier.
      * @returns {Promise<{popupHeight: Number, popupWidth: Number, windowName: String}|null>}
      * @protected
      */
-    async openTearOutVessel({itemId, proxyRect, sourceRect=null, topologyIdentity}) {
+    async openTearOutVessel({itemId, proxyRect, sortZone, sourceRect=null, topologyIdentity}) {
         let me         = this,
             {windowId} = me,
             windowName = `tearout-${itemId}`;
@@ -1082,7 +1123,7 @@ class VesselWorkspace extends DockWorkspace {
 
         try {
             let [winData, bootstrap] = await Promise.all([
-                    Neo.Main.getWindowData({windowId}),
+                    Neo.Main.getWindowData({windowId: sortZone?.windowId ?? windowId}),
                     Neo.Main.getByPath({path: 'WorkstationBootstrap', windowId})
                 ]),
                 schemes       = bootstrap?.schemes || {},
@@ -1146,7 +1187,13 @@ class VesselWorkspace extends DockWorkspace {
             ownerWindowId : me.windowId,
             publishReceipt: receipt => me.lastTearOutClose = receipt,
             sourceId      : me.id,
-            sourceOwns    : itemId => Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
+            sourceOwns    : itemId => {
+                const owner = me.resolveItemWorkspaceId(itemId);
+
+                // Laid out by the gesture's source, main or a popup, until a committed transfer moves it into its vessel
+                return owner !== null && owner !== me.tearOutWorkspaceKey(itemId) &&
+                    WorkspaceDocument.findContainingTabsId(me.getWorkspaceDocument(owner), itemId) !== null
+            },
             windowNameFor : itemId => `tearout-${itemId}`
         }, vessel)
     }
@@ -1345,7 +1392,24 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Admits a full popup Workspace and transfers its pane through one Group transaction.
+     * @summary Checks a detach against the participant that owns the item. A tab can tear out of a popup,
+     * whose items main's document does not hold; main records a home only for its own items, since a
+     * vessel's pane returns into main.
+     * @param {Object} descriptor
+     * @returns {{document:Object,errors:String[]}|null}
+     * @protected
+     */
+    applyTearOutOperation(descriptor) {
+        const me = this, owner = me.resolveItemWorkspaceId(descriptor?.itemId);
+
+        return owner && owner !== VesselWorkspace.MAIN_WORKSPACE_ID
+            ? me.getPopupState(owner).host.applyDockZoneOperation(descriptor)
+            : super.applyTearOutOperation(descriptor)
+    }
+
+    /**
+     * @summary Admits a full popup Workspace and transfers its pane through one Group transaction, out of
+     * main or out of the popup the tab tore out of. A popup that transfer empties retires.
      * @param {Object} document Pure reducer result; source truth is re-read at the queue head.
      * @param {Object} operation
      * @param {Object} vessel Reserved semantic slot and native generation.
@@ -1357,16 +1421,17 @@ class VesselWorkspace extends DockWorkspace {
             await me.onDockZoneDocumentChange(document, operation);
             return true
         }
-        const workspaceId = vessel.workspaceKey ?? VesselWorkspace.vesselWorkspaceId(itemId);
-        const existing    = me.getPopupState(workspaceId);
-        let   state       = existing, committed = false;
+        const workspaceId       = vessel.workspaceKey ?? VesselWorkspace.vesselWorkspaceId(itemId);
+        const sourceWorkspaceId = me.resolveItemWorkspaceId(itemId);
+        const existing          = me.getPopupState(workspaceId);
+        let   state             = existing, committed = false;
         try {
             if (!me.tearOutHandlers.capturePane(itemId)) throw new Error(`No live pane for ${itemId}`);
             if (!state) {
                 state = me.createPopupWorkspace(workspaceId, me.createVesselWorkspaceDocument(itemId), {committed: false, itemId})
             }
             await me.workspaceSet.transfer({
-                operation        : 'transferItem', itemId, sourceWorkspaceId: VesselWorkspace.MAIN_WORKSPACE_ID,
+                operation        : 'transferItem', itemId, sourceWorkspaceId,
                 targetWorkspaceId: workspaceId,
                 target           : {
                     operation: 'restoreTab', tabsNodeId: VesselWorkspace.vesselTabsNodeId(itemId),
@@ -1375,6 +1440,13 @@ class VesselWorkspace extends DockWorkspace {
             }, {provenance: {origin: 'human'}});
             state.committed = committed = true;
             me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows?.getConnection(me.id, itemId) || null);
+            const source = sourceWorkspaceId !== VesselWorkspace.MAIN_WORKSPACE_ID && me.getPopupState(sourceWorkspaceId);
+            if (source) {
+                // Before the vessel mounts, so the vessel's own outcome cannot keep an emptied popup open. The
+                // retirement reads the popup's projected document, which the transfer's projection lands first.
+                await source.host?.refreshPromise;
+                await me.retireReturnedVessel(sourceWorkspaceId)
+            }
             const connection = me.nativeWindows?.getOwner(me.id, itemId);
             if (connection?.windowId) await me.registerVesselWorkspaceTarget({
                 app: Neo.apps[connection.windowId], itemId, windowId: connection.windowId

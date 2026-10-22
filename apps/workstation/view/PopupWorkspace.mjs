@@ -91,12 +91,23 @@ class PopupWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Publishes the Workspace's semantic identity to its projected drag sources.
+     * @summary Projects the Group's drag contract onto this popup's strips, so a tab dragged here docks and
+     * tears out as one dragged in main does: the root's tear-out machine, this popup's boundary and identity,
+     * and drop previews from the one controller its participation composes. The whole-stack drag is its own.
      * @returns {Object}
      */
     getDockProjectionOptions() {
-        return {...super.getDockProjectionOptions(), workspaceId: this.workspaceKey,
-            crossWindowSortGroup: this.rootWorkspace.constructor.CROSS_WINDOW_SORT_GROUP, enableStackDrag: true}
+        const me = this;
+
+        return {
+            ...super.getDockProjectionOptions(),
+            ...me.rootWorkspace.getDockDragContract({
+                affordances        : () => me.participation?.resolveAffordances(),
+                boundaryContainerId: me.id,
+                workspaceId        : me.workspaceKey
+            }),
+            enableStackDrag: true
+        }
     }
 
     /**
