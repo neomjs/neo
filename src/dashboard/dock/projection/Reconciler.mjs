@@ -1158,8 +1158,10 @@ class Reconciler extends Base {
                 // stale node keeps the `pressed` class it left with — the reported two-active-tabs
                 // header. Enrolling both bars in the awaited commit publishes the removal beside the
                 // insertion; the set makes it idempotent when several items move between the same pair.
-                commitBars.add(state.bar);
-                commitBars.add(targetBar)
+                if (state.bar !== targetBar) {
+                    commitBars.add(state.bar);
+                    commitBars.add(targetBar)
+                }
             })
         });
 

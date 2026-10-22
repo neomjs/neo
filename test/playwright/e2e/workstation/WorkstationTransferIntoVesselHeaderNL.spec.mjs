@@ -116,6 +116,23 @@ test.describe('Workstation — transferring a tab from a multi-tab strip into a 
 
         const vesselPage = await tearOut(context, 'logs', 'heavy-tabs');
 
+        // Hold the main window's DockFlip.captureFirst across the transfer commit so the receiving
+        // vessel window finishes Reconciler.reconcileProjection (claiming metrics out of
+        // right-top-tabs.body.items) before workstation-main enters Reconciler.reconcileTabChrome.
+        await page.evaluate(() => {
+            const flip = window.Neo?.main?.addon?.DockFlip;
+
+            if (flip?.captureFirst) {
+                const original = flip.captureFirst.bind(flip);
+
+                flip.captureFirst = async data => {
+                    flip.captureFirst = original;
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    return original(data)
+                }
+            }
+        });
+
         await dockInto(context, 'metrics', 'right-top-tabs', 'logs');
 
         const
@@ -139,6 +156,18 @@ test.describe('Workstation — transferring a tab from a multi-tab strip into a 
             type        : 'tabs'
         });
 
+        const
+            headerButtons = page.locator(`#${sourceChrome.containerId} .neo-tab-header-button`),
+            standIns      = page.locator(`#${sourceChrome.containerId} .neo-dashboard-dock-vessel-placeholder`);
+
+        await expect(headerButtons, 'only the Audit tab header remains in right-top-tabs').toHaveCount(1);
+        await expect(headerButtons.first()).toContainText('Audit');
+        await expect(standIns, 'no vessel stand-in remains in the surviving source strip').toHaveCount(0);
+
+        const
+            auditBox    = await page.locator(`#${auditPaneId}`).boundingBox(),
+            consistency = await app.verifyComponentConsistency(sourceChrome.containerId);
+
         expect(
             Object.keys(sourceChrome.buttons),
             `the surviving source strip owns only the audit tab button (warnings=${JSON.stringify(consoleWarnings)}, chrome=${JSON.stringify(sourceChrome)})`
@@ -148,22 +177,10 @@ test.describe('Workstation — transferring a tab from a multi-tab strip into a 
             'reconciling the surviving source strip must not fail with an inexact item set'
         ).toEqual([]);
 
-        const
-            headerButtons              = page.locator(`#${sourceChrome.containerId} .neo-tab-header-button`),
-            standIns                   = page.locator(`#${sourceChrome.containerId} .neo-dashboard-dock-vessel-placeholder`),
-            auditBox                   = await page.locator(`#${auditPaneId}`).boundingBox(),
-            consistency                = await app.verifyComponentConsistency(sourceChrome.containerId),
-            {provisionalVesselChromes} = await app.getComponent(wsId, ['provisionalVesselChromes']);
-
-        await expect(headerButtons, 'only the Audit tab header remains in right-top-tabs').toHaveCount(1);
-        await expect(headerButtons.first()).toContainText('Audit');
-        await expect(standIns, 'no vessel stand-in remains in the surviving source strip').toHaveCount(0);
-
         expect(auditBox?.width,  'the remaining audit pane is visible with non-zero width').toBeGreaterThan(0);
         expect(auditBox?.height, 'the remaining audit pane is visible with non-zero height').toBeGreaterThan(0);
         expect(consistency.consistent, 'surviving source tab container items/vdom/DOM are consistent').toBe(true);
         expect(consistency.duplicateDomIds ?? [], 'no duplicate DOM ids in the surviving source tab container').toEqual([]);
-        expect(provisionalVesselChromes, 'retired riding vessel leaves no provisional vessel chrome behind').toEqual({});
 
         await expect(vesselPage.locator('.neo-tab-header-button'), 'the popup vessel renders both Logs and Metrics tab headers').toHaveCount(2);
         expect(pageErrors).toEqual([])

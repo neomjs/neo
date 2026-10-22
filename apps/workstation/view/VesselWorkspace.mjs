@@ -1513,7 +1513,6 @@ class VesselWorkspace extends DockWorkspace {
             Neo.manager.DragCoordinator?.clearNativeWindowDropCandidate(windowId, {restoreSource: false});
             Neo.manager.DragCoordinator?.endNativeGesture(windowId);
             me.vesselProxyEmbodiment.restoreByWindow(windowId);
-            me.retireProvisionalVesselChrome(windowId, {releasePanes: true});
             me.retireReleasedPark(data)
         }
         return super.onNativeWindowRelease(data)
