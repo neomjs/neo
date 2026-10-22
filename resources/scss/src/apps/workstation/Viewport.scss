@@ -42,10 +42,10 @@
 // per-skin duplication. The theme layer is NOT the home for this: emitted there it would tie the
 // theme's own (0,2,0) and resolve on load order, and an equal-specificity load-order tie is not a
 // contract — CSS is emitted per source file, so no readable source order decides it.
-:root .workstation-viewport[class*="neo-theme-"],
-:root .workstation-viewport [class*="neo-theme-"] {
-    // Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
-    // palette in both skins instead of leaking their default blue/purple values.
+//
+// The grid half lives in two mixins because a grid also renders outside the viewport: its
+// column-drag proxy (see the proxy block below). Both scopes include them, so they cannot drift.
+@mixin grid-tokens {
     --grid-container-border-color              : var(--workstation-line);
     --grid-container-cell-background-color     : var(--workstation-panel);
     --grid-container-cell-background-color-even: var(--workstation-panel-2);
@@ -54,6 +54,37 @@
     --grid-cell-background-color-hover         : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
     --grid-cell-progress-active-color          : var(--workstation-signal);
     --grid-cell-progress-track-color           : var(--workstation-line);
+}
+
+// Theme classes live on the grid primitives themselves, so inherited variables alone cannot
+// out-rank their light-skin defaults — which is why these must travel with the pane and not
+// merely be reachable from it.
+@mixin grid-header-button {
+    .neo-grid-header-button {
+        --grid-header-button-background-color      : var(--workstation-panel-2);
+        --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+        --grid-header-button-background-image      : none;
+        --grid-header-button-color                 : var(--workstation-ink);
+        --grid-header-button-color-hover           : var(--workstation-ink);
+        --grid-header-button-glyph-color           : var(--workstation-ink-dim);
+        --grid-header-button-glyph-color-hover     : var(--workstation-signal);
+        --grid-header-button-justify-content       : flex-end;
+        --grid-header-button-padding               : 0 10px;
+
+        // Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
+        // column). Keep the glyph on the physical right edge without participating in flex.
+        .neo-button-glyph {
+            position: absolute;
+            right   : 10px;
+        }
+    }
+}
+
+:root .workstation-viewport[class*="neo-theme-"],
+:root .workstation-viewport [class*="neo-theme-"] {
+    // Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
+    // palette in both skins instead of leaking their default blue/purple values.
+    @include grid-tokens;
     --tab-button-background-color              : transparent;
     --tab-button-background-color-active       : color-mix(in srgb, var(--workstation-signal) 12%, transparent);
     --tab-button-background-color-hover        : color-mix(in srgb, var(--workstation-signal) 8%, transparent);
@@ -203,27 +234,20 @@
         }
     }
 
-    // Theme classes live on the grid primitives themselves, so inherited variables alone cannot
-    // out-rank their light-skin defaults — which is why these must travel with the pane and not
-    // merely be reachable from it.
-    .neo-grid-header-button {
-        --grid-header-button-background-color      : var(--workstation-panel-2);
-        --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-        --grid-header-button-background-image      : none;
-        --grid-header-button-color                 : var(--workstation-ink);
-        --grid-header-button-color-hover           : var(--workstation-ink);
-        --grid-header-button-glyph-color           : var(--workstation-ink-dim);
-        --grid-header-button-glyph-color-hover     : var(--workstation-signal);
-        --grid-header-button-justify-content       : flex-end;
-        --grid-header-button-padding               : 0 10px;
+    @include grid-header-button;
+}
 
-        // Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
-        // column). Keep the glyph on the physical right edge without participating in flex.
-        .neo-button-glyph {
-            position: absolute;
-            right   : 10px;
-        }
+// A grid's column-drag proxy is a body-mounted embodiment, like the overflow menu in `Workspace.scss`:
+// it carries the live theme class but sits outside `.workstation-viewport`, so nothing above reaches
+// it. It lives in this sheet because a `?popout=` vessel drags grid columns too. (0,3,1) out-ranks
+// the theme's (0,2,0) on the proxy and on every skin-carrying element inside it.
+body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy {
+    &,
+    [class*="neo-theme-"] {
+        @include grid-tokens;
     }
+
+    @include grid-header-button;
 }
 
 // Already scoped to the viewport, but it lived in `Workspace.scss` — gate 2 satisfied, gate 1 not.
