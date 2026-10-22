@@ -713,7 +713,7 @@ class DragCoordinator extends Manager {
      */
     getWindowAtExcept(x, y, excludedWindowIds) {
         let item = Window.items?.find(item => !excludedWindowIds.has(item.id) &&
-            item.outerRect?.intersects({bottom: y, right: x, x, y}));
+            item.outerRect?.containsPoint(x, y));
 
         return item ? item.id : null
     }
@@ -992,7 +992,7 @@ class DragCoordinator extends Manager {
             // never calls `acceptsRemoteDrag`, so a diagnostic that records only the zone's answer
             // cannot distinguish "the zone refused" from "the zone was never asked".
             const
-                intersects = inner ? inner.intersects({bottom: screenY, right: screenX, x: screenX, y: screenY}) : null,
+                intersects = inner ? inner.containsPoint(screenX, screenY) : null,
                 accepts    = inner && intersects ? zone.acceptsRemoteDrag(screenX - inner.x, screenY - inner.y) : null;
 
             candidates.push({
