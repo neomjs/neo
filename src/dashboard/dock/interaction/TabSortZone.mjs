@@ -194,6 +194,20 @@ class TabSortZone extends TabHeaderSortZone {
     }
 
     /**
+     * @summary Resolves the dock catalog item id for the active tab drag across overflow-filtered `sortableItems`.
+     * @returns {String|null}
+     * @protected
+     */
+    resolveDraggedItemId() {
+        let me       = this,
+            tabIndex = me.owner?.getTabButtons?.()?.indexOf(me.dragComponent) ?? -1;
+
+        return me.dragComponent?.dockItemId
+            ?? me.dockItemIds?.[tabIndex > -1 ? tabIndex : me.startIndex]
+            ?? null
+    }
+
+    /**
      * Re-fires the inherited `dragBoundaryEntry` (the drag re-entered the source window past the
      * reattach threshold — the base already restored the in-window proxy state) as
      * `dockTearOutEntry` on the owner tab.Container. The host's handler closes its vessel and
@@ -203,7 +217,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     onDockBoundaryEntry(data) {
         let me     = this,
-            itemId = me.dockItemIds?.[me.startIndex];
+            itemId = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me);
 
         me.owner?.up?.()?.fire('dockTearOutEntry', {
             ...data, itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId
@@ -221,7 +235,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     onDockBoundaryExit(data) {
         let me     = this,
-            itemId = me.dockItemIds?.[me.startIndex];
+            itemId = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me);
 
         me.owner?.up?.()?.fire('dockTearOutExit', {
             ...data, itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId, sourceRect: me.dockSourceCardRect ?? null
@@ -452,7 +466,8 @@ class TabSortZone extends TabHeaderSortZone {
 
         if (item) {
             delete item.dockGroupNodeId;
-            item.dockItemId            = me.dockItemIds?.[me.startIndex] ?? null;
+            delete item.dockItemId;
+            item.dockItemId            = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me);
             item.dockSourceOwnershipId = me.resolveSourceOwnershipId();
             item.dockSourceWorkspaceId = me.dockWorkspaceId
         }
@@ -554,7 +569,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     async onDragCancel(data={}) {
         let me     = this,
-            itemId = me.dockItemIds?.[me.startIndex];
+            itemId = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me);
 
         if (me.isWindowDragging && itemId) {
             me.owner?.up?.()?.fire('dockTearOutCancel', {itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId})
@@ -591,7 +606,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     async processDragEnd(data) {
         let me     = this,
-            itemId = me.dockItemIds?.[me.startIndex],
+            itemId = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me),
             // Resolve the tab.Container + fire BEFORE super: the base drag-end tears down the owner linkage
             // AND its within-reorder commit can trigger a deferred re-projection that destroys this tab
             // container — firing after super would land on a dead component. Same node whose `moveTo`
@@ -737,7 +752,7 @@ class TabSortZone extends TabHeaderSortZone {
 
         await super.onDragMove(data);
 
-        let itemId             = me.dockItemIds?.[me.startIndex],
+        let itemId             = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me),
             tabContainer       = me.owner?.up?.(),
             {clientX, clientY} = data || {};
 
