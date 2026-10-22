@@ -67,6 +67,17 @@ class Overflow extends Plugin {
     }
 
     /**
+     * @summary The parts of a tab button that decide its natural width: its text and its icon.
+     * A cached width measured under another label no longer describes the button.
+     * @param {Object} button A tab button, or any object with `text` / `iconCls`
+     * @returns {String}
+     * @static
+     */
+    static labelOf(button) {
+        return `${button.text ?? ''}|${[].concat(button.iconCls ?? []).join(' ')}`
+    }
+
+    /**
      * The pure overflow decision — active-never-hidden packing with overflow-only control-width reservation.
      * Headless + deterministic (unit-covered): given header widths, the strip extent, the protected ids and the
      * reserved control width, it returns the visible/hidden id partition. It lives here as the plugin's own
@@ -200,6 +211,12 @@ class Overflow extends Plugin {
      * @member {Object|null} naturalWidths=null
      */
     naturalWidths = null
+    /**
+     * The label ({@link Neo.tab.plugin.Overflow.labelOf}) each cached natural width was measured with, keyed by
+     * tab-button id. A withheld or capped button whose label changed since is measured again.
+     * @member {Object|null} naturalWidthLabels=null
+     */
+    naturalWidthLabels = null
     /**
      * Signature of the hidden set the control currently reflects (`index:text:iconCls` per entry).
      * Projections fire on many no-op events (resize, activation, the render-truth edges), and
@@ -763,9 +780,10 @@ class Overflow extends Plugin {
                 // A cached width stays authoritative for a button the split withholds or caps. A reorder
                 // changes order, not widths, and restoring such a button to measure it again would paint it
                 // in the live strip (or past its cap) until the split re-applies. Only a withheld or capped
-                // button with no cached width yet is restored for the measure window.
+                // button with no cached width for its current label is restored for the measure window.
                 const previousWidths = me.naturalWidths || {},
-                      isCached       = button => previousWidths[button.id] > 0,
+                      previousLabels = me.naturalWidthLabels || {},
+                      isCached       = button => previousWidths[button.id] > 0 && previousLabels[button.id] === Overflow.labelOf(button),
                       isConstrained  = button => button.hidden || me.appliedCaps?.has(button.id),
                       keptButtons    = new Set(buttons.filter(button => isConstrained(button) && isCached(button))),
                       removedButtons = buttons.filter(button => button.hidden && !keptButtons.has(button)),
@@ -803,13 +821,15 @@ class Overflow extends Plugin {
 
                 let rects = await owner.getLayoutRect(buttons.map(button => button.id));
 
-                me.naturalWidths = {};
+                me.naturalWidths      = {};
+                me.naturalWidthLabels = {};
                 buttons.forEach((button, index) => {
                     // A kept button's live rect is zero (withheld) or capped, so its cached width answers.
                     // Newly inserted buttons are visible on their first mutation pass and enter the cache.
                     me.naturalWidths[button.id] = keptButtons.has(button)
                         ? previousWidths[button.id]
-                        : Math.ceil(rects[index]?.[geometry.dimension] || previousWidths[button.id] || 0)
+                        : Math.ceil(rects[index]?.[geometry.dimension] || previousWidths[button.id] || 0);
+                    me.naturalWidthLabels[button.id] = Overflow.labelOf(button)
                 })
             }
 

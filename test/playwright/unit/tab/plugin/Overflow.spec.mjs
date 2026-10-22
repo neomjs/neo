@@ -1192,6 +1192,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         plugin.owner.promiseUpdate = async () => { updates.push(b2.hidden) };
         plugin.owner.update        = () => {};
         plugin.naturalWidths       = {b1: 50, b2: 80};
+        plugin.naturalWidthLabels  = {b1: Overflow.labelOf(plugin.owner.items[0]), b2: Overflow.labelOf(b2)};
         plugin.syncControl         = () => {};
 
         await plugin.project(true);
@@ -1199,6 +1200,31 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(updates, 'no update ever showed the withheld tab').not.toContain(false);
         expect(b2.vdom.removeDom, 'the withheld tab never left its removed state').toBe(true);
         expect(plugin.naturalWidths.b2, 'its cached width survives the recapture').toBe(80);
+        plugin.destroy()
+    });
+
+    test('a recapture measures a withheld tab again once its label changed', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
+                  ? [{height: 25, left: 0, top: 0, width: 70, x: 0, y: 0}]
+                  : [{height: 20, width: 50}, {height: 20, width: 120}]),
+              updates = [],
+              b2      = {cls: [], hidden: true, id: 'b2', maxWidth: null, text: 'renamed', vdom: {removeDom: true},
+                  addCls() {}, removeCls() {}, setSilent(values) { Object.assign(this, values) }};
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        plugin.owner.items         = [{cls: [], hidden: false, id: 'b1', maxWidth: null, vdom: {},
+            addCls() {}, removeCls() {}, setSilent(values) { Object.assign(this, values) }}, b2];
+        plugin.owner.promiseUpdate = async () => { updates.push(b2.hidden) };
+        plugin.owner.update        = () => {};
+        plugin.naturalWidths       = {b1: 50, b2: 80};
+        plugin.naturalWidthLabels  = {b1: Overflow.labelOf(plugin.owner.items[0]), b2: Overflow.labelOf({text: 'original'})};
+        plugin.syncControl         = () => {};
+
+        await plugin.project(true);
+
+        expect(updates, 'the renamed withheld tab was restored for its measure window').toContain(false);
+        expect(plugin.naturalWidths.b2, 'its width is measured under the new label').toBe(120);
         plugin.destroy()
     });
 
