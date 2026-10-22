@@ -628,6 +628,7 @@ test.describe('dock maximize — presentation, never topology', () => {
         // In-strip sorting stays armed — the zone lives on, clamped to its own toolbar; the
         // cross-zone exit and the popup grammar cannot fire.
         expect(flags.allowOverdrag).toBe(false);
+        expect(flags.enableCrossZoneDrag).toBe(false);
         expect(flags.enableProxyToPopup).toBe(false);
         expect(flags.boundaryContainerId).not.toBe(WORKSPACE_ID);
 

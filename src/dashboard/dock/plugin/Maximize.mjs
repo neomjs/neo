@@ -546,6 +546,7 @@ class Maximize extends Plugin {
             zone  : zone && {
                 allowOverdrag      : zone.allowOverdrag,
                 boundaryContainerId: zone.boundaryContainerId,
+                enableCrossZoneDrag: zone.enableCrossZoneDrag,
                 enableProxyToPopup : zone.enableProxyToPopup
             },
             zoneId: zone?.id || null
@@ -555,6 +556,7 @@ class Maximize extends Plugin {
         zone?.set({
             allowOverdrag      : false,
             boundaryContainerId: bar.id,
+            enableCrossZoneDrag: false,
             enableProxyToPopup : false
         })
     }

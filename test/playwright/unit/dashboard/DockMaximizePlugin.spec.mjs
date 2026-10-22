@@ -445,5 +445,37 @@ test.describe('dock maximize as a declinable plugin', () => {
         expect(Neo.get(plugin.id), 'released from the instance registry').toBeFalsy();
         expect(unregistered, 'the owner destroy reaches the addon with the owner id')
             .toEqual([{componentId: workspace.id, id: workspace.id, windowId: workspace.windowId}])
+    });
+
+    test('suppressDragSources flips and resetPresentation restores enableCrossZoneDrag alongside strip-zone flags (#19986)', () => {
+        create();
+
+        const plugin = workspace.getPlugin('dock-maximize'),
+              main   = tabsOf('main-tabs'),
+              bar    = main.getTabBar(),
+              zone   = bar.sortZone = {
+                  allowOverdrag      : true,
+                  boundaryContainerId: workspace.id,
+                  enableCrossZoneDrag: true,
+                  enableProxyToPopup : true,
+                  id                 : 'test-dock-tab-sortzone',
+                  set(values) {
+                      Object.assign(this, values)
+                  }
+              };
+
+        plugin.suppressDragSources(main);
+
+        expect(zone.allowOverdrag).toBe(false);
+        expect(zone.boundaryContainerId).toBe(bar.id);
+        expect(zone.enableCrossZoneDrag).toBe(false);
+        expect(zone.enableProxyToPopup).toBe(false);
+
+        plugin.resetPresentation();
+
+        expect(zone.allowOverdrag).toBe(true);
+        expect(zone.boundaryContainerId).toBe(workspace.id);
+        expect(zone.enableCrossZoneDrag).toBe(true);
+        expect(zone.enableProxyToPopup).toBe(true)
     })
 });
