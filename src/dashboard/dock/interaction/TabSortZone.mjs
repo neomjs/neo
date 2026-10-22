@@ -64,7 +64,10 @@ class TabSortZone extends TabHeaderSortZone {
          */
         ntype: 'dock-tab-sortzone',
         /**
-         * The dock item ids this toolbar projects, in tab-button order. `startIndex` indexes into this.
+         * The dock item ids this toolbar projects, in tab-button order. `startIndex` indexes the
+         * overflow-filtered `sortableItems` snapshot rather than full tab-button order, so
+         * {@link #resolveDraggedItemId} resolves the dragged button's id by its position in
+         * `owner.getTabButtons()`.
          * @member {String[]|null} dockItemIds=null
          */
         dockItemIds: null,
@@ -202,8 +205,9 @@ class TabSortZone extends TabHeaderSortZone {
         let me       = this,
             tabIndex = me.owner?.getTabButtons?.()?.indexOf(me.dragComponent) ?? -1;
 
-        return me.dragComponent?.dockItemId
-            ?? me.dockItemIds?.[tabIndex > -1 ? tabIndex : me.startIndex]
+        return (tabIndex > -1 ? me.dockItemIds?.[tabIndex] : null)
+            ?? me.dragComponent?.dockItemId
+            ?? me.dockItemIds?.[me.startIndex]
             ?? null
     }
 
@@ -217,7 +221,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     onDockBoundaryEntry(data) {
         let me     = this,
-            itemId = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me);
+            itemId = me.resolveDraggedItemId();
 
         me.owner?.up?.()?.fire('dockTearOutEntry', {
             ...data, itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId
@@ -235,7 +239,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     onDockBoundaryExit(data) {
         let me     = this,
-            itemId = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me);
+            itemId = me.resolveDraggedItemId();
 
         me.owner?.up?.()?.fire('dockTearOutExit', {
             ...data, itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId, sourceRect: me.dockSourceCardRect ?? null
@@ -467,7 +471,7 @@ class TabSortZone extends TabHeaderSortZone {
         if (item) {
             delete item.dockGroupNodeId;
             delete item.dockItemId;
-            item.dockItemId            = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me);
+            item.dockItemId            = me.resolveDraggedItemId();
             item.dockSourceOwnershipId = me.resolveSourceOwnershipId();
             item.dockSourceWorkspaceId = me.dockWorkspaceId
         }
@@ -569,7 +573,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     async onDragCancel(data={}) {
         let me     = this,
-            itemId = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me);
+            itemId = me.resolveDraggedItemId();
 
         if (me.isWindowDragging && itemId) {
             me.owner?.up?.()?.fire('dockTearOutCancel', {itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId})
@@ -606,7 +610,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     async processDragEnd(data) {
         let me     = this,
-            itemId = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me),
+            itemId = me.resolveDraggedItemId(),
             // Resolve the tab.Container + fire BEFORE super: the base drag-end tears down the owner linkage
             // AND its within-reorder commit can trigger a deferred re-projection that destroys this tab
             // container — firing after super would land on a dead component. Same node whose `moveTo`
@@ -752,7 +756,7 @@ class TabSortZone extends TabHeaderSortZone {
 
         await super.onDragMove(data);
 
-        let itemId             = (me.resolveDraggedItemId ?? TabSortZone.prototype.resolveDraggedItemId).call(me),
+        let itemId             = me.resolveDraggedItemId(),
             tabContainer       = me.owner?.up?.(),
             {clientX, clientY} = data || {};
 
