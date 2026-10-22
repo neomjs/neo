@@ -714,6 +714,13 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             expect(resolve(createZone({enableVesselConversion: false}).zone)).toBeNull()
         });
 
+        test('a whole-stack drag keeps the generic path: it never rides a vessel, so it has nothing to convert', () => {
+            const {fired, zone} = createZone({isWindowDragging: false, stackDragActive: true});
+
+            expect(resolve(zone)).toBeNull();
+            expect(fired).toEqual([])
+        });
+
         test('an unmeasured drag element engages nothing rather than a window-sized proxy', () => {
             const {fired, zone} = createZone({dragElementRect: null});
 

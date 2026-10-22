@@ -304,12 +304,13 @@ class TabSortZone extends TabHeaderSortZone {
      * @param {Boolean} frame.pointerInTarget
      * @returns {{engage: Boolean, proxyRect: (Object|undefined)}|null} An engaged record carries the
      *     target proxy's extent ({@link #getVesselConversionProxyRect}); `null` leaves a claim-free frame
-     *     to the source or the void, and keeps the generic coordinator path for a source that did not opt in.
+     *     to the source or the void, and keeps the generic coordinator path for a source that did not opt in
+     *     and for a whole-stack drag, which never rides a vessel and so has nothing to convert.
      */
     resolveRemoteDragTransition({draggedItem, pointerInTarget} = {}) {
         let me = this;
 
-        if (!me.enableVesselConversion || pointerInTarget !== true) {
+        if (!me.enableVesselConversion || me.stackDragActive || pointerInTarget !== true) {
             return null
         }
 

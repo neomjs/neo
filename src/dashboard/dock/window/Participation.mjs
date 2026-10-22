@@ -304,8 +304,8 @@ class Participation extends Base {
     /**
      * @summary Composes the shared preview renderer, indicator menu and gesture controller on first use.
      * Default targets own this complete tier; hosts supplying a preview seam retain their own visuals.
+     * A host's in-window drag seams resolve the same controller, so its window paints one preview tier.
      * @returns {Neo.dashboard.dock.interaction.DragAffordances|null}
-     * @protected
      */
     resolveAffordances() {
         if (this.affordances) return this.affordances;
