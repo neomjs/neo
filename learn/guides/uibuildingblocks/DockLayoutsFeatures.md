@@ -148,6 +148,15 @@ repartitioning before it declares the projection settled. Without that wait, a l
 repartitioning produces the flicker where a header briefly shows the wrong tabs — the artifact that makes a docking UI
 feel cheap even when it is correct.
 
+By default, a pane's contextual header actions (`reload`, `pin`, `lock`, `pop-out`) stay withheld until that pane holds
+focus (`showOnFocus: true`), keeping inactive headers visually quiet while `close` and any pressed toggle (`pin`, `lock`)
+remain visible. When a composition wants pointer hover to reveal an unfocused pane's contextual actions as well, set
+`headerActionsShowOnHover: true` on `Neo.dashboard.dock.Workspace` (or pass `headerActionsShowOnHover: true` /
+`showOnHover: true` to `LayoutAdapter.project`). That threads `showOnHover: true` to every projected tab header toolbar
+so `contextualActionsVisible` responds to `focus || (showOnHover && hover)`, while `Neo.tab.plugin.Overflow` reserves
+the full revealed action-cluster span up front so hovering into and out of a dense tab strip never shifts its overflow
+partition.
+
 An item can also be moved into a *different window* — that is the same family of outcomes across a window boundary, and
 it has its own guide. [A Pane's Life Across Windows](DockLayoutsWindows.md) follows it end to end.
 

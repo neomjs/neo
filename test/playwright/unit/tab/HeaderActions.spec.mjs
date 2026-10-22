@@ -643,4 +643,76 @@ test.describe('Neo tab header actions', () => {
             hadResizeAddon ? addon.ResizeObserver = oldResizeAddon : delete addon.ResizeObserver
         }
     });
+
+    test('showOnHover option satisfies the focus × hover × pressed truth table while staying off by default', () => {
+        const tabs = own(Neo.create(TabContainer, {
+            appName,
+            headerActions: [
+                {action: 'reload', iconCls: 'fa fa-sync',      showOnFocus: true},
+                {action: 'pin',    iconCls: 'fa fa-thumbtack', showOnFocus: true, pressed: false},
+                {action: 'close',  iconCls: 'fa fa-times',     showOnFocus: false}
+            ],
+            items: [{
+                module: Component,
+                header: {text: 'One'}
+            }]
+        }));
+
+        const bar        = tabs.getTabBar(),
+              reload     = tabs.getAction('reload'),
+              pin        = tabs.getAction('pin'),
+              close      = tabs.getAction('close'),
+              isWithheld = item => item.cls.includes('neo-toolbar-action-context-inactive');
+
+        // 1. Default off (`showOnHover: false`): hover alone never reveals focus-gated actions.
+        expect(bar.showOnHover).toBe(false);
+        expect(isWithheld(reload)).toBe(true);
+        expect(isWithheld(pin)).toBe(true);
+        expect(isWithheld(close)).toBe(false);
+
+        bar.onFocusSubjectMouseEnter();
+        expect(bar.contextualActionsVisible).toBe(false);
+        expect(isWithheld(reload)).toBe(true);
+        bar.onFocusSubjectMouseLeave();
+
+        // 2. Enable `showOnHover: true` — evaluate full (focus × hover × pressed) truth table.
+        bar.showOnHover = true;
+
+        // (focus=false, hover=false, pressed=false) -> withheld
+        expect(bar.contextualActionsVisible).toBe(false);
+        expect(isWithheld(reload)).toBe(true);
+        expect(isWithheld(pin)).toBe(true);
+        expect(isWithheld(close)).toBe(false);
+
+        // (focus=false, hover=false, pressed=true) -> pressed toggle stays revealed, unpressed stays withheld
+        pin.pressed = true;
+        expect(isWithheld(pin)).toBe(false);
+        expect(isWithheld(reload)).toBe(true);
+        pin.pressed = false;
+        expect(isWithheld(pin)).toBe(true);
+
+        // (focus=false, hover=true, pressed=false) -> revealed via hover
+        bar.onFocusSubjectMouseEnter();
+        expect(bar.contextualActionsVisible).toBe(true);
+        expect(isWithheld(reload)).toBe(false);
+        expect(isWithheld(pin)).toBe(false);
+
+        // (focus=true, hover=true, pressed=false) -> revealed via both
+        tabs.containsFocus = true;
+        expect(bar.contextualActionsVisible).toBe(true);
+        expect(isWithheld(reload)).toBe(false);
+
+        // (focus=true, hover=false, pressed=false) -> pointer leaves while focused; stays revealed via focus
+        bar.onFocusSubjectMouseLeave();
+        expect(bar.contextualActionsVisible).toBe(true);
+        expect(isWithheld(reload)).toBe(false);
+        expect(isWithheld(pin)).toBe(false);
+
+        // (focus=false, hover=false, pressed=false) -> blur after pointer left; withholds again
+        tabs.containsFocus = false;
+        expect(bar.contextualActionsVisible).toBe(false);
+        expect(isWithheld(reload)).toBe(true);
+        expect(isWithheld(pin)).toBe(true);
+        expect(isWithheld(close)).toBe(false)
+    });
 });

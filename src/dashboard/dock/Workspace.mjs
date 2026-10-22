@@ -296,6 +296,18 @@ class Workspace extends Container {
          */
         enableDockHeaderActionsPlugin: true,
         /**
+         * @summary Reveals a dock pane's focus-gated header actions (`reload`, `pin`, `lock`, `pop-out`)
+         * when the pointer hovers the pane (`tab.Container`), in addition to when the pane holds focus.
+         *
+         * Off by default so the quiet-inactive contract remains the baseline. When enabled, the option
+         * threads through `LayoutAdapter` to every projected tab header toolbar (`showOnHover: true`),
+         * and `Neo.tab.plugin.Overflow` reserves the full action-cluster span while unhovered so hovering
+         * into and out of a pane never shifts its tab overflow partition.
+         * @member {Boolean} headerActionsShowOnHover_=false
+         * @reactive
+         */
+        headerActionsShowOnHover_: false,
+        /**
          * @summary Projects a `pop-out` header action that detaches the active pane into its own
          * vessel window, through the drag tear-out's own commit path.
          *
@@ -753,6 +765,31 @@ class Workspace extends Container {
         this.observeBoundWindowGeometry(this.windowId);
 
         this.syncDockParticipation()
+    }
+
+    /**
+     * Propagates runtime changes to `headerActionsShowOnHover` onto every projected tab header toolbar.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetHeaderActionsShowOnHover(value, oldValue) {
+        if (oldValue !== undefined) {
+            let host = this.getDockHost();
+
+            if (host?.items?.length) {
+                let shell = Reconciler.liveShell(host, this.dockShellIndex),
+                    tabs  = Reconciler.collectProjectedTabs(shell);
+
+                tabs.forEach(tab => {
+                    let bar = tab.getTabBar?.();
+
+                    if (bar) {
+                        bar.showOnHover = value === true
+                    }
+                })
+            }
+        }
     }
 
     /**
@@ -2421,8 +2458,9 @@ class Workspace extends Container {
                 // Bound unconditionally: a host can project its OWN header actions without enabling
                 // the close action, and wiring the seam inside that opt-in left those intents with
                 // nowhere to arrive.
-                onDockHeaderAction   : me.onDockHeaderAction.bind(me),
-                enableDockCloseAction: me.enableDockCloseAction,
+                onDockHeaderAction      : me.onDockHeaderAction.bind(me),
+                enableDockCloseAction   : me.enableDockCloseAction,
+                headerActionsShowOnHover: options.headerActionsShowOnHover ?? options.showOnHover ?? me.headerActionsShowOnHover,
                 ...(me.enableDockLockAction && {
                     dockLockIconCls     : me.dockLockIconCls,
                     dockUnlockIconCls   : me.dockUnlockIconCls,

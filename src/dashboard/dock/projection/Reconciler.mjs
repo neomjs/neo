@@ -1038,6 +1038,10 @@ class Reconciler extends Base {
                 targetBar  = targetTab.getTabBar(),
                 targetBody = targetTab.getCardContainer();
 
+            if (targetBar && Object.hasOwn(plan.config?.headerToolbar || {}, 'showOnHover')) {
+                targetBar.showOnHover = Boolean(plan.config.headerToolbar.showOnHover)
+            }
+
             plan.desiredItems.forEach((itemId, targetIndex) => {
                 const
                     placeholder = placeholders.get(itemId);

@@ -479,6 +479,8 @@ class LayoutAdapter extends Base {
      *     rail reveal pane: `(pane, itemId) => void`, binding the pane to the item's committed lock.
      * @param {Object|null} [options.tabInsertDescriptor] Runtime-only normalized `addTab`
      * correlation consumed by this projection; never part of `model`.
+     * @param {Boolean} [options.headerActionsShowOnHover=false] When `true` (or via alias `options.showOnHover`),
+     *     projected tab header toolbars reveal their focus-gated actions on pointer hover over the pane.
      * @returns {Object}
      * @static
      */
@@ -499,8 +501,9 @@ class LayoutAdapter extends Base {
             config, context;
 
         context = {
-            applyDockZoneOperation: options.applyDockZoneOperation,
-            autoHideRevealOnHover : options.autoHideRevealOnHover === true,
+            applyDockZoneOperation  : options.applyDockZoneOperation,
+            autoHideRevealOnHover   : options.autoHideRevealOnHover === true,
+            headerActionsShowOnHover: options.headerActionsShowOnHover === true || options.showOnHover === true,
             // Cross-WINDOW participation (docking design record §2.3, additive + opt-in): a composition that
             // supplies a sortGroup makes every projected tab sort zone a coordinator-registered
             // drag SOURCE (the workspace id rides the drag payload for the receiving window's
@@ -1386,6 +1389,7 @@ class LayoutAdapter extends Base {
                 // generic default stays floating; composed dock headers opt into their owned action rail.
                 // Zero new model state: menu selection routes through tab.Container's existing activeIndex.
                 plugins       : [{module: TabOverflowPlugin, projectAsAction: true}],
+                showOnHover   : context.headerActionsShowOnHover === true,
                 sortZoneConfig: {
                     module: TabSortZone,
                     // A dock host spans multiple tab strips. Workspace-backed compositions supply

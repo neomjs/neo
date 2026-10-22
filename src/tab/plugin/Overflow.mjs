@@ -1,5 +1,6 @@
-import Button from '../../button/Base.mjs';
-import Plugin from '../../plugin/Base.mjs';
+import Button   from '../../button/Base.mjs';
+import NeoArray from '../../util/Array.mjs';
+import Plugin   from '../../plugin/Base.mjs';
 
 /**
  * @summary The tab-overflow affordance for a projected tab header toolbar: when headers exceed the
@@ -317,6 +318,13 @@ class Overflow extends Plugin {
                     me.measuredControlWidth = null
                 })
             }
+            if (me.owner.getConfig?.('showOnHover') !== undefined) {
+                me.observeConfig(me.owner, 'showOnHover', value => {
+                    me.revealedClusterSpan   = null;
+                    me.revealedTrailingInset = null;
+                    me.project(value === true)
+                })
+            }
         }
     }
 
@@ -345,13 +353,14 @@ class Overflow extends Plugin {
      * withholds it), so it must be excluded here rather than measured: this measurement reads each
      * rect's POSITION as well as its size, and a missing or all-zero rect would place the action
      * cluster at offset 0 and consume the entire strip, collapsing every tab into the overflow menu.
+     * @param {Boolean} [includeContextInactive=this.owner.showOnHover === true]
      * @returns {Neo.component.Base[]}
      */
-    getActionItems() {
+    getActionItems(includeContextInactive=this.owner.showOnHover === true) {
         return (this.owner.getActionItems?.() || [])
             .filter(item => item !== this.control)
             .filter(item => !item.hidden || item.hideMode === 'visibility')
-            .filter(item => !(item.cls || []).includes('neo-toolbar-action-context-inactive'))
+            .filter(item => includeContextInactive || !(item.cls || []).includes('neo-toolbar-action-context-inactive'))
     }
 
     /**
@@ -372,7 +381,7 @@ class Overflow extends Plugin {
      */
     getControlAlign() {
         let me          = this,
-            firstAction = me.getActionItems()[0],
+            firstAction = me.getActionItems(false)[0],
             geometry    = me.getMainAxisConfig();
 
         return {
@@ -463,6 +472,8 @@ class Overflow extends Plugin {
      * Action membership/availability changes alter the tab-exclusive extent, not tab natural widths.
      */
     onActionSetChange() {
+        this.revealedClusterSpan   = null;
+        this.revealedTrailingInset = null;
         this.project(false)
     }
 
@@ -473,7 +484,9 @@ class Overflow extends Plugin {
      * @protected
      */
     onActionGeometryChange() {
-        this.project(false)
+        if (!this.measuringWithheldActions) {
+            this.project(false)
+        }
     }
 
     /**
@@ -483,7 +496,11 @@ class Overflow extends Plugin {
      * @protected
      */
     onActionVisibilityChange({component}={}) {
-        component !== this.control && this.project(false)
+        if (component !== this.control) {
+            this.revealedClusterSpan   = null;
+            this.revealedTrailingInset = null;
+            this.project(false)
+        }
     }
 
     /**
@@ -807,33 +824,124 @@ class Overflow extends Plugin {
             }
 
             // 2. The strip extent — actions consume the same main axis but stay outside tab packing.
-            // A contextually inactive action is collapsed out of the layout, so it contributes a
-            // zero rect here and the extent tracks what is actually offered. A focus change can
-            // therefore repartition the tabs; that is intended, not a regression.
+            // A contextually inactive action is collapsed out of the layout by default, so it contributes
+            // a zero rect here and the extent tracks what is actually offered. When `owner.showOnHover`
+            // is enabled, however, pointer hover reveals and re-collapses focus-gated actions without a
+            // focus change — reserving their revealed cluster span up front keeps the tab partition
+            // byte-identical before, during, and after hover.
             // Layout x/y are offset-parent-relative. The coordinate arm still holds: the actions are
             // children of this static toolbar, so both share its offset parent.
-            let actionItems   = me.getActionItems(),
-                controlId     = me.control?.mounted ? me.control.id : null,
-                ids           = [owner.id, ...actionItems.map(item => item.id), ...(controlId ? [controlId] : [])],
-                rects         = await owner.getLayoutRect(ids),
-                ownerRect     = rects.shift(),
+            let actionItems     = me.getActionItems(),
+                withheldActions = owner.showOnHover === true
+                    ? actionItems.filter(item => (item.cls || []).includes('neo-toolbar-action-context-inactive'))
+                    : [],
+                needRevealProbe = owner.showOnHover === true && withheldActions.length > 0
+                    && (recapture || !Number.isFinite(me.revealedClusterSpan)),
+                priorVisibilities;
+
+            if (needRevealProbe) {
+                me.measuringWithheldActions = true;
+                priorVisibilities = withheldActions.map(item => {
+                    let cls             = [...(item.cls || [])],
+                        style           = {...(item.style || {})},
+                        vdom            = item.vdom,
+                        prevVis         = style.visibility,
+                        hadprevVis      = Object.hasOwn(style, 'visibility'),
+                        hadRemoveDom    = Boolean(vdom && Object.hasOwn(vdom, 'removeDom')),
+                        prevDomWithheld = item.domWithheld;
+
+                    NeoArray.remove(cls, 'neo-toolbar-action-context-inactive');
+                    style.visibility = 'hidden';
+                    item.domWithheld = false;
+                    vdom && delete vdom.removeDom;
+                    item.cls         = cls;
+                    item.style       = style;
+
+                    return {hadprevVis, hadRemoveDom, item, prevDomWithheld, prevVis}
+                });
+                owner.updateDepth = -1;
+                await owner.promiseUpdate?.()
+            }
+
+            let controlId = me.control?.mounted ? me.control.id : null,
+                ids       = [owner.id, ...actionItems.map(item => item.id), ...(controlId ? [controlId] : [])],
+                rects     = await owner.getLayoutRect(ids);
+
+            if (needRevealProbe) {
+                priorVisibilities.forEach(({hadprevVis, hadRemoveDom, item, prevDomWithheld, prevVis}) => {
+                    let cls   = [...(item.cls || [])],
+                        style = {...(item.style || {})},
+                        vdom  = item.vdom;
+
+                    if (!owner.contextualActionsVisible && !item.pressed) {
+                        NeoArray.add(cls, 'neo-toolbar-action-context-inactive');
+                        item.domWithheld = prevDomWithheld;
+                        if (vdom && hadRemoveDom) {
+                            vdom.removeDom = true
+                        }
+                    }
+
+                    if (hadprevVis) {
+                        style.visibility = prevVis
+                    } else {
+                        delete style.visibility
+                    }
+
+                    item.cls   = cls;
+                    item.style = style
+                });
+                owner.updateDepth = -1;
+                await owner.promiseUpdate?.();
+                me.measuringWithheldActions = false
+            }
+
+            let ownerRect     = rects.shift(),
                 actionRects   = rects.splice(0, actionItems.length),
                 controlRect   = controlId ? rects.shift() : null,
                 startKey      = geometry.dimension === 'width' ? 'left' : 'top',
                 coordinateKey = geometry.dimension === 'width' ? 'x' : 'y',
                 ownerStart    = Number(ownerRect?.[startKey] ?? ownerRect?.[coordinateKey]),
+                ownerSize     = Number(ownerRect?.[geometry.dimension]),
                 // The rail begins at the first action that HAS a box. A collapsed action, or one whose insert has not
                 // landed yet (the drain pass after a drag, once its focus brought the contextual actions back),
                 // reports an all-zero rect: read as a coordinate, it would start the rail at the owner's own edge
                 // and withhold every unprotected tab for one pass.
-                firstAction   = actionRects.find(rect => Number(rect?.[geometry.dimension]) > 0),
-                actionStart   = Number(firstAction?.[startKey] ?? firstAction?.[coordinateKey]),
-                ownerSize     = Number(ownerRect?.[geometry.dimension]),
-                actionSize    = actionRects.reduce((sum, rect) => {
+                positiveRects = actionRects.filter(rect => Number(rect?.[geometry.dimension]) > 0),
+                firstAction   = positiveRects[0],
+                rawActionStart = Number(firstAction?.[startKey] ?? firstAction?.[coordinateKey]),
+                actionEnds    = positiveRects
+                    .map(rect => Number(rect?.[startKey] ?? rect?.[coordinateKey]) + Number(rect?.[geometry.dimension]))
+                    .filter(Number.isFinite),
+                clusterEnd    = actionEnds.length > 0 ? Math.max(...actionEnds) : NaN,
+                measuredSpan  = Number.isFinite(clusterEnd) && Number.isFinite(rawActionStart)
+                    ? Math.max(0, clusterEnd - rawActionStart)
+                    : 0,
+                rawActionSize = actionRects.reduce((sum, rect) => {
                     let size = Number(rect?.[geometry.dimension]);
 
                     return sum + (Number.isFinite(size) ? Math.max(0, size) : 0)
-                }, 0),
+                }, 0);
+
+            if (owner.showOnHover === true && (withheldActions.length === 0 || needRevealProbe) && positiveRects.length > 0) {
+                me.revealedClusterSpan = Math.max(rawActionSize, measuredSpan);
+
+                if (Number.isFinite(ownerStart) && Number.isFinite(ownerSize) && Number.isFinite(clusterEnd)
+                    && clusterEnd <= ownerStart + ownerSize + 1) {
+                    me.revealedTrailingInset = Math.max(0, (ownerStart + ownerSize) - clusterEnd)
+                }
+            }
+
+            let actionSize = owner.showOnHover === true && Number.isFinite(me.revealedClusterSpan)
+                    ? Math.max(rawActionSize, me.revealedClusterSpan)
+                    : rawActionSize,
+                actionStart = owner.showOnHover === true && withheldActions.length > 0 && !needRevealProbe
+                    && Number.isFinite(me.revealedClusterSpan)
+                    ? (Number.isFinite(clusterEnd)
+                        ? clusterEnd - me.revealedClusterSpan
+                        : Number.isFinite(ownerStart) && Number.isFinite(ownerSize)
+                            ? ownerStart + ownerSize - (me.revealedTrailingInset ?? 0) - me.revealedClusterSpan
+                            : rawActionStart)
+                    : rawActionStart,
                 coordinateExtent = Number.isFinite(ownerStart) && Number.isFinite(actionStart)
                     ? Math.max(0, Math.floor(actionStart - ownerStart))
                     : null,
@@ -887,7 +995,19 @@ class Overflow extends Plugin {
                     usable: hidden.length > 0
                         ? Math.max(0, extent - controlWidth)
                         : activeButton && me.naturalWidths[activeButton.id] > extent ? extent : null
-                })
+                });
+
+                // When an initial recapture pass had all tabs visible, the action cluster was pushed beyond
+                // the owner's trailing edge, so `coordinateExtent` fell back to `sizeExtent` (which omits
+                // the toolbar's trailing padding / action-cluster gaps). Once `applySplit` hides the
+                // overflowing tabs, schedule one follow-up non-recapture pass so `clusterEnd` is measured
+                // at its resting in-bounds position and `extent` settles to the exact coordinate budget.
+                if (recapture && owner.showOnHover === true && hidden.length > 0
+                    && Number.isFinite(clusterEnd) && Number.isFinite(ownerStart) && Number.isFinite(ownerSize)
+                    && clusterEnd > ownerStart + ownerSize + 1) {
+                    await owner.promiseUpdate?.();
+                    me.projectQueued = true
+                }
             }
         } catch (error) {
             // getLayoutRect losing a race with teardown is the ONE expected failure: it must neither reject a

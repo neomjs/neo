@@ -104,7 +104,16 @@ class Toolbar extends Container {
             align    : 'center',
             direction: 'row',
             pack     : 'start'
-        }
+        },
+        /**
+         * When `true`, pointer hover over the focus subject (`focusSubjectId` or `parent`) also
+         * reveals focus-gated actions (`showOnFocus: true`) so `contextualActionsVisible` reflects
+         * `focus || (showOnHover && hover)`. Off by default so the quiet-inactive contract remains
+         * unchanged unless a consumer or workspace explicitly opts in.
+         * @member {Boolean} showOnHover_=false
+         * @reactive
+         */
+        showOnHover_: false
     }
 
     /**
@@ -114,6 +123,20 @@ class Toolbar extends Container {
      * @protected
      */
     actionBindingItems = new WeakSet()
+
+    /**
+     * Resolved focus subject (`focusSubjectId` or `parent`) once `wireFocusSubject()` succeeds.
+     * @member {Neo.component.Base|null}
+     * @protected
+     */
+    focusSubject = null
+
+    /**
+     * Whether the pointer currently hovers the wired focus subject.
+     * @member {Boolean}
+     * @protected
+     */
+    focusSubjectHovered = false
 
     /**
      * Reconciles a live action-collection replacement after construction. Initial materialisation
@@ -348,6 +371,63 @@ class Toolbar extends Container {
      * toolbar that never mounts.
      * @protected
      */
+    /**
+     * Triggered after the showOnHover config got changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowOnHover(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.syncContextualActionsVisible()
+        }
+    }
+
+    /**
+     * Recomputes `contextualActionsVisible` from the focus subject's `containsFocus` state and,
+     * when `showOnHover === true`, the current pointer hover state on the focus subject.
+     * @protected
+     */
+    syncContextualActionsVisible() {
+        let me      = this,
+            subject = me.focusSubject || (me.focusSubjectId ? Neo.getComponent(me.focusSubjectId) : me.parent);
+
+        if (!subject) {
+            return
+        }
+
+        me.contextualActionsVisible = subject.containsFocus === true
+            || (me.showOnHover === true && me.focusSubjectHovered === true)
+    }
+
+    /**
+     * Marks the focus subject as hovered and re-evaluates focus-gated action visibility.
+     * @protected
+     */
+    onFocusSubjectMouseEnter() {
+        this.focusSubjectHovered = true;
+        this.syncContextualActionsVisible()
+    }
+
+    /**
+     * Clears the focus subject's hover state and re-evaluates focus-gated action visibility.
+     * @protected
+     */
+    onFocusSubjectMouseLeave() {
+        this.focusSubjectHovered = false;
+        this.syncContextualActionsVisible()
+    }
+
+    /**
+     * Subscribes `contextualActionsVisible` to the focus subject's `containsFocus` and pointer hover.
+     *
+     * Idempotent via `focusSubjectWired`. At `onConstructed` the owner may still be constructing this toolbar as
+     * an early child, so the first attempt can resolve nothing. It then leaves the toolbar unwired
+     * rather than marking it done, and the owner's `onConstructed` or this toolbar's mount retries.
+     * Binding once at a single moment would be either too early for the subject or too late for a
+     * toolbar that never mounts.
+     * @protected
+     */
     wireFocusSubject() {
         let me = this;
 
@@ -362,18 +442,24 @@ class Toolbar extends Container {
         }
 
         me.focusSubjectWired = true;
+        me.focusSubject      = subject;
 
         // `containsFocus` is a reactive config that `manager.Focus` already maintains on every
         // component in the focus path, so the gate is a subscription to existing state rather than
         // a second interpretation of focus events. `observeConfig()` also ties the subscription to
         // this toolbar's lifecycle, which hand-rolled listeners do not.
-        me.observeConfig(subject, 'containsFocus', value => {
-            me.contextualActionsVisible = value === true
+        me.observeConfig(subject, 'containsFocus', () => {
+            me.syncContextualActionsVisible()
         });
+
+        subject.addDomListeners([
+            {mouseenter: me.onFocusSubjectMouseEnter, scope: me},
+            {mouseleave: me.onFocusSubjectMouseLeave, scope: me}
+        ]);
 
         // Wiring can land after the subject already holds focus; the subscription only reports
         // CHANGES, so the current value has to be adopted once.
-        me.contextualActionsVisible = subject.containsFocus === true
+        me.syncContextualActionsVisible()
     }
 
     /**
@@ -392,7 +478,16 @@ class Toolbar extends Container {
             item.addDomListeners({resize: me.onActionResize, scope: me});
             item.on('hiddenChange', () => {
                 me.fire('actionVisibilityChange', {action: item.action, component: item})
-            }, me)
+            }, me);
+
+            // Standard `button.Base` items used directly in a toolbar's `actions` array carry a
+            // reactive `pressed` config without `toolbar.button.Action`'s override; keep their
+            // context-inactive class in step when `pressed` changes while unfocused/unhovered.
+            if (me.isFocusGatedAction(item) && !item.isActionButton && item.getConfig?.('pressed') !== undefined) {
+                me.observeConfig(item, 'pressed', () => {
+                    me.applyContextualActionState()
+                })
+            }
         })
     }
 
@@ -753,6 +848,25 @@ class Toolbar extends Container {
      */
     replaceSpacer(item) {
         return item === '->' ? {module: Component, flex: 1} : item
+    }
+
+    /**
+     * Cleans up focus-subject hover DOM listeners before destroying the toolbar.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        if (me.focusSubject && !me.focusSubject.isDestroyed) {
+            me.focusSubject.removeDomListeners([
+                {mouseenter: me.onFocusSubjectMouseEnter, scope: me},
+                {mouseleave: me.onFocusSubjectMouseLeave, scope: me}
+            ])
+        }
+
+        me.focusSubject = null;
+
+        super.destroy(...args)
     }
 
     /**
