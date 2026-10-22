@@ -333,6 +333,18 @@ class SortZone extends DragZone {
     }
 
     /**
+     * @summary Returns the draggable items that occupy a live DOM layout slot at drag start.
+     * @param {Object[]} [items=this.owner.items]
+     * @returns {Neo.component.Base[]}
+     * @protected
+     */
+    getSortableItems(items=this.owner.items) {
+        return this.getDraggableItems(items).filter(item =>
+            !(item.hidden && item.hideMode !== 'visibility') && !item.vdom?.removeDom
+        )
+    }
+
+    /**
      * Returns the union of non-zero rendered sortable-item rectangles.
      * @param {Neo.util.Rectangle[]} rects
      * @returns {Neo.util.Rectangle|null}
@@ -885,11 +897,11 @@ class SortZone extends DragZone {
                     return
                 }
 
-                sortableItems = me.getDraggableItems(owner.items);
+                sortableItems = me.getSortableItems(owner.items);
                 index         = sortableItems.indexOf(draggedItem);
             } else {
                 draggedItem   = Neo.getComponent(data.path[0].id);
-                sortableItems = me.getDraggableItems(owner.items);
+                sortableItems = me.getSortableItems(owner.items);
                 index         = sortableItems.indexOf(draggedItem)
             }
 

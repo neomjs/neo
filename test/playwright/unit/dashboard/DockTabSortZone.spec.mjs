@@ -154,7 +154,14 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 calls.push('base-start')
             };
 
-            const zone = {dockItemIds: ['audit'], dockWorkspaceId: null, dragComponent: null, owner, startIndex: 0};
+            const zone = {
+                dockItemIds         : ['audit'],
+                dockWorkspaceId     : null,
+                dragComponent       : null,
+                owner,
+                resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
+                startIndex          : 0
+            };
 
             try {
                 await DockTabSortZone.prototype.onDragStart.call(zone, {path: []});
@@ -177,6 +184,57 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             await DockTabSortZone.prototype.onDragStart.call(zone, {path: []});
 
             expect(calls, 'the predecessor retains physical + logical generation authority').toEqual([])
+        });
+
+        test('resolves dockItemId from the dragged button index in owner.getTabButtons() when an earlier tab is overflow-withheld', async () => {
+            const withheldTab = {id: 'tab-0', hidden: true, vdom: {removeDom: true}},
+                  visibleTabA = {id: 'tab-1', vdom: {}},
+                  visibleTabB = {id: 'tab-2', vdom: {}},
+                  fired       = [],
+                  original    = TabHeaderSortZone.prototype.onDragStart;
+
+            TabHeaderSortZone.prototype.onDragStart = async function() {
+                // Simulate SortZone#onDragStart filtering out withheldTab: visibleTabA is index 0 in sortableItems
+                this.dragComponent = visibleTabA;
+                this.startIndex    = 0
+            };
+
+            const zone = {
+                dockItemIds     : ['audit', 'metrics', 'logs'],
+                dockSourceNodeId: 'heavy-tabs',
+                dockWorkspaceId : 'ws-main',
+                dragComponent   : null,
+                isReleasedInside: () => true,
+                isWindowDragging: true,
+                owner           : {
+                    getDomRect   : async () => ({x: 0, y: 0, width: 300, height: 32}),
+                    getTabButtons: () => [withheldTab, visibleTabA, visibleTabB],
+                    up           : () => ({
+                        fire            : (name, data) => fired.push([name, data]),
+                        getCardContainer: () => ({getDomRect: async () => ({x: 0, y: 32, width: 300, height: 200})})
+                    })
+                },
+                releaseVoidsReorder     : () => false,
+                resolveDraggedItemId    : DockTabSortZone.prototype.resolveDraggedItemId,
+                resolveSourceOwnershipId: () => 'group-main',
+                startIndex              : 0
+            };
+
+            try {
+                await DockTabSortZone.prototype.onDragStart.call(zone, {path: [{id: 'tab-1'}]});
+
+                expect(visibleTabA.dockItemId, 'stamps the tab-button index (1 -> metrics), not sortableItems startIndex (0 -> audit)').toBe('metrics');
+
+                DockTabSortZone.prototype.onDockBoundaryExit.call(zone, {intersectionRatio: 0.2});
+                DockTabSortZone.prototype.onDockBoundaryEntry.call(zone, {intersectionRatio: 0.9});
+
+                expect(fired.map(([name, payload]) => [name, payload.itemId])).toEqual([
+                    ['dockTearOutExit',  'metrics'],
+                    ['dockTearOutEntry', 'metrics']
+                ])
+            } finally {
+                TabHeaderSortZone.prototype.onDragStart = original
+            }
         })
     });
 
@@ -284,11 +342,12 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                         onDragCancel: () => calls.push(['coordinator-cancel']),
                         onDragEnd   : () => calls.push(['coordinator-end'])
                     },
-                    owner              : {up: () => ({fire: (name, data) => calls.push([name, data])})},
-                    remoteDropCommitted: !cancelled,
-                    sortGroup          : 'dock-demo',
-                    stackDragActive    : true,
-                    startIndex         : 0
+                    owner               : {up: () => ({fire: (name, data) => calls.push([name, data])})},
+                    remoteDropCommitted : !cancelled,
+                    resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
+                    sortGroup           : 'dock-demo',
+                    stackDragActive     : true,
+                    startIndex          : 0
                 };
                 const data = {cancelled};
 
@@ -352,13 +411,14 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                                   calls.push(['remote-out']);
                                   this.remoteDropCommitted = true
                               },
-                              owner              : {up: () => ({fire: (name, data) => calls.push([name, data])})},
-                              processDragEnd     : DockTabSortZone.prototype.processDragEnd,
-                              releaseVoidsReorder: () => false,
-                              remoteDropCommitted: false,
-                              sortGroup          : 'async-dock-test',
-                              stackDragActive    : stack,
-                              startIndex         : 0
+                              owner               : {up: () => ({fire: (name, data) => calls.push([name, data])})},
+                              processDragEnd      : DockTabSortZone.prototype.processDragEnd,
+                              releaseVoidsReorder : () => false,
+                              remoteDropCommitted : false,
+                              resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
+                              sortGroup           : 'async-dock-test',
+                              stackDragActive     : stack,
+                              startIndex          : 0
                           };
 
                     TabHeaderSortZone.prototype.processDragEnd = async () => calls.push(['cleanup']);
@@ -435,16 +495,17 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
         // Prototype-driven like every pin above: the drag-end decision chain is the unit; the
         // base lifecycle is stubbed to nothing so only the dock routing under test runs.
         const zoneFor = (fired, overrides = {}) => ({
-            dockItemIds        : ['audit', 'graph', 'inbox'],
-            dockSourceNodeId   : 'tabs-main',
-            dragComponent      : null,
-            isReleasedInside   : DockTabSortZone.prototype.isReleasedInside,
-            isWindowDragging   : false,
-            owner              : {up: () => ({fire: (name, data) => fired.push([name, data])})},
-            releaseVoidsReorder: () => false,
-            remoteDropCommitted: false,
-            sortGroup          : null,
-            startIndex         : 1,
+            dockItemIds         : ['audit', 'graph', 'inbox'],
+            dockSourceNodeId    : 'tabs-main',
+            dragComponent       : null,
+            isReleasedInside    : DockTabSortZone.prototype.isReleasedInside,
+            isWindowDragging    : false,
+            owner               : {up: () => ({fire: (name, data) => fired.push([name, data])})},
+            releaseVoidsReorder : () => false,
+            remoteDropCommitted : false,
+            resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
+            sortGroup           : null,
+            startIndex          : 1,
             ...overrides
         });
 
