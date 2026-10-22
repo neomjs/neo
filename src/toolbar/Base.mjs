@@ -474,7 +474,7 @@ class Toolbar extends Container {
      */
     onFocusSubjectMouseEnter() {
         this.focusSubjectHovered = true;
-        this.syncContextualActionsVisible()
+        this.showOnHover && this.syncContextualActionsVisible()
     }
 
     /**
@@ -483,7 +483,7 @@ class Toolbar extends Container {
      */
     onFocusSubjectMouseLeave() {
         this.focusSubjectHovered = false;
-        this.syncContextualActionsVisible()
+        this.showOnHover && this.syncContextualActionsVisible()
     }
 
     /**
@@ -527,7 +527,9 @@ class Toolbar extends Container {
 
         // Wiring can land after the subject already holds focus; the subscription only reports
         // CHANGES, so the current value has to be adopted once.
-        me.syncContextualActionsVisible()
+        if (subject.containsFocus || (me.showOnHover && me.focusSubjectHovered)) {
+            me.syncContextualActionsVisible()
+        }
     }
 
     /**
