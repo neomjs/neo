@@ -125,9 +125,9 @@ class Placement extends Base {
     static resolveFallbacks(hints, documents) {
         // Runs before validation: a malformed hint passes through to its errors unchanged.
         const resolve = hint => {
-            const target = hint?.fallbackTarget, document = documents[target?.workspaceKey];
-            return document && !Object.hasOwn(document.nodes, target.nodeId)
-                ? Object.freeze({...hint, fallbackTarget: Object.freeze({workspaceKey: target.workspaceKey, nodeId: document.root})})
+            const target = hint?.fallbackTarget, nodeId = target?.nodeId, document = documents[target?.workspaceKey];
+            return document && typeof nodeId === 'string' && nodeId.trim() && !Object.hasOwn(document.nodes, nodeId)
+                ? Object.freeze({...hint, fallbackTarget: Object.freeze({...target, nodeId: document.root})})
                 : hint
         };
         const entries = Object.entries(hints ?? {}).map(([key, hint]) => [key, resolve(hint)]);
