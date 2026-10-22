@@ -905,6 +905,9 @@ class DragCoordinator extends Manager {
      * Ownership admission (§2.3) runs before the claim pass, and the winner is revalidated against it:
      * a zone whose ownership was admitted when it claimed and is not admitted now is released and never
      * returned, so a target that turns foreign or unresolved mid-gesture stops previewing at the next pass.
+     *
+     * A point inside `sourceFrame` is the source's for the whole gesture (§2.8.1): the press raised the source
+     * above every window it overlaps, and nothing reorders windows mid-gesture, so no other zone claims there.
      * @param {Object} data
      * @param {Object} data.arbiter The gesture's claim arbiter.
      * @param {Set<String>|null} [data.excludedWindowIds=null] Window ids that cannot host a valid
@@ -912,6 +915,8 @@ class DragCoordinator extends Manager {
      * @param {Number} data.screenX Global screen-space x.
      * @param {Number} data.screenY Global screen-space y.
      * @param {String} data.sortGroup
+     * @param {Neo.util.Rectangle|null} [data.sourceFrame=null] The screen frame of the window the press landed
+     *     in. The native title-bar path passes none: its press lands in the moving window, excluded already.
      * @param {Neo.draggable.container.SortZone} data.sourceSortZone
      * @returns {Object|null} `{stableId, zone}` of the winning claim, or null (fail closed)
      */
@@ -921,6 +926,7 @@ class DragCoordinator extends Manager {
         screenX,
         screenY,
         sortGroup,
+        sourceFrame = null,
         sourceSortZone,
         sourceWindowId=sourceSortZone.windowId
     }) {
@@ -940,6 +946,7 @@ class DragCoordinator extends Manager {
             // returned, whatever the arbiter still holds from an earlier pass.
             eligible   = new Set(),
             retired    = [],
+            inSourceFrame = sourceFrame?.containsPoint(screenX, screenY) === true,
             // ONE acquisition instant for the whole pass. Every zone below is evaluated against the
             // SAME pointer event, so none of them holds seniority over another — they must tie, so
             // that `resolve()` settles them on stable-identity lexicographic order. Sampling the
@@ -981,6 +988,12 @@ class DragCoordinator extends Manager {
 
             if (typeof zone.acceptsRemoteDrag !== 'function') {
                 candidates.push({windowId, stableTargetId: zone.stableTargetId, skipped: 'no-accepts-handler'});
+                continue
+            }
+
+            if (inSourceFrame) {
+                arbiter.release(zone.stableTargetId, zone);
+                candidates.push({windowId, stableTargetId: zone.stableTargetId, skipped: 'source-frame'});
                 continue
             }
 
@@ -1090,11 +1103,13 @@ class DragCoordinator extends Manager {
             } = data,
             {sortGroup}                                                                  = sourceSortZone,
             arbiter                                                                      = me.pointerClaimArbiter ??= createGestureClaimArbiter(),
-            claimed                                                                      = me.resolveClaimedTarget({arbiter, screenX, screenY, sortGroup, sourceSortZone}),
+            sourceFrame                                                                  = Window.get(sourceSortZone.windowId)?.outerRect ?? null,
+            claimed                                                                      = me.resolveClaimedTarget({arbiter, screenX, screenY, sortGroup, sourceFrame, sourceSortZone}),
             targetSortZone                                                               = claimed?.zone,
             targetWindowId;
 
-        if (!targetSortZone) {
+        // A point inside the source's frame is the source's on this door too
+        if (!targetSortZone && !sourceFrame?.containsPoint(screenX, screenY)) {
             // The pinned legacy path: first-intersecting window by REGISTRATION ORDER. It survives
             // exclusively for zones without a stable identity — a zone that declares one rides the
             // claim protocol above and must never fall back here, otherwise overlap resolution
