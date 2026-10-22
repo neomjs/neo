@@ -270,5 +270,21 @@ test.describe('Dock relative placement participant', () => {
         move(popupWindow, 560, 320);
         await expect.poll(() => Transaction.get(groupId).history.current.cause).toBe('native-popup-move');
         expect(placement.hints.popup).toEqual({dx: 460, dy: 240, fallbackTarget: {workspaceKey: 'workstation-main', nodeId: 'reset-root'}})
+    });
+
+    test('a malformed fallback target reaches validation unchanged', () => {
+        const documents = placement.documents();
+        for (const fallbackTarget of [
+            {workspaceKey: 'workstation-main', nodeId: ''},
+            {workspaceKey: 'workstation-main', nodeId: '  '},
+            {workspaceKey: 'workstation-main'},
+            {workspaceKey: 'workstation-main', nodeId: 42}
+        ]) {
+            const hints = {popup: {dx: 1, dy: 2, fallbackTarget}};
+            expect(Placement.resolveFallbacks(hints, documents)).toBe(hints);
+            expect(() => placement.prepare(hints)).toThrow(/non-empty nodeId/)
+        }
+        expect(() => placement.prepare({popup: {dx: 1, dy: 2, fallbackTarget: {workspaceKey: 'workstation-main', nodeId: 'gone', windowId: popupWindow}}}))
+            .toThrow(/unexpected field "windowId"/)
     })
 });
