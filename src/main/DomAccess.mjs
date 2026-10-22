@@ -608,22 +608,104 @@ class DomAccess extends Base {
     }
 
     /**
+     * @summary Returns the visible Rectangle of `data`, clipped by ancestors in its CSS containing-block chain.
+     *
+     * Static, relative, and sticky boxes walk their DOM parent chain (`parentElement`). `position: absolute`
+     * boxes skip intermediate `position: static` ancestors up to their positioned or fixed-containing ancestor.
+     * `position: fixed` boxes stop at the viewport boundary rather than clipping against DOM ancestors above
+     * the fixed container unless an ancestor establishes a fixed-position containing block (`transform`,
+     * `perspective`, `filter`, `backdrop-filter`, or layout/paint `contain`).
      * @param {Object|String} data
-     * @returns {Neo.util.Rectangle}
+     * @returns {Neo.util.Rectangle|Boolean}
      */
     getClippedRect(data) {
-        let me            = this,
-            node          = me.getElement(typeof data === 'object' ? data.id : data),
-            {defaultView} = node.ownerDocument,
-            rect          = me.getBoundingClientRect(node);
+        let me                             = this,
+            node                           = me.getElement(typeof data === 'object' ? data.id : data),
+            {defaultView, documentElement} = node.ownerDocument,
+            rect                           = me.getBoundingClientRect(node);
 
-        for (let parentElement = node.offsetParent; parentElement && rect && parentElement !== document.documentElement; parentElement = parentElement.parentElement) {
+        for (
+            let current = node, parentElement = me.getClippingParent(current, defaultView, documentElement);
+            parentElement && rect && parentElement !== documentElement;
+            current = parentElement, parentElement = me.getClippingParent(current, defaultView, documentElement)
+        ) {
             if (defaultView.getComputedStyle(parentElement).getPropertyValue('overflow') !== 'visible') {
-                rect = rect.intersects(this.getBoundingClientRect(parentElement))
+                let parentRect = me.getBoundingClientRect(parentElement);
+
+                rect = parentRect.width > 0 && parentRect.height > 0 ? rect.intersects(parentRect) : false
             }
         }
 
         return rect
+    }
+
+    /**
+     * @summary Resolves the next ancestor in the CSS containing-block chain that can clip `node`.
+     * @param {HTMLElement} node
+     * @param {Window} defaultView
+     * @param {HTMLElement} documentElement
+     * @returns {HTMLElement|null}
+     * @protected
+     */
+    getClippingParent(node, defaultView, documentElement) {
+        let position = defaultView.getComputedStyle(node).getPropertyValue('position').trim(),
+            parent   = node.parentElement;
+
+        if (position === 'fixed') {
+            for (let ancestor = parent; ancestor && ancestor !== documentElement; ancestor = ancestor.parentElement) {
+                let style = defaultView.getComputedStyle(ancestor);
+
+                if (this.isFixedContainingBlock(style)) {
+                    return ancestor
+                }
+            }
+
+            return null
+        }
+
+        if (!node.offsetParent) {
+            return null
+        }
+
+        if (position === 'absolute') {
+            for (let ancestor = parent; ancestor && ancestor !== documentElement; ancestor = ancestor.parentElement) {
+                let style       = defaultView.getComputedStyle(ancestor),
+                    ancPosition = style.getPropertyValue('position').trim();
+
+                if ((ancPosition && ancPosition !== 'static') || this.isFixedContainingBlock(style)) {
+                    return ancestor
+                }
+            }
+
+            return node.offsetParent !== documentElement ? node.offsetParent : null
+        }
+
+        return parent && parent !== documentElement ? parent : null
+    }
+
+    /**
+     * @summary Checks whether a computed style establishes a containing block for `position: fixed` descendants.
+     * @param {CSSStyleDeclaration} style
+     * @returns {Boolean}
+     * @protected
+     */
+    isFixedContainingBlock(style) {
+        const isSet = prop => {
+            const val = style.getPropertyValue(prop).trim();
+            return Boolean(val && val !== 'none')
+        };
+
+        if (isSet('transform') || isSet('perspective') || isSet('filter') || isSet('backdrop-filter')) {
+            return true
+        }
+
+        const contain = style.getPropertyValue('contain').trim();
+        if (/\b(paint|layout|strict|content)\b/.test(contain)) {
+            return true
+        }
+
+        const willChange = style.getPropertyValue('will-change').trim();
+        return /\b(transform|perspective|filter|backdrop-filter|contain)\b/.test(willChange)
     }
 
     /**
