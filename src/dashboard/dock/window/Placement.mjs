@@ -102,11 +102,36 @@ class Placement extends Base {
     }
 
     /**
-     * @summary The immutable committed relative hints, suitable for topology capture.
+     * @summary The immutable committed relative hints, resolved against the current documents for
+     * topology capture (see {@link Neo.dashboard.dock.window.Placement.resolveFallbacks}).
      * @member {Object} hints
      */
     get hints() {
-        return this.#hints
+        return Placement.resolveFallbacks(this.#hints, this.documents())
+    }
+
+    /**
+     * @summary Re-targets each fallback whose node the current documents no longer hold.
+     * @description A document-only write never prepares this participant, so a fallback captured
+     * against main's root can outlive that node (a root-edge wrap, a reset), and the persistence
+     * boundary refuses a hint naming a missing node. Such a fallback resolves to its workspace's
+     * current root. One whose node still exists is kept as stored, so undoing the document change
+     * restores the original target.
+     * @param {Object} hints
+     * @param {Object<String,Object>} documents
+     * @returns {Object} The same hints object when no fallback is stale.
+     * @static
+     */
+    static resolveFallbacks(hints, documents) {
+        // Runs before validation: a malformed hint passes through to its errors unchanged.
+        const resolve = hint => {
+            const target = hint?.fallbackTarget, document = documents[target?.workspaceKey];
+            return document && !Object.hasOwn(document.nodes, target.nodeId)
+                ? Object.freeze({...hint, fallbackTarget: Object.freeze({workspaceKey: target.workspaceKey, nodeId: document.root})})
+                : hint
+        };
+        const entries = Object.entries(hints ?? {}).map(([key, hint]) => [key, resolve(hint)]);
+        return entries.every(([key, hint]) => hint === hints[key]) ? hints : Object.freeze(Object.fromEntries(entries))
     }
 
     /** @member {Object[]} receipts Latest observed effect per semantic workspace. */
@@ -134,13 +159,14 @@ class Placement extends Base {
     }
 
     /**
-     * @summary Validates hints through the existing topology wire boundary.
+     * @summary Validates hints through the existing topology wire boundary, stale fallbacks resolved first.
      * @param {Object} hints
      * @returns {Object}
      */
     prepare(hints) {
-        const {topology, errors} = Persistence.captureTopologyPerspective(this.documents(), {
-            layoutId: 'placement-validation', title: 'Placement', placementHints: hints
+        const documents          = this.documents();
+        const {topology, errors} = Persistence.captureTopologyPerspective(documents, {
+            layoutId: 'placement-validation', title: 'Placement', placementHints: Placement.resolveFallbacks(hints, documents)
         });
         if (errors.length) throw new Error(errors.join('; '));
         if (Object.hasOwn(topology.placementHints, this.mainWorkspaceKey)) throw new Error('the main workspace has no placement hint');

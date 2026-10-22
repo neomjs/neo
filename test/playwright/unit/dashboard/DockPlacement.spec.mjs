@@ -7,6 +7,7 @@ import * as core         from '../../../../src/core/_export.mjs';
 import Transaction       from '../../../../src/manager/Transaction.mjs';
 import WindowManager     from '../../../../src/manager/Window.mjs';
 import DragCoordinator   from '../../../../src/manager/DragCoordinator.mjs';
+import Persistence       from '../../../../src/dashboard/dock/model/Persistence.mjs';
 import WorkspaceDocument from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Placement         from '../../../../src/dashboard/dock/window/Placement.mjs';
 import WorkspaceSet      from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
@@ -243,5 +244,31 @@ test.describe('Dock relative placement participant', () => {
         release(true);
         expect((await pending).status).toBe('stale');
         expect(placement.receipts.filter(receipt => receipt.transactionId === 'retired-test')).toEqual([])
+    });
+
+    // A reset or a root-edge wrap commits main without the node a hint was captured against.
+    const replaceMainRoot = () => workspaces.write({'workstation-main': {
+        schema: WorkspaceDocument.SCHEMA,
+        root  : 'reset-root',
+        items : {main: {reference: 'main'}},
+        nodes : {'reset-root': {type: 'tabs', items: ['main'], activeItemId: 'main'}}
+    }}, {cause: 'reset'});
+
+    test('a document commit that removes the fallback node leaves the hints capturable, and undo restores the target', async () => {
+        await replaceMainRoot();
+        const {errors} = Persistence.captureTopologyPerspective(placement.documents(), {layoutId: 'stale-hint', placementHints: placement.hints});
+        expect(errors).toEqual([]);
+        expect(placement.hints.popup).toEqual({dx: 400, dy: 220, fallbackTarget: {workspaceKey: 'workstation-main', nodeId: 'reset-root'}});
+        expect(Object.isFrozen(placement.hints.popup.fallbackTarget)).toBe(true);
+
+        await Transaction.undo({groupId});
+        expect(placement.hints.popup.fallbackTarget).toEqual({workspaceKey: 'workstation-main', nodeId: 'root'})
+    });
+
+    test('a popup move after the fallback node is gone still records its row', async () => {
+        await replaceMainRoot();
+        move(popupWindow, 560, 320);
+        await expect.poll(() => Transaction.get(groupId).history.current.cause).toBe('native-popup-move');
+        expect(placement.hints.popup).toEqual({dx: 460, dy: 240, fallbackTarget: {workspaceKey: 'workstation-main', nodeId: 'reset-root'}})
     })
 });
