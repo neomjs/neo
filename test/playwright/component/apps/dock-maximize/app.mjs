@@ -838,6 +838,7 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
         this.zoneSnapshotJson = JSON.stringify(zone && {
             allowOverdrag      : zone.allowOverdrag,
             boundaryContainerId: zone.boundaryContainerId,
+            enableCrossZoneDrag: zone.enableCrossZoneDrag,
             enableProxyToPopup : zone.enableProxyToPopup
         })
     }

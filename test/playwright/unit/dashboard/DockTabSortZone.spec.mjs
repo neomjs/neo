@@ -25,6 +25,7 @@ import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/Sort
 test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
     test('keeps dock headers parent-sized and toolbar-relative during a drag', () => {
         expect(DockTabSortZone.config.adjustItemRectsToParent).toBe(true);
+        expect(DockTabSortZone.config.enableCrossZoneDrag).toBe(true);
         expect(DockTabSortZone.config.expandOwnerOnDrag).toBe(false);
         expect(DockTabSortZone.config.positionOwnerRelative).toBe(true)
     });
@@ -742,6 +743,63 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
 
             expect(fired.map(([name]) => name), 'leaving that window for the desktop').toEqual(['dragBoundaryExit']);
             expect(zone.isWindowDragging).toBe(true)
+        })
+    });
+
+    test.describe('enableCrossZoneDrag — maximized-strip cross-zone suppression (#19986)', () => {
+        test('suppresses coordinator engagement and dockCrossZone* events while keeping base in-strip sort', async () => {
+            const calls        = [];
+            const originalMove = TabHeaderSortZone.prototype.onDragMove;
+            const originalEnd  = TabHeaderSortZone.prototype.processDragEnd;
+
+            TabHeaderSortZone.prototype.onDragMove     = async () => calls.push('base-move');
+            TabHeaderSortZone.prototype.processDragEnd = async () => calls.push('base-end');
+
+            const zone = {
+                currentIndex    : 2,
+                dockItemIds     : ['alerts', 'activity', 'console'],
+                dockSourceNodeId: 'heavy-tabs',
+                dragComponent   : {id: 'console-button'},
+                dragCoordinator : {
+                    onDragCancel: () => calls.push('coordinator-cancel'),
+                    onDragEnd   : () => calls.push('coordinator-end'),
+                    onDragMove  : () => calls.push('coordinator-move')
+                },
+                enableCrossZoneDrag: false,
+                isReleasedInside   : () => true,
+                isWindowDragging   : false,
+                owner              : {up: () => ({fire: name => calls.push(name)})},
+                releaseVoidsReorder: () => true,
+                remoteDropCommitted: false,
+                sortGroup          : 'dock-demo',
+                stackDragActive    : false,
+                startIndex         : 2
+            };
+
+            try {
+                await DockTabSortZone.prototype.onDragMove.call(zone, {
+                    clientX  : 300,
+                    clientY  : 120,
+                    offsetX  : 10,
+                    offsetY  : 8,
+                    proxyRect: {height: 32, width: 120, x: 290, y: 112},
+                    screenX  : 300,
+                    screenY  : 120
+                });
+
+                zone.currentIndex = 0;
+                await DockTabSortZone.prototype.processDragEnd.call(zone, {
+                    cancelled: false,
+                    clientX  : 300,
+                    clientY  : 400
+                });
+
+                expect(calls).toEqual(['base-move', 'base-end']);
+                expect(zone.currentIndex, 'in-strip reorder index is preserved when cross-zone drag is suppressed').toBe(0)
+            } finally {
+                TabHeaderSortZone.prototype.onDragMove     = originalMove;
+                TabHeaderSortZone.prototype.processDragEnd = originalEnd
+            }
         })
     })
 });

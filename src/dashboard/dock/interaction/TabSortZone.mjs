@@ -118,6 +118,11 @@ class TabSortZone extends TabHeaderSortZone {
          */
         sortGroup: null,
         /**
+         * Enables dock cross-zone targeting and cross-window coordinator feeds for drags starting here.
+         * @member {Boolean} enableCrossZoneDrag=true
+         */
+        enableCrossZoneDrag: true,
+        /**
          * Opts this source into handing a claimed frame to the claiming window
          * ({@link #resolveRemoteDragTransition}): that window embodies the drag as this source's
          * tab-header proxy, and a vessel riding the hand retires. The coordinator remains dock-blind:
@@ -602,7 +607,7 @@ class TabSortZone extends TabHeaderSortZone {
         let commitError = null;
 
         try {
-            if (me.sortGroup && me.dragComponent) {
+            if (me.enableCrossZoneDrag !== false && me.sortGroup && me.dragComponent) {
                 const completion = me.dragCoordinator?.[data.cancelled ? 'onDragCancel' : 'onDragEnd']({
                     draggedItem   : me.dragComponent,
                     sourceSortZone: me
@@ -654,13 +659,13 @@ class TabSortZone extends TabHeaderSortZone {
             return
         }
 
-        if (!data.cancelled && me.releaseVoidsReorder(data || {})) {
+        if (!data.cancelled && me.enableCrossZoneDrag !== false && me.releaseVoidsReorder(data || {})) {
             me.currentIndex = me.startIndex
         }
 
         if (data.cancelled) {
             me.remoteDropCommitted = false;
-            itemId && tabContainer?.fire('dockCrossZoneDragCancel', {itemId, sourceNodeId: me.dockSourceNodeId})
+            me.enableCrossZoneDrag !== false && itemId && tabContainer?.fire('dockCrossZoneDragCancel', {itemId, sourceNodeId: me.dockSourceNodeId})
         } else if (!commitError && me.remoteDropCommitted) {
             me.remoteDropCommitted = false
         } else if (me.isWindowDragging && !me.isReleasedInside(data)) {
@@ -675,7 +680,7 @@ class TabSortZone extends TabHeaderSortZone {
             // detached too), so that preview is the drop. The vessel retires first, as on any re-entry.
             me.isWindowDragging && me.fire('dragBoundaryEntry', {draggedItem: me.dragComponent, proxyRect: null, sortZone: me});
 
-            if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
+            if (me.enableCrossZoneDrag !== false && itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
                 tabContainer.fire('dockCrossZoneDrop', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
             }
         }
@@ -697,7 +702,7 @@ class TabSortZone extends TabHeaderSortZone {
      * Cross-window gestures additionally feed {@link Neo.manager.DragCoordinator#onDragMove} in
      * screen space (the base chain has no coordinator delegation of its own): the coordinator
      * arbitrates registered remote targets from this signal and drives the suspend / resume /
-     * remote-hover hooks back into this zone. Gated on {@link #sortGroup}; the `proxyRect` gate
+     * remote-hover hooks back into this zone. Gated on {@link #enableCrossZoneDrag} and {@link #sortGroup}; the `proxyRect` gate
      * matters too — the move payload carries one exactly while a live drag proxy exists.
      * @param {Object} data
      */
@@ -711,7 +716,7 @@ class TabSortZone extends TabHeaderSortZone {
         // ordered move-before-end regardless of the base suspension. Screen-space engagement is
         // independent of the base's local sort result. `dragCoordinator` is preloaded at
         // {@link #construct}, so this is a synchronous field read, never a drag-time import.
-        if (me.sortGroup && me.dragComponent && data?.proxyRect && Neo.isNumber(data.screenX)) {
+        if (me.enableCrossZoneDrag !== false && me.sortGroup && me.dragComponent && data?.proxyRect && Neo.isNumber(data.screenX)) {
             const coordinatorFrame = {
                 draggedItem: me.dragComponent,
                 offsetX    : data.offsetX,
@@ -741,7 +746,7 @@ class TabSortZone extends TabHeaderSortZone {
             tabContainer       = me.owner?.up?.(),
             {clientX, clientY} = data || {};
 
-        if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
+        if (me.enableCrossZoneDrag !== false && itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
             tabContainer.fire('dockCrossZoneDragMove', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
         }
     }
