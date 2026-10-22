@@ -23,6 +23,58 @@ test.describe('Rectangle', () => {
         expect(new Rectangle(0, 0, 100, 100).contains(new Rectangle(10, -10, 80, 80))).toBe(false);
     });
 
+    test.describe('intersects', () => {
+        const rect = new Rectangle(0, 0, 100, 100);
+
+        test('returns the overlapping area for an overlapping rectangle', () => {
+            const result = rect.intersects(new Rectangle(50, 60, 100, 100));
+
+            expect(result).toBeInstanceOf(Rectangle);
+            expect(result.equals(new Rectangle(50, 60, 50, 40))).toBe(true);
+        });
+
+        test('returns false for a disjoint rectangle', () => {
+            expect(rect.intersects(new Rectangle(200, 200, 50, 50))).toBe(false);
+        });
+
+        test('returns false for a rectangle that only touches an edge', () => {
+            expect(rect.intersects(new Rectangle(100, 0, 50, 50))).toBe(false);
+            expect(rect.intersects(new Rectangle(0, 100, 50, 50))).toBe(false);
+        });
+
+        test('returns false, never true, for a zero-size rectangle', () => {
+            // A zero-size rectangle well inside used to hit the old point branch and return true
+            expect(rect.intersects(new Rectangle(10, 10, 0, 0))).toBe(false);
+            expect(rect.intersects(new Rectangle(10, 10, 0, 50))).toBe(false);
+            expect(rect.intersects(new Rectangle(10, 10, 50, 0))).toBe(false);
+            // A point-shaped object without width and height
+            expect(rect.intersects({bottom: 10, right: 10, x: 10, y: 10})).toBe(false);
+        });
+    });
+
+    test.describe('containsPoint', () => {
+        const rect = new Rectangle(10, 20, 100, 50);
+
+        test('returns true for a point inside', () => {
+            expect(rect.containsPoint(50, 40)).toBe(true);
+        });
+
+        test('returns true for a point on an edge or a corner', () => {
+            expect(rect.containsPoint(10, 40)).toBe(true);  // left edge
+            expect(rect.containsPoint(110, 40)).toBe(true); // right edge
+            expect(rect.containsPoint(50, 20)).toBe(true);  // top edge
+            expect(rect.containsPoint(50, 70)).toBe(true);  // bottom edge
+            expect(rect.containsPoint(110, 70)).toBe(true); // bottom right corner
+        });
+
+        test('returns false for a point outside', () => {
+            expect(rect.containsPoint(9, 40)).toBe(false);
+            expect(rect.containsPoint(111, 40)).toBe(false);
+            expect(rect.containsPoint(50, 19)).toBe(false);
+            expect(rect.containsPoint(50, 71)).toBe(false);
+        });
+    });
+
     test.describe('constrain', () => {
         test('Should constrain fitting subject rectangle', () => {
             const constrainTo = new Rectangle(0, 0, 200, 200);

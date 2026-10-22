@@ -52,7 +52,7 @@ class Window extends Manager {
      * @returns {String|null} The windowId of the target window, or null if no intersection.
      */
     getWindowAt(x, y) {
-        let item = this.items.find(item => item.outerRect?.intersects({bottom: y, right: x, x, y}));
+        let item = this.items.find(item => item.outerRect?.containsPoint(x, y));
 
         return item ? item.id : null
     }
