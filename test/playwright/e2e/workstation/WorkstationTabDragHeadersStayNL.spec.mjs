@@ -51,19 +51,40 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
         expect(overflowPlugin?.id, 'heavy-tabs header toolbar must own a tab-overflow plugin').toBeTruthy();
 
         await expect.poll(async () => {
-            return page.evaluate(headerId => {
-                const toolbar = document.getElementById(headerId);
+            const [overflowState, domCount] = await Promise.all([
+                app.getComponent(overflowPlugin.id, [
+                    'appliedHiddenIds',
+                    'measuredControlWidth',
+                    'measuring',
+                    'projectQueued'
+                ]),
+                page.evaluate(async headerId => {
+                    const countVisible = () => {
+                        const toolbar = document.getElementById(headerId);
 
-                if (!toolbar || toolbar.classList.contains('neo-dashboard-dock-animating')) {
-                    return 0
-                }
+                        if (!toolbar || toolbar.classList.contains('neo-dashboard-dock-animating')) {
+                            return 0
+                        }
 
-                return [...toolbar.querySelectorAll('.neo-tab-header-button')]
-                    .filter(el => el.getClientRects().length > 0 && el.getBoundingClientRect().width > 0)
-                    .length
-            }, chrome.headerId)
+                        return [...toolbar.querySelectorAll('.neo-tab-header-button')]
+                            .filter(el => el.getClientRects().length > 0 && el.getBoundingClientRect().width > 0)
+                            .length
+                    };
+
+                    const c1 = await new Promise(resolve => requestAnimationFrame(() => resolve(countVisible()))),
+                          c2 = await new Promise(resolve => requestAnimationFrame(() => resolve(countVisible())));
+
+                    return c1 === c2 ? c2 : 0
+                }, chrome.headerId)
+            ]);
+
+            if (overflowState?.measuring || overflowState?.projectQueued) return 0;
+            if (!(overflowState?.measuredControlWidth > 0)) return 0;
+            if (!((overflowState?.appliedHiddenIds || []).length > 0)) return 0;
+
+            return domCount
         }, {
-            message  : 'heavy-tabs overflow projection must settle with at least 3 visible tab buttons',
+            message  : 'heavy-tabs initial overflow projection and control width measurement must settle with at least 3 visible tab buttons',
             timeout  : 30000,
             intervals: [50, 100, 200]
         }).toBeGreaterThanOrEqual(3);
@@ -109,11 +130,23 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
               startX                 = Math.round(targetButton.x + targetButton.width / 2),
               startY                 = Math.round(targetButton.y + targetButton.height / 2);
 
-        await page.evaluate(({headerId, targetId}) => {
+        await page.evaluate(async ({headerId, targetId}) => {
+            const mouseSensor = await Neo.main?.addon?.DragDrop?.getMouseSensor?.();
+
+            if (mouseSensor) {
+                mouseSensor.delay = 0
+            }
+
             window.__canary = {mousedown: 0, mousemove: 0, mouseup: 0};
 
             ['mousedown', 'mousemove', 'mouseup'].forEach(type =>
-                document.addEventListener(type, () => window.__canary[type]++, true));
+                document.addEventListener(type, () => {
+                    window.__canary[type]++;
+
+                    if (type === 'mouseup') {
+                        window.__tabDragSampling = false
+                    }
+                }, true));
 
             window.__tabDragSamples  = [];
             window.__tabDragSampling = true;
@@ -121,6 +154,10 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
             const t0 = performance.now();
 
             (function tick() {
+                if (!window.__tabDragSampling) {
+                    return
+                }
+
                 const toolbar = document.getElementById(headerId),
                       target  = document.getElementById(targetId);
 
@@ -147,7 +184,7 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
 
                     window.__tabDragSamples.push({
                         buttons,
-                        dragActive: target?.style.position === 'absolute',
+                        dragActive: toolbar.style.position === 'relative' && target?.style.position === 'absolute',
                         strip     : {
                             bottom: Math.round(strip.bottom),
                             left  : Math.round(strip.left),
