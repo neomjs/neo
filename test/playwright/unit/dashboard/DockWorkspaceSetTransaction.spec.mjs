@@ -640,7 +640,7 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
         };
         try {
             expect(await WorkstationWorkspace.prototype.onTearOutDocumentChange.call(root, null,
-                {operation: 'detachItem', itemId}, {})).toBe(true);
+                {operation: 'detachItem', itemId}, {workspaceKey: WorkstationWorkspace.vesselWorkspaceId(itemId)})).toBe(true);
             const popup = root.getPopupState(WorkstationWorkspace.vesselWorkspaceId(itemId)).host;
             expect(popup).toBeInstanceOf(PopupWorkspace);
             expect(popup.dockModel.items[itemId]).toEqual(document(key).items[itemId]);

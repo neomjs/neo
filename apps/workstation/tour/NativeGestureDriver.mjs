@@ -418,7 +418,7 @@ class NativeGestureDriver extends GestureDriver {
             }
             if (
                 !targetState?.committed || targetState.closeRequested ||
-                !me.nativeWindows?.getOwner(me.id, targetItemId)
+                !me.nativeWindows?.getOwner(me.id, me.tearOutVesselKey(targetItemId))
             ) {
                 return {applied: false, errors: ['target vessel is not an available committed workspace']}
             }
@@ -470,7 +470,7 @@ class NativeGestureDriver extends GestureDriver {
                         }
                     };
 
-                me.nativeWindows.clearConnection(me.id, itemId);
+                me.nativeWindows.clearConnection(me.id, me.tearOutVesselKey(itemId));
                 showCursor && (cursorDot = driver.createFilmCursorDot(startX, startY, button.windowId));
 
                 await driver.trap(driver.simulateEvent(run, {events: [{
@@ -977,7 +977,7 @@ class NativeGestureDriver extends GestureDriver {
                     };
 
                 // A stale record from a prior gesture would false-open the birth gate.
-                me.nativeWindows.clearConnection(me.id, itemId);
+                me.nativeWindows.clearConnection(me.id, me.tearOutVesselKey(itemId));
 
                 // Phase 1: own the native sensor + cross the LOCAL drag arming threshold (delay+distance).
                 await driver.trap(driver.simulateEvent(run, {events: [{
@@ -1110,7 +1110,7 @@ class NativeGestureDriver extends GestureDriver {
                     // button: the tear-out proxy is pane-sized and the grab corner is unknown, so a
                     // button near a window edge can never recover 60% overlap — the interior point
                     // guarantees the ratio for any grab corner.
-                    let vesselWindowId    = me.nativeWindows?.getConnection(me.id, itemId)?.windowId ?? null,
+                    let vesselWindowId    = me.nativeWindows?.getConnection(me.id, me.tearOutVesselKey(itemId))?.windowId ?? null,
                         inX               = Math.round(b.x + (b.width  ?? 0) * 0.35),
                         inY               = Math.round(b.y + (b.height ?? 0) * 0.35),
                         boundaryEntrySeen = false,
@@ -1132,7 +1132,7 @@ class NativeGestureDriver extends GestureDriver {
 
                     let retired     = await driver.trap(driver.waitForTearOutVesselRetired(itemId)),
                         reentered   = entrySeen && retired,
-                        reentryDiag = `boundaryEntrySeen=${boundaryEntrySeen} entrySeen=${entrySeen} isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} placeholder=${Boolean(sortZone.dragPlaceholder)} indexMap=${JSON.stringify(sortZone.indexMap)} ownerItems=${sortZone.owner?.items?.length} itemRectsLen=${sortZone.itemRects?.length} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} connects=${Boolean(me.nativeWindows?.getConnection(me.id, itemId))} staged=${me.tearOutEmbodiment.isStaged(itemId)} boundary=${JSON.stringify(b)} in=(${inX},${inY}) vesselDims=${JSON.stringify(me.tearOutVesselDims)}`;
+                        reentryDiag = `boundaryEntrySeen=${boundaryEntrySeen} entrySeen=${entrySeen} isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} placeholder=${Boolean(sortZone.dragPlaceholder)} indexMap=${JSON.stringify(sortZone.indexMap)} ownerItems=${sortZone.owner?.items?.length} itemRectsLen=${sortZone.itemRects?.length} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} connects=${Boolean(me.nativeWindows?.getConnection(me.id, me.tearOutVesselKey(itemId)))} staged=${me.tearOutEmbodiment.isStaged(itemId)} boundary=${JSON.stringify(b)} in=(${inX},${inY}) vesselDims=${JSON.stringify(me.tearOutVesselDims)}`;
 
                     sortZone.un('dragBoundaryEntry', boundaryProbe);
                     tabs.un('dockTearOutEntry', entryProbe);
@@ -1337,7 +1337,7 @@ class NativeGestureDriver extends GestureDriver {
 
             if (
                 !targetItemId || itemId === targetItemId || !targetState?.committed || targetState.closeRequested ||
-                !me.nativeWindows?.getOwner(me.id, targetItemId)
+                !me.nativeWindows?.getOwner(me.id, me.tearOutVesselKey(targetItemId))
             ) {
                 return {applied: false, errors: ['target vessel is not an available committed workspace']}
             }
@@ -1402,7 +1402,7 @@ class NativeGestureDriver extends GestureDriver {
                             })
                         }
                     },
-                    vesselWindowId = () => me.nativeWindows?.getConnection(me.id, itemId)?.windowId ?? null,
+                    vesselWindowId = () => me.nativeWindows?.getConnection(me.id, me.tearOutVesselKey(itemId))?.windowId ?? null,
                     // The borrowed pane, read without constructing: the root cache is the one every
                     // window of the group borrows from. One ledger entry per settled hop and the drop.
                     continuity = [],
@@ -1413,7 +1413,7 @@ class NativeGestureDriver extends GestureDriver {
                     },
                     // Also the vessel slot's binder with its port, read per call, and the worker's theme files in flight:
                     // a binder without a port refuses every later reservation, a count above 0 holds every mount
-                    diag = (binder = me.workspaceSet.manager.getBinding(me.topologyGroupId, me.tearOutWorkspaceKey(itemId))?.windowId ?? null) => `isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} vesselOpen=${JSON.stringify(me.lastVesselOpen ?? null)} connects=${Boolean(me.nativeWindows?.getConnection(me.id, itemId))} staged=${me.tearOutEmbodiment.isStaged(itemId)} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} binder=${binder} binderPort=${binder && Boolean(Neo.currentWorker.getPort({windowId: binder}))} themeFileLoads=${Neo.currentWorker.countLoadingThemeFiles} pointer=${JSON.stringify(pointer)}`,
+                    diag = (binder = me.workspaceSet.manager.getBinding(me.topologyGroupId, me.tearOutWorkspaceKey(itemId))?.windowId ?? null) => `isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} vesselOpen=${JSON.stringify(me.lastVesselOpen ?? null)} connects=${Boolean(me.nativeWindows?.getConnection(me.id, me.tearOutVesselKey(itemId)))} staged=${me.tearOutEmbodiment.isStaged(itemId)} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} binder=${binder} binderPort=${binder && Boolean(Neo.currentWorker.getPort({windowId: binder}))} themeFileLoads=${Neo.currentWorker.countLoadingThemeFiles} pointer=${JSON.stringify(pointer)}`,
                     fail = async (error, extra={}) => {
                         let cancellation = await driver.cancelTearOutGesture(run, button, pointer, {sortZone});
 
@@ -1423,7 +1423,7 @@ class NativeGestureDriver extends GestureDriver {
                 pointer = at(startX, startY);
 
                 // A stale record from a prior gesture would false-open the first birth gate.
-                me.nativeWindows.clearConnection(me.id, itemId);
+                me.nativeWindows.clearConnection(me.id, me.tearOutVesselKey(itemId));
                 showCursor && (cursorDot = driver.createFilmCursorDot(startX, startY, button.windowId));
 
                 // Own the native sensor and cross the local arming threshold (delay + distance).
@@ -1646,7 +1646,7 @@ class NativeGestureDriver extends GestureDriver {
                                 sourceVesselWindowId: remoteSnapshot.sourceVesselWindowId,
                                 winnerStableId      : remoteSnapshot.winnerStableId
                             },
-                            vesselGone: !me.nativeWindows?.getConnection(me.id, itemId)
+                            vesselGone: !me.nativeWindows?.getConnection(me.id, me.tearOutVesselKey(itemId))
                         });
 
                         if (!claimed) {
@@ -1736,7 +1736,7 @@ class NativeGestureDriver extends GestureDriver {
         let me = this.workspace, driver = this;
 
         return driver.waitFor(() => Boolean(
-            me.nativeWindows?.getConnection(me.id, itemId)?.windowId != null || me.nativeWindows?.getOwner(me.id, itemId)?.windowId != null
+            me.nativeWindows?.getConnection(me.id, me.tearOutVesselKey(itemId))?.windowId != null || me.nativeWindows?.getOwner(me.id, me.tearOutVesselKey(itemId))?.windowId != null
         ), {attempts, delay})
     }
 
@@ -1753,7 +1753,7 @@ class NativeGestureDriver extends GestureDriver {
     async waitForTearOutVesselRetired(itemId, {attempts=180, delay=16}={}) {
         let me      = this.workspace, driver = this,
             retired = () => Boolean(
-                !me.nativeWindows?.getConnection(me.id, itemId) && !Boolean(me.nativeWindows?.getAdmission(me.id, itemId)) &&
+                !me.nativeWindows?.getConnection(me.id, me.tearOutVesselKey(itemId)) && !Boolean(me.nativeWindows?.getAdmission(me.id, me.tearOutVesselKey(itemId))) &&
                 !me.tearOutEmbodiment.isStaged(itemId) && !me.tearOutHandlers.activeVessel
             );
 

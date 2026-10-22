@@ -202,8 +202,9 @@ class PopupWorkspace extends DockWorkspace {
      * @description A failed render rejects like a destruction does, but the pane survives it: the failure is
      * reported and the layer still comes off. A window that leaves is no failure: the worker rejects a frame in
      * flight when it retires that window's port (`PortDisconnectedError`), and a frame sent after the port is
-     * gone with that window's dead-port departure ({@link Neo.worker.Base#isDeparture}). Only a destroyed pane
-     * is left alone.
+     * gone with that window's dead-port departure ({@link Neo.worker.Base#isDeparture}). A frame merged into an
+     * ancestor's flight settles with the destroy sentinel when the leaving window's tree destroys that ancestor.
+     * Only a destroyed pane is left alone.
      * @param {Neo.component.Base|null} pane
      * @returns {Promise<void>}
      * @protected
@@ -219,7 +220,7 @@ class PopupWorkspace extends DockWorkspace {
             await pane.promiseUpdate()
         } catch (error) {
             if (pane.isDestroyed) return;
-            error?.name === 'PortDisconnectedError' || Neo.currentWorker.isDeparture(error)
+            error === Neo.isDestroyed || error?.name === 'PortDisconnectedError' || Neo.currentWorker.isDeparture(error)
                 || console.error('PopupWorkspace: the landed pane\'s repaint render failed', error)
         }
 

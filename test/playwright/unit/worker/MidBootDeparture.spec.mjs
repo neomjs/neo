@@ -65,7 +65,8 @@ async function runCase(body) {
             }
         });
 
-        const acquire = async () => Boolean(await lifecycle.acquire('workspace', {itemId: 'metrics'}));
+        // The key a generation acquires: the slot's own while it is free, a key of its own while it is held
+        const acquire = async () => (await lifecycle.acquire('workspace', {itemId: 'metrics'}))?.workspaceKey ?? null;
 
         // The vessel the first acquire opened, booted to the point its app registers: its port and carried identity
         // as its registerNeoConfig leaves them, and its main thread, which learns its app's name from the worker's
@@ -117,14 +118,14 @@ async function runCase(body) {
 /**
  * @summary A vessel window that leaves while it boots must give its Group slot back.
  *
- * Every generation of a torn-out item binds the same slot key, and a slot whose binder lives refuses the next
- * reservation, so a binder outliving its window means the item cannot tear out again. The worker binds the slot in
+ * Every generation of a torn-out item prefers the same slot key, and a slot whose binder lives is never handed to
+ * the next reservation, so a binder outliving its window keeps the item's next generation off its own slot. The worker binds the slot in
  * `registerApp`, before the window's main thread knows its app's name; until `registerAppName` arrives there, its
  * unload has no named app to disconnect. And the app's module imports asynchronously, so its registration can also
  * come after the window already left.
  */
 test.describe('A vessel window departing mid-boot', () => {
-    test('control: a live vessel holds its slot, and the next generation is refused', async () => {
+    test('control: a live vessel holds its slot, and the next generation gets a key of its own', async () => {
         const report = await runCase(`
             bootVessel('V');
             app.registerApp('Vessel', 'V');
@@ -133,7 +134,7 @@ test.describe('A vessel window departing mid-boot', () => {
             await slot()
         `);
 
-        expect(report).toEqual({acquired: true, binder: 'V', departed: false, reacquired: false})
+        expect(report).toEqual({acquired: 'vessel:metrics', binder: 'V', departed: false, reacquired: 'vessel:metrics:2'})
     });
 
     test('control: a vessel that closes after its app name arrived disconnects that app and frees its slot', async () => {
@@ -150,10 +151,10 @@ test.describe('A vessel window departing mid-boot', () => {
         `);
 
         expect(report).toEqual({
-            acquired  : true,
+            acquired  : 'vessel:metrics',
             binder    : null,
             departed  : true,
-            reacquired: true,
+            reacquired: 'vessel:metrics',
             sent      : [{action: 'disconnect', appName: 'Vessel', windowId: 'V'}]
         })
     });
@@ -172,10 +173,10 @@ test.describe('A vessel window departing mid-boot', () => {
         `);
 
         expect(report).toEqual({
-            acquired  : true,
+            acquired  : 'vessel:metrics',
             binder    : null,
             departed  : true,
-            reacquired: true,
+            reacquired: 'vessel:metrics',
             sent      : [{action: 'disconnect', windowId: 'V'}]
         })
     });
@@ -198,6 +199,7 @@ test.describe('A vessel window departing mid-boot', () => {
             await slot()
         `);
 
-        expect(report).toEqual({acquired: true, binder: null, departed: true, reacquired: true, siblingAppNames: []})
+        // The first generation never bound, so its admission stays pending until its reservation's lease runs out
+        expect(report).toEqual({acquired: 'vessel:metrics', binder: null, departed: true, reacquired: 'vessel:metrics:2', siblingAppNames: []})
     })
 });

@@ -722,12 +722,15 @@ class Workspace extends Container {
                 getDocument         : () => this.dockModel,
                 onAdoptionFailed    : data => this.reportDockAdoptionFailure(data),
                 onDocumentChange    : (document, operation, vessel) => this.onTearOutDocumentChange(document, operation, vessel),
-                onPaneAdopted       : (itemId, entry, connection, isMerge) => {
+                onPaneAdopted       : (itemId, entry, connection, isMerge, workspaceKey=entry?.workspaceKey ?? connection?.workspaceKey) => {
                     if (!this.nativeWindows) {
                         if (entry === null) return;
                         throw new Error('native source is not bound')
                     }
-                    this.nativeWindows.recordOwner(this.id, itemId, entry, connection, isMerge)
+                    // A key-less withdrawal addresses the item's newest vessel, as the destructive paths do
+                    workspaceKey ||= entry === null ? this.nativeWindows.keyOf(this.id, itemId) : null;
+                    if (workspaceKey) this.nativeWindows.recordOwner(this.id, workspaceKey, entry, connection, isMerge);
+                    else if (entry !== null) throw new Error(`Workspace ${this.id}: tear-out ownership of "${itemId}" names no vessel`)
                 },
                 onPaneReturn: data => this.onDockPaneReturn(data),
                 openVessel  : async request => {
@@ -951,7 +954,7 @@ class Workspace extends Container {
             bound: async context => {
                 const {connection, itemId, owned} = context;
                 if (owned && !me.tearOutHandlers.reparentAdopted(itemId, connection)) {
-                    me.tearOutHandlers.compensateFailedAdoption(itemId, me.nativeWindows.getOwner(me.id, itemId));
+                    me.tearOutHandlers.compensateFailedAdoption(itemId, me.nativeWindows.getOwner(me.id, connection.workspaceKey));
                     throw new Error(`Workspace ${me.id}: tear-out pane "${itemId}" could not enter its admitted vessel`)
                 }
                 await me.afterTearOutWindowConnect(context)
@@ -1072,10 +1075,8 @@ class Workspace extends Container {
      */
     onDockWorkspaceReturn(receipt) {
         if (!receipt.returned) return;
-        receipt.itemIds.forEach(itemId => {
-            this.tearOutHandlers?.releasePane(itemId);
-            this.nativeWindows?.recordOwner(this.id, itemId, null)
-        })
+        receipt.itemIds.forEach(itemId => this.tearOutHandlers?.releasePane(itemId));
+        this.nativeWindows?.recordOwner(this.id, receipt.workspaceId, null)
     }
 
     /**
@@ -1170,7 +1171,7 @@ class Workspace extends Container {
                 width      = Math.max(Math.round(proxyRect?.width  || 480), 320),
                 left       = Math.round((proxyRect?.x ?? 120) + (winData?.screenLeft || 0)),
                 top        = Math.round((proxyRect?.y ?? 120) + ((winData?.outerHeight - winData?.innerHeight) || 0) + (winData?.screenTop || 0)),
-                windowName = me.tearOutWindowName(itemId);
+                windowName = me.tearOutWindowName(itemId, topologyIdentity?.workspaceKey);
 
             const opened = await Neo.Main.windowOpen({
                 nativeCapabilities: {close: true, position: true, resize: true},
@@ -1211,7 +1212,7 @@ class Workspace extends Container {
         // `destroy()` deletes the own properties a `tearOutWindowName` override may read.
         const
             {id, nativeWindows, windowId}      = this,
-            windowName                         = vessel?.itemId && this.tearOutWindowName(vessel.itemId),
+            windowName                         = vessel?.itemId && this.tearOutWindowName(vessel.itemId, vessel.workspaceKey),
             windowNameFor                      = itemId => itemId === vessel?.itemId ? windowName : null,
             {default: NativeVesselTransaction} = await import('./window/NativeVesselTransaction.mjs');
 
@@ -1221,11 +1222,27 @@ class Workspace extends Container {
     /**
      * @summary The semantic window name this workspace opens a tear-out vessel under, and closes it by.
      * @param {String} itemId
+     * @param {String} [workspaceKey] The vessel's Group key.
      * @returns {String}
      * @protected
      */
-    tearOutWindowName(itemId) {
-        return `neo-dock-tearout-${itemId}`
+    tearOutWindowName(itemId, workspaceKey) {
+        return `neo-dock-tearout-${itemId}${this.tearOutKeySuffix(itemId, workspaceKey)}`
+    }
+
+    /**
+     * @summary The suffix a vessel's Group key was minted with beyond its item's preferred key. A vessel's
+     * window name carries it, so two live vessels for one item never share a name, which `Main#windowOpen`
+     * would answer by reusing the first one's window.
+     * @param {String} itemId
+     * @param {String} [workspaceKey]
+     * @returns {String} `''` for the preferred key
+     * @protected
+     */
+    tearOutKeySuffix(itemId, workspaceKey) {
+        const preferred = this.tearOutWorkspaceKey(itemId);
+
+        return workspaceKey?.startsWith(preferred) ? workspaceKey.slice(preferred.length) : ''
     }
 
     /**
@@ -1267,7 +1284,7 @@ class Workspace extends Container {
 
         detached && me.tearOutHandlers.capturePane(itemId);
         me.onDockZoneDocumentChange(document, operation, me);
-        detached && me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows.getConnection(me.id, itemId))
+        detached && me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows.getConnection(me.id, vessel?.workspaceKey))
     }
 
     /**

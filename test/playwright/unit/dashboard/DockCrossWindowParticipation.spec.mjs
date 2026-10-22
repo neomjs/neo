@@ -13,6 +13,7 @@ import '../../../../src/manager/Instance.mjs';
 import Component       from '../../../../src/component/Base.mjs';
 import Container       from '../../../../src/container/Base.mjs';
 import DockWorkspace   from '../../../../src/dashboard/dock/Workspace.mjs';
+import Participation   from '../../../../src/dashboard/dock/window/Participation.mjs';
 import PreviewContract from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 
 /**
@@ -1540,7 +1541,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                     workspace: createWorkspaceStub({
                         dockModel    : sourceDoc(),
                         resolvePane  : itemId => (itemId === 'terminal' ? pane : null),
-                        nativeWindows: {ownerEntries: () => [['terminal', {windowId: 'popup-1'}]]}
+                        nativeWindows: {ownerEntries: () => [['popup:terminal', {itemId: 'terminal', windowId: 'popup-1'}]]}
                     }),
                     workspaceId: 'A'
                 });
@@ -1567,7 +1568,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                     nodes : {'popup-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}}
                 },
                 workspace = createWorkspaceStub({
-                    nativeWindows: {ownerEntries: () => [['terminal', {windowId: 'popup-singleton', workspaceKey: 'popup-document'}]]},
+                    nativeWindows: {ownerEntries: () => [['popup-document', {itemId: 'terminal', windowId: 'popup-singleton', workspaceKey: 'popup-document'}]]},
                     resolvePane  : itemId => itemId === 'terminal' ? pane : null
                 });
             workspace.id = 'native-singleton-source';
@@ -1622,11 +1623,12 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             workspace.nativeWindows.registerSource(workspace.id, {
                 keyFor: () => 'popup-document', open: async () => null, close: async () => true
             });
-            workspace.nativeWindows.recordOwner(workspace.id, 'terminal', {
-                windowId: 'native-popup-live', workspaceKey: 'popup-document'
+            // Two vessels over the popup's document, each opened for its own item
+            workspace.nativeWindows.recordOwner(workspace.id, 'popup-document', {
+                itemId: 'terminal', windowId: 'native-popup-live', workspaceKey: 'popup-document'
             });
-            workspace.nativeWindows.recordOwner(workspace.id, 'strategy', {
-                windowId: 'native-popup-center-owner', workspaceKey: 'popup-document'
+            workspace.nativeWindows.recordOwner(workspace.id, 'popup-document:2', {
+                itemId: 'strategy', windowId: 'native-popup-center-owner', workspaceKey: 'popup-document'
             });
 
             try {
@@ -1696,8 +1698,8 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             workspace.nativeWindows.registerSource(workspace.id, {
                 keyFor: () => 'popup-document', open: async () => null, close: async () => true
             });
-            workspace.nativeWindows.recordOwner(workspace.id, 'metrics', {
-                windowId: 'native-stack-live', workspaceKey: 'popup-document'
+            workspace.nativeWindows.recordOwner(workspace.id, 'popup-document', {
+                itemId: 'metrics', windowId: 'native-stack-live', workspaceKey: 'popup-document'
             });
 
             let participation, otherGroupId, otherSet;
@@ -1785,5 +1787,72 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
 
             participation.destroy()
         })
+    })
+});
+
+/**
+ * A popup's title-bar drag resolves from what its Group-owned document holds now. The item a vessel was opened for can
+ * leave it: its tab tears out into a vessel of its own, and the popup keeps the rest.
+ */
+test.describe('Neo.dashboard.dock.window.Participation#defaultResolveNativeWindowDrag', () => {
+    /**
+     * @summary A participation stub carrying only what the resolver reads: one owner record opened for `metrics`,
+     * and the popup's registered document.
+     * @param {Object} document The popup's Group-owned document
+     * @returns {Object}
+     */
+    function resolverFor(document) {
+        const panes = {};
+
+        return {
+            ownershipId: 'group-1',
+            panes,
+            workspaceId: 'main',
+            workspace  : {
+                id           : 'main',
+                nativeWindows: {
+                    groupId     : 'group-1',
+                    ownerEntries: () => [['workstation-vessel:metrics', {itemId: 'metrics', windowId: 'popup-window', workspaceKey: 'workstation-vessel:metrics'}]]
+                },
+                resolvePane  : itemId => panes[itemId] ??= {id: `${itemId}-pane`}
+            },
+            workspaceSet: {getDocument: () => document, has: key => key === 'workstation-vessel:metrics', resolveGroupId: () => 'group-1'}
+        }
+    }
+
+    /**
+     * @param {String[]} items
+     * @param {String} activeItemId
+     * @returns {Object} a popup document whose center is one tabs node
+     */
+    const tabsDocument = (items, activeItemId) => ({
+        root : 'root',
+        nodes: {root: {type: 'edge-zone', zones: {center: {nodeId: 'tabs'}}}, tabs: {type: 'tabs', items, activeItemId}},
+        items: Object.fromEntries(items.map(itemId => [itemId, {}]))
+    });
+
+    test('a popup whose opening item left drags the item it holds now', () => {
+        const stub   = resolverFor(tabsDocument(['audit'], 'audit')),
+              result = Participation.prototype.defaultResolveNativeWindowDrag.call(stub, 'popup-window');
+
+        expect(result?.widgetName).toBe('audit');
+        expect(result.draggedItem).toBe(stub.panes.audit);
+        expect(result.draggedItem.dockItemId).toBe('audit')
+    });
+
+    test('a stack that lost its opening item drags its active item, as the whole stack', () => {
+        const stub   = resolverFor(tabsDocument(['audit', 'logs'], 'logs')),
+              result = Participation.prototype.defaultResolveNativeWindowDrag.call(stub, 'popup-window');
+
+        expect(result?.widgetName).toBe('logs');
+        expect(result.draggedItem.dockGroupNodeId).toBe('tabs')
+    });
+
+    test('control: while the opening item is present, it is what the popup drags', () => {
+        const stub   = resolverFor(tabsDocument(['metrics', 'audit'], 'audit')),
+              result = Participation.prototype.defaultResolveNativeWindowDrag.call(stub, 'popup-window');
+
+        expect(result?.widgetName).toBe('metrics');
+        expect(result.draggedItem.dockGroupNodeId).toBe('tabs')
     })
 });

@@ -158,7 +158,7 @@ class VesselPark extends Base {
     finishTerminal(vessel, data, compensate=false) {
         if (data.outcome === 'committed') {
             const disposed = this.settleEffect(this.callEffect(this.disposeVessel, {
-                itemId: vessel.itemId, windowName: vessel.windowName
+                itemId: vessel.itemId, windowName: vessel.windowName, ...(vessel.workspaceKey && {workspaceKey: vessel.workspaceKey})
             }));
 
             if (this.isDestroyed) return false;
@@ -189,15 +189,17 @@ class VesselPark extends Base {
      *     moves, taking the window's own chrome off it; a frame rect handed in here re-shows the
      *     window one chrome too high.
      * @param {String} data.windowName
+     * @param {String} [data.workspaceKey] The vessel's Group key, which names it apart from another vessel for its item.
      * @returns {Boolean|Promise<Boolean>}
      */
     onConversionIn(data) {
         if (this.isDestroyed) return false;
         if (this.parked || this.parking || this.reshowing || this.pendingRetirement || this.pendingTerminal) return false;
 
-        let {itemId, sourceRect, windowName} = data,
-            vessel                           = {itemId, preConversionRect: sourceRect ?? null, windowName},
-            result                           = this.settleEffect(this.callEffect(this.parkVessel, {itemId, windowName}));
+        let {itemId, sourceRect, windowName, workspaceKey} = data,
+            identity                                       = {itemId, windowName, ...(workspaceKey && {workspaceKey})},
+            vessel                                         = {...identity, preConversionRect: sourceRect ?? null},
+            result                                         = this.settleEffect(this.callEffect(this.parkVessel, identity));
 
         if (this.isDestroyed) return false;
 

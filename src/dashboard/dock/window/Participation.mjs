@@ -542,6 +542,8 @@ class Participation extends Base {
      * A registered popup owns its document even when empty; only vessels without a separate
      * participant use the admitting workspace's catalog. A registered multi-item vessel may expose
      * its complete model-resolved center stack as `dockGroupNodeId`; partial stacks fail closed.
+     * A registered popup drags what its document holds now: once the item it was opened for has left,
+     * its sole item, or its center stack's active item.
      * @param {String|Number} movingWindowId
      * @returns {Object|null}
      * @protected
@@ -559,12 +561,15 @@ class Participation extends Base {
         if (!match) return null;
 
         const
-            [itemId, entry] = match,
-            ownershipId     = me.ownershipId,
-            registered      = Boolean(me.workspaceSet?.has(entry.workspaceKey)),
-            sourceId        = registered ? entry.workspaceKey : me.workspaceId,
-            document        = registered ? me.workspaceSet.getDocument(sourceId) : workspace.dockModel,
-            itemIds         = Object.keys(document?.items ?? {});
+            [, entry]   = match,
+            ownershipId = me.ownershipId,
+            registered  = Boolean(me.workspaceSet?.has(entry.workspaceKey)),
+            sourceId    = registered ? entry.workspaceKey : me.workspaceId,
+            document    = registered ? me.workspaceSet.getDocument(sourceId) : workspace.dockModel,
+            itemIds     = Object.keys(document?.items ?? {}),
+            itemId      = !registered || document?.items?.[entry.itemId] ? entry.itemId
+                : itemIds.length === 1 ? itemIds[0]
+                : document.nodes?.[WorkspaceDocument.resolveStackRoot(document)]?.activeItemId ?? itemIds[0];
 
         if (registered && itemIds.length === 0) {
             return null

@@ -272,9 +272,9 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
     // `tearOutConnects` / `tearOutPanes` / `tearOutRetirements`: a provisional connection before the
     // terminal/connect race resolves, committed ownership after it, and the closes still awaiting
     // platform acknowledgement. Asserting through them is what proves the state actually moved.
-    const admissionOf  = itemId => workspace.nativeWindows?.getAdmission(workspace.vesselSourceId, itemId),
-          connectionOf = itemId => workspace.nativeWindows?.getConnection(workspace.vesselSourceId, itemId),
-          ownerOf      = itemId => workspace.nativeWindows?.getOwner(workspace.vesselSourceId, itemId),
+    const admissionOf  = itemId => workspace.nativeWindows?.getAdmission(workspace.vesselSourceId, `popup:${itemId}`),
+          connectionOf = itemId => workspace.nativeWindows?.getConnection(workspace.vesselSourceId, `popup:${itemId}`),
+          ownerOf      = itemId => workspace.nativeWindows?.getOwner(workspace.vesselSourceId, `popup:${itemId}`),
           retiringOf   = itemId => (workspace.nativeWindows?.pendingRetirements(workspace.vesselSourceId) ?? [])
               .some(vessel => vessel.itemId === itemId),
           // Retirement authority is the Group's: it opens the retirement, invokes the host's close
@@ -284,7 +284,7 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
           // Seeding a provisional connection has no public setter by design — only a real binding
           // publishes one — so a test that needs one starts from the source's own registry.
           seedConnection = (itemId, connection) =>
-              workspace.nativeWindows.sources.get(workspace.vesselSourceId).connections.set(itemId, connection);
+              workspace.nativeWindows.sources.get(workspace.vesselSourceId).connections.set(`popup:${itemId}`, {itemId, ...connection});
 
     test.beforeEach(() => {
         // The host window binds into a Group the way its app registration does — before the workspace
@@ -748,7 +748,7 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
 
             // The slot is the GROUP's, not this host's: admission is readable through the source
             // that reserved it, which is the whole of what moved off `vesselReservations`.
-            expect(workspace.nativeWindows.getAdmission(workspace.vesselSourceId, 'timeline'))
+            expect(workspace.nativeWindows.getAdmission(workspace.vesselSourceId, 'popup:timeline'))
                 .toMatchObject({itemId: 'timeline', windowName: 'tearout-timeline', workspaceKey: 'popup:timeline'});
 
             const params = new URL(tearOutOpen.url, 'https://example.test').searchParams;
@@ -769,6 +769,7 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
                 generation     : expect.any(Number),
                 generationToken: tearOutOpen.topologyIdentity.generationToken,
                 gestureToken   : null,
+                itemId         : 'timeline',
                 windowId       : 'tear-child',
                 windowName     : 'tearout-timeline',
                 workspaceKey   : 'popup:timeline'
@@ -1009,7 +1010,7 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
             ])
         } finally {
             workspace.tearOutHandlers = previousTearOut;
-            workspace.nativeWindows.clearConnection(workspace.vesselSourceId, 'timeline')
+            workspace.nativeWindows.clearConnection(workspace.vesselSourceId, 'popup:timeline')
         }
     });
 

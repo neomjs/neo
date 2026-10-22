@@ -304,12 +304,13 @@ class NativeVesselTransaction extends Base {
      * @param {Object} data
      * @param {Object|null} data.nativeWindows The Group's native lifecycle.
      * @param {String} data.sourceId The registration the host's effects were bound under.
-     * @param {Function} data.windowNameFor `itemId => String`, the host's semantic vessel name.
+     * @param {Function} data.windowNameFor `(itemId, workspaceKey) => String`, the host's semantic vessel name.
      * @param {String} itemId
+     * @param {String} [workspaceKey] The vessel's Group key; without it the item's newest vessel answers.
      * @returns {Object|null}
      */
-    static resolveVessel({nativeWindows, sourceId, windowNameFor}, itemId) {
-        const entry = nativeWindows?.getConnection(sourceId, itemId) ?? nativeWindows?.getOwner(sourceId, itemId);
+    static resolveVessel({nativeWindows, sourceId, windowNameFor}, itemId, workspaceKey=nativeWindows?.keyOf(sourceId, itemId)) {
+        const entry = nativeWindows?.getConnection(sourceId, workspaceKey) ?? nativeWindows?.getOwner(sourceId, workspaceKey);
 
         if (!entry?.windowId) {
             return null
@@ -319,7 +320,7 @@ class NativeVesselTransaction extends Base {
             ...entry,
             itemId,
             nativeRoute: entry.nativeRoute ?? WindowManager.get(entry.windowId)?.nativeRoute ?? null,
-            windowName : entry.windowName ?? windowNameFor(itemId)
+            windowName : entry.windowName ?? windowNameFor(itemId, workspaceKey)
         }
     }
 
@@ -358,17 +359,21 @@ class NativeVesselTransaction extends Base {
      * @param {String} vessel.itemId
      * @param {Object} [vessel.nativeRoute] The opener-minted route, when one is known.
      * @param {String} vessel.windowName
+     * @param {String} vessel.workspaceKey The vessel's own Group key: a late close of an older vessel for the
+     *     same item reaches that vessel and never the item's newer one.
      * @returns {Promise<Boolean>}
      */
-    static async closeVessel(descriptor, {generationToken, itemId, nativeRoute, windowName} = {}) {
+    static async closeVessel(descriptor, {generationToken, itemId, nativeRoute, windowName, workspaceKey} = {}) {
         const
             {embodiment=null, nativeWindows, ownerWindowId, sourceId} = descriptor,
-            entry            = NativeVesselTransaction.resolveVessel(descriptor, itemId),
-            admission        = nativeWindows?.getAdmission(sourceId, itemId),
+            // A vessel naming no key is its item's newest one
+            vesselKey        = workspaceKey ?? nativeWindows?.keyOf(sourceId, itemId) ?? null,
+            entry            = NativeVesselTransaction.resolveVessel(descriptor, itemId, vesselKey),
+            admission        = nativeWindows?.getAdmission(sourceId, vesselKey),
             // A binding still being decided names its window as `connectingWindowId` and earns `windowId`
             // only on acceptance; a close arriving mid-decision must still reach that window.
             admittedWindowId = admission?.windowId ?? admission?.connectingWindowId ?? null,
-            expected         = descriptor.windowNameFor(itemId),
+            expected         = descriptor.windowNameFor(itemId, vesselKey),
             exactToken       = entry?.generationToken ?? admission?.generationToken ?? null,
             embodiedWindowId = entry?.windowId ?? admittedWindowId ?? embodiment?.getWindowId(itemId),
             receipt          = {

@@ -76,7 +76,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         ]),
               native = await readNativeLifecycle(app, wsId),
               binding = await app.callMethod(wsId, 'nativeWindows.manager.getBinding', [native.groupId, 'popup:workbench']),
-              admission = await app.callMethod(wsId, 'nativeWindows.getAdmission', [native.sourceId, 'workbench']);
+              admission = await app.callMethod(wsId, 'nativeWindows.getAdmission', [native.sourceId, 'popup:workbench']);
 
         return {...state, native, admission, boundWindowId: binding?.windowId ?? null}
     }

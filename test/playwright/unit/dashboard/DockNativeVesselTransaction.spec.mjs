@@ -290,7 +290,8 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction#closeVessel', (
         nativeWindows : {
             getAdmission : sourceId => sourceId === 'source-1' ? admission : null,
             getConnection: sourceId => sourceId === 'source-1' ? connection : null,
-            getOwner     : () => null
+            getOwner     : () => null,
+            keyOf        : (sourceId, itemId) => sourceId === 'source-1' ? `key:${itemId}` : null
         },
         ownerWindowId : 'win-owner',
         publishReceipt: receipt => receipts.push(receipt),
@@ -448,15 +449,18 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction#closeVessel', (
         const
             // Entries exist only under the registration `s`, so a resolver reading any other key finds nothing.
             nativeWindows = {
-                getConnection: (sourceId, itemId) => sourceId === 's' && itemId === 'live' ? {windowId: 'win-live'} : null,
-                getOwner     : (sourceId, itemId) => sourceId === 's' ? {windowId: itemId === 'owned' ? 'win-owned' : null, windowName: 'owned-name'} : null
+                keyOf        : (sourceId, itemId) => sourceId === 's' ? `key:${itemId}` : null,
+                getConnection: (sourceId, key) => sourceId === 's' && key === 'key:live' ? {windowId: 'win-live'} : null,
+                getOwner     : (sourceId, key) => sourceId === 's' ? {windowId: key === 'key:owned' ? 'win-owned' : null, windowName: 'owned-name'} : null
             },
-            resolve       = (itemId, sourceId='s') => NativeVesselTransaction.resolveVessel({nativeWindows, sourceId, windowNameFor: id => `vessel-${id}`}, itemId);
+            resolve       = (itemId, sourceId='s', key) =>
+                NativeVesselTransaction.resolveVessel({nativeWindows, sourceId, windowNameFor: id => `vessel-${id}`}, itemId, key);
 
         expect(resolve('live')).toMatchObject({itemId: 'live', nativeRoute: null, windowId: 'win-live', windowName: 'vessel-live'});
         expect(resolve('live', 'another-source'), 'an entry belongs to its own registration').toBeNull();
         expect(resolve('owned')).toMatchObject({itemId: 'owned', windowId: 'win-owned', windowName: 'owned-name'});
-        expect(resolve('pending'), 'no window, no vessel').toBeNull()
+        expect(resolve('pending'), 'no window, no vessel').toBeNull();
+        expect(resolve('live', 's', 'key:owned'), 'a named vessel answers, not the item\'s newest').toMatchObject({windowId: 'win-owned'})
     });
 });
 
