@@ -200,10 +200,13 @@ test.describe('Workstation root-edge corner weighting (Neural Link)', () => {
         expect(rightRoot.children, 'the right pane wraps everything the bottom drop produced')
             .toEqual([afterBottom.root, rightId]);
 
+        // Full height is the arrangement's: the edge-zone's rails frame a wrapped arrangement as window chrome, so the
+        // bottom rail sits below the root this drop created, not inside it
         const rightRect       = await nodeRect(app, rightId),
+              arrangementRect = await nodeRect(app, afterRight.root),
               droppedNarrowed = await nodeRect(app, droppedId);
 
-        expect(rightRect.height / hostRect.height, 'the right pane runs the full height')
+        expect(rightRect.height / arrangementRect.height, 'the right pane runs the arrangement\'s full height')
             .toBeGreaterThanOrEqual(FULL_SPAN_RATIO);
         expect(droppedNarrowed.width, 'and the bottom pane gives up the corner')
             .toBeLessThan(droppedRect.width)
