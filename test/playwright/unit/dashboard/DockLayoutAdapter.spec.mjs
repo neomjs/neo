@@ -1128,6 +1128,94 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(rails[1].railItems.map(item => item.dockItemId)).toEqual(['terminal']);
     });
 
+    /**
+     * Wraps the root the way a bottom root-edge drop does: a vertical split of the old root and the dropped pane.
+     * @param {Object} model
+     * @param {String} [splitId='split-root-0']
+     * @returns {Object} The model
+     */
+    const wrapRoot = (model, splitId='split-root-0') => {
+        const paneId = `${splitId}-tabs`,
+              itemId = `${splitId}-item`;
+
+        model.items[itemId]  = {reference: itemId, title: itemId};
+        model.nodes[paneId]  = {type: 'tabs', items: [itemId], activeItemId: itemId};
+        model.nodes[splitId] = {type: 'split', orientation: 'vertical', children: [model.root, paneId], sizes: [0.5, 0.5]};
+        model.root           = splitId;
+
+        return model
+    };
+
+    /**
+     * @param {Object} config
+     * @returns {Object[]} Every projected edge rail below `config`, in document order
+     */
+    const findRails = config => config?.dockNodeType === 'edge-rail' ? [config] : (config?.items || []).flatMap(findRails);
+
+    test('a wrapped root edge-zone frames the whole arrangement with its rails (#19992)', () => {
+        let model = wrapRoot(createEdgeZoneModel());
+
+        model.items.console               = {reference: 'console', title: 'Console'};
+        model.items.logs                  = {autoHidden: true, reference: 'logs', title: 'Logs'};
+        model.items.navigator             = {autoHidden: true, reference: 'navigator', title: 'Navigator'};
+        model.items.terminal.autoHidden   = true;
+        model.nodes['bottom-tabs']        = {type: 'tabs', items: ['console', 'logs'], activeItemId: 'console'};
+        model.nodes['left-tabs']          = {type: 'tabs', items: ['navigator'], activeItemId: 'navigator'};
+        model.nodes.root.zones.bottom     = {nodeId: 'bottom-tabs', extent: 0.2};
+        model.nodes.root.zones.left       = {nodeId: 'left-tabs', extent: 0.2};
+
+        let frame = DockLayoutAdapter.project(model, {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            }),
+            [row, bottomRail]                  = frame.items,
+            [leftRail, arrangement, rightRail] = row.items,
+            edgeZone                           = arrangement.items.find(item => item.dockNodeId === 'root');
+
+        expect(frame).toMatchObject({dockNodeType: 'rail-frame', layout: {ntype: 'vbox', align: 'stretch'}});
+        expect(frame.cls).toEqual(['neo-dashboard-dock-rail-frame', 'neo-dashboard']);
+        // The edge-zone's corner policy: top and bottom rails span the frame, side rails run between them
+        expect(row).toMatchObject({dockNodeType: 'edge-zone-row', layout: {ntype: 'hbox', align: 'stretch'}});
+        expect([leftRail, rightRail, bottomRail].map(rail => [rail.dockNodeId, rail.edge])).toEqual([
+            ['root:edge-rail:left', 'left'], ['root:edge-rail:right', 'right'], ['root:edge-rail:bottom', 'bottom']
+        ]);
+        expect(bottomRail.railItems.map(item => item.dockItemId)).toEqual(['logs']);
+        expect(arrangement).toMatchObject({dockNodeId: 'split-root-0', flex: 1, style: {minHeight: 0, minWidth: 0}});
+
+        // Only the rails moved: the edge-zone keeps its bands, the visible console included, and rails nothing itself
+        expect(findRails(arrangement)).toEqual([]);
+        expect([...collectProjectedTabsById(edgeZone).keys()]).toEqual(expect.arrayContaining(['bottom-tabs', 'inspector-tabs']));
+        expect(collectProjectedTabsById(edgeZone).get('bottom-tabs').items.map(item => item.data.dockItemId)).toEqual(['console'])
+    });
+
+    test('an unwrapped root edge-zone keeps its rails in place, and a wrap with nothing railed adds no frame', () => {
+        let options   = {resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})},
+            unwrapped = createEdgeZoneModel(),
+            plainWrap = wrapRoot(createEdgeZoneModel());
+
+        unwrapped.items.terminal.autoHidden = true;
+
+        let inPlace = DockLayoutAdapter.project(unwrapped, options),
+            noRails = DockLayoutAdapter.project(plainWrap, options);
+
+        expect(inPlace.dockNodeType).toBe('edge-zone');
+        expect(findRails(inPlace).map(rail => rail.dockNodeId)).toEqual(['root:edge-rail:right']);
+        expect(noRails).toMatchObject({dockNodeId: 'split-root-0', dockNodeType: 'split'});
+        expect(noRails.cls).toContain('neo-dashboard')
+    });
+
+    test('the frame finds the wrapped edge-zone through nested wraps, and only through splits', () => {
+        let nested = wrapRoot(wrapRoot(createEdgeZoneModel()), 'split-root-1');
+
+        expect(DockLayoutAdapter.resolveRailFrameZone(nested)).toBe('root');
+        expect(DockLayoutAdapter.resolveRailFrameZone(createEdgeZoneModel()), 'an edge-zone root is its own frame').toBeNull();
+
+        nested.items.terminal.autoHidden = true;
+
+        expect(findRails(DockLayoutAdapter.project(nested, {
+            resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+        })).map(rail => rail.dockNodeId)).toEqual(['root:edge-rail:right'])
+    });
+
     test('re-projects consistently across rapid autoHidden toggles through the executor', () => {
         let model    = createEdgeZoneModel(),
             options  = {resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})},

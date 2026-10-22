@@ -30,7 +30,8 @@
                     color var(--dock-transition-duration-fast) var(--dock-transition-easing);
     }
 
-    .neo-dashboard-dock-edge-zone {
+    .neo-dashboard-dock-edge-zone,
+    .neo-dashboard-dock-rail-frame {
         gap: 7px;
     }
 
