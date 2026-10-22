@@ -514,6 +514,7 @@ The landed physical resolution — `Window.getWindowAt()` / `getWindowAtExcept()
 - **Validity and expiry.** Claims carry an expiry; a stale (expired) claim is ignored.
 - **Deterministic outcomes, all three cases:** *tie* — the earliest valid claim wins; stable-identity lexicographic order is the final tiebreak; *stale* — ignored; *no claim* — **fail closed: no preview, no commit.**
 - **Claims among same-ownership candidates only (amendment 2026-09-05, #18284).** The claim pass runs over the ownership-admitted candidates (§2.3), so a stable identity is unique within one gesture's claim set, and a target of another Group neither claims nor releases a claim in it; two roots with equal `stableTargetId`s never meet in one arbiter. The arbiter itself stays blind to ownership — the coordinator's admission is the scope.
+- **The source owns its frame (amendment 2026-10-22, #20004).** A point the source window and another window both cover belongs to the source for the whole gesture: the press raised the source above every window it overlaps, and no script reorders them mid-gesture (#19533). The claim pass skips every other window where the source's frame, title bar included, covers the point, so a drag inside a popup lying over main stays the popup's, and a main-sourced drag reaches a popup only where main does not cover it. The native title-bar path is unchanged: its press lands in the moving window, which is no target. Known limit: a window manager that does not raise a window on press breaks the premise; the supported platforms raise.
 - **The falsifier (binding on the implementing leaf, #15246):** the ≥3-window OVERLAP witness — three overlapping windows, one gesture, exactly **one** preview and exactly **one** commit.
 
 #### §2.8.2 The gesture outcome machine
@@ -579,7 +580,11 @@ handles by the semantic `windowName` passed to `Main.windowOpen()`. Those identi
 This is the generic multi-window Possession Interface consumed by inspection tooling. Product code still decides what a
 window *means* and which semantic transaction precedes a physical effect.
 
-#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396; amended 2026-07-29, #16117; amended 2026-09-26, #19278; amended 2026-10-09, #19533)
+#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396; amended 2026-07-29, #16117; amended 2026-09-26, #19278; amended 2026-10-09, #19533; amended 2026-10-22, #20004)
+
+> **Amended 2026-10-22 (#20004): where windows overlap, the source's frame decides.** A point the source window and
+> another window both cover belongs to the source for the whole gesture (§2.8.1). Inside its frame the drag stays the
+> source's, re-entry included, whatever window lies beneath it.
 
 > **Amended 2026-10-09 (#19533): the pointer path never parks.** The operator's rule: *"we NEVER EVER want
 > additional visible windows (popups) … OFF SCREEN or not at all."* A script can neither hide a window nor
