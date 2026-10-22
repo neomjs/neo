@@ -2066,10 +2066,12 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
  * instead, against the real plugin rather than a synthetic one.
  */
 test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers every registration', () => {
-    let Overflow;
+    let Overflow,
+        Toolbar;
 
     test.beforeAll(async () => {
-        Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default
+        Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default;
+        Toolbar  = (await import('../../../../../src/toolbar/Base.mjs')).default
     });
 
     test('a remount releases the DOM listener as well as the seven Observable subscriptions', () => {
@@ -2105,6 +2107,118 @@ test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers ever
         expect(released.flatMap(domEvents),
             'and released that same event first — an empty array here means the release list has drifted from the registration list'
         ).toEqual(['resize']);
+
+        plugin.destroy()
+    });
+
+    test('with owner.showOnHover === true, hovering into and out of an unfocused pane keeps the tab overflow partition identical', async () => {
+        const makeButton = id => ({
+            addCls() {},
+            hidden: false,
+            id,
+            removeCls() {},
+            setSilent(values) { Object.assign(this, values) },
+            show() {
+                this.hidden = false;
+                delete this.vdom.removeDom
+            },
+            hide() {
+                this.hidden = true;
+                this.vdom.removeDom = true
+            },
+            style: {},
+            vdom : {}
+        });
+
+        const makeAction = (id, action, showOnFocus) => ({
+            action,
+            cls        : showOnFocus ? ['neo-toolbar-action-context-inactive'] : [],
+            domWithheld: showOnFocus,
+            hidden     : false,
+            id,
+            setSilent(values) { Object.assign(this, values) },
+            showOnFocus,
+            style: {},
+            vdom : showOnFocus ? {removeDom: true} : {}
+        });
+
+        const buttons = ['t1', 't2', 't3', 't4'].map(makeButton),
+              reload  = makeAction('act-reload', 'reload', true),
+              pin     = makeAction('act-pin',    'pin',    true),
+              close   = makeAction('act-close',  'close',  false),
+              actions = [reload, pin, close];
+
+        const rectFor = id => {
+            if (id === 'hover-owner') return {left: 0, width: 320, x: 0};
+            if (id.startsWith('t'))   return {left: 0, width: 80,  x: 0};
+            if (id === 'act-reload') {
+                return reload.cls.includes('neo-toolbar-action-context-inactive')
+                    ? {left: 0, width: 0, x: 0}
+                    : {left: 230, width: 28, x: 230}
+            }
+            if (id === 'act-pin') {
+                return pin.cls.includes('neo-toolbar-action-context-inactive')
+                    ? {left: 0, width: 0, x: 0}
+                    : {left: 260, width: 28, x: 260}
+            }
+            if (id === 'act-close') return {left: 290, width: 28, x: 290};
+            return {left: 0, width: 28, x: 0}
+        };
+
+        const parent = {activeIndex: 0, on: () => {}, un: () => {}},
+              owner  = {
+                  appName                         : 'NeoTabPluginOverflowTest',
+                  contextualActionsVisible        : false,
+                  id                              : 'hover-owner',
+                  items                           : buttons,
+                  mounted                         : true,
+                  parent,
+                  showOnHover                     : true,
+                  theme                           : 'neo-theme-neo-dark',
+                  windowId                        : 1,
+                  add                             : cfg => ({...cfg, destroy: () => {}, id: 'ctrl-1', mounted: true}),
+                  addDomListeners                 : () => {},
+                  applyContextualActionState      : Toolbar.prototype.applyContextualActionState,
+                  fire                            : () => {},
+                  getActionItems                  : () => actions,
+                  getLayoutRect                   : async ids => ids.map(rectFor),
+                  getTabButtons                   : () => buttons,
+                  getTheme                        : () => 'neo-theme-neo-dark',
+                  isFocusGatedAction              : Toolbar.prototype.isFocusGatedAction,
+                  on                              : () => {},
+                  promiseUpdate                   : async () => {},
+                  remove                          : () => {},
+                  removeDomListeners              : () => {},
+                  setContextualActionMeasureReveal: Toolbar.prototype.setContextualActionMeasureReveal,
+                  syncActionDomPresence           : Toolbar.prototype.syncActionDomPresence,
+                  un                              : () => {},
+                  up                              : () => parent,
+                  update                          : () => {}
+              },
+              plugin = Neo.create(Overflow, {
+                  appName: 'NeoTabPluginOverflowTest',
+                  control: {alignTo() {}, destroy() {}, iconCls: 'fa fa-ellipsis', id: 'ctrl-1', mounted: true},
+                  owner
+              });
+
+        await plugin.whenProjectionIdle();
+        const beforeHoverVisible = buttons.filter(b => !b.hidden).map(b => b.id);
+
+        // Simulate pointer hover revealing the focus-gated actions through the toolbar's own gate
+        owner.contextualActionsVisible = true;
+        owner.applyContextualActionState(true);
+        await plugin.project(false);
+        const duringHoverVisible = buttons.filter(b => !b.hidden).map(b => b.id);
+
+        // Simulate pointer leaving and re-withholding the focus-gated actions through the toolbar's own gate
+        owner.contextualActionsVisible = false;
+        owner.applyContextualActionState(true);
+        await plugin.project(false);
+        const afterHoverVisible = buttons.filter(b => !b.hidden).map(b => b.id);
+
+        expect(beforeHoverVisible).toEqual(['t1', 't2']);
+        expect(duringHoverVisible).toEqual(beforeHoverVisible);
+        expect(afterHoverVisible).toEqual(beforeHoverVisible);
 
         plugin.destroy()
     })

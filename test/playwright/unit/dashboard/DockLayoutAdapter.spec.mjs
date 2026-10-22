@@ -1617,6 +1617,25 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
             expect(mainTabs.items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
             expect(mainTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull()
+        });
+
+        test('headerActionsShowOnHover threads showOnHover to every projected tab header toolbar', () => {
+            const defaultResult = DockLayoutAdapter.project(createEdgeZoneModel(), {
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
+            });
+            const defaultMain = defaultResult.items[0].items.find(item => item.dockNodeId === 'main-tabs');
+            const defaultSide = defaultResult.items[0].items.find(item => item.dockNodeId === 'side-split');
+            expect(defaultMain.headerToolbar.showOnHover).toBe(false);
+            expect(defaultSide.items[0].headerToolbar.showOnHover).toBe(false);
+
+            const enabledResult = DockLayoutAdapter.project(createEdgeZoneModel(), {
+                headerActionsShowOnHover: true,
+                resolveComponentRef     : reference => ({ntype: 'dashboard-panel', reference})
+            });
+            const enabledMain = enabledResult.items[0].items.find(item => item.dockNodeId === 'main-tabs');
+            const enabledSide = enabledResult.items[0].items.find(item => item.dockNodeId === 'side-split');
+            expect(enabledMain.headerToolbar.showOnHover).toBe(true);
+            expect(enabledSide.items[0].headerToolbar.showOnHover).toBe(true)
         })
     });
 });
