@@ -692,11 +692,9 @@ class Workspace extends Container {
     construct(config) {
         super.construct(config);
 
-        if (this.enableDockCloseAction) {
-            // Closing a node's last item prunes its empty TabContainer. The surviving workspace
-            // root is therefore the semantic focus fallback and must accept programmatic focus.
-            this.vdom.tabIndex = -1
-        }
+        // Closing a node's last item prunes its empty TabContainer. The surviving workspace
+        // root is therefore the semantic focus fallback and must accept programmatic focus.
+        if (this.enableDockCloseAction) this.vdom.tabIndex = -1;
 
         this.dockPreviewProducer = Neo.create(PreviewProducer);
 
@@ -774,22 +772,7 @@ class Workspace extends Container {
      * @protected
      */
     afterSetHeaderActionsShowOnHover(value, oldValue) {
-        if (oldValue !== undefined) {
-            let host = this.getDockHost();
-
-            if (host?.items?.length) {
-                let shell = Reconciler.liveShell(host, this.dockShellIndex),
-                    tabs  = Reconciler.collectProjectedTabs(shell);
-
-                tabs.forEach(tab => {
-                    let bar = tab.getTabBar?.();
-
-                    if (bar) {
-                        bar.showOnHover = value === true
-                    }
-                })
-            }
-        }
+        oldValue !== undefined && Reconciler.collectProjectedTabs(Reconciler.liveShell(this.getDockHost(), this.dockShellIndex)).forEach(tab => tab.getTabBar?.() && (tab.getTabBar().showOnHover = value === true))
     }
 
     /**
@@ -1686,9 +1669,7 @@ class Workspace extends Container {
      * @returns {Neo.container.Base|null}
      */
     getDockHost() {
-        let {dockHostReference} = this;
-
-        return dockHostReference ? this.getReference(dockHostReference) : this
+        return this.dockHostReference ? this.getReference(this.dockHostReference) : this
     }
 
     /**
@@ -2800,11 +2781,9 @@ class Workspace extends Container {
     resolveProjectedPane(itemId, item) {
         const returning = this.tearOutHandlers?.takeReturningPane?.(itemId);
 
-        if (returning) {
-            if (!returning.isDestroyed) {
-                returning.parent?.remove(returning, false);
-                return returning
-            }
+        if (returning && !returning.isDestroyed) {
+            returning.parent?.remove(returning, false);
+            return returning
         }
 
         return this.decorateFlipMarker(this.resolvePane(itemId, item), itemId)

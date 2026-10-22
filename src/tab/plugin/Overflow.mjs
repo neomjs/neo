@@ -305,6 +305,24 @@ class Overflow extends Plugin {
      * @member {Boolean} dockRecapturePending=false
      */
     dockRecapturePending = false
+    /**
+     * Whether a reveal-probe pass is temporarily measuring withheld focus-gated actions.
+     * @member {Boolean} measuringWithheldActions=false
+     * @protected
+     */
+    measuringWithheldActions = false
+    /**
+     * Cached main-axis span of the full action cluster (including focus-gated actions) when `owner.showOnHover` is enabled.
+     * @member {Number|null} revealedClusterSpan=null
+     * @protected
+     */
+    revealedClusterSpan = null
+    /**
+     * Cached trailing inset between the action cluster's end and the owner toolbar's end when `owner.showOnHover` is enabled.
+     * @member {Number|null} revealedTrailingInset=null
+     * @protected
+     */
+    revealedTrailingInset = null
 
     /**
      * @param {Object} config
@@ -338,10 +356,10 @@ class Overflow extends Plugin {
                 })
             }
             if (me.owner.getConfig?.('showOnHover') !== undefined) {
-                me.observeConfig(me.owner, 'showOnHover', value => {
+                me.observeConfig(me.owner, 'showOnHover', () => {
                     me.revealedClusterSpan   = null;
                     me.revealedTrailingInset = null;
-                    me.project(value === true)
+                    me.project(false)
                 })
             }
         }
@@ -1032,6 +1050,8 @@ class Overflow extends Plugin {
                 if (recapture && owner.showOnHover === true && hidden.length > 0
                     && Number.isFinite(clusterEnd) && Number.isFinite(ownerStart) && Number.isFinite(ownerSize)
                     && clusterEnd > ownerStart + ownerSize + 1) {
+                    me.revealedClusterSpan   = null;
+                    me.revealedTrailingInset = null;
                     await owner.promiseUpdate?.();
                     me.projectQueued = true
                 }

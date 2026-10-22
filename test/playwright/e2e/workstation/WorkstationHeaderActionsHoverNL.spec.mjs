@@ -35,15 +35,39 @@ test.describe('Workstation — header actions reveal on hover without overflow s
               tabContainerId = headerProps?.parentId;
         expect(tabContainerId, 'heavy-tabs tab.Container must be projected').toBeTruthy();
 
+        const overflowPlugins  = await app.findInstances({className: 'Neo.tab.plugin.Overflow'}, ['id']);
+        let   overflowPluginId = null;
+
+        for (const {id} of Array.isArray(overflowPlugins) ? overflowPlugins : [overflowPlugins].filter(Boolean)) {
+            if ((await app.getComponent(id, ['owner.id']))['owner.id'] === chrome.headerId) {
+                overflowPluginId = id;
+                break
+            }
+        }
+        expect(overflowPluginId, 'heavy-tabs header toolbar must own an Overflow plugin').toBeTruthy();
+
+        const isOverflowIdle = async () => {
+            const state = await app.getComponent(overflowPluginId, [
+                'measuring',
+                'measuringWithheldActions',
+                'projectQueued',
+                'revealedClusterSpan'
+            ]);
+            return !state.measuring && !state.measuringWithheldActions && !state.projectQueued && state
+        };
+
         // Park the pointer outside heavy-tabs and ensure heavy-tabs does not hold focus.
         await page.mouse.move(8, 8);
         await app.setProperties(tabContainerId, {containsFocus: false});
+        await expect.poll(async () => Boolean(await isOverflowIdle()), {timeout: 10000}).toBe(true);
 
         const readHeaderState = () => page.evaluate(({headerId, tabContainerId}) => {
             const toolbar   = document.getElementById(headerId),
                   container = document.getElementById(tabContainerId),
                   rect      = container?.getBoundingClientRect(),
-                  buttons   = toolbar ? [...toolbar.querySelectorAll('.neo-tab-header-button')].map(el => el.id) : [],
+                  buttons   = toolbar ? [...toolbar.querySelectorAll('.neo-tab-header-button')]
+                      .filter(el => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden')
+                      .map(el => el.id) : [],
                   actions   = toolbar ? [...toolbar.querySelectorAll(':scope > .neo-toolbar-action')].map(el => ({
                       ariaLabel: el.getAttribute('aria-label'),
                       id       : el.id,
@@ -81,10 +105,14 @@ test.describe('Workstation — header actions reveal on hover without overflow s
         await app.setProperties(wsId, {headerActionsShowOnHover: true});
 
         await expect.poll(async () => {
-            const props = await app.getComponent(chrome.headerId, ['showOnHover', 'contextualActionsVisible']),
-                  state = await readHeaderState();
+            const props    = await app.getComponent(chrome.headerId, ['showOnHover', 'contextualActionsVisible']),
+                  overflow = await isOverflowIdle(),
+                  state    = await readHeaderState();
             return props.showOnHover === true
                 && props.contextualActionsVisible === false
+                && Boolean(overflow)
+                && Number.isFinite(overflow.revealedClusterSpan)
+                && overflow.revealedClusterSpan > 0
                 && state.actions.length === 2
                 && state.buttons.length > 0
                 && state.buttons.length < 12
@@ -96,9 +124,11 @@ test.describe('Workstation — header actions reveal on hover without overflow s
         await page.mouse.move(hoverX, hoverY);
 
         await expect.poll(async () => {
-            const props = await app.getComponent(chrome.headerId, ['contextualActionsVisible']),
-                  state = await readHeaderState();
+            const props    = await app.getComponent(chrome.headerId, ['contextualActionsVisible']),
+                  overflow = await isOverflowIdle(),
+                  state    = await readHeaderState();
             return props.contextualActionsVisible === true
+                && Boolean(overflow)
                 && state.actions.length > beforeHover.actions.length
                 && state.actions.every(action => action.width > 0)
         }, {timeout: 10000}).toBe(true);
@@ -110,9 +140,11 @@ test.describe('Workstation — header actions reveal on hover without overflow s
         await page.mouse.move(8, 8);
 
         await expect.poll(async () => {
-            const props = await app.getComponent(chrome.headerId, ['contextualActionsVisible']),
-                  state = await readHeaderState();
+            const props    = await app.getComponent(chrome.headerId, ['contextualActionsVisible']),
+                  overflow = await isOverflowIdle(),
+                  state    = await readHeaderState();
             return props.contextualActionsVisible === false
+                && Boolean(overflow)
                 && state.actions.length === beforeHover.actions.length
         }, {timeout: 10000}).toBe(true);
 
