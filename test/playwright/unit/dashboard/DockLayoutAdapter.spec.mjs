@@ -1314,7 +1314,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
                 getActionItems: () => [],
                 getTabButtons() { return this.items },
                 getTheme() { return this.theme },
-                async getDomRect(ids) {
+                async getLayoutRect(ids) {
                     callCount++;
                     if (callCount === 1) { await gate }
                     return ids[0] === 'header-live' ? [{width: 1000}] : [{width: 10}, {width: 10}]

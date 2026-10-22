@@ -7,7 +7,8 @@ import Plugin from '../../plugin/Base.mjs';
  *
  * The pure decision is this plugin's own static {@link Neo.tab.plugin.Overflow.computeOverflow} — a
  * projection concern, nothing persists. This plugin is the RUNTIME complement: it measures the live header extents
- * the pure core can only be handed, applies its verdict to the header buttons, and surfaces the hidden
+ * the pure core can only be handed, as layout boxes a presentation transform never distorts (a resize pass inside a
+ * DockFlip window partitions for the settled size), applies its verdict to the header buttons, and surfaces the hidden
  * remainder through a single overflow control whose selection routes back through the tab.Container's
  * EXISTING `activeIndex` path — zero new operations, zero new persisted state (the binding projection
  * constraint). `items` order and `activeItemId` already capture the state; overflow is projection only.
@@ -179,7 +180,7 @@ class Overflow extends Plugin {
      */
     control = null
     /**
-     * Re-entrancy guard: `getDomRect` is an async main-thread round-trip, so a resize storm could overlap
+     * Re-entrancy guard: `getLayoutRect` is an async main-thread round-trip, so a resize storm could overlap
      * measure passes and apply a stale split last.
      * @member {Boolean} measuring=false
      */
@@ -683,7 +684,7 @@ class Overflow extends Plugin {
     /**
      * Re-resolves the source toolbar's nearest active theme onto the out-of-tree overflow embodiment.
      * A theme flip can change the control's rendered width (fonts, paddings), so the reservation
-     * re-projects through the ordinary measure pass — the getDomRect round-trip queues behind the
+     * re-projects through the ordinary measure pass — the getLayoutRect round-trip queues behind the
      * theme update on the same channel, so it observes the re-skinned control.
      */
     onOwnerThemeChange() {
@@ -732,7 +733,7 @@ class Overflow extends Plugin {
             return
         }
 
-        // Re-entrancy: getDomRect is an async main-thread round-trip, so a resize / activation / tab-set
+        // Re-entrancy: getLayoutRect is an async main-thread round-trip, so a resize / activation / tab-set
         // storm can overlap passes. Coalesce instead of dropping — remember a re-run is owed (recapture is
         // sticky) and apply it ONCE after the in-flight pass, so the last state wins over a stale split.
         if (me.measuring) {
@@ -775,7 +776,7 @@ class Overflow extends Plugin {
                 });
 
                 // A prior split removes overflowing buttons from DOM. Restore them under this method's
-                // measuring latch, then reconcile their closest common parent once so getDomRect observes
+                // measuring latch, then reconcile their closest common parent once so getLayoutRect observes
                 // natural geometry. Any resize raised by that update queues behind the latch and drains as
                 // an extent-only pass after this authoritative capture.
                 if (removedButtons.length > 0 || cappedButtons.length > 0) {
@@ -791,7 +792,7 @@ class Overflow extends Plugin {
                 }
 
                 let previousWidths = me.naturalWidths || {},
-                    rects          = await owner.getDomRect(buttons.map(button => button.id));
+                    rects          = await owner.getLayoutRect(buttons.map(button => button.id));
 
                 me.naturalWidths = {};
                 buttons.forEach((button, index) => {
@@ -809,10 +810,12 @@ class Overflow extends Plugin {
             // A contextually inactive action is collapsed out of the layout, so it contributes a
             // zero rect here and the extent tracks what is actually offered. A focus change can
             // therefore repartition the tabs; that is intended, not a regression.
+            // Layout x/y are offset-parent-relative. The coordinate arm still holds: the actions are
+            // children of this static toolbar, so both share its offset parent.
             let actionItems   = me.getActionItems(),
                 controlId     = me.control?.mounted ? me.control.id : null,
                 ids           = [owner.id, ...actionItems.map(item => item.id), ...(controlId ? [controlId] : [])],
-                rects         = await owner.getDomRect(ids),
+                rects         = await owner.getLayoutRect(ids),
                 ownerRect     = rects.shift(),
                 actionRects   = rects.splice(0, actionItems.length),
                 controlRect   = controlId ? rects.shift() : null,
@@ -887,7 +890,7 @@ class Overflow extends Plugin {
                 })
             }
         } catch (error) {
-            // getDomRect losing a race with teardown is the ONE expected failure: it must neither reject a
+            // getLayoutRect losing a race with teardown is the ONE expected failure: it must neither reject a
             // fire-and-forget handler nor skip the drain below, and the finally-released latch lets the NEXT
             // event re-project (rejected→success self-heal). But a throw against a LIVE owner is a programming
             // defect — surface it rather than swallow it silently (a blanket catch would hide real bugs behind
@@ -903,7 +906,7 @@ class Overflow extends Plugin {
                 console.error('Neo.tab.plugin.Overflow: project() threw against a live owner', error)
             }
         } finally {
-            // ALWAYS release the latch: a thrown getDomRect / applySplit must not strand `measuring` at
+            // ALWAYS release the latch: a thrown getLayoutRect / applySplit must not strand `measuring` at
             // true, which would silently freeze every future projection (the header stops responding).
             me.measuring = false
         }

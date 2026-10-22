@@ -120,11 +120,11 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
     });
 
     /**
-     * A lean toolbar-owner stub: two header buttons, a controllable getDomRect, and an optional event
+     * A lean toolbar-owner stub: two header buttons, a controllable getLayoutRect, and an optional event
      * collector standing in for the owner's `fire` — attached before construction, because the plugin
      * runs its first projection pass while constructing against a mounted owner.
      */
-    const createPlugin = (getDomRect, fire) => {
+    const createPlugin = (getLayoutRect, fire) => {
         const items = [{id: 'b1'}, {id: 'b2'}];
 
         const plugin = Neo.create(Overflow, {
@@ -140,7 +140,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
                 getActionItems: () => [],
                 getTabButtons() { return this.items },
                 getTheme          : function () { return this.theme },
-                getDomRect,
+                getLayoutRect,
                 add               : () => ({}),
                 addDomListeners   : () => {},
                 removeDomListeners: () => {},
@@ -157,7 +157,17 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         return plugin
     };
 
-    test('a getDomRect throw against a LIVE owner surfaces the defect (console.error) and still releases the latch', async () => {
+    test('a projection measures layout boxes, never the visual box a presentation transform distorts', async () => {
+        const visualReads = [],
+              plugin      = createPlugin(async ids => ids.map(() => ({height: 20, width: 50, x: 0, y: 0})));
+
+        plugin.owner.getDomRect = async ids => { visualReads.push(ids); return [] };
+        await plugin.project(true);
+
+        expect(visualReads, 'neither the natural widths nor the strip extent come from the visual box').toEqual([])
+    });
+
+    test('a getLayoutRect throw against a LIVE owner surfaces the defect (console.error) and still releases the latch', async () => {
         const plugin = createPlugin(async () => { throw new Error('live-owner programming defect') }),
               errors = [],
               orig   = console.error;
@@ -175,8 +185,8 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.measuring, 'the latch must reset in finally so the header keeps responding').toBe(false)
     });
 
-    test('a getDomRect throw during a mid-measure TEARDOWN (owner unmounts) is swallowed — the expected race, no defect noise', async () => {
-        // getDomRect is invoked as `owner.getDomRect(...)`, so `this` is the exact owner object project()
+    test('a getLayoutRect throw during a mid-measure TEARDOWN (owner unmounts) is swallowed — the expected race, no defect noise', async () => {
+        // getLayoutRect is invoked as `owner.getLayoutRect(...)`, so `this` is the exact owner object project()
         // holds — flip its `mounted` there (a regular function, not an arrow) to simulate an unmount landing
         // mid-measure, just before the throw.
         const plugin = createPlugin(async function () { this.mounted = false; throw new Error('teardown race') });
@@ -236,7 +246,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             gate       = new Promise(resolve => { release = resolve }),
             callCount  = 0;
 
-        // first pass gates on getDomRect; the second project() call must queue rather than drop.
+        // first pass gates on getLayoutRect; the second project() call must queue rather than drop.
         // A wide extent (button-id calls → per-button rects; the extent call — an array led by the
         // owner id, optionally trailing the mounted control id — → one wide rect) keeps nothing
         // overflowing, so the pass completes cleanly through applySplit.
@@ -698,7 +708,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
         try {
             shouldThrow = true;
-            await plugin.project(true).catch(() => {}); // pass 1: getDomRect throws → caught, latch released
+            await plugin.project(true).catch(() => {}); // pass 1: getLayoutRect throws → caught, latch released
             expect(plugin.measuring, 'the latch is released after the failed pass').toBe(false);
             await plugin.project(true);                 // pass 2: measures + applies cleanly
         } finally {
@@ -1070,7 +1080,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             },
             un() {}
         };
-        plugin.owner.getDomRect = async () => {
+        plugin.owner.getLayoutRect = async () => {
             signalMeasure();
             await measureGate;
             return [{height: 300, left: 0, top: 0, width: 1000, x: 0, y: 0}]
@@ -1126,7 +1136,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
               buttons = [makeButton('b1'), makeButton('b2', true)];
 
         plugin.owner.items = buttons;
-        plugin.owner.getDomRect = async ids => ids[0] === 'tab-overflow-test-owner'
+        plugin.owner.getLayoutRect = async ids => ids[0] === 'tab-overflow-test-owner'
             ? [{height: 25, left: 0, top: 0, width: 70, x: 0, y: 0}]
             : [{height: 20, width: 50}, {height: 20, width: 50}];
         plugin.owner.promiseUpdate = async () => {
@@ -1419,7 +1429,7 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
         }),
 
         /** A toolbar-owner stub with the parent seam the active-button resolution needs. */
-        createCapPlugin = ({buttons, getDomRect}) => Neo.create(Overflow, {
+        createCapPlugin = ({buttons, getLayoutRect}) => Neo.create(Overflow, {
             owner: {
                 id            : 'cap-owner',
                 appName       : 'test-app',
@@ -1431,7 +1441,7 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
                 dock          : 'top',
                 getActionItems: () => [],
                 getTabButtons : () => buttons,
-                getDomRect,
+                getLayoutRect,
                 getTheme() { return this.theme },
                 add            : () => ({}),
                 addDomListeners() {},
@@ -1462,7 +1472,7 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
                 buttons   : [b1, b2],
                 // extent 236; rendered control 49 — measurable only once mounted. Naturals: the
                 // active b1 (227) alone exceeds usable, staging the degenerate cap.
-                getDomRect: async ids => ids[0] === 'cap-owner'
+                getLayoutRect: async ids => ids[0] === 'cap-owner'
                     ? (ids.length === 2 ? [{width: 236}, {width: 49}] : [{width: 236}])
                     : [{width: 227}, {width: 100}]
             });
@@ -1496,8 +1506,8 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
             b1     = makeCapButton('b1'),
             b2     = makeCapButton('b2', {maxWidth: 120, style: {color: 'red', maxWidth: '120px'}}),
             plugin = createCapPlugin({
-                buttons   : [b1, b2],
-                getDomRect: async ids => ids[0] === 'cap-owner' ? [{width: 1000}] : [{width: 100}, {width: 100}]
+                buttons      : [b1, b2],
+                getLayoutRect: async ids => ids[0] === 'cap-owner' ? [{width: 1000}] : [{width: 100}, {width: 100}]
             });
 
         await settle();
@@ -1528,8 +1538,8 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
 
         try {
             const plugin = createCapPlugin({
-                buttons   : [b1, b2],
-                getDomRect: async ids => ids[0] === 'cap-owner'
+                buttons      : [b1, b2],
+                getLayoutRect: async ids => ids[0] === 'cap-owner'
                     ? (ids.length === 2 ? [{width: extent}, {width: 49}] : [{width: extent}])
                     : [{width: 227}, {width: 100}]
             });
@@ -1569,8 +1579,8 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
         const
             b1     = makeCapButton('b1', {maxHeight: 250, maxWidth: 300}),
             plugin = createCapPlugin({
-                buttons   : [b1],
-                getDomRect: async () => [{height: 1000, width: 1000}]
+                buttons      : [b1],
+                getLayoutRect: async () => [{height: 1000, width: 1000}]
             });
 
         await settle();
@@ -1881,7 +1891,7 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
                       items             : [{id: 'b1'}, {id: 'b2'}],
                       parent,
                       getTheme          : function () { return this.theme },
-                      getDomRect        : async ids => ids[0] === 'wired-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}],
+                      getLayoutRect     : async ids => ids[0] === 'wired-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}],
                       add               : () => ({}),
                       addDomListeners   : () => {},
                       removeDomListeners: () => {},
@@ -2018,7 +2028,7 @@ test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers ever
                 id                : 'owner-release', mounted: true, windowId: 1, items: [],
                 getActionItems    : () => [], getTabButtons() { return this.items },
                 getTheme          : function () { return this.theme },
-                getDomRect        : async () => ({height: 0, width: 0, x: 0, y: 0}),
+                getLayoutRect     : async () => ({height: 0, width: 0, x: 0, y: 0}),
                 add               : () => ({}),
                 addDomListeners   : value => { added.push(...[value].flat()) },
                 removeDomListeners: value => { released.push(...[value].flat()) },
