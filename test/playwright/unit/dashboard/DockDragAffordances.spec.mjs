@@ -717,17 +717,77 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         return DragCoordinator.abandonedGestures.map(({previewId, terminal}) => ({previewId, terminal}))
     }
 
-    test('a release that lands nothing where the hover showed a split of its own zone reports it (#19869)', async () => {
+    test('a release on an edge band of its own zone lands the split the hover showed', async () => {
         const rig = compose();
 
         rig.controller.dragGeometry = Promise.resolve(rig.controller.geometry = GEOMETRY());
         rig.indicators.hostRect = GEOMETRY().hostRect;
 
-        // alpha's own zone, at its right edge: the hover infers a split there, the drop's inference skips the zone
-        const reports = await reportsOf(() => rig.controller.onDrop({clientX: 395, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'}));
+        // alpha's own zone, in its bottom band above the root's 24px strip: the operator's gesture, a vertical split of the node
+        expect(await reportsOf(() => rig.controller.onDrop({clientX: 200, clientY: 560, itemId: 'alpha', sourceNodeId: 'left-tabs'})), 'it lands, so nothing reports').toEqual([]);
 
+        let doc     = rig.owner.dockModel,
+            [, cut] = Object.entries(doc.nodes).find(([, node]) => node.type === 'split' && node.children.includes('left-tabs'));
+
+        expect(rig.committed).toHaveLength(1);
+        expect([cut.orientation, cut.children[0], doc.nodes[cut.children[1]].items, doc.nodes['left-tabs'].items])
+            .toEqual(['vertical', 'left-tabs', ['alpha'], ['beta']]);
+
+        destroyAll(rig);
+
+        // at its right edge, along the parent split's axis: a horizontal split with the item after the node
+        const rig2 = compose();
+
+        rig2.controller.dragGeometry = Promise.resolve(rig2.controller.geometry = GEOMETRY());
+        rig2.indicators.hostRect = GEOMETRY().hostRect;
+
+        expect(await reportsOf(() => rig2.controller.onDrop({clientX: 395, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'}))).toEqual([]);
+
+        doc   = rig2.owner.dockModel;
+        [, cut] = Object.entries(doc.nodes).find(([, node]) => node.type === 'split' && node.children.includes('left-tabs'));
+
+        expect([cut.orientation, cut.children[0], doc.nodes[cut.children[1]].items, doc.nodes['left-tabs'].items])
+            .toEqual(['horizontal', 'left-tabs', ['alpha'], ['beta']]);
+        destroyAll(rig2)
+    });
+
+    test('the own zone\'s bottom chip lands the same split as its bottom band', async () => {
+        const rig = compose();
+
+        rig.controller.dragGeometry = Promise.resolve(rig.controller.geometry = GEOMETRY());
+        rig.indicators.hostRect = GEOMETRY().hostRect;
+
+        // hovering the own zone raises its chip cross; the release lands on the bottom chip
+        await rig.controller.onDragMove({clientX: 200, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'});
+
+        const chip = rig.indicators.getCandidateHitPoint('preview:alpha:left-tabs:edge-bottom');
+
+        expect(chip, 'the own zone offers its bottom chip').toBeTruthy();
+        expect(await reportsOf(() => rig.controller.onDrop({clientX: chip.x, clientY: chip.y, itemId: 'alpha', sourceNodeId: 'left-tabs'}))).toEqual([]);
+
+        const doc     = rig.owner.dockModel,
+              [, cut] = Object.entries(doc.nodes).find(([, node]) => node.type === 'split' && node.children.includes('left-tabs'));
+
+        expect([cut.orientation, cut.children[0], doc.nodes[cut.children[1]].items, doc.nodes['left-tabs'].items])
+            .toEqual(['vertical', 'left-tabs', ['alpha'], ['beta']]);
+        destroyAll(rig)
+    });
+
+    test('a release that infers nothing where the hover showed a preview reports it', async () => {
+        const rig     = compose(),
+              produce = rig.controller.producer.produce.bind(rig.controller.producer);
+
+        let calls = 0;
+
+        rig.controller.dragGeometry = Promise.resolve(rig.controller.geometry = GEOMETRY());
+        rig.indicators.hostRect = GEOMETRY().hostRect;
+
+        // the first call is the hover's own read; the second, the drop's inference, finds nothing
+        rig.controller.producer.produce = args => ++calls === 2 ? null : produce(args);
+
+        expect(await reportsOf(() => rig.controller.onDrop({clientX: 600, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'})))
+            .toEqual([{previewId: 'preview:alpha:right-tabs:tab-into', terminal: 'no-operation'}]);
         expect(rig.committed).toHaveLength(0);
-        expect(reports).toEqual([{previewId: 'preview:alpha:left-tabs:split-after', terminal: 'no-operation'}]);
         destroyAll(rig)
     });
 
@@ -774,10 +834,13 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         expect(await reportsOf(() => controller.onDrop({clientX: 600, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'})), 'the owner refused the tab-into it showed')
             .toEqual([{previewId: 'preview:alpha:right-tabs:tab-into', terminal: 'operation-refused'}]);
 
-        // the release resolves right-tabs while the hover showed alpha's own split
+        // the release resolves right-tabs while the hover showed alpha's own split: the first call is the
+        // hover's read, the second the drop's inference
+        let calls = 0;
+
         arm();
         owner.applyDockZoneOperation = apply;
-        controller.producer.produce  = args => produce(args.zones.some(zone => zone.nodeId === 'left-tabs') ? args : {...args, pointer: {x: 600, y: 300}});
+        controller.producer.produce  = args => produce(++calls === 2 ? {...args, pointer: {x: 600, y: 300}} : args);
 
         expect(await reportsOf(() => controller.onDrop({clientX: 395, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'})), 'landed elsewhere')
             .toEqual([{previewId: 'preview:alpha:left-tabs:split-after', terminal: 'other-operation'}]);
