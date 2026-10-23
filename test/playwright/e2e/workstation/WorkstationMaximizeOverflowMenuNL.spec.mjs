@@ -185,6 +185,45 @@ async function assertOverflowMenuHoldsAndSelects(page, app, chrome) {
         'the selected overflow item becomes the active visible tab').toHaveCount(1, {timeout: 10000})
 }
 
+/**
+ * @summary Presses More tabs on the unfocused `heavy-tabs` pane for `holdMs`, releases on the same point, and asserts
+ * that the release opened the menu on a control that never moved.
+ * @param {import('@playwright/test').Page} page
+ * @param {Object} app
+ * @param {Object} chrome
+ * @param {Number} holdMs How long the button stays down.
+ */
+async function assertPressOpensMenuInPlace(page, app, chrome, holdMs) {
+    const
+        overflowControl = page.locator(`#${chrome.overflowControlId}`),
+        menuList        = page.locator('.neo-menu-list:visible'),
+        header          = await app.getComponent(chrome.headerId, ['contextualActionsVisible']);
+
+    expect(header?.contextualActionsVisible, 'the pane starts unfocused: its focus-gated actions are withdrawn').toBe(false);
+    await expect(overflowControl).toBeVisible();
+
+    const before = await overflowControl.boundingBox(),
+          x      = before.x + before.width  / 2,
+          y      = before.y + before.height / 2;
+
+    // A human press: the pointer-down focuses the pane, which owes its focus reveal while the button is
+    // held, and the pointer-up has to find the same control it pressed.
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.waitForTimeout(holdMs);
+    await page.mouse.up();
+
+    await expect(menuList, 'one press opens the overflow menu').toHaveCount(1, {timeout: 3000});
+
+    const after = await overflowControl.boundingBox();
+
+    expect(Math.abs(after.x - before.x), 'the control did not move out from under the pointer').toBeLessThan(2);
+    expect(Math.abs(after.y - before.y)).toBeLessThan(2);
+
+    const props = await app.getComponent(chrome.headerId, ['contextualActionsVisible']);
+    expect(props?.contextualActionsVisible, 'the press focused the pane as before').toBe(true)
+}
+
 test.describe('Workstation — tab overflow menu in docked and maximized panes', () => {
     test.setTimeout(120000);
     test.use({viewport: {width: 1440, height: 900}});
@@ -200,35 +239,15 @@ test.describe('Workstation — tab overflow menu in docked and maximized panes',
         const {app, chrome} = await connectHeavyTabs(page, neuralLink);
 
         await waitForOverflowSettled(page, app, chrome);
+        await assertPressOpensMenuInPlace(page, app, chrome, 120)
+    });
 
-        const
-            overflowControl = page.locator(`#${chrome.overflowControlId}`),
-            menuList        = page.locator('.neo-menu-list:visible'),
-            header          = await app.getComponent(chrome.headerId, ['contextualActionsVisible']);
+    test('unfocused docked pane: a press held for two seconds still opens the menu on release, and the control stays under the pointer (#20046)', async ({page, neuralLink}) => {
+        const {app, chrome} = await connectHeavyTabs(page, neuralLink);
 
-        expect(header?.contextualActionsVisible, 'the pane starts unfocused: its focus-gated actions are withdrawn').toBe(false);
-        await expect(overflowControl).toBeVisible();
-
-        const before = await overflowControl.boundingBox(),
-              x      = before.x + before.width  / 2,
-              y      = before.y + before.height / 2;
-
-        // A human press: the pointer-down focuses the pane, the focus reveal and its re-partition land
-        // while the button is held, and the pointer-up has to find the same control it pressed.
-        await page.mouse.move(x, y);
-        await page.mouse.down();
-        await page.waitForTimeout(120);
-        await page.mouse.up();
-
-        await expect(menuList, 'one press opens the overflow menu').toHaveCount(1, {timeout: 3000});
-
-        const after = await overflowControl.boundingBox();
-
-        expect(Math.abs(after.x - before.x), 'the control did not move out from under the pointer').toBeLessThan(2);
-        expect(Math.abs(after.y - before.y)).toBeLessThan(2);
-
-        const props = await app.getComponent(chrome.headerId, ['contextualActionsVisible']);
-        expect(props?.contextualActionsVisible, 'the press focused the pane as before').toBe(true)
+        await waitForOverflowSettled(page, app, chrome);
+        // wall-clock-under-test: only the press may end its hold, however long the button stays down
+        await assertPressOpensMenuInPlace(page, app, chrome, 2000)
     });
 
     test('maximized 12-tab pane: clicking More tabs keeps the overflow menu open, focused, and focus-gated actions + partition unchanged until selection', async ({page, neuralLink}) => {

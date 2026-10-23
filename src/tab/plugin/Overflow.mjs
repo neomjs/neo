@@ -191,6 +191,12 @@ class Overflow extends Plugin {
      */
     control = null
     /**
+     * A press that began on the control, until its click or a return with the button up ends it.
+     * @member {Boolean} controlPressed=false
+     * @protected
+     */
+    controlPressed = false
+    /**
      * Re-entrancy guard: `getLayoutRect` is an async main-thread round-trip, so a resize storm could overlap
      * measure passes and apply a stale split last.
      * @member {Boolean} measuring=false
@@ -1172,35 +1178,64 @@ class Overflow extends Plugin {
     }
 
     /**
-     * A press on the overflow control holds the owner's focus-gated reveal: the press focuses the pane,
-     * and the actions that reveal would otherwise be inserted beside the control and move it out from
-     * under the pointer before the release lands. The hold ends with the click (the menu the
-     * click opens takes the hold over once mounted), or by the safety timer when the press ends elsewhere.
+     * A primary press on the overflow control holds the owner's focus-gated reveal: the press focuses the
+     * pane, and the actions that reveal would otherwise be inserted beside the control and move it out from
+     * under the pointer before the release lands. The hold lasts while the press can still click the control.
+     * @param {Object} data
      * @protected
      */
-    onControlPointerDown() {
-        let me = this;
-
-        me.owner?.holdContextualReveal?.('overflow-control');
-        clearTimeout(me.controlPressTimer);
-        me.controlPressTimer = setTimeout(() => me.owner?.releaseContextualReveal?.('overflow-control'), 1500)
+    onControlPointerDown({button}) {
+        if (button === 0) {
+            this.controlPressed = true;
+            this.owner?.holdContextualReveal?.('overflow-control')
+        }
     }
 
     /**
-     * Releases the press hold one frame late, after the menu this click opens has mounted and holds.
+     * A return during the control's own press holds again, since a release here still clicks the control;
+     * a return with the button up means that press ended elsewhere.
+     * @param {Object} data
+     * @protected
+     */
+    onControlPointerEnter({buttons}) {
+        let me = this;
+
+        me.controlPressed = me.controlPressed && (buttons & 1) === 1;
+        me.controlPressed && me.owner?.holdContextualReveal?.('overflow-control')
+    }
+
+    /**
+     * Leaving during the control's press ends its hold: a release elsewhere cannot click the control.
+     * @protected
+     */
+    onControlPointerLeave() {
+        this.controlPressed && this.owner?.releaseContextualReveal?.('overflow-control')
+    }
+
+    /**
+     * The click ends the press. One that opens the menu (`button.Base#toggleMenu` shows the list unless it is
+     * shown) keeps the hold until the mounted menu takes it over, so the strip never re-partitions under the
+     * menu's anchor; it observes the list itself once `menuListReady` settles, since no projection may have
+     * yet. Any other click releases the hold at once.
      * @protected
      */
     onControlClick() {
-        let me = this;
+        let me        = this,
+            {control} = me;
 
-        clearTimeout(me.controlPressTimer);
-        me.controlPressTimer = setTimeout(() => me.owner?.releaseContextualReveal?.('overflow-control'), 250)
+        me.controlPressed = false;
+
+        if (control?.menu && control.menuList?.hidden !== false) {
+            control.menuListReady.then(() => me.observeMenuListLifecycle(control.menuList))
+        } else {
+            me.owner?.releaseContextualReveal?.('overflow-control')
+        }
     }
 
     /**
      * Observes one generated menu list so its unmount edge can drain a queued projection, and so the
-     * owner's focus-gated reveal waits while the menu owns the strip. A replacement list
-     * supersedes the old observer.
+     * owner's focus-gated reveal waits while the menu owns the strip: its mount takes the hold over from
+     * the press that opened it. A replacement list supersedes the old observer.
      * @param {Neo.menu.List|null} menuList
      * @protected
      */
@@ -1215,6 +1250,7 @@ class Overflow extends Plugin {
             me.observeConfig(menuList, 'mounted', value => {
                 if (me.observedMenuList === menuList) {
                     me.owner?.[value ? 'holdContextualReveal' : 'releaseContextualReveal']?.('overflow-menu');
+                    value && me.owner?.releaseContextualReveal?.('overflow-control');
                     value ? me.restoreOpenMenuPartition() : me.drainOpenMenuProjection()
                 }
             })
@@ -1280,8 +1316,10 @@ class Overflow extends Plugin {
             module      : Button,
             cls         : ['neo-tab-overflow-control'],
             domListeners: [
-                {mousedown: me.onControlPointerDown, scope: me},
-                {click    : me.onControlClick,       scope: me}
+                {mousedown : me.onControlPointerDown,  scope: me},
+                {mouseenter: me.onControlPointerEnter, scope: me},
+                {mouseleave: me.onControlPointerLeave, scope: me},
+                {click     : me.onControlClick,        scope: me}
             ],
             handler: Neo.emptyFn,
             hidden : true,
@@ -1314,10 +1352,13 @@ class Overflow extends Plugin {
         if (hiddenMeta.length < 1) {
             if (me.projectAsAction) {
                 me.appliedHiddenIds     = null;
+                me.controlPressed       = false;
                 me.hiddenSignature      = null;
                 me.menuProjectionQueued = false;
                 me.menuRecaptureQueued  = false;
                 me.observedMenuList     = null;
+                // A hidden control cannot be clicked: a press on it ends here
+                me.owner.releaseContextualReveal?.('overflow-control');
                 if (me.control) {
                     if (!me.control.hidden) {
                         me.control.hidden = true
@@ -1496,7 +1537,6 @@ class Overflow extends Plugin {
         me.menuProjectionQueued   = false;
         me.menuRecaptureQueued    = false;
         me.observedMenuList       = null;
-        clearTimeout(me.controlPressTimer);
         if (me.owner && !me.owner.isDestroyed) {
             me.owner.releaseContextualReveal?.('overflow-control');
             me.owner.releaseContextualReveal?.('overflow-menu')
