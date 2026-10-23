@@ -5,9 +5,11 @@ on:
   # trusted `dev` workflow code, never checks out the PR, and publishes only a source-read status.
   pull_request_target:
     branches: [dev]
-    types: [opened, reopened, synchronize, ready_for_review, closed]
+    types: [opened, reopened, synchronize, ready_for_review]
   # Mergeability is a head+base relation. A `dev` merge can invalidate an unchanged PR head, so
-  # every base movement must re-evaluate the whole open dev-target set.
+  # every base movement must re-evaluate the whole open dev-target set. A merge IS such a push, so
+  # the PR's own `closed` event is not a trigger: a `pull_request_target` run anchors its check runs
+  # on the event PR's head, and a sweep anchored on a merged head leaves its red there (#20061).
   push:
     branches: [dev]
   # Hourly Data Sync commits intentionally carry `[skip ci]`, which suppresses `push` workflows.
@@ -38,11 +40,7 @@ jobs:
             let pulls = [];
             let prs;
 
-            const isPullRequestEvent = context.eventName === 'pull_request_target';
-            const isClosed           = isPullRequestEvent && context.payload.action === 'closed';
-            const isMergedClose      = isClosed && context.payload.pull_request?.merged === true;
-
-            if (isPullRequestEvent && !isClosed) {
+            if (context.eventName === 'pull_request_target') {
               const eventPr = context.payload.pull_request?.number;
 
               if (!Number.isInteger(eventPr)) {
@@ -55,10 +53,6 @@ jobs:
               // every synchronize event multiplies status writes by open-PR count; only base movement
               // (`push: dev`) needs the whole board.
               prs = [eventPr];
-            } else if (isClosed && !isMergedClose) {
-              // Closing without merging does not move `dev`; the closed PR must not receive a fresh
-              // status and the board needs no work.
-              prs = [];
             } else {
               try {
                 pulls = await github.paginate(github.rest.pulls.list, {
@@ -175,11 +169,23 @@ jobs:
             const runUrl     = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             let lastCoordinate = null;
 
-            const readPull = async() => (await github.rest.pulls.get({
-              owner      : context.repo.owner,
-              repo       : context.repo.repo,
-              pull_number: prNumber
-            })).data;
+            // A closed or merged PR has no live coordinate: GitHub leaves its `mergeable` null for
+            // good, and a status written to its head would stay red on a merged PR (#20061).
+            class PullClosed extends Error {}
+
+            const readPull = async() => {
+              const {data} = await github.rest.pulls.get({
+                owner      : context.repo.owner,
+                repo       : context.repo.repo,
+                pull_number: prNumber
+              });
+
+              if (data.state !== 'open') {
+                throw new PullClosed(`PR #${prNumber} is ${data.merged ? 'merged' : 'closed'}; no mergeability status after close.`);
+              }
+
+              return data;
+            };
 
             const coordinateOf = pull => {
               const coordinate = {head: pull?.head?.sha, base: pull?.base?.sha};
@@ -302,6 +308,11 @@ jobs:
               await publish('error', lastCoordinate, 'Head/base moved throughout the bounded mergeability probe');
               core.setFailed(`PR #${prNumber} head/base moved through ${maxRestarts + 1} bounded coordinates.`);
             } catch (error) {
+              if (error instanceof PullClosed) {
+                core.info(error.message);
+                return;
+              }
+
               if (lastCoordinate) {
                 try {
                   await publish('error', lastCoordinate, 'Mergeability source read failed; retry controller');
