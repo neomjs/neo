@@ -686,13 +686,16 @@ class SortZone extends DragZone {
                 sortableItems   : null
             });
 
+            const focusOwner = me.dragFocusOwner;
+            me.dragFocusOwner = null;
+
+            // A hidden element cannot take focus: the restore waits until the re-show above has rendered
+            const reshown = focusOwner && !focusOwner.isDestroyed && await focusOwner.promiseUpdate().then(() => true, () => false);
+
             await me.timeout(30);
 
             // The item is visible again: give focus back where a click on it would have left it, without a ring
-            if (me.dragFocusOwner) {
-                me.dragFocusOwner.isDestroyed || me.dragFocusOwner.focus(me.dragFocusOwner.id, false, true, 'pointer');
-                me.dragFocusOwner = null
-            }
+            reshown && !focusOwner.isDestroyed && focusOwner.focus(focusOwner.id, false, true, 'pointer');
 
             me.dragEnd(data) // we do not want to trigger the super class call here
         }

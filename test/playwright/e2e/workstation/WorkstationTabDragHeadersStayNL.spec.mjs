@@ -26,7 +26,13 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
         viewport      : {height: 1000, width: 2200}
     });
 
-    test('dragging the 3rd visible tab 120 px right and 45 px above the strip keeps all headers inside the strip and settles to the focused-extent partition on drop', async ({page, neuralLink}) => {
+    /**
+     * Drags the 3rd visible tab of `heavy-tabs` out of the strip and back, drops it at its origin, and asserts the
+     * strip settles to the focused-extent partition with every header inside it.
+     * @param {Object} fixtures `{page, neuralLink}`
+     * @param {Number} [cpuThrottle=1] CDP CPU throttling rate for the page's main thread from the drop on
+     */
+    async function dragAndSettle({page, neuralLink}, cpuThrottle=1) {
         globalThis.DOMRect ??= class DOMRect {};
         const {default: Overflow} = await import('../../../../src/tab/plugin/Overflow.mjs');
         const pageErrors          = [];
@@ -218,7 +224,17 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
         await page.mouse.move(startX + 120, startY - 45, {steps: 10});
         await page.mouse.move(startX + 120, startY, {steps: 10});
         await page.mouse.move(startX, startY, {steps: 12});
+
+        if (cpuThrottle > 1) {
+            await (await page.context().newCDPSession(page)).send('Emulation.setCPUThrottlingRate', {rate: cpuThrottle})
+        }
+
         await page.mouse.up();
+
+        await expect.poll(async () => (await app.getComponent(chrome.headerId, ['containsFocus'])).containsFocus, {
+            message: 'the dropped tab takes its focus back, so the strip holds focus',
+            timeout: 10000
+        }).toBe(true);
 
         // Explicit post-drop settle boundary: wait until SortZone clears inline positioning,
         // focus restoration reveals the contextual header actions in the DOM, Overflow's post-drag and
@@ -501,5 +517,10 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
 
         expect(consistency.consistent, 'header toolbar VDOM/DOM/items stay consistent after drop').toBe(true);
         expect(pageErrors, 'no uncaught page errors').toEqual([])
-    })
+    }
+
+    test('dragging the 3rd visible tab 120 px right and 45 px above the strip keeps all headers inside the strip and settles to the focused-extent partition on drop', async ({page, neuralLink}) => dragAndSettle({page, neuralLink}));
+
+    // A loaded main thread renders the dropped tab's re-show late: the focus restore must wait for it, or the strip stays unfocused
+    test('with the main thread loaded from the drop on, the dropped tab takes its focus back and the strip still settles', async ({page, neuralLink}) => dragAndSettle({page, neuralLink}, 8));
 });

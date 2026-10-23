@@ -325,6 +325,69 @@ test.describe('Neo.draggable.container.SortZone', () => {
         }
     });
 
+    test('the focus restore waits until the re-shown item has rendered, however long its update takes', async () => {
+        await expect.poll(() => container.sortZone).toBeTruthy();
+        sortZone = container.sortZone;
+
+        const
+            realFocus = Neo.main.DomAccess.focus,
+            events    = [],
+            [btnA]    = container.items;
+
+        let land, requested;
+        const updateRequested = new Promise(resolve => {requested = resolve});
+
+        Neo.main.DomAccess.focus = data => events.push(`focus ${data.id}`);
+
+        try {
+            btnA.containsFocus = true;
+            await sortZone.onDragStart({path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]});
+
+            // A loaded main thread: the re-show renders only when this arm lands it, long after the frame wait
+            btnA.promiseUpdate = () => {
+                requested();
+                return new Promise(resolve => {land = () => {events.push('re-shown'); resolve()}})
+            };
+
+            const ended = sortZone.onDragEnd({});
+
+            await Promise.race([ended, updateRequested]);
+            expect(events, 'nothing is focused while the item is still hidden').toEqual([]);
+
+            land();
+            await ended;
+            expect(events).toEqual(['re-shown', 'focus btnA'])
+        } finally {
+            Neo.main.DomAccess.focus = realFocus
+        }
+    });
+
+    test('an item whose re-show fails to render gets no focus, and the drag still ends', async () => {
+        await expect.poll(() => container.sortZone).toBeTruthy();
+        sortZone = container.sortZone;
+
+        const
+            realFocus = Neo.main.DomAccess.focus,
+            calls     = [],
+            [btnA]    = container.items;
+
+        Neo.main.DomAccess.focus = data => calls.push(data);
+
+        try {
+            btnA.containsFocus = true;
+            await sortZone.onDragStart({path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]});
+            btnA.promiseUpdate = () => Promise.reject(new Error('flight failed'));
+
+            await sortZone.onDragEnd({});
+
+            expect(calls).toEqual([]);
+            expect(sortZone.dragFocusOwner).toBeNull();
+            expect(sortZone.dragProxy, 'the terminal still ran').toBeNull()
+        } finally {
+            Neo.main.DomAccess.focus = realFocus
+        }
+    });
+
      test('Correctly handles placeholder in index calculation', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         sortZone = container.sortZone;
