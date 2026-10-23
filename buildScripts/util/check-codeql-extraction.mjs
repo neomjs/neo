@@ -97,8 +97,10 @@ export function summarizeExtractionAcrossLegs(legs) {
  * @summary I/O wrapper: fetch the raw log of EVERY Analyze matrix leg for this run via the Actions
  * API. A `needs: analyze` guard runs after the engine has finished every leg, but the REST jobs view
  * can trail that by seconds, so a leg it still reports as not `completed` is re-read on the same
- * backoff before its log is fetched. A single leg's fetch failure or an exhausted wait throws — an
- * unread leg is an uncertified leg, never a silent pass.
+ * backoff before its log is fetched. A leg observed once stays on the roster until it completes and
+ * its log is read: a later listing that omits it never shrinks what must be certified. A single
+ * leg's fetch failure or an exhausted wait throws — an unread leg is an uncertified leg, never a
+ * silent pass.
  * @param {Object} params
  * @param {String} params.repo `owner/name` (`GITHUB_REPOSITORY`).
  * @param {String|Number} params.runId `GITHUB_RUN_ID`.
@@ -135,23 +137,29 @@ export async function fetchAnalyzeJobLogs({
               return legs
           };
 
-    let legs = await readLegs(), waitedMs = 0;
+    const observed = new Map(),
+          observe  = legs => legs.forEach(leg => observed.set(leg.id ?? leg.name, leg)),
+          pending  = () => [...observed.values()].filter(isPending);
 
-    for (let reads = 1; legs.some(isPending); reads++) {
+    observe(await readLegs());
+
+    let waitedMs = 0;
+
+    for (let reads = 1; pending().length; reads++) {
         const retryDelay = retryDelays[reads - 1];
 
         if (retryDelay == null) {
-            const leg = legs.find(isPending);
+            const [leg] = pending();
 
             throw new Error(`Analyze leg "${leg.name}" is ${leg.status || 'missing status'}, not completed, after ${reads} reads over ${waitedMs}ms`)
         }
 
         await sleep(retryDelay);
         waitedMs += retryDelay;
-        legs = await readLegs()
+        observe(await readLegs())
     }
 
-    return Promise.all(legs.map(async leg => {
+    return Promise.all([...observed.values()].map(async leg => {
         let elapsedMs = 0;
 
         for (let attempt = 1; ; attempt++) {
