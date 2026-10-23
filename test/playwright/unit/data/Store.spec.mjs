@@ -110,6 +110,50 @@ test.describe('Neo.data.Store explicit data assignment intent', () => {
         expect(loads).toEqual([false]);
         expect(store.items.map(item => item.id)).toEqual(['ordinary'])
     });
+
+    test('asContinuation marks the loads of an add and a splice, returns what its callback returns, and leaves later mutations ordinary', async () => {
+        store = Neo.create(Store, {model: {module: Model, fields: [{name: 'id', type: 'String'}]}, data: [{id: 'a'}, {id: 'b'}]});
+        await store.ready();
+        const loads = [];
+        store.on('load', ({postChunkLoad}) => loads.push(postChunkLoad));
+
+        const count = store.asContinuation(() => {
+            store.add({id: 'c'});
+            store.splice(0, 1);
+            return store.count
+        });
+
+        expect(count).toBe(2);
+        expect(loads).toEqual([true, true]);
+
+        loads.length = 0;
+        store.add({id: 'd'});
+        expect(loads).toEqual([false])
+    });
+
+    test('asContinuation restores the ordinary context after a throw, and an ordinary assignment inside it stays ordinary', async () => {
+        store = Neo.create(Store, {model: {module: Model, fields: [{name: 'id', type: 'String'}]}, data: [{id: 'a'}]});
+        await store.ready();
+        const loads = [];
+        store.on('load', ({postChunkLoad}) => loads.push(postChunkLoad));
+
+        expect(() => store.asContinuation(() => {
+            store.add({id: 'b'});
+            throw new Error('producer failed')
+        })).toThrow('producer failed');
+        store.add({id: 'c'});
+        expect(loads).toEqual([true, false]);
+
+        loads.length = 0;
+        store.asContinuation(() => {
+            store.setData([{id: 'replaced'}]);
+            store.add({id: 'after'})
+        });
+        expect(loads.length).toBeGreaterThan(1);
+        expect(loads.slice(0, -1).every(postChunkLoad => postChunkLoad === false), 'the nested assignment is ordinary').toBe(true);
+        expect(loads.at(-1), 'the outer continuation returns after it').toBe(true);
+        expect(store.items.map(item => item.id)).toEqual(['replaced', 'after'])
+    });
 });
 
 test.describe('Neo.data.Store', () => {
