@@ -112,7 +112,8 @@ jobs:
           NEO_TEST_SKIP_CI: 'true'
           SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
         run: |
-          # Assigned and checked first: without paths the runner selects the whole e2e tree
+          # Assigned and checked first: without paths the runner selects the whole e2e tree. With `SHARD`
+          # set, these are this shard's files, balanced by measured time rather than Playwright's test count
           paths=$(node buildScripts/util/e2eCiSelection.mjs --brain-paths)
           test -n "$paths"
           node buildScripts/util/e2eCiSelection.mjs --brain-test-list > "$RUNNER_TEMP/brain-quarantine.txt"
@@ -122,7 +123,7 @@ jobs:
           start=$SECONDS
           status=0
 
-          npx playwright test -c test/playwright/playwright.config.e2e.mjs --shard="$SHARD" \
+          npx playwright test -c test/playwright/playwright.config.e2e.mjs \
             --retries="$retries" \
             --test-list-invert "$RUNNER_TEMP/brain-quarantine.txt" $paths || status=$?
 

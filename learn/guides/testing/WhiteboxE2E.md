@@ -47,12 +47,18 @@ The shared scope classifier picks the tier's population, and it never skips:
 
 Each shard's test step stops at five minutes, the ceiling the engine tier enforces too.
 
+The shards split the tier by measured time, not by test count. `buildScripts/util/e2eBrainDurations.json` holds each file's seconds, and `e2eCiSelection.mjs` gives each file, longest first, to the shard with the least time so far. A file the table does not list yet counts as its median, so a new spec needs no table edit. When the receipts' predictions drift from their test times, rebuild the table from a green full-tier run:
+
+```bash
+gh run view <run-id> --log | node buildScripts/util/e2eCiSelection.mjs --brain-durations > buildScripts/util/e2eBrainDurations.json
+```
+
 Each shard writes its receipt to its job summary and to its log. The log copy is the one `gh run view --log` can read. The receipt holds:
 - the event, attempt and tier;
 - the Engine and Brain SHAs;
-- its test time against the five-minute ceiling;
+- its test time against the five-minute ceiling, and the time the duration table predicted;
 - what the tier selected, and every declared exclusion and quarantine, of which a smoke file may carry none;
-- the files the shard ran, with their outcome.
+- the files the shard ran, with their outcome and measured seconds.
 
 `buildScripts/util/e2eCiSelection.mjs` declares two kinds of gap, and the receipt prints both:
 - A **capability** excludes files only while the variable they need is unset. Provisioning it brings them back.
