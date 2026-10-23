@@ -435,8 +435,12 @@ class Menu extends Plugin {
      * @param {Object} data
      */
     onClearClick(data) {
-        const clear = this.surface.getItem('clear'), node = data.path?.find(item => item.id === clear.id);
-        if (node?.data?.pickerScope === this.#keyPrefix) this.onSelectionChange({selection: []})
+        const {surface} = this, clear = surface.getItem('clear'), node = data.path?.find(item => item.id === clear.id);
+        if (node?.data?.pickerScope !== this.#keyPrefix) return;
+        // Clearing hides this button while it holds focus: the search field (open()'s target) takes focus first,
+        // so the keyboard and Escape stay inside the menu
+        Neo.main.DomAccess.focus({id: surface.getItem('search').getInputElId(), windowId: surface.windowId});
+        this.onSelectionChange({selection: []})
     }
 
     /**
