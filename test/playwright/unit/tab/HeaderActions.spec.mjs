@@ -170,6 +170,46 @@ test.describe('Neo tab header actions', () => {
         expect(teardownContribution.isDestroyed, 'toolbar teardown owns contributed instances').toBe(true)
     });
 
+    test('a held reveal keeps withdrawn actions withdrawn until the last release, never withdraws a revealed one, and a keyboard-only focus is unaffected (#20046)', () => {
+        const inactive = bar => bar.getActionItems().filter(item => (item.cls || []).includes('neo-toolbar-action-context-inactive')).map(item => item.action),
+              toolbar  = own(Neo.create(Toolbar, {
+                  actionDefaults: {showOnFocus: true},
+                  actions       : [
+                      {action: 'lock',  iconCls: 'fa fa-lock'},
+                      {action: 'close', iconCls: 'fa fa-xmark', showOnFocus: false}
+                  ]
+              }));
+
+        expect(inactive(toolbar), 'unfocused: the gated action is withdrawn').toEqual(['lock']);
+
+        // A press on the overflow control holds the reveal before the focus it causes arrives
+        toolbar.holdContextualReveal('overflow-control');
+        toolbar.contextualActionsVisible = true;
+        expect(inactive(toolbar), 'focus during a hold reveals nothing').toEqual(['lock']);
+        expect(toolbar.contextualRevealPending, 'the reveal is owed').toBe(true);
+
+        // The menu the click opens takes the hold over; the press hold ends first
+        toolbar.holdContextualReveal('overflow-menu');
+        toolbar.releaseContextualReveal('overflow-control');
+        expect(inactive(toolbar), 'one hold left: still withdrawn').toEqual(['lock']);
+
+        toolbar.releaseContextualReveal('overflow-menu');
+        expect(inactive(toolbar), 'the last release applies the owed reveal').toEqual([]);
+        expect(toolbar.contextualRevealPending).toBe(false);
+
+        // A hold never withdraws an action already on the rail
+        toolbar.holdContextualReveal('overflow-menu');
+        toolbar.applyContextualActionState();
+        expect(inactive(toolbar), 'revealed actions stay through a hold').toEqual([]);
+        toolbar.releaseContextualReveal('overflow-menu');
+
+        // Without a hold (keyboard focus), the reveal is immediate
+        toolbar.contextualActionsVisible = false;
+        expect(inactive(toolbar)).toEqual(['lock']);
+        toolbar.contextualActionsVisible = true;
+        expect(inactive(toolbar), 'no hold: the focus reveals at once').toEqual([])
+    });
+
     test('contextual inactivity reserves the instance while leaving consumer availability intact', () => {
         const toolbar = own(Neo.create(Toolbar, {
                   actions: [{action: 'contextual', contextual: true, iconCls: 'fa fa-eye'}]

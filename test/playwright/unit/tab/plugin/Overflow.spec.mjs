@@ -2223,3 +2223,105 @@ test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers ever
         plugin.destroy()
     })
 });
+
+/**
+ * @summary A press on the overflow control holds its owner's focus-gated reveal for exactly as long as the press can
+ * still click the control, then hands the hold to the menu that click opens. The owner is a real toolbar, so the
+ * hold under test is the toolbar's own.
+ */
+test.describe('Neo.tab.plugin.Overflow — the control press hold', () => {
+    let Overflow,
+        Toolbar;
+
+    test.beforeAll(async () => {
+        Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default;
+        Toolbar  = (await import('../../../../../src/toolbar/Base.mjs')).default
+    });
+
+    /**
+     * An unfocused toolbar with one focus-gated action, and its overflow plugin in action mode.
+     * @returns {{plugin: Neo.tab.plugin.Overflow, toolbar: Neo.toolbar.Base, withdrawn: Function}}
+     */
+    const createRail = () => {
+        const toolbar = Neo.create(Toolbar, {
+            actionDefaults: {showOnFocus: true},
+            actions       : [{action: 'lock', iconCls: 'fa fa-lock'}]
+        });
+
+        return {
+            plugin   : Neo.create(Overflow, {owner: toolbar, projectAsAction: true}),
+            toolbar,
+            withdrawn: () => toolbar.getAction('lock').cls.includes('neo-toolbar-action-context-inactive')
+        }
+    };
+
+    test('a press holds the reveal while it can still click the control, and no clock ends it (#20046)', async () => {
+        const {plugin, toolbar, withdrawn} = createRail(),
+              held                         = () => toolbar.contextualRevealHolds?.has('overflow-control') === true;
+
+        // The real contribution, before any partition supplied its menu
+        plugin.createActionControl();
+
+        // The press focuses the pane: the reveal it owes waits for the press
+        plugin.onControlPointerDown({button: 0});
+        toolbar.contextualActionsVisible = true;
+
+        // wall-clock-under-test: a press outlasting any timer is still a press
+        await new Promise(resolve => setTimeout(resolve, 1600));
+        expect(held(), 'a long press still holds').toBe(true);
+        expect(withdrawn()).toBe(true);
+
+        plugin.onControlPointerLeave({buttons: 1});
+        expect(held(), 'leaving with the button down: a release elsewhere cannot click the control').toBe(false);
+        expect(withdrawn(), 'the release applies the owed reveal').toBe(false);
+
+        plugin.onControlPointerEnter({buttons: 1});
+        expect(held(), 'back with the button still down: a release here clicks the control').toBe(true);
+
+        plugin.onControlClick();
+        expect(held(), 'a click that opens no menu ends the press at once').toBe(false);
+
+        plugin.onControlPointerEnter({buttons: 1});
+        expect(held(), 'a drag entering after the press ended is not that press').toBe(false);
+
+        plugin.onControlPointerDown({button: 2});
+        expect(held(), 'a secondary press cannot click the control').toBe(false);
+
+        plugin.destroy();
+        toolbar.destroy()
+    });
+
+    test('a click that opens the menu hands the hold to it at its mount without a gap; a click that closes it releases at once (#20046)', async () => {
+        const {plugin, toolbar, withdrawn} = createRail(),
+              menuList                     = Neo.create(MountableMenuList, {items: []}),
+              holds                        = () => [...(toolbar.contextualRevealHolds ?? [])];
+
+        // No projection has observed this list yet: the opening click itself must
+        plugin.control = {destroy() {}, menu: [{text: 'Agents'}], menuList, menuListReady: Promise.resolve()};
+
+        plugin.onControlPointerDown({button: 0});
+        toolbar.contextualActionsVisible = true;
+        plugin.onControlClick();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(holds(), 'the press holds until the menu mounts').toEqual(['overflow-control']);
+
+        // button.Base#toggleMenu shows the list; its mount lands a round trip later
+        menuList.hidden  = false;
+        menuList.mounted = true;
+        expect(holds(), 'the mounted menu took the hold over').toEqual(['overflow-menu']);
+        expect(withdrawn(), 'with no gap for the owed reveal to slip through').toBe(true);
+
+        plugin.onControlPointerDown({button: 0});
+        plugin.onControlClick();
+        expect(holds(), 'a click that closes the menu ends its press at once').toEqual(['overflow-menu']);
+
+        menuList.hidden  = true;
+        menuList.mounted = false;
+        expect(holds()).toEqual([]);
+        expect(withdrawn(), 'the unmount applies the owed reveal').toBe(false);
+
+        plugin.destroy();
+        toolbar.destroy();
+        menuList.destroy()
+    })
+});

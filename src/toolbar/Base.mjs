@@ -144,6 +144,48 @@ class Toolbar extends Container {
      * @protected
      */
     measuringContextualActions = false
+    /**
+     * Reasons a focus-gated reveal is held back — a press on the tab overflow control, an open overflow
+     * menu. While any holds, {@link #applyContextualActionState} keeps a withdrawn action withdrawn and
+     * owes the reveal to {@link #releaseContextualReveal}, so the actions a focus inserts cannot move
+     * the control out from under the pointer that pressed it. Already revealed actions stay.
+     * @member {Set<String>|null} contextualRevealHolds=null
+     * @protected
+     */
+    contextualRevealHolds = null
+    /**
+     * A reveal that arrived while held, owed on the last release.
+     * @member {Boolean} contextualRevealPending=false
+     * @protected
+     */
+    contextualRevealPending = false
+
+    /**
+     * Holds back the focus-gated reveal for one named reason. An owner/plugin seam, not a public API:
+     * a plugin that needs the strip still acquires it and releases every reason it took, at the latest in its `destroy`.
+     * @param {String} reason
+     * @protected
+     */
+    holdContextualReveal(reason) {
+        (this.contextualRevealHolds ??= new Set()).add(reason)
+    }
+
+    /**
+     * Releases one hold; the last release applies a reveal that arrived meanwhile. Releasing a reason that is
+     * not held is a no-op.
+     * @param {String} reason
+     * @protected
+     */
+    releaseContextualReveal(reason) {
+        let me = this;
+
+        me.contextualRevealHolds?.delete(reason);
+
+        if (!(me.contextualRevealHolds?.size > 0) && me.contextualRevealPending) {
+            me.contextualRevealPending = false;
+            me.applyContextualActionState()
+        }
+    }
 
     /**
      * Reconciles a live action-collection replacement after construction. Initial materialisation
@@ -275,11 +317,19 @@ class Toolbar extends Container {
     applyContextualActionState(silent=false) {
         let me      = this,
             visible = me.contextualActionsVisible || me.measuringContextualActions === true,
+            held    = visible && me.measuringContextualActions !== true && me.contextualRevealHolds?.size > 0,
             touched = false;
 
         me.getActionItems().forEach(item => {
             let focusGated      = me.isFocusGatedAction(item),
                 ownsInactiveTab = Object.hasOwn(item, '_toolbarActionTabIndex');
+
+            // A held reveal keeps a withdrawn action withdrawn and owes the reveal to the release;
+            // an action already on the rail is never withdrawn by a hold.
+            if (held && focusGated && (item.cls || []).includes('neo-toolbar-action-context-inactive')) {
+                me.contextualRevealPending = true;
+                return
+            }
 
             // A live action may leave the focus gate so a persistent protective state can keep its
             // reversal discoverable. If this toolbar previously made it inactive, the opt-out must
@@ -378,7 +428,7 @@ class Toolbar extends Container {
      * @param {Boolean} active `true` to stage the hidden measurement reveal; `false` to restore.
      * @returns {Promise<void>|undefined}
      */
-    setContextualActionMeasureReveal(active) {
+    async setContextualActionMeasureReveal(active) {
         let me      = this,
             touched = false;
 
@@ -408,8 +458,6 @@ class Toolbar extends Container {
                 return me.promiseUpdate ? me.promiseUpdate() : me.update?.()
             }
         } else {
-            me.measuringContextualActions = false;
-
             me.getActionItems().forEach(item => {
                 if (!Object.hasOwn(item, '_toolbarActionMeasureVisibility')) {
                     return
@@ -420,16 +468,23 @@ class Toolbar extends Container {
 
                 delete item._toolbarActionMeasureVisibility;
 
-                if (saved.hadVis) {
-                    style.visibility = saved.value
-                } else {
-                    delete style.visibility
-                }
+                // A removed inline style is written as `null`: the vdom style merges key by key, so a
+                // deleted key would leave the probe's `visibility: hidden` on the node.
+                style.visibility = saved.hadVis ? saved.value : null;
 
                 item.setSilent({style});
                 touched = true
             });
 
+            // Land the restored styles while the probe's nodes are still mounted, then withdraw the
+            // actions: both in one update would lose the restoration, since a node removal carries no
+            // attribute deltas and the vnode would re-enter the DOM hidden on the next reveal.
+            if (touched && me.promiseUpdate) {
+                me.updateDepth = -1;
+                await me.promiseUpdate()
+            }
+
+            me.measuringContextualActions = false;
             me.applyContextualActionState(true);
 
             if (touched) {
@@ -935,7 +990,8 @@ class Toolbar extends Container {
             ])
         }
 
-        me.focusSubject = null;
+        me.focusSubject          = null;
+        me.contextualRevealHolds = null;
 
         super.destroy(...args)
     }
