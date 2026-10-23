@@ -1361,7 +1361,9 @@ class GridContainer extends BaseContainer {
         me.body.updateMountedAndVisibleColumns();
         me.bodyEnd?.updateMountedAndVisibleColumns();
 
-        await me.headerToolbar.passSizeToBody()
+        await me.headerToolbar.passSizeToBody();
+
+        await me.restoreLostScroll()
     }
 
     /**
@@ -1496,6 +1498,48 @@ class GridContainer extends BaseContainer {
         width = Number(width);
 
         return Number.isFinite(width) && width > 0 ? width : null
+    }
+
+    /**
+     * @summary Puts the engine's scroll position back on a DOM that lost it.
+     *
+     * A browser resets the offsets of a scroll container that stops being laid out (an inactive card) or moves in
+     * the DOM, and fires no scroll event. The engine keeps the position the user left, so the bodies render that
+     * position's rows and columns into a viewport showing the origin, and the grid reads as empty. Each resize
+     * delivery reads both offsets: an axis the DOM holds at the origin while the engine does not gets the engine's
+     * position back, and the scroll that answers keeps the header and the bodies in step. A DOM away from the
+     * origin is a live scroll the engine has not echoed yet, and stays untouched.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async restoreLostScroll() {
+        let me                                                   = this,
+            {horizontalScrollbar, scrollManager, view, windowId} = me;
+
+        if (!view || !(scrollManager.scrollLeft > 0 || scrollManager.scrollTop > 0)) {
+            return
+        }
+
+        const [bar, viewport] = await Neo.main.DomAccess.getAttributes({
+            attributes: ['scrollLeft', 'scrollTop'],
+            id        : [horizontalScrollbar.id, view.id],
+            windowId
+        });
+
+        // The read is a round trip, so the grid can be gone by now, and the engine has the latest word
+        if (me.isDestroyed) {
+            return
+        }
+
+        let {scrollLeft, scrollTop} = scrollManager;
+
+        scrollLeft > 0 && bar?.scrollLeft === 0 && Neo.main.DomAccess.scrollTo({
+            direction: 'left', id: horizontalScrollbar.id, value: scrollLeft, windowId
+        });
+
+        scrollTop > 0 && viewport?.scrollTop === 0 && Neo.main.DomAccess.scrollTo({
+            direction: 'top', id: view.id, value: scrollTop, windowId
+        })
     }
 
     /**
