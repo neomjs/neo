@@ -1265,7 +1265,13 @@ class VdomLifecycle extends Base {
         // silent update
         me._vnode = vnode ? ComponentManager.addVnodeComponentReferences(vnode, me.id) : null;
 
-        vnode && me.afterVnodeSync(deltas);
+        if (vnode) {
+            me.afterVnodeSync(deltas)
+        } else {
+            // This flight rendered the component's own root away (`removeDom`), so its node left the DOM: it
+            // unmounts, as the children a parent's flight removes do in unmountRemovedChildren()
+            me.mounted = false
+        }
 
         debug && console.log('syncVnodeTree', me.id, performance.now() - start)
     }
@@ -1385,7 +1391,7 @@ class VdomLifecycle extends Base {
             else if (!vnode) {
                 // Every engine path that drops a vnode unmounts in the same step: this state is a breach to report
                 if (!me.isParentUpdating(parentId, resolve) && !me.isChildUpdating(resolve)) {
-                    console.error(`vdom update parked: "${me.id}" is mounted without a vnode, which no engine path leaves. Nothing renders it from here, so this update and its promiseUpdate() wait for a render that reaches it. See https://github.com/neomjs/neo/issues/20043`)
+                    console.error(`vdom update parked: "${me.id}" is mounted without a vnode, a state the engine should not leave. Nothing renders it from here, so this update and its promiseUpdate() wait for a render that reaches it. See https://github.com/neomjs/neo/issues/20043`)
                 }
             }
             else {

@@ -300,6 +300,34 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         await expect.poll(() => outcome, {message: 'the first render carried what was parked before it collected'}).toBe('resolved')
     });
 
+    test('a component whose own flight renders it away unmounts', async () => {
+        const child = await createChild();
+
+        // A hidden grid search toolbar and a header button reach this in the e2e tier: their own flight removes them
+        child.vdom.removeDom = true;
+        await child.promiseUpdate();
+
+        expect({mounted: child.mounted, vnode: child.vnode ?? null}, 'its node left the DOM with that flight')
+            .toEqual({mounted: false, vnode: null})
+    });
+
+    test('a promise asked while a component is rendered away settles when its parent shows it again', async () => {
+        const child = await createChild();
+
+        child.vdom.removeDom = true;
+        await child.promiseUpdate();
+
+        let outcome = 'still parked';
+
+        child.promiseUpdate().then(() => {outcome = 'resolved'}, reason => {outcome = reason});
+
+        delete child.vdom.removeDom;
+        child.parent.update();
+
+        await expect.poll(() => outcome, {message: 'the render that mounts it again settles what was parked on it'}).toBe('resolved');
+        expect(child.mounted, 'the parent flight mounted it again').toBe(true)
+    });
+
     test('a mounted component without a vnode reports the breach when nothing else renders it', async () => {
         const child  = await createChild(),
               error  = console.error,
