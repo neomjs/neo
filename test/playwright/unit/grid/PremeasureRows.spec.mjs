@@ -57,6 +57,20 @@ test.describe('Grid hidden row premeasurement', () => {
         Neo.main.DomAccess = oldAccess
     });
 
+    test('a height reset retires the hidden projection it invalidates', async () => {
+        let {view} = grid;
+
+        // A busy view defers the hidden pass to its next landed update
+        await view.promiseUpdate();
+        await Promise.all(view.bodies.map(body => body.promiseUpdate()));
+        await view.measureAheadRows();
+        expect(view.bodies.some(body => body.rowMeasureVdom !== null), 'a hidden pass projected the ahead rows').toBe(true);
+
+        view.resetRowHeights();
+
+        expect(view.bodies.every(body => body.rowMeasureVdom === null), 'no cell of the old generation outlives the reset').toBe(true)
+    });
+
     test('unmounted columns and ahead rows contribute without entering the physical row pool', async () => {
         let {body, view} = grid, pool = [...body.items];
         body.mountedColumns = [0, 0];
