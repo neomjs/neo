@@ -131,6 +131,10 @@ class DomEvents extends Base {
     mouseMoveReqId = null
 
     /**
+     * @member {Boolean} #departed=false Whether this window already told the SharedWorkers it leaves
+     */
+    #departed = false
+    /**
      * Native font subscription owned by this document.
      * @member {Object|null} #fontEvents=null
      */
@@ -154,7 +158,8 @@ class DomEvents extends Base {
         window  .addEventListener('focus',             me.onWindowFocus      .bind(me));
 
         if (Neo.config.useSharedWorkers) {
-            window.addEventListener('beforeunload', me.onBeforeUnload.bind(me))
+            window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
+            window.addEventListener('pagehide',     me.onPageHide    .bind(me))
         }
 
         // Unsupported browsers keep the measurements made with their currently available fonts.
@@ -485,6 +490,9 @@ class DomEvents extends Base {
         let {Manager}            = Neo.worker,
             {appNames, windowId} = Manager;
 
+        if (this.#departed) return;
+        this.#departed = true;
+
         if (appNames.length) {
             appNames.forEach(appName => {
                 Manager.broadcast({action: 'disconnect', appName, windowId})
@@ -813,6 +821,15 @@ class DomEvents extends Base {
             action: 'orientationChange',
             data  : {angle, layout, type}
         })
+    }
+
+    /**
+     * Only in use if Neo.config.useSharedWorkers = true. A close can skip `beforeunload` (an automation's target
+     * close fires only `pagehide` and `unload`), so the window departs here too, unless it enters the bfcache.
+     * @param {PageTransitionEvent} event
+     */
+    onPageHide(event) {
+        event.persisted || this.onBeforeUnload(event)
     }
 
     /**

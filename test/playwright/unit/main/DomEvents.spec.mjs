@@ -64,18 +64,18 @@ class WheelRenderer extends CanvasBase {
 Neo.setupClass(WheelRenderer);
 
 /**
- * @summary A distinct main-thread owner for each document's native font events.
- * @class Test.Unit.Main.DomEvents.FontNotifications
+ * @summary A distinct main-thread owner per document window: its own font and page lifecycle listeners.
+ * @class Test.Unit.Main.DomEvents.PerWindow
  * @extends Neo.main.DomEvents
  */
-class FontDomEvents extends DomEvents.constructor {
+class WindowDomEvents extends DomEvents.constructor {
     static config = {
-        className: 'Test.Unit.Main.DomEvents.FontNotifications',
+        className: 'Test.Unit.Main.DomEvents.PerWindow',
         singleton: false
     }
 }
 
-Neo.setupClass(FontDomEvents);
+Neo.setupClass(WindowDomEvents);
 
 test.describe('Neo.main.DomEvents', () => {
     // module-level stubs are per-worker state: the tests run in one worker, in order
@@ -158,7 +158,7 @@ test.describe('Neo.main.DomEvents', () => {
             sets.forEach(fonts => {
                 globalThis.document = Object.assign(new EventTarget(), {fonts});
                 globalThis.window   = new EventTarget();
-                owners.push(Neo.create(FontDomEvents))
+                owners.push(Neo.create(WindowDomEvents))
             });
 
             expect(sent, 'construction invents no completed font load').toEqual([]);
@@ -209,7 +209,7 @@ test.describe('Neo.main.DomEvents', () => {
             globalThis.document = Object.assign(new EventTarget(), {fonts});
             globalThis.window   = new EventTarget();
             delete Neo.worker.Manager;
-            owner = Neo.create(FontDomEvents);
+            owner = Neo.create(WindowDomEvents);
 
             Neo.worker.Manager = manager;
             manager.windowId   = 'font-window-registered-later';
@@ -238,7 +238,7 @@ test.describe('Neo.main.DomEvents', () => {
         manager.sendMessage = (...args) => sent.push(args);
 
         try {
-            owner = Neo.create(FontDomEvents);
+            owner = Neo.create(WindowDomEvents);
             owner.onFontChange();
             expect(sent).toEqual([])
         } finally {
@@ -421,5 +421,56 @@ test.describe('Neo.main.DomEvents', () => {
         expect(renderer.mouse).toMatchObject({x: 30, y: 20, buttons: 4, ctrlKey: true});
 
         renderer.destroy()
+    });
+
+    /**
+     * Builds a SharedWorker window's owner over a fresh window, dispatches page lifecycle events on that window in
+     * order, and returns what the owner broadcast to the workers.
+     * @param {Event[]} events
+     * @returns {Object[]}
+     */
+    function departure(events) {
+        const manager = Neo.worker.Manager,
+              was     = {appNames: manager.appNames, broadcast: manager.broadcast, windowId: manager.windowId},
+              shared  = Neo.config.useSharedWorkers,
+              sent    = [],
+              win     = new EventTarget();
+
+        let owner;
+
+        Object.assign(manager, {appNames: ['Vessel'], broadcast: message => sent.push(message), windowId: 'V'});
+        Neo.config.useSharedWorkers = true;
+
+        try {
+            globalThis.document = new EventTarget();
+            globalThis.window   = win;
+            owner               = Neo.create(WindowDomEvents);
+
+            events.forEach(event => win.dispatchEvent(event));
+
+            return sent
+        } finally {
+            owner?.destroy();
+            Neo.config.useSharedWorkers = shared;
+            Object.entries(was).forEach(([key, value]) => value === undefined ? delete manager[key] : manager[key] = value);
+            globalThis.document = documentRef;
+            globalThis.window   = windowRef
+        }
+    }
+
+    const disconnect = {action: 'disconnect', appName: 'Vessel', windowId: 'V'},
+          pagehide   = persisted => Object.assign(new Event('pagehide'), {persisted});
+
+    // An automation's target close (CDP Target.closeTarget) fires these two and no beforeunload
+    test('a close that skips beforeunload disconnects the window at its pagehide', () => {
+        expect(departure([pagehide(false), new Event('unload')])).toEqual([disconnect])
+    });
+
+    test('a close that fires beforeunload and pagehide disconnects once', () => {
+        expect(departure([new Event('beforeunload'), pagehide(false)])).toEqual([disconnect])
+    });
+
+    test('a page entering the back/forward cache stays connected', () => {
+        expect(departure([pagehide(true)])).toEqual([])
     });
 });
