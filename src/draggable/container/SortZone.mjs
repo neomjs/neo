@@ -616,15 +616,19 @@ class SortZone extends DragZone {
                 }
             }
 
-            ownerStyle.height   = me.ownerStyle.height    || null;
-            ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
-            ownerStyle.position = me.ownerStyle.position  || null;
-            ownerStyle.width    = me.ownerStyle.width     || null;
+            // A drop that re-projected the source can destroy the owner and its items while this latch waited:
+            // a destroyed component has nothing left to restore
+            if (!owner.isDestroyed) {
+                ownerStyle.height   = me.ownerStyle.height    || null;
+                ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
+                ownerStyle.position = me.ownerStyle.position  || null;
+                ownerStyle.width    = me.ownerStyle.width     || null;
 
-            owner.style = ownerStyle;
+                owner.style = ownerStyle
+            }
 
             me.sortableItems?.forEach((item, index) => {
-                if (me.isWindowDragging && item === me.dragComponent) {
+                if (item.isDestroyed || (me.isWindowDragging && item === me.dragComponent)) {
                     return
                 }
 
@@ -647,7 +651,7 @@ class SortZone extends DragZone {
             });
 
             // Restore visibility of the dragged component (it's not in sortableItems if placeholder is used)
-            if (me.dragComponent) {
+            if (me.dragComponent && !me.dragComponent.isDestroyed) {
                 let style = me.dragComponent.wrapperStyle || {};
                 style.visibility = null;
                 me.dragComponent.wrapperStyle = style;

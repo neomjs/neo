@@ -70,4 +70,36 @@ test.describe('Neo.component.Base Prototype Pollution', () => {
         instance1.destroy();
         instance2.destroy();
     });
+
+    test('A config written on a destroyed component does not pollute the prototype (#20075)', async () => {
+        class LateWriteComponent extends Component {
+            static config = {
+                className: 'Test.LateWriteComponent',
+                ntype    : 'test-late-write-component',
+                _vdom    : {
+                    tag: 'div',
+                    cn : []
+                }
+            }
+        }
+
+        const LateWriteClass = Neo.setupClass(LateWriteComponent),
+              victim         = Neo.create(LateWriteClass, {appName});
+
+        victim.destroy();
+
+        // What a drag-end restore wrote onto the toolbar a drop had destroyed meanwhile
+        victim.style        = {height: null, minWidth: null, position: null, width: null};
+        victim.wrapperStyle = {flex: 'none'};
+        victim.cls          = ['late-cls'];
+
+        expect(LateWriteClass.prototype._vdom, 'the class template stays as declared').toEqual({tag: 'div', cn: []});
+
+        const next = Neo.create(LateWriteClass, {appName});
+
+        expect(next.vdom.style ?? null, 'a later instance starts with no inherited style').toBeNull();
+        expect(next.vdom.cls ?? [], 'a later instance starts with no inherited cls').not.toContain('late-cls');
+
+        next.destroy()
+    });
 });
