@@ -1,0 +1,78 @@
+name: Same-Head Check Repair
+
+# A body edit re-runs the body-reading workflows on an unchanged head (`pull_request: edited`), and
+# GitHub's rollup counts every check run on the SHA, so the first run's red stays beside the later
+# green one: a `check-size` run cancelled by its successor, a `PR body` run that failed before the
+# author fixed the body. Check runs cannot be deleted; a re-run replaces the conclusion in place, and
+# both jobs read the live pull request, so the re-run judges the corrected body (#20064).
+#
+# This workflow re-runs, once, every earlier red run of the same workflow on the same head after a
+# later run of it has passed. "Earlier" is the run number, not the completion order: an old green
+# that finishes late must not spend a newer red run's one retry before the author's fix has run. It
+# never fails: `workflow_run` anchors its check run on the `dev` commit it ran from, and a red there
+# is a red on `dev`.
+
+on:
+  workflow_run:
+    workflows: [PR Baseline, File Size Guard]
+    types: [completed]
+
+permissions:
+  actions: write
+  pull-requests: read
+
+jobs:
+  repair:
+    name: Re-run earlier red runs on this head
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const run        = context.payload.workflow_run;
+            const red        = new Set(['failure', 'cancelled', 'timed_out']);
+            const pullNumber = run.pull_requests?.[0]?.number;
+
+            try {
+              if (!Number.isInteger(pullNumber)) {
+                core.info(`Run ${run.id} names no pull request; nothing to repair.`);
+                return;
+              }
+
+              const {data: pull} = await github.rest.pulls.get({
+                owner      : context.repo.owner,
+                repo       : context.repo.repo,
+                pull_number: pullNumber
+              });
+
+              if (pull.state !== 'open') {
+                core.info(`PR #${pullNumber} is ${pull.state}; a closed head is not repaired.`);
+                return;
+              }
+
+              const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                owner      : context.repo.owner,
+                repo       : context.repo.repo,
+                workflow_id: run.workflow_id,
+                head_sha   : run.head_sha,
+                per_page   : 100
+              });
+
+              for (const earlier of runs) {
+                // Only a predecessor of the green witness (per-workflow run number), completed red at
+                // its first attempt: a run that fails twice is a real red, not a stale one.
+                if (earlier.run_number >= run.run_number || earlier.status !== 'completed' || !red.has(earlier.conclusion) || earlier.run_attempt > 1) {
+                  continue;
+                }
+
+                const rerun = earlier.conclusion === 'failure'
+                  ? github.rest.actions.reRunWorkflowFailedJobs
+                  : github.rest.actions.reRunWorkflow;
+
+                await rerun({owner: context.repo.owner, repo: context.repo.repo, run_id: earlier.id});
+                core.info(`Re-ran ${earlier.conclusion} run ${earlier.id} of "${run.name}" on ${run.head_sha} after run ${run.id} passed.`);
+              }
+            } catch (error) {
+              core.warning(`Repair skipped: ${error.message}`);
+            }
