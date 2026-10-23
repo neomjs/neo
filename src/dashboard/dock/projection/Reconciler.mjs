@@ -979,16 +979,21 @@ class Reconciler extends Base {
                 body    = tab.getCardContainer(),
                 itemIds = [...(bar.sortZoneConfig?.dockItemIds || [])];
 
-            // Cross-window transfers can claim a departing pane from this body before the surviving
-            // source strip reconciles; retire its pre-detached bar button before length-pairing.
+            // Another window can claim a pane from this body before this strip reconciles: a cross-window
+            // transfer's target, or main while a closed popup's projection waits for its remount. Retire the
+            // pane's pre-detached bar button before length-pairing. An item desired here again loses its button
+            // only when its live pane is provably elsewhere; the plans below pair that pane anew.
             if (itemIds.length > body.items.length && bar.getTabButtons().length === itemIds.length) {
                 for (let index = itemIds.length - 1; index >= 0; index--) {
                     const itemId = itemIds[index];
 
+                    if (body.items.some(pane => pane?.dockItemId === itemId)) continue;
+
+                    const resolved = resolveItem(itemId);
+
                     if (
-                        !desiredItemIds.has(itemId)
-                        && !body.items.some(pane => pane?.dockItemId === itemId)
-                        && !body.items.includes(resolveItem(itemId))
+                        !body.items.includes(resolved)
+                        && (!desiredItemIds.has(itemId) || (resolved && resolved.constructor !== Object))
                     ) {
                         bar.removeTabAt(index, true, true);
                         itemIds.splice(index, 1);
