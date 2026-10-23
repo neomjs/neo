@@ -94,9 +94,13 @@ export function summarizeExtractionAcrossLegs(legs) {
 }
 
 /**
- * @summary I/O wrapper: fetch the raw log of EVERY completed Analyze matrix leg for this run via the
- * Actions API. A `needs: analyze` guard runs after all legs finish, so each leg's log is available.
- * A single leg's fetch failure throws — an unread leg is an uncertified leg, never a silent pass.
+ * @summary I/O wrapper: fetch the raw log of EVERY Analyze matrix leg for this run via the Actions
+ * API. A `needs: analyze` guard runs after the engine has finished every leg, but the REST jobs view
+ * can trail that by seconds, so a leg it still reports as not `completed` is re-read on the same
+ * backoff before its log is fetched. A leg observed once stays on the roster until it completes and
+ * its log is read: a later listing that omits it never shrinks what must be certified. A single
+ * leg's fetch failure or an exhausted wait throws — an unread leg is an uncertified leg, never a
+ * silent pass.
  * @param {Object} params
  * @param {String} params.repo `owner/name` (`GITHUB_REPOSITORY`).
  * @param {String|Number} params.runId `GITHUB_RUN_ID`.
@@ -104,8 +108,9 @@ export function summarizeExtractionAcrossLegs(legs) {
  * @param {RegExp} [params.jobNameMatch=/Analyze/] Match for the CodeQL analyze leg names (`Analyze (javascript)`, …).
  * @param {Function} [params.fetchImpl=globalThis.fetch] Fetch seam for deterministic retry witnesses.
  * @param {Function} [params.sleep] Backoff seam; defaults to a timer-backed promise.
- * @param {Number[]} [params.retryDelays=[1000, 2000, 4000]] Delay before each retry, bounding
- * attempts to `retryDelays.length + 1` and total wait to the delay sum.
+ * @param {Number[]} [params.retryDelays=[1000, 2000, 4000, 8000, 16000, 32000]] Delay before each
+ * retry of a jobs read or of a log fetch, bounding attempts to `retryDelays.length + 1` and the wait
+ * per phase to the delay sum: 63 s by default, well above the seconds-long lags the jobs view shows.
  * @returns {Promise<Array<{name: String, log: String}>>} one entry per matching Analyze leg.
  */
 export async function fetchAnalyzeJobLogs({
@@ -115,24 +120,46 @@ export async function fetchAnalyzeJobLogs({
     jobNameMatch = /Analyze/,
     fetchImpl    = globalThis.fetch,
     sleep        = delay => new Promise(resolve => setTimeout(resolve, delay)),
-    retryDelays  = [1000, 2000, 4000]
+    retryDelays  = [1000, 2000, 4000, 8000, 16000, 32000]
 }) {
     const base        = 'https://api.github.com',
           headers     = {Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'},
-          isRetryable = status => status === 404 || status >= 500;
+          isRetryable = status => status === 404 || status >= 500,
+          isPending   = leg => leg.status !== 'completed',
+          readLegs    = async () => {
+              const jobsRes = await fetchImpl(`${base}/repos/${repo}/actions/runs/${runId}/jobs?per_page=100`, {headers});
+              if (!jobsRes.ok) throw new Error(`fetch run jobs failed: ${jobsRes.status} ${jobsRes.statusText}`);
 
-    const jobsRes = await fetchImpl(`${base}/repos/${repo}/actions/runs/${runId}/jobs?per_page=100`, {headers});
-    if (!jobsRes.ok) throw new Error(`fetch run jobs failed: ${jobsRes.status} ${jobsRes.statusText}`);
+              const {jobs = []} = await jobsRes.json(),
+                    legs        = jobs.filter(job => jobNameMatch.test(job.name));
+              if (!legs.length) throw new Error(`no job matching ${jobNameMatch} in run ${runId} (jobs: ${jobs.map(j => j.name).join(', ')})`);
 
-    const {jobs = []} = await jobsRes.json(),
-          legs        = jobs.filter(job => jobNameMatch.test(job.name));
-    if (!legs.length) throw new Error(`no job matching ${jobNameMatch} in run ${runId} (jobs: ${jobs.map(j => j.name).join(', ')})`);
+              return legs
+          };
 
-    return Promise.all(legs.map(async leg => {
-        if (leg.status !== 'completed') {
-            throw new Error(`Analyze leg "${leg.name}" is ${leg.status || 'missing status'}, not completed`)
+    const observed = new Map(),
+          observe  = legs => legs.forEach(leg => observed.set(leg.id ?? leg.name, leg)),
+          pending  = () => [...observed.values()].filter(isPending);
+
+    observe(await readLegs());
+
+    let waitedMs = 0;
+
+    for (let reads = 1; pending().length; reads++) {
+        const retryDelay = retryDelays[reads - 1];
+
+        if (retryDelay == null) {
+            const [leg] = pending();
+
+            throw new Error(`Analyze leg "${leg.name}" is ${leg.status || 'missing status'}, not completed, after ${reads} reads over ${waitedMs}ms`)
         }
 
+        await sleep(retryDelay);
+        waitedMs += retryDelay;
+        observe(await readLegs())
+    }
+
+    return Promise.all([...observed.values()].map(async leg => {
         let elapsedMs = 0;
 
         for (let attempt = 1; ; attempt++) {
