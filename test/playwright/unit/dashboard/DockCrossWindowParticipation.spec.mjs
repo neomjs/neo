@@ -482,6 +482,121 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         source.destroy()
     });
 
+    test.describe('a drop whose own projection destroys the dragged tab (#20073)', () => {
+        /**
+         * @summary A header gesture over the REAL target, participation seams and proxy embodiment, with a
+         * commit that settles when the test says. The dragged item is a live tab component, as a pointer
+         * drag's is, and the frame names no source window, as a pointer frame does not.
+         * @param {Object} [options={}]
+         * @param {Function} [options.identity] Stands in for the participation's own identity seam.
+         * @returns {Object} {draggedItem, embodiment, participation, settle, target}
+         */
+        function createHeaderDrop({identity}={}) {
+            let settleCommit;
+
+            const
+                draggedItem = Neo.create(Component, {}),
+                embodiment  = Neo.create(VesselProxyEmbodiment, {
+                    createProxy: config => {
+                        const proxy = Neo.create(Component, {cls: config.cls, style: config.style});
+
+                        proxy.initVnode = () => Promise.resolve();
+                        return proxy
+                    },
+                    resolvePane       : () => null,
+                    resolveProxyConfig: () => ({cls: ['neo-dock-dragproxy']})
+                }),
+                participation = Neo.create(DockCrossWindowParticipation, {
+                    commitLocal       : () => new Promise(resolve => settleCommit = resolve),
+                    dragCoordinator   : createCoordinatorStub([]),
+                    dragEmbodiment    : embodiment,
+                    getDocument       : () => targetDoc(),
+                    hitTest           : () => true,
+                    previewFor        : payload => ({itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}}),
+                    previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+                    resolveOwnershipId: () => 'group-1',
+                    sortGroup         : 'dock-demo',
+                    windowId          : 'window-b',
+                    workspaceId       : 'B'
+                });
+
+            Object.assign(draggedItem, {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'});
+            identity && (participation.getDragEmbodimentIdentity = identity);
+
+            participation.target.onRemoteDragMove({
+                draggedItem, embodyHeader: true, embodyProxy: true, localX: 10, localY: 10, offsetX: 0, offsetY: 0,
+                proxyRect     : {height: 32, width: 90, x: 10, y: 10},
+                sourceSortZone: {
+                    getDragProxyConfig: () => ({cls: []}),
+                    getDragProxyVdom  : () => ({cn: [{tag: 'button', text: 'Alpha'}]}),
+                    windowId          : 'window-a'
+                }
+            });
+
+            return {
+                draggedItem, embodiment, participation,
+                settle: () => settleCommit({document: targetDoc(), errors: []}),
+                target: participation.target
+            }
+        }
+
+        test('the committed drop retires the header generation its destroyed tab was dragged under', async () => {
+            const {draggedItem, embodiment, participation, settle, target} = createHeaderDrop();
+
+            expect(await embodiment.whenSettled({itemId: 'alpha'})).toBe(true);
+
+            const dropping = target.onRemoteDrop(draggedItem);
+
+            // The drop's projection takes the tab out of its strip before the commit settles
+            draggedItem.destroy();
+            expect(draggedItem.dockItemId, 'a destroyed tab no longer names its item').toBeUndefined();
+
+            settle();
+
+            expect(await dropping, 'the drop commits').toBeTruthy();
+            expect(embodiment.snapshot(), 'no generation outlives the drop').toBeNull();
+
+            participation.destroy();
+            embodiment.destroy()
+        });
+
+        test('a terminal that resolves no generation while one stays live in its window reports it', async () => {
+            const
+                originalError                                            = console.error,
+                reported                                                 = [],
+                {draggedItem, embodiment, participation, settle, target} = createHeaderDrop({
+                    identity: () => ({itemId: 'ghost', targetWindowId: 'window-b'})
+                });
+
+            try {
+                expect(await embodiment.whenSettled({itemId: 'alpha'})).toBe(true);
+
+                const {generation} = embodiment.snapshot('alpha');
+
+                console.error = (...args) => reported.push(args.join(' '));
+
+                const dropping = target.onRemoteDrop(draggedItem);
+
+                settle();
+                await dropping;
+
+                // Controls: a miss in another window, and a miss once nothing is live, report nothing
+                expect(embodiment.restore({itemId: 'ghost', targetWindowId: 'window-c'})).toBe(false);
+                expect(embodiment.restore({itemId: 'alpha', targetWindowId: 'window-b'})).toBe(true);
+                expect(embodiment.restore({itemId: 'alpha', targetWindowId: 'window-b'})).toBe(false);
+
+                expect(reported).toEqual([
+                    `Neo.dashboard.dock.window.VesselProxyEmbodiment: promote of ghost resolved no generation, and generation ${generation} of alpha stays live in window window-b`
+                ])
+            } finally {
+                console.error = originalError;
+                participation.destroy();
+                embodiment.destroy();
+                draggedItem.destroy()
+            }
+        })
+    });
+
     test('foreign drop: composes ONE transferItem through the real executor — source loses the item, target gains it, commitTransfer publishes the pair', () => {
         const transfers = [];
         const source    = sourceDoc();

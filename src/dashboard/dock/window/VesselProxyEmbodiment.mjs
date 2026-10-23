@@ -334,7 +334,12 @@ class VesselProxyEmbodiment extends Base {
         const me     = this,
               record = me.resolveRecord(identity);
 
-        if (!record || (!record.header && !me.embodiment.promote({itemId: record.itemId, windowId: record.targetWindowId}))) {
+        if (!record) {
+            me.reportUnresolved('promote', identity);
+            return false
+        }
+
+        if (!record.header && !me.embodiment.promote({itemId: record.itemId, windowId: record.targetWindowId})) {
             return false
         }
 
@@ -377,13 +382,35 @@ class VesselProxyEmbodiment extends Base {
         const me     = this,
               record = me.resolveRecord(identity);
 
-        if (!record || record.promoted || (!record.header && !me.embodiment.restore({itemId: record.itemId, windowId: record.targetWindowId}))) {
+        if (!record) {
+            me.reportUnresolved('restore', identity);
+            return false
+        }
+
+        if (record.promoted || (!record.header && !me.embodiment.restore({itemId: record.itemId, windowId: record.targetWindowId}))) {
             return false
         }
 
         me.retireProxy(record);
 
         return true
+    }
+
+    /**
+     * @summary Reports a terminal that resolved nothing while a generation is live in its target window.
+     *
+     * A miss is ordinary while no generation is live there: another terminal ended it first. With one live,
+     * the terminal missed the generation it was meant to end, and that generation's proxy stays on screen.
+     * @param {String} terminal `promote` or `restore`
+     * @param {Object} identity
+     * @protected
+     */
+    reportUnresolved(terminal, {itemId, targetWindowId} = {}) {
+        const {active} = this;
+
+        if (active && targetWindowId != null && active.targetWindowId === targetWindowId) {
+            console.error(`${this.className}: ${terminal} of ${itemId} resolved no generation, and generation ${active.generation} of ${active.itemId} stays live in window ${targetWindowId}`)
+        }
     }
 
     /**

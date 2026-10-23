@@ -24,10 +24,14 @@ import {participations, popOut}       from '../utils/workstationPopOut.mjs';
  * 6. The tab a popup was opened for tears out of that popup into a vessel under the next key of its item,
  *    and the popup keeps its other tab. A warm reload of either window rebinds its own key.
  * 7. An item torn out of main while its old popup keeps another tab opens a vessel of its own, too.
+ * 8. A tab dragged out of the popup and dropped on main lands there, and the header proxy main showed for the
+ *    hover goes with the drop.
  *
  * Without the drag contract every arm fails on its first read: the popup's strip is unarmed, and no vessel
  * is admitted. Without the source owning its frame, arms 2 and 4 fail at main's claim. With vessels keyed
- * by their item, arms 6 and 7 admit no vessel, since the old popup holds the item's key.
+ * by their item, arms 6 and 7 admit no vessel, since the old popup holds the item's key. With the drop's
+ * embodiment identity read off the dragged tab when the commit settles, arm 8 keeps main's proxy: the drop's
+ * own projection has destroyed that tab by then.
  *
  * Run: NEO_AGENTOS_RUNTIME_ROOT=<abs path to neo-agent-brain> NEO_NL_PORT=<free port> \
  *      npx playwright test WorkstationPopupTabDragNL -c test/playwright/playwright.config.e2e.mjs --workers=1
@@ -498,6 +502,53 @@ test.describe('Workstation popup tab drag (Neural Link)', () => {
                 return {holders: Object.keys(catalogs).filter(key => catalogs[key]?.includes('metrics')), popup: catalogs[popupKey]}
             }, {message: 'Metrics lands in a vessel under a key of its own, and Audit stays in the old popup', timeout: 20000})
                 .toEqual({holders: ['workstation-vessel:metrics:2'], popup: ['audit']})
+        } finally {
+            vessel && !vessel.isClosed() && await vessel.close().catch(() => {})
+        }
+    });
+
+    test('a tab dragged out of the popup and dropped on main leaves no drag proxy behind', async ({page, neuralLink}) => {
+        const {app, popup, wsId} = await openTwoTabPopup(page, neuralLink),
+              embodimentId       = readId(await app.findInstances({className: 'Neo.dashboard.dock.window.VesselProxyEmbodiment'}, ['id'])),
+              paneId             = await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+              viewport           = await popup.evaluate(() => ({height: innerHeight, width: innerWidth})),
+              outside            = {x: viewport.width + 180, y: viewport.height + 180},
+              geometry           = target => target.evaluate(() => ({height: innerHeight, width: innerWidth, x: screenX, y: screenY})),
+              [main, origin]     = await Promise.all([geometry(page), geometry(popup)]),
+              // a point of main's dock in the popup's client space, off the popup itself
+              overMain           = [[0.3, 0.5], [0.7, 0.5], [0.3, 0.75], [0.7, 0.25]]
+                  .map(([fx, fy]) => ({x: Math.round(main.x + main.width * fx - origin.x), y: Math.round(main.y + main.height * fy - origin.y)}))
+                  .find(point => point.x < 0 || point.x > viewport.width || point.y < 0 || point.y > viewport.height),
+              vesselPromise      = page.waitForEvent('popup', {timeout: 30000});
+
+        vesselPromise.catch(() => {});
+        expect(embodimentId, 'the workspace owns one proxy embodiment').toBeTruthy();
+        expect(overMain, 'main shows a dock point outside the popup').toBeTruthy();
+        await expectMainCovers(page, popup, outside,  false, 'the desktop point');
+        await expectMainCovers(page, popup, overMain, true,  'the drop point');
+
+        let vessel = null;
+
+        try {
+            await pressTab(popup, 'Audit');
+            await popup.mouse.move(outside.x, outside.y, {steps: 36});
+
+            vessel = await vesselPromise;
+            await expect(vessel.locator(`#${paneId}`), 'the riding vessel embodies Audit\'s pane').toBeVisible({timeout: 15000});
+
+            await popup.mouse.move(overMain.x, overMain.y, {steps: 24});
+            await expect.poll(async () => (await readMainClaim(app))?.accepts ?? null, {message: 'main claims the carried tab', timeout: 15000}).toBe(true);
+            await expect(page.locator('.neo-dock-dragproxy'), 'main shows the tab\'s header proxy for the hover').toHaveCount(1, {timeout: 15000});
+            await popup.mouse.up();
+
+            await expect.poll(async () => {
+                const catalogs = await captureCatalogsByParticipant(app, wsId);
+
+                return Object.keys(catalogs).filter(key => catalogs[key]?.includes('audit'))
+            }, {message: 'the drop lands Audit in main', timeout: 20000}).toEqual(['workstation-main']);
+            await expect.poll(() => vessel.isClosed(), {message: 'the riding vessel closes', timeout: 15000}).toBe(true);
+            await expect(page.locator('.neo-dock-dragproxy'), 'main keeps no drag proxy after the drop').toHaveCount(0, {timeout: 15000});
+            expect(await app.callMethod(embodimentId, 'snapshot', []), 'the embodiment shows no live generation').toBeNull()
         } finally {
             vessel && !vessel.isClosed() && await vessel.close().catch(() => {})
         }
