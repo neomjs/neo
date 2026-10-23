@@ -1650,7 +1650,23 @@ class NativeGestureDriver extends GestureDriver {
                         });
 
                         if (!claimed) {
-                            return fail(`journey hop ${index + 1} (target): the target did not take the drag as one semantic + rendered claim — ${diag()}`, {remoteSnapshot})
+                            const probeHost = me.getPopupState(targetWorkspaceId)?.host?.participation,
+                                  probeAff  = probeHost?.affordances ?? probeHost?.ownedAffordances,
+                                  probeInd  = probeAff?.indicators,
+                                  probeWin  = WindowManager.get(targetState.windowId)?.innerRect,
+                                  probe     = {
+                                      geometry : Boolean(probeAff?.geometry),
+                                      hitPoints: Object.fromEntries((probeInd?.candidateSet?.cross ?? []).map(candidate => [
+                                          candidate.preview?.previewId?.split(':').at(-1), probeInd.getCandidateHitPoint(candidate.preview?.previewId)
+                                      ])),
+                                      hostRect: rectOf(probeInd?.hostRect),
+                                      over,
+                                      pointer : probeWin && {x: over.screenX - probeWin.x, y: over.screenY - probeWin.y},
+                                      window  : rectOf(probeWin),
+                                      zone    : rectOf(probeInd?.candidateSet?.zone?.rect)
+                                  };
+
+                            return fail(`journey hop ${index + 1} (target): the target did not take the drag as one semantic + rendered claim — ${diag()} probe=${JSON.stringify(probe)}`, {remoteSnapshot})
                         }
 
                         dwellDelay > 0 && await driver.trap(driver.timeout(dwellDelay));
