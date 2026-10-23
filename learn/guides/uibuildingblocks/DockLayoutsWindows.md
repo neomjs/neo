@@ -287,9 +287,11 @@ A pane comes home by one of four user actions, and they differ in what they do t
 
 **Undo** is the Group's. A tear-out is one history row; undoing it returns the pane to the exact document state
 before the detach, through the same participant protocol, and the vessel's projection releases the instance the main
-projection adopts. Redo puts it back in the same window. History is per Group and off by default — a Group is born with
-depth zero and never loads the history module until a consumer asks for it — so a single-window application pays
-nothing for a feature it does not use.
+projection adopts. A popup the undo empties closes rather than stay on screen blank, and Redo shows the pane in a
+window again. That holds for every undo and redo: a replay that empties a popup closes its window after projection,
+and one that fills a popup without a window opens one before the pane is projected. The root's window is never closed.
+History is per Group and off by default — a Group is born with depth zero and never loads the history module until a
+consumer asks for it — so a single-window application pays nothing for a feature it does not use.
 
 **Closing the native popup** follows the host's return policy. Every pane in that popup returns through one paired
 write, in the order its recorded homes prescribe; the popup's empty participant remains available to history.
