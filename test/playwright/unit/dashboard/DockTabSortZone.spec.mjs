@@ -12,6 +12,7 @@ import * as core         from '../../../../src/core/_export.mjs';
 import DockTabSortZone   from '../../../../src/dashboard/dock/interaction/TabSortZone.mjs';
 import ContainerSortZone from '../../../../src/draggable/container/SortZone.mjs';
 import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/SortZone.mjs';
+import Rectangle         from '../../../../src/util/Rectangle.mjs';
 
 /**
  * @summary Contract pins for the dock drag proxy's carried scope.
@@ -835,6 +836,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 },
                 enableCrossZoneDrag : false,
                 isReleasedInside    : () => true,
+                isReorderParked     : false,
                 isWindowDragging    : false,
                 owner               : {up: () => ({fire: name => calls.push(name)})},
                 releaseVoidsReorder : () => true,
@@ -842,7 +844,8 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
                 sortGroup           : 'dock-demo',
                 stackDragActive     : false,
-                startIndex          : 2
+                startIndex          : 2,
+                updateReorderPark   : DockTabSortZone.prototype.updateReorderPark
             };
 
             try {
@@ -870,5 +873,164 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 TabHeaderSortZone.prototype.processDragEnd = originalEnd
             }
         })
+    });
+
+    /**
+     * A dock strip's hover shows what its release will do. Beyond `dockReleaseTolerance` the
+     * release voids the within-toolbar reorder, so the strip parks the reorder there and resumes it once
+     * the pointer is back inside the band. A plain tab strip with no other drop zones (the
+     * `examples/tab/container` zone) keeps following a loose hand anywhere: the operator's distinction.
+     * Real zones over the real base sort math; only what the drag start measures is seeded.
+     */
+    test.describe('the reorder park — the hover shows what the release will do (#20072)', () => {
+        // Metrics and Audit in a 400 px toolbar, grabbed mid-Metrics; the release band reaches y 164
+        const TOOLBAR = {x: 100, y: 100, width: 400, height: 32},
+              HEADERS = [{x: 100, y: 100, width: 90, height: 32}, {x: 194, y: 100, width: 90, height: 32}],
+              GRAB    = {x: 145, y: 116},
+              rect    = ({x, y, width, height}) => Rectangle.clone({x, y, width, height});
+
+        // A real zone left where the base drag start leaves it: absolute headers in their measured
+        // slots (owner-relative when the zone rebases them), the grab offset and the tab-span boundary
+        function startGesture(module, config={}) {
+            const commits = [],
+                  items   = HEADERS.map((header, index) => ({
+                      id: `strip-tab-${index}`, vdom: {cls: ['neo-tab-header-button']}, wrapperCls: [], wrapperStyle: {}
+                  })),
+                  owner   = {
+                      addDomListeners: () => {},
+                      cls            : [],
+                      dragResortable : true,
+                      getTabButtons  : () => items,
+                      id             : 'strip-toolbar',
+                      isTabButton    : () => true,
+                      items,
+                      on             : () => {},
+                      style          : {},
+                      up             : () => ({fire: () => {}, moveTo: (from, to) => commits.push([from, to])})
+                  },
+                  zone    = Neo.create(module, {owner, ...config}),
+                  origin  = zone.adjustItemRectsToParent ? TOOLBAR : {x: 0, y: 0};
+
+            Object.assign(zone, {
+                boundaryContainerRect: rect({x: 0, y: 0, width: 1280, height: 800}),
+                currentIndex         : 0,
+                dragComponent        : items[0],
+                indexMap             : {0: 0, 1: 1},
+                itemRects            : HEADERS.map(header => rect({...header, x: header.x - origin.x, y: header.y - origin.y})),
+                itemStyles           : HEADERS.map(() => ({})),
+                offsetX              : GRAB.x - HEADERS[0].x,
+                offsetY              : GRAB.y - HEADERS[0].y,
+                ownerRect            : rect(TOOLBAR),
+                ownerStyle           : {},
+                sortBoundaryRect     : rect({x: 100, y: 100, width: 184, height: 32}),
+                sortableItems        : [...items],
+                startIndex           : 0
+            });
+
+            zone instanceof DockTabSortZone && (zone.dockSourceToolbarRect = {...TOOLBAR});
+            zone.itemRects.forEach((slot, index) => items[index].wrapperStyle = {left: `${slot.left}px`, position: 'absolute', top: `${slot.top}px`});
+
+            ContainerSortZone.activeTrace = {events: []};
+
+            return {
+                commits,
+                items,
+                zone,
+                events : type => ContainerSortZone.activeTrace.events.filter(event => event.t === type),
+                move   : (clientX, clientY) => zone.onDragMove({clientX, clientY}),
+                release: (clientX, clientY) => zone.onDragEnd({clientX, clientY}),
+                slots  : items.map(item => item.wrapperStyle.left)
+            }
+        }
+
+        test.afterEach(() => {
+            ContainerSortZone.activeTrace = null
+        });
+
+        test('a dock strip holds its siblings while the pointer sweeps beyond the release band', async () => {
+            const {events, items, move, slots, zone} = startGesture(DockTabSortZone);
+
+            try {
+                await move(145, 140); // below the strip, still inside the band
+                await move(145, 416); // 300 px below the grab: dock territory
+                await move(200, 416); // across Audit's midline, far below the strip
+                await move(260, 416);
+
+                expect(events('switch'), 'no sibling moves for a reorder the release would void').toEqual([]);
+                expect(items[1].wrapperStyle.left, 'Audit keeps its resting slot').toBe(slots[1]);
+                expect(zone.currentIndex).toBe(0);
+                expect(events('park')).toHaveLength(1)
+            } finally {
+                zone.destroy()
+            }
+        });
+
+        test('back inside the band the reorder resumes from the live pointer, and a release there commits it', async () => {
+            const {commits, events, items, move, release, slots, zone} = startGesture(DockTabSortZone);
+
+            try {
+                await move(145, 416);
+                await move(260, 416);
+
+                expect(events('switch'), 'parked below the band').toEqual([]);
+
+                await move(260, 150); // inside the band again, already past Audit's midline
+
+                expect(events('unpark')).toHaveLength(1);
+                expect(events('switch')).toEqual([expect.objectContaining({i1: 0, i2: 1})]);
+                expect(items[1].wrapperStyle.left, 'Audit slides into the first slot').toBe(slots[0]);
+
+                await release(260, 150);
+
+                expect(commits, 'the in-band release commits the reorder the hover showed').toEqual([[0, 1]])
+            } finally {
+                zone.destroy()
+            }
+        });
+
+        test('leaving the band walks an in-band reorder back to the resting order, and a release out there commits nothing', async () => {
+            const {commits, items, move, release, slots, zone} = startGesture(DockTabSortZone);
+
+            try {
+                await move(260, 140); // an in-band reorder
+                expect(items[1].wrapperStyle.left).toBe(slots[0]);
+
+                await move(260, 416);
+
+                expect(items[1].wrapperStyle.left, 'the strip shows the order the release keeps').toBe(slots[1]);
+                expect(items[0].wrapperStyle.left).toBe(slots[0]);
+                expect(zone.currentIndex).toBe(zone.startIndex);
+
+                await release(260, 416);
+
+                expect(commits, 'the void at release is unchanged').toEqual([])
+            } finally {
+                zone.destroy()
+            }
+        });
+
+        for (const [strip, module, config] of [
+            ['a plain tab strip (the examples/tab/container zone)',        TabHeaderSortZone, {}],
+            ['a dock strip without dock participation (a maximized pane)', DockTabSortZone,   {enableCrossZoneDrag: false}]
+        ]) {
+            test(`${strip} keeps following a loose hand beyond its boundary`, async () => {
+                const {commits, events, items, move, release, slots, zone} = startGesture(module, config);
+
+                try {
+                    await move(145, 416);
+                    await move(260, 416);
+
+                    expect(events('switch')).toEqual([expect.objectContaining({i1: 0, i2: 1})]);
+                    expect(events('park')).toEqual([]);
+                    expect(items[1].wrapperStyle.left).toBe(slots[0]);
+
+                    await release(260, 416);
+
+                    expect(commits, 'the reorder commits wherever the release lands').toEqual([[0, 1]])
+                } finally {
+                    zone.destroy()
+                }
+            })
+        }
     })
 });

@@ -225,6 +225,14 @@ class SortZone extends DragZone {
      */
     isOverDragging = false
     /**
+     * True while the pointer is where a release would not commit the reorder: {@link #onDragMove} keeps
+     * sampling the window boundary but moves no sibling. Off by default; only a subclass that knows such
+     * territory arms it (the dock tab strip, beyond its release band).
+     * @member {Boolean} isReorderParked=false
+     * @protected
+     */
+    isReorderParked = false
+    /**
      * @member {Boolean} isWindowDragging=false
      * @protected
      */
@@ -674,6 +682,7 @@ class SortZone extends DragZone {
                 currentIndex    : -1,
                 indexMap        : null,
                 isRemoteDragging: false,
+                isReorderParked : false,
                 isWindowDragging: false,
                 itemRects       : null,
                 itemStyles      : null,
@@ -710,8 +719,8 @@ class SortZone extends DragZone {
      *     "snapping" the dashboard back to its sortable state.
      * 2.  **Window Drag Exit:** Detects if the drag proxy has left the container boundaries (if `enableProxyToPopup` is true)
      *     and triggers the `dragBoundaryExit` event to potentially start a window drag.
-     * 3.  **Standard Sorting:** If not in window-drag mode, it calculates the drag delta and swaps items (`switchItems`)
-     *     if the threshold is crossed, updating the `currentIndex`.
+     * 3.  **Standard Sorting:** If not in window-drag mode and not parked ({@link #isReorderParked}), it calculates
+     *     the drag delta and swaps items (`switchItems`) if the threshold is crossed, updating the `currentIndex`.
      * 4.  **Auto-Scrolling:** Manages auto-scrolling when dragging near the edges of the container.
      *
      * @param {Object} data The drag move event data.
@@ -730,6 +739,10 @@ class SortZone extends DragZone {
             if (me.checkWindowBoundary(data)) {
                 return
             }
+        }
+
+        if (me.isReorderParked) {
+            return
         }
 
         let {clientX, clientY} = data,

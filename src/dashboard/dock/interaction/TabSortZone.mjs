@@ -108,7 +108,8 @@ class TabSortZone extends TabHeaderSortZone {
          * as a within-toolbar gesture (the base reorder applies). A release farther out than this
          * on any side is dock-gesture territory: the tracked reorder is voided so the cross-zone
          * drop owns the outcome. Orientation-independent — it pads the measured toolbar rect, not
-         * an axis-derived span. Per-app / per-instance tunable like any Neo config.
+         * an axis-derived span. Per-app / per-instance tunable like any Neo config. The hover parks
+         * the reorder on the same band ({@link #updateReorderPark}).
          * @member {Number} dockReleaseTolerance=32
          */
         dockReleaseTolerance: 32,
@@ -507,8 +508,8 @@ class TabSortZone extends TabHeaderSortZone {
     }
 
     /**
-     * The release-boundary decision {@link #processDragEnd} consumes: a release farther than
-     * {@link #dockReleaseTolerance} beyond the source toolbar's REAL bounds (any side, any
+     * The release-boundary decision {@link #processDragEnd} consumes and {@link #updateReorderPark}
+     * previews per move: a release farther than {@link #dockReleaseTolerance} beyond the source toolbar's REAL bounds (any side, any
      * orientation) is dock-gesture territory — the within-toolbar reorder the pointer's PATH
      * recorded while crossing sibling buttons is geometrically void there. Left unvoided, the
      * base commit re-adds the item to its source zone and silently reverts the cross-zone commit
@@ -760,6 +761,8 @@ class TabSortZone extends TabHeaderSortZone {
             return
         }
 
+        me.updateReorderPark(data);
+
         await super.onDragMove(data);
 
         let itemId             = me.resolveDraggedItemId(),
@@ -768,6 +771,40 @@ class TabSortZone extends TabHeaderSortZone {
 
         if (me.enableCrossZoneDrag !== false && itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
             tabContainer.fire('dockCrossZoneDragMove', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
+        }
+    }
+
+    /**
+     * @summary Parks the reorder while the pointer is beyond the release band, so the hover shows what the release will do.
+     *
+     * Entering dock-gesture territory ({@link #releaseVoidsReorder}) walks the tracked switches back to the resting
+     * order and arms {@link Neo.draggable.container.SortZone#isReorderParked}; back inside the band the reorder
+     * resumes from the live pointer. A strip without dock participation ({@link #enableCrossZoneDrag} `false`)
+     * never parks: like a plain tab strip, it follows a loose hand.
+     * @param {Object} data The drag-move payload
+     * @protected
+     */
+    updateReorderPark(data) {
+        let me     = this,
+            parked = me.enableCrossZoneDrag !== false && Boolean(me.itemRects) && me.releaseVoidsReorder(data);
+
+        if (parked === me.isReorderParked) {
+            return
+        }
+
+        me.isReorderParked = parked;
+        me.traceEvent({t: parked ? 'park' : 'unpark', x: data.clientX, y: data.clientY});
+
+        if (parked) {
+            // An over-drag's edge auto-scroll loop must not resume the reorder this park voids
+            me.isOverDragging = false;
+
+            while (me.currentIndex !== me.startIndex) {
+                let index = me.currentIndex;
+
+                me.currentIndex += index > me.startIndex ? -1 : 1;
+                me.switchItems(index, me.currentIndex)
+            }
         }
     }
 
