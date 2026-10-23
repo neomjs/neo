@@ -533,7 +533,7 @@ class VesselWorkspace extends DockWorkspace {
         const state = this.getPopupState(workspaceKey);
         if (!state?.host || !app?.mainView) return null;
         state.itemId = itemId;
-        if (state.windowId === windowId && (state.mountPromise || state.host.parent === app.mainView)) {
+        if (state.windowId === windowId && (state.mountInFlight || state.host.parent === app.mainView)) {
             await state.mountPromise;
             return state
         }
@@ -542,11 +542,12 @@ class VesselWorkspace extends DockWorkspace {
         state.nativeRoute = WindowManager.get(windowId)?.nativeRoute ?? state.nativeRoute ?? null;
         state.renderTarget = app.mainView;
         const mount = state.mountPromise = this.mountVesselWorkspace(state.workspaceId);
+        state.mountInFlight = true;
         try {
             await mount
         } finally {
-            // Settled: a later binding of this window mounts afresh unless the host is already there
-            if (state.mountPromise === mount) state.mountPromise = null
+            // The outcome stays on mountPromise: a host that a failed mount parented keeps reporting the failure
+            if (state.mountPromise === mount) state.mountInFlight = false
         }
         state.disconnected = false;
         return state
