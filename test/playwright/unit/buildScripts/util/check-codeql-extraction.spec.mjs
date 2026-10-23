@@ -225,16 +225,41 @@ test.describe('buildScripts/util/check-codeql-extraction — fetchAnalyzeJobLogs
         expect(responses).toEqual([])
     });
 
-    test('an incomplete Analyze leg is terminal and never fetches its log', async () => {
-        const responses = [jobsResponse('in_progress')];
+    test('a leg the jobs view still reports in_progress is re-read after the backoff and certifies once completed (#20035)', async () => {
+        const responses = [
+                  jobsResponse('in_progress'),
+                  jobsResponse('completed'),
+                  logResponse(200, 'OK', 'clean log')
+              ],
+              delays    = [],
+              result    = await fetchAnalyzeJobLogs({
+                  repo       : 'neomjs/neo',
+                  runId      : 123,
+                  token      : 'test-token',
+                  fetchImpl  : async () => responses.shift(),
+                  sleep      : async delay => delays.push(delay),
+                  retryDelays: [5, 10]
+              });
+
+        expect(result).toEqual([{name: 'Analyze (javascript)', log: 'clean log'}]);
+        expect(delays).toEqual([5]);
+        expect(responses).toEqual([])
+    });
+
+    test('a leg that never completes within the backoff stays fail-closed, names it, and never fetches its log (#20035)', async () => {
+        const responses = [jobsResponse('in_progress'), jobsResponse('in_progress'), jobsResponse('in_progress')],
+              delays    = [];
 
         await expect(fetchAnalyzeJobLogs({
-            repo     : 'neomjs/neo',
-            runId    : 123,
-            token    : 'test-token',
-            fetchImpl: async () => responses.shift()
-        })).rejects.toThrow('Analyze leg "Analyze (javascript)" is in_progress, not completed');
+            repo       : 'neomjs/neo',
+            runId      : 123,
+            token      : 'test-token',
+            fetchImpl  : async () => responses.shift(),
+            sleep      : async delay => delays.push(delay),
+            retryDelays: [5, 10]
+        })).rejects.toThrow('Analyze leg "Analyze (javascript)" is in_progress, not completed, after 3 reads over 15ms');
 
+        expect(delays).toEqual([5, 10]);
         expect(responses).toEqual([])
     })
 
