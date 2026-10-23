@@ -1080,20 +1080,27 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * @summary Merges this component's update into its parent's next flight.
+     * @summary Merges this component's update into the next flight of its nearest ancestor that has a vnode.
      *
-     * A component can stay mounted while its vnode is gone, which a move between windows in mid-flight leaves behind.
-     * Only the parent's payload can render it then, and the flight that collects a merged child claims what is parked
-     * on it, so a `promiseUpdate()` asked here settles with that render.
+     * A component can stay mounted while its vnode is gone, which a move between windows in mid-flight leaves behind,
+     * often for a whole subtree. Only the nearest rendered ancestor's payload can render it then: that payload expands
+     * every vnode-less level beneath it in full, and the flight that collects a merged child claims what is parked on
+     * it, so a `promiseUpdate()` asked here settles with that render.
      * @protected
      */
-    renderThroughParent() {
-        let me     = this,
-            parent = Neo.getComponent(me.parentId);
+    renderThroughAncestor() {
+        let me       = this,
+            distance = 1,
+            owner    = Neo.getComponent(me.parentId);
 
-        if (parent?.windowId === me.windowId) {
-            VDomUpdate.registerMerged(parent.id, me.id, me.updateDepth, 1);
-            parent.update()
+        while (owner && !owner.vnode) {
+            distance++;
+            owner = Neo.getComponent(owner.parentId)
+        }
+
+        if (owner?.windowId === me.windowId) {
+            VDomUpdate.registerMerged(owner.id, me.id, me.updateDepth, distance);
+            owner.update()
         }
     }
 
@@ -1402,7 +1409,7 @@ class VdomLifecycle extends Base {
             }
             else if (!vnode) {
                 if (!me.isParentUpdating(parentId, resolve) && !me.isChildUpdating(resolve)) {
-                    me.renderThroughParent()
+                    me.renderThroughAncestor()
                 }
             }
             else {
