@@ -300,51 +300,23 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         await expect.poll(() => outcome, {message: 'the first render carried what was parked before it collected'}).toBe('resolved')
     });
 
-    test('a promise parked on a mounted component without a vnode settles with the parent flight that renders it', async () => {
-        const child = await createChild();
+    test('a mounted component without a vnode reports the breach when nothing else renders it', async () => {
+        const child  = await createChild(),
+              error  = console.error,
+              logged = [];
 
-        // The state a move between windows can leave: still mounted, its vnode gone, nothing in flight
-        child._vnode = null;
-
-        let outcome = 'still parked';
-
-        child.promiseUpdate().then(() => {outcome = 'resolved'}, reason => {outcome = reason});
-
-        await expect.poll(() => outcome, {message: 'only the parent payload can render it, so that flight settles the promise'}).toBe('resolved');
-        expect(Boolean(child.vnode), 'the flight that settled the promise rendered the child').toBe(true)
-    });
-
-    test('a promise parked on a vnode-less child of a vnode-less parent settles with the nearest rendered ancestor', async () => {
-        const grand = Neo.create(SettleContainer, {
-            appName,
-            id   : uniqueId('settle-grand'),
-            items: [{
-                module: SettleContainer,
-                id    : uniqueId('settle-middle'),
-                items : [{module: SettleChild, id: uniqueId('settle-child'), text: 'pristine'}]
-            }]
-        });
-
-        created.push(grand.id);
-
-        await grand.initVnode(true);
-        grand.mounted = true;
-        await grand.promiseUpdate();
-
-        const
-            middle = grand.items[0],
-            child  = middle.items[0];
-
-        // A move between windows strands a subtree, not a single node
-        middle._vnode = null;
+        // No engine path leaves this state: each one that drops a vnode unmounts in the same step
         child._vnode  = null;
+        console.error = (...args) => logged.push(args.join(' '));
 
-        let outcome = 'still parked';
+        try {
+            child.promiseUpdate();
 
-        child.promiseUpdate().then(() => {outcome = 'resolved'}, reason => {outcome = reason});
-
-        await expect.poll(() => outcome, {message: 'the nearest ancestor with a vnode renders the whole stranded path'}).toBe('resolved');
-        expect([Boolean(middle.vnode), Boolean(child.vnode)], 'that flight rendered both levels').toEqual([true, true])
+            await expect.poll(() => logged.filter(line => line.includes(`"${child.id}"`)).length,
+                {message: 'the breach names the component instead of parking it silently'}).toBe(1)
+        } finally {
+            console.error = error
+        }
     });
 
     test('CONTROL: a child moved silently between two mounted containers settles through its remount', async () => {

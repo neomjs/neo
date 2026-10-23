@@ -1080,31 +1080,6 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * @summary Merges this component's update into the next flight of its nearest ancestor that has a vnode.
-     *
-     * A component can stay mounted while its vnode is gone, which a move between windows in mid-flight leaves behind,
-     * often for a whole subtree. Only the nearest rendered ancestor's payload can render it then: that payload expands
-     * every vnode-less level beneath it in full, and the flight that collects a merged child claims what is parked on
-     * it, so a `promiseUpdate()` asked here settles with that render.
-     * @protected
-     */
-    renderThroughAncestor() {
-        let me       = this,
-            distance = 1,
-            owner    = Neo.getComponent(me.parentId);
-
-        while (owner && !owner.vnode) {
-            distance++;
-            owner = Neo.getComponent(owner.parentId)
-        }
-
-        if (owner?.windowId === me.windowId) {
-            VDomUpdate.registerMerged(owner.id, me.id, me.updateDepth, distance);
-            owner.update()
-        }
-    }
-
-    /**
      * @summary Settles an adopted root without letting callback failures strand work or retire a newer flight.
      * Releases this flight before callbacks can start another one. Settlement errors belong to this root;
      * other adopted roots still settle, and an already-started newer flight keeps its callbacks and registry.
@@ -1408,8 +1383,9 @@ class VdomLifecycle extends Base {
                 }
             }
             else if (!vnode) {
+                // Every engine path that drops a vnode unmounts in the same step: this state is a breach to report
                 if (!me.isParentUpdating(parentId, resolve) && !me.isChildUpdating(resolve)) {
-                    me.renderThroughAncestor()
+                    console.error(`vdom update parked: "${me.id}" is mounted without a vnode, which no engine path leaves. Nothing renders it from here, so this update and its promiseUpdate() wait for a render that reaches it. See https://github.com/neomjs/neo/issues/20043`)
                 }
             }
             else {
