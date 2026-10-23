@@ -4256,6 +4256,36 @@ test('the holder contract: a config-assigned document is readable before any ope
             expect(sideItems(workspace), 'the repair landed the document').toEqual(['preview'])
         });
 
+        test('a departed window takes no projection: the next mount lands the newest one', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument()});
+
+            const worker   = Neo.currentWorker,
+                  original = worker.isWindowDeparted,
+                  newest   = createDocument();
+            let departed = true;
+
+            newest.nodes['side-tabs'].items = ['terminal', 'preview'];
+            worker.isWindowDeparted = () => departed;
+
+            try {
+                await workspace.onDockZoneDocumentChange(withoutTerminal());
+                await workspace.onDockZoneDocumentChange(newest);
+                await workspace.refreshPromise;
+
+                expect(sideItems(workspace), 'nothing lands in the window that left').toEqual(['preview', 'terminal']);
+
+                // The warm reload's adoption: the next window mounts the Workspace
+                departed = false;
+                workspace.mounted = true;
+                await workspace.refreshPromise
+            } finally {
+                worker.isWindowDeparted = original
+            }
+
+            expect(workspace.refreshLog, 'both commits parked; the mount ran the newest').toEqual(['preview', 'terminal+preview', 'terminal+preview']);
+            expect(sideItems(workspace), 'the newest document landed').toEqual(['terminal', 'preview'])
+        });
+
         test('the close follow-up focuses exactly once when the close projection fails and is repaired', async () => {
             workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument(), enableDockCloseAction: true});
 

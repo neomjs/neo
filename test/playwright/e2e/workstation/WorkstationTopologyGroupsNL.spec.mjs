@@ -400,6 +400,10 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         await app.setProperties(paneId, {cls: [...(pane.cls ?? []), 'reload-retained-witness']});
         await expect(page.locator('.reload-retained-witness')).toBeVisible();
 
+        // A projection that straddles the reload addresses parents the new document does not have yet
+        const droppedDeltas = [];
+        page.on('console', message => message.type() === 'error' && /Parent not found/.test(message.text()) && droppedDeltas.push(message.text()));
+
         await page.reload();
         await page.waitForSelector('.workstation-dock-host', {timeout: 60000});
 
@@ -416,6 +420,7 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         expect((await app.getComponent(paneId, ['cls'])).cls).toContain('reload-retained-witness');
         expect((await app.getComponent(after, ['dockModel'])).dockModel).toEqual(document);
         expect(await topologyState(app, after), 'warm rebind changes neither library version nor Group history/snapshot').toEqual(groupState);
+        expect(droppedDeltas, 'the reloaded page applies every delta it receives').toEqual([]);
         await expect(page.locator('.reload-retained-witness')).toBeVisible();
 
         await app.callMethod(after, 'transactionManager.redo', [{groupId: carrier.groupId}]);
@@ -662,9 +667,13 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         await expect(manager.groupCount(), 'the vessel joined A\'s Group; nothing was minted').resolves.toBe(2);
 
         // The falsifier: reload A. The kept carrier rebinds A's own slot one generation on.
+        const droppedDeltas = [];
+        pageA.on('console', message => message.type() === 'error' && /Parent not found/.test(message.text()) && droppedDeltas.push(message.text()));
+
         await pageA.reload();
         await pageA.waitForSelector('.workstation-dock-host',               {timeout: 60000});
         await pageA.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
+        expect(droppedDeltas, 'the reloaded page applies every delta it receives').toEqual([]);
 
         const aId2 = await readWindowId(pageA);
 

@@ -529,6 +529,14 @@ class Workspace extends Container {
     scheduledProjection = null
 
     /**
+     * The newest projection {@link #refreshDockWorkspace} parked because its window had departed, as
+     * `{document, refreshOptions, tabInsertDescriptor}`; the next mount runs it (see {@link #afterSetMounted}).
+     * @member {Object|null} departedProjection=null
+     * @protected
+     */
+    departedProjection = null
+
+    /**
      * The newest re-projection a commit chained (see {@link Neo.dashboard.dock.projection.Cycle}): its
      * `adoption` settles once the reconcile has landed the committed document in the host, before the
      * motion and the post-projection hook {@link #refreshPromise} still waits out, and its `timing` is
@@ -1938,6 +1946,7 @@ class Workspace extends Container {
 
     /**
      * @summary Projects an unseeded Workspace on first mount, or syncs a statically seeded shell.
+     * A projection parked for a departed window ({@link #departedProjection}) runs on the next mount.
      *
      * A headless Workspace owns no visible tree before binding. Once mounted, an absent shell at
      * {@link #dockShellIndex} enters the ordinary committed-document refresh — the same projection
@@ -1951,13 +1960,20 @@ class Workspace extends Container {
      * shows its real state from the first paint.
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @returns {Promise|null} The seeding refresh, or `null`
+     * @returns {Promise|null} The seeding or parked refresh, or `null`
      * @protected
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
         const me = this;
+
+        if (value && me.departedProjection) {
+            const parked = me.departedProjection;
+
+            me.departedProjection = null;
+            return me.chainProjection(parked)
+        }
 
         if (!value || me.refreshPromise) {
             return null
@@ -2565,6 +2581,14 @@ class Workspace extends Container {
             throw new Error(`Workspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
         }
 
+        // A departed window renders nothing a projection could land in, and the warm reload that adopts this
+        // Workspace into the next window would move the host mid-transaction, leaving a staged shell hidden over
+        // the panes it took. The newest such projection waits for the next mount.
+        if (Neo.currentWorker?.isWindowDeparted?.(host.windowId)) {
+            me.departedProjection = {document, refreshOptions, tabInsertDescriptor};
+            return
+        }
+
         if (!host.mounted) {
             try {
                 await host.promiseUpdate()
@@ -2766,21 +2790,35 @@ class Workspace extends Container {
         me.fire('dockProjectionFailed', {component: me, error, isRetry, recovery});
 
         if (!isRetry && !me.isDestroyed) {
-            const tail = me.refreshPromise?.catch(() => {}) || Promise.resolve();
-
-            me.refreshPromise = tail
-                .then(() => me.timeout(0))
-                .then(() => {
-                    if (me.isDestroyed || (me.scheduledProjection && me.scheduledProjection.document !== document)) return;
-
-                    return me.refreshDockWorkspace(tabInsertDescriptor, document, {
-                        ...refreshOptions,
-                        isDockProjectionRetry: true
-                    })
-                })
+            me.chainProjection({document, refreshOptions: {...refreshOptions, isDockProjectionRetry: true}, tabInsertDescriptor})
         }
 
         return null
+    }
+
+    /**
+     * @summary Chains one re-projection of a committed snapshot onto the settled refresh tail. It stands down
+     * once {@link #scheduledProjection} has moved on, because that newer commit's projection supersedes it.
+     * @param {Object} projection
+     * @param {Object|null} projection.document
+     * @param {Object} projection.refreshOptions
+     * @param {Object|null} projection.tabInsertDescriptor
+     * @returns {Promise} The new {@link #refreshPromise}
+     * @protected
+     */
+    chainProjection({document, refreshOptions, tabInsertDescriptor}) {
+        const me   = this,
+              tail = me.refreshPromise?.catch(() => {}) || Promise.resolve();
+
+        me.refreshPromise = tail
+            .then(() => me.timeout(0))
+            .then(() => {
+                if (me.isDestroyed || (me.scheduledProjection && me.scheduledProjection.document !== document)) return;
+
+                return me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
+            });
+
+        return me.refreshPromise
     }
 
     /**
