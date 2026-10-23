@@ -6,8 +6,10 @@ import {test, expect} from '../../fixtures.mjs';
  * A reorder changes the tab set, so the overflow plugin recaptures. If that recapture put every withheld
  * header back into the live strip to measure it, the strip would show all of them for a few frames before
  * the split hid them again. A page-side `requestAnimationFrame` sampler records every frame from the drop to
- * the settled partition. No frame may lay out more headers than the settled strip shows, and no header may
- * paint outside the strip box.
+ * the settled partition. No frame may lay out a header that the strip withheld both before the drop and
+ * once settled, and no header may paint outside the strip box. The frame count is not the oracle: the
+ * drop's focus restore reveals the strip's actions and re-partitions it, so the settled strip may hold
+ * fewer headers than the pre-drop one.
  *
  * Run: NEO_AGENTOS_RUNTIME_ROOT=<abs path to neo-agent-brain> \
  *      npx playwright test workstation/WorkstationTabReorderNoFlashNL -c test/playwright/playwright.config.e2e.mjs --workers=1
@@ -60,7 +62,7 @@ const visibleHeaders = (page, toolbarId) => page.evaluate(id => [...document.get
     .sort((a, b) => a.getBoundingClientRect().x - b.getBoundingClientRect().x)
     .map(el => ({id: el.id, x: el.getBoundingClientRect().x, y: el.getBoundingClientRect().y})), toolbarId);
 
-/** Starts a per-frame sampler of the strip: laid-out header count and headers painting outside the strip box. */
+/** Starts a per-frame sampler of the strip: the ids of the laid-out headers and the headers painting outside the strip box. */
 const startSampler = (page, toolbarId) => page.evaluate(id => {
     const samples = window.__reorderSamples = [];
 
@@ -71,7 +73,7 @@ const startSampler = (page, toolbarId) => page.evaluate(id => {
                   .filter(el => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
 
         samples.push({
-            count  : shown.length,
+            ids    : shown.map(el => el.id),
             outside: shown.filter(el => {
                 const r = el.getBoundingClientRect();
                 return r.right > box.right + 1 || r.x < box.x - 1 || r.bottom > box.bottom + 1 || r.y < box.y - 1
@@ -118,12 +120,16 @@ test.describe('Workstation tab reorder (Neural Link)', () => {
         await expect.poll(async () => (await visibleHeaders(page, toolbarId))[0]?.id,
             {message: 'the reorder committed', timeout: 10000}).toBe(before[1].id);
 
+        // The drop restores focus to the dragged header, which reveals the strip's focus-gated actions and
+        // re-partitions the strip to fewer headers, so the settled strip may show fewer than the pre-drop
+        // one, and the pre-drop pair legitimately stays laid out until that re-partition lands (a frame or
+        // more under load). A withheld header is one that was in neither set.
         const samples = await stopSampler(page),
-              settled = (await visibleHeaders(page, toolbarId)).length;
+              allowed = new Set([...before, ...await visibleHeaders(page, toolbarId)].map(header => header.id)),
+              strays  = samples.flatMap(sample => sample.ids.filter(id => !allowed.has(id)));
 
         expect(samples.length, 'the sampler recorded the frames after the drop').toBeGreaterThan(3);
-        expect(Math.max(...samples.map(sample => sample.count)), 'no frame lays out more headers than the settled strip shows')
-            .toBeLessThanOrEqual(settled);
+        expect(strays, 'no frame lays out a header the strip withheld before and after the drop').toEqual([]);
         expect(samples.flatMap(sample => sample.outside), 'no header paints outside the strip box').toEqual([])
     });
 
