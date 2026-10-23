@@ -236,6 +236,24 @@ test.describe('Grid issues showcase', () => {
         await expect.poll(opacity).toBe('0')
     });
 
+    test('Escape still closes the value menu after Clear has taken its own button away', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              trigger = wrapper.locator('.neo-grid-menu-trigger'),
+              clear   = menu.getByRole('button', {name: 'Clear'});
+
+        await wrapper.hover();
+        await trigger.click();
+        await menu.locator('[role="option"]').filter({hasText: 'Closed'}).click();
+        await clear.click();
+        // A person's pause: the emptied selection hides the button that holds focus before the next key
+        await expect(clear).toHaveCount(0);
+        await expect.poll(() => menu.evaluate(node => node.contains(document.activeElement)),
+            {message: 'focus stays inside the menu'}).toBe(true);
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden()
+    });
+
     test('a right-click on the header arrow keeps the browser menu closed and opens the value menu (#19952)', async ({page}) => {
         const menu    = page.locator('.neo-grid-column-menu'),
               wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
