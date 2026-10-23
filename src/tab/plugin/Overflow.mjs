@@ -1172,8 +1172,35 @@ class Overflow extends Plugin {
     }
 
     /**
-     * Observes one generated menu list so its unmount edge can drain a queued projection. A
-     * replacement list supersedes the old observer.
+     * A press on the overflow control holds the owner's focus-gated reveal: the press focuses the pane,
+     * and the actions that reveal would otherwise be inserted beside the control and move it out from
+     * under the pointer before the release lands. The hold ends with the click (the menu the
+     * click opens takes the hold over once mounted), or by the safety timer when the press ends elsewhere.
+     * @protected
+     */
+    onControlPointerDown() {
+        let me = this;
+
+        me.owner?.holdContextualReveal?.('overflow-control');
+        clearTimeout(me.controlPressTimer);
+        me.controlPressTimer = setTimeout(() => me.owner?.releaseContextualReveal?.('overflow-control'), 1500)
+    }
+
+    /**
+     * Releases the press hold one frame late, after the menu this click opens has mounted and holds.
+     * @protected
+     */
+    onControlClick() {
+        let me = this;
+
+        clearTimeout(me.controlPressTimer);
+        me.controlPressTimer = setTimeout(() => me.owner?.releaseContextualReveal?.('overflow-control'), 250)
+    }
+
+    /**
+     * Observes one generated menu list so its unmount edge can drain a queued projection, and so the
+     * owner's focus-gated reveal waits while the menu owns the strip. A replacement list
+     * supersedes the old observer.
      * @param {Neo.menu.List|null} menuList
      * @protected
      */
@@ -1187,6 +1214,7 @@ class Overflow extends Plugin {
         if (Neo.typeOf(menuList) === 'NeoInstance') {
             me.observeConfig(menuList, 'mounted', value => {
                 if (me.observedMenuList === menuList) {
+                    me.owner?.[value ? 'holdContextualReveal' : 'releaseContextualReveal']?.('overflow-menu');
                     value ? me.restoreOpenMenuPartition() : me.drainOpenMenuProjection()
                 }
             })
@@ -1249,8 +1277,12 @@ class Overflow extends Plugin {
         }
 
         me.control = me.owner.addActionContribution({
-            module : Button,
-            cls    : ['neo-tab-overflow-control'],
+            module      : Button,
+            cls         : ['neo-tab-overflow-control'],
+            domListeners: [
+                {mousedown: me.onControlPointerDown, scope: me},
+                {click    : me.onControlClick,       scope: me}
+            ],
             handler: Neo.emptyFn,
             hidden : true,
             iconCls: me.getMainAxisConfig().dimension === 'height'
@@ -1464,6 +1496,11 @@ class Overflow extends Plugin {
         me.menuProjectionQueued   = false;
         me.menuRecaptureQueued    = false;
         me.observedMenuList       = null;
+        clearTimeout(me.controlPressTimer);
+        if (me.owner && !me.owner.isDestroyed) {
+            me.owner.releaseContextualReveal?.('overflow-control');
+            me.owner.releaseContextualReveal?.('overflow-menu')
+        }
         if (me.control && !me.control.isDestroyed) {
             if (me.control.isToolbarActionContribution === true) {
                 me.owner.removeActionContribution(me.control)

@@ -170,6 +170,82 @@ test.describe('Neo tab header actions', () => {
         expect(teardownContribution.isDestroyed, 'toolbar teardown owns contributed instances').toBe(true)
     });
 
+    test('a contribution sits after the last focus-gated action and ahead of the persistent ones, before and after a consumer rebuild', () => {
+        const order   = bar => bar.items.map(item => item.isToolbarActionSpacer ? 'spacer' : item.action),
+              toolbar = own(Neo.create(Toolbar, {
+                  actionDefaults: {showOnFocus: true},
+                  actions       : [
+                      {action: 'lock',     iconCls: 'fa fa-lock'},
+                      {action: 'maximize', iconCls: 'fa fa-expand'},
+                      {action: 'close',    iconCls: 'fa fa-xmark', showOnFocus: false}
+                  ]
+              }));
+
+        const overflow = toolbar.addActionContribution({action: 'overflow', iconCls: 'fa fa-ellipsis', showOnFocus: false});
+
+        // The gated actions a focus reveals are inserted on the far side of the control: the pointer that
+        // pressed it keeps it under the pointer while the rail grows
+        expect(order(toolbar)).toEqual(['spacer', 'lock', 'maximize', 'overflow', 'close']);
+
+        toolbar.actions = [
+            {action: 'pin',   iconCls: 'fa fa-thumbtack'},
+            {action: 'close', iconCls: 'fa fa-xmark', showOnFocus: false}
+        ];
+
+        expect(toolbar.getActionContributionItems()).toEqual([overflow]);
+        expect(order(toolbar), 'a consumer rebuild puts the contribution back behind the gated actions').toEqual(['spacer', 'pin', 'overflow', 'close']);
+
+        toolbar.actions = [{action: 'lock', iconCls: 'fa fa-lock'}];
+        expect(order(toolbar), 'with no persistent action the contribution ends the rail').toEqual(['spacer', 'lock', 'overflow']);
+
+        toolbar.actions = [{action: 'close', iconCls: 'fa fa-xmark', showOnFocus: false}];
+        expect(order(toolbar), 'with no gated action the contribution leads the consumer actions').toEqual(['spacer', 'overflow', 'close']);
+
+        const second = toolbar.addActionContribution({action: 'second', iconCls: 'fa fa-circle', showOnFocus: false});
+        expect(order(toolbar), 'a later contribution queues behind the earlier one').toEqual(['spacer', 'overflow', 'second', 'close']);
+        expect(toolbar.getActionContributionItems()).toEqual([overflow, second])
+    });
+
+    test('a held reveal keeps withdrawn actions withdrawn until the last release, never withdraws a revealed one, and a keyboard-only focus is unaffected (#20046)', () => {
+        const inactive = bar => bar.getActionItems().filter(item => (item.cls || []).includes('neo-toolbar-action-context-inactive')).map(item => item.action),
+              toolbar  = own(Neo.create(Toolbar, {
+                  actionDefaults: {showOnFocus: true},
+                  actions       : [
+                      {action: 'lock',  iconCls: 'fa fa-lock'},
+                      {action: 'close', iconCls: 'fa fa-xmark', showOnFocus: false}
+                  ]
+              }));
+
+        expect(inactive(toolbar), 'unfocused: the gated action is withdrawn').toEqual(['lock']);
+
+        // A press on the overflow control holds the reveal before the focus it causes arrives
+        toolbar.holdContextualReveal('overflow-control');
+        toolbar.contextualActionsVisible = true;
+        expect(inactive(toolbar), 'focus during a hold reveals nothing').toEqual(['lock']);
+        expect(toolbar.contextualRevealPending, 'the reveal is owed').toBe(true);
+
+        // The menu the click opens takes the hold over; the press hold ends first
+        toolbar.holdContextualReveal('overflow-menu');
+        toolbar.releaseContextualReveal('overflow-control');
+        expect(inactive(toolbar), 'one hold left: still withdrawn').toEqual(['lock']);
+
+        toolbar.releaseContextualReveal('overflow-menu');
+        expect(inactive(toolbar), 'the last release applies the owed reveal').toEqual([]);
+        expect(toolbar.contextualRevealPending).toBe(false);
+
+        // A hold never withdraws an action already on the rail
+        toolbar.holdContextualReveal('overflow-menu');
+        toolbar.applyContextualActionState();
+        expect(inactive(toolbar), 'revealed actions stay through a hold').toEqual([]);
+        toolbar.releaseContextualReveal('overflow-menu');
+
+        // Without a hold (keyboard focus), the reveal is immediate
+        toolbar.contextualActionsVisible = false;
+        expect(inactive(toolbar)).toEqual(['lock']);
+        toolbar.contextualActionsVisible = true;
+        expect(inactive(toolbar), 'no hold: the focus reveals at once').toEqual([])
+    });
+
     test('contextual inactivity reserves the instance while leaving consumer availability intact', () => {
         const toolbar = own(Neo.create(Toolbar, {
                   actions: [{action: 'contextual', contextual: true, iconCls: 'fa fa-eye'}]

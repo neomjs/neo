@@ -144,6 +144,44 @@ class Toolbar extends Container {
      * @protected
      */
     measuringContextualActions = false
+    /**
+     * Reasons a focus-gated reveal is held back — a press on the tab overflow control, an open overflow
+     * menu. While any holds, {@link #applyContextualActionState} keeps a withdrawn action withdrawn and
+     * owes the reveal to {@link #releaseContextualReveal}, so the actions a focus inserts cannot move
+     * the control out from under the pointer that pressed it. Already revealed actions stay.
+     * @member {Set<String>|null} contextualRevealHolds=null
+     * @protected
+     */
+    contextualRevealHolds = null
+    /**
+     * A reveal that arrived while held, owed on the last release.
+     * @member {Boolean} contextualRevealPending=false
+     * @protected
+     */
+    contextualRevealPending = false
+
+    /**
+     * Holds back the focus-gated reveal for one named reason.
+     * @param {String} reason
+     */
+    holdContextualReveal(reason) {
+        (this.contextualRevealHolds ??= new Set()).add(reason)
+    }
+
+    /**
+     * Releases one hold; the last release applies a reveal that arrived meanwhile.
+     * @param {String} reason
+     */
+    releaseContextualReveal(reason) {
+        let me = this;
+
+        me.contextualRevealHolds?.delete(reason);
+
+        if (!(me.contextualRevealHolds?.size > 0) && me.contextualRevealPending) {
+            me.contextualRevealPending = false;
+            me.applyContextualActionState()
+        }
+    }
 
     /**
      * Reconciles a live action-collection replacement after construction. Initial materialisation
@@ -275,11 +313,19 @@ class Toolbar extends Container {
     applyContextualActionState(silent=false) {
         let me      = this,
             visible = me.contextualActionsVisible || me.measuringContextualActions === true,
+            held    = visible && me.measuringContextualActions !== true && me.contextualRevealHolds?.size > 0,
             touched = false;
 
         me.getActionItems().forEach(item => {
             let focusGated      = me.isFocusGatedAction(item),
                 ownsInactiveTab = Object.hasOwn(item, '_toolbarActionTabIndex');
+
+            // A held reveal keeps a withdrawn action withdrawn and owes the reveal to the release;
+            // an action already on the rail is never withdrawn by a hold.
+            if (held && focusGated && (item.cls || []).includes('neo-toolbar-action-context-inactive')) {
+                me.contextualRevealPending = true;
+                return
+            }
 
             // A live action may leave the focus gate so a persistent protective state can keep its
             // reversal discoverable. If this toolbar previously made it inactive, the opt-out must
@@ -378,7 +424,7 @@ class Toolbar extends Container {
      * @param {Boolean} active `true` to stage the hidden measurement reveal; `false` to restore.
      * @returns {Promise<void>|undefined}
      */
-    setContextualActionMeasureReveal(active) {
+    async setContextualActionMeasureReveal(active) {
         let me      = this,
             touched = false;
 
@@ -408,8 +454,6 @@ class Toolbar extends Container {
                 return me.promiseUpdate ? me.promiseUpdate() : me.update?.()
             }
         } else {
-            me.measuringContextualActions = false;
-
             me.getActionItems().forEach(item => {
                 if (!Object.hasOwn(item, '_toolbarActionMeasureVisibility')) {
                     return
@@ -420,16 +464,23 @@ class Toolbar extends Container {
 
                 delete item._toolbarActionMeasureVisibility;
 
-                if (saved.hadVis) {
-                    style.visibility = saved.value
-                } else {
-                    delete style.visibility
-                }
+                // A removed inline style is written as `null`: the vdom style merges key by key, so a
+                // deleted key would leave the probe's `visibility: hidden` on the node.
+                style.visibility = saved.hadVis ? saved.value : null;
 
                 item.setSilent({style});
                 touched = true
             });
 
+            // Land the restored styles while the probe's nodes are still mounted, then withdraw the
+            // actions: both in one update would lose the restoration, since a node removal carries no
+            // attribute deltas and the vnode would re-enter the DOM hidden on the next reveal.
+            if (touched && me.promiseUpdate) {
+                me.updateDepth = -1;
+                await me.promiseUpdate()
+            }
+
+            me.measuringContextualActions = false;
             me.applyContextualActionState(true);
 
             if (touched) {
@@ -717,11 +768,14 @@ class Toolbar extends Container {
     }
 
     /**
-     * Adds one toolbar-owned action contribution ahead of consumer actions. Contributions are not
-     * written into {@link #actions}; the consumer remains the sole owner of that config, while the
-     * toolbar preserves the contributed instance across every consumer action rebuild. A name the
-     * contribution would carry — its own or one from {@link #actionDefaults} — must be unique among the
-     * live actions ({@link #assertUniqueActionNames}); a refused contribution inserts nothing.
+     * Adds one toolbar-owned action contribution. Contributions are not written into {@link #actions};
+     * the consumer remains the sole owner of that config, while the toolbar preserves the contributed
+     * instance across every consumer action rebuild. A contribution sits where a focus reveal cannot
+     * displace it ({@link #getActionContributionIndex}): after the consumer's last focus-gated action and
+     * ahead of its persistent ones, so the actions a focus reveals grow the rail away from a control the
+     * pointer has just pressed. A name the contribution would carry — its own or one from
+     * {@link #actionDefaults} — must be unique among the live actions ({@link #assertUniqueActionNames});
+     * a refused contribution inserts nothing.
      * @param {Object} config Action config.
      * @returns {Neo.component.Base} The stable contributed action instance.
      */
@@ -731,8 +785,7 @@ class Toolbar extends Container {
             firstAction = actionItems[0],
             // Resolved before it is checked: the name that must be unique is the one that will
             // materialise, which `actionDefaults` may supply, and the checked config is the inserted one.
-            contribution = me.createActionItemConfig({...config, isToolbarActionContribution: true}),
-            firstConsumer;
+            contribution = me.createActionItemConfig({...config, isToolbarActionContribution: true});
 
         me.assertUniqueActionNames([contribution], actionItems);
 
@@ -740,14 +793,57 @@ class Toolbar extends Container {
             me.insert(firstAction ? me.items.indexOf(firstAction) : me.items.length, me.createActionSpacerConfig(), true)
         }
 
-        firstConsumer = me.getActionItems().find(item => item.isToolbarActionContribution !== true);
-        contribution  = me.insert(firstConsumer ? me.items.indexOf(firstConsumer) : me.items.length, contribution);
+        contribution = me.insert(me.getActionContributionIndex(), contribution);
 
         me.bindActionItems([contribution]);
         me.applyContextualActionState(true);
         me.fire('actionsChange', {actions: me.getActionItems()});
 
         return contribution
+    }
+
+    /**
+     * The items index where a contribution belongs: directly after the consumer's last focus-gated action
+     * (`showOnFocus: true`), behind contributions already there, so the siblings a focus reveals are
+     * inserted on the far side of the contribution and never push it along the rail. Without a gated
+     * consumer action the contribution leads the consumer actions; without any consumer action it ends
+     * the items.
+     * @param {Neo.component.Base|null} [exclude=null] A contribution being re-placed: its own slot counts as free.
+     * @returns {Number}
+     */
+    getActionContributionIndex(exclude=null) {
+        let me        = this,
+            {items}   = me,
+            consumers = me.getActionItems().filter(item => item.isToolbarActionContribution !== true),
+            lastGated = consumers.findLast(item => item.showOnFocus === true),
+            index     = lastGated
+                ? items.indexOf(lastGated) + 1
+                : consumers[0] ? items.indexOf(consumers[0]) : items.length;
+
+        while (items[index]?.isToolbarActionContribution === true && items[index] !== exclude) {
+            index++
+        }
+
+        return index
+    }
+
+    /**
+     * Moves every contribution back to {@link #getActionContributionIndex} after a consumer rebuild
+     * appended the rebuilt actions behind it.
+     * @protected
+     */
+    placeActionContributions() {
+        let me = this;
+
+        me.getActionContributionItems().forEach(contribution => {
+            let from = me.items.indexOf(contribution),
+                to   = me.getActionContributionIndex(contribution);
+
+            // Taking it out first shifts every later slot down by one
+            from < to && to--;
+
+            from !== to && me.moveTo(from, to)
+        })
     }
 
     /**
@@ -848,7 +944,8 @@ class Toolbar extends Container {
         if (configs.length > 0) {
             me.insert(me.items.length, configs);
             me.bindActionItems();
-            me.applyContextualActionState(true)
+            me.applyContextualActionState(true);
+            me.placeActionContributions()
         } else {
             me.updateDepth = -1;
             me.update()
@@ -935,7 +1032,8 @@ class Toolbar extends Container {
             ])
         }
 
-        me.focusSubject = null;
+        me.focusSubject          = null;
+        me.contextualRevealHolds = null;
 
         super.destroy(...args)
     }
