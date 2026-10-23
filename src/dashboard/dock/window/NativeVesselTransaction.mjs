@@ -147,9 +147,12 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
-     * @summary Re-embodies undo before projection and closes redo after projection settles.
-     * Each native refusal is an effectReceipt, never a semantic rollback. Redo fences both sides
-     * of identity clearing against the exact binding, generation and semantic snapshot.
+     * @summary Keeps a popup's window in step with what an undo or redo leaves in it, whichever row the cursor
+     * crossed: a popup the replay fills without a window is embodied before projection, and one it empties
+     * while bound closes after projection settles, so no replay leaves a blank window on screen.
+     * Each native refusal is an effectReceipt, never a semantic rollback. The close fences both sides
+     * of identity clearing against the exact binding, generation and semantic snapshot. Only a popup
+     * participant (one with a close policy) is touched; a root's window never is.
      * @param {Neo.dashboard.dock.window.WorkspaceSet} workspaceSet
      * @param {String} workspaceId
      * @param {Object} context Group projection context.
@@ -157,14 +160,15 @@ class NativeVesselTransaction extends Base {
      * @returns {Promise<*>} The ordinary projection's result.
      */
     static async replayWorkspaceReturn(workspaceSet, workspaceId, context, project) {
-        const row    = context.replayRow, source = workspaceSet?.getParticipant(workspaceId),
-              native = source?.nativeWindow;
-        if (!native || row?.operation !== 'returnPopupWorkspace' || row.workspaceId !== workspaceId) return project();
-        if (context.cursorAction === 'undo' && !native.windowId() && Object.keys(source.getDocument().items).length) {
+        const source = workspaceSet?.getParticipant(workspaceId),
+              native = source?.nativeWindow,
+              filled = () => Object.keys(source.getDocument().items).length > 0;
+        if (native?.policy?.() == null || !['undo', 'redo'].includes(context.cursorAction)) return project();
+        if (!native.windowId() && filled()) {
             this.publishWorkspaceEffect(workspaceSet, workspaceId, context, await this.embodyWorkspace(workspaceSet, workspaceId))
         }
         const result = await project();
-        if (context.cursorAction === 'redo' && native.windowId() && !Object.keys(source.getDocument().items).length) {
+        if (native.windowId() && !filled()) {
             const closed = await this.closeWorkspaceWindow(workspaceSet, workspaceId, {snapshot: context.snapshot});
             this.publishWorkspaceEffect(workspaceSet, workspaceId, context,
                 {closed, errors: closed ? [] : ['native replay close was refused']})
