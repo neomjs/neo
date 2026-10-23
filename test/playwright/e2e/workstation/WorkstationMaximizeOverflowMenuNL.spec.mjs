@@ -53,24 +53,35 @@ async function connectHeavyTabs(page, neuralLink) {
 }
 
 /**
- * @summary Waits for the `heavy-tabs` overflow plugin to finish any in-flight or queued measurement pass.
+ * @summary Waits for the `heavy-tabs` overflow plugin to finish any in-flight or queued measurement pass, and for
+ * the DOM to show that split. The plugin publishes `appliedHiddenIds` and clears `measuring` before the header
+ * updates of the same pass land, so the worker state alone can lead the DOM a snapshot reads.
+ * @param {import('@playwright/test').Page} page
  * @param {Object} app
- * @param {String} overflowPluginId
+ * @param {Object} chrome The `heavy-tabs` chrome identity, including its header `buttons`.
  * @returns {Promise<Object>}
  */
-async function waitForOverflowSettled(app, overflowPluginId) {
-    let props = null;
+async function waitForOverflowSettled(page, app, chrome) {
+    const buttonIds = Object.values(chrome.buttons).filter(Boolean);
+    let   props     = null;
 
     await expect.poll(async () => {
-        props = await app.getComponent(overflowPluginId, [
+        props = await app.getComponent(chrome.overflowPluginId, [
             'appliedHiddenIds',
             'measuring',
             'menuProjectionQueued',
             'projectQueued'
         ]);
-        return Boolean(props && props.measuring === false && props.projectQueued === false && Array.isArray(props.appliedHiddenIds) && props.appliedHiddenIds.length > 0)
+
+        if (!(props && props.measuring === false && props.projectQueued === false && Array.isArray(props.appliedHiddenIds) && props.appliedHiddenIds.length > 0)) {
+            return false
+        }
+
+        return page.evaluate(({buttonIds, hiddenIds}) => buttonIds.every(id =>
+            (document.getElementById(id)?.getClientRects().length > 0) !== hiddenIds.includes(id)
+        ), {buttonIds, hiddenIds: props.appliedHiddenIds})
     }, {
-        message: 'overflow projection settles with a non-empty hidden partition',
+        message: 'overflow projection settles with a non-empty hidden partition the DOM shows',
         timeout: 15000
     }).toBe(true);
 
@@ -103,21 +114,29 @@ async function assertOverflowMenuHoldsAndSelects(page, app, chrome) {
         timeout: 10000
     }).toBe(true);
 
-    const
-        prePluginProps    = await waitForOverflowSettled(app, chrome.overflowPluginId),
-        preHiddenIds      = [...prePluginProps.appliedHiddenIds],
-        preVisibleHeaders = normalize(await headerToolbar.locator('.neo-tab-header-button:visible').allTextContents()),
-        preActionIds      = await headerToolbar.locator('.neo-toolbar-action').evaluateAll(nodes => nodes.map(n => n.id));
+    await waitForOverflowSettled(page, app, chrome);
+
+    const preActionIds = await headerToolbar.locator('.neo-toolbar-action').evaluateAll(nodes => nodes.map(n => n.id));
 
     expect(preActionIds.length, 'focus-gated actions are present in the header toolbar DOM').toBeGreaterThan(3);
 
-    // wall-clock-under-test: DomAccess#align auto-hide removes the menu at ~48 ms and triggers header repartition by ~300 ms.
     await overflowControl.click();
-    await page.waitForTimeout(350);
 
     const
         menuList  = page.locator('.neo-menu-list:visible'),
         menuItems = menuList.locator('.neo-list-item').filter({hasText: /\S/});
+
+    await expect(menuList, 'clicking More tabs opens the overflow menu').toHaveCount(1);
+
+    // The revealed actions' own resize can re-partition the closed strip after any pre-click settle, so the partition
+    // that must hold is the one the menu opened against. An open menu parks every projection.
+    const
+        openPluginProps    = await waitForOverflowSettled(page, app, chrome),
+        openHiddenIds      = [...openPluginProps.appliedHiddenIds],
+        openVisibleHeaders = normalize(await headerToolbar.locator('.neo-tab-header-button:visible').allTextContents());
+
+    // wall-clock-under-test: DomAccess#align auto-hide removes the menu at ~48 ms and triggers header repartition by ~300 ms.
+    await page.waitForTimeout(350);
 
     await expect(menuList, 'overflow menu remains mounted and visible after >= 300 ms').toHaveCount(1);
     await expect(menuItems.first()).toBeVisible();
@@ -139,22 +158,22 @@ async function assertOverflowMenuHoldsAndSelects(page, app, chrome) {
 
     expect(menuState.hitInside, 'overflow menu is hit-testable at its center after >= 300 ms').toBe(true);
     expect(menuState.focusedInside, 'focus stays inside the overflow menu after >= 300 ms').toBe(true);
-    expect(menuState.itemCount).toBe(preHiddenIds.length);
+    expect(menuState.itemCount).toBe(openHiddenIds.length);
 
     // While the menu is open, focus-gated actions and the visible/hidden header partition remain unchanged.
     const
-        openHeaderProps    = await app.getComponent(chrome.headerId, ['contextualActionsVisible']),
-        openPluginProps    = await app.getComponent(chrome.overflowPluginId, ['appliedHiddenIds']),
-        openActionIds      = await headerToolbar.locator('.neo-toolbar-action').evaluateAll(nodes => nodes.map(n => n.id)),
-        openVisibleHeaders = normalize(await headerToolbar.locator('.neo-tab-header-button:visible').allTextContents());
+        heldHeaderProps    = await app.getComponent(chrome.headerId, ['contextualActionsVisible']),
+        heldPluginProps    = await app.getComponent(chrome.overflowPluginId, ['appliedHiddenIds']),
+        heldActionIds      = await headerToolbar.locator('.neo-toolbar-action').evaluateAll(nodes => nodes.map(n => n.id)),
+        heldVisibleHeaders = normalize(await headerToolbar.locator('.neo-tab-header-button:visible').allTextContents());
 
-    expect(openHeaderProps?.contextualActionsVisible,
+    expect(heldHeaderProps?.contextualActionsVisible,
         'contextualActionsVisible stays true while the overflow menu is open').toBe(true);
-    expect(openActionIds, 'focus-gated actions remain mounted in the header toolbar while the menu is open').toEqual(preActionIds);
-    expect(openPluginProps?.appliedHiddenIds,
-        'overflow appliedHiddenIds partition stays unchanged while the menu is open').toEqual(preHiddenIds);
-    expect(openVisibleHeaders,
-        'visible tab header buttons stay unchanged while the menu is open').toEqual(preVisibleHeaders);
+    expect(heldActionIds, 'focus-gated actions remain mounted in the header toolbar while the menu is open').toEqual(preActionIds);
+    expect(heldPluginProps?.appliedHiddenIds,
+        'overflow appliedHiddenIds partition stays unchanged while the menu is open').toEqual(openHiddenIds);
+    expect(heldVisibleHeaders,
+        'visible tab header buttons stay unchanged while the menu is open').toEqual(openVisibleHeaders);
 
     // Selecting an item from the menu activates that tab and closes the menu.
     const targetLabel = (await menuItems.last().innerText()).trim();
@@ -173,14 +192,14 @@ test.describe('Workstation — tab overflow menu in docked and maximized panes',
     test('docked control arm: clicking More tabs keeps the overflow menu open, focused, and partition-stable until selection', async ({page, neuralLink}) => {
         const {app, chrome} = await connectHeavyTabs(page, neuralLink);
 
-        await waitForOverflowSettled(app, chrome.overflowPluginId);
+        await waitForOverflowSettled(page, app, chrome);
         await assertOverflowMenuHoldsAndSelects(page, app, chrome)
     });
 
     test('maximized 12-tab pane: clicking More tabs keeps the overflow menu open, focused, and focus-gated actions + partition unchanged until selection', async ({page, neuralLink}) => {
         const {app, chrome} = await connectHeavyTabs(page, neuralLink);
 
-        await waitForOverflowSettled(app, chrome.overflowPluginId);
+        await waitForOverflowSettled(page, app, chrome);
 
         // Reveal the focus-gated maximize action by clicking the pane body first.
         await page.locator(`#${chrome.bodyId}`).click({position: {x: 80, y: 80}});
@@ -192,7 +211,7 @@ test.describe('Workstation — tab overflow menu in docked and maximized panes',
         await page.locator(`#${maxAction.id}`).click();
         await expect(page.locator(`#${chrome.containerId}`)).toHaveClass(/\bneo-dock-maximized\b/, {timeout: 10000});
 
-        await waitForOverflowSettled(app, chrome.overflowPluginId);
+        await waitForOverflowSettled(page, app, chrome);
         await assertOverflowMenuHoldsAndSelects(page, app, chrome)
     })
 });
