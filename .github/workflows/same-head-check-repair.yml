@@ -7,7 +7,10 @@ name: Same-Head Check Repair
 # both jobs read the live pull request, so the re-run judges the corrected body (#20064).
 #
 # This workflow re-runs, once, every earlier red run of the same workflow on the same head after a
-# later run of it has passed. It never fails: its own check run sits on that head.
+# later run of it has passed. "Earlier" is the run number, not the completion order: an old green
+# that finishes late must not spend a newer red run's one retry before the author's fix has run. It
+# never fails: `workflow_run` anchors its check run on the `dev` commit it ran from, and a red there
+# is a red on `dev`.
 
 on:
   workflow_run:
@@ -57,8 +60,9 @@ jobs:
               });
 
               for (const earlier of runs) {
-                // One attempt per run: a run that fails twice is a real red, not a stale one.
-                if (earlier.id === run.id || earlier.status !== 'completed' || !red.has(earlier.conclusion) || earlier.run_attempt > 1) {
+                // Only a predecessor of the green witness (per-workflow run number), completed red at
+                // its first attempt: a run that fails twice is a real red, not a stale one.
+                if (earlier.run_number >= run.run_number || earlier.status !== 'completed' || !red.has(earlier.conclusion) || earlier.run_attempt > 1) {
                   continue;
                 }
 
