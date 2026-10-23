@@ -22,6 +22,9 @@ import Container      from '../../../../src/container/Base.mjs';
 import VDomUpdate     from '../../../../src/manager/VDomUpdate.mjs';
 import VdomHelper     from '../../../../src/vdom/Helper.mjs'; // side effect: registers Neo.vdom.Helper, which runs locally here
 
+// Imported for its side effect: `manager/Instance.mjs` assigns `Neo.get`, which moving a child between containers needs.
+import '../../../../src/manager/Instance.mjs';
+
 class SettleChild extends Component {
     static config = {
         className: 'Test.SettleChild',
@@ -295,6 +298,68 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         expect(container.mounted, 'nothing mounts, so the render itself is the only settle').toBe(false);
 
         await expect.poll(() => outcome, {message: 'the first render carried what was parked before it collected'}).toBe('resolved')
+    });
+
+    test('a component whose own flight renders it away unmounts', async () => {
+        const child = await createChild();
+
+        // A hidden grid search toolbar and a header button reach this in the e2e tier: their own flight removes them
+        child.vdom.removeDom = true;
+        await child.promiseUpdate();
+
+        expect({mounted: child.mounted, vnode: child.vnode ?? null}, 'its node left the DOM with that flight')
+            .toEqual({mounted: false, vnode: null})
+    });
+
+    test('a promise asked while a component is rendered away settles when its parent shows it again', async () => {
+        const child = await createChild();
+
+        child.vdom.removeDom = true;
+        await child.promiseUpdate();
+
+        let outcome = 'still parked';
+
+        child.promiseUpdate().then(() => {outcome = 'resolved'}, reason => {outcome = reason});
+
+        delete child.vdom.removeDom;
+        child.parent.update();
+
+        await expect.poll(() => outcome, {message: 'the render that mounts it again settles what was parked on it'}).toBe('resolved');
+        expect(child.mounted, 'the parent flight mounted it again').toBe(true)
+    });
+
+    test('a mounted component without a vnode reports the breach when nothing else renders it', async () => {
+        const child  = await createChild(),
+              error  = console.error,
+              logged = [];
+
+        // No engine path leaves this state: each one that drops a vnode unmounts in the same step
+        child._vnode  = null;
+        console.error = (...args) => logged.push(args.join(' '));
+
+        try {
+            child.promiseUpdate();
+
+            await expect.poll(() => logged.filter(line => line.includes(`"${child.id}"`)).length,
+                {message: 'the breach names the component instead of parking it silently'}).toBe(1)
+        } finally {
+            console.error = error
+        }
+    });
+
+    test('CONTROL: a child moved silently between two mounted containers settles through its remount', async () => {
+        const child  = await createChild(),
+              source = child.parent,
+              target = (await createChild()).parent;
+
+        source.remove(child, false, true);
+        target.add(child);
+
+        let outcome = 'still parked';
+
+        child.promiseUpdate().then(() => {outcome = 'resolved'}, reason => {outcome = reason});
+
+        await expect.poll(() => outcome, {message: 'an unmounted child waits for its mount, which settles it'}).toBe('resolved')
     });
 
     test('CONTROL: an idle component still settles its own first flight', async () => {
