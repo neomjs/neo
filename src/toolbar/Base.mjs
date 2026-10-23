@@ -161,16 +161,20 @@ class Toolbar extends Container {
     contextualRevealPending = false
 
     /**
-     * Holds back the focus-gated reveal for one named reason.
+     * Holds back the focus-gated reveal for one named reason. An owner/plugin seam, not a public API:
+     * a plugin that needs the strip still acquires it and releases every reason it took, at the latest in its `destroy`.
      * @param {String} reason
+     * @protected
      */
     holdContextualReveal(reason) {
         (this.contextualRevealHolds ??= new Set()).add(reason)
     }
 
     /**
-     * Releases one hold; the last release applies a reveal that arrived meanwhile.
+     * Releases one hold; the last release applies a reveal that arrived meanwhile. Releasing a reason that is
+     * not held is a no-op.
      * @param {String} reason
+     * @protected
      */
     releaseContextualReveal(reason) {
         let me = this;
