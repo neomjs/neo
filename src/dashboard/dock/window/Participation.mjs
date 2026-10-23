@@ -267,6 +267,13 @@ class Participation extends Base {
     ownedPreview = null
 
     /**
+     * The embodiment identity of each staged frame, as it was when the frame staged.
+     * @member {WeakMap<Object,Object>} #stagedIdentities
+     * @private
+     */
+    #stagedIdentities = new WeakMap()
+
+    /**
      * @summary Creates and registers the workspace's cross-window target with its owner seams bound.
      * @param {Object} config
      */
@@ -341,11 +348,15 @@ class Participation extends Base {
 
     /**
      * @summary Identifies the exact target-local embodiment without re-deriving the native source.
+     *
+     * A staged frame answers with the identity it staged under. The dragged item can be a tab button the
+     * drop's own projection destroys before an async commit settles, and a destroyed component no longer
+     * names its item.
      * @param {Object} payload The licensed drag payload.
      * @returns {Object}
      */
     getDragEmbodimentIdentity(payload) {
-        return {itemId: payload?.draggedItem?.dockItemId,
+        return this.#stagedIdentities.get(payload) ?? {itemId: payload?.draggedItem?.dockItemId,
             sourceWindowId: payload?.sourceWindowId, targetWindowId: this.windowId}
     }
 
@@ -356,6 +367,8 @@ class Participation extends Base {
      * @protected
      */
     defaultStageDragEmbodiment(payload) {
+        payload && this.#stagedIdentities.set(payload, this.getDragEmbodimentIdentity(payload));
+
         return this.dragEmbodiment?.move({...payload, targetWindowId: this.windowId}) === true
     }
 
