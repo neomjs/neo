@@ -1080,6 +1080,24 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * @summary Merges this component's update into its parent's next flight.
+     *
+     * A component can stay mounted while its vnode is gone, which a move between windows in mid-flight leaves behind.
+     * Only the parent's payload can render it then, and the flight that collects a merged child claims what is parked
+     * on it, so a `promiseUpdate()` asked here settles with that render.
+     * @protected
+     */
+    renderThroughParent() {
+        let me     = this,
+            parent = Neo.getComponent(me.parentId);
+
+        if (parent?.windowId === me.windowId) {
+            VDomUpdate.registerMerged(parent.id, me.id, me.updateDepth, 1);
+            parent.update()
+        }
+    }
+
+    /**
      * @summary Settles an adopted root without letting callback failures strand work or retire a newer flight.
      * Releases this flight before callbacks can start another one. Settlement errors belong to this root;
      * other adopted roots still settle, and an already-started newer flight keeps its callbacks and registry.
@@ -1382,11 +1400,15 @@ class VdomLifecycle extends Base {
                     });
                 }
             }
+            else if (!vnode) {
+                if (!me.isParentUpdating(parentId, resolve) && !me.isChildUpdating(resolve)) {
+                    me.renderThroughParent()
+                }
+            }
             else {
                 if (
                     !me.isParentUpdating(parentId, resolve)
                     && !me.isChildUpdating(resolve)
-                    && vnode
                 ) {
                     // Check for merged child updates and adjust the update depth accordingly
                     // let adjustedDepth = VDomUpdate.getAdjustedUpdateDepth(me.id);

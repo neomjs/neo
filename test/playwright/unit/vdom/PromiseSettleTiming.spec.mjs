@@ -22,6 +22,9 @@ import Container      from '../../../../src/container/Base.mjs';
 import VDomUpdate     from '../../../../src/manager/VDomUpdate.mjs';
 import VdomHelper     from '../../../../src/vdom/Helper.mjs'; // side effect: registers Neo.vdom.Helper, which runs locally here
 
+// Imported for its side effect: `manager/Instance.mjs` assigns `Neo.get`, which moving a child between containers needs.
+import '../../../../src/manager/Instance.mjs';
+
 class SettleChild extends Component {
     static config = {
         className: 'Test.SettleChild',
@@ -295,6 +298,35 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         expect(container.mounted, 'nothing mounts, so the render itself is the only settle').toBe(false);
 
         await expect.poll(() => outcome, {message: 'the first render carried what was parked before it collected'}).toBe('resolved')
+    });
+
+    test('a promise parked on a mounted component without a vnode settles with the parent flight that renders it', async () => {
+        const child = await createChild();
+
+        // The state a move between windows can leave: still mounted, its vnode gone, nothing in flight
+        child._vnode = null;
+
+        let outcome = 'still parked';
+
+        child.promiseUpdate().then(() => {outcome = 'resolved'}, reason => {outcome = reason});
+
+        await expect.poll(() => outcome, {message: 'only the parent payload can render it, so that flight settles the promise'}).toBe('resolved');
+        expect(Boolean(child.vnode), 'the flight that settled the promise rendered the child').toBe(true)
+    });
+
+    test('CONTROL: a child moved silently between two mounted containers settles through its remount', async () => {
+        const child  = await createChild(),
+              source = child.parent,
+              target = (await createChild()).parent;
+
+        source.remove(child, false, true);
+        target.add(child);
+
+        let outcome = 'still parked';
+
+        child.promiseUpdate().then(() => {outcome = 'resolved'}, reason => {outcome = reason});
+
+        await expect.poll(() => outcome, {message: 'an unmounted child waits for its mount, which settles it'}).toBe('resolved')
     });
 
     test('CONTROL: an idle component still settles its own first flight', async () => {
