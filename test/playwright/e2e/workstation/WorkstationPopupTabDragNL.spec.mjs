@@ -11,7 +11,9 @@ import {participations, popOut}       from '../utils/workstationPopOut.mjs';
  * its header action, and a second pane moved into that popup.
  *
  * 1. A tab dragged to the popup's own root edge shows the dock preview there, and the release commits
- *    what the preview showed: the popup's single stack splits in two.
+ *    what the preview showed: the popup's single stack splits in two. Dragged on from that split into main,
+ *    the tab's emptied strip dies before its drag end runs, and the popup's close then leaves main's layout
+ *    filling the window as before: the drag end restores nothing onto the dead toolbar.
  * 2. The same holds where the popup lies over main. The press raised the popup, so a point both windows
  *    cover is the popup's for the whole gesture: main claims nothing, and the popup previews and commits.
  * 3. A tab dragged out of the popup over empty desktop tears out into a new vessel. The root owns that
@@ -229,6 +231,94 @@ test.describe('Workstation popup tab drag (Neural Link)', () => {
 
         // What the preview showed is what lands: the stack splits, and both panes stay in the popup
         expect(await readEdgeSplit(app, wsId, popupKey), 'Audit lands on the right of Metrics').toEqual([['metrics'], ['audit']])
+    });
+
+    test('a popup that closes after its tab left for main leaves main\'s layout filling the window', async ({page, neuralLink}) => {
+        const {app, popup, popupKey, tabsNodeId, wsId} = await openTwoTabPopup(page, neuralLink),
+              metricsId                                = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
+              stackId                                  = readId(await app.queryComponent({dockNodeId: tabsNodeId}, ['id'])),
+              stackBox                                 = await popup.locator(`#${stackId}`).boundingBox(),
+              // What main's edge row leaves of the dock host's height, and its center split of the row's width:
+              // the bands, the splitters and the layout gaps, whatever the collapse takes on top
+              readGaps = () => page.evaluate(() => {
+                  const host   = document.querySelector('.neo-dashboard-dock-edge-zone'),
+                        row    = host?.querySelector(':scope > .neo-dashboard-dock-edge-row'),
+                        center = row?.querySelector(':scope > .neo-dashboard-dock-split-horizontal'),
+                        rect   = el => el.getBoundingClientRect(),
+                        others = (parent, child, size) => [...parent.children].filter(el => el !== child).reduce((sum, el) => sum + rect(el)[size], 0);
+
+                  return center ? {
+                      center: Math.round(rect(row).width - others(row, center, 'width') - rect(center).width),
+                      row   : Math.round(rect(host).height - others(host, row, 'height') - rect(row).height)
+                  } : null
+              });
+
+        // The operator's popup: Audit docked beside Metrics as a node of its own
+        await pressTab(popup, 'Audit');
+        await parkAt(popup, {x: stackBox.x + stackBox.width - EDGE_INSET, y: stackBox.y + stackBox.height / 2});
+        await popup.mouse.up();
+        expect(await readEdgeSplit(app, wsId, popupKey), 'Audit has a node of its own').toEqual([['metrics'], ['audit']]);
+        await expect(popup.locator('.neo-tab-header-toolbar'), 'the popup shows the split\'s two strips').toHaveCount(2, {timeout: 15000});
+        await expect(popup.locator('.neo-tab-header-button.neo-draggable', {hasText: 'Audit'}), 'Audit\'s own strip arms its sort zone')
+            .toHaveCount(1, {timeout: 15000});
+
+        const filled = await readGaps();
+
+        expect(filled, 'main lays out its dock before the gesture').toBeTruthy();
+
+        const viewport       = await popup.evaluate(() => ({height: innerHeight, width: innerWidth})),
+              outside        = {x: viewport.width + 180, y: viewport.height + 180},
+              geometry       = target => target.evaluate(() => ({height: innerHeight, width: innerWidth, x: screenX, y: screenY})),
+              [main, origin] = await Promise.all([geometry(page), geometry(popup)]),
+              overMain       = [[0.3, 0.5], [0.7, 0.5], [0.3, 0.75], [0.7, 0.25]]
+                  .map(([fx, fy]) => ({x: Math.round(main.x + main.width * fx - origin.x), y: Math.round(main.y + main.height * fy - origin.y)}))
+                  .find(point => point.x < 0 || point.x > viewport.width || point.y < 0 || point.y > viewport.height),
+              vesselPromise = page.waitForEvent('popup', {timeout: 30000});
+
+        vesselPromise.catch(() => {});
+        expect(overMain, 'main shows a dock point outside the popup').toBeTruthy();
+
+        let vessel = null;
+
+        try {
+            // Audit's own strip empties into main: its toolbar dies with the node while the drag still ends
+            await app.getDragTrace(true);
+            await pressTab(popup, 'Audit');
+            await popup.mouse.move(outside.x, outside.y, {steps: 36});
+            vessel = await vesselPromise;
+            await popup.mouse.move(overMain.x, overMain.y, {steps: 24});
+            await expect.poll(async () => (await readMainClaim(app))?.accepts ?? null, {message: 'main claims the carried tab', timeout: 15000}).toBe(true);
+            await popup.mouse.up();
+
+            await expect.poll(async () => {
+                const catalogs = await captureCatalogsByParticipant(app, wsId);
+
+                return Object.keys(catalogs).filter(key => catalogs[key]?.includes('audit'))
+            }, {message: 'the drop lands Audit in main', timeout: 20000}).toEqual(['workstation-main']);
+            await expect.poll(() => vessel.isClosed(), {message: 'the riding vessel closes', timeout: 15000}).toBe(true);
+            await expect.poll(async () => {
+                const traceData = await app.getDragTrace(),
+                      traces    = traceData?.traces || traceData?.result?.traces || [];
+
+                return traces.at(-1)?.events?.some(event => event.t === 'end') ?? false
+            }, {message: 'the popup\'s drag end has run', timeout: 15000}).toBe(true);
+
+            // The close returns Metrics, and main projects a new shell for the document it returned to
+            await popup.close({runBeforeUnload: true});
+
+            await expect.poll(async () => (await captureCatalogsByParticipant(app, wsId))['workstation-main']?.includes('metrics') ?? false,
+                {message: 'the close returns Metrics to main', timeout: 20000}).toBe(true);
+            await expect(page.locator(`#${metricsId}`), 'main renders Metrics again').toBeVisible({timeout: 20000});
+            await expect.poll(readGaps, {message: 'main\'s edge row fills the host and its center split the row, as before the gesture', timeout: 15000})
+                .toEqual(filled);
+
+            const [matrix, heavy] = await page.evaluate(() => [...document.querySelectorAll('.neo-dashboard-dock-edge-row > .neo-dashboard-dock-split-horizontal > .neo-dashboard-dock-tabs')]
+                .map(el => el.getBoundingClientRect().width));
+
+            expect(Math.abs(matrix / (matrix + heavy) - 0.6), 'Matrix and heavy-tabs keep their 0.6 / 0.4 split').toBeLessThan(0.02)
+        } finally {
+            vessel && !vessel.isClosed() && await vessel.close().catch(() => {})
+        }
     });
 
     test('a drag inside the popup where it lies over main stays the popup\'s', async ({page, neuralLink}) => {
