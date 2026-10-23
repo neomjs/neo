@@ -475,6 +475,33 @@ test.describe('Grid & Store Interactions', () => {
             Neo.main.DomAccess.scrollTo = originalScrollTo
         }
     });
+
+    test('a producer\'s continuation add and trim keep the grid scroll; an ordinary add still resets it', async () => {
+        const originalScrollTo = Neo.main.DomAccess.scrollTo, scrollCalls = [];
+        Neo.main.DomAccess.scrollTo = data => scrollCalls.push(data);
+
+        try {
+            await grid.timeout(70);
+
+            store.asContinuation(() => {
+                store.add({id: 100, name: 'Live row', score: 1000});
+                store.splice(0, 1)
+            });
+            await grid.timeout(70);
+
+            expect(store.get(100)).toBeTruthy();
+            expect(store.get(0)).toBeFalsy();
+            expect(scrollCalls, 'a continuation must not request a top reset').toEqual([]);
+
+            store.add({id: 101, name: 'Ordinary row', score: 1001});
+            await grid.timeout(70);
+
+            expect(scrollCalls.length, 'an ordinary add keeps its top-reset behavior').toBeGreaterThan(0);
+            expect(scrollCalls.every(({direction, value}) => direction === 'top' && value === 0)).toBe(true)
+        } finally {
+            Neo.main.DomAccess.scrollTo = originalScrollTo
+        }
+    });
 });
 
 test.describe('Grid & TreeStore Bulk Projection Interactions', () => {

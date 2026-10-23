@@ -345,16 +345,7 @@ class Store extends Collection {
      * @private
      */
     addLoadedItems(items, append=false) {
-        let me                         = this,
-            previousAppendNotification = me.#appendNotification;
-
-        me.#appendNotification = append;
-
-        try {
-            return me.add(items)
-        } finally {
-            me.#appendNotification = previousAppendNotification
-        }
+        return this.#notifyAs(append, () => this.add(items))
     }
 
     /**
@@ -452,6 +443,41 @@ class Store extends Collection {
         me._currentPage = 1; // silent update
 
         oldValue && me.remoteSort && me.load()
+    }
+
+    /**
+     * @summary Runs synchronous mutations as a continuation of the current data view.
+     *
+     * Every `load` that `fn`'s mutations fire carries `postChunkLoad: true`, which a bound grid reads as "keep the
+     * reader's scroll" (`grid.Body#onStoreLoad`), where an ordinary load resets it to the top. A producer that
+     * appends to or trims the rows a reader is looking at, like a live feed's tick, declares that intent here;
+     * replacing the data set stays an ordinary load. The previous context returns afterwards, also when `fn`
+     * throws, so later mutations stay ordinary.
+     * @param {Function} fn Runs synchronously
+     * @returns {*} The return value of `fn`
+     */
+    asContinuation(fn) {
+        return this.#notifyAs(true, fn)
+    }
+
+    /**
+     * @summary Runs `fn` with its synchronous `load` notifications marked as continuation or as ordinary.
+     * The previous context returns afterwards, also when `fn` throws.
+     * @param {Boolean} continuation
+     * @param {Function} fn
+     * @returns {*} The return value of `fn`
+     * @private
+     */
+    #notifyAs(continuation, fn) {
+        const me = this, previous = me.#appendNotification;
+
+        me.#appendNotification = continuation;
+
+        try {
+            return fn()
+        } finally {
+            me.#appendNotification = previous
+        }
     }
 
     /**
@@ -1779,15 +1805,7 @@ class Store extends Collection {
      * @returns {void}
      */
     setData(data, {continuation=false}={}) {
-        const me = this, previousAppendNotification = me.#appendNotification;
-
-        me.#appendNotification = continuation === true;
-
-        try {
-            me.data = data
-        } finally {
-            me.#appendNotification = previousAppendNotification
-        }
+        this.#notifyAs(continuation === true, () => {this.data = data})
     }
 
     /**

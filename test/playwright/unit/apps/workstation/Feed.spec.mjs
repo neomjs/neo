@@ -138,5 +138,19 @@ test.describe('Workstation feed producer', () => {
         } finally {
             release()
         }
+    });
+
+    test('a batch publishes its add and its trim as continuation loads, so a bound grid keeps the reader\'s scroll', () => {
+        feed = Neo.create(Feed, {maxRecords: 5});
+        feed.appendBatch(3);
+        const loads = [];
+        feed.on('load', ({postChunkLoad}) => loads.push(postChunkLoad));
+
+        expect(feed.appendBatch(4)).toBe(5);
+        expect(loads, 'the add and the trim').toEqual([true, true]);
+
+        loads.length = 0;
+        feed.add({id: 'feed-manual', name: 'manual'});
+        expect(loads, 'a mutation outside a batch stays ordinary').toEqual([false])
     })
 });

@@ -52,6 +52,9 @@ class Feed extends Store {
 
     /**
      * @summary Appends one batch, trims the oldest records and publishes its final sequence once.
+     *
+     * Both mutations run as a continuation of the current data view, so a bound grid keeps the reader's scroll
+     * instead of returning to the top on every tick.
      * @param {Number} [amount=this.batchSize]
      * @returns {Number} The capped record count.
      */
@@ -77,8 +80,10 @@ class Feed extends Store {
             })
         }
 
-        me.add(records);
-        if (me.count > me.maxRecords) me.splice(me.maxRecords, me.count - me.maxRecords);
+        me.asContinuation(() => {
+            me.add(records);
+            if (me.count > me.maxRecords) me.splice(me.maxRecords, me.count - me.maxRecords)
+        });
         me.sequence = sequence;
         me.batchCount++;
 
