@@ -2678,11 +2678,16 @@ test.describe('Workstation — dense living-data composition', () => {
             await app.callMethod(workspaceId, 'transactionManager.undo', [{groupId}]);
             expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel).toEqual(beforeModel);
             await expect(page.locator(`#${paneId}`), 'Group undo returns the same live pane').toBeVisible();
-            await expect(popup.locator(`#${paneId}`), 'the sibling projection releases the returned pane').toHaveCount(0);
+            await expect.poll(() => popup.isClosed(), {
+                message: 'the popup the undo emptied closes instead of staying on screen blank',
+                timeout: 15000
+            }).toBe(true);
 
+            const replayed = page.waitForEvent('popup', {timeout: 30000});
             await app.callMethod(workspaceId, 'transactionManager.redo', [{groupId}]);
+            popup = await replayed;
             expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel).toEqual(detached);
-            await expect(popup.locator(`#${paneId}`), 'Group redo reuses the same popup and pane').toBeVisible();
+            await expect(popup.locator(`#${paneId}`), 'Group redo re-opens a window with the same live pane').toBeVisible();
             await expect(page.locator(`#${paneId}`)).toHaveCount(0);
 
             await popup.close({runBeforeUnload: true});
