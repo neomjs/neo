@@ -95,6 +95,32 @@ const waitOverflowIdle = async (app, pluginId) => {
 };
 
 /**
+ * Samples every animation frame for `ms` and reports the frames in which the pane is not maximized or
+ * shows fewer than `headers` tab headers — what a staged projection that drops the presentation paints.
+ * @param {Object} page
+ * @param {String} containerId
+ * @param {String} toolbarId
+ * @param {Number} headers
+ * @param {Number} ms
+ * @returns {Promise<{bad: Array[], frames: Number}>} `bad` rows are `[ms, maximized, headers]`.
+ */
+const watchFrames = (page, containerId, toolbarId, headers, ms) => page.evaluate(({containerId, toolbarId, headers, ms}) => new Promise(resolve => {
+    const bad    = [], start = performance.now();
+    let   frames = 0;
+
+    const frame = () => {
+        const maximized = document.getElementById(containerId)?.classList.contains('neo-dock-maximized'),
+              shown     = document.getElementById(toolbarId)?.querySelectorAll(':scope > .neo-tab-header-button').length ?? 0;
+
+        frames++;
+        (!maximized || shown < headers) && bad.push([Math.round(performance.now() - start), maximized, shown]);
+        performance.now() - start < ms ? requestAnimationFrame(frame) : resolve({bad, frames})
+    };
+
+    requestAnimationFrame(frame)
+}), {containerId, toolbarId, headers, ms});
+
+/**
  * Resolves once the pane's DockFlip has settled.
  * @param {Object} page
  * @param {String} containerId
@@ -187,13 +213,28 @@ test.describe('Workstation maximized tab reorder (Neural Link)', () => {
         await expect(page.locator(`#${chrome.containerId}`)).toHaveClass(/neo-dock-maximized/);
         await flipSettled(page, chrome.containerId);
 
-        // Activate a tab so the header re-projects at the maximized width before dragging.
+        // Activate a tab so the header re-projects at the maximized width before dragging. Its staged
+        // projection must keep the pane maximized, with every header, in each frame it paints.
+        await waitOverflowIdle(app, pluginId);
+
+        const headers     = await page.locator(`#${toolbarId} > .neo-tab-header-button`).count(),
+              cycleBefore = (await app.getComponent(workspaceId, ['projectionCycle.id']))['projectionCycle.id'],
+              watched     = watchFrames(page, chrome.containerId, toolbarId, headers, 1500);
+
         await page.locator(`#${chrome.buttons.activity}`).click();
+        // The activation's own projection cycle, not merely its committed document: the document
+        // changes at commit time, before the staged transaction starts.
         await expect.poll(async () => {
-            const state = await app.getComponent(workspaceId, ['animationSuppressedBars', 'dockModel']);
+            const state = await app.getComponent(workspaceId, ['dockModel', 'projectionCycle.id', 'projectionCycle.timing']);
             return state.dockModel?.nodes?.[NODE]?.activeItemId === 'activity'
-                && (state.animationSuppressedBars?.length ?? 0) === 0
-        }, {message: 'activity activation and refresh settle', timeout: 10000}).toBe(true);
+                && state['projectionCycle.id'] !== cycleBefore
+                && Boolean(state['projectionCycle.timing']?.settledAt)
+        }, {message: 'the activation\'s projection settles', timeout: 10000}).toBe(true);
+
+        const {bad, frames} = await watched;
+
+        expect(frames, 'frames were sampled across the projection').toBeGreaterThan(10);
+        expect(bad, `no frame drops the maximized pane or its ${headers} headers`).toEqual([]);
         await expect(page.locator(`#${toolbarId}`)).not.toHaveClass(/neo-no-animation/, {timeout: 10000});
         await waitOverflowIdle(app, pluginId);
         await flipSettled(page, chrome.containerId);

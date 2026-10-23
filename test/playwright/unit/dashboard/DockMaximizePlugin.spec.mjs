@@ -392,6 +392,54 @@ test.describe('dock maximize as a declinable plugin', () => {
             'the re-emitted intent finds no listener and no error').not.toThrow()
     });
 
+    /**
+     * Maximizes `main-tabs` as an apply leaves the node, minus its measured rect, and commits `descriptor`.
+     * The refresh's own re-apply is stubbed: it would repair a stripped class afterwards, and the claim
+     * under test is the reconcile's.
+     * @param {Object} descriptor
+     * @returns {Promise<{plugin: Maximize, shell: Neo.component.Base}>} The plugin and the pre-commit shell.
+     */
+    const commitWhileMaximized = async descriptor => {
+        create();
+
+        const plugin = workspace.getPlugin('dock-maximize'),
+              shell  = workspace.items[0],
+              result = workspace.applyDockZoneOperation(descriptor);
+
+        expect(result.errors).toEqual([]);
+        plugin._maximizedNodeId   = 'main-tabs';
+        plugin.syncDockProjection = async () => {};
+        tabsOf('main-tabs').cls   = [...tabsOf('main-tabs').cls, 'neo-dock-maximized'];
+        workspace.onDockZoneDocumentChange(result.document, descriptor, workspace);
+        await workspace.refreshPromise;
+
+        return {plugin, shell}
+    };
+
+    for (const descriptor of [
+        {operation: 'setActiveItem', tabsNodeId: 'main-tabs', itemId: 'beta'},
+        {operation: 'moveItem', itemId: 'beta', targetNodeId: 'main-tabs', index: 0},
+        {operation: 'closeItem', itemId: 'alpha'}
+    ]) {
+        test(`a maximized node keeps its class through the staged refresh of a ${descriptor.operation} confined to it`, async () => {
+            const {plugin, shell} = await commitWhileMaximized(descriptor),
+                  node            = workspace.dockModel.nodes['main-tabs'];
+
+            expect(workspace.items[0], 'the commit took the staged transaction, which re-derives a retained node\'s cls').not.toBe(shell);
+            expect(tabsOf('main-tabs').activeIndex, 'and projected the commit').toBe(node.items.indexOf(node.activeItemId));
+            expect(plugin.maximizedNodeId).toBe('main-tabs');
+            expect(tabsOf('main-tabs').cls, 'so the pane never lays out at its docked size').toContain('neo-dock-maximized');
+            expect(tabsOf('side-tabs').cls).not.toContain('neo-dock-maximized')
+        })
+    }
+
+    test('a commit reaching beyond the maximized node still drops its class terminally', async () => {
+        const {plugin} = await commitWhileMaximized({operation: 'moveItem', itemId: 'gamma', targetNodeId: 'main-tabs'});
+
+        expect(plugin.maximizedNodeId, 'cleared before the projection').toBeNull();
+        expect(tabsOf('main-tabs').cls, 'which therefore projects no class to keep').not.toContain('neo-dock-maximized')
+    });
+
     test('two collaborators claiming one projection option collide loudly, and the consumer hook wins over a collaborator', () => {
         expect(() => create({plugins: [{module: Maximize}, {module: RivalPlugin}]}))
             .toThrow(/"enableDockMaximizeAction" is contributed by two collaborators: Neo\.dashboard\.dock\.plugin\.Maximize and Test\.Unit\.Dashboard\.DockMaximizePlugin\.Rival/);
