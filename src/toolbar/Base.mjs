@@ -768,14 +768,11 @@ class Toolbar extends Container {
     }
 
     /**
-     * Adds one toolbar-owned action contribution. Contributions are not written into {@link #actions};
-     * the consumer remains the sole owner of that config, while the toolbar preserves the contributed
-     * instance across every consumer action rebuild. A contribution sits where a focus reveal cannot
-     * displace it ({@link #getActionContributionIndex}): after the consumer's last focus-gated action and
-     * ahead of its persistent ones, so the actions a focus reveals grow the rail away from a control the
-     * pointer has just pressed. A name the contribution would carry — its own or one from
-     * {@link #actionDefaults} — must be unique among the live actions ({@link #assertUniqueActionNames});
-     * a refused contribution inserts nothing.
+     * Adds one toolbar-owned action contribution ahead of consumer actions. Contributions are not
+     * written into {@link #actions}; the consumer remains the sole owner of that config, while the
+     * toolbar preserves the contributed instance across every consumer action rebuild. A name the
+     * contribution would carry — its own or one from {@link #actionDefaults} — must be unique among the
+     * live actions ({@link #assertUniqueActionNames}); a refused contribution inserts nothing.
      * @param {Object} config Action config.
      * @returns {Neo.component.Base} The stable contributed action instance.
      */
@@ -785,7 +782,8 @@ class Toolbar extends Container {
             firstAction = actionItems[0],
             // Resolved before it is checked: the name that must be unique is the one that will
             // materialise, which `actionDefaults` may supply, and the checked config is the inserted one.
-            contribution = me.createActionItemConfig({...config, isToolbarActionContribution: true});
+            contribution = me.createActionItemConfig({...config, isToolbarActionContribution: true}),
+            firstConsumer;
 
         me.assertUniqueActionNames([contribution], actionItems);
 
@@ -793,57 +791,14 @@ class Toolbar extends Container {
             me.insert(firstAction ? me.items.indexOf(firstAction) : me.items.length, me.createActionSpacerConfig(), true)
         }
 
-        contribution = me.insert(me.getActionContributionIndex(), contribution);
+        firstConsumer = me.getActionItems().find(item => item.isToolbarActionContribution !== true);
+        contribution  = me.insert(firstConsumer ? me.items.indexOf(firstConsumer) : me.items.length, contribution);
 
         me.bindActionItems([contribution]);
         me.applyContextualActionState(true);
         me.fire('actionsChange', {actions: me.getActionItems()});
 
         return contribution
-    }
-
-    /**
-     * The items index where a contribution belongs: directly after the consumer's last focus-gated action
-     * (`showOnFocus: true`), behind contributions already there, so the siblings a focus reveals are
-     * inserted on the far side of the contribution and never push it along the rail. Without a gated
-     * consumer action the contribution leads the consumer actions; without any consumer action it ends
-     * the items.
-     * @param {Neo.component.Base|null} [exclude=null] A contribution being re-placed: its own slot counts as free.
-     * @returns {Number}
-     */
-    getActionContributionIndex(exclude=null) {
-        let me        = this,
-            {items}   = me,
-            consumers = me.getActionItems().filter(item => item.isToolbarActionContribution !== true),
-            lastGated = consumers.findLast(item => item.showOnFocus === true),
-            index     = lastGated
-                ? items.indexOf(lastGated) + 1
-                : consumers[0] ? items.indexOf(consumers[0]) : items.length;
-
-        while (items[index]?.isToolbarActionContribution === true && items[index] !== exclude) {
-            index++
-        }
-
-        return index
-    }
-
-    /**
-     * Moves every contribution back to {@link #getActionContributionIndex} after a consumer rebuild
-     * appended the rebuilt actions behind it.
-     * @protected
-     */
-    placeActionContributions() {
-        let me = this;
-
-        me.getActionContributionItems().forEach(contribution => {
-            let from = me.items.indexOf(contribution),
-                to   = me.getActionContributionIndex(contribution);
-
-            // Taking it out first shifts every later slot down by one
-            from < to && to--;
-
-            from !== to && me.moveTo(from, to)
-        })
     }
 
     /**
@@ -944,8 +899,7 @@ class Toolbar extends Container {
         if (configs.length > 0) {
             me.insert(me.items.length, configs);
             me.bindActionItems();
-            me.applyContextualActionState(true);
-            me.placeActionContributions()
+            me.applyContextualActionState(true)
         } else {
             me.updateDepth = -1;
             me.update()
