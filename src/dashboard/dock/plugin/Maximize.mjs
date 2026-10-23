@@ -205,13 +205,16 @@ class Maximize extends Plugin {
     }
 
     /**
-     * The projection contribution the owner merges into its adapter options: the toggle and its
-     * icon pair. Absent this plugin the adapter projects no maximize action.
+     * The projection contribution the owner merges into its adapter options: the toggle, its icon
+     * pair, and the maximized node, whose projected class keeps a staged refresh of an operation
+     * confined to it from laying the pane out at its docked size. Absent this plugin the adapter
+     * projects no maximize action.
      * @returns {Object}
      */
     getDockProjectionOptions() {
         return {
             dockMaximizeIconCls     : this.iconCls,
+            dockMaximizedNodeId     : this.maximizedNodeId,
             dockMinimizeIconCls     : this.restoreIconCls,
             enableDockMaximizeAction: true
         }

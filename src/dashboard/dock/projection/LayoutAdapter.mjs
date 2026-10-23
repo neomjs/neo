@@ -438,6 +438,9 @@ class LayoutAdapter extends Base {
      *     maximize action while the node is un-maximized.
      * @param {String} [options.dockMinimizeIconCls='far fa-window-minimize'] Icon of that same
      *     action while it is maximized. Both sides reach the action, which picks per `pressed`.
+     * @param {String|null} [options.dockMaximizedNodeId=null] The tabs node the maximize plugin presents
+     *     maximized. It projects `neo-dock-maximized`, so a staged refresh that retains the node keeps
+     *     the presentation instead of laying it out at its docked size until the plugin re-applies it.
      * @param {Boolean} [options.dockPopOutActionAvailable=false] Whether the owner currently has one
      *     effective tear-out handler/admission bundle. The stable pop-out action always projects;
      *     capability changes its hidden state rather than node-level action membership.
@@ -527,6 +530,7 @@ class LayoutAdapter extends Base {
             dockActionTooltips       : options.dockActionTooltips || null,
             dockLockIconCls          : options.dockLockIconCls || 'fa fa-lock',
             dockMaximizeIconCls      : options.dockMaximizeIconCls || 'far fa-window-maximize',
+            dockMaximizedNodeId      : options.dockMaximizedNodeId || null,
             dockMinimizeIconCls      : options.dockMinimizeIconCls || 'far fa-window-minimize',
             dockPopOutActionAvailable: options.dockPopOutActionAvailable === true,
             dockPopOutIconCls        : options.dockPopOutIconCls || 'far fa-window-restore',
@@ -1348,7 +1352,7 @@ class LayoutAdapter extends Base {
 
         return {
             activeIndex,
-            cls         : ['neo-dashboard-dock-tabs'],
+            cls         : ['neo-dashboard-dock-tabs', ...(nodeId === context.dockMaximizedNodeId ? ['neo-dock-maximized'] : [])],
             dockNodeId  : nodeId,
             dockNodeType: 'tabs',
             // A dock tab strip is embedded pane chrome, not a free-standing tab card. `ui` is the
