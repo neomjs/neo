@@ -794,10 +794,11 @@ class Worker extends Base {
             if (portObject) {
                 port      = portObject.port;
                 opts.port = portObject.id
-            } else if (!opts.port && !opts.windowId && !opts.appName) {
+            } else if (!opts.port && !opts.windowId && !opts.appName && !me.isWindowDeparted(dest)) {
                 // Last-resort only when no routing key was given at all: delivering a keyed
                 // message to an arbitrary port would misroute it into a foreign window, which
-                // loses it just as silently as dropping it.
+                // loses it just as silently as dropping it. A departed window's own deltas stop
+                // here too, since a window rendering the same component ids would apply them.
                 portObject = me.ports[0];
 
                 if (portObject) {
