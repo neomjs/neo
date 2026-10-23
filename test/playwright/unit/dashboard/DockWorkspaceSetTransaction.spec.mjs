@@ -327,7 +327,7 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
             const owner = Neo.create(kind === 'main' ? DockWorkspace : PopupWorkspace, {
                 dockModel: initial, topologyGroupId: groupId,
                 ...(kind === 'popup' ? {workspaceSet: set, workspaceKey: key,
-                    rootWorkspace: {resolvePane: () => ({ntype: 'component'})}} : {})
+                    rootWorkspace: {getDockDragContract: () => ({}), resolvePane: () => ({ntype: 'component'})}} : {})
             });
             owner.refreshDockWorkspace = async () => {};
             if (kind === 'main') {
@@ -598,7 +598,7 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
         initial.items.second = {reference: 'second', title: 'Second'};
         initial.nodes.root.items.push('second');
         const popup = Neo.create(PopupWorkspace, {
-            dockModel      : initial, rootWorkspace: {resolvePane: () => ({ntype: 'component'})},
+            dockModel      : initial, rootWorkspace: {getDockDragContract: () => ({}), resolvePane: () => ({ntype: 'component'})},
             topologyGroupId: groupId, workspaceKey: 'popup', workspaceSet: set
         });
         set.register('popup', {componentId: popup.id, getDocument: () => popup.dockModel,
@@ -626,8 +626,11 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
             workspaceSet                 : set, topologyGroupId: groupId,
             getPopupState                : WorkstationWorkspace.prototype.getPopupState,
             getPopupStates               : WorkstationWorkspace.prototype.getPopupStates,
+            getDockDragContract          : () => ({}),
+            getWorkspaceDocument         : WorkstationWorkspace.prototype.getWorkspaceDocument,
             createPopupWorkspace         : WorkstationWorkspace.prototype.createPopupWorkspace,
             stateProvider                : TransactionManager.getProvider(groupId),
+            resolveItemWorkspaceId       : WorkstationWorkspace.prototype.resolveItemWorkspaceId,
             resolvePane                  : () => ({ntype: 'component'}),
             createVesselWorkspaceDocument: WorkstationWorkspace.prototype.createVesselWorkspaceDocument,
             tearOutHandlers              : {capturePane: () => true, adoptPane() {
@@ -637,7 +640,7 @@ test.describe('Dock WorkspaceSet transaction participants', () => {
         };
         try {
             expect(await WorkstationWorkspace.prototype.onTearOutDocumentChange.call(root, null,
-                {operation: 'detachItem', itemId}, {})).toBe(true);
+                {operation: 'detachItem', itemId}, {workspaceKey: WorkstationWorkspace.vesselWorkspaceId(itemId)})).toBe(true);
             const popup = root.getPopupState(WorkstationWorkspace.vesselWorkspaceId(itemId)).host;
             expect(popup).toBeInstanceOf(PopupWorkspace);
             expect(popup.dockModel.items[itemId]).toEqual(document(key).items[itemId]);

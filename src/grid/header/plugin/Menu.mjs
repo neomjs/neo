@@ -37,6 +37,8 @@ class Menu extends Plugin {
 
     /** @member {Neo.container.Base|null} surface=null @protected */
     surface = null
+    /** @member {Neo.grid.header.Button|null} hintTarget=null @protected */
+    hintTarget = null
     /** @member {Neo.data.Store|null} optionsStore=null @protected */
     optionsStore = null
     /** @member {Neo.list.ValuePicker|null} valuePicker=null @protected */
@@ -118,7 +120,9 @@ class Menu extends Plugin {
         }
         if (owner.windowId) {
             Neo.main.DomEvents.registerPreventDefaultTargets({
-                cls: 'neo-grid-menu-enabled', name: 'contextmenu', windowId: owner.windowId
+                // The trigger is a sibling of the header button, so its own event path never carries the
+                // header's class: without the trigger, a right-click on the arrow opens the browser's menu.
+                cls: ['neo-grid-menu-enabled', 'neo-grid-menu-trigger'], name: 'contextmenu', windowId: owner.windowId
             })
         }
     }
@@ -141,7 +145,17 @@ class Menu extends Plugin {
             store.on(this.sourceListeners());
             this.#releaseFilters = this.observeConfig(store, 'filters', () => this.scheduleRefresh())
         }
-        if (this.surface && !this.surface.hidden) this.refreshOptions()
+        if (this.surface && !this.surface.hidden && !this.hintTarget) this.refreshOptions()
+    }
+
+    /** @summary Closes any open menu or hint surface on sibling header plugins in the same wrapper. */
+    closeSiblingMenus() {
+        for (const toolbar of this.owner.up('grid-header-wrapper')?.getToolbars() || []) {
+            for (const item of toolbar.items || []) {
+                const plugin = item.getPlugin('plugin-grid-header-menu');
+                if (plugin && plugin !== this) plugin.close(false)
+            }
+        }
     }
 
     /** @summary The filled glyph marks a filtered column; the outline glyph an unfiltered one. @returns {String} */
@@ -172,13 +186,13 @@ class Menu extends Plugin {
 
     /** @summary Coalesces open-surface recounts and discards old-source or retired work. */
     scheduleRefresh() {
-        if (!this.surface || this.surface.hidden || this.#queued) return;
+        if (!this.surface || this.surface.hidden || this.hintTarget || this.#queued) return;
         this.#queued = true;
         const generation = this.#generation;
         queueMicrotask(() => {
             if (generation !== this.#generation || this.isDestroyed || this.isDestroying) return;
             this.#queued = false;
-            if (!this.surface.hidden) this.refreshOptions()
+            if (!this.surface.hidden && !this.hintTarget) this.refreshOptions()
         })
     }
 
@@ -193,11 +207,13 @@ class Menu extends Plugin {
         me.surface = Neo.create(Container, {
             appName : owner.appName, windowId: owner.windowId, parentComponent: owner,
             parentId: 'document.body', floating: true, hidden: true, width: 320,
-            cls     : ['neo-grid-column-menu'], role: 'dialog',
-            align   : {edgeAlign: 't0-b0', axisLock: true, target: owner.id},
-            layout  : {ntype: 'vbox', align: 'stretch'},
-            vdom    : {'aria-label': `Filter ${owner.text || owner.dataField}`},
-            items   : [
+            // open() owns the initial focus, so it can yield to a value picked before it lands
+            focusOnMount: false,
+            cls         : ['neo-grid-column-menu'], role: 'dialog',
+            align       : {edgeAlign: 't0-b0', axisLock: true, target: owner.id},
+            layout      : {ntype: 'vbox', align: 'stretch'},
+            vdom        : {'aria-label': `Filter ${owner.text || owner.dataField}`},
+            items       : [
                 {module: Text, labelText: 'Search values', labelPosition: 'top', reference: 'search',
                     listeners: {change: ({value}) => {me.valuePicker.searchValue = value || ''}}},
                 {module: ValuePicker, reference: 'values', store: me.optionsStore,
@@ -213,28 +229,72 @@ class Menu extends Plugin {
     }
 
     /**
-     * @summary Opens the same surface from pointer, touch or keyboard and reads fresh authoritative state.
+     * @summary Opens the floating surface in value-picker mode (default) or disabled-column hint mode (`hintButton`).
+     *
+     * The search field takes focus one round trip after the surface shows, so a value picked in between keeps focus:
+     * the main thread skips the search focus while focus already sits inside the surface.
+     * @param {Neo.grid.header.Button|null} [hintButton=null]
      * @returns {Promise}
      */
-    async open() {
-        if (this.isDestroyed || this.isDestroying || !this.owner.columnMenu) return;
+    async open(hintButton=null) {
+        const button = hintButton || this.owner,
+              isHint = Boolean(hintButton);
+        if (this.isDestroyed || this.isDestroying || !button || button.isDestroyed || Boolean(button.columnMenu) === isHint) return;
         const serial = ++this.#openSerial;
-        await this.trap((this.owner.parent || this.owner).promiseUpdate());
-        if (this.isDestroyed || this.isDestroying || !this.owner.columnMenu || serial !== this.#openSerial) return;
+        this.closeSiblingMenus();
+        await this.trap((button.parent || button).promiseUpdate());
+        if (this.isDestroyed || this.isDestroying || button.isDestroyed || Boolean(button.columnMenu) === isHint ||
+            serial !== this.#openSerial) return;
         if (!this.surface) this.createSurface();
-        this.refreshOptions();
+        const retarget = !this.surface.hidden && this.hintTarget !== (isHint ? button : null);
+        this.hintTarget = isHint ? button : null;
+        this.surface.set({
+            align: {edgeAlign: 't0-b0', axisLock: true, target: button.id},
+            cls  : [isHint ? 'neo-grid-column-menu-hint' : 'neo-grid-column-menu'],
+            width: isHint ? null : 320
+        });
+        this.surface.vdom['aria-label'] = `Filter ${button.text || button.dataField}`;
+        this.surface.getItem('search').hidden = isHint;
+        if (isHint) {
+            this.valuePicker.hidden = true;
+            this.surface.getItem('clear').hidden = true;
+            this.surface.getItem('status').set({hidden: false, html: 'Value filtering is off for this column.'})
+        } else {
+            this.refreshOptions()
+        }
         this.surface.hidden = false;
+        if (retarget) this.surface.update();
         await this.surface.promiseUpdate();
-        if (!this.isDestroyed && serial === this.#openSerial && !this.surface.hidden) this.surface.getItem('search').focus()
+        if (!this.isDestroyed && serial === this.#openSerial && !this.surface.hidden) {
+            const {surface} = this;
+            if (retarget && surface.mounted && this.owner.windowId) await surface.alignTo();
+            if (isHint) {
+                button.focus()
+            } else {
+                Neo.main.DomAccess.focus({id: surface.getItem('search').getInputElId(), unlessFocusWithin: surface.id, windowId: surface.windowId})
+            }
+        }
     }
 
-    /** @summary Dismisses the complete island and restores native header focus. */
-    close() {
+    /** @param {Neo.grid.header.Button} button @returns {Promise} @summary Opens the shared surface in hint mode. */
+    openHint(button) {
+        return this.open(button)
+    }
+
+    /** @param {Boolean} [restoreFocus=false] @summary Dismisses the surface only when currently showing a disabled-column hint. */
+    closeHint(restoreFocus=false) {
+        if (this.hintTarget) this.close(restoreFocus)
+    }
+
+    /** @param {Boolean} [restoreFocus=true] @summary Dismisses the complete island and restores native header focus. */
+    close(restoreFocus=true) {
         ++this.#openSerial;
+        const target = this.hintTarget || this.owner;
+        this.hintTarget = null;
         if (!this.surface || this.surface.hidden) return;
         this.surface.hidden = true;
         this.syncOutsideListener(false);
-        this.owner.focus()
+        if (restoreFocus && target && !target.isDestroyed) target.focus()
     }
 
     /**
@@ -375,19 +435,36 @@ class Menu extends Plugin {
      * @param {Object} data
      */
     onClearClick(data) {
-        const clear = this.surface.getItem('clear'), node = data.path?.find(item => item.id === clear.id);
-        if (node?.data?.pickerScope === this.#keyPrefix) this.onSelectionChange({selection: []})
+        const {surface} = this, clear = surface.getItem('clear'), node = data.path?.find(item => item.id === clear.id);
+        if (node?.data?.pickerScope !== this.#keyPrefix) return;
+        // Clearing hides this button while it holds focus: the search field (open()'s target) takes focus first,
+        // so the keyboard and Escape stay inside the menu
+        Neo.main.DomAccess.focus({id: surface.getItem('search').getInputElId(), windowId: surface.windowId});
+        this.onSelectionChange({selection: []})
+    }
+
+    /**
+     * @summary True when a header event originated inside the header's inline filter control.
+     * @param {Object} data
+     * @param {Neo.grid.header.Button} [button=this.owner]
+     * @returns {Boolean}
+     */
+    isFilterFieldEvent(data, button=this.owner) {
+        const id = button?.filterField?.id;
+        return Boolean(id && (data?.path || []).some(node => node.id === id))
     }
 
     /** @param {Object} data @summary Opens on the routed context menu without changing sorting. */
     onContextMenu(data) {
-        this.open()
+        if (!this.isFilterFieldEvent(data)) this.open()
     }
 
     /** @param {Object} data @summary Opens on the header's context-menu keyboard gestures. */
     onHeaderKeyDown(data) {
-        if (data.key === 'ContextMenu' || data.key === 'F10' && data.shiftKey) this.open()
-        else if (data.key === 'Escape') this.close()
+        if (data.key === 'Escape') this.close();
+        else if ((data.key === 'ContextMenu' || data.key === 'F10' && data.shiftKey) && !this.isFilterFieldEvent(data)) {
+            this.open()
+        }
     }
 
     /** @param {Object} data @summary Escape dismisses from every focusable child of the floating surface. */
@@ -415,8 +492,8 @@ class Menu extends Plugin {
 
     /** @param {Object} data @summary A pointer inside the surface or its trigger belongs to the same interaction island. */
     onOutsidePointer(data) {
-        const ids = new Set([this.surface?.id, this.trigger?.id]);
-        if (!(data.path || []).some(node => ids.has(node.id))) this.close()
+        const ids = new Set([this.surface?.id, !this.hintTarget && this.trigger?.id]);
+        if (!(data.path || []).some(node => ids.has(node.id))) this.close(!this.hintTarget)
     }
 
     /** @param {Array} args @summary Releases owned UI and borrowed observers while leaving source intent intact. */

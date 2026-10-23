@@ -1,4 +1,5 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}  from '@playwright/test';
+import {execFileSync} from 'node:child_process';
 import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
@@ -6,14 +7,17 @@ import {
     assertBrainDeclarations,
     assertQuarantinesResolve,
     BRAIN_CAPABILITIES,
+    BRAIN_DURATIONS,
     BRAIN_QUARANTINES,
     BRAIN_RETRY_BRIDGE,
     BRAIN_SMOKE,
     BRAIN_TIERS,
+    brainDurations,
     brainPaths,
     brainReceipt,
     brainRetries,
     brainSelection,
+    brainShard,
     brainTestList,
     EXCLUSIONS,
     flakyTests,
@@ -394,5 +398,67 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
 
         expect(text).toContain('none, because the step did not finish');
         expect(text).toContain('**This shard:** unknown, because the run wrote no Playwright report');
+    });
+
+    test('the shards split by measured time: every file once, the same split on every shard', () => {
+        // By path order and count, two files a shard would run 110 s, 70 s and 30 s
+        const durations = {'a.spec.mjs': 60, 'b.spec.mjs': 50, 'c.spec.mjs': 40, 'd.spec.mjs': 30, 'e.spec.mjs': 20, 'f.spec.mjs': 10},
+              paths     = Object.keys(durations).toReversed(),
+              split     = () => [1, 2, 3].map(index => brainShard({paths, shard: `${index}/3`, durations}));
+
+        expect(split()).toEqual([
+            {paths: ['a.spec.mjs', 'f.spec.mjs'], seconds: 70},
+            {paths: ['b.spec.mjs', 'e.spec.mjs'], seconds: 70},
+            {paths: ['c.spec.mjs', 'd.spec.mjs'], seconds: 70}
+        ]);
+        expect(split(), 'every shard computes the same split').toEqual(split());
+    });
+
+    test('a file the table does not list yet counts as its median, and a shard that is not N/M is refused', () => {
+        const durations = {'a.spec.mjs': 10, 'b.spec.mjs': 20, 'c.spec.mjs': 90};
+
+        expect(brainShard({paths: ['new.spec.mjs'], shard: '1/1', durations}).seconds).toBe(20);
+
+        for (const shard of ['0/10', '11/10', '1/0', '3', 'a/b', '']) {
+            expect(() => brainShard({paths: [], shard, durations})).toThrow(`Shard '${shard}' is not N/M`);
+        }
+    });
+
+    test('the tier\'s ten shards run every selected file once, none heavier than another by more than its longest file', () => {
+        const {paths} = brainSelection({env: {}, root}),
+              shards  = Array.from({length: 10}, (_, i) => brainShard({paths, shard: `${i + 1}/10`})),
+              times   = shards.map(shard => shard.seconds),
+              longest = Math.max(...paths.map(file => BRAIN_DURATIONS[file] ?? 0));
+
+        expect(shards.flatMap(shard => shard.paths).toSorted()).toEqual(paths.toSorted());
+        expect(Math.max(...times) - Math.min(...times)).toBeLessThanOrEqual(Math.ceil(longest) + 1);
+    });
+
+    test('--brain-paths with SHARD prints that shard\'s files, and the shards together print the selection once', () => {
+        const paths = shard => execFileSync(process.execPath, ['buildScripts/util/e2eCiSelection.mjs', '--brain-paths'], {
+                  cwd: root, env: {...process.env, SHARD: shard, TIER: 'full'}
+              }).toString().split(' ').filter(Boolean),
+              all     = paths(''),
+              sharded = Array.from({length: 10}, (_, i) => paths(`${i + 1}/10`));
+
+        expect(sharded.every(files => files.length), 'no shard is empty').toBe(true);
+        expect(sharded.flat().toSorted()).toEqual(all.toSorted());
+    });
+
+    test('a receipt prints the table\'s prediction and each file\'s measured seconds, which rebuild the table', () => {
+        const attempt   = duration => ({duration}),
+              report    = {stats: {expected: 1, unexpected: 0, flaky: 1, skipped: 0}, suites: [
+                  {file: 'grid/A.spec.mjs', specs: [{tests: [{results: [attempt(1250), attempt(1300)]}]}], suites: [{specs: [{tests: [{results: [attempt(500)]}]}]}]},
+                  {file: 'core/B.spec.mjs', specs: []}
+              ]},
+              text      = brainReceipt({report, run, seconds: 120, env: {}, root}),
+              predicted = brainShard({paths: brainSelection({env: {}, root}).paths, shard: run.shard}).seconds,
+              // GitHub's run log puts the job, the step and a timestamp before every line
+              log       = text.split('\n').map(line => `e2e-brain (2/6)\tRun\t2026-10-23T18:43:59.7Z ${line}`).join('\n');
+
+        expect(text).toContain(`- **Predicted:** ${Math.floor(predicted / 60)}m ${predicted % 60}s by the duration table`);
+        expect(text, 'every attempt counts, retries and nested describes included').toContain('- `grid/A.spec.mjs` · 3.1 s');
+        expect(text).toContain('- `core/B.spec.mjs` · 0 s');
+        expect(brainDurations(log)).toEqual({'test/playwright/e2e/core/B.spec.mjs': 0, 'test/playwright/e2e/grid/A.spec.mjs': 3.1});
     });
 });

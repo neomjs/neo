@@ -712,14 +712,15 @@ class GridBody extends Component {
             needed = Math.min(windowSize, Math.max(me.items.length, countRecords)),
             current = me.items.length,
             delta = needed - current,
-            newRows = [],
-            config, i;
+            i;
 
         me.rowPoolSize = needed;
 
         if (delta > 0) {
+            // One push per row, never a spread of the batch: a row registers its id as it is created, and a spread
+            // past the engine's argument limit throws after every new row registered, orphaning their ids
             for (i = 0; i < delta; i++) {
-                config = {
+                me.items.push(Neo.create({
                     module: Row,
                     appName: me.appName,
                     gridContainer: me.gridContainer,
@@ -729,11 +730,8 @@ class GridBody extends Component {
                     rowIndex: -1,
                     theme: me.theme,
                     windowId: me.windowId
-                };
-
-                newRows.push(Neo.create(config))
+                }))
             }
-            me.items.push(...newRows)
         } else if (delta < 0) {
             // Self-Healing: Destroy excess rows to free memory and VDOM overhead.
             // This restores performance if the buffer is reduced after being large.

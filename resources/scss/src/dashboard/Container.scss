@@ -626,7 +626,11 @@ $dock-reveal-entry-travel: (
 //
 // Scoped deliberately to this element: the drop-indicator layer and `.neo-dock-preview` are
 // siblings of the edge zone, not descendants, so their containing block is unchanged.
-.neo-dashboard-dock-edge-zone {
+//
+// A wrapped root edge-zone's rails lay out in the frame around the whole arrangement instead
+// (`LayoutAdapter#projectRailFrame`), so that frame is their overlays' containing block.
+.neo-dashboard-dock-edge-zone,
+.neo-dashboard-dock-rail-frame {
     position: relative;
 }
 

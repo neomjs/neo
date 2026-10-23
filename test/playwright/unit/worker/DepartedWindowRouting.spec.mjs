@@ -104,4 +104,29 @@ test.describe('Neo.worker.Base#sendMessage — a departed window is not a siblin
         expect(target.posted).toHaveLength(1);
         expect(other.posted).toHaveLength(0)
     });
+
+    test('a key-less delta batch for a departed window reaches no other window, and its rejection reads as that departure', async () => {
+        const departed = addPort('win-a'),
+              reloaded = addPort('win-b'),
+              // What `App#applyDeltas` sends: the window as destination, no routing key
+              batch    = () => ({action: 'updateVdom', deltas: [{action: 'removeNode', id: 'neo-viewport-1'}]});
+
+        worker.removePort(departed);
+
+        expect(worker.sendMessage('win-a', batch())).toBeUndefined();
+        expect(reloaded.posted, 'a window rendering the same component ids must not receive them').toHaveLength(0);
+
+        const reason = await worker.promiseMessage('win-a', batch()).catch(error => error);
+
+        expect(reason).toMatchObject({code: 'NEO_DEAD_PORT', destination: 'win-a'});
+        expect(worker.isDeparture(reason)).toBe(true);
+        expect(reloaded.posted).toHaveLength(0)
+    });
+
+    test('control: a key-less message for a destination that never departed still takes the last-resort port', () => {
+        const only = addPort('win-b');
+
+        expect(worker.sendMessage('main', {action: 'updateVdom', deltas: []})).toBeTruthy();
+        expect(only.posted).toHaveLength(1)
+    });
 });

@@ -296,6 +296,18 @@ class Workspace extends Container {
          */
         enableDockHeaderActionsPlugin: true,
         /**
+         * @summary Reveals a dock pane's focus-gated header actions (`reload`, `pin`, `lock`, `pop-out`)
+         * when the pointer hovers the pane (`tab.Container`), in addition to when the pane holds focus.
+         *
+         * Off by default so the quiet-inactive contract remains the baseline. When enabled, the option
+         * threads through `LayoutAdapter` to every projected tab header toolbar (`showOnHover: true`),
+         * and `Neo.tab.plugin.Overflow` reserves the full action-cluster span while unhovered so hovering
+         * into and out of a pane never shifts its tab overflow partition.
+         * @member {Boolean} headerActionsShowOnHover_=false
+         * @reactive
+         */
+        headerActionsShowOnHover_: false,
+        /**
          * @summary Projects a `pop-out` header action that detaches the active pane into its own
          * vessel window, through the drag tear-out's own commit path.
          *
@@ -517,6 +529,14 @@ class Workspace extends Container {
     scheduledProjection = null
 
     /**
+     * The newest projection {@link #refreshDockWorkspace} parked because its window had departed, as
+     * `{document, refreshOptions, tabInsertDescriptor}`; the next mount runs it (see {@link #afterSetMounted}).
+     * @member {Object|null} departedProjection=null
+     * @protected
+     */
+    departedProjection = null
+
+    /**
      * The newest re-projection a commit chained (see {@link Neo.dashboard.dock.projection.Cycle}): its
      * `adoption` settles once the reconcile has landed the committed document in the host, before the
      * motion and the post-projection hook {@link #refreshPromise} still waits out, and its `timing` is
@@ -710,12 +730,15 @@ class Workspace extends Container {
                 getDocument         : () => this.dockModel,
                 onAdoptionFailed    : data => this.reportDockAdoptionFailure(data),
                 onDocumentChange    : (document, operation, vessel) => this.onTearOutDocumentChange(document, operation, vessel),
-                onPaneAdopted       : (itemId, entry, connection, isMerge) => {
+                onPaneAdopted       : (itemId, entry, connection, isMerge, workspaceKey=entry?.workspaceKey ?? connection?.workspaceKey) => {
                     if (!this.nativeWindows) {
                         if (entry === null) return;
                         throw new Error('native source is not bound')
                     }
-                    this.nativeWindows.recordOwner(this.id, itemId, entry, connection, isMerge)
+                    // A key-less withdrawal addresses the item's newest vessel, as the destructive paths do
+                    workspaceKey ||= entry === null ? this.nativeWindows.keyOf(this.id, itemId) : null;
+                    if (workspaceKey) this.nativeWindows.recordOwner(this.id, workspaceKey, entry, connection, isMerge);
+                    else if (entry !== null) throw new Error(`Workspace ${this.id}: tear-out ownership of "${itemId}" names no vessel`)
                 },
                 onPaneReturn: data => this.onDockPaneReturn(data),
                 openVessel  : async request => {
@@ -753,6 +776,31 @@ class Workspace extends Container {
         this.observeBoundWindowGeometry(this.windowId);
 
         this.syncDockParticipation()
+    }
+
+    /**
+     * Propagates runtime changes to `headerActionsShowOnHover` onto every projected tab header toolbar.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetHeaderActionsShowOnHover(value, oldValue) {
+        if (oldValue !== undefined) {
+            let host = this.getDockHost();
+
+            if (host?.items?.length) {
+                let shell = Reconciler.liveShell(host, this.dockShellIndex),
+                    tabs  = Reconciler.collectProjectedTabs(shell);
+
+                tabs.forEach(tab => {
+                    let bar = tab.getTabBar?.();
+
+                    if (bar) {
+                        bar.showOnHover = value === true
+                    }
+                })
+            }
+        }
     }
 
     /**
@@ -914,7 +962,7 @@ class Workspace extends Container {
             bound: async context => {
                 const {connection, itemId, owned} = context;
                 if (owned && !me.tearOutHandlers.reparentAdopted(itemId, connection)) {
-                    me.tearOutHandlers.compensateFailedAdoption(itemId, me.nativeWindows.getOwner(me.id, itemId));
+                    me.tearOutHandlers.compensateFailedAdoption(itemId, me.nativeWindows.getOwner(me.id, connection.workspaceKey));
                     throw new Error(`Workspace ${me.id}: tear-out pane "${itemId}" could not enter its admitted vessel`)
                 }
                 await me.afterTearOutWindowConnect(context)
@@ -1035,10 +1083,8 @@ class Workspace extends Container {
      */
     onDockWorkspaceReturn(receipt) {
         if (!receipt.returned) return;
-        receipt.itemIds.forEach(itemId => {
-            this.tearOutHandlers?.releasePane(itemId);
-            this.nativeWindows?.recordOwner(this.id, itemId, null)
-        })
+        receipt.itemIds.forEach(itemId => this.tearOutHandlers?.releasePane(itemId));
+        this.nativeWindows?.recordOwner(this.id, receipt.workspaceId, null)
     }
 
     /**
@@ -1133,7 +1179,7 @@ class Workspace extends Container {
                 width      = Math.max(Math.round(proxyRect?.width  || 480), 320),
                 left       = Math.round((proxyRect?.x ?? 120) + (winData?.screenLeft || 0)),
                 top        = Math.round((proxyRect?.y ?? 120) + ((winData?.outerHeight - winData?.innerHeight) || 0) + (winData?.screenTop || 0)),
-                windowName = me.tearOutWindowName(itemId);
+                windowName = me.tearOutWindowName(itemId, topologyIdentity?.workspaceKey);
 
             const opened = await Neo.Main.windowOpen({
                 nativeCapabilities: {close: true, position: true, resize: true},
@@ -1174,7 +1220,7 @@ class Workspace extends Container {
         // `destroy()` deletes the own properties a `tearOutWindowName` override may read.
         const
             {id, nativeWindows, windowId}      = this,
-            windowName                         = vessel?.itemId && this.tearOutWindowName(vessel.itemId),
+            windowName                         = vessel?.itemId && this.tearOutWindowName(vessel.itemId, vessel.workspaceKey),
             windowNameFor                      = itemId => itemId === vessel?.itemId ? windowName : null,
             {default: NativeVesselTransaction} = await import('./window/NativeVesselTransaction.mjs');
 
@@ -1184,11 +1230,27 @@ class Workspace extends Container {
     /**
      * @summary The semantic window name this workspace opens a tear-out vessel under, and closes it by.
      * @param {String} itemId
+     * @param {String} [workspaceKey] The vessel's Group key.
      * @returns {String}
      * @protected
      */
-    tearOutWindowName(itemId) {
-        return `neo-dock-tearout-${itemId}`
+    tearOutWindowName(itemId, workspaceKey) {
+        return `neo-dock-tearout-${itemId}${this.tearOutKeySuffix(itemId, workspaceKey)}`
+    }
+
+    /**
+     * @summary The suffix a vessel's Group key was minted with beyond its item's preferred key. A vessel's
+     * window name carries it, so two live vessels for one item never share a name, which `Main#windowOpen`
+     * would answer by reusing the first one's window.
+     * @param {String} itemId
+     * @param {String} [workspaceKey]
+     * @returns {String} `''` for the preferred key
+     * @protected
+     */
+    tearOutKeySuffix(itemId, workspaceKey) {
+        const preferred = this.tearOutWorkspaceKey(itemId);
+
+        return workspaceKey?.startsWith(preferred) ? workspaceKey.slice(preferred.length) : ''
     }
 
     /**
@@ -1230,7 +1292,7 @@ class Workspace extends Container {
 
         detached && me.tearOutHandlers.capturePane(itemId);
         me.onDockZoneDocumentChange(document, operation, me);
-        detached && me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows.getConnection(me.id, itemId))
+        detached && me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows.getConnection(me.id, vessel?.workspaceKey))
     }
 
     /**
@@ -1884,6 +1946,7 @@ class Workspace extends Container {
 
     /**
      * @summary Projects an unseeded Workspace on first mount, or syncs a statically seeded shell.
+     * A projection parked for a departed window ({@link #departedProjection}) runs on the next mount.
      *
      * A headless Workspace owns no visible tree before binding. Once mounted, an absent shell at
      * {@link #dockShellIndex} enters the ordinary committed-document refresh — the same projection
@@ -1897,13 +1960,20 @@ class Workspace extends Container {
      * shows its real state from the first paint.
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @returns {Promise|null} The seeding refresh, or `null`
+     * @returns {Promise|null} The seeding or parked refresh, or `null`
      * @protected
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
         const me = this;
+
+        if (value && me.departedProjection) {
+            const parked = me.departedProjection;
+
+            me.departedProjection = null;
+            return me.chainProjection(parked)
+        }
 
         if (!value || me.refreshPromise) {
             return null
@@ -2421,8 +2491,9 @@ class Workspace extends Container {
                 // Bound unconditionally: a host can project its OWN header actions without enabling
                 // the close action, and wiring the seam inside that opt-in left those intents with
                 // nowhere to arrive.
-                onDockHeaderAction   : me.onDockHeaderAction.bind(me),
-                enableDockCloseAction: me.enableDockCloseAction,
+                onDockHeaderAction      : me.onDockHeaderAction.bind(me),
+                enableDockCloseAction   : me.enableDockCloseAction,
+                headerActionsShowOnHover: options.headerActionsShowOnHover ?? me.headerActionsShowOnHover,
                 ...(me.enableDockLockAction && {
                     dockLockIconCls     : me.dockLockIconCls,
                     dockUnlockIconCls   : me.dockUnlockIconCls,
@@ -2508,6 +2579,14 @@ class Workspace extends Container {
 
         if (!host) {
             throw new Error(`Workspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
+        }
+
+        // A departed window renders nothing a projection could land in, and the warm reload that adopts this
+        // Workspace into the next window would move the host mid-transaction, leaving a staged shell hidden over
+        // the panes it took. The newest such projection waits for the next mount.
+        if (Neo.currentWorker?.isWindowDeparted?.(host.windowId)) {
+            me.departedProjection = {document, refreshOptions, tabInsertDescriptor};
+            return
         }
 
         if (!host.mounted) {
@@ -2711,21 +2790,35 @@ class Workspace extends Container {
         me.fire('dockProjectionFailed', {component: me, error, isRetry, recovery});
 
         if (!isRetry && !me.isDestroyed) {
-            const tail = me.refreshPromise?.catch(() => {}) || Promise.resolve();
-
-            me.refreshPromise = tail
-                .then(() => me.timeout(0))
-                .then(() => {
-                    if (me.isDestroyed || (me.scheduledProjection && me.scheduledProjection.document !== document)) return;
-
-                    return me.refreshDockWorkspace(tabInsertDescriptor, document, {
-                        ...refreshOptions,
-                        isDockProjectionRetry: true
-                    })
-                })
+            me.chainProjection({document, refreshOptions: {...refreshOptions, isDockProjectionRetry: true}, tabInsertDescriptor})
         }
 
         return null
+    }
+
+    /**
+     * @summary Chains one re-projection of a committed snapshot onto the settled refresh tail. It stands down
+     * once {@link #scheduledProjection} has moved on, because that newer commit's projection supersedes it.
+     * @param {Object} projection
+     * @param {Object|null} projection.document
+     * @param {Object} projection.refreshOptions
+     * @param {Object|null} projection.tabInsertDescriptor
+     * @returns {Promise} The new {@link #refreshPromise}
+     * @protected
+     */
+    chainProjection({document, refreshOptions, tabInsertDescriptor}) {
+        const me   = this,
+              tail = me.refreshPromise?.catch(() => {}) || Promise.resolve();
+
+        me.refreshPromise = tail
+            .then(() => me.timeout(0))
+            .then(() => {
+                if (me.isDestroyed || (me.scheduledProjection && me.scheduledProjection.document !== document)) return;
+
+                return me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
+            });
+
+        return me.refreshPromise
     }
 
     /**

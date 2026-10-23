@@ -5,6 +5,10 @@ import Base from '../../core/Base.mjs';
  * @description Sources contribute platform effects and observations. Their component lifetime does
  * not own the windows: unbind preserves committed ownership, and only explicit retirement closes
  * native resources. Resource ids and context are opaque to this owner; no document or app is imported.
+ *
+ * A resource is identified by its Group workspace key, minted at admission, never by the item it was
+ * opened for: a popup keeps its key after that item leaves it, and the item can open another resource
+ * meanwhile. Records carry the opening item as provenance only.
  * @class Neo.manager.transaction.NativeLifecycle
  * @extends Neo.core.Base
  */
@@ -52,7 +56,7 @@ class NativeLifecycle extends Base {
      * @summary Registers a source's effects without replacing any retained native ownership.
      * @param {String} sourceId Opaque source identity within this Group.
      * @param {Object} effects Source-owned platform and projection callbacks.
-     * @param {Function} effects.keyFor Maps an opaque item id to its Group workspace key.
+     * @param {Function} effects.keyFor Maps an opaque item id to its preferred Group workspace key.
      * @param {Function} effects.open Opens with request context and the reserved topologyIdentity.
      * @param {Function} effects.close Closes an exact vessel; false or rejection retains retry authority.
      * @param {Function} [effects.context] Supplies additional runtime context for a binding.
@@ -93,26 +97,70 @@ class NativeLifecycle extends Base {
     /**
      * @summary Reads one pending native admission.
      * @param {String} sourceId
-     * @param {String} itemId
+     * @param {String} workspaceKey
      * @returns {Object|null}
      */
-    getAdmission(sourceId, itemId) { return this.sources.get(sourceId)?.admissions.get(itemId) ?? null }
+    getAdmission(sourceId, workspaceKey) { return this.sources.get(sourceId)?.admissions.get(workspaceKey) ?? null }
 
     /**
      * @summary Reads a connection which has not yet become committed ownership.
      * @param {String} sourceId
-     * @param {String} itemId
+     * @param {String} workspaceKey
      * @returns {Object|null}
      */
-    getConnection(sourceId, itemId) { return this.sources.get(sourceId)?.connections.get(itemId) ?? null }
+    getConnection(sourceId, workspaceKey) { return this.sources.get(sourceId)?.connections.get(workspaceKey) ?? null }
 
     /**
      * @summary Reads committed native ownership, including an unbound render target.
      * @param {String} sourceId
-     * @param {String} itemId
+     * @param {String} workspaceKey
      * @returns {Object|null}
      */
-    getOwner(sourceId, itemId) { return this.sources.get(sourceId)?.owners.get(itemId) ?? null }
+    getOwner(sourceId, workspaceKey) { return this.sources.get(sourceId)?.owners.get(workspaceKey) ?? null }
+
+    /**
+     * @summary Resolves the key of an item's newest resource: a pending admission first, then a connection,
+     * then committed ownership. An older resource opened for the same item keeps that item as provenance, so
+     * the newest record answers; which window holds the item now is its document's answer, not this one.
+     * @param {String} sourceId
+     * @param {String} itemId
+     * @returns {String|null}
+     */
+    keyOf(sourceId, itemId) {
+        const source = this.sources.get(sourceId);
+        for (const records of [source?.admissions, source?.connections, source?.owners]) {
+            let match = null;
+            records?.forEach((entry, workspaceKey) => { entry.itemId === itemId && (match = workspaceKey) });
+            if (match) return match
+        }
+        return null
+    }
+
+    /**
+     * @summary Mints the Group key of a new resource: the preferred key while it is free, else the first free
+     * `<preferred>:<n>`. A key stays taken while the Group binds or reserves it or any source still records it,
+     * so a new resource never replaces a pending, reconnecting or retained one. A released binding nothing records
+     * any more is free: its window left for good, and a stale reconnect presenting the old generation token is
+     * refused. A participant alone holds no key, since a document stays registered after its window closes and
+     * the item's next resource takes that key again. The caller reserves the result in the same synchronous step.
+     * @param {String} preferredKey
+     * @returns {String}
+     * @protected
+     */
+    mintKey(preferredKey) {
+        const me    = this,
+              group = me.manager.get(me.groupId),
+              held  = binding => !!binding && (binding.windowId !== null || !binding.releasedWindowId),
+              taken = key => held(group?.bindings.get(key)) || [...me.sources.values()].some(source =>
+                  source.admissions.has(key) || source.connections.has(key) || source.owners.has(key) ||
+                  [...source.retirements.values()].some(retirement => retirement.workspaceKey === key));
+
+        let key = preferredKey;
+
+        for (let n = 2; taken(key); n++) key = `${preferredKey}:${n}`;
+
+        return key
+    }
 
     /**
      * @summary Lists committed source records without handing out the registry.
@@ -138,76 +186,86 @@ class NativeLifecycle extends Base {
     /**
      * @summary Clears only the admission the caller observed, never a successor for the same key.
      * @param {String} sourceId
-     * @param {String} itemId
+     * @param {String} workspaceKey
      * @param {Object} [admission]
      * @returns {Boolean}
      */
-    clearAdmission(sourceId, itemId, admission=this.getAdmission(sourceId, itemId)) {
+    clearAdmission(sourceId, workspaceKey, admission=this.getAdmission(sourceId, workspaceKey)) {
         const source = this.sources.get(sourceId);
-        return !!admission && source?.admissions.get(itemId) === admission && source.admissions.delete(itemId)
+        return !!admission && source?.admissions.get(workspaceKey) === admission && source.admissions.delete(workspaceKey)
     }
 
     /**
      * @summary Removes a provisional connection.
      * @param {String} sourceId
-     * @param {String} itemId
+     * @param {String} workspaceKey
      * @returns {Boolean}
      */
-    clearConnection(sourceId, itemId) { return this.sources.get(sourceId)?.connections.delete(itemId) ?? false }
+    clearConnection(sourceId, workspaceKey) { return this.sources.get(sourceId)?.connections.delete(workspaceKey) ?? false }
 
     /**
-     * @summary Records or withdraws committed ownership and consumes its provisional admission.
+     * @summary Records or withdraws committed ownership and consumes its provisional admission. A new record
+     * keeps the item its resource was opened for.
      * @param {String} sourceId
-     * @param {String} itemId
+     * @param {String} workspaceKey
      * @param {Object|null} entry
      * @param {Object|null} [connection=null]
      * @param {Boolean} [merge=false]
      * @returns {void}
      */
-    recordOwner(sourceId, itemId, entry, connection=null, merge=false) {
+    recordOwner(sourceId, workspaceKey, entry, connection=null, merge=false) {
         const source = this.sources.get(sourceId);
         if (!source) throw new Error('native source is not registered');
+        const itemId = entry?.itemId ?? connection?.itemId ?? source.owners.get(workspaceKey)?.itemId ??
+            source.connections.get(workspaceKey)?.itemId ?? source.admissions.get(workspaceKey)?.itemId ?? null;
         if (merge) {
-            const current = source.owners.get(itemId);
+            const current = source.owners.get(workspaceKey);
             current && Object.assign(current, entry)
         } else if (entry === null) {
-            source.owners.delete(itemId);
-            source.connections.delete(itemId)
+            source.owners.delete(workspaceKey);
+            source.connections.delete(workspaceKey)
         } else {
-            source.owners.set(itemId, entry);
+            entry.itemId ??= itemId;
+            source.owners.set(workspaceKey, entry);
             if (connection) {
-                source.connections.delete(itemId);
-                this.clearAdmission(sourceId, itemId)
+                source.connections.delete(workspaceKey);
+                this.clearAdmission(sourceId, workspaceKey)
             }
         }
-        source.active && source.effects.ownerChanged?.({itemId, entry, connection, merge})
+        source.active && source.effects.ownerChanged?.({itemId, workspaceKey, entry, connection, merge})
     }
 
     /**
      * @summary Reserves a Group slot before opening its platform window, with late-result cleanup.
+     *
+     * The slot's key is minted and reserved in one synchronous step. A gesture opens one resource for its
+     * item: while its first admission is pending, a second acquisition by the same gesture opens nothing.
      * @param {String} sourceId
      * @param {Object} request The opaque resource context, carrying a nonempty itemId.
      * @returns {Promise<Object|null>}
      */
     async acquire(sourceId, request={}) {
-        const source = this.sources.get(sourceId), {itemId} = request;
+        const source = this.sources.get(sourceId), {itemId} = request, gestureToken = request.gestureToken ?? null;
         if (!source?.active || typeof itemId !== 'string' || !itemId) return null;
         const effects = source.effects;
         if (!await this.retryRetirements(sourceId, itemId) || !source.active) return null;
-        const reservation = this.manager.reserve({groupId: this.groupId, workspaceKey: effects.keyFor(itemId)});
+        if (gestureToken !== null && [...source.admissions.values()].some(entry =>
+            entry.itemId === itemId && entry.gestureToken === gestureToken)) return null;
+        const reservation = this.manager.reserve({groupId: this.groupId, workspaceKey: this.mintKey(effects.keyFor(itemId))});
         if (!reservation) return null;
-        const admission = {connected: false, connectingWindowId: null, ...reservation,
-            gestureToken: request.gestureToken ?? null, itemId, context: request, windowId: null, windowName: null};
-        source.admissions.set(itemId, admission);
+        const {workspaceKey} = reservation;
+        const admission      = {connected: false, connectingWindowId: null, ...reservation,
+            gestureToken, itemId, context: request, windowId: null, windowName: null};
+        source.admissions.set(workspaceKey, admission);
         let vessel;
         try { vessel = await effects.open({...request, topologyIdentity: reservation}) } catch { vessel = null }
         if (!vessel) {
-            source.admissions.get(itemId) === admission && source.admissions.delete(itemId);
+            source.admissions.get(workspaceKey) === admission && source.admissions.delete(workspaceKey);
             !this.isDestroyed && this.manager.revoke(reservation);
             return null
         }
-        const identity = {...vessel, ...reservation, gestureToken: admission.gestureToken, itemId};
-        if (this.isDestroyed || !source.active || source.effects !== effects || source.admissions.get(itemId) !== admission) {
+        const identity = {...vessel, ...reservation, gestureToken, itemId};
+        if (this.isDestroyed || !source.active || source.effects !== effects || source.admissions.get(workspaceKey) !== admission) {
             // The captured effect survives destruction of the source and of this owner.
             if (this.isDestroyed) {
                 try { await effects.close(identity) } catch {}
@@ -217,7 +275,7 @@ class NativeLifecycle extends Base {
             return null
         }
         admission.windowName = vessel.windowName || admission.windowName;
-        const connection = source.connections.get(itemId);
+        const connection = source.connections.get(workspaceKey);
         connection && !connection.windowName && (connection.windowName = admission.windowName);
         return identity
     }
@@ -237,7 +295,9 @@ class NativeLifecycle extends Base {
     }
 
     /**
-     * @summary Retains close authority until the platform acknowledges the exact native generation.
+     * @summary Retains close authority until the platform acknowledges the exact native generation. The
+     * vessel names its own key and generation, so a late close of an older resource for the same item never
+     * reaches the item's newer one.
      * @param {String} sourceId
      * @param {Object} vessel
      * @param {Function} [close] The effect captured for this native generation.
@@ -246,8 +306,10 @@ class NativeLifecycle extends Base {
     async retire(sourceId, vessel={}, close) {
         const source = this.sources.get(sourceId);
         if (!source) return false;
-        const key        = JSON.stringify([vessel.itemId, vessel.windowName, vessel.generationToken ?? null]);
-        const retirement = {vessel, close: close ?? source.retirements.get(key)?.close ?? source.effects.close};
+        // A vessel naming no key is its item's newest resource; one naming its key is that one, whatever came after
+        const workspaceKey = vessel.workspaceKey ?? this.keyOf(sourceId, vessel.itemId);
+        const key          = JSON.stringify([workspaceKey ?? vessel.itemId, vessel.windowName, vessel.generationToken ?? null]);
+        const retirement   = {vessel, workspaceKey, close: close ?? source.retirements.get(key)?.close ?? source.effects.close};
         source.retirements.set(key, retirement);
         let closed;
         try { closed = await retirement.close(vessel) } catch { closed = false }
@@ -255,9 +317,8 @@ class NativeLifecycle extends Base {
         source.retirements.get(key) === retirement && source.retirements.delete(key);
         const matches = entry => entry && (vessel.generationToken
             ? entry.generationToken === vessel.generationToken : entry.windowName === vessel.windowName);
-        const admission = source.admissions.get(vessel.itemId);
-        matches(admission) && source.admissions.delete(vessel.itemId);
-        matches(source.connections.get(vessel.itemId)) && source.connections.delete(vessel.itemId);
+        matches(source.admissions.get(workspaceKey)) && source.admissions.delete(workspaceKey);
+        matches(source.connections.get(workspaceKey)) && source.connections.delete(workspaceKey);
         return true
     }
 
@@ -270,28 +331,28 @@ class NativeLifecycle extends Base {
     async onBind(data) {
         if (data.groupId !== this.groupId) return;
         for (const [sourceId, source] of this.sources) {
-            const match = [...source.admissions].find(([, entry]) => entry.workspaceKey === data.workspaceKey);
-            if (!source.active || !match) continue;
-            const [itemId, admission] = match, effects = source.effects,
-                  retiring = () => this.pendingRetirements(sourceId).some(vessel => vessel.itemId === itemId);
+            const {workspaceKey} = data, admission = source.admissions.get(workspaceKey);
+            if (!source.active || !admission) continue;
+            const {itemId} = admission, effects = source.effects,
+                  retiring = () => [...source.retirements.values()].some(retirement => retirement.workspaceKey === workspaceKey);
             if (admission.connected || admission.connectingWindowId && admission.connectingWindowId !== data.windowId || retiring()) continue;
             admission.connectingWindowId = data.windowId;
             const context = {...effects.context?.(data), admission, data, itemId, ...data};
             let accepted;
             try { accepted = await effects.prepare?.(context) } catch (error) {
-                source.admissions.get(itemId) === admission && (admission.connectingWindowId = null);
+                source.admissions.get(workspaceKey) === admission && (admission.connectingWindowId = null);
                 throw error
             }
-            if (!source.active || source.admissions.get(itemId) !== admission || admission.connectingWindowId !== data.windowId) continue;
+            if (!source.active || source.admissions.get(workspaceKey) !== admission || admission.connectingWindowId !== data.windowId) continue;
             if (accepted === false || retiring()) { admission.connectingWindowId = null; continue }
             const connection = {generation: data.generation, generationToken: admission.generationToken,
-                gestureToken: admission.gestureToken, windowId: data.windowId, workspaceKey: data.workspaceKey,
-                windowName  : context.activeVessel?.windowName || source.owners.get(itemId)?.windowName || admission.windowName};
+                gestureToken: admission.gestureToken, itemId, windowId: data.windowId, workspaceKey,
+                windowName  : context.activeVessel?.windowName || source.owners.get(workspaceKey)?.windowName || admission.windowName};
             admission.connected = true;
             admission.windowId = data.windowId;
-            if (!source.owners.has(itemId)) source.connections.set(itemId, connection);
-            await effects.bound?.({...context, connection, owned: source.owners.has(itemId)});
-            if (source.owners.has(itemId)) this.clearAdmission(sourceId, itemId, admission)
+            if (!source.owners.has(workspaceKey)) source.connections.set(workspaceKey, connection);
+            await effects.bound?.({...context, connection, owned: source.owners.has(workspaceKey)});
+            if (source.owners.has(workspaceKey)) this.clearAdmission(sourceId, workspaceKey, admission)
         }
     }
 
@@ -359,19 +420,20 @@ class NativeLifecycle extends Base {
             const match = owned || [...source.connections].find(([, entry]) => entry.windowId === data.windowId)
                 || [...source.admissions].find(([, entry]) => entry.connectingWindowId === data.windowId || entry.windowId === data.windowId);
             if (!match) continue;
-            const [itemId, entry] = match, admission = source.admissions.get(itemId);
-            source.connections.delete(itemId);
-            this.clearAdmission(sourceId, itemId, admission);
+            const [workspaceKey, entry] = match, admission = source.admissions.get(workspaceKey),
+                  itemId                = entry.itemId ?? admission?.itemId ?? null;
+            source.connections.delete(workspaceKey);
+            this.clearAdmission(sourceId, workspaceKey, admission);
             for (const [key, retirement] of source.retirements) {
                 const vessel = retirement.vessel;
-                if (vessel.itemId === itemId && (vessel.generationToken
+                if (retirement.workspaceKey === workspaceKey && (vessel.generationToken
                     ? vessel.generationToken === entry.generationToken : vessel.windowName === entry.windowName)) {
                     retirement.released = true;
                     source.retirements.delete(key)
                 }
             }
-            if (owned) source.owners.set(itemId, {...entry, windowId: null});
-            if (source.active && !retained) await source.effects.released?.({data, itemId, entry, admission, committed: !!owned})
+            if (owned) source.owners.set(workspaceKey, {...entry, windowId: null});
+            if (source.active && !retained) await source.effects.released?.({data, itemId, workspaceKey, entry, admission, committed: !!owned})
         }
     }
 
@@ -390,12 +452,12 @@ class NativeLifecycle extends Base {
                 }
             }
             if (data.releasedBinding && !this.isCurrentRelease(data)) continue;
-            const match = [...source.admissions].find(([, entry]) => entry.workspaceKey === data.workspaceKey && !entry.connected);
-            if (!match) continue;
-            const [itemId, admission] = match, entry = source.owners.get(itemId);
-            const vessel              = {...entry, ...admission, windowName: admission.windowName || entry?.windowName};
+            const {workspaceKey} = data, admission = source.admissions.get(workspaceKey);
+            if (!admission || admission.connected) continue;
+            const {itemId} = admission, entry = source.owners.get(workspaceKey);
+            const vessel   = {...entry, ...admission, windowName: admission.windowName || entry?.windowName};
             if (await this.retire(sourceId, vessel) && source.active) {
-                await source.effects.expired?.({data, itemId, entry, admission, vessel})
+                await source.effects.expired?.({data, itemId, workspaceKey, entry, admission, vessel})
             }
         }
     }
@@ -411,8 +473,8 @@ class NativeLifecycle extends Base {
             source.active = false;
             const vessels = new Map();
             for (const entries of [source.admissions, source.connections, source.owners]) {
-                for (const [itemId, entry] of entries) {
-                    if (entry.windowName) vessels.set(JSON.stringify([entry.windowName, entry.generationToken]), {...entry, itemId: entry.itemId ?? itemId})
+                for (const [workspaceKey, entry] of entries) {
+                    if (entry.windowName) vessels.set(JSON.stringify([entry.windowName, entry.generationToken]), {...entry, workspaceKey})
                 }
             }
             const close  = source.effects.close;

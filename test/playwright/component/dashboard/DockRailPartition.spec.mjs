@@ -3,7 +3,7 @@ import {test, expect} from '@playwright/test';
 /**
  * A collapsed header action must not reach `Neo.tab.plugin.Overflow`'s measurement.
  *
- * A context-inactive action has no DOM node at all, so there is nothing for `getDomRect`
+ * A context-inactive action has no DOM node at all, so there is nothing for `getLayoutRect`
  * to measure. The plugin reads each action rect's POSITION as well as its size, so measuring a
  * missing or all-zero rect places the action cluster at offset 0 and the strip reads as fully
  * consumed — every tab but the active one is driven into the overflow menu.

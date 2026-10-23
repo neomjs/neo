@@ -1109,7 +1109,8 @@ class View extends Base {
     /**
      * Content-sized rows: forgets every measured height and renders the bodies again, which measures the mounted
      * rows anew. A change to which columns wrap their text needs it. The row at the scroll offset holds still on
-     * screen, as for {@link #setRowHeights}.
+     * screen, as for {@link #setRowHeights}. The hidden projection retires with the heights it measured: a later
+     * pass may find every nearby row measured where it shows, and must not leave the old generation's cells behind.
      */
     resetRowHeights() {
         let me            = this,
@@ -1123,6 +1124,8 @@ class View extends Base {
             me.#measuredCells = new WeakMap();
             me.#textHeights.clear();
             me.#measureKeys.clear();
+            me.#measureLayout = [];
+            me.clearMeasureProjection();
             if (me.isThumbDragging) {
                 me.#heldReset = true;
                 me.scheduleRowMeasure();

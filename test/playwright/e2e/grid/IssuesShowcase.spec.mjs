@@ -79,6 +79,18 @@ async function readRows(page) {
     }, GRID)
 }
 
+/**
+ * The page's App Worker, for arms that drive the engine where no pointer can time it.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<import('@playwright/test').Worker>}
+ */
+async function appWorker(page) {
+    const isApp = worker => worker.url().includes('/worker/App');
+
+    await expect.poll(() => page.workers().some(isApp)).toBe(true);
+    return page.workers().find(isApp)
+}
+
 test.describe('Grid issues showcase', () => {
     test.beforeEach(async ({page}) => {
         await page.setViewportSize({width: 1600, height: 900});
@@ -162,6 +174,31 @@ test.describe('Grid issues showcase', () => {
         await expect.poll(states).toEqual(all)
     });
 
+    test('the first filter and the last unchecked leave the header and the open menu in place (#19953)', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              summary = page.locator(`${GRID} .neo-grid-filter-summary`),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              option  = menu.locator('[role="option"]').filter({hasText: 'Closed'}),
+              shift   = async before => {
+                  const header = await wrapper.boundingBox(), item = await option.boundingBox();
+                  return Math.max(Math.abs(header.y - before.header), Math.abs(item.y - before.option))
+              };
+
+        await wrapper.hover();
+        await wrapper.locator('.neo-grid-menu-trigger').click();
+        await expect(option).toBeVisible();
+        const before = {header: (await wrapper.boundingBox()).y, option: (await option.boundingBox()).y};
+
+        // The pointer stays on the value it just checked: the summary joins the search controls' row
+        await option.click();
+        await expect(summary).toContainText('State: Closed');
+        expect(await shift(before)).toBeLessThan(1);
+
+        await option.click();
+        await expect(summary).toBeHidden();
+        expect(await shift(before)).toBeLessThan(1)
+    });
+
     test('a filtered locked column keeps its header marked while its menu is closed (#19793)', async ({page}) => {
         const menu    = page.locator('.neo-grid-column-menu'),
               wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
@@ -197,6 +234,44 @@ test.describe('Grid issues showcase', () => {
         await expect(header).not.toHaveClass(/neo-grid-column-filtered/);
         await expect(trigger).toHaveAttribute('aria-label', 'Filter State');
         await expect.poll(opacity).toBe('0')
+    });
+
+    test('Escape still closes the value menu after Clear has taken its own button away', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              trigger = wrapper.locator('.neo-grid-menu-trigger'),
+              clear   = menu.getByRole('button', {name: 'Clear'});
+
+        await wrapper.hover();
+        await trigger.click();
+        await menu.locator('[role="option"]').filter({hasText: 'Closed'}).click();
+        await clear.click();
+        // A person's pause: the emptied selection hides the button that holds focus before the next key
+        await expect(clear).toHaveCount(0);
+        await expect.poll(() => menu.evaluate(node => node.contains(document.activeElement)),
+            {message: 'focus stays inside the menu'}).toBe(true);
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden()
+    });
+
+    test('a right-click on the header arrow keeps the browser menu closed and opens the value menu (#19952)', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              trigger = wrapper.locator('.neo-grid-menu-trigger');
+
+        // The browser's own menu is the one to keep away: it shows up unless the arrow's contextmenu event is
+        // default-prevented, which the framework only does for paths carrying a registered target class.
+        await page.evaluate(() => {
+            window.__arrowContext = null;
+            document.addEventListener('contextmenu', event => queueMicrotask(() => {
+                window.__arrowContext = {prevented: event.defaultPrevented, trusted: event.isTrusted}
+            }), {once: true})
+        });
+
+        await trigger.click({button: 'right'});
+
+        await expect.poll(() => page.evaluate(() => window.__arrowContext)).toEqual({prevented: true, trusted: true});
+        await expect(menu).toBeVisible()
     });
 
     test('only the sorted header announces its direction, through aria-sort (#19913)', async ({page}) => {
@@ -255,6 +330,153 @@ test.describe('Grid issues showcase', () => {
 
         await pick('Duplicate');
         await soft.poll(read).toEqual({ringInside: true, rowOnSurface: true})
+    });
+
+    test('a header focused outside the centre clip brings its column along (#19955)', async ({page}) => {
+        // At this width the centre region overflows, and the Area menu trigger sits past its clip
+        await page.setViewportSize({width: 800, height: 600});
+
+        const trigger = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'Area'}).locator('.neo-grid-menu-trigger'),
+              read    = () => page.evaluate(grid => {
+                  const header = [...document.querySelectorAll(`${grid} .neo-grid-header-button`)].find(node => node.textContent.trim() === 'Area'),
+                        cell   = [...document.querySelectorAll(`${grid} .neo-grid-row [data-field="area"]`)]
+                            .find(node => !node.closest('.neo-grid-row-measure') && node.getBoundingClientRect().width > 0),
+                        toolbar   = header.closest('.neo-grid-header-toolbar'),
+                        scrollbar = document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`);
+
+                  return {
+                      // The header stays over its own cells, and the focus did move the centre header
+                      aligned : Math.abs(header.getBoundingClientRect().left - cell.getBoundingClientRect().left) <= 1,
+                      scrolled: toolbar.scrollLeft > 0,
+                      synced  : toolbar.scrollLeft === scrollbar.scrollLeft
+                  }
+              }, GRID);
+
+        await trigger.focus();
+        await expect.poll(read).toEqual({aligned: true, scrolled: true, synced: true})
+    });
+
+    test('a header that loses its overflow for a moment leaves the grid scrolled (#19977)', async ({page}) => {
+        // At this width the centre region overflows
+        await page.setViewportSize({width: 800, height: 600});
+
+        const toolbarOf = grid => [...document.querySelectorAll(`${grid} .neo-grid-header-button`)]
+                  .find(node => node.textContent.trim() === 'Area').closest('.neo-grid-header-toolbar'),
+              read      = () => page.evaluate(([grid, toolbarOf]) => ({
+                  header   : Math.round(eval(toolbarOf)(grid).scrollLeft),
+                  scrollbar: Math.round(document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`).scrollLeft)
+              }), [GRID, toolbarOf.toString()]);
+
+        // Scrolled through the scrollbar, the single source of the horizontal position
+        await page.evaluate(grid => {
+            const node = document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`);
+            node.scrollLeft = node.scrollWidth
+        }, GRID);
+        await expect.poll(async () => {
+            const {header, scrollbar} = await read();
+            return scrollbar > 0 && header === scrollbar
+        }, {message: 'the header follows the scrolled grid'}).toBe(true);
+
+        const {scrollbar} = await read();
+
+        // The header's items leave the flow for two frames, as a column drop's restore takes them out: the browser
+        // clamps the header, and the clamp's scroll event follows
+        const clamped = await page.evaluate(async ([grid, toolbarOf]) => {
+            const toolbar = eval(toolbarOf)(grid),
+                  frame   = () => new Promise(resolve => requestAnimationFrame(resolve));
+
+            [...toolbar.children].forEach(child => {child.style.display = 'none'});
+            const value = toolbar.scrollLeft;
+            await frame();
+            await frame();
+            [...toolbar.children].forEach(child => {child.style.display = ''});
+            return value
+        }, [GRID, toolbarOf.toString()]);
+
+        expect(clamped, 'the header clamped').toBe(0);
+        await page.waitForTimeout(200);
+        expect((await read()).scrollbar, 'the clamp leaves the grid where it was').toBe(scrollbar)
+    });
+
+    test('a value picked before the menu\'s search focus lands keeps its focus (#19961)', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              option  = menu.locator('[role="option"]').filter({hasText: 'Closed'}),
+              open    = async () => {
+                  await wrapper.hover();
+                  await wrapper.locator('.neo-grid-menu-trigger').click();
+                  await expect(option).toBeVisible()
+              };
+
+        // Without a pick, the search field takes focus
+        await open();
+        await expect(menu.getByLabel('Search values')).toBeFocused();
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
+
+        // Hold the menu's focus calls on the main thread, so the pick lands first, as it does behind a busy worker
+        await page.evaluate(() => {
+            const DomAccess = Neo.main.DomAccess, focus = DomAccess.focus;
+            window.heldFocus = [];
+            DomAccess.focus = function(data) {
+                if (document.getElementById(data.id)?.closest('.neo-grid-column-menu')) {
+                    return new Promise(resolve => window.heldFocus.push(() => resolve(focus.call(this, data))))
+                }
+                return focus.call(this, data)
+            }
+        });
+
+        await open();
+        await option.click();
+        await expect(menu.locator('.neo-navigator-active-item')).toHaveText(/Closed/);
+        await expect.poll(() => page.evaluate(() => window.heldFocus.length)).toBeGreaterThan(0);
+
+        // A release runs the held focus synchronously, so what follows reads the state after it landed
+        await page.evaluate(() => window.heldFocus.forEach(release => release()));
+        await expect(menu.getByLabel('Search values')).not.toBeFocused();
+        await expect(menu.locator('.neo-navigator-active-item')).toHaveText(/Closed/)
+    });
+
+    test('a menu closed while its surface update is in flight keeps its value navigation when reopened (#19966)', async ({page}) => {
+        const menu    = page.locator('.neo-grid-column-menu'),
+              wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
+              option  = menu.locator('[role="option"]').filter({hasText: 'Duplicate'}),
+              worker  = await appWorker(page),
+              open    = async () => {
+                  await wrapper.hover();
+                  await wrapper.locator('.neo-grid-menu-trigger').click();
+                  await expect(option).toBeVisible()
+              };
+
+        await open();
+
+        // The surface's update leaves for the VDom worker and the menu closes before it lands, as an Escape can
+        // right after a pick
+        await worker.evaluate(() => {
+            const plugin = Neo.manager.Component.items
+                      .find(item => item.dataField === 'state' && item.getPlugin?.('plugin-grid-header-menu')?.surface)
+                      .getPlugin('plugin-grid-header-menu'),
+                  helper = Neo.vdom.Helper,
+                  send   = helper.updateBatch;
+
+            helper.updateBatch = function(data) {
+                const flight = send.call(this, data);
+
+                if (data.updates[plugin.surface.id]) {
+                    helper.updateBatch = send;
+                    plugin.close(false)
+                }
+
+                return flight
+            };
+
+            plugin.surface.update()
+        });
+        await expect(menu).toBeHidden();
+
+        await open();
+        await option.click();
+        await expect(menu.locator('.neo-navigator-active-item')).toHaveText(/Duplicate/)
     })
 });
 

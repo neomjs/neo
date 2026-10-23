@@ -376,9 +376,10 @@ class DragAffordances extends Base {
     /**
      * @summary Selects the release-point preview only while its measured window geometry is current.
      * A candidate must belong to this gesture's item. An indicator hit wins over pointer inference
-     * (the §06 tier order); both commit through `previewToOperation` unchanged. Same-zone
-     * pointer drops stay excluded from the fallback (the within-toolbar reorder already
-     * handled them); indicator drops keep self-targets (splitting your own zone is real).
+     * (the §06 tier order); both commit through `previewToOperation` unchanged. Pointer
+     * inference reads the zones the hover read, the drag's own included: an edge band of its
+     * own tabs node splits it, as the hover showed. Only that node's tab-into commits nothing
+     * here, because the within-toolbar reorder already landed it.
      *
      * Generation guard (the supersede review's falsified defect, closed): the geometry
      * await is re-checked against the live session — a gesture cancelled or re-projected
@@ -405,13 +406,9 @@ class DragAffordances extends Base {
         if (candidate?.preview?.itemId === itemId) {
             preview = candidate.preview
         } else if (geometry) {
-            preview = me.producer.produce({
-                pointer,
-                zones: geometry.zones.filter(zone => zone.nodeId !== sourceNodeId),
-                itemId,
-                root : geometry.root,
-                sourceNodeId
-            })
+            preview = me.producer.produce({pointer, zones: geometry.zones, itemId, root: geometry.root, sourceNodeId});
+
+            if (preview?.placement?.kind === 'tab-into' && preview.target?.nodeId === sourceNodeId) preview = null
         }
 
         me.clear();

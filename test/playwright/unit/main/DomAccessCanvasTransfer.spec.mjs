@@ -18,12 +18,17 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 
-if (Neo.main?.DomAccess && Neo.main.DomAccess.className !== 'Neo.main.DomAccess') {
+const replacedDomAccess = Neo.main?.DomAccess;
+
+if (replacedDomAccess && replacedDomAccess.className !== 'Neo.main.DomAccess') {
     delete Neo.main.DomAccess
 }
 
 const {default: DomAccess} = await import('../../../../src/main/DomAccess.mjs');
 globalThis.document = originalDocumentAtImport;
+// The arms call the imported instance. The namespace gets back what it held, or setup's `??=` stub, so a later spec
+// in this worker never reaches the real singleton.
+replacedDomAccess === undefined ? delete Neo.main.DomAccess : Neo.main.DomAccess = replacedDomAccess;
 
 setup({
     appConfig: {name: appName},

@@ -216,8 +216,9 @@ async function birthHoldFixture({survived=true, entry=true}={}) {
               paneCache: {metrics: {}}, refreshPromise: null,
               getDockHost: () => ({down: () => ({on: (event, fn) => listeners.set(event, fn), un: event => listeners.delete(event),
                   getTabAtIndex: () => button, getTabBar: () => ({sortZone})})}),
-              nativeWindows: {clearConnection() {}, getConnection: () => ({windowId: 'gesture-birth-hold-vessel'})},
-              tearOutHandlers: {activeVessel: null}, tearOutEmbodiment: {isStaged: () => false}},
+              nativeWindows   : {clearConnection() {}, getConnection: () => ({windowId: 'gesture-birth-hold-vessel'})},
+              tearOutHandlers : {activeVessel: null}, tearOutEmbodiment: {isStaged: () => false},
+              tearOutVesselKey: itemId => `workstation-vessel:${itemId}`},
           driver = Neo.create(NativeGestureDriver, {workspace}),
           service = driver.interactionService;
 
@@ -870,7 +871,8 @@ test('vessel survival reads a bound provisional connection or committed owner, n
     const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
     let   connection                     = {windowId: 'live-vessel'}, owner = null;
     const driver                         = Neo.create(NativeGestureDriver, {workspace: {
-        id: 'vessel-survival', nativeWindows: {getConnection: () => connection, getOwner: () => owner}
+        id              : 'vessel-survival', nativeWindows: {getConnection: () => connection, getOwner: () => owner},
+        tearOutVesselKey: itemId => `workstation-vessel:${itemId}`
     }});
 
     try {
@@ -1103,11 +1105,12 @@ test.describe('cross-window target admission', () => {
                   button = {id: 'gesture-admission-tab', windowId: sourceWindowId,
                       getDomRect: async () => [{x: 100, y: 100, width: 40, height: 20}]},
                   workspace = {constructor: Workspace, id: 'gesture-admission-workspace',
-                      dockModel    : {items: {commits: {}}, nodes: {source: {type: 'tabs', items: ['commits']}}},
-                      getDockHost  : () => ({down: () => ({getTabAtIndex: () => button, getTabBar: () => ({sortZone})})}),
-                      getPopupState: () => missing ? null : state,
-                      nativeWindows: {getOwner: () => ({windowId: targetWindowId}), clearConnection() {}},
-                      paneCache    : {commits: {}}},
+                      dockModel       : {items: {commits: {}}, nodes: {source: {type: 'tabs', items: ['commits']}}},
+                      getDockHost     : () => ({down: () => ({getTabAtIndex: () => button, getTabBar: () => ({sortZone})})}),
+                      getPopupState   : () => missing ? null : state,
+                      nativeWindows   : {getOwner: () => ({windowId: targetWindowId}), clearConnection() {}},
+                      paneCache       : {commits: {}},
+                      tearOutVesselKey: itemId => `workstation-vessel:${itemId}`},
                   driver = Neo.create(NativeGestureDriver, {workspace});
 
             mutate(state);

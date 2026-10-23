@@ -973,17 +973,44 @@ class Reconciler extends Base {
             throw new Error('Dock projection reconciliation requires a live item resolver')
         }
 
-        currentTabs.forEach(tab => {
+        currentTabs.forEach((tab, nodeId) => {
             const
                 bar     = tab.getTabBar(),
                 body    = tab.getCardContainer(),
-                itemIds = bar.sortZoneConfig?.dockItemIds || [],
-                // Two parallel arrays with nothing but the index tying them together, so the zip is
-                // evidence only where nothing contradicts it: equal lengths prove a COUNT, never an
-                // order. A pane naming its own item therefore answers for itself, and an unstamped
-                // one answers by position only while the lengths agree. Every other id asks the
-                // resolver instead of binding to a SIBLING's pane, which strands both of them.
-                paired  = itemIds.length === body.items.length;
+                itemIds = [...(bar.sortZoneConfig?.dockItemIds || [])];
+
+            // Another window can claim a pane from this body before this strip reconciles: a cross-window
+            // transfer's target, or main while a closed popup's projection waits for its remount. Retire the
+            // pane's pre-detached bar button before length-pairing. An item desired here again loses its button
+            // only when its live pane is provably elsewhere; the plans below pair that pane anew.
+            if (itemIds.length > body.items.length && bar.getTabButtons().length === itemIds.length) {
+                for (let index = itemIds.length - 1; index >= 0; index--) {
+                    const itemId = itemIds[index];
+
+                    if (body.items.some(pane => pane?.dockItemId === itemId)) continue;
+
+                    const resolved = resolveItem(itemId);
+
+                    if (
+                        !body.items.includes(resolved)
+                        && (!desiredItemIds.has(itemId) || (resolved && resolved.constructor !== Object))
+                    ) {
+                        bar.removeTabAt(index, true, true);
+                        itemIds.splice(index, 1);
+
+                        if (plans.has(nodeId)) {
+                            commitBars.add(bar)
+                        }
+                    }
+                }
+            }
+
+            // Two parallel arrays with nothing but the index tying them together, so the zip is
+            // evidence only where nothing contradicts it: equal lengths prove a COUNT, never an
+            // order. A pane naming its own item therefore answers for itself, and an unstamped
+            // one answers by position only while the lengths agree. Every other id asks the
+            // resolver instead of binding to a SIBLING's pane, which strands both of them.
+            const paired = itemIds.length === body.items.length;
 
             itemIds.forEach((itemId, index) => {
                 const pane = body.items[index];
@@ -1037,6 +1064,10 @@ class Reconciler extends Base {
                 targetTab  = plan.tab,
                 targetBar  = targetTab.getTabBar(),
                 targetBody = targetTab.getCardContainer();
+
+            if (targetBar && Object.hasOwn(plan.config?.headerToolbar || {}, 'showOnHover')) {
+                targetBar.showOnHover = Boolean(plan.config.headerToolbar.showOnHover)
+            }
 
             plan.desiredItems.forEach((itemId, targetIndex) => {
                 const
@@ -1163,13 +1194,19 @@ class Reconciler extends Base {
             });
 
         retirementsByBody.forEach(retirements => {
-            retirements.sort((a, b) => b.state.index - a.state.index).forEach(({itemId, state}) => {
+            retirements.sort((a, b) => b.state.index - a.state.index).forEach(({itemId, pane, state}) => {
                 if (!state.button) {
                     throw new Error(`Dock projection could not retire item "${itemId}" without its tab button`)
                 }
 
-                state.body.removeAt(state.index, !preservedItems.has(itemId), true);
-                state.bar.removeTabAt(state.index, true, true)
+                const destroyPane = !preservedItems.has(itemId) || pane?.ntype === 'dock-vessel-placeholder';
+
+                state.body.removeAt(state.index, destroyPane, true);
+                state.bar.removeTabAt(state.index, true, true);
+
+                if ([...plans.values()].some(plan => plan.tab === state.tab)) {
+                    commitBars.add(state.bar)
+                }
             })
         });
 

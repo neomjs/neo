@@ -267,6 +267,13 @@ class Participation extends Base {
     ownedPreview = null
 
     /**
+     * The embodiment identity of each staged frame, as it was when the frame staged.
+     * @member {WeakMap<Object,Object>} #stagedIdentities
+     * @private
+     */
+    #stagedIdentities = new WeakMap()
+
+    /**
      * @summary Creates and registers the workspace's cross-window target with its owner seams bound.
      * @param {Object} config
      */
@@ -304,8 +311,8 @@ class Participation extends Base {
     /**
      * @summary Composes the shared preview renderer, indicator menu and gesture controller on first use.
      * Default targets own this complete tier; hosts supplying a preview seam retain their own visuals.
+     * A host's in-window drag seams resolve the same controller, so its window paints one preview tier.
      * @returns {Neo.dashboard.dock.interaction.DragAffordances|null}
-     * @protected
      */
     resolveAffordances() {
         if (this.affordances) return this.affordances;
@@ -341,11 +348,15 @@ class Participation extends Base {
 
     /**
      * @summary Identifies the exact target-local embodiment without re-deriving the native source.
+     *
+     * A staged frame answers with the identity it staged under. The dragged item can be a tab button the
+     * drop's own projection destroys before an async commit settles, and a destroyed component no longer
+     * names its item.
      * @param {Object} payload The licensed drag payload.
      * @returns {Object}
      */
     getDragEmbodimentIdentity(payload) {
-        return {itemId: payload?.draggedItem?.dockItemId,
+        return this.#stagedIdentities.get(payload) ?? {itemId: payload?.draggedItem?.dockItemId,
             sourceWindowId: payload?.sourceWindowId, targetWindowId: this.windowId}
     }
 
@@ -356,6 +367,8 @@ class Participation extends Base {
      * @protected
      */
     defaultStageDragEmbodiment(payload) {
+        payload && this.#stagedIdentities.set(payload, this.getDragEmbodimentIdentity(payload));
+
         return this.dragEmbodiment?.move({...payload, targetWindowId: this.windowId}) === true
     }
 
@@ -542,6 +555,8 @@ class Participation extends Base {
      * A registered popup owns its document even when empty; only vessels without a separate
      * participant use the admitting workspace's catalog. A registered multi-item vessel may expose
      * its complete model-resolved center stack as `dockGroupNodeId`; partial stacks fail closed.
+     * A registered popup drags what its document holds now: once the item it was opened for has left,
+     * its sole item, or its center stack's active item.
      * @param {String|Number} movingWindowId
      * @returns {Object|null}
      * @protected
@@ -559,12 +574,15 @@ class Participation extends Base {
         if (!match) return null;
 
         const
-            [itemId, entry] = match,
-            ownershipId     = me.ownershipId,
-            registered      = Boolean(me.workspaceSet?.has(entry.workspaceKey)),
-            sourceId        = registered ? entry.workspaceKey : me.workspaceId,
-            document        = registered ? me.workspaceSet.getDocument(sourceId) : workspace.dockModel,
-            itemIds         = Object.keys(document?.items ?? {});
+            [, entry]   = match,
+            ownershipId = me.ownershipId,
+            registered  = Boolean(me.workspaceSet?.has(entry.workspaceKey)),
+            sourceId    = registered ? entry.workspaceKey : me.workspaceId,
+            document    = registered ? me.workspaceSet.getDocument(sourceId) : workspace.dockModel,
+            itemIds     = Object.keys(document?.items ?? {}),
+            itemId      = !registered || document?.items?.[entry.itemId] ? entry.itemId
+                : itemIds.length === 1 ? itemIds[0]
+                : document.nodes?.[WorkspaceDocument.resolveStackRoot(document)]?.activeItemId ?? itemIds[0];
 
         if (registered && itemIds.length === 0) {
             return null

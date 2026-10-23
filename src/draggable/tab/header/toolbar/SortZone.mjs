@@ -113,8 +113,12 @@ class SortZone extends BaseSortZone {
         this.timeout(300).then(() => {
             let me      = this,
                 {owner} = me,
-                cls     = owner.cls || [];
+                cls;
 
+            // The drop's projection may have destroyed the toolbar meanwhile
+            if (!owner || owner.isDestroyed) return;
+
+            cls = owner.cls || [];
             NeoArray.remove(cls, 'neo-no-animation');
             owner.cls = cls
         });

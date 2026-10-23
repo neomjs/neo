@@ -1177,6 +1177,9 @@ class VdomLifecycle extends Base {
      * Every component that receives a vnode here, this one included, then gets {@link #afterVnodeSync} with the
      * deltas of the render that produced it.
      *
+     * An update that lands while this component is unmounted, by its own `unmount()` or an ancestor's, still hands out
+     * its vnodes, but mounts no child: their DOM is gone, and the next mount mounts them, so their mount hooks run again.
+     *
      * A child's mount runs subclass and app code (`afterSetMounted()`). One that throws is logged and the sync goes
      * on: the later children still get their vnodes, the unmount pass runs and this component adopts its own. After
      * an update, whose deltas are already in the DOM, stopping would make the next update insert those nodes again.
@@ -1208,7 +1211,8 @@ class VdomLifecycle extends Base {
         VNodeUtil.unlinkRetiredReferences(me.vnode);
 
         let vnodeMap           = VNodeUtil.createMap(me.vnode),
-            childComponentsSet = new Set(childComponents);
+            childComponentsSet = new Set(childComponents),
+            mountsChildren     = me.mounted || !deltas;
 
         // we need one separate iteration first to ensure all wrapper nodes get registered
         for (let i = 0, len = childComponents.length; i < len; i++) {
@@ -1236,7 +1240,7 @@ class VdomLifecycle extends Base {
                 component.vnodeInitialized = true;
 
                 try {
-                    component.mounted = true;
+                    if (mountsChildren) component.mounted = true;
                     component.afterVnodeSync(deltas)
                 } catch (error) {
                     console.error('syncVnodeTree: a mount hook failed', component.id, error)
@@ -1261,7 +1265,13 @@ class VdomLifecycle extends Base {
         // silent update
         me._vnode = vnode ? ComponentManager.addVnodeComponentReferences(vnode, me.id) : null;
 
-        vnode && me.afterVnodeSync(deltas);
+        if (vnode) {
+            me.afterVnodeSync(deltas)
+        } else {
+            // This flight rendered the component's own root away (`removeDom`), so its node left the DOM: it
+            // unmounts, as the children a parent's flight removes do in unmountRemovedChildren()
+            me.mounted = false
+        }
 
         debug && console.log('syncVnodeTree', me.id, performance.now() - start)
     }
@@ -1277,7 +1287,8 @@ class VdomLifecycle extends Base {
      * a node MOVED out of a removed parent in the same update — the worker emits its `removeNode`
      * deltas after every `moveNode` for exactly that reuse, and here the test runs at every depth,
      * so a moved descendant keeps its vnode and its mounted flag. Floating children (dialogs,
-     * popups) render outside their parent's node and are never tested.
+     * popups) render outside their parent's node and are not tested, unless their own vdom carries
+     * `removeDom`: a hidden floating item rendered inside this node left with this update.
      *
      * `mounted` is state tracking, not a DOM operation: the node is already gone, this records it.
      * A class whose children track their own presence can override this to narrow or skip the pass.
@@ -1295,7 +1306,7 @@ class VdomLifecycle extends Base {
             child = children[i];
 
             // cheapest test first: a present child (the common case) costs one Set lookup
-            if (!presentSet.has(child) && !vnodeMap.get(child.vdom.id) && !child.floating) {
+            if (!presentSet.has(child) && !vnodeMap.get(child.vdom.id) && (!child.floating || child.vdom.removeDom)) {
                 child._vnode  = null;
                 child.mounted = false;
 
@@ -1377,11 +1388,16 @@ class VdomLifecycle extends Base {
                     });
                 }
             }
+            else if (!vnode) {
+                // Every engine path that drops a vnode unmounts in the same step: this state is a breach to report
+                if (!me.isParentUpdating(parentId, resolve) && !me.isChildUpdating(resolve)) {
+                    console.error(`vdom update parked: "${me.id}" is mounted without a vnode, a state the engine should not leave. Nothing renders it from here, so this update and its promiseUpdate() wait for a render that reaches it. See https://github.com/neomjs/neo/issues/20043`)
+                }
+            }
             else {
                 if (
                     !me.isParentUpdating(parentId, resolve)
                     && !me.isChildUpdating(resolve)
-                    && vnode
                 ) {
                     // Check for merged child updates and adjust the update depth accordingly
                     // let adjustedDepth = VDomUpdate.getAdjustedUpdateDepth(me.id);

@@ -641,7 +641,7 @@ class DemoBWorkspace extends Container {
                 `Dock tear-out: "${itemId}" could not enter its admitted vessel; the pane ${reintegrated ? 'returned' : 'was NOT returned'}`, me.id
             ),
             onDocumentChange: (document, operation, vessel) => me.onTearOutDocumentChange(document, operation, vessel),
-            onPaneAdopted   : (itemId, entry, connection, isMerge) => me.recordDockPaneOwner(itemId, entry, connection, isMerge),
+            onPaneAdopted   : (itemId, entry, connection, isMerge, workspaceKey) => me.recordDockPaneOwner(itemId, entry, connection, isMerge, workspaceKey),
             onPaneReturn    : () => {},
             openVessel      : request => me.nativeWindows?.acquire(me.vesselSourceId, request) ?? null,
             reparentPane    : (pane, target, itemId) => me.reparentDockPane(pane, target, itemId),
@@ -2518,7 +2518,7 @@ class DemoBWorkspace extends Container {
 
                 for (let attempt = 0; attempt <= 120 && !me.isDestroyed; attempt++) {
                     let sourceDocument = me.getWorkspaceDocument(sourceWorkspaceId),
-                        entry          = me.nativeWindows?.getOwner(me.vesselSourceId, itemId);
+                        entry          = me.nativeWindows?.getOwner(me.vesselSourceId, me.resolveVesselKey(itemId));
 
                     detached = {
                         catalogRetained: !!sourceDocument?.items?.[itemId],
@@ -2760,7 +2760,7 @@ class DemoBWorkspace extends Container {
                 });
 
             // A stale record from a prior gesture would false-open the birth gate.
-            me.nativeWindows?.clearConnection(me.vesselSourceId, itemId);
+            me.nativeWindows?.clearConnection(me.vesselSourceId, me.resolveVesselKey(itemId));
 
             // Phase 1: own the native sensor + cross the LOCAL drag arming threshold (delay+distance).
             await me.interactionService.simulateEvent({events: [{
@@ -2844,7 +2844,7 @@ class DemoBWorkspace extends Container {
                 }]})
             }
 
-            let survivedProbe = Boolean(me.nativeWindows?.getConnection(me.vesselSourceId, itemId));
+            let survivedProbe = Boolean(me.nativeWindows?.getConnection(me.vesselSourceId, me.resolveVesselKey(itemId)));
 
             if (cancel) {
                 // Escape while detached (post-exit, pre-up) → processDragEnd(cancelled) →
@@ -2942,7 +2942,7 @@ class DemoBWorkspace extends Container {
         let me        = this,
             itemId    = vessel?.itemId,
             entry     = itemId ? me.resolveTearOutVessel(itemId) : null,
-            admission = itemId ? me.nativeWindows?.getAdmission(me.vesselSourceId, itemId) : null,
+            admission = itemId ? me.nativeWindows?.getAdmission(me.vesselSourceId, vessel.workspaceKey ?? me.resolveVesselKey(itemId)) : null,
             windowId  = entry?.windowId ?? admission?.windowId ?? admission?.connectingWindowId,
             route     = vessel?.nativeRoute ?? entry?.nativeRoute
                 ?? (windowId && Neo.manager?.Window?.get(windowId)?.nativeRoute)
@@ -2966,10 +2966,21 @@ class DemoBWorkspace extends Container {
      * @protected
      */
     hasTearOutVessel(itemId) {
-        let me = this;
+        let me  = this,
+            key = me.resolveVesselKey(itemId);
 
-        return Boolean(me.nativeWindows?.getConnection(me.vesselSourceId, itemId)
-            || me.nativeWindows?.getOwner(me.vesselSourceId, itemId))
+        return Boolean(me.nativeWindows?.getConnection(me.vesselSourceId, key)
+            || me.nativeWindows?.getOwner(me.vesselSourceId, key))
+    }
+
+    /**
+     * @summary Resolves the Group key of an item's tear-out vessel. Each vessel here holds the one item it
+     * was opened for, so the item's newest native record is its vessel.
+     * @param {String} itemId
+     * @returns {String|null}
+     */
+    resolveVesselKey(itemId) {
+        return this.nativeWindows?.keyOf(this.vesselSourceId, itemId) ?? null
     }
 
     /**
@@ -3200,7 +3211,7 @@ class DemoBWorkspace extends Container {
                 // The terminal won the race, so ownership was recorded before any window existed and
                 // names none. This binding is what finally names it: the record learns its window
                 // here, or a later disconnect cannot recognise the generation that died.
-                me.nativeWindows.recordOwner(me.vesselSourceId, itemId, connection, null, true);
+                me.nativeWindows.recordOwner(me.vesselSourceId, connection.workspaceKey, connection, null, true);
 
                 if (staged) {
                     me.tearOutEmbodiment.promote({itemId, windowId: connection.windowId})
@@ -3211,7 +3222,7 @@ class DemoBWorkspace extends Container {
             // A vessel that died before its terminal committed published nothing, so the maps a
             // reattach would consult do not know this window: the stage is restored and the gesture
             // is told its vessel retired. A committed item comes HOME instead.
-            released: ({committed, entry, itemId}) => {
+            released: ({committed, entry, itemId, workspaceKey}) => {
                 const windowId = entry?.windowId ?? entry?.connectingWindowId,
                       // A published connection carries the accepted generation; an admission carries
                       // only the window it was binding. Which one the release matched is what says
@@ -3220,7 +3231,7 @@ class DemoBWorkspace extends Container {
                       // `committed` describes the record the release MATCHED, not the item. Ownership
                       // recorded before its window bound is matched through the admission instead,
                       // and that item is every bit as committed — so ask the registry, not the match.
-                      owned     = committed || Boolean(me.nativeWindows.getOwner(me.vesselSourceId, itemId));
+                      owned     = committed || Boolean(me.nativeWindows.getOwner(me.vesselSourceId, workspaceKey));
 
                 if (me.tearOutEmbodiment.isStaged(itemId)) {
                     // A published vessel whose item has already left the source tree has no
@@ -3236,7 +3247,7 @@ class DemoBWorkspace extends Container {
                 if (owned) {
                     // Physical death withdraws ownership: a successor gesture must neither inherit
                     // the dead generation nor be blocked by it. The item comes HOME.
-                    me.nativeWindows.recordOwner(me.vesselSourceId, itemId, null);
+                    me.nativeWindows.recordOwner(me.vesselSourceId, workspaceKey, null);
                     return me.tearOutHandlers.reintegrateItem(itemId, null)
                 }
             }
@@ -3509,7 +3520,7 @@ class DemoBWorkspace extends Container {
             descriptor     : operation,
             preserveItemIds: me.tearOutEmbodiment.isStaged(itemId) ? [] : [itemId]
         });
-        me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows?.getConnection(me.vesselSourceId, itemId) ?? null)
+        me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows?.getConnection(me.vesselSourceId, vessel?.workspaceKey) ?? null)
     }
 
     /**
@@ -3862,8 +3873,23 @@ class DemoBWorkspace extends Container {
      */
     resolveTearOutVessel(itemId) {
         return NativeVesselTransaction.resolveVessel({
-            nativeWindows: this.nativeWindows, sourceId: this.vesselSourceId, windowNameFor: id => `tearout-${id}`
+            nativeWindows: this.nativeWindows, sourceId: this.vesselSourceId, windowNameFor: (id, key) => this.vesselWindowName(id, key)
         }, itemId)
+    }
+
+    /**
+     * @summary The semantic name of a tear-out vessel's window: `tearout-<itemId>`, plus the suffix its Group
+     * key was minted with when the item's preferred key was taken. Two live vessels never share a name,
+     * which `Main#windowOpen` would answer by reusing the first one's window.
+     * @param {String} itemId
+     * @param {String} [workspaceKey]
+     * @returns {String}
+     * @protected
+     */
+    vesselWindowName(itemId, workspaceKey) {
+        const preferred = `popup:${itemId}`;
+
+        return `tearout-${itemId}${workspaceKey?.startsWith(preferred) ? workspaceKey.slice(preferred.length) : ''}`
     }
 
     /**
@@ -3890,7 +3916,7 @@ class DemoBWorkspace extends Container {
     async openTearOutVessel({itemId, proxyRect, topologyIdentity}) {
         let me         = this,
             {windowId} = me,
-            windowName = `tearout-${itemId}`;
+            windowName = me.vesselWindowName(itemId, topologyIdentity?.workspaceKey);
 
         // Admission is the caller's: this effect is only ever reached through `acquire`, which has
         // already retried pending retirements, reserved the slot and minted the identity below. An
@@ -3945,7 +3971,7 @@ class DemoBWorkspace extends Container {
             ownerWindowId: me.windowId,
             sourceId     : me.vesselSourceId,
             sourceOwns   : itemId => Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
-            windowNameFor: itemId => `tearout-${itemId}`
+            windowNameFor: (itemId, workspaceKey) => me.vesselWindowName(itemId, workspaceKey)
         }, vessel)
     }
 
@@ -3958,9 +3984,10 @@ class DemoBWorkspace extends Container {
      * @param {Object|null} entry The admitted identity for terminal-first adoption, or null to withdraw.
      * @param {Object|null} [connection=null] The bound vessel connection, when one arrived first.
      * @param {Boolean} [isMerge=false] Fold into the existing record instead of replacing it.
+     * @param {String} [workspaceKey] The vessel whose record changes.
      * @protected
      */
-    recordDockPaneOwner(itemId, entry, connection=null, isMerge=false) {
+    recordDockPaneOwner(itemId, entry, connection=null, isMerge=false, workspaceKey=entry?.workspaceKey ?? connection?.workspaceKey) {
         let me = this;
 
         if (!me.nativeWindows) {
@@ -3969,7 +3996,7 @@ class DemoBWorkspace extends Container {
         }
 
         if (isMerge || entry === null) {
-            me.nativeWindows.recordOwner(me.vesselSourceId, itemId, entry, null, isMerge);
+            me.nativeWindows.recordOwner(me.vesselSourceId, workspaceKey, entry, null, isMerge);
             return
         }
 
@@ -3977,11 +4004,14 @@ class DemoBWorkspace extends Container {
         // owns an as-yet-unbound window, so the record names the generation and leaves `windowId`
         // for the binding to fill. Passing the connection is what makes the write single-owner:
         // committed disconnects match ownership from here on, never the pre-terminal connect branch.
-        me.nativeWindows.recordOwner(me.vesselSourceId, itemId, connection ? {...connection} : {
+        const key = workspaceKey ?? `popup:${itemId}`;
+
+        me.nativeWindows.recordOwner(me.vesselSourceId, key, connection ? {...connection, itemId, workspaceKey: key} : {
             generationToken: entry.generationToken ?? null,
+            itemId,
             windowId       : null,
-            windowName     : `tearout-${itemId}`,
-            workspaceKey   : entry.workspaceKey ?? `popup:${itemId}`
+            windowName     : entry.windowName ?? `tearout-${itemId}`,
+            workspaceKey   : key
         }, connection)
     }
 

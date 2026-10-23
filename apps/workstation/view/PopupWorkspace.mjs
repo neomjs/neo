@@ -91,12 +91,23 @@ class PopupWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Publishes the Workspace's semantic identity to its projected drag sources.
+     * @summary Projects the Group's drag contract onto this popup's strips, so a tab dragged here docks and
+     * tears out as one dragged in main does: the root's tear-out machine, this popup's boundary and identity,
+     * and drop previews from the one controller its participation composes. The whole-stack drag is its own.
      * @returns {Object}
      */
     getDockProjectionOptions() {
-        return {...super.getDockProjectionOptions(), workspaceId: this.workspaceKey,
-            crossWindowSortGroup: this.rootWorkspace.constructor.CROSS_WINDOW_SORT_GROUP, enableStackDrag: true}
+        const me = this;
+
+        return {
+            ...super.getDockProjectionOptions(),
+            ...me.rootWorkspace.getDockDragContract({
+                affordances        : () => me.participation?.resolveAffordances(),
+                boundaryContainerId: me.id,
+                workspaceId        : me.workspaceKey
+            }),
+            enableStackDrag: true
+        }
     }
 
     /**
@@ -191,8 +202,9 @@ class PopupWorkspace extends DockWorkspace {
      * @description A failed render rejects like a destruction does, but the pane survives it: the failure is
      * reported and the layer still comes off. A window that leaves is no failure: the worker rejects a frame in
      * flight when it retires that window's port (`PortDisconnectedError`), and a frame sent after the port is
-     * gone with that window's dead-port departure ({@link Neo.worker.Base#isDeparture}). Only a destroyed pane
-     * is left alone.
+     * gone with that window's dead-port departure ({@link Neo.worker.Base#isDeparture}). A frame merged into an
+     * ancestor's flight settles with the destroy sentinel when the leaving window's tree destroys that ancestor.
+     * Only a destroyed pane is left alone.
      * @param {Neo.component.Base|null} pane
      * @returns {Promise<void>}
      * @protected
@@ -208,7 +220,7 @@ class PopupWorkspace extends DockWorkspace {
             await pane.promiseUpdate()
         } catch (error) {
             if (pane.isDestroyed) return;
-            error?.name === 'PortDisconnectedError' || Neo.currentWorker.isDeparture(error)
+            error === Neo.isDestroyed || error?.name === 'PortDisconnectedError' || Neo.currentWorker.isDeparture(error)
                 || console.error('PopupWorkspace: the landed pane\'s repaint render failed', error)
         }
 

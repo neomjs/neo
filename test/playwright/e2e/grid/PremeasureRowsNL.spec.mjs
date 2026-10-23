@@ -82,20 +82,26 @@ test.describe('Grid native hidden premeasurement', () => {
         await expect.poll(() => page.locator(`${GRID} .neo-grid-cell[data-field="text"]`).filter({visible: true})
             .first().evaluate(cell => cell.getBoundingClientRect().width)).toBe(213.5);
         await app.callMethod(viewId, 'resetRowHeights');
-        const hidden = page.locator(`${GRID} .neo-grid-row-measure .neo-grid-cell[data-field="text"] .neo-grid-cell-text`).first();
-        await hidden.waitFor({state: 'attached'});
-        await expect.poll(() => hidden.evaluate(text => text.parentElement.getBoundingClientRect().width)).toBe(213.5);
-        const sample = await hidden.evaluate(text => ({
-            index   : Number(text.closest('.neo-grid-row').dataset.measureIndex),
-            recordId: text.parentElement.dataset.recordId,
-            height  : text.getBoundingClientRect().height,
-            width   : text.parentElement.getBoundingClientRect().width,
-            html    : text.innerHTML
-        }));
+        // The reset retires the hidden projection and measures the rows it mounts where they show, which can leave
+        // the nearby rows nothing to premeasure. Rows past its first window are new to it on every timing.
+        await app.callMethod(viewId, 'scrollByRows', [0, 100]);
+        // Passes replace the projection while the scroll settles: one snapshot pins a cell, and the poll ends when
+        // that cell sits at the new width and the geometry accepted its record's height.
+        let sample;
+        await expect.poll(async () => {
+            sample = await page.evaluate(grid => {
+                const text = document.querySelector(`${grid} .neo-grid-row-measure .neo-grid-cell[data-field="text"] .neo-grid-cell-text`);
+                return text && {
+                    index   : Number(text.closest('.neo-grid-row').dataset.measureIndex),
+                    recordId: text.parentElement.dataset.recordId,
+                    height  : text.getBoundingClientRect().height,
+                    width   : text.parentElement.getBoundingClientRect().width,
+                    html    : text.innerHTML
+                }
+            }, GRID);
+            return Boolean(sample) && sample.width === 213.5 && await app.callMethod(geometryId, 'hasHeight', [sample.recordId])
+        }, {message: 'a hidden pass measures a record at the new width'}).toBe(true);
         expect(Number.isFinite(sample.index)).toBe(true);
-        expect(sample.width).toBe(213.5);
-        // Attachment precedes the main-thread read and its acceptance by the geometry.
-        await expect.poll(() => app.callMethod(geometryId, 'hasHeight', [sample.recordId])).toBe(true);
         await app.callMethod(viewId, 'promiseUpdate');
         // Known mounted fields are deliberately omitted from the hidden pass. Display this same hidden record next.
         await app.callMethod(viewId, 'scrollByRows', [0, sample.index]);

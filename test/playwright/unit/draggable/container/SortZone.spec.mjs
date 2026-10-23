@@ -8,14 +8,15 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../src/Neo.mjs';
-import * as core       from '../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../src/manager/Instance.mjs';
-import VdomHelper      from '../../../../../src/vdom/Helper.mjs';
-import Container       from '../../../../../src/container/Base.mjs';
-import SortZone        from '../../../../../src/draggable/container/SortZone.mjs';
-import Rectangle       from '../../../../../src/util/Rectangle.mjs';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../../src/Neo.mjs';
+import * as core         from '../../../../../src/core/_export.mjs';
+import InstanceManager   from '../../../../../src/manager/Instance.mjs';
+import VdomHelper        from '../../../../../src/vdom/Helper.mjs';
+import Container         from '../../../../../src/container/Base.mjs';
+import SortZone          from '../../../../../src/draggable/container/SortZone.mjs';
+import TabHeaderSortZone from '../../../../../src/draggable/tab/header/toolbar/SortZone.mjs';
+import Rectangle         from '../../../../../src/util/Rectangle.mjs';
 
 /**
  * @summary Handle membership keeps the owning item sortable without making its body a native
@@ -166,6 +167,48 @@ test.describe('Neo.draggable.container.SortZone', () => {
         expect(sortZone.sortableItems[2].id).toBe('btnD');
     });
 
+    test('excludes unrendered overflow-withheld items from sortableItems while preserving getDraggableItems membership', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const [btnA, btnB, , , btnD] = container.items;
+
+        // Simulate tab-overflow withholding btnD from the DOM (hidden: true, vdom.removeDom: true)
+        btnD.hidden         = true;
+        btnD.vdom.removeDom = true;
+
+        let measuredIds = [];
+        Container.prototype.getDomRect = ids => {
+            measuredIds = ids;
+            return Promise.resolve(ids.map((id, idx) => new Rectangle(
+                idx === 0 ? 400 : 400 + (idx - 1) * 110,
+                120,
+                idx === 0 ? 300 : 100,
+                32
+            )))
+        };
+
+        sortZone.adjustItemRectsToParent = true;
+
+        expect(sortZone.getDraggableItems().map(item => item.id), 'draggable membership keeps withheld items for class marking').toEqual([
+            'btnA', 'btnB', 'btnD'
+        ]);
+        expect(sortZone.getSortableItems().map(item => item.id), 'active sort snapshot admits only rendered items').toEqual([
+            'btnA', 'btnB'
+        ]);
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnB', cls: ['neo-draggable'], rect: {left: 510, top: 120, width: 100, height: 32}}]
+        });
+
+        expect(measuredIds, 'unmounted overflow items are never queried via getDomRect').toEqual([
+            container.id, 'btnA', 'btnB'
+        ]);
+        expect(sortZone.sortableItems.map(item => item.id)).toEqual(['btnA', 'btnB']);
+        expect(sortZone.startIndex).toBe(1);
+        expect(btnD.wrapperStyle?.position, 'withheld item receives no absolute drag wrapperStyle').toBeUndefined()
+    });
+
     test('Correctly moves item from end to start (skipping non-sortables)', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         sortZone = container.sortZone;
@@ -278,6 +321,69 @@ test.describe('Neo.draggable.container.SortZone', () => {
             expect(sortZone.dragFocusOwner).toBeNull();
             await sortZone.onDragEnd({});
             expect(calls, 'an item that never had focus is not focused').toEqual([])
+        } finally {
+            Neo.main.DomAccess.focus = realFocus
+        }
+    });
+
+    test('the focus restore waits until the re-shown item has rendered, however long its update takes', async () => {
+        await expect.poll(() => container.sortZone).toBeTruthy();
+        sortZone = container.sortZone;
+
+        const
+            realFocus = Neo.main.DomAccess.focus,
+            events    = [],
+            [btnA]    = container.items;
+
+        let land, requested;
+        const updateRequested = new Promise(resolve => {requested = resolve});
+
+        Neo.main.DomAccess.focus = data => events.push(`focus ${data.id}`);
+
+        try {
+            btnA.containsFocus = true;
+            await sortZone.onDragStart({path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]});
+
+            // A loaded main thread: the re-show renders only when this arm lands it, long after the frame wait
+            btnA.promiseUpdate = () => {
+                requested();
+                return new Promise(resolve => {land = () => {events.push('re-shown'); resolve()}})
+            };
+
+            const ended = sortZone.onDragEnd({});
+
+            await Promise.race([ended, updateRequested]);
+            expect(events, 'nothing is focused while the item is still hidden').toEqual([]);
+
+            land();
+            await ended;
+            expect(events).toEqual(['re-shown', 'focus btnA'])
+        } finally {
+            Neo.main.DomAccess.focus = realFocus
+        }
+    });
+
+    test('an item whose re-show fails to render gets no focus, and the drag still ends', async () => {
+        await expect.poll(() => container.sortZone).toBeTruthy();
+        sortZone = container.sortZone;
+
+        const
+            realFocus = Neo.main.DomAccess.focus,
+            calls     = [],
+            [btnA]    = container.items;
+
+        Neo.main.DomAccess.focus = data => calls.push(data);
+
+        try {
+            btnA.containsFocus = true;
+            await sortZone.onDragStart({path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]});
+            btnA.promiseUpdate = () => Promise.reject(new Error('flight failed'));
+
+            await sortZone.onDragEnd({});
+
+            expect(calls).toEqual([]);
+            expect(sortZone.dragFocusOwner).toBeNull();
+            expect(sortZone.dragProxy, 'the terminal still ran').toBeNull()
         } finally {
             Neo.main.DomAccess.focus = realFocus
         }
@@ -706,4 +812,80 @@ test.describe('SortZone switchItems gap math', () => {
             owner.destroy()
         }
     });
+});
+
+/**
+ * @summary A drag end restores nothing onto components the drop destroyed meanwhile.
+ *
+ * A drop that re-projects the source can destroy the zone's owner and items while the drag-end latch waits.
+ * A destroyed component no longer owns a vdom, so a restore written onto it reached the vdom template its
+ * class shares with every later instance: closing a popup after such a drop rebuilt main's dock shell from
+ * containers that all started `flex: none`.
+ */
+test.describe('SortZone drag end after the drop destroyed the owner', () => {
+    /**
+     * @summary A stand-in component whose setters record what a restore writes onto it.
+     * @param {String}  id
+     * @param {Array}   writes
+     * @param {Boolean} isDestroyed
+     * @returns {Object}
+     */
+    function spyComponent(id, writes, isDestroyed) {
+        const component = {dragResortable: true, id, isDestroyed};
+
+        ['cls', 'style', 'wrapperStyle'].forEach(key => Object.defineProperty(component, key, {
+            get: () => key === 'cls' ? ['neo-no-animation'] : {},
+            set: () => writes.push(`${id}.${key}`)
+        }));
+
+        return component
+    }
+
+    /**
+     * @summary A zone at the end of a two-item drag that sorted nothing.
+     * @param {Boolean} destroyed Whether the owner, the items and the dragged item are destroyed
+     * @returns {{writes: String[], zone: Object}}
+     */
+    function endedZone(destroyed) {
+        const writes = [],
+              items  = [spyComponent('tab-0', writes, destroyed), spyComponent('tab-1', writes, destroyed)];
+
+        return {writes, zone: {
+            currentIndex  : 0,
+            dragComponent : items[0],
+            dragEnd       : () => {},
+            dragFocusOwner: null,
+            itemStyles    : [{}, {}],
+            owner         : spyComponent('toolbar', writes, destroyed),
+            ownerStyle    : {height: null, minWidth: null, position: null, width: null},
+            sortableItems : items,
+            startIndex    : 0,
+            timeout       : () => Promise.resolve(),
+            traceEvent    : () => {}
+        }}
+    }
+
+    test('a destroyed owner, its items and the dragged item take no restore; live ones do', async () => {
+        const destroyed = endedZone(true),
+              live      = endedZone(false);
+
+        await SortZone.prototype.processDragEnd.call(destroyed.zone, {cancelled: false});
+        await SortZone.prototype.processDragEnd.call(live.zone,      {cancelled: false});
+
+        expect(destroyed.writes, 'nothing is written onto destroyed components').toEqual([]);
+        expect(live.writes, 'the control: a live owner and live items get their styles back')
+            .toEqual(['toolbar.style', 'tab-0.wrapperStyle', 'tab-1.wrapperStyle', 'tab-0.wrapperStyle'])
+    });
+
+    test('a tab header drag end leaves a destroyed toolbar\'s cls alone; a live one loses its no-animation cls', async () => {
+        const destroyed = endedZone(true),
+              live      = endedZone(false);
+
+        await TabHeaderSortZone.prototype.processDragEnd.call(destroyed.zone, {cancelled: false});
+        await TabHeaderSortZone.prototype.processDragEnd.call(live.zone,      {cancelled: false});
+        await Promise.resolve();
+
+        expect(destroyed.writes, 'nothing is written onto destroyed components').toEqual([]);
+        expect(live.writes, 'the control: the live toolbar gets its cls written').toContain('toolbar.cls')
+    })
 });

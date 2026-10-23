@@ -59,13 +59,43 @@ test.describe('buildScripts/util/claimResponse', () => {
             }
         });
 
+        test('participle-lead, progressive and #N / row-target contributor claims are claims', () => {
+            for (const body of [
+                "I'll take the `examples/layout/form` row: the leftover `child` in `src/layout/Form.mjs`'s `applyChildAttributes`, with a unit test.",
+                "I'll also take the `examples/component/wrapper/openStreetMaps` row, as a separate PR: ...",
+                'Dude i am taking the examples/calendar/weekview row for now.',
+                'Claiming #19930. Working on the calendar/weekview fix.',
+                "I'm starting work on #19931: reproduce the selector-container failure, keep day-view initialization safe while its bound formatter is unavailable, and verify the regression in the unit tier and the rendered example.",
+                'Claiming #19933. Working on the popover fix in `afterSetIsVnodeInitializing`.',
+                'Claiming this one, so nobody duplicates the work.'
+            ]) {
+                expect(isClaim(body), body).toBe(true)
+            }
+        });
+
         test("the assignee's thank-you is not a claim, although it says \"work on the fix\" and quotes \"it's yours\"", () => {
             expect(isClaim(assigneeThanks.body)).toBe(false);
             expect(claimText(assigneeThanks.body)).not.toContain("it's yours")
         });
 
         test('questions, refusals and code are not claims', () => {
-            for (const body of ['How do I run only my spec?', 'Is this still available?', "I don't want to work on this, just a note.", '```\n// I\'d like to work on this\n```']) {
+            for (const body of [
+                'How do I run only my spec?',
+                'Is this still available?',
+                'Is anyone claiming this?',
+                'Are you taking #19930?',
+                "I don't want to work on this, just a note.",
+                "I'm starting the dev server with `npm run server-start` and the weekview throws a TypeError.",
+                "I'm starting the example in Firefox and the popover never opens.",
+                'I am taking the same steps as in the description and it still fails on dev.',
+                "I'll take the feedback into account.",
+                'Let me take the screenshot again, the first one was blurry.',
+                'Taking the example from the docs, I get this error:',
+                'Picking up the thread from yesterday: the bug still reproduces on dev.',
+                "I'm handling the same error in my own app; here is the stack trace.",
+                "I'm working on the docs side of this in another repo, not the fix.",
+                '```\n// I\'d like to work on this\n```'
+            ]) {
                 expect(isClaim(body), body).toBe(false)
             }
         });
@@ -140,10 +170,12 @@ test.describe('buildScripts/util/claimResponse', () => {
 
         test(`an unassigned earlier claim holds for ${CLAIM_WINDOW_DAYS} days, then lapses`, () => {
             const
-                recent = comment('newcomer', '2026-09-26T15:00:00Z', 'Can I take this?'),
-                late   = comment('newcomer', '2026-10-01T15:41:00Z', 'Can I take this?');
+                participleClaim = comment('participle-claimant', '2026-09-25T12:00:00Z', 'Claiming #19143. Working on the fix.'),
+                recent          = comment('newcomer', '2026-09-26T15:00:00Z', 'Can I take this?'),
+                late            = comment('newcomer', '2026-10-01T15:41:00Z', 'Can I take this?');
 
             expect(decideReply({comment: recent, comments: [firstClaim, recent], issue: gfiIssue(), candidates: CANDIDATES, repoUrl: REPO_URL})).toContain('This one is taken: [first-claimant](https://github.com/first-claimant) asked first.');
+            expect(decideReply({comment: recent, comments: [participleClaim, recent], issue: gfiIssue(), candidates: CANDIDATES, repoUrl: REPO_URL})).toContain('This one is taken: [participle-claimant](https://github.com/participle-claimant) asked first.');
             expect(decideReply({comment: late, comments: [firstClaim, late], issue: gfiIssue(), repoUrl: REPO_URL})).toContain("You're first in line")
         });
 

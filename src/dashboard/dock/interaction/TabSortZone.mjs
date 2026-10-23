@@ -64,7 +64,10 @@ class TabSortZone extends TabHeaderSortZone {
          */
         ntype: 'dock-tab-sortzone',
         /**
-         * The dock item ids this toolbar projects, in tab-button order. `startIndex` indexes into this.
+         * The dock item ids this toolbar projects, in tab-button order. `startIndex` indexes the
+         * overflow-filtered `sortableItems` snapshot rather than full tab-button order, so
+         * {@link #resolveDraggedItemId} resolves the dragged button's id by its position in
+         * `owner.getTabButtons()`.
          * @member {String[]|null} dockItemIds=null
          */
         dockItemIds: null,
@@ -105,7 +108,8 @@ class TabSortZone extends TabHeaderSortZone {
          * as a within-toolbar gesture (the base reorder applies). A release farther out than this
          * on any side is dock-gesture territory: the tracked reorder is voided so the cross-zone
          * drop owns the outcome. Orientation-independent — it pads the measured toolbar rect, not
-         * an axis-derived span. Per-app / per-instance tunable like any Neo config.
+         * an axis-derived span. Per-app / per-instance tunable like any Neo config. The hover parks
+         * the reorder on the same band ({@link #updateReorderPark}).
          * @member {Number} dockReleaseTolerance=32
          */
         dockReleaseTolerance: 32,
@@ -117,6 +121,11 @@ class TabSortZone extends TabHeaderSortZone {
          * @member {String|null} sortGroup=null
          */
         sortGroup: null,
+        /**
+         * Enables dock cross-zone targeting and cross-window coordinator feeds for drags starting here.
+         * @member {Boolean} enableCrossZoneDrag=true
+         */
+        enableCrossZoneDrag: true,
         /**
          * Opts this source into handing a claimed frame to the claiming window
          * ({@link #resolveRemoteDragTransition}): that window embodies the drag as this source's
@@ -194,6 +203,21 @@ class TabSortZone extends TabHeaderSortZone {
     }
 
     /**
+     * @summary Resolves the dock catalog item id for the active tab drag across overflow-filtered `sortableItems`.
+     * @returns {String|null}
+     * @protected
+     */
+    resolveDraggedItemId() {
+        let me       = this,
+            tabIndex = me.owner?.getTabButtons?.()?.indexOf(me.dragComponent) ?? -1;
+
+        return (tabIndex > -1 ? me.dockItemIds?.[tabIndex] : null)
+            ?? me.dragComponent?.dockItemId
+            ?? me.dockItemIds?.[me.startIndex]
+            ?? null
+    }
+
+    /**
      * Re-fires the inherited `dragBoundaryEntry` (the drag re-entered the source window past the
      * reattach threshold — the base already restored the in-window proxy state) as
      * `dockTearOutEntry` on the owner tab.Container. The host's handler closes its vessel and
@@ -203,7 +227,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     onDockBoundaryEntry(data) {
         let me     = this,
-            itemId = me.dockItemIds?.[me.startIndex];
+            itemId = me.resolveDraggedItemId();
 
         me.owner?.up?.()?.fire('dockTearOutEntry', {
             ...data, itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId
@@ -221,7 +245,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     onDockBoundaryExit(data) {
         let me     = this,
-            itemId = me.dockItemIds?.[me.startIndex];
+            itemId = me.resolveDraggedItemId();
 
         me.owner?.up?.()?.fire('dockTearOutExit', {
             ...data, itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId, sourceRect: me.dockSourceCardRect ?? null
@@ -299,12 +323,13 @@ class TabSortZone extends TabHeaderSortZone {
      * @param {Boolean} frame.pointerInTarget
      * @returns {{engage: Boolean, proxyRect: (Object|undefined)}|null} An engaged record carries the
      *     target proxy's extent ({@link #getVesselConversionProxyRect}); `null` leaves a claim-free frame
-     *     to the source or the void, and keeps the generic coordinator path for a source that did not opt in.
+     *     to the source or the void, and keeps the generic coordinator path for a source that did not opt in
+     *     and for a whole-stack drag, which never rides a vessel and so has nothing to convert.
      */
     resolveRemoteDragTransition({draggedItem, pointerInTarget} = {}) {
         let me = this;
 
-        if (!me.enableVesselConversion || pointerInTarget !== true) {
+        if (!me.enableVesselConversion || me.stackDragActive || pointerInTarget !== true) {
             return null
         }
 
@@ -452,7 +477,8 @@ class TabSortZone extends TabHeaderSortZone {
 
         if (item) {
             delete item.dockGroupNodeId;
-            item.dockItemId            = me.dockItemIds?.[me.startIndex] ?? null;
+            delete item.dockItemId;
+            item.dockItemId            = me.resolveDraggedItemId();
             item.dockSourceOwnershipId = me.resolveSourceOwnershipId();
             item.dockSourceWorkspaceId = me.dockWorkspaceId
         }
@@ -482,8 +508,8 @@ class TabSortZone extends TabHeaderSortZone {
     }
 
     /**
-     * The release-boundary decision {@link #processDragEnd} consumes: a release farther than
-     * {@link #dockReleaseTolerance} beyond the source toolbar's REAL bounds (any side, any
+     * The release-boundary decision {@link #processDragEnd} consumes and {@link #updateReorderPark}
+     * previews per move: a release farther than {@link #dockReleaseTolerance} beyond the source toolbar's REAL bounds (any side, any
      * orientation) is dock-gesture territory — the within-toolbar reorder the pointer's PATH
      * recorded while crossing sibling buttons is geometrically void there. Left unvoided, the
      * base commit re-adds the item to its source zone and silently reverts the cross-zone commit
@@ -554,7 +580,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     async onDragCancel(data={}) {
         let me     = this,
-            itemId = me.dockItemIds?.[me.startIndex];
+            itemId = me.resolveDraggedItemId();
 
         if (me.isWindowDragging && itemId) {
             me.owner?.up?.()?.fire('dockTearOutCancel', {itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId})
@@ -591,7 +617,7 @@ class TabSortZone extends TabHeaderSortZone {
      */
     async processDragEnd(data) {
         let me     = this,
-            itemId = me.dockItemIds?.[me.startIndex],
+            itemId = me.resolveDraggedItemId(),
             // Resolve the tab.Container + fire BEFORE super: the base drag-end tears down the owner linkage
             // AND its within-reorder commit can trigger a deferred re-projection that destroys this tab
             // container — firing after super would land on a dead component. Same node whose `moveTo`
@@ -602,7 +628,7 @@ class TabSortZone extends TabHeaderSortZone {
         let commitError = null;
 
         try {
-            if (me.sortGroup && me.dragComponent) {
+            if (me.enableCrossZoneDrag !== false && me.sortGroup && me.dragComponent) {
                 const completion = me.dragCoordinator?.[data.cancelled ? 'onDragCancel' : 'onDragEnd']({
                     draggedItem   : me.dragComponent,
                     sourceSortZone: me
@@ -654,13 +680,13 @@ class TabSortZone extends TabHeaderSortZone {
             return
         }
 
-        if (!data.cancelled && me.releaseVoidsReorder(data || {})) {
+        if (!data.cancelled && me.enableCrossZoneDrag !== false && me.releaseVoidsReorder(data || {})) {
             me.currentIndex = me.startIndex
         }
 
         if (data.cancelled) {
             me.remoteDropCommitted = false;
-            itemId && tabContainer?.fire('dockCrossZoneDragCancel', {itemId, sourceNodeId: me.dockSourceNodeId})
+            me.enableCrossZoneDrag !== false && itemId && tabContainer?.fire('dockCrossZoneDragCancel', {itemId, sourceNodeId: me.dockSourceNodeId})
         } else if (!commitError && me.remoteDropCommitted) {
             me.remoteDropCommitted = false
         } else if (me.isWindowDragging && !me.isReleasedInside(data)) {
@@ -675,7 +701,7 @@ class TabSortZone extends TabHeaderSortZone {
             // detached too), so that preview is the drop. The vessel retires first, as on any re-entry.
             me.isWindowDragging && me.fire('dragBoundaryEntry', {draggedItem: me.dragComponent, proxyRect: null, sortZone: me});
 
-            if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
+            if (me.enableCrossZoneDrag !== false && itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
                 tabContainer.fire('dockCrossZoneDrop', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
             }
         }
@@ -697,7 +723,7 @@ class TabSortZone extends TabHeaderSortZone {
      * Cross-window gestures additionally feed {@link Neo.manager.DragCoordinator#onDragMove} in
      * screen space (the base chain has no coordinator delegation of its own): the coordinator
      * arbitrates registered remote targets from this signal and drives the suspend / resume /
-     * remote-hover hooks back into this zone. Gated on {@link #sortGroup}; the `proxyRect` gate
+     * remote-hover hooks back into this zone. Gated on {@link #enableCrossZoneDrag} and {@link #sortGroup}; the `proxyRect` gate
      * matters too — the move payload carries one exactly while a live drag proxy exists.
      * @param {Object} data
      */
@@ -711,7 +737,7 @@ class TabSortZone extends TabHeaderSortZone {
         // ordered move-before-end regardless of the base suspension. Screen-space engagement is
         // independent of the base's local sort result. `dragCoordinator` is preloaded at
         // {@link #construct}, so this is a synchronous field read, never a drag-time import.
-        if (me.sortGroup && me.dragComponent && data?.proxyRect && Neo.isNumber(data.screenX)) {
+        if (me.enableCrossZoneDrag !== false && me.sortGroup && me.dragComponent && data?.proxyRect && Neo.isNumber(data.screenX)) {
             const coordinatorFrame = {
                 draggedItem: me.dragComponent,
                 offsetX    : data.offsetX,
@@ -735,14 +761,51 @@ class TabSortZone extends TabHeaderSortZone {
             return
         }
 
+        me.updateReorderPark(data);
+
         await super.onDragMove(data);
 
-        let itemId             = me.dockItemIds?.[me.startIndex],
+        let itemId             = me.resolveDraggedItemId(),
             tabContainer       = me.owner?.up?.(),
             {clientX, clientY} = data || {};
 
-        if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
+        if (me.enableCrossZoneDrag !== false && itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
             tabContainer.fire('dockCrossZoneDragMove', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
+        }
+    }
+
+    /**
+     * @summary Parks the reorder while the pointer is beyond the release band, so the hover shows what the release will do.
+     *
+     * Entering dock-gesture territory ({@link #releaseVoidsReorder}) walks the tracked switches back to the resting
+     * order and arms {@link Neo.draggable.container.SortZone#isReorderParked}; back inside the band the reorder
+     * resumes from the live pointer. A strip without dock participation ({@link #enableCrossZoneDrag} `false`)
+     * never parks: like a plain tab strip, it follows a loose hand.
+     * @param {Object} data The drag-move payload
+     * @protected
+     */
+    updateReorderPark(data) {
+        let me     = this,
+            parked = me.enableCrossZoneDrag !== false && Boolean(me.itemRects) && me.releaseVoidsReorder(data);
+
+        if (parked === me.isReorderParked) {
+            return
+        }
+
+        me.isReorderParked = parked;
+        me.traceEvent({t: parked ? 'park' : 'unpark', x: data.clientX, y: data.clientY});
+
+        if (parked) {
+            // Neither an over-drag's auto-scroll loop nor the duplicate-move guard may outlive the reorder this park voids
+            me.isOverDragging = false;
+            me.lastInBoundX   = me.lastInBoundY = null;
+
+            while (me.currentIndex !== me.startIndex) {
+                let index = me.currentIndex;
+
+                me.currentIndex += index > me.startIndex ? -1 : 1;
+                me.switchItems(index, me.currentIndex)
+            }
         }
     }
 

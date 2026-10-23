@@ -712,13 +712,16 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
                 try {
                     const cursors = await candidate.locator('.film-cursor').evaluateAll(nodes => nodes.map(node => {
+                        // The terminal can retire a dot between the locator's query and this read: it was there, but has no paint to judge
+                        if (!node.isConnected) return null;
+
                         const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
                         return rect.width === 16 && rect.height === 16
                             && style.position === 'fixed' && style.pointerEvents === 'none'
                             && style.backgroundColor === 'rgba(255, 90, 0, 0.92)' && style.boxShadow !== 'none'
                     }));
                     count = cursors.length;
-                    unpainted = cursors.filter(painted => !painted).length
+                    unpainted = cursors.filter(painted => painted === false).length
                 } catch {
                     // A popup may close between the page census and its DOM query.
                 }

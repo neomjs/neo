@@ -132,6 +132,7 @@ test.describe('Workstation — a re-opened popup returns home and closes', () =>
         await popup.close({runBeforeUnload: true});
         await expect.poll(() => holdersOf(context.app, context.wsId), {message: 'closing the popup returns its pane'})
             .toEqual([MAIN]);
+        await expect(page.locator(`#${context.paneId}`), 'main shows the returned pane before Undo').toBeVisible({timeout: 30000});
 
         const undo     = page.getByRole('button', {name: /^Undo/}).first(),
               reopened = page.waitForEvent('popup', {timeout: 30000});
@@ -142,6 +143,13 @@ test.describe('Workstation — a re-opened popup returns home and closes', () =>
         const window = await reopened;
 
         await expect(window.locator(`#${context.paneId}`), 'the re-opened popup shows its pane').toBeVisible({timeout: 30000});
+
+        // The closed popup's strip keeps its button while its projection waits for the remount; Undo must
+        // retire it rather than pair the returning pane beside it, which shows two headers.
+        const vessel = (await context.app.callMethod(context.wsId, 'controller.getTopologyState')).snapshot.participants[VESSEL];
+
+        await expect(window.locator('.neo-tab-header-button'), 'one tab header per pane').toHaveCount(Object.keys(vessel.items).length);
+        expect(await context.app.getConsoleLogs('warn', 'the repair attempt failed too'), 'no terminal projection failure').toEqual([]);
         await expectStackTransferCloses(context, window);
         expect(context.pageErrors).toEqual([])
     })

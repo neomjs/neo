@@ -84,4 +84,30 @@ test.describe('Issue 8868: SyncVnodeTree Child Removal', () => {
 
         parent.destroy();
     });
+
+    test('A floating child hidden (removeDom) via Parent Update is unmounted, and mounts again when shown (#19973)', async () => {
+        const parent = Neo.create(ParentComponent, {
+            appName,
+            autoMount: true,
+            items    : [{module: ChildComponent, floating: true, reference: 'myChild'}]
+        });
+
+        await parent.initVnode(true);
+
+        const child = parent.getItem('myChild');
+
+        expect(child.mounted).toBe(true);
+
+        // A floating item renders inside its parent's node, so the parent update that removes it unmounts it
+        child.hidden = true;
+        await new Promise(resolve => setTimeout(resolve, 100));
+        expect(child.mounted, 'the parent update that removed it unmounts it').toBe(false);
+
+        child.hidden = false;
+        await new Promise(resolve => setTimeout(resolve, 100));
+        expect(child.mounted, 'showing it mounts it again').toBe(true);
+        expect(child.vnode).not.toBeNull();
+
+        parent.destroy();
+    });
 });

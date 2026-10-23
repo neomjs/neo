@@ -290,7 +290,8 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction#closeVessel', (
         nativeWindows : {
             getAdmission : sourceId => sourceId === 'source-1' ? admission : null,
             getConnection: sourceId => sourceId === 'source-1' ? connection : null,
-            getOwner     : () => null
+            getOwner     : () => null,
+            keyOf        : (sourceId, itemId) => sourceId === 'source-1' ? `key:${itemId}` : null
         },
         ownerWindowId : 'win-owner',
         publishReceipt: receipt => receipts.push(receipt),
@@ -448,15 +449,18 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction#closeVessel', (
         const
             // Entries exist only under the registration `s`, so a resolver reading any other key finds nothing.
             nativeWindows = {
-                getConnection: (sourceId, itemId) => sourceId === 's' && itemId === 'live' ? {windowId: 'win-live'} : null,
-                getOwner     : (sourceId, itemId) => sourceId === 's' ? {windowId: itemId === 'owned' ? 'win-owned' : null, windowName: 'owned-name'} : null
+                keyOf        : (sourceId, itemId) => sourceId === 's' ? `key:${itemId}` : null,
+                getConnection: (sourceId, key) => sourceId === 's' && key === 'key:live' ? {windowId: 'win-live'} : null,
+                getOwner     : (sourceId, key) => sourceId === 's' ? {windowId: key === 'key:owned' ? 'win-owned' : null, windowName: 'owned-name'} : null
             },
-            resolve       = (itemId, sourceId='s') => NativeVesselTransaction.resolveVessel({nativeWindows, sourceId, windowNameFor: id => `vessel-${id}`}, itemId);
+            resolve       = (itemId, sourceId='s', key) =>
+                NativeVesselTransaction.resolveVessel({nativeWindows, sourceId, windowNameFor: id => `vessel-${id}`}, itemId, key);
 
         expect(resolve('live')).toMatchObject({itemId: 'live', nativeRoute: null, windowId: 'win-live', windowName: 'vessel-live'});
         expect(resolve('live', 'another-source'), 'an entry belongs to its own registration').toBeNull();
         expect(resolve('owned')).toMatchObject({itemId: 'owned', windowId: 'win-owned', windowName: 'owned-name'});
-        expect(resolve('pending'), 'no window, no vessel').toBeNull()
+        expect(resolve('pending'), 'no window, no vessel').toBeNull();
+        expect(resolve('live', 's', 'key:owned'), 'a named vessel answers, not the item\'s newest').toMatchObject({windowId: 'win-owned'})
     });
 });
 
@@ -495,10 +499,10 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
 
     /**
      * @summary Registers ordinary Dock document owners and runtime native seams in a real Group.
-     * @param {Object} [options={}] Close policy, native binding and real lease duration.
+     * @param {Object} [options={}] Close policy, native binding, real lease duration and the popup's panes.
      * @returns {Object} The independent host and its controlled platform answers.
      */
-    const createHost = ({policy = 'return', bound = true, leaseMs} = {}) => {
+    const createHost = ({policy = 'return', bound = true, leaseMs, sourceItems = ['pane-last', 'pane-first']} = {}) => {
         if (leaseMs !== undefined) TransactionManager.reconnectLeaseMs = leaseMs;
         const identity = TransactionManager.bind({workspaceKey: LANDING, windowId: 'native-return-landing'}),
               groupId  = identity.groupId;
@@ -510,7 +514,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
             id     : 'independent-dock-document-owner', groupId, set, sourceIdentity, policy,
             calls  : [], returned: [], effects: [], logs: [],
             answers: {observe: true, open: false, clear: true, close: true, set: true},
-            source : {document: dockDocument(['pane-last', 'pane-first']), windowId: bound ? 'native-return-floating' : null},
+            source : {document: dockDocument(sourceItems), windowId: bound ? 'native-return-floating' : null},
             target : {document: dockDocument(['anchor']), windowId: 'native-return-landing'}
         };
         const dispatch = async (name, data) => {
@@ -810,6 +814,51 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         owner.calls.length = 0;
         return owner
     };
+
+    /** @summary Commits a pop-out: the landing's pane moves into the popup as one undoable transfer row. @returns {Promise<Object>} */
+    const popOut = owner => owner.set.transfer({
+        operation: 'transferItem', itemId: 'anchor', sourceWorkspaceId: TARGET, targetWorkspaceId: SOURCE,
+        target   : {operation: 'restoreTab', tabsNodeId: 'tabs', home: {parentId: 'shell', slot: 'center'}}
+    }, {provenance: {origin: 'human'}});
+
+    test('an undo that empties a bound popup closes its window, and the redo embodies one again', async () => {
+        const owner = createHost({sourceItems: []});
+        await popOut(owner);
+        owner.calls.length = 0;
+
+        const undone = await TransactionManager.undo({groupId: owner.groupId});
+        await expect.poll(() => owner.effects.length).toBe(1);
+        expect(owner.source.document.items).toEqual({});
+        expect(owner.calls.map(call => call.name).filter(name => name !== 'project'), 'no blank window stays on screen').toEqual(['clear', 'close']);
+        expect(owner.effects[0]).toMatchObject({kind: 'native', id: SOURCE, transactionId: undone.transactionId, observation: {closed: true}});
+
+        // The platform answers the close: the window departs and its binding releases
+        await owner.release();
+        expect(owner.source.windowId).toBeNull();
+        owner.answers.open = data => { owner.rebind(data.topologyIdentity, 'native-return-reopened'); return true };
+        owner.calls.length = 0;
+
+        await TransactionManager.redo({groupId: owner.groupId});
+        await expect.poll(() => owner.effects.length).toBe(2);
+        expect(Object.keys(owner.source.document.items)).toEqual(['anchor']);
+        expect(owner.effects[1].observation.opened).toBe(true);
+        expect(owner.calls.findIndex(call => call.name === 'open'), 'the window exists before the pane is projected into it').toBeLessThan(
+            owner.calls.findIndex(call => call.name === 'project' && call.key === SOURCE))
+    });
+
+    test('a replay that leaves a popup its other panes keeps the window, and the root window is never closed', async () => {
+        const owner = createHost();
+        await popOut(owner);
+        owner.calls.length = 0;
+
+        await TransactionManager.undo({groupId: owner.groupId});
+        expect(Object.keys(owner.source.document.items).sort()).toEqual(['pane-first', 'pane-last']);
+        await TransactionManager.redo({groupId: owner.groupId});
+        expect(owner.target.document.items, 'the redo empties the root').toEqual({});
+
+        expect(owner.calls.filter(call => ['open', 'clear', 'close'].includes(call.name)), 'neither window is touched').toEqual([]);
+        expect(owner.effects).toEqual([])
+    });
 
     test('an emptied re-opened window closes through its Group binding outside replay, and only while bound', async () => {
         const owner = await reopenedAndEmptied();

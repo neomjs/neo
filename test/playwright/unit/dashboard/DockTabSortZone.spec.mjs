@@ -12,6 +12,7 @@ import * as core         from '../../../../src/core/_export.mjs';
 import DockTabSortZone   from '../../../../src/dashboard/dock/interaction/TabSortZone.mjs';
 import ContainerSortZone from '../../../../src/draggable/container/SortZone.mjs';
 import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/SortZone.mjs';
+import Rectangle         from '../../../../src/util/Rectangle.mjs';
 
 /**
  * @summary Contract pins for the dock drag proxy's carried scope.
@@ -25,6 +26,7 @@ import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/Sort
 test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
     test('keeps dock headers parent-sized and toolbar-relative during a drag', () => {
         expect(DockTabSortZone.config.adjustItemRectsToParent).toBe(true);
+        expect(DockTabSortZone.config.enableCrossZoneDrag).toBe(true);
         expect(DockTabSortZone.config.expandOwnerOnDrag).toBe(false);
         expect(DockTabSortZone.config.positionOwnerRelative).toBe(true)
     });
@@ -153,7 +155,14 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 calls.push('base-start')
             };
 
-            const zone = {dockItemIds: ['audit'], dockWorkspaceId: null, dragComponent: null, owner, startIndex: 0};
+            const zone = {
+                dockItemIds         : ['audit'],
+                dockWorkspaceId     : null,
+                dragComponent       : null,
+                owner,
+                resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
+                startIndex          : 0
+            };
 
             try {
                 await DockTabSortZone.prototype.onDragStart.call(zone, {path: []});
@@ -176,6 +185,57 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             await DockTabSortZone.prototype.onDragStart.call(zone, {path: []});
 
             expect(calls, 'the predecessor retains physical + logical generation authority').toEqual([])
+        });
+
+        test('resolves dockItemId from the dragged button index in owner.getTabButtons() when an earlier tab is overflow-withheld', async () => {
+            const withheldTab = {id: 'tab-0', hidden: true, vdom: {removeDom: true}},
+                  visibleTabA = {id: 'tab-1', vdom: {}},
+                  visibleTabB = {id: 'tab-2', vdom: {}},
+                  fired       = [],
+                  original    = TabHeaderSortZone.prototype.onDragStart;
+
+            TabHeaderSortZone.prototype.onDragStart = async function() {
+                // Simulate SortZone#onDragStart filtering out withheldTab: visibleTabA is index 0 in sortableItems
+                this.dragComponent = visibleTabA;
+                this.startIndex    = 0
+            };
+
+            const zone = {
+                dockItemIds     : ['audit', 'metrics', 'logs'],
+                dockSourceNodeId: 'heavy-tabs',
+                dockWorkspaceId : 'ws-main',
+                dragComponent   : null,
+                isReleasedInside: () => true,
+                isWindowDragging: true,
+                owner           : {
+                    getDomRect   : async () => ({x: 0, y: 0, width: 300, height: 32}),
+                    getTabButtons: () => [withheldTab, visibleTabA, visibleTabB],
+                    up           : () => ({
+                        fire            : (name, data) => fired.push([name, data]),
+                        getCardContainer: () => ({getDomRect: async () => ({x: 0, y: 32, width: 300, height: 200})})
+                    })
+                },
+                releaseVoidsReorder     : () => false,
+                resolveDraggedItemId    : DockTabSortZone.prototype.resolveDraggedItemId,
+                resolveSourceOwnershipId: () => 'group-main',
+                startIndex              : 0
+            };
+
+            try {
+                await DockTabSortZone.prototype.onDragStart.call(zone, {path: [{id: 'tab-1'}]});
+
+                expect(visibleTabA.dockItemId, 'stamps the tab-button index (1 -> metrics), not sortableItems startIndex (0 -> audit)').toBe('metrics');
+
+                DockTabSortZone.prototype.onDockBoundaryExit.call(zone, {intersectionRatio: 0.2});
+                DockTabSortZone.prototype.onDockBoundaryEntry.call(zone, {intersectionRatio: 0.9});
+
+                expect(fired.map(([name, payload]) => [name, payload.itemId])).toEqual([
+                    ['dockTearOutExit',  'metrics'],
+                    ['dockTearOutEntry', 'metrics']
+                ])
+            } finally {
+                TabHeaderSortZone.prototype.onDragStart = original
+            }
         })
     });
 
@@ -283,11 +343,12 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                         onDragCancel: () => calls.push(['coordinator-cancel']),
                         onDragEnd   : () => calls.push(['coordinator-end'])
                     },
-                    owner              : {up: () => ({fire: (name, data) => calls.push([name, data])})},
-                    remoteDropCommitted: !cancelled,
-                    sortGroup          : 'dock-demo',
-                    stackDragActive    : true,
-                    startIndex         : 0
+                    owner               : {up: () => ({fire: (name, data) => calls.push([name, data])})},
+                    remoteDropCommitted : !cancelled,
+                    resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
+                    sortGroup           : 'dock-demo',
+                    stackDragActive     : true,
+                    startIndex          : 0
                 };
                 const data = {cancelled};
 
@@ -351,13 +412,14 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                                   calls.push(['remote-out']);
                                   this.remoteDropCommitted = true
                               },
-                              owner              : {up: () => ({fire: (name, data) => calls.push([name, data])})},
-                              processDragEnd     : DockTabSortZone.prototype.processDragEnd,
-                              releaseVoidsReorder: () => false,
-                              remoteDropCommitted: false,
-                              sortGroup          : 'async-dock-test',
-                              stackDragActive    : stack,
-                              startIndex         : 0
+                              owner               : {up: () => ({fire: (name, data) => calls.push([name, data])})},
+                              processDragEnd      : DockTabSortZone.prototype.processDragEnd,
+                              releaseVoidsReorder : () => false,
+                              remoteDropCommitted : false,
+                              resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
+                              sortGroup           : 'async-dock-test',
+                              stackDragActive     : stack,
+                              startIndex          : 0
                           };
 
                     TabHeaderSortZone.prototype.processDragEnd = async () => calls.push(['cleanup']);
@@ -434,16 +496,17 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
         // Prototype-driven like every pin above: the drag-end decision chain is the unit; the
         // base lifecycle is stubbed to nothing so only the dock routing under test runs.
         const zoneFor = (fired, overrides = {}) => ({
-            dockItemIds        : ['audit', 'graph', 'inbox'],
-            dockSourceNodeId   : 'tabs-main',
-            dragComponent      : null,
-            isReleasedInside   : DockTabSortZone.prototype.isReleasedInside,
-            isWindowDragging   : false,
-            owner              : {up: () => ({fire: (name, data) => fired.push([name, data])})},
-            releaseVoidsReorder: () => false,
-            remoteDropCommitted: false,
-            sortGroup          : null,
-            startIndex         : 1,
+            dockItemIds         : ['audit', 'graph', 'inbox'],
+            dockSourceNodeId    : 'tabs-main',
+            dragComponent       : null,
+            isReleasedInside    : DockTabSortZone.prototype.isReleasedInside,
+            isWindowDragging    : false,
+            owner               : {up: () => ({fire: (name, data) => fired.push([name, data])})},
+            releaseVoidsReorder : () => false,
+            remoteDropCommitted : false,
+            resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
+            sortGroup           : null,
+            startIndex          : 1,
             ...overrides
         });
 
@@ -713,6 +776,13 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             expect(resolve(createZone({enableVesselConversion: false}).zone)).toBeNull()
         });
 
+        test('a whole-stack drag keeps the generic path: it never rides a vessel, so it has nothing to convert', () => {
+            const {fired, zone} = createZone({isWindowDragging: false, stackDragActive: true});
+
+            expect(resolve(zone)).toBeNull();
+            expect(fired).toEqual([])
+        });
+
         test('an unmeasured drag element engages nothing rather than a window-sized proxy', () => {
             const {fired, zone} = createZone({dragElementRect: null});
 
@@ -743,5 +813,243 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             expect(fired.map(([name]) => name), 'leaving that window for the desktop').toEqual(['dragBoundaryExit']);
             expect(zone.isWindowDragging).toBe(true)
         })
+    });
+
+    test.describe('enableCrossZoneDrag — maximized-strip cross-zone suppression (#19986)', () => {
+        test('suppresses coordinator engagement and dockCrossZone* events while keeping base in-strip sort', async () => {
+            const calls        = [];
+            const originalMove = TabHeaderSortZone.prototype.onDragMove;
+            const originalEnd  = TabHeaderSortZone.prototype.processDragEnd;
+
+            TabHeaderSortZone.prototype.onDragMove     = async () => calls.push('base-move');
+            TabHeaderSortZone.prototype.processDragEnd = async () => calls.push('base-end');
+
+            const zone = {
+                currentIndex    : 2,
+                dockItemIds     : ['alerts', 'activity', 'console'],
+                dockSourceNodeId: 'heavy-tabs',
+                dragComponent   : {id: 'console-button'},
+                dragCoordinator : {
+                    onDragCancel: () => calls.push('coordinator-cancel'),
+                    onDragEnd   : () => calls.push('coordinator-end'),
+                    onDragMove  : () => calls.push('coordinator-move')
+                },
+                enableCrossZoneDrag : false,
+                isReleasedInside    : () => true,
+                isReorderParked     : false,
+                isWindowDragging    : false,
+                owner               : {up: () => ({fire: name => calls.push(name)})},
+                releaseVoidsReorder : () => true,
+                remoteDropCommitted : false,
+                resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
+                sortGroup           : 'dock-demo',
+                stackDragActive     : false,
+                startIndex          : 2,
+                updateReorderPark   : DockTabSortZone.prototype.updateReorderPark
+            };
+
+            try {
+                await DockTabSortZone.prototype.onDragMove.call(zone, {
+                    clientX  : 300,
+                    clientY  : 120,
+                    offsetX  : 10,
+                    offsetY  : 8,
+                    proxyRect: {height: 32, width: 120, x: 290, y: 112},
+                    screenX  : 300,
+                    screenY  : 120
+                });
+
+                zone.currentIndex = 0;
+                await DockTabSortZone.prototype.processDragEnd.call(zone, {
+                    cancelled: false,
+                    clientX  : 300,
+                    clientY  : 400
+                });
+
+                expect(calls).toEqual(['base-move', 'base-end']);
+                expect(zone.currentIndex, 'in-strip reorder index is preserved when cross-zone drag is suppressed').toBe(0)
+            } finally {
+                TabHeaderSortZone.prototype.onDragMove     = originalMove;
+                TabHeaderSortZone.prototype.processDragEnd = originalEnd
+            }
+        })
+    });
+
+    /**
+     * A dock strip's hover shows what its release will do. Beyond `dockReleaseTolerance` the
+     * release voids the within-toolbar reorder, so the strip parks the reorder there and resumes it once
+     * the pointer is back inside the band. A plain tab strip with no other drop zones (the
+     * `examples/tab/container` zone) keeps following a loose hand anywhere: the operator's distinction.
+     * Real zones over the real base sort math; only what the drag start measures is seeded.
+     */
+    test.describe('the reorder park — the hover shows what the release will do (#20072)', () => {
+        // Metrics and Audit in a 400 px toolbar, grabbed mid-Metrics; the release band reaches y 164
+        const TOOLBAR = {x: 100, y: 100, width: 400, height: 32},
+              HEADERS = [{x: 100, y: 100, width: 90, height: 32}, {x: 194, y: 100, width: 90, height: 32}],
+              GRAB    = {x: 145, y: 116},
+              rect    = ({x, y, width, height}) => Rectangle.clone({x, y, width, height});
+
+        // A real zone left where the base drag start leaves it: absolute headers in their measured
+        // slots (owner-relative when the zone rebases them), the grab offset and the tab-span boundary
+        function startGesture(module, config={}) {
+            const commits = [],
+                  items   = HEADERS.map((header, index) => ({
+                      id: `strip-tab-${index}`, vdom: {cls: ['neo-tab-header-button']}, wrapperCls: [], wrapperStyle: {}
+                  })),
+                  owner   = {
+                      addDomListeners: () => {},
+                      cls            : [],
+                      dragResortable : true,
+                      getTabButtons  : () => items,
+                      id             : 'strip-toolbar',
+                      isTabButton    : () => true,
+                      items,
+                      on             : () => {},
+                      style          : {},
+                      up             : () => ({fire: () => {}, moveTo: (from, to) => commits.push([from, to])})
+                  },
+                  zone    = Neo.create(module, {owner, ...config}),
+                  origin  = zone.adjustItemRectsToParent ? TOOLBAR : {x: 0, y: 0};
+
+            Object.assign(zone, {
+                boundaryContainerRect: rect({x: 0, y: 0, width: 1280, height: 800}),
+                currentIndex         : 0,
+                dragComponent        : items[0],
+                indexMap             : {0: 0, 1: 1},
+                itemRects            : HEADERS.map(header => rect({...header, x: header.x - origin.x, y: header.y - origin.y})),
+                itemStyles           : HEADERS.map(() => ({})),
+                offsetX              : GRAB.x - HEADERS[0].x,
+                offsetY              : GRAB.y - HEADERS[0].y,
+                ownerRect            : rect(TOOLBAR),
+                ownerStyle           : {},
+                sortBoundaryRect     : rect({x: 100, y: 100, width: 184, height: 32}),
+                sortableItems        : [...items],
+                startIndex           : 0
+            });
+
+            zone instanceof DockTabSortZone && (zone.dockSourceToolbarRect = {...TOOLBAR});
+            zone.itemRects.forEach((slot, index) => items[index].wrapperStyle = {left: `${slot.left}px`, position: 'absolute', top: `${slot.top}px`});
+
+            ContainerSortZone.activeTrace = {events: []};
+
+            return {
+                commits,
+                items,
+                zone,
+                events : type => ContainerSortZone.activeTrace.events.filter(event => event.t === type),
+                move   : (clientX, clientY) => zone.onDragMove({clientX, clientY}),
+                release: (clientX, clientY) => zone.onDragEnd({clientX, clientY}),
+                slots  : items.map(item => item.wrapperStyle.left)
+            }
+        }
+
+        test.afterEach(() => {
+            ContainerSortZone.activeTrace = null
+        });
+
+        test('a dock strip holds its siblings while the pointer sweeps beyond the release band', async () => {
+            const {events, items, move, slots, zone} = startGesture(DockTabSortZone);
+
+            try {
+                await move(145, 140); // below the strip, still inside the band
+                await move(145, 416); // 300 px below the grab: dock territory
+                await move(200, 416); // across Audit's midline, far below the strip
+                await move(260, 416);
+
+                expect(events('switch'), 'no sibling moves for a reorder the release would void').toEqual([]);
+                expect(items[1].wrapperStyle.left, 'Audit keeps its resting slot').toBe(slots[1]);
+                expect(zone.currentIndex).toBe(0);
+                expect(events('park')).toHaveLength(1)
+            } finally {
+                zone.destroy()
+            }
+        });
+
+        test('back inside the band the reorder resumes from the live pointer, and a release there commits it', async () => {
+            const {commits, events, items, move, release, slots, zone} = startGesture(DockTabSortZone);
+
+            try {
+                await move(145, 416);
+                await move(260, 416);
+
+                expect(events('switch'), 'parked below the band').toEqual([]);
+
+                await move(260, 150); // inside the band again, already past Audit's midline
+
+                expect(events('unpark')).toHaveLength(1);
+                expect(events('switch')).toEqual([expect.objectContaining({i1: 0, i2: 1})]);
+                expect(items[1].wrapperStyle.left, 'Audit slides into the first slot').toBe(slots[0]);
+
+                await release(260, 150);
+
+                expect(commits, 'the in-band release commits the reorder the hover showed').toEqual([[0, 1]])
+            } finally {
+                zone.destroy()
+            }
+        });
+
+        test('leaving the band walks an in-band reorder back to the resting order, and a release out there commits nothing', async () => {
+            const {commits, items, move, release, slots, zone} = startGesture(DockTabSortZone);
+
+            try {
+                await move(260, 140); // an in-band reorder
+                expect(items[1].wrapperStyle.left).toBe(slots[0]);
+
+                await move(260, 416);
+
+                expect(items[1].wrapperStyle.left, 'the strip shows the order the release keeps').toBe(slots[1]);
+                expect(items[0].wrapperStyle.left).toBe(slots[0]);
+                expect(zone.currentIndex).toBe(zone.startIndex);
+
+                await release(260, 416);
+
+                expect(commits, 'the void at release is unchanged').toEqual([])
+            } finally {
+                zone.destroy()
+            }
+        });
+
+        test('a scripted return to the last in-band pixel after a park is a new sample, not a duplicate', async () => {
+            const {commits, events, items, move, release, slots, zone} = startGesture(DockTabSortZone);
+
+            try {
+                await move(260, 140); // an in-band reorder
+                await move(260, 416); // parked: the walk-back restores the resting order
+                await move(260, 140); // the very same pixel again
+
+                expect(events('switch'), 'reorder, walk-back, and the reorder again').toHaveLength(3);
+                expect(items[1].wrapperStyle.left).toBe(slots[0]);
+
+                await release(260, 140);
+
+                expect(commits, 'the in-band release commits the reorder the strip shows').toEqual([[0, 1]])
+            } finally {
+                zone.destroy()
+            }
+        });
+
+        for (const [strip, module, config] of [
+            ['a plain tab strip (the examples/tab/container zone)',        TabHeaderSortZone, {}],
+            ['a dock strip without dock participation (a maximized pane)', DockTabSortZone,   {enableCrossZoneDrag: false}]
+        ]) {
+            test(`${strip} keeps following a loose hand beyond its boundary`, async () => {
+                const {commits, events, items, move, release, slots, zone} = startGesture(module, config);
+
+                try {
+                    await move(145, 416);
+                    await move(260, 416);
+
+                    expect(events('switch')).toEqual([expect.objectContaining({i1: 0, i2: 1})]);
+                    expect(events('park')).toEqual([]);
+                    expect(items[1].wrapperStyle.left).toBe(slots[0]);
+
+                    await release(260, 416);
+
+                    expect(commits, 'the reorder commits wherever the release lands').toEqual([[0, 1]])
+                } finally {
+                    zone.destroy()
+                }
+            })
+        }
     })
 });

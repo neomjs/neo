@@ -13,6 +13,7 @@ import '../../../../src/manager/Instance.mjs';
 import Component       from '../../../../src/component/Base.mjs';
 import Container       from '../../../../src/container/Base.mjs';
 import DockWorkspace   from '../../../../src/dashboard/dock/Workspace.mjs';
+import Participation   from '../../../../src/dashboard/dock/window/Participation.mjs';
 import PreviewContract from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 
 /**
@@ -479,6 +480,121 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         embodiment.destroy();
         home.destroy();
         source.destroy()
+    });
+
+    test.describe('a drop whose own projection destroys the dragged tab (#20073)', () => {
+        /**
+         * @summary A header gesture over the REAL target, participation seams and proxy embodiment, with a
+         * commit that settles when the test says. The dragged item is a live tab component, as a pointer
+         * drag's is, and the frame names no source window, as a pointer frame does not.
+         * @param {Object} [options={}]
+         * @param {Function} [options.identity] Stands in for the participation's own identity seam.
+         * @returns {Object} {draggedItem, embodiment, participation, settle, target}
+         */
+        function createHeaderDrop({identity}={}) {
+            let settleCommit;
+
+            const
+                draggedItem = Neo.create(Component, {}),
+                embodiment  = Neo.create(VesselProxyEmbodiment, {
+                    createProxy: config => {
+                        const proxy = Neo.create(Component, {cls: config.cls, style: config.style});
+
+                        proxy.initVnode = () => Promise.resolve();
+                        return proxy
+                    },
+                    resolvePane       : () => null,
+                    resolveProxyConfig: () => ({cls: ['neo-dock-dragproxy']})
+                }),
+                participation = Neo.create(DockCrossWindowParticipation, {
+                    commitLocal       : () => new Promise(resolve => settleCommit = resolve),
+                    dragCoordinator   : createCoordinatorStub([]),
+                    dragEmbodiment    : embodiment,
+                    getDocument       : () => targetDoc(),
+                    hitTest           : () => true,
+                    previewFor        : payload => ({itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}}),
+                    previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+                    resolveOwnershipId: () => 'group-1',
+                    sortGroup         : 'dock-demo',
+                    windowId          : 'window-b',
+                    workspaceId       : 'B'
+                });
+
+            Object.assign(draggedItem, {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'});
+            identity && (participation.getDragEmbodimentIdentity = identity);
+
+            participation.target.onRemoteDragMove({
+                draggedItem, embodyHeader: true, embodyProxy: true, localX: 10, localY: 10, offsetX: 0, offsetY: 0,
+                proxyRect     : {height: 32, width: 90, x: 10, y: 10},
+                sourceSortZone: {
+                    getDragProxyConfig: () => ({cls: []}),
+                    getDragProxyVdom  : () => ({cn: [{tag: 'button', text: 'Alpha'}]}),
+                    windowId          : 'window-a'
+                }
+            });
+
+            return {
+                draggedItem, embodiment, participation,
+                settle: () => settleCommit({document: targetDoc(), errors: []}),
+                target: participation.target
+            }
+        }
+
+        test('the committed drop retires the header generation its destroyed tab was dragged under', async () => {
+            const {draggedItem, embodiment, participation, settle, target} = createHeaderDrop();
+
+            expect(await embodiment.whenSettled({itemId: 'alpha'})).toBe(true);
+
+            const dropping = target.onRemoteDrop(draggedItem);
+
+            // The drop's projection takes the tab out of its strip before the commit settles
+            draggedItem.destroy();
+            expect(draggedItem.dockItemId, 'a destroyed tab no longer names its item').toBeUndefined();
+
+            settle();
+
+            expect(await dropping, 'the drop commits').toBeTruthy();
+            expect(embodiment.snapshot(), 'no generation outlives the drop').toBeNull();
+
+            participation.destroy();
+            embodiment.destroy()
+        });
+
+        test('a terminal that resolves no generation while one stays live in its window reports it', async () => {
+            const
+                originalError                                            = console.error,
+                reported                                                 = [],
+                {draggedItem, embodiment, participation, settle, target} = createHeaderDrop({
+                    identity: () => ({itemId: 'ghost', targetWindowId: 'window-b'})
+                });
+
+            try {
+                expect(await embodiment.whenSettled({itemId: 'alpha'})).toBe(true);
+
+                const {generation} = embodiment.snapshot('alpha');
+
+                console.error = (...args) => reported.push(args.join(' '));
+
+                const dropping = target.onRemoteDrop(draggedItem);
+
+                settle();
+                await dropping;
+
+                // Controls: a miss in another window, and a miss once nothing is live, report nothing
+                expect(embodiment.restore({itemId: 'ghost', targetWindowId: 'window-c'})).toBe(false);
+                expect(embodiment.restore({itemId: 'alpha', targetWindowId: 'window-b'})).toBe(true);
+                expect(embodiment.restore({itemId: 'alpha', targetWindowId: 'window-b'})).toBe(false);
+
+                expect(reported).toEqual([
+                    `Neo.dashboard.dock.window.VesselProxyEmbodiment: promote of ghost resolved no generation, and generation ${generation} of alpha stays live in window window-b`
+                ])
+            } finally {
+                console.error = originalError;
+                participation.destroy();
+                embodiment.destroy();
+                draggedItem.destroy()
+            }
+        })
     });
 
     test('foreign drop: composes ONE transferItem through the real executor — source loses the item, target gains it, commitTransfer publishes the pair', () => {
@@ -1540,7 +1656,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                     workspace: createWorkspaceStub({
                         dockModel    : sourceDoc(),
                         resolvePane  : itemId => (itemId === 'terminal' ? pane : null),
-                        nativeWindows: {ownerEntries: () => [['terminal', {windowId: 'popup-1'}]]}
+                        nativeWindows: {ownerEntries: () => [['popup:terminal', {itemId: 'terminal', windowId: 'popup-1'}]]}
                     }),
                     workspaceId: 'A'
                 });
@@ -1567,7 +1683,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                     nodes : {'popup-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}}
                 },
                 workspace = createWorkspaceStub({
-                    nativeWindows: {ownerEntries: () => [['terminal', {windowId: 'popup-singleton', workspaceKey: 'popup-document'}]]},
+                    nativeWindows: {ownerEntries: () => [['popup-document', {itemId: 'terminal', windowId: 'popup-singleton', workspaceKey: 'popup-document'}]]},
                     resolvePane  : itemId => itemId === 'terminal' ? pane : null
                 });
             workspace.id = 'native-singleton-source';
@@ -1622,11 +1738,12 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             workspace.nativeWindows.registerSource(workspace.id, {
                 keyFor: () => 'popup-document', open: async () => null, close: async () => true
             });
-            workspace.nativeWindows.recordOwner(workspace.id, 'terminal', {
-                windowId: 'native-popup-live', workspaceKey: 'popup-document'
+            // Two vessels over the popup's document, each opened for its own item
+            workspace.nativeWindows.recordOwner(workspace.id, 'popup-document', {
+                itemId: 'terminal', windowId: 'native-popup-live', workspaceKey: 'popup-document'
             });
-            workspace.nativeWindows.recordOwner(workspace.id, 'strategy', {
-                windowId: 'native-popup-center-owner', workspaceKey: 'popup-document'
+            workspace.nativeWindows.recordOwner(workspace.id, 'popup-document:2', {
+                itemId: 'strategy', windowId: 'native-popup-center-owner', workspaceKey: 'popup-document'
             });
 
             try {
@@ -1696,8 +1813,8 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             workspace.nativeWindows.registerSource(workspace.id, {
                 keyFor: () => 'popup-document', open: async () => null, close: async () => true
             });
-            workspace.nativeWindows.recordOwner(workspace.id, 'metrics', {
-                windowId: 'native-stack-live', workspaceKey: 'popup-document'
+            workspace.nativeWindows.recordOwner(workspace.id, 'popup-document', {
+                itemId: 'metrics', windowId: 'native-stack-live', workspaceKey: 'popup-document'
             });
 
             let participation, otherGroupId, otherSet;
@@ -1785,5 +1902,72 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
 
             participation.destroy()
         })
+    })
+});
+
+/**
+ * A popup's title-bar drag resolves from what its Group-owned document holds now. The item a vessel was opened for can
+ * leave it: its tab tears out into a vessel of its own, and the popup keeps the rest.
+ */
+test.describe('Neo.dashboard.dock.window.Participation#defaultResolveNativeWindowDrag', () => {
+    /**
+     * @summary A participation stub carrying only what the resolver reads: one owner record opened for `metrics`,
+     * and the popup's registered document.
+     * @param {Object} document The popup's Group-owned document
+     * @returns {Object}
+     */
+    function resolverFor(document) {
+        const panes = {};
+
+        return {
+            ownershipId: 'group-1',
+            panes,
+            workspaceId: 'main',
+            workspace  : {
+                id           : 'main',
+                nativeWindows: {
+                    groupId     : 'group-1',
+                    ownerEntries: () => [['workstation-vessel:metrics', {itemId: 'metrics', windowId: 'popup-window', workspaceKey: 'workstation-vessel:metrics'}]]
+                },
+                resolvePane  : itemId => panes[itemId] ??= {id: `${itemId}-pane`}
+            },
+            workspaceSet: {getDocument: () => document, has: key => key === 'workstation-vessel:metrics', resolveGroupId: () => 'group-1'}
+        }
+    }
+
+    /**
+     * @param {String[]} items
+     * @param {String} activeItemId
+     * @returns {Object} a popup document whose center is one tabs node
+     */
+    const tabsDocument = (items, activeItemId) => ({
+        root : 'root',
+        nodes: {root: {type: 'edge-zone', zones: {center: {nodeId: 'tabs'}}}, tabs: {type: 'tabs', items, activeItemId}},
+        items: Object.fromEntries(items.map(itemId => [itemId, {}]))
+    });
+
+    test('a popup whose opening item left drags the item it holds now', () => {
+        const stub   = resolverFor(tabsDocument(['audit'], 'audit')),
+              result = Participation.prototype.defaultResolveNativeWindowDrag.call(stub, 'popup-window');
+
+        expect(result?.widgetName).toBe('audit');
+        expect(result.draggedItem).toBe(stub.panes.audit);
+        expect(result.draggedItem.dockItemId).toBe('audit')
+    });
+
+    test('a stack that lost its opening item drags its active item, as the whole stack', () => {
+        const stub   = resolverFor(tabsDocument(['audit', 'logs'], 'logs')),
+              result = Participation.prototype.defaultResolveNativeWindowDrag.call(stub, 'popup-window');
+
+        expect(result?.widgetName).toBe('logs');
+        expect(result.draggedItem.dockGroupNodeId).toBe('tabs')
+    });
+
+    test('control: while the opening item is present, it is what the popup drags', () => {
+        const stub   = resolverFor(tabsDocument(['metrics', 'audit'], 'audit')),
+              result = Participation.prototype.defaultResolveNativeWindowDrag.call(stub, 'popup-window');
+
+        expect(result?.widgetName).toBe('metrics');
+        expect(result.draggedItem.dockGroupNodeId).toBe('tabs')
     })
 });

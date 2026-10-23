@@ -292,26 +292,46 @@ export default class Rectangle extends DOMRect {
         return result;
     }
 
+    /**
+     * Returns the area this Rectangle shares with the other one.
+     *
+     * A zero-size `other` has no area to share, so it returns `false`, the same as a disjoint one.
+     * Rectangles that only touch along an edge do not overlap either.
+     * To test whether a point lies inside this Rectangle, use {@link #containsPoint}.
+     * @param {DOMRect|Neo.util.Rectangle|Object} other An object with x, y, width and height
+     * @returns {Neo.util.Rectangle|Boolean} The overlapping area as a new Rectangle, or `false` if there is none
+     */
     intersects(other) {
         const me = this;
 
-        if (other.height && other.width) {
-            const
-                left   = Math.max(me.x, other.x),
-                top    = Math.max(me.y, other.y),
-                right  = Math.min(me.x + me.width, other.x + other.width),
-                bottom = Math.min(me.y + me.height, other.y + other.height);
-
-            if (left >= right || top >= bottom) {
-                return false;
-            }
-
-            return new Rectangle(left, top, right - left, bottom - top);
+        if (!(other.width > 0 && other.height > 0)) {
+            return false;
         }
-        // We're dealing with a point here - zero dimensions
-        else {
-            return (other.x >= me.x && other.y >= me.y && other.right <= me.right && other.bottom <= me.bottom);
+
+        const
+            left   = Math.max(me.x, other.x),
+            top    = Math.max(me.y, other.y),
+            right  = Math.min(me.x + me.width, other.x + other.width),
+            bottom = Math.min(me.y + me.height, other.y + other.height);
+
+        if (left >= right || top >= bottom) {
+            return false;
         }
+
+        return new Rectangle(left, top, right - left, bottom - top);
+    }
+
+    /**
+     * Returns `true` if the point lies inside this Rectangle.
+     * Points on the edges count as inside.
+     * @param {Number} x
+     * @param {Number} y
+     * @returns {Boolean}
+     */
+    containsPoint(x, y) {
+        const me = this;
+
+        return x >= me.x && x <= me.right && y >= me.y && y <= me.bottom;
     }
 
 

@@ -48,24 +48,25 @@ test.describe('Group native lifecycle (#18314)', () => {
         expect(manager.getNativeLifecycle(a.groupId)).toBe(a);
         expect(a).not.toBe(b);
         const first = await a.acquire('one', {itemId: 'shared'}), foreign = await b.acquire('one', {itemId: 'shared'});
+        expect(foreign.workspaceKey, 'another Group mints from its own keys').toBe(first.workspaceKey);
         await a.onBind({...first, windowId: 'popup-a', generation: 1});
         expect(seen).toEqual(['one']);
-        expect(a.getConnection('one', 'shared').windowId).toBe('popup-a');
-        expect(b.getConnection('one', 'shared')).toBeNull();
-        expect(b.getAdmission('one', 'shared').generationToken).toBe(foreign.generationToken)
+        expect(a.getConnection('one', first.workspaceKey).windowId).toBe('popup-a');
+        expect(b.getConnection('one', foreign.workspaceKey)).toBeNull();
+        expect(b.getAdmission('one', foreign.workspaceKey).generationToken).toBe(foreign.generationToken)
     });
 
     test('source retirement during a held open closes the late native result exactly once', async () => {
         const windows = owner('root'), opening = deferred(), closed = [];
         windows.registerSource('view', effects({open: () => opening.promise, close: async vessel => {closed.push(vessel); return true}}));
         const result = windows.acquire('view', {itemId: 'held'});
-        await expect.poll(() => windows.getAdmission('view', 'held')).not.toBeNull();
+        await expect.poll(() => windows.getAdmission('view', 'resource:held')).not.toBeNull();
         windows.unregisterSource('view');
         opening.resolve({windowName: 'late-window'});
         expect(await result).toBeNull();
         expect(closed).toHaveLength(1);
         expect(closed[0]).toMatchObject({itemId: 'held', windowName: 'late-window', groupId: windows.groupId});
-        expect(windows.getAdmission('view', 'held'), 'settled late cleanup releases the provisional record').toBeNull()
+        expect(windows.getAdmission('view', 'resource:held'), 'settled late cleanup releases the provisional record').toBeNull()
     });
 
     test('a refused late close stays retryable after the source is replaced', async () => {
@@ -74,7 +75,7 @@ test.describe('Group native lifecycle (#18314)', () => {
         windows.registerSource('view', effects({open: () => opening.promise,
             close: async vessel => {oldClosed.push(vessel.windowName); return acknowledged}}));
         const result = windows.acquire('view', {itemId: 'held'});
-        await expect.poll(() => windows.getAdmission('view', 'held')).not.toBeNull();
+        await expect.poll(() => windows.getAdmission('view', 'resource:held')).not.toBeNull();
         windows.unregisterSource('view');
         windows.registerSource('view', effects({close: async vessel => {newClosed.push(vessel.windowName); return true}}));
         opening.resolve({windowName: 'old-generation'});
@@ -103,13 +104,13 @@ test.describe('Group native lifecycle (#18314)', () => {
     test('unbind and source destruction preserve committed ownership without a physical close', async () => {
         const windows = owner('root'), closed = [], released = [];
         windows.registerSource('view', effects({close: async vessel => {closed.push(vessel); return true}, released: data => released.push(data)}));
-        const vessel = await windows.acquire('view', {itemId: 'one'});
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
         await windows.onBind({...vessel, windowId: 'popup', generation: 1});
-        windows.recordOwner('view', 'one', {...vessel, windowId: 'popup'}, windows.getConnection('view', 'one'));
-        await windows.onRelease({groupId: windows.groupId, windowId: 'popup', workspaceKey: vessel.workspaceKey});
-        expect(windows.getOwner('view', 'one')).toMatchObject({windowId: null, generationToken: vessel.generationToken});
+        windows.recordOwner('view', key, {...vessel, windowId: 'popup'}, windows.getConnection('view', key));
+        await windows.onRelease({groupId: windows.groupId, windowId: 'popup', workspaceKey: key});
+        expect(windows.getOwner('view', key)).toMatchObject({windowId: null, generationToken: vessel.generationToken});
         expect(released).toHaveLength(1);
-        expect(released[0].committed).toBe(true);
+        expect(released[0]).toMatchObject({committed: true, itemId: 'one', workspaceKey: key});
         windows.unregisterSource('view');
         expect(windows.hasResources).toBe(true);
         expect(closed).toEqual([]);
@@ -123,11 +124,11 @@ test.describe('Group native lifecycle (#18314)', () => {
         windows.registerSource('view', effects({prepare: () => grant.promise, bound: data => bound.push(data)}));
         const vessel  = await windows.acquire('view', {itemId: 'one'});
         const binding = windows.onBind({...vessel, windowId: 'popup', generation: 1});
-        windows.clearAdmission('view', 'one');
+        windows.clearAdmission('view', vessel.workspaceKey);
         grant.resolve(true);
         await binding;
         expect(bound).toEqual([]);
-        expect(windows.getConnection('view', 'one')).toBeNull()
+        expect(windows.getConnection('view', vessel.workspaceKey)).toBeNull()
     });
 
     for (const duringPrepare of [false, true]) {
@@ -144,6 +145,7 @@ test.describe('Group native lifecycle (#18314)', () => {
                 bound: data => bound.push(data)
             }));
             const vessel = await windows.acquire('view', {itemId: 'one'}),
+                  key    = vessel.workspaceKey,
                   data   = {...vessel, windowId: 'closing-popup', generation: 1};
             let binding, retirement;
 
@@ -158,7 +160,8 @@ test.describe('Group native lifecycle (#18314)', () => {
 
             await binding;
             expect(bound, 'a closing generation must never reach the publication callback').toEqual([]);
-            expect(windows.getConnection('view', 'one')).toBeNull();
+            expect(windows.getAdmission('view', key), 'the fenced admission is still on record').not.toBeNull();
+            expect(windows.getConnection('view', key)).toBeNull();
             expect(prepared).toBe(duringPrepare ? 1 : 0);
             expect(windows.pendingRetirements('view')).toEqual([vessel]);
 
@@ -168,7 +171,7 @@ test.describe('Group native lifecycle (#18314)', () => {
             acknowledged = true;
             expect(await windows.retryRetirements('view', 'one')).toBe(true);
             expect(windows.pendingRetirements('view')).toEqual([]);
-            expect(windows.getAdmission('view', 'one')).toBeNull()
+            expect(windows.getAdmission('view', key)).toBeNull()
         })
     }
 
@@ -188,7 +191,7 @@ test.describe('Group native lifecycle (#18314)', () => {
         for (const [sourceId, itemId] of [['first', 'two'], ['second', 'one']]) {
             const next = await windows.acquire(sourceId, {itemId});
             await windows.onBind({...next, windowId: `${sourceId}-${itemId}`, generation: 1});
-            expect(windows.getConnection(sourceId, itemId)?.windowId).toBe(`${sourceId}-${itemId}`)
+            expect(windows.getConnection(sourceId, next.workspaceKey)?.windowId).toBe(`${sourceId}-${itemId}`)
         }
         expect(bound).toEqual(['first:two', 'second:one']);
         closing.resolve(true);
@@ -206,10 +209,10 @@ test.describe('Group native lifecycle (#18314)', () => {
     test('Group retirement starts native close while the source records are still readable', async () => {
         const windows = owner('root'), observed = [];
         windows.registerSource('view', effects({close: vessel => {
-            observed.push(windows.getOwner('view', vessel.itemId)?.windowName);
+            observed.push(windows.getOwner('view', vessel.workspaceKey)?.windowName);
             return true
         }}));
-        windows.recordOwner('view', 'one', {windowName: 'owned-window'});
+        windows.recordOwner('view', 'resource:one', {windowName: 'owned-window'});
         manager.retireGroup(windows.groupId);
         await Promise.resolve();
         expect(observed).toEqual(['owned-window'])
@@ -220,23 +223,24 @@ test.describe('Group native lifecycle (#18314)', () => {
         windows.registerSource('view', effects({prepare: () => grant.promise, bound: data => bound.push(data)}));
         const vessel  = await windows.acquire('view', {itemId: 'one'});
         const binding = windows.onBind({...vessel, windowId: 'gone', generation: 1});
+        expect(windows.getAdmission('view', vessel.workspaceKey)).not.toBeNull();
         await windows.onRelease({groupId: windows.groupId, workspaceKey: vessel.workspaceKey, windowId: 'gone'});
         grant.resolve(true);
         await binding;
-        expect(windows.getAdmission('view', 'one')).toBeNull();
-        expect(windows.getConnection('view', 'one')).toBeNull();
+        expect(windows.getAdmission('view', vessel.workspaceKey)).toBeNull();
+        expect(windows.getConnection('view', vessel.workspaceKey)).toBeNull();
         expect(bound).toEqual([])
     });
 
     test('an awaited release cannot overwrite ownership recorded for a successor window', async () => {
         const windows = owner('root'), unbind = deferred();
         windows.registerSource('view', effects({unbind: () => unbind.promise}));
-        windows.recordOwner('view', 'one', {windowId: 'old', generationToken: 'old-token'});
+        windows.recordOwner('view', 'resource:one', {windowId: 'old', generationToken: 'old-token'});
         const release = windows.onRelease({groupId: windows.groupId, windowId: 'old'});
-        windows.recordOwner('view', 'one', {windowId: 'new', generationToken: 'new-token'});
+        windows.recordOwner('view', 'resource:one', {windowId: 'new', generationToken: 'new-token'});
         unbind.resolve(false);
         await release;
-        expect(windows.getOwner('view', 'one')).toMatchObject({windowId: 'new', generationToken: 'new-token'})
+        expect(windows.getOwner('view', 'resource:one')).toMatchObject({windowId: 'new', generationToken: 'new-token'})
     });
 
     test('physical death clears an outstanding refused-close record for that generation', async () => {
@@ -310,17 +314,17 @@ test.describe('Group native lifecycle (#18314)', () => {
     test('a late unbind result cannot mark a warm successor as awaiting closure or erase its owner', async () => {
         const windows = owner('root'), unbind = deferred();
         windows.registerSource('view', effects({unbind: () => unbind.promise}));
-        const vessel = await windows.acquire('view', {itemId: 'one'});
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
         manager.bind({...vessel, windowId: 'old'});
-        await expect.poll(() => windows.getConnection('view', 'one')).not.toBeNull();
-        windows.recordOwner('view', 'one', {...vessel, windowId: 'old'}, windows.getConnection('view', 'one'));
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'old'}, windows.getConnection('view', key));
         const data = release('old');
         manager.bind({...vessel, windowId: 'new'});
-        windows.recordOwner('view', 'one', {...vessel, windowId: 'new'});
+        windows.recordOwner('view', key, {...vessel, windowId: 'new'});
         unbind.resolve({retained: true, awaitingClosure: true});
         await Promise.resolve();
         expect(data.releasedBinding.awaitingClosure).toBe(false);
-        expect(windows.getOwner('view', 'one').windowId).toBe('new')
+        expect(windows.getOwner('view', key).windowId).toBe('new')
     });
 
     test('bound expiry observes awaiting closure while never-bound expiry keeps provisional retirement', async () => {
@@ -335,10 +339,10 @@ test.describe('Group native lifecycle (#18314)', () => {
             close         : vessel => { closed.push(vessel); return true },
             expired       : data => expiredAdmission.resolve(data)
         }));
-        const vessel = await windows.acquire('view', {itemId: 'bound'});
+        const vessel = await windows.acquire('view', {itemId: 'bound'}), key = vessel.workspaceKey;
         manager.bind({...vessel, windowId: 'bound'});
-        await expect.poll(() => windows.getConnection('view', 'bound')).not.toBeNull();
-        windows.recordOwner('view', 'bound', {...vessel, windowId: 'bound'}, windows.getConnection('view', 'bound'));
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'bound'}, windows.getConnection('view', key));
         manager.reconnectLeaseMs = 0;
         const data = release('bound'), expired = await expiredBinding.promise;
         expect(expired.releasedBinding).toBe(data.releasedBinding);
@@ -350,11 +354,101 @@ test.describe('Group native lifecycle (#18314)', () => {
         await windows.acquire('view', {itemId: 'never'});
         const provisional = await expiredAdmission.promise;
         expect(provisional.data).toMatchObject({generation: 0, releasedWindowId: null});
+        expect(provisional).toMatchObject({itemId: 'never', workspaceKey: 'resource:never'});
         expect(bindingsExpired, 'never-bound expiry cannot request the formerly-bound closure effect').toHaveLength(1);
         expect(closed.map(entry => entry.itemId)).toEqual(['never']);
-        expect(windows.getOwner('view', 'bound').windowId).toBeNull();
+        expect(windows.getOwner('view', key).windowId).toBeNull();
         manager.reserve({groupId: windows.groupId, workspaceKey: vessel.workspaceKey});
         expect(windows.isCurrentRelease(expired), 'a new lineage refuses the formerly expired record').toBe(false);
         expect(windows.isLeaseExpired(expired), 'expiry authority cannot survive a successor lineage').toBe(false)
+    });
+
+    test('an item opens a second resource under a key of its own while its first keeps the preferred key (#20006)', async () => {
+        const windows = owner('root');
+        windows.registerSource('view', effects());
+        const first = await windows.acquire('view', {itemId: 'one', gestureToken: 'pop-out'});
+        await windows.onBind({...first, windowId: 'popup', generation: 1});
+        windows.recordOwner('view', first.workspaceKey, {...first, windowId: 'popup'}, windows.getConnection('view', first.workspaceKey));
+
+        const second = await windows.acquire('view', {itemId: 'one', gestureToken: 'tear-out'});
+
+        expect(first.workspaceKey).toBe('resource:one');
+        expect(second.workspaceKey, 'the bound popup keeps the preferred key').toBe('resource:one:2');
+        expect(windows.getOwner('view', first.workspaceKey)).toMatchObject({itemId: 'one', windowId: 'popup'});
+        expect(windows.keyOf('view', 'one'), 'the item resolves to its newest resource').toBe(second.workspaceKey)
+    });
+
+    test('a pending or reconnecting key is never reused; a released key or a bare document nothing records is', async () => {
+        const windows = owner('root');
+        windows.registerSource('view', effects());
+
+        manager.reserve({groupId: windows.groupId, workspaceKey: 'resource:pending'});
+        // A document stays registered after its window closed
+        manager.registerParticipant({groupId: windows.groupId, workspaceKey: 'resource:document', participant: {}});
+
+        // Released while its committed owner waits for the window to come back
+        const reconnecting = await windows.acquire('view', {itemId: 'reconnecting'});
+        manager.bind({...reconnecting, windowId: 'reloading'});
+        await expect.poll(() => windows.getConnection('view', reconnecting.workspaceKey)).not.toBeNull();
+        windows.recordOwner('view', reconnecting.workspaceKey, {...reconnecting, windowId: 'reloading'},
+            windows.getConnection('view', reconnecting.workspaceKey));
+        release('reloading');
+        await expect.poll(() => windows.getOwner('view', reconnecting.workspaceKey)?.windowId).toBeNull();
+
+        // Released after its resource was retired, so nothing records it
+        const retired = manager.reserve({groupId: windows.groupId, workspaceKey: 'resource:retired'});
+        manager.bind({...retired, windowId: 'closed'});
+        release('closed');
+
+        for (const itemId of ['pending', 'reconnecting']) {
+            expect((await windows.acquire('view', {itemId})).workspaceKey).toBe(`resource:${itemId}:2`)
+        }
+        for (const itemId of ['retired', 'document']) {
+            expect((await windows.acquire('view', {itemId})).workspaceKey).toBe(`resource:${itemId}`)
+        }
+    });
+
+    test('two concurrent admissions for one item keep their own reservations; one gesture opens one resource', async () => {
+        const windows = owner('root'), opening = deferred();
+        windows.registerSource('view', effects({open: () => opening.promise}));
+
+        const first = windows.acquire('view', {itemId: 'one', gestureToken: 'a'});
+        await expect.poll(() => windows.getAdmission('view', 'resource:one')).not.toBeNull();
+        const retry  = windows.acquire('view', {itemId: 'one', gestureToken: 'a'}),
+              second = windows.acquire('view', {itemId: 'one', gestureToken: 'b'});
+        await expect.poll(() => windows.getAdmission('view', 'resource:one:2')).not.toBeNull();
+        opening.resolve({windowName: 'native-one'});
+
+        const [a, again, b] = await Promise.all([first, retry, second]),
+              bindings      = manager.get(windows.groupId).bindings;
+
+        expect(again, 'the same gesture opens nothing while its first admission is pending').toBeNull();
+        expect([a.workspaceKey, b.workspaceKey]).toEqual(['resource:one', 'resource:one:2']);
+        expect(bindings.get(a.workspaceKey).generationToken, 'the first reservation is never replaced').toBe(a.generationToken);
+        expect(bindings.get(b.workspaceKey).generationToken).toBe(b.generationToken)
+    });
+
+    test('a late close of an older resource leaves the newer resource for the same item untouched', async () => {
+        const windows = owner('root'), closing = deferred(), grant = deferred(), bound = [];
+        windows.registerSource('view', effects({
+            close  : () => closing.promise,
+            prepare: ({workspaceKey}) => workspaceKey === 'resource:one:2' ? grant.promise : true,
+            bound  : ({connection}) => bound.push(connection.workspaceKey)
+        }));
+        const older = await windows.acquire('view', {itemId: 'one', gestureToken: 'pop-out'});
+        await windows.onBind({...older, windowId: 'older', generation: 1});
+        windows.recordOwner('view', older.workspaceKey, {...older, windowId: 'older'}, windows.getConnection('view', older.workspaceKey));
+
+        const newer      = await windows.acquire('view', {itemId: 'one', gestureToken: 'tear-out'}),
+              binding    = windows.onBind({...newer, windowId: 'newer', generation: 1}),
+              retirement = windows.retire('view', windows.getOwner('view', older.workspaceKey));
+
+        closing.resolve(true);
+        expect(await retirement).toBe(true);
+        grant.resolve(true);
+        await binding;
+
+        expect(bound, 'the newer resource still binds').toEqual([older.workspaceKey, newer.workspaceKey]);
+        expect(windows.getConnection('view', newer.workspaceKey)).toMatchObject({itemId: 'one', windowId: 'newer'})
     });
 });

@@ -170,6 +170,46 @@ test.describe('Neo tab header actions', () => {
         expect(teardownContribution.isDestroyed, 'toolbar teardown owns contributed instances').toBe(true)
     });
 
+    test('a held reveal keeps withdrawn actions withdrawn until the last release, never withdraws a revealed one, and a keyboard-only focus is unaffected (#20046)', () => {
+        const inactive = bar => bar.getActionItems().filter(item => (item.cls || []).includes('neo-toolbar-action-context-inactive')).map(item => item.action),
+              toolbar  = own(Neo.create(Toolbar, {
+                  actionDefaults: {showOnFocus: true},
+                  actions       : [
+                      {action: 'lock',  iconCls: 'fa fa-lock'},
+                      {action: 'close', iconCls: 'fa fa-xmark', showOnFocus: false}
+                  ]
+              }));
+
+        expect(inactive(toolbar), 'unfocused: the gated action is withdrawn').toEqual(['lock']);
+
+        // A press on the overflow control holds the reveal before the focus it causes arrives
+        toolbar.holdContextualReveal('overflow-control');
+        toolbar.contextualActionsVisible = true;
+        expect(inactive(toolbar), 'focus during a hold reveals nothing').toEqual(['lock']);
+        expect(toolbar.contextualRevealPending, 'the reveal is owed').toBe(true);
+
+        // The menu the click opens takes the hold over; the press hold ends first
+        toolbar.holdContextualReveal('overflow-menu');
+        toolbar.releaseContextualReveal('overflow-control');
+        expect(inactive(toolbar), 'one hold left: still withdrawn').toEqual(['lock']);
+
+        toolbar.releaseContextualReveal('overflow-menu');
+        expect(inactive(toolbar), 'the last release applies the owed reveal').toEqual([]);
+        expect(toolbar.contextualRevealPending).toBe(false);
+
+        // A hold never withdraws an action already on the rail
+        toolbar.holdContextualReveal('overflow-menu');
+        toolbar.applyContextualActionState();
+        expect(inactive(toolbar), 'revealed actions stay through a hold').toEqual([]);
+        toolbar.releaseContextualReveal('overflow-menu');
+
+        // Without a hold (keyboard focus), the reveal is immediate
+        toolbar.contextualActionsVisible = false;
+        expect(inactive(toolbar)).toEqual(['lock']);
+        toolbar.contextualActionsVisible = true;
+        expect(inactive(toolbar), 'no hold: the focus reveals at once').toEqual([])
+    });
+
     test('contextual inactivity reserves the instance while leaving consumer availability intact', () => {
         const toolbar = own(Neo.create(Toolbar, {
                   actions: [{action: 'contextual', contextual: true, iconCls: 'fa fa-eye'}]
@@ -642,5 +682,117 @@ test.describe('Neo tab header actions', () => {
             hadMonacoAddon ? addon.MonacoEditor = oldMonacoAddon : delete addon.MonacoEditor;
             hadResizeAddon ? addon.ResizeObserver = oldResizeAddon : delete addon.ResizeObserver
         }
+    });
+
+    test('showOnHover option satisfies the focus × hover × pressed truth table while staying off by default', () => {
+        const tabs = own(Neo.create(TabContainer, {
+            appName,
+            headerActions: [
+                {action: 'reload', iconCls: 'fa fa-sync',      showOnFocus: true},
+                {action: 'pin',    iconCls: 'fa fa-thumbtack', showOnFocus: true, pressed: false},
+                {action: 'close',  iconCls: 'fa fa-times',     showOnFocus: false}
+            ],
+            items: [{
+                module: Component,
+                header: {text: 'One'}
+            }]
+        }));
+
+        const bar        = tabs.getTabBar(),
+              reload     = tabs.getAction('reload'),
+              pin        = tabs.getAction('pin'),
+              close      = tabs.getAction('close'),
+              isWithheld = item => item.cls.includes('neo-toolbar-action-context-inactive');
+
+        // 1. Default off (`showOnHover: false`): hover alone never reveals focus-gated actions.
+        expect(bar.showOnHover).toBe(false);
+        expect(isWithheld(reload)).toBe(true);
+        expect(isWithheld(pin)).toBe(true);
+        expect(isWithheld(close)).toBe(false);
+
+        bar.onFocusSubjectMouseEnter();
+        expect(bar.contextualActionsVisible).toBe(false);
+        expect(isWithheld(reload)).toBe(true);
+        bar.onFocusSubjectMouseLeave();
+
+        // 2. Enable `showOnHover: true` — evaluate full (focus × hover × pressed) truth table.
+        bar.showOnHover = true;
+
+        // (focus=false, hover=false, pressed=false) -> withheld
+        expect(bar.contextualActionsVisible).toBe(false);
+        expect(isWithheld(reload)).toBe(true);
+        expect(isWithheld(pin)).toBe(true);
+        expect(isWithheld(close)).toBe(false);
+
+        // (focus=false, hover=false, pressed=true) -> pressed toggle stays revealed, unpressed stays withheld
+        pin.pressed = true;
+        expect(isWithheld(pin)).toBe(false);
+        expect(isWithheld(reload)).toBe(true);
+        pin.pressed = false;
+        expect(isWithheld(pin)).toBe(true);
+
+        // (focus=false, hover=true, pressed=false) -> revealed via hover
+        bar.onFocusSubjectMouseEnter();
+        expect(bar.contextualActionsVisible).toBe(true);
+        expect(isWithheld(reload)).toBe(false);
+        expect(isWithheld(pin)).toBe(false);
+
+        // (focus=true, hover=true, pressed=false) -> revealed via both
+        tabs.containsFocus = true;
+        expect(bar.contextualActionsVisible).toBe(true);
+        expect(isWithheld(reload)).toBe(false);
+
+        // (focus=true, hover=false, pressed=false) -> pointer leaves while focused; stays revealed via focus
+        bar.onFocusSubjectMouseLeave();
+        expect(bar.contextualActionsVisible).toBe(true);
+        expect(isWithheld(reload)).toBe(false);
+        expect(isWithheld(pin)).toBe(false);
+
+        // (focus=false, hover=false, pressed=false) -> blur after pointer left; withholds again
+        tabs.containsFocus = false;
+        expect(bar.contextualActionsVisible).toBe(false);
+        expect(isWithheld(reload)).toBe(true);
+        expect(isWithheld(pin)).toBe(true);
+        expect(isWithheld(close)).toBe(false)
+    });
+
+    test('bindActionItems stamps the gate once for a gated ActionButton press and withholds a plain button that starts pressed once unpressed', () => {
+        const tabs = own(Neo.create(TabContainer, {
+            appName,
+            headerActions: [
+                {action: 'lock', ntype: 'toolbar-action-button', iconCls: 'fa fa-lock',      showOnFocus: true, pressed: false},
+                {action: 'pin',                                  iconCls: 'fa fa-thumbtack', showOnFocus: true, pressed: true}
+            ],
+            items: [{
+                module: Component,
+                header: {text: 'One'}
+            }]
+        }));
+
+        const bar        = tabs.getTabBar(),
+              lock       = tabs.getAction('lock'),
+              pin        = tabs.getAction('pin'),
+              isWithheld = item => item.cls.includes('neo-toolbar-action-context-inactive');
+
+        // `pin` is a plain `button.Base` that started `pressed: true`, so it starts revealed while unfocused
+        expect(isWithheld(lock)).toBe(true);
+        expect(isWithheld(pin)).toBe(false);
+
+        let   gateCalls = 0;
+        const origApply = bar.applyContextualActionState.bind(bar);
+        bar.applyContextualActionState = (...args) => {
+            gateCalls++;
+            return origApply(...args)
+        };
+
+        // 1. Pressing a gated `ActionButton` stamps the gate exactly once (via `ActionButton#afterSetPressed`, not a duplicate observer)
+        lock.pressed = true;
+        expect(gateCalls).toBe(1);
+        expect(isWithheld(lock)).toBe(false);
+
+        // 2. Unpressing the plain `button.Base` that started `pressed: true` while unfocused and unhovered withholds it
+        pin.pressed = false;
+        expect(gateCalls).toBe(2);
+        expect(isWithheld(pin)).toBe(true)
     });
 });

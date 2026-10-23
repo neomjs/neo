@@ -1421,7 +1421,11 @@ class Component extends Abstract {
 
         // We do want to prevent delayed calls after a component instance got destroyed.
         me.onFocusLeave = Neo.emptyFn;
-        me.unmount      = Neo.emptyFn
+        me.unmount      = Neo.emptyFn;
+
+        // The instance no longer owns a vdom, so its class's template shows through: a late config write
+        // must land on a dead copy, never on the template every later instance clones
+        me._vdom = Neo.clone(me._vdom, true)
     }
 
     /**

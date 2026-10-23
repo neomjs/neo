@@ -1787,5 +1787,169 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             host.destroy();
             Object.values(panes).forEach(pane => pane.isDestroyed || pane.destroy())
         }
+    });
+
+    test('retires the departing tab button and flushes the surviving source bar when a cross-window target claims a pane before source reconciliation (#19989)', async () => {
+        const model = createRootTabsModel();
+
+        model.items.beta = {reference: 'beta', title: 'Beta'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta'];
+
+        // Unstamped resident panes (like Workstation's ResidentComponent instances) rely on
+        // positional pairing. When the receiving popup workspace inserts the transferred pane
+        // (`alpha`) into its own card container before the source workspace reconciles, `alpha`
+        // leaves `body.items` while `bar.sortZoneConfig.dockItemIds` and `bar.getTabButtons()`
+        // still list `['alpha', 'beta']`.
+        const panes = {
+                  alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                  beta : Neo.create(Component, {header: {text: 'Beta'}})
+              },
+              host        = Neo.create(Container, {
+                  items: [DockLayoutAdapter.project(model, {
+                      resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                  })]
+              }),
+              vesselBody  = Neo.create(Container, {items: []}),
+              tab         = host.items[0],
+              bar         = tab.getTabBar(),
+              alphaButton = tab.getTabButtons()[0],
+              betaButton  = tab.getTabButtons()[1];
+
+        let   barFlushCount     = 0;
+        const originalBarUpdate = bar.promiseUpdate.bind(bar);
+        bar.promiseUpdate = () => {
+            barFlushCount++;
+            return originalBarUpdate()
+        };
+
+        try {
+            // Simulate the target popup workspace claiming `alpha` first during concurrent
+            // WorkspaceSet#transfer projection.
+            vesselBody.insert(0, panes.alpha, true);
+
+            expect(tab.getCardContainer().items).toEqual([panes.beta]);
+            expect(bar.getTabButtons()).toEqual([alphaButton, betaButton]);
+            expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha', 'beta']);
+
+            const nextModel    = structuredClone(model),
+                  placeholders = new Map();
+
+            delete nextModel.items.alpha;
+            nextModel.nodes['root-tabs'].items        = ['beta'];
+            nextModel.nodes['root-tabs'].activeItemId = 'beta';
+
+            const nextConfig = DockLayoutAdapter.project(nextModel, {
+                resolveComponentRef(_reference, item, itemId) {
+                    const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                    placeholders.set(itemId, placeholder);
+
+                    return placeholder
+                }
+            });
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                preserveItemIds: ['alpha'],
+                resolveItem    : itemId => panes[itemId]
+            });
+
+            expect(tab.getCardContainer().items, 'the surviving source strip retains only Beta').toEqual([panes.beta]);
+            expect(tab.getTabButtons(), 'the departing Alpha button is retired and Beta survives').toEqual([betaButton]);
+            expect(alphaButton.isDestroyed, 'the obsolete source tab button is destroyed').toBe(true);
+            expect(Boolean(panes.alpha.isDestroyed), 'the transferred pane remains alive in its target vessel').toBe(false);
+            expect(bar.sortZoneConfig.dockItemIds).toEqual(['beta']);
+            expect(barFlushCount, 'the surviving source tab bar flushes its silent button removal').toBeGreaterThan(0)
+        } finally {
+            host.destroy();
+            vesselBody.destroy();
+            Object.values(panes).forEach(pane => pane.isDestroyed || pane.destroy())
+        }
+    });
+
+    /**
+     * Another window claims one pane of the strip `[alpha, beta]` from its body before the strip reconciles,
+     * which keeps that pane's button. The next projection desires `nextItems` there.
+     * @param {Object} options
+     * @param {String} options.claimed The item whose pane leaves the body.
+     * @param {String[]} options.nextItems The strip's projected items.
+     * @param {Function} [options.resolveAlpha] `pane => answer` the resolver gives for `alpha`.
+     * @returns {Promise<Object>} The settled strip, read before teardown.
+     */
+    const reconcileClaimedPane = async ({claimed, nextItems, resolveAlpha=pane => pane}) => {
+        const model = createRootTabsModel();
+
+        model.items.beta = {reference: 'beta', title: 'Beta'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta'];
+
+        const panes = {
+                  alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                  beta : Neo.create(Component, {header: {text: 'Beta'}})
+              },
+              host      = Neo.create(Container, {
+                  items: [DockLayoutAdapter.project(model, {
+                      resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                  })]
+              }),
+              elsewhere    = Neo.create(Container, {items: []}),
+              buttons      = [...host.items[0].getTabButtons()],
+              nextModel    = structuredClone(model),
+              placeholders = new Map();
+
+        nextModel.nodes['root-tabs'].items = nextItems;
+        Object.keys(nextModel.items).forEach(itemId => nextItems.includes(itemId) || delete nextModel.items[itemId]);
+        elsewhere.insert(0, panes[claimed], true);
+
+        try {
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig: DockLayoutAdapter.project(nextModel, {
+                    resolveComponentRef(_reference, item, itemId) {
+                        const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                        placeholders.set(itemId, placeholder);
+
+                        return placeholder
+                    }
+                }),
+                placeholders,
+                resolveItem: itemId => itemId === 'alpha' ? resolveAlpha(panes.alpha) : panes[itemId]
+            });
+
+            const tab = host.items[0];
+
+            return {
+                buttons : [...tab.getTabButtons()],
+                items   : [...tab.getCardContainer().items],
+                original: buttons,
+                panes,
+                retired : buttons.map(button => Boolean(button.isDestroyed))
+            }
+        } finally {
+            host.destroy();
+            elsewhere.destroy();
+            Object.values(panes).forEach(pane => pane.isDestroyed || pane.destroy())
+        }
+    };
+
+    test('retires a returning item\'s pre-detached button and pairs its pane anew (#20025)', async () => {
+        // A popup's projection waits for its remount while main claims Alpha on a native close; Undo desires it back.
+        const {buttons, items, original, panes, retired} = await reconcileClaimedPane({claimed: 'alpha', nextItems: ['alpha', 'beta']});
+
+        expect(items, 'the returning pane is back in its slot').toEqual([panes.alpha, panes.beta]);
+        expect(buttons, 'one button per pane, Beta keeping its own').toEqual([expect.anything(), original[1]]);
+        expect(retired, 'only the pre-detached Alpha button is retired').toEqual([true, false])
+    });
+
+    test('a config answer for a desired item is no evidence its pane left (#20025)', async () => {
+        // A departure, Beta leaving: Alpha's unstamped pane stays and answers only by position.
+        const {buttons, items, original, panes} = await reconcileClaimedPane({
+            claimed: 'beta', nextItems: ['alpha'], resolveAlpha: () => ({ntype: 'component'})
+        });
+
+        expect(items, 'Alpha keeps its own pane').toEqual([panes.alpha]);
+        expect(buttons, 'and its own button').toEqual([original[0]])
     })
 });

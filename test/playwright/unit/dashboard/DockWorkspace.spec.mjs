@@ -1841,7 +1841,7 @@ test('the holder contract: a config-assigned document is readable before any ope
             const committed = workspace.getDockZoneDocument();
 
             expect(WorkspaceDocument.findOwningEdge(committed, 'preview'), 'a detached item owns no edge').toBeFalsy();
-            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview'), 'the vessel holds the pane').toBeTruthy()
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'popup:preview'), 'the vessel holds the pane').toBeTruthy()
         });
 
         test('#17947 a REDUCER refusal reaches the caller as a refusal, though the terminal resolved TRUE', async () => {
@@ -2072,7 +2072,7 @@ test('the holder contract: a config-assigned document is readable before any ope
                 {request, zone} = await beginExit('preview');
 
             expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
-            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview')).toMatchObject({windowId: null});
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'popup:preview')).toMatchObject({windowId: null});
             expect(workspace.tearOutHandlers.heldPane('preview')).toBe(pane);
             await workspace.refreshPromise;
 
@@ -2081,8 +2081,8 @@ test('the holder contract: a config-assigned document is readable before any ope
             await connectVessel('terminal-first', request.topologyIdentity);
 
             expect(mainView.items).toContain(pane);
-            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview').windowId).toBe('terminal-first');
-            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'popup:preview').windowId).toBe('terminal-first');
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'))).toBe(false);
 
             await disconnectVessel('terminal-first');
 
@@ -2185,15 +2185,15 @@ test('the holder contract: a config-assigned document is readable before any ope
 
             await connectVessel('connect-first', request.topologyIdentity);
 
-            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toMatchObject({windowId: 'connect-first', workspaceKey: 'popup:preview'});
-            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true, workspaceKey: 'popup:preview'});
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'popup:preview')).toMatchObject({windowId: 'connect-first', workspaceKey: 'popup:preview'});
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview')).toMatchObject({connected: true, workspaceKey: 'popup:preview'});
             expect(mainView.items).not.toContain(pane);
 
             expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
 
             expect(mainView.items).toContain(pane);
-            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview').windowId).toBe('connect-first');
-            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false)
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'popup:preview').windowId).toBe('connect-first');
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'))).toBe(false)
         });
 
         test('a worker may connect before platform-open settlement without being misclosed as stale', async () => {
@@ -2215,7 +2215,7 @@ test('the holder contract: a config-assigned document is readable before any ope
                 mainView = addWindow('early-connect');
 
             await connectVessel('early-connect', request.topologyIdentity);
-            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true});
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview')).toMatchObject({connected: true});
 
             resolveOpen({
                 popupHeight: 360,
@@ -2249,8 +2249,8 @@ test('the holder contract: a config-assigned document is readable before any ope
                 await connectVessel(windowId, topologyIdentity)
             }
 
-            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
-            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: false, windowId: null});
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'popup:preview')).toBeNull();
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview')).toMatchObject({connected: false, windowId: null});
             expect(TransactionManager.getBinding(identity.groupId, 'popup:preview').windowId,
                 'the reservation still waits for its own vessel').toBeNull();
             expect(TransactionManager.getBinding(identity.groupId, 'popup:terminal'), 'the unreserved slot stays absent').toBeNull();
@@ -2259,7 +2259,7 @@ test('the holder contract: a config-assigned document is readable before any ope
             await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
         });
 
-        test('two overlapping opens for one item: the older open\'s late failure cannot revoke the replacement reservation, whose vessel is admitted', async () => {
+        test('two overlapping opens for one item each keep their own reservation; the older open\'s late failure revokes only its own', async () => {
             workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
 
             const opens = [],
@@ -2268,7 +2268,7 @@ test('the holder contract: a config-assigned document is readable before any ope
             workspace.openTearOutVessel = request => new Promise(resolve => opens.push({request, resolve}));
 
             // The acquisition method itself, twice for one item while the first platform open is still
-            // pending: the second reservation supersedes the first in the manager and in the host. (The
+            // pending: the first reservation holds its slot, so the second gets a key of its own. (The
             // gesture handler serializes exits; this is the seam an asynchronous host reaches directly.)
             const first = acquireNative(workspace, {itemId: 'preview', sortZone: zone});
 
@@ -2281,27 +2281,28 @@ test('the holder contract: a config-assigned document is readable before any ope
             const [s1, s2] = opens.map(open => open.request.topologyIdentity);
 
             expect(s2.groupId).toBe(s1.groupId);
-            expect(s2.generationToken, 'the slot was reserved again under a fresh lineage').not.toBe(s1.generationToken);
-            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({generationToken: s2.generationToken});
+            expect([s1.workspaceKey, s2.workspaceKey], 'a pending slot is never replaced').toEqual(['popup:preview', 'popup:preview:2']);
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview')).toMatchObject({generationToken: s1.generationToken});
 
             // The older platform open fails late and cleans up after itself.
             opens[0].resolve(null);
 
             expect(await first, 'the older acquisition reports its failure').toBeNull();
-            expect(TransactionManager.getBinding(s2.groupId, 'popup:preview'), 'the replacement reservation survives the older failure')
-                .toEqual({generation: 0, generationToken: s2.generationToken, windowId: null, workspaceKey: 'popup:preview'});
-            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview'), 'the replacement admission survives it too').toMatchObject({generationToken: s2.generationToken});
+            expect(TransactionManager.getBinding(s1.groupId, 'popup:preview')?.generationToken ?? null, 'the failure revokes its own reservation').toBeNull();
+            expect(TransactionManager.getBinding(s2.groupId, 'popup:preview:2'), 'the newer reservation survives the older failure')
+                .toEqual({generation: 0, generationToken: s2.generationToken, windowId: null, workspaceKey: 'popup:preview:2'});
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview:2'), 'the newer admission survives it too').toMatchObject({generationToken: s2.generationToken});
 
-            // The replacement's open succeeds and its child binds the reserved slot.
+            // The newer open succeeds and its child binds the reserved slot.
             opens[1].resolve({popupHeight: 360, popupWidth: 480, windowName: 'tearout-preview-second'});
 
-            expect(await second).toMatchObject({generationToken: s2.generationToken, windowName: 'tearout-preview-second', workspaceKey: 'popup:preview'});
+            expect(await second).toMatchObject({generationToken: s2.generationToken, windowName: 'tearout-preview-second', workspaceKey: 'popup:preview:2'});
 
             addWindow('second-child');
             await connectVessel('second-child', s2);
 
-            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true, generationToken: s2.generationToken, windowId: 'second-child'});
-            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toMatchObject({windowId: 'second-child'})
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview:2')).toMatchObject({connected: true, generationToken: s2.generationToken, windowId: 'second-child'});
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'popup:preview:2')).toMatchObject({windowId: 'second-child'})
         });
 
         test('a late child presenting an expired reservation forks and never connects; a fresh reservation still admits its child', async () => {
@@ -2316,7 +2317,7 @@ test('the holder contract: a config-assigned document is readable before any ope
                 // The reservation runs out its lease with no window binding: the manager frees the slot,
                 // and the host retires the vessel it had opened for it.
                 await expect.poll(() => TransactionManager.getBinding(identity.groupId, 'popup:preview')).toBeNull();
-                await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+                await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'))).toBe(false);
                 expect(workspace.closeRequests.map(vessel => vessel.itemId)).toEqual(['preview']);
 
                 const lateView = addWindow('late-child');
@@ -2325,8 +2326,8 @@ test('the holder contract: a config-assigned document is readable before any ope
 
                 expect(TransactionManager.findByWindow('late-child').groupId, 'the dead lineage forked away').not.toBe(identity.groupId);
                 expect(TransactionManager.getBinding(identity.groupId, 'popup:preview'), 'nothing entered the Group').toBeNull();
-                expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
-                expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+                expect(workspace.nativeWindows.getConnection(workspace.id, 'popup:preview')).toBeNull();
+                expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'))).toBe(false);
                 expect(lateView.items).toEqual([]);
 
                 // Positive control: a fresh exit reserves again, and its own child is admitted.
@@ -2337,7 +2338,7 @@ test('the holder contract: a config-assigned document is readable before any ope
                 addWindow('fresh-child');
                 await connectVessel('fresh-child', fresh.topologyIdentity);
 
-                expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true, windowId: 'fresh-child'});
+                expect(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview')).toMatchObject({connected: true, windowId: 'fresh-child'});
 
                 await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
             } finally {
@@ -2410,11 +2411,11 @@ test('the holder contract: a config-assigned document is readable before any ope
 
             await expect.poll(() => typeof releaseGrant).toBe('function');
 
-            workspace.nativeWindows.clearAdmission(workspace.id, 'preview', workspace.nativeWindows.getAdmission(workspace.id, 'preview'));
+            workspace.nativeWindows.clearAdmission(workspace.id, 'popup:preview', workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'));
             releaseGrant(true);
             await connect;
 
-            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'popup:preview')).toBeNull();
             expect(mainView.items).toEqual([]);
 
             await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
@@ -2450,8 +2451,8 @@ test('the holder contract: a config-assigned document is readable before any ope
             await disconnectVessel('preterminal-disconnect');
 
             expect(JSON.stringify(workspace.dockModel)).toBe(before);
-            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
-            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'popup:preview')).toBeNull();
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'))).toBe(false);
             expect(workspace.tearOutHandlers.activeVessel).toBeNull();
             expect(zone.calls.ended).toBe(1);
             expect(workspace.lifecycleEvents).toEqual(['disconnect'])
@@ -2471,7 +2472,7 @@ test('the holder contract: a config-assigned document is readable before any ope
             const {zone} = await beginExit('preview');
 
             await closed;
-            await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+            await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'))).toBe(false);
 
             expect(zone.calls.ended).toBe(1);
             expect(workspace.tearOutHandlers.activeVessel).toBeNull();
@@ -2485,7 +2486,7 @@ test('the holder contract: a config-assigned document is readable before any ope
 
             await refused;
 
-            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(true);
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'))).toBe(true);
             expect(workspace.tearOutHandlers.activeVessel).toBeTruthy();
             expect(second.zone.calls.ended).toBe(0);
 
@@ -2514,10 +2515,10 @@ test('the holder contract: a config-assigned document is readable before any ope
                       detached = JSON.stringify(workspace.dockModel);
 
                 expect(pane, 'the terminal captured the live pane and nothing adopted it').not.toBeNull();
-                expect(workspace.nativeWindows.getOwner(workspace.id, 'preview'), 'ownership was committed at the terminal, windowless')
+                expect(workspace.nativeWindows.getOwner(workspace.id, 'popup:preview'), 'ownership was committed at the terminal, windowless')
                     .toMatchObject({windowId: null});
 
-                await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+                await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'))).toBe(false);
                 await expect.poll(() => workspace.lifecycleEvents.length).toBeGreaterThan(0);
 
                 expect(workspace.releaseAsks, 'asked exactly once').toHaveLength(1);
@@ -2536,7 +2537,7 @@ test('the holder contract: a config-assigned document is readable before any ope
                 const control = await beginExit('preview');
 
                 await workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: control.zone});
-                await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+                await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'))).toBe(false);
                 await expect.poll(() => workspace.lifecycleEvents.includes('disconnect')).toBe(true);
 
                 expect(workspace.lifecycleEvents[0], 'the plain host returned its item home').toMatch(/^return:true/);
@@ -2551,9 +2552,10 @@ test('the holder contract: a config-assigned document is readable before any ope
             // Stale: the admission was replaced while the host was still opening, so the record the
             // open returns into is no longer the one the acquisition made.
             workspace.openTearOutVessel = request => {
-                const admission = workspace.nativeWindows.getAdmission(workspace.id, request.itemId);
+                const key       = request.topologyIdentity.workspaceKey,
+                      admission = workspace.nativeWindows.getAdmission(workspace.id, key);
 
-                workspace.nativeWindows.sources.get(workspace.id).admissions.set(request.itemId, {...admission});
+                workspace.nativeWindows.sources.get(workspace.id).admissions.set(key, {...admission});
 
                 return {popupHeight: 360, popupWidth: 480, windowName: `stale-preview-${workspace.id}`}
             };
@@ -2562,7 +2564,7 @@ test('the holder contract: a config-assigned document is readable before any ope
 
             expect(vessel).toBeNull();
             expect(workspace.nativeWindows.pendingRetirements(workspace.id).length).toBe(1);
-            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(true);
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'))).toBe(true);
 
             const closeCount = workspace.closeRequests.length;
 
@@ -2572,7 +2574,7 @@ test('the holder contract: a config-assigned document is readable before any ope
             workspace.closeResult = true;
             expect(await workspace.nativeWindows.retryRetirements(workspace.id, 'preview')).toBe(true);
             expect(workspace.nativeWindows.pendingRetirements(workspace.id).length).toBe(0);
-            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false)
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'))).toBe(false)
         });
 
         test('failed reparent rejects loudly, retracts vessel ownership and returns the live pane', async () => {
@@ -2596,7 +2598,7 @@ test('the holder contract: a config-assigned document is readable before any ope
             await workspace.refreshPromise;
             await expect.poll(() => workspace.nativeWindows.pendingRetirements(workspace.id).length).toBe(1);
 
-            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview')).toBeNull();
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'popup:preview')).toBeNull();
             expect(workspace.getReference('tearout-pane-preview')).toBe(pane);
             expect(pane.isDestroyed).toBeFalsy();
             expect(workspace.closeRequests).toHaveLength(1);
@@ -4254,6 +4256,36 @@ test('the holder contract: a config-assigned document is readable before any ope
             expect(sideItems(workspace), 'the repair landed the document').toEqual(['preview'])
         });
 
+        test('a departed window takes no projection: the next mount lands the newest one', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument()});
+
+            const worker   = Neo.currentWorker,
+                  original = worker.isWindowDeparted,
+                  newest   = createDocument();
+            let departed = true;
+
+            newest.nodes['side-tabs'].items = ['terminal', 'preview'];
+            worker.isWindowDeparted = () => departed;
+
+            try {
+                await workspace.onDockZoneDocumentChange(withoutTerminal());
+                await workspace.onDockZoneDocumentChange(newest);
+                await workspace.refreshPromise;
+
+                expect(sideItems(workspace), 'nothing lands in the window that left').toEqual(['preview', 'terminal']);
+
+                // The warm reload's adoption: the next window mounts the Workspace
+                departed = false;
+                workspace.mounted = true;
+                await workspace.refreshPromise
+            } finally {
+                worker.isWindowDeparted = original
+            }
+
+            expect(workspace.refreshLog, 'both commits parked; the mount ran the newest').toEqual(['preview', 'terminal+preview', 'terminal+preview']);
+            expect(sideItems(workspace), 'the newest document landed').toEqual(['terminal', 'preview'])
+        });
+
         test('the close follow-up focuses exactly once when the close projection fails and is repaired', async () => {
             workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument(), enableDockCloseAction: true});
 
@@ -4835,7 +4867,7 @@ test('the holder contract: a config-assigned document is readable before any ope
 
                 await acquireNative(workspace, {itemId: 'editor'});
 
-                const admission = workspace.nativeWindows.getAdmission(workspace.id, 'editor');
+                const admission = workspace.nativeWindows.getAdmission(workspace.id, 'popup:editor');
 
                 expect(TransactionManager.getBinding(workspace.topologyGroupId, 'popup:editor'),
                     'the slot is reserved in the manager, its lease running').toMatchObject({windowId: null});
@@ -4967,7 +4999,7 @@ test.describe('Neo.dashboard.dock.Workspace#closeTearOutVessel (engine default)'
 
         Neo.Main.windowClose    = async data => {calls.push(data); return answer};
         // Nothing is admitted, so the vessel has no route and closes by the name this workspace opened it under.
-        workspace.nativeWindows = {getAdmission: () => null, getConnection: () => null, getOwner: () => null};
+        workspace.nativeWindows = {getAdmission: () => null, getConnection: () => null, getOwner: () => null, keyOf: () => null};
 
         try {
             const vessel = {itemId: 'preview', windowName: workspace.tearOutWindowName('preview')};
@@ -5002,7 +5034,7 @@ test.describe('Neo.dashboard.dock.Workspace#closeTearOutVessel (engine default)'
 
                 created.push(workspace);
                 await workspace.ready();
-                workspace.nativeWindows = {getAdmission: () => null, getConnection: () => null, getOwner: () => null};
+                workspace.nativeWindows = {getAdmission: () => null, getConnection: () => null, getOwner: () => null, keyOf: () => null};
 
                 return workspace
             };

@@ -147,9 +147,12 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
-     * @summary Re-embodies undo before projection and closes redo after projection settles.
-     * Each native refusal is an effectReceipt, never a semantic rollback. Redo fences both sides
-     * of identity clearing against the exact binding, generation and semantic snapshot.
+     * @summary Keeps a popup's window in step with what an undo or redo leaves in it, whichever row the cursor
+     * crossed: a popup the replay fills without a window is embodied before projection, and one it empties
+     * while bound closes after projection settles, so no replay leaves a blank window on screen.
+     * Each native refusal is an effectReceipt, never a semantic rollback. The close fences both sides
+     * of identity clearing against the exact binding, generation and semantic snapshot. Only a popup
+     * participant (one with a close policy) is touched; a root's window never is.
      * @param {Neo.dashboard.dock.window.WorkspaceSet} workspaceSet
      * @param {String} workspaceId
      * @param {Object} context Group projection context.
@@ -157,14 +160,15 @@ class NativeVesselTransaction extends Base {
      * @returns {Promise<*>} The ordinary projection's result.
      */
     static async replayWorkspaceReturn(workspaceSet, workspaceId, context, project) {
-        const row    = context.replayRow, source = workspaceSet?.getParticipant(workspaceId),
-              native = source?.nativeWindow;
-        if (!native || row?.operation !== 'returnPopupWorkspace' || row.workspaceId !== workspaceId) return project();
-        if (context.cursorAction === 'undo' && !native.windowId() && Object.keys(source.getDocument().items).length) {
+        const source = workspaceSet?.getParticipant(workspaceId),
+              native = source?.nativeWindow,
+              filled = () => Object.keys(source.getDocument().items).length > 0;
+        if (native?.policy?.() == null || !['undo', 'redo'].includes(context.cursorAction)) return project();
+        if (!native.windowId() && filled()) {
             this.publishWorkspaceEffect(workspaceSet, workspaceId, context, await this.embodyWorkspace(workspaceSet, workspaceId))
         }
         const result = await project();
-        if (context.cursorAction === 'redo' && native.windowId() && !Object.keys(source.getDocument().items).length) {
+        if (native.windowId() && !filled()) {
             const closed = await this.closeWorkspaceWindow(workspaceSet, workspaceId, {snapshot: context.snapshot});
             this.publishWorkspaceEffect(workspaceSet, workspaceId, context,
                 {closed, errors: closed ? [] : ['native replay close was refused']})
@@ -304,12 +308,13 @@ class NativeVesselTransaction extends Base {
      * @param {Object} data
      * @param {Object|null} data.nativeWindows The Group's native lifecycle.
      * @param {String} data.sourceId The registration the host's effects were bound under.
-     * @param {Function} data.windowNameFor `itemId => String`, the host's semantic vessel name.
+     * @param {Function} data.windowNameFor `(itemId, workspaceKey) => String`, the host's semantic vessel name.
      * @param {String} itemId
+     * @param {String} [workspaceKey] The vessel's Group key; without it the item's newest vessel answers.
      * @returns {Object|null}
      */
-    static resolveVessel({nativeWindows, sourceId, windowNameFor}, itemId) {
-        const entry = nativeWindows?.getConnection(sourceId, itemId) ?? nativeWindows?.getOwner(sourceId, itemId);
+    static resolveVessel({nativeWindows, sourceId, windowNameFor}, itemId, workspaceKey=nativeWindows?.keyOf(sourceId, itemId)) {
+        const entry = nativeWindows?.getConnection(sourceId, workspaceKey) ?? nativeWindows?.getOwner(sourceId, workspaceKey);
 
         if (!entry?.windowId) {
             return null
@@ -319,7 +324,7 @@ class NativeVesselTransaction extends Base {
             ...entry,
             itemId,
             nativeRoute: entry.nativeRoute ?? WindowManager.get(entry.windowId)?.nativeRoute ?? null,
-            windowName : entry.windowName ?? windowNameFor(itemId)
+            windowName : entry.windowName ?? windowNameFor(itemId, workspaceKey)
         }
     }
 
@@ -358,17 +363,21 @@ class NativeVesselTransaction extends Base {
      * @param {String} vessel.itemId
      * @param {Object} [vessel.nativeRoute] The opener-minted route, when one is known.
      * @param {String} vessel.windowName
+     * @param {String} vessel.workspaceKey The vessel's own Group key: a late close of an older vessel for the
+     *     same item reaches that vessel and never the item's newer one.
      * @returns {Promise<Boolean>}
      */
-    static async closeVessel(descriptor, {generationToken, itemId, nativeRoute, windowName} = {}) {
+    static async closeVessel(descriptor, {generationToken, itemId, nativeRoute, windowName, workspaceKey} = {}) {
         const
             {embodiment=null, nativeWindows, ownerWindowId, sourceId} = descriptor,
-            entry            = NativeVesselTransaction.resolveVessel(descriptor, itemId),
-            admission        = nativeWindows?.getAdmission(sourceId, itemId),
+            // A vessel naming no key is its item's newest one
+            vesselKey        = workspaceKey ?? nativeWindows?.keyOf(sourceId, itemId) ?? null,
+            entry            = NativeVesselTransaction.resolveVessel(descriptor, itemId, vesselKey),
+            admission        = nativeWindows?.getAdmission(sourceId, vesselKey),
             // A binding still being decided names its window as `connectingWindowId` and earns `windowId`
             // only on acceptance; a close arriving mid-decision must still reach that window.
             admittedWindowId = admission?.windowId ?? admission?.connectingWindowId ?? null,
-            expected         = descriptor.windowNameFor(itemId),
+            expected         = descriptor.windowNameFor(itemId, vesselKey),
             exactToken       = entry?.generationToken ?? admission?.generationToken ?? null,
             embodiedWindowId = entry?.windowId ?? admittedWindowId ?? embodiment?.getWindowId(itemId),
             receipt          = {

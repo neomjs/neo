@@ -104,7 +104,16 @@ class Toolbar extends Container {
             align    : 'center',
             direction: 'row',
             pack     : 'start'
-        }
+        },
+        /**
+         * When `true`, pointer hover over the focus subject (`focusSubjectId` or `parent`) also
+         * reveals focus-gated actions (`showOnFocus: true`) so `contextualActionsVisible` reflects
+         * `focus || (showOnHover && hover)`. Off by default so the quiet-inactive contract remains
+         * unchanged unless a consumer or workspace explicitly opts in.
+         * @member {Boolean} showOnHover_=false
+         * @reactive
+         */
+        showOnHover_: false
     }
 
     /**
@@ -114,6 +123,69 @@ class Toolbar extends Container {
      * @protected
      */
     actionBindingItems = new WeakSet()
+
+    /**
+     * Resolved focus subject (`focusSubjectId` or `parent`) once `wireFocusSubject()` succeeds.
+     * @member {Neo.component.Base|null}
+     * @protected
+     */
+    focusSubject = null
+
+    /**
+     * Whether the pointer currently hovers the wired focus subject.
+     * @member {Boolean}
+     * @protected
+     */
+    focusSubjectHovered = false
+
+    /**
+     * Whether focus-gated actions are temporarily revealed (`visibility: 'hidden'`) for layout measurement.
+     * @member {Boolean}
+     * @protected
+     */
+    measuringContextualActions = false
+    /**
+     * Reasons a focus-gated reveal is held back — a press on the tab overflow control, an open overflow
+     * menu. While any holds, {@link #applyContextualActionState} keeps a withdrawn action withdrawn and
+     * owes the reveal to {@link #releaseContextualReveal}, so the actions a focus inserts cannot move
+     * the control out from under the pointer that pressed it. Already revealed actions stay.
+     * @member {Set<String>|null} contextualRevealHolds=null
+     * @protected
+     */
+    contextualRevealHolds = null
+    /**
+     * A reveal that arrived while held, owed on the last release.
+     * @member {Boolean} contextualRevealPending=false
+     * @protected
+     */
+    contextualRevealPending = false
+
+    /**
+     * Holds back the focus-gated reveal for one named reason. An owner/plugin seam, not a public API:
+     * a plugin that needs the strip still acquires it and releases every reason it took, at the latest in its `destroy`.
+     * @param {String} reason
+     * @protected
+     */
+    holdContextualReveal(reason) {
+        (this.contextualRevealHolds ??= new Set()).add(reason)
+    }
+
+    /**
+     * Releases one hold; the last release applies a reveal that arrived meanwhile. Releasing a reason that is
+     * not held is a no-op.
+     * @param {String} reason
+     * @protected
+     */
+    releaseContextualReveal(reason) {
+        let me = this;
+
+        me.contextualRevealHolds?.delete(reason);
+
+        if (!(me.contextualRevealHolds?.size > 0) && me.contextualRevealPending) {
+            me.contextualRevealPending = false;
+            me.applyContextualActionState()
+        }
+    }
 
     /**
      * Reconciles a live action-collection replacement after construction. Initial materialisation
@@ -244,12 +316,20 @@ class Toolbar extends Container {
      */
     applyContextualActionState(silent=false) {
         let me      = this,
-            visible = me.contextualActionsVisible,
+            visible = me.contextualActionsVisible || me.measuringContextualActions === true,
+            held    = visible && me.measuringContextualActions !== true && me.contextualRevealHolds?.size > 0,
             touched = false;
 
         me.getActionItems().forEach(item => {
             let focusGated      = me.isFocusGatedAction(item),
                 ownsInactiveTab = Object.hasOwn(item, '_toolbarActionTabIndex');
+
+            // A held reveal keeps a withdrawn action withdrawn and owes the reveal to the release;
+            // an action already on the rail is never withdrawn by a hold.
+            if (held && focusGated && (item.cls || []).includes('neo-toolbar-action-context-inactive')) {
+                me.contextualRevealPending = true;
+                return
+            }
 
             // A live action may leave the focus gate so a persistent protective state can keep its
             // reversal discoverable. If this toolbar previously made it inactive, the opt-out must
@@ -339,9 +419,132 @@ class Toolbar extends Container {
     }
 
     /**
-     * Subscribes the focus gate to its subject.
+     * Temporarily reveals withheld focus-gated actions (`visibility: 'hidden'`) so a layout
+     * consumer such as {@link Neo.tab.plugin.Overflow} can measure their full main-axis extent,
+     * or restores them by re-deriving state through {@link #applyContextualActionState}.
      *
-     * Idempotent and safe to call early: the subject may not exist yet when a toolbar is built as
+     * The toolbar remains the sole writer of an action's withhold layer (`cls`, `style`,
+     * `domWithheld`, `vdom.removeDom`), using `setSilent` per action and a single owner update.
+     * @param {Boolean} active `true` to stage the hidden measurement reveal; `false` to restore.
+     * @returns {Promise<void>|undefined}
+     */
+    async setContextualActionMeasureReveal(active) {
+        let me      = this,
+            touched = false;
+
+        if (active) {
+            me.getActionItems().forEach(item => {
+                if (!me.isFocusGatedAction(item) || !(item.cls || []).includes('neo-toolbar-action-context-inactive')) {
+                    return
+                }
+
+                let style  = {...(item.style || {})},
+                    hadVis = Object.hasOwn(style, 'visibility');
+
+                if (!Object.hasOwn(item, '_toolbarActionMeasureVisibility')) {
+                    item._toolbarActionMeasureVisibility = hadVis ? {hadVis: true, value: style.visibility} : {hadVis: false}
+                }
+
+                style.visibility = 'hidden';
+                item.setSilent({style});
+                touched = true
+            });
+
+            me.measuringContextualActions = true;
+            me.applyContextualActionState(true);
+
+            if (touched) {
+                me.updateDepth = -1;
+                return me.promiseUpdate ? me.promiseUpdate() : me.update?.()
+            }
+        } else {
+            me.getActionItems().forEach(item => {
+                if (!Object.hasOwn(item, '_toolbarActionMeasureVisibility')) {
+                    return
+                }
+
+                let saved = item._toolbarActionMeasureVisibility,
+                    style = {...(item.style || {})};
+
+                delete item._toolbarActionMeasureVisibility;
+
+                // A removed inline style is written as `null`: the vdom style merges key by key, so a
+                // deleted key would leave the probe's `visibility: hidden` on the node.
+                style.visibility = saved.hadVis ? saved.value : null;
+
+                item.setSilent({style});
+                touched = true
+            });
+
+            // Land the restored styles while the probe's nodes are still mounted, then withdraw the
+            // actions: both in one update would lose the restoration, since a node removal carries no
+            // attribute deltas and the vnode would re-enter the DOM hidden on the next reveal.
+            if (touched && me.promiseUpdate) {
+                me.updateDepth = -1;
+                await me.promiseUpdate()
+            }
+
+            me.measuringContextualActions = false;
+            me.applyContextualActionState(true);
+
+            if (touched) {
+                me.updateDepth = -1;
+                return me.promiseUpdate ? me.promiseUpdate() : me.update?.()
+            }
+        }
+    }
+
+    /**
+     * Triggered after the showOnHover config got changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowOnHover(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.syncContextualActionsVisible()
+        }
+    }
+
+    /**
+     * Recomputes `contextualActionsVisible` from the focus subject's `containsFocus` state and,
+     * when `showOnHover === true`, the current pointer hover state on the focus subject.
+     * @protected
+     */
+    syncContextualActionsVisible() {
+        let me      = this,
+            subject = me.focusSubject || (me.focusSubjectId ? Neo.getComponent(me.focusSubjectId) : me.parent);
+
+        if (!subject) {
+            return
+        }
+
+        me.contextualActionsVisible = subject.containsFocus === true
+            || (me.showOnHover === true && me.focusSubjectHovered === true)
+    }
+
+    /**
+     * Marks the focus subject as hovered and re-evaluates focus-gated action visibility.
+     * @protected
+     */
+    onFocusSubjectMouseEnter() {
+        this.focusSubjectHovered = true;
+        this.showOnHover && this.syncContextualActionsVisible()
+    }
+
+    /**
+     * Clears the focus subject's hover state and re-evaluates focus-gated action visibility.
+     * @protected
+     */
+    onFocusSubjectMouseLeave() {
+        this.focusSubjectHovered = false;
+        this.showOnHover && this.syncContextualActionsVisible()
+    }
+
+    /**
+     * Subscribes `contextualActionsVisible` to the focus subject's `containsFocus` and pointer hover.
+     *
+     * Idempotent via `focusSubjectWired`. At `onConstructed` the owner may still be constructing this toolbar as
      * an early child, so the first attempt can resolve nothing. It then leaves the toolbar unwired
      * rather than marking it done, and the owner's `onConstructed` or this toolbar's mount retries.
      * Binding once at a single moment would be either too early for the subject or too late for a
@@ -362,18 +565,26 @@ class Toolbar extends Container {
         }
 
         me.focusSubjectWired = true;
+        me.focusSubject      = subject;
 
         // `containsFocus` is a reactive config that `manager.Focus` already maintains on every
         // component in the focus path, so the gate is a subscription to existing state rather than
         // a second interpretation of focus events. `observeConfig()` also ties the subscription to
         // this toolbar's lifecycle, which hand-rolled listeners do not.
-        me.observeConfig(subject, 'containsFocus', value => {
-            me.contextualActionsVisible = value === true
+        me.observeConfig(subject, 'containsFocus', () => {
+            me.syncContextualActionsVisible()
         });
+
+        subject.addDomListeners([
+            {mouseenter: me.onFocusSubjectMouseEnter, scope: me},
+            {mouseleave: me.onFocusSubjectMouseLeave, scope: me}
+        ]);
 
         // Wiring can land after the subject already holds focus; the subscription only reports
         // CHANGES, so the current value has to be adopted once.
-        me.contextualActionsVisible = subject.containsFocus === true
+        if (subject.containsFocus || (me.showOnHover && me.focusSubjectHovered)) {
+            me.syncContextualActionsVisible()
+        }
     }
 
     /**
@@ -392,7 +603,17 @@ class Toolbar extends Container {
             item.addDomListeners({resize: me.onActionResize, scope: me});
             item.on('hiddenChange', () => {
                 me.fire('actionVisibilityChange', {action: item.action, component: item})
-            }, me)
+            }, me);
+
+            // Standard `button.Base` items used directly in a toolbar's `actions` array carry a
+            // reactive `pressed` config without `Neo.toolbar.ActionButton`'s override; bind on the
+            // declared `showOnFocus === true` gate so items that start `pressed: true` still
+            // re-evaluate `applyContextualActionState()` when unpressed while unfocused/unhovered.
+            if (item.showOnFocus === true && !(item instanceof ActionButton) && item.getConfig?.('pressed') !== undefined) {
+                me.observeConfig(item, 'pressed', () => {
+                    me.applyContextualActionState()
+                })
+            }
         })
     }
 
@@ -753,6 +974,26 @@ class Toolbar extends Container {
      */
     replaceSpacer(item) {
         return item === '->' ? {module: Component, flex: 1} : item
+    }
+
+    /**
+     * Cleans up focus-subject hover DOM listeners before destroying the toolbar.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        if (me.focusSubject && !me.focusSubject.isDestroyed) {
+            me.focusSubject.removeDomListeners([
+                {mouseenter: me.onFocusSubjectMouseEnter, scope: me},
+                {mouseleave: me.onFocusSubjectMouseLeave, scope: me}
+            ])
+        }
+
+        me.focusSubject          = null;
+        me.contextualRevealHolds = null;
+
+        super.destroy(...args)
     }
 
     /**

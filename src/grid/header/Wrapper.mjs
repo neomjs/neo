@@ -67,6 +67,34 @@ class Wrapper extends BaseContainer {
     }
 
     /**
+     * @summary Registers main-thread context-menu prevention when a detached grid is attached or moved to a window.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (value && this.hasColumnMenus()) {
+            Neo.main.DomEvents.registerPreventDefaultTargets({
+                cls: 'neo-grid-menu-hint', name: 'contextmenu', windowId: value
+            })
+        }
+    }
+
+    /**
+     * @summary Installs delegated header context-menu and keyboard listeners for menu-disabled column hints.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        this.addDomListeners([
+            {contextmenu: this.onHeaderContextMenu, scope: this},
+            {keydown: {fn: this.onHeaderKeyDown, scope: this, bubble: true}}
+        ])
+    }
+
+    /**
      * Re-homes and re-orders the column header buttons across the locked-start, centre and locked-end
      * toolbars to match the current column-collection order. Invoked by
      * {@link Neo.grid.Container#onColumnsMutate} after a column mutation.
@@ -231,7 +259,112 @@ class Wrapper extends BaseContainer {
         }
 
         me.items = me.getToolbars();
-        me.createItems()
+        me.createItems();
+        me.syncColumnMenuState()
+    }
+
+    /**
+     * @summary Returns the first active column-menu plugin in this header wrapper, if any.
+     * @returns {Neo.grid.header.plugin.Menu|null}
+     */
+    getMenuPlugin() {
+        for (const toolbar of this.getToolbars()) {
+            for (const item of toolbar.items || []) {
+                const plugin = item.getPlugin('plugin-grid-header-menu');
+                if (plugin) return plugin
+            }
+        }
+        return null
+    }
+
+    /**
+     * @summary True while at least one header button in this grid enables its value menu.
+     * @returns {Boolean}
+     */
+    hasColumnMenus() {
+        return this.getToolbars().some(toolbar => (toolbar.items || []).some(item => item.columnMenu === true))
+    }
+
+    /**
+     * @member {Boolean} syncingColumnMenuState=false
+     * @protected
+     */
+    syncingColumnMenuState = false
+
+    /**
+     * @summary Toggles `neo-grid-menu-hint` on menu-disabled header buttons while the grid has at least one
+     * menu-enabled column, registers context-menu prevention for that class, and dismisses any stale hint.
+     */
+    syncColumnMenuState() {
+        if (this.syncingColumnMenuState) return;
+        const active = this.hasColumnMenus();
+
+        for (const toolbar of this.getToolbars()) {
+            for (const item of toolbar.items || []) {
+                item.toggleCls('neo-grid-menu-hint', active && !item.columnMenu)
+            }
+        }
+
+        if (active && this.windowId) {
+            Neo.main.DomEvents.registerPreventDefaultTargets({
+                cls: 'neo-grid-menu-hint', name: 'contextmenu', windowId: this.windowId
+            })
+        }
+
+        const menu = this.getMenuPlugin();
+        if (!active || menu?.hintTarget?.columnMenu || menu?.hintTarget?.isDestroyed) {
+            menu?.closeHint()
+        }
+    }
+
+    /**
+     * @summary Resolves the column header button from a delegated DOM event path.
+     * @param {Object} data
+     * @returns {Neo.grid.header.Button|null}
+     */
+    resolveHeaderButton(data) {
+        for (const node of data?.path || []) {
+            const component = Neo.getComponent(node.id);
+            if (component?.ntype === 'grid-header-button') return component
+        }
+        return null
+    }
+
+    /**
+     * @summary Shows the disabled-column hint on right-click of a menu-disabled header in a menu-enabled grid.
+     * @param {Object} data
+     */
+    onHeaderContextMenu(data) {
+        const button = this.resolveHeaderButton(data),
+              menu   = this.getMenuPlugin();
+        if (!menu || !button || button.columnMenu || !this.hasColumnMenus()) {
+            menu?.closeHint();
+            return
+        }
+        if (!menu.isFilterFieldEvent(data, button)) {
+            menu.openHint(button)
+        }
+    }
+
+    /**
+     * @summary Supports keyboard context-menu invocation and Escape dismissal on menu-disabled headers.
+     * @param {Object} data
+     */
+    onHeaderKeyDown(data) {
+        const button = this.resolveHeaderButton(data),
+              menu   = this.getMenuPlugin();
+        if (!menu) return;
+        if (data.key === 'Escape') {
+            menu.closeHint(true);
+            return
+        }
+        if (menu.hintTarget && button && button !== menu.hintTarget) {
+            menu.closeHint()
+        }
+        if ((data.key === 'ContextMenu' || data.key === 'F10' && data.shiftKey) &&
+            button && !button.columnMenu && this.hasColumnMenus() && !menu.isFilterFieldEvent(data, button)) {
+            menu.openHint(button)
+        }
     }
 }
 

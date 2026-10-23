@@ -2904,8 +2904,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         DragCoordinator.register(source);
         DragCoordinator.register(target);
 
-        // Inside the SOURCE window, so the target's inner rect resolves but does not intersect.
-        move(source, 400, 260);
+        // Beyond both windows, so the target's inner rect resolves but does not intersect.
+        move(source, 1500, 260);
 
         const candidate = DragCoordinator.claimTrace.at(-1).candidates.find(item => item.stableTargetId === 'workspace-b');
 
@@ -2935,6 +2935,59 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
         expect(candidate.skipped).toBe('no-accepts-handler');
         expect(candidate.stableTargetId).toBe('workspace-b')
+    });
+
+    test('a point inside the source\'s frame is the source\'s: a window it overlaps claims nothing there (#20004)', () => {
+        // The press raised the source above every window it overlaps, so the target is hidden where both lie
+        const source = createSource(),
+              target = createZone('workspace-a', 'win-a');
+
+        registerWindow('win-source', 0,   0,   800, 600);
+        registerWindow('win-a',      600, 100, 600, 400);
+        DragCoordinator.register(target);
+
+        move(source, 700, 300);
+
+        expect(DragCoordinator.claimTrace.at(-1).outcome).toBe('no-claim');
+        expect(DragCoordinator.claimTrace.at(-1).candidates)
+            .toContainEqual({windowId: 'win-a', stableTargetId: 'workspace-a', skipped: 'source-frame'});
+        expect(calls).toEqual([]);
+
+        // Beyond the source's frame the window claims, and coming back inside is re-entry into the source
+        move(source, 1000, 300);
+        move(source, 700, 300);
+
+        expect(calls).toEqual([['suspend', 'tab-1'], ['move', 'workspace-a', 400, 200], ['leave', 'workspace-a'], ['resume', 'tab-1']])
+    });
+
+    test('the source\'s title bar hides what lies beneath it as much as its content does', () => {
+        const source = createSource(),
+              target = createZone('workspace-a', 'win-a');
+
+        registerWindow('win-source', 0, 0, 800, 640, {innerRect: new Rectangle(0, 40, 800, 600), outerRect: new Rectangle(0, 0, 800, 640)});
+        registerWindow('win-a', 600, 0, 600, 400);
+        DragCoordinator.register(target);
+
+        move(source, 700, 20);
+
+        expect(DragCoordinator.claimTrace.at(-1).candidates)
+            .toContainEqual({windowId: 'win-a', stableTargetId: 'workspace-a', skipped: 'source-frame'});
+        expect(calls).toEqual([])
+    });
+
+    test('the legacy door obeys the source\'s frame too: a zone without stable identity beneath it takes nothing', () => {
+        const source = createSource();
+
+        // Registered first, so the first-intersecting resolution answers this window, not the source
+        registerWindow('win-legacy', 600, 100, 600, 400);
+        registerWindow('win-source', 0,   0,   800, 600);
+        DragCoordinator.register(createZone(null, 'win-legacy'));
+
+        move(source, 700, 300);
+        expect(calls).toEqual([]);
+
+        move(source, 1000, 300);
+        expect(calls).toEqual([['suspend', 'tab-1'], ['move', 'win-legacy', 400, 200]])
     });
 
     test('retained entries stay attributable to the gesture that produced them, across gestures', () => {

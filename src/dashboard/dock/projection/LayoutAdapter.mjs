@@ -438,6 +438,9 @@ class LayoutAdapter extends Base {
      *     maximize action while the node is un-maximized.
      * @param {String} [options.dockMinimizeIconCls='far fa-window-minimize'] Icon of that same
      *     action while it is maximized. Both sides reach the action, which picks per `pressed`.
+     * @param {String|null} [options.dockMaximizedNodeId=null] The tabs node the maximize plugin presents
+     *     maximized. It projects `neo-dock-maximized`, so a staged refresh that retains the node keeps
+     *     the presentation instead of laying it out at its docked size until the plugin re-applies it.
      * @param {Boolean} [options.dockPopOutActionAvailable=false] Whether the owner currently has one
      *     effective tear-out handler/admission bundle. The stable pop-out action always projects;
      *     capability changes its hidden state rather than node-level action membership.
@@ -479,6 +482,8 @@ class LayoutAdapter extends Base {
      *     rail reveal pane: `(pane, itemId) => void`, binding the pane to the item's committed lock.
      * @param {Object|null} [options.tabInsertDescriptor] Runtime-only normalized `addTab`
      * correlation consumed by this projection; never part of `model`.
+     * @param {Boolean} [options.headerActionsShowOnHover=false] When `true`, projected tab header
+     *     toolbars reveal their focus-gated actions on pointer hover over the pane.
      * @returns {Object}
      * @static
      */
@@ -496,9 +501,12 @@ class LayoutAdapter extends Base {
         let stackDragNodeId = options.enableStackDrag === true
                 ? WorkspaceDocument.resolveStackRoot(model)
                 : null,
-            config = this.projectNode(model.root, {
-            applyDockZoneOperation: options.applyDockZoneOperation,
-            autoHideRevealOnHover : options.autoHideRevealOnHover === true,
+            config, context;
+
+        context = {
+            applyDockZoneOperation  : options.applyDockZoneOperation,
+            autoHideRevealOnHover   : options.autoHideRevealOnHover === true,
+            headerActionsShowOnHover: options.headerActionsShowOnHover === true,
             // Cross-WINDOW participation (docking design record §2.3, additive + opt-in): a composition that
             // supplies a sortGroup makes every projected tab sort zone a coordinator-registered
             // drag SOURCE (the workspace id rides the drag payload for the receiving window's
@@ -519,37 +527,39 @@ class LayoutAdapter extends Base {
             dockTabSortBoundaryContainerId   : options.dockTearOutBoundaryContainerId
                 || options.dockWorkspaceBoundaryContainerId
                 || null,
-            dockActionTooltips               : options.dockActionTooltips || null,
-            dockLockIconCls                  : options.dockLockIconCls || 'fa fa-lock',
-            dockMaximizeIconCls              : options.dockMaximizeIconCls || 'far fa-window-maximize',
-            dockMinimizeIconCls              : options.dockMinimizeIconCls || 'far fa-window-minimize',
-            dockPopOutActionAvailable        : options.dockPopOutActionAvailable === true,
-            dockPopOutIconCls                : options.dockPopOutIconCls || 'far fa-window-restore',
-            dockUnlockIconCls                : options.dockUnlockIconCls || 'fa fa-lock-open',
-            enableDockCloseAction            : options.enableDockCloseAction !== false,
-            enableDockLockAction             : options.enableDockLockAction === true,
-            enableDockMaximizeAction         : options.enableDockMaximizeAction === true,
-            enableDockPinAction              : options.enableDockPinAction !== false,
-            enableDockPopOutAction           : options.enableDockPopOutAction !== false,
-            enableDockReloadAction           : options.enableDockReloadAction !== false,
-            enableDockTearOut                : options.enableDockTearOut === true,
-            enableVesselConversion           : options.enableVesselConversion === true,
-            items                            : model.items || {},
-            nodes                            : model.nodes,
-            onDockCrossZoneDragCancel        : options.onDockCrossZoneDragCancel,
-            onDockCrossZoneDragMove          : options.onDockCrossZoneDragMove,
-            onDockCrossZoneDrop              : options.onDockCrossZoneDrop,
-            onDockActiveIndexChange          : options.onDockActiveIndexChange,
-            onDockHeaderAction               : options.onDockHeaderAction,
-            resolveDockHeaderActions         : options.resolveDockHeaderActions,
-            onDockStackDragTerminal          : options.onDockStackDragTerminal,
-            onDockTearOutCancel              : options.onDockTearOutCancel,
-            onDockTearOutEntry               : options.onDockTearOutEntry,
-            onDockTearOutExit                : options.onDockTearOutExit,
-            onDockTearOutTerminal            : options.onDockTearOutTerminal,
-            onDockZoneDocumentChange         : options.onDockZoneDocumentChange,
-            resolveComponentRef              : options.resolveComponentRef || (() => null),
-            resolveRevealComponentRef        : options.resolveRevealComponentRef
+            dockActionTooltips       : options.dockActionTooltips || null,
+            dockLockIconCls          : options.dockLockIconCls || 'fa fa-lock',
+            dockMaximizeIconCls      : options.dockMaximizeIconCls || 'far fa-window-maximize',
+            dockMaximizedNodeId      : options.dockMaximizedNodeId || null,
+            dockMinimizeIconCls      : options.dockMinimizeIconCls || 'far fa-window-minimize',
+            dockPopOutActionAvailable: options.dockPopOutActionAvailable === true,
+            dockPopOutIconCls        : options.dockPopOutIconCls || 'far fa-window-restore',
+            dockUnlockIconCls        : options.dockUnlockIconCls || 'fa fa-lock-open',
+            enableDockCloseAction    : options.enableDockCloseAction !== false,
+            enableDockLockAction     : options.enableDockLockAction === true,
+            enableDockMaximizeAction : options.enableDockMaximizeAction === true,
+            enableDockPinAction      : options.enableDockPinAction !== false,
+            enableDockPopOutAction   : options.enableDockPopOutAction !== false,
+            enableDockReloadAction   : options.enableDockReloadAction !== false,
+            enableDockTearOut        : options.enableDockTearOut === true,
+            enableVesselConversion   : options.enableVesselConversion === true,
+            items                    : model.items || {},
+            nodes                    : model.nodes,
+            onDockCrossZoneDragCancel: options.onDockCrossZoneDragCancel,
+            onDockCrossZoneDragMove  : options.onDockCrossZoneDragMove,
+            onDockCrossZoneDrop      : options.onDockCrossZoneDrop,
+            onDockActiveIndexChange  : options.onDockActiveIndexChange,
+            onDockHeaderAction       : options.onDockHeaderAction,
+            resolveDockHeaderActions : options.resolveDockHeaderActions,
+            onDockStackDragTerminal  : options.onDockStackDragTerminal,
+            onDockTearOutCancel      : options.onDockTearOutCancel,
+            onDockTearOutEntry       : options.onDockTearOutEntry,
+            onDockTearOutExit        : options.onDockTearOutExit,
+            onDockTearOutTerminal    : options.onDockTearOutTerminal,
+            onDockZoneDocumentChange : options.onDockZoneDocumentChange,
+            railFrameZoneId          : this.resolveRailFrameZone(model),
+            resolveComponentRef      : options.resolveComponentRef || (() => null),
+            resolveRevealComponentRef: options.resolveRevealComponentRef
                 || options.resolveComponentRef
                 || (() => null),
             stackDragNodeId,
@@ -561,11 +571,119 @@ class LayoutAdapter extends Base {
             retainRevealPane                  : options.retainRevealPane,
             tabInsertDescriptor               : options.tabInsertDescriptor ?? null,
             workspaceId                       : options.workspaceId ?? null
-        });
+        };
+
+        config = this.projectNode(model.root, context);
+
+        if (context.railFrameZoneId) {
+            config = this.projectRailFrame(config, context.railFrameZoneId, context)
+        }
 
         config.cls = [...new Set([...(config.cls || []), 'neo-dashboard'])];
 
         return config
+    }
+
+    /**
+     * @summary The edge-zone whose rails frame the whole arrangement: the one a root-edge drop wrapped, else null.
+     *
+     * A root-edge drop wraps the arrangement in a split (the DockPanel rule, `DragAffordances#guardEmptyWrap`), so
+     * the edge-zone that was the root ends up below one or more splits. Found breadth-first through splits only, so
+     * the shallowest one wins, the outermost as in {@link Neo.dashboard.dock.model.WorkspaceDocument#findOwningEdge}.
+     * Null while the root IS the edge-zone: its own box already is the frame.
+     * @param {Object} model
+     * @returns {String|null}
+     * @protected
+     * @static
+     */
+    static resolveRailFrameZone(model) {
+        let {nodes, root} = model,
+            queue         = [root];
+
+        while (queue.length) {
+            let node = nodes[queue.shift()];
+
+            if (node?.type === 'split') {
+                for (const childId of node.children || []) {
+                    if (nodes[childId]?.type === 'edge-zone') {
+                        return childId
+                    }
+
+                    queue.push(childId)
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Frames a wrapped arrangement with the rails of the edge-zone it wrapped, because rails are window chrome.
+     *
+     * Wrapped, the edge-zone's box is one split child, so rails projected there would sit between panes. They project
+     * here instead, at the dock host's edges, with the edge-zone's own corner policy: top and bottom rails span the
+     * width, side rails run between them. Only the rails move. The edge-zone keeps its bands, so a band's visible panes
+     * stay beside it. The frame is the reveal overlays' containing block, so a reveal opens against the arrangement.
+     * @param {Object} arrangement The projected root
+     * @param {String} nodeId The wrapped edge-zone, which stays the rails' owner and so part of their identity
+     * @param {Object} context
+     * @returns {Object}
+     * @protected
+     * @static
+     */
+    static projectRailFrame(arrangement, nodeId, context) {
+        let railsByEdge                = this.collectRailsByEdge(context.nodes[nodeId], context),
+            [top, right, bottom, left] = ['top', 'right', 'bottom', 'left'].map(edge =>
+                railsByEdge[edge] && this.createEdgeRail(railsByEdge[edge], edge, context, nodeId));
+
+        if (!top && !right && !bottom && !left) {
+            return arrangement
+        }
+
+        // Like a split child: the committed geometry, never the content's min-size, decides the arrangement's extent
+        arrangement.flex  = 1;
+        arrangement.style = {...arrangement.style, minHeight: 0, minWidth: 0};
+
+        return {
+            cls         : ['neo-dashboard-dock-rail-frame'],
+            dockNodeType: 'rail-frame',
+            items       : [top, left || right ? {
+                cls         : ['neo-dashboard-dock-edge-row'],
+                dockNodeType: 'edge-zone-row',
+                items       : [left, arrangement, right].filter(Boolean),
+                layout      : {ntype: 'hbox', align: 'stretch'},
+                ntype       : 'container',
+                style       : {minHeight: 0, minWidth: 0}
+            } : arrangement, bottom].filter(Boolean),
+            layout: {ntype: 'vbox', align: 'stretch'},
+            ntype : 'container'
+        }
+    }
+
+    /**
+     * @summary The auto-hidden items each band of an edge-zone rails, keyed by edge.
+     *
+     * An item an ancestor edge-zone already claimed stays on that ancestor's rail (see {@link #projectEdgeZoneNode}).
+     * @param {Object} node An edge-zone node
+     * @param {Object} context
+     * @returns {Object} `{top, right, bottom, left}` item ids, only for the edges that rail something
+     * @protected
+     * @static
+     */
+    static collectRailsByEdge(node, context) {
+        let inheritedIds = context.railedItemIds || null,
+            railsByEdge  = {};
+
+        ['top', 'right', 'bottom', 'left'].forEach(edge => {
+            let zoneId  = WorkspaceDocument.getZoneNodeId(node.zones?.[edge]),
+                itemIds = zoneId ? this.collectAutoHiddenItems(zoneId, context).filter(itemId => !inheritedIds?.has(itemId)) : [];
+
+            if (itemIds.length) {
+                railsByEdge[edge] = itemIds
+            }
+        });
+
+        return railsByEdge
     }
 
     /**
@@ -743,8 +861,8 @@ class LayoutAdapter extends Base {
      * **An ancestor's claim is inherited, not restarted.** `collectAutoHiddenItems` recurses through
      * nested edge-zones, so an item two edge-zones deep is collected by BOTH the outer band and the
      * inner one. {@link Neo.dashboard.dock.model.WorkspaceDocument#findOwningEdge} answers that contest with the
-     * OUTERMOST edge, and this projection is the behavior that answer describes. The `inheritedIds`
-     * filter is what enforces it: without it a nested zone re-claims an item its ancestor already owns
+     * OUTERMOST edge, and this projection is the behavior that answer describes. The inherited-claim
+     * filter in {@link #collectRailsByEdge} enforces it: without it a nested zone re-claims an item its ancestor already owns
      * and the item renders on two rails. `DockZoneModel.spec` reds on exactly that.
      *
      * Seeding `railedItemIds` from the inherited set is a second, WEAKER guarantee, and it is honest to
@@ -764,23 +882,12 @@ class LayoutAdapter extends Base {
      */
     static projectEdgeZoneNode(nodeId, node, context) {
         let {zones={}} = node,
-            railsByEdge   = {},
-            inheritedIds  = context.railedItemIds || null,
-            railedItemIds = new Set(inheritedIds);
+            claimed       = this.collectRailsByEdge(node, context),
+            // A wrapped root's rails frame the whole arrangement instead: see projectRailFrame()
+            railsByEdge   = nodeId === context.railFrameZoneId ? {} : claimed,
+            railedItemIds = new Set(context.railedItemIds);
 
-        ['top', 'right', 'bottom', 'left'].forEach(edge => {
-            let zoneId = WorkspaceDocument.getZoneNodeId(zones[edge]);
-
-            if (zoneId) {
-                let itemIds = this.collectAutoHiddenItems(zoneId, context)
-                    .filter(itemId => !inheritedIds?.has(itemId));
-
-                if (itemIds.length) {
-                    railsByEdge[edge] = itemIds;
-                    itemIds.forEach(itemId => railedItemIds.add(itemId))
-                }
-            }
-        });
+        Object.values(claimed).forEach(itemIds => itemIds.forEach(itemId => railedItemIds.add(itemId)));
 
         // Pass the railed set down so projectTabsNode drops those items from the tab flow. The set is
         // the UNION of what an ancestor claimed and what this node just claimed, so a descendant tab
@@ -1245,7 +1352,7 @@ class LayoutAdapter extends Base {
 
         return {
             activeIndex,
-            cls         : ['neo-dashboard-dock-tabs'],
+            cls         : ['neo-dashboard-dock-tabs', ...(nodeId === context.dockMaximizedNodeId ? ['neo-dock-maximized'] : [])],
             dockNodeId  : nodeId,
             dockNodeType: 'tabs',
             // A dock tab strip is embedded pane chrome, not a free-standing tab card. `ui` is the
@@ -1286,6 +1393,7 @@ class LayoutAdapter extends Base {
                 // generic default stays floating; composed dock headers opt into their owned action rail.
                 // Zero new model state: menu selection routes through tab.Container's existing activeIndex.
                 plugins       : [{module: TabOverflowPlugin, projectAsAction: true}],
+                showOnHover   : context.headerActionsShowOnHover === true,
                 sortZoneConfig: {
                     module: TabSortZone,
                     // A dock host spans multiple tab strips. Workspace-backed compositions supply

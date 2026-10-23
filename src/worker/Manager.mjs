@@ -454,6 +454,17 @@ class Manager extends Base {
     }
 
     /**
+     * @summary Whether a message names a window other than this one, so the DOM deltas it carries belong to that
+     * window's document. A message naming no window, or `'main'`, names none.
+     * @param {String|null} [windowId]
+     * @returns {Boolean}
+     * @protected
+     */
+    isForeignWindowId(windowId) {
+        return Boolean(windowId) && windowId !== 'main' && windowId !== this.windowId
+    }
+
+    /**
      *
      */
     loadApplication() {
@@ -527,6 +538,11 @@ class Manager extends Base {
         me.fire('message:'+action, data);
 
         if (action === 'updateVdom') {
+            if (me.isForeignWindowId(dest)) {
+                me.refuseForeignDomUpdate(data, data.origin, dest);
+                return
+            }
+
             data.replyId = data.id;
             me.handleDomUpdate(data, data.deltas, data.origin, false);
             return
@@ -540,6 +556,11 @@ class Manager extends Base {
 
                 if (payload) {
                     if (payload.autoMount || payload.updateVdom) {
+                        if (me.isForeignWindowId(data.windowId)) {
+                            me.refuseForeignDomUpdate(data, dest, data.windowId);
+                            return
+                        }
+
                         let deltas = payload.deltas;
 
                         if (payload.autoMount) {
@@ -660,6 +681,31 @@ class Manager extends Base {
         } catch {
             return {}
         }
+    }
+
+    /**
+     * @summary Answers a DOM update addressed to another window without applying it.
+     *
+     * A SharedWorker relays a worker-bound reply through any window of its app once the window the reply names has
+     * departed (`Neo.worker.Base#sendMessage`), so a vdom reply can arrive here carrying another document's deltas.
+     * Applying them would edit this window's DOM. The answer is the rejection a departed port produces, so the caller
+     * settles silently and adopts no vnode. It is a plain object: a cloned `Error` keeps only standard names.
+     * @param {Object} data The message carrying the deltas
+     * @param {String} dest Where the answer goes
+     * @param {String} windowId The window the deltas belong to
+     * @protected
+     */
+    refuseForeignDomUpdate(data, dest, windowId) {
+        const error = {
+            code   : 'NEO_DEAD_PORT',
+            message: `A DOM update for window ${windowId} reached window ${this.windowId}`,
+            name   : 'PortDisconnectedError',
+            windowId
+        };
+
+        this.sendMessage(dest, data.action === 'reply'
+            ? {...data, data: error, reject: true}
+            : {action: 'reply', data: error, reject: true, replyId: data.id})
     }
 
     /**

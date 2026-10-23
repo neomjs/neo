@@ -120,11 +120,11 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
     });
 
     /**
-     * A lean toolbar-owner stub: two header buttons, a controllable getDomRect, and an optional event
+     * A lean toolbar-owner stub: two header buttons, a controllable getLayoutRect, and an optional event
      * collector standing in for the owner's `fire` — attached before construction, because the plugin
      * runs its first projection pass while constructing against a mounted owner.
      */
-    const createPlugin = (getDomRect, fire) => {
+    const createPlugin = (getLayoutRect, fire) => {
         const items = [{id: 'b1'}, {id: 'b2'}];
 
         const plugin = Neo.create(Overflow, {
@@ -140,7 +140,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
                 getActionItems: () => [],
                 getTabButtons() { return this.items },
                 getTheme          : function () { return this.theme },
-                getDomRect,
+                getLayoutRect,
                 add               : () => ({}),
                 addDomListeners   : () => {},
                 removeDomListeners: () => {},
@@ -157,7 +157,19 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         return plugin
     };
 
-    test('a getDomRect throw against a LIVE owner surfaces the defect (console.error) and still releases the latch', async () => {
+    test('a projection measures layout boxes, never the visual box a presentation transform distorts', async () => {
+        const visualReads = [],
+              plugin      = createPlugin(async ids => ids.map(() => ({height: 20, width: 50, x: 0, y: 0})));
+
+        plugin.owner.getDomRect = async ids => { visualReads.push(ids); return [] };
+        plugin.syncControl      = () => {}; // no live overflow menu: its store would outlive this test
+        await plugin.project(true);
+
+        expect(visualReads, 'neither the natural widths nor the strip extent come from the visual box').toEqual([]);
+        plugin.destroy()
+    });
+
+    test('a getLayoutRect throw against a LIVE owner surfaces the defect (console.error) and still releases the latch', async () => {
         const plugin = createPlugin(async () => { throw new Error('live-owner programming defect') }),
               errors = [],
               orig   = console.error;
@@ -175,8 +187,8 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.measuring, 'the latch must reset in finally so the header keeps responding').toBe(false)
     });
 
-    test('a getDomRect throw during a mid-measure TEARDOWN (owner unmounts) is swallowed — the expected race, no defect noise', async () => {
-        // getDomRect is invoked as `owner.getDomRect(...)`, so `this` is the exact owner object project()
+    test('a getLayoutRect throw during a mid-measure TEARDOWN (owner unmounts) is swallowed — the expected race, no defect noise', async () => {
+        // getLayoutRect is invoked as `owner.getLayoutRect(...)`, so `this` is the exact owner object project()
         // holds — flip its `mounted` there (a regular function, not an arrow) to simulate an unmount landing
         // mid-measure, just before the throw.
         const plugin = createPlugin(async function () { this.mounted = false; throw new Error('teardown race') });
@@ -236,7 +248,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             gate       = new Promise(resolve => { release = resolve }),
             callCount  = 0;
 
-        // first pass gates on getDomRect; the second project() call must queue rather than drop.
+        // first pass gates on getLayoutRect; the second project() call must queue rather than drop.
         // A wide extent (button-id calls → per-button rects; the extent call — an array led by the
         // owner id, optionally trailing the mounted control id — → one wide rect) keeps nothing
         // overflowing, so the pass completes cleanly through applySplit.
@@ -698,7 +710,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
         try {
             shouldThrow = true;
-            await plugin.project(true).catch(() => {}); // pass 1: getDomRect throws → caught, latch released
+            await plugin.project(true).catch(() => {}); // pass 1: getLayoutRect throws → caught, latch released
             expect(plugin.measuring, 'the latch is released after the failed pass').toBe(false);
             await plugin.project(true);                 // pass 2: measures + applies cleanly
         } finally {
@@ -1070,7 +1082,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             },
             un() {}
         };
-        plugin.owner.getDomRect = async () => {
+        plugin.owner.getLayoutRect = async () => {
             signalMeasure();
             await measureGate;
             return [{height: 300, left: 0, top: 0, width: 1000, x: 0, y: 0}]
@@ -1126,7 +1138,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
               buttons = [makeButton('b1'), makeButton('b2', true)];
 
         plugin.owner.items = buttons;
-        plugin.owner.getDomRect = async ids => ids[0] === 'tab-overflow-test-owner'
+        plugin.owner.getLayoutRect = async ids => ids[0] === 'tab-overflow-test-owner'
             ? [{height: 25, left: 0, top: 0, width: 70, x: 0, y: 0}]
             : [{height: 20, width: 50}, {height: 20, width: 50}];
         plugin.owner.promiseUpdate = async () => {
@@ -1134,13 +1146,14 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             await updateGate
         };
         plugin.owner.update = () => {};
-        plugin.naturalWidths = {b1: 50, b2: 50};
+        // b2 has no cached width, so the recapture has to restore it for its measure window.
+        plugin.naturalWidths = {b1: 50};
         plugin.syncControl = () => {};
 
         const recapture = plugin.project(true);
 
         await updateStarted;
-        expect(buttons[1].hidden, 'recapture temporarily restores the hidden tab').toBe(false);
+        expect(buttons[1].hidden, 'recapture temporarily restores the uncached hidden tab').toBe(false);
 
         plugin.owner.sortZone = {
             dragEndActive      : false,
@@ -1161,6 +1174,57 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.sortDragProjectionQueued).toBe(false);
 
         plugin.owner.sortZone.sortSnapshotPending = false;
+        plugin.destroy()
+    });
+
+    test('a recapture keeps a withheld tab with a cached width out of the strip and keeps its width', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
+                  ? [{height: 25, left: 0, top: 0, width: 70, x: 0, y: 0}]
+                  : [{height: 20, width: 50}, {height: 0, width: 0}]),
+              updates = [],
+              b2      = {cls: [], hidden: true, id: 'b2', maxWidth: null, vdom: {removeDom: true},
+                  addCls() {}, removeCls() {}, setSilent(values) { Object.assign(this, values) }};
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        plugin.owner.items         = [{cls: [], hidden: false, id: 'b1', maxWidth: null, vdom: {},
+            addCls() {}, removeCls() {}, setSilent(values) { Object.assign(this, values) }}, b2];
+        plugin.owner.promiseUpdate = async () => { updates.push(b2.hidden) };
+        plugin.owner.update        = () => {};
+        plugin.naturalWidths       = {b1: 50, b2: 80};
+        plugin.naturalWidthLabels  = {b1: Overflow.labelOf(plugin.owner.items[0]), b2: Overflow.labelOf(b2)};
+        plugin.syncControl         = () => {};
+
+        await plugin.project(true);
+
+        expect(updates, 'no update ever showed the withheld tab').not.toContain(false);
+        expect(b2.vdom.removeDom, 'the withheld tab never left its removed state').toBe(true);
+        expect(plugin.naturalWidths.b2, 'its cached width survives the recapture').toBe(80);
+        plugin.destroy()
+    });
+
+    test('a recapture measures a withheld tab again once its label changed', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
+                  ? [{height: 25, left: 0, top: 0, width: 70, x: 0, y: 0}]
+                  : [{height: 20, width: 50}, {height: 20, width: 120}]),
+              updates = [],
+              b2      = {cls: [], hidden: true, id: 'b2', maxWidth: null, text: 'renamed', vdom: {removeDom: true},
+                  addCls() {}, removeCls() {}, setSilent(values) { Object.assign(this, values) }};
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        plugin.owner.items         = [{cls: [], hidden: false, id: 'b1', maxWidth: null, vdom: {},
+            addCls() {}, removeCls() {}, setSilent(values) { Object.assign(this, values) }}, b2];
+        plugin.owner.promiseUpdate = async () => { updates.push(b2.hidden) };
+        plugin.owner.update        = () => {};
+        plugin.naturalWidths       = {b1: 50, b2: 80};
+        plugin.naturalWidthLabels  = {b1: Overflow.labelOf(plugin.owner.items[0]), b2: Overflow.labelOf({text: 'original'})};
+        plugin.syncControl         = () => {};
+
+        await plugin.project(true);
+
+        expect(updates, 'the renamed withheld tab was restored for its measure window').toContain(false);
+        expect(plugin.naturalWidths.b2, 'its width is measured under the new label').toBe(120);
         plugin.destroy()
     });
 
@@ -1419,7 +1483,7 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
         }),
 
         /** A toolbar-owner stub with the parent seam the active-button resolution needs. */
-        createCapPlugin = ({buttons, getDomRect}) => Neo.create(Overflow, {
+        createCapPlugin = ({buttons, getLayoutRect}) => Neo.create(Overflow, {
             owner: {
                 id            : 'cap-owner',
                 appName       : 'test-app',
@@ -1431,7 +1495,7 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
                 dock          : 'top',
                 getActionItems: () => [],
                 getTabButtons : () => buttons,
-                getDomRect,
+                getLayoutRect,
                 getTheme() { return this.theme },
                 add            : () => ({}),
                 addDomListeners() {},
@@ -1462,7 +1526,7 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
                 buttons   : [b1, b2],
                 // extent 236; rendered control 49 — measurable only once mounted. Naturals: the
                 // active b1 (227) alone exceeds usable, staging the degenerate cap.
-                getDomRect: async ids => ids[0] === 'cap-owner'
+                getLayoutRect: async ids => ids[0] === 'cap-owner'
                     ? (ids.length === 2 ? [{width: 236}, {width: 49}] : [{width: 236}])
                     : [{width: 227}, {width: 100}]
             });
@@ -1496,8 +1560,8 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
             b1     = makeCapButton('b1'),
             b2     = makeCapButton('b2', {maxWidth: 120, style: {color: 'red', maxWidth: '120px'}}),
             plugin = createCapPlugin({
-                buttons   : [b1, b2],
-                getDomRect: async ids => ids[0] === 'cap-owner' ? [{width: 1000}] : [{width: 100}, {width: 100}]
+                buttons      : [b1, b2],
+                getLayoutRect: async ids => ids[0] === 'cap-owner' ? [{width: 1000}] : [{width: 100}, {width: 100}]
             });
 
         await settle();
@@ -1528,8 +1592,8 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
 
         try {
             const plugin = createCapPlugin({
-                buttons   : [b1, b2],
-                getDomRect: async ids => ids[0] === 'cap-owner'
+                buttons      : [b1, b2],
+                getLayoutRect: async ids => ids[0] === 'cap-owner'
                     ? (ids.length === 2 ? [{width: extent}, {width: 49}] : [{width: extent}])
                     : [{width: 227}, {width: 100}]
             });
@@ -1569,8 +1633,8 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
         const
             b1     = makeCapButton('b1', {maxHeight: 250, maxWidth: 300}),
             plugin = createCapPlugin({
-                buttons   : [b1],
-                getDomRect: async () => [{height: 1000, width: 1000}]
+                buttons      : [b1],
+                getLayoutRect: async () => [{height: 1000, width: 1000}]
             });
 
         await settle();
@@ -1881,7 +1945,7 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
                       items             : [{id: 'b1'}, {id: 'b2'}],
                       parent,
                       getTheme          : function () { return this.theme },
-                      getDomRect        : async ids => ids[0] === 'wired-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}],
+                      getLayoutRect     : async ids => ids[0] === 'wired-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}],
                       add               : () => ({}),
                       addDomListeners   : () => {},
                       removeDomListeners: () => {},
@@ -2002,10 +2066,12 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
  * instead, against the real plugin rather than a synthetic one.
  */
 test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers every registration', () => {
-    let Overflow;
+    let Overflow,
+        Toolbar;
 
     test.beforeAll(async () => {
-        Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default
+        Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default;
+        Toolbar  = (await import('../../../../../src/toolbar/Base.mjs')).default
     });
 
     test('a remount releases the DOM listener as well as the seven Observable subscriptions', () => {
@@ -2018,7 +2084,7 @@ test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers ever
                 id                : 'owner-release', mounted: true, windowId: 1, items: [],
                 getActionItems    : () => [], getTabButtons() { return this.items },
                 getTheme          : function () { return this.theme },
-                getDomRect        : async () => ({height: 0, width: 0, x: 0, y: 0}),
+                getLayoutRect     : async () => ({height: 0, width: 0, x: 0, y: 0}),
                 add               : () => ({}),
                 addDomListeners   : value => { added.push(...[value].flat()) },
                 removeDomListeners: value => { released.push(...[value].flat()) },
@@ -2043,5 +2109,219 @@ test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers ever
         ).toEqual(['resize']);
 
         plugin.destroy()
+    });
+
+    test('with owner.showOnHover === true, hovering into and out of an unfocused pane keeps the tab overflow partition identical', async () => {
+        const makeButton = id => ({
+            addCls() {},
+            hidden: false,
+            id,
+            removeCls() {},
+            setSilent(values) { Object.assign(this, values) },
+            show() {
+                this.hidden = false;
+                delete this.vdom.removeDom
+            },
+            hide() {
+                this.hidden = true;
+                this.vdom.removeDom = true
+            },
+            style: {},
+            vdom : {}
+        });
+
+        const makeAction = (id, action, showOnFocus) => ({
+            action,
+            cls        : showOnFocus ? ['neo-toolbar-action-context-inactive'] : [],
+            domWithheld: showOnFocus,
+            hidden     : false,
+            id,
+            setSilent(values) { Object.assign(this, values) },
+            showOnFocus,
+            style: {},
+            vdom : showOnFocus ? {removeDom: true} : {}
+        });
+
+        const buttons = ['t1', 't2', 't3', 't4'].map(makeButton),
+              reload  = makeAction('act-reload', 'reload', true),
+              pin     = makeAction('act-pin',    'pin',    true),
+              close   = makeAction('act-close',  'close',  false),
+              actions = [reload, pin, close];
+
+        const rectFor = id => {
+            if (id === 'hover-owner') return {left: 0, width: 320, x: 0};
+            if (id.startsWith('t'))   return {left: 0, width: 80,  x: 0};
+            if (id === 'act-reload') {
+                return reload.cls.includes('neo-toolbar-action-context-inactive')
+                    ? {left: 0, width: 0, x: 0}
+                    : {left: 230, width: 28, x: 230}
+            }
+            if (id === 'act-pin') {
+                return pin.cls.includes('neo-toolbar-action-context-inactive')
+                    ? {left: 0, width: 0, x: 0}
+                    : {left: 260, width: 28, x: 260}
+            }
+            if (id === 'act-close') return {left: 290, width: 28, x: 290};
+            return {left: 0, width: 28, x: 0}
+        };
+
+        const parent = {activeIndex: 0, on: () => {}, un: () => {}},
+              owner  = {
+                  appName                         : 'NeoTabPluginOverflowTest',
+                  contextualActionsVisible        : false,
+                  id                              : 'hover-owner',
+                  items                           : buttons,
+                  mounted                         : true,
+                  parent,
+                  showOnHover                     : true,
+                  theme                           : 'neo-theme-neo-dark',
+                  windowId                        : 1,
+                  add                             : cfg => ({...cfg, destroy: () => {}, id: 'ctrl-1', mounted: true}),
+                  addDomListeners                 : () => {},
+                  applyContextualActionState      : Toolbar.prototype.applyContextualActionState,
+                  fire                            : () => {},
+                  getActionItems                  : () => actions,
+                  getLayoutRect                   : async ids => ids.map(rectFor),
+                  getTabButtons                   : () => buttons,
+                  getTheme                        : () => 'neo-theme-neo-dark',
+                  isFocusGatedAction              : Toolbar.prototype.isFocusGatedAction,
+                  on                              : () => {},
+                  promiseUpdate                   : async () => {},
+                  remove                          : () => {},
+                  removeDomListeners              : () => {},
+                  setContextualActionMeasureReveal: Toolbar.prototype.setContextualActionMeasureReveal,
+                  syncActionDomPresence           : Toolbar.prototype.syncActionDomPresence,
+                  un                              : () => {},
+                  up                              : () => parent,
+                  update                          : () => {}
+              },
+              plugin = Neo.create(Overflow, {
+                  appName: 'NeoTabPluginOverflowTest',
+                  control: {alignTo() {}, destroy() {}, iconCls: 'fa fa-ellipsis', id: 'ctrl-1', mounted: true},
+                  owner
+              });
+
+        await plugin.whenProjectionIdle();
+        const beforeHoverVisible = buttons.filter(b => !b.hidden).map(b => b.id);
+
+        // Simulate pointer hover revealing the focus-gated actions through the toolbar's own gate
+        owner.contextualActionsVisible = true;
+        owner.applyContextualActionState(true);
+        await plugin.project(false);
+        const duringHoverVisible = buttons.filter(b => !b.hidden).map(b => b.id);
+
+        // Simulate pointer leaving and re-withholding the focus-gated actions through the toolbar's own gate
+        owner.contextualActionsVisible = false;
+        owner.applyContextualActionState(true);
+        await plugin.project(false);
+        const afterHoverVisible = buttons.filter(b => !b.hidden).map(b => b.id);
+
+        expect(beforeHoverVisible).toEqual(['t1', 't2']);
+        expect(duringHoverVisible).toEqual(beforeHoverVisible);
+        expect(afterHoverVisible).toEqual(beforeHoverVisible);
+
+        plugin.destroy()
+    })
+});
+
+/**
+ * @summary A press on the overflow control holds its owner's focus-gated reveal for exactly as long as the press can
+ * still click the control, then hands the hold to the menu that click opens. The owner is a real toolbar, so the
+ * hold under test is the toolbar's own.
+ */
+test.describe('Neo.tab.plugin.Overflow — the control press hold', () => {
+    let Overflow,
+        Toolbar;
+
+    test.beforeAll(async () => {
+        Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default;
+        Toolbar  = (await import('../../../../../src/toolbar/Base.mjs')).default
+    });
+
+    /**
+     * An unfocused toolbar with one focus-gated action, and its overflow plugin in action mode.
+     * @returns {{plugin: Neo.tab.plugin.Overflow, toolbar: Neo.toolbar.Base, withdrawn: Function}}
+     */
+    const createRail = () => {
+        const toolbar = Neo.create(Toolbar, {
+            actionDefaults: {showOnFocus: true},
+            actions       : [{action: 'lock', iconCls: 'fa fa-lock'}]
+        });
+
+        return {
+            plugin   : Neo.create(Overflow, {owner: toolbar, projectAsAction: true}),
+            toolbar,
+            withdrawn: () => toolbar.getAction('lock').cls.includes('neo-toolbar-action-context-inactive')
+        }
+    };
+
+    test('a press holds the reveal while it can still click the control, and no clock ends it (#20046)', async () => {
+        const {plugin, toolbar, withdrawn} = createRail(),
+              held                         = () => toolbar.contextualRevealHolds?.has('overflow-control') === true;
+
+        // The real contribution, before any partition supplied its menu
+        plugin.createActionControl();
+
+        // The press focuses the pane: the reveal it owes waits for the press
+        plugin.onControlPointerDown({button: 0});
+        toolbar.contextualActionsVisible = true;
+
+        // wall-clock-under-test: a press outlasting any timer is still a press
+        await new Promise(resolve => setTimeout(resolve, 1600));
+        expect(held(), 'a long press still holds').toBe(true);
+        expect(withdrawn()).toBe(true);
+
+        plugin.onControlPointerLeave({buttons: 1});
+        expect(held(), 'leaving with the button down: a release elsewhere cannot click the control').toBe(false);
+        expect(withdrawn(), 'the release applies the owed reveal').toBe(false);
+
+        plugin.onControlPointerEnter({buttons: 1});
+        expect(held(), 'back with the button still down: a release here clicks the control').toBe(true);
+
+        plugin.onControlClick();
+        expect(held(), 'a click that opens no menu ends the press at once').toBe(false);
+
+        plugin.onControlPointerEnter({buttons: 1});
+        expect(held(), 'a drag entering after the press ended is not that press').toBe(false);
+
+        plugin.onControlPointerDown({button: 2});
+        expect(held(), 'a secondary press cannot click the control').toBe(false);
+
+        plugin.destroy();
+        toolbar.destroy()
+    });
+
+    test('a click that opens the menu hands the hold to it at its mount without a gap; a click that closes it releases at once (#20046)', async () => {
+        const {plugin, toolbar, withdrawn} = createRail(),
+              menuList                     = Neo.create(MountableMenuList, {items: []}),
+              holds                        = () => [...(toolbar.contextualRevealHolds ?? [])];
+
+        // No projection has observed this list yet: the opening click itself must
+        plugin.control = {destroy() {}, menu: [{text: 'Agents'}], menuList, menuListReady: Promise.resolve()};
+
+        plugin.onControlPointerDown({button: 0});
+        toolbar.contextualActionsVisible = true;
+        plugin.onControlClick();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(holds(), 'the press holds until the menu mounts').toEqual(['overflow-control']);
+
+        // button.Base#toggleMenu shows the list; its mount lands a round trip later
+        menuList.hidden  = false;
+        menuList.mounted = true;
+        expect(holds(), 'the mounted menu took the hold over').toEqual(['overflow-menu']);
+        expect(withdrawn(), 'with no gap for the owed reveal to slip through').toBe(true);
+
+        plugin.onControlPointerDown({button: 0});
+        plugin.onControlClick();
+        expect(holds(), 'a click that closes the menu ends its press at once').toEqual(['overflow-menu']);
+
+        menuList.hidden  = true;
+        menuList.mounted = false;
+        expect(holds()).toEqual([]);
+        expect(withdrawn(), 'the unmount applies the owed reveal').toBe(false);
+
+        plugin.destroy();
+        toolbar.destroy();
+        menuList.destroy()
     })
 });

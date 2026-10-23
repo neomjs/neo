@@ -225,6 +225,14 @@ class SortZone extends DragZone {
      */
     isOverDragging = false
     /**
+     * True while the pointer is where a release would not commit the reorder: {@link #onDragMove} keeps
+     * sampling the window boundary but moves no sibling. Off by default; only a subclass that knows such
+     * territory arms it (the dock tab strip, beyond its release band).
+     * @member {Boolean} isReorderParked=false
+     * @protected
+     */
+    isReorderParked = false
+    /**
      * @member {Boolean} isWindowDragging=false
      * @protected
      */
@@ -330,6 +338,18 @@ class SortZone extends DragZone {
               cls       = item.vdom.cls;
 
         return Array.isArray(cls) ? cls.includes(handleCls) : cls === handleCls
+    }
+
+    /**
+     * @summary Returns the draggable items that occupy a live DOM layout slot at drag start.
+     * @param {Object[]} [items=this.owner.items]
+     * @returns {Neo.component.Base[]}
+     * @protected
+     */
+    getSortableItems(items=this.owner.items) {
+        return this.getDraggableItems(items).filter(item =>
+            !(item.hidden && item.hideMode !== 'visibility') && !item.vdom?.removeDom
+        )
     }
 
     /**
@@ -596,15 +616,19 @@ class SortZone extends DragZone {
                 }
             }
 
-            ownerStyle.height   = me.ownerStyle.height    || null;
-            ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
-            ownerStyle.position = me.ownerStyle.position  || null;
-            ownerStyle.width    = me.ownerStyle.width     || null;
+            // A drop that re-projected the source can destroy the owner and its items while this latch waited:
+            // a destroyed component has nothing left to restore
+            if (!owner.isDestroyed) {
+                ownerStyle.height   = me.ownerStyle.height    || null;
+                ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
+                ownerStyle.position = me.ownerStyle.position  || null;
+                ownerStyle.width    = me.ownerStyle.width     || null;
 
-            owner.style = ownerStyle;
+                owner.style = ownerStyle
+            }
 
             me.sortableItems?.forEach((item, index) => {
-                if (me.isWindowDragging && item === me.dragComponent) {
+                if (item.isDestroyed || (me.isWindowDragging && item === me.dragComponent)) {
                     return
                 }
 
@@ -627,7 +651,7 @@ class SortZone extends DragZone {
             });
 
             // Restore visibility of the dragged component (it's not in sortableItems if placeholder is used)
-            if (me.dragComponent) {
+            if (me.dragComponent && !me.dragComponent.isDestroyed) {
                 let style = me.dragComponent.wrapperStyle || {};
                 style.visibility = null;
                 me.dragComponent.wrapperStyle = style;
@@ -662,6 +686,7 @@ class SortZone extends DragZone {
                 currentIndex    : -1,
                 indexMap        : null,
                 isRemoteDragging: false,
+                isReorderParked : false,
                 isWindowDragging: false,
                 itemRects       : null,
                 itemStyles      : null,
@@ -674,13 +699,16 @@ class SortZone extends DragZone {
                 sortableItems   : null
             });
 
+            const focusOwner = me.dragFocusOwner;
+            me.dragFocusOwner = null;
+
+            // A hidden element cannot take focus: the restore waits until the re-show above has rendered
+            const reshown = focusOwner && !focusOwner.isDestroyed && await focusOwner.promiseUpdate().then(() => true, () => false);
+
             await me.timeout(30);
 
             // The item is visible again: give focus back where a click on it would have left it, without a ring
-            if (me.dragFocusOwner) {
-                me.dragFocusOwner.isDestroyed || me.dragFocusOwner.focus(me.dragFocusOwner.id, false, true, 'pointer');
-                me.dragFocusOwner = null
-            }
+            reshown && !focusOwner.isDestroyed && focusOwner.focus(focusOwner.id, false, true, 'pointer');
 
             me.dragEnd(data) // we do not want to trigger the super class call here
         }
@@ -695,8 +723,8 @@ class SortZone extends DragZone {
      *     "snapping" the dashboard back to its sortable state.
      * 2.  **Window Drag Exit:** Detects if the drag proxy has left the container boundaries (if `enableProxyToPopup` is true)
      *     and triggers the `dragBoundaryExit` event to potentially start a window drag.
-     * 3.  **Standard Sorting:** If not in window-drag mode, it calculates the drag delta and swaps items (`switchItems`)
-     *     if the threshold is crossed, updating the `currentIndex`.
+     * 3.  **Standard Sorting:** If not in window-drag mode and not parked ({@link #isReorderParked}), it calculates
+     *     the drag delta and swaps items (`switchItems`) if the threshold is crossed, updating the `currentIndex`.
      * 4.  **Auto-Scrolling:** Manages auto-scrolling when dragging near the edges of the container.
      *
      * @param {Object} data The drag move event data.
@@ -715,6 +743,10 @@ class SortZone extends DragZone {
             if (me.checkWindowBoundary(data)) {
                 return
             }
+        }
+
+        if (me.isReorderParked) {
+            return
         }
 
         let {clientX, clientY} = data,
@@ -885,11 +917,11 @@ class SortZone extends DragZone {
                     return
                 }
 
-                sortableItems = me.getDraggableItems(owner.items);
+                sortableItems = me.getSortableItems(owner.items);
                 index         = sortableItems.indexOf(draggedItem);
             } else {
                 draggedItem   = Neo.getComponent(data.path[0].id);
-                sortableItems = me.getDraggableItems(owner.items);
+                sortableItems = me.getSortableItems(owner.items);
                 index         = sortableItems.indexOf(draggedItem)
             }
 

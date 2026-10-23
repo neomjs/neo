@@ -166,6 +166,14 @@ export const BRAIN_TIERS = {
 };
 
 /**
+ * Measured seconds per Brain-gated spec file, which {@link brainShard} balances the tier's shards by. Every receipt
+ * prints its files' times, and `--brain-durations` turns a full-tier run's receipts back into this table; a file
+ * the table does not list yet counts as its median.
+ * @member {Object<String, Number>} BRAIN_DURATIONS
+ */
+export const BRAIN_DURATIONS = JSON.parse(readFileSync(new URL('./e2eBrainDurations.json', import.meta.url), 'utf8'));
+
+/**
  * @summary Walks a directory for spec files.
  * @param {String} dir
  * @returns {String[]}
@@ -308,6 +316,80 @@ export function brainSelection({env = process.env, root = process.cwd(), tier = 
           pool     = tier === 'smoke' ? gated.filter(path => BRAIN_SMOKE.includes(path)) : gated;
 
     return {absent, gated, paths: pool.filter(path => !excluded.includes(path))}
+}
+
+/**
+ * @summary Reads a shard as `N/M`.
+ * @param {String} shard
+ * @returns {Number[]} `[N, M]`
+ * @throws {Error} Unless 1 ≤ N ≤ M.
+ */
+function parseShard(shard) {
+    const [, index, total] = /^(\d+)\/(\d+)$/.exec(String(shard)) ?? [];
+
+    if (!(Number(index) >= 1 && Number(index) <= Number(total))) {
+        throw new Error(`Shard '${shard}' is not N/M with 1 ≤ N ≤ M.`)
+    }
+
+    return [Number(index), Number(total)]
+}
+
+/**
+ * @summary One shard of the Brain-gated selection, balanced by measured time rather than by test count.
+ * @description Playwright's own `--shard` splits by count, so two of the tier's longest files could share one shard
+ * and hold its step near the ceiling while another shard idled. Here each file, longest first, joins the shard with
+ * the least time so far: equal times fall to the lower shard and equal files to path order, so every shard of a run
+ * computes the same split and every selected file runs in exactly one of them.
+ * @param {Object}   options
+ * @param {String[]} options.paths The selection to split, relative to the repository root.
+ * @param {String}   options.shard `N/M`, the shard to return.
+ * @param {Object}   [options.durations=BRAIN_DURATIONS] Seconds per file.
+ * @returns {{paths: String[], seconds: Number}} The shard's files in path order, and their predicted seconds.
+ * @throws {Error} For a shard that is not `N/M` with 1 ≤ N ≤ M.
+ */
+export function brainShard({paths, shard, durations = BRAIN_DURATIONS}) {
+    const [index, total] = parseShard(shard),
+          known          = Object.values(durations).toSorted((a, b) => a - b),
+          median         = known.length ? known[Math.floor(known.length / 2)] : 0,
+          seconds        = path => durations[path] ?? median,
+          shards         = Array.from({length: total}, () => ({paths: [], seconds: 0}));
+
+    for (const path of paths.toSorted((a, b) => seconds(b) - seconds(a) || (a < b ? -1 : 1))) {
+        const lightest = shards.reduce((min, candidate) => candidate.seconds < min.seconds ? candidate : min);
+
+        lightest.paths.push(path);
+        lightest.seconds += seconds(path)
+    }
+
+    return {paths: shards[index - 1].paths.toSorted(), seconds: Math.round(shards[index - 1].seconds)}
+}
+
+/**
+ * @summary A file's measured seconds in a Playwright JSON report: every attempt of every test in it, retries included,
+ * because the shard paid for those too.
+ * @param {Object} suite One file's suite from the report.
+ * @returns {Number} Seconds, to a tenth.
+ */
+function fileSeconds(suite) {
+    const ms = node => (node.specs ?? []).flatMap(spec => spec.tests ?? []).flatMap(test => test.results ?? [])
+        .reduce((sum, result) => sum + (result.duration ?? 0), 0) + (node.suites ?? []).reduce((sum, child) => sum + ms(child), 0);
+
+    return Math.round(ms(suite) / 100) / 10
+}
+
+/**
+ * @summary {@link BRAIN_DURATIONS} rebuilt from Brain-gated receipts, which print each file as `- \`file\` · N s`.
+ * @param {String} text Any number of receipts, in any order; log prefixes before a line are ignored.
+ * @returns {Object<String, Number>} Seconds per file, keyed by its repository path, in path order.
+ */
+export function brainDurations(text) {
+    const table = {};
+
+    for (const [, file, seconds] of text.matchAll(/- `([^`]+\.spec\.mjs)` · ([\d.]+) s$/gm)) {
+        table[`test/playwright/e2e/${file}`] = Number(seconds)
+    }
+
+    return Object.fromEntries(Object.entries(table).toSorted(([a], [b]) => a < b ? -1 : 1))
 }
 
 /**
@@ -464,8 +546,9 @@ export function flakyTests(report) {
 
 /**
  * @summary Renders one Brain-gated tier shard's receipt: the run's identity and tier, its test time against the
- * five-minute ceiling the engine tier keeps, what the tier selected and why anything is out, the retry
- * bridge and every test that needed it, and the files the shard ran with their outcome.
+ * five-minute ceiling the engine tier keeps and the duration table's prediction for it, what the tier selected and
+ * why anything is out, the retry bridge and every test that needed it, and the files the shard ran with their outcome
+ * and measured seconds.
  * @param {Object}      options
  * @param {Object|null} options.report  The shard's Playwright JSON report, `null` when it wrote none.
  * @param {Object}      options.run     `{shard, event, attempt, engineSha, brainSha, tier}`; `tier` defaults to `full`
@@ -486,6 +569,7 @@ export function brainReceipt({report, run, seconds, retries = null, env = proces
           capabilities           = tier === 'full' ? BRAIN_CAPABILITIES : [],
           quarantines            = tier === 'full' ? BRAIN_QUARANTINES : [],
           ceiling                = 300,
+          predicted              = brainShard({paths, shard: run.shard}).seconds,
           days                   = since => Math.floor((now - new Date(since)) / 86400000),
           minutes                = value => `${Math.floor(value / 60)}m ${value % 60}s`,
           short                  = path => `\`${path.replace('test/playwright/e2e/', '')}\``;
@@ -499,6 +583,7 @@ export function brainReceipt({report, run, seconds, retries = null, env = proces
         `- **Test time:** ${seconds === null
             ? 'none, because the step did not finish'
             : `${minutes(seconds)} against the ${minutes(ceiling)} ceiling${seconds > ceiling ? ' (**over**)' : ''}`}`,
+        `- **Predicted:** ${minutes(predicted)} by the duration table, which \`--brain-durations\` rebuilds from these receipts.`,
         `- **Selected:** ${paths.length} of the ${gated.length} Brain-gated spec files, with ${quarantines.length} of their tests quarantined. The ${brainFree} Brain-free files are the engine tier's.`,
         ...capabilities.map(entry => absent.includes(entry)
             ? `- **Excluded while \`${entry.requires}\` is unset:** ${entry.paths.map(short).join(', ')}, because ${entry.reason}. They return when ${entry.exit} (${entry.tracker}).`
@@ -516,7 +601,7 @@ export function brainReceipt({report, run, seconds, retries = null, env = proces
             `- **This shard:** ${report.suites.length} files · ${report.stats.expected} passed, ${report.stats.unexpected} failed, ${report.stats.flaky} flaky, ${report.stats.skipped} skipped`,
             ...flakyTests(report).map(test => `- **Needed the retry:** \`${test.file}\` › ${test.title} — first attempt: ${test.error}`),
             '',
-            ...report.suites.map(suite => `- \`${suite.file}\``)
+            ...report.suites.map(suite => `- \`${suite.file}\` · ${fileSeconds(suite)} s`)
         ] : ['- **This shard:** unknown, because the run wrote no Playwright report']
     ].join('\n')
 }
@@ -536,7 +621,14 @@ if (isEntryModule(import.meta.url)) {
         process.stdout.write(summary() + '\n')
     } else if (mode === '--brain-paths') {
         assertBrainDeclarations();
-        process.stdout.write(brainSelection({tier: process.env.TIER || 'full'}).paths.join(' '))
+
+        // With `SHARD` set, only that shard's files
+        const {SHARD, TIER} = process.env,
+              {paths}       = brainSelection({tier: TIER || 'full'});
+
+        process.stdout.write((SHARD ? brainShard({paths, shard: SHARD}).paths : paths).join(' '))
+    } else if (mode === '--brain-durations') {
+        process.stdout.write(JSON.stringify(brainDurations(readFileSync(0, 'utf8')), null, 4) + '\n')
     } else if (mode === '--brain-test-list') {
         process.stdout.write(brainTestList() + '\n')
     } else if (mode === '--brain-retries') {
@@ -556,7 +648,7 @@ if (isEntryModule(import.meta.url)) {
             seconds: TEST_SECONDS ? Number(TEST_SECONDS) : null
         }) + '\n')
     } else {
-        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-test-list | --brain-retries | --brain-receipt');
+        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-durations | --brain-test-list | --brain-retries | --brain-receipt');
         process.exit(2)
     }
 }

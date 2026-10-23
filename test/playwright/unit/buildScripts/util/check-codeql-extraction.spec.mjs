@@ -225,16 +225,110 @@ test.describe('buildScripts/util/check-codeql-extraction — fetchAnalyzeJobLogs
         expect(responses).toEqual([])
     });
 
-    test('an incomplete Analyze leg is terminal and never fetches its log', async () => {
-        const responses = [jobsResponse('in_progress')];
+    test('a leg the jobs view still reports in_progress is re-read after the backoff and certifies once completed (#20035)', async () => {
+        const responses = [
+                  jobsResponse('in_progress'),
+                  jobsResponse('completed'),
+                  logResponse(200, 'OK', 'clean log')
+              ],
+              delays    = [],
+              result    = await fetchAnalyzeJobLogs({
+                  repo       : 'neomjs/neo',
+                  runId      : 123,
+                  token      : 'test-token',
+                  fetchImpl  : async () => responses.shift(),
+                  sleep      : async delay => delays.push(delay),
+                  retryDelays: [5, 10]
+              });
+
+        expect(result).toEqual([{name: 'Analyze (javascript)', log: 'clean log'}]);
+        expect(delays).toEqual([5]);
+        expect(responses).toEqual([])
+    });
+
+    const jobsListResponse = jobs => ({ok: true, json: async () => ({jobs})}),
+          legA             = status => ({id: 1, name: 'Analyze (javascript)', status}),
+          legB             = status => ({id: 2, name: 'Analyze (actions)', status});
+
+    test('a pending leg a later listing omits stays on the roster and is certified once it reappears completed (#20035)', async () => {
+        const responses = [
+                  jobsListResponse([legA('completed'), legB('in_progress')]),
+                  jobsListResponse([legA('completed')]),
+                  jobsListResponse([legA('completed'), legB('completed')]),
+                  logResponse(200, 'OK', 'log A'),
+                  logResponse(200, 'OK', 'log B')
+              ],
+              delays    = [],
+              result    = await fetchAnalyzeJobLogs({
+                  repo       : 'neomjs/neo',
+                  runId      : 123,
+                  token      : 'test-token',
+                  fetchImpl  : async () => responses.shift(),
+                  sleep      : async delay => delays.push(delay),
+                  retryDelays: [5, 10, 20]
+              });
+
+        expect(result).toEqual([{name: 'Analyze (javascript)', log: 'log A'}, {name: 'Analyze (actions)', log: 'log B'}]);
+        expect(delays).toEqual([5, 10]);
+        expect(responses).toEqual([])
+    });
+
+    test('a pending leg a later listing omits is never dropped: exhaustion names it and no log is fetched (#20035)', async () => {
+        const responses = [
+                  jobsListResponse([legA('completed'), legB('in_progress')]),
+                  jobsListResponse([legA('completed')]),
+                  jobsListResponse([legA('completed')])
+              ],
+              delays    = [];
 
         await expect(fetchAnalyzeJobLogs({
-            repo     : 'neomjs/neo',
-            runId    : 123,
-            token    : 'test-token',
-            fetchImpl: async () => responses.shift()
-        })).rejects.toThrow('Analyze leg "Analyze (javascript)" is in_progress, not completed');
+            repo       : 'neomjs/neo',
+            runId      : 123,
+            token      : 'test-token',
+            fetchImpl  : async () => responses.shift(),
+            sleep      : async delay => delays.push(delay),
+            retryDelays: [5, 10]
+        })).rejects.toThrow('Analyze leg "Analyze (actions)" is in_progress, not completed, after 3 reads over 15ms');
 
+        expect(delays).toEqual([5, 10]);
+        expect(responses).toEqual([])
+    });
+
+    test('two legs completed on the first read fetch both logs without sleeping (#20035)', async () => {
+        const responses = [
+                  jobsListResponse([legA('completed'), legB('completed')]),
+                  logResponse(200, 'OK', 'log A'),
+                  logResponse(200, 'OK', 'log B')
+              ],
+              delays    = [],
+              result    = await fetchAnalyzeJobLogs({
+                  repo       : 'neomjs/neo',
+                  runId      : 123,
+                  token      : 'test-token',
+                  fetchImpl  : async () => responses.shift(),
+                  sleep      : async delay => delays.push(delay),
+                  retryDelays: [5]
+              });
+
+        expect(result).toEqual([{name: 'Analyze (javascript)', log: 'log A'}, {name: 'Analyze (actions)', log: 'log B'}]);
+        expect(delays).toEqual([]);
+        expect(responses).toEqual([])
+    });
+
+    test('a leg that never completes within the backoff stays fail-closed, names it, and never fetches its log (#20035)', async () => {
+        const responses = [jobsResponse('in_progress'), jobsResponse('in_progress'), jobsResponse('in_progress')],
+              delays    = [];
+
+        await expect(fetchAnalyzeJobLogs({
+            repo       : 'neomjs/neo',
+            runId      : 123,
+            token      : 'test-token',
+            fetchImpl  : async () => responses.shift(),
+            sleep      : async delay => delays.push(delay),
+            retryDelays: [5, 10]
+        })).rejects.toThrow('Analyze leg "Analyze (javascript)" is in_progress, not completed, after 3 reads over 15ms');
+
+        expect(delays).toEqual([5, 10]);
         expect(responses).toEqual([])
     })
 
