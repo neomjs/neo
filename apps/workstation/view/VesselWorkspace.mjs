@@ -524,6 +524,8 @@ class VesselWorkspace extends DockWorkspace {
 
     /**
      * @summary Mounts the already-admitted full Workspace in its matching native generation.
+     * @description A late-released tear-out binds its window twice, through the owner change and through the
+     * commit itself. The second binding joins the mount in flight, so the provisional chrome is handed over once.
      * @param {Object} data
      * @returns {Promise<Object|null>}
      */
@@ -531,7 +533,7 @@ class VesselWorkspace extends DockWorkspace {
         const state = this.getPopupState(workspaceKey);
         if (!state?.host || !app?.mainView) return null;
         state.itemId = itemId;
-        if (state.windowId === windowId && state.host.parent === app.mainView) {
+        if (state.windowId === windowId && (state.mountPromise || state.host.parent === app.mainView)) {
             await state.mountPromise;
             return state
         }
@@ -539,8 +541,13 @@ class VesselWorkspace extends DockWorkspace {
         state.windowId = windowId;
         state.nativeRoute = WindowManager.get(windowId)?.nativeRoute ?? state.nativeRoute ?? null;
         state.renderTarget = app.mainView;
-        state.mountPromise = this.mountVesselWorkspace(state.workspaceId);
-        await state.mountPromise;
+        const mount = state.mountPromise = this.mountVesselWorkspace(state.workspaceId);
+        try {
+            await mount
+        } finally {
+            // Settled: a later binding of this window mounts afresh unless the host is already there
+            if (state.mountPromise === mount) state.mountPromise = null
+        }
         state.disconnected = false;
         return state
     }

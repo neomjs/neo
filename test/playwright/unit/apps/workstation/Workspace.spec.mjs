@@ -51,6 +51,27 @@ test('binding a restored vessel supplies its native item identity', async () => 
     expect(calls, 'the rebound identity resolves the vessel that must close').toEqual(['metrics'])
 });
 
+test('a second binding of the vessel window joins the mount in flight', async () => {
+    const mainView = {}, mounts = [], state = {host: {parent: null}, document: {items: {}}};
+
+    const workspace = {
+              getPopupState       : () => state,
+              mountVesselWorkspace: () => new Promise(resolve => mounts.push(resolve))
+          },
+          binding   = {app: {mainView}, itemId: 'audit', windowId: 'vessel-window', workspaceKey: 'workstation-vessel:audit'},
+          owner     = Workspace.prototype.registerVesselWorkspaceTarget.call(workspace, binding),
+          commit    = Workspace.prototype.registerVesselWorkspaceTarget.call(workspace, binding);
+
+    expect(mounts, 'one mount hands the provisional chrome over once').toHaveLength(1);
+
+    state.host.parent = mainView;
+    mounts.forEach(land => land(true));
+
+    expect(await owner).toBe(state);
+    expect(await commit).toBe(state);
+    expect(state.mountPromise, 'a settled mount leaves no join target behind').toBe(null)
+});
+
 test('an emptied vessel re-opened for its workspace closes through its Group binding', async () => {
     const original  = NativeVesselTransaction.closeWorkspaceWindow, closes = [], retired = [],
           native    = {windowId: () => 'reopened-window'},
