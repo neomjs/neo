@@ -18,9 +18,8 @@ on:
       - 'test/playwright/unit/buildScripts/checkFileSizes.spec.mjs'
       - 'package.json'
 
-concurrency:
-  group: file-size-guard-${{ github.run_attempt == '1' && github.ref || github.run_id }}
-  cancel-in-progress: true
+# No concurrency group: `edited` re-runs this guard on an unchanged head, and a cancelled sibling run
+# stays red in that head's rollup for good (#20064). A superseded run costs ~40 s; a red costs the PR.
 
 jobs:
   check-size:
