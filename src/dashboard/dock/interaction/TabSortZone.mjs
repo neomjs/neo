@@ -796,8 +796,9 @@ class TabSortZone extends TabHeaderSortZone {
         me.traceEvent({t: parked ? 'park' : 'unpark', x: data.clientX, y: data.clientY});
 
         if (parked) {
-            // An over-drag's edge auto-scroll loop must not resume the reorder this park voids
+            // Neither an over-drag's auto-scroll loop nor the duplicate-move guard may outlive the reorder this park voids
             me.isOverDragging = false;
+            me.lastInBoundX   = me.lastInBoundY = null;
 
             while (me.currentIndex !== me.startIndex) {
                 let index = me.currentIndex;

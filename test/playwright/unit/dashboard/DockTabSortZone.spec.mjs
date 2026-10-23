@@ -1009,6 +1009,25 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             }
         });
 
+        test('a scripted return to the last in-band pixel after a park is a new sample, not a duplicate', async () => {
+            const {commits, events, items, move, release, slots, zone} = startGesture(DockTabSortZone);
+
+            try {
+                await move(260, 140); // an in-band reorder
+                await move(260, 416); // parked: the walk-back restores the resting order
+                await move(260, 140); // the very same pixel again
+
+                expect(events('switch'), 'reorder, walk-back, and the reorder again').toHaveLength(3);
+                expect(items[1].wrapperStyle.left).toBe(slots[0]);
+
+                await release(260, 140);
+
+                expect(commits, 'the in-band release commits the reorder the strip shows').toEqual([[0, 1]])
+            } finally {
+                zone.destroy()
+            }
+        });
+
         for (const [strip, module, config] of [
             ['a plain tab strip (the examples/tab/container zone)',        TabHeaderSortZone, {}],
             ['a dock strip without dock participation (a maximized pane)', DockTabSortZone,   {enableCrossZoneDrag: false}]
