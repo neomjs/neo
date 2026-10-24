@@ -381,7 +381,8 @@ class Toolbar extends Container {
         // diff is what carries the removals and the returns alike.
         if (touched && !silent) {
             me.updateDepth = -1;
-            me.update()
+            me.update();
+            me.fire('actionGeometryChange', {contextual: true})
         }
     }
 

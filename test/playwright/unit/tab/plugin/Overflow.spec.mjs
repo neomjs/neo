@@ -1669,6 +1669,94 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
         expect(plugin.appliedCaps.size).toBe(0);
 
         plugin.destroy()
+    });
+
+    test('usable growth vs control: a usable that stays short keeps the cap and ledger; one that grows past natural width clears both (#20081)', async () => {
+        const
+            b1     = makeCapButton('b1', {maxWidth: 300}),
+            b2     = makeCapButton('b2'),
+            plugin = createCapPlugin({
+                buttons      : [b1, b2],
+                getLayoutRect: async () => [{height: 1000, width: 1000}]
+            });
+
+        await settle();
+
+        plugin.naturalWidths = {b1: 220, b2: 140};
+
+        // Initial cap: usable (150) is below b1's natural width (220).
+        plugin.applySplit(['b2'], [b1, b2], plugin.owner.parent, {
+            activeButton: b1,
+            maxSize     : 'maxWidth',
+            usable      : 150
+        });
+
+        expect(b1.maxWidth, 'initial cap bounds the active button to usable').toBe(150);
+        expect(b1.cls, 'cap class applied').toContain('neo-tab-overflow-capped');
+        expect(plugin.appliedCaps?.get('b1'), 'caller ceiling recorded in the ledger')
+            .toEqual({maxSize: 'maxWidth', value: 300});
+
+        // Control arm: usable grows (150 -> 185) but stays short of natural width (220).
+        plugin.applySplit(['b2'], [b1, b2], plugin.owner.parent, {
+            activeButton: b1,
+            maxSize     : 'maxWidth',
+            usable      : 185
+        });
+
+        expect(b1.maxWidth, 'control: cap tracks the still-short usable width').toBe(185);
+        expect(b1.cls, 'control: cap class stays while usable is short').toContain('neo-tab-overflow-capped');
+        expect(plugin.appliedCaps?.get('b1'), 'control: ledger entry stays with original caller value')
+            .toEqual({maxSize: 'maxWidth', value: 300});
+
+        // Restore arm: usable grows past b1's natural width (220 -> 260), even while b2 remains hidden.
+        plugin.applySplit(['b2'], [b1, b2], plugin.owner.parent, {
+            activeButton: b1,
+            maxSize     : 'maxWidth',
+            usable      : 260
+        });
+
+        expect(b1.maxWidth, 'restore: caller maxWidth returns once usable exceeds natural width').toBe(300);
+        expect(b1.cls, 'restore: cap class is removed').not.toContain('neo-tab-overflow-capped');
+        expect(plugin.appliedCaps?.has('b1') ?? false, 'restore: ledger entry is cleared').toBe(false);
+
+        plugin.destroy()
+    });
+
+    test('cross-toolbar button move: a capped button moved to a wider toolbar lifts its cap before natural-width capture and clears (#20081)', async () => {
+        const
+            b1           = makeCapButton('b1', {text: 'Commits'}),
+            narrowPlugin = createCapPlugin({
+                buttons      : [b1],
+                getLayoutRect: async ids => ids[0] === 'cap-owner' ? [{width: 61}] : [{width: 73}]
+            });
+
+        await settle();
+
+        expect(b1.maxWidth, 'narrow toolbar caps b1 to 61px').toBe(61);
+        expect(b1.cls, 'narrow toolbar marks b1 as capped').toContain('neo-tab-overflow-capped');
+
+        // Reconciler cross-bar move: b1 leaves the narrow toolbar for a 320px toolbar before narrowPlugin tears down.
+        narrowPlugin.owner.items = [];
+        narrowPlugin.owner.getTabButtons = () => [];
+
+        const widePlugin = createCapPlugin({
+            buttons      : [b1],
+            // If b1.maxWidth is still 61 when getLayoutRect measures b1, the DOM reports 61 instead of 73.
+            getLayoutRect: async ids => ids[0] === 'cap-owner'
+                ? [{width: 320}]
+                : [{width: b1.maxWidth !== null ? Math.min(73, b1.maxWidth) : 73}]
+        });
+
+        await settle();
+        narrowPlugin.destroy();
+        await widePlugin.project(true);
+
+        expect(widePlugin.naturalWidths?.b1, 'wide toolbar lifts the prior cap before measuring natural width').toBe(73);
+        expect(b1.maxWidth, 'wide toolbar clears the cap once 320px has room for 73px').toBe(null);
+        expect(b1.cls, 'wide toolbar removes the cap class').not.toContain('neo-tab-overflow-capped');
+        expect(widePlugin.appliedCaps?.size ?? 0, 'wide toolbar ledger is empty').toBe(0);
+
+        widePlugin.destroy()
     })
 });
 
@@ -2323,5 +2411,97 @@ test.describe('Neo.tab.plugin.Overflow — the control press hold', () => {
         plugin.destroy();
         toolbar.destroy();
         menuList.destroy()
+    });
+
+    test('focus-gated rail reveal and withdraw re-projects Overflow so a focus-capped tab restores when focus leaves (#20081)', async () => {
+        const
+            b1 = {
+                cls     : [],
+                hidden  : false,
+                id      : 'tab-commits',
+                isTab   : true,
+                maxWidth: null,
+                style   : {},
+                text    : 'Commits',
+                vdom    : {id: 'tab-commits'},
+                addCls(value) { !this.cls.includes(value) && this.cls.push(value) },
+                removeCls(value) { this.cls = this.cls.filter(item => item !== value) },
+                setSilent(values) { Object.assign(this, values) },
+                show() {
+                    this.hidden = false;
+                    delete this.vdom.removeDom
+                }
+            },
+            toolbar = Neo.create(Toolbar, {
+                actionDefaults: {showOnFocus: true},
+                actions       : [
+                    {action: 'lock',     iconCls: 'fa fa-lock'},
+                    {action: 'reload',   iconCls: 'fa fa-rotate-right'},
+                    {action: 'maximize', iconCls: 'fa fa-expand'},
+                    {action: 'close',    iconCls: 'fa fa-xmark', showOnFocus: false}
+                ],
+                contextualActionsVisible: true,
+                dock                    : 'top',
+                mounted                 : true,
+                showOnHover             : false,
+                windowId                : 1
+            });
+
+        Object.defineProperty(toolbar, 'parent', {
+            configurable: true,
+            value       : {activeIndex: 0, on() {}, un() {}}
+        });
+        toolbar.isTabButton   = item => item === b1;
+        toolbar.getTabButtons = () => [b1];
+        toolbar.getLayoutRect = async ids => {
+            if (ids.length === 1 && ids[0] === b1.id) {
+                return [{width: b1.maxWidth !== null ? Math.min(73, b1.maxWidth) : 73, x: 0, left: 0}]
+            }
+
+            // Owner is 158px wide. Close action is always visible (24px at x:134..158).
+            // When focus-gated actions are visible (no removeDom), the 4-action rail spans 97px (x:61..158),
+            // leaving 61px usable (< 73px natural width). When withdrawn, only close remains (134px usable).
+            return ids.map(id => {
+                if (id === toolbar.id) return {left: 0, width: 158, x: 0};
+
+                const action = toolbar.getActionItems().find(item => item.id === id);
+
+                if (!action || action.vdom?.removeDom) {
+                    return {left: 0, width: 0, x: 0}
+                }
+
+                if (action.action === 'close') {
+                    return {left: 134, width: 24, x: 134}
+                }
+
+                const order = ['lock', 'reload', 'maximize'].indexOf(action.action);
+                return {left: 61 + order * 24, width: 24, x: 61 + order * 24}
+            })
+        };
+
+        const plugin = Neo.create(Overflow, {owner: toolbar, projectAsAction: true});
+
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        expect(b1.maxWidth, 'focused: revealed rail shrinks usable to 61px and caps b1').toBe(61);
+        expect(b1.cls, 'focused: cap class added').toContain('neo-tab-overflow-capped');
+
+        // Focus leaves: focus-gated rail withdraws, returning usable width to 134px (> 73px).
+        toolbar.contextualActionsVisible = false;
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        expect(b1.maxWidth, 'focus withdrawn: cap clears back to caller value').toBe(null);
+        expect(b1.cls, 'focus withdrawn: cap class removed').not.toContain('neo-tab-overflow-capped');
+        expect(plugin.appliedCaps?.size ?? 0, 'focus withdrawn: ledger entry removed').toBe(0);
+
+        // Focus returns: focus-gated rail reveals again, re-capping b1 to 61px.
+        toolbar.contextualActionsVisible = true;
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        expect(b1.maxWidth, 'focus returned: revealed rail re-caps b1 to 61px').toBe(61);
+        expect(b1.cls, 'focus returned: cap class restored').toContain('neo-tab-overflow-capped');
+
+        plugin.destroy();
+        toolbar.destroy()
     })
 });
