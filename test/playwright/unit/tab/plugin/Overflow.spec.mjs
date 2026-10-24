@@ -1057,6 +1057,55 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         plugin.destroy()
     });
 
+    test('a leftover position:absolute residue caps its deferral retries and completes projection instead of wedging the strip (#20081)', async () => {
+        let measureCalls = 0;
+
+        const plugin = createPlugin(async ids => {
+            measureCalls++;
+            return ids[0] === 'tab-overflow-test-owner'
+                ? [{height: 300, left: 0, top: 0, width: 1000, x: 0, y: 0}]
+                : [{height: 20, width: 20}, {height: 20, width: 20}]
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const beforeFrozenMeasures = measureCalls;
+
+        // Simulate a leaked `wrapperStyle.position === 'absolute'` residue with no active local SortZone latch.
+        plugin.owner.items[0].wrapperStyle = {position: 'absolute'};
+        plugin.owner.sortZone = {
+            dragEndActive      : false,
+            sortSnapshotPending: false,
+            startIndex         : -1,
+            on() {},
+            un() {}
+        };
+
+        await plugin.project(false);
+
+        expect(plugin.sortDragProjectionQueued, 'initial call defers briefly in case a cross-zone drop is settling').toBe(true);
+        expect(measureCalls, 'deferred while within the retry budget').toBe(beforeFrozenMeasures);
+
+        // Wait past maxSortDragFrozenRetries (5 * 10ms = 50ms): the retry cap must release the projection.
+        await new Promise(resolve => setTimeout(resolve, 90));
+
+        expect(plugin.sortDragFrozenRetries, 'retry counter reached the cap').toBe(plugin.maxSortDragFrozenRetries);
+        expect(plugin.sortDragProjectionQueued, 'queued projection drained once the retry cap was reached').toBe(false);
+        expect(measureCalls, 'the strip projected instead of wedging forever').toBe(beforeFrozenMeasures + 1);
+
+        // A subsequent projection while the residue remains must proceed immediately without re-deferring.
+        await plugin.project(false);
+        expect(plugin.sortDragProjectionQueued, 'exhausted budget does not re-queue on stale residue').toBe(false);
+        expect(measureCalls, 'subsequent projection runs immediately').toBe(beforeFrozenMeasures + 2);
+
+        // Once the style residue clears, the retry budget resets for future gestures.
+        plugin.owner.items[0].wrapperStyle = {};
+        expect(plugin.hasFrozenDragButton()).toBe(false);
+        expect(plugin.sortDragFrozenRetries, 'clearing position:absolute resets the retry counter').toBe(0);
+
+        plugin.destroy()
+    });
+
     test('an in-flight measurement hands off when a sort snapshot begins before applySplit', async () => {
         const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
             ? [{height: 300, left: 0, top: 0, width: 1000, x: 0, y: 0}]
@@ -1682,6 +1731,7 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
 
         await settle();
 
+        plugin.syncControl   = () => {};
         plugin.naturalWidths = {b1: 220, b2: 140};
 
         // Initial cap: usable (150) is below b1's natural width (220).
@@ -1755,8 +1805,72 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
         expect(b1.maxWidth, 'wide toolbar clears the cap once 320px has room for 73px').toBe(null);
         expect(b1.cls, 'wide toolbar removes the cap class').not.toContain('neo-tab-overflow-capped');
         expect(widePlugin.appliedCaps?.size ?? 0, 'wide toolbar ledger is empty').toBe(0);
+        expect('_overflowCap' in b1, 'no undeclared property is ever stamped onto the button').toBe(false);
+        expect(Overflow.buttonCaps.has(b1), 'class-level WeakMap entry is removed when the cap clears').toBe(false);
 
         widePlugin.destroy()
+    });
+
+    test('cross-toolbar move to a second narrow strip: old plugin applySplit and destroy preserve the new strip cap and ellipsis class (#20081)', async () => {
+        const
+            b1      = makeCapButton('b1', {maxWidth: 300, text: 'Commits'}),
+            pluginA = createCapPlugin({
+                buttons      : [b1],
+                getLayoutRect: async ids => ids[0] === 'cap-owner' ? [{width: 61}] : [{width: 73}]
+            });
+
+        await settle();
+
+        expect(b1.maxWidth, 'pluginA caps b1 to 61px').toBe(61);
+        expect(b1.cls, 'pluginA marks b1 as capped').toContain('neo-tab-overflow-capped');
+        expect('_overflowCap' in b1, 'provenance lives in Overflow.buttonCaps, not on the button instance').toBe(false);
+        expect(Overflow.buttonCaps.get(b1)?.plugin, 'pluginA owns the WeakMap cap entry').toBe(pluginA);
+
+        // Move b1 from pluginA's toolbar into a second narrow toolbar (pluginB, 68px usable < 73px natural).
+        pluginA.owner.items = [];
+        pluginA.owner.getTabButtons = () => [];
+
+        let extentB = 68;
+
+        const pluginB = createCapPlugin({
+            buttons      : [b1],
+            getLayoutRect: async ids => ids[0] === 'cap-owner'
+                ? [{width: extentB}]
+                : [{width: b1.maxWidth !== null ? Math.min(73, b1.maxWidth) : 73}]
+        });
+
+        await settle();
+
+        expect(Overflow.buttonCaps.get(b1)?.plugin, 'pluginB adopts ownership of the WeakMap cap entry').toBe(pluginB);
+        expect(b1.maxWidth, 'pluginB caps b1 to its own 68px usable width').toBe(68);
+        expect(b1.cls, 'pluginB retains neo-tab-overflow-capped').toContain('neo-tab-overflow-capped');
+        expect(pluginB.appliedCaps?.get('b1'), 'original caller ceiling (300) is preserved across the adoption')
+            .toEqual({maxSize: 'maxWidth', value: 300});
+
+        // Old plugin runs applySplit (departed branch) and then destroy() after the move:
+        // neither may strip neo-tab-overflow-capped or reset maxWidth on a button now owned by pluginB.
+        pluginA.applySplit([], [], pluginA.owner.parent);
+        pluginA.destroy();
+
+        expect(b1.cls, 'old plugin destroy must not strip the ellipsis class from pluginB cap').toContain('neo-tab-overflow-capped');
+        expect(b1.maxWidth, 'old plugin destroy must not clobber pluginB cap width').toBe(68);
+        expect(Overflow.buttonCaps.get(b1)?.plugin, 'pluginB remains the cap owner in Overflow.buttonCaps').toBe(pluginB);
+
+        // Even if neo-tab-overflow-capped were externally removed while b1 is in pluginB.appliedCaps,
+        // a subsequent needsCap pass on pluginB re-asserts the class.
+        b1.removeCls('neo-tab-overflow-capped');
+        await pluginB.project(false);
+        expect(b1.cls, 'applySplit needsCap branch guarantees neo-tab-overflow-capped is present').toContain('neo-tab-overflow-capped');
+
+        // When pluginB finally widens, the original caller ceiling (300) is restored.
+        extentB = 320;
+        await pluginB.project(false);
+
+        expect(b1.maxWidth, 'widening pluginB restores the original caller ceiling from before pluginA capped it').toBe(300);
+        expect(b1.cls).not.toContain('neo-tab-overflow-capped');
+        expect(Overflow.buttonCaps.has(b1)).toBe(false);
+
+        pluginB.destroy()
     })
 });
 

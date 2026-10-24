@@ -67,6 +67,16 @@ class Overflow extends Plugin {
     }
 
     /**
+     * Class-level ledger of active plugin-installed button caps (`button -> {cap, plugin}`),
+     * allowing a successor `Overflow` plugin to adopt and lift a cap when a `tab.header.Button`
+     * instance moves across toolbars without mutating undeclared properties onto the button.
+     * @member {WeakMap} buttonCaps=new WeakMap()
+     * @protected
+     * @static
+     */
+    static buttonCaps = new WeakMap()
+
+    /**
      * @summary The parts of a tab button that decide its natural width: its text and its icon.
      * A cached width measured under another label no longer describes the button.
      * @param {Object} button A tab button, or any object with `text` / `iconCls`
@@ -186,6 +196,13 @@ class Overflow extends Plugin {
      */
     appliedCaps = null
     /**
+     * Weak references to buttons currently recorded in {@link #appliedCaps} (`buttonId -> WeakRef`),
+     * so departed-button and teardown cleanup can resolve a button that has already left `owner.items`.
+     * @member {Map|null} appliedCapButtons=null
+     * @protected
+     */
+    appliedCapButtons = null
+    /**
      * The overflow control (a menu button), created on first overflow and torn down when everything fits.
      * @member {Neo.button.Base|null} control=null
      */
@@ -292,6 +309,20 @@ class Overflow extends Plugin {
      * @member {Boolean} sortDragDrainScheduled=false
      */
     sortDragDrainScheduled = false
+    /**
+     * Number of consecutive 10ms sort-drag drain retries triggered solely by a tab button carrying
+     * `wrapperStyle.position === 'absolute'` without an active local `SortZone` latch.
+     * @member {Number} sortDragFrozenRetries=0
+     * @protected
+     */
+    sortDragFrozenRetries = 0
+    /**
+     * Maximum consecutive 10ms sort-drag drain retries for a button carrying `wrapperStyle.position === 'absolute'`
+     * before the projection proceeds past a leaked style residue.
+     * @member {Number} maxSortDragFrozenRetries=5
+     * @protected
+     */
+    maxSortDragFrozenRetries = 5
     /**
      * Whether the published projection lifecycle is currently open: `true` between the
      * `overflowProjectionStart` a measuring pass fired and the `overflowProjectionIdle` its settle fires.
@@ -575,6 +606,25 @@ class Overflow extends Plugin {
     }
 
     /**
+     * True when a tab button still carries `wrapperStyle.position === 'absolute'` from a cross-zone
+     * drag snapshot and the bounded retry budget has not been exhausted. Resets the retry counter
+     * as soon as no button carries `position: absolute`.
+     * @returns {Boolean}
+     * @protected
+     */
+    hasFrozenDragButton() {
+        let me     = this,
+            frozen = me.getTabButtons().some(button => button.wrapperStyle?.position === 'absolute');
+
+        if (!frozen) {
+            me.sortDragFrozenRetries = 0;
+            return false
+        }
+
+        return me.sortDragFrozenRetries < me.maxSortDragFrozenRetries
+    }
+
+    /**
      * Defers a projection while the tab SortZone owns a stable gesture snapshot.
      * @param {Boolean} recapture
      * @param {Boolean} [includeSnapshotPending=true] New work waits behind snapshot preparation;
@@ -585,7 +635,7 @@ class Overflow extends Plugin {
     queueSortDragProjection(recapture, includeSnapshotPending=true) {
         let me           = this,
             sortZone     = me.owner.sortZone,
-            buttonFrozen = me.getTabButtons().some(button => button.wrapperStyle?.position === 'absolute');
+            buttonFrozen = me.hasFrozenDragButton();
 
         if (!((includeSnapshotPending && sortZone?.sortSnapshotPending)
             || sortZone?.startIndex > -1
@@ -632,9 +682,15 @@ class Overflow extends Plugin {
                 }
 
                 let sortZone     = me.owner.sortZone,
-                    buttonFrozen = me.getTabButtons().some(button => button.wrapperStyle?.position === 'absolute');
+                    zoneBusy     = Boolean(sortZone?.sortSnapshotPending || sortZone?.startIndex > -1 || sortZone?.dragEndActive),
+                    buttonFrozen = false;
 
-                if (sortZone?.sortSnapshotPending || sortZone?.startIndex > -1 || sortZone?.dragEndActive || buttonFrozen) {
+                if (!zoneBusy && me.hasFrozenDragButton()) {
+                    me.sortDragFrozenRetries++;
+                    buttonFrozen = me.sortDragFrozenRetries < me.maxSortDragFrozenRetries
+                }
+
+                if (zoneBusy || buttonFrozen) {
                     me.scheduleSortDragProjection();
                     return
                 }
@@ -824,8 +880,12 @@ class Overflow extends Plugin {
             // cross-zone drag drop reusing the same tab.header.Button instance in a new strip) so the
             // natural-width capture below lifts the cap before measuring and applySplit can clear it.
             buttons.forEach(button => {
-                if (button._overflowCap && !me.appliedCaps?.has(button.id)) {
-                    (me.appliedCaps ??= new Map()).set(button.id, button._overflowCap)
+                let entry = Overflow.buttonCaps.get(button);
+
+                if (entry && !me.appliedCaps?.has(button.id)) {
+                    entry.plugin = me;
+                    (me.appliedCaps ??= new Map()).set(button.id, entry.cap);
+                    (me.appliedCapButtons ??= new Map()).set(button.id, new WeakRef(button))
                 }
             });
 
@@ -1077,6 +1137,34 @@ class Overflow extends Plugin {
     }
 
     /**
+     * Restores a plugin-installed cap on a departed or retiring button unless another live
+     * Overflow plugin now owns the button or its cap.
+     * @param {String} buttonId
+     * @param {{maxSize: String, value: *}} cap
+     * @protected
+     */
+    releaseDepartedCap(buttonId, cap) {
+        let me     = this,
+            button = me.appliedCapButtons?.get(buttonId)?.deref?.()
+                || me.getTabButtons().find(item => item.id === buttonId)
+                || Neo.getComponent(buttonId);
+
+        if (!button || button.isDestroyed || Overflow.buttonCaps.get(button)?.plugin !== me) {
+            return
+        }
+
+        let currentPlugin = button.up?.('toolbar')?.getPlugin?.('tab-overflow');
+
+        if (currentPlugin && currentPlugin !== me && !currentPlugin.isDestroying && !currentPlugin.isDestroyed) {
+            return
+        }
+
+        button.removeCls?.('neo-tab-overflow-capped');
+        button[cap.maxSize] = cap.value;
+        Overflow.buttonCaps.delete(button)
+    }
+
+    /**
      * Applies the computed hidden set: hides the overflowing header buttons, bounds a degenerate
      * over-wide PROTECTED button to the usable extent, and reflects the remainder through the overflow
      * control.
@@ -1102,15 +1190,9 @@ class Overflow extends Plugin {
         if (me.appliedCaps?.size > 0) {
             for (const [buttonId, cap] of [...me.appliedCaps.entries()]) {
                 if (!buttonIds.has(buttonId)) {
-                    const departed = Neo.getComponent(buttonId);
-
-                    if (departed && !departed.isDestroyed && !departed.up?.('toolbar')?.getPlugin?.('tab-overflow')) {
-                        departed.removeCls?.('neo-tab-overflow-capped');
-                        departed[cap.maxSize] = cap.value;
-                        delete departed._overflowCap
-                    }
-
-                    me.appliedCaps.delete(buttonId)
+                    me.releaseDepartedCap(buttonId, cap);
+                    me.appliedCaps.delete(buttonId);
+                    me.appliedCapButtons?.delete(buttonId)
                 }
             }
         }
@@ -1122,10 +1204,13 @@ class Overflow extends Plugin {
                 // control and take every geometry derived from its box with it.
                 isProtected = button === activeButton || button === focusedButton,
                 needsCap   = isProtected && usable !== null && usable !== undefined
-                    && me.naturalWidths?.[button.id] > usable;
+                    && me.naturalWidths?.[button.id] > usable,
+                entry      = Overflow.buttonCaps.get(button);
 
-            if (button._overflowCap && !me.appliedCaps?.has(button.id)) {
-                (me.appliedCaps ??= new Map()).set(button.id, button._overflowCap)
+            if (entry && !me.appliedCaps?.has(button.id)) {
+                entry.plugin = me;
+                (me.appliedCaps ??= new Map()).set(button.id, entry.cap);
+                (me.appliedCapButtons ??= new Map()).set(button.id, new WeakRef(button))
             }
 
             // Dock orientation can change while an active tab is capped. Retire ownership on the
@@ -1136,8 +1221,9 @@ class Overflow extends Plugin {
 
                 button[priorCap.maxSize] = priorCap.value;
                 button.removeCls('neo-tab-overflow-capped');
-                delete button._overflowCap;
-                me.appliedCaps.delete(button.id)
+                Overflow.buttonCaps.delete(button);
+                me.appliedCaps.delete(button.id);
+                me.appliedCapButtons?.delete(button.id)
             }
 
             // Neo's built-in `hidden` (removeDom) rather than a cls needing an external stylesheet rule —
@@ -1161,27 +1247,29 @@ class Overflow extends Plugin {
             // `appliedCaps` ledger carries provenance: only a plugin-installed cap is ever cleared, and
             // clearing restores the exact caller value recorded at cap time.
             if (needsCap) {
-                if (!me.appliedCaps?.has(button.id)) {
-                    const cap = {
+                let cap = me.appliedCaps?.get(button.id);
+
+                if (!cap) {
+                    cap = {
                         maxSize,
                         value: button[maxSize] ?? null
                     };
 
-                    (me.appliedCaps ??= new Map()).set(button.id, cap);
-                    button._overflowCap = cap;
-                    button.addCls('neo-tab-overflow-capped')
-                } else {
-                    button._overflowCap = me.appliedCaps.get(button.id)
+                    (me.appliedCaps ??= new Map()).set(button.id, cap)
                 }
 
+                (me.appliedCapButtons ??= new Map()).set(button.id, new WeakRef(button));
+                Overflow.buttonCaps.set(button, {cap, plugin: me});
+                button.addCls('neo-tab-overflow-capped');
                 button[maxSize] = usable
             } else if (me.appliedCaps?.has(button.id)) {
                 let cap = me.appliedCaps.get(button.id);
 
                 button.removeCls('neo-tab-overflow-capped');
                 button[cap.maxSize] = cap.value;
-                delete button._overflowCap;
-                me.appliedCaps.delete(button.id)
+                Overflow.buttonCaps.delete(button);
+                me.appliedCaps.delete(button.id);
+                me.appliedCapButtons?.delete(button.id)
             }
 
             if (isHidden) {
@@ -1564,18 +1652,14 @@ class Overflow extends Plugin {
         let me = this;
 
         // A dying plugin must not strand its caps (a dock rebuild replaces the plugin, not the
-        // buttons): restore each recorded caller value through the same channel the cap used.
+        // buttons): restore each recorded caller value through the same channel the cap used,
+        // unless another live Overflow plugin now owns the button or its cap.
         me.appliedCaps?.forEach((cap, buttonId) => {
-            const button = me.getTabButtons().find(item => item.id === buttonId) || Neo.getComponent(buttonId);
-
-            if (button && !button.isDestroyed) {
-                button.removeCls?.('neo-tab-overflow-capped');
-                button[cap.maxSize] = cap.value;
-                delete button._overflowCap
-            }
+            me.releaseDepartedCap(buttonId, cap)
         });
 
         me.appliedCaps = null;
+        me.appliedCapButtons = null;
         me.appliedHiddenIds = null;
         me.resolveProjectionIdle();
         me.sortDragZone?.un('dragEnd', me.onSortDragEnd, me);
