@@ -6,28 +6,31 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930', () => {
         await import('../../../../src/Neo.mjs');
         await setup();
         await import('../../../../src/core/_export.mjs');
+        await import('../../../../src/calendar/store/Calendars.mjs');
+        await import('../../../../src/calendar/store/Events.mjs');
         await import('../../../../src/calendar/view/week/Component.mjs');
     });
 
     test('Constructs cleanly when currentDate is null and updates header when set', async () => {
         let component;
 
-        // 1. Construct with currentDate: null (assert no errors thrown)
         expect(() => {
             component = Neo.create({
-                className  : 'Neo.calendar.view.week.Component',
-                currentDate: null,
-                appName    : 'TestApp'
+                className    : 'Neo.calendar.view.week.Component',
+                appName      : 'TestApp',
+                calendarStore: Neo.create('Neo.calendar.store.Calendars'),
+                currentDate  : null,
+                eventStore   : Neo.create('Neo.calendar.store.Events')
             });
         }).not.toThrow();
 
         expect(component).toBeDefined();
 
-        // 2. Set currentDate post-construction
         expect(() => {
             component.currentDate = new Date();
         }).not.toThrow();
 
-        expect(component.vdom).toBeDefined();
+        const cells = component.getHeaderContainer().cn.filter(cell => cell.cls?.includes('neo-header-row-item'));
+        expect(cells.length).toBe(component.totalColumns);
     });
 });

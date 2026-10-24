@@ -250,15 +250,13 @@ class Component extends BaseComponent {
 
         me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.createVdomReference());
 
-        if (me.calendarStore?.getCount() > 0 && me.eventStore?.getCount() > 0) {
+        if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
             me.needsEventUpdate = true
         }
 
         me.updateHeader(true, me.needsEventUpdate);
 
         me.needsEventUpdate && me.updateEvents(false);
-
-        // me.headerCreated = true
     }
 
     /**
@@ -343,8 +341,8 @@ class Component extends BaseComponent {
         let me = this;
 
         if (value && me.isConstructed) {
-            me.updateHeader(!me.headerCreated, true);
-            me.updateEvents()
+            me.updateHeader(false, true);
+            me.updateEvents();
         }
     }
 
@@ -954,6 +952,7 @@ class Component extends BaseComponent {
     }
 
     /**
+     * @summary Defers header creation until currentDate is set.
      * @param {Boolean} [create=false]
      * @param {Boolean} [silent=false]
      */
@@ -965,9 +964,8 @@ class Component extends BaseComponent {
             header         = me.getHeaderContainer(),
             i              = 0,
             columnCls, currentDate, currentDay, dateCls, headerId, removeDom;
-        if(!date){
-            return;
-        }
+
+        if (!date) return;
 
         if (!me.headerCreated) {
             create = true;
