@@ -342,7 +342,8 @@ class Reconciler extends Base {
      * Each plan captures active/item/drag metadata before construction consumes config fields.
      * The placeholder reserves the retained tab's destination; new nodes materialize normally.
      * A rail holds its reveal state only as the same instance, so one whose dock identity, edge and
-     * membership are unchanged is retained too; any other rail is rebuilt.
+     * membership are unchanged is retained too; any other rail is rebuilt, and inherits only an
+     * application-held reveal ({@link #settleHeldReveals}).
      * @param {*} config
      * @param {Map<String,Neo.tab.Container>} currentTabs
      * @param {Map<String,Object>} plans
@@ -530,9 +531,11 @@ class Reconciler extends Base {
 
         const
             currentTabs    = this.collectProjectedTabs(oldShell),
+            currentRails   = this.collectProjectedRails(oldShell),
             plans          = new Map(),
             railPlans      = new Map(),
-            preparedConfig = this.prepareTabChromeProjection(nextConfig, currentTabs, plans, this.collectProjectedRails(oldShell), railPlans);
+            preparedConfig = this.prepareTabChromeProjection(nextConfig, currentTabs, plans, currentRails, railPlans),
+            carriedHolds   = this.settleHeldReveals(currentRails, railPlans, nextConfig);
 
         // Pane placeholders inside a discarded config for a retained tab node never enter a parent.
         // Retire them now; only genuinely new tab nodes need projected placeholders for pairing.
@@ -696,6 +699,8 @@ class Reconciler extends Base {
             throw error
         }
 
+        await this.restoreHeldReveals(carriedHolds, currentRails, nextShell);
+
         const overflowPlugins = [...new Set([...plans.values()]
             .map(plan => plan.tab?.getTabBar()?.getPlugin('tab-overflow'))
             .filter(Boolean))];
@@ -839,6 +844,82 @@ class Reconciler extends Base {
             console.warn('Dock projection recovery failed; the host may still hold two shells', host?.id, recoveryError);
             return 'unrecoverable'
         }
+    }
+
+    /**
+     * @summary The edge-rail configs of a projected config tree, by dock identity.
+     * @param {*} config
+     * @param {Map<String,Object>} [rails=new Map()]
+     * @returns {Map<String,Object>}
+     * @static
+     */
+    static collectRailConfigs(config, rails=new Map()) {
+        if (Array.isArray(config)) {
+            config.forEach(item => this.collectRailConfigs(item, rails))
+        } else if (config?.dockNodeType === 'edge-rail') {
+            rails.set(config.dockNodeId, config)
+        } else if (Array.isArray(config?.items)) {
+            this.collectRailConfigs(config.items, rails)
+        }
+
+        return rails
+    }
+
+    /**
+     * @summary Hands each carried hold to the rail that replaced its own ({@link #settleHeldReveals}).
+     * Runs after the swap, once the outgoing rail has let go of the item's reveal pane, so the
+     * successor resolves that pane afresh.
+     * @param {Map<String,String>} carriedHolds The held item id per rebuilt rail's dock identity
+     * @param {Map<String,Neo.dashboard.dock.interaction.Rail>} currentRails The outgoing shell's rails
+     * @param {Neo.component.Base} nextShell
+     * @returns {Promise<void>}
+     * @static
+     */
+    static async restoreHeldReveals(carriedHolds, currentRails, nextShell) {
+        if (!carriedHolds.size) return;
+
+        const nextRails = this.collectProjectedRails(nextShell);
+
+        for (const [nodeId, itemId] of carriedHolds) {
+            const outgoing = currentRails.get(nodeId);
+
+            outgoing.isDestroyed || await outgoing.releaseRevealPane(itemId);
+            nextRails.get(nodeId)?.reveal(itemId)
+        }
+    }
+
+    /**
+     * @summary Settles each application-held reveal of a rail this projection rebuilds, before it stages.
+     *
+     * The application owns a held reveal's end, so a rebuild for another member's sake must not end
+     * it: a hold whose item the rebuilt rail still carries is returned for {@link #restoreHeldReveals}.
+     * A hold whose item the projection takes off that rail ends now, and the outgoing rail's relay
+     * publishes the end as `itemCleared` does on a retained rail. Gesture reveals end with the rail
+     * they lived on.
+     * @param {Map<String,Neo.dashboard.dock.interaction.Rail>} currentRails The outgoing shell's rails, by dock identity
+     * @param {Map<String,Object>} railPlans The retained rails, which keep their reveal state
+     * @param {*} nextConfig The projection about to stage
+     * @returns {Map<String,String>} The held item id per rebuilt rail's dock identity
+     * @static
+     */
+    static settleHeldReveals(currentRails, railPlans, nextConfig) {
+        const
+            carriedHolds = new Map(),
+            nextRails    = this.collectRailConfigs(nextConfig);
+
+        currentRails.forEach((rail, nodeId) => {
+            const
+                machine = rail.revealMachine,
+                itemId  = machine?.state === 'revealed-held' ? machine.revealedItemId : null;
+
+            if (!itemId || railPlans.has(nodeId)) return;
+
+            nextRails.get(nodeId)?.railItems?.some(item => item.dockItemId === itemId)
+                ? carriedHolds.set(nodeId, itemId)
+                : machine.release(itemId)
+        });
+
+        return carriedHolds
     }
 
     /**

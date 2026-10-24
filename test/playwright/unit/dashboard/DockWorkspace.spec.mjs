@@ -2983,6 +2983,87 @@ test('the holder contract: a config-assigned document is readable before any ope
         expect(JSON.stringify(workspace.getDockZoneDocument()), 'no operation was committed').toBe(before)
     });
 
+    test.describe('a projection that rebuilds the rail', () => {
+        // inspector and tool share the right rail; aux rails on the left
+        const createSharedRailDocument = () => {
+            const document = createEdgeDocument();
+
+            document.items.inspector.autoHidden = true;
+            document.items.tool = {reference: 'Tool', title: 'Tool', autoHidden: true};
+            document.items.aux  = {reference: 'Aux',  title: 'Aux',  autoHidden: true};
+            document.nodes['inspector-tabs'].items.push('tool');
+            document.nodes.root.zones.left = {nodeId: 'aux-tabs', extent: 0.25, resizable: true};
+            document.nodes['aux-tabs']     = {type: 'tabs', items: ['aux'], activeItemId: 'aux'};
+
+            return document
+        };
+
+        const railAt = edge => [...DockProjectionReconciler.collectProjectedRails(workspace.items[0]).values()].find(rail => rail.edge === edge);
+
+        const commit = async operation => {
+            const {document, errors} = workspace.applyDockZoneOperation(operation);
+
+            expect(errors).toEqual([]);
+            await workspace.onDockZoneDocumentChange(document)
+        };
+
+        const recordChanges = () => {
+            const changes = [];
+
+            workspace.on('dockRailRevealChange', ({next, previous}) => {
+                changes.push(`${previous.state} > ${next.state} ${next.revealedItemId}`)
+            });
+
+            return changes
+        };
+
+        test('for another member hands the hold to its successor, and never ends it', async () => {
+            workspace = Neo.create(FixedIdWorkspace, {dockModel: createSharedRailDocument()});
+
+            const before  = railAt('right'),
+                  changes = recordChanges();
+
+            workspace.revealRailItem('inspector');
+            await commit({operation: 'setItemAutoHidden', itemId: 'tool', autoHidden: false});
+
+            const after = railAt('right');
+
+            expect(after, 'the projection rebuilt the rail').not.toBe(before);
+            expect(after.revealMachine.state, 'the successor holds the item').toBe('revealed-held');
+            expect(after.revealMachine.revealedItemId).toBe('inspector');
+            expect(changes.filter(change => change.startsWith('revealed-held > ')), 'no end was published').toEqual([])
+        });
+
+        test('without the held item ends the hold once, and the workspace hears it', async () => {
+            workspace = Neo.create(FixedIdWorkspace, {dockModel: createSharedRailDocument()});
+
+            const changes = recordChanges();
+
+            workspace.revealRailItem('inspector');
+
+            // still auto-hidden, so the pre-projection sweep leaves it: only the rebuild sees it go
+            await commit({operation: 'moveItem', itemId: 'inspector', targetNodeId: 'aux-tabs', index: 0});
+
+            expect(changes).toEqual(['idle > revealed-held inspector', 'revealed-held > idle null']);
+            expect(railAt('right').revealMachine.state, 'the rebuilt rail holds nothing').toBe('idle');
+            expect(railAt('left').revealMachine.state, 'and the hold does not follow the item').toBe('idle')
+        });
+
+        test('ends a gesture reveal, as before', async () => {
+            workspace = Neo.create(FixedIdWorkspace, {dockModel: createSharedRailDocument()});
+
+            const before = railAt('right');
+
+            before.onTabClick({component: before.items[0]});
+            expect(before.revealMachine.state).toBe('revealed-focused');
+
+            await commit({operation: 'setItemAutoHidden', itemId: 'tool', autoHidden: false});
+
+            expect(railAt('right'), 'the projection rebuilt the rail').not.toBe(before);
+            expect(railAt('right').revealMachine.state).toBe('idle')
+        })
+    });
+
     test('the pin action refuses fail-closed where the collapse cannot complete, and moves by hidden on ONE instance', async () => {
         const document = createEdgeDocument();
 
