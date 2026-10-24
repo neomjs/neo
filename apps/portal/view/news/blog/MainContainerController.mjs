@@ -1,7 +1,8 @@
 import Controller from '../../../../../src/controller/Component.mjs';
 
 /**
- * @class Portal.view.news.release.MainContainerController
+ * @summary Routes `/news/blog/<slug>` URLs to the Portal blog store's `blog/<slug>` leaf records.
+ * @class Portal.view.news.blog.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Controller {
@@ -22,11 +23,14 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @summary Navigates to `/news/blog/<slug>`, stripping any leading `blog/` record-id prefix.
      * @param {String} item
      */
     navigateTo(item) {
+        const slug = item.replace(/^blog\//, '');
+
         Neo.Main.setRoute({
-            value   : `/news/blog/${item}`,
+            value   : `/news/blog/${slug}`,
             windowId: this.component.windowId
         })
     }
@@ -86,6 +90,7 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @summary Selects the matching `blog/<slug>` tree record for `/news/blog/<slug>` routes.
      * @param {Object} data
      * @param {String} data.itemId
      * @param {Object} value
@@ -97,18 +102,22 @@ class MainContainerController extends Controller {
             store         = stateProvider.getStore('tree'),
             tree          = me.getReference('tree');
 
-        // Ensure the tree has the correct route prefix for this controller context
-        if (tree.routePrefix !== '/news/blog') {
-            tree.routePrefix = '/news/blog'
+        // Leaf records in blog.json carry `id: "blog/<slug>"` so relative links resolve one folder deep
+        // inside `learn/`; prefixing with `/news` makes `${routePrefix}/${record.id}` emit `/news/blog/<slug>`.
+        if (tree.routePrefix !== '/news') {
+            tree.routePrefix = '/news'
         }
 
         const select = async () => {
-            stateProvider.data.currentPageRecord = store.get(itemId);
+            const slug     = itemId.split('#')[0].replace(/^blog\//, ''),
+                  recordId = store.get(`blog/${slug}`) ? `blog/${slug}` : slug;
+
+            stateProvider.data.currentPageRecord = store.get(recordId);
 
             if (!oldValue?.hashString?.startsWith('/news/blog')) {
-                await tree.expandAndScrollToItem(itemId)
+                await tree.expandAndScrollToItem(recordId)
             } else {
-                tree.expandParents(itemId)
+                tree.expandParents(recordId)
             }
         };
 

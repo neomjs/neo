@@ -32,7 +32,7 @@ class Component extends ContentComponent {
     }
 
     /**
-     * @summary Routes resolved `learn/blog/` targets to `news/blog/` and all other `learn/` targets to `learn/`.
+     * @summary Routes resolved `learn/blog/` targets to `news/blog/<slug>` and all other `learn/` targets to `learn/`.
      * @param {String} target a relative link target, fragment already stripped
      * @returns {String|null}
      * @protected
@@ -44,7 +44,7 @@ class Component extends ContentComponent {
             return null
         }
 
-        return id.startsWith('blog/') ? `news/blog/${id}` : `learn/${id}`
+        return id.startsWith('blog/') ? `news/${id}` : `learn/${id}`
     }
 }
 
