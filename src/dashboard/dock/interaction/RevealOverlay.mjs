@@ -49,7 +49,7 @@ class RevealOverlay extends Container {
      * @member {Set<String>} VISIBLE_STATES
      * @static
      */
-    static VISIBLE_STATES = new Set(['dismiss-pending', 'revealed', 'revealed-focused'])
+    static VISIBLE_STATES = new Set(['dismiss-pending', 'revealed', 'revealed-focused', 'revealed-held'])
 
     static config = {
         /**
@@ -99,7 +99,7 @@ class RevealOverlay extends Container {
         revealExtent_: null,
         /**
          * Current machine state snapshot (`idle`, `dwell-pending`, `revealed`, `revealed-focused`,
-         * `dismiss-pending`).
+         * `revealed-held`, `dismiss-pending`).
          * @member {String} revealState_='idle'
          * @reactive
          */

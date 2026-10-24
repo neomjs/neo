@@ -478,6 +478,71 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
     });
 
     /**
+     * The app-held reveal and the click reveal it is measured against share one harness: an overlay
+     * whose focus move is recorded, and a stand-in main view that records the outside listener.
+     */
+    const createWitnessedRail = id => {
+        let committed = [],
+            focused   = [],
+            listeners = [],
+            reveals   = [],
+            overlay   = createStubOverlay();
+
+        overlay.focusReveal = modality => focused.push(modality);
+
+        rail = Neo.create(DockRail, {
+            applyDockZoneOperation: descriptor => {
+                committed.push(descriptor);
+                return {document: null, errors: []}
+            },
+            edge     : 'right',
+            id,
+            railItems: createRailItems()
+        });
+
+        // A unit rail has no app; its own `app` stands in with a main view that records the listener
+        Object.defineProperty(rail, 'app', {configurable: true, value: {mainView: {
+            addDomListeners   : () => listeners.push('add'),
+            removeDomListeners: () => listeners.push('remove')
+        }}});
+
+        rail.bindRevealOverlay(overlay);
+        rail.on('dockRailRevealChange', data => reveals.push(data.next));
+
+        return {committed, focused, listeners, overlay, reveals}
+    };
+
+    test('an app reveal holds without focus, operation or outside listener, and dismissReveal ends it', () => {
+        const {committed, focused, listeners, overlay, reveals} = createWitnessedRail('dock-rail-app-reveal');
+
+        expect(rail.reveal('editor'), 'an item on no tab of this rail').toBeNull();
+        expect(rail.reveal('terminal')).toEqual({revealedItemId: 'terminal', state: 'revealed-held'});
+        expect(overlay.calls.at(-1)).toMatchObject({revealState: 'revealed-held'});
+        expect(tabsOf(rail)[0].pressed, 'the tab reads as the one showing').toBe(true);
+
+        overlay.fire('revealPointerLeave', {});
+        overlay.fire('revealFocusLeave', {});
+        rail.onAppMouseDown({path: []});
+
+        expect(rail.revealMachine.state, 'pointer, focus and outside inputs leave it held').toBe('revealed-held');
+        expect(rail.dismissReveal('editor'), 'an item on no tab of this rail').toBeNull();
+        expect(rail.dismissReveal('terminal')).toEqual({revealedItemId: null, state: 'idle'});
+        expect(reveals).toEqual([{revealedItemId: 'terminal', state: 'revealed-held'}, {revealedItemId: null, state: 'idle'}]);
+        expect({committed, focused, listeners}).toEqual({committed: [], focused: [], listeners: []})
+    });
+
+    test('control: the same harness sees a click reveal move focus and arm the outside listener', () => {
+        const {focused, listeners} = createWitnessedRail('dock-rail-click-witness');
+
+        rail.onTabClick({component: tabsOf(rail)[0]});
+        rail.onAppMouseDown({path: []});
+
+        expect(rail.revealMachine.state, 'the outside press dismissed it').toBe('idle');
+        expect(focused).toHaveLength(1);
+        expect(listeners).toEqual(['add', 'remove'])
+    });
+
+    /**
      * An item that leaves auto-hidden state gets its flow pane from the projection. A consumer that
      * resolves reveal and flow from ONE config mints the same id twice, so the cached reveal pane has
      * to go first — while it is the id's only holder — or its later teardown unregisters the flow pane.

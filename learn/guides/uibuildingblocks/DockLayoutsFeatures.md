@@ -117,6 +117,12 @@ somewhere else gets a panel they did not ask for, and someone driving with a key
 experience that has no equivalent gesture at all. Applications that genuinely want it opt in per workspace, and the
 reveal then dwells briefly before opening and never takes focus.
 
+An application can also open a reveal itself and keep it open for as long as its own state needs it: a selected agent
+whose details lie over the roster, say. `workspace.revealRailItem('inspector')` reveals the item without moving focus,
+and a click beside the overlay no longer closes it; `workspace.dismissRailReveal('inspector')` lets it go. The person
+can still end it with `Escape` or the item's own rail tab, and the workspace's `dockRailRevealChange` event reports
+that, so the application can follow.
+
 The way back is the overlay's pin control. Clicking it committed `{autoHidden: false, pinned: true}` and the Inspector
 returned to the same zone, at the same extent, as the same live component. The model cleared `autoHidden` itself —
 pinned and auto-hidden are mutually exclusive by construction, so the two flags cannot disagree.

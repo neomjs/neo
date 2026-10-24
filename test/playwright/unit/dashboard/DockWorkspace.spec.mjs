@@ -2948,6 +2948,41 @@ test('the holder contract: a config-assigned document is readable before any ope
         expect(rail.revealMachine.state, 'and its reveal').toBe('revealed-focused')
     });
 
+    test('an app holds a railed item open through the workspace and hears every change of it', async () => {
+        const document = createEdgeDocument();
+
+        document.items.inspector.autoHidden = true;
+
+        workspace = Neo.create(FixedIdWorkspace, {dockModel: document});
+
+        const before  = JSON.stringify(workspace.getDockZoneDocument()),
+              changes = [],
+              rail    = railOf(workspace.items[0]);
+
+        workspace.on('dockRailRevealChange', data => {
+            changes.push([data.next.state, data.next.revealedItemId, data.rail === rail])
+        });
+
+        expect(workspace.revealRailItem('center'), 'an item on no rail').toBeNull();
+        expect(workspace.revealRailItem('inspector')).toEqual({revealedItemId: 'inspector', state: 'revealed-held'});
+        expect(rail.revealOverlay.revealPaneItemId, 'the overlay hosts the item').toBe('inspector');
+
+        // The person ends it from inside the overlay; the app hears that on the workspace
+        rail.onOverlayEscape();
+
+        workspace.revealRailItem('inspector');
+
+        expect(workspace.dismissRailReveal('inspector')).toEqual({revealedItemId: null, state: 'idle'});
+        expect(workspace.dismissRailReveal('center'), 'an item on no rail').toBeNull();
+        expect(changes).toEqual([
+            ['revealed-held', 'inspector', true],
+            ['idle',          null,        true],
+            ['revealed-held', 'inspector', true],
+            ['idle',          null,        true]
+        ]);
+        expect(JSON.stringify(workspace.getDockZoneDocument()), 'no operation was committed').toBe(before)
+    });
+
     test('the pin action refuses fail-closed where the collapse cannot complete, and moves by hidden on ONE instance', async () => {
         const document = createEdgeDocument();
 
