@@ -257,8 +257,6 @@ class Component extends BaseComponent {
         me.updateHeader(true, me.needsEventUpdate);
 
         me.needsEventUpdate && me.updateEvents(false);
-
-        me.headerCreated = true
     }
 
     /**
@@ -342,9 +340,9 @@ class Component extends BaseComponent {
     afterSetCurrentDate(value, oldValue) {
         let me = this;
 
-        if (me.isConstructed) {
+        if (value && me.isConstructed) {
             me.updateHeader(false, true);
-            me.updateEvents()
+            me.updateEvents();
         }
     }
 
@@ -846,6 +844,8 @@ class Component extends BaseComponent {
     updateEvents(silent=false, startIndex=0, endIndex=this.totalColumns) {
         let me = this;
 
+        if(!me.currentDate) return;
+
         if (!me.mounted) {
             me.needsEventUpdate = true
         } else {
@@ -952,6 +952,7 @@ class Component extends BaseComponent {
     }
 
     /**
+     * @summary Defers header creation until currentDate is set.
      * @param {Boolean} [create=false]
      * @param {Boolean} [silent=false]
      */
@@ -963,6 +964,12 @@ class Component extends BaseComponent {
             header         = me.getHeaderContainer(),
             i              = 0,
             columnCls, currentDate, currentDay, dateCls, headerId, removeDom;
+
+        if (!date) return;
+
+        if (!me.headerCreated) {
+            create = true;
+        }
 
         me.setFirstColumnDate(date);
 
@@ -1009,6 +1016,8 @@ class Component extends BaseComponent {
 
             date.setDate(date.getDate() + 1)
         }
+
+        me.headerCreated = true;
 
         !silent && me.update()
     }
