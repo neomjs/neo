@@ -26,7 +26,9 @@ import NeoArray           from '../../../util/Array.mjs';
  * re-click, `Escape`, outside-click, or focus/pointer leaving dismiss it — reveal state is
  * runtime-only and no operation descriptor exists for dismissal. Hover-reveal is a workspace opt-in
  * (`autoHideRevealOnHover`; dwell-gated, never steals focus — hover reveals are an accessibility
- * hazard by default). The PERSIST path is the overlay's pin control: `setItemPinned(true)` committed
+ * hazard by default). An application may also hold a reveal open ({@link #reveal}): focus stays
+ * where it is, and only `Escape`, the item's own tab, {@link #dismissReveal} or the item leaving end
+ * it. The PERSIST path is the overlay's pin control: `setItemPinned(true)` committed
  * through the owning reducer callback (`applyDockZoneOperation`) or a local
  * `Operations.applyOperation()` — never a parallel mutation path; the model clears `autoHidden`
  * itself.
@@ -98,6 +100,12 @@ class Rail extends Container {
          * @reactive
          */
         edge_: 'left',
+        /**
+         * Notified with the data of every `dockRailRevealChange` this rail fires; the workspace relays
+         * it to the application.
+         * @member {Function|null} onDockRailRevealChange=null
+         */
+        onDockRailRevealChange: null,
         /**
          * Notified after a successful local document commit.
          * @member {Function|null} onDockZoneDocumentChange=null
@@ -721,25 +729,32 @@ class Rail extends Container {
     }
 
     /**
-     * Machine change hook: fires `dockRailRevealChange` and pushes the snapshot into the bound
-     * overlay. Reveal state is runtime-only — nothing here touches a document.
+     * Machine change hook: fires `dockRailRevealChange`, hands the same data to
+     * {@link #onDockRailRevealChange}, and pushes the snapshot into the bound overlay. Reveal state is
+     * runtime-only — nothing here touches a document.
      * @param {Object} next {revealedItemId, state}
      * @param {Object} previous {revealedItemId, state}
      * @protected
      */
     onRevealStateChange(next, previous) {
-        let me = this;
+        let me   = this,
+            data = {
+                next,
+                previous,
+                rail    : me,
+                railItem: (me.railItems || []).find(item => item.dockItemId === next.revealedItemId) || null
+            };
 
-        me.fire('dockRailRevealChange', {
-            next,
-            previous,
-            rail    : me,
-            railItem: (me.railItems || []).find(item => item.dockItemId === next.revealedItemId) || null
-        });
+        me.fire('dockRailRevealChange', data);
+
+        if (typeof me.onDockRailRevealChange === 'function') {
+            me.onDockRailRevealChange(data)
+        }
 
         me.syncRevealOverlay();
         me.syncRevealedTabState(next.revealedItemId);
-        me.syncOutsidePointerListener(next.state !== 'idle');
+        // The application that holds a reveal ends it; a press elsewhere is not its dismissal
+        me.syncOutsidePointerListener(next.state !== 'idle' && next.state !== 'revealed-held');
 
         // Embodied focus-hold: a click-born reveal moves REAL browser focus into the overlay.
         // Focus-rescue transitions (revealed / dismiss-pending -> focused) already hold focus
@@ -794,6 +809,47 @@ class Rail extends Container {
         me.revealMachine.tabClick(itemId);
 
         return {revealedItemId: me.revealMachine.revealedItemId, state: me.revealMachine.state}
+    }
+
+    /**
+     * Reveals one of this rail's items on the application's word and holds it open. Focus stays where
+     * it is and no operation is emitted; only `Escape`, the item's own tab, {@link #dismissReveal} or
+     * the item leaving the rail end it.
+     * @param {String} itemId
+     * @returns {{revealedItemId:(String|null), state:String}|null} Machine snapshot, or `null` when no
+     *     tab of this rail carries the item.
+     */
+    reveal(itemId) {
+        return this.applyRevealIntent(itemId, 'hold')
+    }
+
+    /**
+     * Ends any reveal of one of this rail's items on the application's word, held or not.
+     * @param {String} itemId
+     * @returns {{revealedItemId:(String|null), state:String}|null} Machine snapshot, or `null` when no
+     *     tab of this rail carries the item.
+     */
+    dismissReveal(itemId) {
+        return this.applyRevealIntent(itemId, 'release')
+    }
+
+    /**
+     * Feeds an application intent for one of this rail's items to the reveal machine.
+     * @param {String} itemId
+     * @param {String} intent The machine method: `hold` or `release`.
+     * @returns {{revealedItemId:(String|null), state:String}|null}
+     * @protected
+     */
+    applyRevealIntent(itemId, intent) {
+        const machine = this.revealMachine;
+
+        if (!machine || !(this.railItems || []).some(item => item.dockItemId === itemId)) {
+            return null
+        }
+
+        machine[intent](itemId);
+
+        return {revealedItemId: machine.revealedItemId, state: machine.state}
     }
 
     /**

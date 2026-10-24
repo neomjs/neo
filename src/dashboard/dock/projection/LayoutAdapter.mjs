@@ -452,6 +452,8 @@ class LayoutAdapter extends Base {
      *     action. The workspace threads its `dockActionTooltips` map here.
      * @param {Function} [options.onDockActiveIndexChange] Runtime active-item signal for action policy.
      * @param {Function} [options.onDockHeaderAction] Runtime Dock action intent; never persisted.
+     * @param {Function} [options.onDockRailRevealChange] Receives every edge rail's reveal change
+     *     (`{next, previous, rail, railItem}`); runtime-only, never persisted.
      * @param {Function} [options.resolveDockHeaderActions] Host resolver for additional tab-header
      *     actions, called per tabs node as `(nodeId)` and returning an array of action configs (or
      *     nothing). The set is **node-static**: it is resolved per tabs node and lives for that
@@ -551,6 +553,7 @@ class LayoutAdapter extends Base {
             onDockActiveIndexChange  : options.onDockActiveIndexChange,
             onDockHeaderAction       : options.onDockHeaderAction,
             resolveDockHeaderActions : options.resolveDockHeaderActions,
+            onDockRailRevealChange   : options.onDockRailRevealChange,
             onDockStackDragTerminal  : options.onDockStackDragTerminal,
             onDockTearOutCancel      : options.onDockTearOutCancel,
             onDockTearOutEntry       : options.onDockTearOutEntry,
@@ -788,6 +791,7 @@ class LayoutAdapter extends Base {
             flex                    : 'none',
             module                  : Rail,
             ntype                   : 'dashboard-dock-rail',
+            onDockRailRevealChange  : context.onDockRailRevealChange,
             onDockZoneDocumentChange: context.onDockZoneDocumentChange,
             railItems               : itemIds.map(itemId => this.createRailTab(itemId, edge, context)),
             resolveComponentRef     : context.resolveRevealComponentRef,

@@ -1907,6 +1907,57 @@ class Workspace extends Container {
     }
 
     /**
+     * Ends any reveal of an auto-hidden item on the application's word, held or not
+     * ({@link #revealRailItem}).
+     * @param {String} itemId
+     * @returns {{revealedItemId:(String|null), state:String}|null} The rail's snapshot, or `null` when no
+     *     rail of this window carries the item.
+     */
+    dismissRailReveal(itemId) {
+        return this.findDockRail(itemId)?.dismissReveal(itemId) ?? null
+    }
+
+    /**
+     * The projected edge rail whose tabs carry the item.
+     * @param {String} itemId
+     * @returns {Neo.dashboard.dock.interaction.Rail|null}
+     * @protected
+     */
+    findDockRail(itemId) {
+        let rail = null;
+
+        this.forEachDockRail(candidate => {
+            if (!rail && (candidate.railItems || []).some(item => item.dockItemId === itemId)) {
+                rail = candidate
+            }
+        });
+
+        return rail
+    }
+
+    /**
+     * Relays every rail's reveal change as this workspace's own `dockRailRevealChange`, with the rail's
+     * data: the application that holds a reveal open hears the person end it.
+     * @param {Object} data `{next, previous, rail, railItem}`
+     * @protected
+     */
+    onDockRailRevealChange(data) {
+        this.fire('dockRailRevealChange', data)
+    }
+
+    /**
+     * Reveals an auto-hidden item over the layout on the application's word and holds it open:
+     * runtime-only, no operation, focus where it was. `dockRailRevealChange` on this workspace reports
+     * when `Escape` or the item's own tab ends it.
+     * @param {String} itemId
+     * @returns {{revealedItemId:(String|null), state:String}|null} The rail's snapshot, or `null` when no
+     *     rail of this window carries the item.
+     */
+    revealRailItem(itemId) {
+        return this.findDockRail(itemId)?.reveal(itemId) ?? null
+    }
+
+    /**
      * Releases every rail-cached reveal pane whose item leaves auto-hidden state with the incoming
      * document — BEFORE the projection materializes that item's flow pane. The rail releases on its
      * own leave paths (pin escape, reconciled leaver); this sweep covers the ones that never pass
@@ -2506,6 +2557,7 @@ class Workspace extends Container {
                 dockPopOutActionAvailable: me.dockPopOutActionActive,
                 dockPopOutIconCls        : me.dockPopOutIconCls,
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
+                onDockRailRevealChange   : me.onDockRailRevealChange.bind(me),
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
                 // A resolved pane's contract is header truth too: the policy publishes what it can
                 // serve as it is resolved, and the reload action's binding reads it.

@@ -6,9 +6,11 @@ import Base from '../../../core/Base.mjs';
  * Click reveals with focus. Opt-in hover dwells before revealing without focus; leaving an
  * unfocused reveal starts dismiss grace. Focus holds, pointer return rescues, and explicit
  * dismissal clears the intent. Retargeting cancels the prior wait, retaining the visible pane
- * until the new dwell completes. Each effective change publishes one next/previous snapshot.
+ * until the new dwell completes. An application may instead hold one item's reveal open: focus
+ * stays where it is, and only Escape, the item's own tab, its release or the item leaving end it.
+ * Each effective change publishes one next/previous snapshot.
  *
- * States: idle, dwell-pending, revealed, revealed-focused, dismiss-pending.
+ * States: idle, dwell-pending, revealed, revealed-focused, revealed-held, dismiss-pending.
  * Policy configs and methods support inheritance and Neo.overwrites. Transient state stays
  * instance-local. Animation timing belongs to CSS; document operations remain outside this owner.
  * @class Neo.dashboard.dock.interaction.RevealStateMachine
@@ -104,6 +106,17 @@ class RevealStateMachine extends Base {
     }
 
     /**
+     * @summary The application holds an item's reveal open. Pointer, focus, hover and outside inputs
+     * leave it alone. Holding the held item again publishes nothing; holding another item retargets.
+     * @param {String} itemId
+     */
+    hold(itemId) {
+        if (this.state !== 'revealed-held' || this.revealedItemId !== itemId) {
+            this.transition('revealed-held', itemId)
+        }
+    }
+
+    /**
      * @summary Clears a revealed or pending item which left auto-hidden state.
      * @param {String} itemId
      */
@@ -124,9 +137,9 @@ class RevealStateMachine extends Base {
             this.transitionController === controller && !controller.signal.aborted
     }
 
-    /** @summary A click outside the overlay and rail dismisses the reveal. */
+    /** @summary A click outside the overlay and rail dismisses the reveal, unless the application holds it. */
     outsideClick() {
-        this.escape()
+        if (this.state !== 'revealed-held') this.escape()
     }
 
     /** @summary Focus rescues an unfocused reveal and holds it open. */
@@ -152,6 +165,14 @@ class RevealStateMachine extends Base {
     }
 
     /**
+     * @summary The application lets go of its item: any reveal of it ends, held or not.
+     * @param {String} itemId
+     */
+    release(itemId) {
+        if (this.state !== 'idle' && this.revealedItemId === itemId) this.transition('idle', null)
+    }
+
+    /**
      * @summary Click toggles the same item, or retargets with focus.
      * @param {String} itemId
      */
@@ -165,11 +186,12 @@ class RevealStateMachine extends Base {
 
     /**
      * @summary Hover starts or restarts dwell while preserving any current unfocused reveal.
+     * A focused or held reveal ignores it.
      * @param {String} itemId
      */
     tabHoverIn(itemId) {
         const me = this;
-        if (!me.revealOnHover || me.state === 'revealed-focused' ||
+        if (!me.revealOnHover || me.state === 'revealed-focused' || me.state === 'revealed-held' ||
             me.revealedItemId === itemId && me.state === 'revealed') return;
 
         me.transition('dwell-pending', me.revealedItemId, itemId)
