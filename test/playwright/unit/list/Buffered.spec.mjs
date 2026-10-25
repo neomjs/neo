@@ -85,9 +85,10 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
         height=100,
         itemConfig=({record}) => ({module: PooledRow, text: record.name}),
         itemHeight=20,
-        selectionModel=null
+        selectionModel=null,
+        store=null
     } = {}) => {
-        const store = Neo.create(Store, {
+        store ??= Neo.create(Store, {
             keyProperty: 'id',
             data       : data(count),
             model      : {
@@ -521,6 +522,27 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
 
         expect(renderedRows(list).map(row => row.data.recordId)).toEqual([19, 18, 17, 16, 15, 14, 13, 12, 11]);
         expect(list.items.filter(Boolean)).toHaveLength(9)
+    });
+
+    test('a record edit that an earlier listener re-sorts renders in the record\'s current row (#20106)', async () => {
+        const store = Neo.create(Store, {
+            keyProperty: 'id',
+            data       : data(20).map(row => ({...row, rank: row.id})),
+            model      : {fields: [{name: 'id', type: 'Integer'}, {name: 'name', type: 'String'}, {name: 'rank', type: 'Float'}]},
+            sorters    : [{property: 'rank', direction: 'ASC'}]
+        });
+
+        // registered before the list's own listeners: a view controller re-sorting on a sort-key edit
+        store.on('recordChange', ({fields}) => fields.some(field => field.name === 'rank') && store.doSort());
+
+        await createList({store});
+
+        store.get(5).rank = 1.5; // index 5 -> 2
+
+        const rows = renderedRows(list);
+
+        expect(rows.map(row => row.data.recordId)).toEqual([0, 1, 5, 2, 3, 4, 6, 7, 8]);
+        expect(new Set(rows.map(row => row.id)).size, 'one row per pooled slot').toBe(rows.length)
     });
 
     test('invalid bounds fail closed: construction rejects height, runtime assignments keep prior values', async () => {
