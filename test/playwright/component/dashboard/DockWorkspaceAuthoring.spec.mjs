@@ -240,5 +240,72 @@ test.describe('declarative Workspace renders and owns ordinary panes', () => {
             expect(refused.documentIdentityUnchanged).toBe(true);
             expect(refused.refreshIdentityUnchanged).toBe(true)
         }
+    });
+
+    test('a closed lazy declared pane reopened with openPane into an existing stack materializes as the active tab', async ({page}) => {
+        const first = await drive(page);
+        expect(first.lazyLoaded).toBe(false);
+        expect(first.lazyInstances).toBe(0);
+        expect(first.panes.lazyTab).toBeNull();
+
+        const closed = await operate(page, {operation: 'closeItem', itemId: 'lazyTab'});
+        expect(closed.errors).toEqual([]);
+        expect(closed.catalog).not.toContain('lazyTab');
+        expect(closed.panes.lazyTab).toBeNull();
+        expect(closed.lazyInstances).toBe(0);
+
+        const opened = await drive(page, {
+            action: 'open',
+            itemId: 'lazyTab',
+            target: {operation: 'addTab', tabsNodeId: 'main-tabs'}
+        });
+        expect(opened.errors).toEqual([]);
+        expect(opened.nodes['main-tabs'].activeItemId).toBe('lazyTab');
+        await expect(page.locator('.dock-authoring-lazy-pane').filter({hasText: 'Lazy tab initial'})).toBeVisible();
+
+        const current = await drive(page);
+        expect(current.lazyLoaded).toBe(true);
+        expect(current.lazyRequests).toBe(1);
+        expect(current.lazyInstances).toBe(1);
+        expect(current.panes.lazyTab.text).toBe('Lazy tab initial')
+    });
+
+    test('a resolvePane lazy config added by addTab into an existing stack materializes and reloads in its slot', async ({page}) => {
+        await drive(page, {action: 'resolveLazy', itemId: 'runtimeLazy', text: 'Runtime lazy initial'});
+
+        const added = await operate(page, {
+            operation: 'addItem',
+            itemId   : 'runtimeLazy',
+            item     : {reference: 'runtimeLazy', title: 'Runtime lazy'},
+            target   : {operation: 'addTab', tabsNodeId: 'main-tabs'}
+        });
+        expect(added.errors).toEqual([]);
+        expect(added.nodes['main-tabs'].activeItemId).toBe('runtimeLazy');
+        await expect(page.locator('.dock-authoring-lazy-pane').filter({hasText: 'Runtime lazy initial'})).toBeVisible();
+
+        const materialized = await drive(page),
+              oldPane      = materialized.panes.runtimeLazy,
+              tabs         = page.locator('.neo-dashboard-dock-tabs', {has: header(page, 'Runtime lazy')}),
+              reload       = tabs.locator('.neo-tab-header-toolbar .neo-button:has([class*="fa-rotate-right"])');
+
+        expect(materialized.lazyLoaded).toBe(true);
+        expect(materialized.lazyRequests).toBe(1);
+        expect(materialized.lazyInstances).toBe(1);
+        expect(oldPane.text).toBe('Runtime lazy initial');
+
+        await drive(page, {action: 'mark', itemId: 'runtimeLazy', value: 'discard on reload', text: 'Runtime lazy edited'});
+        await expect(page.locator(`#${oldPane.id}`)).toHaveText('Runtime lazy edited');
+        await header(page, 'Runtime lazy').click();
+        await reload.click();
+        await expect(page.locator(`#${oldPane.id}`)).toHaveCount(0);
+        await expect(tabs.locator('.dock-authoring-lazy-pane')).toHaveText('Runtime lazy initial');
+
+        const reloaded     = await drive(page),
+               replacement = reloaded.panes.runtimeLazy;
+        expect(replacement.id).not.toBe(oldPane.id);
+        expect(replacement.instanceWitness).not.toBe(oldPane.instanceWitness);
+        expect(replacement.transientNote).toBeNull();
+        expect(reloaded.lazyRequests).toBe(2);
+        expect(reloaded.lazyInstances).toBe(2)
     })
 });
