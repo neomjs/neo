@@ -1,0 +1,7 @@
+{
+    "appPath": "test/playwright/component/apps/record-change-resort/app.mjs",
+    "basePath": "../../../../../",
+    "environment": "development",
+    "mainPath": "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Navigator", "Stylesheet"]
+}

@@ -888,15 +888,16 @@ class List extends Component {
     }
 
     /**
+     * @summary Re-renders the changed record's item at its current index: `data.index` predates the
+     * listeners, and one of them may have re-sorted the Store on the same edit.
      * @param {Object} data
      * @param {Object[]} data.fields Each field object contains the keys: name, oldValue, value
-     * @param {Number} data.index
      * @param {Neo.data.Model} data.model
      * @param {Object} data.record
      */
     onStoreRecordChange(data) {
-        let me      = this,
-            {index} = data;
+        let me    = this,
+            index = me.store.indexOf(data.record);
 
         // ignore changes for records which have not been added to the list yet
         if (index > -1) {
