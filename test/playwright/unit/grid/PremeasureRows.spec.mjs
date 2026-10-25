@@ -19,6 +19,14 @@ import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 test.describe('Grid hidden row premeasurement', () => {
     let grid, store, oldAccess, read;
 
+    const settle = async () => {
+        do {
+            await grid.view.promiseUpdate();
+            await Promise.all(grid.view.bodies.map(body => body.promiseUpdate()))
+        } while (grid.view.isVdomUpdating || grid.view.needsVdomUpdate ||
+            grid.view.bodies.some(body => body.isVdomUpdating || body.needsVdomUpdate))
+    };
+
     test.beforeEach(async () => {
         store = Neo.create(Store, {keyProperty: 'id', data: Array.from({length: 80}, (_, id) =>
             ({id, name: `Name ${id}`, note: `Note ${id}`, nameLines: 1, noteLines: 4})),
@@ -48,7 +56,7 @@ test.describe('Grid hidden row premeasurement', () => {
             toolbar && await toolbar.passSizeToBody()
         }
         grid.view.bodies.forEach(body => body.set({availableHeight: 360, containerWidth: 600}));
-        await grid.timeout(50)
+        await settle()
     });
 
     test.afterEach(() => {
@@ -60,9 +68,6 @@ test.describe('Grid hidden row premeasurement', () => {
     test('a height reset retires the hidden projection it invalidates', async () => {
         let {view} = grid;
 
-        // A busy view defers the hidden pass to its next landed update
-        await view.promiseUpdate();
-        await Promise.all(view.bodies.map(body => body.promiseUpdate()));
         await view.measureAheadRows();
         expect(view.bodies.some(body => body.rowMeasureVdom !== null), 'a hidden pass projected the ahead rows').toBe(true);
 
@@ -267,7 +272,7 @@ test.describe('Grid hidden row premeasurement', () => {
             return value
         };
         grid.repaintCells();
-        await Promise.all(bodies.map(body => body.promiseUpdate()));
+        await settle();
         await view.measureAheadRows();
         await view.promiseUpdate();
         expect(geometry.measuredMean).toBe(85);
@@ -319,7 +324,7 @@ test.describe('Grid hidden row premeasurement', () => {
 
             contexts.length = 0;
             read = baseRead;
-            await Promise.all(bodies.map(body => body.promiseUpdate()));
+            await settle();
             expect(bodies.every(body => !body.isVdomUpdating)).toBe(true);
             await view.measureAheadRows();
             expect(geometry.measuredMean).toBe(45);
