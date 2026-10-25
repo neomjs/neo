@@ -1280,7 +1280,8 @@ class Reconciler extends Base {
                     throw new Error(`Dock projection could not retire item "${itemId}" without its tab button`)
                 }
 
-                const destroyPane = !preservedItems.has(itemId) || pane?.ntype === 'dock-vessel-placeholder';
+                const destroyPane = pane instanceof Neo.core.Base
+                    && (!preservedItems.has(itemId) || pane?.ntype === 'dock-vessel-placeholder');
 
                 state.body.removeAt(state.index, destroyPane, true);
                 state.bar.removeTabAt(state.index, true, true);
@@ -1330,7 +1331,20 @@ class Reconciler extends Base {
                     throw new Error(`Dock projection tab chrome "${nodeId}" lost item "${itemId}"`)
                 }
 
-                body.layout.applyChildAttributes(pane, index, true);
+                if (pane instanceof Neo.core.Base) {
+                    body.layout.applyChildAttributes(pane, index, true)
+                } else if (index === activeIndex && body.layout?.loadModule) {
+                    // Silent activeIndex writes above skip Card#afterSetActiveIndex; start the parked active load here.
+                    body.layout.loadModule(pane, index).then(() => {
+                        if (!body.isDestroyed) {
+                            body.updateDepth = -1;
+                            body.update()
+                        }
+                    }).catch(error => {
+                        delete pane.isLoading;
+                        console.error(`${body.id}: the lazy module at index ${index} failed to load`, error)
+                    })
+                }
                 button.setSilent({
                     domListeners: header.domListeners,
                     index,
