@@ -875,8 +875,8 @@ export async function getSitemapXml(options={}) {
     }
 
     const allRoutes      = await collectAllRoutes({...options, includeArchives, onlyArchives});
-    const filteredRoutes = allRoutes.filter(({category, id}) =>
-        onlyArchives || includeTopLevel || category !== 'top-level' || !id.startsWith('/')
+    const filteredRoutes = allRoutes.filter(({id}) =>
+        onlyArchives || includeTopLevel || !id.startsWith('/')
     );
 
     const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
@@ -951,7 +951,7 @@ export async function getSitemapXml(options={}) {
     }).join('\n');
 
     return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${xmlEntries}
 </urlset>
 `;
@@ -1017,7 +1017,7 @@ export function getSitemapIndexXml(options={}) {
     }).join('\n');
 
     return `<?xml version="1.0" encoding="UTF-8"?>
-<sitemapindex xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${entriesXml}
 </sitemapindex>
 `;

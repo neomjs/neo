@@ -81,7 +81,6 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             corpusRoot,
             existingSitemapPath: '/repo/apps/portal/sitemap-archive.xml',
             includeArchives    : true,
-            includeTopLevel    : false,
             onlyArchives       : true,
             releaseNotesRoot
         });

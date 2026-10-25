@@ -126,7 +126,6 @@ async function rebuildContentIndexesAndSeo({
         corpusRoot,
         existingSitemapPath: sitemapArchivePath,
         includeArchives    : true,
-        includeTopLevel    : false,
         onlyArchives       : true,
         releaseNotesRoot
     });

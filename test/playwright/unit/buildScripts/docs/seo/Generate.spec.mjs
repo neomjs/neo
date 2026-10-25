@@ -320,6 +320,7 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
             onlyArchives  : true
         });
 
+        expect(archiveSitemap).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
         expect(archiveSitemap).toContain('<loc>https://neomjs.com/news/tickets/12742</loc>');
         expect(archiveSitemap).toContain('<loc>https://neomjs.com/news/pulls/20088</loc>');
         expect(archiveSitemap).toContain('<loc>https://neomjs.com/news/discussions/11026</loc>');
@@ -355,7 +356,7 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
             ]
         });
 
-        expect(indexXml).toContain('<sitemapindex xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">');
+        expect(indexXml).toContain('<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
         expect(indexXml).toContain('<loc>https://neomjs.com/sitemap-core.xml</loc>\n    <lastmod>2026-10-24T18:30:00Z</lastmod>');
         expect(indexXml).toContain('<loc>https://neomjs.com/sitemap-archive.xml</loc>\n    <lastmod>2026-10-25T01:00:00Z</lastmod>');
     });
