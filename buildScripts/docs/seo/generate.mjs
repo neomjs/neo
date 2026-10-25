@@ -667,97 +667,36 @@ export async function collectBlogRoutes(blogIndexPath=BLOG_INDEX_PATH) {
 }
 
 /**
- * Collects all github issues by scanning the corpus's active and archive markdown directories.
+ * Collects and sorts numbered archive routes (`tickets`, `pull-requests`, or `discussions`) from `corpusRoot`.
  * @param {String} corpusRoot
- * @returns {Promise<Array<{id: String, filePath: String}>>}
+ * @param {String[]} patterns Glob patterns under `corpusRoot`
+ * @param {String} filePrefix Filename prefix (`issue-`, `pr-`, `discussion-`)
+ * @param {String} routePrefix Route prefix (`/news/tickets/`, `/news/pulls/`, `/news/discussions/`)
+ * @param {String} category Route category
+ * @param {String} numKey Numeric sort key property name
+ * @returns {Promise<Object[]>}
  */
-async function collectIssueRoutes(corpusRoot) {
-    const files = await fg([
-        'issues/**/*.md',
-        'archive/issues/**/issue-*.md'
-    ], {
-        cwd   : corpusRoot,
-        ignore: ['**/node_modules/**']
-    });
+async function collectNumberedCorpusRoutes(corpusRoot, patterns, filePrefix, routePrefix, category, numKey) {
+    const files = await fg(patterns, {cwd: corpusRoot, ignore: ['**/node_modules/**']});
 
-    const issues = files.map(file => {
-        const filePath       = path.resolve(corpusRoot, file);
-        const fileName       = path.basename(file, '.md'); // e.g., 'issue-8186'
-        const issueNumberStr = fileName.startsWith('issue-') ? fileName.substring(6) : fileName;
-        const issueNumber    = parseInt(issueNumberStr, 10);
+    return files.map(file => {
+        const filePath = path.resolve(corpusRoot, file);
+        const fileName = path.basename(file, '.md');
+        const numStr   = fileName.startsWith(filePrefix) ? fileName.slice(filePrefix.length) : fileName;
+        const num      = parseInt(numStr, 10);
 
         return {
-            category: 'tickets',
+            category,
             filePath,
-            id      : `/news/tickets/${issueNumberStr}`,
-            issueNum: isNaN(issueNumber) ? 0 : issueNumber
+            id      : `${routePrefix}${numStr}`,
+            [numKey]: isNaN(num) ? 0 : num
         };
-    });
-
-    return issues.sort((a, b) => b.issueNum - a.issueNum);
+    }).sort((a, b) => b[numKey] - a[numKey]);
 }
 
-/**
- * Collects all GitHub pull requests by scanning the corpus's active and archive markdown directories.
- * @param {String} corpusRoot
- * @returns {Promise<Array<{id: String, filePath: String, pullNum: Number}>>}
- */
-async function collectPullRoutes(corpusRoot) {
-    const files = await fg([
-        'pulls/**/pr-*.md',
-        'archive/pulls/**/pr-*.md'
-    ], {
-        cwd   : corpusRoot,
-        ignore: ['**/node_modules/**']
-    });
-
-    const pulls = files.map(file => {
-        const filePath      = path.resolve(corpusRoot, file);
-        const fileName      = path.basename(file, '.md');
-        const pullNumberStr = fileName.startsWith('pr-') ? fileName.substring(3) : fileName;
-        const pullNumber    = parseInt(pullNumberStr, 10);
-
-        return {
-            category: 'pull-requests',
-            filePath,
-            id      : `/news/pulls/${pullNumberStr}`,
-            pullNum : isNaN(pullNumber) ? 0 : pullNumber
-        };
-    });
-
-    return pulls.sort((a, b) => b.pullNum - a.pullNum);
-}
-
-/**
- * Collects all GitHub discussions by scanning the corpus's active and archive markdown directories.
- * @param {String} corpusRoot
- * @returns {Promise<Array<{id: String, filePath: String, discussionNum: Number}>>}
- */
-async function collectDiscussionRoutes(corpusRoot) {
-    const files = await fg([
-        'discussions/**/discussion-*.md',
-        'archive/discussions/**/discussion-*.md'
-    ], {
-        cwd   : corpusRoot,
-        ignore: ['**/node_modules/**']
-    });
-
-    const discussions = files.map(file => {
-        const filePath            = path.resolve(corpusRoot, file);
-        const fileName            = path.basename(file, '.md');
-        const discussionNumberStr = fileName.startsWith('discussion-') ? fileName.substring(11) : fileName;
-        const discussionNumber    = parseInt(discussionNumberStr, 10);
-
-        return {
-            category     : 'discussions',
-            discussionNum: isNaN(discussionNumber) ? 0 : discussionNumber,
-            filePath,
-            id           : `/news/discussions/${discussionNumberStr}`
-        };
-    });
-
-    return discussions.sort((a, b) => b.discussionNum - a.discussionNum);
-}
+const collectIssueRoutes      = root => collectNumberedCorpusRoutes(root, ['issues/**/*.md', 'archive/issues/**/issue-*.md'],                   'issue-',      '/news/tickets/',     'tickets',       'issueNum');
+const collectPullRoutes       = root => collectNumberedCorpusRoutes(root, ['pulls/**/pr-*.md', 'archive/pulls/**/pr-*.md'],                     'pr-',         '/news/pulls/',       'pull-requests', 'pullNum');
+const collectDiscussionRoutes = root => collectNumberedCorpusRoutes(root, ['discussions/**/discussion-*.md', 'archive/discussions/**/discussion-*.md'], 'discussion-', '/news/discussions/', 'discussions',   'discussionNum');
 
 /**
  * Collects all routes (top-level + content routes).
@@ -778,36 +717,16 @@ async function collectAllRoutes({corpusRoot, includeArchives = true, onlyArchive
     const shouldCollectCore     = !onlyArchives;
     const shouldCollectArchives = onlyArchives || includeArchives;
 
-    const [
-        topLevelRoutes,
-        contentRoutes,
-        exampleRoutes,
-        releaseRoutes,
-        blogRoutes,
-        issueRoutes,
-        pullRoutes,
-        discussionRoutes
-    ] = await Promise.all([
-        shouldCollectCore     ? collectTopLevelRoutes()                 : [],
-        shouldCollectCore     ? collectRoutesFromTree()                 : [],
-        shouldCollectCore     ? collectExampleRoutes()                  : [],
-        shouldCollectCore     ? collectReleaseRoutes(releaseNotesRoot)  : [],
-        shouldCollectCore     ? collectBlogRoutes()                     : [],
-        shouldCollectArchives ? collectIssueRoutes(corpusRoot)          : [],
-        shouldCollectArchives ? collectPullRoutes(corpusRoot)           : [],
-        shouldCollectArchives ? collectDiscussionRoutes(corpusRoot)     : []
-    ]);
-
-    return [
-        ...topLevelRoutes,
-        ...contentRoutes,
-        ...exampleRoutes,
-        ...releaseRoutes,
-        ...blogRoutes,
-        ...issueRoutes,
-        ...pullRoutes,
-        ...discussionRoutes
-    ];
+    return (await Promise.all([
+        shouldCollectCore     ? collectTopLevelRoutes()                : [],
+        shouldCollectCore     ? collectRoutesFromTree()                : [],
+        shouldCollectCore     ? collectExampleRoutes()                 : [],
+        shouldCollectCore     ? collectReleaseRoutes(releaseNotesRoot) : [],
+        shouldCollectCore     ? collectBlogRoutes()                    : [],
+        shouldCollectArchives ? collectIssueRoutes(corpusRoot)         : [],
+        shouldCollectArchives ? collectPullRoutes(corpusRoot)          : [],
+        shouldCollectArchives ? collectDiscussionRoutes(corpusRoot)    : []
+    ])).flat();
 }
 
 /**
