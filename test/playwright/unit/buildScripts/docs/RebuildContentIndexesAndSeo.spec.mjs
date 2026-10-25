@@ -23,7 +23,7 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
         await fs.rm(tempDir, {force: true, recursive: true})
     });
 
-    test('runs local content index builders before SEO generation and writes both SEO artifacts', async () => {
+    test('runs local content index builders before SEO generation and writes all segmented SEO/LLM artifacts', async () => {
         const
             calls  = [],
             writes = [];
@@ -45,7 +45,9 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             createDiscussionIndexFn : record('discussions'),
             createTicketIndexFn     : record('tickets'),
             getSitemapXmlFn         : record('sitemap'),
+            getSitemapIndexXmlFn    : record('sitemap-index'),
             getLlmsTxtFn            : record('llms'),
+            getLlmsFullTxtFn        : record('llms-full'),
             writeFileSync           : (filePath, content) => writes.push({filePath, content}),
             log                     : () => {}
         });
@@ -56,30 +58,75 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             'discussions',
             'tickets',
             'sitemap',
+            'sitemap',
+            'sitemap-index',
+            'llms',
+            'llms-full',
             'llms'
         ]);
         expect(calls.find(call => call.name === 'releases').args[0]).toEqual({releaseNotesRoot});
         expect(calls.filter(call => ['pulls', 'discussions', 'tickets'].includes(call.name)).map(call => call.args[0]))
             .toEqual([{corpusRoot}, {corpusRoot}, {corpusRoot}]);
-        expect(calls.find(call => call.name === 'sitemap').args[0]).toEqual({
+
+        const sitemapCalls = calls.filter(call => call.name === 'sitemap');
+        expect(sitemapCalls[0].args[0]).toEqual({
             baseUrl            : 'https://example.test',
             corpusRoot,
-            existingSitemapPath: '/repo/apps/portal/sitemap.xml',
+            existingSitemapPath: '/repo/apps/portal/sitemap-core.xml',
+            includeArchives    : false,
             releaseNotesRoot
         });
-        expect(calls.find(call => call.name === 'llms').args[0]).toEqual({
-            baseUrl: 'https://example.test',
+        expect(sitemapCalls[1].args[0]).toEqual({
+            baseUrl            : 'https://example.test',
             corpusRoot,
+            existingSitemapPath: '/repo/apps/portal/sitemap-archive.xml',
+            includeArchives    : true,
+            includeTopLevel    : false,
+            onlyArchives       : true,
             releaseNotesRoot
         });
+        expect(calls.find(call => call.name === 'sitemap-index').args[0]).toEqual({
+            baseUrl : 'https://example.test',
+            sitemaps: [
+                {path: 'sitemap-core.xml',    xml: 'sitemap-result'},
+                {path: 'sitemap-archive.xml', xml: 'sitemap-result'}
+            ]
+        });
+
+        const llmsCalls = calls.filter(call => call.name === 'llms');
+        expect(llmsCalls[0].args[0]).toEqual({
+            baseUrl        : 'https://example.test',
+            corpusRoot,
+            includeArchives: false,
+            releaseNotesRoot
+        });
+        expect(llmsCalls[1].args[0]).toEqual({
+            baseUrl        : 'https://example.test',
+            corpusRoot,
+            includeArchives: true,
+            releaseNotesRoot
+        });
+        expect(calls.find(call => call.name === 'llms-full').args[0]).toEqual({
+            baseUrl: 'https://example.test',
+            root   : '/repo'
+        });
+
         expect(writes).toEqual([
-            {filePath: '/repo/apps/portal/sitemap.xml', content: 'sitemap-result'},
-            {filePath: '/repo/apps/portal/llms.txt', content: 'llms-result'}
+            {filePath: '/repo/apps/portal/sitemap-core.xml',    content: 'sitemap-result'},
+            {filePath: '/repo/apps/portal/sitemap-archive.xml', content: 'sitemap-result'},
+            {filePath: '/repo/apps/portal/sitemap.xml',         content: 'sitemap-index-result'},
+            {filePath: '/repo/apps/portal/llms.txt',            content: 'llms-result'},
+            {filePath: '/repo/apps/portal/llms-full.txt',       content: 'llms-full-result'},
+            {filePath: '/repo/apps/portal/llms-all.txt',        content: 'llms-result'}
         ]);
         expect(result).toEqual({
-            baseUrl    : 'https://example.test',
-            llmsPath   : '/repo/apps/portal/llms.txt',
-            sitemapPath: '/repo/apps/portal/sitemap.xml'
+            baseUrl           : 'https://example.test',
+            llmsAllPath       : '/repo/apps/portal/llms-all.txt',
+            llmsFullPath      : '/repo/apps/portal/llms-full.txt',
+            llmsPath          : '/repo/apps/portal/llms.txt',
+            sitemapArchivePath: '/repo/apps/portal/sitemap-archive.xml',
+            sitemapCorePath   : '/repo/apps/portal/sitemap-core.xml',
+            sitemapPath       : '/repo/apps/portal/sitemap.xml'
         });
     });
 
@@ -100,7 +147,9 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             createDiscussionIndexFn : record('discussions'),
             createTicketIndexFn     : record('tickets'),
             getSitemapXmlFn         : async () => '<xml />',
+            getSitemapIndexXmlFn    : async () => '<sitemapindex />',
             getLlmsTxtFn            : async () => 'llms',
+            getLlmsFullTxtFn        : async () => 'llms-full',
             writeFileSync           : () => {},
             log                     : () => {}
         });
@@ -124,7 +173,9 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             createDiscussionIndexFn : record('discussions'),
             createTicketIndexFn     : record('tickets'),
             getSitemapXmlFn         : record('sitemap'),
+            getSitemapIndexXmlFn    : record('sitemap-index'),
             getLlmsTxtFn            : record('llms'),
+            getLlmsFullTxtFn        : record('llms-full'),
             writeFileSync           : () => calls.push('write'),
             log                     : () => {}
         })).rejects.toThrow('--corpus-root');
@@ -154,7 +205,9 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
                 createDiscussionIndexFn : record('discussions'),
                 createTicketIndexFn     : record('tickets'),
                 getSitemapXmlFn         : record('sitemap'),
+                getSitemapIndexXmlFn    : record('sitemap-index'),
                 getLlmsTxtFn            : record('llms'),
+                getLlmsFullTxtFn        : record('llms-full'),
                 writeFileSync           : () => calls.push('write'),
                 log                     : () => {}
             }).then(() => null, error => error.message);
@@ -171,7 +224,25 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             result: expect.stringMatching(/--release-notes .*package\.json is not a directory/)
         });
         expect(await run({corpusRoot, releaseNotesRoot})).toEqual({
-            calls : ['labels', 'releases', 'pulls', 'discussions', 'tickets', 'sitemap', 'write', 'llms', 'write'],
+            calls : [
+                'labels',
+                'releases',
+                'pulls',
+                'discussions',
+                'tickets',
+                'sitemap',
+                'write',
+                'sitemap',
+                'write',
+                'sitemap-index',
+                'write',
+                'llms',
+                'write',
+                'llms-full',
+                'write',
+                'llms',
+                'write'
+            ],
             result: null
         });
     });
@@ -191,7 +262,9 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             createDiscussionIndexFn : async () => {},
             createTicketIndexFn     : async () => {},
             getSitemapXmlFn         : async () => '<xml />',
+            getSitemapIndexXmlFn    : async () => '<sitemapindex />',
             getLlmsTxtFn            : async () => 'llms',
+            getLlmsFullTxtFn        : async () => 'llms-full',
             writeFileSync           : () => {},
             log                     : () => {}
         });
