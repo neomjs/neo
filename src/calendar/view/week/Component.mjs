@@ -256,7 +256,7 @@ class Component extends BaseComponent {
 
         me.updateHeader(true, me.needsEventUpdate);
 
-        me.needsEventUpdate && me.updateEvents(false);
+        me.needsEventUpdate && me.updateEvents(false)
     }
 
     /**
@@ -342,7 +342,7 @@ class Component extends BaseComponent {
 
         if (value && me.isConstructed) {
             me.updateHeader(false, true);
-            me.updateEvents();
+            me.updateEvents()
         }
     }
 
@@ -844,7 +844,7 @@ class Component extends BaseComponent {
     updateEvents(silent=false, startIndex=0, endIndex=this.totalColumns) {
         let me = this;
 
-        if(!me.currentDate) return;
+        if (!me.currentDate) return;
 
         if (!me.mounted) {
             me.needsEventUpdate = true
@@ -968,7 +968,7 @@ class Component extends BaseComponent {
         if (!date) return;
 
         if (!me.headerCreated) {
-            create = true;
+            create = true
         }
 
         me.setFirstColumnDate(date);
