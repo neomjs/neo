@@ -627,8 +627,9 @@ async function collectReleaseRoutes(releaseNotesRoot) {
  * @summary Collects one route per blog post from the portal's blog index.
  *
  * The portal renders posts from `blog.json`, never from `learn/tree.json`, so the tree walk
- * cannot see them. Each leaf becomes `/news/blog/<id>`, the route the portal itself answers, and
- * its markdown file dates the sitemap entry. A leaf whose file is missing fails, naming the leaf.
+ * cannot see them. Each leaf `id` (`blog/<slug>`) becomes `/news/blog/<slug>`, the route the portal
+ * itself answers, and its markdown file dates the sitemap entry. A leaf whose file is missing fails,
+ * naming the leaf.
  * @param {String} [blogIndexPath] The portal's blog index
  * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
  */
@@ -643,10 +644,12 @@ export async function collectBlogRoutes(blogIndexPath=BLOG_INDEX_PATH) {
             throw new Error(`Blog post "${post.id}" has no markdown file at "${post.path}".`);
         }
 
+        const slug = post.id.replace(/^blog\//, '');
+
         return {
             category: 'blog',
             filePath,
-            id      : `/news/blog/${post.id}`,
+            id      : `/news/blog/${slug}`,
             name    : post.name
         };
     }));

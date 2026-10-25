@@ -186,8 +186,10 @@ test.describe('docs SEO generator content roots (#19166)', () => {
         const [routes, sitemap, llmsTxt] = await Promise.all([getContentRoutes(roots), getSitemapXml(roots), getLlmsTxt(roots)]);
 
         for (const post of posts) {
-            expect(routes).toContain(`/#/news/blog/${post.id}`);
-            expect(sitemap).toContain(`<loc>https://neomjs.com/news/blog/${post.id}</loc>\n    <priority>0.9</priority>`);
+            const slug = post.id.replace(/^blog\//, '');
+            expect(routes).toContain(`/#/news/blog/${slug}`);
+            expect(routes).not.toContain(`/#/news/blog/blog/${slug}`);
+            expect(sitemap).toContain(`<loc>https://neomjs.com/news/blog/${slug}</loc>\n    <priority>0.9</priority>`);
             expect(llmsTxt).toContain(`- [${post.name}](https://neomjs.com/raw/${post.path})`)
         }
     })
@@ -204,7 +206,7 @@ test.describe('docs SEO generator blog routes (#19501)', () => {
         await fs.remove(tempDir)
     });
 
-    test('a post becomes a /news/blog route dated by its markdown file', async () => {
+    test('a post becomes a /news/blog/<slug> route dated by its markdown file', async () => {
         const postPath  = path.join(tempDir, 'a-post.md');
         const indexPath = path.join(tempDir, 'blog.json');
 
@@ -215,7 +217,7 @@ test.describe('docs SEO generator blog routes (#19501)', () => {
         ]});
 
         expect(await collectBlogRoutes(indexPath)).toEqual([
-            {category: 'blog', filePath: postPath, id: '/news/blog/blog/a-post', name: 'A post.'}
+            {category: 'blog', filePath: postPath, id: '/news/blog/a-post', name: 'A post.'}
         ])
     });
 

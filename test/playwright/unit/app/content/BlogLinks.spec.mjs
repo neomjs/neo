@@ -53,8 +53,9 @@ test.describe('Portal.view.news.blog.Component relative link rewriting (#19901)'
         const markdown = fs.readFileSync('learn/blog/v10-deep-dive-state-provider.md', 'utf8'),
               html     = component.rewriteLinks(marked.parse(markdown));
 
-        expect(html).toContain('href="#/news/blog/blog/v10-post1-love-story"');
-        expect(html).toContain('href="#/news/blog/blog/v10-deep-dive-vdom-revolution"');
+        expect(html).toContain('href="#/news/blog/v10-post1-love-story"');
+        expect(html).toContain('href="#/news/blog/v10-deep-dive-vdom-revolution"');
+        expect(html).not.toContain('href="#/news/blog/blog/');
         expect(html).not.toContain('href="./v10-post1-love-story.md"')
     });
 
@@ -69,7 +70,7 @@ test.describe('Portal.view.news.blog.Component relative link rewriting (#19901)'
         ].join('\n\n')));
 
         expect(html).toContain('href="#/learn/guides/datahandling/DynamicGrids#sorting"');
-        expect(html).toContain('href="#/news/blog/blog/v10-post1-love-story#intro"');
+        expect(html).toContain('href="#/news/blog/v10-post1-love-story#intro"');
         expect(html).toContain('href="https://example.com/docs/DynamicGrids.md"');
         expect(html).toContain('href="../../.github/AI_QUICK_START.md"')
     })
