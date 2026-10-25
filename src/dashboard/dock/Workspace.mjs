@@ -1960,73 +1960,14 @@ class Workspace extends Container {
 
     /**
      * @summary Pops a revealed auto-hidden item out into its own window: the reveal toolbar's pop-out,
-     * and the application's for an item it holds revealed ({@link #revealRailItem}). The tab-keyed
-     * path ({@link Neo.dashboard.dock.plugin.HeaderActions#handleDockPopOutAction}) measures a tab
-     * container; this one measures the reveal's pane slot and takes the pane the rail shows.
-     *
-     * Admission first: a refused vessel leaves the reveal and its pane as they were. Once admitted, the
-     * rail yields its live pane BEFORE the detach — the reconcile that follows the item off the rail
-     * would otherwise destroy a pane the rail cached, after the vessel adopted it — the tear-out holds
-     * that instance as the handle adoption moves, and the reveal ends as the item leaving its rail. The
-     * detach keeps the item `autoHidden`, so closing the vessel returns it to its rail.
+     * and the application's for an item it holds revealed ({@link #revealRailItem}). The transaction
+     * lives on {@link Neo.dashboard.dock.plugin.HeaderActions#popOutRailItem}, beside the docked
+     * pop-out's; a workspace that declined that plugin projects no reveal pop-out and answers `null`.
      * @param {String} itemId
-     * @returns {Promise<{document:Object, errors:String[]}>}
+     * @returns {Promise<{document:Object, errors:String[]}>|null}
      */
-    async popOutRailItem(itemId) {
-        let me      = this,
-            rail    = me.findDockRail(itemId),
-            overlay = rail?.revealOverlay,
-            refuse  = error => ({document: me.dockModel, errors: [error]}),
-            paneRect, yielded;
-
-        if (!overlay || rail.revealMachine?.revealedItemId !== itemId) {
-            return refuse(`Dock pop-out requires "${itemId}" to be revealed`)
-        }
-
-        if (!me.tearOutHandlers) {
-            return refuse('Dock pop-out action requires a tear-out handler bundle')
-        }
-
-        try {
-            paneRect = await Neo.main.DomAccess.getBoundingClientRect({id: overlay.paneSlot.id, windowId: me.windowId});
-            Array.isArray(paneRect) && (paneRect = paneRect[0])
-        } catch {
-            paneRect = null
-        }
-
-        // Re-checked after every await, as on the tab-keyed path: nothing commits into a workspace
-        // that is already gone.
-        if (me.isDestroyed || !me.tearOutHandlers) {
-            return refuse('Dock pop-out abandoned: the workspace was destroyed before admission')
-        }
-
-        if (await me.admitDockPopOut({itemId, proxyRect: paneRect, sourceRect: paneRect, sortZone: null}) === false) {
-            return refuse('Dock pop-out was refused by the host vessel seam')
-        }
-
-        if (me.isDestroyed || !me.tearOutHandlers) {
-            me.tearOutHandlers?.retireActiveVessel?.();
-            return refuse('Dock pop-out abandoned: the workspace was destroyed after admission')
-        }
-
-        yielded = rail.yieldRevealPane(itemId);
-        yielded && me.tearOutHandlers.capturePane(itemId, yielded.pane);
-        rail.revealMachine.itemCleared(itemId);
-
-        const wasInTree = !!WorkspaceDocument.findContainingTabsId(me.dockModel, itemId);
-
-        await me.tearOutHandlers.onDockTearOutTerminal({itemId});
-
-        if (wasInTree && !WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)) {
-            return {document: me.dockModel, errors: []}
-        }
-
-        // Refused: the tear-out lets the handle go, and a pane the rail owned goes back into its cache,
-        // parked for the next reveal
-        me.tearOutHandlers.releasePane?.(itemId);
-        yielded?.cached && !yielded.pane.isDestroyed && (rail.revealPaneCache[itemId] = yielded.pane);
-
-        return refuse('Dock pop-out was refused by the detach commit')
+    popOutRailItem(itemId) {
+        return this.getPlugin('dock-header-actions')?.popOutRailItem(itemId) ?? null
     }
 
     /**
@@ -2643,7 +2584,7 @@ class Workspace extends Container {
                 dockHeaderActionBindings: nodeId => me.dockHeaderActionPolicy?.createActionBindings(nodeId),
                 dockNodeLockBinding     : nodeId => me.dockHeaderActionPolicy?.createNodeLockBinding(nodeId),
                 dockRailLockBinding     : railId => me.dockHeaderActionPolicy?.createRailLockBinding(railId),
-                dockRailPopOutBinding   : railId => me.dockHeaderActionPolicy?.createRailPopOutBinding(railId),
+                dockRailPopOutBinding   : me.getPlugin?.('dock-header-actions') && (railId => me.dockHeaderActionPolicy?.createRailPopOutBinding(railId)),
                 dockWorkspaceId         : me.id,
                 syncDockLockPane        : (pane, itemId) => me.dockHeaderActionPolicy?.syncLockItemPresentation({
                     locked: me.getStateProvider?.()?.getData(`dock.items.${itemId}.locked`) === true,

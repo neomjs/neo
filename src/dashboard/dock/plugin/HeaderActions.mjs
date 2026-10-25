@@ -215,13 +215,67 @@ class HeaderActions extends Plugin {
             return {document: me.dockModel, errors: ['Dock pop-out action requires an active item']}
         }
 
+        return this.popOutDockItem({itemId, pane: tabContainer})
+    }
+
+    /**
+     * @summary Pops a revealed auto-hidden item out: the reveal toolbar's pop-out, and the
+     * application's for an item it holds revealed — {@link #popOutDockItem}, measured at the reveal's
+     * pane slot.
+     *
+     * Once admitted, the rail yields its live pane BEFORE the detach — the reconcile that follows the
+     * item off the rail would otherwise destroy a pane the rail cached, after the vessel adopted it —
+     * and the tear-out holds that instance as the handle adoption moves; the reveal ends as the item
+     * leaving its rail. A refused detach parks a cached pane back in the rail. The detach keeps the item
+     * `autoHidden`, so closing the vessel returns it to its rail.
+     * @param {String} itemId
+     * @returns {Promise<{document:Object,errors:String[]}>}
+     */
+    async popOutRailItem(itemId) {
+        let me      = this.owner,
+            rail    = me.findDockRail(itemId),
+            yielded = null;
+
+        if (!rail?.revealOverlay || rail.revealMachine?.revealedItemId !== itemId) {
+            return {document: me.dockModel, errors: [`Dock pop-out requires "${itemId}" to be revealed`]}
+        }
+
+        return this.popOutDockItem({
+            itemId,
+            pane: rail.revealOverlay.paneSlot,
+            handOff() {
+                yielded = rail.yieldRevealPane(itemId);
+                yielded && me.tearOutHandlers.capturePane(itemId, yielded.pane);
+                rail.revealMachine.itemCleared(itemId)
+            },
+            restore() {
+                me.tearOutHandlers?.releasePane(itemId);
+                yielded?.cached && !yielded.pane.isDestroyed && (rail.revealPaneCache[itemId] = yielded.pane)
+            }
+        })
+    }
+
+    /**
+     * @summary The pop-out transaction both entries share — {@link #handleDockPopOutAction} and
+     * {@link #popOutRailItem}: measure, admit, hand off, detach, witness.
+     * @param {Object}                  data
+     * @param {String}                  data.itemId
+     * @param {Neo.component.Base|null} data.pane     The component whose box the vessel opens over
+     * @param {Function}                [data.handOff] Runs once admitted, before the detach commit
+     * @param {Function}                [data.restore] Runs when the detach commit refused
+     * @returns {Promise<{document:Object,errors:String[]}>}
+     * @protected
+     */
+    async popOutDockItem({itemId, pane, handOff, restore}) {
+        let me = this.owner;
+
         if (!me.tearOutHandlers) {
             // Unreachable while the availability contract holds. Kept because the router is
             // directly callable, and a missing effective host pipeline must refuse rather than throw.
             return {document: me.dockModel, errors: ['Dock pop-out action requires a tear-out handler bundle']}
         }
 
-        const paneRect = await this.measureDockPaneRect(tabContainer);
+        const paneRect = await this.measureDockPaneRect(pane);
 
         // A click is asynchronous across two awaits and `destroy()` nulls `tearOutHandlers`, so the
         // pipeline is re-checked after EVERY await rather than captured once. Nothing here may
@@ -247,6 +301,8 @@ class HeaderActions extends Plugin {
             return {document: me.dockModel, errors: ['Dock pop-out abandoned: the workspace was destroyed after admission']}
         }
 
+        handOff?.();
+
         // Captured BEFORE the terminal so the check below needs positive evidence of a transition.
         // Reading only the "after" state would let an absent or empty document read as a detach —
         // `findContainingTabsId` returns null for "not in the tree" AND for "no tree at all", so a
@@ -266,6 +322,8 @@ class HeaderActions extends Plugin {
         // one this method started with.
         const detached = wasInTree && !WorkspaceDocument.findContainingTabsId(me.dockModel, itemId);
 
+        detached || restore?.();
+
         return detached
             ? {document: me.dockModel, errors: []}
             : {document: me.dockModel, errors: ['Dock pop-out was refused by the detach commit']}
@@ -274,17 +332,17 @@ class HeaderActions extends Plugin {
     /**
      * @summary The active pane's current global box, used as the vessel's opening geometry.
      *
-     * Measures the tabs node rather than the workspace: the vessel should lift the **pane** the
-     * button sits on, not the whole dock. A failed or degenerate measurement resolves `null`, which
-     * the tear-out seam accepts — the vessel then opens at the host's default geometry instead of
-     * at a wrong one, which is the safer of the two failures.
+     * Measures the tabs node — or a reveal's pane slot — rather than the workspace: the vessel should
+     * lift the **pane** the button sits on, not the whole dock. A failed or degenerate measurement
+     * resolves `null`, which the tear-out seam accepts — the vessel then opens at the host's default
+     * geometry instead of at a wrong one, which is the safer of the two failures.
      *
-     * @param {Neo.tab.Container|null} tabContainer
+     * @param {Neo.component.Base|null} pane
      * @returns {Promise<Object|null>}
      * @protected
      */
-    async measureDockPaneRect(tabContainer) {
-        let id   = tabContainer?.id,
+    async measureDockPaneRect(pane) {
+        let id   = pane?.id,
             rect = null;
 
         if (!id) {

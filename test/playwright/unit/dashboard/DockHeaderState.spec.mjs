@@ -513,6 +513,24 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         expect(rail.dockRevealPopOut, 'dismissed: nothing revealed').toBe(false)
     });
 
+    test('a workspace that declined the header-actions plugin offers no reveal pop-out: nothing would serve it (#20095)', () => {
+        const document = createDocument();
+
+        document.items.side.autoHidden = true;
+
+        workspace = Neo.create(HeaderStateWorkspace, {dockModel: document, enableDockHeaderActionsPlugin: false});
+
+        let rail = null;
+
+        workspace.forEachDockRail(candidate => rail = candidate);
+
+        workspace.stateProvider.setData('dock.popOutAvailable', true);
+        rail.publishRevealedItem('side');
+
+        expect(rail.dockRevealPopOut, 'revealed, and a vessel can open, but no plugin executes the pop-out').toBe(false);
+        expect(workspace.popOutRailItem('side'), 'and the façade seam answers null, as its recreate does').toBeNull()
+    });
+
     test('an item id the document accepts is carried whole through the lock bindings — a comma is not a delimiter', async () => {
         const document = createDocument(),
               itemId   = 'a,b';
