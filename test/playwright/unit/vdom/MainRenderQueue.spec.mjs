@@ -8,7 +8,7 @@ const __dirname     = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT     = path.resolve(__dirname, '../../../..');
 const execFileAsync = promisify(execFile);
 
-async function runRenderQueueProbe(hidden, probeForwarding=false) {
+async function runRenderQueueProbe(hidden, probeForwarding=false, fire='first') {
     const script = `
         import Neo from './src/Neo.mjs';
         import * as core from './src/core/_export.mjs';
@@ -48,17 +48,20 @@ async function runRenderQueueProbe(hidden, probeForwarding=false) {
         globalThis.SharedWorker            = class {};
 
         const scheduled       = [];
+        const cancelled       = [];
+        const originalClear   = globalThis.clearTimeout;
         const originalTimeout = globalThis.setTimeout;
 
         globalThis.requestAnimationFrame = callback => {
             scheduled.push({callback, kind: 'animation-frame'});
             return 1
         };
-        globalThis.cancelAnimationFrame = () => {};
+        globalThis.cancelAnimationFrame = id => cancelled.push({id, kind: 'animation-frame'});
         globalThis.setTimeout = (callback, delay) => {
             scheduled.push({callback, delay, kind: 'task'});
             return 2
         };
+        globalThis.clearTimeout = id => cancelled.push({id, kind: 'task'});
 
         Neo.insideWorker = true;
         delete Neo.main.DomAccess;
@@ -77,12 +80,36 @@ async function runRenderQueueProbe(hidden, probeForwarding=false) {
             resolve: value => { resolved = value }
         };
 
+        const renderFrame = Main.renderFrame.bind(Main);
+        let renderFrames  = 0;
+
+        Main.renderFrame = () => {
+            renderFrames++;
+            renderFrame()
+        };
+
         scheduled.length = 0;
+        cancelled.length = 0;
         Main.queueWrite({deltas: [], replyId: 'reply-1'});
 
-        const next = scheduled.shift();
-        next?.callback();
-        globalThis.setTimeout = originalTimeout;
+        const scheduledKinds = scheduled.map(entry => entry.kind);
+        let next;
+
+        if ('${fire}' === 'task') {
+            // a frame-starved visible document: the animation frame never comes, only the timer fires
+            next = scheduled.find(entry => entry.kind === 'task');
+            next?.callback()
+        } else if ('${fire}' === 'both') {
+            // a frame wins, then the timer arm's callback runs anyway: it must not drain twice
+            next = scheduled[0];
+            scheduled.forEach(entry => entry.callback())
+        } else {
+            next = scheduled.shift();
+            next?.callback()
+        }
+
+        globalThis.clearTimeout = originalClear;
+        globalThis.setTimeout   = originalTimeout;
 
         let forwarded;
 
@@ -126,11 +153,14 @@ async function runRenderQueueProbe(hidden, probeForwarding=false) {
 
         console.log(JSON.stringify({
             applied       : applied.length,
+            cancelled,
             delay         : next?.delay,
             kind          : next?.kind,
             queueRemaining: Main.writeQueue.length,
+            renderFrames,
             resolved,
             running       : Main.running,
+            scheduledKinds,
             ...(${probeForwarding} ? {forwarded} : {})
         }))
     `;
@@ -144,11 +174,12 @@ async function runRenderQueueProbe(hidden, probeForwarding=false) {
 }
 
 /**
- * @summary Pins Main-thread queue progress across visible and hidden documents.
+ * @summary Pins Main-thread queue progress across visible, frame-starved and hidden documents.
  *
- * Main keeps DOM writes frame-batched while visible. Hidden documents may suspend
- * animation frames indefinitely, so their queue drain must use a task and still settle
- * the delayed worker reply after the DOM operation has applied.
+ * Main keeps DOM writes frame-batched while visible, but a visible document can stop receiving
+ * frames, so the frame arm races a timer dam and the winner cancels the loser. Hidden documents
+ * may suspend animation frames indefinitely, so their queue drain uses a task directly. Every
+ * path must settle the delayed worker reply after the DOM operation has applied.
  */
 test.describe('Neo.Main render queue scheduling', () => {
     test('keeps visible writes aligned to the animation frame', async () => {
@@ -156,8 +187,39 @@ test.describe('Neo.Main render queue scheduling', () => {
 
         expect(result).toEqual({
             applied       : 1,
+            cancelled     : [{id: 2, kind: 'task'}],
             kind          : 'animation-frame',
             queueRemaining: 0,
+            renderFrames  : 1,
+            resolved      : {settled: true},
+            running       : false,
+            scheduledKinds: ['animation-frame', 'task']
+        })
+    });
+
+    test('drains a visible document that gets no frames through the timer dam and settles its reply', async () => {
+        const result = await runRenderQueueProbe(false, false, 'task');
+
+        expect(result).toEqual({
+            applied       : 1,
+            cancelled     : [{id: 1, kind: 'animation-frame'}],
+            delay         : 100,
+            kind          : 'task',
+            queueRemaining: 0,
+            renderFrames  : 1,
+            resolved      : {settled: true},
+            running       : false,
+            scheduledKinds: ['animation-frame', 'task']
+        })
+    });
+
+    test('drains once when the losing arm fires after the winner', async () => {
+        const result = await runRenderQueueProbe(false, false, 'both');
+
+        expect(result).toMatchObject({
+            applied       : 1,
+            cancelled     : [{id: 2, kind: 'task'}],
+            renderFrames  : 1,
             resolved      : {settled: true},
             running       : false
         })
@@ -168,11 +230,14 @@ test.describe('Neo.Main render queue scheduling', () => {
 
         expect(result).toEqual({
             applied       : 1,
+            cancelled     : [],
             delay         : 0,
             kind          : 'task',
             queueRemaining: 0,
+            renderFrames  : 1,
             resolved      : {settled: true},
-            running       : false
+            running       : false,
+            scheduledKinds: ['task']
         })
     });
 

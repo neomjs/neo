@@ -170,6 +170,14 @@ class Main extends core.Base {
             ]
         },
         /**
+         * The visible-document queue drain's timer dam, in milliseconds; see
+         * {@link #scheduleRenderQueueDrain}. Generously above one healthy frame (17-34ms) and far
+         * below a perceivable stall, so a presenting document virtually always drains on a real frame.
+         * @member {Number} renderQueueDamDelay=100
+         * @protected
+         */
+        renderQueueDamDelay: 100,
+        /**
          * @member {Boolean} running=false
          * @protected
          */
@@ -642,23 +650,42 @@ class Main extends core.Base {
     }
 
     /**
-     * @summary Schedules the next Main-thread DOM queue drain without stranding hidden documents.
+     * @summary Schedules the next Main-thread DOM queue drain without stranding hidden or frame-starved documents.
      *
-     * Visible documents stay aligned to the browser's paint cycle. Hidden documents can suspend
-     * animation frames indefinitely, so their queued operations use a task instead. This preserves
-     * the invariant that delayed worker replies settle only after their DOM operations are applied.
+     * Visible documents stay aligned to the browser's paint cycle. But a visible document can still
+     * receive no frames (an occluded or throttled window, a stalled compositor), and one frame that
+     * never comes would keep `running` set, so every later write and its worker reply would wait
+     * forever. The frame arm therefore races a timer dam ({@link #renderQueueDamDelay}): whichever
+     * fires first drains the queue and cancels the other, the same law the ResizeObserver and DockFlip
+     * addons follow (paint-gated carriers need a paint-independent arm). Hidden documents can suspend
+     * animation frames indefinitely, so they drain on a task directly. Either way, delayed worker
+     * replies settle only after their DOM operations are applied.
      *
      * @returns {Boolean} True once the queue drain has been scheduled
      * @protected
      */
     scheduleRenderQueueDrain() {
-        const callback = this.renderFrame.bind(this);
+        const me = this;
 
         if (document.hidden) {
-            setTimeout(callback, 0)
-        } else {
-            requestAnimationFrame(callback)
+            setTimeout(() => me.renderFrame(), 0);
+            return true
         }
+
+        let frameId = null,
+            settled = false,
+            timerId = null;
+
+        const drain = framed => {
+            if (settled) return;
+
+            settled = true;
+            framed ? clearTimeout(timerId) : cancelAnimationFrame(frameId);
+            me.renderFrame()
+        };
+
+        frameId = requestAnimationFrame(() => drain(true));
+        timerId = setTimeout(() => drain(false), me.renderQueueDamDelay);
 
         return true
     }
