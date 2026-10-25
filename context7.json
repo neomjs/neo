@@ -1,0 +1,43 @@
+{
+    "$schema": "https://context7.com/schema/context7.json",
+    "projectTitle": "Neo.mjs",
+    "description": "Multi-threaded JavaScript UI runtime and self-evolving Agent OS where components, state, and VDOM run inside an Application Worker.",
+    "branch": "dev",
+    "folders": [
+        "learn",
+        "examples"
+    ],
+    "excludeFolders": [
+        ".agents",
+        ".claude",
+        ".codex",
+        ".gemini",
+        ".github",
+        ".husky",
+        ".kimi-code",
+        ".neo-ai-data",
+        "ai",
+        "buildScripts",
+        "dist",
+        "node_modules",
+        "resources",
+        "test",
+        "test-results"
+    ],
+    "excludeFiles": [
+        "AGENTS.md",
+        "BACKERS.md",
+        "CONTRIBUTING.md",
+        "GEMINI.md",
+        "package-lock.json",
+        "tree.json"
+    ],
+    "rules": [
+        "End every Neo class definition with Neo.setupClass(MyClass); never call super() or initialize reactive configs inside constructor().",
+        "Define reactive configs inside static config = { myProp_: defaultValue } with a trailing underscore and implement beforeGetMyProp, beforeSetMyProp, and afterSetMyProp hooks.",
+        "Batch multiple reactive config updates using instance.set({ propA: 1, propB: 2 }) so the VDOM engine coalesces changes into a single delta.",
+        "Components, state.Provider, and data.Store run inside the Application Worker; never access window, document, or raw DOM nodes directly in component code.",
+        "Use DomEvents or Neo.main.addon.* RPC bridges when main-thread browser APIs or DOM measurements are required.",
+        "Bind data-driven UI components to a Neo.data.Store of Neo.data.Model records or a view-root Neo.state.Provider rather than hand-mapping raw arrays."
+    ]
+}
