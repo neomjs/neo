@@ -1,7 +1,7 @@
 {
     "$schema": "https://context7.com/schema/context7.json",
     "projectTitle": "Neo.mjs",
-    "description": "Multi-threaded JavaScript UI runtime and self-evolving Agent OS where components, state, and VDOM run inside an Application Worker.",
+    "description": "Neo.mjs is a multi-threaded application engine — the Body of a self-evolving software organism — with object permanence, worker isolation, JSON-first UIs, and zero-build native ES modules.",
     "branch": "dev",
     "folders": [
         "learn",
@@ -16,7 +16,6 @@
         ".husky",
         ".kimi-code",
         ".neo-ai-data",
-        "ai",
         "buildScripts",
         "dist",
         "node_modules",
@@ -33,11 +32,11 @@
         "tree.json"
     ],
     "rules": [
-        "End every Neo class definition with Neo.setupClass(MyClass); never call super() or initialize reactive configs inside constructor().",
-        "Define reactive configs inside static config = { myProp_: defaultValue } with a trailing underscore and implement beforeGetMyProp, beforeSetMyProp, and afterSetMyProp hooks.",
-        "Batch multiple reactive config updates using instance.set({ propA: 1, propB: 2 }) so the VDOM engine coalesces changes into a single delta.",
+        "End every class with Neo.setupClass(MyClass); put setup logic in construct(config) and call super.construct(config) first; never write a JS constructor().",
+        "Define reactive configs inside static config = { myProp_: defaultValue } with a trailing underscore and implement beforeGetMyProp, beforeSetMyProp, or afterSetMyProp hooks as needed.",
+        "Batch multiple reactive config updates using instance.set({ propA: 1, propB: 2 }) so every hook sees all new values and effects pause for the batch.",
         "Components, state.Provider, and data.Store run inside the Application Worker; never access window, document, or raw DOM nodes directly in component code.",
-        "Use DomEvents or Neo.main.addon.* RPC bridges when main-thread browser APIs or DOM measurements are required.",
+        "Route DOM measurements through Neo.main.DomAccess (e.g. component.getDomRect()), DOM events through domListeners, and other browser APIs through Neo.main.addon.* bridges.",
         "Bind data-driven UI components to a Neo.data.Store of Neo.data.Model records or a view-root Neo.state.Provider rather than hand-mapping raw arrays."
     ]
 }
