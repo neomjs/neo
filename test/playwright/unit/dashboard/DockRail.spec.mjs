@@ -531,6 +531,22 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
         expect({committed, focused, listeners}).toEqual({committed: [], focused: [], listeners: []})
     });
 
+    test('dockRailRevealChange names who ended the reveal: the application, the person, or the item leaving the rail (#20095 AC-5)', () => {
+        const {overlay} = createWitnessedRail('dock-rail-end-cause'),
+              causes    = [];
+
+        rail.on('dockRailRevealChange', data => causes.push(data.cause));
+
+        rail.reveal('terminal');
+        rail.dismissReveal('terminal');
+        rail.reveal('terminal');
+        overlay.fire('revealEscape', {});
+        rail.reveal('terminal');
+        expect(rail.onRevealPinRequested({itemId: 'terminal'}).errors).toEqual([]);
+
+        expect(causes).toEqual([null, 'release', null, 'escape', null, 'item-left'])
+    });
+
     test('control: the same harness sees a click reveal move focus and arm the outside listener', () => {
         const {focused, listeners} = createWitnessedRail('dock-rail-click-witness');
 

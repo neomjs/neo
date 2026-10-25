@@ -1937,8 +1937,9 @@ class Workspace extends Container {
 
     /**
      * Relays every rail's reveal change as this workspace's own `dockRailRevealChange`, with the rail's
-     * data: the application that holds a reveal open hears the person end it.
-     * @param {Object} data `{next, previous, rail, railItem}`
+     * data: the application that holds a reveal open hears who ended it — the person, its own release, or
+     * the item leaving the rail (`cause`, `null` on a change that ends no reveal).
+     * @param {Object} data `{cause, next, previous, rail, railItem}`
      * @protected
      */
     onDockRailRevealChange(data) {

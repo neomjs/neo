@@ -734,11 +734,14 @@ class Rail extends Container {
      * runtime-only — nothing here touches a document.
      * @param {Object} next {revealedItemId, state}
      * @param {Object} previous {revealedItemId, state}
+     * @param {String|null} [cause=null] Why the previous item stopped being revealed, `null` when none did
+     *     ({@link Neo.dashboard.dock.interaction.RevealStateMachine}).
      * @protected
      */
-    onRevealStateChange(next, previous) {
+    onRevealStateChange(next, previous, cause=null) {
         let me   = this,
             data = {
+                cause,
                 next,
                 previous,
                 rail    : me,

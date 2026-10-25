@@ -8,7 +8,9 @@ import Base from '../../../core/Base.mjs';
  * dismissal clears the intent. Retargeting cancels the prior wait, retaining the visible pane
  * until the new dwell completes. An application may instead hold one item's reveal open: focus
  * stays where it is, and only Escape, the item's own tab, its release or the item leaving end it.
- * Each effective change publishes one next/previous snapshot.
+ * Each effective change publishes one next/previous snapshot. A change that stops revealing an item
+ * also names its cause: the person (`escape`, `tab`, `outside-press`, `focus-leave`, `pointer-leave`,
+ * `hover`), the application (`release`, `hold`) or the item leaving the rail (`item-left`).
  *
  * States: idle, dwell-pending, revealed, revealed-focused, revealed-held, dismiss-pending.
  * Policy configs and methods support inheritance and Neo.overwrites. Transient state stays
@@ -100,9 +102,12 @@ class RevealStateMachine extends Base {
         return value === true
     }
 
-    /** @summary Escape dismisses runtime reveal intent without a document operation. */
-    escape() {
-        if (this.state !== 'idle') this.transition('idle', null)
+    /**
+     * @summary Escape dismisses runtime reveal intent without a document operation.
+     * @param {String} [cause='escape'] Why the reveal ends.
+     */
+    escape(cause='escape') {
+        if (this.state !== 'idle') this.transition('idle', null, null, cause)
     }
 
     /**
@@ -112,7 +117,7 @@ class RevealStateMachine extends Base {
      */
     hold(itemId) {
         if (this.state !== 'revealed-held' || this.revealedItemId !== itemId) {
-            this.transition('revealed-held', itemId)
+            this.transition('revealed-held', itemId, null, 'hold')
         }
     }
 
@@ -122,7 +127,7 @@ class RevealStateMachine extends Base {
      */
     itemCleared(itemId) {
         if (this.revealedItemId === itemId || this.pendingItemId === itemId) {
-            this.transition('idle', null)
+            this.transition('idle', null, null, 'item-left')
         }
     }
 
@@ -139,7 +144,7 @@ class RevealStateMachine extends Base {
 
     /** @summary A click outside the overlay and rail dismisses the reveal, unless the application holds it. */
     outsideClick() {
-        if (this.state !== 'revealed-held') this.escape()
+        if (this.state !== 'revealed-held') this.escape('outside-press')
     }
 
     /** @summary Focus rescues an unfocused reveal and holds it open. */
@@ -151,7 +156,7 @@ class RevealStateMachine extends Base {
 
     /** @summary Leaving a focus-held reveal dismisses it immediately. */
     overlayFocusLeave() {
-        if (this.state === 'revealed-focused') this.transition('idle', null)
+        if (this.state === 'revealed-focused') this.transition('idle', null, null, 'focus-leave')
     }
 
     /** @summary Returning during dismiss grace keeps the reveal open. */
@@ -169,7 +174,7 @@ class RevealStateMachine extends Base {
      * @param {String} itemId
      */
     release(itemId) {
-        if (this.state !== 'idle' && this.revealedItemId === itemId) this.transition('idle', null)
+        if (this.state !== 'idle' && this.revealedItemId === itemId) this.transition('idle', null, null, 'release')
     }
 
     /**
@@ -178,9 +183,9 @@ class RevealStateMachine extends Base {
      */
     tabClick(itemId) {
         if (this.revealedItemId === itemId && this.state !== 'dwell-pending') {
-            this.transition('idle', null)
+            this.transition('idle', null, null, 'tab')
         } else {
-            this.transition('revealed-focused', itemId)
+            this.transition('revealed-focused', itemId, null, 'tab')
         }
     }
 
@@ -214,9 +219,10 @@ class RevealStateMachine extends Base {
      * @param {String} state
      * @param {String|null} revealedItemId
      * @param {String|null} [pendingItemId=null]
+     * @param {String|null} [cause=null] Why a revealed item stops being revealed; published only then.
      * @protected
      */
-    transition(state, revealedItemId, pendingItemId=null) {
+    transition(state, revealedItemId, pendingItemId=null, cause=null) {
         const me = this;
         if (me.isDestroying || me.isDestroyed) return;
 
@@ -227,13 +233,15 @@ class RevealStateMachine extends Base {
         me.set({pendingItemId, revealedItemId, state});
 
         if (previous.state !== state || previous.revealedItemId !== revealedItemId) {
-            me.onChange?.({revealedItemId, state}, previous)
+            const ended = !!previous.revealedItemId && previous.revealedItemId !== revealedItemId;
+
+            me.onChange?.({revealedItemId, state}, previous, ended ? cause : null)
         }
 
         if (state === 'dwell-pending') {
-            me.transitionAfter(me.dwellMs, 'revealed', pendingItemId, controller)
+            me.transitionAfter(me.dwellMs, 'revealed', pendingItemId, controller, 'hover')
         } else if (state === 'dismiss-pending') {
-            me.transitionAfter(me.graceMs, 'idle', null, controller)
+            me.transitionAfter(me.graceMs, 'idle', null, controller, 'pointer-leave')
         }
     }
 
@@ -245,10 +253,11 @@ class RevealStateMachine extends Base {
      * @param {String} state
      * @param {String|null} itemId
      * @param {AbortController} controller
+     * @param {String|null} [cause=null] Why the continuation may end a reveal ({@link #transition}).
      * @returns {Promise<void>}
      * @protected
      */
-    async transitionAfter(delay, state, itemId, controller) {
+    async transitionAfter(delay, state, itemId, controller, cause=null) {
         const me = this;
         if (!me.isCurrentTransition(controller)) return;
 
@@ -259,7 +268,7 @@ class RevealStateMachine extends Base {
             return
         }
 
-        if (me.isCurrentTransition(controller)) me.transition(state, itemId)
+        if (me.isCurrentTransition(controller)) me.transition(state, itemId, null, cause)
     }
 }
 
