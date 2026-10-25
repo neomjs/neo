@@ -202,10 +202,11 @@ class TearOut extends Base {
     /**
      * @summary Captures the host-resolved live pane before detach re-projection can retire it.
      * @param {String} itemId
+     * @param {Neo.component.Base} [pane=this.livePane(itemId)] A pane the caller already holds — a rail
+     *     yields its revealed pane out of the tree, where the host's resolver can no longer find it.
      * @returns {Boolean} Whether a live pane was held.
      */
-    capturePane(itemId) {
-        const pane = this.livePane(itemId);
+    capturePane(itemId, pane=this.livePane(itemId)) {
 
         if (!pane || pane.isDestroyed) return false;
 

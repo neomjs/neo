@@ -482,6 +482,37 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         expect(rail.dockRevealLocked, 'dismissed: nothing revealed').toBe(false)
     });
 
+    test('a rail binds whether the item it reveals may pop out, by the docked header\'s own gating (#20095 AC-2)', () => {
+        const document = createDocument();
+
+        document.items.side.autoHidden = true;
+
+        workspace = Neo.create(HeaderStateWorkspace, {dockModel: document});
+
+        let rail = null;
+
+        workspace.forEachDockRail(candidate => rail = candidate);
+
+        const provider = workspace.stateProvider;
+
+        provider.setData('dock.popOutAvailable', true);
+        expect(rail.dockRevealPopOut, 'nothing revealed yet').toBe(false);
+
+        rail.publishRevealedItem('side');
+        expect(rail.dockRevealPopOut, 'revealed, and a vessel can open').toBe(true);
+        expect(rail.revealOverlay.popOutAvailable, 'the overlay follows the rail').toBe(true);
+
+        provider.setData('dockActionPolicy.pop-out', false);
+        expect(rail.dockRevealPopOut, 'the consumer\'s veto hides it, as on a docked header').toBe(false);
+
+        provider.setData('dockActionPolicy.pop-out', null);
+        provider.setData('dock.popOutAvailable', false);
+        expect(rail.dockRevealPopOut, 'no vessel can open').toBe(false);
+
+        rail.publishRevealedItem(null);
+        expect(rail.dockRevealPopOut, 'dismissed: nothing revealed').toBe(false)
+    });
+
     test('an item id the document accepts is carried whole through the lock bindings — a comma is not a delimiter', async () => {
         const document = createDocument(),
               itemId   = 'a,b';

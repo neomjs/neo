@@ -11,11 +11,11 @@ import MotionSignal     from '../projection/MotionSignal.mjs';
  * The overlay is pure per-window runtime state: it renders whatever reveal snapshot its owning
  * rail pushes (via `Rail.bindRevealOverlay()`) and translates DOM reality back into semantic
  * INTENTS the rail's state machine consumes — `revealPointerEnter/Leave`, `revealFocusEnter/Leave`,
- * `revealEscape`, `revealPinRequested`. It decides nothing itself: timing, focus-hold and policy
- * all live upstream. It has no write path to any document.
+ * `revealEscape`, `revealPinRequested`, `revealPopOutRequested`. It decides nothing itself: timing,
+ * focus-hold and policy all live upstream. It has no write path to any document.
  *
  * Composition: a real `Neo.tab.header.Toolbar` header row (one pressed
- * `Neo.tab.header.Button` title + persistent `pin` action) above a pane-slot
+ * `Neo.tab.header.Button` title + persistent `pop-out` and `pin` actions) above a pane-slot
  * `Neo.container.Base`. Reusing both tab-header primitives keeps reveal chrome identical to the
  * in-flow tab rail without pretending the runtime-only preview is itself a committed tabs node.
  * The consuming workspace mounts the revealed pane INTO the slot container
@@ -35,6 +35,10 @@ import MotionSignal     from '../projection/MotionSignal.mjs';
  * path — no parallel mutation grammar) and renders disabled when the item's policy forbids pinning
  * (`restorable: false`) — the one honest non-pinnable affordance state, while reveal itself stays
  * policy-free.
+ *
+ * The toolbar is the revealed item's header, so it carries the item's pop-out, gated as the docked
+ * header gates it (`popOutAvailable`, bound by the rail). Close stays on the docked header only, and
+ * maximize is a node's action, which a railed item has no node to take.
  *
  * @class Neo.dashboard.dock.interaction.RevealOverlay
  * @extends Neo.container.Base
@@ -84,6 +88,25 @@ class RevealOverlay extends Container {
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * Whether the revealed item may pop out: the rail's `dockRevealPopOut`, the docked header's own
+         * pop-out gating keyed on the revealed item. The control shows only while it is `true`.
+         * @member {Boolean} popOutAvailable_=false
+         * @reactive
+         */
+        popOutAvailable_: false,
+        /**
+         * Icon of the overlay's pop-out control, threaded by the rail from the workspace's
+         * `dockPopOutIconCls`, so a reveal and a docked header show one pop-out.
+         * @member {String} popOutIconCls='far fa-window-restore'
+         */
+        popOutIconCls: 'far fa-window-restore',
+        /**
+         * Tooltip text of the overlay's pop-out control, threaded by the rail from the workspace's
+         * `dockActionTooltips.popOut`. `null` leaves the control without a tooltip.
+         * @member {String|null} popOutTooltip=null
+         */
+        popOutTooltip: null,
         /**
          * Tooltip text of the overlay's pin control, threaded by the rail from the workspace's
          * `dockActionTooltips.revealPin`. `null` leaves the control without a tooltip.
@@ -185,6 +208,16 @@ class RevealOverlay extends Container {
         config.items = [{
             module: TabHeaderToolbar,
             actions: [{
+                action     : 'pop-out',
+                cls        : ['neo-dashboard-dock-reveal-pop-out'],
+                handler    : me.onPopOutClick.bind(me),
+                hidden     : true,
+                iconCls    : config.popOutIconCls || 'far fa-window-restore',
+                showOnFocus: false,
+                text       : null,
+                vdom       : {'aria-label': 'Pop out'},
+                ...(config.popOutTooltip != null && {tooltip: config.popOutTooltip})
+            }, {
                 action: 'pin',
                 cls   : ['neo-dashboard-dock-reveal-pin'],
                 // Explicitly bound: function-type button handlers run as plain calls.
@@ -426,6 +459,15 @@ class RevealOverlay extends Container {
     }
 
     /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetPopOutAvailable(value, oldValue) {
+        this.isConstructed && this.syncSnapshot()
+    }
+
+    /**
      * @param {Number|null} value
      * @param {Number|null} oldValue
      * @protected
@@ -499,6 +541,13 @@ class RevealOverlay extends Container {
      */
     get pinButton() {
         return this.items[0].getAction('pin')
+    }
+
+    /**
+     * @returns {Neo.button.Base}
+     */
+    get popOutButton() {
+        return this.items[0].getAction('pop-out')
     }
 
     /**
@@ -612,6 +661,20 @@ class RevealOverlay extends Container {
     }
 
     /**
+     * Requests the revealed item's pop-out from the owning rail, which hands it to the workspace's
+     * admission path. The overlay decides nothing about whether a vessel can open.
+     * @param {Object} data The pop-out button click event data.
+     * @protected
+     */
+    onPopOutClick(data) {
+        let item = this.revealedItem;
+
+        if (item) {
+            this.fire('revealPopOutRequested', {itemId: item.dockItemId, overlay: this})
+        }
+    }
+
+    /**
      * @param {Object} data
      * @protected
      */
@@ -674,6 +737,10 @@ class RevealOverlay extends Container {
 
         me.pinButton.set({
             disabled: item ? item.restorable === false : true
+        });
+
+        me.popOutButton.set({
+            hidden: !item || me.popOutAvailable !== true
         })
     }
 }

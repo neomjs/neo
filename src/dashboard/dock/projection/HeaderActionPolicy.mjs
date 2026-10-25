@@ -167,6 +167,22 @@ class HeaderActionPolicy extends Base {
     }
 
     /**
+     * The formatter a rail binds to its `dockRevealPopOut`: whether the item the rail currently
+     * reveals may pop out. It is the docked header's `pop-out` formula keyed on the revealed item
+     * instead of a tabs node's active one: a vessel can open (`dock.popOutAvailable`) and the consumer
+     * has not vetoed the action (`dockActionPolicy.pop-out`).
+     * @param {String} railId The rail's `dockNodeId`
+     * @returns {Function}
+     */
+    createRailPopOutBinding(railId) {
+        return function() {
+            return !!this.getData(`dock.rails.${railId}.revealed`)
+                && this.getData('dock.popOutAvailable') === true
+                && this.getData('dockActionPolicy.pop-out') !== false
+        }
+    }
+
+    /**
      * The formatters the projection binds onto the engine actions of one tabs node: one function
      * per action config key, each closed over the node and reading the workspace's provider through
      * `getData`, so an `Effect` running it depends on exactly the leaves it read — the node's active

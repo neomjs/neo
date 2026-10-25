@@ -241,6 +241,73 @@ test.describe('dock pop-out — the click is the drag terminal', () => {
         expect((await readVesselLog(page)).opened.map(entry => entry.itemId)).toEqual(['pinned'])
     });
 
+    test('a revealed railed item pops out from its reveal toolbar, at the reveal\'s measured pane, stays auto-hidden, and comes home to its rail (#20095 AC-1)', async ({page}) => {
+        const overlay = page.locator('.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)'),
+              popOut  = overlay.locator('.neo-dashboard-dock-reveal-pop-out');
+
+        await page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Railed'}).click();
+        await expect(overlay.locator('#dock-popout-pane-railed')).toBeVisible();
+        await expect(popOut, 'the reveal toolbar carries the item\'s pop-out').toBeVisible();
+
+        // The vessel lifts the pane the reveal shows, at its own footprint, not the rail or the workspace.
+        // Measured once the reveal's slide has landed: the engine measures at the click, after it.
+        await overlay.evaluate(el => Promise.all(el.getAnimations({subtree: true}).map(animation => animation.finished)));
+
+        const slotBox = await overlay.locator('.neo-dashboard-dock-reveal-pane-slot').boundingBox();
+
+        await popOut.click();
+
+        // Detached through the same pair as a docked pop-out: absent from every node, kept in the catalog,
+        // and still auto-hidden, so it rails again on its way home
+        const document = await waitForDocument(page, doc => !itemsInNodes(doc).includes('railed'));
+
+        expect(document.items.railed.autoHidden).toBe(true);
+        await expect(overlay, 'the reveal ends with the item leaving its rail').toHaveCount(0);
+
+        const {opened} = await readVesselLog(page);
+
+        expect(opened.at(-1).itemId).toBe('railed');
+        expect(opened.at(-1).sortZone).toBeNull();
+        expect(Math.abs(opened.at(-1).proxyRect.x     - slotBox.x)).toBeLessThan(2);
+        expect(Math.abs(opened.at(-1).proxyRect.width - slotBox.width)).toBeLessThan(2);
+
+        await setWorkspace(page, {retireItemId: 'railed'});
+
+        const home = await waitForDocument(page, doc => itemsInNodes(doc).includes('railed'));
+
+        expect(home.nodes['edge-tabs'].items, 'back at its captured placement').toEqual(['pinned', 'railed']);
+        expect(home.items.railed.autoHidden, 'on its rail again').toBe(true)
+    });
+
+    test('a declined vessel leaves the reveal and its pane exactly as they were (#20095 AC-1)', async ({page}) => {
+        const overlay = page.locator('.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)');
+
+        await page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Railed'}).click();
+        await expect(overlay.locator('#dock-popout-pane-railed')).toBeVisible();
+
+        const before = await readWorkspace(page, ['docJson']);
+
+        await setWorkspace(page, {refuseVessel: true});
+        await overlay.locator('.neo-dashboard-dock-reveal-pop-out').click();
+        await expect.poll(async () => (await readVesselLog(page)).opened.length).toBe(1);
+
+        // Admission said no before anything moved: the document, the reveal and its pane all stay
+        expect(await readWorkspace(page, ['docJson'])).toEqual(before);
+        await expect(overlay.locator('#dock-popout-pane-railed')).toBeVisible()
+    });
+
+    test('an application-held reveal pops out through the same entry, and its end reports the item leaving its rail (#20095 AC-3)', async ({page}) => {
+        await setWorkspace(page, {popOutHeldItemId: 'railed'});
+
+        const document = await waitForDocument(page, doc => !itemsInNodes(doc).includes('railed'));
+
+        expect(document.items.railed.autoHidden).toBe(true);
+        expect((await readVesselLog(page)).opened.at(-1).itemId).toBe('railed');
+
+        // the hold began (no end), then the pop-out ended it
+        await expect.poll(async () => JSON.parse((await readWorkspace(page, ['revealCausesJson']))[0])).toEqual([null, 'item-left'])
+    });
+
     test('the item comes home through the engine\'s own retire path, at its captured placement', async ({page}) => {
         const main = tabsNodeWith(page, 'Alpha');
 
