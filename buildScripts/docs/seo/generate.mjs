@@ -8,6 +8,15 @@ import isEntryModule        from '../../util/isEntryModule.mjs';
 import {requireContentRoot} from '../../util/contentRoot.mjs';
 import {sanitizeInput}      from '../../util/sanitizer.mjs';
 
+/**
+ * @module buildScripts.docs.seo.generate
+ * @summary Generates SEO and LLM context artifacts (`sitemap.xml`, `llms.txt`, and route indexes) for the Neo.mjs Portal.
+ *
+ * Primary `sitemap.xml` and `llms.txt` outputs default to `includeArchives = false`, excluding raw GitHub
+ * `tickets`, `pull-requests`, and `discussions` churn so search crawl budget and LLM context windows stay
+ * focused on canonical documentation, blog posts, release notes, examples, and apps (`--include-archives` opts in).
+ */
+
 const ROOT_DIR       = process.cwd();
 const LEARN_DIR      = path.resolve(ROOT_DIR, 'learn');
 const PORTAL_DIR     = path.resolve(ROOT_DIR, 'apps/portal');
@@ -752,10 +761,11 @@ async function collectDiscussionRoutes(corpusRoot) {
  * Collects all routes (top-level + content routes).
  * @param {Object} roots
  * @param {String} roots.corpusRoot The conversation corpus root (`--corpus-root`); required, since the engine holds no corpus
+ * @param {Boolean} [roots.includeArchives=true] Whether to collect ticket, pull-request, and discussion archive routes
  * @param {String} roots.releaseNotesRoot The release-notes root (`--release-notes`); required
  * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
-async function collectAllRoutes({corpusRoot, releaseNotesRoot}) {
+async function collectAllRoutes({corpusRoot, includeArchives = true, releaseNotesRoot}) {
     corpusRoot       = requireContentRoot(corpusRoot,       '--corpus-root',   'generate-seo-files');
     releaseNotesRoot = requireContentRoot(releaseNotesRoot, '--release-notes', 'generate-seo-files');
 
@@ -774,9 +784,9 @@ async function collectAllRoutes({corpusRoot, releaseNotesRoot}) {
         collectExampleRoutes(),
         collectReleaseRoutes(releaseNotesRoot),
         collectBlogRoutes(),
-        collectIssueRoutes(corpusRoot),
-        collectPullRoutes(corpusRoot),
-        collectDiscussionRoutes(corpusRoot)
+        includeArchives ? collectIssueRoutes(corpusRoot)      : [],
+        includeArchives ? collectPullRoutes(corpusRoot)       : [],
+        includeArchives ? collectDiscussionRoutes(corpusRoot) : []
     ]);
 
     return [
@@ -908,12 +918,13 @@ export async function getContentUrls(options={}) {
 }
 
 /**
- * Formats all routes as a sitemap.xml string.
+ * Formats curated routes as a sitemap.xml string, excluding raw ticket/PR/discussion archives unless `includeArchives` is set.
  * @param {Object} options
  * @param {String} options.corpusRoot The conversation corpus root, see {@link collectAllRoutes}
  * @param {String} options.releaseNotesRoot The release-notes root
  * @param {String} options.baseUrl Absolute base URL required for sitemap entries.
  * @param {String} [options.basePath='/learn'] - Only applies to content routes
+ * @param {Boolean} [options.includeArchives=false] Whether to include raw ticket, PR, and discussion archive routes
  * @param {Boolean} [options.includeLastmod=true] Whether to include <lastmod> from git
  * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
  * @param {String} [options.existingSitemapPath] Existing sitemap path for stable lastmod fallback
@@ -922,8 +933,9 @@ export async function getContentUrls(options={}) {
 export async function getSitemapXml(options={}) {
     const {
               baseUrl,
-              basePath = DEFAULT_BASE_PATH,
+              basePath        = DEFAULT_BASE_PATH,
               existingSitemapPath,
+              includeArchives = false,
               includeLastmod  = true,
               includeTopLevel = true
           } = options;
@@ -932,7 +944,7 @@ export async function getSitemapXml(options={}) {
         throw new Error('getSitemapXml requires a baseUrl option to produce absolute URLs.');
     }
 
-    const allRoutes      = await collectAllRoutes(options);
+    const allRoutes      = await collectAllRoutes({...options, includeArchives});
     const filteredRoutes = allRoutes.filter(({id}) =>
         includeTopLevel || !id.startsWith('/')
     );
@@ -1016,18 +1028,19 @@ ${xmlEntries}
 }
 
 /**
- * Formats the content URLs for llms.txt consumption (newline separated).
+ * Formats curated content URLs for llms.txt consumption, excluding raw ticket/PR/discussion archives unless `includeArchives` is set.
  * @param {Object} options
  * @param {String} options.corpusRoot The conversation corpus root, see {@link collectAllRoutes}
  * @param {String} options.releaseNotesRoot The release-notes root
  * @param {String} options.baseUrl Optional absolute base URL.
  * @param {String} [options.basePath='/learn'] - Only applies to content routes
+ * @param {Boolean} [options.includeArchives=false] Whether to include raw ticket, PR, and discussion archive routes
  * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
  * @returns {Promise<String>}
  */
 export async function getLlmsTxt(options={}) {
-    const {baseUrl, basePath = DEFAULT_BASE_PATH} = options;
-    const allRoutes = await collectAllRoutes(options);
+    const {baseUrl, basePath = DEFAULT_BASE_PATH, includeArchives = false} = options;
+    const allRoutes = await collectAllRoutes({...options, includeArchives});
 
     // 1. The Dynamic Header: the category label, then the organism apex behind it, for LLM crawlers
     let content = `# Neo.mjs: An Agent Institution
@@ -1241,6 +1254,7 @@ async function runCli() {
         .option('--base-url <url>',    'Absolute base URL (e.g., https://neomjs.com)',   sanitizeInput)
         .option('--base-path <path>',  'Base path for content routes',                   sanitizeInput)
         .option('-o, --output <path>', 'Output file path',                               sanitizeInput)
+        .option('--include-archives',  'Include raw ticket, pull-request, and discussion archive routes in sitemap.xml and llms.txt')
         .option('--no-lastmod',        'Exclude <lastmod> tags from sitemap.xml')
         .option('--no-top-level',      'Exclude top-level routes');
 
@@ -1252,6 +1266,7 @@ async function runCli() {
     const basePath        = programOpts.basePath || DEFAULT_BASE_PATH;
     const output          = programOpts.output;
     const outputPath      = output ? path.resolve(ROOT_DIR, output) : null;
+    const includeArchives = Boolean(programOpts.includeArchives);
     const includeLastmod  = programOpts.noLastmod === undefined ? true : !programOpts.noLastmod;
     const includeTopLevel = programOpts.noTopLevel === undefined ? true : !programOpts.noTopLevel;
     const roots           = {
@@ -1284,6 +1299,7 @@ async function runCli() {
                 baseUrl,
                 basePath,
                 existingSitemapPath: outputPath,
+                includeArchives,
                 includeLastmod,
                 includeTopLevel
             });
@@ -1291,7 +1307,7 @@ async function runCli() {
         }
         case 'llms':
         case 'llms.txt': {
-            outputContent = await getLlmsTxt({...roots, baseUrl, basePath, includeTopLevel});
+            outputContent = await getLlmsTxt({...roots, baseUrl, basePath, includeArchives, includeTopLevel});
             break;
         }
         default:

@@ -231,3 +231,77 @@ test.describe('docs SEO generator blog routes (#19501)', () => {
         await expect(collectBlogRoutes(indexPath)).rejects.toThrow('blog/missing-post')
     })
 });
+
+test.describe('docs SEO generator archive exclusion (#20089)', () => {
+    let corpusRoot, releaseNotesRoot, tempDir;
+
+    test.beforeEach(async () => {
+        tempDir          = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-archive-'));
+        corpusRoot       = path.join(tempDir, 'corpus');
+        releaseNotesRoot = path.join(tempDir, 'notes');
+
+        await fs.outputFile(path.join(corpusRoot, 'issues/chunk-1/issue-12742.md'), '# Ticket 12742');
+        await fs.outputFile(path.join(corpusRoot, 'pulls/chunk-1/pr-20088.md'), '# PR 20088');
+        await fs.outputFile(path.join(corpusRoot, 'discussions/chunk-1/discussion-11026.md'), '# Discussion 11026');
+        await fs.outputFile(path.join(releaseNotesRoot, 'v13.0.0.md'), '# Release 13.0.0');
+    });
+
+    test.afterEach(async () => {
+        await fs.remove(tempDir);
+    });
+
+    test('getSitemapXml and getLlmsTxt exclude raw ticket, PR, and discussion archive routes by default', async () => {
+        const roots = {
+            baseUrl       : 'https://neomjs.com/',
+            corpusRoot,
+            includeLastmod: false,
+            releaseNotesRoot
+        };
+
+        const [routes, sitemap, llmsTxt] = await Promise.all([
+            getContentRoutes(roots),
+            getSitemapXml(roots),
+            getLlmsTxt(roots)
+        ]);
+
+        // SPA route table retains all routes
+        expect(routes).toContain('/#/news/tickets/12742');
+        expect(routes).toContain('/#/news/pulls/20088');
+        expect(routes).toContain('/#/news/discussions/11026');
+
+        // Primary sitemap.xml includes canonical release/learn/blog routes and excludes archive churn
+        expect(sitemap).toContain('<loc>https://neomjs.com/news/releases/13.0.0</loc>');
+        expect(sitemap).not.toContain('/news/tickets/');
+        expect(sitemap).not.toContain('/news/pulls/');
+        expect(sitemap).not.toContain('/news/discussions/');
+
+        // Primary llms.txt includes release notes and excludes archive churn
+        expect(llmsTxt).toContain('## Release Notes');
+        expect(llmsTxt).not.toContain('## GitHub Tickets');
+        expect(llmsTxt).not.toContain('## GitHub Pull Requests');
+        expect(llmsTxt).not.toContain('## GitHub Discussions');
+    });
+
+    test('getSitemapXml and getLlmsTxt include archive routes when includeArchives is true', async () => {
+        const roots = {
+            baseUrl        : 'https://neomjs.com/',
+            corpusRoot,
+            includeArchives: true,
+            includeLastmod : false,
+            releaseNotesRoot
+        };
+
+        const [sitemap, llmsTxt] = await Promise.all([
+            getSitemapXml(roots),
+            getLlmsTxt(roots)
+        ]);
+
+        expect(sitemap).toContain('<loc>https://neomjs.com/news/tickets/12742</loc>');
+        expect(sitemap).toContain('<loc>https://neomjs.com/news/pulls/20088</loc>');
+        expect(sitemap).toContain('<loc>https://neomjs.com/news/discussions/11026</loc>');
+
+        expect(llmsTxt).toContain('- [Ticket #12742](https://neomjs.com/raw/news/tickets/12742.md)');
+        expect(llmsTxt).toContain('- [Pull Request #20088](https://neomjs.com/raw/news/pulls/20088.md)');
+        expect(llmsTxt).toContain('- [Discussion #11026](https://neomjs.com/raw/news/discussions/11026.md)');
+    });
+});

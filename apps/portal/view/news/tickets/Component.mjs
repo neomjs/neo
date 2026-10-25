@@ -61,14 +61,19 @@ class Component extends ContentComponent {
     timelineData = null
 
     /**
+     * Renders the ticket frontmatter table while omitting `id`, `title`, `state`, and `labels`
+     * rows that are already rendered in the H1 title and `.neo-ticket-labels` header bar.
      * @param {Object} data
      * @returns {String}
      */
     frontMatterToHtml(data) {
         let me   = this,
-            html = '<table class="neo-frontmatter-table"><tbody>';
+            rows = '',
+            skip = {id: true, labels: true, state: true, title: true};
 
         Object.entries(data).forEach(([key, value]) => {
+            if (skip[key]) return;
+
             let renderedValue;
 
             if (key === 'subIssues' && Array.isArray(value)) {
@@ -82,43 +87,24 @@ class Component extends ContentComponent {
                 renderedValue = `<a href="${me.repoUserUrl}${value}" target="_blank">${value}</a>`
             } else if (key === 'createdAt' || key === 'closedAt' || key === 'updatedAt') {
                 renderedValue = me.formatTimestamp(value)
-            } else if (key === 'labels' && Array.isArray(value)) {
-                renderedValue = me.getBadgesHtml(value)
-            } else if (key === 'state') {
-                renderedValue = me.getStateBadgeHtml(value)
             } else {
                 renderedValue = me.formatFrontMatterValue(value)
             }
 
-            html += `<tr><td>${key}</td><td>${renderedValue}</td></tr>`
+            rows += `<tr><td>${key}</td><td>${renderedValue}</td></tr>`
         });
 
-        html += '</tbody></table>';
+        if (!rows) {
+            return ''
+        }
+
+        let html = `<table class="neo-frontmatter-table"><tbody>${rows}</tbody></table>`;
 
         if (me.useFrontmatterDetails) {
             return `<details id="neo-ticket-summary-details-${me.id}"><summary>Frontmatter</summary>${html}</details>`
         }
 
         return html
-    }
-
-    /**
-     * @param {String[]} labels
-     * @returns {String}
-     */
-    getBadgesHtml(labels) {
-        if (!labels || labels.length === 0) return '';
-
-        let me         = this,
-            badgesHtml = '<div class="neo-ticket-labels">';
-
-        labels.forEach(label => {
-            badgesHtml += me.getLabelBadgeHtml(label)
-        });
-
-        badgesHtml += '</div>';
-
-        return badgesHtml
     }
 
     /**
@@ -174,20 +160,22 @@ class Component extends ContentComponent {
      * @returns {String}
      */
     modifyMarkdown(content) {
-        let me           = this,
-            {parentId}   = me.record,
-            author       = null,
-            createdAt    = null,
-            labels       = [],
-            state        = null,
-            match        = content.match(regexFrontMatter),
-            timelineHtml = '',
-            badgesHtml   = '';
+        let me              = this,
+            {parentId}      = me.record,
+            author          = null,
+            createdAt       = null,
+            data            = null,
+            frontMatterHtml = '',
+            labels          = [],
+            state           = null,
+            match           = content.match(regexFrontMatter),
+            timelineHtml    = '',
+            badgesHtml      = '';
 
         me.timelineData = [];
 
         if (match) {
-            let data = me.parseFrontMatter(match[1]);
+            data = me.parseFrontMatter(match[1]);
 
             if (data.author)    {author    = data.author}
             if (data.createdAt) {createdAt = me.formatTimestamp(data.createdAt)}
@@ -207,9 +195,7 @@ class Component extends ContentComponent {
 
         // 2. Render Frontmatter Manually & Strip it
         // We want it at the very top, outside the body bubble.
-        let frontMatterHtml = '';
-        if (match) {
-            let data        = me.parseFrontMatter(match[1]);
+        if (data) {
             frontMatterHtml = me.frontMatterToHtml(data);
             content         = content.replace(regexFrontMatter, '');
         }
@@ -240,20 +226,9 @@ class Component extends ContentComponent {
                     </a>`
             }
 
-            if (labels.length > 0) {
-                let store = me.getStateProvider().getStore('labels'),
-                    record;
-
-                labels.forEach(label => {
-                    record = store.get(label);
-
-                    if (record) {
-                        badgesHtml += `<span class="neo-badge" style="background-color:${record.color};color:${record.textColor}">${label}</span>`
-                    } else {
-                        badgesHtml += `<span class="neo-badge">${label}</span>`
-                    }
-                });
-            }
+            labels.forEach(label => {
+                badgesHtml += me.getLabelBadgeHtml(label)
+            });
 
             badgesHtml += '</div>';
             titleHtml  += badgesHtml;
