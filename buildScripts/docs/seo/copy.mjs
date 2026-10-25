@@ -14,7 +14,15 @@ const
     programName = `${packageJson.name} copySeoFiles`,
     APP_DIR     = path.resolve(cwd, 'apps'),
     DIST_DIR    = path.resolve(cwd, 'dist'),
-    SEO_FILES   = ['robots.txt', 'llms.txt', 'sitemap.xml'];
+    SEO_FILES   = [
+        'robots.txt',
+        'llms.txt',
+        'llms-full.txt',
+        'llms-all.txt',
+        'sitemap.xml',
+        'sitemap-core.xml',
+        'sitemap-archive.xml'
+    ];
 
 /**
  * Recursively finds application root directories by looking for index.html.
