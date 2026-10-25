@@ -534,4 +534,45 @@ test.describe('DockRevealStateMachine', async () => {
 
         expect([machine.state, machine.revealedItemId]).toEqual(['revealed-held', 'detail'])
     });
+
+    test('every change that stops revealing an item names its cause; a change that ends none names nothing (#20095 AC-5)', async () => {
+        let causes            = [],
+            {machine, timers} = createMachine({revealOnHover: true, onChange: (next, previous, cause) => causes.push(cause)});
+
+        const ending = async (start, end) => {
+            causes = [];
+            await start(machine);
+            await end(machine);
+            return causes.at(-1)
+        };
+
+        // the person
+        expect(await ending(m => m.tabClick('terminal'), m => m.escape())).toBe('escape');
+        expect(await ending(m => m.tabClick('terminal'), m => m.tabClick('terminal'))).toBe('tab');
+        expect(await ending(m => m.tabClick('terminal'), m => m.outsideClick())).toBe('outside-press');
+        expect(await ending(m => m.tabClick('terminal'), m => m.overlayFocusLeave())).toBe('focus-leave');
+        expect(await ending(m => m.tabClick('terminal'), m => m.tabClick('inspector')), 'a retarget ends the item it leaves').toBe('tab');
+        machine.escape();
+        expect(await ending(
+            async m => { m.tabHoverIn('terminal'); await timers.advance(DockRevealStateMachine.DWELL_MS) },
+            async m => { m.tabHoverOut(); await timers.advance(DockRevealStateMachine.DISMISS_GRACE_MS) }
+        )).toBe('pointer-leave');
+        expect(await ending(
+            async m => { m.tabHoverIn('terminal'); await timers.advance(DockRevealStateMachine.DWELL_MS) },
+            async m => { m.tabHoverIn('inspector'); await timers.advance(DockRevealStateMachine.DWELL_MS) }
+        ), 'a dwell that retargets ends the item it leaves').toBe('hover');
+        machine.escape();
+
+        // the application, and the item leaving its rail
+        expect(await ending(m => m.hold('detail'), m => m.release('detail'))).toBe('release');
+        expect(await ending(m => m.hold('detail'), m => m.hold('inspector'))).toBe('hold');
+        expect(await ending(m => m.hold('inspector'), m => m.itemCleared('inspector'))).toBe('item-left');
+
+        // reveals, dwells, rescues and holds end nothing
+        causes = [];
+        machine.tabClick('terminal');
+        machine.escape();
+        machine.hold('detail');
+        expect(causes, 'only the escape ended a reveal').toEqual([null, 'escape', null])
+    });
 });

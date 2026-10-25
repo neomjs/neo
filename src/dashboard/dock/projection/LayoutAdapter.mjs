@@ -452,8 +452,10 @@ class LayoutAdapter extends Base {
      *     action. The workspace threads its `dockActionTooltips` map here.
      * @param {Function} [options.onDockActiveIndexChange] Runtime active-item signal for action policy.
      * @param {Function} [options.onDockHeaderAction] Runtime Dock action intent; never persisted.
+     * @param {Function} [options.onDockRailPopOut] Receives an edge rail's request to pop out the item it
+     *     reveals (`{itemId, rail}`); runtime-only, never persisted.
      * @param {Function} [options.onDockRailRevealChange] Receives every edge rail's reveal change
-     *     (`{next, previous, rail, railItem}`); runtime-only, never persisted.
+     *     (`{cause, next, previous, rail, railItem}`); runtime-only, never persisted.
      * @param {Function} [options.resolveDockHeaderActions] Host resolver for additional tab-header
      *     actions, called per tabs node as `(nodeId)` and returning an array of action configs (or
      *     nothing). The set is **node-static**: it is resolved per tabs node and lives for that
@@ -477,6 +479,8 @@ class LayoutAdapter extends Base {
      *     presents on its own buttons and panes. Absent for a direct adapter consumer.
      * @param {Function} [options.dockRailLockBinding] `(railId) => formatter` for a rail's
      *     `dockRevealLocked` — whether the item it reveals is committed locked.
+     * @param {Function} [options.dockRailPopOutBinding] `(railId) => formatter` for a rail's
+     *     `dockRevealPopOut` — whether the item it reveals may pop out.
      * @param {String|null} [options.dockWorkspaceId] The workspace whose header-action policy the
      *     projected containers present locks through.
      * @param {Function} [options.retainRevealPane] Lifetime owner deciding whether a rail-released pane survives.
@@ -553,6 +557,7 @@ class LayoutAdapter extends Base {
             onDockActiveIndexChange  : options.onDockActiveIndexChange,
             onDockHeaderAction       : options.onDockHeaderAction,
             resolveDockHeaderActions : options.resolveDockHeaderActions,
+            onDockRailPopOut         : options.onDockRailPopOut,
             onDockRailRevealChange   : options.onDockRailRevealChange,
             onDockStackDragTerminal  : options.onDockStackDragTerminal,
             onDockTearOutCancel      : options.onDockTearOutCancel,
@@ -566,14 +571,15 @@ class LayoutAdapter extends Base {
                 || options.resolveComponentRef
                 || (() => null),
             stackDragNodeId,
-            dockHeaderActionBindings          : options.dockHeaderActionBindings,
-            dockNodeLockBinding               : options.dockNodeLockBinding,
-            dockRailLockBinding               : options.dockRailLockBinding,
-            dockWorkspaceId                   : options.dockWorkspaceId ?? null,
-            syncDockLockPane                  : options.syncDockLockPane,
-            retainRevealPane                  : options.retainRevealPane,
-            tabInsertDescriptor               : options.tabInsertDescriptor ?? null,
-            workspaceId                       : options.workspaceId ?? null
+            dockHeaderActionBindings: options.dockHeaderActionBindings,
+            dockNodeLockBinding     : options.dockNodeLockBinding,
+            dockRailLockBinding     : options.dockRailLockBinding,
+            dockRailPopOutBinding   : options.dockRailPopOutBinding,
+            dockWorkspaceId         : options.dockWorkspaceId ?? null,
+            syncDockLockPane        : options.syncDockLockPane,
+            retainRevealPane        : options.retainRevealPane,
+            tabInsertDescriptor     : options.tabInsertDescriptor ?? null,
+            workspaceId             : options.workspaceId ?? null
         };
 
         config = this.projectNode(model.root, context);
@@ -779,9 +785,13 @@ class LayoutAdapter extends Base {
         return {
             applyDockZoneOperation: context.applyDockZoneOperation,
             autoHideRevealOnHover : context.autoHideRevealOnHover === true,
-            // The rail binds whether the item it reveals is committed locked; presenting it is the
-            // workspace's `syncDockLockPane`, the same callback first reveal goes through.
-            ...(context.dockRailLockBinding && {bind: {dockRevealLocked: context.dockRailLockBinding(railId)}}),
+            // The rail binds whether the item it reveals is committed locked (presenting it is the
+            // workspace's `syncDockLockPane`, the same callback first reveal goes through) and whether
+            // it may pop out (the docked header's own gating, keyed on the revealed item).
+            ...((context.dockRailLockBinding || context.dockRailPopOutBinding) && {bind: {
+                ...(context.dockRailLockBinding   && {dockRevealLocked: context.dockRailLockBinding(railId)}),
+                ...(context.dockRailPopOutBinding && {dockRevealPopOut: context.dockRailPopOutBinding(railId)})
+            }}),
             defaultRevealFraction   : context.defaultRevealFraction ?? null,
             dockEdge                : edge,
             dockNodeId              : railId,
@@ -791,12 +801,15 @@ class LayoutAdapter extends Base {
             flex                    : 'none',
             module                  : Rail,
             ntype                   : 'dashboard-dock-rail',
+            onDockRailPopOut        : context.onDockRailPopOut,
             onDockRailRevealChange  : context.onDockRailRevealChange,
             onDockZoneDocumentChange: context.onDockZoneDocumentChange,
             railItems               : itemIds.map(itemId => this.createRailTab(itemId, edge, context)),
             resolveComponentRef     : context.resolveRevealComponentRef,
             retainRevealPane        : context.retainRevealPane,
             revealPinTooltip        : context.dockActionTooltips?.revealPin ?? null,
+            revealPopOutIconCls     : context.dockPopOutIconCls ?? null,
+            revealPopOutTooltip     : context.dockActionTooltips?.popOut ?? null,
             syncDockLockPane        : context.syncDockLockPane
         }
     }

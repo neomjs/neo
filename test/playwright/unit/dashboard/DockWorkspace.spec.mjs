@@ -1200,10 +1200,15 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // terminal, one retire path)". Behaviour cannot show this — a handler that duplicated
             // the vessel/commit/return sequence would pass every behavioural arm in this file and
             // be exactly what the ticket forbids. Only the source text can witness an ABSENCE.
-            const source = HeaderActions.prototype.handleDockPopOutAction.toString();
+            // Both entries, the header's and the reveal's, reach the one transaction.
+            const {handleDockPopOutAction, popOutDockItem, popOutRailItem} = HeaderActions.prototype,
+                  transaction                                              = popOutDockItem.toString(),
+                  source                                                   = [handleDockPopOutAction, popOutRailItem].map(String).join('\n') + transaction;
 
-            expect(source).toContain('admitDockPopOut');
-            expect(source).toContain('onDockTearOutTerminal');
+            expect(transaction).toContain('admitDockPopOut');
+            expect(transaction).toContain('onDockTearOutTerminal');
+            expect(handleDockPopOutAction.toString()).toContain('this.popOutDockItem(');
+            expect(popOutRailItem.toString()).toContain('this.popOutDockItem(');
 
             for (const forbidden of [
                 'applyOperation',      // it must not commit detachItem itself

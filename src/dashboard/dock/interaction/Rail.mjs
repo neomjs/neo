@@ -140,6 +140,20 @@ class Rail extends Container {
          */
         dockRevealLocked_: false,
         /**
+         * Whether the item this rail currently reveals may pop out — bound by the projection to the
+         * workspace's header truth, the docked header's own pop-out gating keyed on the revealed item.
+         * The overlay shows its pop-out control only while it is `true`.
+         * @member {Boolean} dockRevealPopOut_=false
+         * @reactive
+         */
+        dockRevealPopOut_: false,
+        /**
+         * Receives this rail's request to pop out the item it reveals (`{itemId, rail}`); the workspace
+         * answers through its admission path. Runtime-only, never persisted.
+         * @member {Function|null} onDockRailPopOut=null
+         */
+        onDockRailPopOut: null,
+        /**
          * Workspace-owned lock presentation callback for the materialized reveal pane:
          * `(pane, itemId) => void`. Reveal remains policy-free; this callback presents the item's
          * committed lock on the pane, on first reveal and on every later transition.
@@ -163,7 +177,19 @@ class Rail extends Container {
          * workspace's `dockActionTooltips.revealPin`. `null` leaves the control without a tooltip.
          * @member {String|null} revealPinTooltip=null
          */
-        revealPinTooltip: null
+        revealPinTooltip: null,
+        /**
+         * Icon handed to the reveal overlay's pop-out control at construction, from the workspace's
+         * `dockPopOutIconCls`. `null` keeps the overlay's default.
+         * @member {String|null} revealPopOutIconCls=null
+         */
+        revealPopOutIconCls: null,
+        /**
+         * Tooltip text handed to the reveal overlay's pop-out control at construction, from the
+         * workspace's `dockActionTooltips.popOut`. `null` leaves the control without a tooltip.
+         * @member {String|null} revealPopOutTooltip=null
+         */
+        revealPopOutTooltip: null
     }
 
     /**
@@ -241,9 +267,11 @@ class Rail extends Container {
             config.items = [
                 ...(config.railItems || []).map(railItem => this.createTabConfig(railItem, config.edge)),
                 {
-                    module    : RevealOverlay,
-                    edge      : this.getValidatedEdge(config.edge),
-                    pinTooltip: config.revealPinTooltip ?? null
+                    module       : RevealOverlay,
+                    edge         : this.getValidatedEdge(config.edge),
+                    pinTooltip   : config.revealPinTooltip ?? null,
+                    popOutTooltip: config.revealPopOutTooltip ?? null,
+                    ...(config.revealPopOutIconCls && {popOutIconCls: config.revealPopOutIconCls})
                 }
             ]
         }
@@ -358,14 +386,15 @@ class Rail extends Container {
         me.revealOverlay = overlay;
 
         overlay.on({
-            revealEscape       : me.onOverlayEscape,
-            revealFocusEnter   : me.onOverlayFocusEnter,
-            revealFocusLeave   : me.onOverlayFocusLeave,
-            revealLeaveComplete: me.onOverlayLeaveComplete,
-            revealPinRequested : me.onRevealPinRequested,
-            revealPointerEnter : me.onOverlayPointerEnter,
-            revealPointerLeave : me.onOverlayPointerLeave,
-            scope              : me
+            revealEscape         : me.onOverlayEscape,
+            revealFocusEnter     : me.onOverlayFocusEnter,
+            revealFocusLeave     : me.onOverlayFocusLeave,
+            revealLeaveComplete  : me.onOverlayLeaveComplete,
+            revealPinRequested   : me.onRevealPinRequested,
+            revealPopOutRequested: me.onRevealPopOutRequested,
+            revealPointerEnter   : me.onOverlayPointerEnter,
+            revealPointerLeave   : me.onOverlayPointerLeave,
+            scope                : me
         });
 
         me.syncRevealOverlay();
@@ -517,6 +546,33 @@ class Rail extends Container {
             me.revealPaneReleases && delete me.revealPaneReleases[itemId];
             resolveRelease()
         }
+    }
+
+    /**
+     * Gives the revealed item's live pane up to the caller, alive: out of the slot, out of the cache and
+     * out of any pending load. A pop-out moves THIS instance into its vessel, so the release that
+     * follows the item off the rail must find nothing of it to destroy — {@link #releaseRevealPane}
+     * removes a pane from whatever parent it holds by then, which after adoption is the vessel.
+     * @param {String} itemId
+     * @returns {{cached:Boolean, pane:Neo.component.Base}|null} The pane, and whether this rail owned it
+     *     (a cached config pane) rather than parking a resolver's live instance; `null` when the slot
+     *     shows no pane of the item.
+     */
+    yieldRevealPane(itemId) {
+        let me     = this,
+            slot   = me.revealOverlay?.paneSlot,
+            pane   = slot?.items?.[0],
+            cached = me.revealPaneCache[itemId] === pane;
+
+        if (!pane || pane.isDestroyed || me.revealOverlay.revealPaneItemId !== itemId) {
+            return null
+        }
+
+        delete me.revealPaneCache[itemId];
+        delete me.revealPaneLoads[itemId];
+        slot.remove(pane, false);
+
+        return {cached, pane}
     }
 
     /**
@@ -712,6 +768,26 @@ class Rail extends Container {
     }
 
     /**
+     * The pop-out escape: hands the revealed item to the workspace's admission path
+     * ({@link #onDockRailPopOut}), which opens its vessel and detaches it. The rail decides only that
+     * the item is the one it reveals and that the binding allows it.
+     * @param {Object} data
+     * @param {String} [data.itemId] Defaults to the currently revealed item.
+     * @returns {Promise<{document:(Object|null), errors:String[]}>|null} The workspace's answer, or
+     *     `null` when there is nothing to pop out.
+     */
+    onRevealPopOutRequested(data={}) {
+        let me     = this,
+            itemId = data.itemId || me.revealMachine?.revealedItemId;
+
+        if (!itemId || itemId !== me.revealMachine?.revealedItemId || me.dockRevealPopOut !== true) {
+            return null
+        }
+
+        return me.onDockRailPopOut?.({itemId, rail: me}) ?? null
+    }
+
+    /**
      * Binds the composed overlay child once the container created its items — an externally
      * bound overlay (`bindRevealOverlay()`) simply replaces the binding; the composed child then
      * stays idle-hidden.
@@ -734,11 +810,14 @@ class Rail extends Container {
      * runtime-only — nothing here touches a document.
      * @param {Object} next {revealedItemId, state}
      * @param {Object} previous {revealedItemId, state}
+     * @param {String|null} [cause=null] Why the previous item stopped being revealed, `null` when none did
+     *     ({@link Neo.dashboard.dock.interaction.RevealStateMachine}).
      * @protected
      */
-    onRevealStateChange(next, previous) {
+    onRevealStateChange(next, previous, cause=null) {
         let me   = this,
             data = {
+                cause,
                 next,
                 previous,
                 rail    : me,
@@ -968,10 +1047,11 @@ class Rail extends Container {
         railItem = me.currentRevealRailItem();
 
         overlay.set({
-            edge        : me.getValidatedEdge(me.edge),
-            revealExtent: railItem ? me.resolveRevealExtent(railItem.dockItemId) : null,
-            revealState : machine.state,
-            revealedItem: railItem,
+            edge           : me.getValidatedEdge(me.edge),
+            popOutAvailable: me.dockRevealPopOut === true,
+            revealExtent   : railItem ? me.resolveRevealExtent(railItem.dockItemId) : null,
+            revealState    : machine.state,
+            revealedItem   : railItem,
             ...(Number.isFinite(me.defaultRevealFraction) ? {defaultRevealFraction: me.defaultRevealFraction} : {})
         });
 
@@ -1064,6 +1144,16 @@ class Rail extends Container {
             pane   = me.revealOverlay?.paneSlot?.items?.[0];
 
         me.isConstructed && itemId && pane && me.syncDockLockPane?.(pane, itemId)
+    }
+
+    /**
+     * The revealed item's pop-out availability changed: the overlay shows or hides its control.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDockRevealPopOut(value, oldValue) {
+        this.revealOverlay && (this.revealOverlay.popOutAvailable = value === true)
     }
 
     /**

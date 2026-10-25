@@ -531,6 +531,22 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
         expect({committed, focused, listeners}).toEqual({committed: [], focused: [], listeners: []})
     });
 
+    test('dockRailRevealChange names who ended the reveal: the application, the person, or the item leaving the rail (#20095 AC-5)', () => {
+        const {overlay} = createWitnessedRail('dock-rail-end-cause'),
+              causes    = [];
+
+        rail.on('dockRailRevealChange', data => causes.push(data.cause));
+
+        rail.reveal('terminal');
+        rail.dismissReveal('terminal');
+        rail.reveal('terminal');
+        overlay.fire('revealEscape', {});
+        rail.reveal('terminal');
+        expect(rail.onRevealPinRequested({itemId: 'terminal'}).errors).toEqual([]);
+
+        expect(causes).toEqual([null, 'release', null, 'escape', null, 'item-left'])
+    });
+
     test('control: the same harness sees a click reveal move focus and arm the outside listener', () => {
         const {focused, listeners} = createWitnessedRail('dock-rail-click-witness');
 
@@ -547,6 +563,42 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
      * resolves reveal and flow from ONE config mints the same id twice, so the cached reveal pane has
      * to go first — while it is the id's only holder — or its later teardown unregisters the flow pane.
      */
+    test('a pop-out request reaches the workspace for the revealed item only, and the yielded pane survives the release that follows it off the rail (#20095)', async () => {
+        const requests = [];
+
+        rail = Neo.create(DockRail, {
+            dockZoneDocument   : createDocument(),
+            edge               : 'right',
+            id                 : 'dock-rail-yield',
+            onDockRailPopOut   : data => requests.push(data.itemId),
+            railItems          : createRailItems(),
+            resolveComponentRef: reference => ({ntype: 'component', id: 'dock-rail-yield-pane', html: reference})
+        });
+
+        rail.onTabClick({component: rail.items[0]});
+        expect(rail.onRevealPopOutRequested({itemId: 'terminal'}), 'the binding forbids it').toBeNull();
+
+        rail.dockRevealPopOut = true;
+        expect(rail.onRevealPopOutRequested({itemId: 'editor'}), 'not the revealed item').toBeNull();
+        rail.onRevealPopOutRequested({});
+        expect(requests, 'the revealed item, once').toEqual(['terminal']);
+
+        const pane    = rail.revealPaneCache.terminal,
+              yielded = rail.yieldRevealPane('terminal');
+
+        expect(yielded, 'a cached blueprint pane, given up').toEqual({cached: true, pane});
+        expect(rail.revealPaneCache.terminal, 'forgotten').toBeUndefined();
+        expect(rail.revealOverlay.paneSlot.items, 'out of the slot').toHaveLength(0);
+
+        // The item leaves the rail, the reconcile's release runs, and finds nothing of it to destroy
+        await rail.releaseRevealPane('terminal');
+
+        expect(!!pane.isDestroyed, 'alive for the vessel that adopts it').toBe(false);
+        expect(rail.yieldRevealPane('terminal'), 'nothing left to yield').toBeNull();
+
+        pane.destroy()
+    });
+
     test('releaseRevealPane destroys a cached blueprint pane and forgets it; a live instance is never cached', async () => {
         rail = Neo.create(DockRail, {
             dockZoneDocument   : createDocument(),

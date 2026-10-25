@@ -1937,8 +1937,9 @@ class Workspace extends Container {
 
     /**
      * Relays every rail's reveal change as this workspace's own `dockRailRevealChange`, with the rail's
-     * data: the application that holds a reveal open hears the person end it.
-     * @param {Object} data `{next, previous, rail, railItem}`
+     * data: the application that holds a reveal open hears who ended it — the person, its own release, or
+     * the item leaving the rail (`cause`, `null` on a change that ends no reveal).
+     * @param {Object} data `{cause, next, previous, rail, railItem}`
      * @protected
      */
     onDockRailRevealChange(data) {
@@ -1955,6 +1956,18 @@ class Workspace extends Container {
      */
     revealRailItem(itemId) {
         return this.findDockRail(itemId)?.reveal(itemId) ?? null
+    }
+
+    /**
+     * @summary Pops a revealed auto-hidden item out into its own window: the reveal toolbar's pop-out,
+     * and the application's for an item it holds revealed ({@link #revealRailItem}). The transaction
+     * lives on {@link Neo.dashboard.dock.plugin.HeaderActions#popOutRailItem}, beside the docked
+     * pop-out's; a workspace that declined that plugin projects no reveal pop-out and answers `null`.
+     * @param {String} itemId
+     * @returns {Promise<{document:Object, errors:String[]}>|null}
+     */
+    popOutRailItem(itemId) {
+        return this.getPlugin('dock-header-actions')?.popOutRailItem(itemId) ?? null
     }
 
     /**
@@ -2557,6 +2570,7 @@ class Workspace extends Container {
                 dockPopOutActionAvailable: me.dockPopOutActionActive,
                 dockPopOutIconCls        : me.dockPopOutIconCls,
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
+                onDockRailPopOut         : ({itemId}) => me.popOutRailItem(itemId),
                 onDockRailRevealChange   : me.onDockRailRevealChange.bind(me),
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
                 // A resolved pane's contract is header truth too: the policy publishes what it can
@@ -2570,6 +2584,7 @@ class Workspace extends Container {
                 dockHeaderActionBindings: nodeId => me.dockHeaderActionPolicy?.createActionBindings(nodeId),
                 dockNodeLockBinding     : nodeId => me.dockHeaderActionPolicy?.createNodeLockBinding(nodeId),
                 dockRailLockBinding     : railId => me.dockHeaderActionPolicy?.createRailLockBinding(railId),
+                dockRailPopOutBinding   : me.getPlugin?.('dock-header-actions') && (railId => me.dockHeaderActionPolicy?.createRailPopOutBinding(railId)),
                 dockWorkspaceId         : me.id,
                 syncDockLockPane        : (pane, itemId) => me.dockHeaderActionPolicy?.syncLockItemPresentation({
                     locked: me.getStateProvider?.()?.getData(`dock.items.${itemId}.locked`) === true,
