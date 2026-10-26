@@ -24,7 +24,8 @@ test.describe('Desktop (1920x1080): grid View-owned focus + input-modality ring 
     test.setTimeout(90000);
     test.use({ viewport: { width: 1920, height: 1080 } });
 
-    test.beforeEach(async ({ page }) => {
+    test.beforeEach(async ({ page, neuralLink }) => {
+        void neuralLink;
         await page.goto('/examples/grid/lockedColumns/');
         await page.waitForSelector('[role="grid"]', { state: 'visible', timeout: 30000 });
         await page.waitForTimeout(500);

@@ -105,6 +105,26 @@ export async function stopSpawnedBridge(connection) {
 }
 
 /**
+ * @summary Refuses to initialize `neuralLink` after `page` has already navigated away from `about:blank`.
+ * When `test.beforeEach` calls `page.goto()` without requesting `{ neuralLink }`, Playwright runs
+ * `beforeEach` before initializing `neuralLink`, so the page fetches `neo-config.json` before
+ * `routeConfig(context)` can point `neuralLinkUrl` at this worker's Bridge (`NEO_NL_PORT`).
+ * @param {Object} page A Playwright `Page`
+ * @throws {Error} When `page.url()` is already navigated past `about:blank`
+ */
+export function assertUnnavigatedBeforeNeuralLinkRoute(page) {
+    const url = page?.url?.() || 'about:blank';
+
+    if (url !== 'about:blank') {
+        throw new Error(
+            `The neuralLink fixture initialized after page navigated to '${url}', so ` +
+            'neo-config.json was fetched before neuralLink could route neuralLinkUrl to its Bridge. ' +
+            'Include { neuralLink } in test.beforeEach whenever beforeEach calls page.goto().'
+        )
+    }
+}
+
+/**
  * A line `Neo.worker.Base#forwardErrorToMainThread` mirrors into the page console: `<Name> Worker: …`.
  * @type {RegExp}
  */
@@ -306,6 +326,7 @@ export const test = base.extend({
         });
 
         await routeConfig(context);
+        assertUnnavigatedBeforeNeuralLinkRoute(page);
 
         // 2. Define the Neural Link Fixture object
         const nl = {
