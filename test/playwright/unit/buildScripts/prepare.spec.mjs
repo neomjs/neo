@@ -51,6 +51,28 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         expect(calls).toEqual([]);
     });
 
+    test('a workspace\'s nested install skips both stages: the root sits inside node_modules, whoever invoked npm', () => {
+        // A neo-app workspace's postinstall runs `npm i` inside node_modules/neo.mjs, so INIT_CWD names this
+        // package root itself. Where the root sits, not who invoked npm, says it is someone else's install.
+        const tmp  = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-')),
+              root = path.join(tmp, 'node_modules', 'neo.mjs');
+
+        fs.mkdirSync(root, {recursive: true});
+
+        try {
+            const {calls, spawnFn} = recordingSpawn([]),
+                  result           = runPrepare({env: {INIT_CWD: root}, root, spawnFn});
+
+            expect(result).toEqual({skipped: 'dependency-build', stage: 'guard', status: 0});
+            expect(calls).toEqual([]);
+            expect(isDependencyBuild({env: {}, root}), 'with no INIT_CWD at all').toBe(true);
+            expect(isDependencyBuild({env: {}, root: path.join(tmp, 'node_modules_backup', 'neo.mjs')}),
+                'a directory merely named like one is not').toBe(false)
+        } finally {
+            fs.rmSync(tmp, {force: true, recursive: true})
+        }
+    });
+
     test('the lock-only guard keeps precedence over the dependency-build guard', () => {
         const {calls, spawnFn} = recordingSpawn([]),
               result           = runPrepare({env: {INIT_CWD: os.tmpdir(), npm_config_package_lock_only: 'true'}, spawnFn});
