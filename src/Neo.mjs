@@ -14,6 +14,11 @@ const
      */
     protoChainKeys = new Set(['__proto__', 'constructor', 'prototype']),
     getSetCache    = Symbol('getSetCache'),
+    /**
+     * `className#key` pairs whose write after destroy() was already reported, see reportLateSet()
+     * @type {Set<String>}
+     */
+    lateSetReports = new Set(),
     cloneMap       = {
         Array(obj, deep, ignoreNeoInstances) {
             return !deep ? obj.slice() : obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))
@@ -369,9 +374,13 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
             // Public Descriptor
             Neo[getSetCache][key] = {
                 get() {
-                    let me        = this,
-                        config    = me.getConfig(key),
-                        hasNewKey = Object.hasOwn(me[configSymbol], key),
+                    let me     = this,
+                        config = me.getConfig(key);
+
+                    // A destroyed instance creates no controller: a config it never initialized reads as undefined
+                    if (!config) return;
+
+                    let hasNewKey = Object.hasOwn(me[configSymbol], key),
                         newKey    = me[configSymbol][key],
                         value     = hasNewKey ? newKey : me[_key];
 
@@ -413,6 +422,12 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                 },
                 set(value) {
                     if (value === undefined) return;
+
+                    // A destroyed instance refuses config writes: a late write runs no hook
+                    if (this.isDestroyed) {
+                        reportLateSet(this, key);
+                        return
+                    }
 
                     const config = this.getConfig(key);
                     if (!config) return;
@@ -487,7 +502,7 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                     return this.getConfig(key)?.get()
                 },
                 set(value) {
-                    this.getConfig(key)?.setRaw(value)
+                    this.isDestroyed || this.getConfig(key)?.setRaw(value)
                 }
             }
         }
@@ -1251,6 +1266,23 @@ function parseArrayFromString(str) {
     return (extractArraysRegex.exec(str) || [null]).slice(1).reduce(
         (fun, args) => [fun].concat(args.match(charsRegex))
     )
+}
+
+/**
+ * @summary Reports a config write the generated setter refused on a destroyed instance.
+ *
+ * Development reports each class and key once, so the writer stays visible; production stays silent.
+ * @param {Neo.core.Base} instance
+ * @param {String}        key
+ * @private
+ */
+function reportLateSet(instance, key) {
+    const entry = `${instance.className}#${key}`;
+
+    if (Neo.config.environment === 'development' && !lateSetReports.has(entry)) {
+        lateSetReports.add(entry);
+        console.warn(`${instance.className}: '${key}' was set after destroy(). The write is ignored.`)
+    }
 }
 
 Neo.config ??= {};
