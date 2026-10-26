@@ -200,9 +200,7 @@ class ScrollManager extends Base {
 
             let startedScrolling = !container.body.isScrolling;
 
-            if (container.bodyStart) container.bodyStart.isScrolling = true;
-            if (container.bodyEnd)   container.bodyEnd.isScrolling   = true;
-            container.body.isScrolling = true;
+            me.#setBodyScrolling(true);
 
             if (startedScrolling && me.rowHoverSync) {
                 me.suspendGridRowHoverSyncAddon();
@@ -222,9 +220,7 @@ class ScrollManager extends Base {
 
             let startedScrolling = !container.body.isScrolling;
 
-            if (container.bodyStart) container.bodyStart.isScrolling = true;
-            if (container.bodyEnd)   container.bodyEnd.isScrolling   = true;
-            container.body.isScrolling = true;
+            me.#setBodyScrolling(true);
 
             if (startedScrolling && me.rowHoverSync) {
                 me.suspendGridRowHoverSyncAddon();
@@ -239,17 +235,29 @@ class ScrollManager extends Base {
      * @protected
      */
     onScrollEnd() {
-        let me        = this,
-            container = me.gridContainer;
+        let me = this;
 
-        if (container.bodyStart) container.bodyStart.isScrolling = false;
-        if (container.bodyEnd)   container.bodyEnd.isScrolling   = false;
-        container.body.isScrolling = false;
+        me.#setBodyScrolling(false);
 
         me.syncGridBody();
 
         if (me.rowHoverSync) {
             me.resumeGridRowHoverSyncAddon();
+        }
+    }
+
+    /**
+     * Updates `isScrolling` on every grid body silently so the `neo-is-scrolling` class change
+     * ships inside the immediately following {@link #syncGridBody} `View#syncBodies` transaction
+     * rather than launching a colliding depth-1 child flight ahead of the View.
+     * @param {Boolean} isScrolling
+     * @private
+     */
+    #setBodyScrolling(isScrolling) {
+        let {body, bodyEnd, bodyStart} = this.gridContainer;
+
+        for (let item of [bodyStart, bodyEnd, body]) {
+            item?.setSilent({isScrolling})
         }
     }
 
