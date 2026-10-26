@@ -257,9 +257,7 @@ class ScrollManager extends Base {
         let {body, bodyEnd, bodyStart} = this.gridContainer;
 
         for (let item of [bodyStart, bodyEnd, body]) {
-            if (item) {
-                item.setSilent ? item.setSilent({isScrolling}) : (item.isScrolling = isScrolling)
-            }
+            item?.setSilent({isScrolling})
         }
     }
 

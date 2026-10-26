@@ -1249,6 +1249,8 @@ class View extends Base {
             let isCenter = _body === body;
             _body.skipCreateViewData = true;
 
+            // Silent so any pending `vdom.cls` mutation on `_body` (from `ScrollManager` toggling `isScrolling`)
+            // is not flushed as a colliding depth-1 child flight before `me.update()` below.
             _body.setSilent({
                 scrollLeft: isCenter ? scrollManager.scrollLeft : 0, // Horizontal sync applies from scrollManager state ONLY for center
                 scrollTop : scrollTop
