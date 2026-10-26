@@ -481,21 +481,32 @@ class GridContainer extends BaseContainer {
             {headerToolbar} = me;
 
         me.syncValueBandingFields();
+        me.configsApplied && me.updateColCount();
+        me.syncSearchToolbar();
 
         // - If columns changed at run-time OR
         // - In case the `header.Toolbar#createItems()` method has run before columns where available
         if (oldValue?.count || (value?.count && headerToolbar?.isConstructed)) {
-            headerToolbar?.createItems()
-
             await me.timeout(50);
+
+            if (me.isDestroyed) {
+                return
+            }
 
             await me.passSizeToBody();
 
-            me.body?.createViewData()
-        }
+            if (me.isDestroyed) {
+                return
+            }
 
-        me.configsApplied && me.updateColCount();
-        me.syncSearchToolbar()
+            me.bodyStart?.updateMountedAndVisibleColumns();
+            me.body?.updateMountedAndVisibleColumns();
+            me.bodyEnd?.updateMountedAndVisibleColumns();
+
+            me.bodyStart?.createViewData();
+            me.body?.createViewData();
+            me.bodyEnd?.createViewData()
+        }
     }
 
     /**
@@ -894,9 +905,16 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Builds or updates the grid's column collection and synchronizes header and body sub-grids.
+     *
+     * At runtime (when an existing {@link Neo.collection.Base} is present), reuses the collection in place
+     * via `clearSilent()` and a silent `splice()`, destroys replaced {@link Neo.grid.column.Base} instances,
+     * fires no intermediate `mutate` event, and delegates the post-swap container measurement and view-data
+     * refresh to {@link #afterSetColumns} (which the config setter's reference-equality check would otherwise skip).
+     *
      * @param {Object[]} columns
      * @param {Neo.collection.Base|Object[]} [oldColumns=this._columns]
-     * @returns {*}
+     * @returns {Neo.collection.Base}
      */
     createColumns(columns, oldColumns=this._columns) {
         let me                 = this,
@@ -910,6 +928,7 @@ class GridContainer extends BaseContainer {
                 : Neo.typeOf(me._columns) === 'NeoInstance'
                     ? me._columns
                     : null,
+            oldCount           = existingCollection?.count || 0,
             buttonConfig, columnClass, renderer;
 
         if (columns) {
@@ -966,6 +985,10 @@ class GridContainer extends BaseContainer {
             }
         }
 
+        me.lockedStartColumns = columns.filter(c => c.locked === 'start');
+        me.centerColumns      = columns.filter(c => !c.locked);
+        me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
+
         if (existingCollection) {
             for (const oldColumn of existingCollection.items) {
                 if (!columns?.includes(oldColumn)) {
@@ -976,23 +999,13 @@ class GridContainer extends BaseContainer {
             existingCollection.clearSilent();
             existingCollection.splice(null, null, columns, true);
 
-            me._columns           = existingCollection;
-            me.lockedStartColumns = columns.filter(c => c.locked === 'start');
-            me.centerColumns      = columns.filter(c => !c.locked);
-            me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
+            me._columns = existingCollection;
 
             me.createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons);
-
-            me.updateColCount();
-            me.syncSearchToolbar();
-            me.syncValueBandingFields();
+            me.afterSetColumns(existingCollection, {count: oldCount});
 
             return existingCollection
         }
-
-        me.lockedStartColumns = columns.filter(c => c.locked === 'start');
-        me.centerColumns      = columns.filter(c => !c.locked);
-        me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
 
         me.createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons);
 
@@ -1058,7 +1071,7 @@ class GridContainer extends BaseContainer {
             me.horizontalScrollbar && (me.horizontalScrollbar.endWidth = 0)
         }
 
-        if (me.view?.vnode && (retiredBodies[Object.keys(retiredBodies)[0]] !== undefined || Object.keys(retiredBodies).length > 0)) {
+        if (me.view?.vnode && Object.keys(retiredBodies).length > 0) {
             VNodeUtil.unlinkRetiredReferences(me.view.vnode, retiredBodies)
         }
 
@@ -1182,6 +1195,9 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         me.store = null; // remove the listeners
+
+        me._columns?.items?.forEach(column => column.destroy());
+        me._columns?.destroy?.();
 
         me.verticalScrollbar?.destroy();
         me.scrollManager.destroy();
@@ -1477,7 +1493,7 @@ class GridContainer extends BaseContainer {
             containerRect, headerRect, viewRect;
 
         // `view` resolves nothing once the grid is gone, as a late (buffered) resize delivery can find it
-        if (!view) {
+        if (!view || me.isDestroyed) {
             return
         }
 
