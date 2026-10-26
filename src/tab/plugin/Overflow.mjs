@@ -214,6 +214,13 @@ class Overflow extends Plugin {
      */
     controlPressed = false
     /**
+     * The primary press on a tab that holds the owner's focus-gated reveal ({@link #onTabPointerDown}):
+     * the pressed header's id, and whether the press became a drag. `null` while no tab press holds.
+     * @member {Object|null} tabPress=null
+     * @protected
+     */
+    tabPress = null
+    /**
      * Re-entrancy guard: `getLayoutRect` is an async main-thread round-trip, so a resize storm could overlap
      * measure passes and apply a stale split last.
      * @member {Boolean} measuring=false
@@ -490,7 +497,7 @@ class Overflow extends Plugin {
         me.releaseOwnerSubscriptions();
 
         me.projectAsAction && me.createActionControl();
-        owner.addDomListeners([{resize: me.onResize, scope: me}]);
+        owner.addDomListeners(me.getOwnerDomListeners());
         // Re-run on activation too: selecting a hidden tab flips activeIndex, and active-never-hidden must
         // then surface the newly-active tab into the header (swapping a fitting one into the overflow menu).
         me.getTabContainer()?.on('activeIndexChange', me.onActiveIndexChange, me);
@@ -514,9 +521,9 @@ class Overflow extends Plugin {
      * handler + scope, so a list that drifts from its counterpart silently leaves a duplicate
      * behind — the exact defect this exists to prevent. Keep the two in step.
      *
-     * Every registration `onOwnerMounted` makes is released here, INCLUDING the DOM listener.
-     * `createActionControl` is the one exception and needs none: it returns early when the control
-     * already exists, so it is idempotent on its own.
+     * Every registration `onOwnerMounted` makes is released here, INCLUDING the DOM listeners, which both
+     * sides read from {@link #getOwnerDomListeners}. `createActionControl` is the one exception and needs
+     * none: it returns early when the control already exists, so it is idempotent on its own.
      * @protected
      */
     releaseOwnerSubscriptions() {
@@ -533,12 +540,32 @@ class Overflow extends Plugin {
         tabContainer?.un('activeIndexChange', me.onActiveIndexChange, me);
         tabContainer?.un('moveTo',            me.onTabSetChange,      me);
 
-        // The DOM listener belongs here for the same reason and was missed for a different one:
+        // The DOM listeners belong here for the same reason and were missed for a different one:
         // `manager.DomEvent` is not `Observable`, so a duplicate produces no console warning, and
         // the console was how the other seven were found. `addDomListeners` is a bare push with no
         // dedupe, so without this N remounts leave N identical `resize` entries and `onResize` —
         // which runs `project()` and measures DOM — fires N times per resize.
-        owner.removeDomListeners([{resize: me.onResize, scope: me}])
+        owner.removeDomListeners(me.getOwnerDomListeners())
+    }
+
+    /**
+     * The owner DOM listeners {@link #onOwnerMounted} registers and {@link #releaseOwnerSubscriptions}
+     * removes: one list, so the registration and its release cannot drift apart.
+     * @returns {Object[]}
+     * @protected
+     */
+    getOwnerDomListeners() {
+        let me  = this,
+            tab = {delegate: '.neo-tab-header-button', scope: me};
+
+        return [
+            {resize      : me.onResize,          scope: me},
+            {click       : me.releaseTabPress,   ...tab},
+            {'drag:end'  : me.releaseTabPress,   ...tab},
+            {'drag:start': me.onTabDragStart,    ...tab},
+            {mousedown   : me.onTabPointerDown,  ...tab},
+            {mouseleave  : me.onTabPointerLeave, ...tab}
+        ]
     }
 
     /**
@@ -1366,6 +1393,51 @@ class Overflow extends Plugin {
     }
 
     /**
+     * A primary press on a tab holds the owner's focus-gated reveal, as {@link #onControlPointerDown} does
+     * for the control: the press focuses the pane, and the actions that reveal inserts can withhold a sibling
+     * tab, which a drag starting from the press then keeps out of its frozen strip for the whole gesture.
+     * The press ends at its click, at a leave before it drags, or at the release of the drag it became.
+     * @param {Object} data
+     * @protected
+     */
+    onTabPointerDown({button, currentTarget}) {
+        if (button === 0) {
+            this.tabPress = {dragging: false, id: currentTarget};
+            this.owner?.holdContextualReveal?.('overflow-tab-press')
+        }
+    }
+
+    /**
+     * The press became a drag: the drag's release ends it, not a leave of its tab.
+     * @protected
+     */
+    onTabDragStart() {
+        this.tabPress && (this.tabPress.dragging = true)
+    }
+
+    /**
+     * Leaving the pressed tab before dragging ends its press: a release elsewhere cannot click it.
+     * @param {Object} data
+     * @protected
+     */
+    onTabPointerLeave({currentTarget}) {
+        let {tabPress} = this;
+
+        tabPress?.id === currentTarget && !tabPress.dragging && this.releaseTabPress()
+    }
+
+    /**
+     * Ends the tab press and releases its hold, which applies a reveal it owes. A no-op without one.
+     * @protected
+     */
+    releaseTabPress() {
+        if (this.tabPress) {
+            this.tabPress = null;
+            this.owner?.releaseContextualReveal?.('overflow-tab-press')
+        }
+    }
+
+    /**
      * Observes one generated menu list so its unmount edge can drain a queued projection, and so the
      * owner's focus-gated reveal waits while the menu owns the strip: its mount takes the hold over from
      * the press that opened it. A replacement list supersedes the old observer.
@@ -1667,9 +1739,11 @@ class Overflow extends Plugin {
         me.menuProjectionQueued   = false;
         me.menuRecaptureQueued    = false;
         me.observedMenuList       = null;
+        me.tabPress               = null;
         if (me.owner && !me.owner.isDestroyed) {
             me.owner.releaseContextualReveal?.('overflow-control');
-            me.owner.releaseContextualReveal?.('overflow-menu')
+            me.owner.releaseContextualReveal?.('overflow-menu');
+            me.owner.releaseContextualReveal?.('overflow-tab-press')
         }
         if (me.control && !me.control.isDestroyed) {
             if (me.control.isToolbarActionContribution === true) {
