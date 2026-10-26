@@ -603,8 +603,8 @@ class Workspace extends Container {
 
     /**
      * The opener's handle of each bound tear-out vessel, by Group key: `{nativeHandleKey, ownerWindowId}`.
-     * It outlives the vessel's reloads, whose documents connect without a route, so a release can still
-     * ask whether the window closed (see {@link #holdReloadingVessel}).
+     * It outlives the vessel's route-less reloads, so a release can still ask whether the window closed
+     * ({@link Neo.dashboard.dock.window.NativeVesselTransaction#holdReleasedVessel}).
      * @member {Object} vesselHandles={}
      * @protected
      */
@@ -975,7 +975,7 @@ class Workspace extends Container {
                     me.tearOutHandlers.compensateFailedAdoption(itemId, me.nativeWindows.getOwner(me.id, connection.workspaceKey));
                     throw new Error(`Workspace ${me.id}: tear-out pane "${itemId}" could not enter its admitted vessel`)
                 }
-                me.watchVesselHandle(connection);
+                NativeVesselTransaction.watchVesselHandle(me.vesselHandles, connection);
                 await me.afterTearOutWindowConnect(context)
             },
             ownerChanged  : ({itemId, entry, connection, merge}) => me.afterNativeOwnerChange(itemId, entry, connection, merge),
@@ -1031,70 +1031,11 @@ class Workspace extends Container {
      * @returns {Boolean|Object|Promise<Boolean|Object>} Retention disposition for the native lifecycle.
      */
     onNativeWindowRelease(data) {
-        const disposition = NativeVesselTransaction.releaseWorkspace({workspaceSet: this.workspaceSet,
-            nativeWindows: this.nativeWindows}, data);
+        const {nativeWindows} = this,
+              disposition     = NativeVesselTransaction.releaseWorkspace({workspaceSet: this.workspaceSet, nativeWindows}, data);
 
-        return disposition === true ? this.holdReloadingVessel(data) : disposition
-    }
-
-    /**
-     * @summary Keeps a released tear-out vessel's pane for the vessel until the opener's handle says it closed.
-     *
-     * A reload releases the binding exactly as a close does, and the reloaded document binds again within
-     * milliseconds, so the slot is held at once: its own lineage re-embodies the same live pane — a window
-     * is a render target, never the state's owner. The opener's handle then decides: closed returns the
-     * pane home, and a lease that ends first does too. An expiry, or a key this workspace holds no handle
-     * for, releases at once, as before.
-     * @param {Object} data The Group's release envelope.
-     * @returns {Boolean|Object} `true` releases; the object holds the key for its lineage, with the opener's
-     *     answer as its `closed` promise.
-     * @protected
-     */
-    holdReloadingVessel(data) {
-        const {windowId, workspaceKey} = data,
-              handle                   = this.vesselHandles[workspaceKey],
-              owner                    = this.nativeWindows?.getOwner(this.id, workspaceKey),
-              pane                     = owner && this.tearOutHandlers?.heldPane(owner.itemId);
-
-        if (data.expired || !handle || !owner) return true;
-
-        // The departed window takes no more updates: the held pane leaves its viewport silently and stays
-        // headless until its lineage re-embodies it, as a detached Workspace does (onNativeWindowDetached).
-        if (pane && !pane.isDestroyed && pane.parent && pane.parent === Neo.apps[windowId]?.mainView) {
-            pane.parent.remove(pane, false, true);
-            pane.windowId = null
-        }
-
-        return {retained: true, awaitingClosure: true, readmit: true,
-            closed: Neo.Main.windowNativeIsClosed({nativeHandleKey: handle.nativeHandleKey, windowId: handle.ownerWindowId})}
-    }
-
-    /**
-     * @summary Records the opener's handle of a vessel that bound, once its route is known.
-     *
-     * A window binds when its app registers, and its first geometry report can register it route-less, both
-     * before the connect handshake that carries its route; a reloaded document connects without a route at
-     * all, so the first document's handle stays.
-     * @param {Object} connection
-     * @param {String} connection.windowId
-     * @param {String} connection.workspaceKey
-     * @protected
-     */
-    watchVesselHandle({windowId, workspaceKey}) {
-        const me     = this,
-              record = route => route?.nativeHandleKey && (me.vesselHandles[workspaceKey] =
-                  {nativeHandleKey: route.nativeHandleKey, ownerWindowId: route.ownerWindowId}),
-              known  = Neo.manager.Window?.get(windowId)?.nativeRoute;
-
-        if (known) return record(known);
-
-        const listener = {
-            connect   : data => data.windowId === windowId && (Neo.currentWorker.un(listener), record(data.windowData?.nativeRoute)),
-            disconnect: data => data.windowId === windowId && Neo.currentWorker.un(listener),
-            scope     : me
-        };
-
-        Neo.currentWorker?.on?.(listener)
+        return disposition === true ? NativeVesselTransaction.holdReleasedVessel({handles: this.vesselHandles,
+            nativeWindows, sourceId: this.id, tearOut: this.tearOutHandlers}, data) : disposition
     }
 
     /**

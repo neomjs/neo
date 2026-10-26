@@ -107,6 +107,69 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
+     * @summary Keeps a released tear-out vessel's pane for the vessel until the opener's handle says it closed.
+     *
+     * A reload releases the binding exactly as a close does, and the reloaded document binds again within
+     * milliseconds, so the slot is held at once: its own lineage re-embodies the same live pane — a window
+     * is a render target, never the state's owner. The opener's handle then decides: closed returns the
+     * pane home, and a lease that ends first does too. An expiry, or a key the host holds no handle for,
+     * releases at once, as before.
+     * @param {Object} descriptor
+     * @param {Object} descriptor.handles The host's opener handles by Group key (see {@link #watchVesselHandle}).
+     * @param {Object|null} descriptor.nativeWindows The Group's native lifecycle.
+     * @param {String} descriptor.sourceId The host's native source.
+     * @param {Neo.dashboard.dock.window.TearOut|null} descriptor.tearOut The host's pane choreography.
+     * @param {Object} data The Group's release envelope.
+     * @returns {Boolean|Object} `true` releases; the object holds the key for its lineage, with the opener's
+     *     answer as its `closed` promise.
+     */
+    static holdReleasedVessel({handles, nativeWindows, sourceId, tearOut}, data) {
+        const {windowId, workspaceKey} = data,
+              handle                   = handles[workspaceKey],
+              owner                    = nativeWindows?.getOwner(sourceId, workspaceKey),
+              pane                     = owner && tearOut?.heldPane(owner.itemId);
+
+        if (data.expired || !handle || !owner) return true;
+
+        // The departed window takes no more updates: the held pane leaves its viewport silently and stays
+        // headless until its lineage re-embodies it, as a detached Workspace does (onNativeWindowDetached).
+        if (pane && !pane.isDestroyed && pane.parent && pane.parent === Neo.apps[windowId]?.mainView) {
+            pane.parent.remove(pane, false, true);
+            pane.windowId = null
+        }
+
+        return {retained: true, awaitingClosure: true, readmit: true,
+            closed: Neo.Main.windowNativeIsClosed({nativeHandleKey: handle.nativeHandleKey, windowId: handle.ownerWindowId})}
+    }
+
+    /**
+     * @summary Records the opener's handle of a vessel that bound into `handles`, once its route is known.
+     *
+     * A window binds when its app registers, and its first geometry report can register it route-less, both
+     * before the connect handshake that carries its route; a reloaded document connects without a route at
+     * all, so the first document's handle stays.
+     * @param {Object} handles The host's opener handles by Group key.
+     * @param {Object} connection
+     * @param {String} connection.windowId
+     * @param {String} connection.workspaceKey
+     */
+    static watchVesselHandle(handles, {windowId, workspaceKey}) {
+        const record = route => route?.nativeHandleKey && (handles[workspaceKey] =
+                  {nativeHandleKey: route.nativeHandleKey, ownerWindowId: route.ownerWindowId}),
+              known  = WindowManager.get(windowId)?.nativeRoute;
+
+        if (known) return record(known);
+
+        // A scope of its own, with an id: Observable drops a listener whose scope has none, and removes by scope
+        const scope        = {id: Neo.getId('vessel-handle-watch')},
+              stop         = () => Neo.currentWorker.un({connect: onConnect, disconnect: onDisconnect, scope}),
+              onConnect    = data => data.windowId === windowId && (stop(), record(data.windowData?.nativeRoute)),
+              onDisconnect = data => data.windowId === windowId && stop();
+
+        Neo.currentWorker?.on?.({connect: onConnect, disconnect: onDisconnect, scope})
+    }
+
+    /**
      * @summary Opens a native render target for an existing semantic workspace identity.
      * Refusal revokes only this reservation and leaves its participant and history intact.
      * @param {Neo.dashboard.dock.window.WorkspaceSet} workspaceSet

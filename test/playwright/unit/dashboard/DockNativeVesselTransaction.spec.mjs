@@ -11,6 +11,7 @@ setup({
 import {test, expect}          from '@playwright/test';
 import Neo                     from "../../../../src/Neo.mjs";
 import * as core               from "../../../../src/core/_export.mjs";
+import Collection              from '../../../../src/collection/Base.mjs';
 import NativeVesselTransaction from '../../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
 import Operations              from '../../../../src/dashboard/dock/model/Operations.mjs';
 import WorkspaceDocument       from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
@@ -244,6 +245,40 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
  * identity before resolution, route authority before the pane moves, the pane home before its window
  * goes, and the platform's own answer returned — the by-name `false` the copies used to swallow above all.
  */
+test.describe('Neo.dashboard.dock.window.NativeVesselTransaction#watchVesselHandle', () => {
+    test('a route that arrives only with its window\'s connect is recorded once, per watch', () => {
+        const previous = Neo.currentWorker,
+              // A real Observable: it drops a listener whose scope has no id, and removes by scope
+              worker   = Neo.create(Collection, {}),
+              handles  = {},
+              route    = key => ({nativeHandleKey: key, ownerWindowId: 'opener', targetWindowId: 'vessel'}),
+              connect  = (windowId, key) => worker.fire('connect', {windowId, windowData: {nativeRoute: route(key)}});
+
+        Neo.currentWorker = worker;
+
+        try {
+            ['a', 'b', 'c'].forEach(id => NativeVesselTransaction.watchVesselHandle(handles, {windowId: `vessel-${id}`, workspaceKey: `popup:${id}`}));
+
+            connect('vessel-other', 'other');
+            expect(handles).toEqual({});
+
+            connect('vessel-a', 'handle-a');
+            connect('vessel-b', 'handle-b');
+            worker.fire('disconnect', {windowId: 'vessel-c'});
+            connect('vessel-c', 'handle-c');
+            connect('vessel-a', 'stale');
+
+            expect(handles, 'each watch ends with its own window, and leaves the others').toEqual({
+                'popup:a': {nativeHandleKey: 'handle-a', ownerWindowId: 'opener'},
+                'popup:b': {nativeHandleKey: 'handle-b', ownerWindowId: 'opener'}
+            })
+        } finally {
+            Neo.currentWorker = previous;
+            worker.destroy()
+        }
+    })
+});
+
 test.describe('Neo.dashboard.dock.window.NativeVesselTransaction#closeVessel', () => {
     const CLOSE_ROUTE = {capabilities: {close: true}, nativeHandleKey: 'handle-close', ownerWindowId: 'win-owner', targetWindowId: 'win-vessel'};
 
