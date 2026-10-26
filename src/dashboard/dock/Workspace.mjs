@@ -728,6 +728,7 @@ class Workspace extends Container {
                 commitReturn        : document => this.onDockZoneDocumentChange(document),
                 findContainingTabsId: (document, itemId) => WorkspaceDocument.findContainingTabsId(document, itemId),
                 getDocument         : () => this.dockModel,
+                materializePane     : itemId => this.materializeDockPane(itemId),
                 onAdoptionFailed    : data => this.reportDockAdoptionFailure(data),
                 onDocumentChange    : (document, operation, vessel) => this.onTearOutDocumentChange(document, operation, vessel),
                 onPaneAdopted       : (itemId, entry, connection, isMerge, workspaceKey=entry?.workspaceKey ?? connection?.workspaceKey) => {
@@ -1322,6 +1323,23 @@ class Workspace extends Container {
             nodeId    = me.dockModel?.root ?? null;
 
         return component && nodeId ? {component, nodeId} : null
+    }
+
+    /**
+     * @summary Creates a never-shown lazy pane through its card's `loadModule`, joining any load in flight.
+     * Asks {@link #resolveLivePane} first, so a consumer that owns its pane lifecycle overrides nothing here.
+     * @param {String} itemId
+     * @returns {Promise<Neo.component.Base>|null} The pending load; null when the pane is live or not parked.
+     * @protected
+     */
+    materializeDockPane(itemId) {
+        if (this.resolveLivePane(itemId)) return null;
+
+        const nodeId = WorkspaceDocument.findContainingTabsId(this.dockModel, itemId),
+              body   = nodeId && this.getDockHost()?.down({dockNodeId: nodeId, dockNodeType: 'tabs'})?.getCardContainer(),
+              index  = body?.items.findIndex(item => !(item instanceof Neo.core.Base) && item?.dockItemId === itemId) ?? -1;
+
+        return index > -1 && body.layout?.loadModule ? body.layout.loadModule(body.items[index], index) : null
     }
 
     /**

@@ -64,9 +64,9 @@ try {
 test.describe('Neo.dashboard.dock.window.TearOut', () => {
     const harness = ({
         admit = true, closeResult = true, commitErrors = [], commitThrows = false, openResult = null,
-        commitReturn = null, refresh = null, cls = TearOut, publish = null
+        commitReturn = null, refresh = null, cls = TearOut, publish = null, materialize = null
     } = {}) => {
-        const calls = {applied: [], closed: [], ended: 0, opened: [], published: [], returns: [], started: [], synced: []};
+        const calls = {applied: [], closed: [], ended: 0, materialized: [], opened: [], published: [], returns: [], started: [], synced: []};
 
         const sortZone = {
             endWindowDrag  : () => calls.ended++,
@@ -85,6 +85,10 @@ test.describe('Neo.dashboard.dock.window.TearOut', () => {
                 calls.closed.push(vessel);
                 return typeof closeResult === 'function' ? closeResult(vessel) : closeResult
             },
+            materializePane : materialize && (itemId => {
+                calls.materialized.push(itemId);
+                return materialize(itemId)
+            }),
             onDocumentChange: (document, operation) => {
                 calls.synced.push({document, operation});
                 return publish ? publish(document, operation) : undefined
@@ -167,6 +171,76 @@ test.describe('Neo.dashboard.dock.window.TearOut', () => {
         // the slot is consumed: a duplicate terminal (stale event) commits nothing further
         handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
         expect(calls.applied).toHaveLength(1)
+    });
+
+    test('a pane still to be materialized commits AFTER its load, once, however many terminals arrive', async () => {
+        const load                        = Promise.withResolvers(),
+              {calls, handlers, sortZone} = harness({materialize: () => load.promise});
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        const terminal = handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+
+        expect(calls.materialized).toEqual(['graph']);
+        expect(calls.applied, 'nothing commits before the pane exists').toEqual([]);
+        expect(handlers.onDockTearOutTerminal({itemId: 'graph', sortZone}), 'a duplicate terminal commits nothing').toBe(false);
+        expect(calls.materialized).toHaveLength(1);
+
+        load.resolve();
+
+        expect(await terminal).toBe(true);
+        expect(calls.applied).toEqual([{operation: 'detachItem', itemId: 'graph'}]);
+        expect(calls.synced).toHaveLength(1);
+        expect(calls.closed, 'a committed tear-out keeps its vessel').toHaveLength(0);
+        expect(handlers.activeVessel).toBeNull()
+    });
+
+    test('a host whose pane already exists answers nothing, and the commit stays synchronous', async () => {
+        const {calls, handlers, sortZone} = harness({materialize: () => null});
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(handlers.onDockTearOutTerminal({itemId: 'graph', sortZone})).toBe(true);
+        expect(calls.materialized).toEqual(['graph']);
+        expect(calls.applied).toEqual([{operation: 'detachItem', itemId: 'graph'}])
+    });
+
+    test('a vessel retired while its pane loads commits nothing: closed, still closing, or its owner gone', async () => {
+        for (const arm of ['closed', 'closing', 'gone']) {
+            const load                        = Promise.withResolvers(),
+                  closing                     = Promise.withResolvers(),
+                  {calls, handlers, sortZone} = harness({
+                      // A close still in flight keeps the slot active: only the retirement claims it.
+                      closeResult: arm === 'closing' ? () => closing.promise : true,
+                      materialize: () => load.promise
+                  });
+
+            await handlers.onDockTearOutExit(exitData(sortZone));
+
+            const terminal = handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+
+            arm === 'gone' ? handlers.destroy() : handlers.onDockTearOutCancel({itemId: 'graph', sortZone});
+            load.resolve();
+
+            expect(await terminal, arm).toBe(false);
+            expect(calls.applied, arm).toEqual([]);
+            closing.resolve(true)
+        }
+    });
+
+    test('a materialization that throws or rejects retires the vessel, and the item stays', async () => {
+        const failures = [() => {throw new Error('no module')}, () => Promise.reject(new Error('chunk failed'))];
+
+        for (const materialize of failures) {
+            const {calls, handlers, sortZone} = harness({materialize});
+
+            await handlers.onDockTearOutExit(exitData(sortZone));
+            await handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+
+            expect(calls.applied, 'no detach was committed').toEqual([]);
+            expect(calls.closed).toHaveLength(1);
+            expect(handlers.activeVessel).toBeNull()
+        }
     });
 
     test('a composed remote terminal retires the exact active vessel once without model mutation', async () => {
