@@ -91,6 +91,9 @@ export function resolvePackageBin(packageName, binName, root=repoRoot) {
  * from: this checkout under its own `npm install` / `npm ci` / `npm run prepare`, a foreign
  * directory when npm builds this repository as a git dependency in a cache clone. Paths compare by
  * identity (realpath), so a symlinked checkout is still its own root.
+ *
+ * A root inside a `node_modules` directory is an installed copy, whoever invoked npm: a consumer's
+ * `postinstall` that runs `npm i` from inside it hands this script its own root as `INIT_CWD`.
  * @param {Object} options
  * @param {Object} options.env
  * @param {String} options.root
@@ -107,7 +110,10 @@ export function isDependencyBuild({env, root}) {
         }
     };
 
-    return Boolean(env.INIT_CWD) && identity(env.INIT_CWD) !== identity(root)
+    const rootIdentity = identity(root);
+
+    return rootIdentity.split(path.sep).includes('node_modules')
+        || Boolean(env.INIT_CWD) && identity(env.INIT_CWD) !== rootIdentity
 }
 
 /**
