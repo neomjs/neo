@@ -547,6 +547,32 @@ class TearOutWorkspace extends DockWorkspace {
 }
 
 /**
+ * A host whose `terminal` pane is LAZY: a parked `{module}` config until its card first shows. The
+ * import waits on `moduleGate` when one is set and throws `moduleError` when one is set.
+ */
+class LazyPaneTearOutWorkspace extends TearOutWorkspace {
+    static config = {className: 'Test.Unit.Dashboard.DockWorkspace.LazyPaneTearOutWorkspace'}
+
+    moduleError = null
+    moduleGate  = null
+    moduleLoads = 0
+
+    resolvePane(itemId) {
+        if (itemId !== 'terminal') return super.resolvePane(itemId);
+
+        return {
+            module: async () => {
+                this.moduleLoads++;
+                await this.moduleGate?.promise;
+                if (this.moduleError) throw this.moduleError;
+                return {default: Container}
+            },
+            reference: `tearout-pane-${itemId}`
+        }
+    }
+}
+
+/**
  * A host that keeps a vessel's semantic Workspace when its window is gone — the Workstation's headless
  * retention — answering `false` on both release routes and recording what each asked.
  */
@@ -611,6 +637,7 @@ Neo.setupClass(ChromeWorkspace);
 Neo.setupClass(HostedWorkspace);
 Neo.setupClass(BrokenHostWorkspace);
 Neo.setupClass(TearOutWorkspace);
+Neo.setupClass(LazyPaneTearOutWorkspace);
 Neo.setupClass(RetainingTearOutWorkspace);
 Neo.setupClass(ObjectRetainingTearOutWorkspace);
 Neo.setupClass(PolicyWorkspace);
@@ -2095,6 +2122,67 @@ test('the holder contract: a config-assigned document is readable before any ope
             expect(workspace.getReference('tearout-pane-preview')).toBe(pane);
             expect(workspace.dockModel.nodes['side-tabs'].items).toEqual(['preview', 'terminal']);
             expect(workspace.lifecycleEvents).toEqual(['return:true:true', 'disconnect'])
+        });
+
+        test('#20127 a lazy pane whose card never showed tears out as a live pane and lands in its vessel', async () => {
+            workspace = Neo.create(LazyPaneTearOutWorkspace, {dockModel: createDocument()});
+
+            expect(workspace.moduleLoads, 'the never-shown card is still parked').toBe(0);
+
+            const {request, zone} = await beginExit('terminal');
+
+            expect(await workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'terminal', sortZone: zone})).toBe(true);
+
+            const pane = workspace.tearOutHandlers.heldPane('terminal');
+
+            expect(pane, 'a live pane was captured for adoption').toBeInstanceOf(Container);
+            expect(pane.reference).toBe('tearout-pane-terminal');
+            expect(workspace.moduleLoads).toBe(1);
+            expect(workspace.dockModel.nodes['side-tabs'].items).toEqual(['preview']);
+            await workspace.refreshPromise;
+
+            const mainView = addWindow('lazy-terminal');
+
+            await connectVessel('lazy-terminal', request.topologyIdentity);
+
+            expect(mainView.items, 'the vessel embodies the pane').toContain(pane);
+            expect(workspace.closeRequests, 'the vessel stays').toEqual([])
+        });
+
+        test('#20127 a tear-out racing the card\'s own activation load joins it: one import, one instance', async () => {
+            workspace            = Neo.create(LazyPaneTearOutWorkspace, {dockModel: createDocument()});
+            workspace.moduleGate = Promise.withResolvers();
+
+            const
+                body       = workspace.getDockHost().down({dockNodeId: 'side-tabs', dockNodeType: 'tabs'}).getCardContainer(),
+                activation = body.layout.loadModule(body.items[1], 1), // the call the card's activation makes
+                {zone}     = await beginExit('terminal'),
+                terminal   = workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'terminal', sortZone: zone});
+
+            expect(workspace.dockModel.nodes['side-tabs'].items, 'nothing commits while the pane loads').toEqual(['preview', 'terminal']);
+
+            workspace.moduleGate.resolve();
+
+            const [instance, committed] = await Promise.all([activation, terminal]);
+
+            expect(committed).toBe(true);
+            expect(workspace.moduleLoads).toBe(1);
+            expect(workspace.tearOutHandlers.heldPane('terminal'), 'the instance the activation built').toBe(instance)
+        });
+
+        test('#20127 a lazy pane whose import fails stays docked, unflagged, and its vessel retires', async () => {
+            workspace             = Neo.create(LazyPaneTearOutWorkspace, {dockModel: createDocument()});
+            workspace.moduleError = new Error('chunk failed');
+
+            const {zone} = await beginExit('terminal');
+
+            await workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'terminal', sortZone: zone});
+
+            const body = workspace.getDockHost().down({dockNodeId: 'side-tabs', dockNodeType: 'tabs'}).getCardContainer();
+
+            expect(workspace.dockModel.nodes['side-tabs'].items).toEqual(['preview', 'terminal']);
+            expect(workspace.closeRequests.filter(vessel => vessel.itemId === 'terminal')).toHaveLength(1);
+            expect(body.items[1].isLoading, 'the next show can retry').toBeUndefined()
         });
 
         test.describe('#18077 #19619 the host loads the geometry stream into its window and into every admitted vessel', () => {

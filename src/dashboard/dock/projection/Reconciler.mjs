@@ -1341,7 +1341,6 @@ class Reconciler extends Base {
                             body.update()
                         }
                     }).catch(error => {
-                        delete pane.isLoading;
                         console.error(`${body.id}: the lazy module at index ${index} failed to load`, error)
                     })
                 }

@@ -85,6 +85,12 @@ class TearOut extends Base {
          */
         getDocument: null,
         /**
+         * Host pane materialization: `(itemId) => void|Promise<void>` — creates a pane that has none yet (a
+         * lazy card never shown), awaited before the detach commit; a throw or rejection retires the vessel.
+         * @member {Function|null} materializePane=null
+         */
+        materializePane: null,
+        /**
          * Host report seam: `({entry, itemId, pane, reintegrated}) => void` — an admitted connection that
          * could not embody its live pane, after the compensating return resolved. `reintegrated` separates
          * the recoverable case from the one worth alarming on.
@@ -167,6 +173,12 @@ class TearOut extends Base {
      * @protected
      */
     lateVessel = null
+    /**
+     * The admitted vessel whose pane is materializing before its detach commit.
+     * @member {Object|null} materializing=null
+     * @protected
+     */
+    materializing = null
     /**
      * The live pane captured BEFORE detach re-projection can retire it, per item id.
      * @member {Object} paneHandles={}
@@ -880,12 +892,15 @@ class TearOut extends Base {
     }
 
     /**
+     * @summary The detached terminal: commits `detachItem` once the vessel's pane exists.
+     *
      * Released while detached — the ONE commit seam: `detachItem` routes through the host's reducer (tree
      * removal, catalog preserved for vessel ownership). Success: the committed document syncs and the
      * vessel STAYS — it owns the item now. A model refusal retires the vessel instead, so no window
      * survives showing an item the document still owns. A THROWING reducer lands on the same refusal
      * path — an uncaught throw here would skip the retirement and orphan the vessel. Without an admitted
-     * vessel (failed admission earlier in the gesture) there is nothing to commit.
+     * vessel (failed admission earlier in the gesture) there is nothing to commit. A pane still to be
+     * materialized is awaited first; a cancel, retirement or duplicate terminal during that wait wins.
      * @param {Object} data
      * @returns {Boolean|Promise<Boolean>}
      */
@@ -896,9 +911,39 @@ class TearOut extends Base {
 
         const vessel = me.activeVessel;
 
-        if (!vessel || vessel.itemId !== data.itemId) return false;
+        if (!vessel || vessel.itemId !== data.itemId || me.materializing === vessel) return false;
 
-        let operation = {operation: 'detachItem', itemId: data.itemId},
+        let pending;
+
+        try {
+            pending = me.materializePane?.(vessel.itemId)
+        } catch {
+            return me.retireVessel(vessel)
+        }
+
+        if (typeof pending?.then !== 'function') return me.commitDetach(vessel);
+
+        me.materializing = vessel;
+
+        const settle = outcome => {
+            me.materializing === vessel && (me.materializing = null);
+
+            return me.isDestroyed || me.activeVessel !== vessel || me.retirement?.vessel === vessel ? false : outcome()
+        };
+
+        return pending.then(() => settle(() => me.commitDetach(vessel)), () => settle(() => me.retireVessel(vessel)))
+    }
+
+    /**
+     * @summary The detached terminal's commit, see {@link #onDockTearOutTerminal}.
+     * @param {Object} vessel The admitted vessel slot.
+     * @returns {Boolean|Promise<Boolean>}
+     * @protected
+     */
+    commitDetach(vessel) {
+        const me = this;
+
+        let operation = {operation: 'detachItem', itemId: vessel.itemId},
             result;
 
         try {

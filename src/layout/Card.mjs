@@ -298,8 +298,9 @@ class Card extends Base {
         // placeholder. EVERY participant is removed, not just the initiator — a joiner's identity
         // entry outliving the flight would hand the next caller a settled promise and the old
         // instance, quietly converting the retry path into a cache. Removed by the captured id for
-        // the same reason it was captured.
+        // the same reason it was captured. `isLoading` goes too, or `form.Container` never re-queues it.
         return load.finally(() => {
+            delete item.isLoading;
             participants.forEach(participant => me.loadingModules.delete(participant));
             me.#loadParticipants.delete(load);
             id && me.loadingModulesById.delete(id)
