@@ -796,7 +796,7 @@ class GridContainer extends BaseContainer {
      */
     beforeSetColumns(value, oldValue) {
         if (this.configsApplied) {
-            return this.createColumns(value)
+            return this.createColumns(value, oldValue)
         }
 
         return value
@@ -894,15 +894,21 @@ class GridContainer extends BaseContainer {
 
     /**
      * @param {Object[]} columns
+     * @param {Neo.collection.Base|Object[]} [oldColumns=this._columns]
      * @returns {*}
      */
-    createColumns(columns) {
+    createColumns(columns, oldColumns=this._columns) {
         let me                 = this,
             {columnDefaults}   = me,
             centerButtons      = [],
             lockedEndButtons   = [],
             lockedStartButtons = [],
             sorters            = me.store?.sorters,
+            existingCollection = Neo.typeOf(oldColumns) === 'NeoInstance'
+                ? oldColumns
+                : Neo.typeOf(me._columns) === 'NeoInstance'
+                    ? me._columns
+                    : null,
             buttonConfig, columnClass, renderer;
 
         if (columns) {
@@ -959,17 +965,28 @@ class GridContainer extends BaseContainer {
             }
         }
 
-        if (Neo.typeOf(me._columns) === 'NeoInstance') {
-            me._columns.clear();
-            me._columns.add(columns);
+        if (existingCollection) {
+            for (const oldColumn of existingCollection.items) {
+                if (!columns?.includes(oldColumn)) {
+                    oldColumn.destroy()
+                }
+            }
 
+            existingCollection.clearSilent();
+            existingCollection.splice(null, null, columns, true);
+
+            me._columns           = existingCollection;
             me.lockedStartColumns = columns.filter(c => c.locked === 'start');
             me.centerColumns      = columns.filter(c => !c.locked);
             me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
 
             me.createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons);
 
-            return me._columns
+            me.updateColCount();
+            me.syncSearchToolbar();
+            me.syncValueBandingFields();
+
+            return existingCollection
         }
 
         me.lockedStartColumns = columns.filter(c => c.locked === 'start');

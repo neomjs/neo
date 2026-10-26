@@ -147,4 +147,34 @@ test.describe('Grid Dynamic Column Updates', () => {
         expect(index2).toBe(newDataField);
         expect(index3).toBe('zEnd');
     });
+
+    test('Replacing grid.columns at runtime destroys old Column & Button instances and skips intermediate onColumnsMutate', async () => {
+        const oldColumnIds = grid.columns.items.map(col => col.id);
+        const oldButtonIds = grid.headerToolbar.items.map(btn => btn.id);
+
+        let   mutateCalls         = 0;
+        const origOnColumnsMutate = grid.onColumnsMutate.bind(grid);
+        grid.onColumnsMutate = data => {
+            mutateCalls++;
+            return origOnColumnsMutate(data)
+        };
+
+        grid.columns = [
+            {dataField: 'id',   text: 'ID',   width: 60},
+            {dataField: 'name', text: 'Name', width: 120}
+        ];
+
+        expect(mutateCalls).toBe(0);
+        expect(grid.columns.count).toBe(2);
+        expect(grid.headerToolbar.items.length).toBe(2);
+        expect(grid.getVdomRoot()['aria-colcount']).toBe(2);
+
+        for (const id of oldColumnIds) {
+            expect(InstanceManager.get(id)).toBeNull()
+        }
+
+        for (const id of oldButtonIds) {
+            expect(InstanceManager.get(id)).toBeNull()
+        }
+    });
 });

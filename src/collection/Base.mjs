@@ -636,6 +636,7 @@ class Collection extends Base {
         me._items.splice(0, me.count);
         me.map.clear();
         me.internalIdMap?.clear();
+        me._count = 0;
         me.initialIndexCounter = 0
     }
 
@@ -1158,7 +1159,7 @@ class Collection extends Base {
     evaluateFilters(excludeFilter, onInclude=null) {
         const items    = this.allItems?._items || this._items,
             evaluators = this.filters.filter(filter => filter !== excludeFilter).map(filter => filter.createEvaluator());
-        let filtered = items.slice();
+        let filtered;
 
         if (this.filterMode === 'primitive') {
             filtered = [];
@@ -1176,6 +1177,7 @@ class Collection extends Base {
                 }
             }
         } else {
+            filtered = items.slice();
             for (const evaluate of evaluators) {
                 const next = [];
                 for (let i = 0; i < filtered.length; i++) {
@@ -1595,6 +1597,8 @@ class Collection extends Base {
         }
 
         if (toAddArray && (len = toAddArray.length) > 0) {
+            const hasEffectiveFilters = me._filters.some(filter => filter.effective);
+
             for (i=0; i < len; i++) {
                 item = toAddArray[i];
 
@@ -1615,7 +1619,7 @@ class Collection extends Base {
                     item[initialIndexSymbol] = me.initialIndexCounter++
                 }
 
-                if (!map.has(key) && !me.isFilteredItem(item)) {
+                if (!map.has(key) && (!hasEffectiveFilters || !me.isFilteredItem(item))) {
                     addedItems.push(item);
                     map.set(key, item);
 

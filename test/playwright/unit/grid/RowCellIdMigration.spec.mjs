@@ -200,4 +200,55 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
         expect(row.vdom.cn.map(node => node.id).sort()).toEqual(initialIds);
         expect(livingCells(row, 'beta').length).toBe(1)
     });
+
+    test('Pass 2 is skipped when all columns are pooled and getLogicalCellId is lazy', () => {
+        const columns = Array.from({length: 20}, (_, index) => ({
+            dataField: `col${index}`,
+            hideMode : 'removeDom',
+            locked   : null,
+            renderer : ({value}) => value
+        }));
+        const row = createRowFake(columns);
+
+        let getLogicalCellIdCalls = 0,
+            columnGetCalls        = 0,
+            positionGetAtCalls    = 0;
+
+        row.parent.gridContainer.columns._items = columns;
+        row.parent.mountedColumns = [0, 2];
+
+        const origGetLogicalCellId = row.parent.getLogicalCellId;
+        row.parent.getLogicalCellId = (rec, dataField) => {
+            getLogicalCellIdCalls++;
+            return origGetLogicalCellId(rec, dataField)
+        };
+
+        const origColumnsGet = row.parent.gridContainer.columns.get;
+        row.parent.gridContainer.columns.get = dataField => {
+            columnGetCalls++;
+            return origColumnsGet(dataField)
+        };
+
+        const origGetAt = row.parent.columnPositions.getAt;
+        row.parent.columnPositions.getAt = index => {
+            positionGetAtCalls++;
+            return origGetAt(index)
+        };
+
+        row.createVdom(true, false);
+
+        // Mounted range [0, 2] touches 3 positions in Pass 1 and 0 in Pass 2; aligned _items avoids columns.get
+        expect(positionGetAtCalls).toBe(3);
+        expect(columnGetCalls).toBe(0);
+        expect(getLogicalCellIdCalls).toBe(0);
+
+        // Selecting a cell triggers lazy getLogicalCellId evaluation and applies aria-selected
+        row.parent.gridContainer.view = {
+            selectedCells: ['logical__r1__col1']
+        };
+        row.createVdom(true, false);
+
+        expect(getLogicalCellIdCalls).toBe(3);
+        expect(livingCells(row, 'col1')[0]['aria-selected']).toBe(true)
+    });
 });

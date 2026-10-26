@@ -210,10 +210,20 @@ class Wrapper extends BaseContainer {
                 theme,
                 useTriStateSorting: headerToolbar.useTriStateSorting,
                 windowId
-            });
+            }),
+            destroyReplacedButtons = (toolbar, nextButtons) => {
+                if (toolbar?.items) {
+                    for (const item of toolbar.items) {
+                        if (item?.destroy && !nextButtons?.includes(item)) {
+                            item.destroy()
+                        }
+                    }
+                }
+            };
 
         // --- Center (Default) ---
         if (centerColumns.length > 0 && centerButtons) {
+            destroyReplacedButtons(headerToolbar, centerButtons);
             headerToolbar.items = centerButtons;
             headerToolbar.createItems()
         }
@@ -223,6 +233,7 @@ class Wrapper extends BaseContainer {
             if (!me.headerStart) {
                 me.headerStart = lockedToolbar(lockedStartButtons || [], 'start')
             } else if (lockedStartButtons) {
+                destroyReplacedButtons(me.headerStart, lockedStartButtons);
                 me.headerStart.items = lockedStartButtons;
                 me.headerStart.createItems()
             }
@@ -233,6 +244,7 @@ class Wrapper extends BaseContainer {
             if (!me.headerEnd) {
                 me.headerEnd = lockedToolbar(lockedEndButtons || [], 'end')
             } else if (lockedEndButtons) {
+                destroyReplacedButtons(me.headerEnd, lockedEndButtons);
                 me.headerEnd.items = lockedEndButtons;
                 me.headerEnd.createItems()
             }
@@ -245,7 +257,9 @@ class Wrapper extends BaseContainer {
             endEmptied   = me.headerEnd   && lockedEndColumns.length   === 0;
 
         if (startEmptied || endEmptied) {
-            me.applyColumnButtonOrder(lockedStartColumns, centerColumns, lockedEndColumns);
+            if (!centerButtons) {
+                me.applyColumnButtonOrder(lockedStartColumns, centerColumns, lockedEndColumns)
+            }
 
             if (startEmptied) {
                 me.headerStart.destroy();
