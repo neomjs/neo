@@ -2128,16 +2128,19 @@ test('the holder contract: a config-assigned document is readable before any ope
         // with the route the opener minted, a reloaded one without any.
         const withVesselHandle = async (windowId, run) => {
             const originalMain = Neo.Main,
-                  probe        = {calls: [], closed: false};
+                  probe        = {calls: [], closed: false},
+                  windows      = Neo.manager.Window;
 
             Neo.Main = {...originalMain, windowNativeIsClosed: async data => {probe.calls.push(data); return probe.closed}};
-            Neo.manager.Window.register({id: windowId, nativeRoute: {nativeHandleKey: 'vessel-handle', ownerWindowId: workspace.windowId}});
+            // The opener is a live window, and the vessel's first document carries the route it minted
+            windows.register({id: workspace.windowId});
+            windows.register({id: windowId, nativeRoute: {nativeHandleKey: 'vessel-handle', ownerWindowId: workspace.windowId}});
 
             try {
                 await run(probe)
             } finally {
                 Neo.Main = originalMain;
-                Neo.manager.Window.unregister(windowId)
+                [workspace.windowId, windowId].forEach(id => windows.get(id) && windows.unregister(id))
             }
         };
 
@@ -2212,6 +2215,26 @@ test('the holder contract: a config-assigned document is readable before any ope
             } finally {
                 TransactionManager.reconnectLeaseMs = 20000
             }
+        });
+
+        test('#20148 a vessel whose opener departed returns its pane at once: no handle is left to tell a close from a reload', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const pane = workspace.getReference('tearout-pane-preview');
+
+            await withVesselHandle('opener-gone', async probe => {
+                addWindow('opener-gone');
+                await connectVessel('opener-gone', await tearOutPreview());
+
+                // A reloaded main window is a new document; the window that opened the vessel is gone
+                Neo.manager.Window.unregister(workspace.windowId);
+                await disconnectVessel('opener-gone');
+
+                expect(probe.calls, 'no departed opener is asked').toEqual([]);
+                expect(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview'), 'nothing is held').toBeNull();
+                await expect.poll(() => workspace.lifecycleEvents).toEqual(['return:true:true', 'disconnect']);
+                expect(workspace.getReference('tearout-pane-preview')).toBe(pane)
+            })
         });
 
         test('#20127 a lazy pane whose card never showed tears out as a live pane and lands in its vessel', async () => {

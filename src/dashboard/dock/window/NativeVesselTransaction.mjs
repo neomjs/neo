@@ -112,7 +112,8 @@ class NativeVesselTransaction extends Base {
      * A reload releases the binding exactly as a close does, and the reloaded document binds again within
      * milliseconds, so the slot is held at once: its own lineage re-embodies the same live pane — a window
      * is a render target, never the state's owner. The opener's handle then decides: closed returns the
-     * pane home, and a lease that ends first does too. An expiry, or a key the host holds no handle for,
+     * pane home, and a lease that ends first does too. An expiry, a key the host holds no handle for, or a
+     * handle whose opener departed (a reloaded main window, whose new document never held this window)
      * releases at once, as before.
      * @param {Object} descriptor
      * @param {Object} descriptor.handles The host's opener handles by Group key (see {@link #watchVesselHandle}).
@@ -129,7 +130,7 @@ class NativeVesselTransaction extends Base {
               owner                    = nativeWindows?.getOwner(sourceId, workspaceKey),
               pane                     = owner && tearOut?.heldPane(owner.itemId);
 
-        if (data.expired || !handle || !owner) return true;
+        if (data.expired || !handle || !owner || !WindowManager.get(handle.ownerWindowId)) return true;
 
         // The departed window takes no more updates: the held pane leaves its viewport silently and stays
         // headless until its lineage re-embodies it, as a detached Workspace does (onNativeWindowDetached).
