@@ -1249,7 +1249,7 @@ class View extends Base {
             let isCenter = _body === body;
             _body.skipCreateViewData = true;
 
-            _body.set({
+            _body.setSilent({
                 scrollLeft: isCenter ? scrollManager.scrollLeft : 0, // Horizontal sync applies from scrollManager state ONLY for center
                 scrollTop : scrollTop
             });
