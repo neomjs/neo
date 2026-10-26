@@ -16,7 +16,8 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture — every region body 
     test.setTimeout(90000);
     test.use({ viewport: { width: 1920, height: 1080 } });
 
-    test.beforeEach(async ({ page }) => {
+    test.beforeEach(async ({ page, neuralLink }) => {
+        void neuralLink;
         await page.goto('/examples/grid/lockedColumns/');
         page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
 
