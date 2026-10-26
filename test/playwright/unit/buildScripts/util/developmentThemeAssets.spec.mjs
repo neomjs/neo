@@ -355,6 +355,44 @@ test.describe('webpack development-theme freshness hooks (#15666)', () => {
         expect(warnings).toHaveLength(2); // a successful check reset the error transition
         expect(warnings[0]).toContain('fixture inspection failed');
         expect(warnings[0]).toContain(DEVELOPMENT_THEME_BUILD_COMMAND)
+    });
+
+    test('a served root that builds no theme of its own never warns, whatever its inspection says', () => {
+        // An app workspace: the engine sits in node_modules and its CSS ships prebuilt, so the recovery
+        // command a warning prints would rebuild nothing the server serves
+        const warnings = [],
+              hooks    = createDevelopmentThemeFreshnessHooks({
+                  buildsThemes: () => false,
+                  inspect     : () => ({ready: false}),
+                  logger      : {warn: message => warnings.push(message)},
+                  now         : () => 0
+              });
+
+        hooks.onListening();
+        expect(warnings).toEqual([])
+    });
+
+    test('the default check inspects the served root: a workspace stays silent, a stale theme source still warns', () => {
+        const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-served-root-')),
+              warningsAt = root => {
+                  const warnings = [];
+
+                  createDevelopmentThemeFreshnessHooks({root, logger: {warn: message => warnings.push(message)}, now: () => 0}).onListening();
+                  return warnings
+              };
+
+        try {
+            // A fresh scaffold: its resources/scss holds no buildable theme source
+            fs.mkdirSync(path.join(workspace, 'resources', 'scss'), {recursive: true});
+            expect(warningsAt(workspace), 'a workspace root builds no theme').toEqual([]);
+
+            // The same root once it owns a theme source with nothing built from it
+            fs.mkdirSync(path.join(workspace, 'resources', 'scss', 'src'), {recursive: true});
+            fs.writeFileSync(path.join(workspace, 'resources', 'scss', 'src', 'Global.scss'), '');
+            expect(warningsAt(workspace), 'a root with a theme source and no build warns').toHaveLength(1)
+        } finally {
+            fs.rmSync(workspace, {force: true, recursive: true})
+        }
     })
 });
 
