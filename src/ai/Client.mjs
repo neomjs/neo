@@ -144,6 +144,7 @@ class Client extends Base {
         registerInteractionServiceMethods(me.serviceMap, interaction);
 
         Neo.currentWorker.on({
+            appRegistered   : me.onAppRegistered,
             connect         : me.onAppWorkerWindowConnect,
             disconnect      : me.onAppWorkerWindowDisconnect,
             visibilityChange: me.onWindowVisibilityChange,
@@ -209,6 +210,21 @@ class Client extends Base {
      */
     async handleRequest(method, params, context) {
         return dispatchServiceMethod(this.serviceMap, method, params, context)
+    }
+
+    /**
+     * Announces the window of a non-SharedWorker app that registers after this socket opened. The usual agent
+     * flow starts the Neural Link before the page, so the socket opens before `Neo.app()` registers, and
+     * {@link #onSocketOpen} announces only the windows that exist at open time. An app registering before the
+     * open is that open's to announce; a SharedWorker window arrives through its port's `connect`.
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {String} data.windowId
+     */
+    onAppRegistered({appName, windowId}) {
+        if (this.#opened && !Neo.worker.App.isSharedWorker && !WindowManager.get(windowId)) {
+            this.sendNotification('window_connected', {appName, windowId})
+        }
     }
 
     /**

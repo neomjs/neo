@@ -892,8 +892,11 @@ class App extends Base {
      * admitted by the manager's own sweep the moment one does. The app module imports asynchronously, so a
      * SharedWorker can see the registration after the window's port retired: that window is gone, and its app
      * registers nothing — a binding admitted for it would hold its slot with no disconnect left to release it.
+     * The `appRegistered` event closes the registration: only a SharedWorker port fires `connect`, so it is the
+     * one moment a non-SharedWorker app announces its window.
      * @param {String} appName
      * @param {String} windowId
+     * @fires appRegistered
      */
     registerApp(appName, windowId) {
         let me   = this,
@@ -906,7 +909,8 @@ class App extends Base {
         // register the name as fast as possible
         me.onRegisterApp({appName}, port);
         Neo.manager.Transaction?.admit({topologyIdentity: Neo.windowConfigs?.[windowId]?.topologyIdentity, windowId});
-        me.sendMessage(windowId, {action: 'registerAppName', appName})
+        me.sendMessage(windowId, {action: 'registerAppName', appName});
+        me.fire('appRegistered', {appName, windowId})
     }
 
     /**
