@@ -2303,12 +2303,13 @@ test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers ever
 
         plugin.onOwnerMounted();
 
-        const domEvents = entry => Object.keys(entry).filter(key => key !== 'scope');
+        const domEvents = entry => Object.keys(entry).filter(key => key !== 'delegate' && key !== 'scope'),
+              expected  = ['resize', 'click', 'drag:end', 'drag:start', 'mousedown', 'mouseleave'];
 
-        expect(added.flatMap(domEvents), 'a remount registers exactly one DOM event').toEqual(['resize']);
+        expect(added.flatMap(domEvents), 'a remount registers each DOM event once').toEqual(expected);
         expect(released.flatMap(domEvents),
-            'and released that same event first — an empty array here means the release list has drifted from the registration list'
-        ).toEqual(['resize']);
+            'and released those same events first — an empty array here means the release list has drifted from the registration list'
+        ).toEqual(expected);
 
         plugin.destroy()
     });
@@ -2525,6 +2526,46 @@ test.describe('Neo.tab.plugin.Overflow — the control press hold', () => {
         plugin.destroy();
         toolbar.destroy();
         menuList.destroy()
+    });
+
+    test('a tab press holds the reveal until it clicks, leaves its tab before dragging, or the drag it became is released (#20128)', async () => {
+        const {plugin, toolbar, withdrawn} = createRail(),
+              held                         = () => toolbar.contextualRevealHolds?.has('overflow-tab-press') === true;
+
+        // The press focuses the pane: the reveal it owes waits for the press
+        plugin.onTabPointerDown({button: 0, currentTarget: 'tab-metrics'});
+        toolbar.contextualActionsVisible = true;
+        expect(withdrawn(), 'no action is inserted while the press holds').toBe(true);
+
+        plugin.releaseTabPress();
+        expect(held(), 'the click ends the press').toBe(false);
+        expect(withdrawn(), 'and applies the owed reveal').toBe(false);
+
+        toolbar.contextualActionsVisible = false;
+        plugin.onTabPointerDown({button: 0, currentTarget: 'tab-metrics'});
+        plugin.onTabPointerLeave({currentTarget: 'tab-audit'});
+        expect(held(), 'leaving another tab is not this press').toBe(true);
+        plugin.onTabPointerLeave({currentTarget: 'tab-metrics'});
+        expect(held(), 'leaving its tab before dragging: a release elsewhere cannot click it').toBe(false);
+
+        plugin.onTabPointerDown({button: 0, currentTarget: 'tab-metrics'});
+        toolbar.contextualActionsVisible = true;
+        plugin.onTabDragStart();
+        plugin.onTabPointerLeave({currentTarget: 'tab-metrics'});
+        expect(held(), 'the drag the press became keeps it through the leave').toBe(true);
+        expect(withdrawn()).toBe(true);
+
+        plugin.releaseTabPress();
+        expect(withdrawn(), 'the drag release applies the owed reveal').toBe(false);
+
+        plugin.onTabPointerDown({button: 2, currentTarget: 'tab-metrics'});
+        expect(held(), 'a secondary press holds nothing').toBe(false);
+
+        plugin.onTabPointerDown({button: 0, currentTarget: 'tab-metrics'});
+        plugin.destroy();
+        expect(held(), 'a destroyed plugin leaves no hold behind').toBe(false);
+
+        toolbar.destroy()
     });
 
     test('focus-gated rail reveal and withdraw re-projects Overflow so a focus-capped tab restores when focus leaves (#20081)', async () => {
