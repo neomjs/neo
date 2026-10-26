@@ -10,6 +10,7 @@ import HorizontalScrollbar from './HorizontalScrollbar.mjs';
 import NeoArray            from '../util/Array.mjs';
 import VerticalScrollbar   from './VerticalScrollbar.mjs';
 import View                from './View.mjs';
+import VNodeUtil           from '../util/VNode.mjs';
 import * as column         from './column/_export.mjs';
 import * as header         from './header/_export.mjs';
 import {isDescriptor}      from '../core/ConfigSymbols.mjs';
@@ -480,21 +481,32 @@ class GridContainer extends BaseContainer {
             {headerToolbar} = me;
 
         me.syncValueBandingFields();
+        me.configsApplied && me.updateColCount();
+        me.syncSearchToolbar();
 
         // - If columns changed at run-time OR
         // - In case the `header.Toolbar#createItems()` method has run before columns where available
         if (oldValue?.count || (value?.count && headerToolbar?.isConstructed)) {
-            headerToolbar?.createItems()
-
             await me.timeout(50);
+
+            if (me.isDestroyed) {
+                return
+            }
 
             await me.passSizeToBody();
 
-            me.body?.createViewData()
-        }
+            if (me.isDestroyed) {
+                return
+            }
 
-        me.configsApplied && me.updateColCount();
-        me.syncSearchToolbar()
+            me.bodyStart?.updateMountedAndVisibleColumns();
+            me.body?.updateMountedAndVisibleColumns();
+            me.bodyEnd?.updateMountedAndVisibleColumns();
+
+            me.bodyStart?.createViewData();
+            me.body?.createViewData();
+            me.bodyEnd?.createViewData()
+        }
     }
 
     /**
@@ -796,7 +808,7 @@ class GridContainer extends BaseContainer {
      */
     beforeSetColumns(value, oldValue) {
         if (this.configsApplied) {
-            return this.createColumns(value)
+            return this.createColumns(value, oldValue)
         }
 
         return value
@@ -893,16 +905,30 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Builds or updates the grid's column collection and synchronizes header and body sub-grids.
+     *
+     * At runtime (when an existing {@link Neo.collection.Base} is present), reuses the collection in place
+     * via `clearSilent()` and a silent `splice()`, destroys replaced {@link Neo.grid.column.Base} instances,
+     * fires no intermediate `mutate` event, and delegates the post-swap container measurement and view-data
+     * refresh to {@link #afterSetColumns} (which the config setter's reference-equality check would otherwise skip).
+     *
      * @param {Object[]} columns
-     * @returns {*}
+     * @param {Neo.collection.Base|Object[]} [oldColumns=this._columns]
+     * @returns {Neo.collection.Base}
      */
-    createColumns(columns) {
+    createColumns(columns, oldColumns=this._columns) {
         let me                 = this,
             {columnDefaults}   = me,
             centerButtons      = [],
             lockedEndButtons   = [],
             lockedStartButtons = [],
             sorters            = me.store?.sorters,
+            existingCollection = Neo.typeOf(oldColumns) === 'NeoInstance'
+                ? oldColumns
+                : Neo.typeOf(me._columns) === 'NeoInstance'
+                    ? me._columns
+                    : null,
+            oldCount           = existingCollection?.count || 0,
             buttonConfig, columnClass, renderer;
 
         if (columns) {
@@ -959,22 +985,27 @@ class GridContainer extends BaseContainer {
             }
         }
 
-        if (Neo.typeOf(me._columns) === 'NeoInstance') {
-            me._columns.clear();
-            me._columns.add(columns);
-
-            me.lockedStartColumns = columns.filter(c => c.locked === 'start');
-            me.centerColumns      = columns.filter(c => !c.locked);
-            me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
-
-            me.createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons);
-
-            return me._columns
-        }
-
         me.lockedStartColumns = columns.filter(c => c.locked === 'start');
         me.centerColumns      = columns.filter(c => !c.locked);
         me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
+
+        if (existingCollection) {
+            for (const oldColumn of existingCollection.items) {
+                if (!columns?.includes(oldColumn)) {
+                    oldColumn.destroy()
+                }
+            }
+
+            existingCollection.clearSilent();
+            existingCollection.splice(null, null, columns, true);
+
+            me._columns = existingCollection;
+
+            me.createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons);
+            me.afterSetColumns(existingCollection, {count: oldCount});
+
+            return existingCollection
+        }
 
         me.createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons);
 
@@ -1009,12 +1040,15 @@ class GridContainer extends BaseContainer {
         // The header region (locked + centre toolbars) is owned by the dedicated header.Wrapper orchestrator.
         me.headerWrapper.updateHeaders(lockedStartButtons, centerButtons, lockedEndButtons);
 
+        const retiredBodies = {};
+
         // --- Start body (Left) ---
         if (me.lockedStartColumns.length > 0) {
             if (!me.bodyStart) {
                 me.bodyStart = lockedBody()
             }
         } else if (me.bodyStart) {
+            retiredBodies[me.bodyStart.id] = me.bodyStart.vnode;
             me.bodyStart.destroy();
             me.bodyStart = null;
 
@@ -1029,11 +1063,16 @@ class GridContainer extends BaseContainer {
                 me.bodyEnd = lockedBody()
             }
         } else if (me.bodyEnd) {
+            retiredBodies[me.bodyEnd.id] = me.bodyEnd.vnode;
             me.bodyEnd.destroy();
             me.bodyEnd = null;
 
             // See the bodyStart branch: release the scrollport margin of a removed region.
             me.horizontalScrollbar && (me.horizontalScrollbar.endWidth = 0)
+        }
+
+        if (me.view?.vnode && Object.keys(retiredBodies).length > 0) {
+            VNodeUtil.unlinkRetiredReferences(me.view.vnode, retiredBodies)
         }
 
         // Synchronize the body sub-grids into the grid.View.
@@ -1156,6 +1195,9 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         me.store = null; // remove the listeners
+
+        me._columns?.items?.forEach(column => column.destroy());
+        me._columns?.destroy?.();
 
         me.verticalScrollbar?.destroy();
         me.scrollManager.destroy();
@@ -1451,7 +1493,7 @@ class GridContainer extends BaseContainer {
             containerRect, headerRect, viewRect;
 
         // `view` resolves nothing once the grid is gone, as a late (buffered) resize delivery can find it
-        if (!view) {
+        if (!view || me.isDestroyed) {
             return
         }
 

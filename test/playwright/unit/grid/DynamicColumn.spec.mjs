@@ -21,13 +21,16 @@ setup({
     }
 });
 
-import {test, expect}     from '@playwright/test';
-import Neo                from '../../../../src/Neo.mjs';
-import * as core          from '../../../../src/core/_export.mjs';
-import InstanceManager    from '../../../../src/manager/Instance.mjs';
-import GridContainer      from '../../../../src/grid/Container.mjs';
-import Store              from '../../../../src/data/Store.mjs';
-import VdomHelper         from '../../../../src/vdom/Helper.mjs';
+import {test, expect}       from '@playwright/test';
+import Neo                  from '../../../../src/Neo.mjs';
+import * as core            from '../../../../src/core/_export.mjs';
+import InstanceManager      from '../../../../src/manager/Instance.mjs';
+import GridContainer        from '../../../../src/grid/Container.mjs';
+import Store                from '../../../../src/data/Store.mjs';
+import VdomHelper           from '../../../../src/vdom/Helper.mjs';
+import VNodeUtil            from '../../../../src/util/VNode.mjs';
+import BigDataGridContainer from '../../../../examples/grid/bigData/GridContainer.mjs';
+import BigDataMainStore     from '../../../../examples/grid/bigData/MainStore.mjs';
 
 test.describe('Grid Dynamic Column Updates', () => {
     let grid, store;
@@ -108,7 +111,7 @@ test.describe('Grid Dynamic Column Updates', () => {
     });
 
     test.afterEach(async () => {
-        await grid.timeout(20);
+        await grid?.timeout(20);
         grid?.destroy();
         store?.destroy();
     });
@@ -146,5 +149,96 @@ test.describe('Grid Dynamic Column Updates', () => {
         // If fix works:  index2 = 'c2020', index3 = 'zEnd'
         expect(index2).toBe(newDataField);
         expect(index3).toBe('zEnd');
+    });
+
+    test('Replacing grid.columns at runtime destroys old Column & Button instances and skips intermediate onColumnsMutate', async () => {
+        const oldColumnIds = grid.columns.items.map(col => col.id);
+        const oldButtonIds = grid.headerToolbar.items.map(btn => btn.id);
+
+        let   mutateCalls         = 0;
+        const origOnColumnsMutate = grid.onColumnsMutate.bind(grid);
+        grid.onColumnsMutate = data => {
+            mutateCalls++;
+            return origOnColumnsMutate(data)
+        };
+
+        grid.columns = [
+            {dataField: 'id',   text: 'ID',   width: 60},
+            {dataField: 'name', text: 'Name', width: 120}
+        ];
+
+        expect(mutateCalls).toBe(0);
+        expect(grid.columns.count).toBe(2);
+        expect(grid.headerToolbar.items.length).toBe(2);
+        expect(grid.getVdomRoot()['aria-colcount']).toBe(2);
+        expect(() => VNodeUtil.createMap(grid.vnode)).not.toThrow();
+
+        for (const id of oldColumnIds) {
+            expect(InstanceManager.get(id)).toBeNull()
+        }
+
+        for (const id of oldButtonIds) {
+            expect(InstanceManager.get(id)).toBeNull()
+        }
+
+        const remainingColumnIds = grid.columns.items.map(col => col.id);
+        const collectionId       = grid.columns.id;
+
+        grid.destroy();
+        grid = null;
+
+        for (const id of remainingColumnIds) {
+            expect(InstanceManager.get(id)).toBeNull()
+        }
+
+        expect(InstanceManager.get(collectionId)).toBeNull()
+    });
+
+    test('examples/grid/bigData GridContainer and MainStore update columns before store data and use clearSilent', async () => {
+        const bigStore = Neo.create(BigDataMainStore, {
+            amountColumns: 10,
+            amountRows   : 5
+        });
+
+        const bigGrid = Neo.create(BigDataGridContainer, {
+            appName      : 'GridDynamicColumnTest',
+            amountColumns: 10,
+            store        : bigStore
+        });
+
+        let clearCalls         = 0,
+            columnsCountAtLoad = null;
+        const origClear       = bigStore.clear.bind(bigStore),
+              origClearSilent = bigStore.clearSilent.bind(bigStore);
+        let   clearSilentCalled = 0;
+
+        bigStore.clear = (...args) => {
+            clearCalls++;
+            return origClear(...args)
+        };
+        bigStore.clearSilent = (...args) => {
+            clearSilentCalled++;
+            return origClearSilent(...args)
+        };
+        bigStore.on('load', () => {
+            columnsCountAtLoad = bigGrid.columns.count
+        });
+
+        bigGrid.amountColumns = 15;
+
+        expect(clearCalls).toBe(0);
+        expect(clearSilentCalled).toBe(1);
+        expect(columnsCountAtLoad).toBe(bigGrid.columns.count);
+        expect(columnsCountAtLoad).toBeGreaterThan(11);
+        expect(bigStore.count).toBe(5);
+
+        bigStore.amountRows = 8;
+
+        expect(clearCalls).toBe(0);
+        expect(clearSilentCalled).toBe(2);
+        expect(bigStore.count).toBe(8);
+
+        bigGrid.destroy();
+        bigStore.destroy()
     });
 });

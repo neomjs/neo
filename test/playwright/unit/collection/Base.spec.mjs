@@ -390,7 +390,7 @@ test.describe.serial('Neo.collection.Base', () => {
         // Test updateKey on unfiltered collection
         let item1 = collection.get(1);
         collection.updateKey(item1, 10);
-        
+
         expect(collection.get(1) || null).toBeNull();
         expect(collection.get(10)).toBe(item1);
         expect(item1.id).toBe(10);
@@ -415,5 +415,39 @@ test.describe.serial('Neo.collection.Base', () => {
         // Verify that allItems is also updated correctly
         expect(collection.allItems.get(3) || null).toBeNull();
         expect(collection.allItems.get(30)).toBe(item3);
+    });
+
+    test('splice bypasses per-item isFilteredItem when no effective filters exist and evaluates when filtered', () => {
+        let collection = Neo.create(Collection, {
+            keyProperty: 'id',
+            filters    : [{property: 'active', value: null, includeEmptyValues: true}]
+        });
+
+        let   isFilteredCalls = 0;
+        const origIsFiltered  = collection.isFilteredItem.bind(collection);
+        collection.isFilteredItem = item => {
+            isFilteredCalls++;
+            return origIsFiltered(item);
+        };
+
+        collection.add([
+            {id: 1, active: true},
+            {id: 2, active: false}
+        ]);
+
+        expect(isFilteredCalls).toBe(0);
+        expect(collection.count).toBe(2);
+
+        collection.filters = [{property: 'active', value: true}];
+        isFilteredCalls = 0;
+
+        collection.add([
+            {id: 3, active: true},
+            {id: 4, active: false}
+        ]);
+
+        expect(isFilteredCalls).toBe(2);
+        expect(collection.count).toBe(2);
+        expect(collection.allItems.count).toBe(4);
     });
 });

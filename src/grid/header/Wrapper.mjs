@@ -1,4 +1,5 @@
 import BaseContainer from '../../container/Base.mjs';
+import VNodeUtil     from '../../util/VNode.mjs';
 
 /**
  * @summary The dedicated orchestrator for a grid's header region within the multi-body architecture.
@@ -210,10 +211,25 @@ class Wrapper extends BaseContainer {
                 theme,
                 useTriStateSorting: headerToolbar.useTriStateSorting,
                 windowId
-            });
+            }),
+            destroyReplacedButtons = (toolbar, nextButtons) => {
+                if (toolbar?.items) {
+                    const retired = {};
+
+                    for (const item of toolbar.items) {
+                        if (item?.destroy && !nextButtons?.includes(item)) {
+                            retired[item.id] = item.vnode;
+                            item.destroy()
+                        }
+                    }
+
+                    toolbar.vnode && VNodeUtil.unlinkRetiredReferences(toolbar.vnode, retired)
+                }
+            };
 
         // --- Center (Default) ---
         if (centerColumns.length > 0 && centerButtons) {
+            destroyReplacedButtons(headerToolbar, centerButtons);
             headerToolbar.items = centerButtons;
             headerToolbar.createItems()
         }
@@ -223,6 +239,7 @@ class Wrapper extends BaseContainer {
             if (!me.headerStart) {
                 me.headerStart = lockedToolbar(lockedStartButtons || [], 'start')
             } else if (lockedStartButtons) {
+                destroyReplacedButtons(me.headerStart, lockedStartButtons);
                 me.headerStart.items = lockedStartButtons;
                 me.headerStart.createItems()
             }
@@ -233,6 +250,7 @@ class Wrapper extends BaseContainer {
             if (!me.headerEnd) {
                 me.headerEnd = lockedToolbar(lockedEndButtons || [], 'end')
             } else if (lockedEndButtons) {
+                destroyReplacedButtons(me.headerEnd, lockedEndButtons);
                 me.headerEnd.items = lockedEndButtons;
                 me.headerEnd.createItems()
             }
@@ -245,17 +263,25 @@ class Wrapper extends BaseContainer {
             endEmptied   = me.headerEnd   && lockedEndColumns.length   === 0;
 
         if (startEmptied || endEmptied) {
-            me.applyColumnButtonOrder(lockedStartColumns, centerColumns, lockedEndColumns);
+            if (!centerButtons) {
+                me.applyColumnButtonOrder(lockedStartColumns, centerColumns, lockedEndColumns)
+            }
+
+            const retired = {};
 
             if (startEmptied) {
+                retired[me.headerStart.id] = me.headerStart.vnode;
                 me.headerStart.destroy();
                 me.headerStart = null
             }
 
             if (endEmptied) {
+                retired[me.headerEnd.id] = me.headerEnd.vnode;
                 me.headerEnd.destroy();
                 me.headerEnd = null
             }
+
+            me.vnode && VNodeUtil.unlinkRetiredReferences(me.vnode, retired)
         }
 
         me.items = me.getToolbars();
