@@ -176,10 +176,10 @@ test.describe('Canvas Recorder: Draw Receipts & Render-to-Clip', () => {
         expect(variationResult.variantSceneId).toBe('stage_scene_beta');
     });
 
-    test('ColorQL Packet Integration: Bridges chromatic packets into draw receipts', () => {
-        // ColorQL chromatic game frame payload format
+    test('Chromatic Packet Integration: Bridges chromatic packets into draw receipts', () => {
+        // Chromatic game frame payload format
         const chromaticPacket = {
-            proto     : 'chromagame.cql.v1',
+            proto     : 'chromagame.v1',
             frame     : 0,
             timestamp : 1729890000000,
             colorCount: 3,
@@ -191,7 +191,7 @@ test.describe('Canvas Recorder: Draw Receipts & Render-to-Clip', () => {
             ]
         };
 
-        const recorder = Neo.create(RenderToClip, { sceneId: 'colorql_bridge', fps: 60 });
+        const recorder = Neo.create(RenderToClip, { sceneId: 'chromatic_bridge', fps: 60 });
         recorder.startRecording();
 
         const receipt = recorder.recordFrame({

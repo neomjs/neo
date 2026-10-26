@@ -107,9 +107,9 @@ class RenderToClip extends Base {
     /**
      * Ingests a frame render pass, calculates its DrawReceipt, and chains the rolling hash.
      * @param {Object} opts
-     * @param {*} opts.payload Draw commands, WebGL2 vertex buffer, or ColorQL packet
+     * @param {*} opts.payload Draw commands, WebGL2 vertex buffer, or structured packet
      * @param {Number} [opts.time] Optional simulation timestamp (defaults to frameIndex * (1000 / fps))
-     * @param {String[]} [opts.colorTokens] ColorQL chromatic Prism tokens
+     * @param {String[]} [opts.colorTokens] Optional chromatic tokens
      * @param {*} [opts.frameData] Optional image data, base64 snapshot, or blob
      * @returns {Object} DrawReceipt record for the captured frame
      */

@@ -128,7 +128,7 @@ class DrawReceipt extends Base {
     }
 
     /**
-     * Canonicalizes and digests draw payload (commands, vertices, or ColorQL chromatic tokens).
+     * Canonicalizes and digests draw payload (commands, vertices, or chromatic tokens).
      * @param {*} payload
      * @returns {String} Deterministic payload hash
      */
@@ -178,9 +178,9 @@ class DrawReceipt extends Base {
      * @param {Object} opts
      * @param {Number} opts.frameIndex Sequential frame index (0-based)
      * @param {Number} opts.timestamp Simulation time in milliseconds
-     * @param {*} opts.payload Draw commands, WebGL2 buffers, or ColorQL packet
+     * @param {*} opts.payload Draw commands, WebGL2 buffers, or structured packet
      * @param {String} [opts.previousRollingHash] The rolling hash of the prior frame (defaults to genesisHash)
-     * @param {String[]} [opts.colorTokens] Optional ColorQL Prism chromatic tokens
+     * @param {String[]} [opts.colorTokens] Optional chromatic tokens
      * @param {Object} [opts.metadata] Additional scene metadata
      * @returns {Object} DrawReceipt record
      */

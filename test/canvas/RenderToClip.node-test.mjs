@@ -154,10 +154,10 @@ assert.strictEqual(variationResult.variantAuthor, 'neo-gemini-julia');
 assert.strictEqual(variationResult.variantSceneId, 'stage_scene_beta');
 console.log('✓ Independent variation verification passed: cleared Stage 2 Gate (b)!');
 
-// 6. ColorQL Chromatic Packet Integration
-console.log('6. Testing ColorQL Chromatic Packet Integration...');
+// 6. Chromatic Packet Integration
+console.log('6. Testing Chromatic Packet Integration...');
 const chromaticPacket = {
-    proto     : 'chromagame.cql.v1',
+    proto     : 'chromagame.v1',
     frame     : 0,
     timestamp : 1729890000000,
     colorCount: 3,
@@ -169,9 +169,9 @@ const chromaticPacket = {
     ]
 };
 
-const cqlRecorder = Neo.create(RenderToClip, { sceneId: 'colorql_bridge', fps: 60 });
-cqlRecorder.startRecording();
-const receipt = cqlRecorder.recordFrame({
+const chromaticRecorder = Neo.create(RenderToClip, { sceneId: 'chromatic_bridge', fps: 60 });
+chromaticRecorder.startRecording();
+const receipt = chromaticRecorder.recordFrame({
     payload    : chromaticPacket.payload,
     colorTokens: chromaticPacket.colors
 });
@@ -179,9 +179,9 @@ const receipt = cqlRecorder.recordFrame({
 assert.strictEqual(receipt.frameIndex, 0);
 assert.deepStrictEqual(receipt.colorTokens, ['#161B22', '#58A6FF', '#238636']);
 assert.strictEqual(receipt.rollingHash.length, 64);
-const cqlBundle = cqlRecorder.stopRecording();
-assert.strictEqual(Falsifier.verifyChain(cqlBundle).valid, true);
-console.log('✓ ColorQL Chromatic Packet integration verified.');
+const chromaticBundle = chromaticRecorder.stopRecording();
+assert.strictEqual(Falsifier.verifyChain(chromaticBundle).valid, true);
+console.log('✓ Chromatic Packet integration verified.');
 
 console.log('\n======================================================');
 console.log('ALL TESTS PASSED: STAGE 2 INSTRUMENTS FULLY VERIFIED');
