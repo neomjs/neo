@@ -259,6 +259,12 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Settles with the plugin `cellEditing` creates behind an import. Null when the plugin was declared
+     * in `plugins` or editing was never enabled: `getPlugin('grid-cell-editing')` then answers at once.
+     * @member {Promise<Neo.grid.plugin.CellEditing>|null} cellEditingReady=null
+     */
+    cellEditingReady = null
+    /**
      * @member {Object[]|Neo.grid.column.Base[]} centerColumns=[]
      * @protected
      */
@@ -419,7 +425,7 @@ class GridContainer extends BaseContainer {
         if (plugin) {
             oldValue !== undefined && (plugin.disabled = !value)
         } else if (value) {
-            import('./plugin/CellEditing.mjs').then(module => {
+            me.cellEditingReady = import('./plugin/CellEditing.mjs').then(module => {
                 let {appName} = me,
                     plugins   = me.plugins || [],
                     // Enabling twice before the first import settles queues a continuation each. A lookup made
@@ -429,7 +435,7 @@ class GridContainer extends BaseContainer {
 
                 if (settled) {
                     settled.disabled = !me.cellEditing;
-                    return
+                    return settled
                 }
 
                 plugins.push({
@@ -442,7 +448,9 @@ class GridContainer extends BaseContainer {
                 me.plugins = plugins;
 
                 // The plugin arrives after an import, so rows may have rendered without it
-                me.repaintCells()
+                me.repaintCells();
+
+                return me.getPlugin('grid-cell-editing')
             })
         }
     }

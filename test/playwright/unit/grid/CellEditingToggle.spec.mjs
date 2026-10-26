@@ -32,22 +32,14 @@ import Store             from '../../../../src/data/Store.mjs';
 import VdomHelper        from '../../../../src/vdom/Helper.mjs';
 
 /**
- * The plugin arrives through a dynamic import, so every arm waits for it rather than for a fixed timeout.
+ * The plugin arrives through a dynamic import, so every arm waits for the grid's own promise of it.
  * @param {Neo.grid.Container} grid
  * @returns {Promise<Neo.plugin.Base|null>}
  */
 async function awaitPlugin(grid) {
-    for (let i = 0; i < 50; i++) {
-        const plugin = grid.getPlugin('grid-cell-editing');
+    await grid.cellEditingReady;
 
-        if (plugin) {
-            return plugin
-        }
-
-        await grid.timeout(10)
-    }
-
-    return null
+    return grid.getPlugin('grid-cell-editing')
 }
 
 /**
@@ -224,5 +216,76 @@ test.describe('Grid cellEditing toggled at runtime', () => {
         expect(plugin).not.toBeNull();
         expect(countPlugins(grid)).toBe(1);
         expect(plugin.disabled).toBe(true)
+    })
+});
+
+test.describe('Grid cellEditingReady', () => {
+    const createGrid = config => Neo.create(GridContainer, {
+        appName  : 'GridCellEditingToggleTest',
+        height   : 200,
+        width    : 300,
+        rowHeight: 40,
+        store    : Neo.create(Store, {
+            keyProperty: 'id',
+            data       : [{id: 1, firstname: 'Tobias'}],
+            model      : {fields: [{name: 'id', type: 'Integer'}, {name: 'firstname', type: 'String'}]}
+        }),
+        columnDefaults: {editable: true, width: 150},
+        columns       : [{dataField: 'firstname', text: 'Firstname'}],
+        ...config
+    });
+
+    let grid;
+
+    test.afterEach(() => {
+        grid?.destroy();
+        grid = null
+    });
+
+    test('enabling at runtime starts a promise that settles with the plugin', async () => {
+        grid = createGrid({cellEditing: false});
+
+        expect(grid.cellEditingReady, 'nothing is pending before editing is enabled').toBeNull();
+
+        grid.cellEditing = true;
+
+        const ready = grid.cellEditingReady;
+
+        expect(ready).toBeInstanceOf(Promise);
+
+        const plugin = await ready;
+
+        expect(plugin).not.toBeNull();
+        expect(plugin).toBe(grid.getPlugin('grid-cell-editing'))
+    });
+
+    test('a grid constructed with cellEditing true settles the promise with its plugin', async () => {
+        grid = createGrid({cellEditing: true});
+
+        const plugin = await grid.cellEditingReady;
+
+        expect(plugin).not.toBeNull();
+        expect(plugin).toBe(grid.getPlugin('grid-cell-editing'))
+    });
+
+    test('enabling twice before the import settles resolves to the one plugin it created', async () => {
+        grid = createGrid({cellEditing: false});
+
+        grid.cellEditing = true;
+        grid.cellEditing = false;
+        grid.cellEditing = true;
+
+        const plugin = await grid.cellEditingReady;
+
+        expect(countPlugins(grid)).toBe(1);
+        expect(plugin).toBe(grid.getPlugin('grid-cell-editing'))
+    });
+
+    test('a plugin declared by hand leaves the promise null, and getPlugin answers at once', async () => {
+        grid = createGrid({plugins: [{module: CellEditingPlugin, id: 'ready-declared-cell-editing-plugin'}]});
+
+        expect(grid.cellEditingReady).toBeNull();
+        expect(grid.getPlugin('grid-cell-editing')).not.toBeNull();
+        expect(countPlugins(grid)).toBe(1)
     })
 });
