@@ -67,7 +67,14 @@ test.describe('Desktop (1920x1080): grid View-owned focus + input-modality ring 
         // `neo-focus-pointer` stamp follows one round trip later, so the stamp is WAITED for rather than read
         // alongside the focus. The outline is sampled at both points; neither sample is guaranteed to land
         // before the stamp, so what this bounds is the ring — never the gap, and never a stale stamp.
-        for (const [region, bodyId] of regions) {
+        for (const [index, [region, bodyId]] of regions.entries()) {
+            // Each region starts unfocused, so its stamp poll can pass only on its own click's stamp, and
+            // no click's focus request is still in flight when the blur arm below runs.
+            if (index > 0) {
+                await page.evaluate(vId => document.getElementById(vId).blur(), viewId);
+                await expect.poll(async () => (await readFocus()).pointer, { timeout: 5000 }).toBe(false);
+            }
+
             const row = page.locator(`#${bodyId} .neo-grid-row`).first();
             await expect(row, `${region} exposes a visible row`).toBeVisible();
             await row.click();
@@ -103,6 +110,8 @@ test.describe('Desktop (1920x1080): grid View-owned focus + input-modality ring 
         await navRow.click();
         await expect.poll(async () => (await readFocus()).active, { timeout: 5000 }).toBe(viewId);
         await expect(navRow, 'the clicked row is selected').toHaveClass(/neo-selected/);
+        // The blur arm cleared the stamp, so this one is navRow's own: its focus request has landed.
+        await expect.poll(async () => (await readFocus()).pointer, { timeout: 5000 }).toBe(true);
 
         await page.keyboard.press('ArrowDown');
 
