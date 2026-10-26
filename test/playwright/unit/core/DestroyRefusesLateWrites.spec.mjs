@@ -89,18 +89,18 @@ test.describe('core.Base#destroy refuses late config writes (#20080)', () => {
         Identity.afterSetIdCalls = 0;
 
         const IdentityClass = Neo.setupClass(Identity),
-              instance      = Neo.create(IdentityClass, {id: 'destroy-retires-identity'});
+              instance      = Neo.create(IdentityClass, {id: 'destroy-refuses-identity'});
 
         expect(IdentityClass.afterSetIdCalls).toBe(1);
 
         instance.destroy();
 
-        expect(instance.id,           'index cleanups key on the id after destroy').toBe('destroy-retires-identity');
+        expect(instance.id,           'index cleanups key on the id after destroy').toBe('destroy-refuses-identity');
         expect(instance.isDestroying, 'guards read isDestroying without isDestroyed').toBe(true);
 
-        instance.id = 'destroy-retires-renamed';
+        instance.id = 'destroy-refuses-renamed';
 
-        expect(instance.id,                   'the id takes no late write').toBe('destroy-retires-identity');
+        expect(instance.id,                   'the id takes no late write').toBe('destroy-refuses-identity');
         expect(IdentityClass.afterSetIdCalls, 'a late id write registers nothing').toBe(1)
     });
 
@@ -164,7 +164,7 @@ test.describe('core.Base#destroy refuses late config writes (#20080)', () => {
         expect(instance.value, 'the write is still refused').toBeNull()
     });
 
-    test('The destroy chain writes nothing to the instance it retired', async () => {
+    test('The destroy chain writes nothing to the instance it destroyed', async () => {
         class Chain extends Base {
             static config = {
                 className: 'Test.Unit.Core.DestroyRefusesLateWrites.Chain'
