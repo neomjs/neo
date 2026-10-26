@@ -1,4 +1,5 @@
 import BaseContainer from '../../container/Base.mjs';
+import VNodeUtil     from '../../util/VNode.mjs';
 
 /**
  * @summary The dedicated orchestrator for a grid's header region within the multi-body architecture.
@@ -213,11 +214,16 @@ class Wrapper extends BaseContainer {
             }),
             destroyReplacedButtons = (toolbar, nextButtons) => {
                 if (toolbar?.items) {
+                    const retired = {};
+
                     for (const item of toolbar.items) {
                         if (item?.destroy && !nextButtons?.includes(item)) {
+                            retired[item.id] = item.vnode;
                             item.destroy()
                         }
                     }
+
+                    toolbar.vnode && VNodeUtil.unlinkRetiredReferences(toolbar.vnode, retired)
                 }
             };
 
@@ -261,15 +267,21 @@ class Wrapper extends BaseContainer {
                 me.applyColumnButtonOrder(lockedStartColumns, centerColumns, lockedEndColumns)
             }
 
+            const retired = {};
+
             if (startEmptied) {
+                retired[me.headerStart.id] = me.headerStart.vnode;
                 me.headerStart.destroy();
                 me.headerStart = null
             }
 
             if (endEmptied) {
+                retired[me.headerEnd.id] = me.headerEnd.vnode;
                 me.headerEnd.destroy();
                 me.headerEnd = null
             }
+
+            me.vnode && VNodeUtil.unlinkRetiredReferences(me.vnode, retired)
         }
 
         me.items = me.getToolbars();

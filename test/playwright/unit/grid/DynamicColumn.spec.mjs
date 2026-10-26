@@ -21,13 +21,14 @@ setup({
     }
 });
 
-import {test, expect}     from '@playwright/test';
-import Neo                from '../../../../src/Neo.mjs';
-import * as core          from '../../../../src/core/_export.mjs';
-import InstanceManager    from '../../../../src/manager/Instance.mjs';
-import GridContainer      from '../../../../src/grid/Container.mjs';
-import Store              from '../../../../src/data/Store.mjs';
-import VdomHelper         from '../../../../src/vdom/Helper.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../src/manager/Instance.mjs';
+import GridContainer   from '../../../../src/grid/Container.mjs';
+import Store           from '../../../../src/data/Store.mjs';
+import VdomHelper      from '../../../../src/vdom/Helper.mjs';
+import VNodeUtil       from '../../../../src/util/VNode.mjs';
 
 test.describe('Grid Dynamic Column Updates', () => {
     let grid, store;
@@ -168,6 +169,7 @@ test.describe('Grid Dynamic Column Updates', () => {
         expect(grid.columns.count).toBe(2);
         expect(grid.headerToolbar.items.length).toBe(2);
         expect(grid.getVdomRoot()['aria-colcount']).toBe(2);
+        expect(() => VNodeUtil.createMap(grid.vnode)).not.toThrow();
 
         for (const id of oldColumnIds) {
             expect(InstanceManager.get(id)).toBeNull()

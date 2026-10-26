@@ -10,6 +10,7 @@ import HorizontalScrollbar from './HorizontalScrollbar.mjs';
 import NeoArray            from '../util/Array.mjs';
 import VerticalScrollbar   from './VerticalScrollbar.mjs';
 import View                from './View.mjs';
+import VNodeUtil           from '../util/VNode.mjs';
 import * as column         from './column/_export.mjs';
 import * as header         from './header/_export.mjs';
 import {isDescriptor}      from '../core/ConfigSymbols.mjs';
@@ -1026,12 +1027,15 @@ class GridContainer extends BaseContainer {
         // The header region (locked + centre toolbars) is owned by the dedicated header.Wrapper orchestrator.
         me.headerWrapper.updateHeaders(lockedStartButtons, centerButtons, lockedEndButtons);
 
+        const retiredBodies = {};
+
         // --- Start body (Left) ---
         if (me.lockedStartColumns.length > 0) {
             if (!me.bodyStart) {
                 me.bodyStart = lockedBody()
             }
         } else if (me.bodyStart) {
+            retiredBodies[me.bodyStart.id] = me.bodyStart.vnode;
             me.bodyStart.destroy();
             me.bodyStart = null;
 
@@ -1046,11 +1050,16 @@ class GridContainer extends BaseContainer {
                 me.bodyEnd = lockedBody()
             }
         } else if (me.bodyEnd) {
+            retiredBodies[me.bodyEnd.id] = me.bodyEnd.vnode;
             me.bodyEnd.destroy();
             me.bodyEnd = null;
 
             // See the bodyStart branch: release the scrollport margin of a removed region.
             me.horizontalScrollbar && (me.horizontalScrollbar.endWidth = 0)
+        }
+
+        if (me.view?.vnode && (retiredBodies[Object.keys(retiredBodies)[0]] !== undefined || Object.keys(retiredBodies).length > 0)) {
+            VNodeUtil.unlinkRetiredReferences(me.view.vnode, retiredBodies)
         }
 
         // Synchronize the body sub-grids into the grid.View.
