@@ -2124,6 +2124,96 @@ test('the holder contract: a config-assigned document is readable before any ope
             expect(workspace.lifecycleEvents).toEqual(['return:true:true', 'disconnect'])
         });
 
+        // Only the opener's handle tells a vessel's reload from its close: the first document connects
+        // with the route the opener minted, a reloaded one without any.
+        const withVesselHandle = async (windowId, run) => {
+            const originalMain = Neo.Main,
+                  probe        = {calls: [], closed: false};
+
+            Neo.Main = {...originalMain, windowNativeIsClosed: async data => {probe.calls.push(data); return probe.closed}};
+            Neo.manager.Window.register({id: windowId, nativeRoute: {nativeHandleKey: 'vessel-handle', ownerWindowId: workspace.windowId}});
+
+            try {
+                await run(probe)
+            } finally {
+                Neo.Main = originalMain;
+                Neo.manager.Window.unregister(windowId)
+            }
+        };
+
+        const tearOutPreview = async () => {
+            const {request, zone} = await beginExit('preview');
+
+            workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone});
+            await workspace.refreshPromise;
+
+            return request.topologyIdentity
+        };
+
+        test('#20144 a reload keeps the pane with its vessel: its own lineage re-embodies it, and a close still returns it', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const pane = workspace.getReference('tearout-pane-preview');
+
+            await withVesselHandle('reload-first', async probe => {
+                const identity = await tearOutPreview(),
+                      first    = addWindow('reload-first');
+
+                await connectVessel('reload-first', identity);
+                expect(first.items).toContain(pane);
+
+                await disconnectVessel('reload-first');
+
+                expect(probe.calls).toEqual([{nativeHandleKey: 'vessel-handle', windowId: workspace.windowId}]);
+                expect(workspace.lifecycleEvents, 'a reload returns nothing home').toEqual([]);
+                expect(first.items, 'the departed viewport lets go of the held pane').not.toContain(pane);
+                expect(pane.windowId, 'held headless').toBeNull();
+                expect(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview')).toMatchObject({readmit: true, windowId: null});
+
+                const reloaded = addWindow('reload-second');
+
+                await connectVessel('reload-second', identity);
+
+                expect(reloaded.items, 'the reloaded document re-embodies the same live pane').toContain(pane);
+                expect(first.items).not.toContain(pane);
+                expect(workspace.nativeWindows.getOwner(workspace.id, 'popup:preview').windowId).toBe('reload-second');
+
+                probe.closed = true;
+                await disconnectVessel('reload-second');
+
+                expect(probe.calls, 'the handle outlives the reload').toHaveLength(2);
+                await expect.poll(() => workspace.lifecycleEvents, 'the confirmed close returns the pane').toEqual(['return:true:true', 'disconnect']);
+                expect(reloaded.items).not.toContain(pane);
+                expect(workspace.dockModel.nodes['side-tabs'].items).toEqual(['preview', 'terminal'])
+            })
+        });
+
+        test('#20144 a reloading vessel that never binds again returns its pane when the lease ends', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const pane = workspace.getReference('tearout-pane-preview');
+
+            try {
+                await withVesselHandle('reload-lost', async () => {
+                    addWindow('reload-lost');
+                    await connectVessel('reload-lost', await tearOutPreview());
+                    expect(workspace.nativeWindows.getOwner(workspace.id, 'popup:preview').windowId).toBe('reload-lost');
+
+                    // Shortened only now: the release starts the slot's lease, the reservation's ran already.
+                    TransactionManager.reconnectLeaseMs = 20;
+                    await disconnectVessel('reload-lost');
+                    expect(workspace.lifecycleEvents, 'held, not yet returned').toEqual([]);
+
+                    await expect.poll(() => workspace.lifecycleEvents).toEqual(['return:true:true', 'disconnect']);
+                    expect(workspace.getReference('tearout-pane-preview')).toBe(pane);
+                    expect(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview')).toBeNull();
+                    expect(workspace.closeRequests, 'a lost vessel is not asked to close').toEqual([])
+                })
+            } finally {
+                TransactionManager.reconnectLeaseMs = 20000
+            }
+        });
+
         test('#20127 a lazy pane whose card never showed tears out as a live pane and lands in its vessel', async () => {
             workspace = Neo.create(LazyPaneTearOutWorkspace, {dockModel: createDocument()});
 

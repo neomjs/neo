@@ -63,8 +63,11 @@ class NativeLifecycle extends Base {
      * @param {Function} [effects.prepare] Asynchronous admission; false refuses the connection.
      * @param {Function} [effects.bound] Embodies the accepted connection after state publication.
      * @param {Function} [effects.ownerChanged] Observes the ownership write, never owns its registry.
-     * @param {Function} [effects.unbind] Unbinds projection; false or {retained: true} retains semantic ownership.
-     * @param {Function} [effects.released] Handles a released resource which was not retained.
+     * @param {Function} [effects.unbind] Unbinds projection; false or {retained: true} retains semantic ownership,
+     *     and {retained: true, readmit: true} also holds the key for its own lineage to bind again — until an
+     *     optional `closed` promise resolves true, or the lease ends.
+     * @param {Function} [effects.released] Handles a released resource which was not retained, or a held one
+     *     whose lineage did not bind again before its lease ended.
      * @param {Function} [effects.bindingExpired] Observes a formerly bound release awaiting native closure.
      * @param {Function} [effects.expired] Handles acknowledged cleanup of a provisional resource.
      * @returns {void}
@@ -433,8 +436,35 @@ class NativeLifecycle extends Base {
                 }
             }
             if (owned) source.owners.set(workspaceKey, {...entry, windowId: null});
+            // A held render target, e.g. a reloading window: the same lineage binds again through admission, while
+            // the source's `closed` answer or the lease ending first hands the item to `released` (releaseHeld).
+            if (owned && retained && result?.readmit === true) {
+                source.admissions.set(workspaceKey, {
+                    connected      : false, connectingWindowId: null, context: null, gestureToken: null, groupId: this.groupId,
+                    generationToken: entry.generationToken ?? data.generationToken, itemId, readmit: true,
+                    windowId       : null, windowName: entry.windowName ?? null, workspaceKey});
+                result.closed?.then(closed => closed === true && this.releaseHeld(sourceId, workspaceKey, data), () => {})
+            }
             if (source.active && !retained) await source.effects.released?.({data, itemId, workspaceKey, entry, admission, committed: !!owned})
         }
+    }
+
+    /**
+     * @summary Hands a held key's committed item to `released` while its lineage has not bound again: when its
+     * lease ends, or when its source learns the render target is gone for good. Nothing is closed first — a
+     * window that already closed refuses a close, which would strand the item.
+     * @param {String} sourceId
+     * @param {String} workspaceKey
+     * @param {Object} [data={}] The release or lease-expiry envelope `released` receives.
+     * @returns {Promise<Boolean>} Whether a held key was released.
+     */
+    async releaseHeld(sourceId, workspaceKey, data={}) {
+        const source = this.sources.get(sourceId), admission = source?.admissions.get(workspaceKey);
+        if (!admission?.readmit || admission.connected || admission.connectingWindowId) return false;
+        this.clearAdmission(sourceId, workspaceKey, admission);
+        source.active && await source.effects.released?.({data, itemId: admission.itemId, workspaceKey,
+            entry: source.owners.get(workspaceKey), admission, committed: source.owners.has(workspaceKey)});
+        return true
     }
 
     /**
@@ -453,6 +483,10 @@ class NativeLifecycle extends Base {
             }
             if (data.releasedBinding && !this.isCurrentRelease(data)) continue;
             const {workspaceKey} = data, admission = source.admissions.get(workspaceKey);
+            if (admission?.readmit) {
+                await this.releaseHeld(sourceId, workspaceKey, data);
+                continue
+            }
             if (!admission || admission.connected) continue;
             const {itemId} = admission, entry = source.owners.get(workspaceKey);
             const vessel   = {...entry, ...admission, windowName: admission.windowName || entry?.windowName};

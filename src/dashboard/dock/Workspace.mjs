@@ -602,6 +602,15 @@ class Workspace extends Container {
     tearOutHandlers = null
 
     /**
+     * The opener's handle of each bound tear-out vessel, by Group key: `{nativeHandleKey, ownerWindowId}`.
+     * It outlives the vessel's route-less reloads, so a release can still ask whether the window closed
+     * ({@link Neo.dashboard.dock.window.NativeVesselTransaction#holdReleasedVessel}).
+     * @member {Object} vesselHandles={}
+     * @protected
+     */
+    vesselHandles = {}
+
+    /**
      * Item ids with a `dockReload()` invocation in flight — the single-flight guard: a second
      * activation during the window neither invokes nor settles.
      * @member {Set<String>} dockReloadInFlight=new Set()
@@ -966,12 +975,14 @@ class Workspace extends Container {
                     me.tearOutHandlers.compensateFailedAdoption(itemId, me.nativeWindows.getOwner(me.id, connection.workspaceKey));
                     throw new Error(`Workspace ${me.id}: tear-out pane "${itemId}" could not enter its admitted vessel`)
                 }
+                NativeVesselTransaction.watchVesselHandle(me.vesselHandles, connection);
                 await me.afterTearOutWindowConnect(context)
             },
             ownerChanged  : ({itemId, entry, connection, merge}) => me.afterNativeOwnerChange(itemId, entry, connection, merge),
             unbind        : data => me.onNativeWindowRelease(data),
             bindingExpired: data => me.onNativeWindowRelease({...data, expired: true}),
             released      : async context => {
+                delete me.vesselHandles[context.workspaceKey];
                 const pane = await me.tearOutHandlers.onBindingReleased(context);
                 me.afterTearOutWindowDisconnect({...context, pane})
             },
@@ -989,6 +1000,7 @@ class Workspace extends Container {
                     return
                 }
 
+                delete me.vesselHandles[context.workspaceKey];
                 const pane = await me.tearOutHandlers.onBindingReleased({...context, committed});
                 me.afterTearOutWindowDisconnect({...context, committed, expired: true, pane})
             }
@@ -1019,8 +1031,11 @@ class Workspace extends Container {
      * @returns {Boolean|Object|Promise<Boolean|Object>} Retention disposition for the native lifecycle.
      */
     onNativeWindowRelease(data) {
-        return NativeVesselTransaction.releaseWorkspace({workspaceSet: this.workspaceSet,
-            nativeWindows: this.nativeWindows}, data)
+        const {nativeWindows} = this,
+              disposition     = NativeVesselTransaction.releaseWorkspace({workspaceSet: this.workspaceSet, nativeWindows}, data);
+
+        return disposition === true ? NativeVesselTransaction.holdReleasedVessel({handles: this.vesselHandles,
+            nativeWindows, sourceId: this.id, tearOut: this.tearOutHandlers}, data) : disposition
     }
 
     /**
