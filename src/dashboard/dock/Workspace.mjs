@@ -1051,9 +1051,19 @@ class Workspace extends Container {
      * @protected
      */
     holdReloadingVessel(data) {
-        const handle = this.vesselHandles[data.workspaceKey];
+        const {windowId, workspaceKey} = data,
+              handle                   = this.vesselHandles[workspaceKey],
+              owner                    = this.nativeWindows?.getOwner(this.id, workspaceKey),
+              pane                     = owner && this.tearOutHandlers?.heldPane(owner.itemId);
 
-        if (data.expired || !handle || !this.nativeWindows?.getOwner(this.id, data.workspaceKey)) return true;
+        if (data.expired || !handle || !owner) return true;
+
+        // The departed window takes no more updates: the held pane leaves its viewport silently and stays
+        // headless until its lineage re-embodies it, as a detached Workspace does (onNativeWindowDetached).
+        if (pane && !pane.isDestroyed && pane.parent && pane.parent === Neo.apps[windowId]?.mainView) {
+            pane.parent.remove(pane, false, true);
+            pane.windowId = null
+        }
 
         return {retained: true, awaitingClosure: true, readmit: true,
             closed: Neo.Main.windowNativeIsClosed({nativeHandleKey: handle.nativeHandleKey, windowId: handle.ownerWindowId})}

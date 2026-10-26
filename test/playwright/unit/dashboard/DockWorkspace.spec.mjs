@@ -2166,6 +2166,8 @@ test('the holder contract: a config-assigned document is readable before any ope
 
                 expect(probe.calls).toEqual([{nativeHandleKey: 'vessel-handle', windowId: workspace.windowId}]);
                 expect(workspace.lifecycleEvents, 'a reload returns nothing home').toEqual([]);
+                expect(first.items, 'the departed viewport lets go of the held pane').not.toContain(pane);
+                expect(pane.windowId, 'held headless').toBeNull();
                 expect(workspace.nativeWindows.getAdmission(workspace.id, 'popup:preview')).toMatchObject({readmit: true, windowId: null});
 
                 const reloaded = addWindow('reload-second');
