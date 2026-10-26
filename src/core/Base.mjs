@@ -316,7 +316,8 @@ class Base {
         // Triggers async logic after the construction chain is done.
         Promise.resolve().then(async () => {
             await me.initAsync();
-            me.isReady = true
+            // An instance destroyed meanwhile takes no late write, yet its ready() still settles
+            me.isDestroyed ? me.#readyResolver() : me.isReady = true
         })
     }
 
@@ -505,8 +506,8 @@ class Base {
     }
 
     /**
-     * Unregisters this instance from Neo.manager.Instance
-     * and removes all object entries from this instance
+     * Unregisters this instance from Neo.manager.Instance and removes all object entries from this instance.
+     * Afterwards, its configs keep their last values readable, and a config write runs no hook.
      */
     destroy() {
         let me = this;
@@ -551,13 +552,14 @@ class Base {
     /**
      * A public method to access the underlying Config controller.
      * This enables advanced interactions like subscriptions.
+     * A destroyed instance creates no new controller.
      * @param {String} key The name of the config property (e.g., 'items').
      * @returns {Config|undefined} The Config instance, or undefined if not found.
      */
     getConfig(key) {
         let me = this;
 
-        if (!me.#configs[key] && me.isConfig(key)) {
+        if (!me.#configs[key] && !me.isDestroyed && me.isConfig(key)) {
             me.#configs[key] = new Config(me.constructor.configDescriptors?.[key])
         }
 
@@ -920,8 +922,11 @@ class Base {
      * @private
      */
     #preDestroyHook() {
+        // A repeated call must not write to the destroyed instance
+        if (this.isDestroyed) return false;
+
         this.isDestroying = true;
-        return !this.isDestroyed
+        return true
     }
 
     /**
