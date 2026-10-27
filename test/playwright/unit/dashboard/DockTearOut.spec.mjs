@@ -12,6 +12,8 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
+import Component      from '../../../../src/component/Base.mjs';
+import Container      from '../../../../src/container/Base.mjs';
 import TearOut        from '../../../../src/dashboard/dock/window/TearOut.mjs';
 
 /**
@@ -642,6 +644,22 @@ test.describe('Neo.dashboard.dock.window.TearOut', () => {
             expect(await handlers.reintegrateItem('graph', null)).toBe(true);
             expect(calls.published).toHaveLength(1);
             expect(calls.returns.at(-1)).toMatchObject({phase: 'after', returned: true})
+        });
+
+        test('a returning live pane leaves its departed window\'s tree before the publication lands', async () => {
+            let release;
+
+            const {handlers} = harness({commitReturn: () => new Promise(resolve => {release = resolve})}),
+                  pane       = Neo.create(Component, {}),
+                  vessel     = Neo.create(Container, {items: [pane]}),
+                  pending    = handlers.reintegrateItem('graph', pane);
+
+            // The App worker destroys a departed window's tree one task after its disconnect
+            expect(vessel.items.includes(pane)).toBe(false);
+
+            release();
+            expect(await pending).toBe(true);
+            [pane, vessel].forEach(item => item.destroy())
         });
     });
 

@@ -132,10 +132,11 @@ class NativeVesselTransaction extends Base {
 
         if (data.expired || !handle || !owner || !WindowManager.get(handle.ownerWindowId)) return true;
 
-        // The departed window takes no more updates: the held pane leaves its viewport silently and stays
-        // headless until its lineage re-embodies it, as a detached Workspace does (onNativeWindowDetached).
-        if (pane && !pane.isDestroyed && pane.parent && pane.parent === Neo.apps[windowId]?.mainView) {
-            pane.parent.remove(pane, false, true);
+        // The departed window takes no more updates: the held pane leaves its tree silently, however deep the host
+        // nested it, and stays headless until its lineage re-embodies it, as a detached Workspace does
+        // (onNativeWindowDetached). The App worker destroys whatever the departed tree still holds.
+        if (pane && !pane.isDestroyed && pane.windowId === windowId) {
+            pane.parent?.remove(pane, false, true);
             pane.windowId = null
         }
 
