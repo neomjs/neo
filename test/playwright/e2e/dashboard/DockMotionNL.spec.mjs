@@ -255,11 +255,12 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
 
         await startMotionSampler(page, itemMarker);
 
+        // the move also re-projects two tab strips, whose header toolbars raise the signal first
         const [result] = await Promise.all([
             app.executeDockOperation(holderId, {
                 operation: 'moveItem', itemId: move.itemId, targetNodeId: move.targetNodeId, index: 0
             }),
-            expectSignalBracket(page)
+            expectSignalBracket(page, {selector: `.neo-dock-workspace${SIGNAL}`})
         ]);
 
         expect(result.errors).toEqual([]);
