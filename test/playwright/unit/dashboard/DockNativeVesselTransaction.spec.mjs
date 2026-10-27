@@ -694,6 +694,17 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         });
     }
 
+    test('a released participant without a close policy still leaves its departed render target, once', async () => {
+        const owner = createHost({policy: null});
+
+        expect(await owner.release()).toBe(true);
+
+        // Headless until a warm reload adopts it again, outside the tree the App worker destroys
+        expect(owner.calls.filter(({name}) => name === 'detach')).toHaveLength(1);
+        expect(owner.source.windowId).toBeNull();
+        expect(owner.calls.filter(({name}) => name === 'observe'), 'nothing returns it').toEqual([])
+    });
+
     test('unknown native closure waits for its exact formerly-bound lease expiry', async () => {
         const owner = createHost({leaseMs: 0});
         owner.answers.observe = null;

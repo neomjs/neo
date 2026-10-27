@@ -51,9 +51,12 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
-     * @summary Detaches an opted-in workspace and returns its documents only on confirmed closure.
-     * The Group's exact released binding owns the whole pending operation, including observation
-     * and queued insertion. A warm rebind invalidates admission; an unknown physical state waits
+     * @summary Detaches a released workspace from its departed render target, and returns an opted-in workspace's
+     * documents only on confirmed closure.
+     * Every participant leaves the departed window at once, because the App worker destroys whatever that window's
+     * tree still holds; one without a close policy stays headless until its binding is adopted again, as a warm
+     * reload of the main window adopts its root. The Group's exact released binding owns the whole pending operation,
+     * including observation and queued insertion. A warm rebind invalidates admission; an unknown physical state waits
      * for that binding's reconnect lease. Never-bound admissions do not return semantic documents.
      * @param {Object} descriptor WorkspaceSet and the Group's nativeWindows lifecycle.
      * @param {Object} data The manager's release or formerly-bound expiry envelope.
@@ -63,7 +66,10 @@ class NativeVesselTransaction extends Base {
         const source = workspaceSet?.getParticipantForBinding(data.workspaceKey),
               native = source?.participant.nativeWindow,
               policy = native?.policy();
-        if (policy == null) return true;
+        if (policy == null) {
+            data.releasedWindowId && native?.windowId() === data.releasedWindowId && native.detach(data);
+            return true
+        }
         if (!['return', 'retain'].includes(policy)) throw new TypeError('unknown native workspace close policy');
         if (!nativeWindows?.isCurrentRelease(data)) return false;
 

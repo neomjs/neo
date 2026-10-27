@@ -1797,7 +1797,8 @@ test('the holder contract: a config-assigned document is readable before any ope
         };
 
         const addWindow = windowId => {
-            const mainView = Neo.create(Container, {});
+            // An app creates its main view in its own window, as Application#beforeSetMainView does
+            const mainView = Neo.create(Container, {windowId});
 
             Neo.apps[windowId] = {mainView};
 
