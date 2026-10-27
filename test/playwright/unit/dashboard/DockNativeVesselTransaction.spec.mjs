@@ -553,6 +553,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
             TransactionManager.retireGroup(host.groupId);
             host.set.destroy()
         }
+        WindowManager.get('native-return-landing') && WindowManager.unregister('native-return-landing');
         Object.assign(Neo.Main, previousMain);
         TransactionManager.reconnectLeaseMs = previousLease;
         Neo.logError = previousLogError;
@@ -574,6 +575,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
      */
     const createHost = ({policy = 'return', bound = true, leaseMs, sourceItems = ['pane-last', 'pane-first'], componentId} = {}) => {
         if (leaseMs !== undefined) TransactionManager.reconnectLeaseMs = leaseMs;
+        WindowManager.register({id: 'native-return-landing'});
         const identity = TransactionManager.bind({workspaceKey: LANDING, windowId: 'native-return-landing'}),
               groupId  = identity.groupId;
         TransactionManager.setHistoryDepth({groupId, depth: 8});
@@ -668,6 +670,21 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         expect(owner.calls.filter(call => call.name === 'observe')).toEqual([{name: 'observe',
             data: {nativeHandleKey: 'independent-native-handle', windowId: 'native-return-landing'}}]);
         expect(owner.returned).toHaveLength(1)
+    });
+
+    test('#20152 a workspace whose opener departed returns at once without waiting for the lease', async () => {
+        const owner = createHost();
+        owner.answers.observe = () => Promise.reject(new Error('no live port for departed opener'));
+        WindowManager.unregister(owner.target.windowId);
+        const result = await owner.release();
+        expect(result).toMatchObject({retained: true, awaitingClosure: false,
+            receipt: {returned: true, workspaceId: SOURCE, itemIds: ['pane-first', 'pane-last']}});
+        expect(owner.calls.filter(call => call.name === 'observe'), 'no departed opener is asked').toEqual([]);
+        expect(owner.source.document.items).toEqual({});
+        expect(owner.target.document.nodes.tabs.items).toEqual(['anchor', 'pane-first', 'pane-last']);
+        expect(TransactionManager.get(owner.groupId).history.current).toMatchObject({
+            operation: 'returnPopupWorkspace', workspaceId: SOURCE, targetWorkspaceId: TARGET, cause: 'popup-close'
+        })
     });
 
     test('retain detaches the render target while preserving both documents and history', async () => {

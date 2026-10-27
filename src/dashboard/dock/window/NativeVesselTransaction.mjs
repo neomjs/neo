@@ -57,8 +57,8 @@ class NativeVesselTransaction extends Base {
      * tree still holds. One without a close policy keeps its window id until its binding is adopted again, as a warm
      * reload of the main window adopts its root; an opted-in one detaches headless. The Group's exact released binding
      * owns the whole pending operation, including observation and queued insertion. A warm rebind invalidates
-     * admission; an unknown physical state waits for that binding's reconnect lease. Never-bound admissions do not
-     * return semantic documents.
+     * admission; an unknown physical state waits for that binding's reconnect lease, while a route whose opener
+     * departed returns at once. Never-bound admissions do not return semantic documents.
      * @param {Object} descriptor WorkspaceSet and the Group's nativeWindows lifecycle.
      * @param {Object} data The manager's release or formerly-bound expiry envelope.
      * @returns {Boolean|Promise<Object|Boolean>} Retention disposition, independent of native presentation.
@@ -87,8 +87,8 @@ class NativeVesselTransaction extends Base {
             if (!awaitingClosure) return {retained: true, awaitingClosure: false};
 
             const observed = data.expired === true && nativeWindows.isLeaseExpired(data) ? true
-                : route ? await Neo.Main.windowNativeIsClosed({nativeHandleKey: route.nativeHandleKey,
-                    windowId: route.ownerWindowId}).catch(() => null) : null;
+                : route ? !WindowManager.get(route.ownerWindowId) || await Neo.Main.windowNativeIsClosed({
+                    nativeHandleKey: route.nativeHandleKey, windowId: route.ownerWindowId}).catch(() => null) : null;
             if (!current()) return false;
             if (observed !== true && !nativeWindows.isLeaseExpired(data)) return {retained: true, awaitingClosure: true};
 
