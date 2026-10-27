@@ -497,6 +497,37 @@ test.describe('Group native lifecycle (#18314)', () => {
         expect(windows.getAdmission('view', key)).toBeNull()
     });
 
+    test('a late closed answer from an earlier hold leaves a newer hold for the same key untouched (#20147)', async () => {
+        const windows = owner('root'), closes = [deferred(), deferred()], released = [];
+        let   holds   = 0;
+        windows.registerSource('view', effects({
+            bound   : ({connection, owned, workspaceKey}) => owned && windows.recordOwner('view', workspaceKey, {windowId: connection.windowId}, null, true),
+            unbind  : () => ({retained: true, awaitingClosure: true, readmit: true, closed: closes[holds++].promise}),
+            released: data => released.push(data)
+        }));
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'first'});
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'first'}, windows.getConnection('view', key));
+
+        release('first');
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject({readmit: true});
+        const firstHold = windows.getAdmission('view', key);
+
+        manager.bind({...vessel, windowId: 'reloaded'});
+        await expect.poll(() => windows.getAdmission('view', key)).toBeNull();
+        release('reloaded');
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject({readmit: true});
+        const secondHold = windows.getAdmission('view', key);
+        expect(secondHold).not.toBe(firstHold);
+
+        closes[0].resolve(true);
+        await Promise.resolve();
+
+        expect(windows.getAdmission('view', key), 'the newer hold survives the stale closed answer').toBe(secondHold);
+        expect(released).toEqual([])
+    });
+
     test('a held key whose lineage never binds again is released at lease expiry, with no close (#20144)', async () => {
         const windows = owner('root'), closed = [], released = deferred();
         windows.registerSource('view', effects({

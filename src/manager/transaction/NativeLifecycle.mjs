@@ -454,11 +454,12 @@ class NativeLifecycle extends Base {
         // A held render target, e.g. a reloading window: the same lineage binds again through admission, while
         // the source's `closed` answer or the lease ending first hands the item to `released` (releaseHeld).
         if (owned && retained && result?.readmit === true) {
-            source.admissions.set(workspaceKey, {
+            const held = {
                 connected      : false, connectingWindowId: null, context: null, gestureToken: null, groupId: this.groupId,
                 generationToken: entry.generationToken ?? data.generationToken, itemId, readmit: true,
-                windowId       : null, windowName: entry.windowName ?? null, workspaceKey});
-            result.closed?.then(closed => closed === true && this.releaseHeld(sourceId, workspaceKey, data), () => {})
+                windowId       : null, windowName: entry.windowName ?? null, workspaceKey};
+            source.admissions.set(workspaceKey, held);
+            result.closed?.then(closed => closed === true && this.releaseHeld(sourceId, workspaceKey, data, held), () => {})
         }
         if (source.active && !retained) await source.effects.released?.({data, itemId, workspaceKey, entry, admission, committed: !!owned})
     }
@@ -470,11 +471,13 @@ class NativeLifecycle extends Base {
      * @param {String} sourceId
      * @param {String} workspaceKey
      * @param {Object} [data={}] The release or lease-expiry envelope `released` receives.
+     * @param {Object} [admission=this.getAdmission(sourceId, workspaceKey)]
      * @returns {Promise<Boolean>} Whether a held key was released.
      */
-    async releaseHeld(sourceId, workspaceKey, data={}) {
-        const source = this.sources.get(sourceId), admission = source?.admissions.get(workspaceKey);
-        if (!admission?.readmit || admission.connected || admission.connectingWindowId) return false;
+    async releaseHeld(sourceId, workspaceKey, data={}, admission=this.getAdmission(sourceId, workspaceKey)) {
+        const source = this.sources.get(sourceId);
+        if (!admission?.readmit || admission.connected || admission.connectingWindowId ||
+            source?.admissions.get(workspaceKey) !== admission) return false;
         this.clearAdmission(sourceId, workspaceKey, admission);
         source.active && await source.effects.released?.({data, itemId: admission.itemId, workspaceKey,
             entry: source.owners.get(workspaceKey), admission, committed: source.owners.has(workspaceKey)});
