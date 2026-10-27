@@ -51,13 +51,14 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
-     * @summary Detaches a released workspace from its departed render target, and returns an opted-in workspace's
+     * @summary Takes a released workspace out of its departed render target, and returns an opted-in workspace's
      * documents only on confirmed closure.
-     * Every participant leaves the departed window at once, because the App worker destroys whatever that window's
-     * tree still holds; one without a close policy stays headless until its binding is adopted again, as a warm
-     * reload of the main window adopts its root. The Group's exact released binding owns the whole pending operation,
-     * including observation and queued insertion. A warm rebind invalidates admission; an unknown physical state waits
-     * for that binding's reconnect lease. Never-bound admissions do not return semantic documents.
+     * Every participant leaves the departed window's tree at once, because the App worker destroys whatever that
+     * tree still holds. One without a close policy keeps its window id until its binding is adopted again, as a warm
+     * reload of the main window adopts its root; an opted-in one detaches headless. The Group's exact released binding
+     * owns the whole pending operation, including observation and queued insertion. A warm rebind invalidates
+     * admission; an unknown physical state waits for that binding's reconnect lease. Never-bound admissions do not
+     * return semantic documents.
      * @param {Object} descriptor WorkspaceSet and the Group's nativeWindows lifecycle.
      * @param {Object} data The manager's release or formerly-bound expiry envelope.
      * @returns {Boolean|Promise<Object|Boolean>} Retention disposition, independent of native presentation.
@@ -67,7 +68,9 @@ class NativeVesselTransaction extends Base {
               native = source?.participant.nativeWindow,
               policy = native?.policy();
         if (policy == null) {
-            data.releasedWindowId && native?.windowId() === data.releasedWindowId && native.detach(data);
+            const component = data.releasedWindowId && native?.windowId() === data.releasedWindowId &&
+                Neo.get(source.participant.componentId);
+            component?.parent?.remove(component, false, true);
             return true
         }
         if (!['return', 'retain'].includes(policy)) throw new TypeError('unknown native workspace close policy');

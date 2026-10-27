@@ -571,7 +571,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
      * @param {Object} [options={}] Close policy, native binding, real lease duration and the popup's panes.
      * @returns {Object} The independent host and its controlled platform answers.
      */
-    const createHost = ({policy = 'return', bound = true, leaseMs, sourceItems = ['pane-last', 'pane-first']} = {}) => {
+    const createHost = ({policy = 'return', bound = true, leaseMs, sourceItems = ['pane-last', 'pane-first'], componentId} = {}) => {
         if (leaseMs !== undefined) TransactionManager.reconnectLeaseMs = leaseMs;
         const identity = TransactionManager.bind({workspaceKey: LANDING, windowId: 'native-return-landing'}),
               groupId  = identity.groupId;
@@ -628,7 +628,8 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         });
         for (const [key, state, bindingKey] of [[SOURCE, host.source, FLOATING], [TARGET, host.target, LANDING]]) {
             state.seams = {
-                bindingKey, getDocument: () => state.document, setDocument: document => state.document = document,
+                bindingKey, componentId: state === host.source ? componentId : undefined,
+                getDocument            : () => state.document, setDocument: document => state.document = document,
                 resolveReturnDescriptor: Operations.appendingReturnDescriptor,
                 nativeWindow           : nativeSeams(state),
                 project                : context => NativeVesselTransaction.replayWorkspaceReturn(set, key, context, () => {
@@ -694,15 +695,21 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         });
     }
 
-    test('a released participant without a close policy still leaves its departed render target, once', async () => {
-        const owner = createHost({policy: null});
+    test('a released participant without a close policy leaves the departed tree and keeps its window id', async () => {
+        const root  = Neo.create(Component, {windowId: 'native-return-floating'}),
+              shell = Neo.create(Container, {items: [root], windowId: 'native-return-floating'}),
+              owner = createHost({policy: null, componentId: root.id});
 
-        expect(await owner.release()).toBe(true);
+        try {
+            expect(await owner.release()).toBe(true);
 
-        // Headless until a warm reload adopts it again, outside the tree the App worker destroys
-        expect(owner.calls.filter(({name}) => name === 'detach')).toHaveLength(1);
-        expect(owner.source.windowId).toBeNull();
-        expect(owner.calls.filter(({name}) => name === 'observe'), 'nothing returns it').toEqual([])
+            // A warm reload adopts it again; until then it lives outside the tree the App worker destroys
+            expect(shell.items.includes(root)).toBe(false);
+            expect(root.windowId).toBe('native-return-floating');
+            expect(owner.calls.map(({name}) => name), 'nothing detaches it headless or returns it').toEqual([])
+        } finally {
+            [root, shell].forEach(item => item.destroy())
+        }
     });
 
     test('unknown native closure waits for its exact formerly-bound lease expiry', async () => {
