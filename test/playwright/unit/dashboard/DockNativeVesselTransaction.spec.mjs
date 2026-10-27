@@ -11,6 +11,7 @@ setup({
 import {test, expect}          from '@playwright/test';
 import Neo                     from "../../../../src/Neo.mjs";
 import * as core               from "../../../../src/core/_export.mjs";
+import '../../../../src/manager/Instance.mjs';
 import Collection              from '../../../../src/collection/Base.mjs';
 import Component               from '../../../../src/component/Base.mjs';
 import Container               from '../../../../src/container/Base.mjs';
