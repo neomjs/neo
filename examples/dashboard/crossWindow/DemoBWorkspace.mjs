@@ -3245,10 +3245,10 @@ class DemoBWorkspace extends Container {
                 me.tearOutHandlers.onVesselRetired({...entry, itemId, windowName: entry?.windowName ?? `tearout-${itemId}`});
 
                 if (owned) {
-                    // Physical death withdraws ownership: a successor gesture must neither inherit
-                    // the dead generation nor be blocked by it. The item comes HOME.
+                    // Physical death withdraws ownership: a successor gesture must neither inherit the dead
+                    // generation nor be blocked by it. The item comes HOME, its pane out of the reaped tree.
                     me.nativeWindows.recordOwner(me.vesselSourceId, workspaceKey, null);
-                    return me.tearOutHandlers.reintegrateItem(itemId, null)
+                    return me.tearOutHandlers.reintegrateItem(itemId, me.paneCache[itemId])
                 }
             }
         });
@@ -4083,9 +4083,11 @@ class DemoBWorkspace extends Container {
 
         me.revokeVessel(`popup:${itemId}`);
         delete me.detachedPanes[itemId];
+        pane.parent?.remove(pane, false);
 
-        // Commit model ownership before awaiting the vessel. The deleted bookkeeping entry is
-        // the disconnect re-entrancy guard; a close failure leaves an empty popup, not split truth.
+        // Commit model ownership before awaiting the vessel, and park the pane: the worker reaps the popup's tree
+        // once its window is gone. The deleted bookkeeping entry is the disconnect re-entrancy guard; a close
+        // failure leaves an empty popup, not split truth.
         if (!windowAlreadyClosed) {
             try {
                 await Neo.Main.windowClose({

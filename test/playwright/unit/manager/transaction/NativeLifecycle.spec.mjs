@@ -516,4 +516,24 @@ test.describe('Group native lifecycle (#18314)', () => {
         expect(closed, 'a window that already closed refuses a close; the item must not wait on one').toEqual([]);
         expect(windows.getAdmission('view', key)).toBeNull()
     });
+
+    test('a source releases without waiting for another source\'s main-thread round trip', async () => {
+        const windows = owner('root'), roundTrip = deferred(), unbound = [];
+        windows.registerSource('first', effects({
+            unbind  : () => { unbound.push('first'); return true },
+            released: () => roundTrip.promise
+        }));
+        windows.registerSource('second', effects({unbind: () => { unbound.push('second'); return true }}));
+        const vessel = await windows.acquire('first', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'old'});
+        await expect.poll(() => windows.getConnection('first', key)).not.toBeNull();
+
+        release('old');
+        await Promise.resolve();
+
+        // The App worker destroys a departed window's tree one task after its disconnect: a detach that waited for
+        // the first source's round trip would come too late
+        expect(unbound).toEqual(['first', 'second']);
+        roundTrip.resolve()
+    });
 });

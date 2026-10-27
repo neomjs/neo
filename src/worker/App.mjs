@@ -653,6 +653,24 @@ class App extends Base {
     }
 
     /**
+     * @summary Disconnects as the base does, then reaps what the departed window leaves behind (see
+     * {@link #reapWindow}) once every `disconnect` listener had its turn.
+     *
+     * A window is a render target, never a state owner. An owner keeps a component by moving it out of the departed
+     * tree inside its `disconnect` listener, synchronously or in microtasks; the reap runs in the next task, after
+     * every listener and its microtask chain. Only a SharedWorker outlives a window, so only it reaps.
+     * @param {Object} data
+     * @param {String} [data.appName]
+     * @param {String} data.windowId
+     * @param {Object} [sourcePort]
+     */
+    onDisconnect(data, sourcePort) {
+        super.onDisconnect(data, sourcePort);
+
+        this.isSharedWorker && setTimeout(() => this.reapWindow(data.windowId))
+    }
+
+    /**
      * Every dom event will get forwarded as a worker message from main and ends up here first
      * @param {Object} data useful event properties, differs for different event types. See Neo.main.DomEvents.
      */
@@ -885,6 +903,32 @@ class App extends Base {
     }
 
     /**
+     * @summary Destroys the apps a window no longer hosts and, once the window left, its own state.
+     *
+     * An app stays hosted while a port of its window still lists its name, so a disconnect the base refused — a stale
+     * port, a window without one — reaps nothing.
+     * @param {String} windowId
+     * @protected
+     */
+    reapWindow(windowId) {
+        let me    = this,
+            ports = me.ports.filter(port => port.windowId === windowId);
+
+        Object.values(Neo.appsByName).flat().forEach(app => {
+            if (app.windowId === windowId && !app.isDestroyed && !ports.some(port => me.hasPortApp(port, app.name))) {
+                app.destroy()
+            }
+        });
+
+        if (ports.length === 0) {
+            delete Neo.cssMap?.[windowId];
+            delete Neo.windowConfigs?.[windowId];
+            delete me.windowAddons[windowId];
+            me.hiddenTick.stop(windowId)
+        }
+    }
+
+    /**
      * An Application instance announces itself for its window. The port bookkeeping matters only for
      * SharedWorkers; the topology admission runs for both worker types — this is the first moment the
      * window has a live app, and the window's config carries the identity its carrier presented. The
@@ -911,15 +955,6 @@ class App extends Base {
         Neo.manager.Transaction?.admit({topologyIdentity: Neo.windowConfigs?.[windowId]?.topologyIdentity, windowId});
         me.sendMessage(windowId, {action: 'registerAppName', appName});
         me.fire('appRegistered', {appName, windowId})
-    }
-
-    /**
-     * Unregister the app from the CSS map
-     * Only needed for SharedWorkers
-     * @param {String} appName
-     */
-    removeAppFromThemeMap(appName) {
-        delete Neo.cssMap[appName.toLowerCase()]
     }
 
     /**

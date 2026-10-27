@@ -152,20 +152,27 @@ class Application extends Base {
     }
 
     /**
-     * Unregister the app from the CSS map
+     * @summary Destroys the app together with its main view, and hands its window's slot in `Neo.apps` to another
+     * app the window still hosts.
+     *
+     * The main view goes first, while `Neo.apps` still names this app for any component resolving it on the way out.
+     * Whatever the tree still holds goes with it: an owner keeps a component by moving it out first.
      * @param args
      */
     destroy(...args) {
-        let me     = this,
-            {name} = me;
+        let me                         = this,
+            {mainView, name, windowId} = me;
 
-        delete Neo.apps[me.windowId];
+        mainView && !mainView.isDestroyed && mainView.destroy();
 
-        if (Neo.appsByName?.[name]) {
-            NeoArray.remove(Neo.appsByName[name], me)
+        Neo.appsByName?.[name] && NeoArray.remove(Neo.appsByName[name], me);
+
+        if (Neo.apps[windowId] === me) {
+            const sibling = Object.values(Neo.appsByName).flat().find(app => app.windowId === windowId);
+
+            sibling ? (Neo.apps[windowId] = sibling) : delete Neo.apps[windowId]
         }
 
-        Neo.currentWorker.removeAppFromThemeMap(name);
         super.destroy(...args)
     }
 }

@@ -51,10 +51,14 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
-     * @summary Detaches an opted-in workspace and returns its documents only on confirmed closure.
-     * The Group's exact released binding owns the whole pending operation, including observation
-     * and queued insertion. A warm rebind invalidates admission; an unknown physical state waits
-     * for that binding's reconnect lease. Never-bound admissions do not return semantic documents.
+     * @summary Takes a released workspace out of its departed render target, and returns an opted-in workspace's
+     * documents only on confirmed closure.
+     * Every participant leaves the departed window's tree at once, because the App worker destroys whatever that
+     * tree still holds. One without a close policy keeps its window id until its binding is adopted again, as a warm
+     * reload of the main window adopts its root; an opted-in one detaches headless. The Group's exact released binding
+     * owns the whole pending operation, including observation and queued insertion. A warm rebind invalidates
+     * admission; an unknown physical state waits for that binding's reconnect lease. Never-bound admissions do not
+     * return semantic documents.
      * @param {Object} descriptor WorkspaceSet and the Group's nativeWindows lifecycle.
      * @param {Object} data The manager's release or formerly-bound expiry envelope.
      * @returns {Boolean|Promise<Object|Boolean>} Retention disposition, independent of native presentation.
@@ -63,7 +67,12 @@ class NativeVesselTransaction extends Base {
         const source = workspaceSet?.getParticipantForBinding(data.workspaceKey),
               native = source?.participant.nativeWindow,
               policy = native?.policy();
-        if (policy == null) return true;
+        if (policy == null) {
+            const component = data.releasedWindowId && native?.windowId() === data.releasedWindowId &&
+                Neo.get(source.participant.componentId);
+            component?.parent?.remove(component, false, true);
+            return true
+        }
         if (!['return', 'retain'].includes(policy)) throw new TypeError('unknown native workspace close policy');
         if (!nativeWindows?.isCurrentRelease(data)) return false;
 
@@ -132,10 +141,11 @@ class NativeVesselTransaction extends Base {
 
         if (data.expired || !handle || !owner || !WindowManager.get(handle.ownerWindowId)) return true;
 
-        // The departed window takes no more updates: the held pane leaves its viewport silently and stays
-        // headless until its lineage re-embodies it, as a detached Workspace does (onNativeWindowDetached).
-        if (pane && !pane.isDestroyed && pane.parent && pane.parent === Neo.apps[windowId]?.mainView) {
-            pane.parent.remove(pane, false, true);
+        // The departed window takes no more updates: the held pane leaves its tree silently, however deep the host
+        // nested it, and stays headless until its lineage re-embodies it, as a detached Workspace does
+        // (onNativeWindowDetached). The App worker destroys whatever the departed tree still holds.
+        if (pane && !pane.isDestroyed && pane.windowId === windowId) {
+            pane.parent?.remove(pane, false, true);
             pane.windowId = null
         }
 

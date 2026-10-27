@@ -178,6 +178,8 @@ test.describe('Neo.worker.App theme-file loads of a departed window', () => {
             closeGone();
             await tick();
 
+            // The departed window's own config went with it, so the late load reads the worker's
+            Neo.config.themes = ['neo-theme-light'];
             app.insertThemeFiles('gone', null, 'Neo.button.Base');
             report.loading = app.countLoadingThemeFiles;
 
