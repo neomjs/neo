@@ -1,11 +1,12 @@
 import Base from './Base.mjs';
 
 /**
- * `{attribute-name}` placeholders inside a payload template. Attribute names only — values come
- * from `getAttribute()`, never from code, which is what keeps the whole declaration JSON-safe.
+ * `{record.<field>}` and `{attribute-name}` placeholders inside a payload template. Record-field
+ * tokens resolve against the registration's pre-pushed `records` map; attribute tokens resolve via
+ * `getAttribute()`, keeping the declaration JSON-safe across the worker boundary.
  * @type {RegExp}
  */
-const templateToken = /\{([\w-]+)\}/g;
+const templateToken = /\{(record\.)?([\w-]+)\}/g;
 
 /**
  * The `body` class marking a native drag in flight, from `dragstart` to `dragend`. Frame shields
@@ -33,12 +34,14 @@ const nativeDragCls = 'neo-native-drag-active';
  *         delegate     : '.my-drag-source [data-record-id]',
  *         effectAllowed: 'copy',
  *         types        : {
- *             'application/x-entity-id': '{data-record-id}',
- *             'text/plain'             : 'entity:{data-record-id}'
+ *             'application/x-entity-id': '{record.id}',
+ *             'text/plain'             : 'entity:{record.id}'
  *         }
  *     }
  *
- * Payload values are **templates over the source node's attributes**: `{data-record-id}` reads
+ * Payload values are **templates over pre-pushed record fields or the source node's attributes**:
+ * `{record.id}` reads `id` from the registration's `records` map pushed ahead of `dragstart` (so
+ * a grid keeps `useInternalId: true`), while `{data-record-id}` falls back to
  * `node.getAttribute('data-record-id')` at `dragstart` time. String substitution is the entire
  * main-thread execution surface.
  *
@@ -164,7 +167,7 @@ class NativeDragSource extends Base {
     onDragStart(event) {
         let {armed}        = this,
             {dataTransfer} = event,
-            node, types;
+            node, record, registration, types;
 
         // Every native drag this document starts lifts the frame shields for its lifetime, armed by
         // this addon or not: `pointer-events: none` removes a frame as a drop target, and a drop has
@@ -176,14 +179,23 @@ class NativeDragSource extends Base {
             return
         }
 
-        ({node} = armed);
-        types   = armed.registration.types || {};
+        ({node, registration} = armed);
+        record = this.resolveRecord(node, registration.records);
+        types  = registration.types || {};
 
         Object.entries(types).forEach(([type, template]) => {
-            dataTransfer.setData(type, template.replace(templateToken, (match, name) => node.getAttribute(name) ?? ''))
+            dataTransfer.setData(type, template.replace(templateToken, (match, isRecord, name) => {
+                if (isRecord) {
+                    const value = record?.[name];
+
+                    return value === undefined || value === null ? '' : String(value)
+                }
+
+                return node.getAttribute(name) ?? ''
+            }))
         });
 
-        dataTransfer.effectAllowed = armed.registration.effectAllowed || 'copy'
+        dataTransfer.effectAllowed = registration.effectAllowed || 'copy'
     }
 
     /**
@@ -239,15 +251,34 @@ class NativeDragSource extends Base {
 
     /**
      * Declares one component subtree as a native drag source. Re-registering an owner replaces its
-     * declaration — which is what a reactive config setter needs.
+     * declaration — which is what a reactive config setter or row-update refresh needs.
      * @param {Object} data
      * @param {String} data.ownerId The owning component's id; matches are scoped to its DOM subtree.
      * @param {String} data.delegate CSS selector for the draggable nodes, resolved via `closest()`.
-     * @param {Object} data.types Map of mime type -> attribute template (see the class comment).
+     * @param {Object} data.types Map of mime type -> record-field (`{record.field}`) or attribute template.
      * @param {String} [data.effectAllowed='copy']
+     * @param {Object} [data.records] Map of stable `data-record-id` -> `{field: value}` for rendered rows.
      */
-    register({ownerId, delegate, types, effectAllowed}) {
-        this.sources.set(ownerId, {delegate, effectAllowed, ownerId, types})
+    register({ownerId, delegate, types, effectAllowed, records}) {
+        this.sources.set(ownerId, {delegate, effectAllowed, ownerId, records, types})
+    }
+
+    /**
+     * @summary Resolves the pre-pushed record field map for a source node by its nearest `data-record-id`.
+     * @param {Element|Object} node
+     * @param {Object|null} [records]
+     * @returns {Object|null}
+     * @protected
+     */
+    resolveRecord(node, records) {
+        if (!node || !records) {
+            return null
+        }
+
+        const key = node.getAttribute?.('data-record-id')
+            ?? node.closest?.('[data-record-id]')?.getAttribute?.('data-record-id');
+
+        return key && Object.hasOwn(records, key) ? records[key] : null
     }
 
     /**

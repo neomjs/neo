@@ -299,4 +299,44 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
             originalWindow === undefined ? delete globalThis.window : globalThis.window = originalWindow
         }
     });
+
+    test('record-field tokens resolve synchronously by data-record-id (ignoring pooled row id) while attribute tokens keep getAttribute semantics (#18113)', () => {
+        const node = fakeNode({
+            'data-record-id': 'neo-record-7',
+            'data-tag'      : 'row-tag',
+            id              : 'neo-grid-body-1__row-0'
+        });
+        node.id = 'neo-grid-body-1__row-0';
+
+        node.closestMap['.grid [data-record-id]'] = node;
+        owners['grid-1'] = {contains: candidate => candidate === node};
+
+        addon.register({
+            delegate: '.grid [data-record-id]',
+            ownerId : 'grid-1',
+            records : {
+                'neo-grid-body-1__row-0': {id: 'stale-pooled-slot-trap', name: 'Trap'},
+                'neo-record-7'          : {id: 'business-ent-42',        name: 'Widget'}
+            },
+            types: {
+                'application/x-entity-id': '{record.id}',
+                'text/plain'             : 'entity:{record.id}:{data-tag}:{record.missing}:{missing-attr}'
+            }
+        });
+
+        // AC-4: field values are already in memory on the addon registration before dragstart
+        expect(addon.sources.get('grid-1').records['neo-record-7']).toEqual({
+            id  : 'business-ent-42',
+            name: 'Widget'
+        });
+
+        const dt = fakeDataTransfer();
+        addon.onMouseDown(press(node));
+        const returnValue = addon.onDragStart({target: node, dataTransfer: dt});
+
+        // Synchronous execution: no Promise returned, dataTransfer populated immediately from memory via data-record-id
+        expect(returnValue).toBeUndefined();
+        expect(dt.data['application/x-entity-id']).toBe('business-ent-42');
+        expect(dt.data['text/plain']).toBe('entity:business-ent-42:row-tag::')
+    });
 });
