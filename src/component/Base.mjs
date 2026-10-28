@@ -219,10 +219,11 @@ class Component extends Abstract {
          * Declares part of this component's DOM as a native HTML5 drag source, so a drag can carry
          * a `DataTransfer` payload into content the synthetic drag pipeline cannot reach — an
          * embedded iframe, another window's foreign document, the OS. The declaration is pure JSON:
-         * a `delegate` selector for the draggable nodes, a `types` map of mime type to attribute
-         * template (`'{data-record-id}'` reads that attribute off the source node at drag time),
-         * and an optional `effectAllowed`. Requires the `NativeDragSource` main-thread addon; see
-         * its class docs for the payload contract and the partition with the synthetic pipeline.
+         * a `delegate` selector for the draggable nodes, a `types` map of mime type to record-field
+         * (`'{record.id}'` reads the pre-pushed store field without requiring `useInternalId: false`)
+         * or DOM attribute template (`'{data-record-id}'` reads that attribute off the source node at
+         * drag time), and an optional `effectAllowed`. Requires the `NativeDragSource` main-thread
+         * addon; see its class docs for the payload contract and the partition with the synthetic pipeline.
          * @member {Object|null} nativeDragZone_=null
          * @reactive
          */
@@ -368,6 +369,13 @@ class Component extends Abstract {
      * @protected
      */
     nativeDragZoneWindowId = null
+
+    /**
+     * Store-listener teardown for {@link #nativeDragZone} record-field templates, invoked on retire.
+     * @member {Function|null} nativeDragZoneStoreCleanup=null
+     * @protected
+     */
+    nativeDragZoneStoreCleanup = null
 
     /**
      * Whether an owner withholds this component's DOM while its own `hidden` is false. A container
@@ -730,6 +738,122 @@ class Component extends Abstract {
     }
 
     /**
+     * @summary Extracts the unique record field names referenced by `{record.<field>}` tokens.
+     * @returns {String[]}
+     * @protected
+     */
+    getNativeDragZoneRecordFields() {
+        let types  = this.nativeDragZone?.types,
+            fields = new Set(),
+            match, pattern, template;
+
+        if (types) {
+            for (template of Object.values(types)) {
+                if (typeof template === 'string') {
+                    pattern = /\{record\.([\w-]+)\}/g;
+
+                    while ((match = pattern.exec(template)) !== null) {
+                        fields.add(match[1])
+                    }
+                }
+            }
+        }
+
+        return [...fields]
+    }
+
+    /**
+     * @summary Builds the source-node -> `{field: value}` map for `{record.<field>}` tokens.
+     * @returns {Object|undefined}
+     * @protected
+     */
+    buildNativeDragZoneRecords() {
+        let me     = this,
+            fields = me.getNativeDragZoneRecordFields(),
+            store  = me.store || me.body?.store,
+            bodies, count, entry, field, i, key, raw, record, records;
+
+        if (!fields.length) {
+            return me.nativeDragZone?.records
+        }
+
+        records = {...me.nativeDragZone?.records};
+
+        const projectRecord = rec => {
+            const mapped = {};
+
+            for (field of fields) {
+                raw = typeof rec?.get === 'function' ? rec.get(field) : rec?.[field];
+                mapped[field] = raw === undefined || raw === null ? '' : String(raw)
+            }
+
+            return mapped
+        };
+
+        if (store) {
+            count = typeof store.count === 'number' ? store.count : (store.items?.length ?? 0);
+
+            for (i = 0; i < count; i++) {
+                record = typeof store.getAt === 'function' ? store.getAt(i) : store.items?.[i];
+
+                if (record) {
+                    entry = projectRecord(record);
+
+                    for (key of [
+                        me.getRecordId?.(record),
+                        me.body?.getRecordId?.(record),
+                        store.getInternalId?.(record),
+                        store.getKey?.(record)
+                    ]) {
+                        if (key !== undefined && key !== null && key !== '') {
+                            records[String(key)] = entry
+                        }
+                    }
+                }
+            }
+        }
+
+        bodies = [me, me.body, me.bodyStart, me.bodyEnd].filter(Boolean);
+
+        for (const owner of bodies) {
+            if (Array.isArray(owner.items)) {
+                for (const row of owner.items) {
+                    if (row?.id && row.record) {
+                        entry = projectRecord(row.record);
+                        records[row.id] = entry;
+
+                        key = owner.getRecordId?.(row.record);
+                        if (key !== undefined && key !== null && key !== '') {
+                            records[String(key)] = entry
+                        }
+                    }
+                }
+            }
+        }
+
+        return records
+    }
+
+    /**
+     * @summary Re-pushes this component's native drag registration when record fields change.
+     * @protected
+     */
+    refreshNativeDragZoneRecords() {
+        let me = this;
+
+        if (me.mounted && me.nativeDragZone && me.nativeDragZoneWindowId !== null && me.getNativeDragZoneRecordFields().length > 0) {
+            const records = me.buildNativeDragZoneRecords();
+
+            Neo.main?.addon?.NativeDragSource?.register({
+                ...me.nativeDragZone,
+                ownerId : me.id,
+                windowId: me.windowId,
+                ...(records !== undefined && {records})
+            })
+        }
+    }
+
+    /**
      * Issues this component's {@link #nativeDragZone} declaration to the main-thread addon,
      * gated on the mount: the addon scopes matches to the LIVE DOM subtree, so registering
      * earlier could match nothing — and the gate doubles as the boot-order guard against the
@@ -739,14 +863,40 @@ class Component extends Abstract {
      * @protected
      */
     registerNativeDragZone() {
-        let me   = this,
-            gen  = ++me.nativeDragZoneGeneration,
-            send = () => {
+        let me    = this,
+            gen   = ++me.nativeDragZoneGeneration,
+            store = me.store || me.body?.store,
+            send  = () => {
                 if (gen === me.nativeDragZoneGeneration && me.nativeDragZone) {
+                    const records = me.buildNativeDragZoneRecords();
+
                     me.nativeDragZoneWindowId = me.windowId;
-                    Neo.main?.addon?.NativeDragSource?.register({...me.nativeDragZone, ownerId: me.id, windowId: me.windowId})
+                    Neo.main?.addon?.NativeDragSource?.register({
+                        ...me.nativeDragZone,
+                        ownerId : me.id,
+                        windowId: me.windowId,
+                        ...(records !== undefined && {records})
+                    })
                 }
             };
+
+        if (me.getNativeDragZoneRecordFields().length > 0 && typeof store?.on === 'function') {
+            const onStoreMutation = () => me.refreshNativeDragZoneRecords();
+
+            store.on({
+                load        : onStoreMutation,
+                recordChange: onStoreMutation,
+                scope       : me
+            });
+
+            me.nativeDragZoneStoreCleanup = () => {
+                store.un?.({
+                    load        : onStoreMutation,
+                    recordChange: onStoreMutation,
+                    scope       : me
+                })
+            }
+        }
 
         me.mounted ? send() : me.on('mounted', send, me, {once: true})
     }
@@ -762,6 +912,8 @@ class Component extends Abstract {
         let me = this;
 
         me.nativeDragZoneGeneration++;
+        me.nativeDragZoneStoreCleanup?.();
+        me.nativeDragZoneStoreCleanup = null;
 
         if (me.nativeDragZoneWindowId !== null) {
             Neo.main?.addon?.NativeDragSource?.unregister({ownerId: me.id, windowId: me.nativeDragZoneWindowId});

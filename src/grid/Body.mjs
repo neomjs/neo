@@ -879,6 +879,9 @@ class GridBody extends Component {
         // A pass can take the open edit's cell out of the DOM, and only the editing plugin knows what that means
         me.gridContainer.getPlugin('grid-cell-editing')?.onBodyRender();
 
+        me.refreshNativeDragZoneRecords();
+        me.gridContainer?.refreshNativeDragZoneRecords?.();
+
         if (me.isScrolling) {
             Performance.markEnd('grid.createViewData:' + me.id)
         }
@@ -1384,6 +1387,9 @@ class GridBody extends Component {
                     row.createVdom(false, false)
                 }
             }
+
+            me.refreshNativeDragZoneRecords();
+            me.gridContainer?.refreshNativeDragZoneRecords?.()
         }
     }
 
