@@ -15,7 +15,8 @@ const
     addUnits          = value => value == null ? value : isNaN(value) ? value : `${value}px`,
     closestController = Symbol.for('closestController'),
     // A number with a unit made of letters: `%` has no px value without an axis and a containing block
-    lengthRE          = /^\d*\.?\d+[a-z]+$/i;
+    lengthRE          = /^\d*\.?\d+[a-z]+$/i,
+    recordTokenRE     = /\{record\.([\w-]+)\}/g;
 
 /**
  * @typedef {Object} ComponentReferenceConfig
@@ -369,13 +370,6 @@ class Component extends Abstract {
      * @protected
      */
     nativeDragZoneWindowId = null
-
-    /**
-     * Store-listener teardown for {@link #nativeDragZone} record-field templates, invoked on retire.
-     * @member {Function|null} nativeDragZoneStoreCleanup=null
-     * @protected
-     */
-    nativeDragZoneStoreCleanup = null
 
     /**
      * Whether an owner withholds this component's DOM while its own `hidden` is false. A container
@@ -738,66 +732,42 @@ class Component extends Abstract {
     }
 
     /**
-     * @summary Builds the source-node -> `{field: value}` map for `{record.<field>}` tokens.
+     * @summary Overridable hook returning the `data-record-id` -> `{field: value}` projection map for `{record.<field>}` tokens.
+     *
+     * Record-rendering subclasses (such as {@link Neo.grid.Body}) override this method to project only their
+     * currently rendered rows, keyed by the stable `data-record-id` attribute each rendered node carries rather
+     * than pooled DOM slot ids (`__row-N`). By default, returns any explicit `nativeDragZone.records` map.
      * @returns {Object|undefined}
      * @protected
      */
     buildNativeDragZoneRecords() {
-        let me     = this,
-            types  = me.nativeDragZone?.types,
-            fields = types ? [...new Set(Object.values(types).flatMap(t => typeof t === 'string' ? [...t.matchAll(/\{record\.([\w-]+)\}/g)].map(m => m[1]) : []))] : [],
-            store  = me.store || me.body?.store,
-            count, entry, i, key, record, records;
-
-        if (!fields.length) {
-            return me.nativeDragZone?.records
-        }
-
-        records = {...me.nativeDragZone?.records};
-
-        const project = rec => Object.fromEntries(fields.map(f => {
-            const val = typeof rec?.get === 'function' ? rec.get(f) : rec?.[f];
-            return [f, val === undefined || val === null ? '' : String(val)]
-        }));
-
-        if (store) {
-            count = typeof store.count === 'number' ? store.count : (store.items?.length ?? 0);
-
-            for (i = 0; i < count; i++) {
-                record = typeof store.getAt === 'function' ? store.getAt(i) : store.items?.[i];
-
-                if (record) {
-                    entry = project(record);
-
-                    for (key of [me.getRecordId?.(record), me.body?.getRecordId?.(record), store.getInternalId?.(record), store.getKey?.(record)]) {
-                        key !== undefined && key !== null && key !== '' && (records[String(key)] = entry)
-                    }
-                }
-            }
-        }
-
-        for (const owner of [me, me.body, me.bodyStart, me.bodyEnd]) {
-            if (Array.isArray(owner?.items)) {
-                for (const row of owner.items) {
-                    if (row?.id && row.record) {
-                        records[row.id] = entry = project(row.record);
-                        key = owner.getRecordId?.(row.record);
-                        key !== undefined && key !== null && key !== '' && (records[String(key)] = entry)
-                    }
-                }
-            }
-        }
-
-        return records
+        return this.nativeDragZone?.records
     }
 
     /**
-     * @summary Re-pushes this component's native drag registration when record fields change.
+     * @summary Extracts the unique `<field>` names referenced by `{record.<field>}` tokens in `nativeDragZone.types`.
+     * @returns {String[]}
+     * @protected
+     */
+    getNativeDragZoneRecordFields() {
+        let types = this.nativeDragZone?.types;
+
+        if (!types) {
+            return []
+        }
+
+        return [...new Set(Object.values(types).flatMap(template =>
+            typeof template === 'string' ? [...template.matchAll(recordTokenRE)].map(match => match[1]) : []
+        ))]
+    }
+
+    /**
+     * @summary Re-pushes this component's native drag registration when rendered record projections change.
      * @protected
      */
     refreshNativeDragZoneRecords() {
-        let me      = this,
-            records = me.mounted && me.nativeDragZone && me.nativeDragZoneWindowId !== null ? me.buildNativeDragZoneRecords() : undefined;
+        let me       = this,
+             records = me.mounted && me.nativeDragZone && me.nativeDragZoneWindowId !== null ? me.buildNativeDragZoneRecords() : undefined;
 
         if (records !== undefined) {
             Neo.main?.addon?.NativeDragSource?.register({...me.nativeDragZone, ownerId: me.id, records, windowId: me.windowId})
@@ -814,10 +784,9 @@ class Component extends Abstract {
      * @protected
      */
     registerNativeDragZone() {
-        let me    = this,
-            gen   = ++me.nativeDragZoneGeneration,
-            store = me.store || me.body?.store,
-            send  = () => {
+        let me   = this,
+            gen  = ++me.nativeDragZoneGeneration,
+            send = () => {
                 if (gen === me.nativeDragZoneGeneration && me.nativeDragZone) {
                     const records = me.buildNativeDragZoneRecords();
 
@@ -825,12 +794,6 @@ class Component extends Abstract {
                     Neo.main?.addon?.NativeDragSource?.register({...me.nativeDragZone, ownerId: me.id, windowId: me.windowId, ...(records !== undefined && {records})})
                 }
             };
-
-        if (typeof store?.on === 'function' && Object.values(me.nativeDragZone?.types || {}).some(t => typeof t === 'string' && /\{record\.[\w-]+\}/.test(t))) {
-            const onMutation = () => me.refreshNativeDragZoneRecords();
-            store.on({load: onMutation, recordChange: onMutation, scope: me});
-            me.nativeDragZoneStoreCleanup = () => store.un?.({load: onMutation, recordChange: onMutation, scope: me})
-        }
 
         me.mounted ? send() : me.on('mounted', send, me, {once: true})
     }
@@ -846,8 +809,6 @@ class Component extends Abstract {
         let me = this;
 
         me.nativeDragZoneGeneration++;
-        me.nativeDragZoneStoreCleanup?.();
-        me.nativeDragZoneStoreCleanup = null;
 
         if (me.nativeDragZoneWindowId !== null) {
             Neo.main?.addon?.NativeDragSource?.unregister({ownerId: me.id, windowId: me.nativeDragZoneWindowId});

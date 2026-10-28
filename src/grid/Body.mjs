@@ -697,6 +697,45 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary Projects `{record.<field>}` token values for the rows currently rendered in {@link #items}.
+     *
+     * Walks only the live row pool (`this.items`), never `store.getAt(0..count)`, so lazy records outside
+     * the rendered viewport window stay unhydrated. Keys the map strictly by each rendered row's stable
+     * `data-record-id` (`String(this.getRecordId(row.record))`), never by the pooled DOM slot id (`__row-N`).
+     * @override
+     * @returns {Object|undefined}
+     * @protected
+     */
+    buildNativeDragZoneRecords() {
+        let me     = this,
+            fields = me.getNativeDragZoneRecordFields(),
+            key, record, records, row;
+
+        if (!fields.length) {
+            return me.nativeDragZone?.records
+        }
+
+        records = {...me.nativeDragZone?.records};
+
+        for (row of me.items) {
+            record = row?.record;
+
+            if (record) {
+                key = me.getRecordId(record);
+
+                if (key !== undefined && key !== null && key !== '') {
+                    records[String(key)] = Object.fromEntries(fields.map(field => {
+                        const value = typeof record.get === 'function' ? record.get(field) : record[field];
+                        return [field, value === undefined || value === null ? '' : String(value)]
+                    }))
+                }
+            }
+        }
+
+        return records
+    }
+
+    /**
      * Initializes or expands the pool of `Neo.grid.Row` instances.
      *
      * This method calculates the number of rows needed to cover the viewport plus the buffer range.
@@ -880,7 +919,6 @@ class GridBody extends Component {
         me.gridContainer.getPlugin('grid-cell-editing')?.onBodyRender();
 
         me.refreshNativeDragZoneRecords();
-        me.gridContainer?.refreshNativeDragZoneRecords?.();
 
         if (me.isScrolling) {
             Performance.markEnd('grid.createViewData:' + me.id)
@@ -1388,8 +1426,7 @@ class GridBody extends Component {
                 }
             }
 
-            me.refreshNativeDragZoneRecords();
-            me.gridContainer?.refreshNativeDragZoneRecords?.()
+            me.refreshNativeDragZoneRecords()
         }
     }
 

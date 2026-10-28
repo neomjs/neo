@@ -300,8 +300,13 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
         }
     });
 
-    test('record-field tokens resolve synchronously from pre-pushed registration records while attribute tokens keep getAttribute semantics (#18113)', () => {
-        const node = fakeNode({'data-record-id': 'neo-record-7', 'data-tag': 'row-tag'});
+    test('record-field tokens resolve synchronously by data-record-id (ignoring pooled row id) while attribute tokens keep getAttribute semantics (#18113)', () => {
+        const node = fakeNode({
+            'data-record-id': 'neo-record-7',
+            'data-tag'      : 'row-tag',
+            id              : 'neo-grid-body-1__row-0'
+        });
+        node.id = 'neo-grid-body-1__row-0';
 
         node.closestMap['.grid [data-record-id]'] = node;
         owners['grid-1'] = {contains: candidate => candidate === node};
@@ -310,7 +315,8 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
             delegate: '.grid [data-record-id]',
             ownerId : 'grid-1',
             records : {
-                'neo-record-7': {id: 'business-ent-42', name: 'Widget'}
+                'neo-grid-body-1__row-0': {id: 'stale-pooled-slot-trap', name: 'Trap'},
+                'neo-record-7'          : {id: 'business-ent-42',        name: 'Widget'}
             },
             types: {
                 'application/x-entity-id': '{record.id}',
@@ -328,7 +334,7 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
         addon.onMouseDown(press(node));
         const returnValue = addon.onDragStart({target: node, dataTransfer: dt});
 
-        // Synchronous execution: no Promise returned, dataTransfer populated immediately from memory
+        // Synchronous execution: no Promise returned, dataTransfer populated immediately from memory via data-record-id
         expect(returnValue).toBeUndefined();
         expect(dt.data['application/x-entity-id']).toBe('business-ent-42');
         expect(dt.data['text/plain']).toBe('entity:business-ent-42:row-tag::')

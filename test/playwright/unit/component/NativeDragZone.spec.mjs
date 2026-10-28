@@ -154,13 +154,18 @@ test.describe('Neo.component.Base#nativeDragZone lifecycle', () => {
             model: DragEntityModel,
             data : [
                 {id: 'biz-101', code: 'ALPHA'},
-                {id: 'biz-202', code: 'BETA'}
+                {id: 'biz-202', code: 'BETA'},
+                {id: 'biz-303', code: 'GAMMA'}
             ]
         });
 
         try {
-            const firstRecord = store.getAt(0);
-            const internalKey = store.getInternalId(firstRecord);
+            const firstRecord  = store.getAt(0);
+            const secondRecord = store.getAt(1);
+            const thirdRecord  = store.getAt(2);
+            const internalKey  = store.getInternalId(firstRecord);
+            const secondKey    = store.getInternalId(secondRecord);
+            const thirdKey     = store.getInternalId(thirdRecord);
             expect(internalKey).toMatch(/^neo-record-/);
 
             // Exercise a grid.Body pairing useInternalId: true (its default) with {record.id}
@@ -178,17 +183,32 @@ test.describe('Neo.component.Base#nativeDragZone lifecycle', () => {
                 }
             });
 
+            const pooledRowId = `${instance.id}__row-0`;
+            instance.items.push({
+                id        : pooledRowId,
+                record    : firstRecord,
+                vdom      : {},
+                createVdom: () => {},
+                destroy   : () => {}
+            });
+
             expect(instance.useInternalId).toBe(true);
             expect(instance.getRecordId(firstRecord)).toBe(internalKey);
 
             instance.mounted = true;
 
+            // Only rendered rows in `instance.items` are projected, keyed strictly by `data-record-id`
             expect(payloads.length).toBe(1);
+            expect(Object.keys(payloads[0].records)).toEqual([internalKey]);
             expect(payloads[0].records[internalKey]).toEqual({id: 'biz-101', code: 'ALPHA'});
+            expect(payloads[0].records[secondKey]).toBeUndefined();
+            expect(payloads[0].records[thirdKey]).toBeUndefined();
+            expect(payloads[0].records[pooledRowId]).toBeUndefined();
 
-            // Drive a drag on the row node whose DOM attribute is the internalId (neo-record-N)
+            // Row node carries a pooled DOM slot id (`${body.id}__row-0`) alongside `data-record-id`
             const rowNode = {
-                attributes: {'data-record-id': internalKey},
+                id        : pooledRowId,
+                attributes: {'data-record-id': internalKey, id: pooledRowId},
                 draggable : false,
                 closest(selector)  { return selector === '.neo-grid-row' ? this : null },
                 getAttribute(name) { return this.attributes[name] ?? null },
@@ -201,14 +221,14 @@ test.describe('Neo.component.Base#nativeDragZone lifecycle', () => {
             addon.onDragStart({target: rowNode, dataTransfer: dt1});
             addon.onGestureEnd();
 
-            // AC-1 & AC-6: DataTransfer carries the business id ('biz-101') while data-record-id is neo-record-N
+            // DataTransfer carries the business id ('biz-101') while data-record-id is neo-record-N
             expect(dt1.data['application/x-entity-id']).toBe('biz-101');
             expect(dt1.data['text/plain']).toBe(`entity:biz-101:ALPHA:${internalKey}`);
 
-            // AC-5: Mutate the underlying record and verify the refreshed registration yields the new value
+            // Mutate the rendered record and verify `grid.Body#onStoreRecordChange` refreshes the registration
             firstRecord.code = 'OMEGA';
 
-            expect(payloads.length).toBeGreaterThanOrEqual(2);
+            expect(payloads.length).toBe(2);
             expect(payloads.at(-1).records[internalKey]).toEqual({id: 'biz-101', code: 'OMEGA'});
 
             const dt2 = {data: {}, setData(type, val) { this.data[type] = val }};
@@ -217,6 +237,20 @@ test.describe('Neo.component.Base#nativeDragZone lifecycle', () => {
             addon.onGestureEnd();
 
             expect(dt2.data['text/plain']).toBe(`entity:biz-101:OMEGA:${internalKey}`);
+
+            // Scrolling recycles the SAME pooled row DOM id (`__row-0`) to a new record (`secondRecord`)
+            instance.items[0].record             = secondRecord;
+            rowNode.attributes['data-record-id'] = secondKey;
+            instance.refreshNativeDragZoneRecords();
+
+            expect(Object.keys(payloads.at(-1).records)).toEqual([secondKey]);
+
+            const dt3 = {data: {}, setData(type, val) { this.data[type] = val }};
+            addon.onMouseDown({button: 0, ctrlKey: false, metaKey: false, target: rowNode});
+            addon.onDragStart({target: rowNode, dataTransfer: dt3});
+            addon.onGestureEnd();
+
+            expect(dt3.data['text/plain']).toBe(`entity:biz-202:BETA:${secondKey}`)
         } finally {
             instance?.destroy();
             instance = null;

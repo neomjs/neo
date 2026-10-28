@@ -257,14 +257,14 @@ class NativeDragSource extends Base {
      * @param {String} data.delegate CSS selector for the draggable nodes, resolved via `closest()`.
      * @param {Object} data.types Map of mime type -> record-field (`{record.field}`) or attribute template.
      * @param {String} [data.effectAllowed='copy']
-     * @param {Object} [data.records] Map of source node id / `data-record-id` -> `{field: value}`.
+     * @param {Object} [data.records] Map of stable `data-record-id` -> `{field: value}` for rendered rows.
      */
     register({ownerId, delegate, types, effectAllowed, records}) {
         this.sources.set(ownerId, {delegate, effectAllowed, ownerId, records, types})
     }
 
     /**
-     * @summary Resolves the pre-pushed record field map for a source node from `registration.records`.
+     * @summary Resolves the pre-pushed record field map for a source node by its nearest `data-record-id`.
      * @param {Element|Object} node
      * @param {Object|null} [records]
      * @returns {Object|null}
@@ -275,24 +275,10 @@ class NativeDragSource extends Base {
             return null
         }
 
-        const candidates = [
-            node.id,
-            node.getAttribute?.('id'),
-            node.getAttribute?.('data-neo-id'),
-            node.getAttribute?.('data-record-id'),
-            node.closest?.('[data-record-id]')?.getAttribute?.('data-record-id'),
-            node.closest?.('[id]')?.id,
-            node.closest?.('[id]')?.getAttribute?.('id'),
-            node.closest?.('[data-neo-id]')?.getAttribute?.('data-neo-id')
-        ];
+        const key = node.getAttribute?.('data-record-id')
+            ?? node.closest?.('[data-record-id]')?.getAttribute?.('data-record-id');
 
-        for (const key of candidates) {
-            if (key && Object.hasOwn(records, key)) {
-                return records[key]
-            }
-        }
-
-        return null
+        return key && Object.hasOwn(records, key) ? records[key] : null
     }
 
     /**
