@@ -738,40 +738,16 @@ class Component extends Abstract {
     }
 
     /**
-     * @summary Extracts the unique record field names referenced by `{record.<field>}` tokens.
-     * @returns {String[]}
-     * @protected
-     */
-    getNativeDragZoneRecordFields() {
-        let types  = this.nativeDragZone?.types,
-            fields = new Set(),
-            match, pattern, template;
-
-        if (types) {
-            for (template of Object.values(types)) {
-                if (typeof template === 'string') {
-                    pattern = /\{record\.([\w-]+)\}/g;
-
-                    while ((match = pattern.exec(template)) !== null) {
-                        fields.add(match[1])
-                    }
-                }
-            }
-        }
-
-        return [...fields]
-    }
-
-    /**
      * @summary Builds the source-node -> `{field: value}` map for `{record.<field>}` tokens.
      * @returns {Object|undefined}
      * @protected
      */
     buildNativeDragZoneRecords() {
         let me     = this,
-            fields = me.getNativeDragZoneRecordFields(),
+            types  = me.nativeDragZone?.types,
+            fields = types ? [...new Set(Object.values(types).flatMap(t => typeof t === 'string' ? [...t.matchAll(/\{record\.([\w-]+)\}/g)].map(m => m[1]) : []))] : [],
             store  = me.store || me.body?.store,
-            bodies, count, entry, field, i, key, raw, record, records;
+            count, entry, i, key, record, records;
 
         if (!fields.length) {
             return me.nativeDragZone?.records
@@ -779,16 +755,10 @@ class Component extends Abstract {
 
         records = {...me.nativeDragZone?.records};
 
-        const projectRecord = rec => {
-            const mapped = {};
-
-            for (field of fields) {
-                raw = typeof rec?.get === 'function' ? rec.get(field) : rec?.[field];
-                mapped[field] = raw === undefined || raw === null ? '' : String(raw)
-            }
-
-            return mapped
-        };
+        const project = rec => Object.fromEntries(fields.map(f => {
+            const val = typeof rec?.get === 'function' ? rec.get(f) : rec?.[f];
+            return [f, val === undefined || val === null ? '' : String(val)]
+        }));
 
         if (store) {
             count = typeof store.count === 'number' ? store.count : (store.items?.length ?? 0);
@@ -797,35 +767,22 @@ class Component extends Abstract {
                 record = typeof store.getAt === 'function' ? store.getAt(i) : store.items?.[i];
 
                 if (record) {
-                    entry = projectRecord(record);
+                    entry = project(record);
 
-                    for (key of [
-                        me.getRecordId?.(record),
-                        me.body?.getRecordId?.(record),
-                        store.getInternalId?.(record),
-                        store.getKey?.(record)
-                    ]) {
-                        if (key !== undefined && key !== null && key !== '') {
-                            records[String(key)] = entry
-                        }
+                    for (key of [me.getRecordId?.(record), me.body?.getRecordId?.(record), store.getInternalId?.(record), store.getKey?.(record)]) {
+                        key !== undefined && key !== null && key !== '' && (records[String(key)] = entry)
                     }
                 }
             }
         }
 
-        bodies = [me, me.body, me.bodyStart, me.bodyEnd].filter(Boolean);
-
-        for (const owner of bodies) {
-            if (Array.isArray(owner.items)) {
+        for (const owner of [me, me.body, me.bodyStart, me.bodyEnd]) {
+            if (Array.isArray(owner?.items)) {
                 for (const row of owner.items) {
                     if (row?.id && row.record) {
-                        entry = projectRecord(row.record);
-                        records[row.id] = entry;
-
+                        records[row.id] = entry = project(row.record);
                         key = owner.getRecordId?.(row.record);
-                        if (key !== undefined && key !== null && key !== '') {
-                            records[String(key)] = entry
-                        }
+                        key !== undefined && key !== null && key !== '' && (records[String(key)] = entry)
                     }
                 }
             }
@@ -839,17 +796,11 @@ class Component extends Abstract {
      * @protected
      */
     refreshNativeDragZoneRecords() {
-        let me = this;
+        let me      = this,
+            records = me.mounted && me.nativeDragZone && me.nativeDragZoneWindowId !== null ? me.buildNativeDragZoneRecords() : undefined;
 
-        if (me.mounted && me.nativeDragZone && me.nativeDragZoneWindowId !== null && me.getNativeDragZoneRecordFields().length > 0) {
-            const records = me.buildNativeDragZoneRecords();
-
-            Neo.main?.addon?.NativeDragSource?.register({
-                ...me.nativeDragZone,
-                ownerId : me.id,
-                windowId: me.windowId,
-                ...(records !== undefined && {records})
-            })
+        if (records !== undefined) {
+            Neo.main?.addon?.NativeDragSource?.register({...me.nativeDragZone, ownerId: me.id, records, windowId: me.windowId})
         }
     }
 
@@ -871,31 +822,14 @@ class Component extends Abstract {
                     const records = me.buildNativeDragZoneRecords();
 
                     me.nativeDragZoneWindowId = me.windowId;
-                    Neo.main?.addon?.NativeDragSource?.register({
-                        ...me.nativeDragZone,
-                        ownerId : me.id,
-                        windowId: me.windowId,
-                        ...(records !== undefined && {records})
-                    })
+                    Neo.main?.addon?.NativeDragSource?.register({...me.nativeDragZone, ownerId: me.id, windowId: me.windowId, ...(records !== undefined && {records})})
                 }
             };
 
-        if (me.getNativeDragZoneRecordFields().length > 0 && typeof store?.on === 'function') {
-            const onStoreMutation = () => me.refreshNativeDragZoneRecords();
-
-            store.on({
-                load        : onStoreMutation,
-                recordChange: onStoreMutation,
-                scope       : me
-            });
-
-            me.nativeDragZoneStoreCleanup = () => {
-                store.un?.({
-                    load        : onStoreMutation,
-                    recordChange: onStoreMutation,
-                    scope       : me
-                })
-            }
+        if (typeof store?.on === 'function' && Object.values(me.nativeDragZone?.types || {}).some(t => typeof t === 'string' && /\{record\.[\w-]+\}/.test(t))) {
+            const onMutation = () => me.refreshNativeDragZoneRecords();
+            store.on({load: onMutation, recordChange: onMutation, scope: me});
+            me.nativeDragZoneStoreCleanup = () => store.un?.({load: onMutation, recordChange: onMutation, scope: me})
         }
 
         me.mounted ? send() : me.on('mounted', send, me, {once: true})
