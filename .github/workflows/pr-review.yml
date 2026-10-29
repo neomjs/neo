@@ -1,0 +1,23 @@
+# neo's agent reviews, judged by the policy neo-agent-skills publishes. A review posted through `gh pr review`
+# or the UI skips Brain's managed gate; this is where it is read afterwards. Informative, not required: a new
+# head has no result until the next review.
+#
+# neo's history predates the review budget. Only a pull request created after the activation issue's first
+# merge into dev owes managed-path provenance or a disclosed bypass on an agent Request Changes.
+
+name: PR review
+
+on:
+  pull_request_review:
+    types: [submitted, edited]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+
+jobs:
+  review:
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-review.yml@v0.1.74
+    with:
+      budget_activation_issue: 15257
