@@ -47,6 +47,7 @@
             {"name": "0034 — Electron Shell Architecture",             "parentId": "AgentInterfaces/Decisions",                          "id": "agentos/decisions/0034-electron-shell-architecture"},
             {"name": "0037 — Fleet Manager Outward Door",              "parentId": "AgentInterfaces/Decisions",                          "id": "agentos/decisions/0037-fleet-manager-outward-door-topology"},
             {"name": "0038 — Fleet Manager Client Topology",           "parentId": "AgentInterfaces/Decisions",                          "id": "agentos/decisions/0038-fm-client-topology"},
+            {"name": "0043 — Editor Transaction Protocol",             "parentId": "AgentInterfaces/Decisions",                          "id": "agentos/decisions/0043-editor-transaction-protocol"},
     {"name": "Guides",                                                 "parentId": null,                                 "isLeaf": false, "id": "guides", "collapsed": true},
         {"name": "Fundamentals & Core Concepts",                       "parentId": "guides",                             "isLeaf": false, "id": "guides/fundamentals", "collapsed": true},
             {"name": "Codebase Overview",                              "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/CodebaseOverview"},
