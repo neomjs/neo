@@ -11,7 +11,7 @@
 | **Depends on** | The VDOM engine's diff contract: `Helper` diffs the new vdom against the component's `vnode`, never against the live DOM |
 | **Connects to** | `Neo.form.field.Text` (`onInputValueChange`, `afterVnodeSync`), the leaf pre-sync precedent · `src/main/addon/MonacoEditor.mjs`, the wrapper precedent this editor does not follow · Euclid's falsifier (`DC_kwDODSospM4BJXKz`) · Julia's pre-sync invariant (`DC_kwDODSospM4BJZbH`) |
 | **Implemented by** | #20166 ring 1 item 1 (the document and its transactions) and item 2 (the input addon and this protocol) |
-| **Anti-anchor for** | a second document model beside the vdom · an acknowledgement gate posing as a protocol · whole-buffer forwarding · unmapped replacement ranges · optimistic structural edits · schema logic on the main thread · an addon that extensions open |
+| **Anti-anchor for** | a second document model beside the vdom · an acknowledgement gate posing as a protocol · whole-buffer forwarding · unmapped replacement ranges · optimistic structural edits · a schema formalism in the engine · acceptance logic on the main thread · an addon that extensions open |
 
 ---
 
@@ -33,13 +33,13 @@ Two writers therefore need a protocol, not a gate, and the ring-1 leaves need on
 ### §2.1 The document the protocol addresses
 
 - **The editor component's vdom is the document.** Tags, attributes, `cn` and text vnodes carry ids, and the `vnode` is what the DOM shows. There is no second model beside it.
-- **The schema is app data:** one content model per tag, in the DTD form.
+- **Validation is the app's.** The engine carries no schema formalism. Before a transaction commits, the App worker runs the app's acceptance check, a transaction filter from the extension seam. A refused transaction takes §2.5's path.
 - **A position is `{node: <text vnode id>, offset}` at a revision.** The DOM already yields that address, because text vnodes render between `<!-- id -->` comments, and it stays valid across a move, because a move keeps ids.
 - **A transaction** carries invertible, mappable steps, an `origin` (`user`, `agent` or `external`), `selectionBefore` and `selectionAfter`. Its step map carries positions across splits, joins and wraps. An address belongs to one revision; to use it later, map it through the transactions committed since.
 
 ### §2.2 Roles
 
-- **The editor's document in the App worker is the single authority.** Schema checks, commands and transactions run there and nowhere else.
+- **The editor's document in the App worker is the single authority.** The app's acceptance check, commands and transactions run there and nowhere else.
 - **The main-thread input addon is its client, with one link per attachment generation.** An attachment is one EditContext on one element in one window.
 - **The link's text is the focused textblock's text, which is also `editContext.text`.** Offsets on the link index that text, and the worker converts them to `{node, offset}` positions.
 
@@ -63,7 +63,7 @@ The transform is Jupiter's two-party scheme against a central server (Nichols et
 - On a tie (two inserts at one position) the worker's insert goes first. Both sides apply the same rule, so they compute identical transforms.
 - A caret stays before text inserted at its position from elsewhere.
 
-The worker transforms, and the addon never rebases and resubmits. So the schema never runs on the main thread, and the addon only splices text.
+The worker transforms, and the addon never rebases and resubmits. So the acceptance check never runs on the main thread, and the addon only splices text.
 
 ### §2.5 Refusal is apply-and-revert
 
@@ -95,7 +95,7 @@ A link's worker-to-addon messages travel on one ordered channel of their own. De
 
 - **Plain typing** in the focused textblock is written on the main thread, inside the input task, and sent as an input.
 - **Structural edits are never optimistic.** A local one (Enter) waits for the worker and opens a new generation in the new textblock; keys typed meanwhile wait one frame and are not dropped. One from elsewhere that restructures the focused textblock goes through §2.6.
-- **Accepted, uncontested typing emits no delta** (Julia). The worker pre-syncs its `vnode` text, the `Neo.form.field.Text` pattern, only when the addon has seen everything the worker sent and the schema accepts the input. A transformed or refused input emits the authoritative transform or inverse instead.
+- **Accepted, uncontested typing emits no delta** (Julia). The worker pre-syncs its `vnode` text, the `Neo.form.field.Text` pattern, only when the addon has seen everything the worker sent and the app's acceptance check passes the input. A transformed or refused input emits the authoritative transform or inverse instead.
 
 ### §2.10 The addon stays closed
 
@@ -111,7 +111,7 @@ Everything an extension contributes runs in the App worker. An extension that ne
 | F — a pluggable input adapter for Gecko and WebKit | Deferred | An adapter with no consumer is accretion. Revalidate when a non-Chromium requirement exists; it would sit behind the same input contract |
 | A second document model (a store of block records, or a ProseMirror-style tree) | Rejected | Two canonical trees to keep in sync, where the vdom already is the document (D#20098 OQ2) |
 | An acknowledgement gate (`appliedSeq` alone) | Rejected | It cannot tell a lost, a misplaced and a mapped edit apart (Euclid, `DC_kwDODSospM4BJXKz`) |
-| Client rebase and resubmit (ProseMirror's collab module) | Rejected | The schema would run on the main thread; here the worker transforms (§2.4) |
+| Client rebase and resubmit (ProseMirror's collab module) | Rejected | The acceptance check would run on the main thread; here the worker transforms (§2.4) |
 
 The executed model (`DC_kwDODSospM4BJZXw`) breaks each obligation in turn, and every broken variant fails at least one of its checks:
 
