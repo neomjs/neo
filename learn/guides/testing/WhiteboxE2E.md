@@ -66,7 +66,7 @@ Each shard writes its receipt to its job summary and to its log. The log copy is
 
 A declaration whose file or title no longer exists fails the unit tier, and so does a declared smoke file.
 
-Through 2026-10-25 the tier retries a failed test once, while #19655 diagnoses the intermittent set. Every receipt names each test that needed the retry, with its first-attempt error, and a test red on every attempt stays red. After that date the tier runs without retries.
+The tier retries a failed test only while `BRAIN_RETRY_BRIDGE` in `buildScripts/util/e2eCiSelection.mjs` is in date. Its last day was 2026-10-25, so the tier now runs without retries and a test red on its one attempt stays red. Every receipt states its run's retries and, while the bridge runs, names each test that needed one, with its first-attempt error.
 
 ## Connecting the Neural Link (Fixtures)
 

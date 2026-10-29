@@ -1,0 +1,54 @@
+name: Guide Lint
+
+# The guide-quality lint lives in the Brain and reads this repository through `--root`. Over the
+# top-level `learn/agentos` and `learn/benefits` guides it hard-fails Mermaid reserved words and
+# self-loops, dead local links, `ai:*` scripts neither repository defines, and tool tables naming
+# no OpenAPI operation. Over all of `learn/guides` it hard-fails ticket ids: guides describe,
+# trackers decide. `package.json` is a trigger because its scripts are one of the lint's inputs.
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'learn/**'
+      - 'package.json'
+      - '.github/workflows/lint-guides.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'learn/**'
+      - 'package.json'
+      - '.github/workflows/lint-guides.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-guides-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          path: engine
+          persist-credentials: false
+
+      - name: Checkout the Brain
+        uses: actions/checkout@v7
+        with:
+          repository: neomjs/neo-agent-brain
+          ref: dev
+          path: brain
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # No `npm ci` in either checkout: the lint uses only Node built-ins.
+      - name: Lint the guides
+        run: node brain/ai/scripts/lint/lint-guides.mjs --root engine
