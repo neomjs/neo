@@ -59,6 +59,7 @@ The transform is Jupiter's two-party scheme against a central server (Nichols et
 - An input carries EditContext's replacement as operations on the link text, never a snapshot of the buffer.
 - The worker transforms each input against the transactions it sent that the addon had not yet seen (those after `seen`), then applies it.
 - The addon transforms each incoming transaction against its unacknowledged inputs (those after `ack`), then applies it.
+- A transform has two outputs, and each side keeps both. One is the transformed incoming operation. The other is the retained list, rewritten past it: the worker's unseen transactions, or the addon's unacknowledged inputs. The next message is transformed against the rewritten list. Take base `ab`, queued local `X@1` and `Y@2`, and an external `Q@2` the addon has not seen. Both sides reach `aXYbQ`. A worker that kept its original `Q@2` would reach `aXbYQ` (Euclid, #20170).
 - On a tie (two inserts at one position) the worker's insert goes first. Both sides apply the same rule, so they compute identical transforms.
 - A caret stays before text inserted at its position from elsewhere.
 
@@ -80,9 +81,11 @@ If the old window died before it could release, its inputs in flight reach the w
 
 ### §2.7 The fence
 
-`DeltaUpdates#updateVtext` writes a whole `nodeValue`, so a delta batch rendered before the worker saw the latest typing would overwrite it. The fence keys on the `DeltaUpdates` `updated` event and re-projects the focused textblock's text from the addon's state in the same task. A delta's content for the focused textblock never shows.
+`DeltaUpdates#updateVtext` writes a whole `nodeValue`, so a delta batch rendered before the worker saw the latest typing would overwrite it. The fence re-projects the focused textblock's text from the addon's state when a batch completes, in the same task. A delta's content for the focused textblock never shows.
 
-Both delta paths reach the `updated` event through `Manager#handleDomUpdate`, and the fence needs no `meta`. So the configuration without a VDom worker (`App#applyDeltas`) carries the protocol, and nothing has to refuse it.
+The fence runs on every completion, including an exceptional one. `DeltaUpdates#update` fires `updated` only after its `try/finally`, so a batch that writes the focused textblock and then throws on a later delta never fires it. Its stale text would stay painted (Euclid, #20170). The fence's obligation therefore sits at the batch's completion boundary, the `updated` event on success and the `finally` on a throw, ahead of the exception.
+
+Both delta paths apply their batches through `DeltaUpdates#update` via `Manager#handleDomUpdate`, and the fence needs no `meta`. So the configuration without a VDom worker (`App#applyDeltas`) carries the protocol, and nothing has to refuse it.
 
 ### §2.8 Channels
 
@@ -139,10 +142,11 @@ The model itself ran on Node 25 with a seeded generator (`DC_kwDODSospM4BJZXw`):
 ### Acceptance tests ring 1 owes
 
 None of these is a result yet. They are the acceptance of #20166 ring 1 item 2:
-1. **Euclid's falsifier on the default production delta path,** with an unrelated fresh sibling delta. Run an external insertion before and after a local input, then refuse the first of two queued local edits while a later one is pending. Every accepted edit survives exactly once; the worker text, the DOM text, the EditContext buffer and the logical selection agree; every refusal is explicit. A window move with a delayed old correction and an active composition is part of the same check.
+1. **Euclid's falsifier on the default production delta path,** with an unrelated fresh sibling delta. Run an external insertion before and after a local input, then refuse the first of two queued local edits while a later one is pending. Queue two local edits behind an external one the addon has not seen (§2.4's `aXYbQ` case). Every accepted edit survives exactly once; the worker text, the DOM text, the EditContext buffer and the logical selection agree; every refusal is explicit. A window move with a delayed old correction and an active composition is part of the same check.
 2. **The configuration without a VDom worker** passes the same check (§2.7).
-3. **The IME matrix (D#20098 OQ5)** on Windows and macOS: IME composition, including typing through a refused edit while a Windows IME composes; dead keys; dictation; the emoji panel.
-4. **OQ1's budget,** with a physical keyboard on a production build: under 5 % of keystrokes paint after the first frame at 60 Hz, with 120 Hz reported separately, measured in-app per keystroke.
+3. **A partially applied batch, on both delta paths.** A stale write to the focused textblock followed by a sibling delta that throws leaves the addon's text on screen, as the same batch does when the sibling succeeds (§2.7).
+4. **The IME matrix (D#20098 OQ5)** on Windows and macOS: IME composition, including typing through a refused edit while a Windows IME composes; dead keys; dictation; the emoji panel.
+5. **OQ1's budget,** with a physical keyboard on a production build: under 5 % of keystrokes paint after the first frame at 60 Hz, with 120 Hz reported separately, measured in-app per keystroke.
 
 ### Costs accepted
 
