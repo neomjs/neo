@@ -31,7 +31,6 @@
         {"name": "Fleet Manager Architecture",                        "parentId": "AgentInterfaces",                                    "id": "agentos/FleetManagerArchitecture"},
         {"name": "Running the Fleet Cockpit",                          "parentId": "AgentInterfaces",                                    "id": "agentos/RunningTheFleetCockpit"},
         {"name": "Neural Link",                                        "parentId": "AgentInterfaces",                                    "id": "agentos/NeuralLink"},
-        {"name": "Neural Link Capability Matrix",                      "parentId": "AgentInterfaces",                                    "id": "agentos/tooling/NeuralLinkCapabilityMatrix"},
         {"name": "Dock-Zone Model",                                    "parentId": "AgentInterfaces",                                    "id": "agentos/DockZoneModel"},
         {"name": "Core Agent Skills",                                  "parentId": "AgentInterfaces",                                    "id": "agentos/CoreSkills"},
         {"name": "Progressive Disclosure Skills",                      "parentId": "AgentInterfaces",                                    "id": "agentos/ProgressiveDisclosureSkills"},
