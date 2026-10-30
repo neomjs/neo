@@ -136,7 +136,7 @@
         "ws"                           : "^8.22.0"
     },
     "overrides": {
-        "dompurify": "^3.4.16",
+        "dompurify": "^3.4.17",
         "gray-matter": {
             "js-yaml": "^3.15.2"
         },
