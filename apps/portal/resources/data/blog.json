@@ -10,11 +10,11 @@
         },
         {
             "date": "2026-10-31",
-            "id": "blog/grid-fits-its-content",
+            "id": "blog/a-data-grid-in-a-web-worker",
             "isLeaf": true,
-            "name": "A data grid whose rows fit their text: variable row heights, measured by the browser.",
+            "name": "A data grid in a web worker: the Neo.mjs grid, on Neo's own issues.",
             "parentId": "2026",
-            "path": "learn/blog/grid-fits-its-content.md"
+            "path": "learn/blog/a-data-grid-in-a-web-worker.md"
         },
         {
             "date": "2026-10-16",
