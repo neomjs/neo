@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-10-31",
+            "id": "blog/grid-fits-its-content",
+            "isLeaf": true,
+            "name": "A data grid whose rows fit their text: variable row heights, measured by the browser.",
+            "parentId": "2026",
+            "path": "learn/blog/grid-fits-its-content.md"
+        },
+        {
             "date": "2026-10-16",
             "id": "blog/where-an-agent-institution-sits",
             "isLeaf": true,
