@@ -1,4 +1,5 @@
-import NeoBase from '../core/Base.mjs';
+import NeoBase      from '../core/Base.mjs';
+import RenderToClip from './recorder/RenderToClip.mjs';
 
 /**
  * @summary Abstract base class for Canvas Renderers.
@@ -49,10 +50,13 @@ class Base extends NeoBase {
         remote: {
             app: [
                 'clearGraph',
+                'exportClip',
                 'initGraph',
                 'pause',
                 'resume',
                 'setTheme',
+                'startRecording',
+                'stopRecording',
                 'updateMouseState',
                 'updateSize'
             ]
@@ -62,7 +66,12 @@ class Base extends NeoBase {
          * @member {String} theme_='light'
          * @reactive
          */
-        theme_: 'light'
+        theme_: 'light',
+        /**
+         * Optional recorder instance for deterministic draw receipt capture
+         * @member {Neo.canvas.recorder.RenderToClip|null} recorder=null
+         */
+        recorder: null
     }
 
     /**
@@ -230,6 +239,44 @@ class Base extends NeoBase {
             me.isPaused = false;
             me.renderLoop()
         }
+    }
+
+    /**
+     * Starts deterministic frame recording with draw receipt chaining.
+     * @param {Object} [opts={}]
+     * @returns {Object}
+     */
+    startRecording(opts = {}) {
+        let me = this;
+
+        if (!me.recorder) {
+            me.recorder = Neo.create(RenderToClip);
+        }
+
+        return me.recorder.startRecording(opts);
+    }
+
+    /**
+     * Stops the active recording session and returns the clip bundle.
+     * @returns {Object|null}
+     */
+    stopRecording() {
+        let me = this;
+
+        if (me.recorder?.isRecording) {
+            return me.recorder.stopRecording();
+        }
+
+        return null;
+    }
+
+    /**
+     * Exports the latest clip manifest.
+     * @returns {Object|null}
+     */
+    exportClip() {
+        let me = this;
+        return me.recorder ? me.recorder.exportManifest() : null;
     }
 
     /**
