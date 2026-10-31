@@ -289,6 +289,41 @@ test.describe('Grid issues showcase', () => {
         await expect(sorted).toHaveCount(1)
     });
 
+    test('assistive technology reads one row per record across the locked regions (#20187)', async ({page}) => {
+        // Chromium's own accessibility tree, which applies aria-owns: the DOM holds one row per region and record
+        const cdp     = await page.context().newCDPSession(page),
+              {nodes} = await cdp.send('Accessibility.getFullAXTree'),
+              byId    = new Map(nodes.map(node => [node.nodeId, node])),
+              role    = node => node.ignored ? null : node.role?.value,
+              cells   = ['cell', 'columnheader', 'gridcell'],
+              rows    = [];
+
+        // A row's cells in reading order, reached through ignored and generic nodes but never through another row
+        const cellsOf = (node, found = []) => {
+            (node.childIds || []).map(id => byId.get(id)).filter(Boolean).forEach(child => {
+                if (cells.includes(role(child))) {
+                    found.push(role(child))
+                } else if (role(child) !== 'row') {
+                    cellsOf(child, found)
+                }
+            });
+
+            return found
+        };
+
+        const walk = node => (node.childIds || []).map(id => byId.get(id)).filter(Boolean).forEach(child => {
+            role(child) === 'row' ? rows.push(cellsOf(child)) : walk(child)
+        });
+
+        walk(nodes.find(node => role(node) === 'grid'));
+        await cdp.detach();
+
+        // One header row with all eight column headers, then one row of eight cells per issue
+        expect(rows.length).toBe(1 + issues.length);
+        expect(rows[0]).toEqual(Array(8).fill('columnheader'));
+        rows.slice(1).forEach(row => expect(row).toEqual(Array(8).fill('gridcell')))
+    });
+
     test('the filter list draws its focus ring inside the row and its rows on the menu surface, in both themes (#19928)', async ({page}) => {
         const menu    = page.locator('.neo-grid-column-menu'),
               wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'State'}),
