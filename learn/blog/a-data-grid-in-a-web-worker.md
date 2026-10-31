@@ -141,7 +141,6 @@ The [issues showcase](https://neomjs.com/dist/production/examples/grid/issues/in
 - **An engine, not a widget.** The grid runs inside a Neo.mjs app, in its App Worker. It is not a component you can drop into a React or Angular app; using it means building the app on the engine.
 - **Features it lacks.** The MIT grid has no row grouping, aggregation, pivoting, export, clipboard copy, range selection or master/detail rows today. If one of them keeps you on another grid, [tell us which, and what you need it for](https://github.com/neomjs/neo/issues/new/choose).
 - **Limits of the newest parts.** Content-sized rows are proven at 10,000 rows, not 100,000, and size cells by their text, not by images or components. Header menus and the search work on local data.
-- **Screen readers and locked columns.** In a grid with locked columns, each region still numbers its columns from 1 and exposes a record as one row per region, so a screen reader announces the wrong column position outside the first region ([#20187](https://github.com/neomjs/neo/issues/20187)). Grids without locked columns are not affected.
 
 ## Try it, and tell us where it breaks
 
