@@ -6,7 +6,7 @@
 
 <img width="100%" alt="DevIndex in the dark theme: a grid ranking GitHub developers by lifetime contributions, with rank, avatar and name, total contributions, commit and private-contribution shares, impact badges, an activity sparkline per developer, top repository and company; the footer reads Visible Rows: 50,000" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/blog/grid-off-the-main-thread/devindex-dark.png" />
 
-*DevIndex ranks the 50,000 most active developers on GitHub, entirely in the browser. Its rows, its cells and its sparklines are all computed off the main thread.*
+*DevIndex ranks the 50,000 most active developers on GitHub, entirely in the browser. Its rows, its cells and its sparklines are all computed off the main thread. [Look yourself up](https://neomjs.com/dist/production/apps/devindex/index.html).*
 
 ## A third of a second with nothing working
 
@@ -87,11 +87,15 @@ The main-thread grid wins elsewhere, and the same report says so:
 
 That is the trade. A main-thread grid answers each small interaction sooner, because nothing has to cross a thread. A worker grid pays a toll of milliseconds on every round trip, and in return its heaviest work never stops the page. At 100,000 rows we take that trade: a jump that lands a frame or two later is a cost the user can forgive, and a page that stops answering for a third of a second is not.
 
+Think the setup favors us, or want your own grid in the table? The harness [takes pull requests](https://github.com/neomjs/benchmarks#call-for-contributions): implement [its scenarios](https://github.com/neomjs/benchmarks/blob/main/.github/EPIC-Performance-Showcases.md) in the grid you use, and the report gains a column.
+
 ## A real app: 50,000 GitHub developers, no backend
 
 Benchmarks are synthetic. [DevIndex](https://neomjs.com/dist/production/apps/devindex/index.html) is not. It ranks the 50,000 most active developers on GitHub by lifetime contributions, a number GitHub's API does not return, because GitHub stores contributions per year. A scheduled Node.js data factory discovers candidates, adds up their years and writes flat files. There is no application server anywhere: the browser downloads about 23 MB of newline-delimited JSON, about 8 MB gzipped, from a static host and streams it straight into the grid ([the DevIndex repository](https://github.com/neomjs/devindex)).
 
 Open it and watch the scrollbar. The first developers are on screen while the rest are still arriving, and the scrollbar's thumb shrinks as they do. The grid has more than thirty columns: the rank, the developer, the totals, an activity sparkline, a heatmap column for every year since 2010, a country flag, organizations and links. The sparklines are drawn by a Canvas Worker on an `OffscreenCanvas`, so even the charts stay off the main thread. Sort all 50,000 developers by any column, and the sort runs in the App Worker over raw objects; only the rows on screen re-render.
+
+Try it on yourself. Open the controls from the ≡ menu, type your GitHub username, then switch the data mode, which re-sorts all 50,000 developers, and watch whether anything on the page stops. If you are not in the index and should be, [nominate yourself or someone else](https://github.com/neomjs/devindex-opt-in/issues/new/choose): its spider is a heuristic, and every reported gap makes the index better.
 
 DevIndex is also why the grid's rendering core looks the way it does. In February 2026, 50,000 developers with custom cells called for a rewrite of the grid's scrolling and rendering. The row pool and cell recycling described above came out of that month, and they shipped in 12.0 at its end.
 
@@ -126,20 +130,16 @@ The [issues showcase](https://neomjs.com/dist/production/examples/grid/issues/in
 
 - **A round trip per interaction.** The scroll-jump numbers above are the honest price of the design.
 - **An engine, not a widget.** The grid runs inside a Neo.mjs app, in its App Worker. It is not a component you can drop into a React or Angular app; using it means building the app on the engine.
-- **Features it lacks.** The MIT grid has no row grouping, aggregation, pivoting, export, clipboard copy, range selection or master/detail rows today.
+- **Features it lacks.** The MIT grid has no row grouping, aggregation, pivoting, export, clipboard copy, range selection or master/detail rows today. If one of them keeps you on another grid, [tell us which, and what you need it for](https://github.com/neomjs/neo/issues/new/choose).
 - **Limits of the newest parts.** Content-sized rows are proven at 10,000 rows, not 100,000, and size cells by their text, not by images or components. Header menus and the search work on local data.
 
-## Try it
+## Try it, and tell us where it breaks
 
-**Which grid in your work stops the page when its data changes?** Here is where to look at the alternative:
+**Which grid in your work stops the page when its data changes?** Put the same kind of load on [DevIndex](https://neomjs.com/dist/production/apps/devindex/index.html): open it, and sort 50,000 developers by any column while the rest are still streaming in. Watch whether the page ever stops.
 
-- [DevIndex](https://neomjs.com/dist/production/apps/devindex/index.html): 50,000 developers, streamed. Watch the scrollbar while it loads, then sort.
-- [The issues showcase](https://neomjs.com/dist/production/examples/grid/issues/index.html): rows that fit their text, menus with counts, search.
-- [The bigData example](https://neomjs.com/dist/production/examples/grid/bigData/index.html): open its menu and take the grid to 100,000 rows and 200 columns.
-- [The Workstation](https://neomjs.com/dist/production/apps/workstation/index.html): tear a pane, grid included, out into its own window.
-- [The benchmark report](https://github.com/neomjs/benchmarks/blob/4300c48/COMBINED_BIG_DATA_REPORT.md), and [how to rerun it](https://github.com/neomjs/benchmarks/blob/main/REPRODUCIBILITY.md).
+If anything in DevIndex, the [issues showcase](https://neomjs.com/dist/production/examples/grid/issues/index.html) or the [bigData example](https://neomjs.com/dist/production/examples/grid/bigData/index.html) stutters, freezes or renders wrong on your machine, [open an issue](https://github.com/neomjs/neo/issues/new/choose) with your browser and what you did. A report from outside the team is the most useful thing this post can produce.
 
-A new workspace starts with `npx neo-app@latest`, and the [showcase's source](https://github.com/neomjs/neo/tree/dev/examples/grid/issues) is three classes: a container, a store and a model.
+To build on it, a new workspace starts with `npx neo-app@latest`, and the [showcase's source](https://github.com/neomjs/neo/tree/dev/examples/grid/issues) is three classes: a container, a store and a model.
 
 ---
 
