@@ -6,7 +6,7 @@
 
 <img width="100%" alt="DevIndex in the dark theme: a grid ranking GitHub developers by lifetime contributions, with rank, avatar and name, total contributions, commit and private-contribution shares, impact badges, an activity sparkline per developer, top repository and company; the footer reads Visible Rows: 50,000" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/blog/grid-off-the-main-thread/devindex-dark.png" />
 
-*DevIndex ranks the 50,000 most active developers on GitHub, entirely in the browser. Its rows, its cells and its sparklines are all computed off the main thread. [Look yourself up](https://neomjs.com/devindex/).*
+*DevIndex ranks 50,000 of the most active developers on GitHub, entirely in the browser. Its rows, its cells and its sparklines are all computed off the main thread. [Look yourself up](https://neomjs.com/devindex/).*
 
 ## A third of a second with nothing working
 
@@ -78,6 +78,8 @@ On the heavy updates, the worker pays off:
 | 100,000 rows, 50 → 200 columns | 150 vs 1,083 ms (7.2×) | 0 vs 329 ms | 16.8 vs 378 ms |
 | 1,000 → 100,000 rows | 109 vs 327 ms (3.0×) | 0 vs 60 ms | 16.8 vs 90 ms |
 
+Those are the grids' UI-update times. Counted from the action to a valid DOM, the same two scenarios take 1,021 vs 1,839 ms and 335 vs 502 ms: end to end, the worker's lead is 1.8× and 1.5×.
+
 Across all ten scenarios in the run, the Neo.mjs side logged 0 ms of long-task blocking and no gap between frame callbacks longer than 16.8 ms, one frame at 60 Hz. That second number comes from callback timestamps, not from counting painted frames, but it shows the main thread never went more than a frame without running them.
 
 The main-thread grid wins elsewhere, and the same report says so:
@@ -91,22 +93,23 @@ Think the setup favors us, or want your own grid in the table? The harness [take
 
 ## A real app: 50,000 GitHub developers, no backend
 
-Benchmarks are synthetic. [DevIndex](https://neomjs.com/devindex/) is not. It ranks the 50,000 most active developers on GitHub by lifetime contributions, a number GitHub's API does not return, because GitHub stores contributions per year. A scheduled Node.js data factory discovers candidates, adds up their years and writes flat files. There is no application server anywhere: the browser downloads about 23 MB of newline-delimited JSON, about 8 MB gzipped, from a static host and streams it straight into the grid ([the DevIndex repository](https://github.com/neomjs/devindex)).
+Benchmarks are synthetic. [DevIndex](https://neomjs.com/devindex/) is not. It ranks 50,000 of the most active developers on GitHub by lifetime contributions, a number GitHub's API does not return, because GitHub stores contributions per year. A scheduled Node.js data factory discovers candidates, adds up their years and writes flat files. There is no application server anywhere: the browser downloads about 23 MB of newline-delimited JSON, about 8 MB gzipped, from a static host and streams it straight into the grid ([the DevIndex repository](https://github.com/neomjs/devindex)).
 
 Open it and watch the scrollbar. The first developers are on screen while the rest are still arriving, and the scrollbar's thumb shrinks as they do. The grid has more than thirty columns: the rank, the developer, the totals, an activity sparkline, a heatmap column for every year since 2010, a country flag, organizations and links. The sparklines are drawn by a Canvas Worker on an `OffscreenCanvas`, so even the charts stay off the main thread. Sort all 50,000 developers by any column, and the sort runs in the App Worker over raw objects; only the rows on screen re-render.
 
-Try it on yourself. Open the controls from the ≡ menu, type your GitHub username, then switch the data mode, which re-sorts all 50,000 developers, and watch whether anything on the page stops. If you are not in the index and should be, [nominate yourself or someone else](https://github.com/neomjs/devindex-opt-in/issues/new/choose): its spider is a heuristic, and every reported gap makes the index better.
+Try it on yourself. Open *Search & Settings*, the magnifying-glass button at the top right, type your GitHub username, then switch the data mode, which re-sorts all 50,000 developers, and watch whether anything on the page stops. If you are not in the index and should be, [nominate yourself or someone else](https://github.com/neomjs/devindex-opt-in/issues/new/choose): its spider is a heuristic, and every reported gap makes the index better.
 
 DevIndex documents itself in depth: its [learn section](https://neomjs.com/devindex/#/learn) walks through the data factory that builds the index, the streaming frontend, the grid's pooling and the Canvas Worker, with the source on [GitHub](https://github.com/neomjs/devindex/tree/dev/learn).
 
-DevIndex is also why the grid's rendering core looks the way it does. In February 2026, 50,000 developers with custom cells called for a rewrite of the grid's scrolling and rendering. The row pool and cell recycling described above came out of that month, and they shipped in 12.0 at its end.
+DevIndex shaped part of the grid's rendering core. The buffered row and column ranges and the transformed rows are older: they date from January 2025 ([#6186](https://github.com/neomjs/neo/issues/6186), [#6195](https://github.com/neomjs/neo/issues/6195), [#6230](https://github.com/neomjs/neo/issues/6230)), and `translate3d` from August 2025 ([#7187](https://github.com/neomjs/neo/issues/7187)). In February 2026, DevIndex's 50,000 records made the rows components: `Neo.grid.Row` ([#8965](https://github.com/neomjs/neo/issues/8965)) and a pool of row instances that the body refills in place instead of regenerating their VDOM ([#8966](https://github.com/neomjs/neo/issues/8966)). That shipped in 12.0 at the end of the month, and [its release notes](https://github.com/neomjs/neo/releases/tag/12.0.0) tell the story.
 
 ## The longer story
 
 The grid is not new. It has been part of the engine since the engine's first commits in 2019, and each step below had to keep working inside a worker:
 
+- **January 2025, 8.1 to 8.4:** rows and columns rendered only in view plus a buffer, with rows positioned by transform.
 - **August 2025, 10.5:** records on demand, and with them grids of 100,000 rows and 200 columns.
-- **February 2026, 12.0:** the rewrite for DevIndex, with the row pool and cell recycling.
+- **February 2026, [12.0](https://github.com/neomjs/neo/releases/tag/12.0.0):** the Row component and its pool, for DevIndex.
 - **October 2026, 13.2:** a grid that changes windows.
 - **October 2026, 13.3:** rows that fit their text, header menus that filter by value, and a search toolbar.
 
@@ -118,7 +121,7 @@ The window story follows straight from the architecture. With a SharedWorker, al
 
 The 13.3 story shows the architecture deciding a feature. A grid that scrolls through thousands of records needs every row's height to place row 5,000 and to size its scrollbar. The usual answer is one height for all rows, which means cutting long text off or stretching every row to the longest one. Variable row heights had been on the grid's backlog since March ([#9495](https://github.com/neomjs/neo/issues/9495)). The App Worker can't measure text, because it has no DOM, and a height predicted from font metrics is only an estimate. So in 13.3 ([#19658](https://github.com/neomjs/neo/issues/19658)) the worker asks the browser. A hidden pre-render lays out a batch of cells with the grid's own cell CSS, and one layout pass returns every height in a single round trip. A probe priced 300 cells at 3.6 ms in Chromium 153 and 4 ms in Firefox 155 and WebKit 26.6 ([the 13.3.0 notes](https://github.com/neomjs/neo/releases/tag/13.3.0)). The design rests on the hidden cells matching the visible ones exactly. One CI run on Linux showed why: a 1 px border that the visible cells drop made a row's text wrap one line longer in the hidden cell, until both were built from the same flag ([#19704](https://github.com/neomjs/neo/pull/19704)). The row you are reading holds still while measured heights replace estimates ([#19674](https://github.com/neomjs/neo/pull/19674)).
 
-The [issues showcase](https://neomjs.com/dist/production/examples/grid/issues/index.html) puts all of 13.3 on Neo's own 497 most recent issues:
+The [issues showcase](https://neomjs.com/dist/production/examples/grid/issues/index.html) puts all of 13.3 on a snapshot of 497 of Neo's own issues:
 
 1. Scroll. Each row is as tall as its title or summary needs, and the issue number and state stay aligned in their locked columns.
 2. Untick *Content-sized rows* to see the same issues cut to one line, then tick it again.
