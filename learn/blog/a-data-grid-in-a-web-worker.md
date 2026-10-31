@@ -6,7 +6,7 @@
 
 <img width="100%" alt="DevIndex in the dark theme: a grid ranking GitHub developers by lifetime contributions, with rank, avatar and name, total contributions, commit and private-contribution shares, impact badges, an activity sparkline per developer, top repository and company; the footer reads Visible Rows: 50,000" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/blog/grid-off-the-main-thread/devindex-dark.png" />
 
-*DevIndex ranks the 50,000 most active developers on GitHub, entirely in the browser. Its rows, its cells and its sparklines are all computed off the main thread. [Look yourself up](https://neomjs.com/dist/production/apps/devindex/index.html).*
+*DevIndex ranks the 50,000 most active developers on GitHub, entirely in the browser. Its rows, its cells and its sparklines are all computed off the main thread. [Look yourself up](https://neomjs.com/devindex/).*
 
 ## A third of a second with nothing working
 
@@ -91,11 +91,13 @@ Think the setup favors us, or want your own grid in the table? The harness [take
 
 ## A real app: 50,000 GitHub developers, no backend
 
-Benchmarks are synthetic. [DevIndex](https://neomjs.com/dist/production/apps/devindex/index.html) is not. It ranks the 50,000 most active developers on GitHub by lifetime contributions, a number GitHub's API does not return, because GitHub stores contributions per year. A scheduled Node.js data factory discovers candidates, adds up their years and writes flat files. There is no application server anywhere: the browser downloads about 23 MB of newline-delimited JSON, about 8 MB gzipped, from a static host and streams it straight into the grid ([the DevIndex repository](https://github.com/neomjs/devindex)).
+Benchmarks are synthetic. [DevIndex](https://neomjs.com/devindex/) is not. It ranks the 50,000 most active developers on GitHub by lifetime contributions, a number GitHub's API does not return, because GitHub stores contributions per year. A scheduled Node.js data factory discovers candidates, adds up their years and writes flat files. There is no application server anywhere: the browser downloads about 23 MB of newline-delimited JSON, about 8 MB gzipped, from a static host and streams it straight into the grid ([the DevIndex repository](https://github.com/neomjs/devindex)).
 
 Open it and watch the scrollbar. The first developers are on screen while the rest are still arriving, and the scrollbar's thumb shrinks as they do. The grid has more than thirty columns: the rank, the developer, the totals, an activity sparkline, a heatmap column for every year since 2010, a country flag, organizations and links. The sparklines are drawn by a Canvas Worker on an `OffscreenCanvas`, so even the charts stay off the main thread. Sort all 50,000 developers by any column, and the sort runs in the App Worker over raw objects; only the rows on screen re-render.
 
 Try it on yourself. Open the controls from the ≡ menu, type your GitHub username, then switch the data mode, which re-sorts all 50,000 developers, and watch whether anything on the page stops. If you are not in the index and should be, [nominate yourself or someone else](https://github.com/neomjs/devindex-opt-in/issues/new/choose): its spider is a heuristic, and every reported gap makes the index better.
+
+DevIndex documents itself in depth: its [learn section](https://neomjs.com/devindex/#/learn) walks through the data factory that builds the index, the streaming frontend, the grid's pooling and the Canvas Worker, with the source on [GitHub](https://github.com/neomjs/devindex/tree/dev/learn).
 
 DevIndex is also why the grid's rendering core looks the way it does. In February 2026, 50,000 developers with custom cells called for a rewrite of the grid's scrolling and rendering. The row pool and cell recycling described above came out of that month, and they shipped in 12.0 at its end.
 
@@ -135,7 +137,7 @@ The [issues showcase](https://neomjs.com/dist/production/examples/grid/issues/in
 
 ## Try it, and tell us where it breaks
 
-**Which grid in your work stops the page when its data changes?** Put the same kind of load on [DevIndex](https://neomjs.com/dist/production/apps/devindex/index.html): open it, and sort 50,000 developers by any column while the rest are still streaming in. Watch whether the page ever stops.
+**Which grid in your work stops the page when its data changes?** Put the same kind of load on [DevIndex](https://neomjs.com/devindex/): open it, and sort 50,000 developers by any column while the rest are still streaming in. Watch whether the page ever stops.
 
 If anything in DevIndex, the [issues showcase](https://neomjs.com/dist/production/examples/grid/issues/index.html) or the [bigData example](https://neomjs.com/dist/production/examples/grid/bigData/index.html) stutters, freezes or renders wrong on your machine, [open an issue](https://github.com/neomjs/neo/issues/new/choose) with your browser and what you did. A report from outside the team is the most useful thing this post can produce.
 
