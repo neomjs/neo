@@ -274,7 +274,7 @@ test.describe('Grid issues showcase', () => {
         await expect(menu).toBeVisible()
     });
 
-    test('only the sorted header announces its direction, through aria-sort (#19913)', async ({page}) => {
+    test('only the sorted header announces its direction, through aria-sort (#19913, #20188)', async ({page}) => {
         const header = name => page.locator(GRID).getByRole('columnheader', {name, exact: true}),
               sorted = page.locator(`${GRID} [aria-sort]`);
 
@@ -286,17 +286,27 @@ test.describe('Grid issues showcase', () => {
 
         await expect(header('Title')).toHaveAttribute('aria-sort', 'ascending');
         await expect(header('#')).not.toHaveAttribute('aria-sort');
+        await expect(sorted).toHaveCount(1);
+
+        // State has a column menu, so its wrapper is the columnheader and its sort button sits inside it
+        await header('State').locator('.neo-grid-header-button').click();
+
+        await expect(header('State')).toHaveAttribute('aria-sort', 'ascending');
+        await expect(header('Title')).not.toHaveAttribute('aria-sort');
         await expect(sorted).toHaveCount(1)
     });
 
-    test('assistive technology reads one row per record across the locked regions (#20187)', async ({page}) => {
+    test('assistive technology reads one row per record across the locked regions, with the search toolbar outside the grid and menu triggers inside their column headers (#20187, #20188)', async ({page}) => {
         // Chromium's own accessibility tree, which applies aria-owns: the DOM holds one row per region and record
-        const cdp     = await page.context().newCDPSession(page),
-              {nodes} = await cdp.send('Accessibility.getFullAXTree'),
-              byId    = new Map(nodes.map(node => [node.nodeId, node])),
-              role    = node => node.ignored ? null : node.role?.value,
-              cells   = ['cell', 'columnheader', 'gridcell'],
-              rows    = [];
+        const cdp            = await page.context().newCDPSession(page),
+              {nodes}        = await cdp.send('Accessibility.getFullAXTree'),
+              byId           = new Map(nodes.map(node => [node.nodeId, node])),
+              role           = node => node.ignored ? null : node.role?.value,
+              name           = node => node.name?.value,
+              cells          = ['cell', 'columnheader', 'gridcell'],
+              rows           = [],
+              columnMenus    = [],
+               strayControls = [];
 
         // A row's cells in reading order, reached through ignored and generic nodes but never through another row
         const cellsOf = (node, found = []) => {
@@ -311,17 +321,69 @@ test.describe('Grid issues showcase', () => {
             return found
         };
 
-        const walk = node => (node.childIds || []).map(id => byId.get(id)).filter(Boolean).forEach(child => {
-            role(child) === 'row' ? rows.push(cellsOf(child)) : walk(child)
-        });
+        const walk = (node, insideCell = false, columnHeaderName = null) => {
+            (node.childIds || []).map(id => byId.get(id)).filter(Boolean).forEach(child => {
+                const childRole = role(child),
+                      inCell    = insideCell || cells.includes(childRole),
+                      header    = childRole === 'columnheader' ? name(child) : columnHeaderName;
 
-        walk(nodes.find(node => role(node) === 'grid'));
+                if (childRole === 'row') {
+                    rows.push(cellsOf(child))
+                }
+
+                if ((childRole === 'button' || childRole === 'textbox') && !inCell) {
+                    strayControls.push({name: name(child), role: childRole})
+                }
+
+                if (childRole === 'button' && header && name(child)?.startsWith('Filter ')) {
+                    columnMenus.push({header, trigger: name(child)})
+                }
+
+                walk(child, inCell, header)
+            })
+        };
+
+        const controlsOf = (node, found = []) => {
+            (node?.childIds || []).map(id => byId.get(id)).filter(Boolean).forEach(child => {
+                const childRole = role(child);
+
+                if (childRole === 'button' || childRole === 'textbox') {
+                    found.push({name: name(child), role: childRole})
+                }
+
+                controlsOf(child, found)
+            });
+
+            return found
+        };
+
+        const gridNode       = nodes.find(node => role(node) === 'grid'),
+              gridSiblings   = (byId.get(gridNode.parentId)?.childIds || []).map(id => byId.get(id)).filter(node => node && node !== gridNode),
+              toolbarSibling = gridSiblings[0];
+
+        walk(gridNode);
         await cdp.detach();
 
         // One header row with all eight column headers, then one row of eight cells per issue
         expect(rows.length).toBe(1 + issues.length);
         expect(rows[0]).toEqual(Array(8).fill('columnheader'));
-        rows.slice(1).forEach(row => expect(row).toEqual(Array(8).fill('gridcell')))
+        rows.slice(1).forEach(row => expect(row).toEqual(Array(8).fill('gridcell')));
+
+        // AC-1: no textbox or button inside the grid sits outside a cell or column header, and the search toolbar is a sibling of the grid
+        expect(strayControls).toEqual([]);
+        expect(controlsOf(toolbarSibling)).toEqual([
+            {name: 'Search records', role: 'textbox'},
+            {name: 'Grid columns',   role: 'button'},
+            {name: 'Match case',     role: 'button'}
+        ]);
+
+        // AC-2: each header menu trigger sits inside its columnheader
+        expect(columnMenus).toEqual([
+            {header: 'Type',   trigger: 'Filter Type'},
+            {header: 'Area',   trigger: 'Filter Area'},
+            {header: 'Author', trigger: 'Filter Author'},
+            {header: 'State',  trigger: 'Filter State'}
+        ])
     });
 
     test('the filter list draws its focus ring inside the row and its rows on the menu surface, in both themes (#19928)', async ({page}) => {
