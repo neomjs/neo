@@ -431,7 +431,7 @@ class SortZone extends BaseSortZone {
             column.locked = newLocked
         } else {
             owner.items.forEach((item, index) => {
-                item.getVdomRoot()['aria-colindex'] = index + 1 + owner.ariaColumnOffset // 1 based, grid-wide
+                item.vdom['aria-colindex'] = index + 1 + owner.ariaColumnOffset // 1 based, grid-wide
             });
 
             owner.updateDepth = 2;

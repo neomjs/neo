@@ -194,10 +194,10 @@ class GridContainer extends BaseContainer {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * @member {String} role='grid'
+         * @member {String|null} role=null
          * @reactive
          */
-        role: 'grid',
+        role: null,
         /**
          * Declarative width breakpoints for moving columns between locked regions.
          * Breakpoint `columns` keys match a column `dataField` or `id`; values are
@@ -255,7 +255,13 @@ class GridContainer extends BaseContainer {
          * @member {Object} _vdom
          */
         _vdom:
-        {'aria-colcount': 0, 'aria-rowcount': 1, cn: []} // aria-rowcount includes the column headers
+        {cn: [{
+            'aria-colcount': 0,
+            'aria-rowcount': 1, // includes the column headers
+            cn             : [],
+            role           : 'grid',
+            style          : {display: 'flex', flex: '1 1 auto', flexDirection: 'column', minHeight: '0px', minWidth: '0px'}
+        }]}
     }
 
     /**
@@ -584,8 +590,31 @@ class GridContainer extends BaseContainer {
      */
     afterSetIsTreeGrid(value, oldValue) {
         let me = this;
-        me.getVdomRoot().role = value ? 'treegrid' : 'grid';
+        me.getAriaRoot().role = value ? 'treegrid' : 'grid';
         me.update();
+    }
+
+    /**
+     * @summary Places the header and body view inside {@link #getAriaRoot} so optional chrome such as
+     * {@link #searchToolbar} remains a sibling outside the ARIA `grid` subtree.
+     * @protected
+     */
+    createItems() {
+        let me       = this,
+            ariaRoot = me.getAriaRoot();
+
+        super.createItems();
+
+        ariaRoot.cn = me.getVdomItemsRoot().cn.splice(me.items.indexOf(me.headerWrapper), 2, ariaRoot)
+    }
+
+    /**
+     * @summary The inner ARIA `grid` (or `treegrid`) element that holds only the header and body rows, keeping
+     * optional chrome such as {@link #searchToolbar} outside the grid's accessibility subtree.
+     * @returns {Object}
+     */
+    getAriaRoot() {
+        return this.ariaRoot ||= this.vdom.cn[0]
     }
 
     /**
@@ -1733,7 +1762,7 @@ class GridContainer extends BaseContainer {
     updateColCount(silent=false) {
         let me = this;
 
-        me.getVdomRoot()['aria-colcount'] = me.columns.count;
+        me.getAriaRoot()['aria-colcount'] = me.columns.count;
 
         let cls = 'neo-hide-scrollbar';
 
@@ -1774,7 +1803,7 @@ class GridContainer extends BaseContainer {
         let me         = this,
             finalCount = count ? count : me.store.count;
 
-        me.getVdomRoot()['aria-rowcount'] = finalCount + 1;
+        me.getAriaRoot()['aria-rowcount'] = finalCount + 1;
         !silent && me.update()
     }
 }

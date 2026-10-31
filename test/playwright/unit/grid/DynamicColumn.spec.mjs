@@ -170,7 +170,7 @@ test.describe('Grid Dynamic Column Updates', () => {
         expect(mutateCalls).toBe(0);
         expect(grid.columns.count).toBe(2);
         expect(grid.headerToolbar.items.length).toBe(2);
-        expect(grid.getVdomRoot()['aria-colcount']).toBe(2);
+        expect(grid.getAriaRoot()['aria-colcount']).toBe(2);
         expect(() => VNodeUtil.createMap(grid.vnode)).not.toThrow();
 
         for (const id of oldColumnIds) {

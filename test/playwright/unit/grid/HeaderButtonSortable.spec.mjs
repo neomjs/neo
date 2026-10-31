@@ -57,21 +57,29 @@ test.describe('Header buttons and sortable', () => {
         })
     }
 
-    for (const [name, HeaderButton] of [['grid', GridHeaderButton], ['table', TableHeaderButton]]) {
-        test(`a ${name} header: the sort direction is announced through aria-sort, and an unsorted one announces none`, () => {
+    for (const [name, HeaderButton, extra] of [
+        ['grid',               GridHeaderButton,  {}],
+        ['grid (column menu)', GridHeaderButton,  {columnMenu: true}],
+        ['table',              TableHeaderButton, {}]
+    ]) {
+        test(`a ${name} header: the sort direction is announced through aria-sort on the columnheader, and an unsorted one announces none`, () => {
             const button = Neo.create(HeaderButton, {
                 dataField      : 'index',
                 sortable       : true,
-                useRippleEffect: false
+                useRippleEffect: false,
+                ...extra
             });
 
-            // aria-sort is valid on a columnheader only: the grid button *is* one, while a table header is the <th>
-            const columnHeader = () => name === 'grid' ? button.getVdomRoot() : button.vdom;
+            // aria-sort is valid on a columnheader only: the outer vdom node (the button itself, its menu wrapper, or the <th>)
+            const columnHeader = () => button.vdom;
 
             expect(columnHeader()['aria-sort']).toBeUndefined();
 
             button.isSorted = 'ASC';
             expect(columnHeader()['aria-sort']).toBe('ascending');
+            if (button.menuRootWrapped) {
+                expect(button.getVdomRoot()['aria-sort']).toBeUndefined()
+            }
 
             button.isSorted = 'DESC';
             expect(columnHeader()['aria-sort']).toBe('descending');
@@ -86,11 +94,15 @@ test.describe('Header buttons and sortable', () => {
         })
     }
 
-    for (const [name, HeaderButton] of [['grid', GridHeaderButton], ['table', TableHeaderButton]]) {
+    for (const [name, HeaderButton, extra] of [
+        ['grid',               GridHeaderButton,  {}],
+        ['grid (column menu)', GridHeaderButton,  {columnMenu: true}],
+        ['table',              TableHeaderButton, {}]
+    ]) {
         test(`a ${name} header: removeSortingCss() updates only a header that carries aria-sort`, () => {
             const
-                create       = () => Neo.create(HeaderButton, {dataField: 'index', sortable: true, useRippleEffect: false}),
-                columnHeader = button => name === 'grid' ? button.getVdomRoot() : button.vdom,
+                create       = () => Neo.create(HeaderButton, {dataField: 'index', sortable: true, useRippleEffect: false, ...extra}),
+                columnHeader = button => button.vdom,
                 countUpdates = button => {
                     const counter = {count: 0}, {update} = button;
                     button.update = function() {counter.count++; return update.call(this)};
