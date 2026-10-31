@@ -138,16 +138,17 @@ class Wrapper extends BaseContainer {
         applyRegion(centerColumns,      me.gridContainer.headerToolbar);
         applyRegion(lockedEndColumns,   me.headerEnd);
 
-        // Buttons carry a toolbar-local aria-colindex, which the header SortZone resolves column
-        // positions through at drag start — re-homed and shifted buttons must re-sync it.
+        // Buttons carry the grid-wide aria-colindex: their toolbar index plus the columns of the regions
+        // before it. Re-homed and shifted buttons, and every button after a region count changes, re-sync.
         me.getToolbars().forEach(toolbar => {
-            let dirty = false;
+            let dirty  = false,
+                offset = toolbar.ariaColumnOffset;
 
             toolbar.items.forEach((item, index) => {
                 let root = item.getVdomRoot();
 
-                if (root['aria-colindex'] !== index + 1) {
-                    root['aria-colindex'] = index + 1; // 1 based
+                if (root['aria-colindex'] !== index + 1 + offset) {
+                    root['aria-colindex'] = index + 1 + offset; // 1 based
                     dirty = true
                 }
             });
@@ -156,6 +157,31 @@ class Wrapper extends BaseContainer {
                 toolbar.updateDepth = 2;
                 toolbar.update()
             }
+        });
+
+        me.syncAriaRows()
+    }
+
+    /**
+     * @summary Keeps one ARIA header row across the regions: the first toolbar keeps `role="row"` and owns the
+     * others, which take `role="none"`, so every region's column headers read as one row, like the body rows
+     * ({@link Neo.grid.Body#getAriaRowOwns}).
+     */
+    syncAriaRows() {
+        let [lead, ...rest] = this.getToolbars();
+
+        if (!lead) {
+            return
+        }
+
+        lead.role = 'row';
+        lead.changeVdomRootKey('aria-rowindex', 1);
+        lead.changeVdomRootKey('aria-owns', rest.length > 0 ? rest.map(toolbar => toolbar.id).join(' ') : null);
+
+        rest.forEach(toolbar => {
+            toolbar.role = 'none';
+            toolbar.changeVdomRootKey('aria-owns', null);
+            toolbar.changeVdomRootKey('aria-rowindex', null)
         })
     }
 
@@ -286,7 +312,8 @@ class Wrapper extends BaseContainer {
 
         me.items = me.getToolbars();
         me.createItems();
-        me.syncColumnMenuState()
+        me.syncColumnMenuState();
+        me.syncAriaRows()
     }
 
     /**

@@ -175,8 +175,8 @@ class SortZone extends BaseSortZone {
             grid = me.owner.gridContainer,
             body = me.gridBody,
             viewId = Neo.getId('grid-view'),
-            columnIndex = me.dragElement['aria-colindex'] - 1,
-            { dataField } = body.columnPositions.getAt(columnIndex),
+            // The dragged button names its column; ARIA attributes are written for assistive technology, never read
+            { dataField } = me.dragComponent,
             cells = body.getColumnCells(dataField),
             rows = [],
             config = await super.createDragProxy(data, false),
@@ -431,7 +431,7 @@ class SortZone extends BaseSortZone {
             column.locked = newLocked
         } else {
             owner.items.forEach((item, index) => {
-                item.getVdomRoot()['aria-colindex'] = index + 1 // 1 based
+                item.getVdomRoot()['aria-colindex'] = index + 1 + owner.ariaColumnOffset // 1 based, grid-wide
             });
 
             owner.updateDepth = 2;
@@ -497,9 +497,9 @@ class SortZone extends BaseSortZone {
 
         await super.onDragStart(data);
 
-        // Capture the dragged column's identity at drag-start. `aria-colindex` is toolbar-local
-        // AND stale after the drop, so the global columns collection can only be safely indexed
-        // by re-resolving the dragged column itself at drag-end.
+        // Capture the dragged column's identity at drag-start. Indices go stale with the drop, so the
+        // global columns collection can only be safely indexed by re-resolving the dragged column
+        // itself at drag-end.
         me.dragColumnField = me.dragComponent?.dataField || null;
 
         // Snapshot the locked-body rects BEFORE any mid-drag re-flow: hiding the dragged column's
@@ -516,8 +516,7 @@ class SortZone extends BaseSortZone {
 
         if (me.dragComponent && me.moveColumnContent) {
             let body = me.gridBody,
-                columnIndex = me.dragElement['aria-colindex'] - 1,
-                columnPosition = body.columnPositions.getAt(columnIndex),
+                columnPosition = body.columnPositions.get(me.dragColumnField),
                 { dataField } = columnPosition,
                 cells = body.getColumnCells(dataField);
 

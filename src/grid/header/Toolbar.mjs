@@ -126,6 +126,17 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * @summary The count of columns in the header regions before this toolbar's. A button's toolbar index plus this
+     * offset is its grid-wide `aria-colindex` (see {@link Neo.grid.Container#getAriaColumnOffset}).
+     * @returns {Number}
+     */
+    get ariaColumnOffset() {
+        let {gridContainer, layoutLock} = this;
+
+        return gridContainer?.getAriaColumnOffset(layoutLock === 'start' ? 'start' : layoutLock === 'end' ? 'end' : 'center') || 0
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -280,7 +291,7 @@ class Toolbar extends BaseToolbar {
             style;
 
         items.forEach((item, index) => {
-            item.getVdomRoot()['aria-colindex'] = index + 1; // 1 based
+            item.getVdomRoot()['aria-colindex'] = index + 1 + me.ariaColumnOffset; // 1 based, grid-wide
 
             style = item.wrapperStyle;
 

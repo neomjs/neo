@@ -25,7 +25,8 @@ async function readGrid(page, grid) {
         return {
             colindex: [...root.querySelectorAll('[role="columnheader"]')].map(header => header.getAttribute('aria-colindex')),
             headers : [...root.querySelectorAll('.neo-grid-header-button')].map(button => button.textContent.trim()),
-            rows    : [...root.querySelectorAll('.neo-grid-body')].map(body => body.querySelectorAll('[role="row"]').length),
+            // Rendered rows per body. Only the lead region's rows carry role="row", so count the record rows
+            rows    : [...root.querySelectorAll('.neo-grid-body')].map(body => body.querySelectorAll('.neo-grid-row[data-record-id]').length),
             triggers: root.querySelectorAll('.neo-grid-menu-trigger').length,
             wrappers: root.querySelectorAll('.neo-grid-menu-wrapper').length
         }
@@ -97,7 +98,8 @@ test.describe('Header menu shape', () => {
 
     test('locked columns and a per-column opt-out keep one header per column', async ({page}) => {
         await expect.poll(() => readGrid(page, 'grid-column-menu-locked')).toEqual({
-            colindex: ['1', '2', '1', '2', '1'],
+            // Grid-wide across the locked-start, center and locked-end headers
+            colindex: ['1', '2', '3', '4', '5'],
             headers : ['Id', 'Name', 'Team', 'City', 'State'],
             rows    : [4, 4, 4],
             triggers: 4,
@@ -109,8 +111,8 @@ test.describe('Header menu shape', () => {
         // Holds the plugin, and with it its stylesheet, until both grids have measured their headers and rendered rows:
         // 4 records, in 1 body and in 3
         await page.route('**/grid/header/plugin/Menu.mjs', async route => {
-            await expect(page.locator('#grid-column-menu-plain .neo-grid-body [role="row"]')).toHaveCount(4, {timeout: 30000});
-            await expect(page.locator('#grid-column-menu-locked .neo-grid-body [role="row"]')).toHaveCount(12, {timeout: 30000});
+            await expect(page.locator('#grid-column-menu-plain .neo-grid-body .neo-grid-row[data-record-id]')).toHaveCount(4, {timeout: 30000});
+            await expect(page.locator('#grid-column-menu-locked .neo-grid-body .neo-grid-row[data-record-id]')).toHaveCount(12, {timeout: 30000});
             await route.continue()
         });
 

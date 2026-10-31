@@ -1298,6 +1298,25 @@ class GridContainer extends BaseContainer {
         return [...lockedStart, ...unlocked, ...lockedEnd]
     }
 
+    /**
+     * @summary The count of columns rendered before a region, which turns a region-local column index into the
+     * grid-wide `aria-colindex` WAI-ARIA requires.
+     *
+     * `aria-colindex` positions a cell "with respect to the total number of columns", which `aria-colcount` sets
+     * from `columns.count`. A region body or header toolbar indexes only its own columns, so it adds this offset:
+     * 0 for `start`, the locked-start count for `center`, and the locked-start plus center counts for `end`.
+     * @param {'start'|'center'|'end'} region
+     * @returns {Number}
+     */
+    getAriaColumnOffset(region) {
+        let me = this;
+
+        if (region === 'start') {
+            return 0
+        }
+
+        return region === 'end' ? me.lockedStartColumns.length + me.centerColumns.length : me.lockedStartColumns.length
+    }
 
     /**
      * @param {String} dataField

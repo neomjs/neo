@@ -290,7 +290,8 @@ class Row extends Component {
         }
 
         cellConfig = {
-            'aria-colindex': columnIndex + 1, // 1 based
+            // 1 based, counting the columns of the regions before this one (Neo.grid.Container#getAriaColumnOffset)
+            'aria-colindex': columnIndex + 1 + (cache.ariaColumnOffset || 0),
             data           : {field: dataField, recordId},
             id             : cellId,
             cls            : cellCls,
@@ -412,21 +413,34 @@ class Row extends Component {
             cellEditing    = gridContainer.getPlugin('grid-cell-editing'),
             editSession    = cellEditing?.session ?? null,
             editsCells     = !!cellEditing && !cellEditing.disabled,
-            cache          = {colspanField, columnPositions, editSession, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
+            ariaColumnOffset = gridContainer.getAriaColumnOffset(gridBody.region),
+            ariaRow        = gridBody.isAriaLeadRegion,
+            cache          = {ariaColumnOffset, colspanField, columnPositions, editSession, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
 
         Object.assign(vdom, {
-            'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
-            data           : {recordId, rowId: rowIndex},
-            role           : 'row',
+            data : {recordId, rowId: rowIndex},
             // Content-sized rows take height and offset from the view's geometry, fixed rows multiply
-            style          : {
+            style: {
                 display  : null, // Reset display in case it was hidden
                 height   : (rowGeometry ? rowGeometry.heightAt(rowIndex) : rowHeight) + 'px',
                 transform: me.getRowTransform(rowGeometry ? rowGeometry.offsetAt(rowIndex) : rowIndex * rowHeight)
             }
         });
 
-        if (gridContainer.isTreeGrid) {
+        // One ARIA row per record: the lead region's row carries the row semantics and owns the rows the other
+        // regions render for the same record, which leave the accessibility tree as `role="none"`
+        if (ariaRow) {
+            let owns = gridBody.getAriaRowOwns(rowIndex);
+
+            vdom['aria-rowindex'] = rowIndex + 2; // header row => 1, first body row => 2
+            vdom.role             = 'row';
+            owns ? (vdom['aria-owns'] = owns) : delete vdom['aria-owns']
+        } else {
+            ['aria-expanded', 'aria-level', 'aria-owns', 'aria-posinset', 'aria-rowindex', 'aria-setsize'].forEach(key => delete vdom[key]);
+            vdom.role = 'none'
+        }
+
+        if (gridContainer.isTreeGrid && ariaRow) {
             if (!record.isLeaf) {
                 vdom['aria-expanded'] = record.expanded || false;
             } else {
@@ -465,7 +479,7 @@ class Row extends Component {
 
         if (selectedRows?.length > 0 && selectedRows.includes(recordId)) {
             rowCls.push('neo-selected');
-            vdom['aria-selected'] = true;
+            ariaRow ? (vdom['aria-selected'] = true) : delete vdom['aria-selected'];
             // Note: fire('select') should ideally be handled by the SelectionModel observing the store/records,
             // or we keep it here but suppress events during rendering if needed.
             // gridContainer.fire('select', {record})
@@ -519,7 +533,7 @@ class Row extends Component {
                     if (oldNode && oldNode.data?.recordId === recordId) {
                         // We must update the ID and colindex to match the new physical slot
                         Row.setCellId(oldNode, `${me.id}__cell-${poolIndex}`);
-                        oldNode['aria-colindex'] = i + 1;
+                        oldNode['aria-colindex'] = i + 1 + ariaColumnOffset;
 
                         // Update position
                         if (columnPosition) {
@@ -609,7 +623,7 @@ class Row extends Component {
                             // into a single row, and id-based diffing collapses (id-less insert
                             // storms, the DOM accumulating both generations).
                             Row.setCellId(oldNode, `${me.id}__${column.dataField}`);
-                            oldNode['aria-colindex'] = i + 1;
+                            oldNode['aria-colindex'] = i + 1 + ariaColumnOffset;
 
                             if (columnPosition) {
                                 oldNode.style.left  = columnPosition.x + 'px';

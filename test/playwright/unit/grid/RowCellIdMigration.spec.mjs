@@ -55,8 +55,9 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
                 get     : dataField => globalColumns.find(col => col.dataField === dataField) || null,
                 getCount: () => globalColumns.length
             },
-            getPlugin : () => null,
-            isTreeGrid: false
+            getAriaColumnOffset: () => 0,
+            getPlugin          : () => null,
+            isTreeGrid         : false
         };
 
         const gridBody = {
@@ -66,11 +67,13 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
                 getAt   : i => columnPositions[i],
                 getCount: () => columnPositions.length
             },
+            getAriaRowOwns        : () => null,
             getLogicalCellId      : (rec, dataField) => `logical__${rec.id}__${dataField}`,
             getRecordId           : rec => rec.id,
             getRowClass           : () => ['neo-grid-row'],
             gridContainer,
             highlightModifiedCells: false,
+            isAriaLeadRegion      : true,
             mountedColumns        : [0, globalColumns.length - 1],
             rowHeight             : 32,
             selectedCells         : [],

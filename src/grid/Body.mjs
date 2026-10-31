@@ -924,6 +924,13 @@ class GridBody extends Component {
             Performance.markEnd('grid.createViewData:' + me.id)
         }
 
+        // The lead region's rows own this body's rows, and this pool may have formed after the lead's pass
+        if (!me.isAriaLeadRegion) {
+            let {gridContainer} = me;
+
+            (gridContainer.bodyStart || gridContainer.body)?.syncAriaRowOwns(silent)
+        }
+
         if (!silent) {
             me.updateDepth = -1;
             me.update()
@@ -1203,22 +1210,91 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary The ids of the rows the other regions render for `rowIndex`, which the lead region's row owns, so a
+     * locked-column grid exposes one ARIA row per record instead of one per region.
+     *
+     * Every region maps a record to its pool slot as `rowIndex % items.length` (see {@link #createViewData}), so each
+     * sibling row resolves without bookkeeping. `aria-owns` places owned elements after the owner's own children,
+     * which keeps the cells in start → center → end order.
+     * @param {Number} rowIndex
+     * @returns {String|null} `null` for a body outside the lead region, or a grid with one region
+     */
+    getAriaRowOwns(rowIndex) {
+        let me              = this,
+            {gridContainer} = me;
+
+        if (!gridContainer || !me.isAriaLeadRegion) {
+            return null
+        }
+
+        let ids = [gridContainer.body, gridContainer.bodyEnd]
+            .filter(body => body && body !== me && body.items.length > 0)
+            .map(body => body.items[rowIndex % body.items.length].id);
+
+        return ids.length > 0 ? ids.join(' ') : null
+    }
+
+    /**
+     * @summary Whether this body's rows are the grid's ARIA rows: true for the first region present, which is
+     * `start` when the grid has locked-start columns and `center` otherwise. The rows of the other regions take
+     * `role="none"`, and the lead row owns them through {@link #getAriaRowOwns}.
+     * @returns {Boolean}
+     */
+    get isAriaLeadRegion() {
+        let {gridContainer} = this;
+
+        return !gridContainer || (gridContainer.bodyStart || gridContainer.body) === this
+    }
+
+    /**
+     * @summary The region this body renders: `'start'`, `'center'` or `'end'`, resolved by identity against its grid,
+     * like the scrollbar feed in {@link #afterSetAvailableWidth}.
+     * @returns {'start'|'center'|'end'}
+     */
+    get region() {
+        let {gridContainer} = this;
+
+        return gridContainer?.bodyStart === this ? 'start' : gridContainer?.bodyEnd === this ? 'end' : 'center'
+    }
+
+    /**
+     * @summary Points each rendered lead row's `aria-owns` at the rows the other regions render for its record.
+     *
+     * A sibling region can build its row pool after the lead region rendered, and a lead row whose record did not
+     * change skips its next render, so each sibling calls this after its own pass ({@link #createViewData}).
+     * @param {Boolean} [silent=false] True to leave the update to the caller's batch
+     */
+    syncAriaRowOwns(silent=false) {
+        let me    = this,
+            dirty = false;
+
+        me.items.forEach(row => {
+            if (row.record) {
+                let owns = me.getAriaRowOwns(row.rowIndex) ?? undefined;
+
+                if (row.vdom['aria-owns'] !== owns) {
+                    owns ? (row.vdom['aria-owns'] = owns) : delete row.vdom['aria-owns'];
+                    dirty = true
+                }
+            }
+        });
+
+        if (dirty && !silent) {
+            me.updateDepth = -1;
+            me.update()
+        }
+    }
+
+    /**
+     * @summary The record a row shows, read from the row's own `rowIndex`. A row outside the lead region carries no
+     * `aria-rowindex`, so ARIA stays write-only for the engine.
      * @param {String} rowId
      * @returns {Record|null}
      */
     getRecordByRowId(rowId) {
-        let me = this,
-            node = Neo.getComponent(rowId)?.vdom,
-            rowIndex = node?.['aria-rowindex'];
+        let rowIndex = Neo.getComponent(rowId)?.rowIndex;
 
-        if (Neo.isNumber(rowIndex)) {
-            // aria-rowindex is 1 based & also includes the header
-            rowIndex -= 2;
-
-            return me.store.getAt(rowIndex)
-        }
-
-        return null
+        return Neo.isNumber(rowIndex) && rowIndex > -1 ? this.store.getAt(rowIndex) : null
     }
 
     /**
