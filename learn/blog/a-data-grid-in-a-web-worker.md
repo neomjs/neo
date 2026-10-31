@@ -82,7 +82,7 @@ Across all ten scenarios in the run, the Neo.mjs side logged 0 ms of long-task b
 
 The main-thread grid wins elsewhere, and the same report says so:
 
-- **Scroll jumps.** Eight render-gated jumps across 100,000 rows took 281 ms for Neo.mjs and 128 ms for AG Grid, which updates the DOM synchronously on each jump. Across the three scroll tests, AG Grid was 1.7 to 2.8 times faster: 16 to 17 ms per jump against 29 to 47 ms. Part of Neo.mjs's time was a scroll-state delay found during this run; its fix ([#20125](https://github.com/neomjs/neo/pull/20125)) landed the same day, after the measurement.
+- **Scroll jumps.** Eight render-gated jumps across 100,000 rows took 281 ms for Neo.mjs and 128 ms for AG Grid, which updates the DOM synchronously on each jump. Across the three scroll tests, AG Grid was 1.7 to 2.8 times faster: 16 to 17 ms per jump against 29 to 47 ms. During all three scroll tests, both grids kept 0 ms of blocking and their frame callbacks on time; the difference is how long each jump takes to fill in. Part of Neo.mjs's time was a scroll-state delay found during this run; its fix ([#20125](https://github.com/neomjs/neo/pull/20125)) landed the same day, after the measurement.
 - **Small updates and repeated filters.** Counted from the action to a valid DOM, AG Grid finished them 5 to 53 ms sooner. Both stay within a few frames there.
 
 That is the trade. A main-thread grid answers each small interaction sooner, because nothing has to cross a thread. A worker grid pays a toll of milliseconds on every round trip, and in return its heaviest work never stops the page. At 100,000 rows we take that trade: a jump that lands a frame or two later is a cost the user can forgive, and a page that stops answering for a third of a second is not.
