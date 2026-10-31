@@ -78,6 +78,13 @@ class GridContainer extends BaseContainer {
          */
         ntype: 'grid-container',
         /**
+         * The inner container that owns the ARIA `grid` (or `treegrid`) role and wraps {@link #headerWrapper}
+         * and {@link #view}, keeping optional chrome such as {@link #searchToolbar} outside the ARIA grid.
+         * @member {Neo.container.Base|null} ariaWrapper=null
+         * @protected
+         */
+        ariaWrapper: null,
+        /**
          * @member {String[]} baseCls=['neo-grid-container']
          * @protected
          */
@@ -194,6 +201,8 @@ class GridContainer extends BaseContainer {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * The outer container carries no WAI-ARIA role of its own; the `grid` (or `treegrid`) role lives on
+         * {@link #getAriaRoot} so optional chrome such as {@link #searchToolbar} remains outside the ARIA grid.
          * @member {String|null} role=null
          * @reactive
          */
@@ -250,18 +259,7 @@ class GridContainer extends BaseContainer {
          * @member {Neo.grid.VerticalScrollbar|null} verticalScrollbar=null
          * @protected
          */
-        verticalScrollbar: null,
-        /**
-         * @member {Object} _vdom
-         */
-        _vdom:
-        {cn: [{
-            'aria-colcount': 0,
-            'aria-rowcount': 1, // includes the column headers
-            cn             : [],
-            role           : 'grid',
-            style          : {display: 'flex', flex: '1 1 auto', flexDirection: 'column', minHeight: '0px', minWidth: '0px'}
-        }]}
+        verticalScrollbar: null
     }
 
     /**
@@ -318,7 +316,6 @@ class GridContainer extends BaseContainer {
         me.headerWrapper = Neo.create(header.Wrapper, {
             appName,
             gridContainer: me,
-            parentId     : me.id,
             theme        : me.theme,
             windowId,
             items        : [me.headerToolbar]
@@ -331,13 +328,25 @@ class GridContainer extends BaseContainer {
             flex            : 1,
             gridContainer   : me,
             isLoading       : me.isLoading,
-            parentId        : me.id,
             theme           : me.theme,
             windowId,
             items           : [me.body]
         });
 
         me.view.addDomListeners({resize: {fn: me.onViewResize, scope: me}});
+
+        me.ariaWrapper = Neo.create(BaseContainer, {
+            appName,
+            baseCls : [],
+            flex    : 1,
+            items   : [me.headerWrapper, me.view],
+            parentId: me.id,
+            role    : me.isTreeGrid ? 'treegrid' : 'grid',
+            style   : {minHeight: 0, minWidth: 0},
+            theme   : me.theme,
+            vdom    : {'aria-colcount': 0, 'aria-rowcount': 1, cn: []},
+            windowId
+        });
 
         me.horizontalScrollbar = Neo.create(HorizontalScrollbar, {
             appName,
@@ -358,7 +367,7 @@ class GridContainer extends BaseContainer {
             windowId
         });
 
-        me.items = [me.headerWrapper, me.view, me.horizontalScrollbar];
+        me.items = [me.ariaWrapper, me.horizontalScrollbar];
 
         if (me.searchToolbar) me.items.unshift(me.searchToolbar);
 
@@ -589,32 +598,19 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     afterSetIsTreeGrid(value, oldValue) {
-        let me = this;
-        me.getAriaRoot().role = value ? 'treegrid' : 'grid';
-        me.update();
+        if (this.ariaWrapper) {
+            this.ariaWrapper.role = value ? 'treegrid' : 'grid'
+        }
     }
 
     /**
-     * @summary Places the header and body view inside {@link #getAriaRoot} so optional chrome such as
-     * {@link #searchToolbar} remains a sibling outside the ARIA `grid` subtree.
-     * @protected
-     */
-    createItems() {
-        let me       = this,
-            ariaRoot = me.getAriaRoot();
-
-        super.createItems();
-
-        ariaRoot.cn = me.getVdomItemsRoot().cn.splice(me.items.indexOf(me.headerWrapper), 2, ariaRoot)
-    }
-
-    /**
-     * @summary The inner ARIA `grid` (or `treegrid`) element that holds only the header and body rows, keeping
-     * optional chrome such as {@link #searchToolbar} outside the grid's accessibility subtree.
+     * @summary The VDOM root of the inner ARIA `grid` (or `treegrid`) container ({@link #ariaWrapper}) that
+     * holds only the header and body rows, keeping optional chrome such as {@link #searchToolbar} outside the
+     * grid's accessibility subtree.
      * @returns {Object}
      */
     getAriaRoot() {
-        return this.ariaRoot ||= this.vdom.cn[0]
+        return this.ariaWrapper.getVdomRoot()
     }
 
     /**
@@ -1792,7 +1788,7 @@ class GridContainer extends BaseContainer {
             me.scrollManager.rowHoverSync     && me.scrollManager.updateGridRowHoverSyncAddon(me.hasLockedColumns);
         }
 
-        !silent && me.update()
+        !silent && me.ariaWrapper.update()
     }
 
     /**
@@ -1804,7 +1800,7 @@ class GridContainer extends BaseContainer {
             finalCount = count ? count : me.store.count;
 
         me.getAriaRoot()['aria-rowcount'] = finalCount + 1;
-        !silent && me.update()
+        !silent && me.ariaWrapper.update()
     }
 }
 

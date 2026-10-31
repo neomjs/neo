@@ -298,15 +298,15 @@ test.describe('Grid issues showcase', () => {
 
     test('assistive technology reads one row per record across the locked regions, with the search toolbar outside the grid and menu triggers inside their column headers (#20187, #20188)', async ({page}) => {
         // Chromium's own accessibility tree, which applies aria-owns: the DOM holds one row per region and record
-        const cdp            = await page.context().newCDPSession(page),
-              {nodes}        = await cdp.send('Accessibility.getFullAXTree'),
-              byId           = new Map(nodes.map(node => [node.nodeId, node])),
-              role           = node => node.ignored ? null : node.role?.value,
-              name           = node => node.name?.value,
-              cells          = ['cell', 'columnheader', 'gridcell'],
-              rows           = [],
-              columnMenus    = [],
-               strayControls = [];
+        const cdp           = await page.context().newCDPSession(page),
+              {nodes}       = await cdp.send('Accessibility.getFullAXTree'),
+              byId          = new Map(nodes.map(node => [node.nodeId, node])),
+              role          = node => node.ignored ? null : node.role?.value,
+              name          = node => node.name?.value,
+              cells         = ['cell', 'columnheader', 'gridcell'],
+              rows          = [],
+              columnMenus   = [],
+              strayControls = [];
 
         // A row's cells in reading order, reached through ignored and generic nodes but never through another row
         const cellsOf = (node, found = []) => {

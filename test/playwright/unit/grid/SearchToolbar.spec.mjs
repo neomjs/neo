@@ -590,7 +590,7 @@ test.describe('Grid record search toolbar', () => {
             secondGrid = await initializedGridFor(firstStore);
 
         expect(firstGrid.searchToolbar).toBeNull();
-        expect(firstGrid.items[0]).toBe(firstGrid.headerWrapper);
+        expect(firstGrid.items[0]).toBe(firstGrid.ariaWrapper);
 
         firstGrid.searchToolbar = {};
         secondGrid.searchToolbar = {};

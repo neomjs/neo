@@ -245,6 +245,31 @@ test.describe('Grid: one ARIA grid across locked regions', () => {
         expect(ariaRoot['aria-rowcount']).toBe(21);
         expect(ariaRoot.cn.map(node => node.componentId)).toEqual([grid.headerWrapper.id, grid.view.id]);
         expect(grid.vdom.cn[0].componentId).toBe(grid.searchToolbar.id);
-        expect(grid.vdom.cn[1]).toBe(ariaRoot)
+        expect(grid.vdom.cn[1].componentId).toBe(grid.ariaWrapper.id)
+    });
+
+    test('container items and vdom references stay index-aligned across insert, removeAt, and add/remove (#20188)', async () => {
+        grid = await createGrid(store);
+
+        const itemIds = () => grid.items.map(item => item.id),
+              vdomIds = () => grid.vdom.cn.map(node => node.componentId);
+
+        expect(vdomIds()).toEqual(itemIds());
+
+        let inserted = grid.insert(grid.items.indexOf(grid.horizontalScrollbar), {ntype: 'component'});
+        expect(vdomIds()).toEqual(itemIds());
+        expect(vdomIds().indexOf(inserted.id)).toBe(vdomIds().indexOf(grid.horizontalScrollbar.id) - 1);
+        grid.remove(inserted);
+        expect(vdomIds()).toEqual(itemIds());
+
+        let added = grid.add({ntype: 'component'});
+        expect(vdomIds()).toEqual(itemIds());
+        grid.remove(added);
+        expect(vdomIds()).toEqual(itemIds());
+
+        let removed = grid.removeAt(grid.items.indexOf(grid.horizontalScrollbar), false);
+        expect(removed).toBe(grid.horizontalScrollbar);
+        expect(vdomIds()).toEqual([grid.ariaWrapper.id, grid.verticalScrollbar.id]);
+        removed.destroy()
     })
 });
