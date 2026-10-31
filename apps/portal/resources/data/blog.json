@@ -12,7 +12,7 @@
             "date": "2026-10-31",
             "id": "blog/a-data-grid-in-a-web-worker",
             "isLeaf": true,
-            "name": "What happens when a data grid lives in a web worker",
+            "name": "The main thread is the wrong place for a data grid",
             "parentId": "2026",
             "path": "learn/blog/a-data-grid-in-a-web-worker.md"
         },
