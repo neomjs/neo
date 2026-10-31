@@ -48,16 +48,23 @@ test.describe('Grid header value menu', () => {
         else delete Neo.config.locale
     });
 
-    test('default stays native; opt-in composes sibling buttons and keeps native focus identity', async () => {
+    test('default stays native; opt-in composes sibling buttons inside one columnheader and keeps native focus identity', async () => {
         const source = storeFor(), grid = gridFor(source), header = grid.getButton('status');
         expect(header.vdom.tag).toBe('button');
+        expect(header.vdom.role).toBe('columnheader');
+        expect(header.vdom['aria-colindex']).toBe(1);
         expect(header.getPlugin('plugin-grid-header-menu')).toBeNull();
         grid.columnMenu = true;
         const {menu} = await menuFor(grid);
         expect(header.vdom.id).toBe(`${header.id}__wrapper`);
+        expect(header.vdom.role).toBe('columnheader');
+        expect(header.vdom['aria-labelledby']).toBe(header.id);
+        expect(header.vdom['aria-colindex']).toBe(1);
         expect(header.parent.getVdomItemsRoot().cn.find(node => node.componentId === header.id).id).toBe(header.vdom.id);
         expect(header.getVdomRoot().id).toBe(header.id);
         expect(header.getVdomRoot().tag).toBe('button');
+        expect(header.getVdomRoot().role).toBeUndefined();
+        expect(header.getVdomRoot()['aria-colindex']).toBeUndefined();
         expect(header.vdom.cls).toContain('neo-draggable');
         expect(menu.trigger.getVdomRoot().tag).toBe('button');
         expect(header.vdom.cn[1].componentId).toBe(menu.trigger.id);
@@ -551,11 +558,12 @@ test.describe('Grid header value menu', () => {
     });
 
     test('a filtered header describes itself as filtered, with or without a menu', () => {
-        const source  = storeFor(), grid = gridFor(source, {showHeaderFilters: true}), header = grid.getButton('status'),
-            described = () => header.getVdomRoot()['aria-description'];
+        const source  = storeFor(), grid = gridFor(source, {columnMenu: true, showHeaderFilters: true}), header = grid.getButton('status'),
+            described = () => header.vdom['aria-description'];
         expect(described()).toBe(undefined);
         header.changeFilterValue({value: 'Op'});
         expect(described()).toBe('Filtered');
+        expect(header.getVdomRoot()['aria-description']).toBeUndefined();
         header.changeFilterValue({value: ''});
         expect(described()).toBe(undefined)
     });

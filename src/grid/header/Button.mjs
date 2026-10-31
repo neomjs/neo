@@ -159,10 +159,10 @@ class Button extends BaseButton {
      * @protected
      */
     afterSetIsFiltered(value, oldValue) {
-        const root = this.getVdomRoot();
+        const header = this.vdom;
 
-        if (value) root['aria-description'] = 'Filtered';
-        else delete root['aria-description'];
+        if (value) header['aria-description'] = 'Filtered';
+        else delete header['aria-description'];
 
         // The class always changes with the state, so its update carries the description too
         this.toggleCls('neo-grid-column-filtered', value)
@@ -176,13 +176,15 @@ class Button extends BaseButton {
      */
     afterSetIsSorted(value, oldValue) {
         let me        = this,
-            container = me.up('grid-container');
+            container = me.up('grid-container'),
+            // WAI-ARIA 1.2 allows aria-sort on a columnheader only: the outer wrapper when this header has a
+            // column menu, or the button itself otherwise. The arrow class below is invisible to a screen reader,
+            // so the attribute is the announcement. A null direction has to remove it, or a header that clears
+            // its sort keeps announcing the direction it no longer has.
+            header    = me.vdom;
 
-        // WAI-ARIA 1.2 allows aria-sort on a columnheader only, which this button is ('role' above, applied to the
-        // same node getVdomRoot() returns). The arrow class below is invisible to a screen reader, so the attribute
-        // is the announcement. A null direction has to remove it, or a header that clears its sort keeps announcing
-        // the direction it no longer has.
-        me.changeVdomRootKey('aria-sort', value === 'ASC' ? 'ascending' : value === 'DESC' ? 'descending' : null);
+        if (value) header['aria-sort'] = value === 'ASC' ? 'ascending' : 'descending';
+        else delete header['aria-sort'];
 
         switch (value) {
             case null:
@@ -361,13 +363,20 @@ class Button extends BaseButton {
 
     /**
      * @summary Creates a stable sibling-trigger wrapper while retaining the native sort button and its focus identity.
-     * Re-points the parent's reference to the wrapper, without an update.
+     * Moves the `columnheader` ARIA role and header-level ARIA attributes onto the wrapper so both the sort button and
+     * the menu trigger sit inside one `columnheader`, and re-points the parent's reference without an update.
      * @returns {Object|undefined} The parent's reference node, when the parent already holds one
      */
     wrapColumnMenuRoot() {
         const root = this.vdom;
         this.menuRootWrapped = true;
-        this._vdom = {tag: 'div', cls: ['neo-grid-menu-wrapper'], cn: [root]};
+        this._vdom = {'aria-labelledby': this.id, cls: ['neo-grid-menu-wrapper'], cn: [root], tag: 'div'};
+        for (const key of ['aria-colindex', 'aria-description', 'aria-sort', 'role']) {
+            if (key in root) {
+                this._vdom[key] = root[key];
+                delete root[key]
+            }
+        }
         this.ensureStableIds();
         const reference = this.parent?.getVdomItemsRoot().cn.find(node => node.componentId === this.id);
         if (reference) Object.assign(reference, this.createVdomReference());
@@ -578,9 +587,14 @@ class Button extends BaseButton {
         let me    = this,
             {cls} = me;
 
-        // This path resets _isSorted directly, so it bypasses afterSetIsSorted() and owns the aria-sort clear. The
-        // container runs it on every other header on each sort, and only the one losing its sort carries the attribute
-        'aria-sort' in me.getVdomRoot() && me.changeVdomRootKey('aria-sort', null);
+        // This path resets _isSorted directly, so it bypasses afterSetIsSorted() and owns the aria-sort clear.
+        // It cannot lean on the class change below either: a header that was already hidden writes the same
+        // cls array back and produces no update, which would leave the stale attribute in the DOM. The container
+        // runs this on every other header on each sort, and only the one losing its sort carries the attribute.
+        if ('aria-sort' in me.vdom) {
+            delete me.vdom['aria-sort'];
+            me.update()
+        }
 
         NeoArray.add(cls, 'neo-sort-hidden');
 

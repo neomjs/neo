@@ -78,6 +78,13 @@ class GridContainer extends BaseContainer {
          */
         ntype: 'grid-container',
         /**
+         * The inner container that owns the ARIA `grid` (or `treegrid`) role and wraps {@link #headerWrapper}
+         * and {@link #view}, keeping optional chrome such as {@link #searchToolbar} outside the ARIA grid.
+         * @member {Neo.container.Base|null} ariaWrapper=null
+         * @protected
+         */
+        ariaWrapper: null,
+        /**
          * @member {String[]} baseCls=['neo-grid-container']
          * @protected
          */
@@ -194,10 +201,12 @@ class GridContainer extends BaseContainer {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * @member {String} role='grid'
+         * The outer container carries no WAI-ARIA role of its own; the `grid` (or `treegrid`) role lives on
+         * {@link #getAriaRoot} so optional chrome such as {@link #searchToolbar} remains outside the ARIA grid.
+         * @member {String|null} role=null
          * @reactive
          */
-        role: 'grid',
+        role: null,
         /**
          * Declarative width breakpoints for moving columns between locked regions.
          * Breakpoint `columns` keys match a column `dataField` or `id`; values are
@@ -250,12 +259,7 @@ class GridContainer extends BaseContainer {
          * @member {Neo.grid.VerticalScrollbar|null} verticalScrollbar=null
          * @protected
          */
-        verticalScrollbar: null,
-        /**
-         * @member {Object} _vdom
-         */
-        _vdom:
-        {'aria-colcount': 0, 'aria-rowcount': 1, cn: []} // aria-rowcount includes the column headers
+        verticalScrollbar: null
     }
 
     /**
@@ -312,7 +316,6 @@ class GridContainer extends BaseContainer {
         me.headerWrapper = Neo.create(header.Wrapper, {
             appName,
             gridContainer: me,
-            parentId     : me.id,
             theme        : me.theme,
             windowId,
             items        : [me.headerToolbar]
@@ -325,13 +328,25 @@ class GridContainer extends BaseContainer {
             flex            : 1,
             gridContainer   : me,
             isLoading       : me.isLoading,
-            parentId        : me.id,
             theme           : me.theme,
             windowId,
             items           : [me.body]
         });
 
         me.view.addDomListeners({resize: {fn: me.onViewResize, scope: me}});
+
+        me.ariaWrapper = Neo.create(BaseContainer, {
+            appName,
+            baseCls : [],
+            flex    : 1,
+            items   : [me.headerWrapper, me.view],
+            parentId: me.id,
+            role    : me.isTreeGrid ? 'treegrid' : 'grid',
+            style   : {minHeight: 0, minWidth: 0},
+            theme   : me.theme,
+            vdom    : {'aria-colcount': 0, 'aria-rowcount': 1, cn: []},
+            windowId
+        });
 
         me.horizontalScrollbar = Neo.create(HorizontalScrollbar, {
             appName,
@@ -352,7 +367,7 @@ class GridContainer extends BaseContainer {
             windowId
         });
 
-        me.items = [me.headerWrapper, me.view, me.horizontalScrollbar];
+        me.items = [me.ariaWrapper, me.horizontalScrollbar];
 
         if (me.searchToolbar) me.items.unshift(me.searchToolbar);
 
@@ -583,9 +598,19 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     afterSetIsTreeGrid(value, oldValue) {
-        let me = this;
-        me.getVdomRoot().role = value ? 'treegrid' : 'grid';
-        me.update();
+        if (this.ariaWrapper) {
+            this.ariaWrapper.role = value ? 'treegrid' : 'grid'
+        }
+    }
+
+    /**
+     * @summary The VDOM root of the inner ARIA `grid` (or `treegrid`) container ({@link #ariaWrapper}) that
+     * holds only the header and body rows, keeping optional chrome such as {@link #searchToolbar} outside the
+     * grid's accessibility subtree.
+     * @returns {Object}
+     */
+    getAriaRoot() {
+        return this.ariaWrapper.getVdomRoot()
     }
 
     /**
@@ -1733,7 +1758,7 @@ class GridContainer extends BaseContainer {
     updateColCount(silent=false) {
         let me = this;
 
-        me.getVdomRoot()['aria-colcount'] = me.columns.count;
+        me.getAriaRoot()['aria-colcount'] = me.columns.count;
 
         let cls = 'neo-hide-scrollbar';
 
@@ -1763,7 +1788,7 @@ class GridContainer extends BaseContainer {
             me.scrollManager.rowHoverSync     && me.scrollManager.updateGridRowHoverSyncAddon(me.hasLockedColumns);
         }
 
-        !silent && me.update()
+        !silent && me.ariaWrapper.update()
     }
 
     /**
@@ -1774,8 +1799,8 @@ class GridContainer extends BaseContainer {
         let me         = this,
             finalCount = count ? count : me.store.count;
 
-        me.getVdomRoot()['aria-rowcount'] = finalCount + 1;
-        !silent && me.update()
+        me.getAriaRoot()['aria-rowcount'] = finalCount + 1;
+        !silent && me.ariaWrapper.update()
     }
 }
 

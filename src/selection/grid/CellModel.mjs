@@ -146,7 +146,7 @@ class CellModel extends BaseModel {
 
         me.select(view.getLogicalCellId(record, dataFields[newIndex]));
 
-        view.parent.scrollByColumns(currentIndex, step)
+        view.gridContainer.scrollByColumns(currentIndex, step)
     }
 
     /**

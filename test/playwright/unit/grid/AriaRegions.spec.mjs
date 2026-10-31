@@ -88,12 +88,12 @@ function cellIndices(row) {
 }
 
 /**
- * The `aria-colindex` of each header button in a toolbar, keyed by its column
+ * The `aria-colindex` of each header's `columnheader` node in a toolbar, keyed by its column
  * @param {Neo.grid.header.Toolbar} toolbar
  * @returns {Object}
  */
 function headerIndices(toolbar) {
-    return Object.fromEntries(toolbar.items.map(button => [button.dataField, button.getVdomRoot()['aria-colindex']]))
+    return Object.fromEntries(toolbar.items.map(button => [button.dataField, button.vdom['aria-colindex']]))
 }
 
 /**
@@ -135,7 +135,7 @@ test.describe('Grid: one ARIA grid across locked regions', () => {
 
         let {body, bodyEnd, bodyStart, headerToolbar, headerWrapper} = grid;
 
-        expect(grid.getVdomRoot()['aria-colcount']).toBe(5);
+        expect(grid.getAriaRoot()['aria-colcount']).toBe(5);
         expect(['start', 'center', 'end'].map(region => grid.getAriaColumnOffset(region))).toEqual([0, 2, 4]);
 
         expect(cellIndices(rowAt(bodyStart, 3))).toEqual({code: 2, id: 1});
@@ -230,5 +230,46 @@ test.describe('Grid: one ARIA grid across locked regions', () => {
 
         expect('aria-rowindex' in row.vdom).toBe(false);
         expect(grid.bodyEnd.getRecordByRowId(row.id)).toBe(store.getAt(7))
+    });
+
+    test('the ARIA grid wraps only the header and body view, leaving the search toolbar as a sibling (#20188)', async () => {
+        grid = await createGrid(store);
+        grid.searchToolbar = {};
+        grid.updateRowCount();
+
+        let ariaRoot = grid.getAriaRoot();
+
+        expect(grid.vdom.role).toBeUndefined();
+        expect(ariaRoot.role).toBe('grid');
+        expect(ariaRoot['aria-colcount']).toBe(5);
+        expect(ariaRoot['aria-rowcount']).toBe(21);
+        expect(ariaRoot.cn.map(node => node.componentId)).toEqual([grid.headerWrapper.id, grid.view.id]);
+        expect(grid.vdom.cn[0].componentId).toBe(grid.searchToolbar.id);
+        expect(grid.vdom.cn[1].componentId).toBe(grid.ariaWrapper.id)
+    });
+
+    test('container items and vdom references stay index-aligned across insert, removeAt, and add/remove (#20188)', async () => {
+        grid = await createGrid(store);
+
+        const itemIds = () => grid.items.map(item => item.id),
+              vdomIds = () => grid.vdom.cn.map(node => node.componentId);
+
+        expect(vdomIds()).toEqual(itemIds());
+
+        let inserted = grid.insert(grid.items.indexOf(grid.horizontalScrollbar), {ntype: 'component'});
+        expect(vdomIds()).toEqual(itemIds());
+        expect(vdomIds().indexOf(inserted.id)).toBe(vdomIds().indexOf(grid.horizontalScrollbar.id) - 1);
+        grid.remove(inserted);
+        expect(vdomIds()).toEqual(itemIds());
+
+        let added = grid.add({ntype: 'component'});
+        expect(vdomIds()).toEqual(itemIds());
+        grid.remove(added);
+        expect(vdomIds()).toEqual(itemIds());
+
+        let removed = grid.removeAt(grid.items.indexOf(grid.horizontalScrollbar), false);
+        expect(removed).toBe(grid.horizontalScrollbar);
+        expect(vdomIds()).toEqual([grid.ariaWrapper.id, grid.verticalScrollbar.id]);
+        removed.destroy()
     })
 });

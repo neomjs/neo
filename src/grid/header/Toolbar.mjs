@@ -291,7 +291,7 @@ class Toolbar extends BaseToolbar {
             style;
 
         items.forEach((item, index) => {
-            item.getVdomRoot()['aria-colindex'] = index + 1 + me.ariaColumnOffset; // 1 based, grid-wide
+            item.vdom['aria-colindex'] = index + 1 + me.ariaColumnOffset; // 1 based, grid-wide
 
             style = item.wrapperStyle;
 
