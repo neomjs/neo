@@ -51,7 +51,7 @@ In a Neo.mjs app, the threads split the work like this:
 
 An update travels in a triangle. The App Worker builds the new description, the VDom Worker turns it into changes, and the main thread applies them. A click travels the other way, from the main thread to the App Worker.
 
-That is the point of the design. If the App Worker spends 300 ms sorting, nothing on the main thread waits for it. The page keeps taking input and keeps running frame callbacks, and the sorted rows appear when the worker is done. The App Worker is the main actor; the main thread is the stage.
+That is the point of the design. However long the App Worker spends sorting, nothing on the main thread waits for it. The page keeps taking input and keeps running frame callbacks, and the sorted rows appear when the worker is done. The App Worker is the main actor; the main thread is the stage.
 
 ## Inside the grid
 
