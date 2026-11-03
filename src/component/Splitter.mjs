@@ -259,7 +259,7 @@ class Splitter extends Component {
             config.minSize = minSize
         }
 
-        if (oppositeSibling) {
+        if (oppositeSibling && me.hasSiblingMinSize(oppositeSibling, axis)) {
             config.oppositeId = me.getLayoutElementId(oppositeSibling)
         }
 
@@ -307,6 +307,25 @@ class Splitter extends Component {
         let parsed = Number.parseFloat(source);
 
         return Number.isFinite(parsed) ? Math.max(0, parsed) : Number.NaN
+    }
+
+    /**
+     * @summary Checks whether a sibling component declares a non-empty minWidth or minHeight bound.
+     * @param {Neo.component.Base|null} component
+     * @param {String} axis 'width' or 'height'
+     * @returns {Boolean}
+     * @protected
+     */
+    hasSiblingMinSize(component, axis) {
+        if (!component || !['height', 'width'].includes(axis)) {
+            return false
+        }
+
+        let key    = axis === 'width' ? 'minWidth' : 'minHeight',
+            raw    = component[key] ?? component.wrapperStyle?.[key] ?? component.style?.[key],
+            source = String(raw ?? '').trim();
+
+        return source.length > 0 && source !== 'none' && source !== 'auto'
     }
 
     /**
