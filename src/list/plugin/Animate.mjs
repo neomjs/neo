@@ -100,6 +100,14 @@ class Animate extends Base {
          */
         minItemWidth_: null,
         /**
+         * True orders items horizontally across each row first (left-to-right, then top-to-bottom);
+         * false orders items vertically down each column first (top-to-bottom, then left-to-right),
+         * matching {@link Neo.component.Gallery#orderByRow_}.
+         * @member {Boolean} orderByRow_=true
+         * @reactive
+         */
+        orderByRow_: true,
+        /**
          * @member {DOMRect|null} ownerRect=null
          */
         ownerRect: null,
@@ -236,7 +244,7 @@ class Animate extends Base {
             me.columns = Math.max(1, Math.floor(width / owner.itemWidth))
         }
 
-        me.rows = me.rowHeight ? Math.floor(rect.height / me.rowHeight) : null
+        me.rows = me.rowHeight ? Math.max(1, Math.floor(rect.height / me.rowHeight)) : null
     }
 
     /**
@@ -330,6 +338,21 @@ class Animate extends Base {
 
         if (oldValue !== undefined && me.ownerRect) {
             me.applyGeometry(me.ownerRect);
+            me.repositionItems()
+        }
+    }
+
+    /**
+     * Triggered after the orderByRow config got changed — repositions rendered items
+     * along the new major axis without rebuilding the DOM.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetOrderByRow(value, oldValue) {
+        let me = this;
+
+        if (oldValue !== undefined && me.ownerRect) {
             me.repositionItems()
         }
     }
@@ -461,12 +484,21 @@ class Animate extends Base {
      */
     getItemPosition(record, index) {
         let me     = this,
-            column = index % me.columns,
             margin = me.itemMargin,
             owner  = me.owner,
-            row    = Math.floor(index / me.columns),
-            x      = column * (margin + owner.itemWidth)      + margin,
-            y      = row    * (margin + (me.rowHeight || 0)) + margin;
+            column, row, rows, x, y;
+
+        if (me.orderByRow) {
+            column = index % me.columns;
+            row    = Math.floor(index / me.columns)
+        } else {
+            rows   = Math.max(1, me.rows || 1);
+            column = Math.floor(index / rows);
+            row    = index % rows
+        }
+
+        x = column * (margin + owner.itemWidth)      + margin;
+        y = row    * (margin + (me.rowHeight || 0)) + margin;
 
         return {x, y}
     }

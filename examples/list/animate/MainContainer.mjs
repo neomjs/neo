@@ -68,6 +68,13 @@ class MainContainer extends Viewport {
                 labelWidth: 110,
                 listeners : {change: 'changeMeasureItemHeight'},
                 style     : {marginLeft: '20px'}
+            }, {
+                module    : CheckBox,
+                checked   : true,
+                labelText : 'Order by row',
+                labelWidth: 100,
+                listeners : {change: 'changeOrderByRow'},
+                style     : {marginLeft: '20px'}
             }]
         }, {
             module    : TextField,

@@ -948,5 +948,61 @@ test.describe('Neo.list.plugin.Animate — measured row height', () => {
         expect(transformOf(list, 4)).toBe('translate(10px, 200px)');
 
         list.destroy()
+    });
+
+    test('orderByRow: false places items column-by-column and floors rows at 1 when container height is shorter than rowHeight', async () => {
+        const {list, plugin} = await createFixture({
+            listConfig  : {itemWidth: 300},
+            pluginConfig: {orderByRow: false},
+            rect        : {width: 935, height: 400}
+        });
+
+        // rows = floor(400 / 126) = 3, itemWidth = 300, rowHeight = 126, margin = 10
+        // index 0 → col 0, row 0 (10, 10)
+        // index 1 → col 0, row 1 (10, 146)
+        // index 2 → col 0, row 2 (10, 282)
+        // index 3 → col 1, row 0 (320, 10)
+        // index 4 → col 1, row 1 (320, 146)
+        expect(plugin.orderByRow).toBe(false);
+        expect(plugin.rows).toBe(3);
+        expect(transformOf(list, 1)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 2)).toBe('translate(10px, 146px)');
+        expect(transformOf(list, 3)).toBe('translate(10px, 282px)');
+        expect(transformOf(list, 4)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 5)).toBe('translate(320px, 146px)');
+
+        // A container shorter than rowHeight (e.g. 80px < 126px) floors rows at 1 — never 0 / NaN
+        plugin.onOwnerResize({rect: {width: 935, height: 80}});
+        expect(plugin.rows).toBe(1);
+        expect(transformOf(list, 1)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 2)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 3)).toBe('translate(630px, 10px)');
+
+        list.destroy()
+    });
+
+    test('toggling orderByRow at runtime repositions existing rendered items without rebuilding the DOM', async () => {
+        const {list, plugin} = await createFixture({listConfig: {itemWidth: 300}});
+
+        const nodesBefore = itemNodes(list);
+        expect(plugin.orderByRow).toBe(true);
+        expect(transformOf(list, 2)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 4)).toBe('translate(10px, 146px)');
+
+        // Switch to column-major (orderByRow: false)
+        plugin.orderByRow = false;
+
+        expect(transformOf(list, 2)).toBe('translate(10px, 146px)');
+        expect(transformOf(list, 4)).toBe('translate(320px, 10px)');
+        itemNodes(list).forEach((node, index) => expect(node).toBe(nodesBefore[index]));
+
+        // Switch back to row-major (orderByRow: true)
+        plugin.orderByRow = true;
+
+        expect(transformOf(list, 2)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 4)).toBe('translate(10px, 146px)');
+        itemNodes(list).forEach((node, index) => expect(node).toBe(nodesBefore[index]));
+
+        list.destroy()
     })
 });
