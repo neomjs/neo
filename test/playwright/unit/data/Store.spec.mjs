@@ -301,5 +301,134 @@ test.describe('Neo.data.Store', () => {
 
             lazyStore.destroy()
         })
+    });
+
+    test.describe('Temporary negative record IDs (#3559)', () => {
+        test('assigns clean, non-mutating temporary IDs in eager mode with String keys', () => {
+            const
+                rawInitial = {name: 'Alpha'},
+                rawAdded   = {name: 'Beta'},
+                rawCreated = {name: 'Gamma'},
+                changes    = [];
+
+            const stringKeyStore = Neo.create(Store, {
+                model: {
+                    module             : Model,
+                    trackModifiedFields: true,
+                    fields             : [
+                        {name: 'id',   type: 'String'},
+                        {name: 'name', type: 'String'}
+                    ]
+                },
+                data     : [rawInitial],
+                listeners: {
+                    recordChange: data => changes.push(data)
+                }
+            });
+
+            // Caller raw object must remain untouched
+            expect(rawInitial.id).toBeUndefined();
+
+            const firstRecord = stringKeyStore.getAt(0);
+            expect(firstRecord.id).toBe('-1');
+            expect(stringKeyStore.get('-1')).toBe(firstRecord);
+            expect(firstRecord.isModified).toBe(false);
+            expect(firstRecord.isModifiedField('id')).toBe(false);
+            expect(firstRecord.version).toBe(2);
+
+            // Adding a keyless item returns the created record and indexes by converted String key
+            const addedRecords = stringKeyStore.add(rawAdded);
+            expect(rawAdded.id).toBeUndefined();
+            expect(addedRecords).toHaveLength(1);
+            expect(addedRecords[0]).not.toBeNull();
+            expect(addedRecords[0].id).toBe('-2');
+            expect(stringKeyStore.get('-2')).toBe(addedRecords[0]);
+            expect(addedRecords[0].isModified).toBe(false);
+            expect(addedRecords[0].isModifiedField('id')).toBe(false);
+            expect(addedRecords[0].version).toBe(2);
+            expect(changes).toHaveLength(0);
+
+            // Direct createRecord() also assigns temporary negative key before instantiation
+            const standaloneRecord = stringKeyStore.createRecord(rawCreated);
+            expect(rawCreated.id).toBeUndefined();
+            expect(standaloneRecord.id).toBe('-3');
+            expect(standaloneRecord.isModified).toBe(false);
+            expect(standaloneRecord.version).toBe(2);
+
+            stringKeyStore.destroy()
+        });
+
+        test('assigns numeric temporary IDs for Integer key fields', () => {
+            const intKeyStore = Neo.create(Store, {
+                model: {
+                    module: Model,
+                    fields: [
+                        {name: 'id',   type: 'Integer'},
+                        {name: 'name', type: 'String'}
+                    ]
+                }
+            });
+
+            const [r1, r2] = intKeyStore.add([{name: 'One'}, {name: 'Two'}]);
+
+            expect(r1.id).toBe(-1);
+            expect(r2.id).toBe(-2);
+            expect(intKeyStore.get(-1)).toBe(r1);
+            expect(intKeyStore.get(-2)).toBe(r2);
+            expect(r1.version).toBe(1);
+            expect(r2.version).toBe(1);
+
+            intKeyStore.destroy()
+        });
+
+        test('respects mapped keys when present and assigns temporary ID when mapped key is absent', () => {
+            const mappedStore = Neo.create(Store, {
+                model: {
+                    module: Model,
+                    fields: [
+                        {name: 'id',   type: 'String', mapping: 'meta.uid'},
+                        {name: 'name', type: 'String'}
+                    ]
+                }
+            });
+
+            const [mappedRecord, unmappedRecord] = mappedStore.add([
+                {meta: {uid: 'ext-42'}, name: 'Mapped'},
+                {name: 'Unmapped'}
+            ]);
+
+            expect(mappedRecord.id).toBe('ext-42');
+            expect(mappedStore.get('ext-42')).toBe(mappedRecord);
+            expect(unmappedRecord.id).toBe('-1');
+            expect(mappedStore.get('-1')).toBe(unmappedRecord);
+
+            mappedStore.destroy()
+        });
+
+        test('re-keys map and allItems.map on hydration in Turbo Mode with String keys', () => {
+            const lazyStringStore = Neo.create(Store, {
+                autoInitRecords: false,
+                model          : {
+                    module: Model,
+                    fields: [
+                        {name: 'id',   type: 'String'},
+                        {name: 'name', type: 'String'}
+                    ]
+                },
+                filters: [{property: 'name', operator: '!==', value: 'Hidden'}],
+                data   : [{name: 'Visible'}, {name: 'Hidden'}]
+            });
+
+            const hydrated = lazyStringStore.getAt(0);
+            expect(RecordFactory.isRecord(hydrated)).toBe(true);
+            expect(hydrated.id).toBe('-1');
+            expect(lazyStringStore.get('-1')).toBe(hydrated);
+            expect(lazyStringStore.map.has(-1)).toBe(false);
+
+            lazyStringStore.clearFilters();
+            expect(lazyStringStore.get('-1')).toBe(hydrated);
+
+            lazyStringStore.destroy()
+        })
     })
 });
