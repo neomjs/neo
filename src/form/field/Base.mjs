@@ -73,6 +73,13 @@ class Field extends Component {
          */
         renderPath: true,
         /**
+         * True makes an empty field invalid. `Base` declares the flag and re-validates when it changes;
+         * each field type enforces it in `validate()` / `isValid()`.
+         * @member {Boolean} required_=false
+         * @reactive
+         */
+        required_: false,
+        /**
          * @member {*} value_=null
          * @reactive
          */
@@ -220,6 +227,16 @@ class Field extends Component {
         let me = this;
 
         me.renderName && me.changeInputElKey('name', me.renderPath ? me.getPath() : value)
+    }
+
+    /**
+     * Triggered after the required config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetRequired(value, oldValue) {
+        oldValue !== undefined && this.validate(false)
     }
 
     /**
@@ -496,6 +513,7 @@ class Field extends Component {
             isTouched: me.isTouched,
             isValid  : me.isValid(),
             name     : me.name,
+            required : me.required,
             value    : me.value
         }
     }

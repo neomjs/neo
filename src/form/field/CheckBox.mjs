@@ -128,11 +128,6 @@ class CheckBox extends Field {
          */
         labelWidth_: 150,
         /**
-         * @member {Boolean} required_=false
-         * @reactive
-         */
-        required_: false,
-        /**
          * Use case: Set this config to false for all but one item with the same name.
          * @member {Boolean} showErrorTexts_=true
          * @reactive
@@ -378,16 +373,6 @@ class CheckBox extends Field {
             me.getLabelEl().width = value;
             me.update()
         }
-    }
-
-    /**
-     * Triggered after the required config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetRequired(value, oldValue) {
-        oldValue !== undefined && this.validate(false)
     }
 
     /**
@@ -710,23 +695,7 @@ class CheckBox extends Field {
 
         return !returnValue ? false : super.validate(silent)
     }
-    /**
-     * Serializes the field into a JSON-compatible object.
-     * @returns {Object}
-     */
-    toJSON() {
-        let me = this;
 
-        return {
-            ...super.toJSON(),
-            checked      : me.checked,
-            hideLabel    : me.hideLabel,
-            inputType    : me.inputType,
-            labelPosition: me.labelPosition,
-            labelText    : me.labelText,
-            valueLabel   : me.valueLabel
-        }
-    }
     /**
      * Serializes the field into a JSON-compatible object.
      * @returns {Object}
@@ -746,7 +715,6 @@ class CheckBox extends Field {
             labelPosition : me.labelPosition,
             labelText     : me.labelText,
             labelWidth    : me.labelWidth,
-            required      : me.required,
             uncheckedValue: me.uncheckedValue,
             valueLabel    : me.valueLabel
         }

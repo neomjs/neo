@@ -235,11 +235,6 @@ class Text extends Field {
          */
         readOnly_: false,
         /**
-         * @member {Boolean} required_=false
-         * @reactive
-         */
-        required_: false,
-        /**
          * @member {Boolean} showOptionalText_=false
          * @reactive
          */
@@ -1832,7 +1827,6 @@ class Text extends Field {
             minLength      : me.minLength,
             placeholderText: me.placeholderText,
             readOnly       : me.readOnly,
-            required       : me.required,
             triggers       : me.triggers?.map(trigger => trigger.toJSON())
         }
     }
