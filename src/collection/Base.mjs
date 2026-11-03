@@ -1575,7 +1575,8 @@ class Collection extends Base {
             // Optimization: If this is a full clear operation, use map.clear()
             if (index === 0 && removeCountAtIndex === me.count) {
                 removedItems = items;
-                me._items = [];
+                // The add path below reads `items`: left on the removed array, it would add there
+                items = me._items = [];
                 map.clear();
                 me.internalIdMap?.clear()
             } else {

@@ -121,5 +121,15 @@ test.describe('Neo.data.TreeStore clear() and reload', () => {
         expect(store.get('r0')).toBe(null);
         expect(store.get('c1').parentId).toBe('p0');
         expect(store.getChildren('p0').length).toBe(3)
+    });
+
+    test('a replace-all keeps the nodes it adds', () => {
+        store = Neo.create(TreeStore, {autoInitRecords: false, data: flat(3), model});
+
+        store.splice(0, store.getCount(), [{id: 'x'}, {id: 'y'}]);
+
+        expect(store.getCount()).toBe(2);
+        expect(store.items.map(item => store.getKey(item))).toEqual(['x', 'y']);
+        expect(store.get('r0')).toBe(null)
     })
 });
