@@ -727,6 +727,29 @@ test.describe('Neo.list.plugin.Animate', () => {
         expect(itemNodes(list).map(node => plugin.renderedRecords.get(node).id)).toEqual([4, 2, 1]);
 
         list.destroy()
+    });
+
+    test('a no-op base-list sort when no filter transition is in flight triggers no update() and no createItems() (#2814)', async () => {
+        const {list, plugin, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 150}});
+
+        let   updates     = 0,
+              settlements = 0;
+        const update      = list.update.bind(list),
+              createItems = list.createItems.bind(list);
+
+        list.update      = (...args) => { updates++;     return update(...args) };
+        list.createItems = (...args) => { settlements++; return createItems(...args) };
+
+        // Store is already ordered by id ASC [1, 2, 3, 4, 5]
+        store.sorters = [{property: 'id', direction: 'ASC'}];
+        await list.timeout(250);
+
+        expect(updates).toBe(0);
+        expect(settlements).toBe(0);
+        expect(plugin.transitionTimeoutId).toBeNull();
+        expect(itemNodes(list).map(node => plugin.renderedRecords.get(node).id)).toEqual([1, 2, 3, 4, 5]);
+
+        list.destroy()
     })
 });
 

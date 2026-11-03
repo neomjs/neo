@@ -823,13 +823,27 @@ class Animate extends Base {
     }
 
     /**
+     * Returns early when no filter transition is in flight and the sorted record order matches
+     * `previousItems` record-for-record; otherwise delegates to `onStoreFilter(data)`.
      * @param {Object} data
      * @param {Object[]} data.items
      * @param {Object[]} data.previousItems
      * @param {Neo.data.Store} data.scope
      */
     sortBaseList(data) {
-        this.onStoreFilter(data)
+        let me            = this,
+            previousItems = data.previousItems;
+
+        if (
+            !me.transitionTimeoutId &&
+            !me.pendingFilter &&
+            previousItems?.length === data.items.length &&
+            data.items.every((record, index) => previousItems[index] === record)
+        ) {
+            return
+        }
+
+        me.onStoreFilter(data)
     }
 
     /**
