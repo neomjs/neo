@@ -13,7 +13,7 @@ import {isDescriptor} from '../core/ConfigSymbols.mjs';
  *
  * ### Calculated Fields & Dependencies
  *
- * Fields can dynamically compute their values using a `calculate` function. 
+ * Fields can dynamically compute their values using a `calculate` function.
  * If a calculated field relies on other calculated fields, you **MUST** declare them in the `depends` array.
  *
  * This is critical for performance when the Store operates in "Turbo Mode" (`autoInitRecords: false`).
@@ -46,6 +46,8 @@ class Model extends Base {
          */
         ntype: 'model',
         /**
+         * Field definitions (`{name, type, mapping, defaultValue, calculate, convert, ...}`).
+         * `mapping` supports dot and `[index]` array segments (`items[0].name`, `tags[1]`), preserves falsy leaves (`0`, `false`, `''`), and yields `undefined` when absent so `defaultValue` applies.
          * @member {Object[]|null} fields_
          * @reactive
          */

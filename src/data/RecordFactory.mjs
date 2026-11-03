@@ -35,7 +35,7 @@ class RecordFactory extends Base {
     }
 
     /**
-     * Assigns model-based default values to a data object
+     * @summary Resolves field mappings (dot and `[index]` segments, preserving falsy leaves and yielding `undefined` when absent so `defaultValue` applies) and assigns model default values.
      * @param {Object}         data
      * @param {Neo.data.Model} model
      * @returns {Object}
@@ -49,14 +49,22 @@ class RecordFactory extends Base {
                     key = ns.pop(),
                     source;
 
-                if (ns.length > 0) {
-                    source = Neo.ns(ns, false, data)
-                } else {
-                    source = data
-                }
+                if (key.endsWith(']')) {
+                    const value = Neo.nsWithArrays(field.mapping, false, data);
 
-                if (source && Object.hasOwn(source, key)) {
-                    data[fieldName] = source[key]
+                    if (value !== undefined) {
+                        data[fieldName] = value
+                    }
+                } else {
+                    if (ns.length > 0) {
+                        source = Neo.nsWithArrays(ns, false, data)
+                    } else {
+                        source = data
+                    }
+
+                    if (source && Object.hasOwn(source, key)) {
+                        data[fieldName] = source[key]
+                    }
                 }
             }
 
@@ -376,6 +384,7 @@ class RecordFactory extends Base {
     }
 
     /**
+     * @summary Parses, converts, and validates a record field value, resolving initial field mappings.
      * @param {Object}  data
      * @param {Object}  data.record
      * @param {Object}  data.field
@@ -401,11 +410,15 @@ class RecordFactory extends Base {
         // only trigger mappings for initial values
         // dynamic changes of a field will not pass the recordConfig
         if (mapping && recordConfig) {
-            let ns  = mapping.split('.'),
-                key = ns.pop();
+            if (mapping.endsWith(']')) {
+                value = Neo.nsWithArrays(mapping, false, recordConfig)
+            } else {
+                let ns  = mapping.split('.'),
+                    key = ns.pop();
 
-            ns    = Neo.ns(ns, true, recordConfig);
-            value = ns[key]
+                ns    = Neo.nsWithArrays(ns, true, recordConfig);
+                value = ns[key]
+            }
         }
 
         if (Object.hasOwn(field, 'maxLength')) {
