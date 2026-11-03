@@ -890,7 +890,8 @@ class VdomLifecycle extends Base {
                 }
             }
 
-            console.error('initVnode error', err, id);
+            // A window that departs mid-render rejects the render as its departure: an outcome, not a defect
+            worker?.isDeparture?.(err, me.windowId) || console.error('initVnode error', err, id);
             throw err
         } finally {
             if (me[initializationAttempt] === attempt) {
