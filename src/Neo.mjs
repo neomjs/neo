@@ -1176,7 +1176,9 @@ function createArrayNs(create, current, prev) {
             arrRoot[arrItem] = arrRoot[arrItem] || {}
         }
 
-        arrRoot = arrRoot[arrItem]
+        arrRoot = arrRoot[arrItem];
+
+        if (!arrRoot) return
     }
 
     return arrRoot
