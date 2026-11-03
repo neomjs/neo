@@ -2,6 +2,7 @@ import {test, expect}       from '@playwright/test';
 import fs                   from 'node:fs';
 import path                 from 'node:path';
 import {fileURLToPath}      from 'node:url';
+import * as sass            from 'sass';
 import {findSelectorBlocks} from '../../../../buildScripts/util/check-theme-value-files.mjs';
 
 const
@@ -12,7 +13,8 @@ const
         {name: 'theme-light',     selector: ':root .neo-theme-light',        path: path.join(repoRoot, 'resources/scss/theme-light/component/Carousel.scss')},
         {name: 'theme-dark',      selector: ':root .neo-theme-dark',         path: path.join(repoRoot, 'resources/scss/theme-dark/component/Carousel.scss')},
         {name: 'theme-neo-light', selector: ':where(.neo-theme-neo-light)',  path: path.join(repoRoot, 'resources/scss/theme-neo-light/component/Carousel.scss')},
-        {name: 'theme-neo-dark',  selector: ':where(.neo-theme-neo-dark)',   path: path.join(repoRoot, 'resources/scss/theme-neo-dark/component/Carousel.scss')}
+        {name: 'theme-neo-dark',  selector: ':where(.neo-theme-neo-dark)',   path: path.join(repoRoot, 'resources/scss/theme-neo-dark/component/Carousel.scss')},
+        {name: 'theme-cyberpunk', selector: ':root .neo-theme-cyberpunk',    path: path.join(repoRoot, 'resources/scss/theme-cyberpunk/component/Carousel.scss')}
     ];
 
 const extractDefinedTokens = source => new Set(
@@ -44,7 +46,7 @@ test.describe('Neo.component.Carousel SCSS theme variable files', () => {
         expect(src).not.toContain('--button-');
     });
 
-    test('all four theme value sheets declare every consumed --carousel-* token with zero nested selectors', () => {
+    test('all five theme value sheets declare every consumed --carousel-* token with zero nested selectors', () => {
         const
             src      = fs.readFileSync(srcPath, 'utf8'),
             consumed = [...extractConsumedTokens(src)].sort();
@@ -60,5 +62,64 @@ test.describe('Neo.component.Carousel SCSS theme variable files', () => {
             expect(defined, `${theme.name} defines all consumed --carousel-* tokens`).toEqual(consumed);
             expect(findSelectorBlocks(theme.path), `${theme.name} declares variables only`).toEqual([]);
         }
+    });
+
+    test('compiled Cyberpunk and Light theme sheets resolve offscreen slide transform, duration, and inner color intent', async ({page}) => {
+        const
+            cyberGlobal = sass.compile(path.join(repoRoot, 'resources/scss/theme-cyberpunk/Global.scss')).css,
+            cyberTheme  = sass.compile(path.join(repoRoot, 'resources/scss/theme-cyberpunk/component/Carousel.scss')).css,
+            lightTheme  = sass.compile(path.join(repoRoot, 'resources/scss/theme-light/component/Carousel.scss')).css,
+            structural  = sass.compile(srcPath).css;
+
+        await page.setContent(`
+            <style>${cyberGlobal}\n${cyberTheme}\n${lightTheme}\n${structural}</style>
+            <div id="cyber-host" class="neo-theme-cyberpunk">
+                <div class="neo-carousel" style="width: 430px; box-sizing: border-box;">
+                    <div class="neo-carousel-inner" style="width: 400px;">
+                        <div class="neo-carousel-item neo-carousel-translate-x-full"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="light-host" class="neo-theme-light">
+                <div class="neo-carousel" style="width: 430px; box-sizing: border-box;">
+                    <div class="neo-carousel-inner" style="width: 400px;">
+                        <div class="neo-carousel-item neo-carousel-translate-x-full"></div>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        const measured = await page.evaluate(() => {
+            const read = rootSelector => {
+                const
+                    root      = document.querySelector(rootSelector),
+                    inner     = root.querySelector('.neo-carousel-inner'),
+                    item      = root.querySelector('.neo-carousel-item'),
+                    innerComp = getComputedStyle(inner),
+                    itemComp  = getComputedStyle(item);
+
+                return {
+                    innerBg  : innerComp.backgroundColor,
+                    duration : itemComp.transitionDuration,
+                    transform: itemComp.transform
+                }
+            };
+
+            return {
+                cyberpunk: read('#cyber-host'),
+                light    : read('#light-host')
+            }
+        });
+
+        expect(measured.cyberpunk).toEqual({
+            innerBg  : 'rgb(0, 210, 255)',
+            duration : '0.7s',
+            transform: 'matrix(1, 0, 0, 1, 400, 0)'
+        });
+        expect(measured.light).toEqual({
+            innerBg  : 'rgb(28, 96, 160)',
+            duration : '0.7s',
+            transform: 'matrix(1, 0, 0, 1, 400, 0)'
+        });
     });
 });
