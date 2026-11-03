@@ -217,7 +217,7 @@ class Component extends BaseComponent {
         if (me.isConstructed) {
             me.createContent(true);
             me.updateHeader();
-            me.afterSetMounted(true, false) // todo: extract the logic into a new method
+            me.updateHeaderHeight(true)
         }
     }
 
@@ -322,18 +322,7 @@ class Component extends BaseComponent {
                 me.needsEventUpdate = false
             }
 
-            me.timeout(100).then(() => {
-                me.getDomRect([me.vdom.cn[1].id, me.vdom.cn[0].id]).then(data => {
-                    me.headerHeight = data[1].height;
-
-                    Neo.main.DomAccess.scrollTo({
-                        direction: 'top',
-                        id       : me.vdom.cn[1].id,
-                        value    : data[0].height - data[1].height,
-                        windowId : me.windowId
-                    })
-                })
-            })
+            me.updateHeaderHeight(true)
         }
     }
 
@@ -805,6 +794,39 @@ class Component extends BaseComponent {
         }
 
         me.update();
+    }
+
+    /**
+     * @summary Re-measures the rendered days-header height in pixels and optionally centers the scroll container.
+     *
+     * Because `.neo-days-header` is sized in `em` (`3.75em`), its pixel height changes whenever
+     * `MainContainer#baseFontSize` updates. `onWheel` uses `headerHeight` in pixels to compute the
+     * visible month viewport height, so both mount/date changes (`scrollTo=true`) and font-size
+     * updates (`scrollTo=false`) funnel through this measurement helper.
+     * @param {Boolean} [scrollTo=false] True scrolls the month container to the active month offset
+     * @returns {Promise<void>|undefined}
+     */
+    updateHeaderHeight(scrollTo=false) {
+        let me = this;
+
+        if (me.mounted) {
+            return me.timeout(100).then(() => {
+                if (me.mounted) {
+                    return me.getDomRect([me.vdom.cn[1].id, me.vdom.cn[0].id]).then(data => {
+                        me.headerHeight = data[1].height;
+
+                        if (scrollTo) {
+                            Neo.main.DomAccess.scrollTo({
+                                direction: 'top',
+                                id       : me.vdom.cn[1].id,
+                                value    : data[0].height - data[1].height,
+                                windowId : me.windowId
+                            })
+                        }
+                    })
+                }
+            })
+        }
     }
 
     /**
