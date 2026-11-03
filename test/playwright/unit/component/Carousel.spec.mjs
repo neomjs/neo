@@ -12,6 +12,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Carousel       from '../../../../src/component/Carousel.mjs';
+import Store          from '../../../../src/data/Store.mjs';
 
 /**
  * @summary Verifies `Neo.component.Carousel` rendering, rotation, `itemClick`, and dynamic store mutations
@@ -130,6 +131,86 @@ test.describe('Neo.component.Carousel (< 3 items & dynamic mutations)', () => {
         // Clear all items -> 0 items rendered and nav buttons hidden
         carousel.store.clear();
         expect(itemRoot.cn).toHaveLength(0);
+        expect(carousel.itemData).toEqual({});
         expect(btnBar.removeDom).toBe(true)
+    });
+
+    test('handles fresh empty config, initial ready empty Store, and replacing a populated Store with a ready empty Store', async () => {
+        const storeModel = {
+            fields: [
+                {name: 'id',    type: 'Int'},
+                {name: 'quote', type: 'String'}
+            ]
+        };
+
+        // 1. Fresh empty store config
+        carousel = createCarousel([]);
+        await carousel.store.ready();
+
+        const btnBar   = carousel.vdom.cn[0].cn[0],
+              itemRoot = carousel.vdom.cn[0].cn[1];
+
+        expect(carousel.store.getCount()).toBe(0);
+        expect(itemRoot.cn).toHaveLength(0);
+        expect(carousel.itemData).toEqual({});
+        expect(btnBar.removeDom).toBe(true);
+        carousel.destroy();
+
+        // 2. Initial binding of an already-ready empty Store
+        const initialReadyEmptyStore = Neo.create(Store, {
+            keyProperty: 'id',
+            model      : storeModel,
+            data       : []
+        });
+        await initialReadyEmptyStore.ready();
+
+        carousel = Neo.create(Carousel, {
+            appName,
+            itemCls: 'test-carousel-item',
+            itemTpl: record => [{cls: 'quote', text: record.quote}],
+            store  : initialReadyEmptyStore
+        });
+
+        expect(carousel.store.getCount()).toBe(0);
+        expect(carousel.vdom.cn[0].cn[1].cn).toHaveLength(0);
+        expect(carousel.itemData).toEqual({});
+        expect(carousel.vdom.cn[0].cn[0].removeDom).toBe(true);
+        carousel.destroy();
+
+        // 3. Populated Store replaced with an already-ready empty Store
+        const populatedStore = Neo.create(Store, {
+            keyProperty: 'id',
+            model      : storeModel,
+            data       : [
+                {id: 1, quote: 'A'},
+                {id: 2, quote: 'B'}
+            ]
+        });
+        await populatedStore.ready();
+
+        const replacementReadyEmptyStore = Neo.create(Store, {
+            keyProperty: 'id',
+            model      : storeModel,
+            data       : []
+        });
+        await replacementReadyEmptyStore.ready();
+
+        carousel = Neo.create(Carousel, {
+            appName,
+            itemCls: 'test-carousel-item',
+            itemTpl: record => [{cls: 'quote', text: record.quote}],
+            store  : populatedStore
+        });
+
+        expect(carousel.vdom.cn[0].cn[1].cn).toHaveLength(2);
+        expect(Object.keys(carousel.itemData)).toEqual(['0', '1']);
+        expect(carousel.vdom.cn[0].cn[0].removeDom).toBeUndefined();
+
+        carousel.store = replacementReadyEmptyStore;
+
+        expect(carousel.store.getCount()).toBe(0);
+        expect(carousel.vdom.cn[0].cn[1].cn).toHaveLength(0);
+        expect(carousel.itemData).toEqual({});
+        expect(carousel.vdom.cn[0].cn[0].removeDom).toBe(true)
     })
 });

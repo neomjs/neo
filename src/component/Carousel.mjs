@@ -132,7 +132,9 @@ class Carousel extends Component {
     }
 
     /**
-     * Triggered after the store config got changed
+     * @summary Subscribes to `store` load events and initializes the carousel track for the assigned store.
+     *
+     * Triggered after the store config got changed.
      * @param {Neo.data.Store|Object|null} value
      * @param {Neo.data.Store|null} oldValue
      * @protected
@@ -145,7 +147,9 @@ class Carousel extends Component {
             scope: me
         });
 
-        value?.getCount() > 0 && me.onStoreLoad()
+        if (value || oldValue) {
+            me.onStoreLoad()
+        }
     }
 
     /**
