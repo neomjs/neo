@@ -266,7 +266,9 @@ if (programOpts.info) {
         }
 
         if (createStore === 'yes') {
-            let storeFile = /[^aeiou]y$/i.test(file) ? `${file.slice(0, -1)}ies` : `${file}s`,
+            let modelFile = path.join(classFolder, `${file}.mjs`),
+                modelName = file,
+                storeFile = /[^aeiou]y$/i.test(file) ? `${file.slice(0, -1)}ies` : `${file}s`,
                 storeNs   = ns.includes('model') ? ns.map(part => part === 'model' ? 'store' : part) : [...ns, 'store'],
                 storeClassName;
 
@@ -288,6 +290,8 @@ if (programOpts.info) {
                 file       : storeFile,
                 folderDelta,
                 isSingleton: false,
+                modelFile,
+                modelName,
                 ns         : storeNs,
                 root
             });
@@ -479,6 +483,8 @@ if (programOpts.info) {
      * @param {Boolean} opts.isSingleton
      * @param {String} opts.file
      * @param {Number} opts.folderDelta
+     * @param {String} [opts.modelFile]
+     * @param {String} [opts.modelName]
      * @param {String[]} opts.ns
      * @param {String} opts.root
      */
@@ -489,6 +495,8 @@ if (programOpts.info) {
             isSingleton,
             file,
             folderDelta,
+            modelFile,
+            modelName,
             ns,
             root,
             scssClass = undefined,
@@ -536,26 +544,38 @@ if (programOpts.info) {
             case 'data.Store': {
                 baseType   = 'Neo.data.Model';
                 configName = 'model';
-                importName = className.replace('.store.', '.model.');
 
-                if (importName.endsWith('ies')) {
-                    importName = importName.replace(new RegExp('ies$'), 'y');
+                if (modelFile && modelName) {
+                    let relativeModelPath = path.relative(classFolder, modelFile).split(path.sep).join('/');
+
+                    importName = modelName;
+                    importPath = relativeModelPath.startsWith('.') ? relativeModelPath : `./${relativeModelPath}`;
+                    viewFile   = modelFile;
                 } else {
-                    importName = importName.slice(0, -1);
+                    importName = className.replace('.store.', '.model.');
+
+                    if (importName.endsWith('ies')) {
+                        importName = importName.replace(new RegExp('ies$'), 'y');
+                    } else {
+                        importName = importName.slice(0, -1);
+                    }
+
+                    viewFile = importName.split('.');
+                    viewFile.shift();
+
+                    importPath = `${'../'.repeat(ns.length)}${viewFile.join('/')}.mjs`;
+                    viewFile   = path.join(classFolder, importPath);
                 }
-
-                viewFile = importName.split('.');
-                viewFile.shift();
-
-                importPath = `${'../'.repeat(ns.length)}${viewFile.join('/')}.mjs`;
-                viewFile   = path.join(classFolder, importPath);
 
                 // checking for the data.Model file
                 if (fs.existsSync(viewFile)) {
                     // adjusting the data.Store file
                     viewFile   = path.join(classFolder, file + '.mjs');
-                    importName = importName.split('.');
-                    importName = importName.pop();
+                    importName = importName.split('.').pop();
+
+                    while (importName === baseFileName || importName === file) {
+                        importName += 'Model';
+                    }
 
                     adjustView({baseType, configName, importName, importPath, viewFile});
                 }

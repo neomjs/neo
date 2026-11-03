@@ -68,6 +68,61 @@ test.describe('buildScripts/create/class.mjs data.Model -> data.Store generation
         expect(storeContent).toContain('model: Company');
     });
 
+    test('binds companion data.Store to the exact newly generated Model across root and non-model namespaces (MyApp.User, MyApp.domain.User)', () => {
+        for (const [className, expectedModelRel, expectedStoreRel, expectedStoreClassName] of [
+            ['MyApp.User',        ['User.mjs'],                   ['store', 'Users.mjs'],           'MyApp.store.Users'],
+            ['MyApp.domain.User', ['domain', 'User.mjs'],         ['domain', 'store', 'Users.mjs'], 'MyApp.domain.store.Users']
+        ]) {
+            execFileSync(
+                process.execPath,
+                [classScriptPath, '-c', className, '-b', 'data.Model', '-n', 'no', '-m', 'yes'],
+                {cwd: tmpDir, stdio: 'pipe'}
+            );
+
+            const
+                modelFile    = path.join(tmpDir, 'apps', 'myapp', ...expectedModelRel),
+                storeFile    = path.join(tmpDir, 'apps', 'myapp', ...expectedStoreRel),
+                storeContent = fs.readFileSync(storeFile, 'utf8'),
+                importMatch  = storeContent.match(/import\s+User\s+from\s+'([^']+)';/);
+
+            expect(fs.existsSync(modelFile)).toBe(true);
+            expect(fs.existsSync(storeFile)).toBe(true);
+            expect(importMatch).not.toBeNull();
+            expect(path.resolve(path.dirname(storeFile), importMatch[1])).toBe(modelFile);
+            expect(storeContent).toContain(`className: '${expectedStoreClassName}'`);
+            expect(storeContent).toContain('model: User');
+
+            execFileSync(process.execPath, ['--check', modelFile], {stdio: 'pipe'});
+            execFileSync(process.execPath, ['--check', storeFile], {stdio: 'pipe'});
+        }
+    });
+
+    test('disambiguates collision-prone model import identifier when model is named Store (MyApp.model.Store)', () => {
+        execFileSync(
+            process.execPath,
+            [classScriptPath, '-c', 'MyApp.model.Store', '-b', 'data.Model', '-n', 'no', '-m', 'yes'],
+            {cwd: tmpDir, stdio: 'pipe'}
+        );
+
+        const
+            modelFile    = path.join(tmpDir, 'apps', 'myapp', 'model', 'Store.mjs'),
+            storeFile    = path.join(tmpDir, 'apps', 'myapp', 'store', 'Stores.mjs'),
+            storeContent = fs.readFileSync(storeFile, 'utf8'),
+            importMatch  = storeContent.match(/import\s+StoreModel\s+from\s+'([^']+)';/);
+
+        expect(fs.existsSync(modelFile)).toBe(true);
+        expect(fs.existsSync(storeFile)).toBe(true);
+
+        //Syntax check must pass without duplicate identifier `Store`
+        execFileSync(process.execPath, ['--check', modelFile], {stdio: 'pipe'});
+        execFileSync(process.execPath, ['--check', storeFile], {stdio: 'pipe'});
+
+        expect(storeContent).toContain('class Stores extends Store');
+        expect(importMatch).not.toBeNull();
+        expect(path.resolve(path.dirname(storeFile), importMatch[1])).toBe(modelFile);
+        expect(storeContent).toContain('model: StoreModel');
+    });
+
     test('does not generate a data.Store when createStore is no', () => {
         execFileSync(
             process.execPath,
