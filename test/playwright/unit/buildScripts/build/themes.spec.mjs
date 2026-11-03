@@ -93,4 +93,43 @@ test.describe('build-themes theme-map regeneration (#17222)', () => {
         expect(keys).toContain('apps.demo.Widget');      // the workspace's own tree lands
         expect(keys).not.toContain('apps.demo.Fossil');  // the workspace's own fossil is not inherited
     });
+
+    test('a workspace merges and deduplicates framework and workspace theme-* folders for selection and build (#3638)', () => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-themes-merge-'));
+        fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({
+            bugs   : {url: 'https://example.invalid'},
+            name   : 'demo-workspace',
+            version: '1.0.0'
+        }));
+
+        const engineRoot = path.join(root, 'node_modules/neo.mjs');
+        fs.mkdirSync(engineRoot, {recursive: true});
+        fs.writeFileSync(path.join(engineRoot, 'package.json'), JSON.stringify({
+            bugs   : {url: 'https://github.com/neomjs/neo/issues'},
+            name   : 'neo.mjs',
+            version: '1.0.0'
+        }));
+
+        // Framework has theme-neo-dark and theme-neo-light; workspace has theme-neo-dark (overlap) and theme-workspace
+        const writeThemeScss = (base, theme, rel) => {
+            const filePath = path.join(base, 'resources/scss', theme, rel);
+            fs.mkdirSync(path.dirname(filePath), {recursive: true});
+            fs.writeFileSync(filePath, '.x { color: blue; }\n', 'utf8');
+        };
+
+        writeScss(root, 'apps/demo/Widget.scss');
+        writeThemeScss(engineRoot, 'theme-neo-dark',  'button/Base.scss');
+        writeThemeScss(engineRoot, 'theme-neo-light', 'button/Base.scss');
+        writeThemeScss(root,       'theme-neo-dark',  'apps/demo/Widget.scss');
+        writeThemeScss(root,       'theme-workspace', 'apps/demo/Widget.scss');
+
+        const helpOutput = execFileSync('node', [scriptPath, '--help'], {cwd: root, encoding: 'utf8', stdio: 'pipe'});
+        expect(helpOutput).toContain('all, theme-neo-dark, theme-neo-light, theme-workspace');
+
+        runBuild(root);
+
+        const map = readMap(root);
+        expect(map.Neo.button.Base).toEqual(expect.arrayContaining(['theme-neo-dark', 'theme-neo-light']));
+        expect(map.apps.demo.Widget).toEqual(expect.arrayContaining(['src', 'theme-neo-dark', 'theme-workspace']));
+    });
 });

@@ -11,25 +11,24 @@ import * as sass       from 'sass';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const
-    __dirname    = path.resolve(),
-    cwd          = process.cwd(),
-    requireJson  = path => JSON.parse(fs.readFileSync(path)),
-    packageJson  = requireJson(path.resolve(cwd, 'package.json')),
-    insideNeo    = packageJson.name.includes('neo.mjs'),
-    neoPath      = path.resolve(insideNeo ? './' : './node_modules/neo.mjs/'),
-    programName  = `${packageJson.name} buildThemes`,
-    program      = new Command(),
-    scssPath     = 'resources/scss/',
-    scssFolders  = fs.readdirSync(path.resolve(scssPath)),
-    themeMapFile = 'resources/theme-map.json',
-    themeFolders = [],
-    questions    = [];
-
-scssFolders.forEach(folder => {
-    if (folder.includes('theme')) {
-        themeFolders.push(folder);
-    }
-});
+    __dirname         = path.resolve(),
+    cwd               = process.cwd(),
+    requireJson       = path => JSON.parse(fs.readFileSync(path)),
+    packageJson       = requireJson(path.resolve(cwd, 'package.json')),
+    insideNeo         = packageJson.name.includes('neo.mjs'),
+    neoPath           = path.resolve(insideNeo ? './' : './node_modules/neo.mjs/'),
+    programName       = `${packageJson.name} buildThemes`,
+    program           = new Command(),
+    scssPath          = 'resources/scss/',
+    frameworkScssPath = path.resolve(neoPath, scssPath),
+    workspaceScssPath = path.resolve(cwd, scssPath),
+    scssFolders       = [
+        ...(fs.existsSync(frameworkScssPath) ? fs.readdirSync(frameworkScssPath) : []),
+        ...(!insideNeo && fs.existsSync(workspaceScssPath) ? fs.readdirSync(workspaceScssPath) : [])
+    ],
+    themeMapFile      = 'resources/theme-map.json',
+    themeFolders      = [...new Set(scssFolders.filter(folder => folder.includes('theme')))],
+    questions         = [];
 
 program
     .name(programName)
