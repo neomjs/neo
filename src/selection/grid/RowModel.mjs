@@ -1,6 +1,8 @@
 import BaseModel from './BaseModel.mjs';
 
 /**
+ * Row selection model for `Neo.grid.View`. When {@link #modifierClickEvents} is `true`, modifier clicks fire
+ * `altSelect` > `ctrlSelect` > `metaSelect` > `shiftSelect` on `view` with `{data, record}` instead of toggling.
  * @class Neo.selection.grid.RowModel
  * @extends Neo.selection.grid.BaseModel
  */
@@ -21,6 +23,10 @@ class RowModel extends BaseModel {
          * @protected
          */
         cls: 'neo-selection-rowmodel',
+        /**
+         * @member {Boolean} modifierClickEvents=false
+         */
+        modifierClickEvents: false,
         /**
          * @member {Boolean} selectsRows=true
          * @protected
@@ -99,6 +105,7 @@ class RowModel extends BaseModel {
     }
 
     /**
+     * @summary Fires modifier-key select events when `modifierClickEvents` is enabled, or toggles row selection.
      * @param {Object} event
      */
     onRowClick(event) {
@@ -112,7 +119,15 @@ class RowModel extends BaseModel {
         // processed exactly once regardless of which body fired it.
 
         if (record) {
-            if (me.hasAnnotations(record)) {
+            if (me.modifierClickEvents && data.altKey) {
+                view.fire('altSelect', {data, record})
+            } else if (me.modifierClickEvents && data.ctrlKey) {
+                view.fire('ctrlSelect', {data, record})
+            } else if (me.modifierClickEvents && data.metaKey) {
+                view.fire('metaSelect', {data, record})
+            } else if (me.modifierClickEvents && data.shiftKey) {
+                view.fire('shiftSelect', {data, record})
+            } else if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {
                 recordId = view.getRecordId(record);
