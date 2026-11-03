@@ -231,42 +231,70 @@ class HelixModel extends Model {
     }
 
     /**
-     * @param {String} itemId
-     * @param {Boolean} [toggleSelection=true]
+     * @summary Resolves a record, object, or raw key to the logical record id tracked by this model.
+     * @param {Object|Number|String} item
+     * @returns {Number|String}
      */
-    select(itemId, toggleSelection=true) {
-        let me         = this,
-            view       = me.view,
-            items      = me.items,
-            oldItems   = [...items],
-            deltas     = [],
-            isSelected;
+    getSelectionItemId(item) {
+        let {view} = this;
 
-        // a select() call can happen before the view is registered
-        if (!view) {
-            return;
+        if (item?.isRecord || Neo.isObject(item)) {
+            return view?.getRecordId?.(item) ?? item.id
         }
 
-        if (view.useInternalId && view.store?.count > 0) {
-            let record = view.store.get(itemId);
+        if (view?.useInternalId && view.store?.count > 0) {
+            let record = view.store.get(item);
+
             if (record) {
-                itemId = view.getRecordId(record);
+                return view.getRecordId(record)
             }
         }
 
-        isSelected = toggleSelection === false ? false : items.includes(itemId);
+        return item
+    }
+
+    /**
+     * @summary Checks whether the given item or record id is currently selected.
+     * @param {Object|Number|String} id
+     * @returns {Boolean} true in case the item is selected
+     */
+    isSelected(id) {
+        return super.isSelected(this.getSelectionItemId(id))
+    }
+
+    /**
+     * @summary Selects an item in the Helix view without toggling off an existing selection.
+     * @param {Object|Number|String} itemId
+     */
+    select(itemId) {
+        let me            = this,
+            {items, view} = me,
+            oldItems      = [...items],
+            deltas        = [],
+            vnodeId;
+
+        // a select() call can happen before the view is registered
+        if (!view) {
+            // will get picked up by view.afterSetMounted()
+            NeoArray['add'](items, itemId);
+            return
+        }
+
+        itemId = me.getSelectionItemId(itemId);
 
         if (!view.mounted) {
             view.on('mounted', () => {
                 me.timeout(300).then(() => {
-                    me.select(itemId, toggleSelection)
+                    me.select(itemId)
                 })
             }, me, {once: true})
         }
 
+        vnodeId = view.getItemVnodeId(itemId);
+
         if (me.singleSelect) {
             items.forEach(item => {
-                if (item.id !== itemId) {
+                if (item !== itemId) {
                     deltas.push({
                         id : view.getItemVnodeId(item),
                         cls: {
@@ -279,14 +307,13 @@ class HelixModel extends Model {
                 }
             });
 
-            items.splice(0, items.length);
+            items.splice(0, items.length)
         }
 
         deltas.push({
-            id : view.getItemVnodeId(itemId),
+            id : vnodeId,
             cls: {
-                add   : isSelected ? [] : ['neo-selected'],
-                remove: isSelected ? ['neo-selected'] : []
+                add: ['neo-selected']
             }
         });
 
@@ -294,18 +321,19 @@ class HelixModel extends Model {
         // `restoreSelection` reads after a rebuild. Without it the vdom never carries the selection, so
         // `aria-selected` is absent until a restore INVENTS it — and a sort that introduces ARIA for the
         // first time has not preserved anything. One annotation owner, both paths, both directions.
-        const node = view.getVdomChild(view.getItemVnodeId(itemId));
+        me.annotateItem(view.getVdomChild(vnodeId));
 
-        isSelected ? me.deannotateItem(node) : me.annotateItem(node);
+        NeoArray['add'](items, itemId);
 
-        NeoArray[isSelected ? 'remove' : 'add'](items, itemId);
-
-        // console.log('select', itemId, isSelected, items);
-
-        view.mounted && Neo.applyDeltas(view.windowId, deltas).then(() => {
+        if (deltas.length > 0 && view.mounted) {
+            Neo.applyDeltas(view.windowId, deltas).then(() => {
+                view.onSelect?.(items);
+                me.fire('selectionChange', items, oldItems)
+            })
+        } else if (view.mounted) {
             view.onSelect?.(items);
-            me.fire('selectionChange', items, oldItems);
-        });
+            me.fire('selectionChange', items, oldItems)
+        }
     }
 
     /**
