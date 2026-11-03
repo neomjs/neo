@@ -686,6 +686,64 @@ test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
         expect(store.items[0].name).toBe('Root A');
         expect(store.items[1].name).toBe('Target Node');
     });
+
+    test('filter should evaluate an enabled filterBy filter without a value and soft-hydrate declared fields in Turbo Mode', () => {
+        class CalculatedTreeModel extends TreeModel {
+            static config = {
+                className: 'Test.Unit.Data.TreeStore.CalculatedTreeModel',
+                fields   : [
+                    {name: 'id',       type: 'String'},
+                    {name: 'name',     type: 'String'},
+                    {name: 'fullName', type: 'String', calculate: data => `${data.id}:${data.name}`}
+                ]
+            }
+        }
+
+        const CalcModel = Neo.setupClass(CalculatedTreeModel);
+
+        store = Neo.create(TreeStore, {
+            autoInitRecords: false,
+            model          : CalcModel,
+            data           : [
+                {id: '1',   name: 'Root A',      isLeaf: false, collapsed: true},
+                {id: '1-1', name: 'Target Node', isLeaf: true,  parentId: '1'},
+                {id: '2',   name: 'Root B',      isLeaf: true}
+            ]
+        });
+
+        store.filters = [{
+            fields  : ['fullName'],
+            filterBy: ({item}) => item.fullName !== '1-1:Target Node'
+        }];
+
+        expect(store.filters[0].value).toBeNull();
+        expect(store.filters[0].effective).toBe(true);
+        expect(store.isFiltered()).toBe(true);
+        expect(store.items.map(item => item.id)).toEqual(['1', '1-1']);
+        expect(store.items[0].collapsed).toBe(false);
+    });
+
+    test('filter should treat an empty filter value as unfiltered when includeEmptyValues is true', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                {id: 'a', name: 'Alpha', isLeaf: true},
+                {id: 'b', name: 'Beta',  isLeaf: true},
+                {id: 'c', name: 'Gamma', isLeaf: true}
+            ]
+        });
+
+        store.filters = [{property: 'name', value: 'Beta'}];
+        expect(store.filters[0].effective).toBe(true);
+        expect(store.isFiltered()).toBe(true);
+        expect(store.count).toBe(1);
+
+        store.filters[0].value = '';
+        expect(store.filters[0].effective).toBe(false);
+        expect(store.isFiltered()).toBe(false);
+        expect(store._keptNodes).toBeNull();
+        expect(store.count).toBe(3);
+    });
 });
 
 test.describe('Neo.data.TreeStore (Clear override)', () => {

@@ -608,8 +608,8 @@ class TreeStore extends Store {
      * @fires filter
      */
     filter() {
-        let me = this;
-        const activeFilters = me.filters.filter(f => !f.disabled && f.value !== null);
+        let   me            = this;
+        const activeFilters = me.filters.filter(f => f.effective);
 
         // 1. Soft hydration (Turbo Mode)
         if (!me.autoInitRecords && me.model?.hasComplexFields && activeFilters.length > 0) {
