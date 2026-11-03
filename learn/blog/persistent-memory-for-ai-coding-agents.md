@@ -58,7 +58,7 @@ The rules also end every turn with a write, so the next recovery has something t
 sequenceDiagram
     participant A as Agent
     participant M as Memory Core
-    Note over A,M: A session starts, or is compacted:<br/>rules + memory index are in context
+    Note over A,M: At session start: rules + memory index are loaded<br/>After compaction: recover prior work
     A->>M: recover: recent turns, semantic recall,<br/>session summaries, messages
     M-->>A: where the work stands
     loop every turn
