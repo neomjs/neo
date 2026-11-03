@@ -48,6 +48,13 @@ class MainContainerController extends Component {
     /**
      * @param {Object} data
      */
+    changeOrderByRow(data) {
+        this.getReference('list').getPlugin('list-animate').orderByRow = data.value
+    }
+
+    /**
+     * @param {Object} data
+     */
     changeSorting(data) {
         let me              = this,
             buttonFirstName = me.getReference('firstnameButton'),
