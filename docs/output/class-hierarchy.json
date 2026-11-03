@@ -319,6 +319,7 @@
  "Neo.form.field.Email": "Neo.form.field.Text",
  "Neo.form.field.FileUpload": "Neo.form.field.Base",
  "Neo.form.field.Hidden": "Neo.form.field.Base",
+ "Neo.form.field.IBAN": "Neo.form.field.Text",
  "Neo.form.field.Number": "Neo.form.field.Text",
  "Neo.form.field.Password": "Neo.form.field.Text",
  "Neo.form.field.Phone": "Neo.form.field.Text",
