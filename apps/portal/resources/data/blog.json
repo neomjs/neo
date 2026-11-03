@@ -12,7 +12,7 @@
             "date": "2026-11-03",
             "id": "blog/persistent-memory-for-ai-coding-agents",
             "isLeaf": true,
-            "name": "Persistent memory for AI coding agents: pulled over MCP, not pushed into the prompt",
+            "name": "Persistent memory for AI coding agents: load an index, pull the archive over MCP",
             "parentId": "2026",
             "path": "learn/blog/persistent-memory-for-ai-coding-agents.md"
         },
