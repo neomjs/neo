@@ -676,9 +676,9 @@ class Store extends Collection {
     }
 
     /**
-     * Converts an object or array of objects into records
+     * @summary Converts raw data object(s) into `Neo.data.Record` instance(s), stamping missing keys with `this.keyPropertyIndex--`.
      * @param {Object|Object[]} config
-     * @returns {Object|Object[]} Array in case an array was passed
+     * @returns {Neo.data.Record|Neo.data.Record[]} Array in case an array was passed
      */
     createRecord(config) {
         let isArray = true;
@@ -689,15 +689,26 @@ class Store extends Collection {
                 config  = [config]
             }
 
-            let me  = this,
-                i   = 0,
-                len = config.length,
+            let me          = this,
+                keyProperty = me.getKeyProperty(),
+                keyField    = me.model?.getField(keyProperty),
+                hasAutoKey  = Boolean(keyField?.calculate || keyField?.defaultValue != null),
+                hasMapping  = Boolean(keyField?.mapping),
+                i           = 0,
+                len         = config.length,
                 item;
 
             for (; i < len; i++) {
-                item = config[i]
+                item = config[i];
 
                 if (!RecordFactory.isRecord(item)) {
+                    if (item && !hasAutoKey && me.getKey(item) == null && (!hasMapping || Neo.nsWithArrays(keyField.mapping, false, item) == null)) {
+                        item = {
+                            ...item,
+                            [keyProperty]: me.keyPropertyIndex--
+                        }
+                    }
+
                     config[i] = RecordFactory.createRecord(me.model, item)
                 }
             }
@@ -980,8 +991,7 @@ class Store extends Collection {
     }
 
     /**
-     * Lazily instantiates a raw data object into a Record instance and updates all internal maps.
-     * This acts as the Single Source of Truth for "Soft Hydration" in Turbo Mode.
+     * @summary Lazily instantiates a raw data object into a `Neo.data.Record` instance and heals internal maps.
      * @param {Object} item The raw data object or Record
      * @param {Number} [index] Optional index in the items array (for performance)
      * @returns {Neo.data.Record|Object|null} The hydrated Record (or original item if already a record or null)
@@ -991,8 +1001,10 @@ class Store extends Collection {
         let me = this;
 
         if (item && !RecordFactory.isRecord(item)) {
-            const record = RecordFactory.createRecord(me.model, item);
-            const pk     = record[me.keyProperty]; // Use the actual PK from the record
+            const
+                rawKey = me.getKey(item),
+                record = RecordFactory.createRecord(me.model, item),
+                pk     = me.getKey(record); // Use the actual PK from the record
 
             // For get(), index is omitted, so we find it. For getAt(), we pass it in.
             if (index === undefined) {
@@ -1002,7 +1014,10 @@ class Store extends Collection {
             // Replace the raw data with the record instance in the current (filtered) collection
             // ONLY if it was actually in the map. Hidden/filtered items should not bleed into the active map.
             if (me.map.has(pk)) {
-                me.map.set(pk, record);
+                me.map.set(pk, record)
+            } else if (me.map.has(rawKey)) {
+                me.map.delete(rawKey);
+                me.map.set(pk, record)
             }
 
             if (index !== -1) {
@@ -1025,7 +1040,10 @@ class Store extends Collection {
                     me.allItems._items[masterIndex] = record;
                 }
                 if (me.allItems.map.has(pk)) {
-                    me.allItems.map.set(pk, record);
+                    me.allItems.map.set(pk, record)
+                } else if (me.allItems.map.has(rawKey)) {
+                    me.allItems.map.delete(rawKey);
+                    me.allItems.map.set(pk, record)
                 }
                 if (me.allItems.trackInternalId) {
                     const internalKey = me.getInternalKey(record);
