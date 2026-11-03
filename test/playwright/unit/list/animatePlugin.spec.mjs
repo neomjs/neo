@@ -645,6 +645,88 @@ test.describe('Neo.list.plugin.Animate', () => {
         }
 
         expect(cleared).toContain(armed)
+    });
+
+    test('base-list sort translates items to their sorted slots and settles the vdom order after transitionDuration (#2814)', async () => {
+        const {list, plugin, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 150}});
+
+        store.sorters = [{property: 'name', direction: 'DESC'}];
+        await list.timeout(80);                               // past the 50ms frame, inside transitionDuration
+
+        // echo (id 5) moves to slot 0 (10, 10); alpha (id 1) moves to slot 4 (320, 146)
+        expect(transformOf(list, 5)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 1)).toBe('translate(320px, 146px)');
+
+        // after transitionDuration settles via createItems(), vdom.cn order matches sorted store order
+        await list.timeout(160);
+        expect(itemNodes(list).map(node => plugin.renderedRecords.get(node).id)).toEqual([5, 4, 3, 2, 1]);
+        expect(transformOf(list, 5)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 1)).toBe('translate(320px, 146px)');
+
+        list.destroy()
+    });
+
+    test('sorting a base list while a filter transition is in flight preserves leaving fade-outs and settles once to the filtered+sorted set (#2814)', async () => {
+        const
+            {list, plugin, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 200}}),
+            nodeIds               = Object.fromEntries(store.items.map(record => [record.id, list.getItemId(record)])),
+            opacityOf             = id => itemNodes(list).find(node => node.id === nodeIds[id])?.style?.opacity;
+
+        let   settlements = 0;
+        const createItems = list.createItems.bind(list);
+        list.createItems = (...args) => { settlements++; return createItems(...args) };
+
+        // Start a filter (keeps id 1, 2, 4; removes 3, 5)
+        store.filters = [{property: 'online', operator: '===', value: true}];
+        await list.timeout(80);                               // filter's 50ms frame has fired; transitionTimeoutId is armed
+
+        expect(plugin.transitionTimeoutId).toBeTruthy();
+        expect([3, 5].map(opacityOf)).toEqual([0, 0]);
+
+        // Trigger a sort while the filter transition is still in flight
+        store.sorters = [{property: 'name', direction: 'DESC'}];
+        await list.timeout(80);                               // sort's 50ms frame has fired
+
+        // Leaving items (3, 5) stay at opacity 0 while surviving items (4, 2, 1) translate to sorted slots
+        expect([3, 5].map(opacityOf)).toEqual([0, 0]);
+        expect([4, 2, 1].map(opacityOf)).toEqual([1, 1, 1]);
+        expect(transformOf(list, 4)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 2)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 1)).toBe('translate(630px, 10px)');
+
+        // Wait for settle pass: only one createItems() runs and vdom.cn settles to [4, 2, 1]
+        await list.timeout(260);
+        expect(settlements).toBe(1);
+        expect(itemNodes(list).map(node => plugin.renderedRecords.get(node).id)).toEqual([4, 2, 1]);
+
+        list.destroy()
+    });
+
+    test('sorting a base list inside the first 50ms window of a filter coalesces into a single frame and settle pass (#2814)', async () => {
+        const
+            {list, plugin, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 150}}),
+            nodeIds               = Object.fromEntries(store.items.map(record => [record.id, list.getItemId(record)])),
+            opacityOf             = id => itemNodes(list).find(node => node.id === nodeIds[id])?.style?.opacity;
+
+        let   settlements = 0;
+        const createItems = list.createItems.bind(list);
+        list.createItems = (...args) => { settlements++; return createItems(...args) };
+
+        // Trigger filter and sort back-to-back within the same tick (before the 50ms frame)
+        store.filters = [{property: 'online', operator: '===', value: true}];
+        store.sorters = [{property: 'name', direction: 'DESC'}];
+
+        await list.timeout(80);
+        expect([3, 5].map(opacityOf)).toEqual([0, 0]);
+        expect(transformOf(list, 4)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 2)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 1)).toBe('translate(630px, 10px)');
+
+        await list.timeout(200);
+        expect(settlements).toBe(1);
+        expect(itemNodes(list).map(node => plugin.renderedRecords.get(node).id)).toEqual([4, 2, 1]);
+
+        list.destroy()
     })
 });
 
