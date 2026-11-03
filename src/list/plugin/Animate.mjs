@@ -175,15 +175,12 @@ class Animate extends Base {
 
         me.adjustCreateItem();
 
+        me.ownerOnStoreLoad         = owner.onStoreLoad        .bind(owner);
         me.ownerOnStoreRecordChange = owner.onStoreRecordChange.bind(owner);
-
-        if (Neo.list.Component && owner instanceof Neo.list.Component) {
-            me.ownerOnStoreLoad = owner.onStoreLoad.bind(owner);
-            me.ownerLoadHandler = me.onStoreLoad.bind(me);
-            owner.onStoreLoad = me.ownerLoadHandler
-        }
+        me.ownerLoadHandler         = me.onStoreLoad           .bind(me);
 
         owner.onStoreFilter       = me.onStoreFilter      .bind(me);
+        owner.onStoreLoad         = me.ownerLoadHandler;
         owner.onStoreRecordChange = me.onStoreRecordChange.bind(me);
         owner.onStoreSort         = me.onStoreSort        .bind(me);
 
@@ -669,9 +666,10 @@ class Animate extends Base {
 
     /**
      * @param {Object} data
-     * @param {Boolean} data.isFiltered
+     * @param {Boolean} [data.isFiltered]
      * @param {Object[]} data.items
-     * @param {Object[]} data.oldItems
+     * @param {Object[]} [data.oldItems]
+     * @param {Object[]} [data.previousItems]
      * @param {Neo.data.Store} data.scope
      */
     onStoreFilter(data) {
@@ -681,8 +679,9 @@ class Animate extends Base {
             addedItems          = [],
             movedItems          = [],
             removedItems        = [],
+            oldItems            = data.oldItems || data.previousItems || [],
             transitionTimeoutId = me.transitionTimeoutId,
-            intercept           = !!transitionTimeoutId,
+            intercept           = Boolean(transitionTimeoutId || me.pendingFilter),
             vdom                = owner.vdom,
             index, item, map, position;
 
@@ -699,7 +698,7 @@ class Animate extends Base {
         data.items.forEach((record, index) => {
             item = {index, record};
 
-            if (!data.oldItems.includes(record)) {
+            if (!oldItems.includes(record)) {
                 // flag items which are still inside the DOM (running remove OP)
                 if (intercept && map.includes(owner.getItemId(owner.getRecordId(record)))) {
                     item.reAdded = true;
@@ -711,11 +710,21 @@ class Animate extends Base {
             }
         });
 
-        data.oldItems.forEach((record, index) => {
+        oldItems.forEach((record, index) => {
             if (!data.items.includes(record)) {
                 removedItems.push({index, record})
             }
         });
+
+        if (intercept) {
+            vdom.cn.forEach((node, index) => {
+                const record = me.renderedRecords.get(node);
+
+                if (record && !data.items.includes(record) && !removedItems.some(obj => obj.record === record)) {
+                    removedItems.push({index, record})
+                }
+            })
+        }
 
         addedItems.forEach(obj => {
             if (!obj.reAdded) {
@@ -746,8 +755,13 @@ class Animate extends Base {
                 index = me.getItemIndex(obj, map, true);
 
                 if (index > -1) {
+                    position = me.getItemPosition(obj.record, obj.index);
+
                     // we can change the opacity for re-added items too => the vdom engine will ignore this
-                    vdom.cn[index].style.opacity = 1
+                    Object.assign(vdom.cn[index].style, {
+                        opacity  : 1,
+                        transform: `translate(${position.x}px, ${position.y}px)`
+                    })
                 }
             });
 
@@ -797,11 +811,11 @@ class Animate extends Base {
     onStoreSort(data) {
         let me = this;
 
-        me.motionSerial++;
-        clearTimeout(me.transitionTimeoutId);
-        me.transitionTimeoutId = null;
-
         if (Neo.list.Component && me.owner instanceof Neo.list.Component) {
+            me.motionSerial++;
+            clearTimeout(me.transitionTimeoutId);
+            me.transitionTimeoutId = null;
+
             me.sortComponentList(data);
         } else {
             me.sortBaseList(data);
@@ -809,42 +823,27 @@ class Animate extends Base {
     }
 
     /**
+     * Returns early when no filter transition is in flight and the sorted record order matches
+     * `previousItems` record-for-record; otherwise delegates to `onStoreFilter(data)`.
      * @param {Object} data
      * @param {Object[]} data.items
      * @param {Object[]} data.previousItems
      * @param {Neo.data.Store} data.scope
      */
     sortBaseList(data) {
-        let me           = this,
-            hasChange    = false,
-            owner        = me.owner,
-            key          = owner.getKeyProperty(),
-            newVdomCn    = [],
-            previousKeys = data.previousItems.map(e => e[key]),
-            vdom         = owner.vdom,
-            fromIndex;
+        let me            = this,
+            previousItems = data.previousItems;
 
-        if (vdom.cn.length > 0) {
-            data.items.forEach((item, index) => {
-                fromIndex = previousKeys.indexOf(item[key]);
-
-                newVdomCn.push(vdom.cn[fromIndex]);
-
-                if (fromIndex !== index) {
-                    hasChange = true
-                }
-            });
-
-            if (hasChange) {
-                vdom.cn = newVdomCn;
-                owner.update();
-
-                // we need to ensure to get this call into the next animation frame
-                me.timeout(50).then(() => {
-                    owner.createItems()
-                })
-            }
+        if (
+            !me.transitionTimeoutId &&
+            !me.pendingFilter &&
+            previousItems?.length === data.items.length &&
+            data.items.every((record, index) => previousItems[index] === record)
+        ) {
+            return
         }
+
+        me.onStoreFilter(data)
     }
 
     /**
