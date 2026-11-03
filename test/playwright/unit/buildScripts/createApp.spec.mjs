@@ -56,6 +56,15 @@ test.describe('buildScripts/create/app.mjs & appMinimal.mjs theme discovery (#53
 
         const neoConfig = JSON.parse(fs.readFileSync(path.join(root, 'apps/demoapp/neo-config.json'), 'utf8'));
         expect(neoConfig.themes).toEqual(['neo-theme-workspace']);
+
+        const viewport           = fs.readFileSync(path.join(root, 'apps/demoapp/view/Viewport.mjs'), 'utf8'),
+              viewportController = fs.readFileSync(path.join(root, 'apps/demoapp/view/ViewportController.mjs'), 'utf8');
+
+        expect(viewport).toContain("import ViewportController from './ViewportController.mjs';");
+        expect(viewport).toContain('controller: ViewportController,');
+        expect(viewportController).toContain("import Component from '../../../node_modules/neo.mjs/src/controller/Component.mjs';");
+        expect(viewportController).toContain("className: 'DemoApp.view.ViewportController'");
+        expect(viewportController).toContain('export default Neo.setupClass(ViewportController);');
     });
 
     test('create/appMinimal.mjs merges and deduplicates framework and workspace themes in --help', () => {
