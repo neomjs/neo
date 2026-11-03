@@ -1,0 +1,9 @@
+:where(.neo-theme-neo-dark) { // .neo-carousel
+    --carousel-background-color      : var(--sem-color-bg-neutral-default);
+    --carousel-duration              : .7s;
+    --carousel-inner-background-color: var(--sem-color-text-neutral-reversed);
+    --carousel-inner-color           : var(--cmp-button-primary-surface-default);
+    --carousel-transition-timing     : cubic-bezier(.4, 0, .2, 1);
+    --carousel-translate-x           : 0;
+    --carousel-translate-y           : 0;
+}
