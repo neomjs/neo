@@ -73,6 +73,8 @@ class Field extends Component {
          */
         renderPath: true,
         /**
+         * True makes an empty field invalid. `Base` declares the flag and re-validates when it changes;
+         * each field type enforces it in `validate()` / `isValid()`.
          * @member {Boolean} required_=false
          * @reactive
          */
