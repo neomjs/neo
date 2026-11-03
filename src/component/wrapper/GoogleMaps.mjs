@@ -275,11 +275,8 @@ class GoogleMaps extends Base {
      * @param {Neo.data.Record} data.record
      */
     onMarkerRecordChange({record}) {
-        let me = this;
-
-        me.removeMarker(record.id);
-        me.addMarker({
-            mapId: me.id,
+        this.addMarker({
+            mapId: this.id,
             ...(record.toJSON?.() || record)
         })
     }

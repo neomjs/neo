@@ -80,6 +80,7 @@ class GoogleMaps extends Base {
     markers = {}
 
     /**
+     * @summary Adds or replaces a marker on the specified map, deferring until `mapCreated` if the map is not yet initialized.
      * @param {Object} data
      * @param {Object} [data.anchorPoint] x & y
      * @param {String} [data.icon]
@@ -103,6 +104,8 @@ class GoogleMaps extends Base {
             })
         } else {
             Neo.ns(`${mapId}`, true, me.markers);
+
+            me.markers[mapId][data.id]?.setMap(null);
 
             me.markers[mapId][data.id] = marker = new google.maps.Marker({
                 icon    : data.icon,

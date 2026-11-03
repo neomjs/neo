@@ -69,8 +69,7 @@ test.describe('Neo.component.wrapper.GoogleMaps markerStore recordChange listene
             title   : 'Updated'
         });
 
-        expect(removedMarkers).toHaveLength(1);
-        expect(removedMarkers[0]).toMatchObject({id: 'm-1', mapId: 'gm-rc-1'});
+        expect(removedMarkers).toHaveLength(0);
         expect(addedMarkers).toHaveLength(1);
         expect(addedMarkers[0]).toMatchObject({
             id      : 'm-1',
