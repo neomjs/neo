@@ -276,7 +276,7 @@ class OpenStreetMaps extends Base {
     }
 
     /**
-     *
+     * @summary Synchronizes map markers with the current `markerStore` records on store load or collection mutation.
      */
     onMarkerStoreLoad() {
         let {appName, id, windowId} = this;
@@ -284,15 +284,16 @@ class OpenStreetMaps extends Base {
         Neo.main.addon.OpenStreetMaps.destroyMarkers({
             appName,
             id,
+            mapId: id,
             windowId
         });
 
-        this.markerStore.items.forEach(item => {
+        this.markerStore.forEach(item => {
             Neo.main.addon.OpenStreetMaps.addMarker({
                 appName,
                 mapId: id,
                 windowId,
-                ...item
+                ...(item.toJSON?.() || item)
             })
         })
     }
