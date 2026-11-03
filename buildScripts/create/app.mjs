@@ -197,9 +197,10 @@ if (programOpts.info) {
         fs.writeFileSync(path.join(folder, 'neo-config.json'), JSON.stringify(neoConfig, null, 4));
 
         const viewportContent = [
-            "import BaseViewport from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/container/Viewport.mjs';",
-            "import Component    from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
-            "import TabContainer from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/tab/Container.mjs';",
+            "import BaseViewport       from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/container/Viewport.mjs';",
+            "import Component          from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
+            "import TabContainer       from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/tab/Container.mjs';",
+            "import ViewportController from './ViewportController.mjs';",
             "",
             "/**",
             " * @class " + appName + ".view.Viewport",
@@ -212,6 +213,11 @@ if (programOpts.info) {
             "         * @protected",
             "         */",
             "        className: '" + appName + ".view.Viewport',",
+            "        /**",
+            "         * @member {Neo.controller.Component} controller=ViewportController",
+            "         * @reactive",
+            "         */",
+            "        controller: ViewportController,",
             "        /*",
             "         * @member {Object} layout={ntype:'fit'}",
             "         */",
@@ -253,6 +259,28 @@ if (programOpts.info) {
         ].join(os.EOL);
 
         fs.writeFileSync(path.join(folder + '/view/Viewport.mjs'), viewportContent);
+
+        const viewportControllerContent = [
+            "import Component from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/controller/Component.mjs';",
+            "",
+            "/**",
+            " * @class " + appName + ".view.ViewportController",
+            " * @extends Neo.controller.Component",
+            " */",
+            "class ViewportController extends Component {",
+            "    static config = {",
+            "        /**",
+            "         * @member {String} className='" + appName + ".view.ViewportController'",
+            "         * @protected",
+            "         */",
+            "        className: '" + appName + ".view.ViewportController'",
+            "    }",
+            "}",
+            "",
+            "export default Neo.setupClass(ViewportController);"
+        ].join(os.EOL);
+
+        fs.writeFileSync(path.join(folder + '/view/ViewportController.mjs'), viewportControllerContent);
 
         let appJsonPath = path.resolve(cwd, 'buildScripts/myApps.json'),
             appJson;
