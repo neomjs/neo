@@ -276,7 +276,7 @@ class GoogleMaps extends Base {
     }
 
     /**
-     *
+     * @summary Synchronizes map markers with the current `markerStore` records on store load or collection mutation.
      */
     onMarkerStoreLoad() {
         let {appName, id, windowId} = this;
@@ -284,6 +284,7 @@ class GoogleMaps extends Base {
         Neo.main.addon.GoogleMaps.destroyMarkers({
             appName,
             id,
+            mapId: id,
             windowId
         });
 
@@ -292,7 +293,7 @@ class GoogleMaps extends Base {
                 appName,
                 mapId: id,
                 windowId,
-                ...item
+                ...(item.toJSON?.() || item)
             })
         })
     }
