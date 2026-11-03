@@ -132,4 +132,91 @@ test.describe('build-themes theme-map regeneration (#17222)', () => {
         expect(map.Neo.button.Base).toEqual(expect.arrayContaining(['theme-neo-dark', 'theme-neo-light']));
         expect(map.apps.demo.Widget).toEqual(expect.arrayContaining(['src', 'theme-neo-dark', 'theme-workspace']));
     });
+
+    test('a workspace compiles SCSS from a declaring dependency, ignores non-declaring and unlisted packages, and lets the workspace overlay same-path files (#20260)', () => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-themes-pkg-'));
+        fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({
+            bugs           : {url: 'https://example.invalid'},
+            name           : 'demo-workspace',
+            version        : '1.0.0',
+            dependencies   : {'@acme/grid-ext': '1.0.0'},
+            devDependencies: {'plain-pkg': '1.0.0'}
+        }));
+
+        const engineRoot = path.join(root, 'node_modules/neo.mjs');
+        fs.mkdirSync(engineRoot, {recursive: true});
+        fs.writeFileSync(path.join(engineRoot, 'package.json'), JSON.stringify({
+            bugs   : {url: 'https://github.com/neomjs/neo/issues'},
+            name   : 'neo.mjs',
+            version: '1.0.0'
+        }));
+
+        // Declaring package: declares "neo": {"scss": "resources/scss"}
+        const declaringRoot = path.join(root, 'node_modules/@acme/grid-ext');
+        fs.mkdirSync(declaringRoot, {recursive: true});
+        fs.writeFileSync(path.join(declaringRoot, 'package.json'), JSON.stringify({
+            name   : '@acme/grid-ext',
+            version: '1.0.0',
+            neo    : {scss: 'resources/scss'}
+        }));
+
+        // Non-declaring dependency: has resources/scss on disk, but no neo.scss field in package.json
+        const plainRoot = path.join(root, 'node_modules/plain-pkg');
+        fs.mkdirSync(plainRoot, {recursive: true});
+        fs.writeFileSync(path.join(plainRoot, 'package.json'), JSON.stringify({
+            name   : 'plain-pkg',
+            version: '1.0.0'
+        }));
+
+        // Unlisted package in node_modules: even with neo.scss, not a direct dependency of the workspace
+        const unlistedRoot = path.join(root, 'node_modules/unlisted-pkg');
+        fs.mkdirSync(unlistedRoot, {recursive: true});
+        fs.writeFileSync(path.join(unlistedRoot, 'package.json'), JSON.stringify({
+            name   : 'unlisted-pkg',
+            version: '1.0.0',
+            neo    : {scss: 'resources/scss'}
+        }));
+
+        const writeFile = (base, relPath, css) => {
+            const filePath = path.join(base, relPath);
+            fs.mkdirSync(path.dirname(filePath), {recursive: true});
+            fs.writeFileSync(filePath, css, 'utf8');
+        };
+
+        // Engine supplies theme-neo-light; declaring package adds src + theme-neo-dark; workspace overlays Shared.scss
+        writeFile(engineRoot,    'resources/scss/theme-neo-light/button/Base.scss',       '.neo-btn { color: white; }\n');
+        writeFile(declaringRoot, 'resources/scss/src/apps/ext/Row.scss',                  '.ext-row { color: green; }\n');
+        writeFile(declaringRoot, 'resources/scss/src/apps/ext/Shared.scss',               '.ext-shared { color: green; }\n');
+        writeFile(declaringRoot, 'resources/scss/theme-neo-dark/apps/ext/Row.scss',       '.ext-row { color: cyan; }\n');
+        writeFile(plainRoot,     'resources/scss/src/apps/plain/Ignored.scss',            '.plain { color: red; }\n');
+        writeFile(unlistedRoot,  'resources/scss/src/apps/unlisted/Ignored.scss',         '.unlisted { color: red; }\n');
+        writeFile(root,          'resources/scss/src/apps/ext/Shared.scss',               '.ext-shared { color: purple; }\n');
+
+        const helpOutput = execFileSync('node', [scriptPath, '--help'], {cwd: root, encoding: 'utf8', stdio: 'pipe'});
+        expect(helpOutput).toContain('all, theme-neo-light, theme-neo-dark');
+
+        runBuild(root);
+
+        const map  = readMap(root),
+              keys = mapKeys(map);
+
+        // Declaring package's src and theme-neo-dark join the map and compile to dist/development/css
+        expect(keys).toContain('apps.ext.Row');
+        expect(keys).toContain('apps.ext.Shared');
+        expect(map.apps.ext.Row).toEqual(expect.arrayContaining(['src', 'theme-neo-dark']));
+
+        const rowCss = fs.readFileSync(path.join(root, 'dist/development/css/src/apps/ext/Row.css'), 'utf8');
+        expect(rowCss).toContain('color: green');
+
+        // Same-path file in the workspace overlays the declaring package's file
+        const sharedCss = fs.readFileSync(path.join(root, 'dist/development/css/src/apps/ext/Shared.css'), 'utf8');
+        expect(sharedCss).toContain('color: purple');
+        expect(sharedCss).not.toContain('color: green');
+
+        // Non-declaring and unlisted packages contribute nothing
+        expect(keys).not.toContain('apps.plain.Ignored');
+        expect(keys).not.toContain('apps.unlisted.Ignored');
+        expect(fs.existsSync(path.join(root, 'dist/development/css/src/apps/plain/Ignored.css'))).toBe(false);
+        expect(fs.existsSync(path.join(root, 'dist/development/css/src/apps/unlisted/Ignored.css'))).toBe(false);
+    });
 });
