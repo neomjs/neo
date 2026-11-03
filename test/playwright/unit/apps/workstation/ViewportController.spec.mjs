@@ -44,6 +44,17 @@ class RecordingController extends ViewportController {
 
 Neo.setupClass(RecordingController);
 
+/**
+ * @summary Stands in for an extending app's Workspace subclass: the proof of which class the controller builds.
+ */
+class ProbeWorkspace extends Container {
+    static config = {
+        className: 'Test.Workstation.ProbeWorkspace'
+    }
+}
+
+Neo.setupClass(ProbeWorkspace);
+
 const REFUSAL = 'This saved window is waiting for its original workspace.',
       WAITING = 'This window is waiting for its original workspace.';
 
@@ -234,6 +245,31 @@ test.describe('Workstation.view.ViewportController — one window, one decision,
             expect(view.controller.calls).toEqual([])
         } finally {
             retire(windowId, [view], [groupId])
+        }
+    });
+
+    test('the root workspace defaults to Workstation.view.Workspace', () => {
+        const windowId = registerWindow(),
+              view     = createView(windowId, ViewportController);
+
+        try {
+            expect(view.controller.workspaceModule).toBe(Workspace)
+        } finally {
+            retire(windowId, [view], [])
+        }
+    });
+
+    test('an extending app swaps the root workspace class through the controller config', () => {
+        const windowId  = registerWindow(),
+              view      = createView(windowId, {module: ViewportController, workspaceModule: ProbeWorkspace}),
+              workspace = view.controller.createWorkspace({flex: 1, windowId});
+
+        try {
+            expect(view.controller.workspaceModule).toBe(ProbeWorkspace);
+            expect(workspace).toBeInstanceOf(ProbeWorkspace);
+            expect(workspace.flex).toBe(1)
+        } finally {
+            retire(windowId, [workspace, view], [])
         }
     })
 });
