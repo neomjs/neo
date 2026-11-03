@@ -32,7 +32,7 @@ In the long run, we are planning to convert as many of the rules as possible int
 * (3) Use single quotes over double quotes.
 * (4) Never use more than 1 empty line.
 * (5) For indentation, we are using 4 spaces (no tab chars).
-* (6) A lot of items inside various spots are ordered chronologically.
+* (6) A lot of items inside various spots are ordered alphabetically.
 
 ## 2. import statements
 ```javascript
@@ -193,11 +193,11 @@ export default Neo.setupClass(Base);
   + For class top-level comments, a `@summary` tag is **mandatory**. It **must** be the first tag and **must** be followed by an empty line, then a detailed description of the class.
   + Single-line tags like `@class` and `@extends` do not require an empty line after them.
 * (19) Class content order:
-  - static configs (ordered chronologically)
+  - static configs (ordered alphabetically)
   - static config as the last item. This one does not need a comment, but is prefixed with an empty line.
-  - non-static class fields (ordered chronologically)
+  - non-static class fields (ordered alphabetically)
   - construct() in case you are using it
-  - all other class methods are ordered chronologically and are prefixed with an empty line.
+  - all other class methods are ordered alphabetically and are prefixed with an empty line.
 * (20) Module order:
   - Import statements formatted according to 1.
   - empty line
@@ -287,7 +287,7 @@ static config = {
 * (21) class content order
   + className first
   + ntype second (if used)
-  + All other configs are ordered chronologically
+  + All other configs are ordered alphabetically
   + _vdom last
   + configs use camel-case syntax
   + JSDoc comments are required
@@ -310,7 +310,7 @@ The idea is to format the structure in a way that is similar to html tags and al
 * (22) The vdom object starts inside a new line, to keep the structure intact plus keep us more space to the right side.
 * (23) vdom Objects start with the `tag` property.
 * (24) the `tag` property is not needed for `div` tags, since this is the default value.
-* (25) All other attributes are ordered chronologically.
+* (25) All other attributes are ordered alphabetically.
 * (26) `cn` (child nodes) is always the last attribute.
 
 There is a blog post which dives a bit deeper into this formatting strategy:</br>
@@ -378,11 +378,11 @@ Container items can contain:
 
 (28) Config objects get formatted in the following way:
 * Either `module`, `ntype` or `className` as the first item
-* All other items sorted chronologically
-* Exception: You can also sort everything which can get described in 1 line chronologically and use an empty
+* All other items sorted alphabetically
+* Exception: You can also sort everything which can get described in 1 line alphabetically and use an empty
 blank line afterwards. This "resets" the block formatting and order. Afterwards you can add "bigger" properties
 like nested item arrays or complex objects (e.g. style). Each of those item starts with an empty line and they
-do get sorted chronologically as well.
+do get sorted alphabetically as well.
 
 ## 8. Class methods
 
