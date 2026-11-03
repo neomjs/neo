@@ -901,6 +901,7 @@ class DateSelector extends Component {
 
     /**
      * Triggers a vdom update & sets isUpdating
+     * @summary Commits the settled month/year VDOM and restores focus to the selected destination cell if the DateSelector still holds focus.
      * @param {Boolean} [silent=false]
      * @protected
      */
@@ -910,8 +911,24 @@ class DateSelector extends Component {
 
             me.isUpdating = true;
 
-            me.promiseUpdate().then(() => {
-                me.isUpdating = false
+            me.promiseUpdate().then(async () => {
+                if (
+                    !me.isDestroyed &&
+                    me.containsFocus &&
+                    !Neo.manager.Focus?.pendingFocusOut?.componentPath?.includes(me.id) &&
+                    (!me.cachedUpdate || me.cachedUpdate.getTime() === new Date(`${me.value}T12:00:00.000Z`).getTime()) &&
+                    !me.cachedDayViewRebuild &&
+                    me.selectionModel?.items?.[0]
+                ) {
+                    await Neo.main?.DomAccess?.focus({
+                        id      : me.selectionModel.items[0],
+                        windowId: me.windowId
+                    })
+                }
+
+                if (!me.isDestroyed) {
+                    me.isUpdating = false
+                }
             })
         }
     }

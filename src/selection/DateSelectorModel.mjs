@@ -21,7 +21,13 @@ class DateSelectorModel extends Model {
          * true to stay inside the same column when navigating up or downwards
          * @member {Boolean} stayInColumn=false
          */
-        stayInColumn: false
+        stayInColumn: false,
+        /**
+         * true to stay inside the current month when navigating with the arrow keys,
+         * false to walk into adjacent months and years.
+         * @member {Boolean} stayInMonth=true
+         */
+        stayInMonth: true
     }
 
     /**
@@ -74,61 +80,83 @@ class DateSelectorModel extends Model {
     }
 
     /**
+     * @summary Wraps within the current month when `stayInMonth` is `true`, or walks into adjacent months/years when `false`.
      * @param {Object} data
      * @param {Number} step
      */
     onNavKeyColumn(data, step) {
-        let me       = this,
-            cellDate = me.getCellDate(data),
-            {view}   = me,
+        let me           = this,
+            cellDate     = me.getCellDate(data),
+            initialMonth = cellDate.getMonth(),
+            initialYear  = cellDate.getFullYear(),
+            {view}       = me,
             daysInMonth, id, newDay;
 
-        daysInMonth = DateUtil.getDaysInMonth(cellDate);
-        newDay      = (cellDate.getDate() + step) % daysInMonth;
+        if (me.stayInMonth) {
+            daysInMonth = DateUtil.getDaysInMonth(cellDate);
+            newDay      = (cellDate.getDate() + step) % daysInMonth;
 
-        newDay = newDay === 0 ? daysInMonth : newDay;
-
-        id = view.getCellId(cellDate.getFullYear(), cellDate.getMonth() + 1, newDay);
-
-        me.select(id);
-        view.focus(id)
-    }
-
-    /**
-     * @param {Object} data
-     * @param {Number} step
-     */
-    onNavKeyRow(data, step) {
-        let me       = this,
-            cellDate = me.getCellDate(data),
-            {view}   = me,
-            daysInMonth, id, newDay;
-
-        daysInMonth = DateUtil.getDaysInMonth(cellDate);
-        newDay      = cellDate.getDate() + step;
-
-        if (newDay > daysInMonth) {
-            if (!me.stayInColumn) {
-                newDay += 1
-            }
-
-            while (newDay > 7) {
-                newDay -= step
-            }
-        } else if (newDay < 1) {
-            if (!me.stayInColumn) {
-                newDay -= 1
-            }
-
-            while (newDay < daysInMonth - 6) {
-                newDay -= step
-            }
+            newDay = newDay === 0 ? daysInMonth : newDay
+        } else {
+            cellDate.setDate(cellDate.getDate() + step);
+            newDay = cellDate.getDate()
         }
 
         id = view.getCellId(cellDate.getFullYear(), cellDate.getMonth() + 1, newDay);
 
         me.select(id);
-        view.focus(id)
+
+        if (cellDate.getMonth() === initialMonth && cellDate.getFullYear() === initialYear) {
+            view.focus(id)
+        }
+    }
+
+    /**
+     * @summary Folds back into the current month when `stayInMonth` is `true`, or walks into adjacent months/years when `false`.
+     * @param {Object} data
+     * @param {Number} step
+     */
+    onNavKeyRow(data, step) {
+        let me           = this,
+            cellDate     = me.getCellDate(data),
+            initialMonth = cellDate.getMonth(),
+            initialYear  = cellDate.getFullYear(),
+            {view}       = me,
+            daysInMonth, id, newDay;
+
+        if (me.stayInMonth) {
+            daysInMonth = DateUtil.getDaysInMonth(cellDate);
+            newDay      = cellDate.getDate() + step;
+
+            if (newDay > daysInMonth) {
+                if (!me.stayInColumn) {
+                    newDay += 1
+                }
+
+                while (newDay > 7) {
+                    newDay -= step
+                }
+            } else if (newDay < 1) {
+                if (!me.stayInColumn) {
+                    newDay -= 1
+                }
+
+                while (newDay < daysInMonth - 6) {
+                    newDay -= step
+                }
+            }
+        } else {
+            cellDate.setDate(cellDate.getDate() + step);
+            newDay = cellDate.getDate()
+        }
+
+        id = view.getCellId(cellDate.getFullYear(), cellDate.getMonth() + 1, newDay);
+
+        me.select(id);
+
+        if (cellDate.getMonth() === initialMonth && cellDate.getFullYear() === initialYear) {
+            view.focus(id)
+        }
     }
 
     /**
@@ -154,7 +182,8 @@ class DateSelectorModel extends Model {
     toJSON() {
         return {
             ...super.toJSON(),
-            stayInColumn: this.stayInColumn
+            stayInColumn: this.stayInColumn,
+            stayInMonth : this.stayInMonth
         }
     }
 
