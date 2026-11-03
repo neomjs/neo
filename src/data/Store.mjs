@@ -729,7 +729,7 @@ class Store extends Collection {
 
         if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
             const
-                activeFilters    = me.filters.filter(f => !f.disabled && f.value !== null),
+                activeFilters    = me.filters.filter(f => f.effective),
                 filterProperties = activeFilters.flatMap(f => f.fields || (f.property === null ? [] : [f.property])),
                 len              = filterProperties.length;
 
@@ -1111,7 +1111,7 @@ class Store extends Collection {
 
         if (!me.autoInitRecords && !RecordFactory.isRecord(item) && me.filters.length > 0) {
             me.filters.forEach(filter => {
-                if (!filter.disabled && filter.value !== null) {
+                if (filter.effective) {
                     for (const property of filter.fields || (filter.property === null ? [] : [filter.property])) {
                         if (!Object.hasOwn(item, property)) {
                             item[property] = me.resolveField(item, property)

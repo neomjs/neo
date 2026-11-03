@@ -430,5 +430,46 @@ test.describe('Neo.data.Store', () => {
 
             lazyStringStore.destroy()
         })
+    });
+
+    test.describe('Turbo Mode soft hydration with filterBy filters (#20267)', () => {
+        test('Store#filter and Store#isFilteredItem soft-hydrate declared fields for an enabled filterBy filter without a value', () => {
+            const lazyStore = Neo.create(Store, {
+                autoInitRecords: false,
+                model          : {
+                    module: Model,
+                    fields: [
+                        {name: 'id',      type: 'Integer'},
+                        {name: 'amount',  type: 'Integer'},
+                        {name: 'doubled', type: 'Integer', calculate: data => data.amount * 2}
+                    ]
+                },
+                data: [
+                    {id: 1, amount: 5},
+                    {id: 2, amount: 12}
+                ]
+            });
+
+            // Configure a filterBy filter without a value -> triggers Store#filter() soft hydration
+            lazyStore.filters = [{
+                fields  : ['doubled'],
+                filterBy: ({item}) => item.doubled < 20
+            }];
+
+            expect(lazyStore.count).toBe(1);
+            expect(lazyStore.getAt(0).id).toBe(2);
+
+            // Store#isFilteredItem on a fresh raw item also soft-hydrates declared fields
+            const rawKept        = {id: 3, amount: 15},
+                  rawFilteredOut = {id: 4, amount: 4};
+
+            expect(lazyStore.isFilteredItem(rawKept)).toBe(false);
+            expect(rawKept.doubled).toBe(30);
+
+            expect(lazyStore.isFilteredItem(rawFilteredOut)).toBe(true);
+            expect(rawFilteredOut.doubled).toBe(8);
+
+            lazyStore.destroy()
+        })
     })
 });
