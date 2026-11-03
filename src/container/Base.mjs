@@ -980,10 +980,12 @@ class Container extends Component {
                 return null
             } else {
                 if (!keepMounted) {
-                    item.appName     = null;
-                    item.mounted     = false;
-                    item.parentId    = null;
-                    item.parentIndex = null
+                    item.set({
+                        appName    : null,
+                        mounted    : false,
+                        parentId   : null,
+                        parentIndex: null
+                    })
                 }
                 me.layout?.removeChildAttributes(item);
                 return item

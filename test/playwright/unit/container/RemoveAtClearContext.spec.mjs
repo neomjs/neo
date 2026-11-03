@@ -14,6 +14,7 @@ import * as core        from '../../../../src/core/_export.mjs';
 import Component        from '../../../../src/component/Base.mjs';
 import ComponentManager from '../../../../src/manager/Component.mjs';
 import Container        from '../../../../src/container/Base.mjs';
+import Effect           from '../../../../src/core/Effect.mjs';
 
 /**
  * @summary Verifies that `Neo.container.Base#removeAt(index, false)` clears `appName`, `parentId`,
@@ -87,6 +88,31 @@ test.describe('Neo.container.Base#removeAt clear context (#4066)', () => {
         expect(item.parentId).toBe(container.id);
         expect(item.parentIndex).toBe(0);
 
+        item.destroy()
+    });
+
+    test('removeAt(index, false) batches the four context resets into one complete detached-state Effect notification', () => {
+        container = Neo.create(Container, {
+            appName,
+            items: [{module: Component, id: 'effect-ctx-item-0'}]
+        });
+
+        const item = container.items[0];
+        item.mounted = true;
+
+        const notifications = [];
+        const effect        = new Effect(() => {
+            notifications.push([item.appName, item.mounted, item.parentId, item.parentIndex])
+        });
+
+        expect(notifications).toEqual([[appName, true, container.id, 0]]);
+        notifications.length = 0;
+
+        container.removeAt(0, false, true);
+
+        expect(notifications).toEqual([[null, false, null, null]]);
+
+        effect.destroy();
         item.destroy()
     })
 });
