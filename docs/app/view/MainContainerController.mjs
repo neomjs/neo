@@ -137,9 +137,8 @@ class MainContainerController extends Component {
         let me    = this,
             value = data.value;
 
-        me.getReference('examples-treelist') ?.filter('name', value, null);
-        me.getReference('api-treelist')      ?.filter('name', value, null);
-        me.getReference('tutorials-treelist')?.filter('name', value, null)
+        me.getReference('examples-treelist').filter('name', value, null);
+        me.getReference('api-treelist')     .filter('name', value, null)
     }
 
     /**

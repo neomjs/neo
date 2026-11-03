@@ -426,7 +426,7 @@ class Tree extends Base {
      * @param {String} value The filter value
      * @param {Number|String|null} parentId The root id for the current filter call
      * @param {Boolean} [parentMatch]=false In case a parent folder matches the filter, show its child items
-     * @returns {Boolean} false if at least one child item is filtered
+     * @returns {Boolean} true when no item on this level matches or contains a match
      */
     filter(property, value, parentId, parentMatch = false) {
         let me         = this,
@@ -462,7 +462,7 @@ class Tree extends Base {
                     isFiltered = false
                 }
 
-                node.style.display = itemFiltered ? 'none' : 'list-item'
+                node.style.display = itemFiltered ? 'none' : 'flex'
             }
         });
 
@@ -605,23 +605,14 @@ class Tree extends Base {
                     return false
                 }
 
-                NeoArray.toggle(item.cls, 'neo-folder-open');
+                let isOpen = !item.cls.includes('neo-folder-open');
 
-                let isOpen              = item.cls.includes('neo-folder-open'),
-                    {parentNode, index} = VDomUtil.find(me.vdom, item.id),
-                    nextSibling         = parentNode.cn[index + 1];
+                me.#setFolderOpen(item, isOpen);
 
                 if (record.isRecord) {
                     record.setSilent({collapsed: !isOpen})
                 } else {
                     record.collapsed = !isOpen
-                }
-
-                item.style.position = isOpen ? 'sticky' : null;
-                item.style.top      = isOpen ? (item.level * 38) + 'px' : null;
-
-                if (nextSibling?.tag === 'ul') {
-                    nextSibling.removeDom = !isOpen
                 }
 
                 me.update()

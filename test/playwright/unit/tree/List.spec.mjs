@@ -6,15 +6,14 @@ setup({
     }
 });
 
-import {test, expect}          from '@playwright/test';
-import Neo                     from '../../../../src/Neo.mjs';
-import * as core               from '../../../../src/core/_export.mjs';
-import InstanceManager         from '../../../../src/manager/Instance.mjs';
-import MainContainerController from '../../../../docs/app/view/MainContainerController.mjs';
-import TreeList                from '../../../../src/tree/List.mjs';
-import VDomUtil                from '../../../../src/util/VDom.mjs';
-import DomApiVnodeCreator      from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
-import VdomHelper              from '../../../../src/vdom/Helper.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import InstanceManager    from '../../../../src/manager/Instance.mjs';
+import TreeList           from '../../../../src/tree/List.mjs';
+import VDomUtil           from '../../../../src/util/VDom.mjs';
+import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 test.describe('Neo.tree.List VDOM Structure', () => {
 
@@ -128,12 +127,12 @@ test.describe('Neo.tree.List VDOM Structure', () => {
         //    and hides folders without a result ("form", "util")
         tree.filter('name', 'Splitter', null);
 
-        expect(getNode('component').style.display).toBe('list-item');
+        expect(getNode('component').style.display).toBe('flex');
         expect(getNode('component').cls).toContain('neo-folder-open');
         expect(getChildUl('component').removeDom).toBe(false);
 
         expect(getNode('button').style.display).toBe('none');
-        expect(getNode('splitter').style.display).toBe('list-item');
+        expect(getNode('splitter').style.display).toBe('flex');
         expect(getNode('splitter').cn[0].html).toBe('<span class="neo-highlight-search">Splitter</span>');
         expect(getNode('toast').style.display).toBe('none');
 
@@ -147,52 +146,27 @@ test.describe('Neo.tree.List VDOM Structure', () => {
         expect(getNode('component').style.display).toBe('none');
         expect(getNode('util').style.display).toBe('none');
 
-        expect(getNode('form').style.display).toBe('list-item');
+        expect(getNode('form').style.display).toBe('flex');
         expect(getNode('form').cls).toContain('neo-folder-open');
         expect(getChildUl('form').removeDom).toBe(false);
 
-        expect(getNode('formctn').style.display).toBe('list-item');
-        expect(getNode('field').style.display).toBe('list-item');
+        expect(getNode('formctn').style.display).toBe('flex');
+        expect(getNode('field').style.display).toBe('flex');
         expect(getNode('field').cls).not.toContain('neo-folder-open');
         expect(getChildUl('field').removeDom).toBe(true);
 
         // 3. Clearing filter (""): restores all items without empty highlight spans and expands folders
         tree.filter('name', '', null);
 
-        expect(getNode('component').style.display).toBe('list-item');
-        expect(getNode('splitter').style.display).toBe('list-item');
+        expect(getNode('component').style.display).toBe('flex');
+        expect(getNode('splitter').style.display).toBe('flex');
         expect(getNode('splitter').cn[0].html).toBe('Splitter');
-        expect(getNode('toast').style.display).toBe('list-item');
-        expect(getNode('form').style.display).toBe('list-item');
+        expect(getNode('toast').style.display).toBe('flex');
+        expect(getNode('form').style.display).toBe('flex');
         expect(getNode('field').cls).toContain('neo-folder-open');
         expect(getChildUl('field').removeDom).toBe(false);
-        expect(getNode('util').style.display).toBe('list-item');
+        expect(getNode('util').style.display).toBe('flex');
 
         tree.destroy();
-    });
-
-    test('Docs.view.MainContainerController#onNavigationSearchFieldChange guards missing tutorials-treelist', () => {
-        const calls          = [];
-        const mockController = {
-            getReference(ref) {
-                if (ref === 'tutorials-treelist') {
-                    return null;
-                }
-                return {
-                    filter(property, value, parentId) {
-                        calls.push({ref, property, value, parentId});
-                    }
-                };
-            }
-        };
-
-        expect(() => {
-            MainContainerController.prototype.onNavigationSearchFieldChange.call(mockController, {value: 'Splitter'});
-        }).not.toThrow();
-
-        expect(calls).toEqual([
-            {ref: 'examples-treelist', property: 'name', value: 'Splitter', parentId: null},
-            {ref: 'api-treelist',      property: 'name', value: 'Splitter', parentId: null}
-        ]);
     });
 });
