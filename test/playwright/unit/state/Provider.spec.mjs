@@ -870,4 +870,53 @@ test.describe('Neo.state.Provider hosted-store lifecycle', () => {
         expect(third.isDestroyed).toBe(true);
         expect(StoreManager.get(storeId)).toBeFalsy();
     });
+
+    test('Store entries without module, className, or ntype default to Neo.data.Store', () => {
+        class CustomClassNameStore extends Store {
+            static config = {
+                className: 'Test.Unit.State.Provider.CustomClassNameStore'
+            }
+        }
+        CustomClassNameStore = Neo.setupClass(CustomClassNameStore);
+
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                stores: {
+                    defaultTypedStore: {
+                        data : [{id: 1, name: 'Item 1'}, {id: 2, name: 'Item 2'}],
+                        model: {fields: [{name: 'id'}, {name: 'name'}]}
+                    },
+                    explicitClassNameStore: {
+                        className: 'Test.Unit.State.Provider.CustomClassNameStore',
+                        data     : [{id: 10, name: 'Explicit'}],
+                        model    : {fields: [{name: 'id'}, {name: 'name'}]}
+                    }
+                }
+            },
+            bind: {
+                testConfig: 'stores.defaultTypedStore'
+            }
+        });
+
+        const
+            provider               = component.getStateProvider(),
+            defaultTypedStore      = provider.getStore('defaultTypedStore'),
+            explicitClassNameStore = provider.getStore('explicitClassNameStore');
+
+        expect(defaultTypedStore).toBeInstanceOf(Store);
+        expect(component.testConfig).toBe(defaultTypedStore);
+        expect(defaultTypedStore.count).toBe(2);
+
+        expect(explicitClassNameStore).toBeInstanceOf(CustomClassNameStore);
+        expect(explicitClassNameStore.module).toBeNull();
+        expect(explicitClassNameStore.count).toBe(1);
+
+        defaultTypedStore.add({id: 3, name: 'Item 3'});
+        expect(component.testConfig.count).toBe(3);
+
+        component.destroy();
+
+        expect(defaultTypedStore.isDestroyed).toBe(true);
+        expect(explicitClassNameStore.isDestroyed).toBe(true);
+    });
 });

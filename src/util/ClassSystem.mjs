@@ -14,7 +14,8 @@ class ClassSystem extends Base {
     }
 
     /**
-     * can get used inside beforeSet methods in case you want to create instances like stores
+     * Can get used inside beforeSet methods in case you want to create instances like stores
+     * @summary Normalizes a config object, class, or instance into a Neo.core.Base instance, applying DefaultClass when module, className, and ntype are omitted.
      * @param {Object|Neo.core.Base|null} config
      * @param {Neo.core.Base|String} [DefaultClass=null]
      * @param {Object} [defaultValues={}]
@@ -40,7 +41,7 @@ class ClassSystem extends Base {
             } else {
                 let newConfig = {};
 
-                if (DefaultClass) {
+                if (DefaultClass && !config.className) {
                     newConfig.module = DefaultClass
                 }
 
