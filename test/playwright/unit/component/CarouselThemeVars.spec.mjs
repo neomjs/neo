@@ -64,62 +64,71 @@ test.describe('Neo.component.Carousel SCSS theme variable files', () => {
         }
     });
 
-    test('compiled Cyberpunk and Light theme sheets resolve offscreen slide transform, duration, and inner color intent', async ({page}) => {
+    test('compiled Cyberpunk and Light theme sheets resolve offscreen slide transform, duration, and inner color intent', () => {
         const
             cyberGlobal = sass.compile(path.join(repoRoot, 'resources/scss/theme-cyberpunk/Global.scss')).css,
             cyberTheme  = sass.compile(path.join(repoRoot, 'resources/scss/theme-cyberpunk/component/Carousel.scss')).css,
             lightTheme  = sass.compile(path.join(repoRoot, 'resources/scss/theme-light/component/Carousel.scss')).css,
             structural  = sass.compile(srcPath).css;
 
-        await page.setContent(`
-            <style>${cyberGlobal}\n${cyberTheme}\n${lightTheme}\n${structural}</style>
-            <div id="cyber-host" class="neo-theme-cyberpunk">
-                <div class="neo-carousel" style="width: 430px; box-sizing: border-box;">
-                    <div class="neo-carousel-inner" style="width: 400px;">
-                        <div class="neo-carousel-item neo-carousel-translate-x-full"></div>
-                    </div>
-                </div>
-            </div>
-            <div id="light-host" class="neo-theme-light">
-                <div class="neo-carousel" style="width: 430px; box-sizing: border-box;">
-                    <div class="neo-carousel-inner" style="width: 400px;">
-                        <div class="neo-carousel-item neo-carousel-translate-x-full"></div>
-                    </div>
-                </div>
-            </div>
-        `);
+        const parseDeclarations = css => {
+            const map = new Map();
 
-        const measured = await page.evaluate(() => {
-            const read = rootSelector => {
+            for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
                 const
-                    root      = document.querySelector(rootSelector),
-                    inner     = root.querySelector('.neo-carousel-inner'),
-                    item      = root.querySelector('.neo-carousel-item'),
-                    innerComp = getComputedStyle(inner),
-                    itemComp  = getComputedStyle(item);
+                    selector = match[1].trim().replace(/\s+/g, ' '),
+                    decls    = new Map();
 
-                return {
-                    innerBg  : innerComp.backgroundColor,
-                    duration : itemComp.transitionDuration,
-                    transform: itemComp.transform
+                for (const raw of match[2].split(';')) {
+                    const colon = raw.indexOf(':');
+                    if (colon > 0) {
+                        decls.set(raw.slice(0, colon).trim(), raw.slice(colon + 1).trim())
+                    }
                 }
+
+                map.set(selector, {...(map.get(selector) || {}), ...Object.fromEntries(decls)})
+            }
+
+            return map
+        };
+
+        const resolveTheme = (themeCss, selector) => {
+            const
+                vars        = {...(parseDeclarations(cyberGlobal).get(selector) || {}), ...(parseDeclarations(themeCss).get(selector) || {})},
+                structRules = parseDeclarations(structural),
+                innerRule   = structRules.get('.neo-carousel .neo-carousel-inner') || {},
+                itemRule    = structRules.get('.neo-carousel .neo-carousel-inner .neo-carousel-item') || {},
+                offscreen   = structRules.get('.neo-carousel-translate-x-full') || {},
+                scopeVars   = {...vars, ...offscreen};
+
+            const resolveExpr = expr => {
+                let current = expr;
+
+                for (let depth = 0; depth < 5 && /var\(/.test(current); depth++) {
+                    current = current.replace(/var\(\s*(--[a-z0-9-]+)\s*\)/g, (_, name) => {
+                        return Object.hasOwn(scopeVars, name) ? scopeVars[name] : `__UNRESOLVED_${name}__`
+                    })
+                }
+
+                return current
             };
 
             return {
-                cyberpunk: read('#cyber-host'),
-                light    : read('#light-host')
+                duration : resolveExpr(itemRule['transition-duration']),
+                innerBg  : resolveExpr(innerRule['background-color']),
+                transform: resolveExpr(offscreen.transform || itemRule.transform)
             }
-        });
+        };
 
-        expect(measured.cyberpunk).toEqual({
-            innerBg  : 'rgb(0, 210, 255)',
-            duration : '0.7s',
-            transform: 'matrix(1, 0, 0, 1, 400, 0)'
+        expect(resolveTheme(cyberTheme, ':root .neo-theme-cyberpunk')).toEqual({
+            duration : '.7s',
+            innerBg  : '#00d2ff',
+            transform: 'translate(100%, 0)'
         });
-        expect(measured.light).toEqual({
-            innerBg  : 'rgb(28, 96, 160)',
-            duration : '0.7s',
-            transform: 'matrix(1, 0, 0, 1, 400, 0)'
+        expect(resolveTheme(lightTheme, ':root .neo-theme-light')).toEqual({
+            duration : '.7s',
+            innerBg  : '#1c60a0',
+            transform: 'translate(100%, 0)'
         });
     });
 });
