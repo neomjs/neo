@@ -85,9 +85,11 @@ class DateSelectorModel extends Model {
      * @param {Number} step
      */
     onNavKeyColumn(data, step) {
-        let me       = this,
-            cellDate = me.getCellDate(data),
-            {view}   = me,
+        let me           = this,
+            cellDate     = me.getCellDate(data),
+            initialMonth = cellDate.getMonth(),
+            initialYear  = cellDate.getFullYear(),
+            {view}       = me,
             daysInMonth, id, newDay;
 
         if (me.stayInMonth) {
@@ -103,7 +105,10 @@ class DateSelectorModel extends Model {
         id = view.getCellId(cellDate.getFullYear(), cellDate.getMonth() + 1, newDay);
 
         me.select(id);
-        view.focus(id)
+
+        if (cellDate.getMonth() === initialMonth && cellDate.getFullYear() === initialYear) {
+            view.focus(id)
+        }
     }
 
     /**
@@ -112,9 +117,11 @@ class DateSelectorModel extends Model {
      * @param {Number} step
      */
     onNavKeyRow(data, step) {
-        let me       = this,
-            cellDate = me.getCellDate(data),
-            {view}   = me,
+        let me           = this,
+            cellDate     = me.getCellDate(data),
+            initialMonth = cellDate.getMonth(),
+            initialYear  = cellDate.getFullYear(),
+            {view}       = me,
             daysInMonth, id, newDay;
 
         if (me.stayInMonth) {
@@ -146,7 +153,10 @@ class DateSelectorModel extends Model {
         id = view.getCellId(cellDate.getFullYear(), cellDate.getMonth() + 1, newDay);
 
         me.select(id);
-        view.focus(id)
+
+        if (cellDate.getMonth() === initialMonth && cellDate.getFullYear() === initialYear) {
+            view.focus(id)
+        }
     }
 
     /**
