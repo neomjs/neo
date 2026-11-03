@@ -25,14 +25,16 @@ import Tooltip                 from '../../../../../../src/tooltip/Base.mjs';
 import ContentTabContainer     from '../../../../../../docs/app/view/ContentTabContainer.mjs';
 import MainContainerController from '../../../../../../docs/app/view/MainContainerController.mjs';
 
-class MockTabClassDetailsContainer extends Container {
-    static config = {
-        className    : 'Test.Unit.Docs.MainContainerController.MockTabClassDetailsContainer',
-        ntype        : 'classdetails-maincontainer',
-        structureData: null
+if (!Neo.ntypeMap['classdetails-maincontainer']) {
+    class MockClassDetailsMainContainer extends Container {
+        static config = {
+            className    : 'Test.Unit.Docs.MockClassDetailsMainContainer',
+            ntype        : 'classdetails-maincontainer',
+            structureData: null
+        }
     }
+    Neo.setupClass(MockClassDetailsMainContainer);
 }
-MockTabClassDetailsContainer = Neo.setupClass(MockTabClassDetailsContainer);
 
 class MockTabSourceViewComponent extends Component {
     static config = {
