@@ -198,11 +198,25 @@ class OpenStreetMaps extends Base {
     }
 
     /**
+     * @summary Destroys all markers for the specified map ID.
      * @param {Object} data
-     * @param {String} data.mapId
+     * @param {String} [data.id]
+     * @param {String} [data.mapId]
      */
     destroyMarkers(data) {
-        // TODO: Implement marker destruction
+        let me      = this,
+            mapId   = data.mapId || data.id,
+            markers = me.markers[mapId] || {},
+            source  = me.vectorSources[mapId];
+
+        Object.values(markers).forEach(marker => {
+            source?.removeFeature?.(marker);
+            marker?.setMap?.(null);
+            marker?.remove?.()
+        });
+
+        source?.clear?.();
+        delete me.markers[mapId]
     }
 
     /**
