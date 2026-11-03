@@ -9,25 +9,26 @@ import path            from 'path';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const
-    __dirname    = path.resolve(),
-    cwd          = process.cwd(),
-    nodeCmd      = os.platform().startsWith('win') ? 'node.exe' : 'node', // node binary based on OS
-    requireJson  = path => JSON.parse(fs.readFileSync((path))),
-    packageJson  = requireJson(path.join(__dirname, 'package.json')),
-    insideNeo    = packageJson.name.includes('neo.mjs'),
-    neoPath      = insideNeo ? './' : './node_modules/neo.mjs/',
-    addonChoices = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
-    program      = new Command(),
-    programName  = `${packageJson.name} create-app`,
-    questions    = [],
-    scssFolders  = fs.readdirSync(path.join(neoPath, '/resources/scss')),
-    themeFolders = [];
-
-scssFolders.forEach(folder => {
-    if (folder.includes('theme')) {
-        themeFolders.push(`neo-${folder}`);
-    }
-});
+    __dirname         = path.resolve(),
+    cwd               = process.cwd(),
+    nodeCmd           = os.platform().startsWith('win') ? 'node.exe' : 'node', // node binary based on OS
+    requireJson       = path => JSON.parse(fs.readFileSync((path))),
+    packageJson       = requireJson(path.join(__dirname, 'package.json')),
+    insideNeo         = packageJson.name.includes('neo.mjs'),
+    neoPath           = insideNeo ? './' : './node_modules/neo.mjs/',
+    addonChoices      = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
+    program           = new Command(),
+    programName       = `${packageJson.name} create-app`,
+    questions         = [],
+    frameworkScssPath = path.resolve(cwd, neoPath, 'resources/scss'),
+    workspaceScssPath = path.resolve(cwd, 'resources/scss'),
+    scssFolders       = [
+        ...(fs.existsSync(frameworkScssPath) ? fs.readdirSync(frameworkScssPath) : []),
+        ...(!insideNeo && fs.existsSync(workspaceScssPath) ? fs.readdirSync(workspaceScssPath) : [])
+    ],
+    themeFolders      = [...new Set(
+        scssFolders.filter(folder => folder.includes('theme')).map(folder => `neo-${folder}`)
+    )];
 
 program
     .name(programName)
