@@ -1092,7 +1092,8 @@ class TreeStore extends Store {
      *   parents to recalculate `siblingCount` and `siblingIndex`. This trade-off guarantees O(1) reads
      *   during the `grid.Row` hot-path rendering.
      * - **Projection Delta:** Finally, the method calculates the delta of *visible* nodes and delegates
-     *   only those specific visual changes to `super.splice()`.
+     *   only those specific visual changes to `super.splice()`. A removal of the whole projection is delegated
+     *   in its numeric form, so clearing or reloading stays linear in the visible node count.
      *
      * @param {Number|null} index
      * @param {Number|Object[]} [removeCountOrToRemoveArray]
@@ -1149,8 +1150,9 @@ class TreeStore extends Store {
                     me.#allRecordsMap.delete(key);
                     me.#childrenMap.delete(key);
 
-                    // Track items that must be removed from the base Collection's flat array
-                    if (me.indexOf(node) > -1) {
+                    // Track items that must be removed from the base Collection's flat array.
+                    // The projection's key map answers visibility in O(1); `indexOf()` scans it per node.
+                    if (me.map.has(key)) {
                         visibleToRemove.push(node)
                     }
                 }
@@ -1316,8 +1318,14 @@ class TreeStore extends Store {
             }
         }
 
+        // A full removal (`clear()`, a reload) keeps the Collection's numeric form, which drops the projection in
+        // one pass. Handed over as an item array, the Collection would scan for each item's position.
+        if (index === 0 && removeCountOrToRemoveArray === me.count) {
+            return super.splice(0, me.count, visibleToAdd, silent)
+        }
+
         // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
-        if (visibleToRemove.length > 0 || visibleToAdd.length > 0 || index === 0 && removeCountOrToRemoveArray === me.count) {
+        if (visibleToRemove.length > 0 || visibleToAdd.length > 0) {
             return super.splice(insertIndex, visibleToRemove, visibleToAdd, silent)
         }
 
