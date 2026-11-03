@@ -15,14 +15,15 @@ setup({
     }
 });
 
-import {test, expect}    from '@playwright/test';
-import Neo               from '../../../../../../../src/Neo.mjs';
-import * as core         from '../../../../../../../src/core/_export.mjs';
-import InstanceManager   from '../../../../../../../src/manager/Instance.mjs';
-import Collection        from '../../../../../../../src/collection/Base.mjs';
-import Container         from '../../../../../../../src/container/Base.mjs';
-import HierarchyTreeList from '../../../../../../../docs/app/view/classdetails/HierarchyTreeList.mjs';
-import MembersList       from '../../../../../../../docs/app/view/classdetails/MembersList.mjs';
+import {test, expect}                from '@playwright/test';
+import Neo                           from '../../../../../../../src/Neo.mjs';
+import * as core                     from '../../../../../../../src/core/_export.mjs';
+import InstanceManager               from '../../../../../../../src/manager/Instance.mjs';
+import Collection                    from '../../../../../../../src/collection/Base.mjs';
+import Container                     from '../../../../../../../src/container/Base.mjs';
+import HierarchyTreeList             from '../../../../../../../docs/app/view/classdetails/HierarchyTreeList.mjs';
+import MembersList                   from '../../../../../../../docs/app/view/classdetails/MembersList.mjs';
+import MockClassDetailsMainContainer from '../../MockClassDetailsMainContainer.mjs';
 
 class MockDocsMainContainer extends Container {
     static config = {
@@ -32,14 +33,6 @@ class MockDocsMainContainer extends Container {
     }
 }
 MockDocsMainContainer = Neo.setupClass(MockDocsMainContainer);
-
-class MockClassDetailsMainContainer extends Container {
-    static config = {
-        className: 'Test.Unit.Docs.MockClassDetailsMainContainer',
-        ntype    : 'classdetails-maincontainer'
-    }
-}
-MockClassDetailsMainContainer = Neo.setupClass(MockClassDetailsMainContainer);
 
 test.describe('Docs.view.classdetails.HierarchyTreeList', () => {
     test('checks only the selected class by default, renders ancestors with unchecked cls, and filters MembersList to the selected class until an ancestor is toggled', async () => {
