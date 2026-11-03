@@ -342,14 +342,14 @@ class Markdown extends Component {
                 return `${prefix}<a href="${url}"${target}>#${id}</a>`
             });
 
-            // 5. Restore protected blocks (in reverse order to handle nesting if any, though regex usually handles top-level)
-            // Note: Simple loop is fine as tokens are unique strings
+            // 5. Restore protected blocks, newest token first: a link's token can hold an inline-code
+            // token (`[`name`](url)`), so the link must be back in the content before its code is.
             // The replacement is a FUNCTION, not the string itself. A string replacement gives the
             // restored code special meaning: `$&`, `` $` ``, `$'` and `$n` are substitution patterns,
             // so a guide authoring the inline code `` `$` `` restores as "insert everything before
             // the match" and splices the whole preceding document back in. A function replacement is
             // returned verbatim, which is the only thing this loop ever meant.
-            placeholders.forEach(item => {
+            placeholders.reverse().forEach(item => {
                 content = content.replace(item.token, () => item.value);
             });
         }
