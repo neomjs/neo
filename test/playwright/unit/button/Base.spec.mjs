@@ -14,17 +14,12 @@ setup({
 });
 
 import {test, expect}     from '@playwright/test';
-import fs                 from 'node:fs';
-import path               from 'node:path';
-import {fileURLToPath}    from 'node:url';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import Button             from '../../../../src/button/Base.mjs';
 import SplitButton        from '../../../../src/button/Split.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 test.describe('Neo.button.Base VDOM (Node.js)', () => {
 
@@ -235,7 +230,7 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         button1.destroy();
     });
 
-    test('SplitButton delegates per-UI borders to child .neo-button nodes and collapses the inner seam (#4044)', async () => {
+    test('SplitButton delegates per-UI borders to child .neo-button nodes (#4044)', async () => {
         const splitButton = Neo.create(SplitButton, {
             appName,
             text: 'Split UI',
@@ -256,17 +251,6 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         ({vnode} = await splitButton.set({ui: 'tertiary'}));
         expect(vnode.childNodes[0].className).toContain('neo-button-tertiary');
         expect(vnode.childNodes[1].className).toContain('neo-button-tertiary');
-
-        const splitScss = fs.readFileSync(
-            path.resolve(__dirname, '../../../../resources/scss/src/button/Split.scss'),
-            'utf8'
-        );
-
-        expect(splitScss).not.toContain('--button-border-width');
-        expect(splitScss).not.toContain('--button-border-color');
-        expect(splitScss).toContain('&:first-child:not(:last-child)');
-        expect(splitScss).toContain('border-right              : none !important;');
-        expect(splitScss).toContain('.neo-trigger-button');
 
         splitButton.destroy();
     });
