@@ -251,7 +251,7 @@ if (programOpts.info) {
                     ? file.slice(0, -1)
                     : file,
             modelNs = ns.includes('store') ? ns.map(part => part === 'store' ? 'model' : part) : [...ns, 'model'],
-            modelClassFolder, modelClassName, modelFolderDelta, targetModelFile;
+            existingModelFile, modelClassFolder, modelClassName, modelFolderDelta, siblingModelFile, targetModelFile;
 
         if (root === 'Neo') {
             modelClassName   = ['Neo', ...modelNs, modelName].join('.');
@@ -268,16 +268,14 @@ if (programOpts.info) {
             modelFolderDelta = modelNs.length + 2;
         }
 
-        targetModelFile = path.join(modelClassFolder, `${modelName}.mjs`);
+        targetModelFile   = path.join(modelClassFolder, `${modelName}.mjs`);
+        siblingModelFile  = path.join(classFolder, `${modelName}.mjs`);
+        existingModelFile = [targetModelFile, siblingModelFile].find(
+            candidate => candidate !== path.join(classFolder, `${file}.mjs`) && fs.existsSync(candidate)
+        );
 
-        if (targetModelFile === path.join(classFolder, `${file}.mjs`)) {
-            modelName       = `${file}Model`;
-            modelClassName  = modelClassName.replace(new RegExp(`${file}$`), modelName);
-            targetModelFile = path.join(modelClassFolder, `${modelName}.mjs`);
-        }
-
-        if (fs.existsSync(targetModelFile)) {
-            storeModelFile = targetModelFile;
+        if (existingModelFile) {
+            storeModelFile = existingModelFile;
             storeModelName = modelName;
         } else {
             let createModel = programOpts.createModel;
@@ -621,36 +619,14 @@ if (programOpts.info) {
             }
 
             case 'data.Store': {
-                baseType   = 'Neo.data.Model';
-                configName = 'model';
-
-                if (modelFile && modelName) {
+                if (modelFile && modelName && fs.existsSync(modelFile)) {
                     let relativeModelPath = path.relative(classFolder, modelFile).split(path.sep).join('/');
 
+                    baseType   = 'Neo.data.Model';
+                    configName = 'model';
                     importName = modelName;
                     importPath = relativeModelPath.startsWith('.') ? relativeModelPath : `./${relativeModelPath}`;
-                    viewFile   = modelFile;
-                } else {
-                    importName = className.replace('.store.', '.model.');
-
-                    if (importName.endsWith('ies')) {
-                        importName = importName.replace(new RegExp('ies$'), 'y');
-                    } else {
-                        importName = importName.slice(0, -1);
-                    }
-
-                    viewFile = importName.split('.');
-                    viewFile.shift();
-
-                    importPath = `${'../'.repeat(ns.length)}${viewFile.join('/')}.mjs`;
-                    viewFile   = path.join(classFolder, importPath);
-                }
-
-                // checking for the data.Model file
-                if (fs.existsSync(viewFile)) {
-                    // adjusting the data.Store file
                     viewFile   = path.join(classFolder, file + '.mjs');
-                    importName = importName.split('.').pop();
 
                     while (importName === baseFileName || importName === file) {
                         importName += 'Model';

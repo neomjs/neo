@@ -270,4 +270,33 @@ test.describe('buildScripts/create/class.mjs data.Store -> data.Model generation
         expect(fs.existsSync(storeFile)).toBe(true);
         expect(fs.existsSync(modelFile)).toBe(false);
     });
+
+    test('detects and wires an existing model beside the store without creating a duplicate model/User.mjs', () => {
+        execFileSync(
+            process.execPath,
+            [classScriptPath, '-c', 'MyApp.User', '-b', 'data.Model', '-n', 'no', '-m', 'no'],
+            {cwd: tmpDir, stdio: 'pipe'}
+        );
+
+        execFileSync(
+            process.execPath,
+            [classScriptPath, '-c', 'MyApp.Users', '-b', 'data.Store', '-n', 'no', '-M', 'yes'],
+            {cwd: tmpDir, stdio: 'pipe'}
+        );
+
+        const
+            siblingModelFile   = path.join(tmpDir, 'apps', 'myapp', 'User.mjs'),
+            duplicateModelFile = path.join(tmpDir, 'apps', 'myapp', 'model', 'User.mjs'),
+            storeFile          = path.join(tmpDir, 'apps', 'myapp', 'Users.mjs'),
+            storeContent       = fs.readFileSync(storeFile, 'utf8');
+
+        expect(fs.existsSync(siblingModelFile)).toBe(true);
+        expect(fs.existsSync(duplicateModelFile)).toBe(false);
+        expect(fs.existsSync(storeFile)).toBe(true);
+        expect(storeContent).toContain("import User  from './User.mjs';");
+        expect(storeContent).toContain('model: User');
+
+        execFileSync(process.execPath, ['--check', siblingModelFile], {stdio: 'pipe'});
+        execFileSync(process.execPath, ['--check', storeFile], {stdio: 'pipe'});
+    });
 });
