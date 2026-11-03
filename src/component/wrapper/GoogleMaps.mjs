@@ -159,8 +159,9 @@ class GoogleMaps extends Base {
         let me = this;
 
         value.on({
-            load : me.onMarkerStoreLoad,
-            scope: me
+            load        : me.onMarkerStoreLoad,
+            recordChange: me.onMarkerRecordChange,
+            scope       : me
         });
 
         if (value.items.length > 0) {
@@ -266,6 +267,18 @@ class GoogleMaps extends Base {
      * Hook to use once the map instance got rendered
      */
     onComponentMounted() {
+    }
+
+    /**
+     * @summary Synchronizes a map marker when its store record changes.
+     * @param {Object} data
+     * @param {Neo.data.Record} data.record
+     */
+    onMarkerRecordChange({record}) {
+        this.addMarker({
+            mapId: this.id,
+            ...(record.toJSON?.() || record)
+        })
     }
 
     /**
