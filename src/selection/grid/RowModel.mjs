@@ -1,6 +1,8 @@
 import BaseModel from './BaseModel.mjs';
 
 /**
+ * Row selection model for `Neo.grid.View`. When {@link #modifierClickEvents} is `true`, modifier clicks fire
+ * `altSelect` > `ctrlSelect` > `metaSelect` > `shiftSelect` on `view` with `{data, record}` instead of toggling.
  * @class Neo.selection.grid.RowModel
  * @extends Neo.selection.grid.BaseModel
  */
@@ -21,6 +23,10 @@ class RowModel extends BaseModel {
          * @protected
          */
         cls: 'neo-selection-rowmodel',
+        /**
+         * @member {Boolean} modifierClickEvents=false
+         */
+        modifierClickEvents: false,
         /**
          * @member {Boolean} selectsRows=true
          * @protected
@@ -99,28 +105,28 @@ class RowModel extends BaseModel {
     }
 
     /**
-     * @summary Fires modifier-key select events or toggles row selection on row click.
+     * @summary Fires modifier-key select events when `modifierClickEvents` is enabled, or toggles row selection.
      * @param {Object} event
      */
     onRowClick(event) {
-        let me        = this,
-            {view}    = me,
-            eventData = event?.data || event,
-            record    = event?.record || me.getRecord(eventData?.path),
+        let me     = this,
+            {view} = me,
+            {data} = event,
+            record = event.record || me.getRecord(data.path),
             recordId;
 
         // The single View-owned model listens once on the gridContainer, so each row click is
         // processed exactly once regardless of which body fired it.
 
         if (record) {
-            if (eventData?.altKey) {
-                view.fire('altSelect', {data: eventData, record})
-            } else if (eventData?.ctrlKey) {
-                view.fire('ctrlSelect', {data: eventData, record})
-            } else if (eventData?.metaKey) {
-                view.fire('metaSelect', {data: eventData, record})
-            } else if (eventData?.shiftKey) {
-                view.fire('shiftSelect', {data: eventData, record})
+            if (me.modifierClickEvents && data.altKey) {
+                view.fire('altSelect', {data, record})
+            } else if (me.modifierClickEvents && data.ctrlKey) {
+                view.fire('ctrlSelect', {data, record})
+            } else if (me.modifierClickEvents && data.metaKey) {
+                view.fire('metaSelect', {data, record})
+            } else if (me.modifierClickEvents && data.shiftKey) {
+                view.fire('shiftSelect', {data, record})
             } else if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {

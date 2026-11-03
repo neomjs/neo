@@ -53,7 +53,7 @@ class MockGridView extends Neo.core.Base {
 MockGridView = Neo.setupClass(MockGridView);
 
 test.describe('RowModel onRowClick modifier-key and unmodified click dispatch', () => {
-    test('Neo.selection.table.RowModel fires altSelect, ctrlSelect, metaSelect, and shiftSelect without toggling selection', () => {
+    test('Neo.selection.table.RowModel defaults modifierClickEvents to false and fires modifier events when enabled', () => {
         const record = {id: 'rec-1', name: 'Row 1'},
               view   = Neo.create(MockTableView),
               model  = Neo.create(TableRowModel),
@@ -74,6 +74,20 @@ test.describe('RowModel onRowClick modifier-key and unmodified click dispatch', 
         ['altSelect', 'ctrlSelect', 'metaSelect', 'shiftSelect', 'select', 'deselect'].forEach(eventName => {
             view.on(eventName, payload => fired.push({eventName, payload}))
         });
+
+        expect(model.modifierClickEvents).toBe(false);
+
+        // Default off: a ctrl-click still toggles selection and fires 'select'
+        model.onRowClick({data: {currentTarget: 'row-1', ctrlKey: true}, record});
+        expect(model.isSelected('row-1')).toBe(true);
+        expect(fired).toHaveLength(1);
+        expect(fired[0].eventName).toBe('select');
+        model.onRowClick({data: {currentTarget: 'row-1', ctrlKey: true}, record});
+        expect(model.isSelected('row-1')).toBe(false);
+        view.deselected.length = 0;
+        fired.length           = 0;
+
+        model.modifierClickEvents = true;
 
         const modifiers = [
             ['altKey',   'altSelect'],
@@ -96,6 +110,13 @@ test.describe('RowModel onRowClick modifier-key and unmodified click dispatch', 
             fired.length = 0
         }
 
+        // Chord precedence: altKey > ctrlKey > metaKey > shiftKey
+        model.onRowClick({data: {currentTarget: 'row-1', ctrlKey: true, shiftKey: true}, record});
+        expect(fired).toHaveLength(1);
+        expect(fired[0].eventName).toBe('ctrlSelect');
+        expect(model.isSelected('row-1')).toBe(false);
+        fired.length = 0;
+
         // Unmodified click selects and fires 'select' with {record}
         model.onRowClick({data: {currentTarget: 'row-1'}});
         expect(model.isSelected('row-1')).toBe(true);
@@ -117,7 +138,7 @@ test.describe('RowModel onRowClick modifier-key and unmodified click dispatch', 
         view.destroy()
     });
 
-    test('Neo.selection.grid.RowModel fires altSelect, ctrlSelect, metaSelect, and shiftSelect without mutating selectedRows', () => {
+    test('Neo.selection.grid.RowModel defaults modifierClickEvents to false and fires modifier events when enabled', () => {
         const record = {id: 'rec-grid-1', name: 'Grid Row 1'},
               view   = Neo.create(MockGridView),
               model  = Neo.create(GridRowModel),
@@ -143,6 +164,21 @@ test.describe('RowModel onRowClick modifier-key and unmodified click dispatch', 
             view.on(eventName, payload => fired.push({eventName, payload}))
         });
 
+        expect(model.modifierClickEvents).toBe(false);
+
+        // Default off: a ctrl-click still toggles row selection
+        model.onRowClick({data: {path: [], ctrlKey: true}, record});
+        expect(model.isSelectedRow('rec-grid-1')).toBe(true);
+        expect(selectionChangeCount).toBe(1);
+        expect(fired).toHaveLength(1);
+        expect(fired[0].eventName).toBe('select');
+        model.onRowClick({data: {path: [], ctrlKey: true}, record});
+        expect(model.isSelectedRow('rec-grid-1')).toBe(false);
+        selectionChangeCount = 0;
+        fired.length         = 0;
+
+        model.modifierClickEvents = true;
+
         const modifiers = [
             ['altKey',   'altSelect'],
             ['ctrlKey',  'ctrlSelect'],
@@ -164,6 +200,14 @@ test.describe('RowModel onRowClick modifier-key and unmodified click dispatch', 
 
             fired.length = 0
         }
+
+        // Chord precedence: altKey > ctrlKey > metaKey > shiftKey
+        model.onRowClick({data: {path: [], ctrlKey: true, shiftKey: true}, record});
+        expect(fired).toHaveLength(1);
+        expect(fired[0].eventName).toBe('ctrlSelect');
+        expect(model.isSelectedRow('rec-grid-1')).toBe(false);
+        expect(selectionChangeCount).toBe(0);
+        fired.length = 0;
 
         // Unmodified click selects row, fires 'select' with {record}, and notifies selectionChange
         model.onRowClick({data: {path: []}, record});
