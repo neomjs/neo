@@ -164,4 +164,26 @@ test.describe('Neo.form.Container#setErrors', () => {
 
         form.destroy();
     });
+
+    test('isValid() re-evaluates validator functions whose external condition changes while value is unchanged', async () => {
+        let allowed = false;
+
+        const field = Neo.create(TextField, {
+            appName,
+            name     : 'confirmPassword',
+            value    : 'secret',
+            validator: () => allowed || 'Passwords do not match'
+        });
+
+        expect(field.isValid()).toBe(false);
+        expect(field.error).toBe('Passwords do not match');
+
+        // External condition flips to valid while field.value remains unchanged
+        allowed = true;
+
+        expect(field.isValid()).toBe(true);
+        expect(field.error).toBeNull();
+
+        field.destroy();
+    });
 });

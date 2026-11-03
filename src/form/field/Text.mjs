@@ -313,6 +313,14 @@ class Text extends Field {
     clean = true
 
     /**
+     * Stores an error assigned externally through `error` / `form.Container#setErrors` so `validate()` can preserve it
+     * until `value` changes or `error` is explicitly cleared (`null`), without freezing `validator`-computed errors.
+     * @member {String|null} externalError=null
+     * @protected
+     */
+    externalError = null
+
+    /**
      * The value the DOM input reported last through `onInputValueChange()`, kept until a render writes the input's
      * value itself or the field unmounts. See {@link #afterVnodeSync} for what it restores.
      * @member {String|null} reportedInputValue=null
@@ -444,6 +452,10 @@ class Text extends Field {
      * @protected
      */
     afterSetError(value, oldValue) {
+        if (oldValue !== undefined || value) {
+            this.externalError = value
+        }
+
         if (value && oldValue !== undefined) {
             this.clean = false
         }
@@ -931,6 +943,10 @@ class Text extends Field {
         let me = this,
             cls;
 
+        if (oldValue !== undefined) {
+            me.externalError = null
+        }
+
         me.silentVdomUpdate = true;
 
         me.updateInputValueFromValue(value);
@@ -1401,9 +1417,7 @@ class Text extends Field {
      * @returns {Boolean}
      */
     isValid() {
-        if (!this.error) {
-            this.validate(true) // silent
-        }
+        this.validate(true); // silent
 
         return this.error ? false : super.isValid()
     }
@@ -1590,6 +1604,8 @@ class Text extends Field {
     reset(value = null) {
         let me = this;
 
+        me.externalError = null;
+
         if (me.clearToOriginalValue) {
             if (value) {
                 me.originalConfig.value = value
@@ -1763,7 +1779,12 @@ class Text extends Field {
         }
 
         if (returnValue) {
-            me._error = null
+            if (me.externalError) {
+                me._error   = me.externalError;
+                returnValue = false
+            } else {
+                me._error = null
+            }
         }
 
         !me.clean && me.updateError(me._error, silent);
