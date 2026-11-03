@@ -119,6 +119,29 @@ test.describe('Neo.util.HashHistory', () => {
         expect(HashHistory.getStack()).toBe(HashHistory.getStack('w1'))
     });
 
+    test('reads before any window is known return empty results without registering a stack', () => {
+        expect(HashHistory.getStack()).toEqual([]);
+        expect(HashHistory.getCount()).toBe(0);
+        expect(HashHistory.first()).toBeUndefined();
+        expect(HashHistory.second()).toBeUndefined();
+        expect(HashHistory.getAt(0)).toBeUndefined();
+        expect(Object.keys(HashHistory.stacks)).toEqual([])
+    });
+
+    test('a cold read does not shadow the first real window after its initial route', () => {
+        HashHistory.getCount();
+
+        const first = {hashString: 'first', windowId: 'w1'};
+
+        HashHistory.push(first);
+        HashHistory.push({hashString: 'other', windowId: 'w2'});
+
+        expect(HashHistory.first()).toBe(first);
+        expect(HashHistory.getCount()).toBe(1);
+        expect(HashHistory.getStack()).toBe(HashHistory.getStack('w1'));
+        expect(Object.keys(HashHistory.stacks)).toEqual(['w1', 'w2'])
+    });
+
     /**
      * push() runs `delete data[windowId]`: it deletes the key named after the window id's value
      * (here `w1`), not the `windowId` property, so stored entries keep their windowId.
