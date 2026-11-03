@@ -35,7 +35,7 @@ class RecordFactory extends Base {
     }
 
     /**
-     * @summary Resolves field mappings (including array bracket paths) and assigns model default values.
+     * @summary Resolves field mappings (dot and `[index]` segments, preserving falsy leaves and yielding `undefined` when absent so `defaultValue` applies) and assigns model default values.
      * @param {Object}         data
      * @param {Neo.data.Model} model
      * @returns {Object}

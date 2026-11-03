@@ -1150,10 +1150,11 @@ function applyMixins(cls, mixins, classConfig) {
 }
 
 /**
+ * @summary Resolves or creates `[index]` array segments; preserves falsy leaf values (`0`, `false`, `''`) and returns `undefined` on missing paths.
  * @param {Boolean} create
  * @param {Object}  current
  * @param {Object}  prev
- * @returns {Object|undefined}
+ * @returns {*}
  */
 function createArrayNs(create, current, prev) {
     let arrDetails = parseArrayFromString(current),
@@ -1170,15 +1171,15 @@ function createArrayNs(create, current, prev) {
     if (!arrRoot) return;
 
     for (; i < len; i++) {
+        if (arrRoot == null) return;
+
         arrItem = parseInt(arrDetails[i]);
 
         if (create) {
             arrRoot[arrItem] = arrRoot[arrItem] || {}
         }
 
-        arrRoot = arrRoot[arrItem];
-
-        if (!arrRoot) return
+        arrRoot = arrRoot[arrItem]
     }
 
     return arrRoot
