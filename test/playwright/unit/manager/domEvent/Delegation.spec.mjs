@@ -190,27 +190,41 @@ test.describe('Neo.manager.DomEvent Delegation Verification', () => {
         parent.destroy();
     });
 
-    test('should verify delegation via node attributes ([data-*], [aria-*], [role], and compound selectors) (#5005)', () => {
+    test('should verify delegation via node attributes ([data-*], [aria-*], [role], [tabindex], and compound selectors) (#5005)', () => {
         const path = [
             {
-                id  : 'action-btn',
-                cls : ['neo-button'],
-                data: {ref: 'foo', actionType: 'save-draft'},
-                aria: {label: 'Save draft', expanded: 'false'},
-                role: 'button'
+                id       : 'img-child',
+                tagName  : 'IMG',
+                cls      : [],
+                style    : '',
+                draggable: true,
+                role     : null,
+                tabIndex : null,
+                data     : {},
+                aria     : {}
+            },
+            {
+                id      : 'action-btn',
+                cls     : ['neo-button'],
+                data    : {ref: 'foo', actionType: 'save-draft'},
+                aria    : {label: 'Save draft', expanded: 'false'},
+                role    : 'button',
+                tabIndex: '0'
             },
             {
                 id  : 'toolbar-1',
                 cls : ['neo-toolbar'],
-                data: {section: 'header'}
+                data: {section: 'header'},
+                role: null
             },
             {
-                id : 'container-root',
-                cls: ['neo-container']
+                id  : 'container-root',
+                cls : ['neo-container'],
+                role: null
             }
         ];
 
-        const componentPath = ['action-btn', 'toolbar-1', 'container-root'];
+        const componentPath = ['img-child', 'action-btn', 'toolbar-1', 'container-root'];
 
         // 1. Unquoted [data-ref=foo]
         expect(DomEvent.verifyDelegationPath({
@@ -230,9 +244,19 @@ test.describe('Neo.manager.DomEvent Delegation Verification', () => {
             vnodeId : 'container-root'
         }, path, componentPath)).toBe('toolbar-1');
 
-        // 4. Top-level serialized node attribute ([role=button]) and presence-only ([data-ref])
+        // 4. Top-level serialized node attributes ([role=button], [tabindex="0"], [tabindex]) and presence-only ([data-ref])
         expect(DomEvent.verifyDelegationPath({
             delegate: '[role=button]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[tabindex="0"]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[tabindex]',
             vnodeId : 'container-root'
         }, path, componentPath)).toBe('action-btn');
 
@@ -246,5 +270,27 @@ test.describe('Neo.manager.DomEvent Delegation Verification', () => {
             delegate: '[data-ref=bar]',
             vnodeId : 'container-root'
         }, path, componentPath)).toBe(false);
+
+        // 6. Property-backed names ([style], [draggable]) do not match nodes without those attributes
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[style]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe(false);
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[draggable]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe(false);
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[draggable=true]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe(false);
+
+        // 7. [role] does not match a node whose serialized role is null
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[role]',
+            vnodeId : 'container-root'
+        }, [path[0], path[2], path[3]], ['img-child', 'toolbar-1', 'container-root'])).toBe(false);
     });
 });

@@ -335,12 +335,9 @@ class DomEvent extends Base {
 
     /**
      * @summary Matches a bracketed attribute selector (`[attr=value]` or `[attr]`) against a serialized DOM path node.
-     *
-     * Resolves `data-*` attributes via `node.data` (both camelCased dataset keys and raw keys), `aria-*` attributes
-     * via `node.aria`, and standard DOM attributes/properties via top-level `getTargetData` properties (`role`, `id`,
-     * `tagName`, `tabIndex`, `draggable`, `hidden`, `inert`, `checked`).
+     * Supports `data-*` (`node.data`), `aria-*` (`node.aria`), `role` (`node.role`), and `tabindex` (`node.tabIndex`).
      * @param {Object} node     Serialized event path node from `Neo.main.DomEvents#getTargetData`
-     * @param {String} selector Bracketed attribute selector, e.g. `'[data-ref=foo]'` or `'[inert]'`
+     * @param {String} selector Bracketed attribute selector, e.g. `'[data-ref=foo]'` or `'[role=button]'`
      * @returns {Boolean}
      */
     matchesAttributeTarget(node, selector) {
@@ -363,16 +360,19 @@ class DomEvent extends Base {
             rawKey   = attrName.substring(5);
             camelKey = Neo.camel(rawKey);
             actual   = node.aria?.[rawKey] ?? node.aria?.[camelKey] ?? node.aria?.[attrName]
+        } else if (attrName === 'role') {
+            actual = node.role
+        } else if (attrName === 'tabindex') {
+            actual = node.tabIndex
         } else {
-            camelKey = Neo.camel(attrName);
-            actual   = node[attrName] ?? node[camelKey] ?? (attrName === 'tabindex' ? node.tabIndex : undefined) ?? node.attributes?.[attrName]
+            return false
         }
 
         if (hasValue) {
             return actual !== undefined && actual !== null && String(actual) === expected
         }
 
-        return actual !== undefined && actual !== null && actual !== false
+        return actual !== undefined && actual !== null
     }
 
     /**
@@ -657,6 +657,11 @@ class DomEvent extends Base {
      * 2. **Logical Ancestry (Fallback):** If the DOM check fails, it checks the `componentPath` to see if the
      *    target belongs to a component that is logically a descendant of the listener component.
      *    This is crucial for handling events from detached components (Portals/Proxies).
+     *
+     * String `delegate` grammar: space-separated tokens, each one simple selector (`#id`, `.cls`, a bare class name,
+     * `[attr]`, or `[attr=value]` with an optionally quoted value that may contain spaces but not `]`). Supported
+     * attribute names are `data-*`, `aria-*`, `role`, and `tabindex`. Compound selectors on a single node (such as
+     * `.btn[data-ref=foo]`) are not supported and will not match.
      *
      * @param {Object} listener
      * @param {Array} path            The raw DOM path from the event
