@@ -39,9 +39,10 @@ program
     .option('-d, --drop',              'drops class in the currently selected folder')
     .option('-n, --singleton <value>', 'Create a singleton? Pick "yes" or "no"',                                                    sanitizeInput)
     .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`, sanitizeInput)
-    .option('-b, --baseClass <value>', 'The base class to extend',                                                                  sanitizeInput)
-    .option('-c, --className <value>', 'The class name',                                                                            sanitizeInput)
-    .option('-r, --scss <value>',      'The scss class',                                                                            sanitizeInput)
+    .option('-b, --baseClass <value>',   'The base class to extend',                                                                  sanitizeInput)
+    .option('-c, --className <value>',   'The class name',                                                                            sanitizeInput)
+    .option('-m, --createStore <value>', 'Create a matching data.Store when generating a data.Model? Pick "yes" or "no"',             sanitizeInput)
+    .option('-r, --scss <value>',        'The scss class',                                                                            sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -250,7 +251,47 @@ if (programOpts.info) {
     });
 
     if (baseClass === 'data.Model') {
-        // todo: add a question for auto-generating a matching store
+        let createStore = programOpts.createStore;
+
+        if (!createStore && !isDrop) {
+            answer = await inquirer.prompt({
+                type   : 'select',
+                name   : 'createStore',
+                message: 'Do you want to create a matching data.Store?',
+                default: 'yes',
+                choices: ['yes', 'no']
+            });
+
+            createStore = answer.createStore;
+        }
+
+        if (createStore === 'yes') {
+            let storeFile = /[^aeiou]y$/i.test(file) ? `${file.slice(0, -1)}ies` : `${file}s`,
+                storeNs   = ns.includes('model') ? ns.map(part => part === 'model' ? 'store' : part) : [...ns, 'store'],
+                storeClassName;
+
+            if (root === 'Neo') {
+                storeClassName = ['Neo', ...storeNs, storeFile].join('.');
+                classFolder    = path.join(cwd, storeClassName.startsWith('Neo.examples') ? '/' : '/src/', storeNs.join('/'));
+                folderDelta    = storeNs.length;
+            } else if (isDrop) {
+                storeClassName = [...ns, storeFile].join('.');
+            } else {
+                storeClassName = [root, ...storeNs, storeFile].join('.');
+                classFolder    = path.resolve(cwd, 'apps', rootLowerCase, storeNs.join('/'));
+                folderDelta    = storeNs.length + 2;
+            }
+
+            createClass({
+                baseClass  : 'data.Store',
+                className  : storeClassName,
+                file       : storeFile,
+                folderDelta,
+                isSingleton: false,
+                ns         : storeNs,
+                root
+            });
+        }
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
@@ -498,7 +539,7 @@ if (programOpts.info) {
                 importName = className.replace('.store.', '.model.');
 
                 if (importName.endsWith('ies')) {
-                    importName.replace(new RegExp('ies$'), 'y')
+                    importName = importName.replace(new RegExp('ies$'), 'y');
                 } else {
                     importName = importName.slice(0, -1);
                 }
@@ -506,7 +547,7 @@ if (programOpts.info) {
                 viewFile = importName.split('.');
                 viewFile.shift();
 
-                importPath = `../${viewFile.join('/')}.mjs`;
+                importPath = `${'../'.repeat(ns.length)}${viewFile.join('/')}.mjs`;
                 viewFile   = path.join(classFolder, importPath);
 
                 // checking for the data.Model file
