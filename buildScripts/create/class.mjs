@@ -43,6 +43,7 @@ program
     .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`, sanitizeInput)
     .option('-b, --baseClass <value>',   'The base class to extend',                                                                  sanitizeInput)
     .option('-c, --className <value>',   'The class name',                                                                            sanitizeInput)
+    .option('-M, --createModel <value>', 'Create a matching data.Model when generating a data.Store? Pick "yes" or "no"',             sanitizeInput)
     .option('-m, --createStore <value>', 'Create a matching data.Store when generating a data.Model? Pick "yes" or "no"',             sanitizeInput)
     .option('-r, --scss <value>',        'The scss class',                                                                            sanitizeInput)
     .allowUnknownOption()
@@ -241,12 +242,88 @@ if (programOpts.info) {
         folderDelta = ns.length + 2;
     }
 
+    let storeModelFile, storeModelName;
+
+    if (baseClass === 'data.Store') {
+        let modelName = file.endsWith('ies') && file.length > 3
+                ? `${file.slice(0, -3)}y`
+                : file.endsWith('s') && !file.endsWith('ss') && file.length > 1
+                    ? file.slice(0, -1)
+                    : file,
+            modelNs = ns.includes('store') ? ns.map(part => part === 'store' ? 'model' : part) : [...ns, 'model'],
+            modelClassFolder, modelClassName, modelFolderDelta, targetModelFile;
+
+        if (root === 'Neo') {
+            modelClassName   = ['Neo', ...modelNs, modelName].join('.');
+            modelClassFolder = path.join(cwd, modelClassName.startsWith('Neo.examples') ? '/' : '/src/', modelNs.join('/'));
+            modelFolderDelta = modelNs.length;
+        } else if (isDrop) {
+            let sourceRootPath = path.resolve(classFolder, '../'.repeat(ns.length));
+            modelClassName   = [...modelNs, modelName].join('.');
+            modelClassFolder = path.resolve(sourceRootPath, modelNs.join(path.sep));
+            modelFolderDelta = modelNs.length + 1;
+        } else {
+            modelClassName   = [root, ...modelNs, modelName].join('.');
+            modelClassFolder = path.resolve(cwd, 'apps', rootLowerCase, modelNs.join('/'));
+            modelFolderDelta = modelNs.length + 2;
+        }
+
+        targetModelFile = path.join(modelClassFolder, `${modelName}.mjs`);
+
+        if (targetModelFile === path.join(classFolder, `${file}.mjs`)) {
+            modelName       = `${file}Model`;
+            modelClassName  = modelClassName.replace(new RegExp(`${file}$`), modelName);
+            targetModelFile = path.join(modelClassFolder, `${modelName}.mjs`);
+        }
+
+        if (fs.existsSync(targetModelFile)) {
+            storeModelFile = targetModelFile;
+            storeModelName = modelName;
+        } else {
+            let createModel = programOpts.createModel;
+
+            if (!createModel && !isDrop) {
+                answer = await inquirer.prompt({
+                    type   : 'select',
+                    name   : 'createModel',
+                    message: 'Do you want to create a matching data.Model?',
+                    default: 'yes',
+                    choices: ['yes', 'no']
+                });
+
+                createModel = answer.createModel;
+            }
+
+            if (createModel === 'yes') {
+                let storeFolder = classFolder;
+
+                classFolder = modelClassFolder;
+
+                createClass({
+                    baseClass  : 'data.Model',
+                    className  : modelClassName,
+                    file       : modelName,
+                    folderDelta: modelFolderDelta,
+                    isSingleton: false,
+                    ns         : modelNs,
+                    root
+                });
+
+                classFolder    = storeFolder;
+                storeModelFile = targetModelFile;
+                storeModelName = modelName;
+            }
+        }
+    }
+
     createClass({
         baseClass,
         className,
         isSingleton,
         file,
         folderDelta,
+        modelFile: storeModelFile,
+        modelName: storeModelName,
         ns,
         root,
         scssClass
