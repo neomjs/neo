@@ -25,12 +25,23 @@ import {test, expect}       from '@playwright/test';
 import Neo                  from '../../../../src/Neo.mjs';
 import * as core            from '../../../../src/core/_export.mjs';
 import InstanceManager      from '../../../../src/manager/Instance.mjs';
+import BaseColumn           from '../../../../src/grid/column/Base.mjs';
 import GridContainer        from '../../../../src/grid/Container.mjs';
+import HeaderButton         from '../../../../src/grid/header/Button.mjs';
 import Store                from '../../../../src/data/Store.mjs';
 import VdomHelper           from '../../../../src/vdom/Helper.mjs';
 import VNodeUtil            from '../../../../src/util/VNode.mjs';
 import BigDataGridContainer from '../../../../examples/grid/bigData/GridContainer.mjs';
 import BigDataMainStore     from '../../../../examples/grid/bigData/MainStore.mjs';
+
+class MyColumn extends BaseColumn {
+    static config = {
+        className: 'Test.Unit.Grid.DynamicColumn.MyColumn',
+        type     : 'myCustomColumn'
+    }
+}
+
+MyColumn = Neo.setupClass(MyColumn);
 
 test.describe('Grid Dynamic Column Updates', () => {
     let grid, store;
@@ -240,5 +251,58 @@ test.describe('Grid Dynamic Column Updates', () => {
 
         bigGrid.destroy();
         bigStore.destroy()
+    });
+
+    test('Column config module creates external column class, keeps HeaderButton, wins over type, and survives runtime columns replacement (#20256)', async () => {
+        expect(Object.values(GridContainer.columnTypes)).not.toContain(MyColumn);
+
+        const moduleGrid = Neo.create(GridContainer, {
+            appName: 'GridDynamicColumnTest',
+            store,
+            columns: [{
+                module   : MyColumn,
+                dataField: 'name',
+                text     : 'Custom Name'
+            }, {
+                module   : MyColumn,
+                type     : 'index',
+                dataField: 'y2020',
+                text     : 'Module Wins Over Type'
+            }, {
+                type     : 'index',
+                dataField: 'id',
+                text     : '#'
+            }]
+        });
+
+        const [col0, col1, col2] = moduleGrid.columns.items;
+        const [btn0, btn1, btn2] = moduleGrid.headerToolbar.items;
+
+        expect(col0).toBeInstanceOf(MyColumn);
+        expect(col0.module).toBeNull();
+        expect(col1).toBeInstanceOf(MyColumn);
+        expect(col2).toBeInstanceOf(GridContainer.columnTypes.index);
+
+        expect(btn0).toBeInstanceOf(HeaderButton);
+        expect(btn0).not.toBeInstanceOf(MyColumn);
+        expect(btn1).toBeInstanceOf(HeaderButton);
+        expect(btn2).toBeInstanceOf(HeaderButton);
+
+        moduleGrid.columns = [{
+            module   : MyColumn,
+            dataField: 'zEnd',
+            text     : 'Replaced Custom'
+        }, {
+            dataField: 'name',
+            text     : 'Default Column'
+        }];
+
+        expect(moduleGrid.columns.items[0]).toBeInstanceOf(MyColumn);
+        expect(moduleGrid.columns.items[1]).toBeInstanceOf(BaseColumn);
+        expect(moduleGrid.columns.items[1]).not.toBeInstanceOf(MyColumn);
+        expect(moduleGrid.headerToolbar.items[0]).toBeInstanceOf(HeaderButton);
+        expect(moduleGrid.headerToolbar.items[0]).not.toBeInstanceOf(MyColumn);
+
+        moduleGrid.destroy()
     });
 });
