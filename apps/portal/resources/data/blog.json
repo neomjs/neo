@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-11-03",
+            "id": "blog/persistent-memory-for-ai-coding-agents",
+            "isLeaf": true,
+            "name": "Persistent memory for AI coding agents: pulled over MCP, not pushed into the prompt",
+            "parentId": "2026",
+            "path": "learn/blog/persistent-memory-for-ai-coding-agents.md"
+        },
+        {
             "date": "2026-10-31",
             "id": "blog/a-data-grid-in-a-web-worker",
             "isLeaf": true,
