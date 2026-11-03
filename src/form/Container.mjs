@@ -2,6 +2,7 @@ import BaseContainer    from '../container/Base.mjs';
 import BaseField        from '../form/field/Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
 import NeoArray         from '../util/Array.mjs';
+import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
 /**
  * @class Neo.form.Container
@@ -25,10 +26,60 @@ class Container extends BaseContainer {
          */
         baseCls: ['neo-form-container'],
         /**
+         * Default configuration for descendant form fields (`Neo.form.field.Base`) at any nesting level,
+         * including dynamically added fields. This config uses a descriptor to enable deep merging with
+         * subclass or instance-based `fieldDefaults`.
+         * @member {Object|null} fieldDefaults_={[isDescriptor]: true, merge: 'deep', value: null}
+         * @reactive
+         */
+        fieldDefaults_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
+        /**
          * @member {Object} vdom={tag: 'form',cn:[],onsubmit:'return false;'}
          */
         vdom:
         {tag: 'form', cn: [], onsubmit: 'return false;'}
+    }
+
+    /**
+     * @summary Propagates runtime updates to `fieldDefaults` across all currently instantiated descendant form fields.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetFieldDefaults(value, oldValue) {
+        if (oldValue !== undefined && value) {
+            ComponentManager.getChildComponents(this).forEach(child => {
+                if (child instanceof BaseField) {
+                    child.applyParentFieldDefaults()
+                }
+            })
+        }
+    }
+
+    /**
+     * @summary Extends `container.Base#createItem` to propagate `fieldDefaults` to descendant fields when a
+     * pre-instantiated container subtree is inserted into the form.
+     * @param {*} item
+     * @param {Number} index
+     * @param {Boolean} [removeFromPreviousParent=true]
+     * @returns {Neo.component.Base|Object}
+     */
+    createItem(item, index, removeFromPreviousParent=true) {
+        item = super.createItem(item, index, removeFromPreviousParent);
+
+        if (this.fieldDefaults && item instanceof BaseContainer) {
+            ComponentManager.getChildComponents(item).forEach(child => {
+                if (child instanceof BaseField) {
+                    child.applyParentFieldDefaults()
+                }
+            })
+        }
+
+        return item
     }
 
     /**
@@ -488,6 +539,7 @@ class Container extends BaseContainer {
 
         return {
             ...super.toJSON(),
+            fieldDefaults: me.fieldDefaults,
             values
         }
     }

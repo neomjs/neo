@@ -187,3 +187,200 @@ test.describe('Neo.form.Container#setErrors', () => {
         field.destroy();
     });
 });
+
+test.describe('Neo.form.Container#fieldDefaults', () => {
+    test('applies fieldDefaults to direct and deeply nested fields while respecting explicit field configs, itemDefaults, and nested form precedence', async () => {
+        runId++;
+
+        const form = Neo.create(FormContainer, {
+            appName,
+            id           : `test-form-defaults-${runId}`,
+            fieldDefaults: {
+                clearable      : false,
+                labelPosition  : 'inline',
+                labelWidth     : 120,
+                placeholderText: 'Default placeholder'
+            },
+            items: [{
+                module: TextField,
+                id    : `test-direct-field-${runId}`,
+                name  : 'directField'
+            }, {
+                module      : BaseContainer,
+                id          : `test-nested-container-${runId}`,
+                itemDefaults: {
+                    labelWidth: 160
+                },
+                items: [{
+                    module: TextField,
+                    id    : `test-nested-field-${runId}`,
+                    name  : 'nestedField'
+                }, {
+                    module: BaseContainer,
+                    items : [{
+                        module         : TextField,
+                        id             : `test-deep-override-field-${runId}`,
+                        name           : 'deepOverrideField',
+                        labelPosition  : 'top',
+                        placeholderText: 'Custom placeholder'
+                    }]
+                }]
+            }, {
+                module       : FormContainer,
+                id           : `test-inner-form-${runId}`,
+                fieldDefaults: {
+                    labelWidth: 200,
+                    readOnly  : true
+                },
+                items: [{
+                    module: BaseContainer,
+                    items : [{
+                        module: TextField,
+                        id    : `test-inner-form-field-${runId}`,
+                        name  : 'innerFormField'
+                    }]
+                }]
+            }]
+        });
+
+        const directField       = await form.getField('directField');
+        const nestedField       = await form.getField('nestedField');
+        const deepOverrideField = await form.getField('deepOverrideField');
+        const innerFormField    = await form.getField('innerFormField');
+        const nestedContainer   = Neo.getComponent(`test-nested-container-${runId}`);
+
+        // Non-field containers do not receive fieldDefaults
+        expect(nestedContainer.placeholderText).toBeUndefined();
+
+        // Direct field receives all form.fieldDefaults
+        expect(directField.clearable).toBe(false);
+        expect(directField.labelPosition).toBe('inline');
+        expect(directField.labelWidth).toBe(120);
+        expect(directField.placeholderText).toBe('Default placeholder');
+
+        // Nested field inherits form.fieldDefaults, with immediate container itemDefaults taking precedence
+        expect(nestedField.clearable).toBe(false);
+        expect(nestedField.labelPosition).toBe('inline');
+        expect(nestedField.labelWidth).toBe(160);
+        expect(nestedField.placeholderText).toBe('Default placeholder');
+
+        // Deeply nested field respects explicit field config over form.fieldDefaults
+        expect(deepOverrideField.clearable).toBe(false);
+        expect(deepOverrideField.labelPosition).toBe('top');
+        expect(deepOverrideField.labelWidth).toBe(120);
+        expect(deepOverrideField.placeholderText).toBe('Custom placeholder');
+
+        // Inner form fieldDefaults override outer form fieldDefaults while inheriting non-overlapping outer defaults
+        expect(innerFormField.clearable).toBe(false);
+        expect(innerFormField.labelPosition).toBe('inline');
+        expect(innerFormField.labelWidth).toBe(200);
+        expect(innerFormField.placeholderText).toBe('Default placeholder');
+        expect(innerFormField.readOnly).toBe(true);
+
+        expect(form.toJSON().fieldDefaults).toEqual({
+            clearable      : false,
+            labelPosition  : 'inline',
+            labelWidth     : 120,
+            placeholderText: 'Default placeholder'
+        });
+
+        form.destroy();
+    });
+
+    test('applies fieldDefaults to dynamically added fields at any depth and propagates runtime fieldDefaults updates', async () => {
+        runId++;
+
+        const form = Neo.create(FormContainer, {
+            appName,
+            id           : `test-form-dynamic-${runId}`,
+            fieldDefaults: {
+                labelPosition  : 'inline',
+                labelWidth     : 110,
+                placeholderText: 'Dynamic default'
+            },
+            items: [{
+                module: BaseContainer,
+                id    : `test-dynamic-target-box-${runId}`,
+                items : []
+            }]
+        });
+
+        const targetBox = Neo.getComponent(`test-dynamic-target-box-${runId}`);
+
+        // 1. Dynamically add field config directly to form
+        const addedDirect = form.add({
+            module    : TextField,
+            id        : `test-dyn-direct-${runId}`,
+            name      : 'dynDirect',
+            labelWidth: 150
+        });
+
+        expect(addedDirect.labelPosition).toBe('inline');
+        expect(addedDirect.labelWidth).toBe(150);
+        expect(addedDirect.placeholderText).toBe('Dynamic default');
+
+        // 2. Dynamically add field config to nested container
+        const addedNested = targetBox.add({
+            module: TextField,
+            id    : `test-dyn-nested-${runId}`,
+            name  : 'dynNested'
+        });
+
+        expect(addedNested.labelPosition).toBe('inline');
+        expect(addedNested.labelWidth).toBe(110);
+        expect(addedNested.placeholderText).toBe('Dynamic default');
+
+        // 3. Dynamically add pre-instantiated field instance to nested container
+        const detachedField = Neo.create(TextField, {
+            appName,
+            id           : `test-dyn-instance-${runId}`,
+            name         : 'dynInstance',
+            labelPosition: 'top'
+        });
+
+        targetBox.add(detachedField);
+
+        expect(detachedField.labelPosition).toBe('top');
+        expect(detachedField.labelWidth).toBe(110);
+        expect(detachedField.placeholderText).toBe('Dynamic default');
+
+        // 4. Dynamically add pre-instantiated container subtree containing a field
+        const detachedBox = Neo.create(BaseContainer, {
+            appName,
+            id   : `test-detached-box-${runId}`,
+            items: [{
+                module: TextField,
+                id    : `test-detached-box-field-${runId}`,
+                name  : 'detachedBoxField'
+            }]
+        });
+
+        form.add(detachedBox);
+        const detachedBoxField = await form.getField('detachedBoxField');
+
+        expect(detachedBoxField.labelPosition).toBe('inline');
+        expect(detachedBoxField.labelWidth).toBe(110);
+        expect(detachedBoxField.placeholderText).toBe('Dynamic default');
+
+        // 5. Runtime update to form.fieldDefaults updates non-explicitly-configured properties on descendant fields
+        form.fieldDefaults = {
+            labelPosition  : 'inline',
+            labelWidth     : 140,
+            placeholderText: 'Updated runtime default',
+            readOnly       : true
+        };
+
+        expect(addedDirect.labelWidth).toBe(150); // explicit on addedDirect
+        expect(addedDirect.placeholderText).toBe('Updated runtime default');
+        expect(addedDirect.readOnly).toBe(true);
+
+        expect(addedNested.labelWidth).toBe(140);
+        expect(addedNested.placeholderText).toBe('Updated runtime default');
+        expect(addedNested.readOnly).toBe(true);
+
+        expect(detachedField.labelPosition).toBe('top'); // explicit on detachedField
+        expect(detachedField.labelWidth).toBe(140);
+
+        form.destroy();
+    });
+});
