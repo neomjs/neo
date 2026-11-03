@@ -5,6 +5,7 @@ import fs              from 'fs-extra';
 import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import isEntryModule   from '../util/isEntryModule.mjs';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const
@@ -14,32 +15,50 @@ const
     packageJson = requireJson(path.join(__dirname, '../package.json')),
     program     = new Command();
 
-program
-    .version(packageJson.version)
-    .option('-b, --baseClass <value>', 'The base class to extend', sanitizeInput)
-    .option('-c, --className <value>', 'The class name',           sanitizeInput)
-    .allowUnknownOption()
-    .parse(process.argv);
+/**
+ * @summary Generates a scaffolded example app (`app.mjs`, `index.html`, `neo-config.json`, `MainContainer.mjs`) for a Neo class.
+ * @param {String} className Fully qualified Neo class name (e.g. `'Neo.form.field.Text'`)
+ * @param {String} [targetCwd=cwd] Root directory under which `examples/<folderPath>` is created
+ * @returns {String} Path to the generated example directory
+ */
+export function generateExample(className, targetCwd=cwd) {
+    let ns = className.split('.');
+    ns.splice(0, 1); //remove Neo namespace
+    let componentPath = ns.join('/'),
+        folderPath    = componentPath.toLowerCase();
+    const
+        componentChunk = ns.join('.'),
+        examplesPrefix = '../'.repeat(ns.length),
+        rootPrefix     = '../'.repeat(ns.length + 1),
+        name           = ns.pop();
+    let classFolder = path.join(targetCwd, 'examples', `/${folderPath}`);
 
-const programOpts = program.opts();
-let className     = programOpts.className;
+    if (!fs.existsSync(classFolder)) {
+        fs.mkdirpSync(classFolder, {recursive: true});
+    }
 
-let ns = className.split('.');
-ns.splice(0, 1); //remove Neo namespace
-let componentPath    = ns.join('/');
-componentPath        = componentPath.toLowerCase();
-const componentChunk = ns.join('.')
-const name           = ns.pop();
-let classFolder      = path.join(cwd, 'examples', `/${componentPath}`);
+    createAppMjs(classFolder, componentChunk);
+    createIndexHtml(classFolder, name, rootPrefix);
+    createNeoConfig(classFolder, folderPath, rootPrefix);
+    createMainContainer(classFolder, componentPath, componentChunk, name, examplesPrefix, rootPrefix);
 
-if (!fs.existsSync(classFolder)) {
-    fs.mkdirpSync(classFolder, {recursive: true});
+    return classFolder
 }
 
-createAppMjs(classFolder, componentChunk);
-createIndexHtml(classFolder, name);
-createNeoConfig(classFolder, componentPath);
-createMainContainer(classFolder, componentPath, componentChunk, name);
+if (isEntryModule(import.meta.url)) {
+    program
+        .version(packageJson.version)
+        .option('-b, --baseClass <value>', 'The base class to extend', sanitizeInput)
+        .option('-c, --className <value>', 'The class name',           sanitizeInput)
+        .allowUnknownOption()
+        .parse(process.argv);
+
+    const programOpts = program.opts();
+
+    if (programOpts.className) {
+        generateExample(programOpts.className, cwd);
+    }
+}
 
 
 function createAppMjs(classFolder, componentChunk) {
@@ -57,7 +76,7 @@ function createAppMjs(classFolder, componentChunk) {
     fs.writeFileSync(file, `${template.join(os.EOL)}${os.EOL}`);
 }
 
-function createIndexHtml(classFolder, title) {
+function createIndexHtml(classFolder, title, rootPrefix='../../../') {
     const template = [];
 
     template.push(
@@ -69,21 +88,21 @@ function createIndexHtml(classFolder, title) {
         `    <title>Neo ${title}</title>`,
         '</head>',
         '<body>',
-        '    <script src="../../../src/MicroLoader.mjs" type="module"></script>',
+        `    <script src="${rootPrefix}src/MicroLoader.mjs" type="module"></script>`,
         '</body>',
-        '</html>`');
+        '</html>');
 
     const file = `${classFolder}/index.html`;
     fs.writeFileSync(file, `${template.join(os.EOL)}${os.EOL}`);
 }
 
-function createNeoConfig(classFolder, componentPath) {
+function createNeoConfig(classFolder, componentPath, rootPrefix='../../../') {
     const template = [];
 
     template.push(
         '{',
         `   "appPath"    : "examples/${componentPath}/app.mjs",`,
-        '   "basePath"   : "../../../",',
+        `   "basePath"   : "${rootPrefix}",`,
         '   "environment": "development",',
         '   "mainPath"   : "./Main.mjs"',
         '}'
@@ -94,13 +113,13 @@ function createNeoConfig(classFolder, componentPath) {
 }
 
 
-function createMainContainer(classFolder, componentPath, componentChunk, name) {
+function createMainContainer(classFolder, componentPath, componentChunk, name, examplesPrefix='../../', rootPrefix='../../../') {
     const template = [];
 
     template.push(
-        "import ConfigurationViewport from '../../ConfigurationViewport.mjs';",
-        "import NumberField           from '../../../src/form/field/Number.mjs';",
-        `import ${name}               from '../../../src/${componentPath}.mjs';`,
+        `import ConfigurationViewport from '${examplesPrefix}ConfigurationViewport.mjs';`,
+        `import NumberField           from '${rootPrefix}src/form/field/Number.mjs';`,
+        `import ${name}               from '${rootPrefix}src/${componentPath}.mjs';`,
         "",
         "/**",
         ` * @class Neo.examples.${componentChunk.toLowerCase()}.MainContainer`,
