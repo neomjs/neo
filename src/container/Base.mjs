@@ -979,10 +979,15 @@ class Container extends Component {
                 item.destroy(true, silent);
                 return null
             } else {
-                me.layout?.removeChildAttributes(item);
                 if (!keepMounted) {
-                    item.mounted = false
+                    item.set({
+                        appName    : null,
+                        mounted    : false,
+                        parentId   : null,
+                        parentIndex: null
+                    })
                 }
+                me.layout?.removeChildAttributes(item);
                 return item
             }
         }

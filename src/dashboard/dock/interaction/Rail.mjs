@@ -527,8 +527,6 @@ class Rail extends Container {
             parent = pane.parent;
             const retain = me.retainRevealPane?.(pane, itemId) === true;
 
-            // A parked pane keeps its `parentId` after `removeAt(index, false)`, so `parent` can
-            // resolve a slot that no longer lists it — go through the parent only while it does.
             if (parent?.items?.includes(pane)) {
                 // Splice the slot before publishing, then let the removal land before reuse.
                 parent.remove(pane, !retain);
@@ -536,7 +534,7 @@ class Rail extends Container {
             } else {
                 // Parked: the dismissal already spliced it out, but that update may still be in
                 // flight with the pane's vnode in its diff — let it land before the instance goes.
-                await parent?.promiseUpdate?.();
+                await (parent || me.revealOverlay?.paneSlot)?.promiseUpdate?.();
                 retain || pane.isDestroyed || pane.destroy()
             }
         } finally {
