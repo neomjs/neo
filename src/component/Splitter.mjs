@@ -117,6 +117,12 @@ class Splitter extends Component {
             return false
         }
 
+        let minSize = me.getSiblingMinSize(sibling, axis);
+
+        if (Number.isFinite(minSize)) {
+            value = Math.max(value, minSize)
+        }
+
         sibling.wrapperStyle = {
             ...(sibling.wrapperStyle || {}),
             flex  : 'none',
@@ -212,6 +218,19 @@ class Splitter extends Component {
     }
 
     /**
+     * @summary Returns the sibling opposite to the configured resizeTarget, if one exists.
+     * @returns {Neo.component.Base|null}
+     * @protected
+     */
+    getOppositeSibling() {
+        let me     = this,
+            parent = me.parent,
+            index  = parent?.indexOf(me);
+
+        return Number.isInteger(index) ? parent.items[me.resizeTarget === 'next' ? index - 1 : index + 1] || null : null
+    }
+
+    /**
      * Builds the main-thread-only descriptor for the current target and resize axis.
      * @returns {Object|null}
      * @protected
@@ -223,14 +242,32 @@ class Splitter extends Component {
 
         if (!parent || !sibling) return null;
 
-        return {
-            axis        : me.direction === 'vertical' ? 'width' : 'height',
-            parentId    : me.getLayoutElementId(parent),
-            preview     : me.liveResize,
-            resizeNext  : me.resizeTarget === 'next',
-            splitterSize: me.size,
-            targetId    : me.getLayoutElementId(sibling)
+        let axis            = me.direction === 'vertical' ? 'width' : 'height',
+            minSize         = me.getSiblingMinSize(sibling, axis),
+            oppositeSibling = me.getOppositeSibling(),
+            oppositeMinSize = me.getSiblingMinSize(oppositeSibling, axis),
+            config          = {
+                axis,
+                parentId    : me.getLayoutElementId(parent),
+                preview     : me.liveResize,
+                resizeNext  : me.resizeTarget === 'next',
+                splitterSize: me.size,
+                targetId    : me.getLayoutElementId(sibling)
+            };
+
+        if (Number.isFinite(minSize)) {
+            config.minSize = minSize
         }
+
+        if (oppositeSibling) {
+            config.oppositeId = me.getLayoutElementId(oppositeSibling)
+        }
+
+        if (Number.isFinite(oppositeMinSize)) {
+            config.oppositeMinSize = oppositeMinSize
+        }
+
+        return config
     }
 
     /**
@@ -244,6 +281,32 @@ class Splitter extends Component {
             index  = parent?.indexOf(me);
 
         return Number.isInteger(index) ? parent.items[me.resizeTarget === 'next' ? index + 1 : index - 1] || null : null
+    }
+
+    /**
+     * @summary Resolves a configured pixel floor (minWidth or minHeight) from a sibling component.
+     * Percentage bounds are left to main-thread CSS resolution against the measured parent box.
+     * @param {Neo.component.Base|null} component
+     * @param {String} axis 'width' or 'height'
+     * @returns {Number} Pixel floor, or NaN when none is configured.
+     * @protected
+     */
+    getSiblingMinSize(component, axis) {
+        if (!component || !['height', 'width'].includes(axis)) {
+            return Number.NaN
+        }
+
+        let key    = axis === 'width' ? 'minWidth' : 'minHeight',
+            raw    = component[key] ?? component.wrapperStyle?.[key] ?? component.style?.[key],
+            source = String(raw ?? '').trim();
+
+        if (!source || source.endsWith('%')) {
+            return Number.NaN
+        }
+
+        let parsed = Number.parseFloat(source);
+
+        return Number.isFinite(parsed) ? Math.max(0, parsed) : Number.NaN
     }
 
     /**

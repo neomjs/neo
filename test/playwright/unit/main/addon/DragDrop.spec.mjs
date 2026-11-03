@@ -580,6 +580,117 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         }
     });
 
+    test('createState caps maxSize against the opposite sibling min bound without mutating the opposite sibling', () => {
+        const originalGetElement       = Neo.main.DomAccess.getElement,
+              originalGetLayoutRect    = Neo.main.DomAccess.getLayoutRect,
+              originalGetComputedStyle = globalThis.getComputedStyle,
+              parent                   = {},
+              oppositeStyle            = createStyle({flex: '1 1 0%'}),
+              opposite                 = {style: oppositeStyle},
+              target                   = {style: createStyle({flex: '1 1 0%'})};
+
+        Neo.main.DomAccess.getElement = id => ({opposite, parent, target})[id] || null;
+        Neo.main.DomAccess.getLayoutRect = element => {
+            if (element === parent)   return {width: 600, height: 400};
+            if (element === opposite) return {width: 290, height: 400};
+            return {width: 300, height: 400}
+        };
+        globalThis.getComputedStyle = element => ({
+            getPropertyValue: key => {
+                if (element === opposite && key === 'min-width') return '25%';
+                if (element === target   && key === 'min-width') return '100px';
+                return 'none'
+            }
+        });
+
+        try {
+            const resize = new Resize(),
+                  state  = resize.createState({
+                      axis           : 'width',
+                      minSize        : 120,
+                      oppositeId     : 'opposite',
+                      oppositeMinSize: 160,
+                      parentId       : 'parent',
+                      preview        : true,
+                      resizeNext     : true,
+                      splitterSize   : 10,
+                      targetId       : 'target'
+                  }, {clientX: 300});
+
+            resize.state = state;
+
+            expect(state.minSize).toBe(120);
+            expect(state.maxSize, 'pair span (300 + 290) minus max(25% of 600 = 150, 160) = 430').toBe(430);
+            expect(state.counter).toBeNull();
+
+            expect(resize.apply({clientX: -200, clientY: 0})).toBe(430);
+            expect(target.style.getPropertyValue('width')).toBe('430px');
+            expect(oppositeStyle.getPropertyValue('width')).toBe('');
+            expect(oppositeStyle.getPropertyValue('flex')).toBe('1 1 0%')
+        } finally {
+            Neo.main.DomAccess.getElement    = originalGetElement;
+            Neo.main.DomAccess.getLayoutRect = originalGetLayoutRect;
+            originalGetComputedStyle === undefined
+                ? delete globalThis.getComputedStyle
+                : globalThis.getComputedStyle = originalGetComputedStyle
+        }
+    });
+
+    test('deferred proxy mode clamps dragProxyElement position to the resize [minSize, maxSize] window', () => {
+        const {resize} = createState({preview: false}),
+              proxyEl  = {
+                  getBoundingClientRect: () => ({height: 400, width: 10}),
+                  style                : {}
+              },
+              addon    = {
+                  allowOverdrag         : false,
+                  alwaysFireDragMove    : false,
+                  boundaryContainerRect : {bottom: 400, left: 0, right: 600, top: 0},
+                  dragCancelled         : false,
+                  dragProxyElement      : proxyEl,
+                  dragProxyRect         : {height: 400, width: 10},
+                  dragResize            : resize,
+                  isWindowDragging      : false,
+                  moveHorizontal        : true,
+                  moveVertical          : false,
+                  offsetX               : 5,
+                  offsetY               : 0,
+                  scrollContainerElement: null
+              };
+
+        Object.assign(resize.state, {
+            maxSize        : 420,
+            minSize        : 150,
+            resizeNext     : true,
+            startCoordinate: 300,
+            startSize      : 300
+        });
+
+        DragDrop.prototype.onDragMove.call(addon, {
+            detail: {
+                clientX      : 550,
+                clientY      : 200,
+                originalEvent: {screenX: 550, screenY: 200}
+            }
+        });
+
+        expect(resize.state.lastSize).toBe(150);
+        expect(proxyEl.style.left, 'stops at 300 + (300 - 150) - 5 = 445px instead of following pointer to 545px')
+            .toBe('445px');
+
+        DragDrop.prototype.onDragMove.call(addon, {
+            detail: {
+                clientX      : 100,
+                clientY      : 200,
+                originalEvent: {screenX: 100, screenY: 200}
+            }
+        });
+
+        expect(resize.state.lastSize).toBe(420);
+        expect(proxyEl.style.left, 'stops at 300 + (300 - 420) - 5 = 175px instead of following pointer to 95px')
+            .toBe('175px')
+    });
+
     test('cancel restores exact inline authority and a live move emits no App-Worker frame', () => {
         const {resize, style} = createState(),
               addon           = {dragResize: resize},
