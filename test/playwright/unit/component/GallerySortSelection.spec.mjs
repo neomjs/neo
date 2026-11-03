@@ -344,5 +344,44 @@ test.describe('Gallery / Helix selection across an item rebuild', () => {
 
             expect(fired).toHaveLength(1);
         });
+
+        test(`${name}: select is idempotent and singleSelect replaces only the prior selection`, () => {
+            const model = mount(ModelClass);
+
+            model.select('item-2');
+            expect(model.items).toEqual(['item-2']);
+            expect(itemNode('item-2').cls).toContain('neo-selected');
+            expect(itemNode('item-2')['aria-selected']).toBe(true);
+
+            // Re-selecting the same item must keep it selected rather than toggling it off
+            model.select('item-2');
+            expect(model.items).toEqual(['item-2']);
+            expect(itemNode('item-2').cls).toContain('neo-selected');
+            expect(itemNode('item-2')['aria-selected']).toBe(true);
+
+            // Selecting a different item in singleSelect mode deannotates the previous item and selects the new one
+            model.select('item-3');
+            expect(model.items).toEqual(['item-3']);
+            expect(itemNode('item-2').cls).not.toContain('neo-selected');
+            expect(itemNode('item-2')['aria-selected']).toBeUndefined();
+            expect(itemNode('item-3').cls).toContain('neo-selected');
+            expect(itemNode('item-3')['aria-selected']).toBe(true);
+        });
+
+        test(`${name}: toggleSelection selects an unselected item and deselects a selected item`, () => {
+            const model = mount(ModelClass);
+
+            model.toggleSelection('item-2');
+            expect(model.isSelected('item-2')).toBe(true);
+            expect(model.items).toEqual(['item-2']);
+            expect(itemNode('item-2').cls).toContain('neo-selected');
+            expect(itemNode('item-2')['aria-selected']).toBe(true);
+
+            model.toggleSelection('item-2');
+            expect(model.isSelected('item-2')).toBe(false);
+            expect(model.items).toHaveLength(0);
+            expect(itemNode('item-2').cls).not.toContain('neo-selected');
+            expect(itemNode('item-2')['aria-selected']).toBeUndefined();
+        });
     }
 });

@@ -136,7 +136,7 @@ class CountryHelix extends Helix {
             }
 
             if (recordId && !selectionModel.isSelected(recordId)) {
-                selectionModel.select(recordId, false);
+                selectionModel.select(recordId);
                 me.onKeyDownSpace(null);
             }
         }
