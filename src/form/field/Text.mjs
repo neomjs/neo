@@ -1597,12 +1597,16 @@ class Text extends Field {
     }
 
     /**
-     * Resets the field to its original value or null depending on the clearToOriginalValue config
-     * You can optionally pass a new value, which will adjust the originalConfig.value if needed.
+     * @summary Resets the field to its original value or null in a single VDOM update and fires `change` last.
+     *
+     * Restores `clean` to its initial configuration, clears any active or external error silently before
+     * delegating to `super.reset(value)`, and flushes a single `update()` when the value itself did not change.
      * @param {String|null} [value=null]
      */
     reset(value = null) {
-        let me = this;
+        let me       = this,
+            isClean  = me.originalConfig.clean ?? true,
+            oldValue = me.value;
 
         me.externalError = null;
 
@@ -1614,10 +1618,18 @@ class Text extends Field {
             }
         }
 
+        if (isClean) {
+            me.clean = false;
+            me.updateError(null, true)
+        }
+
+        me.clean = isClean;
+
         super.reset(value);
 
-        if (value === null && me.clean) {
-            me.updateError(null)
+        if (me.value === oldValue) {
+            me.validate();
+            me.update()
         }
     }
 
@@ -1640,8 +1652,9 @@ class Text extends Field {
     }
 
     /**
-     @param {String|null} value
-     @param {Boolean} silent=false
+     * @summary Updates the field's invalid CSS class and error wrapper VDOM in a single batched render.
+     * @param {String|null} value
+     * @param {Boolean} silent=false
      */
     updateError(value, silent = false) {
         let me    = this,
@@ -1649,6 +1662,9 @@ class Text extends Field {
             errorNode, errorWrapper;
 
         if (!(me.clean && !me.mounted)) {
+            me._error           = value;
+            me.silentVdomUpdate = true;
+
             NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
             me.cls = cls;
 
@@ -1662,6 +1678,8 @@ class Text extends Field {
             }
 
             errorWrapper.removeDom = !value;
+
+            me.silentVdomUpdate = false;
 
             !silent && me.update()
         }
