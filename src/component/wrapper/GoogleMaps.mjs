@@ -171,6 +171,7 @@ class GoogleMaps extends Base {
 
     /**
      * Triggered after the mounted config got changed
+     * @summary Creates or removes the map instance and re-renders existing markers on mount.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -200,6 +201,11 @@ class GoogleMaps extends Base {
             me.timeout(50).then(() => {
                 Neo.main.addon.GoogleMaps.create(opts).then(() => {
                     me.mapCreated = true;
+
+                    if (me.markerStore?.getCount() > 0) {
+                        me.onMarkerStoreLoad()
+                    }
+
                     me.onComponentMounted()
                 })
             })
@@ -343,10 +349,12 @@ class GoogleMaps extends Base {
     }
 
     /**
-     *
+     * @summary Resets `mapCreated` and removes the map instance via the GoogleMaps addon.
      */
     removeMap() {
         let {appName, id, windowId} = this;
+
+        this.mapCreated = false;
 
         Neo.main.addon.GoogleMaps.removeMap({
             appName,
