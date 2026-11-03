@@ -66,7 +66,7 @@ themeFolders.forEach(theme => {
         fs.mkdirpSync(classFolder, {recursive: true});
     }
     const exampleColor  = theme.includes('dark') ? 'darkgreen' : 'green';
-    const themeTemplate = `:root .${rootLowerCase}-${theme} { // .${scssClassName}
+    const themeTemplate = `:root .neo-${theme} { // .${scssClassName}
         // add css theme information here
         --${scssClassName.toLowerCase()}-background-color: ${exampleColor}; //example
 }`;
