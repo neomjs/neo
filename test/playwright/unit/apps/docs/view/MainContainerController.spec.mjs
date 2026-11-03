@@ -23,6 +23,7 @@ import Component                     from '../../../../../../src/component/Base.
 import Container                     from '../../../../../../src/container/Base.mjs';
 import Tooltip                       from '../../../../../../src/tooltip/Base.mjs';
 import ContentTabContainer           from '../../../../../../docs/app/view/ContentTabContainer.mjs';
+import HeaderContainer               from '../../../../../../docs/app/view/HeaderContainer.mjs';
 import MainContainerController       from '../../../../../../docs/app/view/MainContainerController.mjs';
 import MockClassDetailsMainContainer from '../MockClassDetailsMainContainer.mjs';
 
@@ -192,6 +193,112 @@ test.describe('Docs.view.MainContainerController tab header tooltips', () => {
                 Neo.main.addon.HighlightJS = previousHighlightJS;
             } else {
                 delete Neo.main.addon.HighlightJS;
+            }
+        }
+    });
+
+    test('adjusts theme and source-view theme button texts to oppose the initial theme and toggles on first click', async () => {
+        Neo.main ??= {};
+        Neo.main.addon ??= {};
+
+        const
+            hasHighlightJS      = Object.prototype.hasOwnProperty.call(Neo.main.addon, 'HighlightJS'),
+            hasStylesheet       = Object.prototype.hasOwnProperty.call(Neo.main.addon, 'Stylesheet'),
+            previousHighlightJS = Neo.main.addon.HighlightJS,
+            previousStylesheet  = Neo.main.addon.Stylesheet,
+            previousThemes      = Neo.config.themes,
+            loadFilesCalls      = [],
+            swapCalls           = [];
+
+        Neo.main.addon.HighlightJS = {
+            loadFiles          : opts => {loadFilesCalls.push(opts)},
+            syntaxHighlightInit: () => {}
+        };
+
+        Neo.main.addon.Stylesheet = {
+            swapStyleSheet: opts => {
+                swapCalls.push(opts);
+                return Promise.resolve()
+            }
+        };
+
+        let darkContainer, lightContainer;
+
+        try {
+            // 1. Light boot (default themes[0] = 'neo-theme-light') offers 'Theme Dark' and 'Source View Theme Dark'
+            Neo.config.themes = ['neo-theme-light', 'neo-theme-dark'];
+
+            lightContainer = Neo.create(Container, {
+                appName,
+                controller: MainContainerController,
+                items     : [HeaderContainer]
+            });
+
+            const
+                lightController       = lightContainer.controller,
+                lightThemeButton      = lightController.getReference('theme-button'),
+                lightSourceViewButton = lightController.getReference('source-view-theme-button');
+
+            expect(lightThemeButton.text).toBe('Theme Dark');
+            expect(lightSourceViewButton.text).toBe('Source View Theme Dark');
+            expect(loadFilesCalls.at(-1)).toEqual({
+                themePath: './resources/lib/highlightjs-custom-github-theme.css',
+                windowId : null
+            });
+
+            // 2. Dark boot (e.g. embedded in Portal with 'neo-theme-neo-dark') offers 'Theme Light' and 'Source View Theme Light'
+            Neo.config.themes = ['neo-theme-neo-dark', 'neo-theme-neo-light'];
+
+            darkContainer = Neo.create(Container, {
+                appName   : 'Portal',
+                controller: MainContainerController,
+                items     : [HeaderContainer]
+            });
+
+            const
+                darkController       = darkContainer.controller,
+                darkThemeButton      = darkController.getReference('theme-button'),
+                darkSourceViewButton = darkController.getReference('source-view-theme-button');
+
+            expect(darkThemeButton.text).toBe('Theme Light');
+            expect(darkSourceViewButton.text).toBe('Source View Theme Light');
+            expect(loadFilesCalls.at(-1)).toEqual({
+                highlightJsPath: '../../docs/resources/lib/highlight/highlight.pack.js',
+                themePath      : '../../docs/resources/lib/highlightjs-custom-dark-theme.css',
+                windowId       : null
+            });
+
+            // 3. First click on a dark-booted view switches to light rather than re-applying dark
+            darkController.onSwitchThemeButtonClick();
+
+            expect(darkContainer.theme).toBe('neo-theme-light');
+            expect(darkContainer.cls).toContain('neo-theme-light');
+            expect(darkThemeButton.text).toBe('Theme Dark');
+
+            darkController.onSwitchSourceViewThemeButtonClick();
+            await Promise.resolve();
+
+            expect(swapCalls.at(-1)).toEqual({
+                href    : '../../docs/resources/lib/highlightjs-custom-github-theme.css',
+                id      : 'hljs-theme',
+                windowId: null
+            });
+            expect(darkSourceViewButton.text).toBe('Source View Theme Dark');
+        } finally {
+            lightContainer?.destroy();
+            darkContainer?.destroy();
+            Neo.config.themes = previousThemes;
+
+            if (hasHighlightJS) {
+                Neo.main.addon.HighlightJS = previousHighlightJS;
+            } else {
+                delete Neo.main.addon.HighlightJS;
+            }
+
+            if (hasStylesheet) {
+                Neo.main.addon.Stylesheet = previousStylesheet;
+            } else {
+                delete Neo.main.addon.Stylesheet;
             }
         }
     });

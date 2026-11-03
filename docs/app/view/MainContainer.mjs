@@ -13,6 +13,7 @@ import Viewport                from '../../../src/container/Viewport.mjs';
 /**
  * @class Docs.view.MainContainer
  * @extends Neo.container.Viewport
+ * @summary Main viewport container for the Neo.mjs Docs application.
  */
 class MainContainer extends Viewport {
     static config = {
@@ -45,12 +46,6 @@ class MainContainer extends Viewport {
          * @reactive
          */
         store_: null,
-        /**
-         * Important for the Portal App, until the new theme fully supports it
-         * @member {String} theme='neo-theme-light'
-         * @reactive
-         */
-        theme: 'neo-theme-light',
         /**
          * @member {Array} items=[//...]
          * @reactive
