@@ -102,18 +102,28 @@ class RowModel extends BaseModel {
     }
 
     /**
+     * @summary Fires modifier-key select events or toggles row selection on row click.
      * @param {Object} data
      */
     onRowClick(data) {
-        let me     = this,
-            id     = data.data.currentTarget,
-            {view} = me,
+        let me        = this,
+            eventData = data?.data || data,
+            id        = eventData?.currentTarget,
+            {view}    = me,
             isSelected, record;
 
         if (id) {
-            record = view.getRecord(id);
+            record = data?.record || view.getRecord(id);
 
-            if (me.hasAnnotations(record)) {
+            if (eventData.altKey) {
+                view.fire('altSelect', {data: eventData, record})
+            } else if (eventData.ctrlKey) {
+                view.fire('ctrlSelect', {data: eventData, record})
+            } else if (eventData.metaKey) {
+                view.fire('metaSelect', {data: eventData, record})
+            } else if (eventData.shiftKey) {
+                view.fire('shiftSelect', {data: eventData, record})
+            } else if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {
                 me.toggleSelection(id);

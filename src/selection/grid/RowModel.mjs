@@ -99,20 +99,29 @@ class RowModel extends BaseModel {
     }
 
     /**
+     * @summary Fires modifier-key select events or toggles row selection on row click.
      * @param {Object} event
      */
     onRowClick(event) {
-        let me     = this,
-            {view} = me,
-            {data} = event,
-            record = event.record || me.getRecord(data.path),
+        let me        = this,
+            {view}    = me,
+            eventData = event?.data || event,
+            record    = event?.record || me.getRecord(eventData?.path),
             recordId;
 
         // The single View-owned model listens once on the gridContainer, so each row click is
         // processed exactly once regardless of which body fired it.
 
         if (record) {
-            if (me.hasAnnotations(record)) {
+            if (eventData?.altKey) {
+                view.fire('altSelect', {data: eventData, record})
+            } else if (eventData?.ctrlKey) {
+                view.fire('ctrlSelect', {data: eventData, record})
+            } else if (eventData?.metaKey) {
+                view.fire('metaSelect', {data: eventData, record})
+            } else if (eventData?.shiftKey) {
+                view.fire('shiftSelect', {data: eventData, record})
+            } else if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {
                 recordId = view.getRecordId(record);
