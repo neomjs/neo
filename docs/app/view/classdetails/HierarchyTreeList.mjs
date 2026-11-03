@@ -49,7 +49,22 @@ class HierarchyTreeList extends TreeList {
     }
 
     /**
-     *
+     * @summary Adds the `unchecked` CSS class when `record.checked` is false so initial checkbox icons match `onLeafItemClick`.
+     * @param {Object} record
+     * @returns {Object}
+     */
+    createItem(record) {
+        let itemVdom = super.createItem(record);
+
+        if (!record.checked) {
+            NeoArray.add(itemVdom.cls, 'unchecked')
+        }
+
+        return itemVdom
+    }
+
+    /**
+     * @summary Checks only the selected class by default while keeping ancestor classes unchecked.
      */
     createStoreItems() {
         let me            = this,
@@ -81,7 +96,7 @@ class HierarchyTreeList extends TreeList {
                 parentId = tmpItems[index - 1] ? tmpItems[index - 1].id : null;
 
                 storeItems.push({
-                    checked : true,
+                    checked : key.neoClassName === className,
                     id      : key.id,
                     isLeaf  : true,
                     name    : key.neoClassName,
