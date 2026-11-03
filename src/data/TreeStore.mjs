@@ -638,12 +638,14 @@ class TreeStore extends Store {
         } else {
             me._keptNodes = new Set();
 
+            const evaluators = activeFilters.map(filter => filter.createEvaluator());
+
             const evaluateNode = (node, ancestorMatched) => {
                 let key = me.getKey(node);
 
                 let matchesSelf = true;
-                for (let i = 0; i < activeFilters.length; i++) {
-                    if (activeFilters[i].isFiltered(node)) {
+                for (let i = 0; i < evaluators.length; i++) {
+                    if (evaluators[i](node)) {
                         matchesSelf = false;
                         break
                     }
