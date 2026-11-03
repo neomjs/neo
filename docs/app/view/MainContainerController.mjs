@@ -130,15 +130,16 @@ class MainContainerController extends Component {
     }
 
     /**
+     * @summary Filters the Docs navigation tree lists when the search field value changes.
      * @param {Object} data
      */
     onNavigationSearchFieldChange(data) {
         let me    = this,
             value = data.value;
 
-        me.getReference('examples-treelist') .filter('name', value, null);
-        me.getReference('api-treelist')      .filter('name', value, null);
-        me.getReference('tutorials-treelist').filter('name', value, null)
+        me.getReference('examples-treelist') ?.filter('name', value, null);
+        me.getReference('api-treelist')      ?.filter('name', value, null);
+        me.getReference('tutorials-treelist')?.filter('name', value, null)
     }
 
     /**
