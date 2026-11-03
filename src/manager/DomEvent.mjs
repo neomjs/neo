@@ -334,6 +334,48 @@ class DomEvent extends Base {
     }
 
     /**
+     * @summary Matches a bracketed attribute selector (`[attr=value]` or `[attr]`) against a serialized DOM path node.
+     *
+     * Resolves `data-*` attributes via `node.data` (both camelCased dataset keys and raw keys), `aria-*` attributes
+     * via `node.aria`, and standard DOM attributes/properties via top-level `getTargetData` properties (`role`, `id`,
+     * `tagName`, `tabIndex`, `draggable`, `hidden`, `inert`, `checked`).
+     * @param {Object} node     Serialized event path node from `Neo.main.DomEvents#getTargetData`
+     * @param {String} selector Bracketed attribute selector, e.g. `'[data-ref=foo]'` or `'[inert]'`
+     * @returns {Boolean}
+     */
+    matchesAttributeTarget(node, selector) {
+        let content  = selector.slice(1, -1).trim(),
+            eqIndex  = content.indexOf('='),
+            hasValue = eqIndex !== -1,
+            attrName = (hasValue ? content.slice(0, eqIndex) : content).trim(),
+            expected = hasValue ? content.slice(eqIndex + 1).trim().replace(/^['"]|['"]$/g, '') : null,
+            actual, camelKey, rawKey;
+
+        if (!attrName || !node) {
+            return false
+        }
+
+        if (attrName.startsWith('data-')) {
+            rawKey   = attrName.substring(5);
+            camelKey = Neo.camel(rawKey);
+            actual   = node.data?.[camelKey] ?? node.data?.[rawKey] ?? node.data?.[attrName]
+        } else if (attrName.startsWith('aria-')) {
+            rawKey   = attrName.substring(5);
+            camelKey = Neo.camel(rawKey);
+            actual   = node.aria?.[rawKey] ?? node.aria?.[camelKey] ?? node.aria?.[attrName]
+        } else {
+            camelKey = Neo.camel(attrName);
+            actual   = node[attrName] ?? node[camelKey] ?? (attrName === 'tabindex' ? node.tabIndex : undefined) ?? node.attributes?.[attrName]
+        }
+
+        if (hasValue) {
+            return actual !== undefined && actual !== null && String(actual) === expected
+        }
+
+        return actual !== undefined && actual !== null && actual !== false
+    }
+
+    /**
      * Mounts local domEvent listeners for a given component
      *
      * Every caller reaches this after a delay — `updateDomListeners()` defers 50ms, `mixin.DomEvents`
@@ -634,21 +676,28 @@ class DomEvent extends Base {
                 targetId = path[j].id
             }
         } else {
-            let delegationArray = delegate.split(' '),
+            let delegationArray = delegate.match(/\[[^\]]+\]|\S+/g) || [],
                 len             = delegationArray.length,
-                hasMatch, i, item, isId;
+                hasMatch, i, isAttribute, isId, item, matchNode;
 
             for (i=len-1; i >= 0; i--) {
-                hasMatch = false;
-                item     = delegationArray[i];
-                isId     = item.startsWith('#');
+                hasMatch    = false;
+                item        = delegationArray[i];
+                isAttribute = item.startsWith('[') && item.endsWith(']');
+                isId        = !isAttribute && item.startsWith('#');
 
-                if (isId || item.startsWith('.')) {
+                if (isId || (!isAttribute && item.startsWith('.'))) {
                     item = item.substring(1)
                 }
 
                 for (; j < pathLen; j++) {
-                    if (isId ? path[j].id === item : path[j].cls.includes(item)) {
+                    matchNode = isAttribute
+                        ? this.matchesAttributeTarget(path[j], item)
+                        : isId
+                            ? path[j].id === item
+                            : path[j].cls?.includes(item);
+
+                    if (matchNode) {
                         hasMatch = true;
                         targetId = path[j].id;
                         break

@@ -189,4 +189,62 @@ test.describe('Neo.manager.DomEvent Delegation Verification', () => {
 
         parent.destroy();
     });
+
+    test('should verify delegation via node attributes ([data-*], [aria-*], [role], and compound selectors) (#5005)', () => {
+        const path = [
+            {
+                id  : 'action-btn',
+                cls : ['neo-button'],
+                data: {ref: 'foo', actionType: 'save-draft'},
+                aria: {label: 'Save draft', expanded: 'false'},
+                role: 'button'
+            },
+            {
+                id  : 'toolbar-1',
+                cls : ['neo-toolbar'],
+                data: {section: 'header'}
+            },
+            {
+                id : 'container-root',
+                cls: ['neo-container']
+            }
+        ];
+
+        const componentPath = ['action-btn', 'toolbar-1', 'container-root'];
+
+        // 1. Unquoted [data-ref=foo]
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[data-ref=foo]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        // 2. Hyphenated data-* attribute mapped to camelCase in dataset ([data-action-type="save-draft"])
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[data-action-type="save-draft"]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        // 3. Quoted aria-* attribute containing whitespace ([aria-label="Save draft"])
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '.neo-toolbar [aria-label="Save draft"]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('toolbar-1');
+
+        // 4. Top-level serialized node attribute ([role=button]) and presence-only ([data-ref])
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[role=button]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[data-ref]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        // 5. Non-matching attribute value returns false
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[data-ref=bar]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe(false);
+    });
 });
