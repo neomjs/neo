@@ -1,10 +1,12 @@
 import Text from './Text.mjs';
 
 /**
- * @summary An extended form.field.Text which uses country-specific input patterns to validate International Bank Account Numbers (IBAN).
+ * @summary An extended form.field.Text which validates International Bank Account Numbers (IBAN) via country-specific input patterns and ISO 7064 MOD 97-10 check digits.
  *
  * The initial `countryCodes` map supports `AT`, `CH`, and `DE` (both electronic format without spaces and
- * print format with single spaces between 4-character groups). Feel free to open feature requests for additional countries.
+ * print format with single spaces between 4-character groups), while `hasValidCheckDigits()` enforces the
+ * ISO 7064 MOD 97-10 check-digit rule across all non-empty values regardless of `countryCode`. Feel free to
+ * open feature requests for additional countries.
  * @class Neo.form.field.IBAN
  * @extends Neo.form.field.Text
  */
@@ -37,17 +39,6 @@ class IBAN extends Text {
          */
         countryCode_: null,
         /**
-         * You can either pass a field instance or a field reference
-         * @member {Neo.form.field.Base|String|null} countryField_=null
-         * @reactive
-         */
-        countryField_: null,
-        /**
-         * The data.Model field inside the related country field which provides the country code (e.g. 'DE')
-         * @member {String} countryKeyProperty='id'
-         */
-        countryKeyProperty: 'id',
-        /**
          * data passes inputPattern, maxLength, minLength & valueLength properties
          * @member {Function} errorTextInputPattern=data=>'Not a valid IBAN'
          */
@@ -55,7 +46,44 @@ class IBAN extends Text {
     }
 
     /**
-     * Triggered after the countryCode config got changed
+     * @summary Verifies that an IBAN string satisfies the ISO 7064 MOD 97-10 check-digit rule.
+     *
+     * Spaces are stripped, the basic IBAN structure (`[A-Z]{2}\d{2}[A-Z0-9]{11,30}`) is verified,
+     * the first four characters (country code and check digits) are moved to the end, letters `A`–`Z`
+     * are expanded to `10`–`35`, and the resulting decimal integer modulo `97` must equal `1`.
+     * @param {String} value
+     * @returns {Boolean}
+     * @static
+     */
+    static hasValidCheckDigits(value) {
+        if (typeof value !== 'string') {
+            return false
+        }
+
+        const compact = value.replace(/\s+/g, '');
+
+        if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(compact)) {
+            return false
+        }
+
+        const rearranged = compact.slice(4) + compact.slice(0, 4);
+        let   remainder  = 0;
+
+        for (let i = 0, len = rearranged.length; i < len; i++) {
+            const code = rearranged.charCodeAt(i);
+
+            if (code >= 48 && code <= 57) {
+                remainder = (remainder * 10 + (code - 48)) % 97
+            } else {
+                remainder = (remainder * 100 + (code - 55)) % 97
+            }
+        }
+
+        return remainder === 1
+    }
+
+    /**
+     * @summary Assigns `inputPattern` from `countryCodes` for the selected country and re-validates dirty fields.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -69,52 +97,28 @@ class IBAN extends Text {
     }
 
     /**
-     * Triggered after the countryField config got changed
-     * @param {Neo.form.field.Base|null} value
-     * @param {Neo.form.field.Base|null} oldValue
-     * @protected
+     * @summary Validates the field against `Text` constraints (`required`, `minLength`, `maxLength`, `inputPattern`, `validator`) and ISO 7064 MOD 97-10 check digits.
+     * @param {Boolean} silent=true
+     * @returns {Boolean} Returns true in case there are no client-side errors
      */
-    afterSetCountryField(value, oldValue) {
-        let me = this;
+    validate(silent=true) {
+        let me          = this,
+            returnValue = super.validate(silent),
+            {value}     = me;
 
-        oldValue?.un('change', me.onCountryFieldChange, me);
-
-        if (value) {
-            value.on({
-                change: me.onCountryFieldChange,
-                scope : me
+        if (returnValue && value && !me.constructor.hasValidCheckDigits(value)) {
+            me._error = me.errorTextInputPattern({
+                inputPattern: me.inputPattern,
+                maxLength   : me.maxLength,
+                minLength   : me.minLength,
+                valueLength : value.toString().length
             });
+            returnValue = false;
 
-            value.value && me.onCountryFieldChange({
-                component: value,
-                record   : value.record,
-                value    : value.value
-            })
-        }
-    }
-
-    /**
-     * Triggered before the countryField config gets changed
-     * @param {Neo.form.field.Base|String|null} value
-     * @param {Neo.form.field.Base|String|null} oldValue
-     * @returns {Neo.form.field.Base|null}
-     * @protected
-     */
-    beforeSetCountryField(value, oldValue) {
-        let me = this;
-
-        if (Neo.isString(value)) {
-            return me.up().getReference(value)
+            !me.clean && me.updateError(me._error, silent)
         }
 
-        return value
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onCountryFieldChange(data) {
-        this.countryCode = data.record?.[this.countryKeyProperty] || null
+        return returnValue
     }
 }
 
