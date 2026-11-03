@@ -8,6 +8,7 @@ import inquirer        from 'inquirer';
 import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import isEntryModule   from '../util/isEntryModule.mjs';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const
@@ -32,6 +33,7 @@ const
      */
     sourceRootDirs = ['apps'];
 
+if (isEntryModule(import.meta.url)) {
 program
     .name(programName)
     .version(packageJson.version)
@@ -697,38 +699,48 @@ if (programOpts.info) {
 
         return classContent.join(os.EOL);
     }
+}
+}
 
-    function guessBaseClass(className) {
-        className = className.toLowerCase();
+/**
+ * @summary Infers the default Neo base class from a target class name.
+ * @param {String} className
+ * @returns {String}
+ */
+export function guessBaseClass(className) {
+    className = className.toLowerCase();
 
-        if (className.includes('.model.')) {
-            return 'data.Model';
-        }
-
-        if (className.includes('.store.')) {
-            return 'data.Store';
-        }
-
-        if (className.endsWith('component')) {
-            return 'component.Base';
-        }
-
-        if (className.endsWith('controller')) {
-            return 'controller.Component';
-        }
-
-        if (className.endsWith('stateprovider')) {
-            return 'state.Provider';
-        }
-
-        if (className.includes('table')) {
-            return 'table.Container';
-        }
-
-        if (className.includes('tab')) {
-            return 'tab.Container';
-        }
-
-        return 'container.Base';
+    if (className.includes('.model.')) {
+        return 'data.Model';
     }
+
+    if (className.includes('.store.')) {
+        return 'data.Store';
+    }
+
+    if (className.endsWith('component')) {
+        return 'component.Base';
+    }
+
+    if (className.endsWith('controller')) {
+        return 'controller.Component';
+    }
+
+    if (className.endsWith('stateprovider')) {
+        return 'state.Provider';
+    }
+
+    if (className.endsWith('viewport')) {
+        return 'container.Viewport';
+    }
+
+    if (className.includes('table')) {
+        return 'table.Container';
+    }
+
+    if (className.includes('tab')) {
+        return 'tab.Container';
+    }
+
+    return 'container.Base';
 }
