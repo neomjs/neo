@@ -4,6 +4,7 @@ import NeoArray  from '../../../src/util/Array.mjs';
 /**
  * @class Docs.view.MainContainerController
  * @extends Neo.controller.Component
+ * @summary Controller for the Docs app MainContainer handling navigation, theme switching, and tab creation with full-path header tooltips.
  */
 class MainContainerController extends Component {
     static config = {
@@ -46,6 +47,7 @@ class MainContainerController extends Component {
     }
 
     /**
+     * @summary Opens or focuses the API documentation tab for a clicked class tree leaf, setting the full className as the tab header tooltip.
      * @param {Object} record
      */
     onApiListLeafClick(record) {
@@ -59,12 +61,14 @@ class MainContainerController extends Component {
 
             header: {
                 iconCls: record.singleton ? 'fa fa-arrow-alt-circle-right' : 'fa fa-copyright',
-                text   : record.name
+                text   : record.name,
+                tooltip: record.className
             }
         })
     }
 
     /**
+     * @summary Opens or focuses the example tab for a clicked examples tree leaf, setting the dot-joined example path as the tab header tooltip.
      * @param {Object} record
      */
     onExamplesListLeafClick(record) {
@@ -81,12 +85,13 @@ class MainContainerController extends Component {
             name      = tmpRecord.name + '.' + name
         }
 
-        name = 'examples_' + name;
-
         header = {
             iconCls: 'fa fa-desktop',
-            text   : record.name
+            text   : record.name,
+            tooltip: name
         };
+
+        name = 'examples_' + name;
 
         if (!Array.isArray(record.path)) {
             import(
@@ -220,6 +225,7 @@ class MainContainerController extends Component {
     }
 
     /**
+     * @summary Handles the /viewSource route by opening or focusing the source view tab with the full className as the tab header tooltip.
      * @param {Object} data
      * @param {String} data.className
      * @param {String} data.lineNumber
@@ -242,7 +248,8 @@ class MainContainerController extends Component {
 
                 header: {
                     iconCls: 'fa fa-code',
-                    text   : record.name
+                    text   : record.name,
+                    tooltip: record.className
                 }
             });
 
