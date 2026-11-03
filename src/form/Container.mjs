@@ -32,7 +32,8 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Helper function used by setValues() which wraps the leaves of a tree structure into a new property.
+     * @summary Wraps the leaf values of a nested object tree into `{[configName]: value}` descriptors for `setConfigs()`.
+     * Helper function used by `setErrors()` and `setValues()` which wraps the leaves of a tree structure into a new property.
      * @param {Object} values
      * @param {String} configName
      * @param {String[]} fieldPaths
@@ -370,6 +371,32 @@ class Container extends BaseContainer {
                 }
             }
         })
+    }
+
+    /**
+     * @summary Sets or clears field errors from a flat or nested object tree keyed by field path, name, or id.
+     *
+     * Mirrors {@link #setValues} for API validation responses that return multiple field errors at once:
+     * clones `errors`, wraps leaf values into `{error: value}` descriptors via {@link Neo.form.Container.adjustTreeLeaves},
+     * and applies them through {@link #setConfigs}.
+     * @param {Object} errors={}
+     * @param {Boolean} suspendEvents=false
+     */
+    async setErrors(errors={}, suspendEvents=false) {
+        let fields     = await this.getFields(),
+            fieldPaths = [],
+            path;
+
+        fields.map(field => {
+            path = field.getPath();
+            path && NeoArray.add(fieldPaths, path)
+        });
+
+        errors = Neo.clone(errors, true);
+
+        Container.adjustTreeLeaves(errors, 'error', fieldPaths);
+
+        await this.setConfigs(errors, suspendEvents)
     }
 
     /**
