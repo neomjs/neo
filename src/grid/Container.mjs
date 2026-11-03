@@ -36,6 +36,7 @@ import {isDescriptor}      from '../core/ConfigSymbols.mjs';
  */
 class GridContainer extends BaseContainer {
     /**
+     * Built-in column `type` map; external column classes can be passed via a column config's `module`.
      * @member {Object} columnTypes
      * @protected
      * @static
@@ -140,6 +141,7 @@ class GridContainer extends BaseContainer {
          */
         columnMenu_: false,
         /**
+         * Column configs choosing their class by `module` (any `Neo.grid.column.Base` subclass) or `type` (from `columnTypes`).
          * @member {Object[]} columns_=[]
          * @reactive
          */
@@ -992,8 +994,9 @@ class GridContainer extends BaseContainer {
 
                 buttonConfig = {...column, columnMenu: column.columnMenu ?? me.columnMenu};
 
-                // An id the app gave the column names the column: its button takes a generated one
+                // An id or module the app gave the column names the column, not its header button
                 delete buttonConfig.id;
+                delete buttonConfig.module;
 
                 if (column.locked === 'start') {
                     lockedStartButtons.push(buttonConfig);
@@ -1007,7 +1010,8 @@ class GridContainer extends BaseContainer {
                     column.type = 'component'
                 }
 
-                columnClass = me.constructor.columnTypes[column.type || 'column'];
+                columnClass = column.module || me.constructor.columnTypes[column.type || 'column'];
+                delete column.module;
                 delete column.type;
 
                 columns[index] = Neo.create(columnClass, {
