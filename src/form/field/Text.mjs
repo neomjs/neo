@@ -444,6 +444,10 @@ class Text extends Field {
      * @protected
      */
     afterSetError(value, oldValue) {
+        if (value && oldValue !== undefined) {
+            this.clean = false
+        }
+
         this.updateError(value)
     }
 
@@ -1397,7 +1401,9 @@ class Text extends Field {
      * @returns {Boolean}
      */
     isValid() {
-        this.validate(true); // silent
+        if (!this.error) {
+            this.validate(true) // silent
+        }
 
         return this.error ? false : super.isValid()
     }
