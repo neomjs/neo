@@ -36,6 +36,9 @@ class Content extends Model {
         }, {
             name: 'parentId',
             type: 'String'
+        }, {
+            name: 'route',
+            type: 'String'
         }]
     }
 }

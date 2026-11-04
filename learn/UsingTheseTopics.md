@@ -13,6 +13,7 @@ This documentation is organized into the following main sections, each serving a
   before diving deeper into Neo.mjs.
 * ***Tutorials***: Offers hands-on tutorials where you'll code a few simple Neo.mjs applications.
 * ***Guides***: Contains in-depth discussions of various topics related to Neo.mjs concepts and features.
+* ***[API Docs](#/docs)***: Provides the complete class, config, and method reference for the Neo.mjs engine.
 
 ## Navigating These Topics
 
