@@ -2,6 +2,7 @@ import Base            from '../list/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Collection      from '../collection/Base.mjs';
 import NeoArray        from '../util/Array.mjs';
+import StringUtil      from '../util/String.mjs';
 import TreeModel       from '../selection/TreeModel.mjs';
 import VDomUtil        from "../util/VDom.mjs";
 
@@ -432,7 +433,7 @@ class Tree extends Base {
         let me         = this,
             isFiltered = true,
             hasValue   = Boolean(value),
-            valueRegEx = hasValue ? new RegExp(value, 'gi') : null,
+            valueRegEx = hasValue ? new RegExp(StringUtil.escapeRegExp(String(value)), 'gi') : null,
             childReturnValue, directMatch, itemFiltered, node;
 
         me.store.forEach(item => {

@@ -169,4 +169,68 @@ test.describe('Neo.tree.List VDOM Structure', () => {
 
         tree.destroy();
     });
+
+    test('filter treats regex metacharacters as literal case-insensitive substrings', async () => {
+        const tree = Neo.create(TreeList, {
+            appName                   : 'TreeListTest',
+            id                        : 'test-tree-filter-regex',
+            showCollapseExpandAllIcons: false,
+            store                     : {
+                model: {
+                    fields: [
+                        {name: 'id',        type: 'String'},
+                        {name: 'name',      type: 'String'},
+                        {name: 'parentId',  type: 'String'},
+                        {name: 'isLeaf',    type: 'Boolean'},
+                        {name: 'collapsed', type: 'Boolean'}
+                    ]
+                },
+                data: [
+                    {id: 'root',    name: 'Folder',                   parentId: null,   isLeaf: false, collapsed: false},
+                    {id: 'paren',   name: 'Child (1) (a)',            parentId: 'root', isLeaf: true},
+                    {id: 'bracket', name: 'Bracket [a]',              parentId: 'root', isLeaf: true},
+                    {id: 'ops',     name: 'Plus + Question ? Star *', parentId: 'root', isLeaf: true},
+                    {id: 'dot',     name: 'Other.thing',              parentId: 'root', isLeaf: true},
+                    {id: 'plain',   name: 'Plain item',               parentId: 'root', isLeaf: true}
+                ]
+            }
+        });
+
+        await tree.initVnode();
+
+        const getNode = id => tree.getVdomChild(tree.getItemId(id));
+
+        expect(() => tree.filter('name', '(', null)).not.toThrow();
+        expect(getNode('paren').style.display).toBe('flex');
+        expect(getNode('paren').cn[0].html).toBe(
+            'Child <span class="neo-highlight-search">(</span>1) <span class="neo-highlight-search">(</span>a)'
+        );
+        expect(getNode('dot').style.display).toBe('none');
+        expect(getNode('plain').style.display).toBe('none');
+
+        expect(() => tree.filter('name', '[', null)).not.toThrow();
+        expect(getNode('bracket').style.display).toBe('flex');
+        expect(getNode('bracket').cn[0].html).toBe('Bracket <span class="neo-highlight-search">[</span>a]');
+        expect(getNode('paren').style.display).toBe('none');
+
+        for (const op of ['+', '?', '*']) {
+            expect(() => tree.filter('name', op, null)).not.toThrow();
+            expect(getNode('ops').style.display).toBe('flex');
+            expect(getNode('ops').cn[0].html).toContain(`<span class="neo-highlight-search">${op}</span>`);
+            expect(getNode('plain').style.display).toBe('none');
+        }
+
+        expect(() => tree.filter('name', 'child (1', null)).not.toThrow();
+        expect(getNode('paren').style.display).toBe('flex');
+        expect(getNode('paren').cn[0].html).toBe('<span class="neo-highlight-search">Child (1</span>) (a)');
+        expect(getNode('dot').style.display).toBe('none');
+
+        expect(() => tree.filter('name', '.', null)).not.toThrow();
+        expect(getNode('dot').style.display).toBe('flex');
+        expect(getNode('dot').cn[0].html).toBe('Other<span class="neo-highlight-search">.</span>thing');
+        expect(getNode('paren').style.display).toBe('none');
+        expect(getNode('plain').style.display).toBe('none');
+
+        tree.destroy();
+    });
 });

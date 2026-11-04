@@ -1,5 +1,6 @@
 import CountryFlags from '../util/CountryFlags.mjs';
 import List         from './Base.mjs';
+import StringUtil   from '../util/String.mjs';
 
 /**
  * @class Neo.list.Country
@@ -24,6 +25,7 @@ class Country extends List {
     }
 
     /**
+     * @summary Renders the country flag and text for a list item, highlighting literal store filter matches when enabled.
      * @param {Object} record
      * @param {Number} index
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
@@ -44,7 +46,7 @@ class Country extends List {
         }
 
         if (filter && filter.value !== null && filter.value !== '') {
-            itemText = itemText.replace(new RegExp(filter.value, 'gi'), function(match) {
+            itemText = itemText.replace(new RegExp(StringUtil.escapeRegExp(String(filter.value)), 'gi'), function(match) {
                 return '<span class="neo-highlight-search">' + match + '</span>'
             })
         }

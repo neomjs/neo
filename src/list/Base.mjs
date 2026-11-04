@@ -3,6 +3,7 @@ import Component       from '../component/Base.mjs';
 import ListModel       from '../selection/ListModel.mjs';
 import NeoArray        from '../util/Array.mjs';
 import Store           from '../data/Store.mjs';
+import StringUtil      from '../util/String.mjs';
 
 /**
  * @class Neo.list.Base
@@ -594,6 +595,7 @@ class List extends Component {
 
     /**
      * Override this method for custom renderers
+     * @summary Renders the content for a single list item, highlighting literal store filter matches when enabled.
      * @param {Object} record
      * @param {Number} index Logical index in the bound store.
      * @param {Number} [poolIndex=index] Physical render-slot index for buffered subclasses.
@@ -608,7 +610,7 @@ class List extends Component {
             filter = me.store.getFilter(me.displayField, null);
 
             if (filter && filter.value !== null && filter.value !== '') {
-                itemText = itemText.replace(new RegExp(filter.value, 'gi'), function(match) {
+                itemText = itemText.replace(new RegExp(StringUtil.escapeRegExp(String(filter.value)), 'gi'), function(match) {
                     return '<span class="neo-highlight-search">' + match + '</span>'
                 })
             }
