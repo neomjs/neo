@@ -110,6 +110,16 @@ test.describe('Neo.canvas.GraphScene — labels and flights, the math', () => {
         expect(place({anchors: [[60, 52], [50, 50], null, [-30, 50], [50, 70]]}), 'of two overlapping labels, the earlier wins').toEqual([0, 4])
     });
 
+    test('a label sits at its node, and at its node\'s cluster centroid while the frame draws centroids', () => {
+        const
+            positions = Float32Array.from([0, 0, 0,  2, 0, 0,  10, 10, 10]),
+            lod       = GraphScene.clusterScene({clusters: Uint32Array.from([7, 7, 9]), colors: new Float32Array(9), edges: new Uint32Array(0), positions, sizes: new Float32Array(3).fill(1)}),
+            nodes     = Uint32Array.from([1, 2]);
+
+        expect(Array.from(GraphScene.labelAnchors({nodes, positions}))).toEqual([2, 0, 0,  10, 10, 10]);
+        expect(Array.from(GraphScene.labelAnchors({lod, nodes, positions})), 'node 1 shares cluster 7 with node 0: their centroid').toEqual([1, 0, 0,  10, 10, 10])
+    });
+
     test('a flight eases from its start to its end, the distance by a constant ratio', () => {
         const flight = {from: {dist: 8, target: [0, 0, 0]}, to: {dist: 2, target: [4, -2, 0]}};
 

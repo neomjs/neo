@@ -90,8 +90,8 @@ void main() {
  * A scene can name nodes to label. Each text is drawn once into an atlas texture at the drawing buffer's pixel
  * ratio. Every frame then places the labels in the scene's order and leaves out any that is behind the camera,
  * off the surface or over a label already placed. It draws at most `labelStyle.max` of them above everything
- * else, at every level of detail. `flyTo` eases the camera to a node, and the pointer taking the camera ends the
- * flight.
+ * else, at every level of detail: at the far level, a label sits on its node's cluster centroid, the point the
+ * frame draws. `flyTo` eases the camera to a node, and the pointer taking the camera ends the flight.
  *
  * Extend it with `singleton: true` and a `className` of your own. The camera math is static, so a test
  * reaches it without a GL context and a subclass can replace it; `normalizeScene` is the seam for a
@@ -245,9 +245,10 @@ class GraphScene extends Base {
      * @param {Uint32Array} scene.edges Node index pairs
      * @param {Float32Array} scene.positions `x, y, z` per node
      * @param {Float32Array} scene.sizes One per node
-     * @returns {Object} `{bundles, centroids, colors, count, edges, ids, ranges, sizes, weights}`: `ids` maps a
-     * dense index back to its cluster id, `ranges` holds a `start, count` pair of edge indices per cluster,
-     * `bundles` holds centroid index pairs and `weights` the number of edges each bundle stands for
+     * @returns {Object} `{bundles, centroids, clusterOf, colors, count, edges, ids, ranges, sizes, weights}`: `ids`
+     * maps a dense index back to its cluster id and `clusterOf` each node to its dense index, `ranges` holds a
+     * `start, count` pair of edge indices per cluster, `bundles` holds centroid index pairs and `weights` the
+     * number of edges each bundle stands for
      */
     static clusterScene({clusters, colors, edges, positions, sizes}) {
         const
@@ -342,7 +343,7 @@ class GraphScene extends Base {
             weights[bundle++]       = weight
         }
 
-        return {bundles, centroids, colors: tones, count, edges: ordered, ids: [...dense.keys()], ranges, sizes: spans, weights}
+        return {bundles, centroids, clusterOf, colors: tones, count, edges: ordered, ids: [...dense.keys()], ranges, sizes: spans, weights}
     }
 
     /**
@@ -467,6 +468,28 @@ class GraphScene extends Base {
         }
 
         return best
+    }
+
+    /**
+     * @summary Where each label sits in the scene: at its node, or, while the frame draws cluster centroids
+     * instead of nodes, at its node's centroid, so a label never floats where nothing is drawn.
+     * @param {Object} options
+     * @param {Object|null} [options.lod=null] The {@link Neo.canvas.GraphScene.clusterScene clustered geometry}
+     * while the frame draws its centroids, else `null`
+     * @param {Uint32Array} options.nodes The labelled nodes
+     * @param {Float32Array} options.positions `x, y, z` per node
+     * @returns {Float32Array} `x, y, z` per label
+     */
+    static labelAnchors({lod = null, nodes, positions}) {
+        const anchors = new Float32Array(nodes.length * 3);
+
+        nodes.forEach((node, label) => {
+            const at = lod ? lod.clusterOf[node] : node, from = lod ? lod.centroids : positions;
+
+            anchors.set(from.subarray(at * 3, at * 3 + 3), label * 3)
+        });
+
+        return anchors
     }
 
     /**
@@ -1220,9 +1243,9 @@ class GraphScene extends Base {
         const
             {height, width} = gl.canvas,
             {nodes, texts}  = scene.labels,
-            {positions}     = scene,
             M               = me.matrix(),
-            anchors         = Array.from(nodes, (node, label) => atlas.fits[label] ? me.constructor.project(M, positions[node * 3], positions[node * 3 + 1], positions[node * 3 + 2], width, height) : null),
+            points          = me.constructor.labelAnchors({lod: me.getLodLevel() === 'far' ? scene.lod : null, nodes, positions: scene.positions}),
+            anchors         = Array.from(nodes, (node, label) => atlas.fits[label] ? me.constructor.project(M, points[label * 3], points[label * 3 + 1], points[label * 3 + 2], width, height) : null),
             placed          = me.constructor.placeLabels({anchors, boxes: atlas.boxes, gap: me.labelStyle.gap * atlas.ratio, height, max: me.labelStyle.max, width}),
             quads           = new Float32Array(placed.length * 24);
 
