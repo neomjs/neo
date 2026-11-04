@@ -1,5 +1,4 @@
 import Component from '../../../src/controller/Component.mjs';
-import NeoArray  from '../../../src/util/Array.mjs';
 
 /**
  * @class Docs.view.MainContainerController
@@ -29,15 +28,15 @@ class MainContainerController extends Component {
     }
 
     /**
-     * @summary Syncs the initial theme and source-view theme button labels and HighlightJS stylesheet to the active theme.
+     * @summary Syncs the initial theme and source-view theme button state and HighlightJS stylesheet to the active theme, hiding the Docs theme button when embedded in the Portal.
      */
     onComponentConstructed() {
         super.onComponentConstructed();
 
         let me                    = this,
-            {appName}             = me.component,
+            isPortal              = me.component.appName === 'Portal',
             isDark                = Boolean(me.component.getTheme()?.includes('dark')),
-            libPath               = appName === 'Portal' ? '../../docs/resources/lib/' : './resources/lib/',
+            libPath               = isPortal ? '../../docs/resources/lib/' : './resources/lib/',
             sourceViewThemeButton = me.getReference('source-view-theme-button'),
             themeButton           = me.getReference('theme-button'),
             opts                  = {
@@ -45,12 +44,16 @@ class MainContainerController extends Component {
                 windowId : me.windowId
             };
 
-        if (appName === 'Portal') {
+        if (isPortal) {
             opts.highlightJsPath = libPath + 'highlight/highlight.pack.js'
         }
 
         if (themeButton) {
-            themeButton.text = isDark ? 'Theme Light' : 'Theme Dark'
+            if (isPortal) {
+                themeButton.hidden = true
+            } else {
+                themeButton.text = isDark ? 'Theme Light' : 'Theme Dark'
+            }
         }
 
         if (sourceViewThemeButton) {
@@ -195,7 +198,7 @@ class MainContainerController extends Component {
         let me     = this,
             button = me.getReference('theme-button'),
             view   = me.component,
-            buttonText, cls, theme;
+            buttonText, theme;
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
@@ -205,18 +208,7 @@ class MainContainerController extends Component {
             theme      = 'neo-theme-dark'
         }
 
-        cls = [...view.cls];
-
-        view.cls.forEach(item => {
-            if (item.includes('neo-theme')) {
-                NeoArray.remove(cls, item)
-            }
-        });
-
-        NeoArray.add(cls, theme);
-        view.cls   = cls;
-        view.theme = theme;
-
+        view.theme  = theme;
         button.text = buttonText
     }
 
