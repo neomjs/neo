@@ -349,8 +349,8 @@ class DockSplitter extends Splitter {
             // (0,1), so a preview frame at 0px is a state the model categorically refuses — a
             // consumer whose CSS zeroes the band's min would otherwise collapse the band live,
             // then watch the refused terminal restore it. One pixel keeps every previewable
-            // frame committable without imposing any design opinion of its own.
-            return config ? {...config, awaitWorkerSettlement: true, minSize: 1} : null
+            // frame committable without clobbering a larger sibling or descendant floor.
+            return config ? {...config, awaitWorkerSettlement: true, minSize: Math.max(1, config.minSize || 0)} : null
         }
 
         if (!me.liveResize) return null;
@@ -366,16 +366,29 @@ class DockSplitter extends Splitter {
         // re-registers the corrected pair.
         if (!me.parent || !target || !counter || target === me || counter === me) return null;
 
-        return {
-            awaitWorkerSettlement: true,
-            axis                 : me.getSizeAxis(),
-            counterTargetId      : me.getLayoutElementId(counter),
-            parentId             : me.getLayoutElementId(me.parent),
-            preview              : true,
-            resizeNext           : false,
-            splitterSize         : me.size,
-            targetId             : me.getLayoutElementId(target)
+        let axis           = me.getSizeAxis(),
+            minSize        = me.getSiblingMinSize(target, axis),
+            counterMinSize = me.getSiblingMinSize(counter, axis),
+            config         = {
+                awaitWorkerSettlement: true,
+                axis,
+                counterTargetId      : me.getLayoutElementId(counter),
+                parentId             : me.getLayoutElementId(me.parent),
+                preview              : true,
+                resizeNext           : false,
+                splitterSize         : me.size,
+                targetId             : me.getLayoutElementId(target)
+            };
+
+        if (Number.isFinite(minSize)) {
+            config.minSize = minSize
         }
+
+        if (Number.isFinite(counterMinSize)) {
+            config.counterMinSize = counterMinSize
+        }
+
+        return config
     }
 
     /**
