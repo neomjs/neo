@@ -305,4 +305,40 @@ test.describe('Grid Dynamic Column Updates', () => {
 
         moduleGrid.destroy()
     });
+
+    test('Destroying a freshly created GridContainer or HeaderButton before Resizable import resolves does not write plugins after destroy (#20270)', async () => {
+        const warnings = [];
+        const origWarn = console.warn;
+
+        console.warn = (...args) => {
+            warnings.push(args.join(' '));
+            return origWarn.apply(console, args)
+        };
+
+        try {
+            const transientGrid = Neo.create(GridContainer, {
+                appName: 'GridDynamicColumnTest',
+                store,
+                columns: [
+                    {dataField: 'name', text: 'Col A'},
+                    {dataField: 'y2020', text: 'Col B'}
+                ]
+            });
+
+            const buttons = [...transientGrid.headerToolbar.items];
+            transientGrid.destroy();
+
+            await import('../../../../src/grid/header/plugin/Resizable.mjs');
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            for (const btn of buttons) {
+                expect(btn.isDestroyed).toBe(true);
+                expect(btn.plugins).toBeNull()
+            }
+
+            expect(warnings.filter(w => w.includes("'plugins' was set after destroy()"))).toEqual([])
+        } finally {
+            console.warn = origWarn
+        }
+    });
 });

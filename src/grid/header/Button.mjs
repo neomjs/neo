@@ -231,7 +231,8 @@ class Button extends BaseButton {
     }
 
     /**
-     * Triggered after the resizable config got changed
+     * Triggered after the resizable config got changed.
+     * Guards the lazy `Resizable` plugin import against post-destroy or mid-flight `resizable` changes.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -239,16 +240,19 @@ class Button extends BaseButton {
     afterSetResizable(value, oldValue) {
         if (value && !this.getPlugin('plugin-grid-header-resizable')) {
             import('./plugin/Resizable.mjs').then(module => {
-                let me        = this,
-                    {appName} = me,
-                    plugins   = me.plugins || [];
+                let me = this;
 
-                plugins.push({
-                    module : module.default,
-                    appName
-                });
+                if (!me.isDestroyed && !me.isDestroying && me.resizable && !me.getPlugin('plugin-grid-header-resizable')) {
+                    let {appName} = me,
+                        plugins   = me.plugins || [];
 
-                me.plugins = plugins
+                    plugins.push({
+                        module : module.default,
+                        appName
+                    });
+
+                    me.plugins = plugins
+                }
             })
         }
     }
