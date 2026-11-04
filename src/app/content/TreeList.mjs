@@ -207,12 +207,18 @@ class TreeList extends BaseTreeList {
     }
 
     /**
+     * @summary Navigates to `record.route` when configured on the leaf, or `${this.routePrefix}/${record.id}`.
      * @param {Object} record
      */
     onLeafItemClick(record) {
         super.onLeafItemClick(record);
 
-        if (this.routePrefix) {
+        if (record.route) {
+            Neo.Main.setRoute({
+                value   : record.route,
+                windowId: this.windowId
+            })
+        } else if (this.routePrefix) {
             Neo.Main.setRoute({
                 value   : `${this.routePrefix}/${record.id}`,
                 windowId: this.windowId

@@ -41,11 +41,14 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @summary Navigates to a learn tree item, honoring an explicit `record.route` override when present.
      * @param {String} learnItem
      */
     navigateTo(learnItem) {
+        let record = this.getStateProvider()?.getStore('tree')?.get(learnItem);
+
         Neo.Main.setRoute({
-            value   : `/learn/${learnItem}`,
+            value   : record?.route || `/learn/${learnItem}`,
             windowId: this.component.windowId
         })
     }
@@ -86,11 +89,16 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @summary Selects the default intro topic on first visit, or restores tree selection to `currentPageRecord`.
      * @param {Object} data
      */
     onRouteDefault(data) {
-        if (!this.getStateProvider().data.currentPageRecord) {
+        let currentPageRecord = this.getStateProvider().data.currentPageRecord;
+
+        if (!currentPageRecord) {
             this.onRouteLearnItem({itemId: 'benefits/Introduction'})
+        } else {
+            this.getReference('tree')?.selectionModel.select(currentPageRecord)
         }
     }
 
@@ -118,7 +126,17 @@ class MainContainerController extends Controller {
         }
 
         const select = async () => {
-            stateProvider.data.currentPageRecord = store.get(recordId);
+            const record = store.get(recordId);
+
+            if (record?.route) {
+                Neo.Main.setRoute({
+                    value   : record.route,
+                    windowId: this.component.windowId
+                });
+                return
+            }
+
+            stateProvider.data.currentPageRecord = record;
 
             if (!oldValue?.hashString?.startsWith('/learn')) {
                 await tree.expandAndScrollToItem(recordId)
