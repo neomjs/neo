@@ -240,13 +240,20 @@ class Resize {
                 counterComp  = globalThis.getComputedStyle?.(counter),
                 counterMinV  = resolveCssBound(counterComp?.getPropertyValue(`min-${config.axis}`), Number(parentRect[config.axis])),
                 counterMaxV  = resolveCssBound(counterComp?.getPropertyValue(`max-${config.axis}`), Number(parentRect[config.axis])),
-                counterMin   = Number.isFinite(counterMinV) ? Math.max(0, counterMinV) : 0;
+                counterMin   = Math.max(
+                    1,
+                    Number.isFinite(counterMinV) ? Math.max(0, counterMinV) : 0,
+                    Number.isFinite(config.counterMinSize) ? Math.max(0, config.counterMinSize) : 0
+                );
 
             if (!Number.isFinite(counterStart)) return null;
 
             pairTotal = startSize + counterStart;
-            minSize   = Math.max(minSize, Number.isFinite(counterMaxV) ? pairTotal - counterMaxV : 0);
-            maxSize   = Math.max(minSize, Math.min(maxSize, pairTotal - counterMin));
+
+            const pairCeiling = Math.max(1, pairTotal - 1);
+
+            minSize = Math.min(pairCeiling, Math.max(1, minSize, Number.isFinite(counterMaxV) ? pairTotal - counterMaxV : 0));
+            maxSize = Math.max(minSize, Math.min(pairCeiling, maxSize, pairTotal - counterMin));
 
             counterOriginalStyle = {};
 
@@ -273,6 +280,8 @@ class Resize {
             configMinSize        : config.minSize,
             coordinate,
             counter,
+            counterId            : config.counterTargetId,
+            counterMinSize       : config.counterMinSize,
             counterOriginalStyle,
             dragZoneId           : config.dragZoneId,
             lastSize             : startSize,
@@ -374,8 +383,9 @@ class Resize {
                     config  = me.registrations[data.dragElementRootId],
                     current = me.state,
                     changed = !current || current.axis !== config.axis || current.parentId !== config.parentId ||
-                        current.targetId !== config.targetId || current.oppositeId !== config.oppositeId ||
-                        current.configMinSize !== config.minSize || current.oppositeMinSize !== config.oppositeMinSize;
+                        current.targetId !== config.targetId || current.counterId !== config.counterTargetId ||
+                        current.oppositeId !== config.oppositeId || current.configMinSize !== config.minSize ||
+                        current.counterMinSize !== config.counterMinSize || current.oppositeMinSize !== config.oppositeMinSize;
 
                 if (changed) {
                     me.restoreState(current);
