@@ -397,5 +397,93 @@ test.describe('Neo.component.Splitter live-resize ownership', () => {
         end(splitter, 120);
 
         expect(vboxColumn.wrapperStyle).toMatchObject({flex: 'none', width: '210px'})
+    });
+
+    test('preserves oppositeId for non-numeric CSS minima (var(), calc()) so main-thread Resize clamps against computed floor while ignoring 0px resets', async () => {
+        const originalDocument  = globalThis.document,
+              originalDomAccess = Neo.main.DomAccess,
+              originalWindow    = globalThis.window;
+
+        globalThis.document = new EventTarget();
+        globalThis.window   = new EventTarget();
+        delete Neo.main.DomAccess;
+
+        const {default: DomAccess} = await import('../../../../src/main/DomAccess.mjs'),
+              {default: Resize}    = await import('../../../../src/main/draggable/Resize.mjs');
+
+        const createStyle = initial => {
+            const values = new Map(Object.entries(initial));
+
+            return {
+                getPropertyPriority: () => '',
+                getPropertyValue   : key => values.get(key) || '',
+                removeProperty     : key => values.delete(key),
+                setProperty        : (key, value) => values.set(key, value)
+            }
+        };
+
+        const originalGetElement       = DomAccess.getElement,
+              originalGetLayoutRect    = DomAccess.getLayoutRect,
+              originalGetComputedStyle = globalThis.getComputedStyle;
+
+        try {
+            const {next, parent: owner, previous, splitter} = createTree({direction: 'vertical', resizeTarget: 'previous'});
+
+            next.style = {minWidth: '0px'};
+            expect(splitter.hasSiblingMinSize(next, 'width'), 'zero flex-shrink reset does not register an opposite bound').toBe(false);
+            expect(splitter.getResizeConfig().oppositeId).toBeUndefined();
+
+            for (const cssExpr of ['var(--pane-floor)', 'calc(100px + 32px)']) {
+                next.style = {minWidth: cssExpr};
+
+                const descriptor = splitter.getResizeConfig();
+
+                expect(splitter.getSiblingMinSize(next, 'width')).toBeNaN();
+                expect(splitter.hasSiblingMinSize(next, 'width'), `${cssExpr} must be discovered for main-thread resolution`).toBe(true);
+                expect(descriptor.oppositeId).toBe(next.id);
+                expect(descriptor.oppositeMinSize).toBeUndefined();
+
+                const parentEl   = {},
+                      targetEl   = {style: createStyle({flex: '1 1 0%'})},
+                      oppositeEl = {style: createStyle({flex: '1 1 0%'})};
+
+                DomAccess.getElement = id => ({
+                    [owner.id]   : parentEl,
+                    [previous.id]: targetEl,
+                    [next.id]    : oppositeEl
+                })[id] || null;
+
+                DomAccess.getLayoutRect = el => el === parentEl
+                    ? {height: 400, width: 606}
+                    : {height: 400, width: 300};
+
+                globalThis.getComputedStyle = el => ({
+                    getPropertyValue: key => el === oppositeEl && key === 'min-width' ? '132px' : 'none'
+                });
+
+                const resize = new Resize(),
+                      state  = resize.createState({...descriptor, splitterSize: 6}, {clientX: 300});
+
+                resize.state = state;
+
+                expect(state.maxSize, `${cssExpr} computed to 132px clamps target ceiling to 600 - 132 = 468px`).toBe(468);
+                expect(resize.apply({clientX: 550, clientY: 0})).toBe(468);
+            }
+        } finally {
+            DomAccess.getElement    = originalGetElement;
+            DomAccess.getLayoutRect = originalGetLayoutRect;
+            originalDomAccess === undefined
+                ? delete Neo.main.DomAccess
+                : Neo.main.DomAccess = originalDomAccess;
+            originalDocument === undefined
+                ? delete globalThis.document
+                : globalThis.document = originalDocument;
+            originalWindow === undefined
+                ? delete globalThis.window
+                : globalThis.window = originalWindow;
+            originalGetComputedStyle === undefined
+                ? delete globalThis.getComputedStyle
+                : globalThis.getComputedStyle = originalGetComputedStyle
+        }
     })
 });

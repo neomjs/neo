@@ -506,30 +506,34 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
         const parent = {
             disabled: false,
             id      : 'dock-nested-parent',
+            layout  : {align: 'stretch', ntype: 'hbox'},
             items   : [{
                 dockNodeType: 'split',
                 flex        : 0.5,
                 id          : 'left-vertical-split',
+                layout      : {align: 'stretch', ntype: 'vbox'},
                 orientation : 'vertical',
                 style       : {minHeight: 0, minWidth: 0},
                 items       : [
-                    {dockNodeType: 'tabs', getActiveCard: () => ({minWidth: 140}), id: 'left-top-tabs'},
-                    {dockNodeType: 'splitter', id: 'left-inner-splitter', size: 6},
-                    {dockNodeType: 'tabs', getActiveCard: () => ({minWidth: 220}), id: 'left-bottom-tabs'}
+                    {dockNodeType: 'tabs', getActiveCard: () => ({minWidth: 140}), id: 'left-top-tabs', layout: {ntype: 'card'}},
+                    {dockNodeType: 'splitter', id: 'left-inner-splitter', ntype: 'dashboard-dock-splitter', size: 6},
+                    {dockNodeType: 'tabs', getActiveCard: () => ({minWidth: 220}), id: 'left-bottom-tabs', layout: {ntype: 'card'}}
                 ]
             }, {
                 dockNodeType: 'splitter',
-                id          : 'dock-nested-splitter-placeholder'
+                id          : 'dock-nested-splitter-placeholder',
+                ntype       : 'dashboard-dock-splitter'
             }, {
                 dockNodeType: 'split',
                 flex        : 0.5,
                 id          : 'right-horizontal-split',
+                layout      : {align: 'stretch', ntype: 'hbox'},
                 orientation : 'horizontal',
                 style       : {minHeight: 0, minWidth: 0},
                 items       : [
-                    {dockNodeType: 'tabs', id: 'right-a-tabs', minWidth: 110},
-                    {dockNodeType: 'splitter', id: 'right-inner-splitter', size: 6},
-                    {dockNodeType: 'tabs', id: 'right-b-tabs', minWidth: 130}
+                    {dockNodeType: 'tabs', id: 'right-a-tabs', layout: {ntype: 'card'}, minWidth: 110},
+                    {dockNodeType: 'splitter', id: 'right-inner-splitter', ntype: 'dashboard-dock-splitter', size: 6},
+                    {dockNodeType: 'tabs', id: 'right-b-tabs', layout: {ntype: 'card'}, minWidth: 130}
                 ]
             }]
         };

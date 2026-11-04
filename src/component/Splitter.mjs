@@ -198,7 +198,7 @@ class Splitter extends Component {
     }
 
     /**
-     * @summary Infers the layout mode of a container or projected dock node for minimum-size aggregation.
+     * @summary Infers the layout mode of a container for minimum-size aggregation.
      * @param {Neo.component.Base|Object|null} component
      * @returns {String|null} `'width'`, `'height'`, `'card'`, `'fit'`, or `null`
      * @protected
@@ -206,12 +206,11 @@ class Splitter extends Component {
     getContainerLayoutAxis(component) {
         if (!component) return null;
 
-        let layout      = component.layout,
-            ntype       = (typeof layout === 'string' ? layout : layout?.ntype) || '',
-            direction   = layout?.direction || '',
-            orientation = component.orientation;
+        let layout    = component.layout,
+            ntype     = (typeof layout === 'string' ? layout : layout?.ntype) || '',
+            direction = layout?.direction || '';
 
-        if (ntype.endsWith('card') || component.dockNodeType === 'tabs') {
+        if (ntype.endsWith('card')) {
             return 'card'
         }
 
@@ -219,21 +218,11 @@ class Splitter extends Component {
             return 'fit'
         }
 
-        if (
-            ntype.endsWith('hbox') ||
-            direction.startsWith('row') ||
-            component.dockNodeType === 'edge-zone-row' ||
-            (component.dockNodeType === 'split' && orientation !== 'vertical')
-        ) {
+        if (ntype.endsWith('hbox') || direction.startsWith('row')) {
             return 'width'
         }
 
-        if (
-            ntype.endsWith('vbox') ||
-            direction.startsWith('column') ||
-            component.dockNodeType === 'rail-frame' ||
-            (component.dockNodeType === 'split' && orientation === 'vertical')
-        ) {
+        if (ntype.endsWith('vbox') || direction.startsWith('column')) {
             return 'height'
         }
 
@@ -413,7 +402,7 @@ class Splitter extends Component {
     }
 
     /**
-     * @summary Checks whether a sibling component or its nested descendants declare a positive minWidth or minHeight bound.
+     * @summary Checks whether a sibling component or its nested descendants declare a positive or CSS-computed minWidth/minHeight bound.
      * @param {Neo.component.Base|Object|null} component
      * @param {String} axis 'width' or 'height'
      * @returns {Boolean}
@@ -432,7 +421,35 @@ class Splitter extends Component {
             raw    = component[key] ?? component.wrapperStyle?.[key] ?? component.style?.[key],
             source = String(raw ?? '').trim();
 
-        return source.endsWith('%') && Number.parseFloat(source) > 0
+        if (source && !['auto', 'initial', 'none', 'unset'].includes(source)) {
+            let parsed = Number.parseFloat(source);
+
+            if (!Number.isFinite(parsed) || parsed > 0) {
+                return true
+            }
+        }
+
+        if (typeof component.getActiveCard === 'function') {
+            return this.hasSiblingMinSize(component.getActiveCard(), axis)
+        }
+
+        if (Array.isArray(component.items) && component.items.length > 0) {
+            let layoutAxis = this.getContainerLayoutAxis(component);
+
+            if (layoutAxis === 'card') {
+                let activeIndex = Number(component.layout?.activeIndex ?? component.activeIndex ?? 0);
+
+                return this.hasSiblingMinSize(component.items[activeIndex], axis)
+            }
+
+            if (layoutAxis) {
+                return component.items.some(item =>
+                    item && !item.hidden && !this.isSplitterItem(item) && this.hasSiblingMinSize(item, axis)
+                )
+            }
+        }
+
+        return false
     }
 
     /**
@@ -445,7 +462,6 @@ class Splitter extends Component {
         return Boolean(
             item && (
                 item instanceof Splitter ||
-                item.dockNodeType === 'splitter' ||
                 (typeof item.ntype === 'string' && item.ntype.endsWith('splitter'))
             )
         )
