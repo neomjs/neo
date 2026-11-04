@@ -75,7 +75,16 @@ class SceneCanvas extends SharedCanvas {
     }
 
     /**
-     * @summary The renderer's stats: camera, drawing buffer, counts, frames, context state.
+     * @summary Eases the renderer's camera to a node of the scene.
+     * @param {Number} index
+     * @returns {Promise<void>}
+     */
+    flyTo(index) {
+        return this.renderer.flyTo({index, windowId: this.windowId})
+    }
+
+    /**
+     * @summary The renderer's stats: camera, drawing buffer, counts, labels, frames, context state.
      * @returns {Promise<Object>}
      */
     getStats() {

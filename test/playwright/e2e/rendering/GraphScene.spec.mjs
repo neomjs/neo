@@ -3,9 +3,11 @@ import {expect, test} from '../../fixtures.mjs';
 /**
  * @summary `Neo.canvas.GraphScene` drawing a real WebGL2 scene on the canvas worker, read through the example's
  * stats: a scene draws on arrival and nothing while idle, a drag orbits, the drawing buffer follows the device
- * pixel ratio, a lost context comes back with its scene, and a resize keeps it.
+ * pixel ratio, labels follow their nodes, a fly-to centres its node, a lost context comes back with its scene and
+ * its labels, and a resize keeps it.
  *
- * Fixture: `examples/component/graphScene`, whose demo scene of 240 nodes has 458 edges and one path.
+ * Fixture: `examples/component/graphScene`, whose demo scene of 240 nodes has 458 edges, one path, and a label
+ * on each of the path's 20 nodes.
  */
 const
     EXAMPLE = '/examples/component/graphScene/index.html',
@@ -19,8 +21,8 @@ let reads = 0;
  * @returns {Promise<Object>}
  */
 async function readStats(page) {
-    const read = ++reads;
-    let stats  = null;
+    const read  = ++reads;
+    let   stats = null;
 
     await page.getByRole('button', {name: 'Read stats'}).click();
     await expect.poll(async () => {
@@ -107,6 +109,39 @@ test.describe('Neo.canvas.GraphScene — a WebGL2 scene on the canvas worker', (
         expect(orbited.camera.yaw).not.toBe(idle.camera.yaw)
     });
 
+    test('labels draw at their nodes and follow an orbit; a fly-to lands its node at the centre', async ({page}) => {
+        const drawn = await sizedSceneDrawn(page);
+
+        expect(drawn.labels.count, 'every twelfth node is labelled').toBe(20);
+        expect(drawn.uploaded.labels, 'their texts are uploaded once, as one atlas').toBe(20);
+        expect(drawn.labels.drawn.length, 'the frame places some of them').toBeGreaterThan(0);
+        expect(drawn.labels.drawn.length, 'never more than a frame draws').toBeLessThanOrEqual(30);
+
+        const box = await page.locator('canvas').boundingBox();
+
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height / 2 + 30, {steps: 8});
+        await page.mouse.up();
+
+        const
+            orbited = await statsWhen(page, stats => stats.frames > drawn.frames && stats.camera.touched, 'the drag draws'),
+            before  = new Map(drawn.labels.drawn.map(label => [label.index, label])),
+            moved   = orbited.labels.drawn.filter(({index, x, y}) => before.has(index) && Math.hypot(x - before.get(index).x, y - before.get(index).y) > 1);
+
+        expect(moved.length, 'the labels move with their nodes').toBeGreaterThan(0);
+
+        await page.getByRole('button', {name: 'Fly to #120'}).click();
+
+        const
+            landed = await statsWhen(page, stats => !stats.flying && stats.labels.drawn.some(label => label.index === 120), 'the flight lands with #120 drawn'),
+            label  = landed.labels.drawn.find(({index}) => index === 120);
+
+        expect(label.text).toBe('#120');
+        expect(label.x, 'the node flown to sits at the centre').toBeCloseTo(box.width / 2, 0);
+        expect(label.y).toBeCloseTo(box.height / 2, 0)
+    });
+
     test('a lost context comes back with its scene, and a resize keeps it', async ({page}) => {
         const drawn = await sizedSceneDrawn(page);
 
@@ -124,6 +159,8 @@ test.describe('Neo.canvas.GraphScene — a WebGL2 scene on the canvas worker', (
         expect(restored.counts).toEqual(SCENE);
         expect(restored.uploaded, 'the kept scene is uploaded to the new context').toMatchObject(SCENE);
         expect(restored.canvas, 'the restore sizes the new buffer as before').toEqual(drawn.canvas);
+        expect(restored.uploaded.labels, 'the label atlas is drawn again for the new context').toBe(20);
+        expect(restored.labels.drawn.length, 'and the labels draw').toBeGreaterThan(0);
 
         await page.setViewportSize({width: 700, height: 500});
 
