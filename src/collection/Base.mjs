@@ -731,85 +731,14 @@ class Collection extends Base {
      * @protected
      */
     doSort(items=this._items, silent=false) {
-        let me                = this,
-            previousItems     = items.slice(),
-            {sorters, sortDirections, sortProperties} = me,
-            countSorters      = sortProperties.length || 0,
-            hasSortByMethod   = false,
-            hasTransformValue = false,
-            i, mappedItems, obj, sorter, sortProperty, sortValue, val1, val2;
+        let me            = this,
+            previousItems = items.slice(),
+            countSorters  = me.sortProperties.length || 0;
 
         if (countSorters > 0) {
-            sorters.forEach(key => {
-                if (key.sortBy) {
-                    hasSortByMethod = true
-                }
-
-                if (key.useTransformValue) {
-                    hasTransformValue = true
-                }
-            });
-
-            if (hasSortByMethod) {
-                me._items.sort((a, b) => {
-                    i = 0;
-
-                    for (; i < countSorters; i++) {
-                        sorter    = sorters[i];
-                        sortValue = sorter[sorter.sortBy ? 'sortBy' : 'defaultSortBy'](a, b);
-
-                        if (sortValue !== 0) {
-                            return sortValue
-                        }
-                    }
-
-                    return 0
-                })
-            } else {
-                if (hasTransformValue) {
-                    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort#Sorting_with_map
-                    // The position lives under a Symbol, so a sort property of any name (e.g. `index`) cannot overwrite it
-                    mappedItems = items.map((item, index) => {
-                        obj = {[sortPosition]: index};
-                        i   = 0;
-
-                        for (; i < countSorters; i++) {
-                            if (sorters[i].useTransformValue) {
-                                obj[sortProperties[i]] = sorters[i].transformValue(item[sortProperties[i]])
-                            } else {
-                                obj[sortProperties[i]] = item[sortProperties[i]]
-                            }
-                        }
-
-                        return obj
-                    });
-                } else {
-                    mappedItems = items
-                }
-
-                mappedItems.sort((a, b) => {
-                    i = 0;
-
-                    for (; i < countSorters; i++) {
-                        sortProperty = sortProperties[i];
-                        val1         = a[sortProperty];
-                        val2         = b[sortProperty];
-                        sortValue    = Sorter.compareValues(val1, val2, sortDirections[i]);
-
-                        if (sortValue !== 0) {
-                            return sortValue
-                        }
-                    }
-
-                    return 0
-                });
-
-                if (hasTransformValue) {
-                    me._items = mappedItems.map(el => {
-                        return items[el[sortPosition]]
-                    })
-                }
-            }
+            items = items.slice();
+            me.sortArray(items);
+            me._items = items
         }
 
         me[isSorted] = countSorters > 0;
@@ -1516,6 +1445,99 @@ class Collection extends Base {
      */
     forEach(fn, scope) {
         this._items.forEach(fn, scope);
+    }
+
+    /**
+     * @summary Sorts an array of items or records in place using the collection's active sorters.
+     *
+     * Shared by {@link #doSort} (for flat collections and stores) and `Neo.data.TreeStore` (for localized
+     * `#childrenMap` arrays). Both paths read {@link Neo.collection.Sorter.getValue} (so dotted property
+     * paths resolve on `Record` instances and plain objects alike) and {@link Neo.collection.Sorter.compareValues}
+     * (so `null` / `undefined` sink and numeric convertibility stays transitive).
+     *
+     * @param {Object[]} arr The array to sort in place.
+     * @protected
+     */
+    sortArray(arr) {
+        let me                                        = this,
+            {sorters, sortDirections, sortProperties} = me,
+            countSorters                              = sortProperties.length || 0,
+            hasSortByMethod                           = false,
+            hasTransformValue                         = false,
+            i, mappedItems, obj, rawValue, sorted, sorter, sortProperty, sortValue, val1, val2;
+
+        if (countSorters < 1 || arr.length < 2) {
+            return
+        }
+
+        sorters.forEach(key => {
+            if (key.sortBy) {
+                hasSortByMethod = true
+            }
+
+            if (key.useTransformValue) {
+                hasTransformValue = true
+            }
+        });
+
+        if (hasSortByMethod) {
+            arr.sort((a, b) => {
+                for (i = 0; i < countSorters; i++) {
+                    sorter    = sorters[i];
+                    sortValue = sorter[sorter.sortBy ? 'sortBy' : 'defaultSortBy'](a, b);
+
+                    if (sortValue !== 0) {
+                        return sortValue
+                    }
+                }
+
+                return 0
+            })
+        } else {
+            if (hasTransformValue) {
+                // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort#Sorting_with_map
+                // The position lives under a Symbol, so a sort property of any name (e.g. `index`) cannot overwrite it
+                mappedItems = arr.map((item, index) => {
+                    obj = {[sortPosition]: index};
+
+                    for (i = 0; i < countSorters; i++) {
+                        sortProperty = sortProperties[i];
+                        rawValue     = Sorter.getValue(item, sortProperty);
+
+                        obj[sortProperty] = sorters[i].useTransformValue
+                            ? sorters[i].transformValue(rawValue)
+                            : rawValue
+                    }
+
+                    return obj
+                })
+            } else {
+                mappedItems = arr
+            }
+
+            mappedItems.sort((a, b) => {
+                for (i = 0; i < countSorters; i++) {
+                    sortProperty = sortProperties[i];
+                    val1         = hasTransformValue ? a[sortProperty] : Sorter.getValue(a, sortProperty);
+                    val2         = hasTransformValue ? b[sortProperty] : Sorter.getValue(b, sortProperty);
+                    sortValue    = Sorter.compareValues(val1, val2, sortDirections[i]);
+
+                    if (sortValue !== 0) {
+                        return sortValue
+                    }
+                }
+
+                return 0
+            });
+
+            if (hasTransformValue) {
+                sorted = mappedItems.map(el => arr[el[sortPosition]]);
+
+                for (i = 0; i < arr.length; i++) {
+                    arr[i] = sorted[i]
+                }
+            }
+        }
     }
 
     /**

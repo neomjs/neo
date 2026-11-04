@@ -121,10 +121,11 @@ class Sorter extends Base {
      * @returns {Number} `-1`, `0` or `1`, already direction-adjusted.
      */
     defaultSortBy(a, b) {
-        let me = this;
+        let me         = this,
+            {property} = me;
 
-        a = a[me.property];
-        b = b[me.property];
+        a = Sorter.getValue(a, property);
+        b = Sorter.getValue(b, property);
 
         if (me.useTransformValue) {
             a = me.transformValue(a);
@@ -132,6 +133,39 @@ class Sorter extends Base {
         }
 
         return Sorter.compareValues(a, b, me.directionMultiplier)
+    }
+
+    /**
+     * @summary Resolves a sort property on a record or plain item, including dotted nested paths.
+     *
+     * Flat properties, `Symbol` keys (such as `Symbol.for('initialIndex')` in `Store#sort()`), and
+     * declared `Model` getters resolve on the first `item[property]` read. Only when that read is
+     * `undefined` and `property` is a dotted string path does this walk `item.get(property)` (for
+     * `Neo.data.Record` instances whose nested data lives under `this[Symbol.for('data')]`) and
+     * `Neo.ns(property, false, item)` (for plain objects or calculated root getters on a `Record`).
+     *
+     * @param {Object|Neo.data.Record} item
+     * @param {String|Symbol} property
+     * @returns {*}
+     */
+    static getValue(item, property) {
+        if (!item) {
+            return undefined
+        }
+
+        let value = item[property];
+
+        if (value === undefined && typeof property === 'string' && property.includes('.')) {
+            if (typeof item.get === 'function') {
+                value = item.get(property)
+            }
+
+            if (value === undefined) {
+                value = Neo.ns(property, false, item)
+            }
+        }
+
+        return value
     }
 
     /**
