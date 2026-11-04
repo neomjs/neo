@@ -458,11 +458,25 @@ class DragDrop extends Base {
         }
 
         resizeLocally = Boolean(me.dragResize?.active);
-        resizeLocally && me.dragResize.apply(event.detail);
+        const resizedSize = resizeLocally ? me.dragResize.apply(event.detail) : null;
 
         if (me.dragProxyElement) {
             left = event.detail.clientX - me.offsetX;
             top  = event.detail.clientY - me.offsetY;
+
+            if (resizeLocally && Number.isFinite(resizedSize) && me.dragResize.state) {
+                const
+                    resizeState = me.dragResize.state,
+                    resizeDelta = resizeState.resizeNext
+                        ? resizeState.startSize - resizedSize
+                        : resizedSize - resizeState.startSize;
+
+                if (resizeState.axis === 'width') {
+                    left = resizeState.startCoordinate + resizeDelta - me.offsetX
+                } else if (resizeState.axis === 'height') {
+                    top = resizeState.startCoordinate + resizeDelta - me.offsetY
+                }
+            }
 
             if (rect && !me.allowOverdrag) {
                 if (left < rect.left) {

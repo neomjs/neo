@@ -246,5 +246,64 @@ test.describe('Neo.component.Splitter live-resize ownership', () => {
         expect(zone.isDestroyed).toBe(true);
         expect(unregistered).toHaveLength(1);
         expect(unregistered[0]).toMatchObject({dragZoneId: zone.id})
+    });
+
+    test('forwards sibling minWidth / minHeight and opposite sibling bounds into resizeConfig', () => {
+        let tree = createTree({direction: 'vertical', resizeTarget: 'next'});
+
+        tree.previous.minWidth = 110;
+        tree.next.minWidth     = 140;
+
+        expect(tree.splitter.getResizeConfig()).toMatchObject({
+            axis           : 'width',
+            minSize        : 140,
+            oppositeId     : tree.previous.id,
+            oppositeMinSize: 110,
+            resizeNext     : true,
+            targetId       : tree.next.id
+        });
+
+        tree.splitter.resizeTarget = 'previous';
+
+        expect(tree.splitter.getResizeConfig()).toMatchObject({
+            axis           : 'width',
+            minSize        : 110,
+            oppositeId     : tree.next.id,
+            oppositeMinSize: 140,
+            resizeNext     : false,
+            targetId       : tree.previous.id
+        });
+
+        tree.previous.minWidth = '25%';
+
+        expect(tree.splitter.getResizeConfig().minSize).toBeUndefined();
+
+        parent.destroy();
+        parent = null;
+
+        tree = createTree({direction: 'horizontal', resizeTarget: 'next'});
+
+        tree.previous.wrapperStyle = {flex: '1 1 0%', minHeight: '75px'};
+        tree.next.style            = {minHeight: '90px'};
+
+        expect(tree.splitter.getResizeConfig()).toMatchObject({
+            axis           : 'height',
+            minSize        : 90,
+            oppositeId     : tree.previous.id,
+            oppositeMinSize: 75,
+            resizeNext     : true,
+            targetId       : tree.next.id
+        })
+    });
+
+    test('clamps terminal applyResize against the target sibling configured minWidth or minHeight', async () => {
+        const {next, splitter} = createTree();
+
+        next.minWidth = 150;
+
+        await start(splitter);
+        end(splitter, 80);
+
+        expect(next.wrapperStyle).toMatchObject({flex: 'none', width: '150px'})
     })
 });
