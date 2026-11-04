@@ -143,6 +143,9 @@ class Sorter extends Base {
      * `undefined` and `property` is a dotted string path does this walk `item.get(property)` (for
      * `Neo.data.Record` instances whose nested data lives under `this[Symbol.for('data')]`) and
      * `Neo.ns(property, false, item)` (for plain objects or calculated root getters on a `Record`).
+     * `typeof item.get === 'function'` is duck-typed so `collection/` stays decoupled from
+     * `data/RecordFactory`; any item exposing `get(property)` is consulted before falling through to
+     * `Neo.ns` when it returns `undefined`.
      *
      * @param {Object|Neo.data.Record} item
      * @param {String|Symbol} property

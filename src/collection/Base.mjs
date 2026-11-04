@@ -736,7 +736,6 @@ class Collection extends Base {
             countSorters  = me.sortProperties.length || 0;
 
         if (countSorters > 0) {
-            items = items.slice();
             me.sortArray(items);
             me._items = items
         }

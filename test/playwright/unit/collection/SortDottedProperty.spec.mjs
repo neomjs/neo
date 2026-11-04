@@ -11,16 +11,17 @@ import {setup} from '../../setup.mjs';
 
 setup({appConfig: {name: 'CollectionSortDottedPropertyTest'}});
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import Collection     from '../../../../src/collection/Base.mjs';
-import Sorter         from '../../../../src/collection/Sorter.mjs';
-import Model          from '../../../../src/data/Model.mjs';
-import RecordFactory  from '../../../../src/data/RecordFactory.mjs';
-import Store          from '../../../../src/data/Store.mjs';
-import TreeModel      from '../../../../src/data/TreeModel.mjs';
-import TreeStore      from '../../../../src/data/TreeStore.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../src/manager/Instance.mjs';
+import Collection      from '../../../../src/collection/Base.mjs';
+import Sorter          from '../../../../src/collection/Sorter.mjs';
+import Model           from '../../../../src/data/Model.mjs';
+import RecordFactory   from '../../../../src/data/RecordFactory.mjs';
+import Store           from '../../../../src/data/Store.mjs';
+import TreeModel       from '../../../../src/data/TreeModel.mjs';
+import TreeStore       from '../../../../src/data/TreeStore.mjs';
 
 class TelemetryModel extends Model {
     static config = {
@@ -44,6 +45,7 @@ class TelemetryTreeModel extends TreeModel {
     static config = {
         className: 'Test.Unit.Collection.SortDottedProperty.TelemetryTreeModel',
         fields   : [
+            {name: 'id',    type: 'String'},
             {name: 'index', type: 'Integer'},
             {name: 'stats', type: 'Object'},
             {
@@ -140,20 +142,37 @@ test.describe('Neo.collection.Sorter.getValue and dotted property sorting', () =
         turboStore.destroy()
     });
 
-    test('TreeStore inherits sortArray from Collection and sorts hierarchical levels by dotted paths and index', () => {
+    test('TreeStore inherits sortArray from Collection and sorts hierarchical levels by dotted paths and index in Record and Turbo Mode', () => {
         expect(TreeStore.prototype.sortArray).toBe(Collection.prototype.sortArray);
+
+        const treeData = () => [
+            {id: 'g1', parentId: null, isLeaf: false, collapsed: false, index: 2, stats: {running: {throughput: 30}}},
+            {id: 'g2', parentId: null, isLeaf: false, collapsed: false, index: 1, stats: {running: {throughput: 80}}},
+            {id: 'c1', parentId: 'g1', isLeaf: true,  index: 2, stats: {running: {throughput: 25}}},
+            {id: 'c2', parentId: 'g1', isLeaf: true,  index: 1, stats: {running: {throughput: 10}}},
+            {id: 'c3', parentId: 'g1', isLeaf: true,  index: 0, stats: {running: {throughput: null}}}
+        ];
+
+        const recordTreeStore = Neo.create(TreeStore, {
+            autoInitRecords: true,
+            model          : TelemetryTreeModel,
+            data           : treeData(),
+            sorters        : [{direction: 'ASC', property: 'stats.running.throughput'}]
+        });
+
+        expect(recordTreeStore.items.every(node => RecordFactory.isRecord(node))).toBe(true);
+        expect(recordTreeStore.items.map(node => node.id)).toEqual(['g1', 'c2', 'c1', 'c3', 'g2']);
+
+        recordTreeStore.sorters = [{direction: 'DESC', property: 'computed.score'}];
+        expect(recordTreeStore.items.map(node => node.id)).toEqual(['g2', 'g1', 'c1', 'c2', 'c3']);
+
+        recordTreeStore.destroy();
 
         const treeStore = Neo.create(TreeStore, {
             autoInitRecords: false,
             model          : TelemetryTreeModel,
-            data           : [
-                {id: 'g1', parentId: null, isLeaf: false, collapsed: false, index: 2, stats: {running: {throughput: 30}}},
-                {id: 'g2', parentId: null, isLeaf: false, collapsed: false, index: 1, stats: {running: {throughput: 80}}},
-                {id: 'c1', parentId: 'g1', isLeaf: true,  index: 2, stats: {running: {throughput: 25}}},
-                {id: 'c2', parentId: 'g1', isLeaf: true,  index: 1, stats: {running: {throughput: 10}}},
-                {id: 'c3', parentId: 'g1', isLeaf: true,  index: 0, stats: {running: {throughput: null}}}
-            ],
-            sorters: [{direction: 'ASC', property: 'stats.running.throughput'}]
+            data           : treeData(),
+            sorters        : [{direction: 'ASC', property: 'stats.running.throughput'}]
         });
 
         expect(treeStore.items.map(node => node.id)).toEqual(['g1', 'c2', 'c1', 'c3', 'g2']);
