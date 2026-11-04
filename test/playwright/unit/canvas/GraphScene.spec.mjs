@@ -120,6 +120,12 @@ test.describe('Neo.canvas.GraphScene — labels and flights, the math', () => {
         expect(Array.from(GraphScene.labelAnchors({lod, nodes, positions})), 'node 1 shares cluster 7 with node 0: their centroid').toEqual([1, 0, 0,  10, 10, 10])
     });
 
+    test('a label sits above the point it names, its lower edge `lift` away, so it never hides the point', () => {
+        const centres = GraphScene.labelCentres({anchors: [[50, 50], null, [20, 80]], boxes: [[40, 20], [40, 20], [30, 10]], lift: 6});
+
+        expect(centres, 'a centre is the half height plus the lift above its point; behind the camera stays without one').toEqual([[50, 34], null, [20, 69]])
+    });
+
     test('a flight eases from its start to its end, the distance by a constant ratio', () => {
         const flight = {from: {dist: 8, target: [0, 0, 0]}, to: {dist: 2, target: [4, -2, 0]}};
 

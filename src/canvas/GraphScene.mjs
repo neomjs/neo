@@ -90,8 +90,9 @@ void main() {
  * A scene can name nodes to label. Each text is drawn once into an atlas texture at the drawing buffer's pixel
  * ratio. Every frame then places the labels in the scene's order and leaves out any that is behind the camera,
  * off the surface or over a label already placed. It draws at most `labelStyle.max` of them above everything
- * else, at every level of detail: at the far level, a label sits on its node's cluster centroid, the point the
- * frame draws. `flyTo` eases the camera to a node, and the pointer taking the camera ends the flight.
+ * else, each just above the point it names, so the label never hides its node: at the far level, that point is
+ * its node's cluster centroid, the one the frame draws. `flyTo` eases the camera to a node, and the pointer taking
+ * the camera ends the flight.
  *
  * Extend it with `singleton: true` and a `className` of your own. The camera math is static, so a test
  * reaches it without a GL context and a subclass can replace it; `normalizeScene` is the seam for a
@@ -134,11 +135,12 @@ class GraphScene extends Base {
         fov: 0.9,
         /**
          * The look of a scene's labels, in CSS pixels: the font's `family` and `weight`, the `size` a label
-         * without its own takes, the `outline` stroked under each text, the `gap` two placed labels keep, and the
-         * most labels a frame draws, `max`.
-         * @member {Object} labelStyle={family: 'system-ui, sans-serif', gap: 4, max: 30, outline: 3, size: 12, weight: 600}
+         * without its own takes, the `outline` stroked under each text, the `gap` two placed labels keep, the
+         * `lift` between the point a label names and the label's lower edge, so the label never hides that point,
+         * and the most labels a frame draws, `max`.
+         * @member {Object} labelStyle={family: 'system-ui, sans-serif', gap: 4, lift: 6, max: 30, outline: 3, size: 12, weight: 600}
          */
-        labelStyle: {family: 'system-ui, sans-serif', gap: 4, max: 30, outline: 3, size: 12, weight: 600},
+        labelStyle: {family: 'system-ui, sans-serif', gap: 4, lift: 6, max: 30, outline: 3, size: 12, weight: 600},
         /**
          * The foveated level of detail of a scene that carries `clusters`, by the camera distance as a multiple
          * of the fitted distance. At `far` and beyond: the cluster centroids and one bundle line per connected
@@ -471,6 +473,19 @@ class GraphScene extends Base {
     }
 
     /**
+     * @summary Where each label's centre lies on the surface: its lower edge `lift` above the point it names, so the
+     * label never hides that point. A label without an anchor stays without one.
+     * @param {Object} options
+     * @param {Array<Number[]|null>} options.anchors The point each label names, `[x, y]`, or `null`
+     * @param {Number[][]} options.boxes `[width, height]` per label, in the anchors' unit
+     * @param {Number} options.lift The space between a point and its label's lower edge, in the anchors' unit
+     * @returns {Array<Number[]|null>}
+     */
+    static labelCentres({anchors, boxes, lift}) {
+        return anchors.map((anchor, label) => anchor && [anchor[0], anchor[1] - lift - boxes[label][1] / 2])
+    }
+
+    /**
      * @summary Where each label sits in the scene: at its node, or, while the frame draws cluster centroids
      * instead of nodes, at its node's centroid, so a label never floats where nothing is drawn.
      * @param {Object} options
@@ -559,8 +574,8 @@ class GraphScene extends Base {
      */
     contextLost = false
     /**
-     * The labels the last frame drew, `{index, text, x, y}` each: the node's index and the label's centre in
-     * CSS pixels.
+     * The labels the last frame drew, `{index, text, x, y}` each: the node's index and, in CSS pixels, the point
+     * the label names, which the label sits `labelStyle.lift` above.
      * @member {Object[]} drawnLabels=[]
      */
     drawnLabels = []
@@ -1227,8 +1242,8 @@ class GraphScene extends Base {
 
     /**
      * @summary Draws the labels this frame places ({@link Neo.canvas.GraphScene.placeLabels}) as quads from the
-     * atlas, snapped to whole pixels and in the premultiplied blend, then leaves the blend as it found it. The
-     * placed labels become `drawnLabels`.
+     * atlas, each `labelStyle.lift` above the point it names, snapped to whole pixels and in the premultiplied blend,
+     * then leaves the blend as it found it. The placed labels become `drawnLabels`.
      * @protected
      */
     drawLabels() {
@@ -1241,13 +1256,15 @@ class GraphScene extends Base {
         }
 
         const
-            {height, width} = gl.canvas,
-            {nodes, texts}  = scene.labels,
-            M               = me.matrix(),
-            points          = me.constructor.labelAnchors({lod: me.getLodLevel() === 'far' ? scene.lod : null, nodes, positions: scene.positions}),
-            anchors         = Array.from(nodes, (node, label) => atlas.fits[label] ? me.constructor.project(M, points[label * 3], points[label * 3 + 1], points[label * 3 + 2], width, height) : null),
-            placed          = me.constructor.placeLabels({anchors, boxes: atlas.boxes, gap: me.labelStyle.gap * atlas.ratio, height, max: me.labelStyle.max, width}),
-            quads           = new Float32Array(placed.length * 24);
+            {height, width}  = gl.canvas,
+            {nodes, texts}   = scene.labels,
+            {gap, lift, max} = me.labelStyle,
+            M                = me.matrix(),
+            points           = me.constructor.labelAnchors({lod: me.getLodLevel() === 'far' ? scene.lod : null, nodes, positions: scene.positions}),
+            anchors          = Array.from(nodes, (node, label) => atlas.fits[label] ? me.constructor.project(M, points[label * 3], points[label * 3 + 1], points[label * 3 + 2], width, height) : null),
+            centres          = me.constructor.labelCentres({anchors, boxes: atlas.boxes, lift: lift * atlas.ratio}),
+            placed           = me.constructor.placeLabels({anchors: centres, boxes: atlas.boxes, gap: gap * atlas.ratio, height, max, width}),
+            quads            = new Float32Array(placed.length * 24);
 
         if (!placed.length) {
             return
@@ -1255,7 +1272,7 @@ class GraphScene extends Base {
 
         placed.forEach((label, quad) => {
             const
-                [x, y]   = anchors[label],
+                [x, y]   = centres[label],
                 [w, h]   = atlas.boxes[label],
                 [u, v]   = atlas.origins[label],
                 left     = Math.round(x - w / 2) / width * 2 - 1,
