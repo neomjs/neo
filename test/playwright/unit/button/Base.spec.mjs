@@ -206,6 +206,39 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         urlButton.destroy();
     });
 
+    test('a url that arrives after construction opens per urlTarget, and a route link stays in this window', async () => {
+        const lateButton = Neo.create(Button, {appName, text: 'Open'});
+        let   {vnode}    = await lateButton.initVnode();
+
+        lateButton.mounted = true;
+
+        expect(vnode.nodeName).toBe('button');
+        expect(vnode.attributes.target).toBeUndefined();
+
+        ({vnode} = await lateButton.set({url: 'https://example.com/late'}));
+
+        expect(vnode.nodeName).toBe('a');
+        expect(vnode.attributes.target, 'the urlTarget default reaches a url set after construction').toBe('_blank');
+
+        ({vnode} = await lateButton.set({urlTarget: '_self'}));
+
+        expect(vnode.attributes.target).toBe('_self');
+
+        ({vnode} = await lateButton.set({url: null}));
+
+        expect(vnode.nodeName).toBe('button');
+        expect(vnode.attributes.target).toBeUndefined();
+
+        const routeButton = Neo.create(Button, {appName, editRoute: false, route: 'details', text: 'Internal link'});
+        const routeVnode  = (await routeButton.initVnode()).vnode;
+
+        expect(routeVnode.attributes.href).toBe('#details');
+        expect(routeVnode.attributes.target, 'a route link carries no target').toBeUndefined();
+
+        routeButton.destroy();
+        lateButton.destroy();
+    });
+
     test('Prototype VDOM mutation check', async () => {
         // Manually clean prototype to verify the fix or demonstrate the bug
         // Note: We need to access the prototype from the class constructor
