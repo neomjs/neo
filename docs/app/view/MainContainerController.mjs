@@ -1,5 +1,4 @@
 import Component from '../../../src/controller/Component.mjs';
-import NeoArray  from '../../../src/util/Array.mjs';
 
 /**
  * @class Docs.view.MainContainerController
@@ -29,18 +28,36 @@ class MainContainerController extends Component {
     }
 
     /**
-     * @param {Object} config
+     * @summary Syncs the initial theme and source-view theme button state and HighlightJS stylesheet to the active theme, hiding the Docs theme button when embedded in the Portal.
      */
-    construct(config) {
-        super.construct(config);
+    onComponentConstructed() {
+        super.onComponentConstructed();
 
-        let me        = this,
-            {appName} = me.component,
-            opts      = {windowId: me.windowId};
+        let me                    = this,
+            isPortal              = me.component.appName === 'Portal',
+            isDark                = Boolean(me.component.getTheme()?.includes('dark')),
+            libPath               = isPortal ? '../../docs/resources/lib/' : './resources/lib/',
+            sourceViewThemeButton = me.getReference('source-view-theme-button'),
+            themeButton           = me.getReference('theme-button'),
+            opts                  = {
+                themePath: libPath + (isDark ? 'highlightjs-custom-dark-theme.css' : 'highlightjs-custom-github-theme.css'),
+                windowId : me.windowId
+            };
 
-        if (appName === 'Portal') {
-            opts.highlightJsPath = '../../docs/resources/lib/highlight/highlight.pack.js';
-            opts.themePath       = '../../docs/resources/lib/highlightjs-custom-github-theme.css'
+        if (isPortal) {
+            opts.highlightJsPath = libPath + 'highlight/highlight.pack.js'
+        }
+
+        if (themeButton) {
+            if (isPortal) {
+                themeButton.hidden = true
+            } else {
+                themeButton.text = isDark ? 'Theme Light' : 'Theme Dark'
+            }
+        }
+
+        if (sourceViewThemeButton) {
+            sourceViewThemeButton.text = isDark ? 'Source View Theme Light' : 'Source View Theme Dark'
         }
 
         Neo.main.addon.HighlightJS.loadFiles(opts)
@@ -149,19 +166,20 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
+     * @summary Toggles the HighlightJS source-view stylesheet and button label between light and dark themes.
      */
     onSwitchSourceViewThemeButtonClick() {
-        let me     = this,
-            button = me.getReference('source-view-theme-button'),
+        let me      = this,
+            button  = me.getReference('source-view-theme-button'),
+            libPath = me.component.appName === 'Portal' ? '../../docs/resources/lib/' : './resources/lib/',
             buttonText, href;
 
         if (button.text === 'Source View Theme Light') {
             buttonText = 'Source View Theme Dark';
-            href       = './resources/lib/highlightjs-custom-github-theme.css'
+            href       = libPath + 'highlightjs-custom-github-theme.css'
         } else {
             buttonText = 'Source View Theme Light';
-            href       = './resources/lib/highlightjs-custom-dark-theme.css'
+            href       = libPath + 'highlightjs-custom-dark-theme.css'
         }
 
         Neo.main.addon.Stylesheet.swapStyleSheet({
@@ -174,13 +192,13 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
+     * @summary Toggles the Docs view theme and theme-switch button label between light and dark themes.
      */
     onSwitchThemeButtonClick() {
         let me     = this,
             button = me.getReference('theme-button'),
             view   = me.component,
-            buttonText, cls, theme;
+            buttonText, theme;
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
@@ -190,17 +208,7 @@ class MainContainerController extends Component {
             theme      = 'neo-theme-dark'
         }
 
-        cls = [...view.cls];
-
-        view.cls.forEach(item => {
-            if (item.includes('neo-theme')) {
-                NeoArray.remove(cls, item)
-            }
-        });
-
-        NeoArray.add(cls, theme);
-        view.cls = cls;
-
+        view.theme  = theme;
         button.text = buttonText
     }
 
