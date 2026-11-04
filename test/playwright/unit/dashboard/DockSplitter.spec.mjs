@@ -481,6 +481,185 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
         }]);
         expect(splitter.dockZoneDocument.nodes.root.zones.left.extent).toBe(0.2)
     });
+
+    test('edge DockSplitter preserves sibling and active-card minSize above 1px instead of clobbering to 1', () => {
+        splitter = createEdgeSplitter({
+            id: 'dock-edge-splitter-preserve-min-size'
+        });
+
+        splitter.parent.items[0].style         = {minHeight: 0, minWidth: 0};
+        splitter.parent.items[0].getActiveCard = () => ({minWidth: 185});
+
+        expect(splitter.getResizeConfig()).toEqual({
+            axis                 : 'width',
+            awaitWorkerSettlement: true,
+            minSize              : 185,
+            parentId             : 'edge-parent',
+            preview              : true,
+            resizeNext           : false,
+            splitterSize         : 6,
+            targetId             : 'left-wrapper'
+        })
+    });
+
+    test('split-boundary DockSplitter forwards aggregated multi-sibling minSize and counterMinSize onto the conserved-pair descriptor', () => {
+        const parent = {
+            disabled: false,
+            id      : 'dock-nested-parent',
+            items   : [{
+                dockNodeType: 'split',
+                flex        : 0.5,
+                id          : 'left-vertical-split',
+                orientation : 'vertical',
+                style       : {minHeight: 0, minWidth: 0},
+                items       : [
+                    {dockNodeType: 'tabs', getActiveCard: () => ({minWidth: 140}), id: 'left-top-tabs'},
+                    {dockNodeType: 'splitter', id: 'left-inner-splitter', size: 6},
+                    {dockNodeType: 'tabs', getActiveCard: () => ({minWidth: 220}), id: 'left-bottom-tabs'}
+                ]
+            }, {
+                dockNodeType: 'splitter',
+                id          : 'dock-nested-splitter-placeholder'
+            }, {
+                dockNodeType: 'split',
+                flex        : 0.5,
+                id          : 'right-horizontal-split',
+                orientation : 'horizontal',
+                style       : {minHeight: 0, minWidth: 0},
+                items       : [
+                    {dockNodeType: 'tabs', id: 'right-a-tabs', minWidth: 110},
+                    {dockNodeType: 'splitter', id: 'right-inner-splitter', size: 6},
+                    {dockNodeType: 'tabs', id: 'right-b-tabs', minWidth: 130}
+                ]
+            }]
+        };
+
+        splitter = Neo.create(DockSplitter, {
+            boundaryIndex   : 0,
+            dockZoneDocument: createDocument(),
+            id              : 'dock-nested-splitter',
+            orientation     : 'horizontal',
+            parentComponent : parent,
+            splitNodeId     : 'root'
+        });
+
+        splitter.dockNodeType    = 'splitter';
+        splitter.parent.items[1] = splitter;
+
+        expect(splitter.getResizeConfig()).toEqual({
+            awaitWorkerSettlement: true,
+            axis                 : 'width',
+            counterMinSize       : 246,
+            counterTargetId      : 'right-horizontal-split',
+            minSize              : 220,
+            parentId             : 'dock-nested-parent',
+            preview              : true,
+            resizeNext           : false,
+            splitterSize         : 6,
+            targetId             : 'left-vertical-split'
+        })
+    });
+
+    test('Resize conserved-pair (counterTargetId) branch honors minSize and counterMinSize inside [1, pairTotal - 1]', async () => {
+        const originalDocument  = globalThis.document,
+              originalDomAccess = Neo.main.DomAccess,
+              originalWindow    = globalThis.window;
+
+        globalThis.document = new EventTarget();
+        globalThis.window   = new EventTarget();
+        delete Neo.main.DomAccess;
+
+        const {default: DomAccess} = await import('../../../../src/main/DomAccess.mjs'),
+              {default: Resize}    = await import('../../../../src/main/draggable/Resize.mjs');
+
+        const createStyle = initial => {
+            const values = new Map(Object.entries(initial));
+
+            return {
+                getPropertyPriority: () => '',
+                getPropertyValue   : key => values.get(key) || '',
+                removeProperty     : key => values.delete(key),
+                setProperty        : (key, value) => values.set(key, value)
+            }
+        };
+
+        const originalGetElement       = DomAccess.getElement,
+              originalGetLayoutRect    = DomAccess.getLayoutRect,
+              originalGetComputedStyle = globalThis.getComputedStyle,
+              parent                   = {},
+              targetStyle              = createStyle({flex: '0.5 1 0%'}),
+              counterStyle             = createStyle({flex: '0.5 1 0%'}),
+              target                   = {style: targetStyle},
+              counter                  = {style: counterStyle};
+
+        DomAccess.getElement    = id => ({counter, parent, target})[id] || null;
+        DomAccess.getLayoutRect = element => {
+            if (element === parent) return {height: 500, width: 606};
+            return {height: 500, width: 300}
+        };
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue: key => key === 'min-width' ? '0px' : 'none'
+        });
+
+        try {
+            const resize = new Resize(),
+                  state  = resize.createState({
+                      awaitWorkerSettlement: true,
+                      axis                 : 'width',
+                      counterMinSize       : 240,
+                      counterTargetId      : 'counter',
+                      minSize              : 220,
+                      parentId             : 'parent',
+                      preview              : true,
+                      resizeNext           : false,
+                      splitterSize         : 6,
+                      targetId             : 'target'
+                  }, {clientX: 300});
+
+            resize.state = state;
+
+            expect(state.pairTotal).toBe(600);
+            expect(state.minSize).toBe(220);
+            expect(state.maxSize).toBe(360);
+
+            expect(resize.apply({clientX: 50, clientY: 0})).toBe(220);
+            expect(targetStyle.getPropertyValue('width')).toBe('220px');
+            expect(counterStyle.getPropertyValue('width')).toBe('380px');
+
+            expect(resize.apply({clientX: 550, clientY: 0})).toBe(360);
+            expect(targetStyle.getPropertyValue('width')).toBe('360px');
+            expect(counterStyle.getPropertyValue('width')).toBe('240px');
+
+            const unconstrained = resize.createState({
+                awaitWorkerSettlement: true,
+                axis                 : 'width',
+                counterTargetId      : 'counter',
+                parentId             : 'parent',
+                preview              : true,
+                resizeNext           : false,
+                splitterSize         : 6,
+                targetId             : 'target'
+            }, {clientX: 300});
+
+            expect(unconstrained.minSize).toBe(1);
+            expect(unconstrained.maxSize).toBe(599)
+        } finally {
+            DomAccess.getElement    = originalGetElement;
+            DomAccess.getLayoutRect = originalGetLayoutRect;
+            originalDomAccess === undefined
+                ? delete Neo.main.DomAccess
+                : Neo.main.DomAccess = originalDomAccess;
+            originalDocument === undefined
+                ? delete globalThis.document
+                : globalThis.document = originalDocument;
+            originalWindow === undefined
+                ? delete globalThis.window
+                : globalThis.window = originalWindow;
+            originalGetComputedStyle === undefined
+                ? delete globalThis.getComputedStyle
+                : globalThis.getComputedStyle = originalGetComputedStyle
+        }
+    });
 });
 
 test.describe('Neo.dashboard.dock.interaction.DockSplitter — drag-proxy token projection', () => {

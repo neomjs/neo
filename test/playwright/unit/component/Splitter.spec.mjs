@@ -305,5 +305,97 @@ test.describe('Neo.component.Splitter live-resize ownership', () => {
         end(splitter, 80);
 
         expect(next.wrapperStyle).toMatchObject({flex: 'none', width: '150px'})
+    });
+
+    test('aggregates effective minSize across perpendicular (Math.max), parallel (sum + splitters), and card containers while ignoring 0px flex-shrink resets', async () => {
+        const suffix = ++testRun;
+
+        parent = Neo.create(Container, {
+            appName: 'ComponentSplitterLiveResizeTest',
+            id     : `component-splitter-nested-parent-${suffix}`,
+            layout : {ntype: 'hbox'},
+            items  : [{
+                module: Container,
+                id    : `component-splitter-vbox-column-${suffix}`,
+                layout: {ntype: 'vbox'},
+                style : {minHeight: 0, minWidth: 0},
+                items : [{
+                    module  : Component,
+                    id      : `component-splitter-vbox-top-${suffix}`,
+                    minWidth: 130
+                }, {
+                    module   : Splitter,
+                    direction: 'horizontal',
+                    id       : `component-splitter-vbox-inner-splitter-${suffix}`,
+                    size     : 6
+                }, {
+                    module      : Component,
+                    id          : `component-splitter-vbox-bottom-${suffix}`,
+                    wrapperStyle: {minWidth: '210px'}
+                }]
+            }, {
+                module      : Splitter,
+                direction   : 'vertical',
+                id          : `component-splitter-main-${suffix}`,
+                liveResize  : true,
+                resizeTarget: 'previous'
+            }, {
+                module: Container,
+                id    : `component-splitter-hbox-row-${suffix}`,
+                layout: {ntype: 'hbox'},
+                style : {minHeight: '0px', minWidth: '0px'},
+                items : [{
+                    module  : Component,
+                    id      : `component-splitter-hbox-left-${suffix}`,
+                    minWidth: 120
+                }, {
+                    module   : Splitter,
+                    direction: 'vertical',
+                    id       : `component-splitter-hbox-inner-splitter-${suffix}`,
+                    size     : 8
+                }, {
+                    module: Container,
+                    id    : `component-splitter-card-host-${suffix}`,
+                    layout: {activeIndex: 1, ntype: 'card'},
+                    items : [{
+                        module  : Component,
+                        id      : `component-splitter-card-0-${suffix}`,
+                        minWidth: 90
+                    }, {
+                        module  : Component,
+                        id      : `component-splitter-card-1-${suffix}`,
+                        minWidth: 160
+                    }]
+                }]
+            }]
+        });
+
+        const [vboxColumn, splitter, hboxRow] = parent.items;
+
+        splitter.dragZone.dragStart = async () => {};
+        splitter.dragZone.dragEnd   = () => {};
+        splitter.refreshDragZone();
+
+        expect(splitter.getSiblingMinSize(vboxColumn, 'width'),
+            'perpendicular vbox column touching a vertical splitter resolves Math.max(130, 210) and ignores minWidth: 0'
+        ).toBe(210);
+
+        expect(splitter.getSiblingMinSize(hboxRow, 'width'),
+            'parallel hbox row resolves sum(120, activeCard=160) + internal splitter (8) = 288'
+        ).toBe(288);
+
+        expect(splitter.getResizeConfig()).toMatchObject({
+            axis           : 'width',
+            minSize        : 210,
+            oppositeId     : hboxRow.id,
+            oppositeMinSize: 288,
+            resizeNext     : false,
+            targetId       : vboxColumn.id
+        });
+
+        await start(splitter);
+        end(splitter, 120);
+
+        expect(vboxColumn.wrapperStyle).toMatchObject({flex: 'none', width: '210px'})
     })
 });
