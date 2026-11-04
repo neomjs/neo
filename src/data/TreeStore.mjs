@@ -408,7 +408,7 @@ class TreeStore extends Store {
                     for (let i = 0; i < len; i++) {
                         const property = sortProperties[i];
                         if (!Object.hasOwn(item, property)) {
-                            item[property] = me.resolveField(item, property)
+                            me.resolveField(item, property)
                         }
                     }
                 }
@@ -622,7 +622,7 @@ class TreeStore extends Store {
                         for (let i = 0; i < len; i++) {
                             const property = filterProperties[i];
                             if (!Object.hasOwn(item, property)) {
-                                item[property] = me.resolveField(item, property)
+                                me.resolveField(item, property)
                             }
                         }
                     }
@@ -1000,78 +1000,6 @@ class TreeStore extends Store {
         }
 
         me.count = len
-    }
-
-    /**
-     * Sorts an array of records/objects based on the Store's current sorters.
-     * Extracted from `Neo.collection.Base` to sort localized child arrays.
-     * @param {Array} arr The array to sort.
-     * @protected
-     */
-    sortArray(arr) {
-        let me = this,
-            {sorters, sortDirections, sortProperties} = me,
-            countSorters      = sortProperties.length || 0,
-            hasSortByMethod   = false,
-            hasTransformValue = false,
-            i, mappedItems, obj, sorter, sortProperty, sortValue, val1, val2;
-
-        sorters.forEach(key => {
-            if (key.sortBy)            hasSortByMethod   = true;
-            if (key.useTransformValue) hasTransformValue = true
-        });
-
-        if (hasSortByMethod) {
-            arr.sort((a, b) => {
-                i = 0;
-                for (; i < countSorters; i++) {
-                    sorter    = sorters[i];
-                    sortValue = sorter[sorter.sortBy ? 'sortBy' : 'defaultSortBy'](a, b);
-                    if (sortValue !== 0) return sortValue;
-                }
-                return 0
-            })
-        } else {
-            if (hasTransformValue) {
-                mappedItems = arr.map((item, index) => {
-                    obj = {index, original: item};
-                    i   = 0;
-                    for (; i < countSorters; i++) {
-                        if (sorters[i].useTransformValue) {
-                            obj[sortProperties[i]] = sorters[i].transformValue(item[sortProperties[i]])
-                        } else {
-                            obj[sortProperties[i]] = item[sortProperties[i]]
-                        }
-                    }
-                    return obj;
-                })
-            } else {
-                mappedItems = arr
-            }
-
-            mappedItems.sort((a, b) => {
-                i = 0;
-                for (; i < countSorters; i++) {
-                    sortProperty = sortProperties[i];
-                    val1         = a[sortProperty];
-                    val2         = b[sortProperty];
-
-                    if (val1 == null && val2 != null) return  1;
-                    if (val1 != null && val2 == null) return -1;
-                    if (val1 > val2) return  1 * sortDirections[i];
-                    if (val1 < val2) return -1 * sortDirections[i]
-                }
-                return 0
-            });
-
-            if (hasTransformValue) {
-                // Map the sorted mappedItems back into the original array in place
-                let sortedOriginals = mappedItems.map(el => el.original);
-                for (i = 0; i < arr.length; i++) {
-                    arr[i] = sortedOriginals[i]
-                }
-            }
-        }
     }
 
     /**

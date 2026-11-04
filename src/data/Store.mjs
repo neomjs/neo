@@ -601,7 +601,7 @@ class Store extends Collection {
 
                         // Only resolve if the property is missing on the raw object
                         if (!Object.hasOwn(item, property)) {
-                            item[property] = me.resolveField(item, property)
+                            me.resolveField(item, property)
                         }
                     }
                 }
@@ -748,7 +748,7 @@ class Store extends Collection {
                             const property = filterProperties[i];
 
                             if (!Object.hasOwn(item, property)) {
-                                item[property] = me.resolveField(item, property)
+                                me.resolveField(item, property)
                             }
                         }
                     }
@@ -1114,7 +1114,7 @@ class Store extends Collection {
                 if (filter.effective) {
                     for (const property of filter.fields || (filter.property === null ? [] : [filter.property])) {
                         if (!Object.hasOwn(item, property)) {
-                            item[property] = me.resolveField(item, property)
+                            me.resolveField(item, property)
                         }
                     }
                 }
@@ -1646,7 +1646,19 @@ class Store extends Collection {
             field = me.model.getField(fieldName),
             value;
 
-        if (!field) return undefined;
+        if (!field) {
+            if (typeof fieldName === 'string' && fieldName.includes('.')) {
+                let rootField = fieldName.split('.')[0];
+
+                if (!RecordFactory.isRecord(item) && !Object.hasOwn(item, rootField) && me.model.getField(rootField)) {
+                    me.resolveField(item, rootField)
+                }
+
+                return Neo.ns(fieldName, false, item)
+            }
+
+            return undefined
+        }
 
         if (!RecordFactory.isRecord(item) && field.depends) {
             let deps = field.depends,
