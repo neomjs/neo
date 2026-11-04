@@ -22,10 +22,12 @@ import '../../../../../src/manager/Instance.mjs';
 import TopologyLibrary    from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
 import StateProvider      from '../../../../../src/state/Provider.mjs';
+import Component          from '../../../../../src/component/Base.mjs';
 import Container          from '../../../../../src/container/Base.mjs';
 import Toolbar            from '../../../../../src/toolbar/Base.mjs';
 import FeedPane           from '../../../../../apps/workstation/view/FeedPane.mjs';
 import ScalePane          from '../../../../../apps/workstation/view/ScalePane.mjs';
+import StatusComponent    from '../../../../../apps/workstation/view/StatusComponent.mjs';
 import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
 import TopologyToolbar    from '../../../../../apps/workstation/view/TopologyToolbar.mjs';
 import PopupWorkspace     from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
@@ -4544,5 +4546,41 @@ test.describe('a released vessel retires its native park (prototype-call)', () =
 
         Workspace.prototype.retireReleasedPark.call(host, {windowId: 'metrics-window', workspaceKey: 'workstation-vessel:stack'});
         expect(park.parkedVessel).toBeNull()
+    })
+});
+
+test.describe('Workstation statusModule seam (#20264)', () => {
+    class CustomStatus extends Component {
+        static config = {
+            className: 'Test.Workstation.StatusModule.CustomStatus',
+            reference: 'status-bar'
+        }
+    }
+    CustomStatus = Neo.setupClass(CustomStatus);
+
+    class SubWorkspace extends Workspace {
+        static config = {
+            className   : 'Test.Workstation.StatusModule.SubWorkspace',
+            statusModule: CustomStatus
+        }
+    }
+    SubWorkspace = Neo.setupClass(SubWorkspace);
+
+    test('statusModule defaults to StatusComponent and a subclass or config naming its own module gets that class in the controls row', () => {
+        expect(Workspace.prototype.statusModule).toBe(StatusComponent);
+
+        const defaultWorkspace = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+              subWorkspace     = Neo.create(SubWorkspace, {windowId: Neo.config.windowId}),
+              configWorkspace  = Neo.create(Workspace, {statusModule: CustomStatus, windowId: Neo.config.windowId});
+
+        try {
+            expect(defaultWorkspace.items[1].items[0]).toBeInstanceOf(StatusComponent);
+            expect(subWorkspace.items[1].items[0]).toBeInstanceOf(CustomStatus);
+            expect(configWorkspace.items[1].items[0]).toBeInstanceOf(CustomStatus)
+        } finally {
+            defaultWorkspace.destroy();
+            subWorkspace.destroy();
+            configWorkspace.destroy()
+        }
     })
 });

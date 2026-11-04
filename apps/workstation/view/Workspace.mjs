@@ -103,7 +103,14 @@ class Workspace extends VesselWorkspace {
                 feed : {module: Feed},
                 scale: {module: Scale}
             }
-        }
+        },
+        /**
+         * The class `construct` builds the controls row's status readout from. An app that extends the
+         * Workstation names its own readout class here, through a `Workstation.view.Workspace` subclass or
+         * the workspace config object: `statusModule: MyStatusComponent`.
+         * @member {Class} statusModule=StatusComponent
+         */
+        statusModule: StatusComponent
     }
 
     /**
@@ -265,7 +272,7 @@ class Workspace extends VesselWorkspace {
             module: Container,
             cls   : ['workstation-controls'],
             flex  : 'none',
-            items : [{module: StatusComponent, flex: 1}, {module: TopologyToolbar, workspace: me}],
+            items : [{module: me.statusModule, flex: 1}, {module: TopologyToolbar, workspace: me}],
             layout: {ntype: 'flexbox', align: 'center', direction: 'row', wrap: 'wrap'}
         }, {
             module: Container,
