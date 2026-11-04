@@ -24,6 +24,7 @@ $text-color      : #1c60a0;
     --button-border-hover                       : #{$border-width} #{$border-style} #{$text-color};
     --button-border-pressed                     : #{$border-width} #{$border-style} #{$text-color};
     --button-border-radius                      : 3px;
+    --button-border-width                       : #{$border-width};
     --button-glyph-color                        : #{$text-color};
     --button-glyph-color-active                 : #{$text-color};
     --button-glyph-color-disabled               : #{$text-color};

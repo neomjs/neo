@@ -229,4 +229,29 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
 
         button1.destroy();
     });
+
+    test('SplitButton delegates per-UI borders to child .neo-button nodes (#4044)', async () => {
+        const splitButton = Neo.create(SplitButton, {
+            appName,
+            text: 'Split UI',
+            ui  : 'secondary'
+        });
+
+        let {vnode} = await splitButton.initVnode();
+        splitButton.mounted = true;
+
+        expect(vnode.className).toEqual(['neo-split-button']);
+        expect(vnode.childNodes).toHaveLength(2);
+        expect(vnode.childNodes[0].className).toContain('neo-button');
+        expect(vnode.childNodes[0].className).toContain('neo-button-secondary');
+        expect(vnode.childNodes[1].className).toContain('neo-button');
+        expect(vnode.childNodes[1].className).toContain('neo-trigger-button');
+        expect(vnode.childNodes[1].className).toContain('neo-button-secondary');
+
+        ({vnode} = await splitButton.set({ui: 'tertiary'}));
+        expect(vnode.childNodes[0].className).toContain('neo-button-tertiary');
+        expect(vnode.childNodes[1].className).toContain('neo-button-tertiary');
+
+        splitButton.destroy();
+    });
 });

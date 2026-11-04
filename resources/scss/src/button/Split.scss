@@ -1,16 +1,26 @@
 .neo-split-button {
-    border       : var(--button-border-width) solid var(--button-border-color);
-    border-radius: var(--button-border-radius);
-    display      : flex;
-    width        : fit-content;
+    display: flex;
+    width  : fit-content;
 
     .neo-button {
-        border : none;
         margin : 0;
         padding: .5em;
+
+        &:active,
+        &:hover,
+        &.pressed {
+            z-index: 1;
+        }
+
+        &:first-child:not(:last-child) {
+            border-bottom-right-radius: 0;
+            border-top-right-radius   : 0;
+        }
     }
 
     .neo-trigger-button {
-        border-left: var(--button-border-width) solid var(--button-border-color);
+        border-bottom-left-radius: 0;
+        border-top-left-radius   : 0;
+        margin-left              : calc(-1 * var(--button-border-width));
     }
 }
