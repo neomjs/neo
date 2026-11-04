@@ -29,6 +29,11 @@ class StringUtil extends Base {
      * @static
      */
     static entityPattern = /(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&apos;)|(&dollar;)|(&bsol;)|(&sol;)/g
+    /**
+     * @member {RegExp} regExpMetaPattern
+     * @static
+     */
+    static regExpMetaPattern = /[\\^$.*+?()[\]{}|/\-]/g
 
     static config = {
         /**
@@ -50,6 +55,20 @@ class StringUtil extends Base {
         }
 
         return value.replace(me.charPattern, me.getEntityFromChar.bind(me))
+    }
+
+    /**
+     * Escapes regular expression metacharacters in a string so it matches literally.
+     * @summary Escapes regex metacharacters (`\ ^ $ . * + ? ( ) [ ] { } | / -`) in string inputs.
+     * @param {String} value
+     * @returns {String}
+     */
+    static escapeRegExp(value) {
+        if (!Neo.isString(value)) {
+            return value
+        }
+
+        return value.replace(this.regExpMetaPattern, '\\$&')
     }
 
     /**
