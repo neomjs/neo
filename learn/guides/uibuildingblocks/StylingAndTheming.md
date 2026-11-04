@@ -393,6 +393,8 @@ This enables several powerful workflows:
 
 4.  **Style Workspace-Shared Components:** For components intended to be shared across multiple apps in your workspace, you can create them in the workspace's main `src` folder. These components must use the `Neo` namespace (e.g., `my-workspace/src/component/MyWorkspaceWidget.mjs` defining `Neo.component.MyWorkspaceWidget`). You can then provide their structural styles in the corresponding path within your workspace's `resources/scss/src` folder (e.g., `my-workspace/resources/scss/src/component/MyWorkspaceWidget.scss`).
 
+5.  **Consume Styles from Installed Packages:** An external component package installed in `node_modules/<pkg>` can ship its own SCSS tree by declaring `"neo": {"scss": "resources/scss"}` in its `package.json`. When `npm run build-themes` runs in a workspace, every direct dependency (`dependencies` and `devDependencies`) that declares `neo.scss` joins the build as an SCSS root between the engine (`node_modules/neo.mjs/resources/scss`) and the workspace (`resources/scss`). Package classes outside `Neo.` resolve their theme paths under `apps.<lowercased namespace root>` (for example, `resources/scss/src/apps/<root>/...`), and a same-path file in the workspace still overlays the package's file.
+
 This overlay approach is extremely powerful. It lets you maintain a clean separation between your application code and the engine, making engine upgrades significantly easier.
 
 ## 9. The Build Process
