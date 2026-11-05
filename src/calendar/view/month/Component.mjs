@@ -759,12 +759,12 @@ class Component extends BaseComponent {
             me.scrollTaskId = null
         }
 
-        rects = await Neo.main.DomAccess.getBoundingClientRect?.({
+        rects = await Neo.main.DomAccess.getBoundingClientRect({
             id      : [container.id, ...weeks.map(week => week.id)],
             windowId: me.windowId
         });
 
-        if (me.scrollTaskId) {
+        if (me.scrollTaskId || me.isDestroyed) {
             return
         }
 
