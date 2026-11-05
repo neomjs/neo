@@ -222,7 +222,7 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         // nobody asserted.
         const outputs = readWorkflow(CLASSIFIER).jobs.classify.outputs;
 
-        expect(Object.keys(outputs).sort()).toEqual(['e2e_brain_tier', 'run_components', 'run_e2e', 'run_unit', 'skip_reason']);
+        expect(Object.keys(outputs).sort()).toEqual(['e2e_boundary_report', 'e2e_brain_tier', 'run_components', 'run_e2e', 'run_unit', 'skip_reason']);
     });
 
     test('every job output is re-declared to callers', () => {
@@ -716,6 +716,27 @@ test.describe('Tests scope classifier — the Brain-gated tier runs only what a 
         expect((await classify({ files: [] })).e2e_brain_tier).toBe('full');
     });
 
+    test('the boundary report names each changed file and the rule that left it out', async () => {
+        // With `none`, a misclassified pull request runs no Brain shard until `dev`. The report the
+        // skip job prints makes the misclassification visible on the PR that carries it.
+        const outputs = await classify({
+            files   : ['learn/blog/post.md', 'apps/portal/resources/data/blog.json', 'buildScripts/create/class.mjs',
+                       'test/playwright/unit/core/Base.spec.mjs', 'package-lock.json'],
+            baseLock: lockWith({'neo-agent-skills': '0.1.84'}),
+            headLock: lockWith({'neo-agent-skills': '0.1.86'})
+        });
+
+        expect(outputs.e2e_brain_tier).toBe('none');
+        expect(outputs.e2e_boundary_report.split('\n')).toEqual([
+            'learn/blog/post.md: out (docs or content)',
+            'apps/portal/resources/data/blog.json: out (portal content data, which unit guards)',
+            'buildScripts/create/class.mjs: out (buildScripts outside the e2e launch chain)',
+            'test/playwright/unit/core/Base.spec.mjs: out (no e2e rule matches)',
+            'package-lock.json: out (unchanged beyond browser-unreachable packages)'
+        ]);
+        expect((await classify({ files: ['src/grid/Body.mjs'] })).e2e_boundary_report).toBe('src/grid/Body.mjs: in');
+    });
+
     test('a superseded attempt selects none', async () => {
         expect((await classify({ files: ['src/grid/Body.mjs'], liveHead: 'moved-on-sha' })).e2e_brain_tier).toBe('none');
     });
@@ -731,6 +752,10 @@ test.describe('Tests scope classifier — the Brain-gated tier runs only what a 
 
         expect(String(skip?.if)).toContain("e2e_brain_tier == 'none'");
         expect(skip?.['working-directory'], 'it runs before the checkout creates the default engine/').toBeTruthy();
+        // The report reaches the shell through `env`, never interpolated into the script: it carries file names
+        expect(skip?.env?.REPORT).toContain('e2e_boundary_report');
+        expect(skip?.run).toContain('"$REPORT"');
+        expect(skip?.run).not.toContain('outputs.e2e_boundary_report');
         expect(ungated.map(step => step.name)).toEqual([]);
         expect(others.length).toBeGreaterThan(5);
         // `none` provisions one shard, not ten

@@ -73,8 +73,12 @@ jobs:
         if: ${{ needs.changes.outputs.e2e_brain_tier == 'none' }}
         # Before any checkout, so the default `engine/` directory does not exist yet
         working-directory: ${{ github.workspace }}
+        # Each changed file and the rule that left it out, so a misclassification shows on this PR
+        env:
+          REPORT: ${{ needs.changes.outputs.e2e_boundary_report }}
         run: |
           echo "Brain-gated tier skipped: ${{ needs.changes.outputs.skip_reason }}" | tee -a "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Checkout repository
         if: ${{ needs.changes.outputs.e2e_brain_tier != 'none' }}

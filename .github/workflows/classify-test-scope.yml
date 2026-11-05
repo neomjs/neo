@@ -37,6 +37,9 @@ on:
       skip_reason:
         description: Human-readable reason a caller can print when it skips.
         value: ${{ jobs.classify.outputs.skip_reason }}
+      e2e_boundary_report:
+        description: One line per changed file, saying whether the E2E boundary admits it and which rule leaves it out.
+        value: ${{ jobs.classify.outputs.e2e_boundary_report }}
 
 jobs:
   classify:
@@ -48,6 +51,7 @@ jobs:
       run_e2e: ${{ steps.scope.outputs.run_e2e }}
       e2e_brain_tier: ${{ steps.scope.outputs.e2e_brain_tier }}
       skip_reason: ${{ steps.scope.outputs.skip_reason }}
+      e2e_boundary_report: ${{ steps.scope.outputs.e2e_boundary_report }}
 
     steps:
       - name: Classify changed paths
@@ -388,6 +392,18 @@ jobs:
             const brainTier = eventName !== 'pull_request' || normalizedFiles.some(file =>
                 isE2eRelevantPath(file) || file === '.github/workflows/test-e2e-brain.yml') ? 'full' : 'none';
 
+            // Each changed file against the boundary, for the Brain tier's skip job to print. With
+            // `none`, a misclassified path runs no Brain shard until the `dev` push; this way the
+            // pull request that carries it shows the rule that left it out.
+            const e2eBoundaryRule = file =>
+              isE2eRelevantPath(file)       ? 'in' :
+              isPortalContentData(file)     ? 'out (portal content data, which unit guards)' :
+              isOutsideE2eLaunchChain(file) ? 'out (buildScripts outside the e2e launch chain)' :
+              file === 'package-lock.json'  ? 'out (unchanged beyond browser-unreachable packages)' :
+              file === 'package.json'       ? 'out (no dependency-kind or invoked-script change)' :
+              isDocsOnlyPath(file)          ? 'out (docs or content)' :
+                                              'out (no e2e rule matches)';
+
             const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
             const runComponents  = normalizedFiles.some(isComponentsRelevantPath);
             const runE2e         = normalizedFiles.some(isE2eRelevantPath);
@@ -402,6 +418,7 @@ jobs:
             core.setOutput('run_components', String(runComponents));
             core.setOutput('run_e2e', String(runE2e));
             core.setOutput('e2e_brain_tier', brainTier);
+            core.setOutput('e2e_boundary_report', normalizedFiles.map(file => `${file}: ${e2eBoundaryRule(file)}`).join('\n'));
             core.setOutput(
               'skip_reason',
               'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)'
