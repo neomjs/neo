@@ -1,5 +1,6 @@
-import Component from '../component/Base.mjs';
-import NeoArray  from '../util/Array.mjs';
+import AbstractComponent from '../component/Abstract.mjs';
+import Component         from '../component/Base.mjs';
+import NeoArray          from '../util/Array.mjs';
 
 /**
  * @summary Represents a single visible row in the Grid.
@@ -142,7 +143,7 @@ class Row extends Component {
     }
 
     /**
-     * Generates the VDOM configuration for a single cell.
+     * @summary Generates the VDOM configuration for a single cell.
      *
      * @param {Object} data
      * @param {String} [data.cellId]
@@ -221,7 +222,7 @@ class Row extends Component {
             }
         }
 
-        if (rendererOutput instanceof Neo.component.Base) {
+        if (rendererOutput instanceof AbstractComponent) {
             me.components ??= {};
 
             if (!me.components[column.dataField]) {

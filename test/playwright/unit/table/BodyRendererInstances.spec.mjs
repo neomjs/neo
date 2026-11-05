@@ -155,14 +155,19 @@ test.describe('Neo.table.Body#applyRendererOutput Neo instances and configs (#45
         expect(cell.cn).toEqual([customInstance.vdom])
     });
 
-    test('renderer returning a Neo config (module, ntype, or className) creates, reuses on recordChange, and forwards theme/windowId', async () => {
+    test('renderer returning a Neo config (module, ntype, or className) creates, reuses on recordChange, passes component to renderer, and forwards mounted/theme/windowId', async () => {
+        const receivedComponents = [];
+
         await createTable([{
             dataField: 'action',
             text     : 'Action (module)',
-            renderer : ({value}) => ({
-                module: Button,
-                text  : value
-            })
+            renderer : ({component, value}) => {
+                receivedComponents.push(component);
+                return {
+                    module: Button,
+                    text  : value
+                }
+            }
         }, {
             dataField: 'status',
             text     : 'Status (ntype)',
@@ -178,6 +183,8 @@ test.describe('Neo.table.Body#applyRendererOutput Neo instances and configs (#45
               r1StatusCellId = body.getCellId(r1Record, 'status');
 
         expect(body.createdCellComponents.size).toBe(4);
+        // Initial render had no prior created component for r1/r2 action cells
+        expect(receivedComponents).toEqual([undefined, undefined]);
 
         const actionBtn = body.createdCellComponents.get(r1ActionCellId),
               statusBtn = body.createdCellComponents.get(r1StatusCellId);
@@ -191,19 +198,25 @@ test.describe('Neo.table.Body#applyRendererOutput Neo instances and configs (#45
         expect(body.vdom.cn[0].cn[0].cn).toEqual([actionBtn.createVdomReference()]);
         expect(body.vdom.cn[0].cn[1].cn).toEqual([statusBtn.createVdomReference()]);
 
-        // Record change reuses the same component instance in place without leaking a new one
+        // Record change reuses the same component instance in place and passes it as `component` to column.renderer
         r1Record.action = 'Save';
 
         expect(body.createdCellComponents.get(r1ActionCellId)).toBe(actionBtn);
+        expect(receivedComponents[2]).toBe(actionBtn);
         expect(actionBtn.isDestroyed).toBeFalsy();
         expect(actionBtn.text).toBe('Save');
 
-        // Theme and windowId updates propagate to createdCellComponents
+        // Mounted, theme, and windowId updates propagate to createdCellComponents
+        body.mounted  = true;
         body.theme    = 'neo-theme-dark';
         body.windowId = 'window-2';
 
+        expect(actionBtn.mounted).toBe(true);
         expect(actionBtn.theme).toBe('neo-theme-dark');
-        expect(actionBtn.windowId).toBe('window-2')
+        expect(actionBtn.windowId).toBe('window-2');
+
+        body.mounted = false;
+        expect(actionBtn.mounted).toBe(false)
     });
 
     test('createdCellComponents are destroyed when replaced by primitive output, spanned over, filtered out, cleared, or when body destroys', async () => {

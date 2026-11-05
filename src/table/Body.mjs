@@ -124,6 +124,17 @@ class TableBody extends Component {
     }
 
     /**
+     * @summary Relays the mounted state to all body-owned cell components.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        this.createdCellComponents?.forEach(component => component.mounted = value)
+    }
+
+    /**
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
@@ -226,11 +237,12 @@ class TableBody extends Component {
         rendererOutput = column.renderer.call(column.rendererScope || tableContainer, {
             column,
             columnIndex,
+            component: me.createdCellComponents?.get(cellId),
             dataField,
             record,
             rowIndex,
             tableContainer,
-            value: fieldValue
+            value    : fieldValue
         });
 
         if (Neo.typeOf(rendererOutput) === 'Object' && (rendererOutput.className || rendererOutput.module || rendererOutput.ntype)) {

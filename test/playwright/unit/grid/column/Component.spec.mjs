@@ -9,14 +9,16 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../src/Neo.mjs';
-import * as core       from '../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../src/manager/Instance.mjs';
-import Component       from '../../../../../src/component/Base.mjs';
-import ComponentColumn from '../../../../../src/grid/column/Component.mjs';
-import Model           from '../../../../../src/data/Model.mjs';
-import RecordFactory   from '../../../../../src/data/RecordFactory.mjs';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../../src/Neo.mjs';
+import * as core        from '../../../../../src/core/_export.mjs';
+import InstanceManager  from '../../../../../src/manager/Instance.mjs';
+import Component        from '../../../../../src/component/Base.mjs';
+import ComponentColumn  from '../../../../../src/grid/column/Component.mjs';
+import FunctionalButton from '../../../../../src/functional/button/Base.mjs';
+import GridRow          from '../../../../../src/grid/Row.mjs';
+import Model            from '../../../../../src/data/Model.mjs';
+import RecordFactory    from '../../../../../src/data/RecordFactory.mjs';
 
 class MockComponent extends Component {
     static config = {
@@ -133,5 +135,65 @@ test.describe('Neo.grid.column.Component', () => {
         // set() SHOULD be called because record reference changed
         expect(cmp1.setCallCount).toBe(2);
         expect(cmp1.lastRecordVersion).toBe(1); // record2 starts at version 1
+    });
+
+    test('Neo.grid.Row#applyRendererOutput registers functional components (Neo.component.Abstract) in row.components and emits createVdomReference() (#20364)', () => {
+        const fnColumn = Neo.create(ComponentColumn, {
+            dataField: 'name',
+            component: ({record}) => ({
+                module: FunctionalButton,
+                text  : record.name
+            })
+        });
+
+        const gridContainer = {
+            appName,
+            windowId: 'win-1',
+            body    : {
+                getStateProvider: () => null
+            }
+        };
+
+        const gridBody = {
+            getRecordId: rec => rec.id
+        };
+
+        const store = {
+            getKey       : rec => rec.id,
+            valueBandsMap: null
+        };
+
+        const row = Neo.create(GridRow, {
+            appName,
+            record,
+            rowIndex: 0
+        });
+
+        const cellConfig = row.applyRendererOutput({
+            cache      : {gridBody, gridContainer, store},
+            cellId     : `${row.id}__name`,
+            column     : fnColumn,
+            columnIndex: 0,
+            record,
+            rowIndex   : 0
+        });
+
+        const createdFnBtn = row.components?.name;
+
+        expect(createdFnBtn instanceof FunctionalButton).toBe(true);
+        expect(cellConfig.cn).toEqual([{componentId: createdFnBtn.id}]);
+
+        // Lifecycle relay (mounted / theme / windowId) reaches the functional cell component
+        row.mounted  = true;
+        row.theme    = 'neo-theme-dark';
+        row.windowId = 'win-2';
+
+        expect(createdFnBtn.mounted).toBe(true);
+        expect(createdFnBtn.theme).toBe('neo-theme-dark');
+        expect(createdFnBtn.windowId).toBe('win-2');
+
+        row.destroy();
+        fnColumn.destroy();
+        expect(createdFnBtn.isDestroyed).toBe(true)
     });
 });
