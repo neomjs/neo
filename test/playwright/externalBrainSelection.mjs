@@ -2,14 +2,114 @@ import fs   from 'node:fs';
 import path from 'node:path';
 
 /**
+ * @summary Whitebox e2e specs (relative to `test/playwright/e2e`, POSIX-normalized) that can run
+ * through the dedicated App Worker Neural Link test adapter without an external `neo-agent-brain`
+ * checkout or WebSocket Bridge.
+ *
+ * A spec is adapter-eligible iff all four structural properties hold:
+ * 1. **Single app** — each test binds to one page's App Worker via `runDedicatedWorkerNeuralLink`.
+ * 2. **Dedicated worker** — the target application's `neo-config.json` boots a dedicated App Worker
+ *    (`useSharedWorkers` is not `true`). Because `useSharedWorkers` lives in the target app's
+ *    `neo-config.json` rather than in the spec file text, eligibility is declared explicitly here
+ *    instead of inferred from incidental text in the spec source.
+ * 3. **No physical window journey or multi-session Bridge arbitration** — the spec does not drive
+ *    multi-window browser popups, native window geometry (`open_component_window`, `close_window`,
+ *    `position_window`, `focus_window`, `get_window_topology`), direct Brain service imports
+ *    (`loadNeuralLinkModules`), or multi-writer WebSocket Bridge sessions (`bridgePort`,
+ *    `waitForSession`). Those specs remain Brain-gated under the Bridge/headed tier owner.
+ * 4. **No transaction archive recorder** — the spec does not persist or replay Memory Core
+ *    transaction archives (`save_transaction`, `replay_transaction`, `NEO_MCP_REMOTE_TOKEN`).
+ *    Those specs remain Brain-gated under the Bridge/archive tier owner.
+ *
+ * SharedWorker specs (`examples/dashboard/choreography`, `examples/dashboard/crossWindow`,
+ * `test/playwright/component/apps/dock-first-mount`, `apps/colors`, `apps/portal`,
+ * `apps/workstation`, and parameterized `useSharedWorkers: true` arms) remain Brain-gated under
+ * the SharedWorker residual owner.
+ *
+ * @type {ReadonlySet<String>}
+ */
+export const ADAPTER_ELIGIBLE_SPECS = new Set([
+    'core/RefreshDomCorpseRepro.spec.mjs',
+    'core/SplitterLiveResizeNL.spec.mjs',
+    'dashboard/DockAutoHideRevealNL.spec.mjs',
+    'dashboard/DockCrossWindowWitnessNL.spec.mjs',
+    'dashboard/DockCrossZoneDragNL.spec.mjs',
+    'dashboard/DockDragDropNL.spec.mjs',
+    'dashboard/DockHeavyContentSplitNL.spec.mjs',
+    'dashboard/DockLockActionNL.spec.mjs',
+    'dashboard/DockMotionNL.spec.mjs',
+    'dashboard/DockPinCollapseNL.spec.mjs',
+    'dashboard/DockReloadActionNL.spec.mjs',
+    'dashboard/DockTabOverflowNL.spec.mjs',
+    'dashboard/DockTourSmokeNL.spec.mjs',
+    'dashboard/HeaderHandleAdmissionNL.spec.mjs',
+    'grid/BigDataMultiBodyNL.spec.mjs',
+    'grid/BigDataNL.spec.mjs',
+    'grid/ColumnCrossBodyDnD.spec.mjs',
+    'grid/ColumnOverdragScroll.spec.mjs',
+    'grid/GridExportCsvNL.spec.mjs',
+    'grid/GridViewFocus.spec.mjs',
+    'grid/HeaderInlineProjectionNL.spec.mjs',
+    'grid/HeaderMenuCoverageNL.spec.mjs',
+    'grid/HeaderMenuInteractionNL.spec.mjs',
+    'grid/HeaderMenuStateNL.spec.mjs',
+    'grid/HeaderResizeRectSync.spec.mjs',
+    'grid/LockedCellHorizontalStability.spec.mjs',
+    'grid/LockedDnDDuplication.spec.mjs',
+    'grid/LockedRegionRowRender.spec.mjs',
+    'grid/PremeasureRowsNL.spec.mjs',
+    'grid/RowSlotRemapDuplication.spec.mjs',
+    'grid/SearchToolbarNL.spec.mjs',
+    'grid/SelectionMultiBody.spec.mjs',
+    'neural-link/CreateComponent.spec.mjs',
+    'neural-link/CreateGrid.spec.mjs',
+    'neural-link/Redo.spec.mjs',
+    'neural-link/RemoveComponent.spec.mjs',
+    'portal/DocsMixinsNL.spec.mjs',
+    'rendering/ButtonBaseNL.spec.mjs',
+    'rendering/CalendarMonthRollover.spec.mjs',
+    'rendering/ContextMenuNL.spec.mjs',
+    'rendering/DeltaCoherenceRegistryNL.spec.mjs',
+    'rendering/MarkdownStreamingCoherenceNL.spec.mjs',
+    'rendering/StoreLoadingNL.spec.mjs',
+    'tab/TabHeaderActionsNL.spec.mjs'
+]);
+
+/**
+ * @summary Whether a spec (identified by its path relative to the e2e root) is explicitly marked
+ * eligible to run through the dedicated App Worker Neural Link test adapter without an external
+ * `neo-agent-brain` checkout.
+ * @param {String} relativePath Path relative to the e2e spec root (POSIX or platform separators).
+ * @returns {Boolean}
+ */
+export function isAdapterEligibleSpec(relativePath) {
+    if (typeof relativePath !== 'string' || !relativePath) {
+        return false
+    }
+
+    return ADAPTER_ELIGIBLE_SPECS.has(relativePath.replace(/\\/g, '/'))
+}
+
+/**
+ * @summary Whether a spec requires an external `neo-agent-brain` checkout (`NEO_AGENTOS_RUNTIME_ROOT`).
+ * A spec is Brain-gated when it references `neuralLink` and is not explicitly adapter-eligible
+ * ({@link isAdapterEligibleSpec}).
+ * @param {String} relativePath Path relative to the e2e spec root.
+ * @param {String} source       UTF-8 contents of the spec file.
+ * @returns {Boolean}
+ */
+export function needsExternalBrain(relativePath, source) {
+    return /\bneuralLink\b/.test(source) && !isAdapterEligibleSpec(relativePath)
+}
+
+/**
  * @summary Splits an e2e spec tree into the specs that need an external neo-agent-brain checkout and
  * everything an Engine-only seat can run, in a single walk.
  *
- * Why the split exists: the whitebox specs drive a live Brain through the `neuralLink` fixture, which
- * throws unless `NEO_AGENTOS_RUNTIME_ROOT` names an absolute checkout root. A contributor cloning this
- * repo must still get a usable run from `npm ci` alone — a suite that requires infrastructure only
- * maintainers possess is a suite the community is locked out of — so those specs leave the selection
- * instead of failing.
+ * Why the split exists: Bridge-shaped, SharedWorker, native-window, and archive whitebox specs drive a
+ * live Brain through the `neuralLink` fixture, which throws on those paths unless `NEO_AGENTOS_RUNTIME_ROOT`
+ * names an absolute checkout root. Single-app dedicated-worker specs listed in {@link ADAPTER_ELIGIBLE_SPECS}
+ * dispatch directly to the page's own App Worker without a Bridge and stay in the Engine-only selection.
  *
  * Why the total is returned alongside the matchers: Playwright's `testIgnore` removes files from
  * SELECTION rather than skipping them, so no reporter, summary line or `--list` output can ever
@@ -38,13 +138,16 @@ export function selectExternalBrainSpecs(root, base = root) {
         } else if (entry.name.endsWith('.spec.mjs')) {
             total++;
 
-            if (/\bneuralLink\b/.test(fs.readFileSync(file, 'utf8'))) {
-                const relative = path.relative(base, file)
-                    .split(path.sep)
+            const relativePath = path.relative(base, file).split(path.sep).join('/'),
+                  source       = fs.readFileSync(file, 'utf8');
+
+            if (needsExternalBrain(relativePath, source)) {
+                const escaped = relativePath
+                    .split('/')
                     .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
                     .join('[\\\\/]');
 
-                ignore.push(new RegExp(`[\\\\/]${relative}$`))
+                ignore.push(new RegExp(`[\\\\/]${escaped}$`))
             }
         }
     }

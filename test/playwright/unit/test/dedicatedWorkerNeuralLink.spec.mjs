@@ -76,7 +76,17 @@ function createFakeDedicatedWorker({
                                 return {nodes: [{id: 'neo-button-1'}]}
                             }
                             if (method === 'get_dom_rect') {
-                                return {rects: [{height: 30, width: 100, x: 0, y: 0}]}
+                                // Simulate a native DOMRect whose geometry lives on prototype getters + toJSON(),
+                                // proving invokeWorker's JSON round-trip preserves rect fields across CDP returnByValue.
+                                const proto = {
+                                    get height() { return 30 },
+                                    get width()  { return 100 },
+                                    get x()      { return 0 },
+                                    get y()      { return 0 },
+                                    toJSON()     { return {height: this.height, width: this.width, x: this.x, y: this.y} }
+                                };
+
+                                return {rects: [Object.create(proto)]}
                             }
                             if (method === 'get_computed_styles') {
                                 return {styles: {display: 'inline-flex'}}
