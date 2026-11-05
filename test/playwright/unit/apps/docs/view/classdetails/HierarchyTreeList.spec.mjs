@@ -40,33 +40,48 @@ function config(id, neoClassName, name) {
     })
 }
 
-/** @summary Exercises the real hierarchy/member connection and disposes it even after an assertion fails. */
+/** @summary Exercises the hierarchy/member connection, then restores temporary addon state and disposes the fixture. */
 async function withDocs(items, selected, callback) {
     Neo.main ??= {};
     Neo.main.addon ??= {};
+    const previousHighlight = Object.getOwnPropertyDescriptor(Neo.main.addon, 'HighlightJS');
     Neo.main.addon.HighlightJS ??= {syntaxHighlightInit: () => {}};
 
-    const mainStore = Neo.create(Collection, {keyProperty: 'id', items}),
-          root      = Neo.create(Container, {
-              appName, ntype: 'main-container', store: mainStore,
-              items: [{module: Container, ntype: 'classdetails-maincontainer', items: [
-                  {module: HierarchyTreeList, structureData: {className: selected}}, {module: MembersList}
-              ]}]
-          }),
-          tree = root.down('classhierarchy-treelist'),
-          members = root.down('classdetails-memberslist');
+    let mainStore, root;
 
     try {
+        mainStore = Neo.create(Collection, {keyProperty: 'id', items});
+        root = Neo.create(Container, {
+            appName, ntype: 'main-container', store: mainStore,
+            items: [{module: Container, ntype: 'classdetails-maincontainer', items: [
+                {module: HierarchyTreeList, structureData: {className: selected}}, {module: MembersList}
+            ]}]
+        });
+        const tree    = root.down('classhierarchy-treelist'),
+              members = root.down('classdetails-memberslist');
+
         await Promise.all([root.ready(), tree.ready(), members.ready()]);
         await callback({tree, members, mainStore})
     } finally {
-        root.destroy();
-        mainStore.destroy()
+        previousHighlight ? Object.defineProperty(Neo.main.addon, 'HighlightJS', previousHighlight) :
+            delete Neo.main.addon.HighlightJS;
+        root?.destroy();
+        mainStore?.destroy()
     }
 }
 
 /** @summary Covers provider selection and runtime member precedence without generated-output dependencies. */
 test.describe('Docs.view.classdetails.HierarchyTreeList', () => {
+    test('restores the addon namespace after successful and rejected callbacks', async () => {
+        const previousHighlight = Object.getOwnPropertyDescriptor(Neo.main?.addon ?? {}, 'HighlightJS'),
+              failure           = new Error('fixture callback failed');
+
+        await withDocs([classDoc(target)], target, () => {});
+        expect(Object.getOwnPropertyDescriptor(Neo.main.addon, 'HighlightJS')).toEqual(previousHighlight);
+        await expect(withDocs([classDoc(target)], target, () => {throw failure})).rejects.toBe(failure);
+        expect(Object.getOwnPropertyDescriptor(Neo.main.addon, 'HighlightJS')).toEqual(previousHighlight)
+    });
+
     test('keeps ancestor classes unchecked until toggled', async () => {
         const middle = 'Neo.component.Base', selected = 'Neo.button.Base';
         await withDocs([
