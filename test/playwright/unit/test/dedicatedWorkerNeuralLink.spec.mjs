@@ -1,5 +1,8 @@
 import {test, expect} from '@playwright/test';
 import {
+    BRIDGE_TOOL_SERVICE_MAP,
+    buildAppConnectionSurface,
+    createBridgeAppConnection,
     createDedicatedWorkerAppConnection,
     disconnectTestWriter,
     isDedicatedAppWorker,
@@ -268,5 +271,111 @@ test.describe('test/playwright/dedicatedWorkerNeuralLink — off-socket dedicate
         }]);
 
         expect(await disconnectTestWriter(null, writerPair)).toBeNull()
+    });
+
+    test('createDedicatedWorkerAppConnection and createBridgeAppConnection share one nlApp surface over stub transports', async () => {
+        const worker      = createFakeDedicatedWorker(),
+              writerPair  = mintTestWriterPair(),
+              bridgeCalls = [],
+              sessionId   = worker.workerId;
+
+        const makeServiceProxy = serviceName => new Proxy({}, {
+            get(_, prop) {
+                if (typeof prop !== 'string') return undefined;
+
+                return async (args) => {
+                    bridgeCalls.push({args, method: prop, serviceName});
+
+                    if (prop === 'getInstanceProperties') {
+                        return {properties: {text: 'Hello'}}
+                    }
+                    if (prop === 'callMethod') {
+                        return {result: 'called'}
+                    }
+                    if (prop === 'findInstances') {
+                        return {instances: [{id: 'neo-button-1'}]}
+                    }
+                    if (prop === 'queryComponent') {
+                        return {components: [{id: 'neo-button-1'}]}
+                    }
+                    if (prop === 'queryVdom') {
+                        return {nodes: [{id: 'neo-button-1'}]}
+                    }
+                    if (prop === 'getDomRect') {
+                        return {rects: [{height: 30, width: 100, x: 0, y: 0}]}
+                    }
+                    if (prop === 'getComputedStyles') {
+                        return {styles: {display: 'inline-flex'}}
+                    }
+
+                    return {args, method: prop, ok: true, serviceName}
+                }
+            }
+        });
+
+        const services = {
+            NeuralLink_ComponentService : makeServiceProxy('NeuralLink_ComponentService'),
+            NeuralLink_ConnectionService: {
+                async call(sid, rpcMethod, params) {
+                    bridgeCalls.push({args: params, method: 'call', rpcMethod, serviceName: 'NeuralLink_ConnectionService', sessionId: sid});
+                    return {ok: true, params, rpcMethod, sessionId: sid}
+                },
+                async getConsoleLogs(args) {
+                    bridgeCalls.push({args, method: 'getConsoleLogs', serviceName: 'NeuralLink_ConnectionService'});
+                    return [{message: 'Warn line', timestamp: 2, type: 'warn'}]
+                }
+            },
+            NeuralLink_DataService       : makeServiceProxy('NeuralLink_DataService'),
+            NeuralLink_DockService       : makeServiceProxy('NeuralLink_DockService'),
+            NeuralLink_InstanceService   : makeServiceProxy('NeuralLink_InstanceService'),
+            NeuralLink_InteractionService: makeServiceProxy('NeuralLink_InteractionService'),
+            NeuralLink_RuntimeService    : makeServiceProxy('NeuralLink_RuntimeService')
+        };
+
+        const workerApp = createDedicatedWorkerAppConnection({
+            getLogs  : () => [{message: 'Warn line', timestamp: 2, type: 'warn'}],
+            getWorker: () => worker,
+            sessionId,
+            writerPair
+        });
+        const bridgeApp     = createBridgeAppConnection(services, sessionId),
+              sharedSurface = buildAppConnectionSurface({call: async () => ({}), sessionId});
+
+        const methodKeys = obj => Object.keys(obj).filter(key => typeof obj[key] === 'function').sort();
+
+        expect(methodKeys(workerApp)).toEqual(methodKeys(bridgeApp));
+        expect(methodKeys(workerApp)).toEqual(methodKeys(sharedSurface));
+        expect(methodKeys(workerApp)).toHaveLength(50);
+        expect(Object.keys(BRIDGE_TOOL_SERVICE_MAP).length).toBeGreaterThanOrEqual(48);
+
+        // Response picks and argument shaping match across both transports
+        expect(await bridgeApp.getComponent('neo-button-1')).toEqual(await workerApp.getComponent('neo-button-1'));
+        expect(await bridgeApp.callMethod('neo-button-1', 'focus', [true])).toEqual(await workerApp.callMethod('neo-button-1', 'focus', [true]));
+        expect(await bridgeApp.findInstances({ntype: 'button'})).toEqual(await workerApp.findInstances({ntype: 'button'}));
+        expect(await bridgeApp.queryComponent({ntype: 'button'})).toEqual(await workerApp.queryComponent({ntype: 'button'}));
+        expect(await bridgeApp.queryVdom({cls: 'neo-button'})).toEqual(await workerApp.queryVdom({cls: 'neo-button'}));
+        expect(await bridgeApp.getDomRect('neo-button-1')).toEqual(await workerApp.getDomRect('neo-button-1'));
+        expect(await bridgeApp.getComputedStyles('neo-button-1', ['display'])).toEqual(await workerApp.getComputedStyles('neo-button-1', ['display']));
+        expect(await bridgeApp.getConsoleLogs('warn', 'warn')).toEqual(await workerApp.getConsoleLogs('warn', 'warn'));
+
+        const dragResult = await bridgeApp.driveDrag({sourceId: 'a', targetId: 'b'});
+        expect(dragResult).toEqual({
+            ok       : true,
+            params   : {sourceId: 'a', targetId: 'b'},
+            rpcMethod: 'drive_drag',
+            sessionId
+        });
+
+        await bridgeApp.getWorkerTopology();
+        await bridgeApp.getWindowTopology();
+
+        expect(bridgeCalls.find(c => c.method === 'getWorkerTopology')).toMatchObject({
+            args       : undefined,
+            serviceName: 'NeuralLink_RuntimeService'
+        });
+        expect(bridgeCalls.find(c => c.method === 'getWindowTopology')).toMatchObject({
+            args       : undefined,
+            serviceName: 'NeuralLink_RuntimeService'
+        })
     })
 });
