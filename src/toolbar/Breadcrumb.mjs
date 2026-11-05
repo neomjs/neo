@@ -201,11 +201,10 @@ class Breadcrumb extends Toolbar {
             item = pathItems[i];
 
             config = {
-                disabled : i === len - 1,
-                editRoute: false,
-                hidden   : false,
-                route    : item.route,
-                text     : item.name
+                disabled: i === len - 1,
+                hidden  : false,
+                route   : item.route,
+                text    : item.name
             };
 
             if (items[i]) {

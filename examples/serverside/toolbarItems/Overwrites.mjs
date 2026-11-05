@@ -1,11 +1,3 @@
-Neo.overwrites = {
-    Neo: {
-        button: {
-            Base: {
-                editRoute: false
-            }
-        }
-    }
-}
+Neo.overwrites = {}
 
 export default Neo.overwrites;
