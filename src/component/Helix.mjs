@@ -4,13 +4,16 @@ import HelixModel      from '../selection/HelixModel.mjs';
 import Matrix          from '../util/Matrix.mjs';
 import NeoArray        from '../util/Array.mjs';
 import Store           from '../data/Store.mjs';
+import StoreLoading    from '../mixin/StoreLoading.mjs';
 
 const itemsMounted = Symbol.for('itemsMounted');
 const lockWheel    = Symbol.for('lockWheel'); // we can not use itemsMounted, since it is connected to onSort()
 
 /**
+ * @summary Displays selectable image records on a helix with automatic Store loading feedback.
  * @class Neo.component.Helix
  * @extends Neo.component.Base
+ * @mixes Neo.mixin.StoreLoading
  */
 class Helix extends Component {
     static config = {
@@ -24,6 +27,11 @@ class Helix extends Component {
          * @protected
          */
         ntype: 'helix',
+        /**
+         * @member {Neo.core.Base[]} mixins=[StoreLoading]
+         * @protected
+         */
+        mixins: [StoreLoading],
         /**
          * The background color of the helix container
          * @member {String} backgroundColor_='#000000'
@@ -600,6 +608,7 @@ class Helix extends Component {
     }
 
     /**
+     * @summary Projects records after mounting and refreshes loading feedback for the rendered population.
      * @param {Number} [startIndex] the start index for creating items,
      * e.g. increasing maxItems only needs to create the new ones
      * @protected
@@ -613,6 +622,7 @@ class Helix extends Component {
             angle, item, matrixItems, transformStyle, vdomItem, c, s, x, y, z;
 
         if (!me.mounted) {
+            me.syncStoreLoading();
             me.on('mounted', () => {
                 me.timeout(100).then(() => {
                     me.createItems(startIndex)
@@ -663,6 +673,7 @@ class Helix extends Component {
 
             me[lockWheel] = true;
 
+            me.syncStoreLoading();
             me.promiseUpdate().then(() => {
                 me[itemsMounted] = true;
                 me.fire('itemsMounted');
@@ -718,6 +729,7 @@ class Helix extends Component {
     }
 
     /**
+     * @summary Removes projected items and restores the empty-view indicator while loading remains pending.
      * @param {Number} [startIndex]
      * @param {Number} [amountItems]
      */
@@ -725,6 +737,7 @@ class Helix extends Component {
         let me = this;
 
         me.getItemsRoot().cn.splice(startIndex || 0, amountItems || me.store.getCount());
+        me.syncStoreLoading();
         me.update()
     }
 

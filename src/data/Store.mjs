@@ -89,6 +89,11 @@ class Store extends Collection {
      */
     #keyChanges = new Map();
     /**
+     * @member {Number} #pendingLoads=0 Outstanding load invocations, including transport readiness.
+     * @private
+     */
+    #pendingLoads = 0;
+    /**
      * @member {Boolean} #sortingRecordChange=false Prevents derived tree statistics from recursively sorting.
      * @private
      */
@@ -167,6 +172,14 @@ class Store extends Collection {
          * @member {Boolean} isLoading=false
          */
         isLoading: false,
+        /**
+         * True while any load() invocation is pending. Consumers observe this state; Store owns its writes.
+         * Unlike isLoading, first progressive data does not clear it, and local data edits do not set it.
+         * @member {Boolean} isLoadPending_=false
+         * @readonly
+         * @reactive
+         */
+        isLoadPending_: false,
         /**
          * @member {Neo.data.Model} model_=null
          * @reactive
@@ -1145,6 +1158,28 @@ class Store extends Collection {
      * @protected
      */
     async load(opts={}) {
+        const me = this;
+
+        ++me.#pendingLoads;
+        me.isLoadPending = true;
+
+        try {
+            return await me.#loadRecords(opts)
+        } finally {
+            --me.#pendingLoads;
+            if (!me.isDestroyed) {
+                me.isLoadPending = me.#pendingLoads > 0
+            }
+        }
+    }
+
+    /**
+     * @summary Executes one transport load without changing hydration or progressive-rendering semantics.
+     * @param {Object} opts Load options documented by load().
+     * @returns {Promise<Object|Object[]>}
+     * @private
+     */
+    async #loadRecords(opts) {
         let me     = this,
             append = !!opts.append,
             params = {page: me.currentPage, pageSize: me.pageSize, ...opts.params};

@@ -28,10 +28,10 @@
     z-index         : 1000;
 }
 
-.neo-masked {
+.neo-masked, .neo-store-loading {
     position: relative;
 
-    .neo-load-mask {
+    .neo-load-mask, .neo-store-load-mask {
         align-content   : center;
         background-color: inherit;
         border-radius   : inherit;
@@ -58,4 +58,17 @@
             }
         }
     }
+}
+
+.neo-store-loading-with-items .neo-store-load-mask {
+    background-color: transparent;
+    inset           : auto .75em .75em auto;
+    pointer-events  : none;
+}
+
+.neo-store-load-mask .neo-load-mask-body {
+    background-color: var(--neo-background-color);
+    border-radius   : 50%;
+    color           : var(--neo-color);
+    padding         : .5em;
 }
