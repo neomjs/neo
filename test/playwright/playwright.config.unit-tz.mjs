@@ -32,14 +32,16 @@ const isCI = !!process.env.CI;
  * move every other spec off UTC and hide the opposite class of bug.
  *
  * Specs listed here must be the ones whose correctness depends on a local↔UTC conversion. The
- * predicate that finds them is greppable: `getTimezoneOffset` or `toISOString` under `src/`.
+ * predicate that finds them is greppable: `getTimezoneOffset` or `toISOString` under `src/`,
+ * including calendar navigation that consumes the date-only conversion.
  */
 export default defineConfig({
     testDir  : path.join(__dirname, 'unit'),
     outputDir: path.join(__dirname, 'test-results/unit-tz'),
     testMatch: [
         '**/util/Date.spec.mjs',
-        '**/form/field/DateSubmitValue.spec.mjs'
+        '**/form/field/DateSubmitValue.spec.mjs',
+        '**/selection/DateSelectorModel.spec.mjs'
     ],
     fullyParallel: true,
     ...buildUnitRunPolicy({isCI}),

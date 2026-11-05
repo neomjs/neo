@@ -16,6 +16,7 @@ const today = {
 /**
  * @class Neo.component.DateSelector
  * @extends Neo.component.Base
+ * @summary Renders the displayed calendar date independently of the committed value when keyboard navigation defers selection.
  */
 class DateSelector extends Component {
     static config = {
@@ -40,6 +41,12 @@ class DateSelector extends Component {
          * @protected
          */
         cachedDayViewRebuild: null,
+        /**
+         * Latest uncommitted keyboard destination requested during a transition.
+         * @member {Date|null} cachedNavigationDate=null
+         * @protected
+         */
+        cachedNavigationDate: null,
         /**
          * Stores the last date change which got triggered while a month / year transition was running
          * @member {Date|null} cachedUpdate=null
@@ -188,6 +195,7 @@ class DateSelector extends Component {
 
     /**
      * Triggered after the currentDate config got changed
+     * @summary Updates the displayed month or day without selecting a pending keyboard destination.
      * @param {Date} value
      * @param {Date} oldValue
      * @protected
@@ -209,7 +217,12 @@ class DateSelector extends Component {
                 method       = 'changeYear';
                 methodParams = [yearIncrement]
             } else if (dayIncrement !== 0) {
-                me.selectionModel.select(id + '__' + DateUtil.convertToyyyymmdd(value))
+                if (me.selectionModel.navigationId) {
+                    me.recreateDayViewContent(true);
+                    me.triggerVdomUpdate()
+                } else {
+                    me.selectionModel.select(id + '__' + DateUtil.convertToyyyymmdd(value))
+                }
             }
 
             if (method) {
@@ -248,6 +261,7 @@ class DateSelector extends Component {
 
     /**
      * Triggered after the isUpdating config got changed
+     * @summary Replays deferred value, day-view and keyboard work after the current transition settles.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -256,7 +270,7 @@ class DateSelector extends Component {
         if (value === false) {
             let me = this;
 
-            if (me.cachedUpdate && me.cachedUpdate !== new Date(`${me.value}T12:00:00.000Z`)) {
+            if (me.cachedUpdate && me.cachedUpdate.getTime() !== me.dateFromValue(me.value).getTime()) {
                 me.afterSetValue(me.value, DateUtil.convertToyyyymmdd(me.cachedUpdate))
             }
 
@@ -267,6 +281,13 @@ class DateSelector extends Component {
 
                 me.cachedDayViewRebuild = null;
                 me.recreateDayViewContent(silent, syncIds)
+            }
+
+            if (me.cachedNavigationDate) {
+                let date = me.cachedNavigationDate;
+
+                me.cachedNavigationDate = null;
+                me.navigateToDate(date)
             }
         }
     }
@@ -380,6 +401,7 @@ class DateSelector extends Component {
 
     /**
      * Triggered after the value config got changed
+     * @summary Replaces the keyboard preview with the committed value and notifies consumers after rendering can proceed.
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -387,9 +409,12 @@ class DateSelector extends Component {
     afterSetValue(value, oldValue) {
         let me = this;
 
+        me.cachedNavigationDate = null;
+        me.selectionModel?.clearNavigation?.();
+
         if (value) {
             if (!me.isUpdating) {
-                me.currentDate = new Date(`${value}T12:00:00.000Z`);
+                me.currentDate = me.dateFromValue(value);
 
                 me.fire('change', {
                     component: me,
@@ -646,13 +671,13 @@ class DateSelector extends Component {
     createDayViewContent(silent=false, containerEl) {
         let me              = this,
             {currentDate}   = me,
-            currentDay      = currentDate.getDate(),
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
-            maxDate         = me.maxValue && new Date(`${me.maxValue}T12:00:00.000Z`),
-            minDate         = me.minValue && new Date(`${me.minValue}T12:00:00.000Z`),
-            valueDate       = new Date(`${me.value}T12:00:00.000Z`),
+            maxDate         = me.maxValue && me.dateFromValue(me.maxValue),
+            minDate         = me.minValue && me.dateFromValue(me.minValue),
+            valueDate       = me.dateFromValue(me.value),
+            valueDay        = valueDate.getDate(),
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
             daysInMonth     = DateUtil.getDaysInMonth(currentDate),
@@ -706,9 +731,13 @@ class DateSelector extends Component {
                     config.cn[0].cls.push('neo-today')
                 }
 
-                if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
+                if (valueYear === currentYear && valueMonth === currentMonth && day === valueDay) {
                     config.cls.push('neo-selected');
                     me.selectionModel.items = [cellId] // silent update
+                }
+
+                if (cellId === me.selectionModel.navigationId) {
+                    config.cls.push(me.selectionModel.navigationCls)
                 }
 
                 row.cn.push(config);
@@ -725,10 +754,55 @@ class DateSelector extends Component {
     }
 
     /**
-     *
+     * @summary Focuses the pending keyboard destination, or the committed day when no preview exists.
      */
     focusCurrentItem() {
-        this.focus(this.selectionModel.items[0])
+        this.focus(this.selectionModel.navigationId || this.selectionModel.items[0])
+    }
+
+    /**
+     * @summary Reads a date-only value at local noon, preserving its calendar day in every UTC offset.
+     * @param {String} value
+     * @returns {Date}
+     * @protected
+     */
+    dateFromValue(value) {
+        let [year, month, day] = String(value).split('-').map(Number),
+            date               = new Date(year, month - 1, day, 12);
+
+        date.setFullYear(year);
+
+        return date
+    }
+
+    /**
+     * @summary Displays an uncommitted keyboard date, retaining only the latest destination during rendering.
+     * @param {Date} date
+     */
+    navigateToDate(date) {
+        let me = this;
+
+        if (me.isUpdating) {
+            me.cachedNavigationDate = date
+        } else if (date.getTime() === me.currentDate.getTime()) {
+            me.recreateDayViewContent(true);
+            me.triggerVdomUpdate()
+        } else {
+            me.currentDate = date
+        }
+    }
+
+    /**
+     * @summary Commits a date through the existing selection path, including an unchanged date in an empty field picker.
+     * @param {String} value
+     */
+    selectDate(value) {
+        let me = this;
+
+        me._value = value;
+        me.selectionModel.clearNavigation?.();
+        me.selectionModel.select(me.id + '__' + value);
+        me.afterSetValue(value, null)
     }
 
     /**
@@ -775,6 +849,7 @@ class DateSelector extends Component {
     }
 
     /**
+     * @summary Commits the clicked calendar cell through the shared date-selection path.
      * @param {Object} data
      */
     onCellClick(data) {
@@ -785,10 +860,7 @@ class DateSelector extends Component {
         date.setDate(parseInt(cellEl.vdom.cn[0].text));
         date = DateUtil.convertToyyyymmdd(date);
 
-        // We want to always trigger a change event.
-        // Reason: A form.field.Date can have a null value, and we want to select the current date.
-        me._value = date;
-        me.afterSetValue(date, null)
+        me.selectDate(date)
     }
 
     /**
@@ -901,7 +973,7 @@ class DateSelector extends Component {
 
     /**
      * Triggers a vdom update & sets isUpdating
-     * @summary Commits the settled month/year VDOM and restores the selected cell's focus unless its own window has a pending leave.
+     * @summary Commits the settled date VDOM and restores the navigation or selected cell's focus unless its own window has a pending leave.
      * @param {Boolean} [silent=false]
      * @protected
      */
@@ -916,12 +988,13 @@ class DateSelector extends Component {
                     !me.isDestroyed &&
                     me.containsFocus &&
                     !Neo.manager.Focus?.pendingFocusOut?.[me.windowId]?.componentPath?.includes(me.id) &&
-                    (!me.cachedUpdate || me.cachedUpdate.getTime() === new Date(`${me.value}T12:00:00.000Z`).getTime()) &&
+                    (!me.cachedUpdate || me.cachedUpdate.getTime() === me.dateFromValue(me.value).getTime()) &&
+                    !me.cachedNavigationDate &&
                     !me.cachedDayViewRebuild &&
-                    me.selectionModel?.items?.[0]
+                    (me.selectionModel?.navigationId || me.selectionModel?.items?.[0])
                 ) {
                     await Neo.main?.DomAccess?.focus({
-                        id      : me.selectionModel.items[0],
+                        id      : me.selectionModel.navigationId || me.selectionModel.items[0],
                         windowId: me.windowId
                     })
                 }

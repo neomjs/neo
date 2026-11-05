@@ -124,6 +124,12 @@
                     }
                 }
 
+                &.neo-navigated .neo-cell-content {
+                    outline       : 2px solid var(--dateselector-cell-today-border-color);
+                    outline-offset: 2px;
+                    border-radius : 50%;
+                }
+
                 .neo-cell-content {
                     align-items    : center;
                     display        : flex;

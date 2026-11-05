@@ -2,7 +2,6 @@ import DateSelector from '../../component/DateSelector.mjs'
 import DateTrigger  from './trigger/Date.mjs'
 import DateUtil     from '../../util/Date.mjs';
 import Picker       from './Picker.mjs';
-import VDomUtil     from '../../util/VDom.mjs';
 
 /**
  * @class Neo.form.field.Date
@@ -229,6 +228,7 @@ class DateField extends Picker {
     }
 
     /**
+     * @summary Propagates the committed date and delegates optional dismissal to the floating picker's owner.
      * @param {Object} opts
      */
     onDatePickerChange(opts) {
@@ -236,15 +236,8 @@ class DateField extends Picker {
 
         me.clean = false;
 
-        if (me.hidePickerOnSelect) {
-            VDomUtil.removeVdomChild(me.vdom, me.getPickerId());
-
-            me.promiseUpdate().then(data => {
-                me.value = opts.value
-            })
-        } else {
-            me.value = opts.value
-        }
+        me.hidePickerOnSelect && me.hidePicker();
+        me.value = opts.value
     }
 
     /**
