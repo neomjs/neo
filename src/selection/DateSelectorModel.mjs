@@ -47,6 +47,34 @@ class DateSelectorModel extends Model {
     }
 
     /**
+     * @summary Writes the selection annotations and roving `tabIndex` onto one resolved vdom node.
+     * @param {Object|null} node a vdom node resolved via `view.getVdomChild()`
+     * @param {String} [selectedCls]
+     * @protected
+     */
+    annotateItem(node, selectedCls) {
+        super.annotateItem(node, selectedCls);
+
+        if (node && !this.navigationId) {
+            node.tabIndex = 0
+        }
+    }
+
+    /**
+     * @summary Removes the selection annotations and resets roving `tabIndex` on one resolved vdom node.
+     * @param {Object|null} node a vdom node resolved via `view.getVdomChild()`
+     * @param {String} [selectedCls]
+     * @protected
+     */
+    deannotateItem(node, selectedCls) {
+        super.deannotateItem(node, selectedCls);
+
+        if (node && node.id !== this.navigationId) {
+            node.tabIndex = -1
+        }
+    }
+
+    /**
      * @summary Reads the uncommitted destination first when navigation and selection are separate.
      * @param {Object} data
      * @returns {Date}
@@ -75,11 +103,13 @@ class DateSelectorModel extends Model {
     }
 
     /**
-     * @summary Commits the keyboard destination without changing default select-on-navigation behavior.
+     * @summary Commits the keyboard destination without changing default select-on-navigation behavior or hijacking header nav buttons.
      * @param {Object} data
      */
     onKeyDownEnter(data) {
-        if (!this.selectOnNavigate) {
+        let cls = data.path?.[0]?.cls;
+
+        if (!cls?.includes('neo-nav-button') && !this.selectOnNavigate) {
             let id = this.navigationId || this.items[0];
 
             id && this.view.selectDate(id.split('__')[1])
@@ -209,10 +239,18 @@ class DateSelectorModel extends Model {
             let node = this.view.getVdomChild(this.navigationId);
 
             if (node) {
-                node.cls = node.cls.filter(cls => cls !== this.navigationCls)
+                node.cls      = node.cls.filter(cls => cls !== this.navigationCls);
+                node.tabIndex = this.isSelected(this.navigationId) ? 0 : -1
             }
 
             this.navigationId = null;
+
+            let selectedNode = this.items[0] && this.view.getVdomChild(this.items[0]);
+
+            if (selectedNode) {
+                selectedNode.tabIndex = 0
+            }
+
             this.view.update()
         }
     }

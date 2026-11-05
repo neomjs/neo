@@ -184,6 +184,24 @@ class DateField extends Picker {
     }
 
     /**
+     * @summary Configures the floating date picker container with non-modal WAI-ARIA dialog semantics and delegates initial focus to the active calendar day cell.
+     * @returns {Neo.container.Base}
+     */
+    createPicker() {
+        let me     = this,
+            picker = super.createPicker(),
+            {vdom} = picker;
+
+        picker.focusOnMount = false;
+        vdom['aria-label']  = vdom['aria-label'] || 'Choose Date';
+        vdom.role           = 'dialog';
+
+        picker.on('mounted', me.onPickerMounted, me);
+
+        return picker
+    }
+
+    /**
      * @returns {Neo.component.DateSelector}
      */
     createPickerComponent() {
@@ -214,6 +232,20 @@ class DateField extends Picker {
         }
 
         return super.hasContent()
+    }
+
+    /**
+     * @summary Annotates the date input element with WAI-ARIA dialog popup and expansion state attributes.
+     */
+    onConstructed() {
+        let me      = this,
+            inputEl = me.getInputEl();
+
+        inputEl['aria-controls'] = me.getPickerId();
+        inputEl['aria-expanded'] = false;
+        inputEl['aria-haspopup'] = 'dialog';
+
+        super.onConstructed(...arguments)
     }
 
     /**
@@ -267,6 +299,26 @@ class DateField extends Picker {
         } else {
             super.onKeyDownEnter(data, me.dateSelector.focusCurrentItem, me.dateSelector)
         }
+    }
+
+    /**
+     * @summary Synchronizes the input element's `aria-expanded` state when the date picker opens or closes.
+     * @param {Object} data
+     * @protected
+     */
+    onPickerHiddenChange(data) {
+        super.onPickerHiddenChange(data);
+
+        this.getInputEl()['aria-expanded'] = !data.value;
+        this.update()
+    }
+
+    /**
+     * @summary Moves focus to the active or selected day cell inside the DateSelector when the floating picker mounts.
+     * @protected
+     */
+    onPickerMounted() {
+        this.dateSelector?.focusCurrentItem()
     }
 
     /**

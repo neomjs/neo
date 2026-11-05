@@ -713,8 +713,8 @@ class DomEvents extends Base {
                 event.preventDefault()
             }
 
-            // A menu item or accordion header is not such a native target: Space activates it, like Enter, and scrolls nothing
-            if (!isInput && event.key === ' ' && me.testPathInclusion(event, ['neo-menu-list', 'neo-accordion-header'])) {
+            // A menu item, accordion header or role-button trigger/nav-button is not a native <button>: Space activates it, like Enter, and scrolls nothing
+            if (!isInput && event.key === ' ' && me.testPathInclusion(event, ['neo-menu-list', 'neo-accordion-header', 'neo-field-trigger', 'neo-nav-button'])) {
                 event.preventDefault()
             }
         }
