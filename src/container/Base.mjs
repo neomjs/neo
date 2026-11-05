@@ -942,6 +942,7 @@ class Container extends Component {
 
     /**
      * Removes a container item at a given index.
+     * An unconstructed lazy-card config leaves without component lifecycle calls; no instance exists to destroy.
      *
      * @param {Number} index
      * @param {Boolean} destroyItem=true
@@ -949,7 +950,7 @@ class Container extends Component {
      * @param {Boolean} keepMounted=false Set to `true` to keep the item's `mounted` state as `true`.
      * This is critical for **Atomic Moves**, where the item is removed from one container and immediately added
      * to another, and we do not want to trigger unmount lifecycle hooks in between.
-     * @returns {Neo.component.Base|null}
+     * @returns {Neo.component.Base|Object|null}
      */
     removeAt(index, destroyItem=true, silent=false, keepMounted=false) {
         let me      = this,
@@ -974,6 +975,10 @@ class Container extends Component {
             // on a removal — removeAt was previously silent, stranding a cached projection with stale menu
             // indices. `items` is already spliced above, so a listener re-reads the post-removal set.
             !silent && me.fire('remove', {index, item});
+
+            if (!(item instanceof Component)) {
+                return destroyItem ? null : item
+            }
 
             if (destroyItem) {
                 item.destroy(true, silent);

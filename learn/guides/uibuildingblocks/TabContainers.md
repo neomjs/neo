@@ -89,7 +89,7 @@ part of the screen needs to respond to the selected component:
 
 ```javascript readonly
 tabs.on('activeIndexChange', ({item, oldValue, value}) => {
-    console.log('Selected card:', item.id, 'from', oldValue, 'to', value);
+    console.log('Selected card:', item?.id ?? null, 'from', oldValue, 'to', value);
 });
 
 tabs.activeIndex = 1;
@@ -153,8 +153,47 @@ const retainedCard = tabs.removeAt(1, false);
 
 Ordinary retained removal still unmounts the card; keeping an instance is not keeping its old DOM in place.
 Its old tab header is removed, and the caller must choose the next owner or destroy the retained card.
-Do not assume that removing the active card always selects the first remaining tab: choose the intended
-remaining card explicitly when your workflow requires that outcome.
+Removing the active card selects its previous neighbour. If the first card was active, the first remaining
+card takes its place; removing the last card leaves `activeIndex: null` and `getActiveCard()` returns `null`.
+Removing an inactive card preserves the selected card. An ordinary active-card removal emits
+`activeIndexChange` even when the selected index stays `0`, because a different card now occupies that slot.
+
+## Let the reader close work deliberately
+
+A close control ends a card's lifetime, so it is an explicit choice on each header. Tabs remain
+non-closable by default. A screen can keep an Overview permanent while allowing temporary work to close:
+
+```javascript readonly
+items: [{
+    module: OverviewPanel,
+    header: {text: 'Overview'}
+}, {
+    module: DraftPanel,
+    header: {text: 'Draft', closable: true}
+}]
+```
+
+The close mark and Delete on the focused tab request the same action. Clicking the title or its ordinary
+icon still selects the tab. Classic and effect-based headers expose the same interaction, including the
+Delete shortcut, without nesting another button inside the native tab button.
+
+Application code can request the same close through `tabs.closeTab(index)`. It respects the header's
+closability and disabled state, then emits `beforeTabClose` before removing either half of the card/header
+pair. A synchronous listener can set the request's `abort` to `true` when application policy requires the
+card to stay. A veto preserves membership, selection and focus; the application can explain or resolve its
+unsaved-work decision before requesting close again. This is separate from the structural `removeAt` API,
+which remains available when the application owns removal directly.
+
+After a successful close, `tabClose` supplies the captured `cardId`, `headerId` and `text`. Those values are
+useful for a history or status message: the component references may already be destroyed. A lazy card can
+close without loading merely to participate in that notification.
+
+Closing the focused tab moves focus to the following tab, or the preceding tab when the last one closes.
+Focus and selection remain separate: the active-card removal policy above still chooses the previous
+neighbour. If no tab remains, the TabContainer itself receives programmatic focus so the reader can
+continue with Tab. A programmatic close while focus
+is elsewhere leaves that focus alone. A host that manages its own focus destination can set
+`restoreFocus: false` on the `beforeTabClose` request.
 
 ## Delay construction when the panel is expensive
 
