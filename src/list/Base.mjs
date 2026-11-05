@@ -36,7 +36,16 @@ class List extends Component {
          */
         baseCls: ['neo-list'],
         /**
-         * Optional record field name to link the item's checked state when `useCheckBoxes` is `true`.
+         * Record field name to link the item's checked state when `useCheckBoxes` is `true`.
+         *
+         * The link activates when `useCheckBoxes` is `true` and the bound store's model declares
+         * this field (`store.model.getField(checkedField)`) or a raw record carries the property
+         * (`checkedField in record`). When active, explicit item selection and deselection
+         * (`selectionModel.select()` / `selectionModel.deselect()`) write `true` / `false` back
+         * into `record[checkedField]`, while view-initiated resets (`disableSelection`,
+         * `selectedIndex = null`, `deselectAll()`) leave record data untouched. In `singleSelect`
+         * mode, only the first initially checked record seeds `selectionModel.items`, and selecting
+         * a new item unchecks any previously checked record.
          * @member {String} checkedField='checked'
          */
         checkedField: 'checked',
@@ -902,29 +911,51 @@ class List extends Component {
     }
 
     /**
-     * @summary Synchronizes each record's {@link #checkedField} when list selection changes while `useCheckBoxes` is enabled.
+     * @summary Synchronizes each record's {@link #checkedField} on explicit item `select` / `deselect` while skipping view-level `deselectAll` resets.
      * @param {Object} data
+     * @param {String[]} [data.deselected]
+     * @param {Object[]} [data.records]
      * @param {String[]} data.selection
      */
-    onSelectionChange({selection}) {
+    onSelectionChange({deselected, records, selection}) {
         let me = this;
 
-        if (!me.useCheckBoxes || !me.checkedField || !me.store) {
+        if (!me.useCheckBoxes || !me.checkedField || !me.store || me.disableSelection) {
             return
         }
 
-        let selectedSet = new Set(selection || []);
+        if (Array.isArray(records)) {
+            let selectedSet = new Set(selection || []);
 
-        me.store.forEach(record => {
-            if (me.hasCheckedField(record)) {
-                let itemId          = me.getItemId(me.getRecordId(record)),
-                    shouldBeChecked = selectedSet.has(itemId);
+            if (me.selectionModel?.singleSelect) {
+                me.store.forEach(record => {
+                    if (me.hasCheckedField(record)) {
+                        let itemId          = me.getItemId(me.getRecordId(record)),
+                            shouldBeChecked = selectedSet.has(itemId);
 
-                if (Boolean(record[me.checkedField]) !== shouldBeChecked) {
-                    record[me.checkedField] = shouldBeChecked
+                        if (Boolean(record[me.checkedField]) !== shouldBeChecked) {
+                            record[me.checkedField] = shouldBeChecked
+                        }
+                    }
+                })
+            } else {
+                for (let itemId of selectedSet) {
+                    let record = me.store.get(me.getItemRecordId(itemId));
+
+                    if (me.hasCheckedField(record) && !record[me.checkedField]) {
+                        record[me.checkedField] = true
+                    }
                 }
             }
-        })
+        } else if (Array.isArray(deselected)) {
+            for (let itemId of deselected) {
+                let record = me.store.get(me.getItemRecordId(itemId));
+
+                if (me.hasCheckedField(record) && record[me.checkedField]) {
+                    record[me.checkedField] = false
+                }
+            }
+        }
     }
 
     /**

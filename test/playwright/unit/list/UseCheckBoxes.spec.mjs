@@ -154,4 +154,50 @@ test.describe('Neo.list.Base#useCheckBoxes and checkedField synchronization', ()
         expect(rec2.isChecked).toBe(true);
         expect(rec1.isChecked).toBe(false);
     });
+
+    test('view resets (disableSelection / deselectAll and selectedIndex = null) do not overwrite checked record data', () => {
+        list = Neo.create(List, {
+            appName,
+            useCheckBoxes : true,
+            selectionModel: {
+                ntype        : 'selection-listmodel',
+                singleSelect : false,
+                toggleOnClick: true
+            },
+            store: Neo.create(CheckListStore, {
+                data: [
+                    {id: 'a', name: 'Alpha', checked: true},
+                    {id: 'b', name: 'Beta',  checked: true},
+                    {id: 'c', name: 'Gamma', checked: false}
+                ]
+            })
+        });
+
+        const
+            recA = list.store.get('a'),
+            recB = list.store.get('b'),
+            recC = list.store.get('c');
+
+        // C1: disableSelection / selectionModel.deselectAll() must not clear persisted checked state on a and b
+        list.vnodeInitialized = true;
+        list.disableSelection = true;
+        expect(recA.checked).toBe(true);
+        expect(recB.checked).toBe(true);
+
+        list.disableSelection = false;
+        list.createItems(true);
+        list.selectionModel.deselectAll();
+        expect(recA.checked).toBe(true);
+        expect(recB.checked).toBe(true);
+
+        // C2: selectedIndex = 2 then selectedIndex = null must not clear checked state across records
+        list.createItems(true);
+        list.selectedIndex = 2;
+        expect(recC.checked).toBe(true);
+
+        list.selectedIndex = null;
+        expect(recA.checked).toBe(true);
+        expect(recB.checked).toBe(true);
+        expect(recC.checked).toBe(true);
+    });
 });
