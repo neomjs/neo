@@ -105,6 +105,41 @@ export async function stopSpawnedBridge(connection) {
 }
 
 /**
+ * @summary Whether a Bridge connect failure is the Bridge refusing authentication (close code 1008), as
+ * `ConnectionService` marks it: `authenticationFailed: true`, `closeCode: 1008`.
+ * @param {*} error
+ * @returns {Boolean}
+ */
+export function isAuthenticationFailed(error) {
+    return error?.authenticationFailed === true || error?.closeCode === 1008
+}
+
+/**
+ * @summary Starts the Neural Link connection and names the remedy when a Bridge this process did not spawn
+ * refuses it. A fleet-mode Bridge (the seat's own, on `aiConfig.port`) demands a signed seat token the test
+ * runner does not hold, so every spec would otherwise fail with an authentication error that names no fix.
+ * @param {Object} connection The Brain's `ConnectionService`
+ * @param {Number} port       The Bridge port (`aiConfig.port`)
+ * @returns {Promise<void>}
+ * @throws {Error} One actionable error for a refused foreign Bridge; any other failure unchanged
+ */
+export async function startNeuralLinkConnection(connection, port) {
+    try {
+        await connection.manageConnection({action: 'start'})
+    } catch (error) {
+        // A Bridge we spawned ourselves, or any other failure, keeps its original error
+        if (connection.bridgeProcess || !isAuthenticationFailed(error)) throw error;
+
+        throw new Error(
+            `The Neural Link Bridge on port ${port} refused this test run: it is a fleet-mode Bridge, ` +
+            'which requires a seat token the test runner does not hold. ' +
+            `Run with NEO_NL_PORT=<free port> so the fixture spawns its own Bridge and routes the page to it.`,
+            {cause: error}
+        )
+    }
+}
+
+/**
  * @summary Refuses to initialize `neuralLink` after `page` has already navigated away from `about:blank`.
  * When `test.beforeEach` calls `page.goto()` without requesting `{ neuralLink }`, Playwright runs
  * `beforeEach` before initializing `neuralLink`, so the page fetches `neo-config.json` before
@@ -309,7 +344,7 @@ export const test = base.extend({
         NeuralLink_ConnectionService.cwd ??= bridgeScriptRoot;
 
         // 1. Ensure Bridge connects
-        await NeuralLink_ConnectionService.manageConnection({action: 'start'});
+        await startNeuralLinkConnection(NeuralLink_ConnectionService, aiConfig.port);
 
         // The page's client dials `Neo.config.neuralLinkUrl`, which defaults to the shared :8081. A seat running its
         // own Bridge (NEO_NL_PORT) must point the page there too, or it drives this Bridge and reads another. Routed
