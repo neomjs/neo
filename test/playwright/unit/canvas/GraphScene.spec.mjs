@@ -97,6 +97,59 @@ test.describe('Neo.canvas.GraphScene — the math', () => {
     });
 });
 
+test.describe('Neo.canvas.GraphScene — labels and flights, the math', () => {
+    test('labels are placed in their order, clear of each other, on the surface and in front of the camera, up to the most a frame draws', () => {
+        const
+            boxes   = [[40, 10], [40, 10], [40, 10], [40, 10], [40, 10]],
+            anchors = [[50, 50], [60, 52], null, [-30, 50], [50, 70]],
+            place   = options => GraphScene.placeLabels({anchors, boxes, gap: 4, height: 100, max: 30, width: 100, ...options});
+
+        expect(place(), 'the second overlaps the first, the third is behind the camera, the fourth is off the surface').toEqual([0, 4]);
+        expect(place({gap: 12}), 'a wider gap keeps the fifth out too').toEqual([0]);
+        expect(place({max: 1}), 'a frame stops at the most it draws').toEqual([0]);
+        expect(place({anchors: [[60, 52], [50, 50], null, [-30, 50], [50, 70]]}), 'of two overlapping labels, the earlier wins').toEqual([0, 4])
+    });
+
+    test('the atlas packs labels whole: one it cannot hold is left out, never clipped, claims no space, and the labels after it keep packing', () => {
+        const pack = boxes => GraphScene.packLabels({boxes, limit: 100});
+
+        expect(pack([[40, 10], [120, 10], [50, 10]]), 'a normal label, one wider than the atlas, a later ordinary one')
+            .toEqual({height: 10, origins: [[0, 0], null, [40, 0]], width: 90});
+        expect(pack([[10, 10], [20, 120], [90, 10]]), 'one taller than the atlas leaves the row its height: the later one shares it')
+            .toEqual({height: 10, origins: [[0, 0], null, [10, 0]], width: 100});
+        expect(pack([[60, 40], [60, 40], [60, 30], [40, 20]]), 'rows wrap at the limit; one past the last row claims none, a later one packs into the row with room')
+            .toEqual({height: 80, origins: [[0, 0], [0, 40], null, [60, 40]], width: 100});
+        // the same two texts measured at a pixel ratio of 1, then of 2
+        expect(pack([[40, 10], [60, 10]]).origins).toEqual([[0, 0], [40, 0]]);
+        expect(pack([[80, 20], [120, 20]]).origins, 'at twice the ratio the second is wider than the atlas').toEqual([[0, 0], null])
+    });
+
+    test('a label sits at its node, and at its node\'s cluster centroid while the frame draws centroids', () => {
+        const
+            positions = Float32Array.from([0, 0, 0,  2, 0, 0,  10, 10, 10]),
+            lod       = GraphScene.clusterScene({clusters: Uint32Array.from([7, 7, 9]), colors: new Float32Array(9), edges: new Uint32Array(0), positions, sizes: new Float32Array(3).fill(1)}),
+            nodes     = Uint32Array.from([1, 2]);
+
+        expect(Array.from(GraphScene.labelAnchors({nodes, positions}))).toEqual([2, 0, 0,  10, 10, 10]);
+        expect(Array.from(GraphScene.labelAnchors({lod, nodes, positions})), 'node 1 shares cluster 7 with node 0: their centroid').toEqual([1, 0, 0,  10, 10, 10])
+    });
+
+    test('a label sits above the point it names, its lower edge `lift` away, so it never hides the point', () => {
+        const centres = GraphScene.labelCentres({anchors: [[50, 50], null, [20, 80]], boxes: [[40, 20], [40, 20], [30, 10]], lift: 6});
+
+        expect(centres, 'a centre is the half height plus the lift above its point; behind the camera stays without one').toEqual([[50, 34], null, [20, 69]])
+    });
+
+    test('a flight eases from its start to its end, the distance by a constant ratio', () => {
+        const flight = {from: {dist: 8, target: [0, 0, 0]}, to: {dist: 2, target: [4, -2, 0]}};
+
+        expect(GraphScene.flightStep(flight, 0)).toEqual({dist: 8, target: [0, 0, 0]});
+        expect(GraphScene.flightStep(flight, -1), 'a share before the start holds at the start').toEqual({dist: 8, target: [0, 0, 0]});
+        expect(GraphScene.flightStep(flight, 0.5), 'halfway in time: the middle of the line and the geometric middle of the distances').toEqual({dist: 4, target: [2, -1, 0]});
+        expect(GraphScene.flightStep(flight, 2), 'a share past the end holds at the end').toEqual({dist: 2, target: [4, -2, 0]})
+    })
+});
+
 test.describe('Neo.canvas.GraphScene — the scene checks', () => {
     let renderer;
 
@@ -130,6 +183,22 @@ test.describe('Neo.canvas.GraphScene — the scene checks', () => {
 
     test('a scene without positions is refused, naming the keys it carries', () => {
         expect(() => normalizeScene({nodes: [{id: 'a'}], links: []})).toThrow(/needs positions, got nodes, links/)
+    });
+
+    test('labels pair a text and a size with each node they name and settle into typed forms; a scene without labels has none', () => {
+        const {labels} = normalizeScene({positions: [0, 0, 0, 1, 1, 1], labels: {nodes: [1, 0], texts: ['b', 7]}});
+
+        expect(labels.nodes).toEqual(Uint32Array.from([1, 0]));
+        expect(labels.texts, 'a text is a string').toEqual(['b', '7']);
+        expect(labels.sizes, 'the style\'s size by default').toEqual(new Float32Array(2).fill(renderer.labelStyle.size));
+        expect(labels).toMatchObject({color: '#ffffff', outline: '#000000'});
+        expect(normalizeScene({positions: [0, 0, 0]}).labels).toBeNull()
+    });
+
+    test('a label without its text or size, or naming no node, is refused with its reason', () => {
+        expect(() => normalizeScene({positions: [0, 0, 0], labels: {nodes: [0], texts: []}})).toThrow(/1 labels need 1 texts and sizes, got 0 and 1/);
+        expect(() => normalizeScene({positions: [0, 0, 0], labels: {nodes: [0], texts: ['a'], sizes: [12, 14]}})).toThrow(/got 1 and 2/);
+        expect(() => normalizeScene({positions: [0, 0, 0], labels: {nodes: [1], texts: ['a']}})).toThrow(/names one of the 1 nodes/)
     });
 });
 
@@ -243,6 +312,58 @@ test.describe('Neo.canvas.GraphScene — the renderer without a GL context', () 
         expect(nodeScene.camera.target).toEqual([1, 0, 0]);
 
         nodeScene.destroy()
+    });
+
+    test('the stats count a scene\'s labels and list none drawn before a frame; a scene without labels has none', () => {
+        renderer.context = createContext(400, 200);
+        renderer.setScene({positions: [0, 0, 0,  1, 0, 0], labels: {nodes: [0, 1], texts: ['a', 'b']}, windowId: 'window-1'});
+
+        expect(renderer.getStats().labels).toEqual({count: 2, drawn: []});
+
+        renderer.setScene({positions: [0, 0, 0], windowId: 'window-1'});
+
+        expect(renderer.getStats().labels).toBeNull()
+    });
+
+    test('a flight lands on its node at a distance the zoom allows; the wheel ends it; a node the scene lacks changes nothing', () => {
+        renderer.context = createContext(400, 200);
+        renderer.setScene({positions: [0, 0, 0,  2, 1, 0], windowId: 'window-1'});
+
+        const {fittedDistance} = renderer, before = renderer.getStats().camera;
+
+        renderer.flyTo({index: 5});
+        renderer.flyTo({index: -1});
+
+        expect(renderer.getStats().camera, 'an index the scene lacks changes nothing').toEqual(before);
+
+        renderer.flyTo({index: 1, distance: 0.01, duration: 0});
+
+        const landed = renderer.getStats();
+
+        expect(landed.camera.target).toEqual([2, 1, 0]);
+        expect(landed.camera.dist, 'held at the nearest the zoom allows').toBeCloseTo(fittedDistance * renderer.zoom.min);
+        expect(landed.camera.touched, 'a flown camera counts as taken').toBe(true);
+        expect(landed.flying).toBe(false);
+
+        renderer.flyTo({index: 0, distance: 1, duration: 100});
+        renderer.flightPlan.start = performance.now() - 50;
+        renderer.stepFlight();
+
+        expect(renderer.camera.target[0], 'halfway in time is halfway along').toBeCloseTo(1, 0);
+        expect(renderer.getStats().flying).toBe(true);
+
+        renderer.onWheel({wheel: {deltaY: 100}});
+
+        expect(renderer.getStats().flying, 'the wheel ends the flight').toBe(false);
+        expect(renderer.camera.target[0], 'where it is').toBeCloseTo(1, 0);
+
+        renderer.flyTo({index: 0, distance: 1, duration: 100});
+        renderer.flightPlan.start = performance.now() - 200;
+        renderer.stepFlight();
+
+        expect(renderer.camera.target, 'its last step lands exactly on the end').toEqual([0, 0, 0]);
+        expect(renderer.camera.dist).toBe(fittedDistance);
+        expect(renderer.getStats().flying).toBe(false)
     });
 
     test('a lost context keeps the scene, drops its GL objects and leaves the buffer alone until the restore', () => {
