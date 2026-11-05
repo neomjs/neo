@@ -102,6 +102,7 @@ function indexDocs(docs) {
     return { byClassName, appNamesSet };
 }
 
+/** @summary Builds navigation records with source URLs shared by the generated member doclets. */
 function generateStructure(namespaceTree, target, parentId, docIndex) {
     const namespace = getNamespace(namespaceTree, target);
 
@@ -146,43 +147,12 @@ function generateStructure(namespaceTree, target, parentId, docIndex) {
             const docItem = docIndex.byClassName.get(className);
 
             if (docItem) {
-                const metaPath = docItem.meta.path;
-                let   m        = false;
-
-                // Try different path patterns
-                const patterns = [
-                    { search: 'neomjs/neo/', offset: 11 },
-                    { search: 'neo.mjs/', offset: 8 },
-                    { search: 'neo/', offset: 4 },
-                    { search: '/apps/', offset: 1 },
-                    { search: '/docs/', offset: 1 }
-                ];
-
-                for (const { search, offset } of patterns) {
-                    const i = metaPath.indexOf(search);
-                    if (i > -1) {
-                        srcPath = metaPath.substr(i + offset) + '/' + docItem.meta.filename;
-                        m = true;
-                        break;
-                    }
-                }
+                srcPath = docItem.meta.srcPath;
 
                 // Check for singleton tag
                 if (docItem.tags) {
                     singleton = docItem.tags.some(tag => tag.title === 'singleton');
                 }
-            }
-        }
-
-        // Adjust paths when running inside neo.mjs node module
-        if (srcPath) {
-            const index = srcPath.indexOf('node_modules/neo.mjs/');
-            if (index > -1) {
-                srcPath = srcPath.substr(index + 21);
-            }
-
-            if (!insideNeo && !srcPath.includes('apps/') && !srcPath.includes('docs/')) {
-                srcPath = 'node_modules/neo.mjs/' + srcPath;
             }
         }
 
@@ -299,6 +269,9 @@ parse(options)
             }
 
             docs[i].id = i + 1;
+
+            // Docs serves source relative to the project root, regardless of checkout or package name.
+            item.meta.srcPath = path.relative(cwd, path.resolve(item.meta.path, item.meta.filename)).split(path.sep).join('/');
 
             const filename = item.meta.filename.substr(0, item.meta.filename.lastIndexOf('.'));
             const fullPath = processPath(item.meta.path, filename, appNames);

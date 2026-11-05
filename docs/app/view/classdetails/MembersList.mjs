@@ -275,15 +275,7 @@ class MembersList extends Base {
                 headerText += (' → {' + MembersList.escapeHtml(item.returns[0].type.names.join('|') + '}'))
             }
 
-            path = item.meta.path;
-
-            if (path.includes('/neo.mjs/')) {
-                path = path.substr(path.indexOf('/neo.mjs/') + 9)
-            } else if (path.includes('/neomjs/')) {
-                path = path.substr(path.indexOf('/neomjs/')  + 8)
-            } else if (path.includes('/neo/')) {
-                path = path.substr(path.indexOf('/neo/')     + 5)
-            }
+            path = item.meta.srcPath;
 
             itemConfig = {
                 cls: ['neo-list-item'],
@@ -306,7 +298,7 @@ class MembersList extends Base {
                         tag : 'a',
                         cls : ['neo-docs-view-source-link'],
                         href: `#/viewSource/${item.neoClassName}/line/${item.meta.lineno}`,
-                        html: `Source: ${path}/${item.meta.filename} (Line ${item.meta.lineno})`
+                        html: `Source: ${path} (Line ${item.meta.lineno})`
                     }]
                 }, {
                     html: item.description

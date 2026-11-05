@@ -24,13 +24,13 @@ const base   = 'Neo.core.Base', target = 'Neo.data.Store', first = 'Neo.core.Obs
 function classDoc(neoClassName, augments = [], mixes = []) {
     return {id: `class-${neoClassName}`, $kind: 'class', kind: 'class', neoClassName,
         name: neoClassName.split('.').at(-1), ...(augments.length && {augments}), mixes,
-        meta: {filename: 'Fixture.mjs', lineno: 1, path: '/neo/src'}}
+        meta: {filename: 'Fixture.mjs', lineno: 1, path: '/neo/src', srcPath: 'src/Fixture.mjs'}}
 }
 
 /** @summary Keeps canonical source ownership separate from JSDoc's short memberof names. */
 function method(id, neoClassName, name, options = {}) {
     return {id, neoClassName, name, memberof: 'ShortName', kind: 'function', $kind: 'method',
-        scope: 'instance', meta: {filename: 'Fixture.mjs', lineno: 10, path: '/neo/src'}, ...options}
+        scope: 'instance', meta: {filename: 'Fixture.mjs', lineno: 10, path: '/neo/src', srcPath: 'src/Fixture.mjs'}, ...options}
 }
 
 /** @summary Matches the global-scoped reactive configs emitted by the docs generator. */

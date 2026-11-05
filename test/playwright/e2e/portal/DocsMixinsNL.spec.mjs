@@ -73,6 +73,7 @@ test.describe('Docs mixin members', () => {
         const source = page.locator('.docs-classhierarchy-memberslist .neo-docs-view-source-link')
             .filter({hasText: 'core/Observable.mjs'});
         await expect(source).toHaveCount(1);
+        await expect(source).toHaveText(/Source: src\/core\/Observable\.mjs \(Line \d+\)/);
         await expect(source.locator('..').locator('..')).toContainText('mixin');
         await page.screenshot({path: test.info().outputPath('docs-store-mixins.png')});
         await source.click();
