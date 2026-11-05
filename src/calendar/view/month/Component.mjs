@@ -642,6 +642,12 @@ class Component extends BaseComponent {
             // console.log(data.scrollTop, Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6));
 
             if (data.deltaY > 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) > 11) {
+                let weeks       = container.cn.filter(item => item.cls.includes('neo-week')),
+                    rectPromise = Neo.main.DomAccess.getBoundingClientRect?.({
+                        id      : [weeks[0].id, weeks[6].id],
+                        windowId: me.windowId
+                    });
+
                 date = new Date(container.cn[container.cn.length - 1].flag);
 
                 date.setDate(date.getDate() - (date.getDay() - me.weekStartDay));
@@ -662,11 +668,15 @@ class Component extends BaseComponent {
                     container.cn.push(week.row)
                 }
 
-                me.promiseUpdate().then(() => {
+                Promise.all([me.promiseUpdate(), rectPromise]).then(([, rects]) => {
+                    let removedHeight = rects?.[1]?.top > rects?.[0]?.top
+                        ? rects[1].top - rects[0].top
+                        : data.clientHeight - me.headerHeight;
+
                     Neo.main.DomAccess.scrollTo({
                         direction: 'top',
                         id       : me.vdom.cn[1].id,
-                        value    : data.scrollTop - (data.clientHeight - me.headerHeight),
+                        value    : data.scrollTop - removedHeight,
                         windowId : me.windowId
                     })
                 })

@@ -140,9 +140,17 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
     test('onWheel downward and upward boundary crossings shift 6 weeks and compensate scrollTop via scrollTo', async () => {
         let measuredHeaderHeight  = 45,
             scrollContainerHeight = 645,
+            removedBlockHeight    = 624,
             scrollCalls           = [];
 
         Neo.main.DomAccess.getBoundingClientRect = async ({id}) => {
+            if (Array.isArray(id) && id.every(nodeId => String(nodeId).includes('__week__'))) {
+                return [
+                    {width: 800, height: 100, top: 100, x: 0, y: 100},
+                    {width: 800, height: 100, top: 100 + removedBlockHeight, x: 0, y: 100 + removedBlockHeight}
+                ];
+            }
+
             return id.map((nodeId, index) => ({
                 width : 800,
                 height: index === 0 ? scrollContainerHeight : measuredHeaderHeight,
@@ -199,6 +207,7 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
         });
 
         await lastPromiseUpdate;
+        await Promise.resolve();
 
         const afterDownWeeks = getWeekFlags();
         expect(afterDownWeeks.length).toBe(18);
@@ -207,7 +216,7 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
         expect(scrollCalls[1]).toEqual({
             direction: 'top',
             id       : component.vdom.cn[1].id,
-            value    : 1180 - 600,
+            value    : 1180 - removedBlockHeight,
             windowId : component.windowId
         });
 
