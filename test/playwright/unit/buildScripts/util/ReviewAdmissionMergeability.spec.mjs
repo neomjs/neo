@@ -71,20 +71,20 @@ const mergeabilityPull = (mergeable, {
  * @returns {Object}
  */
 const createReviewAdmissionRuntime = ({
-    targets         = [{number: 42, head: {sha: 'pr-head'}}],
-    reads           = [mergeabilityPull(true)],
-    readsByPr       = null,
-    eventName       = 'push',
-    eventPrNumber   = 42,
-    eventAction     = 'synchronize',
-    eventMerged     = false,
-    publishedStates = {}
+    targets              = [{number: 42, head: {sha: 'pr-head'}}],
+    reads                = [mergeabilityPull(true)],
+    readsByPr            = null,
+    eventName            = 'push',
+    eventPrNumber        = 42,
+    eventAction          = 'synchronize',
+    eventMerged          = false,
+    publishedStates      = {},
+    onBeforeCreateStatus = null
 } = {}) => {
     const failures      = [],
           errors        = [],
           infos         = [],
           delays        = [],
-          outputs       = new Map(),
           statusCalls   = [],
           statusReads   = [],
           listCalls     = [],
@@ -108,8 +108,7 @@ const createReviewAdmissionRuntime = ({
         core: {
             error    : message => errors.push(message),
             info     : message => infos.push(message),
-            setFailed: message => failures.push(message),
-            setOutput: (name, value) => outputs.set(name, value)
+            setFailed: message => failures.push(message)
         },
         github: {
             paginate: async(method, args) => {
@@ -163,6 +162,9 @@ const createReviewAdmissionRuntime = ({
                         }] : []}};
                     },
                     createCommitStatus: async args => {
+                        if (typeof onBeforeCreateStatus === 'function') {
+                            await onBeforeCreateStatus({args, statusByHead, statusCalls});
+                        }
                         statusCalls.push(args);
                         statusByHead.set(args.sha, args.state);
                         return {data: args};
@@ -175,8 +177,8 @@ const createReviewAdmissionRuntime = ({
         delays,
         failures,
         listCalls,
-        outputs,
         pullReads,
+        statusByHead,
         statusCalls,
         statusReads,
         get maxConcurrentGets() {
@@ -222,7 +224,7 @@ const executeReviewAdmissionPublisher = async(script, runtime, envOverrides = {}
     }
 };
 
-const publishStep = () => readWorkflow(WORKFLOW_NAME).jobs.publish.steps.find(step => step.id === 'publish');
+const publishStep = () => readWorkflow(WORKFLOW_NAME).jobs.publish.steps.find(step => String(step.uses || '').startsWith('actions/github-script@'));
 
 test.describe('review-admission mergeability controller (#17692, #20061, #20344)', () => {
     test('runs in a single job without matrix VM fan-out and configures retries: 3 on actions/github-script', () => {
@@ -300,13 +302,11 @@ test.describe('review-admission mergeability controller (#17692, #20061, #20344)
         await executeReviewAdmissionPublisher(script, prEvent);
         await executeReviewAdmissionPublisher(script, push, {MERGEABILITY_CONCURRENCY: '2'});
 
-        expect(Object.fromEntries(prEvent.outputs)).toEqual({prs: '[17692]'});
         expect(prEvent.listCalls).toEqual([]);
         expect(prEvent.statusCalls.map(call => [call.sha, call.state])).toEqual([
             ['head-17692', 'success']
         ]);
 
-        expect(Object.fromEntries(push.outputs)).toEqual({prs: '[1,2,3,5,6,9]'});
         expect(push.listCalls).toHaveLength(1);
         expect(push.maxConcurrentGets).toBeLessThanOrEqual(2);
         expect(push.statusCalls.map(call => [call.sha, call.state]).sort((a, b) => a[0].localeCompare(b[0]))).toEqual([
@@ -335,7 +335,6 @@ test.describe('review-admission mergeability controller (#17692, #20061, #20344)
 
         await executeReviewAdmissionPublisher(script, overflow);
 
-        expect(Object.fromEntries(overflow.outputs)).toEqual({prs: '[]'});
         expect(overflow.failures.join(' ')).toContain('Refusing partial publication');
         expect(overflow.pullReads).toEqual([]);
         expect(overflow.statusCalls).toHaveLength(31);
@@ -360,11 +359,9 @@ test.describe('review-admission mergeability controller (#17692, #20061, #20344)
         await executeReviewAdmissionPublisher(script, unavailable);
         await executeReviewAdmissionPublisher(script, missingPr);
 
-        expect(Object.fromEntries(unavailable.outputs)).toEqual({prs: '[]'});
         expect(unavailable.failures).toEqual(['Open dev PR discovery failed: pull list unavailable']);
         expect(unavailable.statusCalls).toEqual([]);
 
-        expect(Object.fromEntries(missingPr.outputs)).toEqual({prs: '[]'});
         expect(missingPr.failures).toEqual(['pull_request_target payload omitted the pull-request number.']);
         expect(missingPr.statusCalls).toEqual([]);
     });
@@ -462,8 +459,59 @@ test.describe('review-admission mergeability controller (#17692, #20061, #20344)
         expect(batch.failures).toEqual(['source unavailable on #10']);
         expect(batch.infos.some(msg => msg.includes('PR #11 is merged; no mergeability status after close.'))).toBe(true);
 
-        expect(unchanged.pullReads.length).toBeGreaterThanOrEqual(3);
+        expect(unchanged.pullReads.length).toBeGreaterThanOrEqual(4);
         expect(unchanged.statusReads).toHaveLength(1);
         expect(unchanged.statusCalls).toEqual([]);
+    });
+
+    test('re-reads after a terminal write and restarts when a concurrent board sweep wrote against a newer base', async () => {
+        const script           = publishStep().with.script;
+        let   boardInterleaved = false;
+
+        // Stage the cross-trigger race between a PR event run and a base-movement board sweep:
+        // 1. This `pull_request_target` run (group `pr-42`) reads seed, observed, and verified against B1 (`mergeable: true`).
+        // 2. Between its verified read and its `createCommitStatus('success')` write, a concurrent `dev` merge
+        //    advances the base to B2 and a board sweep (group `board`) writes `failure` on `pr-head`.
+        // 3. This run's `success` write lands after the board sweep's `failure` write.
+        // 4. The post-write re-read catches `(pr-head, dev-b2)`, restarts on B2, and writes `failure` last.
+        const runtime = createReviewAdmissionRuntime({
+            eventName    : 'pull_request_target',
+            eventPrNumber: 42,
+            reads        : [
+                mergeabilityPull(true,  {number: 42, head: 'pr-head', base: 'dev-b1'}),
+                mergeabilityPull(true,  {number: 42, head: 'pr-head', base: 'dev-b1'}),
+                mergeabilityPull(true,  {number: 42, head: 'pr-head', base: 'dev-b1'}),
+                mergeabilityPull(false, {number: 42, head: 'pr-head', base: 'dev-b2'}),
+                mergeabilityPull(false, {number: 42, head: 'pr-head', base: 'dev-b2'}),
+                mergeabilityPull(false, {number: 42, head: 'pr-head', base: 'dev-b2'}),
+                mergeabilityPull(false, {number: 42, head: 'pr-head', base: 'dev-b2'}),
+                mergeabilityPull(false, {number: 42, head: 'pr-head', base: 'dev-b2'})
+            ],
+            onBeforeCreateStatus: ({args, statusByHead, statusCalls}) => {
+                if (!boardInterleaved && args.state === 'success') {
+                    boardInterleaved = true;
+                    statusCalls.push({
+                        owner      : 'neomjs',
+                        repo       : 'neo',
+                        sha        : 'pr-head',
+                        state      : 'failure',
+                        context    : 'review-admission/mergeability',
+                        description: 'Conflicts with current dev base; author rebase required',
+                        actor      : 'concurrent-board-sweep'
+                    });
+                    statusByHead.set('pr-head', 'failure');
+                }
+            }
+        });
+
+        await executeReviewAdmissionPublisher(script, runtime);
+
+        expect(runtime.failures).toEqual([]);
+        expect(runtime.statusCalls.map(call => call.state)).toEqual([
+            'failure',
+            'success',
+            'failure'
+        ]);
+        expect(runtime.statusByHead.get('pr-head')).toBe('failure');
     });
 });
