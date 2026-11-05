@@ -73,6 +73,9 @@ jobs:
             // Why a diff is unavailable, printed as the skip reason when every tier runs instead
             let unavailableReason = 'changed files unavailable';
 
+            // The base a push's changed files were diffed from; its content reads compare against it too
+            let pushBase = null;
+
             // A newer push cancels this workflow's older run, so diffing from `before` would leave
             // the cancelled push's commits in no classified range. Diff from the head of this
             // workflow's last completed, non-cancelled push run instead: completed ranges then
@@ -123,16 +126,16 @@ jobs:
 
               if (eventName === 'push') {
                 const after = context.payload.after;
-                const base  = after ? await lastCompletedHead(after) : null;
+                pushBase    = after ? await lastCompletedHead(after) : null;
 
-                if (!base) {
+                if (!pushBase) {
                   return null;
                 }
 
                 const comparison = await github.rest.repos.compareCommitsWithBasehead({
                   owner   : context.repo.owner,
                   repo    : context.repo.repo,
-                  basehead: `${base}...${after}`,
+                  basehead: `${pushBase}...${after}`,
                   per_page: 100
                 });
 
@@ -218,7 +221,7 @@ jobs:
             // target repo. Throws on an undeterminable ref or a failed read or parse; every caller
             // turns that into running.
             async function readAtBothRefs(filePath) {
-              const baseRef = eventName === 'pull_request' ? context.payload.pull_request.base.sha : context.payload.before;
+              const baseRef = eventName === 'pull_request' ? context.payload.pull_request.base.sha : pushBase;
               const headRef = eventName === 'pull_request' ? context.payload.pull_request.head.sha : context.payload.after;
 
               if (!baseRef || !headRef || /^0+$/.test(baseRef)) {

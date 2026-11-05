@@ -418,6 +418,26 @@ test.describe('Tests scope classifier — the dev push range', () => {
         expect(outputsOf(runtime).run_e2e).toBe('true');
     });
 
+    test('a push reads package.json at the base its files were diffed from, not at before', async () => {
+        // The cancelled push bumped a dependency; the surviving push touched nothing in package.json.
+        // Read at `before`, both sides would match and the bump would be listed but never compared.
+        const runtime = createRuntime({
+            eventName: 'push',
+            baseSha  : 'completed-sha',
+            headPkg  : {dependencies: {leftpad: '1.0.1'}, scripts: {'build:all': 'a'}},
+            runs     : [
+                { id: 3, conclusion: 'cancelled', head_sha: 'cancelled-sha' },
+                { id: 2, conclusion: 'success',   head_sha: 'completed-sha' }
+            ]
+        });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(runtime.calls.contentCalls).toContain('neomjs/neo@completed-sha');
+        expect(runtime.calls.contentCalls).not.toContain('neomjs/neo@before-sha');
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_e2e: 'true' });
+    });
+
     test('a push never diffs from its own head', async () => {
         const runtime = createRuntime({
             eventName: 'push',
