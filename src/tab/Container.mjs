@@ -152,6 +152,15 @@ class Container extends BaseContainer {
     }
 
     /**
+     * What {@link #updateTabPanels} gave each card (`role`, `labelledBy`), so that
+     * {@link #unlinkTabPanel} withdraws exactly that. An equal value is not proof of ownership:
+     * a card may have brought a `tabpanel` role itself.
+     * @member {WeakMap<Neo.component.Base, Object>} tabPanelLinks
+     * @protected
+     */
+    tabPanelLinks = new WeakMap()
+
+    /**
      * Adds one or more tab items to the end of the container.
      * @param {Object|Object[]} item The configuration object for a new tab or an array of such objects.
      * @returns {Neo.component.Base|Neo.component.Base[]} The newly created component(s).
@@ -720,7 +729,6 @@ class Container extends BaseContainer {
             {activeIndex} = me,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
-            buttonId      = me.getTabButtons()[index]?.id,
             card, i, len;
 
         card = cardContainer.removeAt(index, destroyItem, silent, keepMounted);
@@ -728,7 +736,7 @@ class Container extends BaseContainer {
 
         // A card that outlives its removal must not keep naming the tab it leaves behind
         if (!destroyItem && card instanceof Neo.component.Base) {
-            me.unlinkTabPanel(card, buttonId, silent)
+            me.unlinkTabPanel(card, silent)
         }
 
         if (index < activeIndex) {
@@ -763,28 +771,35 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Withdraws what {@link #updateTabPanels} gives a card: the `tabpanel` role, and the label that
-     * points at this container's tab. A role or name of the card's own stays.
+     * Withdraws what {@link #updateTabPanels} recorded in {@link #tabPanelLinks} for a card, and only
+     * that. A role or name the card brought itself stays, even when it equals what this container
+     * would have set.
      * @param {Neo.component.Base} card
-     * @param {String} buttonId The id of the tab button the card leaves behind.
      * @param {Boolean} [silent=false] Mutate VDOM state without committing an update.
      * @protected
      */
-    unlinkTabPanel(card, buttonId, silent=false) {
-        let changed = false,
-            root    = card.getVdomRoot();
+    unlinkTabPanel(card, silent=false) {
+        let link    = this.tabPanelLinks.get(card),
+            changed = false,
+            root;
 
-        if (root['aria-labelledby'] === buttonId) {
-            delete root['aria-labelledby'];
-            changed = true
+        if (link) {
+            this.tabPanelLinks.delete(card);
+            root = card.getVdomRoot();
+
+            // Withdraw only what is still this container's value: a role or label set since stays
+            if (link.labelledBy && root['aria-labelledby'] === link.labelledBy) {
+                delete root['aria-labelledby'];
+                changed = true
+            }
+
+            if (link.role && card.role === 'tabpanel') {
+                card.setSilent({role: null});
+                changed = true
+            }
+
+            changed && !silent && card.update()
         }
-
-        if (card.role === 'tabpanel') {
-            card.setSilent({role: null});
-            changed = true
-        }
-
-        changed && !silent && card.update()
     }
 
     /**
@@ -811,35 +826,43 @@ class Container extends BaseContainer {
      * Links each tab button to its card the way the WAI-ARIA tabs pattern expects: the button names
      * its card (`cardId`, rendered as `aria-controls`), and the card becomes a `tabpanel` labelled by
      * the button. A card keeps any role or accessible name of its own. A lazy card that has not loaded
-     * yet has no node to name, so its button names none until it does.
+     * yet has no node to name, so its button names none until it does. What it sets is recorded in
+     * {@link #tabPanelLinks}.
      * @param {Boolean} [silent=false] Mutate VDOM state without committing updates.
      * @protected
      */
     updateTabPanels(silent=false) {
-        let cards = this.getCardContainer()?.items || [];
+        let me    = this,
+            cards = me.getCardContainer()?.items || [];
 
-        this.getTabButtons().forEach((button, index) => {
+        me.getTabButtons().forEach((button, index) => {
             let card    = cards[index],
                 loaded  = card instanceof Neo.component.Base,
                 changed = false,
-                root;
+                link, root;
 
             button[silent ? 'setSilent' : 'set']({cardId: loaded ? card.id : null});
 
             if (loaded) {
+                link = me.tabPanelLinks.get(card) || {};
                 root = card.getVdomRoot();
 
                 if (!root['aria-label'] && !root['aria-labelledby']) {
                     root['aria-labelledby'] = button.id;
-                    changed = true
+                    link.labelledBy         = button.id;
+                    changed                 = true
                 }
 
                 if (!card.role && !root.role) {
                     card.setSilent({role: 'tabpanel'});
-                    changed = true
+                    link.role = true;
+                    changed   = true
                 }
 
-                changed && !silent && card.update()
+                if (changed) {
+                    me.tabPanelLinks.set(card, link);
+                    !silent && card.update()
+                }
             }
         })
     }

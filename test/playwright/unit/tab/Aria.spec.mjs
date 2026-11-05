@@ -131,6 +131,29 @@ test.describe('Neo.tab ARIA wiring', () => {
         expect(plain.getVdomRoot()['aria-labelledby']).toBeUndefined()
     });
 
+    test('a card that brought its own tabpanel role keeps it when removed alive', () => {
+        const tabs = own(Neo.create(TabContainer, {
+                items: [
+                    {header: {text: 'Generated'}, module: Component},
+                    {header: {text: 'Owned'},     module: Component, role: 'tabpanel'}
+                ]
+            })),
+            [generatedTab, ownedTab] = tabs.getTabButtons(),
+            generated = tabs.getCard(0),
+            owned     = tabs.getCard(1);
+
+        // Linked alike: an equal value is the trap, so both cards must look the same before removal
+        expect(generated.getVdomRoot()).toMatchObject({role: 'tabpanel', 'aria-labelledby': generatedTab.id});
+        expect(owned    .getVdomRoot()).toMatchObject({role: 'tabpanel', 'aria-labelledby': ownedTab.id});
+
+        expect(own(tabs.removeAt(1, false))).toBe(owned);
+        expect(owned.role, 'the role the card brought stays').toBe('tabpanel');
+        expect(owned.getVdomRoot()['aria-labelledby'], 'the label the container gave goes').toBeUndefined();
+
+        expect(own(tabs.removeAt(0, false))).toBe(generated);
+        expect(generated.role, 'the role the container gave goes').toBeNull()
+    });
+
     test('a card moved into another tab container is labelled by its new tab', () => {
         const source = own(Neo.create(TabContainer, {
                 items: [
