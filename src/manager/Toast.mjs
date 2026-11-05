@@ -87,7 +87,18 @@ class Toast extends Manager {
     }
 
     /**
-     * Find the first toast based on the maximum allowed toasts
+     * @summary Creates a fresh map of toast position arrays (`bc`, `bl`, `br`, `tc`, `tl`, `tr`).
+     * @returns {Object}
+     */
+    createPositionMap() {
+        return {
+            bc: [], bl: [], br: [],
+            tc: [], tl: [], tr: []
+        }
+    }
+
+    /**
+     * Find the first toast based on the maximum allowed toasts per app and window realm.
      * @returns {*}
      * @private
      */
@@ -98,7 +109,10 @@ class Toast extends Manager {
         me.filters = [{property: 'running', value: false}];
 
         for (item of me.map.values()) {
-            if (me.running[item.position].length < me.maxToasts) {
+            let appRunning  = me.getRunning(item.appName)[item.position],
+                windowCount = appRunning.filter(id => me.get(id)?.windowId === item.windowId).length;
+
+            if (windowCount < me.maxToasts) {
                 firstToast = item;
                 firstToast.running = true;
                 break
@@ -108,6 +122,19 @@ class Toast extends Manager {
         me.clearFilters();
 
         return firstToast
+    }
+
+    /**
+     * @summary Returns the `running` position map for a given `appName`, lazily initializing it on first access.
+     * @param {String} [appName]
+     * @returns {Object}
+     */
+    getRunning(appName) {
+        if (!appName) {
+            return this.running
+        }
+
+        return this.running[appName] ||= this.createPositionMap()
     }
 
     /**
@@ -134,7 +161,8 @@ class Toast extends Manager {
         position = toast.position;
 
         // decrease total of displayed toasts for a position
-        NeoArray.remove(me.running[position], toastId);
+        NeoArray.remove(me.getRunning(toast.appName)[position], toastId);
+        me.running[position] && NeoArray.remove(me.running[position], toastId);
 
         me.updateItemsInPosition(toastId)
     }
@@ -162,7 +190,8 @@ class Toast extends Manager {
         let me = this;
 
         // increase total of displayed toasts for a position
-        me.running[toast.position].unshift(toast.id);
+        me.getRunning(toast.appName)[toast.position].unshift(toast.id);
+        me.running[toast.position]?.unshift(toast.id);
 
         // todo: we could use a mounted listener
         me.timeout(50).then(() => {
@@ -180,38 +209,62 @@ class Toast extends Manager {
     }
 
     /**
-     * To handle multiple toasts we handle the exact position
-     * from the top or bottom
+     * @summary Fetches DOM rects per `windowId` realm concurrently via `Promise.all()` and stacks running toasts at `position` independently per window.
      * @param {String} id
      * @returns {Promise<void>}
      */
     async updateItemsInPosition(id) {
-        let me            = this,
-            toast         = me.get(id),
-            {position}    = toast,
-            positionArray = me.running[position],
-            acc           = 0,
-            margin        = me.defaultMargin,
-            moveTo        = position.substring(0, 1) === 't' ? 'top' : 'bottom',
-            component, componentId, index, moveObj, rects;
+        let me    = this,
+            toast = me.get(id);
 
-        rects = await toast.getDomRect(positionArray);
+        if (!toast) {
+            return
+        }
 
-        for ([index, componentId] of positionArray.entries()) {
-            component = Neo.getComponent(componentId);
-            moveObj   = {};
+        let {appName, position} = toast,
+            positionArray       = me.getRunning(appName)[position],
+            margin              = me.defaultMargin,
+            moveTo              = position.substring(0, 1) === 't' ? 'top' : 'bottom',
+            realms              = new Map(),
+            component, componentId;
 
-            acc = acc + margin;
-            moveObj[moveTo] = acc + 'px';
-            component.style = moveObj;
-            component.update();
+        for (componentId of positionArray) {
+            component = me.get(componentId) || Neo.getComponent?.(componentId);
 
-            // Sometimes the index is already reduced
-            // so the last index might not be available
-            if(rects[index]) {
-                acc = acc + rects[index].height
+            if (component) {
+                let {windowId} = component,
+                    bucket     = realms.get(windowId);
+
+                if (!bucket) {
+                    bucket = [];
+                    realms.set(windowId, bucket)
+                }
+
+                bucket.push(component)
             }
         }
+
+        let realmEntries = [...realms.entries()],
+            realmRects   = await Promise.all(
+                realmEntries.map(([windowId, components]) =>
+                    components[0].getDomRect(components.map(c => c.id), windowId)
+                )
+            );
+
+        realmEntries.forEach(([, components], realmIndex) => {
+            let acc   = 0,
+                rects = realmRects[realmIndex];
+
+            components.forEach((cmp, index) => {
+                acc += margin;
+                cmp.style = {[moveTo]: acc + 'px'};
+                cmp.update();
+
+                if (rects?.[index]) {
+                    acc += rects[index].height
+                }
+            })
+        })
     }
 }
 
