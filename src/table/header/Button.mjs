@@ -98,6 +98,11 @@ class Button extends BaseButton {
          */
         rendererScope: null,
         /**
+         * @member {Boolean} resizable_=true
+         * @reactive
+         */
+        resizable_: true,
+        /**
          * @member {Boolean} showHeaderFilter_=false
          * @reactive
          */
@@ -165,6 +170,38 @@ class Button extends BaseButton {
             direction: value,
             property : me.dataField
         })
+    }
+
+    /**
+     * Triggered after the resizable config got changed.
+     * Guards the lazy `Resizable` plugin import against post-destroy or mid-flight `resizable` changes.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetResizable(value, oldValue) {
+        let me     = this,
+            plugin = me.getPlugin('plugin-table-header-resizable');
+
+        if (value) {
+            if (!plugin) {
+                import('./plugin/Resizable.mjs').then(module => {
+                    if (!me.isDestroyed && !me.isDestroying && me.resizable && !me.getPlugin('plugin-table-header-resizable')) {
+                        let {appName} = me,
+                            plugins   = me.plugins || [];
+
+                        plugins.push({
+                            module: module.default,
+                            appName
+                        });
+
+                        me.plugins = plugins
+                    }
+                })
+            }
+        } else {
+            plugin?.removeAllNodes()
+        }
     }
 
     /**
@@ -380,13 +417,16 @@ class Button extends BaseButton {
     }
 
     /**
-     * @summary Sorts header gestures without treating inline filter controls as sort actions.
+     * @summary Sorts header gestures without treating inline filter controls or resize handles as sort actions.
      * @param {Object} data
      * @protected
      */
     onClick(data) {
         const {filterField} = this;
-        if (filterField && data.path.some(node => node.id === filterField.id)) {
+        if (
+            filterField && data.path.some(node => node.id === filterField.id) ||
+            data.path[0]?.cls?.includes('neo-resizable')
+        ) {
             return
         }
 
@@ -435,6 +475,27 @@ class Button extends BaseButton {
 
         me.cls       = cls;
         me._isSorted = null
+    }
+
+    /**
+     * Serializes the table header button configuration into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            cellAlign           : me.cellAlign,
+            dataField           : me.dataField,
+            defaultSortDirection: me.defaultSortDirection,
+            editorConfig        : me.serializeConfig(me.editorConfig),
+            filterConfig        : me.serializeConfig(me.filterConfig),
+            isSorted            : me.isSorted,
+            resizable           : me.resizable,
+            showHeaderFilter    : me.showHeaderFilter,
+            sortable            : me.sortable
+        }
     }
 }
 

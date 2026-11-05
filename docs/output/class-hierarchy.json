@@ -521,6 +521,7 @@
  "Neo.table.Container": "Neo.container.Base",
  "Neo.table.header.Button": "Neo.button.Base",
  "Neo.table.header.Toolbar": "Neo.toolbar.Base",
+ "Neo.table.header.plugin.Resizable": "Neo.plugin.Resizable",
  "Neo.table.plugin.CellEditing": "Neo.plugin.Base",
  "Neo.toolbar.ActionButton": "Neo.button.Base",
  "Neo.toolbar.Base": "Neo.container.Base",

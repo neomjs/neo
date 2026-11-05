@@ -290,4 +290,66 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
         plugin.destroy();
         component.destroy();
     });
+
+    test('destroying the week view destroys owner.eventDragZone when created and does not throw when never created', async () => {
+        // AC-2: Destroying a week view with DragDrop plugin when no drag occurred does not throw
+        const idleView = Neo.create({
+            className      : 'Neo.calendar.view.week.Component',
+            appName,
+            calendarStore  : Neo.create('Neo.calendar.store.Calendars'),
+            currentDate    : new Date(2026, 4, 13),
+            enableDrag     : false,
+            endTime        : '24:00',
+            eventStore     : Neo.create('Neo.calendar.store.Events'),
+            intlFormat_time: new Intl.DateTimeFormat('en-US', {hour: '2-digit', minute: '2-digit'}),
+            plugins        : [{module: WeekDragDrop, appName}],
+            startTime      : '00:00'
+        });
+
+        expect(idleView.getPlugin('calendar-week-dragdrop')).toBeDefined();
+        expect(idleView.eventDragZone).toBeNull();
+        expect(() => idleView.destroy()).not.toThrow();
+
+        // AC-1: After a drag created the zone, destroying the week view also destroys that zone
+        const draggedView = Neo.create({
+            className      : 'Neo.calendar.view.week.Component',
+            appName,
+            calendarStore  : Neo.create('Neo.calendar.store.Calendars'),
+            currentDate    : new Date(2026, 4, 13),
+            enableDrag     : false,
+            endTime        : '24:00',
+            eventStore     : Neo.create('Neo.calendar.store.Events'),
+            intlFormat_time: new Intl.DateTimeFormat('en-US', {hour: '2-digit', minute: '2-digit'}),
+            plugins        : [{module: WeekDragDrop, appName}],
+            startTime      : '00:00'
+        });
+
+        const dragDropPlugin = draggedView.getPlugin('calendar-week-dragdrop'),
+              columnId       = draggedView.getColumnContainer().cn[7].id,
+              dragElement    = {
+                  id : `${draggedView.id}__event_1`,
+                  cls: ['neo-event'],
+                  cn : []
+              },
+              eventRecord    = {
+                  startDate: new Date(2026, 4, 13, 9, 0),
+                  endDate  : new Date(2026, 4, 13, 10, 0),
+                  setSilent: () => {}
+              };
+
+        const dragZone = dragDropPlugin.getEventDragZone({
+            dragElement,
+            enableResizingAcrossOppositeEdge: true,
+            eventRecord,
+            proxyParentId                   : columnId
+        });
+
+        expect(draggedView.eventDragZone).toBe(dragZone);
+        expect(dragZone.isDestroyed).toBeFalsy();
+
+        draggedView.destroy();
+
+        expect(dragZone.isDestroyed).toBe(true);
+        expect(draggedView.eventDragZone).toBeNull();
+    });
 });
