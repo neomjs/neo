@@ -41,6 +41,7 @@ Generators to quickly scaffold new code structures following project conventions
 | `appMinimal.mjs` | `npm run create-app-minimal` | Creates a lightweight, single-window app. |
 | `class.mjs` | `npm run create-class` | Generates a new Neo.mjs class file with standard boilerplate. |
 | `component.mjs` | `npm run create-component` | Scaffolds a new UI component with SCSS and JS. |
+| `theme.mjs` | `npm run create-theme` | Creates an editable theme from an existing base theme. |
 | `addConfig.mjs` | `npm run add-config` | Injects configuration into an existing application. |
 
 ---
@@ -274,6 +275,35 @@ Options:
   -u, --useSharedWorkers <value>  "yes", "no"
   -h, --help                      display help for command
 ```
+
+## `npm run create-theme`
+
+**Script:** `buildScripts/create/theme.mjs`
+
+Choose a new theme folder and a base interactively with `npm run create-theme`, or provide both names:
+
+```bash
+npm run create-theme -- --name theme-acme --base theme-neo-dark --noquestions
+```
+
+From an application workspace with Neo installed, invoke the package's script:
+
+```bash
+node node_modules/neo.mjs/buildScripts/create/theme.mjs --name theme-acme --base theme-neo-dark --noquestions
+node node_modules/neo.mjs/buildScripts/build/themes.mjs -n -e dev -t theme-acme
+```
+
+The generator writes editable source under `resources/scss/theme-acme`. It takes the selected theme's
+files from the Engine, declared component packages and workspace in build order; later files replace
+matching earlier paths. It changes the theme selector to `.neo-theme-acme`, preserving its specificity,
+and keeps shared Sass imports pointing to their original source. Existing themes and application
+configuration are left intact. An invalid name, missing base or existing destination fails without
+overwriting files.
+
+Customize the generated variables, then put `"neo-theme-acme"` first in the relevant application's
+`neo-config.json` `themes` array to make it the default. Build again after editing SCSS. This is a
+snapshot of the base's current values; future base changes are not copied automatically. The generated
+theme still uses the shared Sass dependencies named in its imports, such as the motion vocabulary.
 
 ## `npm run create-class`
 **Script:** `buildScripts/create/class.mjs`

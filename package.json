@@ -41,6 +41,7 @@
         "create-app-minimal"                   : "node ./buildScripts/create/appMinimal.mjs",
         "create-class"                         : "node ./buildScripts/create/class.mjs",
         "create-component"                     : "node ./buildScripts/create/component.mjs",
+        "create-theme"                         : "node ./buildScripts/create/theme.mjs",
         "generate-docs-json"                   : "node ./buildScripts/docs/generateDocsJson.mjs",
         "postpack"                             : "node ./buildScripts/util/npmIgnoreComposition.mjs restore",
         "prepack"                              : "node ./buildScripts/util/npmIgnoreComposition.mjs compose",
@@ -98,6 +99,11 @@
         "url": "https://github.com/neomjs/neo/issues"
     },
     "homepage"       : "https://neomjs.com/",
+    "dependencies"   : {
+        "postcss-scss"           : "^4.0.9",
+        "postcss-selector-parser": "^7.1.7",
+        "postcss-value-parser"   : "^4.2.0"
+    },
     "devDependencies": {
         "@fortawesome/fontawesome-free": "^7.3.1",
         "@playwright/test"             : "^1.63.0",
