@@ -142,6 +142,12 @@ class GridContainer extends BaseContainer {
         columnMenu_: false,
         /**
          * Column configs choosing their class by `module` (any `Neo.grid.column.Base` subclass) or `type` (from `columnTypes`).
+         *
+         * An entry with its own `columns` array is a header group, e.g.
+         * `{text: 'Q1', columns: [{dataField: 'jan'}, {dataField: 'feb'}, {dataField: 'mar'}]}`: its columns join the
+         * grid in place, in order, under one header cell that reads `text`. A group's `locked` applies to all of its
+         * columns, so a group never spans two regions. One group level renders: a group inside a group adds its
+         * columns to the outer one.
          * @member {Object[]} columns_=[]
          * @reactive
          */
@@ -967,6 +973,8 @@ class GridContainer extends BaseContainer {
             buttonConfig, columnClass, renderer;
 
         if (columns) {
+            columns = me.flattenColumns(columns);
+
             if (columnDefaults) {
                 columns.forEach(column => Neo.assignDefaults(column, columnDefaults))
             }
@@ -1051,6 +1059,45 @@ class GridContainer extends BaseContainer {
             items      : columns,
             listeners  : {mutate: me.onColumnsMutate, scope: me}
         })
+    }
+
+    /**
+     * @summary Replaces each `{text, columns: [...]}` header group with its columns, in order, each carrying the
+     * group as `headerGroup`.
+     *
+     * The group's `locked` replaces its columns' own, so the group stays in one region. Grouped columns are copies:
+     * the group entry the app declared stays intact, so setting the same `columns` again rebuilds the same groups.
+     * An entry without `columns` passes through as it is.
+     * @param {Object[]} columns
+     * @returns {Object[]} The column configs, groups resolved
+     * @protected
+     */
+    flattenColumns(columns) {
+        let me     = this,
+            result = [];
+
+        columns.forEach((entry, index) => {
+            if (!Array.isArray(entry?.columns)) {
+                result.push(entry);
+                return
+            }
+
+            let group = {id: entry.id || `${me.id}__header-group-${index}`, text: entry.text ?? ''};
+
+            me.flattenColumns(entry.columns).forEach(child => {
+                let column = {...child, headerGroup: group};
+
+                if (entry.locked) {
+                    column.locked = entry.locked
+                } else {
+                    delete column.locked
+                }
+
+                result.push(column)
+            })
+        });
+
+        return result
     }
 
     /**
