@@ -23,10 +23,13 @@ class Phone extends Text {
          */
         errorTextInputPattern: data => `Not a valid phone number`,
         /**
-         * @member {RegExp|null} inputPattern=/^\+?\(?(?:[0-9]+\)[/0-9]*|[0-9][/0-9]*)(?:[\-\s\.][/0-9]+)*$/
+         * Accepts formatted numbers with an optional leading plus and balanced digit-only parentheses.
+         * Digit groups may follow a country code; spaces, dots, hyphens and slashes retain their existing use.
+         * This checks input syntax, not whether a phone number is allocated or reachable.
+         * @member {RegExp|null} inputPattern
          * @reactive
          */
-        inputPattern: /^\+?\(?(?:[0-9]+\)[/0-9]*|[0-9][/0-9]*)(?:[\-\s\.][/0-9]+)*$/,
+        inputPattern: /^\+?(?:[0-9]|\([0-9]+\))(?:[0-9/]|[-\s.](?=[0-9/(])|\([0-9]+\))*$/,
         /**
          * @member {Boolean} inputPatternDOM=false
          * @reactive
