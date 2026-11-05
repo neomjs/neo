@@ -53,8 +53,8 @@
     }
 
     .neo-github {
-        background-color: var(--sem-color-bg-neutral-highlighted);
-        color           : var(--sem-color-text-neutral-default);
+        --button-secondary-background-color: var(--sem-color-bg-neutral-highlighted);
+        --button-secondary-text-color      : var(--sem-color-text-neutral-default);
     }
 
     .neo-h1 {
