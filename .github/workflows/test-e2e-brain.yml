@@ -2,9 +2,10 @@ name: E2E (Brain-gated tier)
 
 # The Brain-gated e2e tier: every spec the `neuralLink` fixture gates, run against the Brain's
 # current `dev` tip. It gates Engine pull requests: merge readiness refuses any red, required or not.
-# A pull request runs the full tier when its change reaches the E2E impact boundary and a smoke subset
-# otherwise, never nothing, because the Brain's tip can break the pairing on its own. `dev` pushes always
-# run the full tier. Each shard writes its receipt, which names the tier, to its job summary and its log.
+# A pull request runs the full tier when its change reaches the E2E impact boundary. Otherwise it selects
+# `none`: one job reports the skip and its reason and provisions nothing, because such a change cannot reach
+# the tier, and `dev` pushes, which always run the full tier, catch a Brain tip that breaks the pairing.
+# Each shard writes its receipt, which names the tier, to its job summary and its log.
 
 on:
   pull_request:
@@ -58,21 +59,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The smoke subset fits one shard
-        shard : ${{ fromJSON(needs.changes.outputs.e2e_brain_tier == 'smoke' && '[1]' || '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]') }}
-        shards: ${{ fromJSON(needs.changes.outputs.e2e_brain_tier == 'smoke' && '[1]' || '[10]') }}
+        # The smoke subset fits one shard, and `none` needs one job to report its skip
+        shard : ${{ fromJSON((needs.changes.outputs.e2e_brain_tier == 'smoke' || needs.changes.outputs.e2e_brain_tier == 'none') && '[1]' || '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]') }}
+        shards: ${{ fromJSON((needs.changes.outputs.e2e_brain_tier == 'smoke' || needs.changes.outputs.e2e_brain_tier == 'none') && '[1]' || '[10]') }}
     defaults:
       run:
         working-directory: engine
 
+    # Gated per step, as the engine tier is: a job-level `if` would yield a SKIPPED check, while this
+    # reports green with its reason. Every step after the skip spends the runner, so each carries the gate.
     steps:
+      - name: Skip the Brain-gated tier
+        if: ${{ needs.changes.outputs.e2e_brain_tier == 'none' }}
+        # Before any checkout, so the default `engine/` directory does not exist yet
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "Brain-gated tier skipped: ${{ needs.changes.outputs.skip_reason }}" | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Checkout repository
+        if: ${{ needs.changes.outputs.e2e_brain_tier != 'none' }}
         uses: actions/checkout@v7
         with:
           path: engine
           persist-credentials: false
 
       - name: Checkout the Brain
+        if: ${{ needs.changes.outputs.e2e_brain_tier != 'none' }}
         uses: actions/checkout@v7
         with:
           repository: neomjs/neo-agent-brain
@@ -81,6 +93,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
+        if: ${{ needs.changes.outputs.e2e_brain_tier != 'none' }}
         uses: actions/setup-node@v7
         with:
           node-version: '24'
@@ -90,21 +103,26 @@ jobs:
             brain/package-lock.json
 
       - name: Install dependencies
+        if: ${{ needs.changes.outputs.e2e_brain_tier != 'none' }}
         run: npm ci
 
       # The Brain's own install path: its `prepare` writes the server configs. The Engine adds none.
       - name: Prepare the Brain runtime
+        if: ${{ needs.changes.outputs.e2e_brain_tier != 'none' }}
         working-directory: brain
         run: npm ci --foreground-scripts
 
       - name: Bundle browser dependencies
+        if: ${{ needs.changes.outputs.e2e_brain_tier != 'none' }}
         run: npm run bundle-browser-deps
 
       # The browser is the runner's Chrome channel; the specs that record video still need Playwright's ffmpeg
       - name: Install Playwright's ffmpeg
+        if: ${{ needs.changes.outputs.e2e_brain_tier != 'none' }}
         run: npx playwright install ffmpeg
 
       - name: Run the Brain-gated tier
+        if: ${{ needs.changes.outputs.e2e_brain_tier != 'none' }}
         id: run
         timeout-minutes: 5
         env:
@@ -131,7 +149,7 @@ jobs:
           exit $status
 
       - name: Report the shard's receipt
-        if: ${{ always() }}
+        if: ${{ always() && needs.changes.outputs.e2e_brain_tier != 'none' }}
         env:
           ATTEMPT: ${{ github.run_attempt }}
           BRAIN_SHA: ${{ needs.brain.outputs.sha }}
@@ -148,7 +166,7 @@ jobs:
           node buildScripts/util/e2eCiSelection.mjs --brain-receipt | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test artifacts on failure
-        if: ${{ failure() }}
+        if: ${{ failure() && needs.changes.outputs.e2e_brain_tier != 'none' }}
         uses: actions/upload-artifact@v7
         with:
           name: test-results-e2e-brain-${{ github.run_id }}-shard-${{ matrix.shard }}

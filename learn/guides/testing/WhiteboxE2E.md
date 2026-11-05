@@ -41,9 +41,9 @@ The engine tier (`.github/workflows/test-e2e.yml`) runs on pull requests without
 
 The Brain-gated specs run in `.github/workflows/test-e2e-brain.yml`, and this tier gates Engine pull requests: merge readiness refuses any red, required or not. The workflow checks out the Brain at its `dev` tip, resolved once per run, and installs it with `npm ci`.
 
-The shared scope classifier picks the tier's population, and it never skips:
+The shared scope classifier picks the tier's population:
 - A pull request whose change reaches the E2E impact boundary runs the **full** tier, on ten shards. So does every `dev` push.
-- Any other pull request runs the **smoke** subset (`BRAIN_SMOKE`), on one shard. Its change cannot reach the tier's specs, but the Brain's tip can still break the pairing. A green smoke is not full-tier evidence.
+- Any other pull request selects **none**: one job reports the skip and its reason, and runs nothing. Its change cannot reach the tier's specs, and a Brain tip that breaks the pairing reds the next `dev` push, which always runs the full tier.
 
 Each shard's test step stops at five minutes, the ceiling the engine tier enforces too.
 

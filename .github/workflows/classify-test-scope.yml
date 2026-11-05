@@ -32,7 +32,7 @@ on:
         description: Whether the e2e (engine tier) suite is relevant to the changed paths.
         value: ${{ jobs.classify.outputs.run_e2e }}
       e2e_brain_tier:
-        description: Which Brain-gated e2e population runs, `full` or `smoke`; it never skips, and a push is always `full`.
+        description: Which Brain-gated e2e population runs, `full`, or `none` when the change cannot reach the tier; a push is always `full`.
         value: ${{ jobs.classify.outputs.e2e_brain_tier }}
       skip_reason:
         description: Human-readable reason a caller can print when it skips.
@@ -113,7 +113,7 @@ jobs:
               core.setOutput('run_unit', 'false');
               core.setOutput('run_components', 'false');
               core.setOutput('run_e2e', 'false');
-              core.setOutput('e2e_brain_tier', 'smoke');
+              core.setOutput('e2e_brain_tier', 'none');
               core.setOutput('skip_reason', reason);
               await core.summary
                 .addHeading('Stale workflow attempt')
@@ -154,6 +154,40 @@ jobs:
             // Both facets come from ONE pair of fetches: the read is per ref, not per question.
             // The completeness rule is unchanged — anything undeterminable (missing refs, fetch or
             // parse failure) fails TOWARD running, for every facet at once.
+            //
+            // Packages no browser tier loads leave the dependency-kind comparison: agent tooling that
+            // webpack never bundles and Playwright never imports. Unit still runs on their bump, and
+            // its `prepare.spec.mjs` plus `baseline / Skills materialized` own their install path.
+            // Named rather than inferred, so an unlisted package fails toward running.
+            const browserUnreachablePackages = ['neo-agent-skills'];
+
+            // One committed JSON file at both refs. Fork PRs: the head SHA exists only in the fork
+            // repo, so the head read follows the fork's coordinates and the base read stays on the PR
+            // target repo. Throws on an undeterminable ref or a failed read or parse; every caller
+            // turns that into running.
+            async function readAtBothRefs(filePath) {
+              const baseRef = eventName === 'pull_request' ? context.payload.pull_request.base.sha : context.payload.before;
+              const headRef = eventName === 'pull_request' ? context.payload.pull_request.head.sha : context.payload.after;
+
+              if (!baseRef || !headRef || /^0+$/.test(baseRef)) {
+                throw new Error('base/head ref undeterminable');
+              }
+
+              const headRepo = eventName === 'pull_request' && context.payload.pull_request.head.repo?.fork === true
+                ? {owner: context.payload.pull_request.head.repo.owner.login, repo: context.payload.pull_request.head.repo.name}
+                : {owner: context.repo.owner, repo: context.repo.repo};
+
+              core.info(`${filePath} head content resolves from ${headRepo.owner}/${headRepo.repo}.`);
+
+              const read = async (ref, {owner, repo}) => {
+                const res = await github.rest.repos.getContent({owner, repo, path: filePath, ref});
+
+                return JSON.parse(Buffer.from(res.data.content, 'base64').toString('utf8'));
+              };
+
+              return Promise.all([read(baseRef, {owner: context.repo.owner, repo: context.repo.repo}), read(headRef, headRepo)]);
+            }
+
             async function packageJsonRelevance() {
               const untouched = {dependencyKind: false, e2eScripts: false},
                     undecided = {dependencyKind: true,  e2eScripts: true};
@@ -163,14 +197,6 @@ jobs:
               }
 
               try {
-                const baseRef = eventName === 'pull_request' ? context.payload.pull_request.base.sha : context.payload.before;
-                const headRef = eventName === 'pull_request' ? context.payload.pull_request.head.sha : context.payload.after;
-
-                if (!baseRef || !headRef || /^0+$/.test(baseRef)) {
-                  core.info('package.json base/head ref undeterminable; failing toward running.');
-                  return undecided;
-                }
-
                 const depKindKeys = ['dependencies', 'devDependencies', 'overrides'],
                       // Derived from the e2e job's own launch chain rather than guessed: the
                       // workflow step runs `bundle-browser-deps`, whose definition delegates to one
@@ -182,19 +208,7 @@ jobs:
                       // `bundle-monaco`, whose outputs are directories rather than `dist/<name>.mjs` files.
                       e2eScriptKeys = ['build-highlightjs', 'bundle-browser-deps', 'bundle-marked', 'bundle-mermaid', 'bundle-monaco', 'bundle-parse5', 'server-start'];
 
-                // Fork PRs: the head SHA exists only in the fork repo, so the head content read
-                // must follow the fork's coordinates — the base half stays on the PR target repo.
-                // Same-repo PRs and push events keep the single-repo path; an unreadable fork
-                // (deleted / private) throws below and keeps the fail-open stance.
-                const headRepo = eventName === 'pull_request' && context.payload.pull_request.head.repo?.fork === true
-                  ? {owner: context.payload.pull_request.head.repo.owner.login, repo: context.payload.pull_request.head.repo.name}
-                  : {owner: context.repo.owner, repo: context.repo.repo};
-
-                core.info(`package.json head content resolves from ${headRepo.owner}/${headRepo.repo}.`);
-
-                const readFacets = async (ref, {owner, repo}) => {
-                  const res     = await github.rest.repos.getContent({owner, repo, path: 'package.json', ref});
-                  const pkg     = JSON.parse(Buffer.from(res.data.content, 'base64').toString('utf8'));
+                const facets = pkg => {
                   const depKind = {};
                   const scripts = {};
 
@@ -202,7 +216,10 @@ jobs:
                     const entries = pkg[key];
 
                     if (entries && typeof entries === 'object') {
-                      depKind[key] = Object.keys(entries).sort().map(name => [name, entries[name]]);
+                      depKind[key] = Object.keys(entries)
+                        .filter(name => !browserUnreachablePackages.includes(name))
+                        .sort()
+                        .map(name => [name, entries[name]]);
                     }
                   }
 
@@ -215,7 +232,7 @@ jobs:
                   return {depKind, scripts};
                 };
 
-                const [base, head] = await Promise.all([readFacets(baseRef, {owner: context.repo.owner, repo: context.repo.repo}), readFacets(headRef, headRepo)]),
+                const [base, head] = (await readAtBothRefs('package.json')).map(facets),
                       relevance    = {
                         dependencyKind: JSON.stringify(base.depKind) !== JSON.stringify(head.depKind),
                         e2eScripts    : JSON.stringify(base.scripts) !== JSON.stringify(head.scripts)
@@ -230,9 +247,44 @@ jobs:
               }
             }
 
+            // The lockfile half of the dependency facet, so its path alone no longer admits both browser
+            // tiers. Compared without the unreachable packages' own entries and the root's specifiers
+            // for them: an unchanged remainder admits nothing, and a shared dependency such a bump
+            // moves stays in it.
+            async function packageLockRelevance() {
+              if (!normalizedFiles.includes('package-lock.json')) {
+                return false;
+              }
+
+              const specifierFields   = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'],
+                    unreachable       = key => browserUnreachablePackages.some(name =>
+                      key === `node_modules/${name}` || key.startsWith(`node_modules/${name}/`)),
+                    withoutSpecifiers = root => Object.fromEntries(Object.entries(root).map(([field, value]) =>
+                      [field, specifierFields.includes(field)
+                        ? Object.fromEntries(Object.entries(value).filter(([name]) => !browserUnreachablePackages.includes(name)))
+                        : value])),
+                    remainder = lock => JSON.stringify({
+                      ...lock,
+                      packages: Object.fromEntries(Object.entries(lock.packages ?? {})
+                        .filter(([key]) => !unreachable(key))
+                        .map(([key, entry]) => [key, key === '' ? withoutSpecifiers(entry) : entry]))
+                    });
+
+              try {
+                const [base, head] = (await readAtBothRefs('package-lock.json')).map(remainder);
+
+                core.info(`package-lock.json change beyond browser-unreachable packages: ${base !== head}`);
+                return base !== head;
+              } catch (error) {
+                core.info(`package-lock.json relevance undeterminable (${error.message}); failing toward running.`);
+                return true;
+              }
+            }
+
             const packageJsonChange           = await packageJsonRelevance(),
                   packageJsonDependencyChange = packageJsonChange.dependencyKind,
-                  packageJsonE2eScriptChange  = packageJsonChange.e2eScripts;
+                  packageJsonE2eScriptChange  = packageJsonChange.e2eScripts,
+                  packageLockChange           = await packageLockRelevance();
 
             // Keep explicit unit/component statuses on docs-only PRs instead of
             // workflow-level paths-ignore. Missing checks can block protected branches.
@@ -266,7 +318,7 @@ jobs:
               file.startsWith('test/playwright/component/') ||
               file === 'test/playwright/playwright.config.component.mjs' ||
               (file === 'package.json' && packageJsonDependencyChange) ||
-              file === 'package-lock.json' ||
+              (file === 'package-lock.json' && packageLockChange) ||
               file === '.github/workflows/test.yml' ||
               file === '.github/workflows/classify-test-scope.yml';
 
@@ -295,11 +347,21 @@ jobs:
             // those harness apps directly.
             //
             // Whole directories rather than narrower paths — `apps/` not `apps/workstation/`,
-            // `buildScripts/` not two files — because this gate's failure mode is SILENCE. A false
-            // positive costs one ~3-minute job; a false negative costs coverage behind a green
-            // check, and nothing reports it. The churniest path under `apps/`
-            // (`apps/portal/resources/data/`) stopped being written on a schedule when the
-            // data-sync pipeline went dispatch-only (#18449).
+            // `buildScripts/` not two files — because this gate's failure mode is SILENCE: a false
+            // negative costs coverage behind a green check, and nothing reports it. So narrowing is a
+            // DENY-list of what the chain provably never reads, and a directory added tomorrow still
+            // admits the tier:
+            //
+            //   apps/portal/resources/data/   content no spec, fixture or config reads; unit guards
+            //                                 it, and every blog post registers itself there
+            //   buildScripts/{create,docs,    outside the imports of the chain's build side
+            //     helpers,release}/           (`server-start`'s config, the bundles, the selection)
+            //
+            // A false positive is not cheap either: the Brain-gated tier follows this boundary, so one
+            // costs fourteen jobs on a twenty-job runner cap.
+            const isPortalContentData     = file => file.startsWith('apps/portal/resources/data/');
+            const isOutsideE2eLaunchChain = file => /^buildScripts\/(create|docs|helpers|release)\//.test(file);
+
             const isE2eTestSupportPath = file =>
               file.startsWith('test/playwright/component/apps/') || (
                 file.startsWith('test/playwright/') &&
@@ -310,20 +372,21 @@ jobs:
             const isE2eRelevantPath = file =>
               file.startsWith('src/') ||
               file.startsWith('examples/') ||
-              file.startsWith('apps/') ||
+              (file.startsWith('apps/') && !isPortalContentData(file)) ||
               file.startsWith('resources/scss/') ||
-              file.startsWith('buildScripts/') ||
+              (file.startsWith('buildScripts/') && !isOutsideE2eLaunchChain(file)) ||
               isE2eTestSupportPath(file) ||
               (file === 'package.json' && (packageJsonDependencyChange || packageJsonE2eScriptChange)) ||
-              file === 'package-lock.json' ||
+              (file === 'package-lock.json' && packageLockChange) ||
               file === '.github/workflows/test-e2e.yml' ||
               file === '.github/workflows/classify-test-scope.yml';
 
-            // The Brain-gated tier never skips: a change outside the boundary still runs its smoke subset,
-            // because the Brain's own `dev` tip can break the pairing. The full tier covers the same
-            // boundary plus the tier's own workflow, and every push.
+            // The Brain-gated tier runs in full on the same boundary plus its own workflow, and on every
+            // push. Any other pull request selects `none`: the smoke shard it ran there tested the
+            // Brain's `dev` tip rather than the change, and the `dev` push already runs the full tier on
+            // every merge.
             const brainTier = eventName !== 'pull_request' || normalizedFiles.some(file =>
-                isE2eRelevantPath(file) || file === '.github/workflows/test-e2e-brain.yml') ? 'full' : 'smoke';
+                isE2eRelevantPath(file) || file === '.github/workflows/test-e2e-brain.yml') ? 'full' : 'none';
 
             const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
             const runComponents  = normalizedFiles.some(isComponentsRelevantPath);
