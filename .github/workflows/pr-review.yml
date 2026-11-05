@@ -18,6 +18,6 @@ permissions:
 
 jobs:
   review:
-    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-review.yml@v0.1.82
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-review.yml@v0.1.84
     with:
       budget_activation_issue: 15257
