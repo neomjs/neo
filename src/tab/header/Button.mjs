@@ -21,6 +21,13 @@ class Button extends BaseButton {
          */
         baseCls: ['neo-tab-header-button', 'neo-button'],
         /**
+         * The id of the card this tab shows, rendered as `aria-controls`. `tab.Container` keeps it in
+         * sync; `null` while the card is a lazy config that has not loaded yet.
+         * @member {String|null} cardId_=null
+         * @reactive
+         */
+        cardId_: null,
+        /**
          * Specify a role tag attribute for the vdom root.
          * @member {String|null} role='tab'
          * @reactive
@@ -47,7 +54,18 @@ class Button extends BaseButton {
     }
 
     /**
-     * Triggered after the pressed config got changed
+     * Triggered after the cardId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetCardId(value, oldValue) {
+        this.changeVdomRootKey('aria-controls', value)
+    }
+
+    /**
+     * Triggered after the pressed config got changed. Every tab states its selection, so an
+     * inactive tab reads `aria-selected="false"` rather than nothing.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -57,11 +75,7 @@ class Button extends BaseButton {
 
         let me = this;
 
-        if (value) {
-            me.vdom['aria-selected'] = true
-        } else {
-            delete me.vdom['aria-selected']
-        }
+        me.vdom['aria-selected'] = value;
 
         me.update()
     }

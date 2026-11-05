@@ -29,6 +29,12 @@ class Toolbar extends BaseToolbar {
          */
         baseCls: ['neo-tab-header-toolbar', 'neo-toolbar'],
         /**
+         * The header is the `tablist` of the WAI-ARIA tabs pattern, and its tab buttons are the tabs.
+         * @member {String|null} role='tablist'
+         * @reactive
+         */
+        role: 'tablist',
+        /**
          * @member {Boolean} useActiveTabIndicator_=true
          * @reactive
          */
@@ -40,6 +46,19 @@ class Toolbar extends BaseToolbar {
      */
     loadSortZoneModule() {
         return import('../../draggable/tab/header/toolbar/SortZone.mjs')
+    }
+
+    /**
+     * Triggered after the dock config got changed. A `tablist` is horizontal unless it says
+     * otherwise, so a header docked left or right declares `aria-orientation="vertical"`.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetDock(value, oldValue) {
+        super.afterSetDock(value, oldValue);
+
+        this.changeVdomRootKey('aria-orientation', value === 'left' || value === 'right' ? 'vertical' : null)
     }
 
     /**
