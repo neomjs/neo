@@ -208,12 +208,11 @@ class TableBody extends Component {
             cellCls     = ['neo-table-cell'],
             colspan     = record[me.colspanField],
             {dataField} = column,
-            componentId = me.getCellComponentId(rowIndex, dataField),
             {model}     = me.store,
             fieldValue  = record[dataField],
             hasStore    = !!model, // todo: remove as soon as all tables use stores (examples table)
             {vdom}      = me,
-            cellConfig, rendererOutput;
+            cellConfig, componentId, rendererOutput;
 
         if (!model?.getField(dataField)) {
             let nsArray   = dataField.split('.'),
@@ -234,6 +233,8 @@ class TableBody extends Component {
                 cellId = vdom.cn[rowIndex]?.cn[me.getColumn(column.dataField, true)]?.id || Neo.getId('td')
             }
         }
+
+        componentId = me.getCellComponentId ? me.getCellComponentId(rowIndex, dataField) : cellId;
 
         me.bindCallback(column.renderer, 'renderer', column.rendererScope || tableContainer, column);
 
