@@ -115,6 +115,7 @@ const PRIORITIES = new Map([
     ['guides/testing/DockLayoutsTesting'              , 0.8],
     ['tutorials/DockLayoutsFirstLayout'                     , 0.8],
     ['guides/datahandling/Grids'                      , 0.8],
+    ['guides/datahandling/Tables'                     , 0.8],
     ['guides/userinteraction/Forms'                   , 0.8],
 
     // Internal evidence surfaces (hidden tree entries): registered explicitly at the floor so
