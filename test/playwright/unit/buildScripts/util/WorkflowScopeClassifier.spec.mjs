@@ -133,13 +133,16 @@ const createRuntime = ({
     forkOwner       = null,
     forkUnreadable  = false,
     liveHead        = 'head-sha',
-    eventName       = 'pull_request'
+    eventName       = 'pull_request',
+    // This workflow's completed push runs, newest first, as `listWorkflowRuns` returns them
+    runs            = [{ id: 1, conclusion: 'success', head_sha: 'before-sha' }],
+    runsError       = null
 } = {}) => {
     const outputs = new Map(),
           info    = [],
           notices = [],
           summary = [],
-          calls   = {getContent: 0, listFiles: 0, pullsGet: 0, contentCalls: []},
+          calls   = {basehead: null, getContent: 0, listFiles: 0, pullsGet: 0, contentCalls: []},
           core    = {
               info     : value => info.push(value),
               notice   : value => notices.push(value),
@@ -163,9 +166,19 @@ const createRuntime = ({
                           return { data: { head: { sha: liveHead } } };
                       }
                   },
+                  actions: {
+                      getWorkflowRun  : async() => ({ data: { workflow_id: 42, head_branch: 'dev' } }),
+                      listWorkflowRuns: async() => {
+                          if (runsError) throw new Error(runsError);
+                          return { data: { workflow_runs: runs } };
+                      }
+                  },
                   repos: {
                       // A push compares its two commits rather than listing a pull request's files
-                      compareCommitsWithBasehead: async() => ({ data: { files: files.map(filename => ({ filename })) } }),
+                      compareCommitsWithBasehead: async({ basehead }) => {
+                          calls.basehead = basehead;
+                          return { data: { files: files.map(filename => ({ filename })) } };
+                      },
                       getContent                : async({ owner, repo, path: filePath, ref }) => {
                           const isLock = filePath === 'package-lock.json';
 
@@ -188,6 +201,7 @@ const createRuntime = ({
           },
           context = {
               eventName,
+              runId    : 7,
               payload  : {
                   after       : 'after-sha',
                   before      : 'before-sha',
@@ -380,6 +394,90 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         expect(gateExit('success',   'false',  'success'), 'ruled out, yet shards ran').toBe(1);
         expect(gateExit('success',   '',       'skipped'), 'empty verdict').toBe(1);
         expect(gateExit('success',   'maybe',  'skipped'), 'unknown verdict').toBe(1);
+    });
+
+});
+
+test.describe('Tests scope classifier — the dev push range', () => {
+
+    test('a dev push diffs from its workflow\'s last completed, non-cancelled run, not from before', async () => {
+        // A newer push cancels the older run, so `before` would leave the cancelled push's commits
+        // in no classified range. A cancelled run classified nothing, so it is skipped as a base.
+        const runtime = createRuntime({
+            eventName: 'push',
+            files    : ['src/grid/Body.mjs'],
+            runs     : [
+                { id: 3, conclusion: 'cancelled', head_sha: 'cancelled-sha' },
+                { id: 2, conclusion: 'failure',   head_sha: 'completed-sha' }
+            ]
+        });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(runtime.calls.basehead).toBe('completed-sha...after-sha');
+        expect(outputsOf(runtime).run_e2e).toBe('true');
+    });
+
+    test('a push reads package.json at the base its files were diffed from, not at before', async () => {
+        // The cancelled push bumped a dependency; the surviving push touched nothing in package.json.
+        // Read at `before`, both sides would match and the bump would be listed but never compared.
+        const runtime = createRuntime({
+            eventName: 'push',
+            baseSha  : 'completed-sha',
+            headPkg  : {dependencies: {leftpad: '1.0.1'}, scripts: {'build:all': 'a'}},
+            runs     : [
+                { id: 3, conclusion: 'cancelled', head_sha: 'cancelled-sha' },
+                { id: 2, conclusion: 'success',   head_sha: 'completed-sha' }
+            ]
+        });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(runtime.calls.contentCalls).toContain('neomjs/neo@completed-sha');
+        expect(runtime.calls.contentCalls).not.toContain('neomjs/neo@before-sha');
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_e2e: 'true' });
+    });
+
+    test('a push never diffs from its own head', async () => {
+        const runtime = createRuntime({
+            eventName: 'push',
+            files    : ['src/grid/Body.mjs'],
+            runs     : [
+                { id: 5, conclusion: 'success', head_sha: 'after-sha' },
+                { id: 4, conclusion: 'success', head_sha: 'previous-sha' }
+            ]
+        });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(runtime.calls.basehead).toBe('previous-sha...after-sha');
+    });
+
+    test('no completed run, or a failed lookup, runs every tier and says why', async () => {
+        const none   = createRuntime({eventName: 'push', files: ['learn/guides/x.md'], runs: [{ id: 9, conclusion: 'cancelled', head_sha: 'x' }]}),
+              failed = createRuntime({eventName: 'push', files: ['learn/guides/x.md'], runsError: 'HTTP 403'}),
+              full   = {run_unit: 'true', run_components: 'true', run_e2e: 'true', e2e_brain_tier: 'full'};
+
+        await executeScript(scopeScript(), none);
+        await executeScript(scopeScript(), failed);
+
+        expect(outputsOf(none)).toEqual(expect.objectContaining(full));
+        expect(outputsOf(none).skip_reason).toContain('no completed, non-cancelled push run');
+        expect(outputsOf(failed)).toEqual(expect.objectContaining(full));
+        expect(outputsOf(failed).skip_reason).toContain('could not be read: HTTP 403');
+        // Fail toward running: no comparison against a guessed base
+        expect(none.calls.basehead).toBeNull();
+        expect(failed.calls.basehead).toBeNull();
+    });
+
+    test('every caller grants its classifier job actions: read alongside what it already read', () => {
+        for (const file of ['test.yml', 'test-e2e.yml', 'test-e2e-brain.yml']) {
+            expect(readWorkflow(file).jobs.changes.permissions, file).toEqual({
+                actions         : 'read',
+                contents        : 'read',
+                'pull-requests' : 'read'
+            });
+        }
     });
 
 });

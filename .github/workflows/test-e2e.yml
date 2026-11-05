@@ -68,6 +68,12 @@ jobs:
   # an obsolete attempt can no longer occupy a runner for twelve minutes.
   changes:
     name: Classify test scope
+    # It lists the pull request's files, reads its live head, and on a push finds this workflow's
+    # last completed run to diff from
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
     uses: ./.github/workflows/classify-test-scope.yml
 
   e2e-engine:

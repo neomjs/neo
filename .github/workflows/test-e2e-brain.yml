@@ -28,8 +28,10 @@ jobs:
   # The same classifier the engine tier and `test.yml` consume, for the full or smoke choice
   changes:
     name: Classify test scope
-    # It lists the pull request's files and reads its live head
+    # It lists the pull request's files, reads its live head, and on a push finds this workflow's
+    # last completed run to diff from
     permissions:
+      actions: read
       contents: read
       pull-requests: read
     uses: ./.github/workflows/classify-test-scope.yml
