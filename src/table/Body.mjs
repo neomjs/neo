@@ -78,6 +78,17 @@ class TableBody extends Component {
     }
 
     /**
+     * @member {Map<String, Neo.core.Base>|null} createdCellComponents=null
+     * @protected
+     */
+    createdCellComponents = null
+    /**
+     * @member {Set<String>|null} renderedCellIds=null
+     * @protected
+     */
+    renderedCellIds = null
+
+    /**
      * @member {String[]} selectedRows
      */
     get selectedRows() {
@@ -139,6 +150,26 @@ class TableBody extends Component {
     }
 
     /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+        this.createdCellComponents?.forEach(component => component.theme = value)
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+        value && this.createdCellComponents?.forEach(component => component.windowId = value)
+    }
+
+    /**
      * @param {Object}              data
      * @param {String}              [data.cellId]
      * @param {Object}              data.column
@@ -170,6 +201,15 @@ class TableBody extends Component {
             fieldValue = ''
         }
 
+        if (!cellId) {
+            // todo: remove the else part as soon as all tables use stores (examples table)
+            if (hasStore) {
+                cellId = me.getCellId(record, column.dataField)
+            } else {
+                cellId = vdom.cn[rowIndex]?.cn[me.getColumn(column.dataField, true)]?.id || Neo.getId('td')
+            }
+        }
+
         me.bindCallback(column.renderer, 'renderer', column.rendererScope || tableContainer, column);
 
         rendererOutput = column.renderer.call(column.rendererScope || tableContainer, {
@@ -182,7 +222,48 @@ class TableBody extends Component {
             value: fieldValue
         });
 
+        if (Neo.typeOf(rendererOutput) === 'Object' && (rendererOutput.className || rendererOutput.module || rendererOutput.ntype)) {
+            let instance = me.createdCellComponents?.get(cellId);
+
+            if (
+                instance &&
+                !instance.isDestroyed &&
+                (!rendererOutput.className || instance.className === rendererOutput.className) &&
+                (!rendererOutput.module    || instance instanceof rendererOutput.module) &&
+                (!rendererOutput.ntype     || instance.ntype === rendererOutput.ntype)
+            ) {
+                let config = {...rendererOutput};
+                delete config.className;
+                delete config.module;
+                delete config.ntype;
+
+                instance.set(config)
+            } else {
+                instance?.destroy();
+
+                instance = ClassSystemUtil.beforeSetInstance(rendererOutput, null, {
+                    appName : me.appName,
+                    parentId: me.id,
+                    theme   : me.theme,
+                    windowId: me.windowId
+                });
+
+                (me.createdCellComponents ??= new Map()).set(cellId, instance)
+            }
+
+            me.renderedCellIds?.add(cellId);
+            rendererOutput = instance
+        } else if (me.createdCellComponents?.has(cellId)) {
+            me.createdCellComponents.get(cellId).destroy();
+            me.createdCellComponents.delete(cellId)
+        }
+
         switch (Neo.typeOf(rendererOutput)) {
+            case 'NeoInstance': {
+                me.updateDepth = -1;
+                rendererOutput = [rendererOutput instanceof Component ? rendererOutput.createVdomReference() : rendererOutput.vdom];
+                break
+            }
             case 'Object': {
                 if (rendererOutput.html || rendererOutput.text) {
                     rendererOutput.cls && cellCls.push(...rendererOutput.cls);
@@ -213,15 +294,6 @@ class TableBody extends Component {
         if (me.highlightModifiedCells) {
             if (record.isModifiedField(dataField)) {
                 cellCls.push('neo-is-modified')
-            }
-        }
-
-        if (!cellId) {
-            // todo: remove the else part as soon as all tables use stores (examples table)
-            if (hasStore) {
-                cellId = me.getCellId(record, column.dataField)
-            } else {
-                cellId = vdom.cn[rowIndex]?.cn[me.getColumn(column.dataField, true)]?.id || Neo.getId('td')
             }
         }
 
@@ -326,7 +398,24 @@ class TableBody extends Component {
             tableRow.cn.push(config);
 
             if (colspanKeys?.includes(column.dataField)) {
-                i += (colspan[column.dataField] - 1)
+                let span = colspan[column.dataField] - 1;
+
+                if (me.createdCellComponents?.size > 0 && me.store?.model) {
+                    for (let k = 1; k <= span; k++) {
+                        let skippedColumn = columns[i + k];
+
+                        if (skippedColumn) {
+                            let skippedCellId = me.getCellId(record, skippedColumn.dataField);
+
+                            if (me.createdCellComponents.has(skippedCellId)) {
+                                me.createdCellComponents.get(skippedCellId).destroy();
+                                me.createdCellComponents.delete(skippedCellId)
+                            }
+                        }
+                    }
+                }
+
+                i += span
             }
         }
 
@@ -360,9 +449,22 @@ class TableBody extends Component {
             i                     = 0,
             rows                  = [];
 
+        me.renderedCellIds = new Set();
+
         for (; i < countRecords; i++) {
             rows.push(me.createRow({record: store.getAt(i), rowIndex: i}))
         }
+
+        if (me.createdCellComponents?.size > 0) {
+            for (const [cellId, instance] of me.createdCellComponents) {
+                if (!me.renderedCellIds.has(cellId)) {
+                    instance.destroy();
+                    me.createdCellComponents.delete(cellId)
+                }
+            }
+        }
+
+        me.renderedCellIds = null;
 
         me.vdom.cn = rows;
 
@@ -378,8 +480,21 @@ class TableBody extends Component {
      * @param args
      */
     destroy(...args) {
+        this.destroyCreatedCellComponents();
         this.store = null;
         super.destroy(...args)
+    }
+
+    /**
+     * @protected
+     */
+    destroyCreatedCellComponents() {
+        let {createdCellComponents} = this;
+
+        if (createdCellComponents?.size > 0) {
+            createdCellComponents.forEach(instance => instance.destroy());
+            createdCellComponents.clear()
+        }
     }
 
     /**
@@ -599,6 +714,8 @@ class TableBody extends Component {
          * vnode cache and the real DOM via textContent.
          */
         if (data?.items.length < 1) {
+            me.destroyCreatedCellComponents();
+
             const vdomRoot = me.getVdomRoot();
 
             // No change, opt out
@@ -607,12 +724,15 @@ class TableBody extends Component {
             }
 
             vdomRoot.cn = [];
-            me.getVnodeRoot().childNodes = [];
 
-            Neo.applyDeltas(windowId, {
-                id         : vdomRoot.id,
-                textContent: ''
-            });
+            if (me.getVnodeRoot()) {
+                me.getVnodeRoot().childNodes = [];
+
+                Neo.applyDeltas(windowId, {
+                    id         : vdomRoot.id,
+                    textContent: ''
+                })
+            }
 
             return
         }
