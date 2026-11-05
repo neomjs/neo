@@ -70,6 +70,45 @@ jobs:
           script: |
             const eventName = context.eventName;
 
+            // Why a diff is unavailable, printed as the skip reason when every tier runs instead
+            let unavailableReason = 'changed files unavailable';
+
+            // A newer push cancels this workflow's older run, so diffing from `before` would leave
+            // the cancelled push's commits in no classified range. Diff from the head of this
+            // workflow's last completed, non-cancelled push run instead: completed ranges then
+            // chain, and their union covers every commit. No such run, or a failed lookup, fails
+            // toward running.
+            async function lastCompletedHead(after) {
+              try {
+                const { data: current } = await github.rest.actions.getWorkflowRun({
+                  owner : context.repo.owner,
+                  repo  : context.repo.repo,
+                  run_id: context.runId
+                });
+                const { data } = await github.rest.actions.listWorkflowRuns({
+                  owner      : context.repo.owner,
+                  repo       : context.repo.repo,
+                  workflow_id: current.workflow_id,
+                  branch     : current.head_branch,
+                  event      : 'push',
+                  status     : 'completed',
+                  per_page   : 20
+                });
+                const run = data.workflow_runs.find(run => run.conclusion !== 'cancelled' && run.head_sha !== after);
+
+                if (!run) {
+                  unavailableReason = 'no completed, non-cancelled push run of this workflow to diff against';
+                  return null;
+                }
+
+                core.info(`Diffing from run ${run.id}'s head ${run.head_sha}, this workflow's last completed push run.`);
+                return run.head_sha;
+              } catch (error) {
+                unavailableReason = `the last completed push run could not be read: ${error.message}`;
+                return null;
+              }
+            }
+
             async function getChangedFiles() {
               if (eventName === 'pull_request') {
                 const files = await github.paginate(github.rest.pulls.listFiles, {
@@ -83,17 +122,17 @@ jobs:
               }
 
               if (eventName === 'push') {
-                const before = context.payload.before;
-                const after  = context.payload.after;
+                const after = context.payload.after;
+                const base  = after ? await lastCompletedHead(after) : null;
 
-                if (!before || !after || /^0+$/.test(before)) {
+                if (!base) {
                   return null;
                 }
 
                 const comparison = await github.rest.repos.compareCommitsWithBasehead({
                   owner   : context.repo.owner,
                   repo    : context.repo.repo,
-                  basehead: `${before}...${after}`,
+                  basehead: `${base}...${after}`,
                   per_page: 100
                 });
 
@@ -143,12 +182,12 @@ jobs:
             const files = await getChangedFiles();
 
             if (!files || files.length === 0) {
-              core.info('Changed files are unavailable; running full test suites.');
+              core.info(`Changed files are unavailable (${unavailableReason}); running full test suites.`);
               core.setOutput('run_unit', 'true');
               core.setOutput('run_components', 'true');
               core.setOutput('run_e2e', 'true');
               core.setOutput('e2e_brain_tier', 'full');
-              core.setOutput('skip_reason', 'changed files unavailable');
+              core.setOutput('skip_reason', unavailableReason);
               return;
             }
 

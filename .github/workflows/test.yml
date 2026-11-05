@@ -51,6 +51,12 @@ jobs:
   # workflow's declared outputs exactly as it resolved through the inline job's.
   changes:
     name: Classify test scope
+    # It lists the pull request's files, reads its live head, and on a push finds this workflow's
+    # last completed run to diff from
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
     uses: ./.github/workflows/classify-test-scope.yml
 
   unit:
