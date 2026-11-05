@@ -1,5 +1,13 @@
-import {test, expect} from '@playwright/test';
-import path           from 'node:path';
+import {test, expect}            from '@playwright/test';
+import fs                        from 'node:fs';
+import os                        from 'node:os';
+import path                      from 'node:path';
+import {createRequire}           from 'node:module';
+import mainAddonContextPlugin    from '../../../../buildScripts/webpack/mainAddonContextPlugin.mjs';
+import workerContextRebasePlugin from '../../../../buildScripts/webpack/workerContextRebasePlugin.mjs';
+
+const require           = createRequire(import.meta.url),
+      {ResolverFactory} = require('enhanced-resolve');
 
 /**
  * The consumer runtime-build guard fails when installed Data/Main contexts resolve framework
@@ -182,5 +190,45 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
 
         expect(failures).toHaveLength(1);
         expect(failures[0]).toContain('src/canvas/GraphScene.mjs is absent, expected present')
+    });
+
+    test('workerContextRebasePlugin and mainAddonContextPlugin emit POSIX relative specifiers that enhanced-resolve parses with module: false (#6619)', () => {
+        const resolver   = ResolverFactory.createResolver({fileSystem: fs}),
+              fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-6619-')),
+              workerDir  = path.join(fixtureDir, 'node_modules', 'neo.mjs', 'src', 'worker'),
+              srcDir     = path.join(fixtureDir, 'node_modules', 'neo.mjs', 'src');
+
+        try {
+            fs.mkdirSync(workerDir, {recursive: true});
+            fs.mkdirSync(path.join(fixtureDir, 'apps'), {recursive: true});
+
+            // Negative control: path.win32.join produces backslashes that enhanced-resolve misclassifies as a module lookup.
+            expect(resolver.parse(path.win32.join('../../', '../..')).module).toBe(true);
+            expect(resolver.parse(path.win32.join('../../', '../../apps')).module).toBe(true);
+            expect(resolver.parse(path.win32.join('..', 'src', 'main', 'addon')).module).toBe(true);
+
+            const rebaseCallback = workerContextRebasePlugin(false).newContentCallback,
+                  appContext     = {context: workerDir, request: '..\\..'},
+                  dataContext    = {context: workerDir, request: '..\\..\\apps'};
+
+            rebaseCallback(appContext);
+            rebaseCallback(dataContext);
+
+            expect(appContext.request).toBe('../../../..');
+            expect(dataContext.request).toBe('../../../../apps');
+            expect(resolver.parse(appContext.request).module).toBe(false);
+            expect(resolver.parse(dataContext.request).module).toBe(false);
+
+            const mainCallback = mainAddonContextPlugin(false).newContentCallback,
+                  mainContext  = {context: srcDir, request: '..\\..\\..\\src\\main\\addon'};
+
+            mainCallback(mainContext);
+
+            expect(mainContext.request).toBe('../src/main/addon');
+            expect(String(mainContext.regExp)).toBe('/(?!)/');
+            expect(resolver.parse(mainContext.request).module).toBe(false)
+        } finally {
+            fs.rmSync(fixtureDir, {recursive: true, force: true})
+        }
     })
 });

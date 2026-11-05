@@ -1,8 +1,8 @@
-import fs                  from 'fs-extra';
-import path                from 'path';
-import {spawnSync}         from 'child_process';
-import {copyDistAppAssets} from '../../util/distAppAssets.mjs';
-import webpack             from 'webpack';
+import fs                        from 'fs-extra';
+import path                      from 'path';
+import {spawnSync}               from 'child_process';
+import {copyDistAppAssets}       from '../../util/distAppAssets.mjs';
+import workerContextRebasePlugin from '../workerContextRebasePlugin.mjs';
 
 const cwd                   = process.cwd(),
       cpOpts                = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
@@ -164,15 +164,7 @@ export default env => {
         },
 
         plugins: [
-            new webpack.ContextReplacementPlugin(/.*/, context => {
-                let con = context.context;
-
-                if (!insideNeo && (con.includes('/src/worker') || con.includes('\\src\\worker'))) {
-                    if (!context.request.startsWith('../../') && !context.request.startsWith('..\\..\\') && !context.request.startsWith('../data/') && !context.request.startsWith('..\\data\\')) {
-                        context.request = path.join('../../', context.request);
-                    }
-                }
-            }),
+            workerContextRebasePlugin(insideNeo),
             ...plugins
         ],
 
