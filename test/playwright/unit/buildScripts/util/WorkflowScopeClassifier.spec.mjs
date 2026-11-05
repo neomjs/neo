@@ -1,4 +1,5 @@
 import { test, expect }  from '@playwright/test';
+import { execFileSync }  from 'node:child_process';
 import fs                from 'node:fs';
 import path              from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -729,7 +730,7 @@ test.describe('Tests scope classifier — the Brain-gated tier runs only what a 
         expect(outputs.e2e_brain_tier).toBe('none');
         expect(outputs.e2e_boundary_report.split('\n')).toEqual([
             'learn/blog/post.md: out (docs or content)',
-            'apps/portal/resources/data/blog.json: out (portal content data, which unit guards)',
+            'apps/portal/resources/data/blog.json: out (portal blog registry, read only on the news route)',
             'buildScripts/create/class.mjs: out (buildScripts outside the e2e launch chain)',
             'test/playwright/unit/core/Base.spec.mjs: out (no e2e rule matches)',
             'package-lock.json: out (unchanged beyond browser-unreachable packages)'
@@ -799,7 +800,11 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         {file: 'test/playwright/util/RmaHelpers.mjs',                why: 'imported by the shared fixtures every spec builds on'},
         {file: 'test/playwright/e2e/globalSetup.mjs',                why: 'the first half of the tier\'s own webServer.command'},
         {file: 'buildScripts/webpack/webpack.server.config.mjs',     why: 'the server `server-start` launches for the tier to drive'},
-        {file: 'buildScripts/util/developmentThemeAssets.mjs',       why: 'builds the theme assets the run serves'}
+        {file: 'buildScripts/util/developmentThemeAssets.mjs',       why: 'builds the theme assets the run serves'},
+        // Runtime reach, which no import scan sees: the portal's Seo service fetches this on every
+        // route change, and a Docs spec's browser setup executes the docs generator
+        {file: 'apps/portal/resources/data/seo.json',                why: 'fetched by apps/portal/service/Seo.mjs on every portal route'},
+        {file: 'buildScripts/docs/generateDocsJson.mjs',             why: 'executed by a Docs e2e spec\'s browser setup'}
     ];
 
     for (const {file, why} of e2eRelevant) {
@@ -813,11 +818,11 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
     }
 
     test('paths outside the launch chain do NOT run the tier; a new buildScripts directory does', async () => {
-        // Deny-listed rather than allow-listed: portal content data, which no spec,
-        // fixture or config reads, and the `buildScripts/` directories the launch chain's imports
-        // never reach. A directory that does not exist yet must still admit the tier.
+        // Deny-listed rather than allow-listed: the portal's blog registry, read only on a route no
+        // e2e spec opens, and the `buildScripts/` directories no e2e code imports or executes. Every
+        // other portal data file and a directory that does not exist yet must still admit the tier.
         for (const file of ['apps/portal/resources/data/blog.json', 'buildScripts/create/class.mjs',
-            'buildScripts/docs/seo/Generate.mjs', 'buildScripts/helpers/watchThemes.mjs', 'buildScripts/release/publish.mjs']) {
+            'buildScripts/helpers/watchThemes.mjs', 'buildScripts/release/publish.mjs']) {
             const runtime = createRuntime({ files: [file] });
 
             await executeScript(scopeScript(), runtime);
@@ -830,6 +835,26 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
             await executeScript(scopeScript(), runtime);
             expect(outputsOf(runtime), file).toMatchObject({ run_e2e: 'true' });
         }
+    });
+
+    test('the exclusions hold only while no e2e code reaches what they exclude', () => {
+        // Each exclusion rests on a reachability fact, and a fact can stop being true without anyone
+        // touching the classifier. These reds name the exclusion to revisit when that happens.
+        // `blog.json` is read only by the lazily loaded news/blog view; the excluded `buildScripts/`
+        // directories are neither imported nor executed by any spec, fixture, helper or config.
+        // The e2e side of `test/playwright/`, by the classifier's own support rule: not the unit or
+        // component spec trees, except the component harness apps the e2e specs navigate
+        const e2eCode = execFileSync('git', ['ls-files', 'test/playwright'], {cwd: repoRoot, encoding: 'utf8'})
+                  .trim().split('\n')
+                  .filter(file => file.endsWith('.mjs') && (file.startsWith('test/playwright/component/apps/') ||
+                      (!file.startsWith('test/playwright/unit/') && !file.startsWith('test/playwright/component/')))),
+              read    = file => fs.readFileSync(path.join(repoRoot, file), 'utf8'),
+              opensNews     = e2eCode.filter(file => /#\/news/.test(read(file))),
+              reachesScript = e2eCode.filter(file => /buildScripts\/(create|helpers|release)\//.test(read(file)));
+
+        expect(e2eCode.length, 'the scan found the e2e tree').toBeGreaterThan(100);
+        expect(opensNews, 'an e2e spec opens the portal news route: blog.json is reachable, admit it').toEqual([]);
+        expect(reachesScript, 'e2e code reaches an excluded buildScripts directory: admit it').toEqual([]);
     });
 
     test('a baseline-pin-only change does NOT run the tier', async () => {

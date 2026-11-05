@@ -353,18 +353,20 @@ jobs:
             // Whole directories rather than narrower paths — `apps/` not `apps/workstation/`,
             // `buildScripts/` not two files — because this gate's failure mode is SILENCE: a false
             // negative costs coverage behind a green check, and nothing reports it. So narrowing is a
-            // DENY-list of what the chain provably never reads, and a directory added tomorrow still
-            // admits the tier:
+            // DENY-list of what the run provably never reaches, imported OR fetched OR executed, and a
+            // path added tomorrow still admits the tier:
             //
-            //   apps/portal/resources/data/   content no spec, fixture or config reads; unit guards
-            //                                 it, and every blog post registers itself there
-            //   buildScripts/{create,docs,    outside the imports of the chain's build side
-            //     helpers,release}/           (`server-start`'s config, the bundles, the selection)
+            //   apps/portal/resources/data/blog.json   read only by the lazily loaded news/blog view,
+            //                                          a route no e2e spec opens; every blog post
+            //                                          registers itself there. The rest of the portal's
+            //                                          data stays in (`seo.json` loads on every route)
+            //   buildScripts/{create,helpers,release}/ neither imported nor executed by any spec,
+            //                                          fixture, helper or config
             //
-            // A false positive is not cheap either: the Brain-gated tier follows this boundary, so one
-            // costs fourteen jobs on a twenty-job runner cap.
-            const isPortalContentData     = file => file.startsWith('apps/portal/resources/data/');
-            const isOutsideE2eLaunchChain = file => /^buildScripts\/(create|docs|helpers|release)\//.test(file);
+            // A unit arm reds when either premise stops holding. A false positive is not cheap either:
+            // the Brain-gated tier follows this boundary, so one costs fourteen jobs on a twenty-job cap.
+            const isPortalBlogRegistry    = file => file === 'apps/portal/resources/data/blog.json';
+            const isOutsideE2eLaunchChain = file => /^buildScripts\/(create|helpers|release)\//.test(file);
 
             const isE2eTestSupportPath = file =>
               file.startsWith('test/playwright/component/apps/') || (
@@ -376,7 +378,7 @@ jobs:
             const isE2eRelevantPath = file =>
               file.startsWith('src/') ||
               file.startsWith('examples/') ||
-              (file.startsWith('apps/') && !isPortalContentData(file)) ||
+              (file.startsWith('apps/') && !isPortalBlogRegistry(file)) ||
               file.startsWith('resources/scss/') ||
               (file.startsWith('buildScripts/') && !isOutsideE2eLaunchChain(file)) ||
               isE2eTestSupportPath(file) ||
@@ -397,7 +399,7 @@ jobs:
             // pull request that carries it shows the rule that left it out.
             const e2eBoundaryRule = file =>
               isE2eRelevantPath(file)       ? 'in' :
-              isPortalContentData(file)     ? 'out (portal content data, which unit guards)' :
+              isPortalBlogRegistry(file)    ? 'out (portal blog registry, read only on the news route)' :
               isOutsideE2eLaunchChain(file) ? 'out (buildScripts outside the e2e launch chain)' :
               file === 'package-lock.json'  ? 'out (unchanged beyond browser-unreachable packages)' :
               file === 'package.json'       ? 'out (no dependency-kind or invoked-script change)' :
