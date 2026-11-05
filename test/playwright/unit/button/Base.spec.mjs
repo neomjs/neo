@@ -190,10 +190,9 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
 
         const routeButton = Neo.create(Button, {
             appName,
-            disabled : true,
-            editRoute: false,
-            route    : 'details',
-            text     : 'Internal link'
+            disabled: true,
+            route   : 'details',
+            text    : 'Internal link'
         });
         const routeVnode = (await routeButton.initVnode()).vnode;
 
@@ -229,7 +228,7 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         expect(vnode.nodeName).toBe('button');
         expect(vnode.attributes.target).toBeUndefined();
 
-        const routeButton = Neo.create(Button, {appName, editRoute: false, route: 'details', text: 'Internal link'});
+        const routeButton = Neo.create(Button, {appName, route: 'details', text: 'Internal link'});
         const routeVnode  = (await routeButton.initVnode()).vnode;
 
         expect(routeVnode.attributes.href).toBe('#details');
@@ -237,6 +236,51 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
 
         routeButton.destroy();
         lateButton.destroy();
+    });
+
+    test('editRoute defaults to false (anchor tag) and editRoute: true keeps button tag and invokes Neo.Main.editRoute on click', async () => {
+        const editedRoutes   = [],
+              originalEditFn = Neo.Main.editRoute;
+
+        Neo.Main.editRoute = route => editedRoutes.push(route);
+
+        try {
+            const defaultRouteButton = Neo.create(Button, {
+                appName,
+                route          : '/home',
+                text           : 'Home',
+                useRippleEffect: false
+            });
+            const defaultVnode = (await defaultRouteButton.initVnode()).vnode;
+
+            expect(defaultRouteButton.editRoute).toBe(false);
+            expect(defaultVnode.nodeName).toBe('a');
+            expect(defaultVnode.attributes.href).toBe('#/home');
+
+            defaultRouteButton.onClick({});
+            expect(editedRoutes).toEqual([]);
+
+            const paramRouteButton = Neo.create(Button, {
+                appName,
+                editRoute      : true,
+                route          : 'mainview=table',
+                text           : 'Table',
+                useRippleEffect: false
+            });
+            const paramVnode = (await paramRouteButton.initVnode()).vnode;
+
+            expect(paramRouteButton.editRoute).toBe(true);
+            expect(paramVnode.nodeName).toBe('button');
+            expect(paramVnode.attributes.href).toBeUndefined();
+
+            paramRouteButton.onClick({});
+            expect(editedRoutes).toEqual(['mainview=table']);
+
+            defaultRouteButton.destroy();
+            paramRouteButton.destroy();
+        } finally {
+            Neo.Main.editRoute = originalEditFn
+        }
     });
 
     test('Prototype VDOM mutation check', async () => {

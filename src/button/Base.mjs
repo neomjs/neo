@@ -57,10 +57,10 @@ class Button extends Component {
          */
         baseCls: ['neo-button'],
         /**
-         * false calls Neo.Main.setRoute()
-         * @member {Boolean} editRoute=true
+         * true calls Neo.Main.editRoute() on click instead of rendering an anchor tag
+         * @member {Boolean} editRoute=false
          */
-        editRoute: true,
+        editRoute: false,
         /**
          * Shortcut for domListeners={click:handler}.
          * A string-based value assumes that the handlerFn lives inside a controller.Component.
