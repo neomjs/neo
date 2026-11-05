@@ -1,10 +1,12 @@
-import Base       from './Base.mjs';
-import DomAccess  from '../DomAccess.mjs';
+import Base        from './Base.mjs';
+import DomAccess   from '../DomAccess.mjs';
+import HighlightJs from '../../util/HighlightJs.mjs';
 
 /**
  * Required for the docs app which uses highlight.js for the source views
  * @class Neo.main.addon.HighlightJS
  * @extends Neo.main.addon.Base
+ * @summary Main-thread DOM highlighting with the Engine bundle and optional classic-script overrides.
  */
 class HighlightJS extends Base {
     static config = {
@@ -14,10 +16,11 @@ class HighlightJS extends Base {
          */
         className: 'Neo.main.addon.HighlightJS',
         /**
-         * @member {String} highlightJsPath='./resources/highlight/highlight.pack.js'
+         * An explicit classic-script override; null reuses the Engine's generated module bundle.
+         * @member {String|null} highlightJsPath=null
          * @protected
          */
-        highlightJsPath: './resources/lib/highlight/highlight.pack.js',
+        highlightJsPath: null,
         /**
          * @member {String} highlightJsLineNumbersPath=Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js'
          * @protected
@@ -46,7 +49,7 @@ class HighlightJS extends Base {
             ]
         },
         /**
-         * @member {String} themePath='./resources/highlightjs-custom-github-theme.css'
+         * @member {String} themePath='./resources/lib/highlightjs-custom-github-theme.css'
          * @protected
          */
         themePath: './resources/lib/highlightjs-custom-github-theme.css'
@@ -67,6 +70,7 @@ class HighlightJS extends Base {
     }
 
     /**
+     * @summary Loads the shared highlighter before the classic line-number plugin, which consumes window.hljs.
      * @param {Object} data
      * @returns {Promise<void>}
      */
@@ -80,7 +84,12 @@ class HighlightJS extends Base {
             me.set(data);
         }
 
-        await DomAccess.loadScript(me.highlightJsPath);
+        if (me.highlightJsPath) {
+            await DomAccess.loadScript(me.highlightJsPath)
+        } else {
+            await HighlightJs.load(new URL(Neo.config.basePath, document.baseURI).href);
+            globalThis.hljs = HighlightJs.hljs
+        }
 
         await Promise.all([
             DomAccess.loadScript(me.highlightJsLineNumbersPath),
@@ -133,6 +142,7 @@ class HighlightJS extends Base {
     }
 
     /**
+     * @summary Highlights a code leaf, including new contents published into an already highlighted element.
      * @param {Object} data
      * @param {String} data.vnodeId
      */
@@ -143,9 +153,17 @@ class HighlightJS extends Base {
 
         let node = document.getElementById(data.vnodeId);
 
-        if (node) {
+        if (node && !node.querySelector('.hljs-ln')) {
+            // VDOM can replace the contents while retaining the code element and this library marker.
+            // An existing line table is already processed; feeding it back loses the source newlines.
+            delete node.dataset.highlighted;
             hljs.highlightBlock(node);
-            hljs.lineNumbersBlock(node)
+            // Finish the bundled plugin before another mount/source callback can queue the same work.
+            if (hljs.lineNumbersBlockSync) {
+                hljs.lineNumbersBlockSync(node)
+            } else {
+                hljs.lineNumbersBlock(node)
+            }
         }
     }
 

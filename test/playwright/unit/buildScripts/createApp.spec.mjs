@@ -9,7 +9,8 @@ const
     __filename    = fileURLToPath(import.meta.url),
     __dirname     = path.dirname(__filename),
     appScript     = path.resolve(__dirname, '../../../../buildScripts/create/app.mjs'),
-    minimalScript = path.resolve(__dirname, '../../../../buildScripts/create/appMinimal.mjs');
+    minimalScript = path.resolve(__dirname, '../../../../buildScripts/create/appMinimal.mjs'),
+    engineRoot    = path.resolve(__dirname, '../../../..');
 
 test.describe('buildScripts/create/app.mjs & appMinimal.mjs theme discovery (#5305)', () => {
     let root;
@@ -25,6 +26,12 @@ test.describe('buildScripts/create/app.mjs & appMinimal.mjs theme discovery (#53
         const addonDir = path.join(root, 'node_modules/neo.mjs/src/main/addon');
         fs.mkdirSync(addonDir, {recursive: true});
         fs.writeFileSync(path.join(addonDir, 'Stylesheet.mjs'), '');
+        fs.writeFileSync(path.join(addonDir, 'HighlightJS.mjs'), '');
+
+        const engineDir = path.join(root, 'node_modules/neo.mjs');
+        fs.mkdirSync(path.join(engineDir, 'buildScripts'), {recursive: true});
+        fs.symlinkSync(path.join(engineRoot, 'buildScripts/util'), path.join(engineDir, 'buildScripts/util'), 'dir');
+        fs.cpSync(path.join(engineRoot, 'resources/lib'), path.join(engineDir, 'resources/lib'), {recursive: true});
 
         fs.mkdirSync(path.join(root, 'node_modules/neo.mjs/resources/scss/theme-neo-dark'),  {recursive: true});
         fs.mkdirSync(path.join(root, 'node_modules/neo.mjs/resources/scss/theme-neo-light'), {recursive: true});
@@ -71,4 +78,20 @@ test.describe('buildScripts/create/app.mjs & appMinimal.mjs theme discovery (#53
         const helpOutput = execFileSync('node', [minimalScript, '--help'], {cwd: root, encoding: 'utf8', stdio: 'pipe'}).replace(/\s+/g, ' ');
         expect(helpOutput).toContain('all, neo-theme-neo-dark, neo-theme-neo-light, neo-theme-workspace, none');
     });
+
+    for (const [name, script] of [['app', appScript], ['appMinimal', minimalScript]]) {
+        test(`${name} copies the shared highlight styles into an external app`, () => {
+            execFileSync('node', [script, '-a', 'DemoApp', '-m', 'HighlightJS,Stylesheet',
+                '-t', 'none', '-u', 'no', '-s', 'no'], {cwd: root, encoding: 'utf8', stdio: 'pipe'});
+
+            const actual = path.join(root, 'apps/demoapp/resources/lib');
+            for (const filename of ['highlightjs-custom-dark-theme.css', 'highlightjs-custom-github-theme.css']) {
+                expect(fs.readFileSync(path.join(actual, filename), 'utf8')).toBe(
+                    fs.readFileSync(path.join(engineRoot, 'resources/lib', filename), 'utf8')
+                );
+            }
+            expect(fs.existsSync(path.join(actual, 'highlight'))).toBe(false);
+            expect(fs.existsSync(path.join(root, 'apps/demoapp/resources/images'))).toBe(false);
+        });
+    }
 });

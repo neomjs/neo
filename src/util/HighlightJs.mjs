@@ -108,11 +108,13 @@ class HighlightJs extends Base {
     }
 
     /**
+     * @summary Loads the bundle from the caller's root; main-thread callers pass a document-resolved URL.
+     * @param {String} [basePath=Neo.config.basePath]
      * @returns {Promise<void>}
      */
-    async load() {
+    async load(basePath = Neo.config.basePath) {
         if (!this.hljs) {
-            let module = await import(/* webpackIgnore: true */ Neo.config.basePath + this.getBundlePath());
+            let module = await import(/* webpackIgnore: true */ basePath + this.getBundlePath());
 
             this.hljs = module.default
         }

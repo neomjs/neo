@@ -323,13 +323,14 @@ export default Neo.setupClass(${className});
             fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
 
             if (mainThreadAddons.includes('HighlightJS')) {
-                spawnSync(nodeCmd, [
-                    './buildScripts/util/copyFolder.mjs',
+                const childProcess = spawnSync(nodeCmd, [
+                    path.resolve(neoPath, 'buildScripts/util/copyFolder.mjs'),
                     '-s',
-                    path.resolve(neoPath, 'docs/resources'),
+                    path.resolve(neoPath, 'resources/lib'),
                     '-t',
-                    path.resolve(folder, 'resources'),
+                    path.resolve(folder, 'resources/lib'),
                 ], {env: process.env, cwd: process.cwd(), stdio: 'inherit'});
+                childProcess.status && process.exit(childProcess.status);
             }
 
             const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);

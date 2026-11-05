@@ -36,17 +36,13 @@ class MainContainerController extends Component {
         let me                    = this,
             isPortal              = me.component.appName === 'Portal',
             isDark                = Boolean(me.component.getTheme()?.includes('dark')),
-            libPath               = isPortal ? '../../docs/resources/lib/' : './resources/lib/',
+            libPath               = Neo.config.basePath + 'resources/lib/',
             sourceViewThemeButton = me.getReference('source-view-theme-button'),
             themeButton           = me.getReference('theme-button'),
             opts                  = {
                 themePath: libPath + (isDark ? 'highlightjs-custom-dark-theme.css' : 'highlightjs-custom-github-theme.css'),
                 windowId : me.windowId
             };
-
-        if (isPortal) {
-            opts.highlightJsPath = libPath + 'highlight/highlight.pack.js'
-        }
 
         if (themeButton) {
             if (isPortal) {
@@ -171,7 +167,7 @@ class MainContainerController extends Component {
     onSwitchSourceViewThemeButtonClick() {
         let me      = this,
             button  = me.getReference('source-view-theme-button'),
-            libPath = me.component.appName === 'Portal' ? '../../docs/resources/lib/' : './resources/lib/',
+            libPath = Neo.config.basePath + 'resources/lib/',
             buttonText, href;
 
         if (button.text === 'Source View Theme Light') {

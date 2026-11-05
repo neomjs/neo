@@ -306,11 +306,11 @@ if (programOpts.info) {
 
         if (mainThreadAddons.includes('HighlightJS')) {
             const childProcess = spawnSync(nodeCmd, [
-                './buildScripts/util/copyFolder.mjs',
+                path.resolve(neoPath, 'buildScripts/util/copyFolder.mjs'),
                 '-s',
-                path.resolve(neoPath, 'docs/resources'),
+                path.resolve(neoPath, 'resources/lib'),
                 '-t',
-                path.resolve(folder, 'resources'),
+                path.resolve(folder, 'resources/lib'),
             ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
             childProcess.status && process.exit(childProcess.status);
         }
