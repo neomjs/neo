@@ -121,8 +121,6 @@ function expectSettled(body) {
 }
 
 test.describe('Grid AnimateRows: the two steps of a move', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let errors, grid, log, store;
 
     test.beforeEach(() => {
@@ -135,7 +133,7 @@ test.describe('Grid AnimateRows: the two steps of a move', () => {
 
     test.afterEach(async () => {
         console.error = log;
-        await grid?.timeout(20);
+        if (grid && !grid.isDestroyed) await grid.timeout(20);
         grid?.isDestroyed || grid?.destroy();
         store?.destroy()
     });
