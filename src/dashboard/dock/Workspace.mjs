@@ -2899,6 +2899,7 @@ class Workspace extends Container {
     /**
      * @summary Chains one re-projection of a committed snapshot onto the settled refresh tail. It stands down
      * once {@link #scheduledProjection} has moved on, because that newer commit's projection supersedes it.
+     * Retirement during the owned delay stands down without masking a refresh failure.
      * @param {Object} projection
      * @param {Object|null} projection.document
      * @param {Object} projection.refreshOptions
@@ -2911,7 +2912,7 @@ class Workspace extends Container {
               tail = me.refreshPromise?.catch(() => {}) || Promise.resolve();
 
         me.refreshPromise = tail
-            .then(() => me.timeout(0))
+            .then(() => me.timeout(0).catch(error => {if (error !== Neo.isDestroyed) throw error}))
             .then(() => {
                 if (me.isDestroyed || (me.scheduledProjection && me.scheduledProjection.document !== document)) return;
 

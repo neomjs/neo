@@ -79,6 +79,7 @@ class Cycle extends Base {
      * @summary Chains this cycle's refresh onto the settled tail: one tick later, on a live workspace, with its
      * start stamped. Whatever the refresh did, the adoption is settled by the end (`null` if it never adopted),
      * and the returned promise keeps the refresh's own outcome, rejection included.
+     * Workspace retirement during the owned delay stands down quietly; refresh failures remain observable.
      * @param {Promise} tail The previous refresh, already made safe to chain on.
      * @param {Neo.dashboard.dock.Workspace} workspace
      * @param {Function} refresh Runs the workspace's refresh for this cycle; receives the cycle.
@@ -88,7 +89,7 @@ class Cycle extends Base {
         const me = this;
 
         return tail
-            .then(() => workspace.timeout(0))
+            .then(() => workspace.timeout(0).catch(error => {if (error !== Neo.isDestroyed) throw error}))
             .then(() => {
                 if (!workspace.isDestroyed) {
                     me.timing.startedAt = Date.now();

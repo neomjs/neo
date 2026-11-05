@@ -391,9 +391,7 @@ test.describe('Neo.list.plugin.Animate', () => {
 
             const {id} = list;
             list.destroy();
-            await list.timeout(20);
-
-            expect(calls.some(call => call.op === 'unregister' && call.id === id)).toBe(true)
+            await expect.poll(() => calls.some(call => call.op === 'unregister' && call.id === id)).toBe(true)
         } finally {
             Neo.currentWorker.getAddon = prior
         }

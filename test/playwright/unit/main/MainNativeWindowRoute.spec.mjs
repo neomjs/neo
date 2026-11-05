@@ -231,7 +231,7 @@ async function runNativeWindowRouteProbe(scenario) {
 
         setup({mockMain: false, neoConfig: {unitTestMode: true}});
 
-        const windowListeners = new Map();
+        const windowListeners = new Map(), nativeTimeout = globalThis.setTimeout;
 
         globalThis.document = {
             readyState         : 'loading',
@@ -538,7 +538,7 @@ async function runNativeWindowRouteProbe(scenario) {
                 resize   = null;
 
             if (scenario === 'native-close-observation') {
-                globalThis.setTimeout = callback => { callback(); return 1 };
+                globalThis.setTimeout = callback => nativeTimeout(callback, 0);
                 Main.releaseNativeWindowRoute({...route, win: popup});
                 closure = {
                     open: await Main.windowNativeIsClosed({nativeHandleKey: route.nativeHandleKey}),
@@ -567,8 +567,7 @@ async function runNativeWindowRouteProbe(scenario) {
                     win            : popup
                 });
                 globalThis.setTimeout = callback => {
-                    callback();
-                    return 1
+                    return nativeTimeout(callback, 0)
                 };
                 exactCompletion = await Main.windowNativeFocus(route)
             } else if (scenario === 'native-move-stale') {
@@ -591,8 +590,7 @@ async function runNativeWindowRouteProbe(scenario) {
                     scenario === 'native-close' && (state.closed = true)
                 };
                 globalThis.setTimeout = callback => {
-                    callback();
-                    return 1
+                    return nativeTimeout(callback, 0)
                 };
                 exactCompletion = await Main.windowNativeClose(route)
             } else if (

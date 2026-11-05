@@ -108,6 +108,9 @@ async function runRenderQueueProbe(hidden, probeForwarding=false, fire='first') 
             next?.callback()
         }
 
+        // Finishing a native task also runs the Promise continuations its callback scheduled.
+        await Promise.resolve();
+
         globalThis.clearTimeout = originalClear;
         globalThis.setTimeout   = originalTimeout;
 

@@ -86,7 +86,7 @@ class HeaderActions extends Plugin {
     }
 
     /**
-     * Commits the engine-owned close action.
+     * @summary Commits the close action and focuses its successor only while this plugin still owns the workspace.
      *
      * Live reconciled order owns the close target at dispatch time. The current model locates that
      * item's semantic tabs node, and the committed result owns its focus successor. Successful focus
@@ -123,7 +123,11 @@ class HeaderActions extends Plugin {
             // which branch ran: did the call publish a new refresh? (Timing: see `refreshPromise`.)
             const published = me.refreshPromise,
                   pending   = me.onDockZoneDocumentChange(result.document, descriptor, tabContainer),
-                  focus     = () => this.focusDockCloseTarget({dockNodeId: modelNodeId, itemId: focusId});
+                  focus     = () => {
+                      if (!me.isDestroyed && !this.isDestroyed && this.owner === me) {
+                          return this.focusDockCloseTarget({dockNodeId: modelNodeId, itemId: focusId})
+                      }
+                  };
 
             if (me.refreshPromise && me.refreshPromise !== published) {
                 // Chaining now also keeps the follow-up observable to a caller that awaits

@@ -125,6 +125,44 @@ test.describe('Neo.canvas.Base — context acquisition', () => {
         errors.length = 0
     });
 
+    test('destroying a waiting renderer cancels its poll and prevents late acquisition', async () => {
+        const renderer    = Neo.create(DefaultContextRenderer),
+              canvasId    = 'retired-canvas', canvas = createCanvas({canvas: {}}),
+              originalSet = globalThis.setTimeout, originalClear = globalThis.clearTimeout,
+              scheduled   = [], cleared = [];
+        await renderer.ready();
+        renderers.push(renderer);
+
+        globalThis.setTimeout = (callback, delay) => {
+            const timer = {callback, delay};
+            scheduled.push(timer);
+            return timer
+        };
+        globalThis.clearTimeout = timer => cleared.push(timer);
+
+        try {
+            renderer.waitForCanvas(canvasId, windowId, true);
+            expect(scheduled).toHaveLength(1);
+            expect(scheduled[0].delay).toBe(50);
+            renderer.destroy();
+            expect(cleared).toEqual(scheduled);
+
+            // Even a callback already taken from the timer queue cannot revive the rejected wait.
+            scheduled[0].callback();
+            await Promise.resolve();
+            expect(scheduled).toHaveLength(1);
+            Neo.currentWorker.canvasWindowMap[canvasId] = {[windowId]: canvas};
+            renderer.waitForCanvas(canvasId, windowId, true);
+            expect(canvas.calls).toEqual([]);
+            expect(scheduled).toHaveLength(1)
+        } finally {
+            globalThis.setTimeout = originalSet;
+            globalThis.clearTimeout = originalClear;
+            renderer.destroy();
+            delete Neo.currentWorker.canvasWindowMap[canvasId]
+        }
+    });
+
     test('the default renderer asks for a bare 2d context', () => {
         const context  = {canvas: {}},
               canvas   = createCanvas(context),

@@ -1196,7 +1196,8 @@ Give the config its default with a plain '${key}' entry in static config, or ren
      * @summary Waits for a delay owned by this instance, optionally cancellable by its caller.
      * Abort rejects with the signal's reason; destruction rejects with Neo.isDestroyed.
      * Every terminal removes the abort listener and async registration. A pre-aborted signal
-     * creates no timer. Omitting the signal retains the ordinary timeout contract.
+     * creates no timer. A destroyed owner also rejects without scheduling a timer.
+     * Omitting the signal retains the ordinary timeout contract.
      * @param {Number} time Delay in milliseconds
      * @param {Object} [options={}]
      * @param {AbortSignal} [options.signal] Cancels this wait while leaving its owner alive
@@ -1208,6 +1209,11 @@ Give the config its default with a plain '${key}' entry in static config, or ren
         return new Promise((resolve, reject) => {
             if (signal?.aborted) {
                 reject(signal.reason);
+                return
+            }
+
+            if (me.isDestroyed) {
+                reject(Neo.isDestroyed);
                 return
             }
 

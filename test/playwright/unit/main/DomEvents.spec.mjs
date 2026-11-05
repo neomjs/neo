@@ -118,6 +118,47 @@ test.describe('Neo.main.DomEvents', () => {
         expect(globalThis.document).toBeUndefined()
     });
 
+    test('iframe focus is sampled after the task boundary, and a retired owner forwards nothing', async () => {
+        const owner          = Neo.create(core.Base), sent = [], scheduled = [], cleared = [],
+              originalSet    = globalThis.setTimeout, originalClear = globalThis.clearTimeout,
+              previousActive = Object.getOwnPropertyDescriptor(documentRef, 'activeElement'),
+              parent         = {}, iframe = {tagName: 'IFRAME', parentNode: parent};
+        await owner.ready();
+        owner.getEventData = data => data;
+        owner.sendMessageToApp = data => sent.push(data);
+        globalThis.setTimeout = (callback, delay) => {
+            scheduled.push({callback, delay});
+            return scheduled.length
+        };
+        globalThis.clearTimeout = id => cleared.push(id);
+
+        try {
+            documentRef.activeElement = {tagName: 'DIV'};
+            DomEvents.onWindowBlur.call(owner);
+            expect(sent).toEqual([]);
+            expect(scheduled[0].delay).toBe(0);
+            documentRef.activeElement = iframe;
+            scheduled[0].callback();
+            await Promise.resolve();
+            expect(sent).toHaveLength(1);
+            expect(sent[0].type).toBe('focusin');
+            expect(sent[0].composedPath()).toEqual([iframe, parent]);
+
+            DomEvents.onWindowBlur.call(owner);
+            owner.destroy();
+            expect(cleared).toEqual([2]);
+            scheduled[1].callback();
+            await Promise.resolve();
+            expect(sent).toHaveLength(1)
+        } finally {
+            owner.destroy();
+            globalThis.setTimeout = originalSet;
+            globalThis.clearTimeout = originalClear;
+            previousActive ? Object.defineProperty(documentRef, 'activeElement', previousActive) :
+                delete documentRef.activeElement
+        }
+    });
+
     test('a focusout fired inside removeNode names the removed node, and one fired elsewhere does not', () => {
         const sent    = [],
               removed = {

@@ -668,7 +668,7 @@ class App extends Base {
     onDisconnect(data, sourcePort) {
         super.onDisconnect(data, sourcePort);
 
-        this.isSharedWorker && setTimeout(() => this.reapWindow(data.windowId))
+        this.isSharedWorker && this.timeout(0).then(() => this.reapWindow(data.windowId))
     }
 
     /**
