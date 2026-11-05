@@ -22,7 +22,16 @@ const require           = createRequire(import.meta.url),
  * the failure DIRECTIONS, and the workflow asserts the behaviour.
  */
 test.describe('check-consumer-runtime-build — rule logic', () => {
-    let APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts, resolveFixtureDevDependencies;
+    let APP_EXPECTATIONS,
+        CANVAS_EXPECTATIONS,
+        EXPECTED_APP_WORKER_REMOTE,
+        TEST_HARNESS_ABSENCE_EXPECTATIONS,
+        collectAppWorkerDispatchSurfaceFailures,
+        collectConsumerBuildFailures,
+        collectMainContextFailures,
+        findMissingBrowserArtifacts,
+        probeAppWorkerDispatchSurface,
+        resolveFixtureDevDependencies;
 
     const runtimeFiles = [
         'dist/marked.mjs', 'dist/mermaid.mjs', 'dist/parse5.mjs',
@@ -50,7 +59,18 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
           workspaceContext = {context: path.join(workspace, 'src/main/addon'), regExpSource: '^\\.\\/.*\\.mjs$'};
 
     test.beforeAll(async () => {
-        ({APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts, resolveFixtureDevDependencies} = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
+        ({
+            APP_EXPECTATIONS,
+            CANVAS_EXPECTATIONS,
+            EXPECTED_APP_WORKER_REMOTE,
+            TEST_HARNESS_ABSENCE_EXPECTATIONS,
+            collectAppWorkerDispatchSurfaceFailures,
+            collectConsumerBuildFailures,
+            collectMainContextFailures,
+            findMissingBrowserArtifacts,
+            probeAppWorkerDispatchSurface,
+            resolveFixtureDevDependencies
+        } = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
     });
 
     test('fixture toolchain uses only root-lock direct versions without changing its inputs', () => {
@@ -292,5 +312,104 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         } finally {
             fs.rmSync(fixtureDir, {recursive: true, force: true})
         }
+    });
+
+    test('negative control: a test-harness adapter or fixture module leaking into any compiled worker or Main bundle fails', () => {
+        const adapterLeak = './node_modules/neo.mjs/test/playwright/dedicatedWorkerNeuralLink.mjs',
+              fixtureLeak = './node_modules/neo.mjs/test/playwright/fixtures.mjs',
+              addonLeak   = './node_modules/neo.mjs/src/main/addon/NeuralLinkBridge.mjs';
+
+        const dataFailures = collectConsumerBuildFailures({
+            mode       : 'production/data',
+            moduleNames: [CONSUMER, adapterLeak],
+            errors     : []
+        });
+        expect(dataFailures).toHaveLength(2);
+        expect(dataFailures[0]).toContain('test/playwright/dedicatedWorkerNeuralLink.mjs is present, expected absent');
+        expect(dataFailures[1]).toContain('test/playwright/* is present, expected absent');
+
+        const appFailures = collectConsumerBuildFailures({
+            mode       : 'development/app',
+            moduleNames: [APP_VIEW, APP_MARKED, fixtureLeak],
+            errors     : []
+        }, APP_EXPECTATIONS);
+        expect(appFailures).toHaveLength(2);
+        expect(appFailures[0]).toContain('test/playwright/fixtures.mjs is present, expected absent');
+        expect(appFailures[1]).toContain('test/playwright/* is present, expected absent');
+
+        const canvasFailures = collectConsumerBuildFailures({
+            mode       : 'production/canvas',
+            moduleNames: [ENGINE_RENDERER, GRAPH_SCENE, PROBE_RENDERER, `${adapterLeak} + 1 modules`],
+            errors     : []
+        }, CANVAS_EXPECTATIONS);
+        expect(canvasFailures).toHaveLength(2);
+        expect(canvasFailures[0]).toContain('test/playwright/dedicatedWorkerNeuralLink.mjs is present, expected absent');
+
+        const mainFailures = collectConsumerBuildFailures({
+            mode       : 'production/main-absent',
+            moduleNames: [addonLeak],
+            errors     : []
+        }, TEST_HARNESS_ABSENCE_EXPECTATIONS);
+        expect(mainFailures).toHaveLength(1);
+        expect(mainFailures[0]).toContain('src/main/addon/*NeuralLink*.mjs is present, expected absent')
+    });
+
+    test('flag-off App worker dispatch surface matches the pre-change remote methods and loads no AI client', () => {
+        const liveSurface = probeAppWorkerDispatchSurface();
+
+        expect(liveSurface).toEqual({
+            defaultAllowAiClientInTests: false,
+            defaultUseAiClient         : false,
+            remote                     : {main: [...EXPECTED_APP_WORKER_REMOTE.main]},
+            flagOffDevelopmentBoot     : null,
+            flagOffProductionBoot      : null
+        });
+        expect(collectAppWorkerDispatchSurfaceFailures(liveSurface)).toEqual([])
+    });
+
+    test('negative control: any extra App worker remote route or flag-off AI boot fails the dispatch surface guard', () => {
+        const baseSurface = {
+            defaultAllowAiClientInTests: false,
+            defaultUseAiClient         : false,
+            remote                     : {main: [...EXPECTED_APP_WORKER_REMOTE.main]},
+            flagOffDevelopmentBoot     : null,
+            flagOffProductionBoot      : null
+        };
+
+        const extraMethodFailures = collectAppWorkerDispatchSurfaceFailures({
+            ...baseSurface,
+            remote: {main: [...EXPECTED_APP_WORKER_REMOTE.main, 'handleTestRequest']}
+        });
+        expect(extraMethodFailures).toEqual([
+            '[app-worker-dispatch] App.config.remote.main exposes unexpected method(s): handleTestRequest'
+        ]);
+
+        const extraTargetFailures = collectAppWorkerDispatchSurfaceFailures({
+            ...baseSurface,
+            remote: {...baseSurface.remote, test: ['handleTestRequest']}
+        });
+        expect(extraTargetFailures).toEqual([
+            "[app-worker-dispatch] unexpected App.config.remote target 'test'"
+        ]);
+
+        const missingMethodFailures = collectAppWorkerDispatchSurfaceFailures({
+            ...baseSurface,
+            remote: {main: EXPECTED_APP_WORKER_REMOTE.main.filter(name => name !== 'setGlobalConfig')}
+        });
+        expect(missingMethodFailures).toEqual([
+            '[app-worker-dispatch] App.config.remote.main is missing expected method(s): setGlobalConfig'
+        ]);
+
+        const flagLeakFailures = collectAppWorkerDispatchSurfaceFailures({
+            ...baseSurface,
+            defaultAllowAiClientInTests: true,
+            flagOffDevelopmentBoot     : 'registry',
+            flagOffProductionBoot      : 'transport'
+        });
+        expect(flagLeakFailures).toEqual([
+            '[app-worker-dispatch] DefaultConfig.allowAiClientInTests is true, expected false',
+            '[app-worker-dispatch] flag-off development resolveAiClientBoot returned "registry", expected null',
+            '[app-worker-dispatch] flag-off dist/production resolveAiClientBoot returned "transport", expected null'
+        ])
     })
 });

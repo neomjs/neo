@@ -57,20 +57,79 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
  * ## What it does NOT do
  *
  * It does not assert bundle size, chunk counts, or anything about *this* repository's build — those
- * are observable here and belong to cheaper checks. It answers four consumer-only questions: does
+ * are observable here and belong to cheaper checks. Nor does it make a blanket byte-parity claim across
+ * `DefaultConfig.mjs` additions (a dormant config key changes emitted bytes even when `false`). Instead,
+ * it answers four consumer-only build questions plus the production-artifact isolation contract: does
  * Data resolve the consumer's modules and only those, does Canvas reach both the package's renderers
- * and the consumer's, does every app the package ships compile in the App worker, and does Main
- * preserve an optional workspace addon root without leaking package addons into it? The App worker's
- * context spans every shipped `app.mjs`, so it reaches each importer without a list of them; one mode
- * suffices, because a specifier that resolves nowhere fails both.
+ * and the consumer's, does every app the package ships compile in the App worker, does Main preserve an
+ * optional workspace addon root without leaking package addons into it, do the Playwright Neural Link
+ * harness modules stay out of every compiled runtime artifact, and does a flag-off App worker boot expose
+ * the exact pre-change `remote` method surface? The App worker's context spans every shipped `app.mjs`,
+ * so it reaches each importer without a list of them; one mode suffices, because a specifier that
+ * resolves nowhere fails both.
  */
+
+/**
+ * @summary Test-harness modules and misplaced Main addons that must never enter a compiled runtime artifact.
+ *
+ * Every file in `src/main/addon/` ships as a lazy chunk in every dist build, which is why the dedicated-worker
+ * Neural Link harness adapter (`test/playwright/dedicatedWorkerNeuralLink.mjs`) and the fixture entry
+ * (`test/playwright/fixtures.mjs`) live under `test/playwright/`. Spread into every worker and Main expectation
+ * list so any runtime import of the harness side or any test-harness Main addon fails the guard.
+ * @type {Object[]}
+ */
+export const TEST_HARNESS_ABSENCE_EXPECTATIONS = [{
+    file   : 'test/playwright/dedicatedWorkerNeuralLink.mjs',
+    match  : /(^|[/\\])test[/\\]playwright[/\\]dedicatedWorkerNeuralLink\.mjs\b/,
+    present: false,
+    because: 'the dedicated-worker Neural Link harness adapter belongs to the Playwright runner and must stay out of runtime artifacts'
+}, {
+    file   : 'test/playwright/fixtures.mjs',
+    match  : /(^|[/\\])test[/\\]playwright[/\\]fixtures\.mjs\b/,
+    present: false,
+    because: 'the Playwright test entry and fixture wiring must stay out of runtime artifacts'
+}, {
+    file   : 'test/playwright/*',
+    match  : /(^|[/\\])test[/\\]playwright[/\\]/,
+    present: false,
+    because: 'no Playwright test-harness module may be reachable from a worker or Main compilation'
+}, {
+    file   : 'src/main/addon/*NeuralLink*.mjs',
+    match  : /src[/\\]main[/\\]addon[/\\][^/\\]*(?:NeuralLink|AiTest|TestHarness)[^/\\]*\.mjs\b/i,
+    present: false,
+    because: 'every file in src/main/addon/ ships as a lazy chunk in every dist build, so the test harness must never live there'
+}];
+
+/**
+ * @summary The App Worker's pre-change `remote` method surface (`src/worker/App.mjs`).
+ *
+ * A boot without `allowAiClientInTests` exposes no dispatch route that the pre-change build lacked:
+ * the `remote` map stays pinned to these exact `main` methods, `DefaultConfig.allowAiClientInTests`
+ * defaults to `false`, and `resolveAiClientBoot` returns `null` for a flag-off boot. `useAiClient`
+ * transport semantics are covered separately by `test/playwright/unit/worker/AppAiClientBoot.spec.mjs`
+ * and `test/playwright/unit/ai/ClientTransportSeam.spec.mjs`.
+ * @type {Object<String, String[]>}
+ */
+export const EXPECTED_APP_WORKER_REMOTE = Object.freeze({
+    main: Object.freeze([
+        'createNeoInstance',
+        'destroyNeoInstance',
+        'fireEvent',
+        'getConfigs',
+        'getWorkerId',
+        'loadModule',
+        'moveComponent',
+        'setConfigs',
+        'setGlobalConfig'
+    ])
+});
 
 /**
  * @summary Modules the fixture plants, and what a correct consumer build must do with each.
  *
  * Spelled as required-present / required-absent rather than an exact module list: the graph legitimately
  * carries framework internals whose count is not this guard's business, while presence and absence of
- * these three is precisely the contract.
+ * these three and the test-harness exclusions is precisely the contract.
  */
 const FIXTURE_EXPECTATIONS = [{
     file   : 'apps/probe/data/ConsumerOnly.mjs',
@@ -87,7 +146,7 @@ const FIXTURE_EXPECTATIONS = [{
     match  : /client[/\\]src[/\\]Unrelated\.mjs$/,
     present: false,
     because: 'an unrelated application tree must not be dragged in by an over-wide context'
-}];
+}, ...TEST_HARNESS_ABSENCE_EXPECTATIONS];
 
 /**
  * @summary The optional workspace-owned Main addon planted by the positive fixture arm.
@@ -114,7 +173,7 @@ export const APP_EXPECTATIONS = [{
     match  : /neo\.mjs[/\\]dist[/\\]marked\.mjs$/,
     present: true,
     because: 'marked resolves through the bundle generated inside the installed package, never through a node_modules layout'
-}];
+}, ...TEST_HARNESS_ABSENCE_EXPECTATIONS];
 
 /**
  * @summary What the Canvas worker's compile must reach: the engine renderers from the package (one a
@@ -137,7 +196,7 @@ export const CANVAS_EXPECTATIONS = [{
     match  : /apps[/\\]probe[/\\]canvas[/\\]ProbeRenderer\.mjs\b/,
     present: true,
     because: 'a consumer-owned renderer must stay reachable through the rebased app-space root'
-}];
+}, ...TEST_HARNESS_ABSENCE_EXPECTATIONS];
 
 /**
  * @summary Returns generated files missing from their runtime-owned package or workspace roots.
@@ -202,6 +261,119 @@ export function collectConsumerBuildFailures({mode, moduleNames, errors}, expect
         if (found !== present) {
             failures.push(
                 `[${mode}] ${file} is ${found ? 'present' : 'absent'}, expected ${present ? 'present' : 'absent'} — ${because}`
+            )
+        }
+    }
+
+    return failures
+}
+
+/**
+ * @summary Imports `DefaultConfig.mjs` and `src/worker/App.mjs` from `packageRoot` in a fresh Node process
+ * without booting a worker singleton, returning the default flag-off config values, the enumerated `remote`
+ * method map, and the `resolveAiClientBoot` outcomes for flag-off `development` and `dist/production` boots.
+ * @param {String} [packageRoot=ROOT] Root of the Engine checkout or installed `node_modules/neo.mjs` package.
+ * @returns {Object} The probed dispatch surface.
+ */
+export function probeAppWorkerDispatchSurface(packageRoot = ROOT) {
+    const script = `
+        import DefaultConfig from './src/DefaultConfig.mjs';
+        globalThis.Neo = {
+            config    : {...DefaultConfig, unitTestMode: true},
+            overwrites: {Neo: {worker: {App: {singleton: false}}}}
+        };
+        await import('./src/Neo.mjs');
+        await import('./src/core/_export.mjs');
+        const {default: App} = await import('./src/worker/App.mjs');
+        console.log(JSON.stringify({
+            defaultAllowAiClientInTests: DefaultConfig.allowAiClientInTests,
+            defaultUseAiClient         : DefaultConfig.useAiClient,
+            remote                     : App.config.remote,
+            flagOffDevelopmentBoot     : App.prototype.resolveAiClientBoot({...DefaultConfig, environment: 'development'}),
+            flagOffProductionBoot      : App.prototype.resolveAiClientBoot({...DefaultConfig, environment: 'dist/production'})
+        }));
+    `;
+
+    const stdout = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+        cwd     : packageRoot,
+        encoding: 'utf8',
+        timeout : 15000
+    });
+
+    return JSON.parse(stdout.trim().split('\n').at(-1))
+}
+
+/**
+ * @summary Verifies that a flag-off App Worker boot exposes no dispatch route that the pre-change build lacked.
+ * @param {Object} surface Output of {@link probeAppWorkerDispatchSurface}.
+ * @param {Boolean} surface.defaultAllowAiClientInTests Default value of `Neo.config.allowAiClientInTests`.
+ * @param {Boolean} surface.defaultUseAiClient Default value of `Neo.config.useAiClient`.
+ * @param {Object<String, String[]>} surface.remote `Neo.worker.App.config.remote` method map.
+ * @param {String|null} surface.flagOffDevelopmentBoot `resolveAiClientBoot` result for flag-off `development`.
+ * @param {String|null} surface.flagOffProductionBoot `resolveAiClientBoot` result for flag-off `dist/production`.
+ * @param {Object<String, String[]>} [expectedRemote=EXPECTED_APP_WORKER_REMOTE]
+ * @returns {String[]} Human-readable failures; empty means the flag-off dispatch surface is unchanged.
+ */
+export function collectAppWorkerDispatchSurfaceFailures(
+    {defaultAllowAiClientInTests, defaultUseAiClient, remote, flagOffDevelopmentBoot, flagOffProductionBoot},
+    expectedRemote = EXPECTED_APP_WORKER_REMOTE
+) {
+    const failures        = [],
+          actualRemote    = remote && typeof remote === 'object' ? remote : {},
+          expectedTargets = Object.keys(expectedRemote).sort(),
+          actualTargets   = Object.keys(actualRemote).sort();
+
+    if (defaultAllowAiClientInTests !== false) {
+        failures.push(
+            `[app-worker-dispatch] DefaultConfig.allowAiClientInTests is ${JSON.stringify(defaultAllowAiClientInTests)}, expected false`
+        )
+    }
+
+    if (defaultUseAiClient !== false) {
+        failures.push(
+            `[app-worker-dispatch] DefaultConfig.useAiClient is ${JSON.stringify(defaultUseAiClient)}, expected false`
+        )
+    }
+
+    if (flagOffDevelopmentBoot !== null) {
+        failures.push(
+            `[app-worker-dispatch] flag-off development resolveAiClientBoot returned ${JSON.stringify(flagOffDevelopmentBoot)}, expected null`
+        )
+    }
+
+    if (flagOffProductionBoot !== null) {
+        failures.push(
+            `[app-worker-dispatch] flag-off dist/production resolveAiClientBoot returned ${JSON.stringify(flagOffProductionBoot)}, expected null`
+        )
+    }
+
+    for (const target of actualTargets) {
+        if (!Object.hasOwn(expectedRemote, target)) {
+            failures.push(`[app-worker-dispatch] unexpected App.config.remote target '${target}'`)
+        }
+    }
+
+    for (const target of expectedTargets) {
+        const expectedMethods = expectedRemote[target] || [],
+              actualMethods   = Array.isArray(actualRemote[target]) ? actualRemote[target] : [];
+
+        if (!Array.isArray(actualRemote[target])) {
+            failures.push(`[app-worker-dispatch] App.config.remote.${target} is missing or not an array`);
+            continue
+        }
+
+        const extraMethods   = actualMethods.filter(method => !expectedMethods.includes(method)),
+              missingMethods = expectedMethods.filter(method => !actualMethods.includes(method));
+
+        if (extraMethods.length) {
+            failures.push(
+                `[app-worker-dispatch] App.config.remote.${target} exposes unexpected method(s): ${extraMethods.join(', ')}`
+            )
+        }
+
+        if (missingMethods.length) {
+            failures.push(
+                `[app-worker-dispatch] App.config.remote.${target} is missing expected method(s): ${missingMethods.join(', ')}`
             )
         }
     }
@@ -428,6 +600,9 @@ async function main() {
         const failures = [],
               origCwd  = process.cwd();
 
+        console.log('check-consumer-runtime-build: verifying flag-off App worker dispatch surface…');
+        failures.push(...collectAppWorkerDispatchSurfaceFailures(probeAppWorkerDispatchSurface(installedRoot)));
+
         // Stand in the consumer before the configs load: they read `process.cwd()` at import time.
         process.chdir(workspace);
 
@@ -444,7 +619,7 @@ async function main() {
 
                 failures.push(...collectConsumerBuildFailures(
                     result,
-                    [{...MAIN_ADDON_EXPECTATION, present: false}]
+                    [{...MAIN_ADDON_EXPECTATION, present: false}, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
                 ));
                 failures.push(...collectMainContextFailures(result, workspace, 'absent'))
             }
@@ -460,7 +635,7 @@ async function main() {
 
                 failures.push(...collectConsumerBuildFailures(
                     result,
-                    [MAIN_ADDON_EXPECTATION]
+                    [MAIN_ADDON_EXPECTATION, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
                 ));
                 failures.push(...collectMainContextFailures(result, workspace, 'present'))
             }
