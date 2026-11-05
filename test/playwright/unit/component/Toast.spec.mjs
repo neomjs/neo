@@ -38,7 +38,6 @@ test.describe('Neo.component.Toast', () => {
 
     test.afterAll(() => {
         ToastManager.updateItemsInPosition = originalUpdateItemsInPosition;
-        delete ToastManager.running[appName];
     });
     test('closable: true and removeDelay > 0 renders close button and auto-dismisses after timeout (#4514)', async () => {
         const toast = Neo.create(Toast, {

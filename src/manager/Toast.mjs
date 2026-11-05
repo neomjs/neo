@@ -8,6 +8,14 @@ import NeoArray from '../util/Array.mjs';
  * @singleton
  */
 class Toast extends Manager {
+    /**
+     * Valid values for positions
+     * @member {String[]} positions=['tl','tc','tr','bl','bc','br']
+     * @protected
+     * @static
+     */
+    static positions = ['tl', 'tc', 'tr', 'bl', 'bc', 'br']
+
     static config = {
         /**
          * @member {String} className='Neo.manager.Toast'
@@ -33,13 +41,10 @@ class Toast extends Manager {
      */
     maxToasts = 3
     /**
-     * Counts the currently running Toasts per area
-     * @member {Object} running
+     * Counts the currently running Toasts per appName and area
+     * @member {Object} running={}
      */
-    running = {
-        bc: [], bl: [], br: [],
-        tc: [], tl: [], tr: []
-    }
+    running = {}
     /**
      * If you prefer your own class to open, override here
      * @member {String} toastClass='Neo.component.Toast'
@@ -62,7 +67,7 @@ class Toast extends Manager {
     createToast(toast) {
         let me = this;
 
-        if (toast.position && !me.running[toast.position]) {
+        if (toast.position && !Toast.positions.includes(toast.position)) {
             Neo.logError('[Neo.manager.Toast] Supported values for slideDirection are: tl, tc, tr, bl, bc, br');
             return null
         }
@@ -106,34 +111,28 @@ class Toast extends Manager {
         let me = this,
             firstToast, item;
 
-        me.filters = [{property: 'running', value: false}];
-
         for (item of me.map.values()) {
-            let appRunning  = me.getRunning(item.appName)[item.position],
-                windowCount = appRunning.filter(id => me.get(id)?.windowId === item.windowId).length;
+            if (!item.running) {
+                let appRunning  = me.getRunning(item.appName)[item.position],
+                    windowCount = appRunning.filter(id => me.get(id)?.windowId === item.windowId).length;
 
-            if (windowCount < me.maxToasts) {
-                firstToast = item;
-                firstToast.running = true;
-                break
+                if (windowCount < me.maxToasts) {
+                    firstToast = item;
+                    firstToast.running = true;
+                    break
+                }
             }
         }
-
-        me.clearFilters();
 
         return firstToast
     }
 
     /**
      * @summary Returns the `running` position map for a given `appName`, lazily initializing it on first access.
-     * @param {String} [appName]
+     * @param {String} appName
      * @returns {Object}
      */
     getRunning(appName) {
-        if (!appName) {
-            return this.running
-        }
-
         return this.running[appName] ||= this.createPositionMap()
     }
 
@@ -169,8 +168,6 @@ class Toast extends Manager {
             }
         }
 
-        me.running[position] && NeoArray.remove(me.running[position], toastId);
-
         me.updateItemsInPosition(toastId)
     }
 
@@ -198,7 +195,6 @@ class Toast extends Manager {
 
         // increase total of displayed toasts for a position
         me.getRunning(toast.appName)[toast.position].unshift(toast.id);
-        me.running[toast.position]?.unshift(toast.id);
 
         // todo: we could use a mounted listener
         me.timeout(50).then(() => {
@@ -229,14 +225,14 @@ class Toast extends Manager {
         }
 
         let {appName, position} = toast,
-            positionArray       = me.getRunning(appName)[position],
+            positionArray       = me.running[appName]?.[position] ?? [],
             margin              = me.defaultMargin,
             moveTo              = position.substring(0, 1) === 't' ? 'top' : 'bottom',
             realms              = new Map(),
             component, componentId;
 
         for (componentId of positionArray) {
-            component = me.get(componentId) || Neo.getComponent?.(componentId);
+            component = me.get(componentId);
 
             if (component) {
                 let {windowId} = component,
