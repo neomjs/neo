@@ -55,6 +55,20 @@ test.describe('Neo.util.ClassSystem', () => {
             instance.destroy();
         });
 
+        test('resolves a DefaultClass name string for a plain-object config without ntype', () => {
+            const instance = ClassSystemUtil.beforeSetInstance(
+                {label: 'plain-object-with-class-name'},
+                'Test.Unit.Util.ClassSystem.TestInstanceClass',
+                {count: 13}
+            );
+
+            expect(instance).toBeInstanceOf(TestInstanceClass);
+            expect(instance.label).toBe('plain-object-with-class-name');
+            expect(instance.count).toBe(13);
+
+            instance.destroy();
+        });
+
         test('creates an instance with defaultValues when config is a Neo class', () => {
             const instance = ClassSystemUtil.beforeSetInstance(TestInstanceClass, null, {
                 count: 19,
