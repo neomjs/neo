@@ -286,17 +286,20 @@ test.describe('functional/UseMemo', () => {
 
     test('demonstrates measurable rendering speedup on an expensive VDOM subtree across unrelated state updates', async () => {
         const
-            itemCount   = 25000,
+            itemCount   = 8000,
             updateCount = 30;
 
         let unmemoizedComputes = 0,
             memoizedComputes   = 0;
 
         const computeExpensiveSubtree = (prefix, count) => {
+            const sorted = Array.from({length: count}, (_, i) => ((i * 2654435761) >>> 0) ^ count)
+                .sort((a, b) => a - b);
+
             let checksum = 0;
 
-            for (let i = 0; i < count; i++) {
-                checksum = (checksum + Math.imul(i ^ 0x9e3779b9, 2654435761)) | 0
+            for (let i = 0; i < sorted.length; i++) {
+                checksum = (checksum + sorted[i]) | 0
             }
 
             return {
