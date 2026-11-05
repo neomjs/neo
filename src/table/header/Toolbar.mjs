@@ -146,13 +146,9 @@ class Toolbar extends BaseToolbar {
 
         super.createItems();
 
-        let dockLeftWidth  = 0,
-            dockRightWidth = 0,
-            {items}        = me,
-            len            = items.length,
-            style;
+        let style;
 
-        items.forEach((item, index) => {
+        me.items.forEach(item => {
             style = item.wrapperStyle;
 
             // todo: only add px if number
@@ -160,33 +156,11 @@ class Toolbar extends BaseToolbar {
             if (item.minWidth) {style.minWidth = item.minWidth + 'px'}
             if (item.width)    {style.width    = item.width    + 'px'}
 
-            if (item.dock) {
-                item.vdom.cls = ['neo-locked'];
-
-                if (item.dock === 'left') {
-                    style.left = dockLeftWidth + 'px'
-                }
-
-                dockLeftWidth += (item.width + 1) // todo: borders fix
-            } else {
-                item.vdom.cls = [] // remove the button cls from the th tag
-            }
-
-            item.wrapperStyle = style;
-
-            // inverse loop direction
-            item = items[len - index -1];
-
-            if (item.dock === 'right') {
-                style = item.wrapperStyle;
-                style.right = dockRightWidth + 'px';
-
-                item.wrapperStyle = style;
-
-                dockRightWidth += (item.width + 1) // todo: borders fix
-            }
+            item.vdom.cls     = item.dock ? ['neo-locked'] : []; // remove the button cls from the th tag
+            item.wrapperStyle = style
         });
 
+        me.updateDockOffsets();
         me.update()
     }
 
@@ -251,42 +225,51 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * Recalculates sticky `left` / `right` dock offsets across header cells and refreshes the table body
+     * @summary Recalculates sticky `left` / `right` dock offsets across header cells and refreshes the table body
      * when docked columns are present.
      */
     passSizeToBody() {
-        let me             = this,
-            dockLeftWidth  = 0,
+        let me   = this,
+            body = me.parent?.body;
+
+        if (me.updateDockOffsets() && body?.store?.getCount() > 0) {
+            body.createViewData()
+        }
+    }
+
+    /**
+     * @summary Writes sticky `left` / `right` dock offsets across header cells and reports whether any column is docked.
+     * @returns {Boolean} True when at least one header item has a `dock` config
+     */
+    updateDockOffsets() {
+        let dockLeftWidth  = 0,
             dockRightWidth = 0,
             hasDocked      = false,
-            {items}        = me,
+            {items}        = this,
             len            = items.length,
-            body           = me.parent?.body,
             rightItem, style;
 
         items.forEach((item, index) => {
             if (item.dock === 'left') {
-                hasDocked  = true;
-                style      = item.wrapperStyle;
-                style.left = dockLeftWidth + 'px';
+                hasDocked         = true;
+                style             = item.wrapperStyle;
+                style.left        = dockLeftWidth + 'px';
                 item.wrapperStyle = style;
-                dockLeftWidth += (item.width + 1)
+                dockLeftWidth    += (item.width + 1) // todo: borders fix
             }
 
             rightItem = items[len - index - 1];
 
             if (rightItem.dock === 'right') {
-                hasDocked   = true;
-                style       = rightItem.wrapperStyle;
-                style.right = dockRightWidth + 'px';
+                hasDocked              = true;
+                style                  = rightItem.wrapperStyle;
+                style.right            = dockRightWidth + 'px';
                 rightItem.wrapperStyle = style;
-                dockRightWidth += (rightItem.width + 1)
+                dockRightWidth        += (rightItem.width + 1) // todo: borders fix
             }
         });
 
-        if (hasDocked && body?.store?.getCount() > 0) {
-            body.createViewData()
-        }
+        return hasDocked
     }
 }
 

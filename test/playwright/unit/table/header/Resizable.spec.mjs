@@ -175,6 +175,11 @@ test.describe('Neo.table.header.plugin.Resizable', () => {
                 text     : 'Code',
                 width    : 160
             }, {
+                dataField: 'actions',
+                dock     : 'right',
+                text     : 'Actions',
+                width    : 100
+            }, {
                 dataField: 'city',
                 dock     : 'left',
                 text     : 'City',
@@ -186,10 +191,11 @@ test.describe('Neo.table.header.plugin.Resizable', () => {
 
         await toolbar.timeout(20);
 
-        const [firstButton, secondButton] = toolbar.items;
-        const plugin                      = firstButton.getPlugin('plugin-table-header-resizable');
+        const [firstButton, rightButton, secondButton] = toolbar.items;
+        const plugin                                   = firstButton.getPlugin('plugin-table-header-resizable');
 
         expect(firstButton.wrapperStyle.left).toBe('0px');
+        expect(rightButton.wrapperStyle.right).toBe('0px');
         expect(secondButton.wrapperStyle.left).toBe('161px');
 
         // Stub dragZone and base lifecycle methods that depend on main-thread DragDrop
