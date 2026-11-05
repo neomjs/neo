@@ -79,15 +79,13 @@ class TableBody extends Component {
     }
 
     /**
-     * Component instances created by this body from cell renderer config descriptors, keyed by
-     * row-index slot ID (`getCellComponentId(rowIndex, dataField)`) so instances rotate across
-     * sorts, store reloads, and page changes via `instance.set(...)`.
+     * Component instances created by this body from cell renderer config descriptors, keyed by cell ID.
      * @member {Map<String, Neo.core.Base>|null} createdCellComponents=null
      * @protected
      */
     createdCellComponents = null
     /**
-     * Cell component slot IDs visited during an active `createViewData()` pass to purge excess `createdCellComponents`.
+     * Cell IDs visited during an active `createViewData()` pass to purge stale `createdCellComponents`.
      * @member {Set<String>|null} renderedCellIds=null
      * @protected
      */
@@ -212,7 +210,7 @@ class TableBody extends Component {
             fieldValue  = record[dataField],
             hasStore    = !!model, // todo: remove as soon as all tables use stores (examples table)
             {vdom}      = me,
-            cellConfig, componentId, rendererOutput;
+            cellConfig, rendererOutput;
 
         if (!model?.getField(dataField)) {
             let nsArray   = dataField.split('.'),
@@ -234,14 +232,12 @@ class TableBody extends Component {
             }
         }
 
-        componentId = me.getCellComponentId ? me.getCellComponentId(rowIndex, dataField) : cellId;
-
         me.bindCallback(column.renderer, 'renderer', column.rendererScope || tableContainer, column);
 
         rendererOutput = column.renderer.call(column.rendererScope || tableContainer, {
             column,
             columnIndex,
-            component: me.createdCellComponents?.get(componentId),
+            component: me.createdCellComponents?.get(cellId),
             dataField,
             record,
             rowIndex,
@@ -250,7 +246,7 @@ class TableBody extends Component {
         });
 
         if (Neo.typeOf(rendererOutput) === 'Object' && (rendererOutput.className || rendererOutput.module || rendererOutput.ntype)) {
-            let instance = me.createdCellComponents?.get(componentId);
+            let instance = me.createdCellComponents?.get(cellId);
 
             if (
                 instance &&
@@ -270,7 +266,6 @@ class TableBody extends Component {
 
                 instance = ClassSystemUtil.beforeSetInstance(rendererOutput, null, {
                     appName        : me.appName,
-                    id             : rendererOutput.id || componentId,
                     mounted        : me.mounted,
                     parentComponent: me,
                     parentId       : me.id,
@@ -278,18 +273,14 @@ class TableBody extends Component {
                     windowId       : me.windowId
                 });
 
-                if (instance.vdom && !instance.vdom.id) {
-                    instance.vdom.id = `${componentId}__wrapper`
-                }
-
-                (me.createdCellComponents ??= new Map()).set(componentId, instance)
+                (me.createdCellComponents ??= new Map()).set(cellId, instance)
             }
 
-            me.renderedCellIds?.add(componentId);
+            me.renderedCellIds?.add(cellId);
             rendererOutput = instance
-        } else if (me.createdCellComponents?.has(componentId)) {
-            me.createdCellComponents.get(componentId).destroy();
-            me.createdCellComponents.delete(componentId)
+        } else if (me.createdCellComponents?.has(cellId)) {
+            me.createdCellComponents.get(cellId).destroy();
+            me.createdCellComponents.delete(cellId)
         }
 
         switch (Neo.typeOf(rendererOutput)) {
@@ -439,11 +430,11 @@ class TableBody extends Component {
                         let skippedColumn = columns[i + k];
 
                         if (skippedColumn) {
-                            let skippedComponentId = me.getCellComponentId(rowIndex, skippedColumn.dataField);
+                            let skippedCellId = me.getCellId(record, skippedColumn.dataField);
 
-                            if (me.createdCellComponents.has(skippedComponentId)) {
-                                me.createdCellComponents.get(skippedComponentId).destroy();
-                                me.createdCellComponents.delete(skippedComponentId)
+                            if (me.createdCellComponents.has(skippedCellId)) {
+                                me.createdCellComponents.get(skippedCellId).destroy();
+                                me.createdCellComponents.delete(skippedCellId)
                             }
                         }
                     }
@@ -555,16 +546,6 @@ class TableBody extends Component {
             record = me.getRecord(id);
 
         me.parent.fire(eventName, {body: me, data, record})
-    }
-
-    /**
-     * @summary Returns the deterministic row-index slot ID for a body-owned cell component.
-     * @param {Number} rowIndex
-     * @param {String} dataField
-     * @returns {String}
-     */
-    getCellComponentId(rowIndex, dataField) {
-        return `${this.id}__${dataField}__component__${rowIndex}`
     }
 
     /**

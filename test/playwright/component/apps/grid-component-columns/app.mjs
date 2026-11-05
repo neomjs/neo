@@ -1,8 +1,9 @@
-import Button        from '../../../../../src/button/Base.mjs';
-import Component     from '../../../../../src/component/Base.mjs';
-import GridContainer from '../../../../../src/grid/Container.mjs';
-import Store         from '../../../../../src/data/Store.mjs';
-import Viewport      from '../../../../../src/container/Viewport.mjs';
+import Button           from '../../../../../src/button/Base.mjs';
+import Component        from '../../../../../src/component/Base.mjs';
+import FunctionalButton from '../../../../../src/functional/button/Base.mjs';
+import GridContainer    from '../../../../../src/grid/Container.mjs';
+import Store            from '../../../../../src/data/Store.mjs';
+import Viewport         from '../../../../../src/container/Viewport.mjs';
 
 const snapshots = [[
     {id: 1, login: 'octo-one', name: 'Octo One', topRepo: ['octo-one/engine', 1200], countryCode: 'DE', location: 'Berlin', website: 'https://one.example', linkedinUrl: 'octo-one', isHireable: true, organizations: [{login: 'org-a', name: 'Org A'}], followers: 42},
@@ -80,6 +81,12 @@ export const onStart = () => Neo.app({
                 text     : 'Impact',
                 width    : 140,
                 component: ({record}) => ({module: Component, text: `impact:${record.name}`})
+            }, {
+                type     : 'component',
+                dataField: 'action',
+                text     : 'Action',
+                width    : 140,
+                component: ({record}) => ({module: FunctionalButton, text: `action:${record.name}`})
             }, {
                 type          : 'iconLink',
                 dataField     : 'topRepo',

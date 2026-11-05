@@ -63,10 +63,14 @@ class FunctionalBase extends Abstract {
      * @param {Object} config
      */
     construct(config) {
-        super.construct(config);
-
         let me   = this,
             opts = {configurable: true, enumerable: false, writable: true};
+
+        if (!Object.hasOwn(me, 'vdom') && me.vdom) {
+            me.vdom = Neo.clone(me.vdom, true)
+        }
+
+        super.construct(config);
 
         // The build process will replace `render()` with `createVdom()`.
         if (Neo.config.environment !== 'development') {

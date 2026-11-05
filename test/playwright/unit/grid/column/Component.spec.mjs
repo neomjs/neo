@@ -183,6 +183,34 @@ test.describe('Neo.grid.column.Component', () => {
         expect(createdFnBtn instanceof FunctionalButton).toBe(true);
         expect(cellConfig.cn).toEqual([{componentId: createdFnBtn.id}]);
 
+        // Second row creates a distinct functional component with its own isolated vdom object
+        const record2 = RecordFactory.createRecord(model, {
+            id  : '2',
+            name: 'Grace'
+        });
+
+        const row2 = Neo.create(GridRow, {
+            appName,
+            record  : record2,
+            rowIndex: 1
+        });
+
+        row2.applyRendererOutput({
+            cache      : {gridBody, gridContainer, store},
+            cellId     : `${row2.id}__name`,
+            column     : fnColumn,
+            columnIndex: 0,
+            record     : record2,
+            rowIndex   : 1
+        });
+
+        const createdFnBtn2 = row2.components?.name;
+
+        expect(createdFnBtn2 instanceof FunctionalButton).toBe(true);
+        expect(createdFnBtn2.vdom).not.toBe(createdFnBtn.vdom);
+        expect(createdFnBtn.vdom.id).toBe(createdFnBtn.id);
+        expect(createdFnBtn2.vdom.id).toBe(createdFnBtn2.id);
+
         // Lifecycle relay (mounted / theme / windowId) reaches the functional cell component
         row.mounted  = true;
         row.theme    = 'neo-theme-dark';
@@ -193,7 +221,9 @@ test.describe('Neo.grid.column.Component', () => {
         expect(createdFnBtn.windowId).toBe('win-2');
 
         row.destroy();
+        row2.destroy();
         fnColumn.destroy();
-        expect(createdFnBtn.isDestroyed).toBe(true)
+        expect(createdFnBtn.isDestroyed).toBe(true);
+        expect(createdFnBtn2.isDestroyed).toBe(true)
     });
 });

@@ -67,7 +67,9 @@ test.describe('component columns build their cells on the column', () => {
 
     test('a component function renders its record', async ({page}) => {
         await expect(cell(page, 'name', one)).toHaveText('impact:Octo One');
-        await expect(cell(page, 'name', two)).toHaveText('impact:Octo Two')
+        await expect(cell(page, 'name', two)).toHaveText('impact:Octo Two');
+        await expect(cell(page, 'action', one).locator('button.neo-button')).toHaveText('action:Octo One');
+        await expect(cell(page, 'action', two).locator('button.neo-button')).toHaveText('action:Octo Two')
     });
 
     test('same-key snapshots refresh plain and component cells without replacing their DOM', async ({page}) => {
