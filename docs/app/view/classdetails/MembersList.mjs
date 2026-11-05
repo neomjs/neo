@@ -2,6 +2,7 @@ import Base       from '../../../../src/list/Base.mjs';
 import Collection from '../../../../src/collection/Base.mjs';
 
 /**
+ * @summary Displays selected class and mixin members with their source and composition precedence.
  * @class Docs.view.classdetails.MembersList
  * @extends Neo.list.Base
  */
@@ -198,12 +199,14 @@ class MembersList extends Base {
     }
 
     /**
-     *
+     * @summary Renders member documentation without changing the source doclets used by later filtering.
      */
     createItems() {
         let me                 = this,
             filterMembersRegEx = new RegExp(me.filterMembersQuery || '', 'gi'),
             hasExamples        = false,
+            mixinSources       = new Set(me.up('classdetails-maincontainer').down('classhierarchy-treelist').store.items
+                .filter(source => source.isMixin).map(source => source.sourceClassName)),
             targetClassName    = me.targetClassName,
             vdom               = me.vdom,
             headerText, itemAttributes, itemConfig, path;
@@ -216,14 +219,15 @@ class MembersList extends Base {
             vdom = me.applyMethodsHeader(item, index, me.store, vdom);
 
             itemAttributes = [];
+            let memberName = item.name;
 
-            if (item.name.substr(-1) === '_') {
-                item.name = item.name.slice(0, -1) ;
+            if (memberName.substr(-1) === '_') {
+                memberName = memberName.slice(0, -1);
                 itemAttributes.push('GS')
             }
 
             if (item.neoClassName !== targetClassName) {
-                itemAttributes.push('inherited')
+                itemAttributes.push(mixinSources.has(item.neoClassName) ? 'mixin' : 'inherited')
             }
 
             if (item.access === 'private' || item.access === 'protected') {
@@ -234,7 +238,7 @@ class MembersList extends Base {
                 itemAttributes.push('static')
             }
 
-            headerText = item.name;
+            headerText = memberName;
 
             if (me.filterMembersQuery !== '' && me.filterMembersQuery !== null) {
                 headerText = headerText.replace(filterMembersRegEx, match => `<span class="neo-highlight-search">${match}</span>`)
@@ -464,35 +468,49 @@ class MembersList extends Base {
     }
 
     /**
-     *
+     * @summary Filters checked sources and resolves member collisions using class configuration and mixin application order.
      */
     filterAndSortItems() {
-        let me             = this,
-            hierarchyMap   = {},
-            hierarchyStore = me.up('classdetails-maincontainer').down('classhierarchy-treelist').store,
-            hierarchyItems = hierarchyStore.items,
-            i              = 0,
-            tmpItems       = [],
-            filters, tmpItemsLen;
+        const me                  = this,
+              hierarchyView       = me.up('classdetails-maincontainer').down('classhierarchy-treelist'),
+              hierarchyItems      = hierarchyView.store.items,
+              hierarchyMap        = new Map(),
+              ignoredMixinMembers = new Set([
+                  '_name', 'classConfigApplied', 'className', 'constructor', 'id', 'isClass', 'mixin', 'ntype',
+                  'observable', 'toJSON'
+              ]),
+              memberName = item => item.kind === 'member' && item.name.endsWith('_') ? item.name.slice(0, -1) : item.name,
+              reactive   = item => item.kind === 'member' &&
+                  (item.name.endsWith('_') || item.tags?.some(tag => tag.title === 'reactive')),
+              precedence = (first, second) => {
+                  const firstSource  = hierarchyMap.get(first.neoClassName),
+                        secondSource = hierarchyMap.get(second.neoClassName);
 
-        hierarchyItems.forEach(cls => {
-            if (cls.checked === true) {
-                tmpItems.push(cls.name)
+                  if (firstSource.isMixin !== secondSource.isMixin) {
+                      if (!firstSource.isMixin && first.kind === 'member') return 1;
+                      if (!secondSource.isMixin && second.kind === 'member') return -1
+                  } else if (firstSource.isMixin && (reactive(first) || reactive(second))) {
+                      if (!reactive(first)) return -1;
+                      if (!reactive(second)) return 1;
+                      return secondSource.configOrder - firstSource.configOrder
+                  }
+
+                  return firstSource.order - secondSource.order
+              };
+
+        hierarchyItems.forEach((source, index) => {
+            if (source.checked) {
+                hierarchyMap.set(source.sourceClassName || source.name, {...source, order: source.order ?? index})
             }
         });
 
-        tmpItemsLen = tmpItems.length;
+        me.targetClassName = hierarchyView.structureData.className;
 
-        for (; i < tmpItemsLen; i++) {
-            hierarchyMap[tmpItems[i]] = i
-        }
-
-        me.targetClassName = hierarchyItems[hierarchyItems.length -1].name;
-
-        filters = [{
-            operator: 'included',
-            property: 'neoClassName',
-            value   : tmpItems
+        const filters = [{
+            includeEmptyValues: false,
+            operator          : 'included',
+            property          : 'neoClassName',
+            value             : [...hierarchyMap.keys()]
         }, {
             operator: '!==',
             property: 'kind',
@@ -543,41 +561,18 @@ class MembersList extends Base {
         }
 
         filters.push({
-            scope   : me,
-            filterBy: function(opts) {
-                let me              = this,
-                    filteredItems   = opts.filteredItems,
-                    item            = opts.item,
-                    targetClassName = me.targetClassName,
-                    filteredItem, i, len;
+            filterBy: ({item}) => {
+                const source = hierarchyMap.get(item.neoClassName),
+                      name   = memberName(item);
 
-                // always exclude inherited className & ntype configs
-                if (item.name === 'ntype' && item.neoClassName !== targetClassName
-                ) {
-                    return true
-                }
-
-                if (item.neoClassName !== targetClassName) {
-                    i   = 0;
-                    len = filteredItems.length;
-
-                    for (; i < len; i++) {
-                        filteredItem = filteredItems[i];
-
-                        if (item.id !== filteredItem.id) {
-                            if (
-                                item.name  === filteredItem.name  &&
-                                item.scope === filteredItem.scope && // static VS instance members
-                                hierarchyMap[item.neoClassName] < hierarchyMap[filteredItem.neoClassName]
-                            ) {
-                                return true
-                            }
-                        }
-                    }
-                }
-
-                return false
+                // Neo.setupClass copies prototype members, excluding its class metadata and toJSON.
+                if (source.isMixin && (item.scope === 'static' || ignoredMixinMembers.has(name))) return true;
+                return name === 'ntype' && item.neoClassName !== me.targetClassName
             }
+        }, {
+            filterBy: ({item, filteredItems}) => filteredItems.some(other => other.id !== item.id &&
+                memberName(other) === memberName(item) && (item.kind === 'event') === (other.kind === 'event') &&
+                (item.scope === 'static') === (other.scope === 'static') && precedence(other, item) > 0)
         });
 
         me.store.filters = filters;
