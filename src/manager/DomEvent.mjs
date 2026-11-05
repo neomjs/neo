@@ -514,7 +514,7 @@ class DomEvent extends Base {
         let local = config.local || (Neo.isObject(opts) && opts.local) || false;
 
         listenerConfig = {
-            bubble        : config.hasOwnProperty('bubble') ? config.bubble : opts.hasOwnProperty('bubble') ? opts.bubble : true,
+            bubble        : Object.hasOwn(config, 'bubble') ? config.bubble : Object.hasOwn(opts, 'bubble') ? opts.bubble : true,
             delegate      : config.delegate,
             eventName,
             fn,
@@ -617,7 +617,7 @@ class DomEvent extends Base {
                 Object.entries(domListener).forEach(([key, value]) => {
                     if (!eventConfigKeys.includes(key)) {
                         me.register({
-                            bubble        : domListener.hasOwnProperty('bubble') ? domListener.bubble : value.hasOwnProperty?.('bubble') ? value.bubble : true,
+                            bubble        : Object.hasOwn(domListener, 'bubble') ? domListener.bubble : (value && Object.hasOwn(value, 'bubble')) ? value.bubble : true,
                             delegate      : domListener.delegate || value.delegate || '#' + (component.vdom.id || component.id),
                             eventName     : key,
                             id            : component.vdom.id || component.id, // honor wrapper nodes

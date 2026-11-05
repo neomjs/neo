@@ -74,7 +74,7 @@ class TableContainerController extends ComponentController {
 
             Object.entries(timeline.deaths || {}).forEach(([key, value]) => {
                 if (key !== 'undefined') {
-                    if (map.hasOwnProperty(key)) {
+                    if (Object.hasOwn(map, key)) {
                         map[key].deaths = value
                     } else {
                         map[key] = {date: new Date(key).toISOString(), deaths: value}
@@ -84,7 +84,7 @@ class TableContainerController extends ComponentController {
 
             Object.entries(timeline.recovered || {}).forEach(([key, value]) => {
                 if (key !== 'undefined') {
-                    if (map.hasOwnProperty(key)) {
+                    if (Object.hasOwn(map, key)) {
                         map[key].recovered = value
                     } else {
                         map[key] = {date: new Date(key).toISOString(), recovered: value}

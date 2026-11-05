@@ -687,7 +687,7 @@ class Provider extends Base {
             {stores} = me,
             parentStateProvider;
 
-        if (stores?.hasOwnProperty(key)) {
+        if (stores && Object.hasOwn(stores, key)) {
             return stores[key]
         }
 

@@ -25,7 +25,7 @@ class VNode extends Base {
         vnode = VNode.getVnode(vnode);
 
         if (vnode) {
-            // Strict ID matching: VNodeUtil.find(opts) specifically checks vnode.hasOwnProperty('id')
+            // Strict ID matching: VNodeUtil.find(opts) specifically checks Object.hasOwn(vnode, 'id')
             // It does not match raw placeholders that only have componentId.
             let id = vnode.id;
 
@@ -103,12 +103,12 @@ class VNode extends Base {
         optsLength = optsArray.length;
 
         optsArray.forEach(([key, value]) => {
-            if (vnode.hasOwnProperty(key)) {
+            if (Object.hasOwn(vnode, key)) {
                 switch (key) {
                     case 'attributes':
                         if (Neo.isObject(value) && Neo.isObject(vnode[key])) {
                             Object.entries(value).forEach(([attrKey, attrValue]) => {
-                                if (!(vnode[key].hasOwnProperty(attrKey) && vnode[key][attrKey] === attrValue)) {
+                                if (!(Object.hasOwn(vnode[key], attrKey) && vnode[key][attrKey] === attrValue)) {
                                     attrMatch = false
                                 }
                             });
@@ -135,7 +135,7 @@ class VNode extends Base {
                     case 'style':
                         if (Neo.isObject(value) && Neo.isObject(vnode[key])) {
                             Object.entries(value).forEach(([styleKey, styleValue]) => {
-                                if (!(vnode[key].hasOwnProperty(styleKey) && vnode[key][styleKey] === styleValue)) {
+                                if (!(Object.hasOwn(vnode[key], styleKey) && vnode[key][styleKey] === styleValue)) {
                                     styleMatch = false
                                 }
                             });

@@ -581,11 +581,11 @@ class List extends Component {
         if (hasItemHeight || hasItemWidth) {
             item.style = item.style || {};
 
-            if (hasItemHeight && !item.hasOwnProperty('height')) {
+            if (hasItemHeight && !Object.hasOwn(item, 'height')) {
                 item.style.height = `${me.itemHeight}px`
             }
 
-            if (hasItemWidth && !item.hasOwnProperty('width')) {
+            if (hasItemWidth && !Object.hasOwn(item, 'width')) {
                 item.style.width = `${me.itemWidth}px`
             }
         }

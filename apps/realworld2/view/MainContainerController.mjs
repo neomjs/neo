@@ -314,11 +314,11 @@ class MainContainerController extends ComponentController {
             else if (hashString === '/login')          {newView = me.getView('login',    LoginFormContainer); newView.mode = 'login';}
             else if (hashString.includes('/profile/')) {newView = me.getView('profile',  ProfileContainer);}
             else if (hashString === '/settings')       {newView = me.getView('settings', SettingsFormContainer);}
-          /*else if (value.hasOwnProperty('/register')) {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signup';}
+          /*else if (Object.hasOwn(value, '/register')) {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signup';}
 
             if (!(oldValue && (
-                oldValue.hasOwnProperty('/login')    && value.hasOwnProperty('/register') ||
-                oldValue.hasOwnProperty('/register') && value.hasOwnProperty('/login')))
+                Object.hasOwn(oldValue, '/login')    && Object.hasOwn(value, '/register') ||
+                Object.hasOwn(oldValue, '/register') && Object.hasOwn(value, '/login')))
             ) {
                 if (component.items.length > 2) {
                     component.removeAt(1, false, true);

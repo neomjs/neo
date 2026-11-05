@@ -38,13 +38,13 @@ class Style extends Base {
             return Neo.clone(newStyle)
         } else {
             newStyle && Object.keys(newStyle).forEach(style => {
-                if (!oldStyle.hasOwnProperty(style) || oldStyle[style] !== newStyle[style]) {
+                if (!Object.hasOwn(oldStyle, style) || oldStyle[style] !== newStyle[style]) {
                     styles[style] = newStyle[style]
                 }
             });
 
             Object.keys(oldStyle).forEach(style => {
-                if (!newStyle  || !newStyle.hasOwnProperty(style)) {
+                if (!newStyle || !Object.hasOwn(newStyle, style)) {
                     styles[style] = null
                 }
             });
