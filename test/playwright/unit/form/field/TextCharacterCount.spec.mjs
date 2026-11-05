@@ -16,6 +16,31 @@ import VDomUtil           from '../../../../../src/util/VDom.mjs';
  */
 test.describe('Text character counter', () => {
     for (const module of [Text, TextArea]) {
+        test(`${module.name} exposes custom counter text as the input's description`, async () => {
+            const field = Neo.create(module, {
+                characterCountText: ({length, maxLength}) => maxLength == null ?
+                    `${length} characters` : `${length} of ${maxLength} characters`,
+                maxLength         : 20,
+                showCharacterCount: true,
+                value             : 'seed'
+            });
+            await field.ready();
+            const counter = () => VDomUtil.find(field.vdom, {cls: 'neo-textfield-character-count'}).vdom;
+            try {
+                expect(counter().text).toBe('4 of 20 characters');
+                expect(counter().id).toBe(`${field.id}__character-count`);
+                expect(field.getInputEl()['aria-describedby']).toBe(counter().id);
+                field.value = 'changed';
+                expect(counter().text).toBe('7 of 20 characters');
+                field.maxLength = null;
+                expect(counter().text).toBe('7 characters');
+                field.maxLength = 0;
+                expect(counter().text).toBe('7 of 0 characters')
+            } finally {
+                field.destroy()
+            }
+        });
+
         test(`${module.name} resets the count with the field's original-value policy`, async () => {
             const field = Neo.create(module, {value: 'seed', maxLength: 20, clearToOriginalValue: true,
                 showCharacterCount: true});

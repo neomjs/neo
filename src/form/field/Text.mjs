@@ -62,6 +62,11 @@ class Text extends Field {
          */
         centerBorderElWidth: null,
         /**
+         * Formats the visible and accessible character count. data passes length and maxLength (null without a limit).
+         * @member {Function} characterCountText
+         */
+        characterCountText: data => data.maxLength == null ? String(data.length) : `${data.length} / ${data.maxLength}`,
+        /**
          * True shows a clear trigger in case the field has a non-empty value.
          * @member {Boolean} clearable_=true
          * @reactive
@@ -832,7 +837,10 @@ class Text extends Field {
      */
     afterSetShowCharacterCount(value, oldValue) {
         if (!value && oldValue === undefined) return;
-        const me = this, cls = me.cls;
+
+        const me  = this,
+              cls = me.cls;
+
         NeoArray.toggle(cls, 'neo-has-character-count', value);
         me.cls = cls;
         me.syncCharacterCount();
@@ -1678,7 +1686,7 @@ class Text extends Field {
 
         if (me.showCharacterCount) {
             const length = String(input.value ?? '').length;
-            counter.text = me.maxLength == null ? String(length) : `${length} / ${me.maxLength}`;
+            counter.text = me.characterCountText({length, maxLength: me.maxLength});
             descriptions.push(id)
         }
 
