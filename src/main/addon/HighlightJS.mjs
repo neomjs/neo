@@ -153,7 +153,7 @@ class HighlightJS extends Base {
 
         let node = document.getElementById(data.vnodeId);
 
-        if (node && !node.querySelector('.hljs-ln')) {
+        if (node?.textContent && !node.querySelector('.hljs-ln')) {
             // VDOM can replace the contents while retaining the code element and this library marker.
             // An existing line table is already processed; feeding it back loses the source newlines.
             delete node.dataset.highlighted;
