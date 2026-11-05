@@ -22,8 +22,10 @@ for (const host of ['docs', 'portal']) {
         let releaseSource;
         const sourceDelivery = new Promise(resolve => { releaseSource = resolve });
         await page.context().route(/\/docs\/output\/structure\.json/, route => route.fulfill({json: [{
+            id      : 10, name: 'src', parentId: null, isLeaf: false
+        }, {
             id      : 1, name: 'Base', className: 'Neo.core.Base', isLeaf: true,
-            parentId: null, srcPath: 'resources/highlight-source-fixture.mjs'
+            parentId: 10, srcPath: 'resources/highlight-source-fixture.mjs'
         }]}));
         await page.context().route(/\/docs\/output\/all\.json/, route => route.fulfill({json: [{
             id      : 1, $kind: 'class', kind: 'class', neoClassName: 'Neo.core.Base', name: 'Base',
