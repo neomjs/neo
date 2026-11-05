@@ -87,7 +87,7 @@ class HighlightJS extends Base {
         if (me.highlightJsPath) {
             await DomAccess.loadScript(me.highlightJsPath)
         } else {
-            await HighlightJs.load(new URL(Neo.config.basePath, document.baseURI).href);
+            await HighlightJs.load();
             globalThis.hljs = HighlightJs.hljs
         }
 

@@ -14,7 +14,7 @@ class HighlightJs extends Base {
          */
         className: 'Neo.util.HighlightJs',
         /**
-         * Selects the unminified bundle. `build-highlightjs` generates both variants in the installed Engine.
+         * Selects the unminified bundle. `build-highlightjs` generates both variants in the workspace.
          * @member {Boolean} debug=true
          */
         debug: true,
@@ -50,7 +50,7 @@ class HighlightJs extends Base {
      * @summary The `Neo.config.basePath`-relative bundle {@link #load} imports, chosen by `debug`.
      *
      * `unit/util/HighlightJs.spec.mjs` checks both loader paths with isolated module stand-ins.
-     * The consumer-build guard verifies both real files after generation in the installed Engine.
+     * The consumer-build guard verifies both real files after generation.
      * @returns {String}
      */
     getBundlePath() {
@@ -108,13 +108,14 @@ class HighlightJs extends Base {
     }
 
     /**
-     * @summary Loads the bundle from the caller's root; main-thread callers pass a document-resolved URL.
-     * @param {String} [basePath=Neo.config.basePath]
+     * @summary Resolves the workspace root against the page base, shared with workers through config.url.
+     * Dynamic imports otherwise resolve against this module, which sits inside the installed Engine in consumers.
      * @returns {Promise<void>}
      */
-    async load(basePath = Neo.config.basePath) {
+    async load() {
         if (!this.hljs) {
-            let module = await import(/* webpackIgnore: true */ basePath + this.getBundlePath());
+            let base   = new URL(Neo.config.basePath, Neo.config.url?.base ?? globalThis.document?.baseURI),
+                module = await import(/* webpackIgnore: true */ new URL(this.getBundlePath(), base).href);
 
             this.hljs = module.default
         }

@@ -52,8 +52,7 @@ test.describe('Neo.main.addon.HighlightJS resource loading', () => {
 
         expect(addon.highlightJsPath).toBeNull();
 
-        HighlightJs.load = async basePath => {
-            expect(basePath).toBe('https://example.test/');
+        HighlightJs.load = async () => {
             events.push('module');
             HighlightJs.hljs = library
         };
