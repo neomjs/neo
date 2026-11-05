@@ -3,11 +3,11 @@ import {expect, test} from '../../fixtures.mjs';
 /**
  * @summary `Neo.canvas.GraphScene` drawing a real WebGL2 scene on the canvas worker, read through the example's
  * stats: a scene draws on arrival and nothing while idle, a drag orbits, the drawing buffer follows the device
- * pixel ratio, labels follow their nodes, a fly-to centres its node, a lost context comes back with its scene and
- * its labels, and a resize keeps it.
+ * pixel ratio, labels follow their nodes, a fly-to centres its node, the wheel brings the near look's names and
+ * floor, a lost context comes back with its scene and its labels, and a resize keeps it.
  *
- * Fixture: `examples/component/graphScene`, whose demo scene of 240 nodes has 458 edges, one path, and a label
- * on each of the path's 20 nodes.
+ * Fixture: `examples/component/graphScene`, whose demo scene of 240 nodes has 458 edges, one path, a label on each
+ * of the path's 20 nodes, and a name, its index, on every node; its renderer's near look has a 6 px floor.
  */
 const
     EXAMPLE = '/examples/component/graphScene/index.html',
@@ -140,6 +140,33 @@ test.describe('Neo.canvas.GraphScene — a WebGL2 scene on the canvas worker', (
         expect(label.text).toBe('#120');
         expect(label.x, 'the node flown to sits at the centre').toBeCloseTo(box.width / 2, 0);
         expect(label.y).toBeCloseTo(box.height / 2, 0)
+    });
+
+    test('the wheel brings the near look: the nodes nearest the target are named once each, beside the labels, over the floor', async ({page}) => {
+        const drawn = await sizedSceneDrawn(page);
+
+        expect(drawn.near, 'the fitted overview shows none of it').toEqual({floor: 0, share: 0});
+        expect(drawn.names, 'and has drawn no name').toBeNull();
+
+        const box = await page.locator('canvas').boundingBox();
+
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        // to the nearest the zoom allows, half the fitted distance, which is closer than near: Chromium delivers about
+        // half of a turn's delta, so three turns arrive with room to spare
+        for (let turn = 0; turn < 3; turn++) {
+            await page.mouse.wheel(0, -600)
+        }
+
+        const
+            near  = await statsWhen(page, stats => stats.near.share === 1 && stats.names?.resident > 0, 'the wheel brings the near look'),
+            names = near.labels.drawn.filter(({index}) => index % 12 !== 0);
+
+        expect(near.near.floor, 'the 6 px floor at a pixel ratio of 2').toBe(12);
+        expect(names.length, 'the frame names nodes the scene does not label').toBeGreaterThan(0);
+        expect(names.every(({index, text}) => text === `#${index}`), 'each by its own name').toBe(true);
+        expect(new Set(near.labels.drawn.map(({index}) => index)).size, 'no node is named twice').toBe(near.labels.drawn.length);
+        expect(near.labels.drawn.length, 'within what a frame draws').toBeLessThanOrEqual(30);
+        expect(near.names.resident, 'every name drawn is in the atlas, which holds no more than its cells').toBeLessThanOrEqual(near.names.cells)
     });
 
     test('a lost context comes back with its scene, and a resize keeps it', async ({page}) => {
