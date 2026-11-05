@@ -133,5 +133,64 @@ test.describe('Neo.form.field.Radio — group exclusivity', () => {
         await expect.poll(() => configChecked(page, blue), {message: 'and the config path scopes to the group too'}).toBe(false);
         expect(await domChecked(page, size),    'the other group is still untouched in the DOM').toBe(true);
         expect(await configChecked(page, size), 'and in its config').toBe(true)
-    })
+    });
+
+    test('logical form containers rendered as divs keep radio configs aligned with their actual form owner', async ({page}) => {
+        const result = await page.evaluate(async () => {
+            await Neo.worker.App.loadModule({path: '../form/field/Radio.mjs'});
+            return Neo.worker.App.createNeoInstance({
+                importPath: '../form/Container.mjs', ntype: 'form-container', id: 'actual-form',
+                parentId  : 'component-test-viewport', flex: 'none', width: 400,
+                items     : ['first', 'second'].map(prefix => ({
+                    ntype: 'form-container', tag: 'div', flex: 'none',
+                    items: [{ntype: 'radiofield', id: `${prefix}-logical-radio`, name: 'choice',
+                        checked: prefix === 'first', groupRequired: true, valueLabel: prefix, labelText: '', flex: 'none'}]
+                }))
+            })
+        });
+        expect(result.success).toBe(true);
+        createdIds.push(result.id);
+        await clickTarget(page, 'second-logical-radio').click();
+        expect(await page.locator('#second-logical-radio input').evaluate(input => input.form.id)).toBe('actual-form');
+        expect(await domChecked(page, 'first-logical-radio')).toBe(false);
+        await expect.poll(() => configChecked(page, 'first-logical-radio')).toBe(false);
+        await expect(page.locator('#first-logical-radio .neo-error')).toBeVisible();
+        await expect(page.locator('#second-logical-radio .neo-error')).toHaveCount(0)
+    });
+
+    test('nested forms own separate same-name groups and one error per invalid group', async ({page}) => {
+        const result = await page.evaluate(async () => {
+            await Neo.worker.App.loadModule({path: '../form/field/Radio.mjs'});
+            const choices = prefix => [0, 1].map(index => ({
+                ntype  : 'radiofield', id: `${prefix}-${index}`, name: 'choice', groupRequired: true,
+                checked: index === 0, value: index, labelText: '', valueLabel: `Choice ${index}`, flex: 'none'
+            }));
+            return Neo.worker.App.createNeoInstance({
+                importPath: '../form/Container.mjs', ntype: 'form-container', id: 'outer-form',
+                parentId  : 'component-test-viewport', flex: 'none', width: 400,
+                items     : [...choices('outer-radio'), {
+                    ntype: 'form-container', id: 'inner-form', flex: 'none', items: choices('inner-radio')
+                }]
+            })
+        });
+        expect(result.success).toBe(true);
+        createdIds.push(result.id);
+
+        await expect(page.locator('#inner-radio-0 input')).toBeAttached();
+        expect(await page.locator('#inner-radio-0 input').evaluate(input => input.form.id)).toBe('inner-form');
+        await clickTarget(page, 'inner-radio-1').click();
+        await expect.poll(() => configChecked(page, 'inner-radio-0')).toBe(false);
+        expect(await configChecked(page, 'outer-radio-0')).toBe(true);
+        expect(await domChecked(page, 'outer-radio-0')).toBe(true);
+
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'inner-radio-1', checked: false}));
+        await expect(page.locator('#inner-form .neo-error')).toHaveCount(1);
+        await expect(page.locator('#inner-radio-1 .neo-error')).toHaveText('Please check at least one item of the group: choice');
+        await expect(page.locator('#outer-radio-0 .neo-error')).toHaveCount(0);
+        await expect(page.locator('#outer-radio-1 .neo-error')).toHaveCount(0);
+
+        await clickTarget(page, 'inner-radio-0').click();
+        await expect(page.locator('#inner-form .neo-error')).toHaveCount(0);
+        expect(await configChecked(page, 'outer-radio-0')).toBe(true)
+    });
 });

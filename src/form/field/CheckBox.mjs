@@ -3,6 +3,7 @@ import Field            from './Base.mjs';
 import NeoArray         from '../../util/Array.mjs';
 
 /**
+ * @summary A checkbox with individual or form-scoped group validation and one shared group error message.
  * @class Neo.form.field.CheckBox
  * @extends Neo.form.field.Base
  */
@@ -128,7 +129,7 @@ class CheckBox extends Field {
          */
         labelWidth_: 150,
         /**
-         * Use case: Set this config to false for all but one item with the same name.
+         * Allows error text on this field. A required group displays its message on its last eligible member.
          * @member {Boolean} showErrorTexts_=true
          * @reactive
          */
@@ -200,6 +201,7 @@ class CheckBox extends Field {
     }
 
     /**
+     * @summary Updates the checked state and refreshes requirements shared by optional group members.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -216,6 +218,7 @@ class CheckBox extends Field {
         }
 
         me.validate(); // silent
+        !me.groupRequired && me.getGroupItems().find(field => field.groupRequired)?.validate();
 
         labelEl.cn[1].checked = value;
 
@@ -254,13 +257,16 @@ class CheckBox extends Field {
     }
 
     /**
-     * Triggered after the required groupRequired got changed
+     * @summary Revalidates the group when a member gains or releases its requirement.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetGroupRequired(value, oldValue) {
-        oldValue !== undefined && this.validate(false)
+        if (oldValue !== undefined) {
+            this.validate(false);
+            !value && this.getGroupItems().find(field => field.groupRequired)?.validate(false)
+        }
     }
 
     /**
@@ -480,21 +486,57 @@ class CheckBox extends Field {
     }
 
     /**
-     * @returns {String[]}
+     * @summary Returns the logical value group in container order, or the rendered group for native radio selection.
+     * Logical groups use the full data path and closest form. Native groups use the rendered name and form owner.
+     * Both stay within one input type and window. Unnamed inputs are independent; unattached peers keep registration order.
+     * @param {Boolean} useDomGrouping=false
+     * @returns {Neo.form.field.CheckBox[]}
+     */
+    getGroupItems(useDomGrouping=false) {
+        const me      = this,
+              getName = field => useDomGrouping && !field.renderPath ? field.name : field.getPath(),
+              getForm = field => useDomGrouping ?
+                  ComponentManager.getParents(field).find(parent => parent.getVdomRoot().tag === 'form') : field.getClosestForm(),
+              name    = getName(me),
+              form    = getForm(me);
+
+        if (!name) return [me];
+
+        const fields = ComponentManager.find({inputType: me.inputType, windowId: me.windowId}).filter(field =>
+            field instanceof CheckBox && getForm(field) === form && getName(field) === name),
+              paths = new Map(fields.map(field => [field, [...ComponentManager.getParents(field).reverse(), field]])),
+              roots = [...new Set([...paths.values()].map(path => path[0]))];
+
+        return fields.sort((first, second) => {
+            const firstPath  = paths.get(first),
+                  secondPath = paths.get(second);
+
+            for (let index = 0; index < Math.min(firstPath.length, secondPath.length); index++) {
+                if (firstPath[index] !== secondPath[index]) {
+                    if (!index) return roots.indexOf(firstPath[0]) - roots.indexOf(secondPath[0]);
+
+                    const parent = firstPath[index - 1],
+                          items  = parent.items || ComponentManager.getDirectChildren(parent.id);
+
+                    return items.indexOf(firstPath[index]) - items.indexOf(secondPath[index])
+                }
+            }
+
+            return firstPath.length - secondPath.length
+        })
+    }
+
+    /**
+     * @summary Returns checked group values within this field's logical form and data path.
+     * A logical form can render as a div; native radio exclusivity then spans a wider rendered group.
+     * @returns {Array}
      */
     getGroupValue() {
-        let form   = this.getClosestForm(),
-            path   = this.getPath(),
-            value  = [],
-            fields;
+        const value = [];
 
-        if (path) {
-            fields = ComponentManager.find({path});
-
-            fields.forEach(field => {
-                if (field.checked && field.getClosestForm() === form) {
-                    NeoArray.add(value, field.value)
-                }
+        if (this.name) {
+            this.getGroupItems().forEach(field => {
+                field.checked && NeoArray.add(value, field.value)
             })
         }
 
@@ -605,13 +647,15 @@ class CheckBox extends Field {
     }
 
     /**
-     @param {String|null} value
-     @param {Boolean} silent=false
+     * @summary Updates field validity while allowing group validation to select a single text owner.
+     * @param {String|null} value
+     * @param {Boolean} silent=false
+     * @param {Boolean} showText=true
      */
-    updateError(value, silent=false) {
+    updateError(value, silent=false, showText=true) {
         let me        = this,
             {cls}     = me,
-            showError = value && me.showErrorTexts,
+            showError = value && me.showErrorTexts && showText,
             errorNode, errorWrapper;
 
         if (!(me.clean && !me.mounted)) {
@@ -636,15 +680,14 @@ class CheckBox extends Field {
     }
 
     /**
-     * Checks for client-side field errors
+     * @summary Validates individual requirements or updates all required group members with one shared message.
      * @param {Boolean} silent=true
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
     validate(silent=true) {
         let me          = this,
-            {name}      = me,
             returnValue = true,
-            checkBox, checkBoxes;
+            checkBoxes;
 
         if (!silent) {
             // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
@@ -652,36 +695,23 @@ class CheckBox extends Field {
         }
 
         if (me.groupRequired) {
-            returnValue = false;
+            checkBoxes  = me.getGroupItems();
+            returnValue = checkBoxes.some(field => field.checked);
+            checkBoxes  = checkBoxes.filter(field => field.groupRequired);
 
-            // discuss: we could limit this to checkBoxes / radios inside the same form, IF a top level form is used
-            checkBoxes = ComponentManager.find({
-                ntype: me.ntype,
-                name
-            });
+            const clean = checkBoxes.every(field => field.clean),
+                  owner = checkBoxes.findLast(field => field.showErrorTexts && !field.hidden &&
+                      !ComponentManager.getParents(field).some(parent => parent.hidden));
 
-            // get the group validity state first
-            for (checkBox of checkBoxes) {
-                if (checkBox.checked) {
-                    returnValue = true;
-                    break
-                }
+            for (const field of checkBoxes) {
+                const error = returnValue ? null : field.errorTextGroupRequired({name: field.name});
+
+                if (!clean) field.clean = false;
+                field[clean ? '_error' : 'error'] = error;
+                !clean && field.updateError(error, field === me && silent, field === owner)
             }
 
-            // update all group items
-            for (checkBox of checkBoxes) {
-                if (checkBox.id !== me.id) {
-                    if (!me.clean) {
-                        checkBox.clean = false;
-                    }
-
-                    checkBox[me.clean ? '_error' : 'error'] = returnValue ? null : checkBox.errorTextGroupRequired({name})
-                }
-            }
-
-            if (!returnValue) {
-                me._error = me.errorTextGroupRequired({name})
-            }
+            return returnValue ? super.validate(silent) : false
         } else if (me.required && !me.checked) {
             me._error = me.errorTextRequired;
             returnValue = false
