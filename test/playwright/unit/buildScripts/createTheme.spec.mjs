@@ -160,6 +160,35 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         expect(fs.existsSync(path.join(scssRoot, '_motion.scss'))).toBe(false);
     });
 
+    test('the installed generator runs with only physical production dependency packages', () => {
+        const installedPath = path.join(engineRoot, 'buildScripts/create/theme.mjs'),
+              lock          = JSON.parse(read(path.join(repoRoot, 'package-lock.json')));
+
+        fs.mkdirSync(path.dirname(installedPath), {recursive: true});
+        fs.copyFileSync(createPath, installedPath);
+
+        for (const [relative, metadata] of Object.entries(lock.packages)) {
+            if (!relative.startsWith('node_modules/') || metadata.dev || metadata.link || metadata.optional) continue;
+
+            const source = path.join(repoRoot, relative);
+
+            fs.cpSync(source, path.join(root, relative), {
+                recursive  : true,
+                dereference: true,
+                filter     : file => !path.relative(source, file).split(path.sep).includes('node_modules')
+            });
+        }
+
+        expect(snapshot(root).some(([, kind]) => kind === 'link')).toBe(false);
+
+        execFileSync(process.execPath, [installedPath, '--name', 'theme-acme', '--base', 'theme-neo-dark', '--noquestions'], {
+            cwd: root, encoding: 'utf8', stdio: 'pipe'
+        });
+
+        expect(read(path.join(scssRoot, 'theme-acme/Global.scss'))).toContain(':where(.neo-theme-acme)');
+        expect(read(path.join(scssRoot, 'theme-acme/button/Base.scss'))).toContain(':where(.neo-theme-acme)');
+    });
+
     for (const baseTheme of shippedThemes) {
         test(`every ${baseTheme} entry compiles with only the exact theme class retargeted`, () => {
             test.setTimeout(60_000);

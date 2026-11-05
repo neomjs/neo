@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-import {Command}       from 'commander';
-import fs              from 'node:fs';
-import inquirer        from 'inquirer';
-import path            from 'node:path';
-import scss            from 'postcss-scss';
-import selectorParser  from 'postcss-selector-parser';
-import {fileURLToPath} from 'node:url';
-import valueParser     from 'postcss-value-parser';
+import fs                from 'node:fs';
+import path              from 'node:path';
+import {createInterface} from 'node:readline/promises';
+import scss              from 'postcss-scss';
+import selectorParser    from 'postcss-selector-parser';
+import {fileURLToPath}   from 'node:url';
+import {parseArgs}       from 'node:util';
+import valueParser       from 'postcss-value-parser';
 
 const themePattern = /^theme-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -203,24 +203,36 @@ export function generateTheme({cwd, baseTheme, themeName}) {
  * @returns {Promise<void>}
  */
 async function main() {
-    const program = new Command()
-        .name('create-theme')
-        .description('Create an editable workspace theme from an existing theme.')
-        .option('-b, --base <theme>', 'Base folder, e.g. theme-neo-dark')
-        .option('-n, --name <theme>', 'New folder, e.g. theme-acme')
-        .option('--noquestions', 'Require explicit --name and --base; do not prompt')
-        .parse(),
-          options = program.opts(),
-          cwd     = process.cwd();
+    const {values: options} = parseArgs({options: {
+        base       : {type: 'string', short: 'b'},
+        help       : {type: 'boolean', short: 'h'},
+        name       : {type: 'string', short: 'n'},
+        noquestions: {type: 'boolean'}
+    }}), cwd = process.cwd();
 
-    if (!options.noquestions) {
-        if (!options.name) {
-            options.name = (await inquirer.prompt({type: 'input', name: 'name', message: 'New theme folder:'})).name;
-        }
-        if (!options.base) {
-            options.base = (await inquirer.prompt({
-                type: 'select', name: 'base', message: 'Base theme:', choices: listThemes(cwd)
-            })).base;
+    if (options.help) {
+        console.log('Create an editable workspace theme from an existing theme.\n\n' +
+            'Usage: create-theme [options]\n' +
+            '  -b, --base <theme>  Base folder, e.g. theme-neo-dark\n' +
+            '  -n, --name <theme>  New folder, e.g. theme-acme\n' +
+            '  --noquestions       Require explicit --name and --base; do not prompt\n' +
+            '  -h, --help          Display help');
+        return;
+    }
+
+    if (!options.noquestions && (!options.name || !options.base)) {
+        if (!process.stdin.isTTY) throw new Error('Pass --name and --base with --noquestions for unattended use.');
+
+        const input = createInterface({input: process.stdin, output: process.stdout});
+
+        try {
+            if (!options.name) options.name = (await input.question('New theme folder (theme-acme): ')).trim();
+            if (!options.base) {
+                console.log(`Available base themes: ${listThemes(cwd).join(', ')}`);
+                options.base = (await input.question('Base theme: ')).trim();
+            }
+        } finally {
+            input.close();
         }
     }
 
