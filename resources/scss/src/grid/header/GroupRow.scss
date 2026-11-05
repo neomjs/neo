@@ -1,0 +1,28 @@
+// Each region's part sits over its toolbar through the subgrid; its cells are placed from the columns' positions.
+.neo-grid-header-group-row {
+    display              : grid;
+    grid-template-columns: subgrid;
+
+    .neo-grid-header-group-part {
+        height    : var(--grid-header-group-row-height, 32px);
+        min-width : 0;
+        overflow  : hidden;
+        position  : relative;
+    }
+
+    .neo-grid-header-group-cell {
+        align-items    : center;
+        border-bottom  : 1px solid var(--grid-container-border-color);
+        border-right   : 1px solid var(--grid-container-border-color);
+        bottom         : 0;
+        box-sizing     : border-box;
+        display        : flex;
+        justify-content: center;
+        overflow       : hidden;
+        padding        : 0 8px;
+        position       : absolute;
+        text-overflow  : ellipsis;
+        top            : 0;
+        white-space    : nowrap;
+    }
+}

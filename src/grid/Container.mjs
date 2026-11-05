@@ -311,6 +311,18 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary The number of ARIA header rows: 2 while a header group row exists above the leaf headers, else 1.
+     *
+     * The one source for every row index the grid writes: the leaf header row's `aria-rowindex`, the body rows'
+     * (which start right after the header rows) and `aria-rowcount`.
+     * @member {Number} headerRowCount
+     * @readonly
+     */
+    get headerRowCount() {
+        return this.headerWrapper?.groupRow ? 2 : 1
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -1925,7 +1937,7 @@ class GridContainer extends BaseContainer {
         let me         = this,
             finalCount = count ? count : me.store.count;
 
-        me.getAriaRoot()['aria-rowcount'] = finalCount + 1;
+        me.getAriaRoot()['aria-rowcount'] = finalCount + me.headerRowCount;
         !silent && me.ariaWrapper.update()
     }
 }

@@ -141,5 +141,84 @@ test.describe('Neo.grid.Container header groups', () => {
 
         expect(grid.columns.items.map(column => column.dataField)).toEqual(['b', 'jan', 'feb']);
         expect(groupTexts(grid.columns.items)).toEqual([null, 'Pair', 'Pair'])
+    });
+});
+
+/**
+ * @param {Neo.grid.header.GroupRow} groupRow
+ * @returns {Object[]} Per part: its region and its cells' text, colindex, colspan and placement
+ */
+const groupCells = groupRow => groupRow.vdom.cn.map(part => ({
+    region: part.cls[1].replace('neo-grid-header-group-part-', ''),
+    cells : part.cn.map(cell => ({
+        text    : cell.text,
+        colindex: cell['aria-colindex'],
+        colspan : cell['aria-colspan'],
+        left    : cell.style.left,
+        width   : cell.style.width
+    }))
+}));
+
+test.describe('Neo.grid.header.GroupRow', () => {
+    let grid, store;
+
+    test.afterEach(() => {
+        grid?.destroy();
+        store?.destroy();
+        grid = store = null
+    });
+
+    test('a grid without groups has no group row, and its leaf headers stay header row 1', async () => {
+        store = createStore();
+        grid  = await createGrid(store, [{dataField: 'a', width: 100}, {dataField: 'b', width: 100}]);
+
+        expect(grid.headerWrapper.groupRow).toBeNull();
+        expect(grid.headerWrapper.cls).not.toContain('neo-grid-header-grouped');
+        expect(grid.headerRowCount).toBe(1);
+        expect(grid.headerToolbar.vdom['aria-rowindex']).toBe(1)
+    });
+
+    test('each region\'s part heads its groups, spanning their columns\' positions', async () => {
+        store = createStore();
+        grid  = await createGrid(store, [
+            {dataField: 'a', width: 100, locked: 'start'},
+            {text: 'Name', locked: 'start', columns: [{dataField: 'first', width: 100}, {dataField: 'last', width: 120}]},
+            {text: 'Q1', columns: [{dataField: 'jan', width: 80}, {dataField: 'feb', width: 90}]},
+            {dataField: 'b', width: 100}
+        ]);
+
+        await expect.poll(() => grid.headerWrapper.groupRow?.vdom.cn[0]?.cn[0]?.style.width).toBe('220px');
+
+        // One part per region toolbar, in the toolbars' order; colindex is grid-wide, after the start region's 3
+        expect(groupCells(grid.headerWrapper.groupRow)).toEqual([
+            {region: 'start',  cells: [{text: 'Name', colindex: 2, colspan: 2, left: '100px', width: '220px'}]},
+            {region: 'center', cells: [{text: 'Q1',   colindex: 4, colspan: 2, left: '0px',   width: '170px'}]}
+        ]);
+        expect(grid.headerWrapper.cls).toContain('neo-grid-header-grouped');
+        expect(grid.headerWrapper.style.gridTemplateColumns).toBe('auto minmax(0, 1fr)')
+    });
+
+    test('with groups there are two header rows: group row 1, leaf row 2, and body rows after both', async () => {
+        store = createStore();
+        grid  = await createGrid(store, [{text: 'Q1', columns: [{dataField: 'jan', width: 80}, {dataField: 'feb', width: 90}]}]);
+
+        const {groupRow} = grid.headerWrapper;
+
+        expect(groupRow.vdom['aria-rowindex']).toBe(1);
+        expect(groupRow.role).toBe('row');
+        expect(grid.headerRowCount).toBe(2);
+        expect(grid.headerToolbar.vdom['aria-rowindex']).toBe(2);
+
+        grid.updateRowCount();
+        expect(grid.getAriaRoot()['aria-rowcount']).toBe(store.count + 2);
+
+        // Replacing the columns without a group retires the row and restores one header row
+        grid.columns = [{dataField: 'jan', width: 80}];
+        await grid.timeout(20);
+
+        expect(grid.headerWrapper.groupRow).toBeNull();
+        expect(grid.headerRowCount).toBe(1);
+        expect(grid.headerToolbar.vdom['aria-rowindex']).toBe(1);
+        expect(grid.getAriaRoot()['aria-rowcount']).toBe(store.count + 1)
     })
 });
