@@ -73,7 +73,7 @@ export default function workerContextRebasePlugin(insideNeo) {
 
         if (isPackageLocal(context.request)) return;
 
-        const rebased = path.join('../../', context.request);
+        const rebased = path.posix.join('../../', context.request.replaceAll('\\', '/'));
 
         if (fs.existsSync(path.resolve(con, rebased))) {
             context.request = rebased

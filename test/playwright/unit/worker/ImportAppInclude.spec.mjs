@@ -16,6 +16,7 @@ import {fileURLToPath} from 'node:url';
  */
 const source  = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../src/worker/App.mjs'), 'utf8'),
       literal = source.match(/importApp\(path\)[\s\S]*?webpackInclude: (\/.+\/)\s*\*\//)[1],
+      exclude = new RegExp(source.match(/importApp\(path\)[\s\S]*?webpackExclude: (\/.+\/)\s*\*\//)[1].slice(1, -1)),
       include = new RegExp(literal.slice(1, -1)),
       root    = '/opt/neo';
 
@@ -28,5 +29,11 @@ test.describe('Neo.worker.App — the app entries importApp() can reach', () => 
 
     test('an app.mjs at the root of the tree is not', () => {
         expect(include.test(`${root}/app.mjs`)).toBe(false)
+    });
+
+    test('protected Windows volume directories are excluded before fs.stat (#6619)', () => {
+        expect(exclude.test('D:\\System Volume Information')).toBe(true);
+        expect(exclude.test('D:\\$RECYCLE.BIN')).toBe(true);
+        expect(exclude.test('D:\\apps\\my-app')).toBe(false)
     })
 });

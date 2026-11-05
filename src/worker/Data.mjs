@@ -92,7 +92,7 @@ class Data extends Base {
     async importAppSpaceModule(path) {
         if (path.startsWith('apps/')) {
             return import(
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\)|System Volume Information|\$RECYCLE\.BIN)/ */
                 /* webpackMode: "lazy" */
                 `../../apps/${path.slice(5)}.mjs`
             )
@@ -100,7 +100,7 @@ class Data extends Base {
 
         if (path.startsWith('examples/')) {
             return import(
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\)|System Volume Information|\$RECYCLE\.BIN)/ */
                 /* webpackMode: "lazy" */
                 `../../examples/${path.slice(9)}.mjs`
             )
@@ -108,7 +108,7 @@ class Data extends Base {
 
         if (path.startsWith('docs/app/')) {
             return import(
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\)|System Volume Information|\$RECYCLE\.BIN)/ */
                 /* webpackMode: "lazy" */
                 `../../docs/app/${path.slice(9)}.mjs`
             )
@@ -116,7 +116,7 @@ class Data extends Base {
 
         if (path.startsWith('src/data/')) {
             return import(
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\)|System Volume Information|\$RECYCLE\.BIN)/ */
                 /* webpackMode: "lazy" */
                 `../data/${path.slice(9)}.mjs`
             )
@@ -185,7 +185,7 @@ class Data extends Base {
                 case 'connection':
                     await import(
                         /* webpackInclude: /src\/data\/connection\/.*\.mjs$/ */
-                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\)|System Volume Information|\$RECYCLE\.BIN)/ */
                         /* webpackMode: "lazy" */
                         `../data/connection/${name}.mjs`
                     );
@@ -193,7 +193,7 @@ class Data extends Base {
                 case 'parser':
                     await import(
                         /* webpackInclude: /src\/data\/parser\/.*\.mjs$/ */
-                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\)|System Volume Information|\$RECYCLE\.BIN)/ */
                         /* webpackMode: "lazy" */
                         `../data/parser/${name}.mjs`
                     );
@@ -201,7 +201,7 @@ class Data extends Base {
                 case 'normalizer':
                     await import(
                         /* webpackInclude: /src\/data\/normalizer\/.*\.mjs$/ */
-                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\)|System Volume Information|\$RECYCLE\.BIN)/ */
                         /* webpackMode: "lazy" */
                         `../data/normalizer/${name}.mjs`
                     );
