@@ -323,6 +323,16 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary The id of a region's part of the header group row. It is stable for the grid's lifetime, so the
+     * horizontal scroll sync can follow the centre part while group rows come and go.
+     * @param {String} region 'start', 'center' or 'end'
+     * @returns {String}
+     */
+    getGroupHeaderPartId(region) {
+        return `${this.id}__header-group-${region}`
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {

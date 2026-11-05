@@ -49,19 +49,18 @@ class GroupRow extends Component {
     }
 
     /**
-     * @summary The id of a region's part, the node that holds that region's group cells.
-     * @param {String} region 'start', 'center' or 'end'
-     * @returns {String}
+     * True once the first projection has reached the DOM and the centre part has taken the grid's scroll position
+     * @member {Boolean} #aligned=false
      */
-    getPartId(region) {
-        return `${this.id}__${region}`
-    }
+    #aligned = false
 
     /**
      * @summary Rebuilds every region's group cells from its columns and its body's `columnPositions`.
      *
      * One part per region toolbar, in the toolbars' order, so the parts and the toolbars occupy the same grid columns.
-     * A cell's `aria-colindex` is its first column's grid-wide index, and its `aria-colspan` its column count.
+     * A part clips a track as wide as its region's columns, which holds the cells: the centre part scrolls that track
+     * with the grid. A cell's `aria-colindex` is its first column's grid-wide index, and its `aria-colspan` its column
+     * count.
      */
     project() {
         let me                       = this,
@@ -95,21 +94,41 @@ class GroupRow extends Component {
             });
 
             return {
-                id  : me.getPartId(region),
+                id  : gridContainer.getGroupHeaderPartId(region),
                 cls : ['neo-grid-header-group-part', `neo-grid-header-group-part-${region}`],
                 role: 'none',
-                cn  : cells.map(({count, group, index, width, x}) => ({
-                    cls            : ['neo-grid-header-group-cell'],
-                    role           : 'columnheader',
-                    'aria-colindex': offset + index + 1,
-                    'aria-colspan' : count,
-                    style          : {left: `${x}px`, width: `${width}px`},
-                    text           : group.text
-                }))
+                cn  : [{
+                    cls  : ['neo-grid-header-group-track'],
+                    role : 'none',
+                    style: {width: `${toolbar.body?.availableWidth || 0}px`},
+                    cn   : cells.map(({count, group, index, width, x}) => ({
+                        cls            : ['neo-grid-header-group-cell'],
+                        role           : 'columnheader',
+                        'aria-colindex': offset + index + 1,
+                        'aria-colspan' : count,
+                        style          : {left: `${x}px`, width: `${width}px`},
+                        text           : group.text
+                    }))
+                }]
             }
         });
 
-        me.update()
+        me.promiseUpdate().then(() => {
+            // The scroll sync moves the centre part from the next scroll on. A row created while the grid is already
+            // scrolled starts where the header is.
+            let {scrollLeft} = gridContainer.headerToolbar;
+
+            if (!me.#aligned && !me.isDestroyed) {
+                me.#aligned = true;
+
+                scrollLeft > 0 && Neo.main.DomAccess.scrollTo({
+                    direction: 'left',
+                    id       : gridContainer.getGroupHeaderPartId('center'),
+                    value    : scrollLeft,
+                    windowId : me.windowId
+                })
+            }
+        })
     }
 }
 

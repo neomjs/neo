@@ -10,6 +10,11 @@
         position  : relative;
     }
 
+    .neo-grid-header-group-track {
+        height  : 100%;
+        position: relative;
+    }
+
     .neo-grid-header-group-cell {
         align-items    : center;
         border-bottom  : 1px solid var(--grid-container-border-color);

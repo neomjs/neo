@@ -150,7 +150,7 @@ test.describe('Neo.grid.Container header groups', () => {
  */
 const groupCells = groupRow => groupRow.vdom.cn.map(part => ({
     region: part.cls[1].replace('neo-grid-header-group-part-', ''),
-    cells : part.cn.map(cell => ({
+    cells : part.cn[0].cn.map(cell => ({
         text    : cell.text,
         colindex: cell['aria-colindex'],
         colspan : cell['aria-colspan'],
@@ -187,7 +187,13 @@ test.describe('Neo.grid.header.GroupRow', () => {
             {dataField: 'b', width: 100}
         ]);
 
-        await expect.poll(() => grid.headerWrapper.groupRow?.vdom.cn[0]?.cn[0]?.style.width).toBe('220px');
+        await expect.poll(() => grid.headerWrapper.groupRow?.vdom.cn[0]?.cn[0]?.cn[0]?.style.width).toBe('220px');
+
+        // Each part clips a track as wide as its region's columns, so the centre one can scroll with the grid
+        expect(grid.headerWrapper.groupRow.vdom.cn.map(part => [part.id, part.cn[0].style.width])).toEqual([
+            [grid.getGroupHeaderPartId('start'),  '320px'],
+            [grid.getGroupHeaderPartId('center'), '270px']
+        ]);
 
         // One part per region toolbar, in the toolbars' order; colindex is grid-wide, after the start region's 3
         expect(groupCells(grid.headerWrapper.groupRow)).toEqual([
