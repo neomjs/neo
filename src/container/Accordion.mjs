@@ -1,8 +1,11 @@
-import AccordionItem from './AccordionItem.mjs';
-import NeoArray      from '../util/Array.mjs';
-import Panel         from './Panel.mjs';
+import AccordionItem   from './AccordionItem.mjs';
+import AccordionModel  from '../selection/AccordionModel.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import NeoArray        from '../util/Array.mjs';
+import Panel           from './Panel.mjs';
 
 /**
+ * @summary Accordion container supporting collapsible AccordionItems, selection, and keyboard navigation.
  * @class Neo.container.Accordion
  * @extends Neo.container.Panel
  */
@@ -23,6 +26,17 @@ class Accordion extends Panel {
          */
         baseCls: ['neo-accordion'],
         /**
+         * @member {Boolean} disableSelection_=false
+         * @reactive
+         */
+        disableSelection_: false,
+        /**
+         * Keep track of currently open items
+         * @member {String[]} expandedItems=[]
+         * @private
+         */
+        expandedItems_: [],
+        /**
          * Add zero based numbers, which accordion items you want initially expanded
          * @member {Number[]} initialOpen=[]
          */
@@ -38,21 +52,36 @@ class Accordion extends Panel {
          */
         items: [],
         /**
+         * Additional used keys for the selection model
+         * @member {Object} keys={}
+         */
+        keys: {},
+        /**
          * Max number of accordion items, which can be expanded at the same time
          * @member {Number} maxExpandedItems=1
          */
         maxExpandedItems: 1,
         /**
-         * Keep track of currently open items
-         * @member {String[]} expandedItems=[]
-         * @private
+         * Either pass a selection.Model module, an instance or a config object
+         * @member {Object|Neo.selection.Model|null} selectionModel_=null
+         * @reactive
          */
-        expandedItems_: [],
+        selectionModel_: null,
         /**
          * Creates a top header
          * @member {String|null} title=null
          */
         title_: null
+    }
+
+    /**
+     * @summary Clears the active selection when `disableSelection` is set to `true`.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDisableSelection(value, oldValue) {
+        value && this.vnodeInitialized && this.selectionModel?.deselectAll()
     }
 
     /**
@@ -65,15 +94,27 @@ class Accordion extends Panel {
             id, item;
 
         value.forEach((itemNo) => {
-            id   = Neo.getId(me.itemDefaults.ntype),
             item = items[itemNo];
 
-            item.expanded = true;
-            item.id       = id;
-            NeoArray.add(expandedItems, id)
+            if (item) {
+                id            = item.id || Neo.getId(me.itemDefaults?.ntype || 'accordionitem');
+                item.expanded = true;
+                item.id       = id;
+                NeoArray.add(expandedItems, id)
+            }
         });
 
         me.expandedItems = expandedItems
+    }
+
+    /**
+     * @summary Registers a newly assigned selectionModel once the Accordion is initialized.
+     * @param {Neo.selection.Model|null} value
+     * @param {Neo.selection.Model|null} oldValue
+     * @protected
+     */
+    afterSetSelectionModel(value, oldValue) {
+        this.vnodeInitialized && value?.register(this)
     }
 
     /**
@@ -96,6 +137,19 @@ class Accordion extends Panel {
     }
 
     /**
+     * @summary Resolves `selectionModel` configs into a `Neo.selection.AccordionModel` instance.
+     * @param {Neo.selection.Model|Object|null} value
+     * @param {Neo.selection.Model|null} oldValue
+     * @returns {Neo.selection.Model|null}
+     * @protected
+     */
+    beforeSetSelectionModel(value, oldValue) {
+        oldValue?.destroy();
+
+        return ClassSystemUtil.beforeSetInstance(value, AccordionModel)
+    }
+
+    /**
      * Called by accordion items.
      * Checks for maxExpandedItems
      * @param {Object}                      data
@@ -111,17 +165,52 @@ class Accordion extends Panel {
             targetId                          = target.id;
 
         if (expanded
+            && !expandedItems.includes(targetId)
             && maxExpandedItems !== 0
             && curNoOpenItems === maxExpandedItems
         ) {
-            Neo.get(expandedItems[0]).expanded = false;
+            let openItem = Neo.get(expandedItems[0]);
+
+            if (openItem) {
+                openItem.expanded = false
+            }
+
             NeoArray.remove(expandedItems, expandedItems[0])
         }
 
         target.expanded = expanded;
-        NeoArray.toggle(expandedItems, targetId);
+        NeoArray[expanded ? 'add' : 'remove'](expandedItems, targetId);
 
         me.expandedItems = expandedItems
+    }
+
+    /**
+     * @summary Destroys the owned selectionModel before tearing down the Accordion.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.selectionModel?.destroy();
+
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Returns the AccordionItem child components whether direct or inside Panel's bodyContainer.
+     * @returns {Neo.container.AccordionItem[]}
+     */
+    getAccordionItems() {
+        let container = this.getReference('bodyContainer') || this;
+
+        return (container.items || []).filter(item => item?.ntype === 'accordionitem')
+    }
+
+    /**
+     * @summary Registers the configured selectionModel after construction.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        this.selectionModel?.register(this)
     }
 }
 

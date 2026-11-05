@@ -478,6 +478,7 @@
  "Neo.plugin.Resizable": "Neo.plugin.Base",
  "Neo.plugin.Responsive": "Neo.plugin.Base",
  "Neo.remotes.Api": "Neo.core.Base",
+ "Neo.selection.AccordionModel": "Neo.selection.Model",
  "Neo.selection.CircleModel": "Neo.selection.Model",
  "Neo.selection.DateSelectorModel": "Neo.selection.Model",
  "Neo.selection.GalleryModel": "Neo.selection.Model",

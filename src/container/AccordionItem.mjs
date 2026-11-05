@@ -45,7 +45,12 @@ class AccordionContainer extends Base {
          * Title for Headerbar
          * @member {String|null} title=null
          */
-        title_: null
+        title_: null,
+        /**
+         * @member {Object} _vdom={tabIndex:-1,cn:[]}
+         */
+        _vdom:
+        {tabIndex: -1, cn: []}
     }
 
     /**
@@ -116,8 +121,10 @@ class AccordionContainer extends Base {
 
         // Ensure scrollbars are not flipping in and out
         me.timeout(450).then(() => {
-            NeoArray[fn](cls, 'neo-scrollable');
-            me.cls = cls
+            if (!me.isDestroyed) {
+                NeoArray[fn](cls, 'neo-scrollable');
+                me.cls = cls
+            }
         })
     }
 
@@ -167,7 +174,7 @@ class AccordionContainer extends Base {
             currentState = me.expanded,
             parent       = me.up('accordion');
 
-        if (parent.ntype === 'accordion') {
+        if (parent?.ntype === 'accordion') {
             parent.childExpandChange({
                 expanded: !currentState,
                 target  : me
