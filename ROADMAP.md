@@ -34,7 +34,7 @@ The other repositories ride these lines: [neomjs/neo-agent-skills](https://githu
 | 2 | **Single-app Neural Link specs without a Bridge** | [#20370](https://github.com/neomjs/neo/issues/20370), graduated from [D#18775](https://github.com/neomjs/neo/discussions/18775) | Vega | hosted CI drives the single-app Neural Link e2e specs through each page's own App Worker, with no Brain checkout and no WebSocket; a production boot behaves exactly as before |
 | 3 | **An outside coding agent gets neo in one command** | [#20114](https://github.com/neomjs/neo/issues/20114) | Grace | a coding agent with no neo or Brain checkout runs one command and reaches a built, running neo app it can reopen, with the neo skills, the Neural Link and the engine's docs in place; one cold run proves it |
 
-**Carried in the milestone, not cornerstones:** grid columns under a shared group header ([#20379](https://github.com/neomjs/neo/issues/20379)), and opt-in closable tabs ([#26](https://github.com/neomjs/neo/issues/26)), which also carry the first-tab removal fix ([#20390](https://github.com/neomjs/neo/issues/20390)).
+**Carried in the milestone, not cornerstones:** grid columns under a shared group header ([#20379](https://github.com/neomjs/neo/issues/20379)); opt-in closable tabs ([#26](https://github.com/neomjs/neo/issues/26)), which also carry the first-tab removal fix ([#20390](https://github.com/neomjs/neo/issues/20390)); and the fix for a 13.2 regression in which a Store passed to a ComboBox stops publishing its record edits ([#20403](https://github.com/neomjs/neo/issues/20403)).
 
 **Beside the gate:** the v13 blog stream ([#13383](https://github.com/neomjs/neo/issues/13383)) keeps running. It does not hold the cut.
 
