@@ -64,6 +64,13 @@ class Sorter extends Base {
          */
         property_: 'id',
         /**
+         * Opts a local Store into re-sorting when this property's record value changes.
+         * Custom comparators and virtual fields reapply on any record edit. Requires autoSort;
+         * remote, paged, loading and streaming Stores keep their existing update policy.
+         * @member {Boolean} reapplyOnRecordChange=false
+         */
+        reapplyOnRecordChange: false,
+        /**
          * Provide a custom sorting function, has a higher priority than property & direction
          * @member {Function|null} sortBy=null
          * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Collator

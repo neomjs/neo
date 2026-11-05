@@ -1290,7 +1290,7 @@ class TreeStore extends Store {
     }
 
     /**
-     * @summary Overrides `Collection.updateKey` to ensure TreeStore's structural maps remain perfectly synchronized.
+     * @summary Extends Store's key transaction to synchronize the tree's structural maps before edit notifications.
      *
      * In a standard Collection, updating a key just changes the primary lookup maps.
      * However, in a TreeStore, a node's key is critical for both the O(1) `#allRecordsMap` lookup
@@ -1301,8 +1301,9 @@ class TreeStore extends Store {
      * @param {Object|Neo.data.Record} item
      * @param {Number|String} newKey
      * @returns {Boolean} true if the key changed, false otherwise.
+     * @protected
      */
-    updateKey(item, newKey) {
+    updateKeyMaps(item, newKey) {
         let me = this,
             oldKey = me.getKey(item);
 
@@ -1311,7 +1312,7 @@ class TreeStore extends Store {
         }
 
         // 1. Update the base Collection layer (Projection maps & allItems)
-        super.updateKey(item, newKey);
+        super.updateKeyMaps(item, newKey);
 
         // 2. Heal #allRecordsMap
         if (me.#allRecordsMap.has(oldKey)) {
