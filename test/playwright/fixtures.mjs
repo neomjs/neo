@@ -1,9 +1,10 @@
-import { test as base, expect } from '@playwright/test';
-import path                     from 'node:path';
-import process                  from 'node:process';
-import {pathToFileURL}          from 'node:url';
-import { findBridgeScriptRoot } from './findBridgeScriptRoot.mjs';
-import * as RmaHelpers          from './util/RmaHelpers.mjs';
+import { test as base, expect }         from '@playwright/test';
+import path                             from 'node:path';
+import process                          from 'node:process';
+import {pathToFileURL}                  from 'node:url';
+import { runDedicatedWorkerNeuralLink } from './dedicatedWorkerNeuralLink.mjs';
+import { findBridgeScriptRoot }         from './findBridgeScriptRoot.mjs';
+import * as RmaHelpers                  from './util/RmaHelpers.mjs';
 
 // `Neo` plus the core class system, imported for their SIDE EFFECT and not for these bindings.
 //
@@ -17,6 +18,16 @@ import Neo       from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
 
 let neuralLinkModulesPromise = null;
+
+/**
+ * @summary Whether `env` names a `NEO_AGENTOS_RUNTIME_ROOT`, selecting the Bridge path over the
+ * dedicated App Worker adapter.
+ * @param {Object} [env=process.env]
+ * @returns {Boolean}
+ */
+export function hasBrainRuntimeRoot(env = process.env) {
+    return typeof env?.NEO_AGENTOS_RUNTIME_ROOT === 'string' && env.NEO_AGENTOS_RUNTIME_ROOT.length > 0
+}
 
 /**
  * @summary Imports one module from the explicitly provisioned Agent OS runtime checkout.
@@ -327,6 +338,12 @@ export const test = base.extend({
     }, {scope: 'worker', auto: true}],
 
     neuralLink: async ({ browser, context, page }, use) => {
+        if (!hasBrainRuntimeRoot()) {
+            return runDedicatedWorkerNeuralLink({ browser, context, page }, use, {
+                assertUnnavigated: assertUnnavigatedBeforeNeuralLinkRoute
+            })
+        }
+
         const {
             NeuralLink_ComponentService,
             NeuralLink_ConnectionService,
