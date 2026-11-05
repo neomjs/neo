@@ -70,7 +70,7 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
         component.destroy();
     });
 
-    test('onScroll pages buffered columns at right and left edges, preserves deterministic column/header IDs, and ignores vertical timeaxis scroll (#1069)', async () => {
+    test('onScroll pages buffered columns at right and left edges, preserves deterministic column/header IDs, and ignores vertical scroll on the scroll container (#1069)', async () => {
         const component = Neo.create({
             className      : 'Neo.calendar.view.week.Component',
             appName,
@@ -103,24 +103,43 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
             return lastPromiseUpdate;
         };
 
-        // 1. Vertical scroll on .neo-c-w-column-timeaxis-container is ignored
+        // 1. Vertical-only scroll events on .neo-c-w-scrollcontainer (including at scrollLeft = 0) are ignored
+        scrollByCalls.length = 0;
+
         component.onScroll({
             clientWidth: 750,
             scrollLeft : 0,
-            scrollTop  : 200,
-            target     : {cls: ['neo-c-w-column-timeaxis-container'], id: component.getColumnTimeAxisContainer().id}
+            scrollTop  : 150,
+            target     : {cls: ['neo-c-w-scrollcontainer'], id: scrollContainer.id}
         });
 
-        expect(getColumnFlags()).toEqual(initialFlags);
-
-        // 2. Center baseline scroll on .neo-c-w-scrollcontainer
         component.onScroll({
             clientWidth: 750,
-            scrollLeft : 700,
+            scrollLeft : 0,
+            scrollTop  : 320,
             target     : {cls: ['neo-c-w-scrollcontainer'], id: scrollContainer.id}
         });
 
         expect(getColumnFlags()).toEqual(initialFlags);
+        expect(scrollByCalls).toEqual([]);
+
+        // 2. Center baseline scroll on .neo-c-w-scrollcontainer, followed by vertical scroll at scrollLeft = 700
+        component.onScroll({
+            clientWidth: 750,
+            scrollLeft : 700,
+            scrollTop  : 100,
+            target     : {cls: ['neo-c-w-scrollcontainer'], id: scrollContainer.id}
+        });
+
+        component.onScroll({
+            clientWidth: 750,
+            scrollLeft : 700,
+            scrollTop  : 280,
+            target     : {cls: ['neo-c-w-scrollcontainer'], id: scrollContainer.id}
+        });
+
+        expect(getColumnFlags()).toEqual(initialFlags);
+        expect(scrollByCalls).toEqual([]);
 
         // 3. Drag-scroll to right edge (scrollLeft = 1400, width = 700 -> Math.round(1400/700*7) = 14 > 13)
         scrollByCalls.length = 0;

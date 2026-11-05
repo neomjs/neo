@@ -227,6 +227,14 @@ class Component extends BaseComponent {
     }
 
     /**
+     * Last-seen horizontal scroll offset of `.neo-c-w-scrollcontainer`, used by `onScroll`
+     * to ignore vertical-only scroll events (`deltaX === 0`).
+     * @member {Number} lastScrollLeft=0
+     * @protected
+     */
+    lastScrollLeft = 0
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -583,7 +591,7 @@ class Component extends BaseComponent {
     }
 
     /**
-     * @summary Builds column and header VDOM descriptors with deterministic date-scoped IDs.
+     * @summary Builds column and header VDOM descriptors with deterministic date-scoped IDs so `EventDragZone#dragMove` resolves the right drop day from `targetPath` after mid-drag column paging.
      * @param {Date} date
      * @returns {Object}
      */
@@ -749,26 +757,24 @@ class Component extends BaseComponent {
     }
 
     /**
-     * @summary Forwards horizontal scroll events on the week scroll container into the infinite-scroll column paging handler.
+     * @summary Forwards horizontal scroll events on the week scroll container into the infinite-scroll column paging handler while ignoring vertical-only scroll events.
      * @param {Object} data
      */
     onScroll(data) {
         let me = this;
 
         if (!data.target || data.target.cls?.includes('neo-c-w-scrollcontainer') || data.target.id === me.getScrollContainer().id) {
-            let deltaX = data.scrollLeft - (me.scrollLeft ?? data.scrollLeft);
+            let deltaX = data.scrollLeft - me.lastScrollLeft;
 
-            me.scrollLeft = data.scrollLeft;
+            me.lastScrollLeft = data.scrollLeft;
 
-            if (deltaX === 0) {
-                deltaX = data.scrollLeft > 0 ? 1 : -1
+            if (deltaX !== 0) {
+                me.onWheel({
+                    ...data,
+                    deltaX,
+                    deltaY: 0
+                })
             }
-
-            me.onWheel({
-                ...data,
-                deltaX,
-                deltaY: 0
-            })
         }
     }
 
@@ -852,8 +858,8 @@ class Component extends BaseComponent {
             }
 
             if (scrollValue) {
-                me.isUpdating = true;
-                me.scrollLeft = data.scrollLeft + scrollValue;
+                me.isUpdating     = true;
+                me.lastScrollLeft = data.scrollLeft + scrollValue;
 
                 me.promiseUpdate().then(() => {
                     Neo.main.DomAccess.scrollBy({
