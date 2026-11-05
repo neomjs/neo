@@ -41,6 +41,18 @@ class Viewport extends Container {
     }
 
     /**
+     * Triggered after the monitorSize config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMonitorSize(value, oldValue) {
+        if (oldValue !== undefined && this.mounted) {
+            this[value ? 'addDomListeners' : 'removeDomListeners']([{resize: this.onDomResize, scope: this}])
+        }
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue

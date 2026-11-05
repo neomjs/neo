@@ -80,5 +80,93 @@ test.describe('Neo.component.Base#responsive', () => {
 
         expect(responsivePlugins(), 'the same plugin').toEqual([plugin]);
         expect(component.cls, 'applied the new value').toContain('wider')
+    });
+
+    test('binds to the matching Viewport custom resize event on mount, rebinds across window moves, and avoids Neo.Responsive global', async () => {
+        const
+            listeners1 = [],
+            listeners2 = [],
+            viewport1  = {
+                id         : 'custom-viewport-win-1',
+                monitorSize: false,
+                on(event, fn, scope) {
+                    listeners1.push({event, fn, scope});
+                },
+                un(event, fn, scope) {
+                    const idx = listeners1.findIndex(l => l.event === event && l.fn === fn && l.scope === scope);
+                    if (idx > -1) listeners1.splice(idx, 1);
+                },
+                fire(event, data) {
+                    listeners1.filter(l => l.event === event).slice().forEach(l => l.fn.call(l.scope, data));
+                }
+            },
+            viewport2  = {
+                id         : 'custom-viewport-win-2',
+                monitorSize: false,
+                on(event, fn, scope) {
+                    listeners2.push({event, fn, scope});
+                },
+                un(event, fn, scope) {
+                    const idx = listeners2.findIndex(l => l.event === event && l.fn === fn && l.scope === scope);
+                    if (idx > -1) listeners2.splice(idx, 1);
+                },
+                fire(event, data) {
+                    listeners2.filter(l => l.event === event).slice().forEach(l => l.fn.call(l.scope, data));
+                }
+            };
+
+        Neo.apps[11] = {name: appName, mainView: viewport1, isMounted: () => true, on: () => {}, un: () => {}, fire: () => {}};
+        Neo.apps[12] = {name: appName, mainView: viewport2, isMounted: () => true, on: () => {}, un: () => {}, fire: () => {}};
+
+        try {
+            component = Neo.create(Component, {
+                appName,
+                windowId        : 11,
+                responsive      : {narrow: {cls: ['is-narrow']}, wide: {cls: ['is-wide']}},
+                responsiveConfig: {
+                    narrow: {maxWidth: 500},
+                    wide  : {minWidth: 501}
+                }
+            });
+
+            await expect.poll(() => responsivePlugins().length).toBe(1);
+            const [plugin] = responsivePlugins();
+
+            expect(Neo.Responsive).toBeUndefined();
+            expect(plugin.responsiveConfig).toBeInstanceOf(Map);
+            expect(plugin.responsiveConfig.has('narrow')).toBe(true);
+
+            expect(plugin.viewport).toBeNull();
+            expect(viewport1.monitorSize).toBe(false);
+
+            component.mounted = true;
+
+            expect(plugin.viewport).toBe(viewport1);
+            expect(viewport1.monitorSize).toBe(true);
+            expect(plugin.constructor.apps[11]).toEqual({
+                appId           : 'custom-viewport-win-1',
+                activeBodyUpdate: true
+            });
+
+            viewport1.fire('resize', {rect: {width: 400, height: 600}, contentRect: {width: 400, height: 600}});
+            expect(component.cls).toContain('is-narrow');
+
+            component.mounted  = false;
+            component.windowId = 12;
+            component.mounted  = true;
+
+            expect(plugin.viewport).toBe(viewport2);
+            expect(viewport2.monitorSize).toBe(true);
+            expect(listeners1.some(l => l.fn === plugin.onResize && l.scope === plugin)).toBe(false);
+
+            viewport1.fire('resize', {rect: {width: 800, height: 600}, contentRect: {width: 800, height: 600}});
+            expect(component.cls).toContain('is-narrow');
+
+            viewport2.fire('resize', {rect: {width: 800, height: 600}, contentRect: {width: 800, height: 600}});
+            expect(component.cls).toContain('is-wide');
+        } finally {
+            delete Neo.apps[11];
+            delete Neo.apps[12];
+        }
     })
 });
