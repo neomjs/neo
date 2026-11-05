@@ -1792,6 +1792,20 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Downloads `toCsv()` as a file. A worker cannot start a download, so the main thread's
+     * `Neo.main.addon.FileDownload` does it, loaded on demand: an app that never exports never loads it.
+     * @param {Object} [options={}] The `toCsv()` options, plus `fileName`
+     * @param {String} [options.fileName='export.csv']
+     * @returns {Promise<Boolean>} true once the browser has the download
+     */
+    async exportCsv({fileName='export.csv', ...options}={}) {
+        let me    = this,
+            addon = await Neo.currentWorker.getAddon('FileDownload', me.windowId);
+
+        return addon.saveText({content: me.toCsv(options), fileName, mimeType: 'text/csv', windowId: me.windowId})
+    }
+
+    /**
      * Serializes the instance into a JSON-compatible object for the Neural Link.
      * @returns {Object}
      */
