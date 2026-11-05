@@ -976,7 +976,7 @@ class Container extends Component {
             // indices. `items` is already spliced above, so a listener re-reads the post-removal set.
             !silent && me.fire('remove', {index, item});
 
-            if (!(item instanceof Component)) {
+            if (!(item instanceof Neo.core.Base)) {
                 return destroyItem ? null : item
             }
 
