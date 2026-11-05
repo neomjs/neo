@@ -160,19 +160,32 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         expect(fs.existsSync(path.join(scssRoot, '_motion.scss'))).toBe(false);
     });
 
-    test('the installed generator runs with only physical production dependency packages', () => {
+    test('the installed generator resolves its build tools inside the installed Engine', () => {
         const installedPath = path.join(engineRoot, 'buildScripts/create/theme.mjs'),
-              lock          = JSON.parse(read(path.join(repoRoot, 'package-lock.json')));
+              lock          = JSON.parse(read(path.join(repoRoot, 'package-lock.json'))),
+              manifest      = JSON.parse(read(path.join(engineRoot, 'package.json'))),
+              parsers       = ['postcss-scss', 'postcss-selector-parser', 'postcss-value-parser'],
+              packages      = new Set(parsers);
+
+        expect(manifest.dependencies).toBeUndefined();
+        for (const name of parsers) expect(manifest.devDependencies[name]).toBeTruthy();
 
         fs.mkdirSync(path.dirname(installedPath), {recursive: true});
         fs.copyFileSync(createPath, installedPath);
 
-        for (const [relative, metadata] of Object.entries(lock.packages)) {
-            if (!relative.startsWith('node_modules/') || metadata.dev || metadata.link || metadata.optional) continue;
+        // The scaffolder installs Engine development tools in this nested package. Keep the
+        // fixture physical and limited to the parsers' graph so repository resolution cannot help.
+        for (const name of packages) {
+            const relative = `node_modules/${name}`,
+                  metadata = lock.packages[relative];
+
+            for (const dependency of Object.keys({...metadata.dependencies, ...metadata.peerDependencies})) {
+                if (!metadata.peerDependenciesMeta?.[dependency]?.optional) packages.add(dependency);
+            }
 
             const source = path.join(repoRoot, relative);
 
-            fs.cpSync(source, path.join(root, relative), {
+            fs.cpSync(source, path.join(engineRoot, relative), {
                 recursive  : true,
                 dereference: true,
                 filter     : file => !path.relative(source, file).split(path.sep).includes('node_modules')

@@ -99,11 +99,6 @@
         "url": "https://github.com/neomjs/neo/issues"
     },
     "homepage"       : "https://neomjs.com/",
-    "dependencies"   : {
-        "postcss-scss"           : "^4.0.9",
-        "postcss-selector-parser": "^7.1.7",
-        "postcss-value-parser"   : "^4.2.0"
-    },
     "devDependencies": {
         "@fortawesome/fontawesome-free": "^7.3.1",
         "@playwright/test"             : "^1.63.0",
@@ -131,6 +126,9 @@
         "neo-agent-skills"             : "0.1.86",
         "parse5"                       : "^8.0.1",
         "postcss"                      : "^8.5.29",
+        "postcss-scss"                 : "^4.0.9",
+        "postcss-selector-parser"      : "^7.1.7",
+        "postcss-value-parser"         : "^4.2.0",
         "sass"                         : "^1.105.1",
         "semver"                       : "^7.8.5",
         "terser"                       : "^5.51.2",
