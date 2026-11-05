@@ -21,6 +21,13 @@ class EffectTabButton extends EffectButton {
          */
         baseCls: ['neo-tab-header-button', 'neo-button'],
         /**
+         * The id of the card this tab shows, rendered as `aria-controls`. `tab.Container` keeps it in
+         * sync; `null` while the card is a lazy config that has not loaded yet.
+         * @member {String|null} cardId_=null
+         * @reactive
+         */
+        cardId_: null,
+        /**
          * Specify a role tag attribute for the vdom root.
          * @member {String|null} role='tab'
          * @reactive
@@ -39,12 +46,14 @@ class EffectTabButton extends EffectButton {
      * @protected
      */
     getVdomConfig() {
-        let vdomConfig = super.getVdomConfig();
+        let me         = this,
+            vdomConfig = super.getVdomConfig();
 
-        vdomConfig.role = this.role;
+        vdomConfig.role             = me.role;
+        vdomConfig['aria-selected'] = me.pressed;
 
-        if (this.pressed) {
-            vdomConfig['aria-selected'] = true;
+        if (me.cardId) {
+            vdomConfig['aria-controls'] = me.cardId
         }
 
         return vdomConfig;

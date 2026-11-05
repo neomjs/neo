@@ -352,7 +352,9 @@ class Container extends BaseContainer {
 
         me.itemDefaults = null;
 
-        super.createItems()
+        super.createItems();
+
+        me.updateTabPanels(true)
     }
 
     /**
@@ -569,6 +571,7 @@ class Container extends BaseContainer {
             }
         }
 
+        me.updateTabPanels(silent);
         !silent && me.updateTabButtons();
 
         return superItem
@@ -619,11 +622,21 @@ class Container extends BaseContainer {
         let tabBar = this.getTabBar();
 
         tabBar.on('action', this.onHeaderAction, this);
+        this.getCardContainer().on('cardLoaded', this.onCardLoaded, this);
 
         // The bar is constructed before its parent finished wiring, so its own attempt may have
         // resolved nothing. The subject is this TabContainer: focus anywhere inside it — a tab
         // button, the body, an action — exposes the gated actions; only leaving hides them.
         tabBar.wireFocusSubject()
+    }
+
+    /**
+     * A lazy card exists only once its module loaded, so only now can its tab name it.
+     * @param {Object} data
+     * @protected
+     */
+    onCardLoaded(data) {
+        this.updateTabPanels()
     }
 
     /**
@@ -707,10 +720,16 @@ class Container extends BaseContainer {
             {activeIndex} = me,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
+            buttonId      = me.getTabButtons()[index]?.id,
             card, i, len;
 
         card = cardContainer.removeAt(index, destroyItem, silent, keepMounted);
         tabBar       .removeTabAt(index, true,     silent);
+
+        // A card that outlives its removal must not keep naming the tab it leaves behind
+        if (!destroyItem && card instanceof Neo.component.Base) {
+            me.unlinkTabPanel(card, buttonId, silent)
+        }
 
         if (index < activeIndex) {
             // silent updates
@@ -744,6 +763,31 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Withdraws what {@link #updateTabPanels} gives a card: the `tabpanel` role, and the label that
+     * points at this container's tab. A role or name of the card's own stays.
+     * @param {Neo.component.Base} card
+     * @param {String} buttonId The id of the tab button the card leaves behind.
+     * @param {Boolean} [silent=false] Mutate VDOM state without committing an update.
+     * @protected
+     */
+    unlinkTabPanel(card, buttonId, silent=false) {
+        let changed = false,
+            root    = card.getVdomRoot();
+
+        if (root['aria-labelledby'] === buttonId) {
+            delete root['aria-labelledby'];
+            changed = true
+        }
+
+        if (card.role === 'tabpanel') {
+            card.setSilent({role: null});
+            changed = true
+        }
+
+        changed && !silent && card.update()
+    }
+
+    /**
      * Synchronizes the `pressed` state of all tab buttons with the container's `activeIndex`.
      * This ensures that only the button corresponding to the active tab appears pressed.
      * @param {Boolean} [silent=false] Mutate VDOM state without committing a child-level update.
@@ -763,6 +807,42 @@ class Container extends BaseContainer {
         })
     }
 
+    /**
+     * Links each tab button to its card the way the WAI-ARIA tabs pattern expects: the button names
+     * its card (`cardId`, rendered as `aria-controls`), and the card becomes a `tabpanel` labelled by
+     * the button. A card keeps any role or accessible name of its own. A lazy card that has not loaded
+     * yet has no node to name, so its button names none until it does.
+     * @param {Boolean} [silent=false] Mutate VDOM state without committing updates.
+     * @protected
+     */
+    updateTabPanels(silent=false) {
+        let cards = this.getCardContainer()?.items || [];
+
+        this.getTabButtons().forEach((button, index) => {
+            let card    = cards[index],
+                loaded  = card instanceof Neo.component.Base,
+                changed = false,
+                root;
+
+            button[silent ? 'setSilent' : 'set']({cardId: loaded ? card.id : null});
+
+            if (loaded) {
+                root = card.getVdomRoot();
+
+                if (!root['aria-label'] && !root['aria-labelledby']) {
+                    root['aria-labelledby'] = button.id;
+                    changed = true
+                }
+
+                if (!card.role && !root.role) {
+                    card.setSilent({role: 'tabpanel'});
+                    changed = true
+                }
+
+                changed && !silent && card.update()
+            }
+        })
+    }
 }
 
 export default Neo.setupClass(Container);
