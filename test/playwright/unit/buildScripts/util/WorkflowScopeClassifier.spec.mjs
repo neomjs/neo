@@ -138,14 +138,16 @@ const createRuntime = ({
     const outputs = new Map(),
           info    = [],
           notices = [],
+          summary = [],
           calls   = {getContent: 0, listFiles: 0, pullsGet: 0, contentCalls: []},
           core    = {
               info     : value => info.push(value),
               notice   : value => notices.push(value),
               setOutput: (name, value) => outputs.set(name, value),
               summary  : {
-                  addHeading() { return this; },
-                  addRaw()     { return this; },
+                  addHeading(text)   { summary.push(text); return this; },
+                  addRaw(text)       { summary.push(text); return this; },
+                  addCodeBlock(text) { summary.push(text); return this; },
                   async write() {}
               }
           },
@@ -200,7 +202,7 @@ const createRuntime = ({
               repo: { owner: 'neomjs', repo: 'neo' }
           };
 
-    return { calls, context, core, github, info, notices, outputs };
+    return { calls, context, core, github, info, notices, outputs, summary };
 };
 
 const executeScript = async(script, runtime) => {
@@ -223,7 +225,7 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         // nobody asserted.
         const outputs = readWorkflow(CLASSIFIER).jobs.classify.outputs;
 
-        expect(Object.keys(outputs).sort()).toEqual(['e2e_boundary_report', 'e2e_brain_tier', 'run_components', 'run_e2e', 'run_unit', 'skip_reason']);
+        expect(Object.keys(outputs).sort()).toEqual(['brain_sha', 'e2e_boundary_report', 'e2e_brain_tier', 'run_components', 'run_e2e', 'run_unit', 'skip_reason']);
     });
 
     test('every job output is re-declared to callers', () => {
@@ -760,25 +762,51 @@ test.describe('Tests scope classifier — the Brain-gated tier runs only what a 
         expect((await classify({ files: ['src/grid/Body.mjs'], liveHead: 'moved-on-sha' })).e2e_brain_tier).toBe('none');
     });
 
-    test('the Brain job gates every step that costs anything on the tier, and still reports a none', () => {
-        // The engine tier's idiom (the arm above for `test-e2e.yml`): a job-level `if` yields a
-        // SKIPPED check, so the job runs and a skip step reports the reason. An ungated
-        // provisioning step would spend the runner the `none` tier exists to save, quietly.
-        const job     = readWorkflow('test-e2e-brain.yml').jobs['e2e-brain'],
-              skip    = job.steps.find(step => step.name === 'Skip the Brain-gated tier'),
-              others  = job.steps.filter(step => step !== skip),
-              ungated = others.filter(step => !String(step.if || '').includes("e2e_brain_tier != 'none'"));
+    test('a none tier starts no Brain runner, and no separate job resolves the Brain tip', () => {
+        // The check is not required, so a job-level `if` costs nothing: a ruled-out tier boots no
+        // shard. The Brain's `dev` tip comes from the classifier, which runs anyway, instead of a
+        // job that booted a runner for a three-second `git ls-remote`.
+        const workflow = readWorkflow('test-e2e-brain.yml'),
+              job      = workflow.jobs['e2e-brain'],
+              uses     = job.steps.map(step => JSON.stringify(step));
 
-        expect(String(skip?.if)).toContain("e2e_brain_tier == 'none'");
-        expect(skip?.['working-directory'], 'it runs before the checkout creates the default engine/').toBeTruthy();
-        // The report reaches the shell through `env`, never interpolated into the script: it carries file names
-        expect(skip?.env?.REPORT).toContain('e2e_boundary_report');
-        expect(skip?.run).toContain('"$REPORT"');
-        expect(skip?.run).not.toContain('outputs.e2e_boundary_report');
-        expect(ungated.map(step => step.name)).toEqual([]);
-        expect(others.length).toBeGreaterThan(5);
-        // `none` provisions one shard, not ten
-        expect(String(job.strategy.matrix.shard)).toContain("e2e_brain_tier == 'none'");
+        expect(Object.keys(workflow.jobs)).toEqual(['changes', 'e2e-brain']);
+        expect(workflow.jobs.changes.with).toEqual({resolve_brain_tip: true});
+        expect(job.needs).toBe('changes');
+        expect(String(job.if)).toBe("${{ needs.changes.outputs.e2e_brain_tier != 'none' }}");
+        // Nothing inside the job re-tests the tier, and the matrix has no `none` branch left
+        expect(uses.filter(step => step.includes('e2e_brain_tier'))).toEqual([]);
+        expect(String(job.strategy.matrix.shard)).not.toContain("'none'");
+        // Every shard and the receipt read the one tip the classifier resolved
+        expect(uses.filter(step => step.includes('needs.changes.outputs.brain_sha'))).toHaveLength(2);
+        expect(uses.some(step => step.includes('needs.brain'))).toBe(false);
+    });
+
+    test('the classifier resolves the Brain tip only for a caller that asks and a tier that runs', () => {
+        const classifier = readWorkflow('classify-test-scope.yml'),
+              call       = classifier.on?.workflow_call ?? classifier[true].workflow_call,
+              tip        = classifier.jobs.classify.steps.find(step => step.id === 'tip');
+
+        expect(call.inputs.resolve_brain_tip).toEqual(expect.objectContaining({type: 'boolean', default: false}));
+        expect(call.outputs.brain_sha.value).toBe('${{ jobs.classify.outputs.brain_sha }}');
+        expect(classifier.jobs.classify.outputs.brain_sha).toBe('${{ steps.tip.outputs.sha }}');
+        expect(String(tip.if)).toBe("${{ inputs.resolve_brain_tip && steps.scope.outputs.e2e_brain_tier != 'none' }}");
+        expect(tip.run).toContain('git ls-remote https://github.com/neomjs/neo-agent-brain refs/heads/dev');
+        expect(tip.run).toContain('test -n "$sha"');
+    });
+
+    test('a ruled-out tier writes its reason and each file\'s boundary rule to the classifier summary', async () => {
+        // No shard runs to print it, so the classifier is where a misclassification must show.
+        const runtime  = createRuntime({files: ['learn/blog/post.md', 'apps/portal/resources/data/blog.json']}),
+              admitted = createRuntime({files: ['src/grid/Body.mjs']});
+
+        await executeScript(scopeScript(), runtime);
+        await executeScript(scopeScript(), admitted);
+
+        expect(outputsOf(runtime).e2e_brain_tier).toBe('none');
+        expect(runtime.summary).toContain('E2E tiers ruled out');
+        expect(runtime.summary.join('\n')).toContain('apps/portal/resources/data/blog.json: out (portal blog registry');
+        expect(admitted.summary).not.toContain('E2E tiers ruled out');
     });
 
 });

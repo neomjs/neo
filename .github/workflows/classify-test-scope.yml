@@ -21,6 +21,11 @@ name: Classify test scope
 
 on:
   workflow_call:
+    inputs:
+      resolve_brain_tip:
+        description: Resolve the Brain's `dev` tip into `brain_sha` when the Brain-gated tier runs.
+        type: boolean
+        default: false
     outputs:
       run_unit:
         description: Whether the unit suite is relevant to the changed paths.
@@ -40,6 +45,9 @@ on:
       e2e_boundary_report:
         description: One line per changed file, saying whether the E2E boundary admits it and which rule leaves it out.
         value: ${{ jobs.classify.outputs.e2e_boundary_report }}
+      brain_sha:
+        description: The Brain's `dev` tip, resolved once per run when `resolve_brain_tip` is set and the Brain-gated tier runs; empty otherwise.
+        value: ${{ jobs.classify.outputs.brain_sha }}
 
 jobs:
   classify:
@@ -52,6 +60,7 @@ jobs:
       e2e_brain_tier: ${{ steps.scope.outputs.e2e_brain_tier }}
       skip_reason: ${{ steps.scope.outputs.skip_reason }}
       e2e_boundary_report: ${{ steps.scope.outputs.e2e_boundary_report }}
+      brain_sha: ${{ steps.tip.outputs.sha }}
 
     steps:
       - name: Classify changed paths
@@ -420,8 +429,29 @@ jobs:
             core.setOutput('run_components', String(runComponents));
             core.setOutput('run_e2e', String(runE2e));
             core.setOutput('e2e_brain_tier', brainTier);
-            core.setOutput('e2e_boundary_report', normalizedFiles.map(file => `${file}: ${e2eBoundaryRule(file)}`).join('\n'));
-            core.setOutput(
-              'skip_reason',
-              'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)'
-            );
+            const boundaryReport = normalizedFiles.map(file => `${file}: ${e2eBoundaryRule(file)}`).join('\n');
+            const skipReason     = 'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)';
+
+            core.setOutput('e2e_boundary_report', boundaryReport);
+            core.setOutput('skip_reason', skipReason);
+
+            // A ruled-out tier starts no runner, so its reason lives here: each changed file and the
+            // rule that left it out, so a misclassification shows on the pull request that carries it.
+            if (!runE2e || brainTier === 'none') {
+              await core.summary
+                .addHeading('E2E tiers ruled out', 3)
+                .addRaw(`engine tier: ${runE2e ? 'runs' : 'skipped'} · Brain-gated tier: ${brainTier}. Reason: ${skipReason}.`, true)
+                .addCodeBlock(boundaryReport)
+                .write();
+            }
+
+      # The Brain-gated tier tests the Brain's `dev` tip, resolved once per run so every shard and
+      # every rerun tests the same Brain. It runs here, not in a job of its own: a job would boot a
+      # runner for a three-second `git ls-remote`, and a ruled-out tier needs no tip at all.
+      - name: Resolve the Brain's dev tip
+        id: tip
+        if: ${{ inputs.resolve_brain_tip && steps.scope.outputs.e2e_brain_tier != 'none' }}
+        run: |
+          sha=$(git ls-remote https://github.com/neomjs/neo-agent-brain refs/heads/dev | cut -f1)
+          test -n "$sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
