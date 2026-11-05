@@ -56,6 +56,15 @@
             margin          : 1px;
             padding         : 3px;
 
+            &.neo-dragproxy {
+                position: relative !important;
+
+                > * {
+                    height: unset;
+                    width : unset;
+                }
+            }
+
             &.neo-focus {
                 color  : #fff;
                 outline: 0;
