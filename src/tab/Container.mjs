@@ -231,9 +231,13 @@ class Container extends BaseContainer {
             }, me, {once: true})
         } else {
             if (Neo.isNumber(value) && value > -1) {
+                const header = me.getTabButtons()[value];
                 // we need to ensure the afterSet method triggers when lazy loading the module
                 cardContainer.layout._activeIndex = value;
                 await cardContainer.layout.afterSetActiveIndex(value, oldValue);
+
+                if (me.isDestroyed || cardContainer.isDestroyed || me.getCardContainer() !== cardContainer
+                    || me.activeIndex !== value || me.getTabButtons()[value] !== header) return;
 
                 if (oldValue !== undefined) {
                     me.updateTabButtons();

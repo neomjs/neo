@@ -223,7 +223,9 @@ test.describe('pending lazy card membership', () => {
     });
 
     test('a pending active card follows its moved slot and keeps the neighbour inactive', async () => {
-        const body = tabs.getCardContainer(), parked = tabs.getCard(1), neighbour = tabs.getCard(2);
+        const body    = tabs.getCardContainer(), parked = tabs.getCard(1), neighbour = tabs.getCard(2);
+        const changes = [];
+        tabs.on('activeIndexChange', data => changes.push(data));
         tabs.activeIndex = 1;
         const load = body.layout.loadModule(parked, 1);
 
@@ -235,7 +237,8 @@ test.describe('pending lazy card membership', () => {
         expect(tabs.getActiveCard()).toBe(loaded);
         expect(loaded.wrapperCls).toContain('neo-active-item');
         expect(neighbour.wrapperCls).toContain('neo-inactive-item');
-        expect(tabs.getCard(1)).toBe(neighbour)
+        expect(tabs.getCard(1)).toBe(neighbour);
+        expect(changes, 'a superseded activation must not publish its old index with a different live card').toEqual([])
     });
 
     test('a replacement in the closed pending slot cannot inherit the old import', async () => {
