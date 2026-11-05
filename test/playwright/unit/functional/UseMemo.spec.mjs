@@ -151,6 +151,234 @@ test.describe('functional/UseMemo', () => {
         expect(component.vnode.childNodes[0].textContent).toBe('Result: 20');
     });
 
+    test('preserves child component instances inside a memoized VDOM subtree across unrelated parent re-renders', async () => {
+        let computeCount = 0;
+
+        const ChildBadge = defineComponent({
+            config: {
+                className: 'Neo.Test.MemoChildBadge',
+                label_   : 'Initial Badge'
+            },
+            createVdom(config) {
+                return {
+                    tag : 'span',
+                    id  : config.id,
+                    text: config.label
+                }
+            }
+        });
+
+        const ParentWithMemoChild = defineComponent({
+            config: {
+                className: 'Neo.Test.MemoParentWithChild',
+                items_   : ['one'],
+                title_   : 'Parent Title'
+            },
+            createVdom(config) {
+                const sectionVdom = useMemo(() => {
+                    computeCount++;
+                    return {
+                        tag: 'section',
+                        id : `${config.id}-section`,
+                        cn : [{
+                            module: ChildBadge,
+                            id    : `${config.id}-child`,
+                            label : config.items[0]
+                        }]
+                    }
+                }, [config.items]);
+
+                return {
+                    tag: 'div',
+                    id : config.id,
+                    cn : [
+                        {tag: 'h2', id: `${config.id}-title`, text: config.title},
+                        sectionVdom
+                    ]
+                }
+            }
+        });
+
+        component = Neo.create(ParentWithMemoChild, {
+            appName,
+            id: `memo-child-parent-${testRun}`
+        });
+
+        await component.initVnode();
+        component.mounted = true;
+
+        const childId       = `memo-child-parent-${testRun}-child`,
+              firstInstance = Neo.getComponent(childId);
+
+        expect(computeCount).toBe(1);
+        expect(firstInstance).toBeTruthy();
+        expect(component.vnode.childNodes[1].childNodes[0].componentId).toBe(childId);
+        expect(firstInstance.vnode.textContent).toBe('one');
+
+        // Unrelated update hits the useMemo cache; child component must remain tracked and not throw in createDeltas
+        await component.set({title: 'Updated Parent Title'});
+        expect(computeCount).toBe(1);
+        expect(Neo.getComponent(childId)).toBe(firstInstance);
+        expect(firstInstance.isDestroyed).toBeFalsy();
+        expect(component.vnode.childNodes[0].textContent).toBe('Updated Parent Title');
+        expect(firstInstance.vnode.textContent).toBe('one');
+
+        // Updating `items` invalidates the memo and updates the preserved child component
+        await component.set({items: ['two']});
+        await component.timeout(20);
+        expect(computeCount).toBe(2);
+        expect(Neo.getComponent(childId)).toBe(firstInstance);
+        expect(firstInstance.vnode.textContent).toBe('two');
+    });
+
+    test('invalidates explicit-array memo when a reactive Config read inside fn changes', async () => {
+        let computeCount = 0;
+
+        const ExplicitPlusConfigComponent = defineComponent({
+            config: {
+                className: 'Neo.Test.MemoExplicitPlusConfig',
+                items_   : ['alpha'],
+                theme_   : 'light',
+                title_   : 'Header'
+            },
+            createVdom(config) {
+                const paragraphVdom = useMemo(() => {
+                    computeCount++;
+                    return {
+                        tag : 'p',
+                        id  : `${config.id}-theme`,
+                        text: config.theme
+                    }
+                }, [config.items]);
+
+                return {
+                    tag: 'div',
+                    id : config.id,
+                    cn : [
+                        {tag: 'h1', id: `${config.id}-title`, text: config.title},
+                        paragraphVdom
+                    ]
+                }
+            }
+        });
+
+        component = Neo.create(ExplicitPlusConfigComponent, {
+            appName,
+            id: `memo-explicit-config-${testRun}`
+        });
+
+        await component.initVnode();
+        component.mounted = true;
+
+        expect(computeCount).toBe(1);
+        expect(component.vnode.childNodes[1].textContent).toBe('light');
+
+        // Unrelated config change keeps the cached value
+        await component.set({title: 'New Header'});
+        expect(computeCount).toBe(1);
+        expect(component.vnode.childNodes[1].textContent).toBe('light');
+
+        // Changing a Config read inside `fn` invalidates the memo even when explicit `dependencies` did not change
+        await component.set({theme: 'dark'});
+        expect(computeCount).toBe(2);
+        expect(component.vnode.childNodes[1].textContent).toBe('dark');
+    });
+
+    test('demonstrates measurable rendering speedup on an expensive VDOM subtree across unrelated state updates', async () => {
+        const
+            rowCount    = 500,
+            updateCount = 50;
+
+        let unmemoizedComputes = 0,
+            memoizedComputes   = 0;
+
+        const buildExpensiveSubtree = (prefix, rows) => ({
+            tag: 'ul',
+            id : `${prefix}-list`,
+            cn : Array.from({length: rows}, (_, i) => ({
+                tag : 'li',
+                id  : `${prefix}-row-${i}`,
+                cls : ['row-item', i % 2 === 0 ? 'even' : 'odd'],
+                text: `Row ${i} (${ (i * 31) % 97 })`
+            }))
+        });
+
+        const UnmemoizedBench = defineComponent({
+            config: {
+                className: 'Neo.Test.UnmemoizedBenchComponent',
+                rows_    : rowCount,
+                title_   : 'Start'
+            },
+            createVdom(config) {
+                unmemoizedComputes++;
+                const listVdom = buildExpensiveSubtree(config.id, config.rows);
+
+                return {
+                    tag: 'div',
+                    id : config.id,
+                    cn : [
+                        {tag: 'h1', id: `${config.id}-title`, text: config.title},
+                        listVdom
+                    ]
+                }
+            }
+        });
+
+        const MemoizedBench = defineComponent({
+            config: {
+                className: 'Neo.Test.MemoizedBenchComponent',
+                rows_    : rowCount,
+                title_   : 'Start'
+            },
+            createVdom(config) {
+                const listVdom = useMemo(() => {
+                    memoizedComputes++;
+                    return buildExpensiveSubtree(config.id, config.rows)
+                }, [config.rows]);
+
+                return {
+                    tag: 'div',
+                    id : config.id,
+                    cn : [
+                        {tag: 'h1', id: `${config.id}-title`, text: config.title},
+                        listVdom
+                    ]
+                }
+            }
+        });
+
+        const unmemoizedComp = Neo.create(UnmemoizedBench, {
+            appName,
+            id: `bench-unmemoized-${testRun}`
+        });
+        await unmemoizedComp.initVnode();
+        unmemoizedComp.mounted = true;
+
+        const t0 = performance.now();
+        for (let i = 1; i <= updateCount; i++) {
+            await unmemoizedComp.set({title: `Title ${i}`})
+        }
+        const unmemoizedMs = performance.now() - t0;
+        unmemoizedComp.destroy();
+
+        component = Neo.create(MemoizedBench, {
+            appName,
+            id: `bench-memoized-${testRun}`
+        });
+        await component.initVnode();
+        component.mounted = true;
+
+        const t1 = performance.now();
+        for (let i = 1; i <= updateCount; i++) {
+            await component.set({title: `Title ${i}`})
+        }
+        const memoizedMs = performance.now() - t1;
+
+        expect(unmemoizedComputes).toBe(updateCount + 1);
+        expect(memoizedComputes).toBe(1);
+        expect(memoizedMs).toBeLessThan(unmemoizedMs);
+    });
+
     test('throws if called outside a functional component createVdom effect', () => {
         expect(() => useMemo(() => 42)).toThrow(
             'useMemo must be called from within a functional component\'s createVdom method.'
