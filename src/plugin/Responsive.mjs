@@ -28,7 +28,7 @@ class Responsive extends Plugin {
          */
         responsiveConfig: null,
         /**
-         * @member {Neo.container.Viewport|Object|null} viewport=null
+         * @member {Neo.container.Viewport|null} viewport=null
          * @protected
          */
         viewport: null,
@@ -61,8 +61,9 @@ class Responsive extends Plugin {
         me.addToResponsiveMap(me.defaultResponsiveConfig, me);
         me.addToResponsiveMap(owner.responsiveConfig || {}, owner);
 
+        // plugin.Base#construct calls onOwnerMounted() immediately when mounted and subscribes only when unmounted
         if (owner.mounted) {
-            owner.on?.('mounted', me.onOwnerMounted, me)
+            owner.on('mounted', me.onOwnerMounted, me)
         }
     }
 
@@ -111,15 +112,10 @@ class Responsive extends Plugin {
     destroy(...args) {
         let me = this;
 
-        me.owner?.un?.('mounted', me.onOwnerMounted, me);
+        me.owner?.un('mounted', me.onOwnerMounted, me);
 
         if (me.viewport) {
-            if (me.viewport.un) {
-                me.viewport.un('resize', me.onResize, me)
-            } else {
-                me.viewport.removeDomListeners?.([{resize: me.onResize, scope: me}])
-            }
-
+            me.viewport.un('resize', me.onResize, me);
             me.viewport = null
         }
 
@@ -128,21 +124,20 @@ class Responsive extends Plugin {
 
     /**
      * @summary Resolves the Viewport instance owning this plugin's component across multi-window and custom-viewport apps.
-     * @returns {Neo.container.Viewport|Object|null}
+     * @returns {Neo.container.Viewport|null}
      */
     getViewport() {
         let {owner}  = this,
             mainView = owner.app?.mainView;
 
-        return owner.up?.('viewport')
-            || (mainView?.on || mainView?.addDomListeners ? mainView : mainView?.down?.('viewport'))
-            || mainView
+        return owner.up('viewport')
+            || (mainView?.ntype === 'viewport' ? mainView : mainView?.down('viewport'))
             || Neo.first('viewport')
     }
 
     /**
      * @summary Ensures one Viewport resize listener per window updates `document.body` orientation classes.
-     * @param {Neo.container.Viewport|Object|null} [viewport=this.getViewport()]
+     * @param {Neo.container.Viewport|null} [viewport=this.getViewport()]
      */
     handleBodyCls(viewport=this.getViewport()) {
         const
@@ -156,15 +151,8 @@ class Responsive extends Plugin {
                 activeBodyUpdate: true
             };
 
-            if ('monitorSize' in viewport) {
-                viewport.monitorSize = true
-            }
-
-            if (viewport.on) {
-                viewport.on('resize', me.onResizeBody, me)
-            } else {
-                viewport.addDomListeners?.([{resize: me.onResizeBody, scope: me}])
-            }
+            viewport.monitorSize = true;
+            viewport.on('resize', me.onResizeBody, me)
         }
     }
 
@@ -185,25 +173,13 @@ class Responsive extends Plugin {
         }
 
         if (me.viewport && me.viewport !== viewport) {
-            if (me.viewport.un) {
-                me.viewport.un('resize', me.onResize, me)
-            } else {
-                me.viewport.removeDomListeners?.([{resize: me.onResize, scope: me}])
-            }
+            me.viewport.un('resize', me.onResize, me)
         }
 
         if (me.viewport !== viewport) {
-            me.viewport = viewport;
-
-            if ('monitorSize' in viewport) {
-                viewport.monitorSize = true
-            }
-
-            if (viewport.on) {
-                viewport.on('resize', me.onResize, me)
-            } else {
-                viewport.addDomListeners?.([{resize: me.onResize, scope: me}])
-            }
+            me.viewport          = viewport;
+            viewport.monitorSize = true;
+            viewport.on('resize', me.onResize, me)
         }
 
         me.handleBodyCls(viewport)

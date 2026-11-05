@@ -1,16 +1,10 @@
 import {setup} from '../../setup.mjs';
 
-const
-    appName  = 'ResponsiveAdmissionTest',
-    // The Responsive plugin wires resize listeners on the app's viewport, which the unit tier has no main thread for
-    viewport = {id: 'responsive-admission-viewport', addDomListeners() {}},
-    // Neo.first() walks down from the app's main view, so every query answers with the stand-in viewport
-    mainView = {id: 'responsive-admission-main-view', down: () => viewport};
+const appName = 'ResponsiveAdmissionTest';
 
 setup({
     appConfig: {
-        name: appName,
-        mainView
+        name: appName
     }
 });
 
@@ -18,6 +12,8 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Component      from '../../../../src/component/Base.mjs';
+import Container      from '../../../../src/container/Base.mjs';
+import Viewport       from '../../../../src/container/Viewport.mjs';
 
 /**
  * @summary A component builds one Responsive plugin, however often `responsive` is set before the plugin's import
@@ -25,7 +21,22 @@ import Component      from '../../../../src/component/Base.mjs';
  * import has settled. The plugin reads `owner.responsive` on every resize, so a later value needs no second plugin.
  */
 test.describe('Neo.component.Base#responsive', () => {
-    let component;
+    let component, defaultViewport;
+
+    test.beforeAll(() => {
+        defaultViewport = Neo.create(Viewport, {
+            appName,
+            applyBodyCls: false,
+            autoMount   : false,
+            id          : 'responsive-admission-viewport'
+        });
+        Neo.apps[1].mainView = defaultViewport
+    });
+
+    test.afterAll(() => {
+        defaultViewport?.destroy();
+        defaultViewport = null
+    });
 
     test.afterEach(() => {
         component?.destroy();
@@ -84,36 +95,20 @@ test.describe('Neo.component.Base#responsive', () => {
 
     test('binds to the matching Viewport custom resize event on mount, rebinds across window moves, and avoids Neo.Responsive global', async () => {
         const
-            listeners1 = [],
-            listeners2 = [],
-            viewport1  = {
-                id         : 'custom-viewport-win-1',
-                monitorSize: false,
-                on(event, fn, scope) {
-                    listeners1.push({event, fn, scope});
-                },
-                un(event, fn, scope) {
-                    const idx = listeners1.findIndex(l => l.event === event && l.fn === fn && l.scope === scope);
-                    if (idx > -1) listeners1.splice(idx, 1);
-                },
-                fire(event, data) {
-                    listeners1.filter(l => l.event === event).slice().forEach(l => l.fn.call(l.scope, data));
-                }
-            },
-            viewport2  = {
-                id         : 'custom-viewport-win-2',
-                monitorSize: false,
-                on(event, fn, scope) {
-                    listeners2.push({event, fn, scope});
-                },
-                un(event, fn, scope) {
-                    const idx = listeners2.findIndex(l => l.event === event && l.fn === fn && l.scope === scope);
-                    if (idx > -1) listeners2.splice(idx, 1);
-                },
-                fire(event, data) {
-                    listeners2.filter(l => l.event === event).slice().forEach(l => l.fn.call(l.scope, data));
-                }
-            };
+            viewport1 = Neo.create(Viewport, {
+                appName,
+                applyBodyCls: false,
+                autoMount   : false,
+                id          : 'custom-viewport-win-1',
+                windowId    : 11
+            }),
+            viewport2 = Neo.create(Viewport, {
+                appName,
+                applyBodyCls: false,
+                autoMount   : false,
+                id          : 'custom-viewport-win-2',
+                windowId    : 12
+            });
 
         Neo.apps[11] = {name: appName, mainView: viewport1, isMounted: () => true, on: () => {}, un: () => {}, fire: () => {}};
         Neo.apps[12] = {name: appName, mainView: viewport2, isMounted: () => true, on: () => {}, un: () => {}, fire: () => {}};
@@ -157,7 +152,6 @@ test.describe('Neo.component.Base#responsive', () => {
 
             expect(plugin.viewport).toBe(viewport2);
             expect(viewport2.monitorSize).toBe(true);
-            expect(listeners1.some(l => l.fn === plugin.onResize && l.scope === plugin)).toBe(false);
 
             viewport1.fire('resize', {rect: {width: 800, height: 600}, contentRect: {width: 800, height: 600}});
             expect(component.cls).toContain('is-narrow');
@@ -165,8 +159,42 @@ test.describe('Neo.component.Base#responsive', () => {
             viewport2.fire('resize', {rect: {width: 800, height: 600}, contentRect: {width: 800, height: 600}});
             expect(component.cls).toContain('is-wide');
         } finally {
+            viewport1.destroy();
+            viewport2.destroy();
             delete Neo.apps[11];
             delete Neo.apps[12];
+        }
+    });
+
+    test('getViewport resolves a Viewport when mainView is a non-Viewport container', async () => {
+        const nonViewportMainView = Neo.create(Container, {
+            appName,
+            id      : 'non-viewport-main-view',
+            windowId: 13
+        });
+
+        Neo.apps[13] = {name: appName, mainView: nonViewportMainView, isMounted: () => true, on: () => {}, un: () => {}, fire: () => {}};
+
+        try {
+            component = Neo.create(Component, {
+                appName,
+                windowId  : 13,
+                responsive: {landscape: {cls: ['is-landscape']}}
+            });
+
+            await expect.poll(() => responsivePlugins().length).toBe(1);
+            const [plugin] = responsivePlugins();
+
+            component.mounted = true;
+
+            expect(plugin.viewport).toBe(defaultViewport);
+            expect(plugin.viewport).not.toBe(nonViewportMainView);
+
+            defaultViewport.fire('resize', {rect: {width: 900, height: 500}, contentRect: {width: 900, height: 500}});
+            expect(component.cls).toContain('is-landscape');
+        } finally {
+            nonViewportMainView.destroy();
+            delete Neo.apps[13];
         }
     })
 });
