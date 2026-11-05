@@ -245,7 +245,7 @@ class MembersList extends Base {
                 headerText += (': {' + MembersList.escapeHtml(item.type.names.join('|')) + '}')
             }
 
-            if (item.hasOwnProperty('defaultvalue')) {
+            if (Object.hasOwn(item, 'defaultvalue')) {
                 headerText += (' = ' + item.defaultvalue)
             }
 
@@ -355,11 +355,11 @@ class MembersList extends Base {
             description, nestedParams, paramTable;
 
         params.forEach(param => {
-            if (param.hasOwnProperty('defaultvalue')) {
+            if (Object.hasOwn(param, 'defaultvalue')) {
                 hasDefaultValues = true
             }
 
-            if (param.hasOwnProperty('optional')) {
+            if (Object.hasOwn(param, 'optional')) {
                 hasOptionalParams = true
             }
         });
