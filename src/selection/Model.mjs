@@ -150,7 +150,8 @@ class Model extends Base {
                 view.onDeselect?.();
 
                 me.fire('selectionChange', {
-                    selection: itemCollection
+                    deselected: [item],
+                    selection : itemCollection
                 })
             }
         } else if (!silent) {

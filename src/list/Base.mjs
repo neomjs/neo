@@ -36,6 +36,20 @@ class List extends Component {
          */
         baseCls: ['neo-list'],
         /**
+         * Record field name to link the item's checked state when `useCheckBoxes` is `true`.
+         *
+         * The link activates when `useCheckBoxes` is `true` and the bound store's model declares
+         * this field (`store.model.getField(checkedField)`) or a raw record carries the property
+         * (`checkedField in record`). When active, explicit item selection and deselection
+         * (`selectionModel.select()` / `selectionModel.deselect()`) write `true` / `false` back
+         * into `record[checkedField]`, while view-initiated resets (`disableSelection`,
+         * `selectedIndex = null`, `deselectAll()`) leave record data untouched. In `singleSelect`
+         * mode, only the first initially checked record seeds `selectionModel.items`, and selecting
+         * a new item unchecks any previously checked record.
+         * @member {String} checkedField='checked'
+         */
+        checkedField: 'checked',
+        /**
          * An optional record field to make items non-clickable and visually greyed out.
          * The field expects the Boolean type.
          * @member {String} disabledField='disabled'
@@ -373,6 +387,7 @@ class List extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
+        value?.on('selectionChange', this.onSelectionChange, this);
         this.vnodeInitialized && value.register(this)
     }
 
@@ -501,13 +516,14 @@ class List extends Component {
             itemContent      = me.createItemContent(record, index, poolIndex),
             itemId           = me.getItemId(me.getRecordId(record)),
             {selectionModel} = me,
-            isSelected       = !me.disableSelection && selectionModel?.isSelected(itemId),
+            isSelected       = (!me.disableSelection && selectionModel?.isSelected(itemId))
+                            || (me.hasCheckedField(record) && Boolean(record[me.checkedField])),
             item, removeDom;
 
         isHeader && cls.push('neo-list-header');
 
-        if (isSelected){
-            cls.push(selectionModel.selectedCls)
+        if (isSelected) {
+            cls.push(selectionModel?.selectedCls || 'neo-selected')
         }
 
         if (record.cls) {
@@ -636,6 +652,18 @@ class List extends Component {
 
         if (!(me.animate && !me.getPlugin('list-animate'))) {
             vdom.cn = [];
+
+            if (me.useCheckBoxes && me.checkedField && !me.disableSelection && me.selectionModel) {
+                me.store.forEach(item => {
+                    if (me.hasCheckedField(item) && item[me.checkedField]) {
+                        let itemId = me.getItemId(me.getRecordId(item));
+
+                        if (!me.selectionModel.isSelected(itemId) && (!me.selectionModel.singleSelect || me.selectionModel.items.length === 0)) {
+                            NeoArray.add(me.selectionModel.items, itemId)
+                        }
+                    }
+                })
+            }
 
             me.store.forEach((item, index) => {
                 listItem = me.createItem(item, index);
@@ -803,6 +831,21 @@ class List extends Component {
     }
 
     /**
+     * @summary Checks whether `useCheckBoxes` is enabled and `record` defines {@link #checkedField}.
+     * @param {Object} record
+     * @returns {Boolean}
+     */
+    hasCheckedField(record) {
+        let {checkedField} = this;
+
+        if (!this.useCheckBoxes || !checkedField || !record) {
+            return false
+        }
+
+        return Boolean(this.store?.model?.getField?.(checkedField)) || checkedField in record
+    }
+
+    /**
      * @param {Object} data
      */
     onClick(data) {
@@ -868,6 +911,54 @@ class List extends Component {
     }
 
     /**
+     * @summary Synchronizes each record's {@link #checkedField} on explicit item `select` / `deselect` while skipping view-level `deselectAll` resets.
+     * @param {Object} data
+     * @param {String[]} [data.deselected]
+     * @param {Object[]} [data.records]
+     * @param {String[]} data.selection
+     */
+    onSelectionChange({deselected, records, selection}) {
+        let me = this;
+
+        if (!me.useCheckBoxes || !me.checkedField || !me.store || me.disableSelection) {
+            return
+        }
+
+        if (Array.isArray(records)) {
+            let selectedSet = new Set(selection || []);
+
+            if (me.selectionModel?.singleSelect) {
+                me.store.forEach(record => {
+                    if (me.hasCheckedField(record)) {
+                        let itemId          = me.getItemId(me.getRecordId(record)),
+                            shouldBeChecked = selectedSet.has(itemId);
+
+                        if (Boolean(record[me.checkedField]) !== shouldBeChecked) {
+                            record[me.checkedField] = shouldBeChecked
+                        }
+                    }
+                })
+            } else {
+                for (let itemId of selectedSet) {
+                    let record = me.store.get(me.getItemRecordId(itemId));
+
+                    if (me.hasCheckedField(record) && !record[me.checkedField]) {
+                        record[me.checkedField] = true
+                    }
+                }
+            }
+        } else if (Array.isArray(deselected)) {
+            for (let itemId of deselected) {
+                let record = me.store.get(me.getItemRecordId(itemId));
+
+                if (me.hasCheckedField(record) && record[me.checkedField]) {
+                    record[me.checkedField] = false
+                }
+            }
+        }
+    }
+
+    /**
      *
      */
     onStoreFilter() {
@@ -898,12 +989,27 @@ class List extends Component {
      * @param {Object} data.record
      */
     onStoreRecordChange(data) {
-        let me    = this,
-            index = me.store.indexOf(data.record);
+        let me               = this,
+            {fields, record} = data,
+            index            = me.store.indexOf(record);
 
         // ignore changes for records which have not been added to the list yet
         if (index > -1) {
-            me.vdom.cn[index] = me.createItem(data.record, index);
+            if (me.hasCheckedField(record) && fields?.some(field => field.name === me.checkedField)) {
+                let itemId           = me.getItemId(me.getRecordId(record)),
+                    isChecked        = Boolean(record[me.checkedField]),
+                    {selectionModel} = me;
+
+                if (!me.disableSelection && selectionModel) {
+                    if (isChecked && !selectionModel.isSelected(itemId)) {
+                        selectionModel.select(itemId)
+                    } else if (!isChecked && selectionModel.isSelected(itemId)) {
+                        selectionModel.deselect(itemId)
+                    }
+                }
+            }
+
+            me.vdom.cn[index] = me.createItem(record, index);
             me.update()
         }
     }
