@@ -32,6 +32,7 @@ class Component extends BaseComponent {
         bind: {
             calendarStore: 'stores.calendars',
             currentDate  : data => data.currentDate,
+            enableDrag   : data => data.events.enableDrag,
             eventBorder  : data => data.events.border,
             eventStore   : 'stores.events',
             locale       : data => data.locale,
@@ -59,11 +60,22 @@ class Component extends BaseComponent {
          */
         dayNameFormat_: 'short',
         /**
+         * Bound to the state provider.
+         * @member {Boolean} enableDrag_=true
+         * @protected
+         * @reactive
+         */
+        enableDrag_: true,
+        /**
          * Bound to the state provider
          * @member {String|null} eventBorder_=null
          * @reactive
          */
         eventBorder_: null,
+        /**
+         * @member {Neo.calendar.view.month.EventDragZone|null} eventDragZone=null
+         */
+        eventDragZone: null,
         /**
          * Bound to the state provider.
          * @member {Neo.calendar.store.Events|null} eventStore_=null
@@ -122,6 +134,11 @@ class Component extends BaseComponent {
          */
         owner: null,
         /**
+         * Config values for Neo.calendar.view.month.plugin.DragDrop
+         * @member {Object|null} pluginDragDropConfig=null
+         */
+        pluginDragDropConfig: null,
+        /**
          * @member {String|null} scrollTask=null
          * @protected
          */
@@ -154,7 +171,7 @@ class Component extends BaseComponent {
                     {vtype: 'text'}
                 ]}
             ]},
-            {cls: ['neo-c-m-scrollcontainer']}
+            {cls: ['neo-c-m-scrollcontainer'], flag: 'neo-c-m-scrollcontainer'}
         ]},
         /**
          * 0-6 => Sun-Sat
@@ -234,6 +251,33 @@ class Component extends BaseComponent {
 
         if (oldValue !== undefined) {
             me.updateHeader()
+        }
+    }
+
+    /**
+     * @summary Lazily imports and registers the month DragDrop plugin when `enableDrag` is enabled.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetEnableDrag(value, oldValue) {
+        if (value && !this.getPlugin('calendar-month-dragdrop')) {
+            import('./plugin/DragDrop.mjs').then(module => {
+                let me = this;
+
+                if (!me.isDestroyed && !me.getPlugin('calendar-month-dragdrop')) {
+                    let {appName} = me,
+                        plugins   = me.plugins || [];
+
+                    plugins.push({
+                        module: module.default,
+                        appName,
+                        ...me.pluginDragDropConfig
+                    });
+
+                    me.plugins = plugins
+                }
+            })
         }
     }
 
@@ -495,11 +539,12 @@ class Component extends BaseComponent {
             }
 
             dayConfig = {
-                cls: ['neo-day'],
-                id : `${me.id}__day__${ymdDate}`,
-                cn : [{
+                cls : ['neo-day'],
+                flag: ymdDate,
+                id  : `${me.id}__day__${ymdDate}`,
+                cn  : [{
                     cls : ['neo-day-number'],
-                    id : `${me.id}__day_number__${ymdDate}`,
+                    id  : `${me.id}__day_number__${ymdDate}`,
                     text: day
                 }]
             };
@@ -525,7 +570,7 @@ class Component extends BaseComponent {
                     // `get()` answers `null` for it. The day is still drawn; the event is not.
                     if (calendarRecord?.active) {
                         dayConfig.cn.push({
-                            cls     : ['neo-event', `neo-${calendarRecord.color}`],
+                            cls     : ['neo-event', 'neo-draggable', `neo-${calendarRecord.color}`],
                             flag    : recordKey,
                             id      : me.id + '__' + recordKey,
                             tabIndex: -1,
@@ -550,6 +595,14 @@ class Component extends BaseComponent {
         }
 
         return {header, row}
+    }
+
+    /**
+     * @summary Returns the VDOM node for `.neo-c-m-scrollcontainer`.
+     * @returns {Object}
+     */
+    getScrollContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-c-m-scrollcontainer')
     }
 
     /**

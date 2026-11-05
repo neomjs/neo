@@ -145,6 +145,8 @@
  "Neo.calendar.view.calendars.EditContainer": "Neo.form.Container",
  "Neo.calendar.view.calendars.List": "Neo.list.Component",
  "Neo.calendar.view.month.Component": "Neo.component.Base",
+ "Neo.calendar.view.month.EventDragZone": "Neo.draggable.DragZone",
+ "Neo.calendar.view.month.plugin.DragDrop": "Neo.plugin.Base",
  "Neo.calendar.view.settings.GeneralContainer": "Neo.container.Base",
  "Neo.calendar.view.settings.MonthContainer": "Neo.container.Base",
  "Neo.calendar.view.settings.WeekContainer": "Neo.container.Base",
