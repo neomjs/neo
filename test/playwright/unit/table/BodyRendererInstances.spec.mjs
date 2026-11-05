@@ -59,6 +59,7 @@ test.describe('Neo.table.Body#applyRendererOutput Neo instances and configs (#45
                     {name: 'id',      type: 'String'},
                     {name: 'action',  type: 'String'},
                     {name: 'status',  type: 'String'},
+                    {name: 'vip',     type: 'Boolean'},
                     {name: 'colspan', type: 'Object'}
                 ]
             },
@@ -155,14 +156,20 @@ test.describe('Neo.table.Body#applyRendererOutput Neo instances and configs (#45
         expect(cell.cn).toEqual([customInstance.vdom])
     });
 
-    test('renderer returning a Neo config (module, ntype, or className) creates, reuses on recordChange, and forwards theme/windowId', async () => {
+    test('renderer returning a Neo config reuses record-keyed cell components across recordChange and sort without leaking omitted config keys (#4574 / #20364)', async () => {
+        const receivedComponents = [];
+
         await createTable([{
             dataField: 'action',
             text     : 'Action (module)',
-            renderer : ({value}) => ({
-                module: Button,
-                text  : value
-            })
+            renderer : ({component, record, value}) => {
+                receivedComponents.push(component);
+                return {
+                    module: Button,
+                    text  : value,
+                    ...(record.vip && {iconCls: 'fa fa-star'})
+                }
+            }
         }, {
             dataField: 'status',
             text     : 'Status (ntype)',
@@ -170,43 +177,76 @@ test.describe('Neo.table.Body#applyRendererOutput Neo instances and configs (#45
                 ntype: 'button',
                 text : `Status: ${value}`
             })
-        }]);
+        }], [
+            {id: 'r1', action: 'Edit',   status: 'Open',   vip: true},
+            {id: 'r2', action: 'Delete', status: 'Closed', vip: false}
+        ]);
 
         const {body}         = table,
               r1Record       = store.get('r1'),
+              r2Record       = store.get('r2'),
               r1ActionCellId = body.getCellId(r1Record, 'action'),
-              r1StatusCellId = body.getCellId(r1Record, 'status');
+              r1StatusCellId = body.getCellId(r1Record, 'status'),
+              r2ActionCellId = body.getCellId(r2Record, 'action'),
+              r2StatusCellId = body.getCellId(r2Record, 'status');
 
         expect(body.createdCellComponents.size).toBe(4);
+        expect(receivedComponents).toEqual([undefined, undefined]);
 
-        const actionBtn = body.createdCellComponents.get(r1ActionCellId),
-              statusBtn = body.createdCellComponents.get(r1StatusCellId);
+        const r1ActionBtn = body.createdCellComponents.get(r1ActionCellId),
+              r1StatusBtn = body.createdCellComponents.get(r1StatusCellId),
+              r2ActionBtn = body.createdCellComponents.get(r2ActionCellId),
+              r2StatusBtn = body.createdCellComponents.get(r2StatusCellId);
 
-        expect(actionBtn instanceof Button).toBe(true);
-        expect(actionBtn.parentId).toBe(body.id);
-        expect(actionBtn.text).toBe('Edit');
-        expect(statusBtn instanceof Button).toBe(true);
-        expect(statusBtn.text).toBe('Status: Open');
+        expect(r1ActionBtn instanceof Button).toBe(true);
+        expect(r1ActionBtn.parentId).toBe(body.id);
+        expect(r1ActionBtn.text).toBe('Edit');
+        expect(r1ActionBtn.iconCls).toBe('fa fa-star');
+        expect(r2ActionBtn.iconCls).toBeNull();
+        expect(r1StatusBtn instanceof Button).toBe(true);
+        expect(r1StatusBtn.text).toBe('Status: Open');
 
-        expect(body.vdom.cn[0].cn[0].cn).toEqual([actionBtn.createVdomReference()]);
-        expect(body.vdom.cn[0].cn[1].cn).toEqual([statusBtn.createVdomReference()]);
+        expect(body.vdom.cn[0].cn[0].cn).toEqual([r1ActionBtn.createVdomReference()]);
+        expect(body.vdom.cn[0].cn[1].cn).toEqual([r1StatusBtn.createVdomReference()]);
 
-        // Record change reuses the same component instance in place without leaking a new one
+        // 1. Record change reuses the record's cell component in place and passes it as `component` to column.renderer
         r1Record.action = 'Save';
 
-        expect(body.createdCellComponents.get(r1ActionCellId)).toBe(actionBtn);
-        expect(actionBtn.isDestroyed).toBeFalsy();
-        expect(actionBtn.text).toBe('Save');
+        expect(body.createdCellComponents.get(r1ActionCellId)).toBe(r1ActionBtn);
+        expect(receivedComponents[2]).toBe(r1ActionBtn);
+        expect(r1ActionBtn.isDestroyed).toBeFalsy();
+        expect(r1ActionBtn.text).toBe('Save');
 
-        // Theme and windowId updates propagate to createdCellComponents
+        // 2. Store sort reorders rows while keeping each record bound to its own cell component — omitted `iconCls` on r2 never inherits r1's star
+        store.sort({property: 'id', direction: 'DESC'});
+
+        expect(body.createdCellComponents.get(r1ActionCellId)).toBe(r1ActionBtn);
+        expect(body.createdCellComponents.get(r2ActionCellId)).toBe(r2ActionBtn);
+        expect(r1ActionBtn.isDestroyed).toBeFalsy();
+        expect(r2ActionBtn.isDestroyed).toBeFalsy();
+        expect(body.vdom.cn[0].cn[0].cn).toEqual([r2ActionBtn.createVdomReference()]);
+        expect(body.vdom.cn[1].cn[0].cn).toEqual([r1ActionBtn.createVdomReference()]);
+        expect(r2ActionBtn.text).toBe('Delete');
+        expect(r2ActionBtn.iconCls).toBeNull();
+        expect(r1ActionBtn.text).toBe('Save');
+        expect(r1ActionBtn.iconCls).toBe('fa fa-star');
+        expect(r2StatusBtn.text).toBe('Status: Closed');
+        expect(r1StatusBtn.text).toBe('Status: Open');
+
+        // 3. Mounted, theme, and windowId updates propagate to createdCellComponents
+        body.mounted  = true;
         body.theme    = 'neo-theme-dark';
         body.windowId = 'window-2';
 
-        expect(actionBtn.theme).toBe('neo-theme-dark');
-        expect(actionBtn.windowId).toBe('window-2')
+        expect(r1ActionBtn.mounted).toBe(true);
+        expect(r1ActionBtn.theme).toBe('neo-theme-dark');
+        expect(r1ActionBtn.windowId).toBe('window-2');
+
+        body.mounted = false;
+        expect(r1ActionBtn.mounted).toBe(false)
     });
 
-    test('createdCellComponents are destroyed when replaced by primitive output, spanned over, filtered out, cleared, or when body destroys', async () => {
+    test('createdCellComponents are destroyed when replaced by primitive output, spanned over, removed by store reload, cleared, or when body destroys', async () => {
         let useConfig = true;
 
         await createTable([{
@@ -235,7 +275,7 @@ test.describe('Neo.table.Body#applyRendererOutput Neo instances and configs (#45
 
         expect(body.createdCellComponents.size).toBe(4);
 
-        // 1. Colspan covering status column in row 1 destroys r1StatusBtn
+        // 1. Colspan covering status column in r1 destroys r1StatusBtn
         r1Record.colspan = {action: 2};
         expect(r1StatusBtn.isDestroyed).toBe(true);
         expect(body.createdCellComponents.has(r1StatusCellId)).toBe(false);
@@ -247,7 +287,7 @@ test.describe('Neo.table.Body#applyRendererOutput Neo instances and configs (#45
         expect(body.createdCellComponents.has(r1ActionCellId)).toBe(false);
         expect(body.vdom.cn[0].cn[0].html).toBe('PlainText');
 
-        // 3. Re-rendering createViewData with a single record destroys r2StatusBtn
+        // 3. Re-rendering createViewData with a single replacement record destroys r2's components while creating the new record's status component
         store.data = [{id: 'r1', action: 'PlainText', status: 'StillOpen'}];
         expect(r2ActionBtn.isDestroyed).toBe(true);
         expect(r2StatusBtn.isDestroyed).toBe(true);
@@ -257,6 +297,7 @@ test.describe('Neo.table.Body#applyRendererOutput Neo instances and configs (#45
               newR1StatusBtn    = body.createdCellComponents.get(newR1StatusCellId);
         expect(newR1StatusBtn instanceof Button).toBe(true);
         expect(newR1StatusBtn.isDestroyed).toBeFalsy();
+        expect(newR1StatusBtn.text).toBe('StillOpen');
 
         // 4. Clearing all rows via onStoreLoad({items: []}) destroys remaining created components
         body.onStoreLoad({items: []});
