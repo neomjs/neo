@@ -286,32 +286,40 @@ test.describe('functional/UseMemo', () => {
 
     test('demonstrates measurable rendering speedup on an expensive VDOM subtree across unrelated state updates', async () => {
         const
-            rowCount    = 500,
-            updateCount = 50;
+            itemCount   = 25000,
+            updateCount = 30;
 
         let unmemoizedComputes = 0,
             memoizedComputes   = 0;
 
-        const buildExpensiveSubtree = (prefix, rows) => ({
-            tag: 'ul',
-            id : `${prefix}-list`,
-            cn : Array.from({length: rows}, (_, i) => ({
-                tag : 'li',
-                id  : `${prefix}-row-${i}`,
-                cls : ['row-item', i % 2 === 0 ? 'even' : 'odd'],
-                text: `Row ${i} (${ (i * 31) % 97 })`
-            }))
-        });
+        const computeExpensiveSubtree = (prefix, count) => {
+            let checksum = 0;
+
+            for (let i = 0; i < count; i++) {
+                checksum = (checksum + Math.imul(i ^ 0x9e3779b9, 2654435761)) | 0
+            }
+
+            return {
+                tag: 'ul',
+                id : `${prefix}-list`,
+                cn : Array.from({length: 5}, (_, i) => ({
+                    tag : 'li',
+                    id  : `${prefix}-row-${i}`,
+                    cls : ['row-item', i % 2 === 0 ? 'even' : 'odd'],
+                    text: `Row ${i} (${checksum + i})`
+                }))
+            }
+        };
 
         const UnmemoizedBench = defineComponent({
             config: {
                 className: 'Neo.Test.UnmemoizedBenchComponent',
-                rows_    : rowCount,
+                count_   : itemCount,
                 title_   : 'Start'
             },
             createVdom(config) {
                 unmemoizedComputes++;
-                const listVdom = buildExpensiveSubtree(config.id, config.rows);
+                const listVdom = computeExpensiveSubtree(config.id, config.count);
 
                 return {
                     tag: 'div',
@@ -327,14 +335,14 @@ test.describe('functional/UseMemo', () => {
         const MemoizedBench = defineComponent({
             config: {
                 className: 'Neo.Test.MemoizedBenchComponent',
-                rows_    : rowCount,
+                count_   : itemCount,
                 title_   : 'Start'
             },
             createVdom(config) {
                 const listVdom = useMemo(() => {
                     memoizedComputes++;
-                    return buildExpensiveSubtree(config.id, config.rows)
-                }, [config.rows]);
+                    return computeExpensiveSubtree(config.id, config.count)
+                }, [config.count]);
 
                 return {
                     tag: 'div',
@@ -354,13 +362,6 @@ test.describe('functional/UseMemo', () => {
         await unmemoizedComp.initVnode();
         unmemoizedComp.mounted = true;
 
-        const t0 = performance.now();
-        for (let i = 1; i <= updateCount; i++) {
-            await unmemoizedComp.set({title: `Title ${i}`})
-        }
-        const unmemoizedMs = performance.now() - t0;
-        unmemoizedComp.destroy();
-
         component = Neo.create(MemoizedBench, {
             appName,
             id: `bench-memoized-${testRun}`
@@ -368,11 +369,20 @@ test.describe('functional/UseMemo', () => {
         await component.initVnode();
         component.mounted = true;
 
-        const t1 = performance.now();
+        let unmemoizedMs = 0,
+            memoizedMs   = 0;
+
         for (let i = 1; i <= updateCount; i++) {
-            await component.set({title: `Title ${i}`})
+            const t0 = performance.now();
+            await unmemoizedComp.set({title: `Title ${i}`});
+            unmemoizedMs += performance.now() - t0;
+
+            const t1 = performance.now();
+            await component.set({title: `Title ${i}`});
+            memoizedMs += performance.now() - t1
         }
-        const memoizedMs = performance.now() - t1;
+
+        unmemoizedComp.destroy();
 
         expect(unmemoizedComputes).toBe(updateCount + 1);
         expect(memoizedComputes).toBe(1);
