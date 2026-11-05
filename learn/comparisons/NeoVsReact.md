@@ -77,7 +77,7 @@ This is where the two systems diverge significantly, each offering unique trade-
 *   **Neo.mjs: Direct & Granular Reactivity (Performant by Default)**
     *   Neo.mjs's model is fundamentally more efficient. The **individual config property is the unit of reactivity**.
     *   When a config value changes, only the specific `createVdom` effects that depend on that *exact* piece of state are queued for re-execution. There are no cascading re-renders. If a parent's `createVdom` re-runs, but the configs passed to a child have not changed, the child component's `createVdom` function is **never executed**.
-    *   **Benefit (Zero Manual Optimization):** This fine-grained reactivity completely eliminates the need for manual memoization. The engine is performant by design.
+    *   **Benefit (Zero Render-Guard Boilerplate):** This fine-grained reactivity eliminates the need for manual re-render and reference-stability memoization (`React.memo`, `useCallback`). `Neo.functional.useMemo` is reserved for caching computationally expensive derived values or VDOM subtrees within `createVdom`.
 
     ```javascript
     // The Neo.mjs equivalent, performant by default without manual optimization
@@ -96,7 +96,7 @@ This is where the two systems diverge significantly, each offering unique trade-
         createVdom() {
             const [count, setCount] = useConfig(0);
 
-            // No useMemo needed. useConfig provides a stable reference for the user object.
+            // No reference-stability useMemo needed here: useConfig provides a stable reference for the user object.
             const [user] = useConfig({name: 'John Doe'});
 
             return {
