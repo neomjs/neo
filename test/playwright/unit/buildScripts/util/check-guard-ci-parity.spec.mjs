@@ -286,17 +286,49 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
     });
 
     test('consolidates all mirrored lint-staged guards into guard-ci-parity-lint.yml and keeps substrate-sync push-only', () => {
-        const mirrors   = mirroredGuards(),
-              workflow  = yaml.load(fs.readFileSync(path.join(REPO_ROOT, MIRROR_REL), 'utf8')),
-              substrate = yaml.load(fs.readFileSync(path.join(REPO_ROOT, '.github/workflows/substrate-sync.yml'), 'utf8')),
-              triggers  = substrate.on ?? substrate[true];
+        const mirrors    = mirroredGuards(),
+              workflow   = yaml.load(fs.readFileSync(path.join(REPO_ROOT, MIRROR_REL), 'utf8')),
+              substrate  = yaml.load(fs.readFileSync(path.join(REPO_ROOT, '.github/workflows/substrate-sync.yml'), 'utf8')),
+              triggers   = substrate.on ?? substrate[true],
+              guardSteps = workflow.jobs.lint.steps.filter(step => typeof step.run === 'string' && step.run !== 'npm ci --ignore-scripts');
 
-        expect(mirrors.length).toBe(9);
+        expect(mirrors.length).toBeGreaterThan(0);
         expect(mirrors.every(({mirrors: files}) => files.length === 1 && files[0] === 'guard-ci-parity-lint.yml')).toBe(true);
         expect(Object.keys(workflow.jobs)).toEqual(['lint']);
+        expect(workflow.permissions).toEqual({contents: 'read'});
+        expect(guardSteps.length).toBe(12);
+        expect(guardSteps.every(step => step.if === '${{ !cancelled() }}')).toBe(true);
 
         expect(triggers.pull_request).toBeUndefined();
         expect(triggers.push).toEqual({branches: ['dev', 'main']})
+    });
+
+    test('admits step-level !cancelled() continuation guards so multi-guard jobs run every check without masking', () => {
+        ['${{ !cancelled() }}', "'!cancelled()'"].forEach(condition => {
+            const {code, output} = runFixture({
+                lintStaged: {
+                    '*.mjs': [
+                        `node ./${SELF_REL}`,
+                        'node ./tools/unmasked-guard.mjs'
+                    ]
+                },
+                workflows: {
+                    'guard-lint.yml': [
+                        'jobs:',
+                        '  lint:',
+                        '    steps:',
+                        `      - if: ${condition}`,
+                        `        run: node ./${SELF_REL}`,
+                        `      - if: ${condition}`,
+                        '        run: node ./tools/unmasked-guard.mjs',
+                        ''
+                    ].join('\n')
+                }
+            });
+
+            expect(code, `if: ${condition} should be accepted as an unmasked continuation guard.\n\n${output}`).toBe(0);
+            expect(output).toMatch(/\[lint-guard-ci-parity\] OK/)
+        })
     });
 
     test('RED: an entry without a reason or witness is a suppression, not an acceptance', () => {
@@ -388,6 +420,9 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
             {label: 'shell directory change', step: '      - run: "cd nested && node ./tools/mentioned-only.mjs"\n'},
             {label: 'continue-on-error', step: '      - continue-on-error: true\n        run: node ./tools/mentioned-only.mjs\n'},
             {label: 'conditional step', step: '      - if: false\n        run: node ./tools/mentioned-only.mjs\n'},
+            {label: 'always() step', step: '      - if: always()\n        run: node ./tools/mentioned-only.mjs\n'},
+            {label: 'failure() step', step: '      - if: failure()\n        run: node ./tools/mentioned-only.mjs\n'},
+            {label: 'compound !cancelled() step', step: '      - if: ${{ !cancelled() && false }}\n        run: node ./tools/mentioned-only.mjs\n'},
             {
                 label   : 'conditional job',
                 workflow: 'jobs:\n  lint:\n    if: false\n    steps:\n      - run: node ./tools/mentioned-only.mjs\n'

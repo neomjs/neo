@@ -69,6 +69,9 @@ concurrency:
   group: guard-ci-parity-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -88,37 +91,49 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Lint hook-CI guard parity
+        if: ${{ !cancelled() }}
         run: node buildScripts/util/check-guard-ci-parity.mjs
 
       - name: Keep class logic where a subclass, a mixin or Neo.overwrites can reach it
+        if: ${{ !cancelled() }}
         run: node ./buildScripts/util/check-class-module-scope.mjs
 
       - name: Check no new path into resources/content
+        if: ${{ !cancelled() }}
         run: node ./buildScripts/util/check-content-root-derivations.mjs
 
       - name: Check engine does not import the Brain
+        if: ${{ !cancelled() }}
         run: node ./buildScripts/util/check-engine-brain-boundary.mjs
 
       - name: Require fixed second-scale waits to name what they wait for
+        if: ${{ !cancelled() }}
         run: node ./buildScripts/util/check-fixed-sleeps.mjs
 
       - name: Lint JSDoc type expressions (docs-build parser check-mode)
+        if: ${{ !cancelled() }}
         run: node ./buildScripts/util/check-jsdoc-types.mjs
 
       - name: Check relative links in the guides and the entry docs
+        if: ${{ !cancelled() }}
         run: npm run check-relative-links
 
       - name: Check theme coverage (whole tree)
+        if: ${{ !cancelled() }}
         run: node buildScripts/util/check-theme-coverage.mjs
 
       - name: Require theme value files to declare variables, never selectors
+        if: ${{ !cancelled() }}
         run: node ./buildScripts/util/check-theme-value-files.mjs
 
       - name: Check examples/ is Body-only
+        if: ${{ !cancelled() }}
         run: npm run check-examples-body-only
 
       - name: Check Workstation skin parity and token-only views
+        if: ${{ !cancelled() }}
         run: npm run check-theme-surfaces
 
       - name: Check front-door integrity fingerprint
+        if: ${{ !cancelled() }}
         run: node ./buildScripts/util/check-front-door-fingerprint.mjs

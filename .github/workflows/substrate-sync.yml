@@ -1,9 +1,11 @@
 # Asserts the agent skill substrate is actually reachable in this checkout on post-merge pushes.
 #
-# Pull requests are already gated by `pr-baseline.yml` (`baseline / Skills materialized`, required in
-# the `dev` ruleset), so running a second `npm ci` + `neo-agent-skills-materialize --check` on every
-# `pull_request` here only duplicated a runner slot. Post-merge pushes to `dev` and `main` run this
-# workflow directly because `pr-baseline.yml` is pull-request-only.
+# The check exists because `npm ci --ignore-scripts` resolves `neo-agent-skills` without projecting
+# it, and only the materialize check tells the two apart. Pull requests are already gated by
+# `pr-baseline.yml` (`baseline / Skills materialized`, required in the `dev` ruleset), so running a
+# second `npm ci` + `neo-agent-skills-materialize --check` on every `pull_request` here only
+# duplicated a runner slot. Post-merge pushes to `dev` and `main` run this workflow directly because
+# `pr-baseline.yml` is pull-request-only.
 
 name: substrate-sync
 

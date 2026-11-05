@@ -37,7 +37,7 @@
  * gates `dev` pull requests is eligible, regardless of filename: the `*-lint.yml` filter this
  * carried was a PROXY for that trigger, and the trigger is already checked directly one line
  * later — so the name was buying nothing and costing a false red on every correctly-mirrored
- * guard whose workflow is named for its subject (`check-relative-links.yml`) rather than for its
+ * guard whose workflow is named for its subject (`guard-ci-parity-lint.yml`) rather than for its
  * category. Eligible workflows must gate `dev` pull requests;
  * their YAML is parsed, then only unmasked `jobs.*.steps[].run` strings are inspected for direct
  * `node … <script>.mjs` commands. Counting any wider population would create a false green inside the
@@ -366,7 +366,7 @@ function workflowExecutions() {
                     if (
                         typeof step?.run !== 'string' ||
                         Object.hasOwn(step, 'env') ||
-                        Object.hasOwn(step, 'if') ||
+                        (Object.hasOwn(step, 'if') && !isUnmaskedStepIf(step.if)) ||
                         Object.hasOwn(step, 'shell') ||
                         step['continue-on-error']
                     ) {
@@ -381,6 +381,21 @@ function workflowExecutions() {
 
             return {file, executed}
         })
+}
+
+/**
+ * @summary Whether a workflow step's `if:` condition is the exact `!cancelled()` continuation guard
+ * used by multi-guard jobs so an earlier step's failure cannot mask later guards.
+ *
+ * Any other `if:` expression (`false`, `always()`, `failure()`, `${{ !cancelled() && ... }}`) remains
+ * treated as a conditional mask.
+ *
+ * @param {*} stepIf
+ * @returns {Boolean}
+ */
+function isUnmaskedStepIf(stepIf) {
+    return typeof stepIf === 'string' &&
+        /^\s*(?:!\s*cancelled\(\s*\)|\$\{\{\s*!\s*cancelled\(\s*\)\s*\}\})\s*$/.test(stepIf)
 }
 
 /**
