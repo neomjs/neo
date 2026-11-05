@@ -509,28 +509,30 @@ class GraphScene extends Base {
 
     /**
      * @summary Packs the measured labels into the atlas, row by row, each row up to `limit` wide and the rows up to
-     * `limit` tall. A label wider than `limit` gets no place, and one past the last row does not fit: neither is
-     * drawn into the atlas nor placed, and the labels after them keep packing.
+     * `limit` tall. A label the atlas cannot hold whole where the packing stands (wider or taller than `limit`, or
+     * past the last row) gets no place and claims no space: it is neither drawn into the atlas nor placed, and the
+     * labels after it keep packing.
      * @param {Object} options
      * @param {Number[][]} options.boxes `[width, height]` per label, measured whole, in drawing-buffer pixels
      * @param {Number} options.limit The atlas's largest side
-     * @returns {{fits: Uint8Array, height: Number, origins: Array<Number[]|null>, width: Number}} `origins` holds
-     * each label's top-left corner in the atlas, `null` for one wider than `limit`; `fits` is 1 for each label the
-     * atlas holds whole
+     * @returns {{height: Number, origins: Array<Number[]|null>, width: Number}} `origins` holds each label's top-left
+     * corner in the atlas, `null` for one it does not hold
      */
     static packLabels({boxes, limit}) {
         const origins = [];
         let   x       = 0, y = 0, row = 0, width = 1;
 
         boxes.forEach(([w, h]) => {
-            if (w > limit) {
+            const wraps = x + w > limit, top = wraps ? y + row : y;
+
+            if (w > limit || top + h > limit) {
                 origins.push(null);
                 return
             }
 
-            if (x + w > limit) {
+            if (wraps) {
                 x   = 0;
-                y  += row;
+                y   = top;
                 row = 0
             }
 
@@ -540,9 +542,7 @@ class GraphScene extends Base {
             width  = Math.max(width, x)
         });
 
-        const height = Math.max(1, Math.min(limit, y + row));
-
-        return {fits: Uint8Array.from(origins, (origin, label) => origin && origin[1] + boxes[label][1] <= height ? 1 : 0), height, origins, width}
+        return {height: Math.max(1, y + row), origins, width}
     }
 
     /**
@@ -1299,7 +1299,7 @@ class GraphScene extends Base {
             {gap, lift, max} = me.labelStyle,
             M                = me.matrix(),
             points           = me.constructor.labelAnchors({lod: me.getLodLevel() === 'far' ? scene.lod : null, nodes, positions: scene.positions}),
-            anchors          = Array.from(nodes, (node, label) => atlas.fits[label] ? me.constructor.project(M, points[label * 3], points[label * 3 + 1], points[label * 3 + 2], width, height) : null),
+            anchors          = Array.from(nodes, (node, label) => atlas.origins[label] ? me.constructor.project(M, points[label * 3], points[label * 3 + 1], points[label * 3 + 2], width, height) : null),
             centres          = me.constructor.labelCentres({anchors, boxes: atlas.boxes, lift: lift * atlas.ratio}),
             placed           = me.constructor.placeLabels({anchors: centres, boxes: atlas.boxes, gap: gap * atlas.ratio, height, max, width}),
             quads            = new Float32Array(placed.length * 24);
@@ -1459,8 +1459,8 @@ class GraphScene extends Base {
     /**
      * @summary Draws each label's text once into the atlas texture, at the drawing buffer's pixel ratio, fill
      * over outline, row by row, and readies the vertex array the frames fill with quads. The atlas holds what
-     * fits in 2048 drawing-buffer pixels square ({@link Neo.canvas.GraphScene.packLabels}): a label wider than
-     * that, or past its last row, is never drawn into it nor placed. A scene without labels uploads none.
+     * fits in 2048 drawing-buffer pixels square ({@link Neo.canvas.GraphScene.packLabels}): a label it cannot
+     * hold whole is never drawn into it nor placed. A scene without labels uploads none.
      * @protected
      */
     uploadLabels() {
@@ -1486,7 +1486,7 @@ class GraphScene extends Base {
 
                 return [Math.ceil(context.measureText(text).width) + 2 * pad, Math.ceil(labels.sizes[label] * ratio * 1.3) + 2 * pad]
             }),
-            {fits, height, origins, width} = me.constructor.packLabels({boxes, limit});
+            {height, origins, width}  = me.constructor.packLabels({boxes, limit});
 
         // sizing the canvas resets its context state, so the look is set after it
         canvas.width  = width;
@@ -1500,7 +1500,7 @@ class GraphScene extends Base {
         context.textBaseline = 'middle';
 
         labels.texts.forEach((text, label) => {
-            if (fits[label]) {
+            if (origins[label]) {
                 const [left, top] = origins[label], middle = top + boxes[label][1] / 2;
 
                 context.font = fonts[label];
@@ -1530,7 +1530,7 @@ class GraphScene extends Base {
         gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
         gl.bindVertexArray(null);
 
-        surfaces.labels = {boxes, count: fits.reduce((count, fit) => count + fit, 0), fits, height, origins, quads, ratio, texture, vao, width}
+        surfaces.labels = {boxes, count: origins.filter(Boolean).length, height, origins, quads, ratio, texture, vao, width}
     }
 
     /**

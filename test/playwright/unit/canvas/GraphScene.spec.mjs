@@ -110,16 +110,18 @@ test.describe('Neo.canvas.GraphScene — labels and flights, the math', () => {
         expect(place({anchors: [[60, 52], [50, 50], null, [-30, 50], [50, 70]]}), 'of two overlapping labels, the earlier wins').toEqual([0, 4])
     });
 
-    test('the atlas packs labels whole: one wider than the atlas is left out, never clipped, the labels after it keep packing, and one past the last row does not fit', () => {
+    test('the atlas packs labels whole: one it cannot hold is left out, never clipped, claims no space, and the labels after it keep packing', () => {
         const pack = boxes => GraphScene.packLabels({boxes, limit: 100});
 
         expect(pack([[40, 10], [120, 10], [50, 10]]), 'a normal label, one wider than the atlas, a later ordinary one')
-            .toEqual({fits: Uint8Array.from([1, 0, 1]), height: 10, origins: [[0, 0], null, [40, 0]], width: 90});
-        expect(pack([[60, 40], [60, 40], [60, 40]]), 'rows wrap at the limit, and the row past its height does not fit')
-            .toEqual({fits: Uint8Array.from([1, 1, 0]), height: 100, origins: [[0, 0], [0, 40], [0, 80]], width: 60});
+            .toEqual({height: 10, origins: [[0, 0], null, [40, 0]], width: 90});
+        expect(pack([[10, 10], [20, 120], [90, 10]]), 'one taller than the atlas leaves the row its height: the later one shares it')
+            .toEqual({height: 10, origins: [[0, 0], null, [10, 0]], width: 100});
+        expect(pack([[60, 40], [60, 40], [60, 30], [40, 20]]), 'rows wrap at the limit; one past the last row claims none, a later one packs into the row with room')
+            .toEqual({height: 80, origins: [[0, 0], [0, 40], null, [60, 40]], width: 100});
         // the same two texts measured at a pixel ratio of 1, then of 2
-        expect(pack([[40, 10], [60, 10]]).fits).toEqual(Uint8Array.from([1, 1]));
-        expect(pack([[80, 20], [120, 20]]).fits, 'at twice the ratio the second is wider than the atlas').toEqual(Uint8Array.from([1, 0]))
+        expect(pack([[40, 10], [60, 10]]).origins).toEqual([[0, 0], [40, 0]]);
+        expect(pack([[80, 20], [120, 20]]).origins, 'at twice the ratio the second is wider than the atlas').toEqual([[0, 0], null])
     });
 
     test('a label sits at its node, and at its node\'s cluster centroid while the frame draws centroids', () => {
