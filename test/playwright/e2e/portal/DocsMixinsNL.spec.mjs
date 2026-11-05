@@ -15,6 +15,56 @@ test.describe('Docs mixin members', () => {
         })
     });
 
+    test('keeps app source routes independent of the active navigation tab and search', async ({page, neuralLink}) => {
+        let structureRequests = 0;
+        page.on('request', request => {
+            if (new URL(request.url()).pathname === '/docs/output/structure.json') structureRequests++
+        });
+        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
+        await page.goto('/docs/index.html');
+        const app = await neuralLink.connectToApp('Docs'), className = 'Docs.app.view.MainContainer';
+        let apiTree, appsTree, record;
+
+        await expect.poll(async () => {
+            [apiTree] = await app.queryComponent({reference: 'api-treelist'}, ['store.id']);
+            [appsTree] = await app.queryComponent({reference: 'apps-treelist'}, ['store.id']);
+            if (appsTree) {
+                [record] = await app.callMethod(appsTree.properties['store.id'], 'find', [{className}])
+            }
+            return !!record
+        }).toBe(true);
+
+        expect(await app.callMethod(apiTree.properties['store.id'], 'find', [{className}])).toEqual([]);
+        expect(structureRequests).toBe(1);
+        const navigation = page.locator('.neo-docs-navigation-tab-container'),
+              apiTab     = navigation.getByRole('tab', {name: 'API', exact: true}),
+              appsTab    = navigation.getByRole('tab', {name: 'Apps', exact: true}),
+              [view]     = await app.queryComponent({className: 'Docs.view.MainContainer'}, ['controller.id']),
+              openSource = lineNumber => app.callMethod(view.properties['controller.id'], 'onViewSourceRoute', [{className, lineNumber}]);
+
+        await expect(apiTab).toHaveAttribute('aria-selected', 'true');
+        await openSource('1');
+        let sourceView;
+        await expect.poll(async () => {
+            [sourceView] = await app.queryComponent({id: `${className}__source`}, ['line']);
+            return !!sourceView
+        }).toBe(true);
+        await expect(page.locator(`[id="${sourceView.id}"]`)).toContainText('class MainContainer extends Viewport');
+        await expect(apiTab).toHaveAttribute('aria-selected', 'true');
+
+        await page.locator('input[placeholder="Filter Navigation"]').fill('Store');
+        await openSource('20');
+        await expect.poll(async () => (await app.getComponent(sourceView.id, ['line'])).line).toBe(20);
+        await appsTab.click();
+        const leafId = await app.callMethod(appsTree.id, 'getItemId', [record.id]);
+        await expect(page.locator(`[id="${leafId}"]`)).toBeHidden();
+        await page.locator('input[placeholder="Filter Navigation"]').fill('MainContainer');
+        await expect(page.locator(`[id="${leafId}"]`)).toBeVisible();
+        await page.locator(`[id="${leafId}"]`).click();
+        await expect.poll(async () => (await app.queryComponent({id: className}, ['structureData.className'])).length).toBe(1);
+        await page.screenshot({path: test.info().outputPath('docs-apps-navigation.png')})
+    });
+
     test('Store exposes Observable through one toggle, filters its members, and opens their source', async ({page, neuralLink}) => {
         await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
         await page.goto('/docs/index.html');
@@ -22,7 +72,7 @@ test.describe('Docs mixin members', () => {
         let navigation, record;
 
         await expect.poll(async () => {
-            [navigation] = await app.queryComponent({className: 'Docs.view.ApiTreeList'}, ['store.id']);
+            [navigation] = await app.queryComponent({reference: 'api-treelist'}, ['store.id']);
             if (navigation) {
                 [record] = await app.callMethod(navigation.properties['store.id'], 'find', [{className: 'Neo.data.Store'}])
             }

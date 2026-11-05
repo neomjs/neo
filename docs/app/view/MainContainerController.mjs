@@ -151,6 +151,7 @@ class MainContainerController extends Component {
             value = data.value;
 
         me.getReference('examples-treelist').filter('name', value, null);
+        me.getReference('apps-treelist')    .filter('name', value, null);
         me.getReference('api-treelist')     .filter('name', value, null)
     }
 
@@ -229,7 +230,7 @@ class MainContainerController extends Component {
     }
 
     /**
-     * @summary Handles the /viewSource route by opening or focusing the source view tab with the full className as the tab header tooltip.
+     * @summary Resolves source routes against the complete index regardless of navigation tab or search state.
      * @param {Object} data
      * @param {String} data.className
      * @param {String} data.lineNumber
@@ -239,7 +240,7 @@ class MainContainerController extends Component {
             className           = data.className,
             lineNumber          = data.lineNumber && parseInt(data.lineNumber) || null,
             contentTabContainer = me.getReference('content-tabcontainer'),
-            structureStore      = me.getReference('api-treelist').store,
+            structureStore      = me.getStateProvider().getStore('structure'),
             record              = structureStore.find('className', className)[0],
             tab;
 

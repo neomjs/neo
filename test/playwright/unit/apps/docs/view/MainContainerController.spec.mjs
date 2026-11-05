@@ -28,6 +28,7 @@ import ContentTabContainer     from '../../../../../../docs/app/view/ContentTabC
 import DocsMainContainer       from '../../../../../../docs/app/view/MainContainer.mjs';
 import ExamplesStore           from '../../../../../../docs/app/store/Examples.mjs';
 import MainContainerController from '../../../../../../docs/app/view/MainContainerController.mjs';
+import StateProvider           from '../../../../../../src/state/Provider.mjs';
 
 class MockTreeList extends Component {
     static config = {
@@ -38,6 +39,84 @@ class MockTreeList extends Component {
 MockTreeList = Neo.setupClass(MockTreeList);
 
 test.describe('Docs.view.MainContainerController tab header tooltips', () => {
+    test('shares one structure index across complete navigation projections and source routes', async () => {
+        Neo.main ??= {};
+        Neo.main.addon ??= {};
+        const previousHighlight    = Object.getOwnPropertyDescriptor(Neo.main.addon, 'HighlightJS'),
+              previousXhr          = Neo.Xhr,
+              previousApiLoad      = ApiStore.prototype.load,
+              previousExamplesLoad = ExamplesStore.prototype.load,
+              previousEnvironment  = Neo.config.environment,
+              rows                 = [
+                  {id: 40, parentId: null, name: 'apps'},
+                  {id: 71, parentId: 40, name: 'docs'},
+                  {id: 72, parentId: 71, name: 'Viewport', isLeaf: true, className: 'Docs.app.Viewport', srcPath: 'docs/app/Viewport.mjs'},
+                  {id: 10, parentId: null, name: 'src'},
+                  {id: 11, parentId: 10, name: 'data'},
+                  {id: 12, parentId: 11, name: 'Store', isLeaf: true, className: 'Neo.data.Store', srcPath: 'src/data/Store.mjs'}
+              ];
+        let view, loads = 0;
+
+        Neo.main.addon.HighlightJS = {
+            loadFiles      : () => {}, syntaxHighlightInit: () => {}, syntaxHighlightLine: () => {},
+            syntaxHighlight: () => Promise.resolve()
+        };
+        Neo.Xhr = {promiseJson: () => Promise.resolve(null), promiseRequest: () => Promise.resolve({response: ''})};
+        ApiStore.prototype.load = function() {
+            loads++;
+            this.data = rows.map(row => ({...row}));
+            return Promise.resolve(this.items)
+        };
+        ExamplesStore.prototype.load = () => Promise.resolve([]);
+
+        try {
+            for (const environment of ['development', 'production']) {
+                Neo.config.environment = environment;
+                view = Neo.create(DocsMainContainer, {appName, applyBodyCls: false});
+                await view.ready();
+                const controller = view.controller, provider = view.getStateProvider(),
+                      source     = provider.getStore('structure'), api = provider.getStore('api'), apps = provider.getStore('apps'),
+                      apiTree    = controller.getReference('api-treelist'), appTree = controller.getReference('apps-treelist'),
+                      tabs       = apiTree.up('tab-container');
+
+                expect(loads).toBe(environment === 'development' ? 1 : 2);
+                expect(source.count).toBe(6);
+                expect(api.items.map(item => item.id)).toEqual([10, 11, 12]);
+                expect(apps.items.map(item => item.id)).toEqual([40, 71, 72]);
+                expect(tabs.activeIndex).toBe(0);
+                expect(tabs.getTabButtons().map(button => button.text)).toEqual(['API', 'Apps', 'Examples']);
+                expect(controller.getReference('examples-tab-button').disabled).toBe(environment !== 'development');
+
+                controller.onNavigationSearchFieldChange({value: 'Store'});
+                expect(appTree.getVdomChild(appTree.getItemId(72)).style.display).toBe('none');
+                controller.onViewSourceRoute({className: 'Docs.app.Viewport', lineNumber: '7'});
+                const sourceView = controller.getReference('content-tabcontainer').getCardContainer().items.at(-1);
+                expect(sourceView.structureData).toBe(source.get(72));
+                expect(sourceView.line).toBe(7);
+                expect(tabs.activeIndex).toBe(0);
+                controller.onNavigationSearchFieldChange({value: ''});
+                expect(appTree.getVdomChild(appTree.getItemId(72)).style.display).toBe('flex');
+
+                source.data = rows.filter(row => row.id < 40).map(row => ({...row}));
+                expect(apps.count).toBe(0);
+                expect(api.items.map(item => item.id)).toEqual([10, 11, 12]);
+                controller.onNavigationSearchFieldChange({value: '('});
+
+                view.destroy();
+                expect([source, api, apps].every(store => store.isDestroyed)).toBe(true);
+                view = null
+            }
+        } finally {
+            view?.destroy();
+            ApiStore.prototype.load = previousApiLoad;
+            ExamplesStore.prototype.load = previousExamplesLoad;
+            Neo.Xhr = previousXhr;
+            Neo.config.environment = previousEnvironment;
+            previousHighlight ? Object.defineProperty(Neo.main.addon, 'HighlightJS', previousHighlight) :
+                delete Neo.main.addon.HighlightJS
+        }
+    });
+
     test('sets full className and dot-joined example path tooltips on tab header buttons when opening API, Example, and Source tabs', async () => {
         Neo.main ??= {};
         Neo.main.addon ??= {};
@@ -119,10 +198,11 @@ test.describe('Docs.view.MainContainerController tab header tooltips', () => {
 
             rootContainer = Neo.create(Container, {
                 appName,
-                controller: MainContainerController,
-                ntype     : 'main-container',
-                store     : apiStore,
-                items     : [
+                controller   : MainContainerController,
+                ntype        : 'main-container',
+                store        : apiStore,
+                stateProvider: {module: StateProvider, stores: {structure: apiStore}},
+                items        : [
                     {
                         module   : MockTreeList,
                         reference: 'api-treelist',
