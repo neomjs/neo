@@ -124,7 +124,14 @@ function createParityScenario(client, prefix) {
         id       : `${prefix}-provider`
     });
 
+    let previousApps, previousDomAccess, previousEventSimulator, previousMain;
+
     const installEnvironmentStubs = () => {
+        previousApps           = Neo.apps;
+        previousMain           = Neo.Main;
+        previousDomAccess      = Neo.main?.DomAccess;
+        previousEventSimulator = Neo.main?.addon?.EventSimulator;
+
         Neo.apps = {
             ...Neo.apps,
             [appName]: {mainView: container, name: appName}
@@ -161,8 +168,10 @@ function createParityScenario(client, prefix) {
 
         Neo.main                 ??= {};
         Neo.main.DomAccess         = {
+            ...previousDomAccess,
             async getBoundingClientRect({id}) {
-                return {height: 40, left: 10, top: 20, width: 100, x: 10, y: 20, id}
+                const rect = {height: 40, left: 10, top: 20, width: 100, x: 10, y: 20};
+                return Array.isArray(id) ? id.map(item => ({...rect, id: item})) : {...rect, id}
             },
             async getChildNodeIds() {
                 return [`${prefix}-button`]
@@ -197,6 +206,23 @@ function createParityScenario(client, prefix) {
     };
 
     const destroy = () => {
+        if (previousApps !== undefined) {
+            Neo.apps = previousApps
+        }
+        if (previousMain !== undefined) {
+            Neo.Main = previousMain
+        }
+        if (Neo.main && previousDomAccess !== undefined) {
+            Neo.main.DomAccess = previousDomAccess
+        }
+        if (Neo.main?.addon) {
+            if (previousEventSimulator === undefined) {
+                delete Neo.main.addon.EventSimulator
+            } else {
+                Neo.main.addon.EventSimulator = previousEventSimulator
+            }
+        }
+
         createdIds.forEach(id => Neo.get(id)?.destroy?.());
         provider.destroy();
         store.destroy();
@@ -273,13 +299,15 @@ function snapshotParityOutcome({client, createdId, prefix, results, scenario, wr
 }
 
 test.describe('Neo.ai.Client — off-socket dispatch refusal, regression, conflict and lifetime', () => {
-    let client, originalMain, originalMainNamespace, originalWebSocket;
+    let client, originalDomAccess, originalEventSimulator, originalMain, originalMainNamespace, originalWebSocket;
 
     test.beforeAll(async () => {
-        originalWebSocket    = globalThis.WebSocket;
-        originalMain         = Neo.Main;
-        originalMainNamespace = Neo.main;
-        globalThis.WebSocket = UnitTestWebSocket;
+        originalWebSocket      = globalThis.WebSocket;
+        originalMain           = Neo.Main;
+        originalMainNamespace  = Neo.main;
+        originalDomAccess      = Neo.main?.DomAccess;
+        originalEventSimulator = Neo.main?.addon?.EventSimulator;
+        globalThis.WebSocket   = UnitTestWebSocket;
 
         Neo.currentWorker ??= {on: () => {}, un: () => {}};
         Neo.worker        ??= {};
@@ -295,7 +323,18 @@ test.describe('Neo.ai.Client — off-socket dispatch refusal, regression, confli
     test.afterAll(() => {
         globalThis.WebSocket = originalWebSocket;
         Neo.Main             = originalMain;
-        Neo.main             = originalMainNamespace
+        Neo.main             = originalMainNamespace;
+
+        if (Neo.main && originalDomAccess !== undefined) {
+            Neo.main.DomAccess = originalDomAccess
+        }
+        if (Neo.main?.addon) {
+            if (originalEventSimulator === undefined) {
+                delete Neo.main.addon.EventSimulator
+            } else {
+                Neo.main.addon.EventSimulator = originalEventSimulator
+            }
+        }
     });
 
     test.beforeEach(() => {
