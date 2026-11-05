@@ -54,7 +54,7 @@ class DateSelectorModel extends Model {
     getCellDate(data) {
         let selection    = this.getSelection(),
             navigationId = !this.selectOnNavigate && this.navigationId,
-            idArray, tmpArray;
+            idArray;
 
         if (navigationId) {
             idArray = navigationId.split('__')
@@ -64,11 +64,7 @@ class DateSelectorModel extends Model {
             idArray = data.path[0].id.split('__')
         }
 
-        tmpArray = idArray[1].split('-').map(e => parseInt(e));
-
-        tmpArray[1]--; // the month inside the view is 1 based, a date needs 0 based
-
-        return new Date(...tmpArray)
+        return this.view.dateFromValue(idArray[1])
     }
 
     /**
@@ -201,7 +197,7 @@ class DateSelectorModel extends Model {
             this.select(id)
         } else {
             this.navigationId = id;
-            this.view.navigateToDate(new Date(`${id.split('__')[1]}T12:00:00.000Z`))
+            this.view.navigateToDate(this.view.dateFromValue(id.split('__')[1]))
         }
     }
 

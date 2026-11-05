@@ -329,4 +329,63 @@ test.describe('Neo.component.DateSelector', () => {
             await expect(picker).toBeHidden()
         });
     }
+
+    for (const timezoneId of ['Pacific/Kiritimati', 'Pacific/Niue']) {
+        test.describe(`calendar dates in ${timezoneId}`, () => {
+            test.use({timezoneId});
+
+            test('default Right wraps January 31 to January 1 without shifting the calendar date', async ({page, neo}) => {
+                componentId = await createDateSelector(page, {
+                    selectionModel: {id: navigationModelId},
+                    useAnimations : false,
+                    value         : '2026-01-31'
+                });
+
+                const lastDay  = page.locator(`#${componentId}__2026-01-31`),
+                      firstDay = page.locator(`#${componentId}__2026-01-01`);
+
+                await expect(lastDay).toHaveClass(/neo-selected/);
+                expect(new Date((await neo.getConfig(componentId, ['currentDate']))[0]).toISOString(),
+                    'the App Worker entered the requested timezone').toBe(timezoneId === 'Pacific/Kiritimati' ?
+                    '2026-01-30T22:00:00.000Z' : '2026-01-31T23:00:00.000Z');
+                await lastDay.focus();
+                await page.keyboard.press('ArrowRight');
+                await expect(firstDay).toBeFocused();
+                await expect(firstDay).toHaveClass(/neo-selected/);
+                await expect.poll(() => readNavigation(neo, componentId)).toEqual({
+                    value: '2026-01-01', items: [`${componentId}__2026-01-01`], navigationId: null
+                })
+            });
+
+            test('opt-out crosses New Year without changing December 31 until Enter', async ({page, neo}) => {
+                componentId = await createDateSelector(page, {
+                    selectionModel: {id: navigationModelId, selectOnNavigate: false, stayInMonth: false},
+                    useAnimations : false,
+                    value         : '2025-12-31'
+                });
+
+                const lastDay  = page.locator(`#${componentId}__2025-12-31`),
+                      firstDay = page.locator(`#${componentId}__2026-01-01`);
+
+                await expect(lastDay).toHaveClass(/neo-selected/);
+                expect(new Date((await neo.getConfig(componentId, ['currentDate']))[0]).toISOString(),
+                    'the App Worker entered the requested timezone').toBe(timezoneId === 'Pacific/Kiritimati' ?
+                    '2025-12-30T22:00:00.000Z' : '2025-12-31T23:00:00.000Z');
+                await lastDay.focus();
+                await page.keyboard.press('ArrowRight');
+                await expect(firstDay).toBeFocused();
+                await expect(firstDay).toHaveClass(/neo-navigated/);
+                await expect(firstDay).not.toHaveClass(/neo-selected/);
+                await expect.poll(() => readNavigation(neo, componentId)).toEqual({
+                    value: '2025-12-31', items: [`${componentId}__2025-12-31`], navigationId: `${componentId}__2026-01-01`
+                });
+
+                await page.keyboard.press('Enter');
+                await expect.poll(() => readNavigation(neo, componentId)).toEqual({
+                    value: '2026-01-01', items: [`${componentId}__2026-01-01`], navigationId: null
+                });
+                await expect(firstDay).toHaveClass(/neo-selected/)
+            })
+        })
+    }
 });

@@ -270,7 +270,7 @@ class DateSelector extends Component {
         if (value === false) {
             let me = this;
 
-            if (me.cachedUpdate && me.cachedUpdate !== new Date(`${me.value}T12:00:00.000Z`)) {
+            if (me.cachedUpdate && me.cachedUpdate.getTime() !== me.dateFromValue(me.value).getTime()) {
                 me.afterSetValue(me.value, DateUtil.convertToyyyymmdd(me.cachedUpdate))
             }
 
@@ -414,7 +414,7 @@ class DateSelector extends Component {
 
         if (value) {
             if (!me.isUpdating) {
-                me.currentDate = new Date(`${value}T12:00:00.000Z`);
+                me.currentDate = me.dateFromValue(value);
 
                 me.fire('change', {
                     component: me,
@@ -674,9 +674,9 @@ class DateSelector extends Component {
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
-            maxDate         = me.maxValue && new Date(`${me.maxValue}T12:00:00.000Z`),
-            minDate         = me.minValue && new Date(`${me.minValue}T12:00:00.000Z`),
-            valueDate       = new Date(`${me.value}T12:00:00.000Z`),
+            maxDate         = me.maxValue && me.dateFromValue(me.maxValue),
+            minDate         = me.minValue && me.dateFromValue(me.minValue),
+            valueDate       = me.dateFromValue(me.value),
             valueDay        = valueDate.getDate(),
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
@@ -758,6 +758,21 @@ class DateSelector extends Component {
      */
     focusCurrentItem() {
         this.focus(this.selectionModel.navigationId || this.selectionModel.items[0])
+    }
+
+    /**
+     * @summary Reads a date-only value at local noon, preserving its calendar day in every UTC offset.
+     * @param {String} value
+     * @returns {Date}
+     * @protected
+     */
+    dateFromValue(value) {
+        let [year, month, day] = String(value).split('-').map(Number),
+            date               = new Date(year, month - 1, day, 12);
+
+        date.setFullYear(year);
+
+        return date
     }
 
     /**
@@ -973,7 +988,7 @@ class DateSelector extends Component {
                     !me.isDestroyed &&
                     me.containsFocus &&
                     !Neo.manager.Focus?.pendingFocusOut?.[me.windowId]?.componentPath?.includes(me.id) &&
-                    (!me.cachedUpdate || me.cachedUpdate.getTime() === new Date(`${me.value}T12:00:00.000Z`).getTime()) &&
+                    (!me.cachedUpdate || me.cachedUpdate.getTime() === me.dateFromValue(me.value).getTime()) &&
                     !me.cachedNavigationDate &&
                     !me.cachedDayViewRebuild &&
                     (me.selectionModel?.navigationId || me.selectionModel?.items?.[0])
