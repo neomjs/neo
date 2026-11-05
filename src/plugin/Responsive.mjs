@@ -5,6 +5,13 @@ import Plugin from './Base.mjs';
  * @extends Neo.plugin.Base
  */
 class Responsive extends Plugin {
+    /**
+     * Per-window registry tracking whether a viewport resize listener for `document.body` orientation classes is active.
+     * @member {Object} apps={}
+     * @static
+     */
+    static apps = {}
+
     static config = {
         /**
          * @member {String} className='Neo.plugin.Responsive'
@@ -17,9 +24,14 @@ class Responsive extends Plugin {
          */
         ntype: 'plugin-responsive',
         /**
-         * @member {Map} responsiveConfig: new Map()
+         * @member {Map|null} responsiveConfig=null
          */
-        responsiveConfig: new Map(),
+        responsiveConfig: null,
+        /**
+         * @member {Neo.container.Viewport|null} viewport=null
+         * @protected
+         */
+        viewport: null,
         /**
          * @member {Object} defaultResponsiveConfig
          */
@@ -42,25 +54,22 @@ class Responsive extends Plugin {
         let me      = this,
             {owner} = me;
 
+        me.responsiveConfig = new Map();
+
         owner.addCls('neo-responsive');
-
-        Neo.first('viewport').addDomListeners([
-            {resize: me.onResize, scope: me}
-        ])
-
-        Neo.Responsive = Neo.Responsive || {
-            responsiveConfig: new Map(),
-            apps            : {}
-        };
 
         me.addToResponsiveMap(me.defaultResponsiveConfig, me);
         me.addToResponsiveMap(owner.responsiveConfig || {}, owner);
-        me.handleBodyCls()
+
+        // plugin.Base#construct calls onOwnerMounted() immediately when mounted and subscribes only when unmounted
+        if (owner.mounted) {
+            owner.on('mounted', me.onOwnerMounted, me)
+        }
     }
 
     /**
-     * @param responsiveObj
-     * @param scope
+     * @param {Object} responsiveObj
+     * @param {Object} scope
      */
     addToResponsiveMap(responsiveObj, scope) {
         for (const [key, value] of Object.entries(responsiveObj)) {
@@ -93,31 +102,87 @@ class Responsive extends Plugin {
 
             fn = fn.bind(scope);
 
-            Neo.Responsive.responsiveConfig.set(key, fn)
+            this.responsiveConfig.set(key, fn)
         }
     }
 
     /**
-     *
+     * @param {...*} args
      */
-    handleBodyCls() {
+    destroy(...args) {
+        let me = this;
+
+        me.owner?.un('mounted', me.onOwnerMounted, me);
+
+        if (me.viewport) {
+            me.viewport.un('resize', me.onResize, me);
+            me.viewport = null
+        }
+
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Resolves the Viewport instance owning this plugin's component across multi-window and custom-viewport apps.
+     * @returns {Neo.container.Viewport|null}
+     */
+    getViewport() {
+        let {owner}  = this,
+            mainView = owner.app?.mainView;
+
+        return owner.up('viewport')
+            || (mainView?.ntype === 'viewport' ? mainView : mainView?.down('viewport'))
+            || Neo.first('viewport')
+    }
+
+    /**
+     * @summary Ensures one Viewport resize listener per window updates `document.body` orientation classes.
+     * @param {Neo.container.Viewport|null} [viewport=this.getViewport()]
+     */
+    handleBodyCls(viewport=this.getViewport()) {
         const
             me         = this,
             {windowId} = me.owner,
-            apps       = Neo.Responsive;
+            {apps}     = me.constructor;
 
-        if (!apps[windowId]?.activeBodyUpdate) {
-            const viewport = Neo.first('viewport'); // todo
-
+        if (viewport && !apps[windowId]?.activeBodyUpdate) {
             apps[windowId] = {
                 appId           : viewport.id,
                 activeBodyUpdate: true
             };
 
-            viewport.addDomListeners([
-                {resize: me.onResizeBody, scope: me}
-            ])
+            viewport.monitorSize = true;
+            viewport.on('resize', me.onResizeBody, me)
         }
+    }
+
+    /**
+     * @summary Subscribes to the owning window's Viewport resize event on mount and rebinds across window moves.
+     * @param {Boolean} [mounted=true]
+     */
+    onOwnerMounted(mounted=true) {
+        if (!mounted) {
+            return
+        }
+
+        let me       = this,
+            viewport = me.getViewport();
+
+        if (!viewport) {
+            return
+        }
+
+        if (me.viewport && me.viewport !== viewport) {
+            me.viewport.un('resize', me.onResize, me)
+        }
+
+        if (me.viewport !== viewport) {
+            me.viewport          = viewport;
+            viewport.monitorSize = true;
+            viewport.on('resize', me.onResize, me)
+        }
+
+        me.handleBodyCls(viewport)
     }
 
     /**
@@ -129,7 +194,7 @@ class Responsive extends Plugin {
         const
             me           = this,
             config       = {},
-            configTester = Neo.Responsive.responsiveConfig,
+            configTester = me.responsiveConfig,
             {owner}      = me,
             {responsive} = owner;
 
