@@ -75,13 +75,16 @@ class Accordion extends Panel {
     }
 
     /**
-     * @summary Clears the active selection when `disableSelection` is set to `true`.
+     * @summary Clears the active selection when `disableSelection` is set to `true` and syncs header roving tabIndex.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetDisableSelection(value, oldValue) {
-        value && this.vnodeInitialized && this.selectionModel?.deselectAll()
+        if (this.isConstructed && this.selectionModel) {
+            value && this.selectionModel.deselectAll();
+            this.selectionModel.syncTabIndices?.(!this.vnodeInitialized)
+        }
     }
 
     /**
@@ -108,13 +111,13 @@ class Accordion extends Panel {
     }
 
     /**
-     * @summary Registers a newly assigned selectionModel once the Accordion is initialized.
+     * @summary Registers a newly assigned selectionModel once the Accordion is constructed.
      * @param {Neo.selection.Model|null} value
      * @param {Neo.selection.Model|null} oldValue
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        this.vnodeInitialized && value?.register(this)
+        this.isConstructed && value?.register(this)
     }
 
     /**
@@ -145,6 +148,10 @@ class Accordion extends Panel {
      */
     beforeSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
+
+        if (!value && oldValue !== undefined) {
+            return null
+        }
 
         return ClassSystemUtil.beforeSetInstance(value, AccordionModel)
     }

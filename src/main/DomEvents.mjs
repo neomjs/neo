@@ -707,13 +707,13 @@ class DomEvents extends Base {
             if (
                 !isInput &&
                 ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key) &&
-                me.testPathInclusion(event, ['neo-selection'], true)
+                me.testPathInclusion(event, ['neo-selection', 'neo-accordion-header'], true)
             ) {
                 event.preventDefault()
             }
 
-            // A menu item is not such a native target: Space activates it, like Enter, and scrolls nothing
-            if (!isInput && event.key === ' ' && me.testPathInclusion(event, ['neo-menu-list'])) {
+            // A menu item or accordion header is not such a native target: Space activates it, like Enter, and scrolls nothing
+            if (!isInput && event.key === ' ' && me.testPathInclusion(event, ['neo-menu-list', 'neo-accordion-header'])) {
                 event.preventDefault()
             }
         }

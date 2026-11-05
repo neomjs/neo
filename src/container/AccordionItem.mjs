@@ -73,8 +73,11 @@ class AccordionContainer extends Base {
         }
 
         header = Neo.create({
-            module: Toolbar,
-            items : [{
+            module : Toolbar,
+            flag   : 'header',
+            baseCls: ['neo-accordion-header', 'neo-toolbar'],
+            vdom   : {tabIndex: -1, cn: []},
+            items  : [{
                 flag   : 'iconEl',
                 ntype  : 'component',
                 baseCls: ['neo-accordion-header-icon'],
@@ -122,8 +125,10 @@ class AccordionContainer extends Base {
         // Ensure scrollbars are not flipping in and out
         me.timeout(450).then(() => {
             if (!me.isDestroyed) {
-                NeoArray[fn](cls, 'neo-scrollable');
-                me.cls = cls
+                let currentCls = me.cls;
+
+                NeoArray[me.expanded ? 'add' : 'remove'](currentCls, 'neo-scrollable');
+                me.cls = currentCls
             }
         })
     }
@@ -163,6 +168,14 @@ class AccordionContainer extends Base {
         if (titleEl) {
             titleEl.text = newValue
         }
+    }
+
+    /**
+     * @summary Returns the AccordionItem's header toolbar component.
+     * @returns {Neo.toolbar.Base|null}
+     */
+    getHeader() {
+        return this.down({flag: 'header'})
     }
 
     /**
