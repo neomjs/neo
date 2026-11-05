@@ -7,12 +7,13 @@
     position        : relative;
 
     .neo-c-m-scrollcontainer {
-        display       : flex;
-        flex          : 1 1 100%;
-        flex-direction: column;
-        overflow-y    : auto;
-        padding-top   : 3.75em;
-        position      : relative;
+        display        : flex;
+        flex           : 1 1 100%;
+        flex-direction : column;
+        overflow-anchor: none;
+        overflow-y     : auto;
+        padding-top    : 3.75em;
+        position       : relative;
 
         &.neo-is-scrolling {
             .neo-month-header-content {

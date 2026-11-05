@@ -136,4 +136,102 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
         expect(harness.style).toEqual({fontSize: '18px'});
         expect(updateHeaderHeightCalls).toEqual([false]);
     });
+
+    test('onWheel downward and upward boundary crossings shift 6 weeks and compensate scrollTop via scrollTo', async () => {
+        let measuredHeaderHeight  = 45,
+            scrollContainerHeight = 645,
+            scrollCalls           = [];
+
+        Neo.main.DomAccess.getBoundingClientRect = async ({id}) => {
+            return id.map((nodeId, index) => ({
+                width : 800,
+                height: index === 0 ? scrollContainerHeight : measuredHeaderHeight,
+                x     : 0,
+                y     : 0
+            }));
+        };
+
+        Neo.main.DomAccess.scrollTo = async (data) => {
+            scrollCalls.push(data);
+        };
+
+        const component = Neo.create(MonthComponent, {
+            appName,
+            calendarStore: Neo.create(CalendarsStore),
+            currentDate  : new Date(2027, 1, 1),
+            eventStore   : Neo.create(EventsStore),
+            weekStartDay : 0
+        });
+
+        component.timeout = () => Promise.resolve();
+
+        let lastHeaderPromise;
+        const origUpdateHeaderHeight = component.updateHeaderHeight.bind(component);
+        component.updateHeaderHeight = (scrollTo) => {
+            lastHeaderPromise = origUpdateHeaderHeight(scrollTo);
+            return lastHeaderPromise;
+        };
+
+        await component.initVnode();
+        component.mounted = true;
+        await lastHeaderPromise;
+
+        const getWeekFlags = () => component.vdom.cn[1].cn
+            .filter(node => node.cls.includes('neo-week'))
+            .map(node => node.flag);
+
+        const initialWeeks = getWeekFlags();
+        expect(initialWeeks.length).toBe(18);
+        expect(scrollCalls.length).toBe(1);
+
+        let lastPromiseUpdate;
+        const origPromiseUpdate = component.promiseUpdate.bind(component);
+        component.promiseUpdate = (...args) => {
+            lastPromiseUpdate = origPromiseUpdate(...args);
+            return lastPromiseUpdate;
+        };
+
+        component.onWheel({
+            clientHeight: 645,
+            deltaX      : 0,
+            deltaY      : 40,
+            scrollTop   : 1180
+        });
+
+        await lastPromiseUpdate;
+
+        const afterDownWeeks = getWeekFlags();
+        expect(afterDownWeeks.length).toBe(18);
+        expect(afterDownWeeks.slice(0, 12)).toEqual(initialWeeks.slice(6, 18));
+        expect(scrollCalls.length).toBe(2);
+        expect(scrollCalls[1]).toEqual({
+            direction: 'top',
+            id       : component.vdom.cn[1].id,
+            value    : 1180 - 600,
+            windowId : component.windowId
+        });
+
+        component.onWheel({
+            clientHeight: 645,
+            deltaX      : 0,
+            deltaY      : -40,
+            scrollTop   : 20
+        });
+
+        await lastPromiseUpdate;
+
+        const afterUpWeeks = getWeekFlags();
+        expect(afterUpWeeks.length).toBe(18);
+        expect(afterUpWeeks).toEqual(initialWeeks);
+        expect(scrollCalls.length).toBe(3);
+        expect(scrollCalls[2]).toEqual({
+            direction: 'top',
+            id       : component.vdom.cn[1].id,
+            value    : 600,
+            windowId : component.windowId
+        });
+
+        clearTimeout(component.scrollTaskId);
+        component.destroy();
+    });
 });

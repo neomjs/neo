@@ -629,6 +629,7 @@ class Component extends BaseComponent {
     }
 
     /**
+     * @summary Shifts the 18-week window by 6 weeks on boundary wheel scroll and compensates scrollTop.
      * @param {Object} data
      */
     onWheel(data) {
@@ -661,7 +662,14 @@ class Component extends BaseComponent {
                     container.cn.push(week.row)
                 }
 
-                me.update()
+                me.promiseUpdate().then(() => {
+                    Neo.main.DomAccess.scrollTo({
+                        direction: 'top',
+                        id       : me.vdom.cn[1].id,
+                        value    : data.scrollTop - (data.clientHeight - me.headerHeight),
+                        windowId : me.windowId
+                    })
+                })
             }
 
             else if (data.deltaY < 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) < 1) {
