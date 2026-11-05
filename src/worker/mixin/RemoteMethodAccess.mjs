@@ -290,8 +290,9 @@ class RemoteMethodAccess extends Base {
     }
 
     /**
-     * Sends a rejection reply back to the caller of a remote method.
+     * @summary Sends a cloneable rejection reply back to the caller of a remote method.
      * Used when the execution of the remote method fails or throws an error.
+     * The local destruction Symbol becomes an Error so a live remote caller can receive its cancellation.
      * It ensures the reply is routed back to the correct origin (windowId or worker).
      * Delivery is containment-guarded via sendReply() — a failed send cannot throw back
      * into the execution path.
@@ -300,6 +301,10 @@ class RemoteMethodAccess extends Base {
      * @param {Object} data The error data to send back.
      */
     reject(msg, data) {
+        if (data === Neo.isDestroyed) {
+            data = new Error('Remote method target was destroyed')
+        }
+
         let me = this,
 
         opts = {

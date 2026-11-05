@@ -594,6 +594,7 @@ class DomEvents extends Base {
     }
 
     /**
+     * @summary Forwards settled iframe focus after an instance-owned task deferral.
      * Focus crossing into a nested document is invisible to the focus events this document forwards:
      * the element losing focus fires `focusout` with no `relatedTarget`, the `<iframe>` element that
      * now holds it fires no `focusin`, and only the window's `blur` says anything happened. Without a
@@ -606,7 +607,7 @@ class DomEvents extends Base {
     onWindowBlur() {
         let me = this;
 
-        setTimeout(() => {
+        me.timeout(0).then(() => {
             let node = document.activeElement,
                 path = [];
 
@@ -624,7 +625,7 @@ class DomEvents extends Base {
                 timeStamp   : performance.now(),
                 type        : 'focusin'
             }))
-        }, 0)
+        })
     }
 
     /**

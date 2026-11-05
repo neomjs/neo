@@ -454,7 +454,7 @@ test.describe('Grid selection: a cell click as the DOM delivers it', () => {
     );
 
     test.afterEach(async () => {
-        await grid?.timeout(20);
+        if (grid && !grid.isDestroyed) await grid.timeout(20);
         grid?.destroy();
         store?.destroy();
         grid = store = null

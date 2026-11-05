@@ -668,7 +668,7 @@ class Main extends core.Base {
         const me = this;
 
         if (document.hidden) {
-            setTimeout(() => me.renderFrame(), 0);
+            me.timeout(0).then(() => me.renderFrame());
             return true
         }
 
@@ -895,7 +895,7 @@ class Main extends core.Base {
     }
 
     /**
-     * Focuses one exact native handle and verifies the target document accepted focus.
+     * @summary Focuses one exact native handle and verifies the target document accepted focus.
      * @param {Window} win
      * @returns {Promise<Boolean>}
      * @private
@@ -919,7 +919,7 @@ class Main extends core.Base {
         // are same-app popups), and an inaccessible document degrades to the opener-blur
         // fallback rather than a throw.
         for (let attempt = 0; attempt < 6; attempt++) {
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await this.timeout(50);
 
             try {
                 if (win.document.hasFocus()) {
@@ -960,7 +960,7 @@ class Main extends core.Base {
     }
 
     /**
-     * Moves one exact native handle and verifies the target reached the requested coordinates.
+     * @summary Moves one exact native handle and verifies the target reached the requested coordinates.
      * @param {Window} win
      * @param {Number|String} requestedX
      * @param {Number|String} requestedY
@@ -991,7 +991,7 @@ class Main extends core.Base {
                 break
             }
 
-            await new Promise(resolve => setTimeout(resolve, this.windowMovePollDelay))
+            await this.timeout(this.windowMovePollDelay)
         }
 
         this.#publishWindowGeometry(win);
@@ -1000,7 +1000,7 @@ class Main extends core.Base {
     }
 
     /**
-     * Resizes one exact native handle and verifies the target reached the requested outer extent.
+     * @summary Resizes one exact native handle and verifies the target reached the requested outer extent.
      * `Window#resizeTo()` speaks outer dimensions, so callers must translate from any inner-layout
      * geometry before crossing this physical-capability boundary.
      * @param {Window} win
@@ -1036,7 +1036,7 @@ class Main extends core.Base {
                 break
             }
 
-            await new Promise(resolve => setTimeout(resolve, this.windowMovePollDelay))
+            await this.timeout(this.windowMovePollDelay)
         }
 
         this.#publishWindowGeometry(win);
@@ -1129,7 +1129,7 @@ class Main extends core.Base {
     }
 
     /**
-     * Closes an exact owner-granted native handle generation and verifies the platform did it.
+     * @summary Closes an exact owner-granted native handle generation and verifies the platform did it.
      * @param {Object} data
      * @param {String} data.nativeHandleKey
      * @param {String} data.targetWindowId
@@ -1155,7 +1155,7 @@ class Main extends core.Base {
         // lets it through, and it can only do that while the route is still here — so the entry is
         // retired only once the window is gone.
         for (let attempt = 0; attempt < 6 && !win.closed; attempt++) {
-            await new Promise(resolve => setTimeout(resolve, 50))
+            await this.timeout(50)
         }
 
         if (!win.closed) {
@@ -1230,7 +1230,7 @@ class Main extends core.Base {
             for (let attempt = 0; attempt < 6; attempt++) {
                 if (this.openWindows[entry.windowName] !== entry) return null;
                 if (entry.win.closed) return true;
-                await new Promise(resolve => setTimeout(resolve, 50))
+                await this.timeout(50)
             }
             return this.openWindows[entry.windowName] === entry ? entry.win.closed : null
         } catch {

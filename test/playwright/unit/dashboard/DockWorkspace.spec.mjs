@@ -3805,20 +3805,33 @@ test('the holder contract: a config-assigned document is readable before any ope
         expect(retainedInspector.vdom.width).toBe('33%')
     });
 
-    test('a destroyed workspace drops its pending refresh without throwing', async () => {
-        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+    for (const repair of [false, true]) {
+        for (const duringDelay of [false, true]) {
+            test(`a destroyed workspace drops its pending ${repair ? 'repair' : 'refresh'} ${duringDelay ? 'during' : 'before'} the delay without throwing`, async () => {
+                workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+                const enteredDelay = Promise.withResolvers(), timeout = workspace.timeout.bind(workspace);
+                workspace.timeout = delay => {
+                    const pending = timeout(delay);
+                    enteredDelay.resolve();
+                    return pending
+                };
 
-        const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+                if (repair) {
+                    workspace.chainProjection({document: workspace.dockModel, refreshOptions: {}, tabInsertDescriptor: null})
+                } else {
+                    const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+                    workspace.onDockZoneDocumentChange(result.document)
+                }
 
-        workspace.onDockZoneDocumentChange(result.document);
+                const pending = workspace.refreshPromise;
+                duringDelay && await enteredDelay.promise;
+                workspace.destroy();
+                workspace = null;
 
-        const pending = workspace.refreshPromise;
-
-        workspace.destroy();
-        workspace = null;
-
-        await expect(pending).resolves.toBeUndefined()
-    });
+                await expect(pending).resolves.toBeUndefined()
+            })
+        }
+    }
 
     test('a rejected refresh stays observable and never suppresses the next transaction', async () => {
         workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
