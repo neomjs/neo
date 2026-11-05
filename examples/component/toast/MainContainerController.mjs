@@ -15,6 +15,7 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * @summary Loads the shared dark highlight theme once for the code preview.
      * @param {Object} config
      */
     construct(config) {
@@ -22,12 +23,15 @@ class MainContainerController extends ComponentController {
 
         let {windowId} = this;
 
-        Neo.main.addon.HighlightJS.switchTheme({theme: 'dark', windowId});
-        Neo.main.addon.HighlightJS.loadFiles({windowId})
+        Neo.main.addon.HighlightJS.loadFiles({
+            themePath: Neo.config.basePath + 'resources/lib/highlightjs-custom-dark-theme.css',
+            windowId
+        })
     }
 
     /**
      * Whenever any field changes we update the output
+     * @summary Publishes the code leaf before the main-thread highlighter replaces its contents.
      * @param {Object} data
      * @returns {Promise<void>}
      */
@@ -52,11 +56,8 @@ class MainContainerController extends ComponentController {
         button.disabled = !isValid;
 
         if (isValid) {
-            oVdom.cn = output.itemTpl(values);
-
-            output.update();
-
-            await me.timeout(20);
+            oVdom.html = output.itemTpl(values);
+            await output.promiseUpdate();
             me.syntaxHighlight()
         }
     }
@@ -85,6 +86,7 @@ class MainContainerController extends ComponentController {
 
     /**
      * 3rd party tool to highlight the code
+     * @summary Highlights only the code leaf, leaving its surrounding VDOM-owned pre element intact.
      */
     syntaxHighlight() {
         let me     = this,
@@ -92,7 +94,7 @@ class MainContainerController extends ComponentController {
             oVdom  = output.vdom;
 
         Neo.main.addon.HighlightJS.syntaxHighlight({
-            vnodeId : oVdom.cn[0].id,
+            vnodeId : oVdom.cn[0].cn[0].id,
             windowId: me.windowId
         })
     }

@@ -5,19 +5,22 @@ import Component               from '../../../src/component/Base.mjs';
 import FormContainer           from '../../../src/form/Container.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import NumberField             from '../../../src/form/field/Number.mjs';
+import StringUtil              from '../../../src/util/String.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.component.toast.MainContainer
  * @extends Neo.container.Viewport
+ * @summary Toast configuration form with an escaped, syntax-highlighted code preview.
  */
 class MainContainer extends Viewport {
     static config = {
         className : 'Neo.examples.component.toast.MainContainer',
         autoMount : true,
+        cls       : ['neo-examples-toast'],
         controller: MainContainerController,
-        layout: {ntype: 'hbox', align: 'stretch'},
+        layout    : {ntype: 'hbox', align: 'stretch'},
 
         items: [{
             module   : FormContainer,
@@ -110,27 +113,22 @@ class MainContainer extends Viewport {
                 ]}
             ]},
 
+            /**
+             * @summary Keeps VDOM child ids out of HighlightJS's replacement markup with one escaped code leaf.
+             * @param {Object} data Toast form values.
+             * @returns {String}
+             */
             itemTpl: data => {
-                return [
-                    {cls: 'import', html: 'import Toast from \'../../../../node_modules/neo.mjs/src/component/Toast.mjs\';'},
-                    {html: 'Neo.toast({'},
-                    {cls: 'tab', cn: [
-                        {cls: 'grey', html: '/* mandatory */'},
-                        {html: `appName: '${data.appName}',`},
-                        {html: `msg: '${data.msg}',`},
-                        {html: `windowId: '${data.windowId}',`},
-                        {html: '/* optional */'},
-                        {html: `title: '${data.title}',`, removeDom: !data.title},
-                        {html: `iconCls: '${data.iconCls}',`, removeDom: !data.iconCls},
-                        {html: `closable: ${data.closable},`, removeDom: !data.closable},
-                        {html: `position: '${data.position}',`, removeDom: !data.position},
-                        {html: `slideDirection: '${data.slideDirection}',`, removeDom: !data.slideDirection},
-                        {html: `maxWidth: ${data.maxWidth},`, removeDom: !data.maxWidth},
-                        {html: `minHeight: ${data.minHeight},`, removeDom: !data.minHeight},
-                        {html: `ui: '${data.ui}'`, removeDom: !data.ui},
-                    ]},
-                    {html: '})'}
-                ]
+                const config = {appName: data.appName, msg: data.msg, windowId: data.windowId};
+
+                for (const key of ['title', 'iconCls', 'closable', 'position', 'slideDirection', 'maxWidth', 'minHeight', 'ui']) {
+                    if (data[key]) config[key] = data[key];
+                }
+
+                return StringUtil.escapeHtml(
+                    "import Toast from '../../../../node_modules/neo.mjs/src/component/Toast.mjs';\n\n" +
+                    'Neo.toast(' + JSON.stringify(config, null, 4) + ')'
+                )
             }
         }]
     }

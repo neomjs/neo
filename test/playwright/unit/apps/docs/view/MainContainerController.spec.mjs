@@ -288,7 +288,7 @@ test.describe('Docs.view.MainContainerController tab header tooltips', () => {
             expect(standaloneSourceViewButton.text).toBe('Source View Theme Light');
             expect(bodyCalls).toHaveLength(0);
             expect(loadFilesCalls.at(-1)).toEqual({
-                themePath: './resources/lib/highlightjs-custom-dark-theme.css',
+                themePath: Neo.config.basePath + 'resources/lib/highlightjs-custom-dark-theme.css',
                 windowId : null
             });
 
@@ -340,9 +340,8 @@ test.describe('Docs.view.MainContainerController tab header tooltips', () => {
             expect(embeddedThemeButton.hidden).toBe(true);
             expect(embeddedSourceViewButton.text).toBe('Source View Theme Light');
             expect(loadFilesCalls.at(-1)).toEqual({
-                highlightJsPath: '../../docs/resources/lib/highlight/highlight.pack.js',
-                themePath      : '../../docs/resources/lib/highlightjs-custom-dark-theme.css',
-                windowId       : null
+                themePath: Neo.config.basePath + 'resources/lib/highlightjs-custom-dark-theme.css',
+                windowId : null
             });
 
             // Source-view theme button toggles HighlightJS stylesheet without publishing to document.body
@@ -350,7 +349,7 @@ test.describe('Docs.view.MainContainerController tab header tooltips', () => {
             await Promise.resolve();
 
             expect(swapCalls.at(-1)).toEqual({
-                href    : '../../docs/resources/lib/highlightjs-custom-github-theme.css',
+                href    : Neo.config.basePath + 'resources/lib/highlightjs-custom-github-theme.css',
                 id      : 'hljs-theme',
                 windowId: null
             });

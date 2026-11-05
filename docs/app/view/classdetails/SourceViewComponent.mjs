@@ -67,8 +67,8 @@ class SourceViewComponent extends Component {
 
         Neo.Xhr.promiseRequest({
             url
-        }).then(data => {
-            me.applySourceCode(data.response)
+        }).then(data => me.applySourceCode(data.response)).catch(error => {
+            if (error !== Neo.isDestroyed) throw error
         })
     }
 
@@ -126,15 +126,16 @@ class SourceViewComponent extends Component {
     }
 
     /**
-     *
-     * @param {Object} data
+     * @summary Publishes source text before asking the main thread to highlight its rendered code leaf.
+     * @param {String} data
+     * @returns {Promise<void>}
      */
-    applySourceCode(data) {
+    async applySourceCode(data) {
         let me   = this,
             node = me.vdom.cn[0]; // pre tag
 
         node.cn[0].html = data; // code tag
-        me.update();
+        await me.promiseUpdate();
 
         me.mounted && me.syntaxHighlight()
     }
