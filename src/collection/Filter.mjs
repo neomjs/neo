@@ -1,7 +1,9 @@
 import Base       from '../core/Base.mjs';
 import Observable from '../core/Observable.mjs';
+import Sorter     from './Sorter.mjs';
 
 /**
+ * @summary Predicate rule for filtering `Neo.collection.Base` and `Neo.data.Store` items by property/operator/value or `filterBy`.
  * @class Neo.collection.Filter
  * @extends Neo.core.Base
  * @mixes Neo.core.Observable
@@ -217,7 +219,7 @@ class Filter extends Base {
     }
 
     /**
-     * Decides one item from configs read once, see `#readState()`.
+     * @summary Decides one item from configs read once, resolving dotted paths via {@link Neo.collection.Sorter.getValue}.
      * @param {Object} state
      * @param {Object} item
      * @param {Array} filteredItems
@@ -243,7 +245,7 @@ class Filter extends Base {
         }
 
         let filterValue = value,
-            recordValue = item[property];
+            recordValue = Sorter.getValue(item, property);
 
         if (operator === 'typedIncluded') {
             return typedKeys ? !typedKeys.has(Filter.getValueKey(recordValue)) : !Filter.typedIncluded(recordValue, filterValue)

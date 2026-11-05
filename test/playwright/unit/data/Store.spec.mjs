@@ -471,5 +471,59 @@ test.describe('Neo.data.Store', () => {
 
             lazyStore.destroy()
         })
+    });
+
+    test.describe('Filtering by dotted property paths in Record and Turbo Mode (#20284)', () => {
+        class DottedFilterModel extends Model {
+            static config = {
+                className: 'Test.Unit.Data.Store.DottedFilterModel',
+                fields   : [
+                    {name: 'id',    type: 'Integer'},
+                    {name: 'tp',    type: 'Integer'},
+                    {name: 'stats', type: 'Object'},
+                    {
+                        name  : 'user',
+                        fields: [
+                            {name: 'score', type: 'Integer'}
+                        ]
+                    },
+                    {
+                        name     : 'computed',
+                        type     : 'Object',
+                        calculate: data => ({score: (data.stats?.score ?? 0) * 2})
+                    }
+                ]
+            }
+        }
+
+        Neo.setupClass(DottedFilterModel);
+
+        const makeRows = () => [
+            {id: 1, tp: 20, stats: {score: 20}, user: {score: 20}},
+            {id: 2, tp: 50, stats: {score: 50}, user: {score: 50}}
+        ];
+
+        for (const autoInitRecords of [true, false]) {
+            test(`matches flat, undeclared Object path, declared nested field, and calculated Object path (autoInitRecords=${autoInitRecords})`, () => {
+                for (const [property, threshold] of [['tp', 30], ['stats.score', 30], ['user.score', 30], ['computed.score', 60]]) {
+                    const s = Neo.create(Store, {
+                        autoInitRecords,
+                        model  : DottedFilterModel,
+                        data   : makeRows(),
+                        filters: [{operator: '>=', property, value: threshold}]
+                    });
+
+                    expect(s.items.map(item => item.id), `${property} (autoInitRecords=${autoInitRecords})`).toEqual([2]);
+
+                    if (!autoInitRecords) {
+                        expect(s.items.some(item => Object.hasOwn(item, 'stats.score'))).toBe(false);
+                        expect(s.items.some(item => Object.hasOwn(item, 'user.score'))).toBe(false);
+                        expect(s.items.some(item => Object.hasOwn(item, 'computed.score'))).toBe(false)
+                    }
+
+                    s.destroy()
+                }
+            })
+        }
     })
 });

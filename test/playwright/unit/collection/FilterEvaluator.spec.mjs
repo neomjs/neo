@@ -11,6 +11,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
+import Collection     from '../../../../src/collection/Base.mjs';
 import Filter         from '../../../../src/collection/Filter.mjs';
 import SearchFilter   from '../../../../src/collection/SearchFilter.mjs';
 
@@ -127,5 +128,41 @@ test.describe('Neo.collection.Filter#createEvaluator', () => {
         expect(evaluate({name: 'Grace Hopper'})).toBe(true);
 
         filter.destroy()
+    });
+
+    test('resolves dotted property paths on plain items in Filter and Collection (#20284)', () => {
+        const rows = [
+            {id: 1, tp: 20, stats: {score: 20}, user: {score: 20}},
+            {id: 2, tp: 50, stats: {score: 50}, user: {score: 50}}
+        ];
+
+        const dottedFilter = Neo.create(Filter, {operator: '>=', property: 'stats.score', value: 30}),
+              typedFilter  = Neo.create(Filter, {operator: 'typedIncluded', property: 'user.score', value: [50]});
+
+        expect(dottedFilter.isFiltered(rows[0])).toBe(true);
+        expect(dottedFilter.isFiltered(rows[1])).toBe(false);
+        expect(dottedFilter.createEvaluator()(rows[0])).toBe(true);
+        expect(dottedFilter.createEvaluator()(rows[1])).toBe(false);
+        expect(typedFilter.createEvaluator()(rows[0])).toBe(true);
+        expect(typedFilter.createEvaluator()(rows[1])).toBe(false);
+
+        const collection = Neo.create(Collection, {
+            filters: [{operator: '>=', property: 'stats.score', value: 30}]
+        });
+        collection.add(rows);
+
+        expect(collection.items.map(item => item.id)).toEqual([2]);
+
+        const filteredCollection = Neo.create(Collection, {items: rows});
+        filteredCollection.filters = [{operator: '>=', property: 'stats.score', value: 30}];
+        expect(filteredCollection.items.map(item => item.id)).toEqual([2]);
+
+        filteredCollection.filters = [{operator: '>=', property: 'tp', value: 30}];
+        expect(filteredCollection.items.map(item => item.id)).toEqual([2]);
+
+        collection.destroy();
+        filteredCollection.destroy();
+        dottedFilter.destroy();
+        typedFilter.destroy()
     });
 });

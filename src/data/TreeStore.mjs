@@ -611,8 +611,8 @@ class TreeStore extends Store {
         let   me            = this;
         const activeFilters = me.filters.filter(f => f.effective);
 
-        // 1. Soft hydration (Turbo Mode)
-        if (!me.autoInitRecords && me.model?.hasComplexFields && activeFilters.length > 0) {
+        // 1. Soft hydration (raw items in Turbo Mode or unhydrated tree nodes)
+        if (me.model?.hasComplexFields && activeFilters.length > 0) {
             const filterProperties = activeFilters.flatMap(f => f.fields || (f.property === null ? [] : [f.property])),
                   len              = filterProperties.length;
 

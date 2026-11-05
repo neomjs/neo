@@ -1252,3 +1252,57 @@ test.describe('Neo.data.TreeStore (re-adding an existing key)', () => {
         expect(store.get('Orphan/A').siblingCount).toBe(2)
     })
 });
+
+test.describe('Neo.data.TreeStore (filtering by dotted property paths #20284)', () => {
+    class DottedTreeFilterModel extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Data.TreeStore.DottedTreeFilterModel',
+            fields   : [
+                {name: 'id',    type: 'Integer'},
+                {name: 'tp',    type: 'Integer'},
+                {name: 'stats', type: 'Object'},
+                {
+                    name  : 'user',
+                    fields: [
+                        {name: 'score', type: 'Integer'}
+                    ]
+                },
+                {
+                    name     : 'computed',
+                    type     : 'Object',
+                    calculate: data => ({score: (data.stats?.score ?? 0) * 2})
+                }
+            ]
+        }
+    }
+
+    Neo.setupClass(DottedTreeFilterModel);
+
+    const makeTreeRows = () => [
+        {id: 1, parentId: null, isLeaf: true, tp: 20, stats: {score: 20}, user: {score: 20}},
+        {id: 2, parentId: null, isLeaf: true, tp: 50, stats: {score: 50}, user: {score: 50}}
+    ];
+
+    for (const autoInitRecords of [true, false]) {
+        test(`filters undeclared Object paths and declared nested fields in TreeStore (autoInitRecords=${autoInitRecords})`, () => {
+            for (const [property, threshold] of [['tp', 30], ['stats.score', 30], ['user.score', 30], ['computed.score', 60]]) {
+                const treeStore = Neo.create(TreeStore, {
+                    autoInitRecords,
+                    model  : DottedTreeFilterModel,
+                    data   : makeTreeRows(),
+                    filters: [{operator: '>=', property, value: threshold}]
+                });
+
+                expect(treeStore.items.map(node => node.id), `${property} (autoInitRecords=${autoInitRecords})`).toEqual([2]);
+
+                if (!autoInitRecords) {
+                    expect(treeStore.items.some(node => Object.hasOwn(node, 'stats.score'))).toBe(false);
+                    expect(treeStore.items.some(node => Object.hasOwn(node, 'user.score'))).toBe(false);
+                    expect(treeStore.items.some(node => Object.hasOwn(node, 'computed.score'))).toBe(false)
+                }
+
+                treeStore.destroy()
+            }
+        })
+    }
+});
