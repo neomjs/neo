@@ -104,6 +104,7 @@ const PRIORITIES = new Map([
     // Other important guides
     ['guides/uibuildingblocks/ComponentsAndContainers', 0.8],
     ['guides/uibuildingblocks/Layouts'                , 0.8],
+    ['guides/uibuildingblocks/TabContainers'           , 0.8],
     ['guides/uibuildingblocks/DockLayouts'            , 0.8],
     ['guides/uibuildingblocks/DockLayoutsAdoption'    , 0.8],
     ['guides/uibuildingblocks/DockLayoutsStateAndPersistence', 0.8],
