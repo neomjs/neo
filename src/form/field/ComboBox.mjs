@@ -174,7 +174,8 @@ class ComboBox extends Picker {
      */
     listStore = null
     /**
-     * The stores this field created, and so destroys. A passed or bound store is never in it.
+     * Stores created by this field and the Models created for its private views.
+     * A passed or bound Store and its Model remain outside this set.
      * @member {WeakSet} #owned
      * @private
      */
@@ -212,6 +213,7 @@ class ComboBox extends Picker {
     }
 
     /**
+     * @summary Releases field-owned stores and private schemas after their picker is gone.
      * Destroys what this field owns — its list view, or a store it created — once the list showing it is
      * gone. A passed or bound store stays its owner's, minus this field's load listener. A filter still buffered
      * from the last keystroke is cancelled: it would run against the destroyed field.
@@ -219,7 +221,6 @@ class ComboBox extends Picker {
      */
     destroy(...args) {
         let me                 = this,
-            owned              = me.#owned,
             {listStore, store} = me;
 
         me.filterOnInput.cancel();
@@ -227,8 +228,22 @@ class ComboBox extends Picker {
 
         super.destroy(...args);
 
-        listStore !== store && owned.has(listStore) && listStore.destroy();
-        owned.has(store) && store.destroy()
+        listStore !== store && me.#destroyOwnedStore(listStore);
+        me.#destroyOwnedStore(store)
+    }
+
+    /**
+     * @summary Retires a field-owned Store and only the private schema this field created for it.
+     * @param {Neo.data.Store|null} store
+     * @private
+     */
+    #destroyOwnedStore(store) {
+        const owned = this.#owned;
+        if (owned.has(store)) {
+            const {model} = store;
+            store.destroy();
+            owned.has(model) && model.destroy()
+        }
     }
 
     /**
@@ -243,6 +258,8 @@ class ComboBox extends Picker {
     }
 
     /**
+     * @summary Gives a borrowed Store a private picker view without transferring its Model's edit routing.
+     * The view retains the live schema and Model class, while sourceId keeps the original records.
      * Triggered after the store config got changed
      * @param {Neo.data.Store} value
      * @param {Neo.data.Store} oldValue
@@ -255,11 +272,22 @@ class ComboBox extends Picker {
             filters, listStore, rawValue;
 
         if (value) {
-            listStore = owned.has(value) ? value : Neo.create(Store, {
-                keyProperty: value.keyProperty,
-                model      : value.model,
-                sourceId   : value.id
-            });
+            if (owned.has(value)) {
+                listStore = value
+            } else {
+                const sourceModel = value.model,
+                    model         = Neo.create(sourceModel.constructor, {
+                        fields             : Neo.clone(sourceModel.fields, true),
+                        keyProperty        : sourceModel.keyProperty,
+                        trackModifiedFields: sourceModel.trackModifiedFields
+                    });
+                owned.add(model);
+                listStore = Neo.create(Store, {
+                    keyProperty: value.keyProperty,
+                    model,
+                    sourceId   : value.id
+                })
+            }
 
             owned.add(listStore);
             me.listStore = listStore;
@@ -303,8 +331,8 @@ class ComboBox extends Picker {
         // Retired only now, with the list already showing the new store
         if (oldValue) {
             oldValue.un('load', me.onStoreLoad, me);
-            previousView !== oldValue && owned.has(previousView) && previousView.destroy();
-            owned.has(oldValue) && oldValue.destroy()
+            previousView !== oldValue && me.#destroyOwnedStore(previousView);
+            me.#destroyOwnedStore(oldValue)
         }
     }
 

@@ -41,6 +41,29 @@ class CountryModel extends Model {
 
 Neo.setupClass(CountryModel);
 
+class NumericModel extends Model {
+    static config = {
+        className: 'Test.Unit.Combo.SharedStore.NumericModel',
+        fields   : [
+            {name: 'code', type: 'Integer'},
+            {name: 'name', type: 'String'},
+            {name: 'score', type: 'Integer'},
+            {name: 'detail', type: 'Object', fields: [{name: 'city', type: 'String'}]}
+        ]
+    }
+
+    /**
+     * @summary Proves a private schema retains the source Model's lookup specialization.
+     * @param {String} name
+     * @returns {Object|null}
+     */
+    getField(name) {
+        return super.getField(name.toLowerCase())
+    }
+}
+
+Neo.setupClass(NumericModel);
+
 const COUNTRIES = [{code: 'de', name: 'Germany'}, {code: 'fr', name: 'France'}, {code: 'it', name: 'Italy'}];
 
 /**
@@ -93,6 +116,38 @@ function providedCountryField(store, value) {
 }
 
 test.describe('Neo.form.field.ComboBox on a store it does not own', () => {
+    for (const binding of ['passed', 'bound']) {
+        test(`${binding} store keeps record notifications and private schema lifetime`, async () => {
+            const store = sharedStore(), sourceModel = store.model, events = [];
+            let combo, viewModel;
+            store.on('recordChange', data => events.push(data.record.name));
+            try {
+                store.get('de').name = 'Before field';
+                combo = binding === 'bound' ? await boundCombo(store) : Neo.create(ComboBox, {
+                    appName, store, displayField: 'name', valueField: 'code'
+                });
+                await combo.ready();
+                viewModel = combo.listStore.model;
+                store.get('de').name = 'During field';
+                store.add({code: 'es', name: 'Spain'});
+                expect(combo.listStore.get('es')).toBe(store.get('es'));
+                store.get('es').name = 'New record edit';
+                expect(events).toEqual(['Before field', 'During field', 'New record edit']);
+                expect(sourceModel.storeId).toBe(store.id);
+                expect(viewModel).not.toBe(sourceModel);
+                combo.destroy();
+                expect(viewModel.isDestroyed).toBe(true);
+                expect(Neo.get(viewModel.id)).toBeFalsy();
+                expect(sourceModel.isDestroyed).not.toBe(true);
+                store.get('de').name = 'After field';
+                expect(events).toEqual(['Before field', 'During field', 'New record edit', 'After field'])
+            } finally {
+                combo?.destroy();
+                store.destroy()
+            }
+        })
+    }
+
     test('a raw value resolves to its record once an already-loaded bound store arrives', async () => {
         const store = sharedStore(),
               combo = await boundCombo(store);
@@ -102,6 +157,79 @@ test.describe('Neo.form.field.ComboBox on a store it does not own', () => {
 
         combo.destroy();
         store.destroy()
+    });
+
+    test('private schema preserves live fields, subclass behavior and numeric picker keys', async () => {
+        const store = Neo.create(Store, {
+            keyProperty: 'code', model: NumericModel,
+            data       : [{code: 7, name: 'Alpha', score: 3, detail: {city: 'Berlin'}}]
+        }), sourceModel = store.model;
+        sourceModel.fields = [...sourceModel.fields, {
+            name: 'twice', type: 'Integer', depends: ['score'], calculate: data => data.score * 2
+        }];
+        sourceModel.keyProperty = 'code';
+        sourceModel.trackModifiedFields = true;
+        const combo = Neo.create(ComboBox, {
+            appName, store, displayField: 'name', valueField: 'code', listConfig: {useInternalId: false}
+        });
+        try {
+            await combo.ready();
+            const view = combo.listStore, model = view.model,
+                list   = combo.createPickerComponent(),
+                key    = list.getItemRecordId(list.getItemId(store.get(7)));
+            expect(key).toBe(7);
+            expect(view.get(key)).toBe(store.get(7));
+            expect(model).toBeInstanceOf(NumericModel);
+            expect(model).not.toBe(sourceModel);
+            expect(model.fields).not.toBe(sourceModel.fields);
+            expect(model.getField('DETAIL.CITY')).toEqual(sourceModel.getField('detail.city'));
+            expect(model.getField('detail.city')).not.toBe(sourceModel.getField('detail.city'));
+            expect(model.getField('TWICE').calculate).toBe(sourceModel.getField('twice').calculate);
+            expect(model.keyProperty).toBe('code');
+            expect(model.trackModifiedFields).toBe(true);
+            expect(model.hasNestedFields).toBe(true);
+            expect(view.resolveField({score: 5}, 'twice')).toBe(10);
+            const models = new Set([model, view.allItems.model]);
+            combo.destroy();
+            models.forEach(owned => expect(owned.isDestroyed).toBe(true));
+            expect(sourceModel.isDestroyed).not.toBe(true)
+        } finally {
+            combo.destroy();
+            store.destroy()
+        }
+    });
+
+    test('multiple fields and a store swap preserve both sources and retire only private Models', async () => {
+        const first     = sharedStore(), second = sharedStore(),
+            firstEvents = [], secondEvents = [],
+            a           = await boundCombo(first), b = await boundCombo(first),
+            aModel      = a.listStore.model, bModel = b.listStore.model;
+        first.on('recordChange', data => firstEvents.push(data.record.name));
+        second.on('recordChange', data => secondEvents.push(data.record.name));
+        try {
+            first.get('de').name = 'Both fields';
+            a.destroy();
+            expect(aModel.isDestroyed).toBe(true);
+            expect(bModel.isDestroyed).not.toBe(true);
+            first.get('de').name = 'One field';
+            b.store = second;
+            expect(bModel.isDestroyed).toBe(true);
+            const replacementModel = b.listStore.model;
+            first.get('de').name = 'Detached source';
+            second.get('de').name = 'Replacement source';
+            b.destroy();
+            expect(replacementModel.isDestroyed).toBe(true);
+            second.get('de').name = 'After replacement field';
+            expect(firstEvents).toEqual(['Both fields', 'One field', 'Detached source']);
+            expect(secondEvents).toEqual(['Replacement source', 'After replacement field']);
+            expect(first.model.storeId).toBe(first.id);
+            expect(second.model.storeId).toBe(second.id)
+        } finally {
+            a.destroy();
+            b.destroy();
+            first.destroy();
+            second.destroy()
+        }
     });
 
     test('typing narrows only the field\'s view: every other reader keeps every record', async () => {
@@ -205,7 +333,11 @@ test.describe('Neo.form.field.ComboBox on a store it created', () => {
 test.describe('Neo.form.field.Chip, which inherits what a ComboBox owns', () => {
     test('destroying a Chip handed a store leaves that store alive', () => {
         const store = sharedStore(),
-              chip  = Neo.create(Chip, {appName, displayField: 'name', store, valueField: 'code'});
+              chip  = Neo.create(Chip, {appName, displayField: 'name', store, valueField: 'code'}),
+              model = chip.listStore.model, events = [];
+
+        store.on('recordChange', data => events.push(data.record.name));
+        store.get('de').name = 'During Chip';
 
         expect(chip.store, 'the field reads the handed instance').toBe(store);
 
@@ -213,6 +345,9 @@ test.describe('Neo.form.field.Chip, which inherits what a ComboBox owns', () => 
 
         expect(store.isDestroyed, 'the handed store survives the field').not.toBe(true);
         expect(store.getCount()).toBe(3);
+        expect(model.isDestroyed).toBe(true);
+        store.get('de').name = 'After Chip';
+        expect(events).toEqual(['During Chip', 'After Chip']);
 
         store.destroy()
     });
