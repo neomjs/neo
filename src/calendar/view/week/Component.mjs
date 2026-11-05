@@ -428,6 +428,18 @@ class Component extends BaseComponent {
     }
 
     /**
+     * @summary Re-renders week events when the bound timeFormatter changes.
+     * @param {Intl.DateTimeFormat|null} value
+     * @param {Intl.DateTimeFormat|null} oldValue
+     * @protected
+     */
+    afterSetIntlFormat_time(value, oldValue) {
+        if (oldValue && this.isConstructed) {
+            this.updateEvents()
+        }
+    }
+
+    /**
      * Triggered after the locale config got changed
      * @param {String} value
      * @param {String} oldValue

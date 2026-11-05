@@ -12,6 +12,13 @@ class TimeAxisComponent extends Component {
      * @static
      */
     static intervals = [15, 30, 60]
+    /**
+     * Valid values for timeFormat
+     * @member {String[]} timeFormats=['12h','24h']
+     * @protected
+     * @static
+     */
+    static timeFormats = ['12h', '24h']
 
     static config = {
         /**
@@ -28,6 +35,7 @@ class TimeAxisComponent extends Component {
          */
         bind: {
             endTime  : data => data.endTime,
+            locale   : data => data.locale,
             startTime: data => data.startTime
         },
         /**
@@ -38,12 +46,23 @@ class TimeAxisComponent extends Component {
          */
         endTime_: '24:00',
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_time=null
+         * @protected
+         */
+        intlFormat_time: null,
+        /**
          * The time interval in minutes to display as rows.
          * Valid values: 15, 30, 60
          * @member {Number} interval_=30
          * @reactive
          */
         interval_: 30,
+        /**
+         * Bound to the state provider.
+         * @member {String} locale_=Neo.config.locale
+         * @reactive
+         */
+        locale_: Neo.config.locale,
         /**
          * @member {Number} rowHeight_=20
          * @reactive
@@ -56,6 +75,13 @@ class TimeAxisComponent extends Component {
          * @reactive
          */
         startTime_: '00:00',
+        /**
+         * Display mode for the time axis labels: '12h' ('am/pm' alias) or '24h',
+         * or an Intl.DateTimeFormat options object.
+         * @member {Object|String} timeFormat_='24h'
+         * @reactive
+         */
+        timeFormat_: '24h',
         /**
          * @member {Object} vdom
          */
@@ -103,6 +129,22 @@ class TimeAxisComponent extends Component {
     afterSetInterval(value, oldValue) {
         if (oldValue !== undefined) {
             this.afterSetRowHeight(this.rowHeight, 0)
+        }
+    }
+
+    /**
+     * @summary Rebuilds the Intl.DateTimeFormat instance and refreshes axis labels when locale changes.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (value && this.timeFormat) {
+            this.intlFormat_time = new Intl.DateTimeFormat(value, this.getTimeFormatOptions());
+
+            if (oldValue !== undefined && this.vdom.cn) {
+                this.updateItems()
+            }
         }
     }
 
@@ -169,6 +211,22 @@ class TimeAxisComponent extends Component {
     }
 
     /**
+     * @summary Rebuilds the Intl.DateTimeFormat instance and refreshes axis labels when timeFormat changes.
+     * @param {Object|String} value
+     * @param {Object|String} oldValue
+     * @protected
+     */
+    afterSetTimeFormat(value, oldValue) {
+        if (value) {
+            this.intlFormat_time = new Intl.DateTimeFormat(this.locale, this.getTimeFormatOptions());
+
+            if (oldValue !== undefined && this.vdom.cn) {
+                this.updateItems()
+            }
+        }
+    }
+
+    /**
      * Triggered before the interval config gets changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -179,20 +237,45 @@ class TimeAxisComponent extends Component {
     }
 
     /**
-     *
+     * @summary Normalizes 'am/pm' to '12h' and validates enum strings against static timeFormats while allowing Intl.DateTimeFormat option objects.
+     * @param {Object|String} value
+     * @param {Object|String} oldValue
+     * @returns {Object|String}
+     * @protected
+     */
+    beforeSetTimeFormat(value, oldValue) {
+        if (value === 'am/pm') {
+            value = '12h'
+        }
+
+        if (Neo.isObject(value)) {
+            return value
+        }
+
+        return this.beforeSetEnumValue(value, oldValue, 'timeFormat')
+    }
+
+    /**
+     * @summary Populates the 25 hourly time axis VDOM items formatted via intlFormat_time.
      */
     createItems() {
-        let {vdom} = this,
-            text, i;
+        let me     = this,
+            {vdom} = me,
+            date   = new Date(2024, 0, 1, 0, 0, 0),
+            i;
+
+        if (!me.intlFormat_time) {
+            me.intlFormat_time = new Intl.DateTimeFormat(me.locale, me.getTimeFormatOptions())
+        }
 
         vdom.cn = [];
 
-        for (i=0; i < 25; i++) {
-            text = i === 24 ? '00:00' : (i < 10 ? '0' : '') + i + ':00';
+        for (i = 0; i < 25; i++) {
+            date.setHours(i === 24 ? 0 : i, 0, 0, 0);
 
             vdom.cn.push({
                 cls: ['neo-c-w-timeaxis-item'],
-                cn : [{text}]
+                cn : [{text: me.intlFormat_time.format(date)}]
             })
         }
     }
@@ -213,6 +296,39 @@ class TimeAxisComponent extends Component {
      */
     getTime(value) {
         return value.split(':').map(Number)[0]
+    }
+
+    /**
+     * @summary Resolves the timeFormat config ('12h', '24h', or options object) into Intl.DateTimeFormat options.
+     * @returns {Object}
+     */
+    getTimeFormatOptions() {
+        let {timeFormat} = this;
+
+        if (Neo.isObject(timeFormat)) {
+            return timeFormat
+        }
+
+        return timeFormat === '12h'
+            ? {hour: 'numeric', hour12: true}
+            : {hour: '2-digit', minute: '2-digit', hour12: false}
+    }
+
+    /**
+     * @summary Updates the text of all 25 hourly time axis VDOM items when locale or timeFormat changes.
+     */
+    updateItems() {
+        let me   = this,
+            cn   = me.vdom.cn,
+            date = new Date(2024, 0, 1, 0, 0, 0),
+            i;
+
+        for (i = 0; i < 25; i++) {
+            date.setHours(i === 24 ? 0 : i, 0, 0, 0);
+            cn[i].cn[0].text = me.intlFormat_time.format(date)
+        }
+
+        me.update()
     }
 }
 

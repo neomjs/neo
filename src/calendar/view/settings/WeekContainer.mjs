@@ -89,6 +89,25 @@ class WeekContainer extends Container {
             listeners     : {change: me.onTimeAxisPositionChange, scope: me},
             name          : 'timeAxisPosition',
             valueLabel    : 'end'
+        }, {
+            module        : RadioField,
+            checked       : timeAxis.timeFormat === '12h',
+            fieldValue    : '12h',
+            hideValueLabel: false,
+            labelText     : 'timeFormat',
+            listeners     : {change: me.onTimeFormatChange, scope: me},
+            name          : 'timeFormat',
+            style         : {marginTop: '10px'},
+            valueLabel    : 'am/pm'
+        }, {
+            module        : RadioField,
+            checked       : timeAxis.timeFormat === '24h',
+            fieldValue    : '24h',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onTimeFormatChange, scope: me},
+            name          : 'timeFormat',
+            valueLabel    : '24h'
         }])
     }
 
@@ -126,6 +145,23 @@ class WeekContainer extends Container {
     onTimeAxisPositionChange(data) {
         if (data.value) {
             this.getWeekComponent().timeAxisPosition = data.component.fieldValue
+        }
+    }
+
+    /**
+     * @summary Updates the timeAxis timeFormat config and synchronizes the stateProvider timeFormat hour12 flag.
+     * @param {Object} data
+     */
+    onTimeFormatChange(data) {
+        if (data.value) {
+            let fieldValue = data.component.fieldValue;
+
+            this.getTimeAxis().timeFormat = fieldValue;
+            this.setState('timeFormat', {
+                hour  : '2-digit',
+                hour12: fieldValue === '12h',
+                minute: '2-digit'
+            })
         }
     }
 }
