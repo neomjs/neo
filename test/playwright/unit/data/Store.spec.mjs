@@ -523,6 +523,28 @@ test.describe('Neo.data.Store', () => {
 
                     s.destroy()
                 }
+            });
+
+            test(`matches flat field filled by defaultValue on load and add (autoInitRecords=${autoInitRecords})`, () => {
+                const s = Neo.create(Store, {
+                    autoInitRecords,
+                    model: {
+                        module: Model,
+                        fields: [
+                            {name: 'id',     type: 'Integer'},
+                            {name: 'status', type: 'String', defaultValue: 'open'}
+                        ]
+                    },
+                    data   : [{id: 1, status: 'open'}, {id: 2}],
+                    filters: [{operator: '===', property: 'status', value: 'open'}]
+                });
+
+                expect(s.items.map(item => item.id), `load path (autoInitRecords=${autoInitRecords})`).toEqual([1, 2]);
+
+                s.add({id: 3});
+                expect(s.items.map(item => item.id), `add path (autoInitRecords=${autoInitRecords})`).toEqual([1, 2, 3]);
+
+                s.destroy()
             })
         }
     })

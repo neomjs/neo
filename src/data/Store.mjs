@@ -1101,7 +1101,7 @@ class Store extends Collection {
     /**
      * @summary Overrides collection.Base:isFilteredItem() to soft-hydrate raw items before evaluating filters.
      * In Turbo Mode (or in TreeStore before post-splice record hydration), items are raw objects which may lack
-     * the canonical field names used by Filters.
+     * the canonical field names or default values used by Filters.
      * @param {Object} item
      * @returns {boolean}
      * @protected
@@ -1109,7 +1109,7 @@ class Store extends Collection {
     isFilteredItem(item) {
         let me = this;
 
-        if (!RecordFactory.isRecord(item) && me.model?.hasComplexFields && me.filters.length > 0) {
+        if (!RecordFactory.isRecord(item) && me.filters.length > 0) {
             me.filters.forEach(filter => {
                 if (filter.effective) {
                     for (const property of filter.fields || (filter.property === null ? [] : [filter.property])) {
