@@ -375,10 +375,18 @@ jobs:
           echo "classifier: ${CLASSIFIER} · run_e2e: ${RUN_E2E} · e2e-engine shards: ${SHARDS}"
           test "${CLASSIFIER}" = success
 
-          if [ "${RUN_E2E}" != true ]; then
-            echo "e2e (engine tier) skipped: ${REASON}" | tee -a "$GITHUB_STEP_SUMMARY"
-            test "${SHARDS}" = skipped
-            exit 0
-          fi
-
-          test "${SHARDS}" = success
+          # Only an explicit verdict counts. An empty or unknown value is a missing answer, and a
+          # missing answer must never certify a tier that ran nothing.
+          case "${RUN_E2E}" in
+            true)
+              test "${SHARDS}" = success
+              ;;
+            false)
+              echo "e2e (engine tier) skipped: ${REASON}" | tee -a "$GITHUB_STEP_SUMMARY"
+              test "${SHARDS}" = skipped
+              ;;
+            *)
+              echo "the classifier's run_e2e verdict is neither true nor false: '${RUN_E2E}'"
+              exit 1
+              ;;
+          esac

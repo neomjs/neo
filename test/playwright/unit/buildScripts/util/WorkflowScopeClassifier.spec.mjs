@@ -1,5 +1,5 @@
 import { test, expect }  from '@playwright/test';
-import { execFileSync }  from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs                from 'node:fs';
 import path              from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -364,12 +364,22 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
             REASON    : '${{ needs.changes.outputs.skip_reason }}'
         });
 
-        // Order is the contract: the classifier must have succeeded before a skip may pass, and
-        // an admitted tier still needs every shard green.
-        const run = step.run;
-        expect(run.indexOf('test "${CLASSIFIER}" = success')).toBeGreaterThan(-1);
-        expect(run.indexOf('test "${CLASSIFIER}" = success')).toBeLessThan(run.indexOf('if [ "${RUN_E2E}" != true ]'));
-        expect(run).toMatch(/if \[ "\$\{RUN_E2E\}" != true \]; then[\s\S]*test "\$\{SHARDS\}" = skipped[\s\S]*exit 0[\s\S]*fi[\s\S]*test "\$\{SHARDS\}" = success/);
+        // Executed, not pattern-matched: the script runs under `bash -e`, as GitHub runs it. Only an
+        // explicit `false` from a successful classifier may pass skipped shards; an empty or
+        // unknown verdict is a missing answer, and must fail like a failed classifier does.
+        const gateExit = (CLASSIFIER, RUN_E2E, SHARDS) => spawnSync('bash', ['-e', '-c', step.run], {
+            env: {...process.env, CLASSIFIER, RUN_E2E, SHARDS, REASON: 'docs only', GITHUB_STEP_SUMMARY: '/dev/null'}
+        }).status;
+
+        expect(gateExit('success',   'false',  'skipped'), 'ruled out').toBe(0);
+        expect(gateExit('success',   'true',   'success'), 'ran green').toBe(0);
+        expect(gateExit('failure',   'false',  'skipped'), 'classifier failed').toBe(1);
+        expect(gateExit('cancelled', '',       'skipped'), 'classifier cancelled').toBe(1);
+        expect(gateExit('success',   'true',   'failure'), 'a shard failed').toBe(1);
+        expect(gateExit('success',   'true',   'skipped'), 'admitted, yet nothing ran').toBe(1);
+        expect(gateExit('success',   'false',  'success'), 'ruled out, yet shards ran').toBe(1);
+        expect(gateExit('success',   '',       'skipped'), 'empty verdict').toBe(1);
+        expect(gateExit('success',   'maybe',  'skipped'), 'unknown verdict').toBe(1);
     });
 
 });

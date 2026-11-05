@@ -445,9 +445,10 @@ jobs:
                 .write();
             }
 
-      # The Brain-gated tier tests the Brain's `dev` tip, resolved once per run so every shard and
-      # every rerun tests the same Brain. It runs here, not in a job of its own: a job would boot a
-      # runner for a three-second `git ls-remote`, and a ruled-out tier needs no tip at all.
+      # The Brain-gated tier tests the Brain's `dev` tip, resolved once per run attempt: every shard,
+      # and every rerun of failed jobs, reuses this output. Re-running ALL jobs re-runs this step and
+      # resolves the tip again. It runs here, not in a job of its own: a job would boot a runner for
+      # a three-second `git ls-remote`, and a ruled-out tier needs no tip at all.
       - name: Resolve the Brain's dev tip
         id: tip
         if: ${{ inputs.resolve_brain_tip && steps.scope.outputs.e2e_brain_tier != 'none' }}
