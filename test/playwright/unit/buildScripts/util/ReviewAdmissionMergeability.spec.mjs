@@ -252,6 +252,9 @@ test.describe('review-admission mergeability controller (#17692, #20061, #20344)
             statuses       : 'write'
         });
 
+        expect(job.name).toBe(
+            "${{ github.event_name == 'pull_request_target' && format('PR #{0} mergeability', github.event.pull_request.number) || 'Publish open dev PR mergeability' }}"
+        );
         expect(job.steps.some(s => String(s.uses || '').startsWith('actions/checkout@'))).toBe(false);
         expect(job.concurrency).toEqual({
             group               : "review-admission-mergeability-${{ github.event_name == 'pull_request_target' && format('pr-{0}', github.event.pull_request.number) || 'board' }}",
