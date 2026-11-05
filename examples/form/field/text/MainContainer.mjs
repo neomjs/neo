@@ -16,6 +16,9 @@ class MainContainer extends ConfigurationViewport {
         layout              : {ntype: 'hbox', align: 'stretch'}
     }
 
+    /**
+     * @summary Creates controls for the example's input, validation, labels and live counter.
+     */
     createConfigurationComponents() {
         let me = this;
 
@@ -152,6 +155,12 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
+            checked  : me.exampleComponent.showCharacterCount,
+            labelText: 'showCharacterCount',
+            listeners: {change: me.onConfigChange.bind(me, 'showCharacterCount')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
             checked  : me.exampleComponent.showOptionalText,
             labelText: 'showOptionalText',
             listeners: {change: me.onConfigChange.bind(me, 'showOptionalText')},
@@ -185,15 +194,20 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /**
+     * @summary Creates an inline text field with a visible character budget.
+     */
     createExampleComponent() {
         return Neo.create(TextField, {
-            clearable    : true,
-            labelPosition: 'inline',
-            labelText    : 'Label',
-            labelWidth   : 70,
-            minLength    : 3,
-            value        : 'Hello World',
-            width        : 200,
+            clearable         : true,
+            labelPosition     : 'inline',
+            labelText         : 'Label',
+            labelWidth        : 70,
+            maxLength         : 200,
+            minLength         : 3,
+            showCharacterCount: true,
+            value             : 'Hello World',
+            width             : 200,
 
             listeners: {
                 change(value) {

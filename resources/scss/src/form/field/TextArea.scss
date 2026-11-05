@@ -39,4 +39,8 @@
             height: calc(100% - 1.5em);
         }
     }
+
+    &.neo-has-character-count.label-inline > .neo-label-wrapper {
+        height: 100%;
+    }
 }
