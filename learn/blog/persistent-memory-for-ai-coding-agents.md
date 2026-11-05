@@ -1,4 +1,6 @@
-# Persistent memory for AI coding agents: load an index, pull the archive over MCP
+# Persistent memory for AI coding agents: no prompt stuffing
+
+*Our AI agents keep 55,041 memories in an MCP server, not the prompt. Each session loads a small index; the agent asks the archive when it needs the past.*
 
 *Part 1 of 8 in the series How an AI team remembers.*
 
