@@ -184,16 +184,19 @@ class DateField extends Picker {
     }
 
     /**
-     * @summary Configures the floating date picker container with WAI-ARIA modal dialog semantics.
+     * @summary Configures the floating date picker container with non-modal WAI-ARIA dialog semantics and delegates initial focus to the active calendar day cell.
      * @returns {Neo.container.Base}
      */
     createPicker() {
-        let picker = super.createPicker(),
+        let me     = this,
+            picker = super.createPicker(),
             {vdom} = picker;
 
-        vdom['aria-label'] = vdom['aria-label'] || 'Choose Date';
-        vdom['aria-modal'] = true;
-        vdom.role          = 'dialog';
+        picker.focusOnMount = false;
+        vdom['aria-label']  = vdom['aria-label'] || 'Choose Date';
+        vdom.role           = 'dialog';
+
+        picker.on('mounted', me.onPickerMounted, me);
 
         return picker
     }
@@ -308,6 +311,14 @@ class DateField extends Picker {
 
         this.getInputEl()['aria-expanded'] = !data.value;
         this.update()
+    }
+
+    /**
+     * @summary Moves focus to the active or selected day cell inside the DateSelector when the floating picker mounts.
+     * @protected
+     */
+    onPickerMounted() {
+        this.dateSelector?.focusCurrentItem()
     }
 
     /**

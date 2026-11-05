@@ -24,8 +24,8 @@ import DateUtil           from '../../../../../src/util/Date.mjs';
 import DomApiVnodeCreator from '../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../../src/vdom/Helper.mjs';
 
-test.describe('Neo.form.field.Date and Neo.component.DateSelector WAI-ARIA semantics (#5219)', () => {
-    test('DateField input, trigger, and floating picker expose WAI-ARIA dialog attributes and sync aria-expanded', () => {
+test.describe('Neo.form.field.Date and Neo.component.DateSelector WAI-ARIA semantics', () => {
+    test('DateField input, trigger, and floating picker expose non-modal WAI-ARIA dialog attributes, trigger keyboard activation, and sync aria-expanded', () => {
         const field = Neo.create(DateField, {
             appName,
             id   : 'test-date-field-aria',
@@ -42,13 +42,29 @@ test.describe('Neo.form.field.Date and Neo.component.DateSelector WAI-ARIA seman
             expect(inputEl['aria-expanded']).toBe(false);
             expect(inputEl['aria-controls']).toBe(field.getPickerId());
 
+            expect(trigger.parentComponent).toBe(field);
             expect(trigger.vdom.role).toBe('button');
+            expect(trigger.vdom.tabIndex).toBe(0);
             expect(trigger.vdom['aria-label']).toBe('Choose Date');
             expect(trigger.vdom['aria-haspopup']).toBe('dialog');
 
+            expect(picker.focusOnMount).toBe(false);
             expect(pickerDom.role).toBe('dialog');
-            expect(pickerDom['aria-modal']).toBe(true);
+            expect(pickerDom['aria-modal']).toBeUndefined();
             expect(pickerDom['aria-label']).toBe('Choose Date');
+
+            let triggerCalls = 0;
+            trigger.onTriggerClick = () => { triggerCalls++; };
+
+            const enterEvent = {cancelBubble: false};
+            trigger.onTriggerKeyDown(enterEvent);
+            expect(enterEvent.cancelBubble).toBe(true);
+            expect(triggerCalls).toBe(1);
+
+            const spaceEvent = {cancelBubble: false};
+            trigger.onTriggerKeyDown(spaceEvent);
+            expect(spaceEvent.cancelBubble).toBe(true);
+            expect(triggerCalls).toBe(2);
 
             field.onPickerHiddenChange({id: picker.id, oldValue: true, value: false});
             expect(inputEl['aria-expanded']).toBe(true);
@@ -60,7 +76,7 @@ test.describe('Neo.form.field.Date and Neo.component.DateSelector WAI-ARIA seman
         }
     });
 
-    test('DateSelector renders WAI-ARIA grid, columnheader abbr, gridcell states, and updates selection & weekday headers', async () => {
+    test('DateSelector renders WAI-ARIA grid, columnheader aria-label, roving gridcell tabIndex, nav button keyboard handlers, and selection states', async () => {
         const todayStr = DateUtil.convertToyyyymmdd(new Date()),
               selector = Neo.create(DateSelector, {
                   appName,
@@ -89,8 +105,10 @@ test.describe('Neo.form.field.Date and Neo.component.DateSelector WAI-ARIA seman
                   prevMonthCell = gridEl.cn[1].cn[0]; // April 26, 2026 (disabled overflow cell)
 
             expect(prevBtn.role).toBe('button');
+            expect(prevBtn.tabIndex).toBe(0);
             expect(prevBtn['aria-label']).toBe('Previous Month');
             expect(nextBtn.role).toBe('button');
+            expect(nextBtn.tabIndex).toBe(0);
             expect(nextBtn['aria-label']).toBe('Next Month');
 
             expect(centerRegion.id).toBe(`${selector.id}__header-center`);
@@ -101,7 +119,7 @@ test.describe('Neo.form.field.Date and Neo.component.DateSelector WAI-ARIA seman
 
             expect(headerRow.role).toBe('row');
             expect(headerRow.cn.map(cell => cell.role)).toEqual(Array(7).fill('columnheader'));
-            expect(headerRow.cn.map(cell => cell.abbr)).toEqual([
+            expect(headerRow.cn.map(cell => cell['aria-label'])).toEqual([
                 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
             ]);
 
@@ -115,40 +133,62 @@ test.describe('Neo.form.field.Date and Neo.component.DateSelector WAI-ARIA seman
                 });
             }
 
-            // Selected vs unselected in-range cell
+            // Selected vs unselected in-range cell and roving tabIndex
             expect(selectedCell['aria-selected']).toBe(true);
+            expect(selectedCell.tabIndex).toBe(0);
             expect(selectedCell['aria-disabled']).toBeUndefined();
             expect(inRangeCell['aria-selected']).toBeUndefined();
+            expect(inRangeCell.tabIndex).toBe(-1);
             expect(inRangeCell['aria-disabled']).toBeUndefined();
 
             // Disabled cells (outside min/max range and adjacent-month overflow)
             expect(beforeMinCell['aria-disabled']).toBe(true);
             expect(afterMaxCell['aria-disabled']).toBe(true);
             expect(prevMonthCell['aria-disabled']).toBe(true);
+            expect(prevMonthCell.tabIndex).toBeNull();
 
-            // Selection change updates aria-selected via SelectionModel
+            // Selection change updates aria-selected and roving tabIndex via SelectionModel
             selector.selectDate('2026-05-16');
             await selector.promiseUpdate();
 
             expect(selector.getVdomChild(`${selector.id}__2026-05-15`)['aria-selected']).toBeUndefined();
+            expect(selector.getVdomChild(`${selector.id}__2026-05-15`).tabIndex).toBe(-1);
             expect(selector.getVdomChild(`${selector.id}__2026-05-16`)['aria-selected']).toBe(true);
+            expect(selector.getVdomChild(`${selector.id}__2026-05-16`).tabIndex).toBe(0);
 
-            // Dynamic updateHeaderDays updates abbr when dayNameFormat changes
+            // Dynamic updateHeaderDays updates aria-label when dayNameFormat and locale change
             selector.dayNameFormat = 'narrow';
             await selector.promiseUpdate();
-            expect( selector.getCenterContentEl().cn[0].cn.map(cell => cell.abbr)).toEqual([
+            expect(selector.getCenterContentEl().cn[0].cn.map(cell => cell['aria-label'])).toEqual([
                 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
             ]);
 
-            // Today's cell carries aria-current="date" when viewing the current month
+            selector.locale = 'de-DE';
+            await selector.promiseUpdate();
+            expect(selector.getCenterContentEl().cn[0].cn.map(cell => cell['aria-label'])).toEqual([
+                'Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'
+            ]);
+
+            // Header button keyboard activation (Enter / Space) changes month
+            selector.locale   = 'en-US';
             selector.minValue = null;
             selector.maxValue = null;
-            selector.value    = todayStr;
+            selector.onNavButtonKeyDown({path: [{cls: ['neo-next-button']}]});
+            await selector.promiseUpdate();
+            expect(selector.value).toBe('2026-06-16');
+
+            selector.onNavButtonKeyDown({path: [{cls: ['neo-prev-button']}]});
+            await selector.promiseUpdate();
+            expect(selector.value).toBe('2026-05-16');
+
+            // Today's cell carries aria-current="date" when viewing the current month
+            selector.value = todayStr;
             await selector.promiseUpdate();
 
             const todayCell = selector.getVdomChild(`${selector.id}__${todayStr}`);
             expect(todayCell['aria-current']).toBe('date');
             expect(todayCell['aria-selected']).toBe(true);
+            expect(todayCell.tabIndex).toBe(0);
         } finally {
             selector.destroy();
         }
