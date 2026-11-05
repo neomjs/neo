@@ -160,14 +160,14 @@ class DateSelector extends Component {
         _vdom:
         {tabIndex: -1, cn: [
             {cls: ['neo-dateselector-header'], cn: [
-                {cls: ['neo-nav-button', 'neo-prev-button']},
-                {cls: ['neo-center-region'], cn: [
+                {cls: ['neo-nav-button', 'neo-prev-button'], role: 'button', 'aria-label': 'Previous Month'},
+                {cls: ['neo-center-region'], 'aria-live': 'polite', cn: [
                     {cls: ['neo-month-text']},
                     {cls: ['neo-year-text']}
                 ]},
-                {cls: ['neo-nav-button', 'neo-next-button']}
+                {cls: ['neo-nav-button', 'neo-next-button'], role: 'button', 'aria-label': 'Next Month'}
             ]},
-            {cls: ['neo-dateselector-content'], cn: []}
+            {cls: ['neo-dateselector-content'], role: 'grid', cn: []}
         ]}
     }
 
@@ -632,21 +632,23 @@ class DateSelector extends Component {
     }
 
     /**
-     *
+     * @summary Builds the weekday header row with WAI-ARIA `row` and `columnheader` semantics and full-weekday `abbr` labels.
+     * @returns {Object}
      */
     createDayNamesRow() {
-        let me   = this,
-            date = DateUtil.clone(me.currentDate),
-            i    = 0,
-            len  = 7,
-            row  = {cls: ['neo-row', 'neo-header-row'], cn: []},
+        let me      = this,
+            date    = DateUtil.clone(me.currentDate),
+            longDay = new Intl.DateTimeFormat(me.locale, {weekday: 'long'}),
+            i       = 0,
+            len     = 7,
+            row     = {cls: ['neo-row', 'neo-header-row'], role: 'row', cn: []},
             config, day;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         for (; i < len; i++) {
             config =
-            {cls: ['neo-cell'], cn: [
+            {abbr: longDay.format(date), cls: ['neo-cell'], role: 'columnheader', cn: [
                 {cls : ['neo-cell-content'], text: me.intlFormat_day.format(date)}
             ]};
 
@@ -665,6 +667,7 @@ class DateSelector extends Component {
     }
 
     /**
+     * @summary Builds the calendar day grid with WAI-ARIA `grid`, `row`, `gridcell`, `aria-selected`, `aria-disabled`, `aria-current`, and `aria-label` semantics.
      * @param {Boolean} silent=false true to update the vdom silently
      * @param {Object} [containerEl]
      */
@@ -674,6 +677,7 @@ class DateSelector extends Component {
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
+            fullDateFormat  = new Intl.DateTimeFormat(me.locale, {dateStyle: 'full'}),
             maxDate         = me.maxValue && me.dateFromValue(me.maxValue),
             minDate         = me.minValue && me.dateFromValue(me.minValue),
             valueDate       = me.dateFromValue(me.value),
@@ -684,9 +688,14 @@ class DateSelector extends Component {
             firstDayInMonth = DateUtil.getFirstDayOfMonth(currentDate),
             firstDayOffset  = firstDayInMonth - me.weekStartDay,
             centerEl        = containerEl || me.getCenterContentEl(),
+            headerCenterId  = me.getHeaderCenterId(),
             columns         = 7,
             i               = 0,
             cellId, config, dateDay, day, hasContent, j, row, rows;
+
+        me.vdom.cn[0].cn[1].id     = headerCenterId;
+        centerEl['aria-labelledby'] = headerCenterId;
+        centerEl.role               = 'grid';
 
         firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
         rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
@@ -697,7 +706,7 @@ class DateSelector extends Component {
         centerEl.cn.push(me.createDayNamesRow());
 
         for (; i < rows; i++) {
-            row = {cls: ['neo-row'], cn: []};
+            row = {cls: ['neo-row'], role: 'row', cn: []};
 
             for (j=0; j < columns; j++) {
                 hasContent = day > 0 && day <= daysInMonth;
@@ -708,12 +717,17 @@ class DateSelector extends Component {
                 config ={
                     id      : cellId,
                     cls     : hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'],
+                    role    : 'gridcell',
                     tabIndex: hasContent ? -1 : null,
-                    cn: [{
+                    cn      : [{
                         cls : ['neo-cell-content'],
                         text: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
                     }]
                 };
+
+                if (hasContent || me.showDisabledDays) {
+                    config['aria-label'] = fullDateFormat.format(date)
+                }
 
                 if (dateDay === 0 || dateDay === 6) {
                     if (!me.showWeekends) {
@@ -727,11 +741,17 @@ class DateSelector extends Component {
                     NeoArray.add(config.cls, 'neo-disabled')
                 }
 
+                if (config.cls.includes('neo-disabled')) {
+                    config['aria-disabled'] = true
+                }
+
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
+                    config['aria-current'] = 'date';
                     config.cn[0].cls.push('neo-today')
                 }
 
                 if (valueYear === currentYear && valueMonth === currentMonth && day === valueDay) {
+                    config['aria-selected'] = true;
                     config.cls.push('neo-selected');
                     me.selectionModel.items = [cellId] // silent update
                 }
@@ -832,6 +852,14 @@ class DateSelector extends Component {
      */
     getCenterContentEl() {
         return this.vdom.cn[1]
+    }
+
+    /**
+     * @summary Returns the deterministic DOM id for the month/year header region referenced by the calendar grid's `aria-labelledby`.
+     * @returns {String}
+     */
+    getHeaderCenterId() {
+        return `${this.id}__header-center`
     }
 
     /**
@@ -1007,6 +1035,7 @@ class DateSelector extends Component {
     }
 
     /**
+     * @summary Updates the weekday column headers and their localized `abbr` labels when `dayNameFormat`, `locale`, `weekStartDay`, or `showWeekends` changes.
      * @param {String} value
      * @param {String} oldValue
      * @param {Boolean} [silent=false]
@@ -1019,6 +1048,7 @@ class DateSelector extends Component {
         if (oldValue !== undefined) {
             let centerEl = me.getCenterContentEl().cn[0],
                 date     = me.currentDate, // cloned
+                longDay  = new Intl.DateTimeFormat(me.locale, {weekday: 'long'}),
                 i        = 0,
                 day, node;
 
@@ -1027,6 +1057,7 @@ class DateSelector extends Component {
             for (; i < 7; i++) {
                 node = centerEl.cn[i];
 
+                node.abbr       = longDay.format(date);
                 node.cn[0].text = me.intlFormat_day.format(date);
 
                 day = date.getDay();

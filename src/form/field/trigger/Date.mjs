@@ -21,7 +21,17 @@ class DateTrigger extends Picker {
          * @member {String|null} iconCls='fa fa-calendar-alt'
          * @reactive
          */
-        iconCls: 'fa fa-calendar-alt'
+        iconCls: 'fa fa-calendar-alt',
+        /**
+         * @member {String|null} role='button'
+         * @reactive
+         */
+        role: 'button',
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom:
+        {'aria-haspopup': 'dialog', 'aria-label': 'Choose Date'}
     }
 }
 

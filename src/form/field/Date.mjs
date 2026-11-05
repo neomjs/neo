@@ -184,6 +184,21 @@ class DateField extends Picker {
     }
 
     /**
+     * @summary Configures the floating date picker container with WAI-ARIA modal dialog semantics.
+     * @returns {Neo.container.Base}
+     */
+    createPicker() {
+        let picker = super.createPicker(),
+            {vdom} = picker;
+
+        vdom['aria-label'] = vdom['aria-label'] || 'Choose Date';
+        vdom['aria-modal'] = true;
+        vdom.role          = 'dialog';
+
+        return picker
+    }
+
+    /**
      * @returns {Neo.component.DateSelector}
      */
     createPickerComponent() {
@@ -214,6 +229,20 @@ class DateField extends Picker {
         }
 
         return super.hasContent()
+    }
+
+    /**
+     * @summary Annotates the date input element with WAI-ARIA dialog popup and expansion state attributes.
+     */
+    onConstructed() {
+        let me      = this,
+            inputEl = me.getInputEl();
+
+        inputEl['aria-controls'] = me.getPickerId();
+        inputEl['aria-expanded'] = false;
+        inputEl['aria-haspopup'] = 'dialog';
+
+        super.onConstructed(...arguments)
     }
 
     /**
@@ -267,6 +296,18 @@ class DateField extends Picker {
         } else {
             super.onKeyDownEnter(data, me.dateSelector.focusCurrentItem, me.dateSelector)
         }
+    }
+
+    /**
+     * @summary Synchronizes the input element's `aria-expanded` state when the date picker opens or closes.
+     * @param {Object} data
+     * @protected
+     */
+    onPickerHiddenChange(data) {
+        super.onPickerHiddenChange(data);
+
+        this.getInputEl()['aria-expanded'] = !data.value;
+        this.update()
     }
 
     /**
