@@ -323,33 +323,51 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         expect(Math.min(...sNum), 'the gate test-step ceiling is unchanged').toBe(5);
     });
 
-    test('the e2e job consumes BOTH gates on every step that costs anything', () => {
-        // `test.yml` resolves its flag once into `matrix.run`; the single-job e2e pipeline has no
-        // matrix to hang it on, so each step carries the conditions itself. An ungated provisioning
-        // step would spend the runner these gates exist to stop spending — and would do it quietly,
-        // since the job still reports green.
-        //
-        // Two conditions, not one, and the second is the rerun boundary: the classifier is a
-        // PREREQUISITE, and re-running a failed job replays a successful prerequisite's output
-        // rather than recomputing it. Without a job-local head check, a rerun can certify a tree
-        // the PR has already moved past.
-        const steps = readWorkflow('test-e2e.yml').jobs['e2e-engine'].steps,
+    test('a ruled-out engine tier starts no shard, and a moved head spends nothing on a rerun', () => {
+        // Two gates at two levels. The classifier's verdict gates the JOB, so an irrelevant diff
+        // never provisions a runner. The head check gates every costly STEP, because re-running a
+        // failed job replays the classifier's output instead of recomputing it, so without a
+        // job-local head check a rerun could certify a tree the PR has already moved past.
+        const job   = readWorkflow('test-e2e.yml').jobs['e2e-engine'],
+              steps = job.steps,
               // The head probe computes the answer, so it cannot depend on it; the skip step is
               // gated on the inverse and reports the reason. Every OTHER step spends the runner.
               exempt   = ['Verify current pull-request head', 'Skip e2e (engine tier)'],
               expensive = steps.filter(step => !exempt.includes(step.name)),
-              ungated  = expensive.filter(step => {
-                  const condition = String(step.if || '');
+              ungated  = expensive.filter(step => !String(step.if || '').includes('steps.head.outputs.current'));
 
-                  return !condition.includes('run_e2e') || !condition.includes('steps.head.outputs.current');
-              });
-
+        expect(String(job.if)).toBe("${{ needs.changes.outputs.run_e2e == 'true' }}");
         expect(ungated.map(step => step.name)).toEqual([]);
 
         // The filters above pass vacuously on an empty job, and `exempt` names steps by string:
         // a rename would silently exempt nothing and shrink `expensive` to zero.
         expect(expensive.length).toBeGreaterThan(10);
         expect(steps.map(step => step.name)).toEqual(expect.arrayContaining(exempt));
+    });
+
+    test('the required e2e-engine context passes a skipped tier only when the classifier ruled it out', () => {
+        // Skipped shards are what a ruled-out tier looks like, and also what a FAILED classifier
+        // leaves behind. The gate must tell them apart, or a broken classifier reads as an
+        // irrelevant diff and the required context goes green on a run that tested nothing.
+        const gate = readWorkflow('test-e2e.yml').jobs['e2e-engine-gate'],
+              step = gate.steps[0];
+
+        expect(gate.name).toBe('e2e-engine');
+        expect(gate.needs).toEqual(['changes', 'e2e-engine']);
+        expect(String(gate.if)).toContain('always()');
+        expect(step.env).toEqual({
+            CLASSIFIER: '${{ needs.changes.result }}',
+            RUN_E2E   : '${{ needs.changes.outputs.run_e2e }}',
+            SHARDS    : '${{ needs.e2e-engine.result }}',
+            REASON    : '${{ needs.changes.outputs.skip_reason }}'
+        });
+
+        // Order is the contract: the classifier must have succeeded before a skip may pass, and
+        // an admitted tier still needs every shard green.
+        const run = step.run;
+        expect(run.indexOf('test "${CLASSIFIER}" = success')).toBeGreaterThan(-1);
+        expect(run.indexOf('test "${CLASSIFIER}" = success')).toBeLessThan(run.indexOf('if [ "${RUN_E2E}" != true ]'));
+        expect(run).toMatch(/if \[ "\$\{RUN_E2E\}" != true \]; then[\s\S]*test "\$\{SHARDS\}" = skipped[\s\S]*exit 0[\s\S]*fi[\s\S]*test "\$\{SHARDS\}" = success/);
     });
 
 });

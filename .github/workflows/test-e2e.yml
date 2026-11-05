@@ -74,6 +74,9 @@ jobs:
     name: e2e-engine (${{ matrix.shard }}/${{ matrix.shards }})
     runs-on: ubuntu-latest
     needs: changes
+    # A ruled-out tier starts no runner: its shards report SKIPPED, and `e2e-engine-gate` turns
+    # that into the required context's green, with the classifier's reason.
+    if: ${{ needs.changes.outputs.run_e2e == 'true' }}
     # The gate runs as Playwright shards on separate runners, each serial and each under the
     # step's ceiling. A dispatch is one shard, so a probe's tally keeps its whole denominator.
     strategy:
@@ -135,37 +138,31 @@ jobs:
                 .write();
             }
 
-      # Gated per-step rather than on the job, and the distinction is the point: a job-level
-      # `if` yields a SKIPPED check, and a workflow-level `paths` filter yields no check at
-      # all. `test.yml` already carries the reason — "missing checks can block protected
-      # branches" — and #17783 may yet bind contexts on `dev`. So the tier reports green with
-      # a stated reason on an irrelevant diff, which is a status a reader and a branch rule
-      # can both act on.
-      #
-      # The head reason is preferred over the classifier's: on a stale rerun both are true, and
-      # "your attempt is obsolete" is the one that explains why a relevant diff ran nothing.
+      # The classifier's verdict gates the job; this step covers the one case it cannot see: a
+      # rerun of an attempt whose PR head has since moved. It reports that reason, and every
+      # later step is gated on the head check.
       - name: Skip e2e (engine tier)
-        if: ${{ needs.changes.outputs.run_e2e != 'true' || steps.head.outputs.current != 'true' }}
+        if: ${{ steps.head.outputs.current != 'true' }}
         run: |
-          echo "e2e (engine tier) skipped: ${{ steps.head.outputs.skip_reason || needs.changes.outputs.skip_reason }}"
+          echo "e2e (engine tier) skipped: ${{ steps.head.outputs.skip_reason }}"
 
       - name: Checkout repository
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ steps.head.outputs.current == 'true' }}
         uses: actions/checkout@v7
 
       - name: Setup Node.js
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ steps.head.outputs.current == 'true' }}
         uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ steps.head.outputs.current == 'true' }}
         run: npm ci
 
       - name: Bundle browser dependencies
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ steps.head.outputs.current == 'true' }}
         run: npm run bundle-browser-deps
 
       # Browser provisioning is cached on the installed Playwright version, and the
@@ -173,23 +170,23 @@ jobs:
       # the same shape `test.yml` uses for its components suite, and for its reasons.
       - name: Resolve Playwright version
         id: playwright
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ steps.head.outputs.current == 'true' }}
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Restore Playwright Chromium
         id: playwright-cache
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ steps.head.outputs.current == 'true' }}
         uses: actions/cache/restore@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
       - name: Install Playwright Chromium
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.head.outputs.current == 'true' && steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: npx playwright install chromium
 
       - name: Save Playwright Chromium
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.head.outputs.current == 'true' && steps.playwright-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: ~/.cache/ms-playwright
@@ -197,12 +194,12 @@ jobs:
 
       - name: Verify Chromium launches
         id: chromium-probe
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ steps.head.outputs.current == 'true' }}
         continue-on-error: true
         run: node -e "require('@playwright/test').chromium.launch().then(browser => browser.close())"
 
       - name: Install Playwright system dependencies
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' && steps.chromium-probe.outcome == 'failure' }}
+        if: ${{ steps.head.outputs.current == 'true' && steps.chromium-probe.outcome == 'failure' }}
         run: npx playwright install-deps chromium
 
       # Its own step, because a command substitution cannot gate the command it feeds.
@@ -213,7 +210,7 @@ jobs:
       # step makes it legible in the job UI rather than buried in a test log.
       - name: Verify e2e selection floor
         id: selection
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ steps.head.outputs.current == 'true' }}
         run: |
           # The accurate figure, in the LOG. The step summary is the complete account and a reader
           # has to go looking for it; the number met first was the runtime notice's, which counted
@@ -234,7 +231,7 @@ jobs:
       # take N times as long — so it gets its own budget. Sharing the gate's ceiling would silently
       # truncate a probe and report a rate that is an artifact of the timeout.
       - name: Run e2e (engine tier)
-        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ steps.head.outputs.current == 'true' }}
         timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 5 }}
         env:
           NEO_TEST_SKIP_CI: 'true'
@@ -311,7 +308,7 @@ jobs:
       # reconstructed from a log by whoever reads it next. `always()`, because a probe that ends
       # red is the one whose numbers are wanted most.
       - name: Report probe rate
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && steps.head.outputs.current == 'true' }}
         env:
           PROBE_SPECS: ${{ inputs.specs }}
           PROBE_REPEAT: ${{ inputs.repeatEach || '1' }}
@@ -344,11 +341,11 @@ jobs:
       # A probe's population is reported by `Report probe rate` above, from its actual selection.
       # The shards split one population, so the first one states it.
       - name: Report tier coverage
-        if: ${{ always() && matrix.shard == 1 && needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' && (github.event_name != 'workflow_dispatch' || inputs.specs == '') }}
+        if: ${{ always() && matrix.shard == 1 && steps.head.outputs.current == 'true' && (github.event_name != 'workflow_dispatch' || inputs.specs == '') }}
         run: node buildScripts/util/e2eCiSelection.mjs --summary >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test artifacts on failure
-        if: ${{ failure() && needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ failure() && steps.head.outputs.current == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: test-results-e2e-engine-${{ github.run_id }}-shard-${{ matrix.shard }}
@@ -357,16 +354,31 @@ jobs:
   # The context the ruleset requires. A shard's name carries the shard count, which the header's
   # rule changes whenever the tier grows, so requiring the shards by name blocks every pull
   # request the moment a sibling is added. One shard that did not succeed fails this.
+  #
+  # A tier the classifier ruled out starts no shard, so the shards report SKIPPED, and this gate
+  # passes with the classifier's reason. It passes only when the classifier itself succeeded:
+  # a failed classifier also skips the shards, and that must never read as an irrelevant diff.
   e2e-engine-gate:
     name: e2e-engine
     if: ${{ always() && github.event_name != 'workflow_dispatch' }}
-    needs: e2e-engine
+    needs: [changes, e2e-engine]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Every shard succeeded
+      - name: Every shard succeeded, or the classifier ruled the tier out
         env:
+          CLASSIFIER: ${{ needs.changes.result }}
+          RUN_E2E: ${{ needs.changes.outputs.run_e2e }}
           SHARDS: ${{ needs.e2e-engine.result }}
+          REASON: ${{ needs.changes.outputs.skip_reason }}
         run: |
-          echo "e2e-engine shards: ${SHARDS}"
+          echo "classifier: ${CLASSIFIER} · run_e2e: ${RUN_E2E} · e2e-engine shards: ${SHARDS}"
+          test "${CLASSIFIER}" = success
+
+          if [ "${RUN_E2E}" != true ]; then
+            echo "e2e (engine tier) skipped: ${REASON}" | tee -a "$GITHUB_STEP_SUMMARY"
+            test "${SHARDS}" = skipped
+            exit 0
+          fi
+
           test "${SHARDS}" = success
