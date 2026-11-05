@@ -70,6 +70,7 @@
         {"name": "UI Building Blocks",                                 "parentId": "guides",                             "isLeaf": false, "id": "guides/uibuildingblocks", "collapsed": true},
             {"name": "Component and Container Basics",                 "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/ComponentsAndContainers"},
             {"name": "Layouts",                                        "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/Layouts"},
+            {"name": "Tab Containers",                                 "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/TabContainers"},
             {"name": "Dock Layouts",                                   "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayouts"},
             {"name": "Dock Layouts: Adopting in Your App",             "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayoutsAdoption"},
             {"name": "Dock Layouts: State and Persistence",            "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayoutsStateAndPersistence"},
