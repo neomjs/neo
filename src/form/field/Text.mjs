@@ -7,6 +7,7 @@ import VDomUtil     from '../../util/VDom.mjs';
 import VNodeUtil    from '../../util/VNode.mjs';
 
 /**
+ * @summary A text input with validation, labels, triggers and an optional live character counter.
  * @class Neo.form.field.Text
  * @extends Neo.form.field.Base
  */
@@ -235,6 +236,13 @@ class Text extends Field {
          */
         readOnly_: false,
         /**
+         * Shows the visible input's string length below its right edge, followed by maxLength when set.
+         * Uses the same UTF-16 string-length convention as maxLength validation.
+         * @member {Boolean} showCharacterCount_=false
+         * @reactive
+         */
+        showCharacterCount_: false,
+        /**
          * @member {Boolean} showOptionalText_=false
          * @reactive
          */
@@ -296,7 +304,8 @@ class Text extends Field {
             {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
             {cls: ['neo-textfield-error-wrapper'], removeDom: true, cn: [
                 {cls: ['neo-textfield-error']}
-            ]}
+            ]},
+            {tag: 'span', cls: ['neo-textfield-character-count'], removeDom: true}
         ]}
     }
 
@@ -531,7 +540,7 @@ class Text extends Field {
     }
 
     /**
-     * Triggered after the inputValue config got changed
+     * @summary Synchronizes the input spelling, optional count and value when inputValue changes.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -547,6 +556,7 @@ class Text extends Field {
         NeoArray.toggle(cls, 'neo-has-content', me.hasContent());
         me.cls = cls;
 
+        me.showCharacterCount && me.syncCharacterCount();
         me.updateValueFromInputValue(value)
     }
 
@@ -697,13 +707,14 @@ class Text extends Field {
     }
 
     /**
-     * Triggered after the maxLength config got changed
+     * @summary Applies the maximum length to validation, the native input and the optional counter.
      * @param {Number|null} value
      * @param {Number|null} oldValue
      * @protected
      */
     afterSetMaxLength(value, oldValue) {
         this.validate(); // silent
+        this.showCharacterCount && this.syncCharacterCount();
         this.changeInputElKey('maxlength', value)
     }
 
@@ -810,6 +821,21 @@ class Text extends Field {
 
         me.silentVdomUpdate = false;
 
+        me.update()
+    }
+
+    /**
+     * @summary Toggles the counter and its input description without changing the field's value policy.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowCharacterCount(value, oldValue) {
+        if (!value && oldValue === undefined) return;
+        const me = this, cls = me.cls;
+        NeoArray.toggle(cls, 'neo-has-character-count', value);
+        me.cls = cls;
+        me.syncCharacterCount();
         me.update()
     }
 
@@ -1459,6 +1485,7 @@ class Text extends Field {
     }
 
     /**
+     * @summary Settles validation and input normalization, then updates the optional visible count.
      * @param {Object} data
      * @param {Object[]} data.oldPath
      * @protected
@@ -1491,13 +1518,14 @@ class Text extends Field {
             inputEl.value = me.inputValueRenderer(me.inputValue)
         }
 
+        me.showCharacterCount && me.syncCharacterCount();
         me.update();
 
         super.onFocusLeave(data)
     }
 
     /**
-     * Gets triggered by the 'input' DOM event.
+     * @summary Preserves the reported native spelling while synchronizing the value and optional counter.
      * @param {Object} data
      * @protected
      */
@@ -1529,6 +1557,11 @@ class Text extends Field {
 
         // A space at either end changes no config, so afterSetInputValue() never ran for it
         me.getInputEl().value = me.getInputElValue(me.inputValue);
+
+        if (me.showCharacterCount) {
+            me.syncCharacterCount();
+            me.update()
+        }
 
         me.fireUserChangeEvent(me.value, oldValue)
     }
@@ -1626,6 +1659,31 @@ class Text extends Field {
             me.validate();
             me.update()
         }
+    }
+
+    /**
+     * @summary Projects the visible input spelling into the counter, preserving other accessible descriptions.
+     * Does not write the input value or schedule a render; input/config hooks own those operations.
+     * @protected
+     */
+    syncCharacterCount() {
+        const me           = this,
+              counter      = VDomUtil.find(me.vdom, {cls: 'neo-textfield-character-count'}).vdom,
+              input        = me.getInputEl(),
+              id           = `${me.id}__character-count`,
+              descriptions = String(input['aria-describedby'] || '').split(/\s+/).filter(value => value && value !== id);
+
+        counter.id        = id;
+        counter.removeDom = !me.showCharacterCount;
+
+        if (me.showCharacterCount) {
+            const length = String(input.value ?? '').length;
+            counter.text = me.maxLength == null ? String(length) : `${length} / ${me.maxLength}`;
+            descriptions.push(id)
+        }
+
+        if (descriptions.length) input['aria-describedby'] = descriptions.join(' ');
+        else delete input['aria-describedby']
     }
 
     /**
@@ -1805,7 +1863,7 @@ class Text extends Field {
         return !returnValue ? false : super.validate(silent)
     }
     /**
-     * Serializes the field into a JSON-compatible object.
+     * @summary Serializes the field's input, label and counter configuration.
      * @returns {Object}
      */
     toJSON() {
@@ -1813,21 +1871,22 @@ class Text extends Field {
 
         return {
             ...super.toJSON(),
-            autoCapitalize : me.autoCapitalize,
-            autoComplete   : me.autoComplete,
-            clearable      : me.clearable,
-            editable       : me.editable,
-            hideLabel      : me.hideLabel,
-            inputPattern   : me.inputPattern?.toString(),
-            inputType      : me.inputType,
-            inputValue     : me.inputValue,
-            labelPosition  : me.labelPosition,
-            labelText      : me.labelText,
-            maxLength      : me.maxLength,
-            minLength      : me.minLength,
-            placeholderText: me.placeholderText,
-            readOnly       : me.readOnly,
-            triggers       : me.triggers?.map(trigger => trigger.toJSON())
+            autoCapitalize    : me.autoCapitalize,
+            autoComplete      : me.autoComplete,
+            clearable         : me.clearable,
+            editable          : me.editable,
+            hideLabel         : me.hideLabel,
+            inputPattern      : me.inputPattern?.toString(),
+            inputType         : me.inputType,
+            inputValue        : me.inputValue,
+            labelPosition     : me.labelPosition,
+            labelText         : me.labelText,
+            maxLength         : me.maxLength,
+            minLength         : me.minLength,
+            placeholderText   : me.placeholderText,
+            readOnly          : me.readOnly,
+            showCharacterCount: me.showCharacterCount,
+            triggers          : me.triggers?.map(trigger => trigger.toJSON())
         }
     }
 }

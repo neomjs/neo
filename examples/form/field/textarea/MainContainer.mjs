@@ -17,6 +17,9 @@ class MainContainer extends ConfigurationViewport {
         layout              : {ntype: 'hbox', align: 'stretch'}
     }
 
+    /**
+     * @summary Creates controls for the text area's dimensions, labels and live counter.
+     */
     createConfigurationComponents() {
         let me = this;
 
@@ -40,6 +43,12 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 1,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.cols
+        }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.showCharacterCount,
+            labelText: 'showCharacterCount',
+            listeners: {change: me.onConfigChange.bind(me, 'showCharacterCount')},
+            style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
             checked  : me.exampleComponent.hideLabel,
@@ -178,14 +187,19 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /**
+     * @summary Creates a text area with a visible character budget.
+     */
     createExampleComponent() {
         return Neo.create(TextAreaField, {
-            clearable : true,
-            height    : 120,
-            labelText : 'Label',
-            labelWidth: 70,
-            value     : 'Hello World',
-            width     : 400,
+            clearable         : true,
+            height            : 120,
+            labelText         : 'Label',
+            labelWidth        : 70,
+            maxLength         : 200,
+            showCharacterCount: true,
+            value             : 'Hello World',
+            width             : 400,
         })
     }
 }
