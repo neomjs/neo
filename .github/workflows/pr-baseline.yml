@@ -56,6 +56,12 @@ on:
   pull_request:
     types: [opened, edited, synchronize, ready_for_review]
 
+# A new head supersedes the run for the old one, which would otherwise queue and then spend ten slots on
+# it. A rerun gets its own group, so it never cancels the current head's run. A body edit waits rather
+# than cancels: `same-head-check-repair.yml` reruns a same-head run that was cancelled.
+concurrency:
+  group: pr-baseline-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event.action != 'edited' }}
 
 permissions:
   contents: read
