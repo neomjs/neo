@@ -131,5 +131,55 @@ test.describe('Neo.form.field.CheckBox', () => {
 
         await expect.poll(() => domChecked(page, componentId), {message: 'three more, an odd count, end unchecked'}).toBe(false);
         await expect.poll(() => configChecked(page, componentId), {message: 'config still agreeing'}).toBe(false)
-    })
+    });
+
+    test('a required group shows one error below its last choice and clears it when a choice is checked', async ({page}) => {
+        const result = await page.evaluate(async () => {
+            await Neo.worker.App.loadModule({path: '../form/field/CheckBox.mjs'});
+            return Neo.worker.App.createNeoInstance({
+                importPath: '../form/Container.mjs',
+                ntype     : 'form-container',
+                parentId  : 'component-test-viewport',
+                flex      : 'none',
+                width     : 400,
+                items     : [0, 1, 2].map(index => ({
+                    ntype  : 'checkboxfield', id: `group-check-${index}`, name: 'fruit', groupRequired: true,
+                    checked: index === 0, value: index, valueLabel: `Choice ${index}`, labelText: '', flex: 'none'
+                }))
+            })
+        });
+        expect(result.success).toBe(true);
+        componentId = result.id;
+
+        await clickTarget(page, 'group-check-0').click();
+        const errors = page.locator(`#${componentId} .neo-error`);
+        await expect(errors).toHaveCount(1);
+        await expect(page.locator('#group-check-2 .neo-error')).toHaveText('Please check at least one item of the group: fruit');
+        for (let index = 0; index < 3; index++) {
+            await expect(page.locator(`#group-check-${index}`)).toHaveClass(/neo-invalid/)
+        }
+
+        const inputBox = await clickTarget(page, 'group-check-2').boundingBox(),
+              errorBox = await errors.boundingBox();
+        expect(errorBox.y).toBeGreaterThanOrEqual(inputBox.y + inputBox.height);
+        await page.locator(`#${componentId}`).screenshot({path: test.info().outputPath('required-checkbox-group.png')});
+
+        await clickTarget(page, 'group-check-1').click();
+        await expect(errors).toHaveCount(0);
+        await expect.poll(() => configChecked(page, 'group-check-1')).toBe(true)
+    });
+
+    test('the public form example places its group error without per-choice suppression flags', async ({page}) => {
+        await page.goto('/apps/form/index.html');
+        await page.getByText('CheckBoxes', {exact: true}).click();
+        for (const fruit of ['Lemon', 'Orange']) {
+            await page.locator('.neo-checkboxfield').filter({hasText: fruit}).locator('label').click()
+        }
+        const last = page.locator('.neo-checkboxfield').filter({hasText: 'Strawberry'});
+        await expect(page.locator('.neo-error:visible')).toHaveCount(1);
+        await expect(last.locator('.neo-error')).toHaveText('Please check at least one item of the group: my.fruits[0].basket');
+        await page.screenshot({path: test.info().outputPath('form-checkbox-group.png')});
+        await last.locator('label').click();
+        await expect(page.locator('.neo-error:visible')).toHaveCount(0)
+    });
 });

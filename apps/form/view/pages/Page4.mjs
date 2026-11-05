@@ -2,6 +2,7 @@ import CheckBox          from '../../../../src/form/field/CheckBox.mjs';
 import FormPageContainer from '../FormPageContainer.mjs';
 
 /**
+ * @summary A required checkbox group with automatic shared error placement and a separate boolean field.
  * @class Form.view.pages.Page4
  * @extends Form.view.FormPageContainer
  */
@@ -16,12 +17,11 @@ class Page4 extends FormPageContainer {
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            module        : CheckBox,
-            groupRequired : true,
-            labelText     : null,
-            labelWidth    : 70,
-            name          : 'my.fruits[0].basket',
-            showErrorTexts: false
+            module       : CheckBox,
+            groupRequired: true,
+            labelText    : null,
+            labelWidth   : 70,
+            name         : 'my.fruits[0].basket'
         },
         /**
          * @member {Object[]} items
@@ -42,14 +42,12 @@ class Page4 extends FormPageContainer {
             value     : 'orange',
             valueLabel: 'Orange'
         }, {
-            showErrorTexts: true, // overwriting the itemDefaults value
-            value         : 'strawberry',
-            valueLabel    : 'Strawberry'
+            value     : 'strawberry',
+            valueLabel: 'Strawberry'
         }, {
             labelText     : 'Boolean',
             groupRequired : false, // overwriting the itemDefaults value
             name          : 'boolean',
-            showErrorTexts: true,  // overwriting the itemDefaults value
             style         : {marginTop: '50px'},
             uncheckedValue: false,
             value         : true
