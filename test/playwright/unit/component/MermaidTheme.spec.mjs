@@ -142,15 +142,19 @@ test.describe('a diagram hands the resolved theme to its addon', () => {
     const frontMatterTheme = code => code.match(/^---\nconfig:\n {2}theme: (.+)\n---\n/)?.[1];
 
     let calls    = [],
-        instance = null;
+        instance = null,
+        originalGetAddon;
 
     test.beforeEach(() => {
-        calls = []
+        calls = [];
+        originalGetAddon = Neo.currentWorker.getAddon;
+        Neo.currentWorker.getAddon = async () => ({render: async data => {calls.push(data)}})
     });
 
     test.afterEach(() => {
         instance?.destroy();
-        instance = null
+        instance = null;
+        Neo.currentWorker.getAddon = originalGetAddon
     });
 
     /**
@@ -175,18 +179,15 @@ test.describe('a diagram hands the resolved theme to its addon', () => {
 
         const mermaid = instance.getReference('mermaid');
 
-        // `initAsync` assigns the addon, so the double has to replace it afterwards or it is
-        // overwritten the moment the instance becomes ready.
         await mermaid.ready();
 
         // Empty the config FIRST, or this arm cannot fail on the resolution axis.
         mermaid.theme = null;
-        mermaid.addon = {render: async data => {calls.push(data)}};
 
         // Mounting is the first-render trigger, and the one path the theme config never reaches:
         // `afterSetTheme` is the only trigger that carries a value, because it IS the new value.
         mermaid.mounted = true;
-        await mermaid.timeout(1);
+        await expect.poll(() => calls.length).toBeGreaterThan(0);
 
         return frontMatterTheme(calls.at(-1)?.code)
     }
@@ -206,5 +207,129 @@ test.describe('a diagram hands the resolved theme to its addon', () => {
 
     test('a dark scope whose name says nothing still renders dark', async () => {
         expect(await firstRenderTheme('neo-theme-cyberpunk')).toBe('dark')
+    })
+});
+
+/**
+ * @summary A controlled window-admission response, independent of browser or bridge timing.
+ * @returns {Object}
+ */
+function admission() {
+    let resolve, reject;
+    const promise = new Promise((done, fail) => {resolve = done; reject = fail});
+
+    return {promise, resolve, reject}
+}
+
+test.describe('a Mermaid render admits its current window', () => {
+    let calls, instance, originalGetAddon;
+
+    const proxy = owner => ({render: async data => {calls.push({owner, ...data})}});
+
+    test.beforeEach(() => {
+        calls = [];
+        originalGetAddon = Neo.currentWorker.getAddon;
+        Neo.currentWorker.getAddon = async () => proxy('initial')
+    });
+
+    test.afterEach(() => {
+        instance?.destroy();
+        instance = null;
+        Neo.currentWorker.getAddon = originalGetAddon
+    });
+
+    /**
+     * @summary Settles the initial mount render before a test controls a subsequent window admission.
+     * @returns {Promise<Neo.component.wrapper.Mermaid>}
+     */
+    async function diagram() {
+        instance = Neo.create(Mermaid, {appName, theme: 'neo-theme-neo-light', value: 'graph TD; A-->B;'});
+        await instance.ready();
+        instance.setSilent({mounted: true});
+        await instance.render();
+        calls.length = 0;
+
+        return instance
+    }
+
+    test('admits the destination window before dispatching its render', async () => {
+        const mermaid = await diagram(), gate = admission(), requests = [], destination = proxy('popup');
+
+        mermaid.setSilent({windowId: 'popup'});
+        Neo.currentWorker.getAddon = (name, windowId) => {
+            requests.push({name, windowId});
+            return gate.promise
+        };
+
+        const rendering = mermaid.render();
+        try {
+            await expect.poll(() => requests, {timeout: 1000}).toEqual([{name: 'Mermaid', windowId: 'popup'}]);
+            expect(calls).toEqual([])
+        } finally {
+            gate.resolve(destination);
+            await rendering
+        }
+
+        expect(calls).toEqual([{
+            owner: 'popup', id: mermaid.id, windowId: 'popup',
+            code : '---\nconfig:\n  theme: default\n---\ngraph TD; A-->B;'
+        }]);
+        expect(mermaid.addon).toBe(destination)
+    });
+
+    test('a delayed old-window result cannot replace a newer window admission or render there', async () => {
+        const mermaid = await diagram(), gate = admission(), requests = [], current = proxy('current');
+
+        mermaid.setSilent({windowId: 'old'});
+        Neo.currentWorker.getAddon = (name, windowId) => {
+            requests.push(windowId);
+            return windowId === 'old' ? gate.promise : Promise.resolve(current)
+        };
+
+        const stale = mermaid.render();
+        await expect.poll(() => requests, {timeout: 1000}).toEqual(['old']);
+        mermaid.setSilent({windowId: 'current'});
+        await mermaid.render();
+        gate.resolve(proxy('old'));
+        await stale;
+
+        expect(calls.map(({owner, windowId}) => ({owner, windowId}))).toEqual([{owner: 'current', windowId: 'current'}]);
+        expect(mermaid.addon).toBe(current)
+    });
+
+    test('a destroyed wrapper ignores its delayed admission without recreating its addon field', async () => {
+        const mermaid = await diagram(), gate = admission(), requests = [];
+
+        Neo.currentWorker.getAddon = (name, windowId) => {
+            requests.push(windowId);
+            return gate.promise
+        };
+        const rendering = mermaid.render();
+
+        await expect.poll(() => requests.length, {timeout: 1000}).toBe(1);
+        mermaid.destroy();
+        gate.resolve(proxy('late'));
+        await rendering;
+
+        expect(calls).toEqual([]);
+        expect(Object.hasOwn(mermaid, 'addon')).toBe(false)
+    });
+
+    test('only a stale admission failure is suppressed; a current window failure still rejects', async () => {
+        const mermaid = await diagram(), gate = admission(), requests = [];
+
+        mermaid.setSilent({windowId: 'old'});
+        Neo.currentWorker.getAddon = (name, windowId) => {
+            requests.push(windowId);
+            return windowId === 'old' ? gate.promise : Promise.reject(new Error('current admission failed'))
+        };
+        const stale = mermaid.render();
+
+        await expect.poll(() => requests, {timeout: 1000}).toEqual(['old']);
+        mermaid.setSilent({windowId: 'current'});
+        gate.reject(new Error('old window disconnected'));
+        await expect(stale).resolves.toBeUndefined();
+        await expect(mermaid.render()).rejects.toThrow('current admission failed');
+        expect(calls).toEqual([])
     })
 });
