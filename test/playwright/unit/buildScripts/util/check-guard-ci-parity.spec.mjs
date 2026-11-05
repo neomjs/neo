@@ -6,7 +6,7 @@ import os              from 'node:os';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-import {SCAN_SURFACE}  from '../../../../../buildScripts/util/check-guard-ci-parity.mjs';
+import {SCAN_SURFACE, mirroredGuards} from '../../../../../buildScripts/util/check-guard-ci-parity.mjs';
 
 const
     __dirname  = path.dirname(fileURLToPath(import.meta.url)),
@@ -282,7 +282,21 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
 
         expect(code, `a stale entry must FAIL.\n\n${output}`).toBe(1);
         expect(output).toMatch(/STALE/);
-        expect(output, 'the failure must name the workflow that already mirrors it').toMatch(/jsdoc-type-lint\.yml/)
+        expect(output, 'the failure must name the workflow that already mirrors it').toMatch(/guard-ci-parity-lint\.yml/)
+    });
+
+    test('consolidates all mirrored lint-staged guards into guard-ci-parity-lint.yml and keeps substrate-sync push-only', () => {
+        const mirrors   = mirroredGuards(),
+              workflow  = yaml.load(fs.readFileSync(path.join(REPO_ROOT, MIRROR_REL), 'utf8')),
+              substrate = yaml.load(fs.readFileSync(path.join(REPO_ROOT, '.github/workflows/substrate-sync.yml'), 'utf8')),
+              triggers  = substrate.on ?? substrate[true];
+
+        expect(mirrors.length).toBe(9);
+        expect(mirrors.every(({mirrors: files}) => files.length === 1 && files[0] === 'guard-ci-parity-lint.yml')).toBe(true);
+        expect(Object.keys(workflow.jobs)).toEqual(['lint']);
+
+        expect(triggers.pull_request).toBeUndefined();
+        expect(triggers.push).toEqual({branches: ['dev', 'main']})
     });
 
     test('RED: an entry without a reason or witness is a suppression, not an acceptance', () => {

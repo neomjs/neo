@@ -1,13 +1,10 @@
 name: Guard CI Parity
 
-# CI mirror of the .husky/pre-commit check-guard-ci-parity guard, so `git commit --no-verify` cannot
-# bypass it at the merge-gate. The guard asserts that every OTHER lint-staged guard is invoked by
-# some workflow, which makes this file the one that closes its own loop: without it the parity
-# checker would be the single unmirrored guard in a repo it certifies as fully mirrored.
-#
-# The trigger list is the guard's own SCAN_SURFACE, and must stay equal to it. Anything the guard
-# reads but this does not watch is a verdict that can go stale between merges — a lint-staged entry
-# added in a PR that touches none of these paths would never face the gate.
+# Consolidated CI mirror for the repository's `.husky/pre-commit` / `lint-staged` guards and fast
+# repo-local `buildScripts/util/check-*.mjs` checks. Running checkout, Node setup, and
+# `npm ci --ignore-scripts` once in a single runner job instead of booting 12 separate workflows
+# preserves every guard's exact execution contract (`check-guard-ci-parity.mjs`) and watched path
+# surface (`ScanSurfaceAlignment.spec.mjs`) while saving up to 11 runner slots per pull request.
 on:
   pull_request:
     branches: [dev]
@@ -15,8 +12,58 @@ on:
       - 'package.json'
       - '.husky/pre-commit'
       - '.github/workflows/**'
+      - '.github/*.md'
+      - '.github/**/*.md'
+      - '*.md'
+      - 'learn/**'
+      - 'src/**/*.mjs'
+      - 'apps/**/*.mjs'
+      - 'docs/app/**/*.mjs'
+      - 'examples/**'
+      - 'resources/scss/**/*.scss'
+      - 'resources/scss/theme-neo-dark/apps/workstation/**'
+      - 'resources/scss/theme-neo-light/apps/workstation/**'
+      - 'resources/scss/src/apps/workstation/**'
+      - 'test/playwright/unit/**/*.mjs'
+      - 'test/playwright/component/**/*.mjs'
+      - 'test/playwright/e2e/**/*.mjs'
+      - 'buildScripts/**/*.mjs'
       - 'buildScripts/util/check-guard-ci-parity.mjs'
       - 'buildScripts/util/check-guard-ci-parity-registry.json'
+      - 'buildScripts/util/check-class-module-scope-baseline.json'
+      - 'buildScripts/util/check-content-root-derivations-baseline.json'
+      - 'buildScripts/util/check-engine-brain-boundary-baseline.json'
+      - 'buildScripts/util/check-fixed-sleeps-baseline.json'
+      - 'buildScripts/util/check-theme-value-files-baseline.json'
+  push:
+    branches: [dev]
+    paths:
+      - 'package.json'
+      - '.husky/pre-commit'
+      - '.github/workflows/**'
+      - '.github/*.md'
+      - '.github/**/*.md'
+      - '*.md'
+      - 'learn/**'
+      - 'src/**/*.mjs'
+      - 'apps/**/*.mjs'
+      - 'docs/app/**/*.mjs'
+      - 'examples/**'
+      - 'resources/scss/**/*.scss'
+      - 'resources/scss/theme-neo-dark/apps/workstation/**'
+      - 'resources/scss/theme-neo-light/apps/workstation/**'
+      - 'resources/scss/src/apps/workstation/**'
+      - 'test/playwright/unit/**/*.mjs'
+      - 'test/playwright/component/**/*.mjs'
+      - 'test/playwright/e2e/**/*.mjs'
+      - 'buildScripts/**/*.mjs'
+      - 'buildScripts/util/check-guard-ci-parity.mjs'
+      - 'buildScripts/util/check-guard-ci-parity-registry.json'
+      - 'buildScripts/util/check-class-module-scope-baseline.json'
+      - 'buildScripts/util/check-content-root-derivations-baseline.json'
+      - 'buildScripts/util/check-engine-brain-boundary-baseline.json'
+      - 'buildScripts/util/check-fixed-sleeps-baseline.json'
+      - 'buildScripts/util/check-theme-value-files-baseline.json'
 
 concurrency:
   group: guard-ci-parity-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
@@ -28,6 +75,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -35,10 +84,41 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
-      # The guard parses workflow YAML with js-yaml (a declared dependency). --ignore-scripts skips
-      # the prepare lifecycle we do not need — only node_modules must be present.
-      - name: Install dependencies (js-yaml)
+      - name: Install dependencies (acorn, catharsis, js-yaml)
         run: npm ci --ignore-scripts
 
       - name: Lint hook-CI guard parity
         run: node buildScripts/util/check-guard-ci-parity.mjs
+
+      - name: Keep class logic where a subclass, a mixin or Neo.overwrites can reach it
+        run: node ./buildScripts/util/check-class-module-scope.mjs
+
+      - name: Check no new path into resources/content
+        run: node ./buildScripts/util/check-content-root-derivations.mjs
+
+      - name: Check engine does not import the Brain
+        run: node ./buildScripts/util/check-engine-brain-boundary.mjs
+
+      - name: Require fixed second-scale waits to name what they wait for
+        run: node ./buildScripts/util/check-fixed-sleeps.mjs
+
+      - name: Lint JSDoc type expressions (docs-build parser check-mode)
+        run: node ./buildScripts/util/check-jsdoc-types.mjs
+
+      - name: Check relative links in the guides and the entry docs
+        run: npm run check-relative-links
+
+      - name: Check theme coverage (whole tree)
+        run: node buildScripts/util/check-theme-coverage.mjs
+
+      - name: Require theme value files to declare variables, never selectors
+        run: node ./buildScripts/util/check-theme-value-files.mjs
+
+      - name: Check examples/ is Body-only
+        run: npm run check-examples-body-only
+
+      - name: Check Workstation skin parity and token-only views
+        run: npm run check-theme-surfaces
+
+      - name: Check front-door integrity fingerprint
+        run: node ./buildScripts/util/check-front-door-fingerprint.mjs
