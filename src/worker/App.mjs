@@ -6,6 +6,7 @@ import Message         from './Message.mjs';
 import Application     from '../controller/Application.mjs';
 import InstanceManager from '../manager/Instance.mjs';
 import DomEventManager from '../manager/DomEvent.mjs';
+import FocusManager    from '../manager/Focus.mjs';
 import HashHistory     from '../util/HashHistory.mjs';
 
 /**
@@ -960,7 +961,8 @@ class App extends Base {
     /**
      * @summary Retires a port as the base does, and with it the canvas waits that exact port admitted. When it was the
      * window's last port, that window leaves its canvas group too, so only its own canvas waits reject — as its
-     * departure — and a sibling keeps waiting.
+     * departure — and a sibling keeps waiting. Its focus history and pending leave retire at this same boundary,
+     * before disconnect listeners can rescue a component into a different window.
      * @param {Object} portEntry
      * @returns {Boolean} True when the entry was live and removed
      */
@@ -973,7 +975,8 @@ class App extends Base {
             me.canvasGroups.retirePort(portEntry);
 
             if (windowId && !me.ports.some(entry => entry.windowId === windowId)) {
-                me.canvasGroups.removeWindow(windowId)
+                me.canvasGroups.removeWindow(windowId);
+                FocusManager.removeWindow(windowId)
             }
         }
 

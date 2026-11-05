@@ -38,6 +38,7 @@ async function runCase(body) {
             {default: Application} = await import('./src/controller/Application.mjs'),
             {default: Component}   = await import('./src/component/Base.mjs'),
             {default: Container}   = await import('./src/container/Base.mjs'),
+            {default: Focus}       = await import('./src/manager/Focus.mjs'),
             report                 = {},
             // Long enough for an app's main view to settle, and for the task after a disconnect to run
             task                   = () => new Promise(resolve => setTimeout(resolve, 20));
@@ -171,6 +172,12 @@ test.describe('A departed window\'s application', () => {
             await task();
             report.slotBefore = Neo.apps.main === editor.instance;
 
+            const focus = {windowId: 'main', componentPath: [docs.page.id], data: {path: []}},
+                  history = [focus];
+
+            Focus.history.main = history;
+            Focus.pendingFocusOut.main = focus;
+
             worker.onDisconnect({appName: 'Editor', windowId: 'main'}, port);
             await task();
 
@@ -178,7 +185,8 @@ test.describe('A departed window\'s application', () => {
             report.docs      = [docs.instance, docs.view, docs.page].map(alive);
             report.slotAfter = Neo.apps.main === docs.instance;
             report.port      = worker.ports.includes(port);
-            report.window    = 'main' in Neo.cssMap && 'main' in Neo.windowConfigs
+            report.window    = 'main' in Neo.cssMap && 'main' in Neo.windowConfigs;
+            report.focus     = Focus.history.main === history && Focus.pendingFocusOut.main === focus
         `);
 
         expect(report).toEqual({
@@ -187,7 +195,8 @@ test.describe('A departed window\'s application', () => {
             docs      : [true, true, true],
             slotAfter : true,
             port      : true,
-            window    : true
+            window    : true,
+            focus     : true
         })
     });
 
@@ -200,14 +209,110 @@ test.describe('A departed window\'s application', () => {
 
             await task();
 
+            const focus = {windowId: 'main', componentPath: [live.cart.id], data: {path: []}},
+                  history = [focus];
+
+            Focus.history.main = history;
+            Focus.pendingFocusOut.main = focus;
+
             worker.onDisconnect({appName: 'Shop', windowId: 'main'}, stale);
             await task();
 
             report.live = [live.instance, live.view, live.cart].map(alive);
-            report.apps = Object.keys(Neo.apps)
+            report.apps = Object.keys(Neo.apps);
+            report.focus = Focus.history.main === history && Focus.pendingFocusOut.main === focus
         `);
 
-        expect(report).toEqual({live: [true, true, true], apps: ['main']})
+        expect(report).toEqual({live: [true, true, true], apps: ['main'], focus: true})
+    });
+
+    test('retiring the last port clears its window focus state synchronously and leaves a sibling intact', async () => {
+        const report = await runCase(`
+            const first = open('main'), last = open('main');
+
+            open('popup');
+            first.appNames.add('First');
+            last.appNames.add('Last');
+
+            const mainFocus = {windowId: 'main', componentPath: [], data: {path: []}},
+                  popupFocus = {windowId: 'popup', componentPath: [], data: {path: []}},
+                  mainHistory = [mainFocus], popupHistory = [popupFocus];
+
+            Focus.history = {main: mainHistory, popup: popupHistory};
+            Focus.pendingFocusOut = {main: mainFocus, popup: popupFocus};
+
+            worker.onDisconnect({appName: 'First', windowId: 'main'}, first);
+            report.remainingPort = worker.ports.includes(last) &&
+                Focus.history.main === mainHistory && Focus.pendingFocusOut.main === mainFocus;
+
+            worker.onDisconnect({appName: 'Last', windowId: 'main'}, last);
+            report.immediate = {
+                history: Object.keys(Focus.history),
+                pending: Object.keys(Focus.pendingFocusOut),
+                sibling: Focus.history.popup === popupHistory && Focus.pendingFocusOut.popup === popupFocus
+            };
+
+            await task();
+            report.afterReap = Object.keys(Focus.history)
+        `);
+
+        expect(report).toEqual({
+            remainingPort: true,
+            immediate    : {history: ['popup'], pending: ['popup'], sibling: true},
+            afterReap    : ['popup']
+        })
+    });
+
+    test('a departed window focusout cannot blur a rescued component while a sibling pending leave still settles', async () => {
+        const report = await runCase(`
+            const port = open('popup');
+
+            open('main');
+
+            const left = app('Shop', 'popup', 'rescued'), home = app('Shop', 'main', 'staying');
+
+            await task();
+
+            let rescuedLeaves = 0, siblingLeaves = 0;
+
+            left.rescued.onFocusLeave = () => rescuedLeaves++;
+            home.staying.onFocusLeave = () => siblingLeaves++;
+
+            const departing = {windowId: 'popup', componentPath: [left.rescued.id], data: {path: []}},
+                  staying = {windowId: 'main', componentPath: [home.staying.id], data: {path: []}};
+
+            Focus.onFocusin(departing);
+            Focus.onFocusin(staying);
+            Focus.onFocusout(departing);
+            Focus.onFocusout(staying);
+
+            worker.on({
+                disconnect({windowId}) {
+                    if (windowId === 'popup') {
+                        left.view.remove(left.rescued, false);
+                        home.view.add(left.rescued)
+                    }
+                },
+                scope: {id: 'departed-window-focus-rescue'}
+            });
+
+            worker.onDisconnect({appName: 'Shop', windowId: 'popup'}, port);
+            await Focus.timeout(Focus.maxFocusInOutGap * 2);
+
+            report.rescued = alive(left.rescued) && left.rescued.parent === home.view && left.rescued.containsFocus;
+            report.rescuedLeaves = rescuedLeaves;
+            report.sibling = {containsFocus: home.staying.containsFocus, leaves: siblingLeaves};
+            report.history = Object.keys(Focus.history);
+            report.pending = Object.keys(Focus.pendingFocusOut)
+        `);
+
+        expect(report).toEqual({
+            rescued      : true,
+            rescuedLeaves: 0,
+            sibling      : {containsFocus: false, leaves: 1},
+            history      : ['main'],
+            pending      : []
+        })
     });
 
     test('a dedicated worker reaps nothing: it ends with its window', async () => {
