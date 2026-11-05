@@ -88,6 +88,11 @@ class Store extends Collection {
      * @private
      */
     #keyChanges = new Map();
+    /**
+     * @member {Boolean} #sortingRecordChange=false Prevents derived tree statistics from recursively sorting.
+     * @private
+     */
+    #sortingRecordChange = false;
 
     /**
      * True automatically applies the core.Observable mixin
@@ -1544,7 +1549,7 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Reapplies opted-in local filters before publishing the record's settled membership index.
+     * @summary Reapplies opted-in local filters and sorters before publishing the record's settled index.
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
      * @param {Object} data
@@ -1557,7 +1562,18 @@ class Store extends Collection {
             this.#keyChanges.set(data.record, data);
             return
         }
-        if (this.shouldReapplyFilters(data.record)) this.filter();
+        const refilter = !this.#sortingRecordChange && this.shouldReapplyFilters(data.record),
+              resort   = this.shouldReapplySorters(data);
+
+        if (refilter) this.filter();
+        if (resort && (!refilter || this.hasNtype('tree-store'))) {
+            this.#sortingRecordChange = true;
+            try {
+                this.doSort()
+            } finally {
+                this.#sortingRecordChange = false
+            }
+        }
 
         this.fire('recordChange', {
             ...data,
@@ -1592,22 +1608,47 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Lets the existing key writer commit before an opted-in filter publishes settled membership.
-     * Non-opted-in updates retain Collection's behavior. Record and updateKey notifications see final maps.
+     * @summary Checks whether an opted-in sorter reads a changed field on a current local record.
+     * Callback and virtual-field dependencies are opaque, so any edit can affect their order.
+     * An omitted fields list checks eligibility before a key transaction knows its calculated changes.
+     * @param {Object} data
+     * @returns {Boolean}
+     * @protected
+     */
+    shouldReapplySorters({fields, model=this.model, record}) {
+        const me = this;
+        if (me.isDestroyed || me.#sortingRecordChange || !me.autoSort || me.isLoading || me.isStreaming ||
+            me.isPipelinePushProjectionUncertain()) return false;
+
+        const affected = me.sorters.some(sorter => sorter.reapplyOnRecordChange &&
+            (!fields || sorter.sortBy || model.getField(sorter.property)?.virtual || fields.some(({name}) =>
+                name === sorter.property || typeof sorter.property === 'string' && sorter.property.startsWith(name + '.'))));
+        if (!affected) return false;
+
+        const key     = me.getKey(record),
+              current = me.hasNtype('tree-store') ? me.get(key) : me.map.get(key);
+        return current === record
+    }
+
+    /**
+     * @summary Commits flat and subclass key maps before opted-in projection changes publish their final index.
+     * Non-opted-in updates retain the existing key writer's behavior.
      * @param {Object} item
      * @param {String|Number} newKey
      */
     updateKey(item, newKey) {
         const oldKey = this.getKey(item);
-        if (oldKey === newKey || !this.shouldReapplyFilters(item) || this.hasNtype('tree-store')) {
-            return super.updateKey(item, newKey)
+        if (oldKey === newKey ||
+            !(this.shouldReapplyFilters(item) && !this.hasNtype('tree-store') ||
+              this.shouldReapplySorters({record: item}))) {
+            return this.updateKeyMaps(item, newKey)
         }
 
-        let change;
+        let change, result;
         this.#keyChanges.set(item, null);
         this[updatingIndexSymbol]++;
         try {
-            super.updateKey(item, newKey);
+            result = this.updateKeyMaps(item, newKey);
             change = this.#keyChanges.get(item)
         } finally {
             this[updatingIndexSymbol]--;
@@ -1616,7 +1657,19 @@ class Store extends Collection {
 
         if (change) this.onRecordChange(change);
         else if (this.shouldReapplyFilters(item)) this.filter();
-        if (this[updatingIndexSymbol] === 0) this.fire('updateKey', {item, newKey, oldKey, scope: this})
+        else if (this.shouldReapplySorters({record: item})) this.doSort();
+        if (this[updatingIndexSymbol] === 0) this.fire('updateKey', {item, newKey, oldKey, scope: this});
+        return result
+    }
+
+    /**
+     * @summary Applies a key change inside Store's notification transaction; subclasses extend their own maps here.
+     * @param {Object} item
+     * @param {String|Number} newKey
+     * @protected
+     */
+    updateKeyMaps(item, newKey) {
+        return super.updateKey(item, newKey)
     }
 
     /**
