@@ -53,6 +53,22 @@ class DragDrop extends Base {
     }
 
     /**
+     * @summary Destroys the week view's EventDragZone and clears `owner.eventDragZone` when the plugin destroys.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let {owner} = this;
+
+        owner?.eventDragZone?.destroy();
+
+        if (owner) {
+            owner.eventDragZone = null
+        }
+
+        super.destroy(...args)
+    }
+
+    /**
      * Adjusts drag events which start on an event resize handle
      * @param {Object} data
      * @returns {Object}
