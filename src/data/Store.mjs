@@ -1099,9 +1099,9 @@ class Store extends Collection {
     }
 
     /**
-     * Overrides collection.Base:isFilteredItem() to handle "Turbo Mode" (autoInitRecords: false).
-     * In this mode, items are raw objects which may lack the canonical field names used by Filters.
-     * This method "soft hydrates" the raw item by resolving and caching the filter values.
+     * @summary Overrides collection.Base:isFilteredItem() to soft-hydrate raw items before evaluating filters.
+     * In Turbo Mode (or in TreeStore before post-splice record hydration), items are raw objects which may lack
+     * the canonical field names or default values used by Filters.
      * @param {Object} item
      * @returns {boolean}
      * @protected
@@ -1109,7 +1109,7 @@ class Store extends Collection {
     isFilteredItem(item) {
         let me = this;
 
-        if (!me.autoInitRecords && !RecordFactory.isRecord(item) && me.filters.length > 0) {
+        if (!RecordFactory.isRecord(item) && me.filters.length > 0) {
             me.filters.forEach(filter => {
                 if (filter.effective) {
                     for (const property of filter.fields || (filter.property === null ? [] : [filter.property])) {
@@ -1620,7 +1620,7 @@ class Store extends Collection {
     }
 
     /**
-     * Helper to resolve a field value from a raw data object using the Model definition.
+     * @summary Helper to resolve a field value from a raw data object using the Model definition.
      * Handles mapping, calculate, and convert.
      *
      * **Limitations & "Turbo-Safe" Requirement:**
@@ -1687,7 +1687,11 @@ class Store extends Collection {
                     value = source[key]
                 }
             } else {
-                value = item[fieldName]
+                value = item[fieldName];
+
+                if (value === undefined && fieldName.includes('.')) {
+                    value = Neo.ns(fieldName, false, item)
+                }
             }
 
             // Handle Convert
@@ -1701,7 +1705,7 @@ class Store extends Collection {
             }
         }
 
-        if (!RecordFactory.isRecord(item)) {
+        if (!RecordFactory.isRecord(item) && (!fieldName.includes('.') || field.calculate || field.convert || field.mapping || Object.hasOwn(field, 'defaultValue'))) {
             item[fieldName] = value;
         }
 
