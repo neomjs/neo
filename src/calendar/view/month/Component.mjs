@@ -636,6 +636,7 @@ class Component extends BaseComponent {
         if (Math.abs(data.deltaY) > Math.abs(data.deltaX)) {
             let me        = this,
                 container = me.vdom.cn[1],
+                wheelData = {clientHeight: data.clientHeight, scrollTop: data.scrollTop},
                 i         = 0,
                 date, len, week;
 
@@ -673,10 +674,12 @@ class Component extends BaseComponent {
                         ? rects[1].top - rects[0].top
                         : data.clientHeight - me.headerHeight;
 
+                    wheelData.scrollTop = data.scrollTop - removedHeight;
+
                     Neo.main.DomAccess.scrollTo({
                         direction: 'top',
                         id       : me.vdom.cn[1].id,
-                        value    : data.scrollTop - removedHeight,
+                        value    : wheelData.scrollTop,
                         windowId : me.windowId
                     })
                 })
@@ -710,10 +713,12 @@ class Component extends BaseComponent {
                 }
 
                 me.promiseUpdate().then(() => {
+                    wheelData.scrollTop = data.clientHeight - me.headerHeight;
+
                     Neo.main.DomAccess.scrollTo({
                         direction: 'top',
                         id       : me.vdom.cn[1].id,
-                        value    : data.clientHeight - me.headerHeight,
+                        value    : wheelData.scrollTop,
                         windowId : me.windowId
                     })
                 })
@@ -728,39 +733,83 @@ class Component extends BaseComponent {
 
             me.scrollTaskId && clearTimeout(me.scrollTaskId);
 
-            me.scrollTaskId = setTimeout(me.onWheelEnd.bind(me), 300)
+            me.scrollTaskId = setTimeout(me.onWheelEnd.bind(me, wheelData), 300)
         }
     }
 
     /**
-     *
+     * @summary Updates the static month header from the top visible week and smoothly snaps scroll to that row.
+     * @param {Object} [data]
+     * @param {Number} [data.clientHeight]
+     * @param {Number} [data.scrollTop]
+     * @returns {Promise<void>}
      */
-    onWheelEnd() {
-        let me     = this,
-            {vdom} = me,
-            header = vdom.cn[0].cn[0],
-            i      = 6,
-            date, flag;
+    async onWheelEnd(data) {
+        let me           = this,
+            {vdom}       = me,
+            container    = vdom.cn[1],
+            header       = vdom.cn[0].cn[0],
+            weeks        = container.cn.filter(item => item.cls.includes('neo-week')),
+            maxRowIndex  = Math.max(0, weeks.length - 6),
+            closestIndex = Math.min(6, maxRowIndex),
+            date, distance, flag, i, minDistance, rects, rowHeight, targetScrollTop, visibleTop;
 
-        me.isScrolling = false;
-
-        for (; i < 12; i++) {
-            flag = vdom.cn[1].cn[i].flag; // todo: get the date of the first fully visible row for the header
-
-            if (flag) {
-                date = new Date(flag);
-                date.setMonth(date.getMonth() + 1);
-                header.cn[0].text = me.intlFormat_month.format(date);
-                header.cn[1].text = ` ${date.getFullYear()}`;
-                break
-            }
+        if (me.scrollTaskId) {
+            clearTimeout(me.scrollTaskId);
+            me.scrollTaskId = null
         }
 
-        NeoArray.remove(vdom.cn[1].cls, 'neo-is-scrolling');
-        header.style.opacity = 1;
-        me.update()
+        rects = await Neo.main.DomAccess.getBoundingClientRect({
+            id      : [container.id, ...weeks.map(week => week.id)],
+            windowId: me.windowId
+        });
 
-        // todo: scroll the view to the closest row
+        if (me.scrollTaskId || me.isDestroyed) {
+            return
+        }
+
+        if (rects?.[2]?.top > rects?.[1]?.top) {
+            visibleTop  = (rects[0].top ?? rects[0].y ?? 0) + (me.headerHeight || 0);
+            minDistance = Infinity;
+
+            for (i = 0; i <= maxRowIndex; i++) {
+                distance = Math.abs(rects[i + 1].top - visibleTop);
+
+                if (distance < minDistance) {
+                    minDistance  = distance;
+                    closestIndex = i
+                }
+            }
+
+            targetScrollTop = Math.round(rects[closestIndex + 1].top - rects[1].top)
+        } else if (data?.clientHeight > (me.headerHeight || 0)) {
+            rowHeight       = (data.clientHeight - (me.headerHeight || 0)) / 6;
+            closestIndex    = Math.min(maxRowIndex, Math.max(0, Math.round(data.scrollTop / rowHeight)));
+            targetScrollTop = Math.round(closestIndex * rowHeight)
+        }
+
+        flag = weeks[closestIndex]?.flag;
+
+        if (flag) {
+            date              = new Date(`${flag}T12:00:00`);
+            header.cn[0].text = me.intlFormat_month.format(date);
+            header.cn[1].text = ` ${date.getFullYear()}`
+        }
+
+        me.isScrolling = false;
+        NeoArray.remove(container.cls, 'neo-is-scrolling');
+        header.style.opacity = 1;
+        me.update();
+
+        if (Neo.isNumber(targetScrollTop)) {
+            Neo.main.DomAccess.scrollTo({
+                behavior : 'smooth',
+                direction: 'top',
+                id       : container.id,
+                value    : targetScrollTop,
+                windowId : me.windowId
+            })
+        }
     }
 
     /**

@@ -256,4 +256,33 @@ test.describe('Neo.calendar.view.month.Component: the month grid\'s structure', 
         expect(await page.locator(`${VIEW} .neo-weekend`).count(),
             'no weekend cell is left behind').toBe(0)
     });
+
+    test('wheeling past a month boundary updates .neo-static-header to the top visible week and snaps scrollTop to the row top', async ({page}) => {
+        await openFixture(page);
+
+        await expect.poll(() => rowStarts(page)).toEqual(FEB_ROWS);
+        await expect(page.locator(`${VIEW} .neo-static-header`)).toHaveText('Feb 2027');
+
+        // Wait for updateHeaderHeight(true) (100ms timeout after mount) to center the initial scroll position on row 6
+        const scrollContainer = page.locator(`${VIEW} .neo-c-m-scrollcontainer`);
+        await expect.poll(() => scrollContainer.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+
+        // Scroll partway into row 10 (week starting 2027-02-28, which contains 2027-03-01 and carries flag '2027-03-01')
+        const targetWeekOffset = await page.locator(`${VIEW} .neo-week`).evaluateAll(weeks => {
+            return weeks[10].offsetTop - weeks[0].offsetTop
+        });
+
+        await scrollContainer.evaluate((el, offset) => {
+            el.scrollTop = offset + 18;
+            el.dispatchEvent(new WheelEvent('wheel', {deltaY: 40, bubbles: true}))
+        }, targetWeekOffset);
+
+        await expect(page.locator(`${VIEW} .neo-static-header`),
+            'header updates to the month of the top visible week after wheel end').toHaveText('Mar 2027');
+
+        await expect.poll(
+            () => scrollContainer.evaluate(el => Math.round(el.scrollTop)),
+            {message: 'smooth scroll snaps scrollTop to the closest .neo-week top'}
+        ).toBe(Math.round(targetWeekOffset))
+    });
 });
