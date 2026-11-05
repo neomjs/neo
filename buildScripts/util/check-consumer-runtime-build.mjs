@@ -1,15 +1,15 @@
 #!/usr/bin/env node
-import {execFileSync}                 from 'node:child_process';
-import fs                             from 'node:fs';
-import os                             from 'node:os';
-import path                           from 'node:path';
-import process                        from 'node:process';
-import {createRequire}                from 'node:module';
-import {fileURLToPath, pathToFileURL} from 'node:url';
-import isEntryModule                  from './isEntryModule.mjs';
-import {BROWSER_BUNDLE_FILES}         from './browserBundles.mjs';
-import {withComposedNpmIgnore}        from './npmIgnoreComposition.mjs';
-import {findForbiddenEntries}         from './check-package-contents.mjs';
+import {execFileSync}                                         from 'node:child_process';
+import fs                                                     from 'node:fs';
+import os                                                     from 'node:os';
+import path                                                   from 'node:path';
+import process                                                from 'node:process';
+import {createRequire}                                        from 'node:module';
+import {fileURLToPath, pathToFileURL}                         from 'node:url';
+import isEntryModule                                          from './isEntryModule.mjs';
+import {BROWSER_BUNDLE_FILES, WORKSPACE_BROWSER_BUNDLE_FILES} from './browserBundles.mjs';
+import {withComposedNpmIgnore}                                from './npmIgnoreComposition.mjs';
+import {findForbiddenEntries}                                 from './check-package-contents.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       ROOT      = path.resolve(__dirname, '../..');
@@ -140,14 +140,17 @@ export const CANVAS_EXPECTATIONS = [{
 }];
 
 /**
- * @summary Returns runtime-addressed files missing from the installed dependency build.
- * @param {String[]} files Regular files present beneath the installed Engine root, as relative paths.
+ * @summary Returns generated files missing from their runtime-owned package or workspace roots.
+ * @param {String[]} files Regular files beneath the installed Engine root, as relative paths.
+ * @param {String[]} workspaceFiles=[] Regular files beneath the consumer workspace, as relative paths.
  * @returns {String[]} Missing paths in the canonical browser-artifact order.
  */
-export function findMissingBrowserArtifacts(files) {
-    const present = new Set(files);
+export function findMissingBrowserArtifacts(files, workspaceFiles=[]) {
+    const present   = new Set(files),
+          workspace = new Set(workspaceFiles);
 
-    return BROWSER_BUNDLE_FILES.filter(file => !present.has(file))
+    return BROWSER_BUNDLE_FILES.filter(file =>
+        !(WORKSPACE_BROWSER_BUNDLE_FILES.includes(file) ? workspace : present).has(file))
 }
 
 /**
@@ -382,14 +385,17 @@ async function main() {
         execFileSync('npm', ['install', '--include=dev', '--no-audit', '--no-fund', '--ignore-scripts'],
             {cwd: workspace, encoding: 'utf8', stdio: 'pipe'});
 
-        console.log('check-consumer-runtime-build: generating browser dependencies inside the installed package…');
-        execFileSync('npm', ['run', 'bundle-browser-deps'], {cwd: installedRoot, stdio: 'inherit'});
+        console.log('check-consumer-runtime-build: generating browser dependencies from the consumer workspace…');
+        execFileSync(process.execPath, [path.join(installedRoot, 'buildScripts/build/all.mjs'),
+            '-n', '-l', 'no', '-t', 'no', '-w', 'no', '-p', 'no', '-e', 'dev'],
+        {cwd: workspace, stdio: 'inherit'});
 
-        const missing = findMissingBrowserArtifacts(BROWSER_BUNDLE_FILES.filter(file =>
-            fs.statSync(path.join(installedRoot, file), {throwIfNoEntry: false})?.isFile()));
+        const filesAt = root => BROWSER_BUNDLE_FILES.filter(file =>
+                  fs.statSync(path.join(root, file), {throwIfNoEntry: false})?.isFile()),
+              missing = findMissingBrowserArtifacts(filesAt(installedRoot), filesAt(workspace));
 
         if (missing.length) {
-            throw new Error(`the installed dependency build is missing runtime files: ${missing.join(', ')}`)
+            throw new Error(`the consumer build is missing files at their runtime roots: ${missing.join(', ')}`)
         }
 
         const failures = [],

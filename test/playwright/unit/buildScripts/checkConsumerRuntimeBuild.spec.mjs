@@ -24,6 +24,9 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         'dist/monaco/json.worker.mjs', 'dist/monaco/ts.worker.mjs'
     ];
 
+    const workspaceFiles = ['dist/highlight/highlight.custom.js', 'dist/highlight/highlight.custom.min.js'],
+          installedFiles = runtimeFiles.filter(file => !workspaceFiles.includes(file));
+
     const APP_VIEW         = './node_modules/neo.mjs/apps/portal/view/news/tickets/Component.mjs',
           APP_MARKED       = './node_modules/neo.mjs/dist/marked.mjs',
           ENGINE_RENDERER  = './node_modules/neo.mjs/src/canvas/Header.mjs',
@@ -42,13 +45,19 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         ({APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts} = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
     });
 
-    test('a complete installed dependency build satisfies every runtime address', () => {
-        expect(findMissingBrowserArtifacts([...runtimeFiles, 'dist/unrelated.mjs'])).toEqual([])
+    test('a consumer build satisfies each package-owned and workspace-owned runtime address', () => {
+        expect(findMissingBrowserArtifacts([...installedFiles, 'dist/unrelated.mjs'], workspaceFiles)).toEqual([])
+    });
+
+    test('highlighter files generated only inside the package cannot satisfy workspace URLs', () => {
+        expect(findMissingBrowserArtifacts(runtimeFiles)).toEqual(workspaceFiles);
+        expect(findMissingBrowserArtifacts([], runtimeFiles)).toEqual(installedFiles)
     });
 
     test('each missing runtime artifact fails independently, including CSS, font and worker files', () => {
         for (const missing of runtimeFiles) {
-            expect(findMissingBrowserArtifacts(runtimeFiles.filter(file => file !== missing)), missing)
+            expect(findMissingBrowserArtifacts(
+                installedFiles.filter(file => file !== missing), workspaceFiles.filter(file => file !== missing)), missing)
                 .toEqual([missing])
         }
     });
