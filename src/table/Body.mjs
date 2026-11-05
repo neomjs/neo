@@ -1,8 +1,9 @@
-import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Component       from '../component/Base.mjs';
-import NeoArray        from '../util/Array.mjs';
-import RowModel        from '../selection/table/RowModel.mjs';
-import VDomUtil        from '../util/VDom.mjs';
+import AbstractComponent from '../component/Abstract.mjs';
+import ClassSystemUtil   from '../util/ClassSystem.mjs';
+import Component         from '../component/Base.mjs';
+import NeoArray          from '../util/Array.mjs';
+import RowModel          from '../selection/table/RowModel.mjs';
+import VDomUtil          from '../util/VDom.mjs';
 
 /**
  * @class Neo.table.Body
@@ -78,11 +79,13 @@ class TableBody extends Component {
     }
 
     /**
+     * Component instances created by this body from cell renderer config descriptors, keyed by cell ID.
      * @member {Map<String, Neo.core.Base>|null} createdCellComponents=null
      * @protected
      */
     createdCellComponents = null
     /**
+     * Cell IDs visited during an active `createViewData()` pass to purge stale `createdCellComponents`.
      * @member {Set<String>|null} renderedCellIds=null
      * @protected
      */
@@ -170,6 +173,14 @@ class TableBody extends Component {
     }
 
     /**
+     * @summary Builds a `<td>` VDOM config from a column renderer's output.
+     *
+     * A column renderer may return a primitive (`String`, `Number`, `Date`), `{html|text, cls}`, a VDOM
+     * child config object, a `Neo.component.Abstract` / `Neo.core.Base` instance, or a Neo config
+     * descriptor (`{module}`, `{ntype}`, or `{className}`). Config-created instances belong to the body
+     * (`createdCellComponents`) and are destroyed when their cell stops rendering them or the body is
+     * destroyed, while returned instances stay the caller's.
+     *
      * @param {Object}              data
      * @param {String}              [data.cellId]
      * @param {Object}              data.column
@@ -228,9 +239,9 @@ class TableBody extends Component {
             if (
                 instance &&
                 !instance.isDestroyed &&
-                (!rendererOutput.className || instance.className === rendererOutput.className) &&
-                (!rendererOutput.module    || instance instanceof rendererOutput.module) &&
-                (!rendererOutput.ntype     || instance.ntype === rendererOutput.ntype)
+                (!rendererOutput.className || instance.className   === rendererOutput.className) &&
+                (!rendererOutput.module    || instance.constructor === rendererOutput.module) &&
+                (!rendererOutput.ntype     || instance.ntype       === rendererOutput.ntype)
             ) {
                 let config = {...rendererOutput};
                 delete config.className;
@@ -261,7 +272,7 @@ class TableBody extends Component {
         switch (Neo.typeOf(rendererOutput)) {
             case 'NeoInstance': {
                 me.updateDepth = -1;
-                rendererOutput = [rendererOutput instanceof Component ? rendererOutput.createVdomReference() : rendererOutput.vdom];
+                rendererOutput = [rendererOutput instanceof AbstractComponent ? rendererOutput.createVdomReference() : rendererOutput.vdom];
                 break
             }
             case 'Object': {
@@ -486,6 +497,7 @@ class TableBody extends Component {
     }
 
     /**
+     * Destroys all body-owned cell components stored in `createdCellComponents` and clears the map.
      * @protected
      */
     destroyCreatedCellComponents() {

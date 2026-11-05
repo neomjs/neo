@@ -8,15 +8,16 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import Button         from '../../../../src/button/Base.mjs';
-import CoreBase       from '../../../../src/core/Base.mjs';
-import Model          from '../../../../src/data/Model.mjs';
-import Store          from '../../../../src/data/Store.mjs';
-import TableContainer from '../../../../src/table/Container.mjs';
-import TreeBuilder    from '../../../../src/util/vdom/TreeBuilder.mjs';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../src/Neo.mjs';
+import * as core        from '../../../../src/core/_export.mjs';
+import Button           from '../../../../src/button/Base.mjs';
+import CoreBase         from '../../../../src/core/Base.mjs';
+import FunctionalButton from '../../../../src/functional/button/Base.mjs';
+import Model            from '../../../../src/data/Model.mjs';
+import Store            from '../../../../src/data/Store.mjs';
+import TableContainer   from '../../../../src/table/Container.mjs';
+import TreeBuilder      from '../../../../src/util/vdom/TreeBuilder.mjs';
 import '../../../../src/manager/Instance.mjs';
 
 class CustomVdomInstance extends CoreBase {
@@ -100,6 +101,41 @@ test.describe('Neo.table.Body#applyRendererOutput Neo instances and configs (#45
         const expandedTree = TreeBuilder.getVdomTree(body.vdom, body.updateDepth);
         expect(expandedTree.cn[0].cn[0].cn[0].id).toBe(button.id);
         expect(expandedTree.cn[0].cn[0].cn[0].tag).toBe('button')
+    });
+
+    test('renderer returning or creating a functional component (Neo.component.Abstract) embeds createVdomReference()', async () => {
+        const fnBtn = Neo.create(FunctionalButton, {
+            appName,
+            text: 'Returned Functional Button'
+        });
+        externalInstances.push(fnBtn);
+
+        await createTable([{
+            dataField: 'action',
+            text     : 'Action (returned functional)',
+            renderer : () => fnBtn
+        }, {
+            dataField: 'status',
+            text     : 'Status (config functional)',
+            renderer : ({value}) => ({
+                module: FunctionalButton,
+                text  : value
+            })
+        }], [{id: 'r1', action: 'Edit', status: 'Open'}]);
+
+        const {body}         = table,
+              r1Record       = store.get('r1'),
+              r1StatusCellId = body.getCellId(r1Record, 'status'),
+              createdFnBtn   = body.createdCellComponents.get(r1StatusCellId),
+              returnedCell   = body.vdom.cn[0].cn[0],
+              createdCell    = body.vdom.cn[0].cn[1];
+
+        expect(body.updateDepth).toBe(-1);
+        expect(returnedCell.cn).toEqual([{componentId: fnBtn.id}]);
+        expect(returnedCell.cn[0]).not.toBe(fnBtn.vdom);
+        expect(createdFnBtn instanceof FunctionalButton).toBe(true);
+        expect(createdCell.cn).toEqual([{componentId: createdFnBtn.id}]);
+        expect(createdCell.cn[0]).not.toBe(createdFnBtn.vdom)
     });
 
     test('renderer returning a non-component Neo.core.Base instance embeds its vdom directly', async () => {
