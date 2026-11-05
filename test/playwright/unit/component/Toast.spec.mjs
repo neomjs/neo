@@ -15,8 +15,7 @@ import Component      from '../../../../src/component/Base.mjs';
 import Toast          from '../../../../src/component/Toast.mjs';
 import ToastManager   from '../../../../src/manager/Toast.mjs';
 
-// Avoid main-thread DOM rect IPC from ToastManager's 50ms post-showToast timer in unit tests
-ToastManager.updateItemsInPosition = async () => {};
+let originalUpdateItemsInPosition;
 
 /**
  * Helper to fully tear down a Toast instance in unit-test mode where browser CSS `animationend` does not fire.
@@ -31,6 +30,15 @@ function cleanupToast(toast) {
 }
 
 test.describe('Neo.component.Toast', () => {
+    test.beforeAll(() => {
+        originalUpdateItemsInPosition = ToastManager.updateItemsInPosition;
+        // Avoid main-thread DOM rect IPC from ToastManager's 50ms post-showToast timer in unit tests
+        ToastManager.updateItemsInPosition = async () => {};
+    });
+
+    test.afterAll(() => {
+        ToastManager.updateItemsInPosition = originalUpdateItemsInPosition;
+    });
     test('closable: true and removeDelay > 0 renders close button and auto-dismisses after timeout (#4514)', async () => {
         const toast = Neo.create(Toast, {
             appName,
