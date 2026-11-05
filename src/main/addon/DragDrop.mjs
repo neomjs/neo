@@ -388,6 +388,8 @@ class DragDrop extends Base {
             alwaysFireDragMove    : false,
             bodyCursorStyle       : null,
             boundaryContainerRect : null,
+            clientX               : 0,
+            clientY               : 0,
             dragCancelled         : false,
             dragElementRootId     : null,
             dragElementRootRect   : null,
@@ -541,6 +543,8 @@ class DragDrop extends Base {
         me.dragZoneId = me.resolveDragZoneId(path);
 
         Object.assign(me, {
+            clientX      : event.detail.clientX,
+            clientY      : event.detail.clientY,
             dragCancelled: false,
             dragProxyRect: rect,
             offsetX      : event.detail.clientX - rect.left,

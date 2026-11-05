@@ -495,11 +495,19 @@ class EventDragZone extends DragZone {
     }
 
     /**
+     * @summary Syncs main-thread DragDrop scrollContainer configs, measures event/column geometry, and opens the drag proxy.
      * @param {Object} data
      */
     async dragStart(data) {
-        let me            = this,
-            rects         = await me.owner.getDomRect([me.getDragElementRoot().id, data.path[1].id]),
+        let me        = this,
+            [, rects] = await Promise.all([
+                Neo.main.addon.DragDrop?.setConfigs({
+                    appName : me.appName,
+                    windowId: me.windowId,
+                    ...me.getMainThreadConfigs()
+                }),
+                me.owner.getDomRect([me.getDragElementRoot().id, data.path[1].id])
+            ]),
             eventDuration = (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000,
             offsetX       = data.clientX - rects[0].left,
             offsetY       = data.clientY - rects[0].top;
