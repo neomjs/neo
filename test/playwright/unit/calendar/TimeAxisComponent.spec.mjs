@@ -81,9 +81,16 @@ test.describe('Neo.calendar.view.week.TimeAxisComponent 12h (am/pm) and 24h mode
         timeAxis.destroy();
     });
 
-    test('WeekSettingsContainer.onTimeFormatChange updates both TimeAxisComponent and WeekComponent event times', async () => {
-        const originalScrollBy = Neo.main.DomAccess.scrollBy;
+    test('default en-US provider and real WeekSettingsContainer radio controls agree from initialization and switch to 24h without toggle-away workaround', async () => {
+        const originalScrollBy  = Neo.main.DomAccess.scrollBy;
+        const originalDomEvents = Neo.main.DomEvents;
+
         Neo.main.DomAccess.scrollBy = async () => {};
+        Neo.main.DomEvents = {
+            ...originalDomEvents,
+            registerDisabledInputChars  : Neo.emptyFn,
+            unregisterDisabledInputChars: Neo.emptyFn
+        };
 
         const weekComponent = Neo.create(WeekComponent, {
             appName,
@@ -111,8 +118,8 @@ test.describe('Neo.calendar.view.week.TimeAxisComponent 12h (am/pm) and 24h mode
                         enableEdit                      : true,
                         enableResizingAcrossOppositeEdge: true
                     },
-                    locale    : 'de-DE',
-                    timeFormat: {hour: '2-digit', minute: '2-digit', hour12: false}
+                    locale    : 'en-US',
+                    timeFormat: {hour: '2-digit', minute: '2-digit'}
                 }
             }
         });
@@ -124,6 +131,15 @@ test.describe('Neo.calendar.view.week.TimeAxisComponent 12h (am/pm) and 24h mode
         await Promise.resolve();
         await Promise.resolve();
         weekComponent.updateEvents();
+
+        const weekSettings = Neo.create(WeekSettingsContainer, {
+            appName,
+            parentId: weekComponent.id
+        });
+        weekSettings.getWeekComponent = () => weekComponent;
+        weekSettings.createContent();
+
+        const [radio12h, radio24h] = weekSettings.items.filter(item => item.name === 'timeFormat');
 
         const getEventTimes = () => {
             const columns = weekComponent.getColumnContainer().cn;
@@ -138,37 +154,132 @@ test.describe('Neo.calendar.view.week.TimeAxisComponent 12h (am/pm) and 24h mode
             return null;
         };
 
+        expect(radio12h.checked).toBe(true);
+        expect(radio24h.checked).toBe(false);
+        expect(weekComponent.timeAxis.timeFormat).toBe('12h');
+        expect(weekComponent.timeAxis.vdom.cn[13].cn[0].text).toBe('1 PM');
+        expect(getEventTimes()).toEqual({start: '01:30 PM', end: '03:00 PM'});
+
+        radio24h.checked = true;
+
+        expect(radio12h.checked).toBe(false);
+        expect(radio24h.checked).toBe(true);
+        expect(weekComponent.timeAxis.timeFormat).toBe('24h');
         expect(weekComponent.timeAxis.vdom.cn[13].cn[0].text).toBe('13:00');
         expect(getEventTimes()).toEqual({start: '13:30', end: '15:00'});
 
-        const stateChanges = [];
-        const weekSettings = {
-            getTimeAxis: () => weekComponent.timeAxis,
-            setState   : (key, value) => {
-                stateChanges.push({key, value});
-                weekComponent.stateProvider.setData(key, value);
-            }
+        weekSettings.destroy();
+        weekComponent.destroy();
+        Neo.main.DomAccess.scrollBy = originalScrollBy;
+        Neo.main.DomEvents          = originalDomEvents;
+    });
+
+    test('provider updates synchronize WeekSettingsContainer selection, TimeAxisComponent, and WeekComponent events, while explicit timeAxisConfig.timeFormat overrides default binding', async () => {
+        const originalScrollBy  = Neo.main.DomAccess.scrollBy;
+        const originalDomEvents = Neo.main.DomEvents;
+
+        Neo.main.DomAccess.scrollBy = async () => {};
+        Neo.main.DomEvents = {
+            ...originalDomEvents,
+            registerDisabledInputChars  : Neo.emptyFn,
+            unregisterDisabledInputChars: Neo.emptyFn
         };
 
-        WeekSettingsContainer.prototype.onTimeFormatChange.call(weekSettings, {
-            component: {fieldValue: '12h'},
-            value    : true
+        const weekComponent = Neo.create(WeekComponent, {
+            appName,
+            calendarStoreConfig: {
+                data: [{id: 1, active: true, color: 'blue', name: 'Work'}]
+            },
+            currentDate     : new Date(2026, 3, 15),
+            eventStoreConfig: {
+                data: [{
+                    id        : 101,
+                    calendarId: 1,
+                    endDate   : new Date(2026, 3, 15, 15, 0, 0),
+                    startDate : new Date(2026, 3, 15, 13, 30, 0),
+                    title     : 'Design Review'
+                }]
+            },
+            showEventEndTime: true,
+            stateProvider   : {
+                module: MainContainerStateProvider,
+                data  : {
+                    currentDate: new Date(2026, 3, 15),
+                    events     : {
+                        border                          : 'left',
+                        enableDrag                      : false,
+                        enableEdit                      : true,
+                        enableResizingAcrossOppositeEdge: true
+                    },
+                    locale    : 'en-US',
+                    timeFormat: {hour: '2-digit', minute: '2-digit'}
+                }
+            }
         });
 
+        weekComponent.timeout = () => Promise.resolve();
+        weekComponent.getDomRect = async () => ({width: 700, height: 600});
+        await weekComponent.initVnode();
+        weekComponent.mounted = true;
+        await Promise.resolve();
+        await Promise.resolve();
+        weekComponent.updateEvents();
+
+        const weekSettings = Neo.create(WeekSettingsContainer, {
+            appName,
+            parentId: weekComponent.id
+        });
+        weekSettings.getWeekComponent = () => weekComponent;
+        weekSettings.createContent();
+
+        const [radio12h, radio24h] = weekSettings.items.filter(item => item.name === 'timeFormat');
+
+        const getEventTimes = () => {
+            const columns = weekComponent.getColumnContainer().cn;
+            for (const col of columns) {
+                if (col.cn?.length) {
+                    return {
+                        start: col.cn[0].cn[0].text,
+                        end  : col.cn[0].cn[2].text
+                    };
+                }
+            }
+            return null;
+        };
+
+        weekComponent.stateProvider.setData('locale', 'de-DE');
+
+        expect(radio12h.checked).toBe(false);
+        expect(radio24h.checked).toBe(true);
+        expect(weekComponent.timeAxis.timeFormat).toBe('24h');
+        expect(weekComponent.timeAxis.vdom.cn[13].cn[0].text).toBe('13:00');
+        expect(getEventTimes()).toEqual({start: '13:30', end: '15:00'});
+
+        weekComponent.stateProvider.setData('timeFormat', {hour: '2-digit', hour12: true, minute: '2-digit'});
+
+        expect(radio12h.checked).toBe(true);
+        expect(radio24h.checked).toBe(false);
         expect(weekComponent.timeAxis.timeFormat).toBe('12h');
         expect(weekComponent.timeAxis.vdom.cn[13].cn[0].text).toBe(
             new Intl.DateTimeFormat('de-DE', {hour: 'numeric', hour12: true}).format(new Date(2024, 0, 1, 13, 0, 0))
         );
-        expect(stateChanges).toEqual([{
-            key  : 'timeFormat',
-            value: {hour: '2-digit', hour12: true, minute: '2-digit'}
-        }]);
         expect(getEventTimes()).toEqual({
             start: new Intl.DateTimeFormat('de-DE', {hour: '2-digit', hour12: true, minute: '2-digit'}).format(new Date(2026, 3, 15, 13, 30, 0)),
             end  : new Intl.DateTimeFormat('de-DE', {hour: '2-digit', hour12: true, minute: '2-digit'}).format(new Date(2026, 3, 15, 15, 0, 0))
         });
 
+        const customAxis = Neo.create(TimeAxisComponent, {
+            appName,
+            parentId  : weekComponent.id,
+            timeFormat: {hour: '2-digit', minute: '2-digit', hour12: false}
+        });
+
+        expect(customAxis.vdom.cn[13].cn[0].text).toBe('13:00');
+
+        customAxis.destroy();
+        weekSettings.destroy();
         weekComponent.destroy();
         Neo.main.DomAccess.scrollBy = originalScrollBy;
+        Neo.main.DomEvents          = originalDomEvents;
     });
 });

@@ -34,9 +34,10 @@ class TimeAxisComponent extends Component {
          * @member {Object} bind
          */
         bind: {
-            endTime  : data => data.endTime,
-            locale   : data => data.locale,
-            startTime: data => data.startTime
+            endTime   : data => data.endTime,
+            locale    : data => data.locale,
+            startTime : data => data.startTime,
+            timeFormat: data => data.timeFormatter?.resolvedOptions().hour12 ? '12h' : '24h'
         },
         /**
          * Only full hours are valid for now
@@ -227,6 +228,21 @@ class TimeAxisComponent extends Component {
     }
 
     /**
+     * @summary Preserves an explicit caller-supplied timeFormat config as a standalone axis override instead of overwriting it from the stateProvider binding.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @returns {Object|null}
+     * @protected
+     */
+    beforeSetBind(value, oldValue) {
+        if (value && this.originalConfig?.timeFormat !== undefined && !this.originalConfig.bind?.timeFormat) {
+            delete value.timeFormat
+        }
+
+        return value
+    }
+
+    /**
      * Triggered before the interval config gets changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -264,9 +280,7 @@ class TimeAxisComponent extends Component {
             date   = new Date(2024, 0, 1, 0, 0, 0),
             i;
 
-        if (!me.intlFormat_time) {
-            me.intlFormat_time = new Intl.DateTimeFormat(me.locale, me.getTimeFormatOptions())
-        }
+        me.intlFormat_time = new Intl.DateTimeFormat(me.locale, me.getTimeFormatOptions());
 
         vdom.cn = [];
 

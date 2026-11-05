@@ -35,7 +35,10 @@ class WeekContainer extends Container {
     createContent() {
         let me            = this,
             weekComponent = me.getWeekComponent(),
-            timeAxis      = weekComponent.timeAxis || {};
+            timeAxis      = weekComponent.timeAxis || {},
+            is12h         = me.getStateProvider()
+                ? Boolean(me.getState('timeFormatter')?.resolvedOptions().hour12)
+                : timeAxis.timeFormat === '12h';
 
         me.add([{
             module              : NumberField,
@@ -90,8 +93,13 @@ class WeekContainer extends Container {
             name          : 'timeAxisPosition',
             valueLabel    : 'end'
         }, {
-            module        : RadioField,
-            checked       : timeAxis.timeFormat === '12h',
+            module: RadioField,
+            bind  : {
+                checked: data => data.timeFormatter
+                    ? Boolean(data.timeFormatter.resolvedOptions().hour12)
+                    : timeAxis.timeFormat === '12h'
+            },
+            checked       : is12h,
             fieldValue    : '12h',
             hideValueLabel: false,
             labelText     : 'timeFormat',
@@ -100,8 +108,13 @@ class WeekContainer extends Container {
             style         : {marginTop: '10px'},
             valueLabel    : 'am/pm'
         }, {
-            module        : RadioField,
-            checked       : timeAxis.timeFormat === '24h',
+            module: RadioField,
+            bind  : {
+                checked: data => data.timeFormatter
+                    ? !data.timeFormatter.resolvedOptions().hour12
+                    : timeAxis.timeFormat === '24h'
+            },
+            checked       : !is12h,
             fieldValue    : '24h',
             hideValueLabel: false,
             labelText     : '',
@@ -149,19 +162,35 @@ class WeekContainer extends Container {
     }
 
     /**
-     * @summary Updates the timeAxis timeFormat config and synchronizes the stateProvider timeFormat hour12 flag.
+     * @summary Updates the shared stateProvider timeFormat hour12 setting (and standalone timeAxis when unbound).
      * @param {Object} data
      */
     onTimeFormatChange(data) {
         if (data.value) {
-            let fieldValue = data.component.fieldValue;
+            let me         = this,
+                fieldValue = data.component.fieldValue,
+                hour12     = fieldValue === '12h',
+                provider   = me.getStateProvider?.(),
+                timeAxis   = me.getTimeAxis?.();
 
-            this.getTimeAxis().timeFormat = fieldValue;
-            this.setState('timeFormat', {
-                hour  : '2-digit',
-                hour12: fieldValue === '12h',
-                minute: '2-digit'
-            })
+            if (provider) {
+                if (provider.getData('timeFormatter')?.resolvedOptions().hour12 !== hour12) {
+                    me.setState('timeFormat', {
+                        ...(me.getState('timeFormat') || {hour: '2-digit', minute: '2-digit'}),
+                        hour12
+                    })
+                }
+            } else {
+                me.setState?.('timeFormat', {
+                    hour  : '2-digit',
+                    hour12,
+                    minute: '2-digit'
+                })
+            }
+
+            if (timeAxis && timeAxis.timeFormat !== fieldValue) {
+                timeAxis.timeFormat = fieldValue
+            }
         }
     }
 }
