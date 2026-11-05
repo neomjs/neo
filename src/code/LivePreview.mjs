@@ -11,7 +11,7 @@ const configSymbol = Symbol.for('configSymbol');
  * It integrates the **Monaco Editor** for a rich editing experience and supports multiple languages and execution modes.
  *
  * Key features:
- * - **Multi-Language Support**: Supports 'neomjs' (JS execution) and 'markdown' (rendering).
+ * - **Multi-Language Support**: Supports 'neomjs' (JS execution), 'markdown' and 'mermaid' (rendering).
  * - **Dynamic Imports**: Utilizes `import()` to lazy-load the Markdown component or Code Executor, optimizing initial load performance.
  * - **Sandboxed Execution**: Executes Neo.mjs code within a controlled context using `new Function`.
  * - **Responsive Layout**: collapsible, pop-out support, and configurable views (source vs. preview).
@@ -22,6 +22,7 @@ const configSymbol = Symbol.for('configSymbol');
  * @extends Neo.container.Base
  * @see Neo.code.executor.Neo
  * @see Neo.component.Markdown
+ * @see Neo.component.wrapper.Mermaid
  * @see Neo.component.wrapper.MonacoEditor
  */
 class LivePreview extends Container {
@@ -34,11 +35,11 @@ class LivePreview extends Container {
     static activeViews = ['preview', 'source']
     /**
      * Valid values for language
-     * @member {String[]} languages=['markdown','neomjs']
+     * @member {String[]} languages=['markdown','mermaid','neomjs']
      * @protected
      * @static
      */
-    static languages = ['markdown', 'neomjs']
+    static languages = ['markdown', 'mermaid', 'neomjs']
 
     static config = {
         /**
@@ -128,6 +129,16 @@ class LivePreview extends Container {
      */
     markdownComponentClass = null
     /**
+     * @member {Neo.component.wrapper.Mermaid|null} mermaidComponent=null
+     * @protected
+     */
+    mermaidComponent = null
+    /**
+     * @member {Class|null} mermaidComponentClass=null
+     * @protected
+     */
+    mermaidComponentClass = null
+    /**
      * @member {Neo.code.executor.Neo|null} neoExecutor=null
      */
     neoExecutor = null
@@ -136,6 +147,12 @@ class LivePreview extends Container {
      * @member {Neo.component.Base} previewContainer=null
      */
     previewContainer = null
+    /**
+     * Fences an awaited renderer import against later source, language and owner changes.
+     * @member {Number} runSourceId=0
+     * @protected
+     */
+    runSourceId = 0
 
     /**
      * @returns {Neo.component.Base|null}
@@ -155,7 +172,7 @@ class LivePreview extends Container {
     }
 
     /**
-     * Triggered after the language config got changed
+     * @summary Selects the editor language and discards the previous renderer reference before rerunning source.
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -165,6 +182,10 @@ class LivePreview extends Container {
 
         if (value !== 'markdown') {
             me.markdownComponent = null
+        }
+
+        if (value !== 'mermaid') {
+            me.mermaidComponent = null
         }
 
         me.getItem('editor').language = value === 'neomjs' ? 'javascript' : value;
@@ -178,14 +199,14 @@ class LivePreview extends Container {
 
 
     /**
-     * Triggered after the value config got changed
+     * @summary Synchronizes programmatic source changes, including clearing, into the editor model.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetValue(value, oldValue) {
-        if (value) {
-            this.getItem('editor').value = value?.trim()
+        if (value !== null || oldValue !== undefined) {
+            this.getItem('editor').value = value?.trim() ?? ''
         }
     }
 
@@ -299,12 +320,17 @@ class LivePreview extends Container {
     }
 
     /**
+     * @summary Invalidates pending renderer imports and releases the owned executor before child teardown.
      * @param {...*} args
      */
     destroy(...args) {
+        this.runSourceId++;
+
         if (this.connectedWindowId) {
             Neo.Main.windowClose({names: [this.id], windowId: this.windowId})
         }
+
+        this.neoExecutor?.destroy();
 
         super.destroy(...args)
     }
@@ -315,36 +341,63 @@ class LivePreview extends Container {
      * This method acts as the **execution trigger**. It orchestrates the process by:
      * 1.  **Validation**: Ensuring source code exists.
      * 2.  **Execution**:
-     *     - For **Markdown**: Clears the container and adds a new `Neo.component.Markdown` instance.
+     *     - For **Markdown/Mermaid**: Reuses the matching wrapper in the current preview container.
      *     - For **Neo.mjs**: Delegates execution to the `Neo.code.executor.Neo` instance.
      *
+     * @summary Runs the current source through its renderer, refusing obsolete imports after a newer run,
+     * mode change or teardown. Empty source removes the previous preview. Mermaid measures text in its
+     * host, so local diagrams wait until Preview is active; a popped-out preview continues to update.
      * @returns {Promise<void>}
      */
     async doRunSource() {
-        if (this.disableRunSource) {
+        if (this.disableRunSource || this.isDestroyed) {
             return
         }
 
-        let me        = this,
-            container = me.getPreviewContainer(),
-            source    = me.editorValue || me.value; // Use current editor value or initial value
+        const me        = this,
+              container = me.getPreviewContainer(),
+              source    = me.value,
+              language  = me.language,
+              runId     = ++me.runSourceId,
+              current   = () => !me.isDestroyed && me.runSourceId === runId && me.language === language &&
+                  !container.isDestroyed && me.getPreviewContainer() === container;
 
-        if (!source) return;
+        if (language === 'mermaid' && !me.previewContainer && me.tabContainer.activeIndex !== 1) {
+            return
+        }
 
-        if (me.language === 'markdown') {
-            if (!me.markdownComponentClass) {
-                const module = await import('../component/Markdown.mjs');
-                me.markdownComponentClass = module.default;
+        if (!source) {
+            container.removeAll();
+            me.markdownComponent = me.mermaidComponent = null;
+            return
+        }
+
+        if (language === 'markdown' || language === 'mermaid') {
+            const componentKey = language === 'markdown' ? 'markdownComponent' : 'mermaidComponent',
+                  classKey     = componentKey + 'Class';
+
+            if (!me[classKey]) {
+                const module = language === 'markdown'
+                    ? await import('../component/Markdown.mjs')
+                    : await import('../component/wrapper/Mermaid.mjs');
+
+                if (!current()) return;
+
+                me[classKey] = module.default
             }
 
-            if (me.markdownComponent && !me.markdownComponent.isDestroyed) {
-                me.markdownComponent.value = source
+            if (!current()) return;
+
+            const component = me[componentKey];
+
+            if (component && !component.isDestroyed && container.items.includes(component)) {
+                component.value = source
             } else {
                 // destroy, silent => merge changes into one update cycle
                 container.removeAll(true, true);
 
-                me.markdownComponent = container.add({
-                    module   : me.markdownComponentClass,
+                me[componentKey] = container.add({
+                    module   : me[classKey],
                     style    : {height: '100%', overflow: 'auto'},
                     value    : source,
                     windowUrl: me.windowUrl
@@ -353,6 +406,9 @@ class LivePreview extends Container {
         } else {
             if (!me.neoExecutor) {
                 const module = await import('./executor/Neo.mjs');
+
+                if (!current()) return;
+
                 me.neoExecutor = Neo.create(module.default);
             }
 
@@ -374,6 +430,7 @@ class LivePreview extends Container {
     }
 
     /**
+     * @summary Runs the newly exposed preview or retires local output and pending imports on return to Source.
      * @param {Object} data
      * @param {Neo.component.Base} data.item
      * @param {Number} data.oldValue
@@ -389,6 +446,7 @@ class LivePreview extends Container {
         }
         // Navigating to the source view should destroy the app, in case the preview view is not popped out
         else if (!isPreview && !me.previewContainer) {
+            me.runSourceId++;
             me.getReference('preview').removeAll()
         }
 
@@ -449,6 +507,7 @@ class LivePreview extends Container {
     }
 
     /**
+     * @summary Records the editor's current source and updates its active preview through the same dispatch.
      * @param {Object} data
      * @param {String} data.value
      */
@@ -456,8 +515,6 @@ class LivePreview extends Container {
         let me = this;
 
         me._value = value;
-
-        me.editorValue = value;
 
         me.fire('editorChange', {value});
 

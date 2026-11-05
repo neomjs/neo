@@ -30,11 +30,11 @@ class MonacoEditor extends Base {
     static editorThemes = ['hc-black', 'hc-light', 'vs', 'vs-dark']
     /**
      * Valid values for language
-     * @member {String[]} languages=['javascript','markdown']
+     * @member {String[]} languages=['javascript','markdown','mermaid']
      * @protected
      * @static
      */
-    static languages = ['javascript', 'markdown']
+    static languages = ['javascript', 'markdown', 'mermaid']
 
     static config = {
         /**

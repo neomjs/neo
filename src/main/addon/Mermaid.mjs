@@ -8,7 +8,7 @@ import Base from './Base.mjs';
  *
  * Key features:
  * - **Lazy Loading:** Dynamically loads the Mermaid library only when needed.
- * - **SVG Generation:** Uses `mermaid.render()` to generate idempotent SVG output, ensuring reliable DOM updates.
+ * - **SVG Generation:** Awaits serialized `mermaid.run()` calls, keeping the latest queued source per element.
  *
  * It is primarily consumed by:
  * 1. `Neo.component.Markdown`: For rendering ```mermaid``` code blocks embedded in Markdown content.
@@ -78,6 +78,18 @@ class Mermaid extends Base {
      * @protected
      */
     mermaid = null
+    /**
+     * The library shares document state across diagrams, so only one render may own it at a time.
+     * @member {Promise<void>} renderQueue=Promise.resolve()
+     * @protected
+     */
+    renderQueue = Promise.resolve()
+    /**
+     * Latest admitted source and exact element for each queued target id.
+     * @member {Map<String,Object>} pendingRenders=new Map()
+     * @protected
+     */
+    pendingRenders = new Map()
 
     /**
      * Imports the Mermaid library if it is not already loaded.
@@ -105,45 +117,56 @@ class Mermaid extends Base {
     }
 
     /**
-     * Renders a Mermaid diagram into a specific DOM element.
-     *
-     * This method orchestrates the full rendering pipeline:
-     * 1. **SVG Generation:** Generates a fresh SVG string for the diagram code.
-     * 2. **DOM Injection:** Safely injects the SVG into the target container.
-     *
-     * It includes error handling to display rendering failures inline (e.g., syntax errors)
-     * instead of crashing the application.
-     *
+     * @summary Serializes library rendering and coalesces queued source updates for each exact DOM element.
+     * A queued edit never rewrites a node while the library renders it. Removed or replaced targets and
+     * superseded requests are skipped; only a current request may display its awaited failure inline.
      * @param {Object} data
      * @param {String} [data.code] The mermaid diagram syntax/code.
      * @param {String} data.id The DOM ID of the container element.
+     * @returns {Promise<void>}
      */
     async render(data) {
-        const element = document.getElementById(data.id);
+        const me = this;
 
-        if (element) {
+        if (me.isDestroyed) return;
+
+        const {id} = data, element = document.getElementById(id);
+
+        if (!element) return;
+
+        const requests = me.pendingRenders,
+              library  = me.mermaid,
+              request  = {element, code: data.code ?? element.textContent},
+              current  = () => !me.isDestroyed && requests.get(id) === request &&
+                  element.isConnected && document.getElementById(id) === element;
+
+        requests.set(id, request);
+
+        const run = async () => {
             try {
-                // Reset Mermaid state so it accepts the node again
+                if (!current()) return;
+
                 element.removeAttribute('data-processed');
+                element.textContent = request.code;
 
-                if (data.code) {
-                    element.textContent = data.code
-                }
-
-                // AWAITED, and that is the whole point. `mermaid.run` is `(options?) => Promise<void>`
-                // and it REJECTS on a parse error — measured: `Parse error on line 2 … Expecting
-                // 'SEMI', 'NEWLINE'`. Un-awaited inside this `try`, the rejection was unhandled, so
-                // the `catch` below could not fire, the error message never reached the page, and
-                // this `async` method resolved before rendering had finished. The guarantee was
-                // written in code that could not execute.
-                await this.mermaid.run({
-                    nodes: [element]
-                })
+                await library.run({nodes: [element]})
             } catch (e) {
-                console.error('Mermaid rendering failed:', e);
-                element.innerHTML = `<div style="color: red; padding: 10px;">Mermaid Error: ${e.message}</div>`
+                if (current()) {
+                    console.error('Mermaid rendering failed:', e);
+                    const error = document.createElement('div');
+
+                    error.style.cssText = 'color: red; padding: 10px;';
+                    error.textContent = `Mermaid Error: ${e?.message ?? String(e)}`;
+                    element.replaceChildren(error)
+                }
+            } finally {
+                // The captured map survives CoreBase.destroy deleting this instance's own fields.
+                requests.get(id) === request && requests.delete(id)
             }
-        }
+        };
+
+        me.renderQueue = me.renderQueue.then(run, run);
+        await me.renderQueue
     }
 }
 

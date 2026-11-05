@@ -158,7 +158,9 @@ class MonacoEditor extends Base {
             DomAccess.loadStylesheet(`${path}/editor.css`).catch(error => {
                 throw new Error(`Monaco stylesheet failed: ${path}/editor.css`, {cause: error})
             })
-        ])
+        ]);
+
+        me.registerMermaidLanguage()
     }
 
     /**
@@ -176,6 +178,70 @@ class MonacoEditor extends Base {
             path,
             type : 'editorChange', // we must not use "change", since the editor contains a textarea tag which also fires change.
             value: this.map[id].getModel().getValue()
+        })
+    }
+
+    /**
+     * @summary Registers basic Mermaid syntax highlighting in this document's Monaco language registry.
+     * Existing language registrations take precedence. This is a lexical tokenizer, not Mermaid validation
+     * or a diagram-specific language service; models continue to use the generic editor worker.
+     * @protected
+     */
+    registerMermaidLanguage() {
+        const {languages} = monaco;
+
+        if (languages.getLanguages().some(language => language.id === 'mermaid')) {
+            return
+        }
+
+        languages.register({id: 'mermaid', aliases: ['Mermaid', 'mermaid'], extensions: ['.mmd', '.mermaid']});
+        languages.setLanguageConfiguration('mermaid', {
+            comments: {lineComment: '%%'},
+            brackets: [['{', '}'], ['[', ']'], ['(', ')']]
+        });
+        languages.setMonarchTokensProvider('mermaid', {
+            tokenPostfix: '.mermaid',
+            keywords    : [
+                'graph', 'flowchart', 'sequenceDiagram', 'classDiagram', 'stateDiagram', 'erDiagram',
+                'journey', 'gantt', 'pie', 'requirementDiagram', 'gitGraph', 'mindmap', 'timeline',
+                'quadrantChart', 'C4Context', 'C4Container', 'C4Component', 'C4Dynamic', 'C4Deployment',
+                'subgraph', 'end', 'direction', 'TB', 'TD', 'BT', 'LR', 'RL', 'title', 'section',
+                'participant', 'actor', 'activate', 'deactivate', 'note', 'Note', 'over', 'left', 'right',
+                'loop', 'alt', 'else', 'opt', 'par', 'and', 'rect', 'critical', 'option', 'break',
+                'class', 'classDef', 'style', 'linkStyle', 'click', 'state', 'as', 'accTitle', 'accDescr',
+                'init', 'config', 'theme'
+            ],
+            tokenizer: {
+                root: [
+                    [/%%\{/, {token: 'metatag', next: '@directive'}],
+                    [/%%.*$/, 'comment'],
+                    [/\b(?:stateDiagram-v2|sankey-beta|xychart-beta|block-beta|architecture-beta|packet-beta)\b/, 'keyword'],
+                    {include: '@common'}
+                ],
+                directive: [
+                    [/\}%%/, {token: 'metatag', next: '@pop'}],
+                    {include: '@common'}
+                ],
+                common: [
+                    [/"/, {token: 'string.quote', next: '@doubleQuoted'}],
+                    [/'/, {token: 'string.quote', next: '@singleQuoted'}],
+                    [/\b\d+(?:\.\d+)?\b/, 'number'],
+                    [/[<>=~.*+\-]+/, 'operator'],
+                    [/[{}\[\]()]/, 'delimiter.bracket'],
+                    [/[,:;|]/, 'delimiter'],
+                    [/[a-zA-Z_]\w*/, {cases: {'@keywords': 'keyword', '@default': 'identifier'}}]
+                ],
+                doubleQuoted: [
+                    [/[^\\"]+/, 'string'],
+                    [/\\./, 'string.escape'],
+                    [/"/, {token: 'string.quote', next: '@pop'}]
+                ],
+                singleQuoted: [
+                    [/[^\\']+/, 'string'],
+                    [/\\./, 'string.escape'],
+                    [/'/, {token: 'string.quote', next: '@pop'}]
+                ]
+            }
         })
     }
 

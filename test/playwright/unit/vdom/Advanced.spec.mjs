@@ -3,7 +3,8 @@ import {setup} from '../../setup.mjs';
 // tests are designed for this rendering mode
 setup({
     neoConfig: {
-        useDomApiRenderer: false
+        useDomApiRenderer: false,
+        useDomIds        : true
     }
 });
 
