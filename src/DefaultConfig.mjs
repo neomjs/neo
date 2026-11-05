@@ -243,6 +243,15 @@ const DefaultConfig = {
      */
     allowVdomUpdatesInTests: false,
     /**
+     * Test-only, like `allowVdomUpdatesInTests`: loads the Neural Link client's registry without its transport, so a
+     * test harness drives the API through `Neo.ai.Client#handleTestRequest`. `useAiClient` is not consulted.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.allowAiClientInTests
+     * @type Boolean
+     */
+    allowAiClientInTests: false,
+    /**
      * Set this to true to establish a WebSocket connection to the Neural Link MCP Server.
      * This enables bidirectional communication between the App Worker and external AI Agents.
      *

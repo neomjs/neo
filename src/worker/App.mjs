@@ -779,21 +779,12 @@ class App extends Base {
 
         config.remotesApiUrl && import('../remotes/Api.mjs');
 
-        if (config.useAiClient && !config.isGitHubPages) {
-            let {environment, useAiClient} = config,
-                useAi                      = useAiClient === true;
+        const aiClientBoot = me.resolveAiClientBoot(config);
 
-            if (!useAi) {
-                if (Array.isArray(useAiClient)) {
-                    useAi = useAiClient.includes(environment)
-                } else if (typeof useAiClient === 'string') {
-                    useAi = useAiClient === environment
-                }
-            }
-
-            if (useAi) {
-                this.aiClientPromise = import('../ai/Client.mjs')
-            }
+        if (aiClientBoot) {
+            me.aiClientPromise = import('../ai/Client.mjs').then(({default: client}) => {
+                aiClientBoot === 'transport' && client.connect()
+            })
         }
 
         !config.useVdomWorker && import('../vdom/Helper.mjs')
@@ -981,6 +972,31 @@ class App extends Base {
         }
 
         return removed
+    }
+
+    /**
+     * @summary How a boot hosts the Neural Link client. `allowAiClientInTests` boots the registry without transport;
+     * otherwise `useAiClient` keeps its three forms (`true`, an environment array, an environment name). Never on
+     * GitHub Pages.
+     * @param {Object} config The realm's `Neo.config`
+     * @returns {'registry'|'transport'|null} `null` when the boot loads no client
+     */
+    resolveAiClientBoot({allowAiClientInTests, environment, isGitHubPages, useAiClient}) {
+        if (isGitHubPages) {
+            return null
+        }
+
+        if (allowAiClientInTests) {
+            return 'registry'
+        }
+
+        if (useAiClient === true ||
+            Array.isArray(useAiClient) && useAiClient.includes(environment) ||
+            typeof useAiClient === 'string' && useAiClient === environment) {
+            return 'transport'
+        }
+
+        return null
     }
 
     /**
