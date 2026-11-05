@@ -38,6 +38,13 @@ class Toolbar extends BaseToolbar {
             ntype: 'table-header-button'
         },
         /**
+         * Convenience shortcut to pass resizable to all toolbar items.
+         * If set to true, header buttons can be resized via drag & drop on their right edge.
+         * @member {Boolean} resizable_=true
+         * @reactive
+         */
+        resizable_: true,
+        /**
          * @member {Boolean} showHeaderFilters_=false
          * @reactive
          */
@@ -56,6 +63,25 @@ class Toolbar extends BaseToolbar {
         {tag: 'thead', cn: [
             {tag: 'tr', cn: []}
         ]}
+    }
+
+    /**
+     * Triggered after the resizable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetResizable(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.items.forEach(item => {
+                item.resizable = value
+            });
+
+            me.updateDepth = 2;
+            me.update()
+        }
     }
 
     /**
@@ -109,6 +135,10 @@ class Toolbar extends BaseToolbar {
         me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
 
         me.items.forEach(item => {
+            if (!Object.hasOwn(item, 'resizable')) {
+                item.resizable = me.resizable
+            }
+
             if (!Object.hasOwn(item, 'sortable')) {
                 item.sortable = me.sortable
             }
@@ -161,6 +191,18 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * Configures the header SortZone to ignore resize handles when initiating column reorder drags.
+     * @param {Object} config
+     */
+    createSortZone(config) {
+        Neo.merge(config, {
+            ignoreDragSelector: '.neo-resizable'
+        });
+
+        super.createSortZone(config)
+    }
+
+    /**
      * @param {String} dataField
      * @returns {Neo.button.Base|null}
      */
@@ -206,6 +248,45 @@ class Toolbar extends BaseToolbar {
      */
     loadSortZoneModule() {
         return import('../../draggable/table/header/toolbar/SortZone.mjs')
+    }
+
+    /**
+     * Recalculates sticky `left` / `right` dock offsets across header cells and refreshes the table body
+     * when docked columns are present.
+     */
+    passSizeToBody() {
+        let me             = this,
+            dockLeftWidth  = 0,
+            dockRightWidth = 0,
+            hasDocked      = false,
+            {items}        = me,
+            len            = items.length,
+            body           = me.parent?.body,
+            rightItem, style;
+
+        items.forEach((item, index) => {
+            if (item.dock === 'left') {
+                hasDocked  = true;
+                style      = item.wrapperStyle;
+                style.left = dockLeftWidth + 'px';
+                item.wrapperStyle = style;
+                dockLeftWidth += (item.width + 1)
+            }
+
+            rightItem = items[len - index - 1];
+
+            if (rightItem.dock === 'right') {
+                hasDocked   = true;
+                style       = rightItem.wrapperStyle;
+                style.right = dockRightWidth + 'px';
+                rightItem.wrapperStyle = style;
+                dockRightWidth += (rightItem.width + 1)
+            }
+        });
+
+        if (hasDocked && body?.store?.getCount() > 0) {
+            body.createViewData()
+        }
     }
 }
 
