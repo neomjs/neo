@@ -2,6 +2,7 @@ import Base    from '../../plugin/Base.mjs';
 import CssUtil from '../../util/Css.mjs';
 
 /**
+ * @summary Animates list layout, filtering and membership while retaining synchronous record ownership.
  * @class Neo.list.plugin.Animate
  * @extends Neo.plugin.Base
  */
@@ -47,6 +48,13 @@ class Animate extends Base {
     ownerLoadHandler = null
     /** @summary Index-pooled components retain their rendered addresses until settlement. */
     indexedMotion = null
+    /** @summary Native presentation owner and the owner's metadata hook preserved during installation. */
+    motionAddon = null
+    motionToken = null
+    motionGeneration = 0
+    motionWindowId = null
+    ownerGetVdomUpdateMeta = null
+    motionMetaHandler = null
 
     static config = {
         /**
@@ -156,6 +164,16 @@ class Animate extends Base {
     }
 
     /**
+     * @summary Selects this owner in either supported DOM addressing mode.
+     * @returns {String}
+     */
+    get ownerSelector() {
+        const id = this.owner.id;
+        return Neo.config.useDomIds === false ? `[data-neo-id="${id}"]` : `#${id}`
+    }
+
+    /**
+     * @summary Installs geometry hooks and window-scoped native membership presentation on the owner.
      * @param {Object} config
      */
     construct(config) {
@@ -184,10 +202,19 @@ class Animate extends Base {
         owner.onStoreRecordChange = me.onStoreRecordChange.bind(me);
         owner.onStoreSort         = me.onStoreSort        .bind(me);
 
+        const originalMeta = me.ownerGetVdomUpdateMeta = owner.getVdomUpdateMeta;
+        owner.getVdomUpdateMeta = me.motionMetaHandler = () => {
+            const meta = originalMeta?.call(owner);
+            return me.isDestroying || me.isDestroyed ? meta : {...meta, listMotion: me.getMotionMeta()}
+        };
+        me.observeConfig(owner, 'mounted', () => me.syncMotionOwner());
+        me.observeConfig(owner, 'windowId', () => me.syncMotionOwner());
+        owner.mounted && me.syncMotionOwner();
+
         owner.on('createItems', me.onOwnerCreateItems, me);
 
         // the absolute items anchor to the owner root: mark it and guarantee the containing block
-        // (the #id {position:relative} rule rides getOwnerRules())
+        // (the owner-scoped position:relative rule rides getOwnerRules())
         owner.addCls('neo-animated-list');
 
         owner.addDomListeners({resize: me.onOwnerResize, scope: me, local: true});
@@ -417,6 +444,7 @@ class Animate extends Base {
     }
 
     /**
+     * @summary Adds slot geometry and rendered record identity to the owner's item descriptor.
      * @param {Neo.list.plugin.Animate} me
      * @param {Object} record
      * @param {Number} index
@@ -447,6 +475,7 @@ class Animate extends Base {
         });
 
         item.style = style;
+        item['data-neo-list-record'] = owner.store.getInternalKey(record) ?? JSON.stringify([typeof owner.store.getKey(record), owner.store.getKey(record)]);
         me.renderedRecords.set(item, record);
 
         return item
@@ -460,6 +489,11 @@ class Animate extends Base {
         let me      = this,
             ownerId = me.owner?.id;
 
+        me.disconnectMotion();
+        if (me.owner.getVdomUpdateMeta === me.motionMetaHandler) {
+            if (me.ownerGetVdomUpdateMeta) me.owner.getVdomUpdateMeta = me.ownerGetVdomUpdateMeta;
+            else delete me.owner.getVdomUpdateMeta
+        }
         clearTimeout(me.transitionTimeoutId);
         me.motionSerial++;
         if (me.ownerOnStoreLoad && me.owner?.onStoreLoad === me.ownerLoadHandler) {
@@ -469,7 +503,7 @@ class Animate extends Base {
 
         me.owner?.un({createItems: me.onOwnerCreateItems, scope: me});
         me.addResizeObserver(false);
-        ownerId && CssUtil.deleteRules(me.windowId, [`#${ownerId}`, `#${ownerId} .neo-list-item`]);
+        ownerId && CssUtil.deleteRules(me.windowId, [me.ownerSelector, `${me.ownerSelector} .neo-list-item`]);
 
         super.destroy(...args)
     }
@@ -595,19 +629,97 @@ class Animate extends Base {
 
     /**
      * @summary Leaves an identified coarse sort notification to its fine sort handler.
-     * Ordinary membership/replacement loads reach the original mount-aware owner synchronously;
-     * only Store's explicit sort origin may skip that rebuild before sortItems moves the cards.
+     * Membership is rebuilt synchronously; metadata lets the native owner animate the painted change.
+     * Only identified, unchanged mutations skip work; unmarked loads still repaint the owner.
      * @param {Object} data
      * @param {Boolean} [data.isSort] The coarse notification emitted by Store.onCollectionSort.
+     * @param {Boolean} [data.isMutation] The coarse notification emitted by Store.onCollectionMutate.
      */
     onStoreLoad(data) {
-        if (this.isDestroyed || data?.isSort === true) return;
-        this.motionSerial++;
-        this.pendingFilter = false;
-        this.endIndexedMotion();
-        clearTimeout(this.transitionTimeoutId);
-        this.transitionTimeoutId = null;
-        return this.ownerOnStoreLoad(data)
+        const me = this, {owner} = me;
+        if (me.isDestroyed || data?.isSort === true) return;
+
+        const nodes = owner.getVdomRoot().cn || [], items = data?.items;
+        if (data?.isMutation && !me.pendingFilter && !me.indexedMotion &&
+            nodes.length === items?.length && items.every((record, index) => me.renderedRecords.get(nodes[index]) === record)) {
+            return
+        }
+
+        me.motionSerial++;
+        me.pendingFilter = false;
+        me.endIndexedMotion();
+        clearTimeout(me.transitionTimeoutId);
+        me.transitionTimeoutId = null;
+
+        return me.ownerOnStoreLoad(data)
+    }
+
+    /**
+     * @summary Supplies native presentation options; rendered markers carry record identity.
+     * The getter is repeatable: an absorbed payload or failed render consumes no mutable state.
+     * @returns {Object}
+     */
+    getMotionMeta() {
+        const me = this, {owner} = me;
+        return {
+            token   : me.motionToken,
+            duration: me.transitionDuration,
+            easing  : me.transitionEasing,
+            rootId  : owner.getVdomRoot().id || owner.id
+        }
+    }
+
+    /**
+     * @summary Lazily installs the native motion owner for this mounted window.
+     * @protected
+     */
+    async connectMotion() {
+        const me = this;
+        if (Neo.config.unitTestMode) return;
+        me.disconnectMotion();
+        const {owner} = me, windowId = owner.windowId,
+            token     = me.motionToken = `${me.id}:${++me.motionGeneration}`,
+            current   = () => !me.isDestroyed && !owner.isDestroyed && owner.mounted && owner.windowId === windowId && me.motionToken === token;
+        try {
+            const addon = await Neo.currentWorker.getAddon('ListMotion', windowId);
+            if (!current()) return;
+            await addon.register({id: owner.id, token, windowId});
+            if (!current()) {
+                await addon.unregister({id: owner.id, token, windowId});
+                return
+            }
+            me.motionAddon = addon;
+            me.motionWindowId = windowId;
+            owner.update()
+        } catch (error) {
+            if (error !== Neo.isDestroyed && !Neo.currentWorker.isDeparture(error, windowId)) {
+                console.error('Unable to initialize list motion', error)
+            }
+        }
+    }
+
+    /** @summary Follows the owner's live render realm, including plugins installed after initial mount. */
+    syncMotionOwner() {
+        const {owner} = this;
+        if (owner.mounted && !owner.isDestroying && !owner.isDestroyed) this.connectMotion();
+        else this.disconnectMotion()
+    }
+
+    /**
+     * @summary Releases only this registration, including when a remount overtakes an old remote call.
+     * A closed target window settles retirement; other remote failures remain visible after owner destruction.
+     * @returns {Promise<void>}
+     */
+    async disconnectMotion() {
+        const me = this, {motionAddon, motionToken, motionWindowId} = me, worker = Neo.currentWorker;
+        me.motionToken = me.motionAddon = null;
+        try {
+            await motionAddon?.unregister({id: me.owner.id, token: motionToken, windowId: motionWindowId})
+        } catch (error) {
+            if (error !== Neo.isDestroyed && !worker.isDeparture(error, motionWindowId)) {
+                console.error('Unable to release list motion', error)
+            }
+        }
     }
 
     /**
@@ -673,6 +785,7 @@ class Animate extends Base {
      * @param {Neo.data.Store} data.scope
      */
     onStoreFilter(data) {
+        // Indexed filter addressing is out of scope, noted in https://github.com/neomjs/neo/issues/2797#issuecomment-6670451195.
         let me                  = this,
             owner               = me.owner,
             hasAddedItems       = false,
@@ -914,22 +1027,23 @@ class Animate extends Base {
     }
 
     /**
-     * We do not want to apply the style to each list item itself, so we are using Neo.util.Css
+     * @summary Replaces owner-scoped CSS transition rules when their duration or easing changes.
      * @param {Boolean} deleteRule=false
      * @protected
      */
     async updateTransitionDetails(deleteRule=false) {
-        let me   = this,
-            {id} = me.owner;
+        let me       = this,
+            selector = me.ownerSelector;
 
         if (deleteRule) {
-            await CssUtil.deleteRules(me.windowId, [`#${id}`, `#${id} .neo-list-item`])
+            await CssUtil.deleteRules(me.windowId, [selector, `${selector} .neo-list-item`])
         }
 
         CssUtil.insertRules(me.windowId, me.getOwnerRules())
     }
 
     /**
+     * @summary Supplies containing-block and transition rules in the owner's DOM addressing mode.
      * The per-owner dynamic rules: the containing-block guarantee on the root and the item
      * transition — pure, so specs can witness the exact inserted payload. The reduced-motion
      * override is intentionally NOT here: it lives as ONE static rule in the list stylesheet
@@ -941,11 +1055,11 @@ class Animate extends Base {
         let me       = this,
             duration = me.transitionDuration,
             easing   = me.transitionEasing,
-            {id}     = me.owner;
+            selector = me.ownerSelector;
 
         return [
-            `#${id} {position:relative}`,
-            `#${id} .neo-list-item {transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}}`
+            `${selector} {position:relative}`,
+            `${selector} .neo-list-item {transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}}`
         ]
     }
 }

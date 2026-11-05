@@ -86,6 +86,7 @@ test.describe('Neo.data.Store sort/load notification contract', () => {
 
         expect(events).toEqual(['load', 'sort']);
         expect(coarse.isSort).toBe(true);
+        expect(Object.hasOwn(coarse, 'isMutation')).toBe(false);
         expect(Object.hasOwn(fine, 'isSort')).toBe(false);
         expect(coarse.items.map(record => record.name)).toEqual(['alpha', 'bravo', 'charlie']);
         expect(fine.items).toEqual(coarse.items);
@@ -102,7 +103,7 @@ test.describe('Neo.data.Store sort/load notification contract', () => {
         ['clear', store => store.clear()],
         ['replacement', store => { store.data = [{id: '1', name: 'updated'}, {id: '4', name: 'delta'}] }]
     ]) {
-        test(`ordinary ${operation} membership loads omit the sort-only marker`, () => {
+        test(`ordinary ${operation} membership loads identify their origin without the sort-only marker`, () => {
             const loads = [];
             store.on({load: data => loads.push(data)});
 
@@ -110,6 +111,7 @@ test.describe('Neo.data.Store sort/load notification contract', () => {
 
             expect(loads.length).toBeGreaterThan(0);
             loads.forEach(data => expect(Object.hasOwn(data, 'isSort')).toBe(false));
+            loads.forEach(data => expect(data.isMutation).toBe(true));
             expect(loads.at(-1).items).toEqual(store.items)
         })
     }
