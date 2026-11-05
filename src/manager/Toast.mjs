@@ -161,7 +161,14 @@ class Toast extends Manager {
         position = toast.position;
 
         // decrease total of displayed toasts for a position
-        NeoArray.remove(me.getRunning(toast.appName)[position], toastId);
+        if (toast.appName && me.running[toast.appName]) {
+            NeoArray.remove(me.running[toast.appName][position], toastId);
+
+            if (Object.values(me.running[toast.appName]).every(items => items.length === 0)) {
+                delete me.running[toast.appName]
+            }
+        }
+
         me.running[position] && NeoArray.remove(me.running[position], toastId);
 
         me.updateItemsInPosition(toastId)
