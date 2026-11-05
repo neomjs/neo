@@ -21,6 +21,8 @@ on:
       - 'docs/app/**'
       - 'examples/**'
       - 'src/**'
+      - 'test/playwright/dedicatedWorkerNeuralLink.mjs'
+      - 'test/playwright/fixtures.mjs'
       - 'buildScripts/**'
       - '.github/workflows/consumer-runtime-build.yml'
       - '.npmignore'
