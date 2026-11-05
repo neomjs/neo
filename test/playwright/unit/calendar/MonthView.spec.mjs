@@ -426,6 +426,8 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
                   eventVdom     = VDomUtil.find(component.vdom, eventNodeId).vdom;
 
             expect(plugin).toBeInstanceOf(MonthDragDrop);
+            expect(component.getScrollContainer().flag).toBe('neo-c-m-scrollcontainer');
+            expect(eventVdom.cls).toContain('neo-draggable');
             expect(sourceDayVdom.flag).toBe('2026-05-12');
             expect(targetDayVdom.flag).toBe('2026-05-15');
             expect(sourceDayVdom.cn.some(node => node.id === eventNodeId)).toBe(true);
@@ -435,22 +437,23 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
                 clientX: 25,
                 clientY: 30,
                 path   : [
-                    {id: eventNodeId, cls: ['neo-event', 'neo-blue'], rect: {width: 120, height: 22, left: 10, top: 20, x: 10, y: 20}},
-                    {id: sourceDayId, cls: ['neo-day'],               rect: {width: 120, height: 100, left: 10, top: 0, x: 10, y: 0}}
+                    {id: eventNodeId, cls: ['neo-event', 'neo-draggable', 'neo-blue'], rect: {width: 120, height: 22, left: 10, top: 20, x: 10, y: 20}},
+                    {id: sourceDayId, cls: ['neo-day'],                                rect: {width: 120, height: 100, left: 10, top: 0, x: 10, y: 0}}
                 ],
                 targetPath: [
-                    {id: eventNodeId, cls: ['neo-event', 'neo-blue']},
+                    {id: eventNodeId, cls: ['neo-event', 'neo-draggable', 'neo-blue']},
                     {id: sourceDayId, cls: ['neo-day']}
                 ]
             };
 
             await plugin.onEventDragStart(dragStartData);
 
-            expect(component.eventDragZone).toBeInstanceOf(MonthEventDragZone);
+            const {eventDragZone} = component;
+            expect(eventDragZone).toBeInstanceOf(MonthEventDragZone);
             expect(plugin.isDragging).toBe(true);
-            expect(component.eventDragZone.dragProxy).toBeTruthy();
-            expect(component.eventDragZone.proxyParentId).toBe(sourceDayId);
-            expect(component.eventDragZone.eventDuration).toBe(90);
+            expect(eventDragZone.dragProxy).toBeTruthy();
+            expect(eventDragZone.proxyParentId).toBe(sourceDayId);
+            expect(eventDragZone.eventDuration).toBe(90);
 
             // Move pointer over 2026-05-15 day cell
             plugin.onEventDragMove({
@@ -462,7 +465,7 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
                 ]
             });
 
-            expect(component.eventDragZone.proxyParentId).toBe(targetDayId);
+            expect(eventDragZone.proxyParentId).toBe(targetDayId);
             expect(appliedDeltas.some(delta =>
                 !Array.isArray(delta) &&
                 delta.action === 'moveNode' &&
@@ -503,8 +506,10 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
             plugin.onEventDragStart(dragStartData);
             expect(plugin.isDragging).toBe(false);
 
-            component.eventDragZone.destroy();
+            // Destroying the component/plugin destroys the EventDragZone and clears owner.eventDragZone
             component.destroy();
+            expect(eventDragZone.isDestroyed).toBe(true);
+            expect(component.eventDragZone).toBeNull();
             calendarStore.destroy();
             eventStore.destroy();
         } finally {

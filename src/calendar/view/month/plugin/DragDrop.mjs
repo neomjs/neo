@@ -42,6 +42,22 @@ class DragDrop extends Base {
     }
 
     /**
+     * @summary Destroys the month view's EventDragZone and clears `owner.eventDragZone` when the plugin destroys.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let {owner} = this;
+
+        owner?.eventDragZone?.destroy();
+
+        if (owner) {
+            owner.eventDragZone = null
+        }
+
+        super.destroy(...args)
+    }
+
+    /**
      * @summary Lazily creates or reconfigures the month view's EventDragZone with the active scroll container ID.
      * @param {Object} opts
      * @param {Object} opts.dragElement

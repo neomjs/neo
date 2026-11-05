@@ -171,7 +171,7 @@ class Component extends BaseComponent {
                     {vtype: 'text'}
                 ]}
             ]},
-            {cls: ['neo-c-m-scrollcontainer']}
+            {cls: ['neo-c-m-scrollcontainer'], flag: 'neo-c-m-scrollcontainer'}
         ]},
         /**
          * 0-6 => Sun-Sat
@@ -570,7 +570,7 @@ class Component extends BaseComponent {
                     // `get()` answers `null` for it. The day is still drawn; the event is not.
                     if (calendarRecord?.active) {
                         dayConfig.cn.push({
-                            cls     : ['neo-event', `neo-${calendarRecord.color}`],
+                            cls     : ['neo-event', 'neo-draggable', `neo-${calendarRecord.color}`],
                             flag    : recordKey,
                             id      : me.id + '__' + recordKey,
                             tabIndex: -1,
@@ -602,7 +602,7 @@ class Component extends BaseComponent {
      * @returns {Object}
      */
     getScrollContainer() {
-        return this.vdom.cn[1]
+        return VDomUtil.getByFlag(this.vdom, 'neo-c-m-scrollcontainer')
     }
 
     /**
