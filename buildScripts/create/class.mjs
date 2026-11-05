@@ -377,15 +377,7 @@ if (programOpts.info) {
         }
     }
 
-    const viewBaseClasses = [
-        'component.Base',
-        'container.Base',
-        'container.Viewport',
-        'tab.Container',
-        'table.Container'
-    ];
-
-    if (viewBaseClasses.includes(baseClass)) {
+    if (isViewBaseClass(baseClass)) {
         let createController    = programOpts.createController,
             createStateProvider = programOpts.createStateProvider,
             isFrameworkSrc      = root === 'Neo' && !className.startsWith('Neo.examples');
@@ -947,4 +939,35 @@ export function guessBaseClass(className) {
     }
 
     return 'container.Base';
+}
+
+/**
+ * @summary Determines whether a Neo base class is `component.Base` or extends `component.Base` by walking `@extends Neo.<ns>` in `src/`.
+ * @param {String} baseClass
+ * @returns {Boolean}
+ */
+export function isViewBaseClass(baseClass) {
+    let current = baseClass?.replace(/^Neo\./, ''),
+        visited = new Set();
+
+    while (current && !visited.has(current)) {
+        if (current === 'component.Base') {
+            return true;
+        }
+
+        visited.add(current);
+
+        let srcFile = path.resolve(__dirname, '../src', `${current.split('.').join('/')}.mjs`);
+
+        if (!fs.existsSync(srcFile)) {
+            return false;
+        }
+
+        let content = fs.readFileSync(srcFile, 'utf8'),
+            match   = content.match(/@extends\s+Neo\.([A-Za-z0-9_.]+)/);
+
+        current = match ? match[1] : null;
+    }
+
+    return false;
 }

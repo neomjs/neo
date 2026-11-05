@@ -396,4 +396,74 @@ test.describe('buildScripts/create/class.mjs view -> controller.Component & stat
         expect(fs.existsSync(controllerFile)).toBe(false);
         expect(fs.existsSync(stateProviderFile)).toBe(false);
     });
+
+    test('generates and wires companions for any component.Base descendant passed via -b (e.g. form.Container)', () => {
+        execFileSync(
+            process.execPath,
+            [classScriptPath, '-c', 'MyApp.view.MyForm', '-b', 'form.Container', '-n', 'no', '-C', 'yes', '-p', 'yes'],
+            {cwd: tmpDir, stdio: 'pipe'}
+        );
+
+        const
+            viewFile          = path.join(tmpDir, 'apps', 'myapp', 'view', 'MyForm.mjs'),
+            controllerFile    = path.join(tmpDir, 'apps', 'myapp', 'view', 'MyFormController.mjs'),
+            stateProviderFile = path.join(tmpDir, 'apps', 'myapp', 'view', 'MyFormStateProvider.mjs');
+
+        expect(fs.existsSync(viewFile)).toBe(true);
+        expect(fs.existsSync(controllerFile)).toBe(true);
+        expect(fs.existsSync(stateProviderFile)).toBe(true);
+
+        const viewContent = fs.readFileSync(viewFile, 'utf8');
+
+        expect(viewContent).toContain("import MyFormController    from './MyFormController.mjs';");
+        expect(viewContent).toContain("import MyFormStateProvider from './MyFormStateProvider.mjs';");
+        expect(viewContent).toContain('controller: MyFormController,');
+        expect(viewContent).toContain('stateProvider: MyFormStateProvider');
+
+        execFileSync(process.execPath, ['--check', viewFile], {stdio: 'pipe'});
+        execFileSync(process.execPath, ['--check', controllerFile], {stdio: 'pipe'});
+        execFileSync(process.execPath, ['--check', stateProviderFile], {stdio: 'pipe'});
+    });
+
+    test('wires pre-existing controller and stateProvider files into a newly generated view without overwriting them', () => {
+        execFileSync(
+            process.execPath,
+            [classScriptPath, '-c', 'MyApp.view.ExistingViewController', '-b', 'controller.Component', '-n', 'no'],
+            {cwd: tmpDir, stdio: 'pipe'}
+        );
+
+        execFileSync(
+            process.execPath,
+            [classScriptPath, '-c', 'MyApp.view.ExistingViewStateProvider', '-b', 'state.Provider', '-n', 'no'],
+            {cwd: tmpDir, stdio: 'pipe'}
+        );
+
+        const
+            controllerFile    = path.join(tmpDir, 'apps', 'myapp', 'view', 'ExistingViewController.mjs'),
+            stateProviderFile = path.join(tmpDir, 'apps', 'myapp', 'view', 'ExistingViewStateProvider.mjs');
+
+        fs.appendFileSync(controllerFile, '// preserve existing controller\n');
+        fs.appendFileSync(stateProviderFile, '// preserve existing state provider\n');
+
+        execFileSync(
+            process.execPath,
+            [classScriptPath, '-c', 'MyApp.view.ExistingView', '-b', 'container.Panel', '-n', 'no', '-C', 'yes', '-p', 'yes'],
+            {cwd: tmpDir, stdio: 'pipe'}
+        );
+
+        const
+            viewFile             = path.join(tmpDir, 'apps', 'myapp', 'view', 'ExistingView.mjs'),
+            viewContent          = fs.readFileSync(viewFile, 'utf8'),
+            controllerContent    = fs.readFileSync(controllerFile, 'utf8'),
+            stateProviderContent = fs.readFileSync(stateProviderFile, 'utf8');
+
+        expect(controllerContent).toContain('// preserve existing controller');
+        expect(stateProviderContent).toContain('// preserve existing state provider');
+        expect(viewContent).toContain("import ExistingViewController    from './ExistingViewController.mjs';");
+        expect(viewContent).toContain("import ExistingViewStateProvider from './ExistingViewStateProvider.mjs';");
+        expect(viewContent).toContain('controller: ExistingViewController,');
+        expect(viewContent).toContain('stateProvider: ExistingViewStateProvider');
+
+        execFileSync(process.execPath, ['--check', viewFile], {stdio: 'pipe'});
+    });
 });
