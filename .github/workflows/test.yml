@@ -53,6 +53,149 @@ jobs:
     name: Classify test scope
     uses: ./.github/workflows/classify-test-scope.yml
 
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.run_unit == 'true' && (github.event_name != 'workflow_dispatch' || inputs.suite != 'components') }}
+    steps:
+      - &current-pr-head
+        name: Verify current pull-request head
+        id: head
+        uses: actions/github-script@v9
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('current', 'true');
+              return;
+            }
+            const pull = await github.rest.pulls.get({
+              owner      : context.repo.owner,
+              repo       : context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            const eventHead = context.payload.pull_request.head.sha;
+            const liveHead  = pull.data.head.sha;
+            const current   = eventHead === liveHead;
+            core.setOutput('current', String(current));
+            if (!current) {
+              const reason = `stale workflow head ${eventHead}; live PR head is ${liveHead}`;
+              core.notice(`Skipping expensive test suite: ${reason}`);
+              core.setOutput('skip_reason', reason);
+              await core.summary
+                .addHeading('Stale workflow attempt')
+                .addRaw(`Skipped the expensive test suite because ${reason}.`)
+                .write();
+            }
+
+      - name: Checkout repository
+        if: ${{ steps.head.outputs.current == 'true' }}
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        if: ${{ steps.head.outputs.current == 'true' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: ${{ steps.head.outputs.current == 'true' }}
+        run: npm ci
+
+      - name: Bundle browser dependencies
+        if: ${{ steps.head.outputs.current == 'true' }}
+        run: npm run bundle-browser-deps
+
+      # Separate Node processes preserve both timezone signs without moving the main suite off UTC.
+      # Snapshot the fixed JSON reporter path before the next invocation can overwrite it. A global
+      # Playwright JSON-output environment override would also affect nested CLI tests in the suite.
+      - name: Run unit family
+        if: ${{ steps.head.outputs.current == 'true' }}
+        env:
+          PROBE_SUITE: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || '' }}
+          PROBE_SPECS: ${{ inputs.specs }}
+          PROBE_REPEAT: ${{ inputs.repeatEach || '1' }}
+          IS_PROBE: ${{ github.event_name == 'workflow_dispatch' }}
+          NEO_TEST_SKIP_CI: 'true'
+        run: |
+          set -o pipefail
+          case "${PROBE_SUITE}" in
+            ''|unit|unit-tz) ;;
+            *) echo "::error::Unsupported unit-family selection: ${PROBE_SUITE}"; exit 1 ;;
+          esac
+
+          args=()
+          [ "${PROBE_REPEAT}" != 1 ] && args+=("--repeat-each=${PROBE_REPEAT}")
+          for spec in ${PROBE_SPECS}; do
+            case "${spec}" in
+              -*) echo "::error::specs takes spec paths only; '${spec}' is a Playwright option"; exit 1 ;;
+            esac
+          done
+          # Word-splitting separates paths; their contents are never evaluated as shell commands.
+          [ -n "${PROBE_SPECS}" ] && args+=(${PROBE_SPECS})
+
+          result_root="test/playwright/test-results/unit-family"
+          report_path="test/playwright/test-results/unit/test-results.json"
+          failed=0
+          mkdir -p "${result_root}"
+          : > "${result_root}/outcomes.tsv"
+
+          {
+            echo '## Unit family'
+            if [ "${IS_PROBE}" = true ]; then
+              echo "Probe selection: ${PROBE_SUITE:-all unit processes}; repeat-each requested: ${PROBE_REPEAT}."
+              if [ -n "${PROBE_SPECS}" ]; then
+                echo 'Covers only the requested paths, not the whole tier:'
+                printf '\n```\n%s\n```\n' "${PROBE_SPECS}"
+              fi
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          run_suite() {
+            local label="$1" suite="$2" timezone="$3"
+            local result_dir="${result_root}/${label}" status
+            mkdir -p "${result_dir}"
+            rm -f "${report_path}"
+
+            if NEO_UNIT_TZ="${timezone}" npm run "test-${suite}" -- \
+                "--output=${PWD}/${result_dir}/artifacts" "${args[@]}" 2>&1 | tee "${result_dir}/output.log"; then
+              status=0
+            else
+              status=$?
+            fi
+
+            if [ -s "${report_path}" ] && node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "${report_path}"; then
+              cp "${report_path}" "${result_dir}/results.json"
+            else
+              echo "::error::${label} did not produce a valid test report."
+              status=1
+            fi
+
+            printf '%s\t%s\n' "${label}" "${status}" >> "${result_root}/outcomes.tsv"
+            {
+              echo "### ${label} — exit ${status}"
+              grep -asE '^ *[0-9]+ (passed|failed|flaky|skipped|did not run)' "${result_dir}/output.log" \
+                || echo 'No Playwright summary line; inspect the retained log/report.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            if [ "${status}" -ne 0 ]; then failed=1; fi
+          }
+
+          if [ "${PROBE_SUITE}" != unit-tz ]; then run_suite main unit ''; fi
+          if [ "${PROBE_SUITE}" != unit ]; then
+            run_suite plus14 unit-tz Pacific/Kiritimati
+            run_suite minus11 unit-tz Pacific/Niue
+          fi
+          exit "${failed}"
+
+      - name: Upload unit-family artifacts on failure
+        if: ${{ failure() && steps.head.outputs.current == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-unit-family-${{ github.run_id }}
+          path: test/playwright/test-results/unit-family/
+          retention-days: 14
+
   test:
     name: ${{ matrix.suite }}${{ matrix.shard && format(' ({0}/{1})', matrix.shard, matrix.shards) || '' }}${{ matrix.tzLabel && format(' ({0})', matrix.tzLabel) || '' }}
     runs-on: ubuntu-latest
@@ -72,20 +215,6 @@ jobs:
         # The components suite runs one worker per runner, so it scales across runners: each
         # entry is a Playwright shard. A shard nearing four minutes of test time gets a sibling.
         include:
-          - suite: unit
-            run: ${{ needs.changes.outputs.run_unit }}
-          # The timezone-discriminating half of the unit tier. A local<->UTC conversion computes the
-          # same answer in both implementations when the offset is zero, so a UTC runner cannot fail
-          # on one - no extra test case closes that, only a non-UTC zone does (#19005). Two entries
-          # because one zone catches one sign: +14 and -11, both DST-free so the runs are stable.
-          - suite: unit-tz
-            run: ${{ needs.changes.outputs.run_unit }}
-            tz: Pacific/Kiritimati
-            tzLabel: plus14
-          - suite: unit-tz
-            run: ${{ needs.changes.outputs.run_unit }}
-            tz: Pacific/Niue
-            tzLabel: minus11
           - suite: components
             run: ${{ needs.changes.outputs.run_components }}
             shard: 1
@@ -102,37 +231,7 @@ jobs:
     steps:
       # Re-run failed jobs does not re-run successful prerequisite jobs. Keep this
       # job-local gate so an obsolete failed suite cannot consume a full runner.
-      - name: Verify current pull-request head
-        id: head
-        uses: actions/github-script@v9
-        with:
-          script: |
-            if (context.eventName !== 'pull_request') {
-              core.setOutput('current', 'true');
-              return;
-            }
-
-            const pull = await github.rest.pulls.get({
-              owner      : context.repo.owner,
-              repo       : context.repo.repo,
-              pull_number: context.payload.pull_request.number
-            });
-            const eventHead = context.payload.pull_request.head.sha;
-            const liveHead  = pull.data.head.sha;
-            const current   = eventHead === liveHead;
-
-            core.setOutput('current', String(current));
-
-            if (!current) {
-              const reason = `stale workflow head ${eventHead}; live PR head is ${liveHead}`;
-
-              core.notice(`Skipping expensive test suite: ${reason}`);
-              core.setOutput('skip_reason', reason);
-              await core.summary
-                .addHeading('Stale workflow attempt')
-                .addRaw(`Skipped the expensive test suite because ${reason}.`)
-                .write();
-            }
+      - *current-pr-head
 
       - name: Checkout repository
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
@@ -149,14 +248,12 @@ jobs:
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: npm ci
 
-      # Required for the unit-test runner per bootstrapWorktree.mjs precedent.
-      # Harmless for the other suites.
+      # The component harness consumes the same generated browser dependencies.
       - name: Bundle browser dependencies
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: npm run bundle-browser-deps
 
-      # The components suite launches real Chromium against the dev server; unit runs
-      # browserless, so browser provisioning stays scoped to this suite.
+      # The components suite launches real Chromium against the dev server.
       #
       # Browser provisioning has two network tails, and each has turned a five-minute
       # job into a fifteen-minute one: the browser download (20 to 40 seconds on a good
