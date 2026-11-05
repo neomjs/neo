@@ -931,7 +931,7 @@ class Base {
 
     /**
      * When using set(), configs without a trailing underscore can already be assigned,
-     * so the hasOwnProperty() check will return true
+     * so the Object.hasOwn() check will return true
      * @param {Boolean} [forceAssign=false]
      * @protected
      */
@@ -943,9 +943,9 @@ class Base {
 
         // We do not want to iterate over the keys, since 1 config can remove more than 1 key (beforeSetX, afterSetX)
         if (keys.length > 0) {
-            // The hasOwnProperty check is intended for configs without a trailing underscore
+            // The Object.hasOwn check is intended for configs without a trailing underscore
             // => they could already have been assigned inside an afterSet-method
-            if (forceAssign || !me.hasOwnProperty(keys[0])) {
+            if (forceAssign || !Object.hasOwn(me, keys[0])) {
                 me[keys[0]] = me[configSymbol][keys[0]]
             }
 
@@ -1184,7 +1184,7 @@ Give the config its default with a plain '${key}' entry in static config, or ren
     setStaticConfig(key, value) {
         let staticConfig = this.constructor.staticConfig;
 
-        if (staticConfig.hasOwnProperty(key)) {
+        if (Object.hasOwn(staticConfig, key)) {
             staticConfig[key] = value;
             return true
         }

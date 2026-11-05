@@ -870,7 +870,7 @@ class DragDrop extends Base {
         delete data.scrollContainerId;
 
         Object.entries(data).forEach(([key, value]) => {
-            if (me.hasOwnProperty(key)) {
+            if (Object.hasOwn(me, key)) {
                 me[key] = value
             } else {
                 console.error('unknown key passed inside setConfigs()', key)

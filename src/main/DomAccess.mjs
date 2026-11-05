@@ -204,7 +204,7 @@ class DomAccess extends Base {
      * @param {String} [data.src=true]
      */
     addScript(data) {
-        if (!data.hasOwnProperty('async')) {
+        if (!Object.hasOwn(data, 'async')) {
             data.async = true
         }
 

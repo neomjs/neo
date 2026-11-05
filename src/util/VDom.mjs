@@ -65,7 +65,7 @@ class VDom extends Base {
             subChild;
 
         optsArray.forEach(([key, value]) => {
-            if (vdom.hasOwnProperty(key)) {
+            if (Object.hasOwn(vdom, key)) {
                 switch (key) {
                     case 'cls':
                         if (typeof value === 'string' && Neo.isArray(vdom[key])) {
@@ -88,7 +88,7 @@ class VDom extends Base {
                             }
                         } else if (Neo.isObject(value) && Neo.isObject(vdom[key])) {
                             Object.entries(value).forEach(([styleKey, styleValue]) => {
-                                if (!(vdom[key].hasOwnProperty(styleKey) && vdom[key][styleKey] === styleValue)) {
+                                if (!(Object.hasOwn(vdom[key], styleKey) && vdom[key][styleKey] === styleValue)) {
                                     styleMatch = false
                                 }
                             });

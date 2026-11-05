@@ -523,7 +523,7 @@ class Component extends Manager {
      */
     hasPrototypePropertyValue(component, property, value) {
         while (component !== null) {
-            if (component.hasOwnProperty(property) && component[property] === value) {
+            if (Object.hasOwn(component, property) && component[property] === value) {
                 return true
             }
 

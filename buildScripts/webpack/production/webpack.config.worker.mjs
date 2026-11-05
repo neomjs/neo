@@ -42,7 +42,7 @@ export default env => {
             filename: chunkData => {
                 let name = chunkData.chunk.name;
 
-                if (filenameConfig.workers.hasOwnProperty(name)) {
+                if (Object.hasOwn(filenameConfig.workers, name)) {
                     return filenameConfig.workers[name].output;
                 }
             },
