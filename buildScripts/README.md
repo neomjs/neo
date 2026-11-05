@@ -284,15 +284,19 @@ Generates a new class file extending a core base class.
 Usage: neo.mjs create-class [options]
 
 Options:
-  -V, --version            output the version number
-  -i, --info               print environment debug info
-  -d, --drop               drops class in the currently selected folder
-  -n, --singleton <value>  Create a singleton? Pick "yes" or "no"
-  -s, --source <value>     name of the folder containing the project (default: apps)
-  -b, --baseClass <value>  The base class to extend (e.g. component.Base)
-  -c, --className <value>  The fully qualified class name (e.g. MyApp.view.Main)
-  -r, --scss <value>       The scss class name
-  -h, --help               display help for command
+  -V, --version                      output the version number
+  -i, --info                         print environment debug info
+  -d, --drop                         drops class in the currently selected folder
+  -n, --singleton <value>            Create a singleton? Pick "yes" or "no"
+  -s, --source <value>               name of the folder containing the project (default: apps)
+  -b, --baseClass <value>            The base class to extend (e.g. component.Base)
+  -c, --className <value>            The fully qualified class name (e.g. MyApp.view.Main)
+  -C, --createController <value>     Create a matching controller.Component when generating a view? Pick "yes" or "no"
+  -M, --createModel <value>          Create a matching data.Model when generating a data.Store? Pick "yes" or "no"
+  -p, --createStateProvider <value>  Create a matching state.Provider when generating a view? Pick "yes" or "no"
+  -m, --createStore <value>          Create a matching data.Store when generating a data.Model? Pick "yes" or "no"
+  -r, --scss <value>                 The scss class name
+  -h, --help                         display help for command
 ```
 
 ## `npm run create-component`

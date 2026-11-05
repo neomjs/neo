@@ -41,11 +41,13 @@ program
     .option('-d, --drop',              'drops class in the currently selected folder')
     .option('-n, --singleton <value>', 'Create a singleton? Pick "yes" or "no"',                                                    sanitizeInput)
     .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`, sanitizeInput)
-    .option('-b, --baseClass <value>',   'The base class to extend',                                                                  sanitizeInput)
-    .option('-c, --className <value>',   'The class name',                                                                            sanitizeInput)
-    .option('-M, --createModel <value>', 'Create a matching data.Model when generating a data.Store? Pick "yes" or "no"',             sanitizeInput)
-    .option('-m, --createStore <value>', 'Create a matching data.Store when generating a data.Model? Pick "yes" or "no"',             sanitizeInput)
-    .option('-r, --scss <value>',        'The scss class',                                                                            sanitizeInput)
+    .option('-b, --baseClass <value>',           'The base class to extend',                                                                  sanitizeInput)
+    .option('-c, --className <value>',           'The class name',                                                                            sanitizeInput)
+    .option('-C, --createController <value>',    'Create a matching controller.Component when generating a view? Pick "yes" or "no"',         sanitizeInput)
+    .option('-M, --createModel <value>',         'Create a matching data.Model when generating a data.Store? Pick "yes" or "no"',             sanitizeInput)
+    .option('-p, --createStateProvider <value>', 'Create a matching state.Provider when generating a view? Pick "yes" or "no"',               sanitizeInput)
+    .option('-m, --createStore <value>',         'Create a matching data.Store when generating a data.Model? Pick "yes" or "no"',             sanitizeInput)
+    .option('-r, --scss <value>',                'The scss class',                                                                            sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -375,6 +377,86 @@ if (programOpts.info) {
         }
     }
 
+    if (isViewBaseClass(baseClass)) {
+        let createController    = programOpts.createController,
+            createStateProvider = programOpts.createStateProvider,
+            isFrameworkSrc      = root === 'Neo' && !className.startsWith('Neo.examples');
+
+        if (!createController && !isDrop && !isFrameworkSrc) {
+            answer = await inquirer.prompt({
+                type   : 'select',
+                name   : 'createController',
+                message: 'Do you want to create a matching controller.Component?',
+                default: 'no',
+                choices: ['yes', 'no']
+            });
+
+            createController = answer.createController;
+        }
+
+        if (createController === 'yes') {
+            let controllerName = `${file}Controller`,
+                controllerFile = path.join(classFolder, `${controllerName}.mjs`);
+
+            if (fs.existsSync(controllerFile)) {
+                adjustView({
+                    baseType  : 'Neo.controller.Component',
+                    configName: 'controller',
+                    importName: controllerName,
+                    importPath: `./${controllerName}.mjs`,
+                    viewFile  : path.join(classFolder, `${file}.mjs`)
+                });
+            } else {
+                createClass({
+                    baseClass  : 'controller.Component',
+                    className  : `${className}Controller`,
+                    file       : controllerName,
+                    folderDelta,
+                    isSingleton: false,
+                    ns,
+                    root
+                });
+            }
+        }
+
+        if (!createStateProvider && !isDrop && !isFrameworkSrc) {
+            answer = await inquirer.prompt({
+                type   : 'select',
+                name   : 'createStateProvider',
+                message: 'Do you want to create a matching state.Provider?',
+                default: 'no',
+                choices: ['yes', 'no']
+            });
+
+            createStateProvider = answer.createStateProvider;
+        }
+
+        if (createStateProvider === 'yes') {
+            let stateProviderName = `${file}StateProvider`,
+                stateProviderFile = path.join(classFolder, `${stateProviderName}.mjs`);
+
+            if (fs.existsSync(stateProviderFile)) {
+                adjustView({
+                    baseType  : 'Neo.state.Provider',
+                    configName: 'stateProvider',
+                    importName: stateProviderName,
+                    importPath: `./${stateProviderName}.mjs`,
+                    viewFile  : path.join(classFolder, `${file}.mjs`)
+                });
+            } else {
+                createClass({
+                    baseClass  : 'state.Provider',
+                    className  : `${className}StateProvider`,
+                    file       : stateProviderName,
+                    folderDelta,
+                    isSingleton: false,
+                    ns,
+                    root
+                });
+            }
+        }
+    }
+
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
     console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
@@ -417,7 +499,7 @@ if (programOpts.info) {
     }
 
     /**
-     * Adjusts the views related to controller.Component or model.Component
+     * Adjusts the views related to controller.Component or state.Provider
      * @param {Object} opts
      * @param {String} opts.baseType
      * @param {String} opts.configName
@@ -522,7 +604,7 @@ if (programOpts.info) {
                     continue;
                 }
 
-                if (className > configName) {
+                if (className.startsWith('_') || className > configName) {
                     for (j = i; j > 0; j--) {
                         if (content[j].includes('/**')) {
                             addConfig({
@@ -606,7 +688,7 @@ if (programOpts.info) {
                 configName = 'controller';
                 importName = file;
                 importPath = `./${importName}.mjs`;
-                index      = file.indexOf('Controller');
+                index      = file.lastIndexOf('Controller');
 
                 if (index > 0) {
                     viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
@@ -642,7 +724,7 @@ if (programOpts.info) {
                 configName = 'stateProvider';
                 importName = file;
                 importPath = `./${importName}.mjs`;
-                index      = file.indexOf('StateProvider');
+                index      = file.lastIndexOf('StateProvider');
 
                 if (index > 0) {
                     viewFile = path.join(classFolder, file.substring(0, index) + '.mjs');
@@ -857,4 +939,35 @@ export function guessBaseClass(className) {
     }
 
     return 'container.Base';
+}
+
+/**
+ * @summary Determines whether a Neo base class is `component.Base` or extends `component.Base` by walking `@extends Neo.<ns>` in `src/`.
+ * @param {String} baseClass
+ * @returns {Boolean}
+ */
+export function isViewBaseClass(baseClass) {
+    let current = baseClass?.replace(/^Neo\./, ''),
+        visited = new Set();
+
+    while (current && !visited.has(current)) {
+        if (current === 'component.Base') {
+            return true;
+        }
+
+        visited.add(current);
+
+        let srcFile = path.resolve(__dirname, '../src', `${current.split('.').join('/')}.mjs`);
+
+        if (!fs.existsSync(srcFile)) {
+            return false;
+        }
+
+        let content = fs.readFileSync(srcFile, 'utf8'),
+            match   = content.match(/@extends\s+Neo\.([A-Za-z0-9_.]+)/);
+
+        current = match ? match[1] : null;
+    }
+
+    return false;
 }
