@@ -145,9 +145,20 @@ class AnimateRows extends Base {
      */
     destroy(...args) {
         let me      = this,
-            {owner} = me;
+            {owner} = me,
+            {store} = owner;
 
         me.settle();
+
+        if (me.#bodyHandlers) {
+            store && (owner.store = null);
+            owner.onStoreFilter = me.#bodyHandlers.filter;
+            owner.onStoreLoad   = me.#bodyHandlers.load;
+            store && (owner.store = store);
+            me.#bodyHandlers    = null
+        }
+
+        owner.removeCls('neo-animate-rows');
 
         owner.un({
             isScrollingChange: me.onIsScrollingChange,

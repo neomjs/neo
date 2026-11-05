@@ -388,18 +388,26 @@ class GridBody extends Component {
      * @protected
      */
     afterSetAnimatedRowSorting(value, oldValue) {
-        if (value && !this.getPlugin('grid-animate-rows')) {
-            import('./plugin/AnimateRows.mjs').then(module => {
-                let me = this,
-                    plugins = me.plugins || [];
+        let me     = this,
+            plugin = me.getPlugin('grid-animate-rows');
 
-                plugins.push({
-                    module: module.default,
-                    ...me.pluginAnimateRowsConfig
-                });
+        if (value) {
+            if (!plugin) {
+                import('./plugin/AnimateRows.mjs').then(module => {
+                    if (!me.isDestroyed && me.animatedRowSorting && !me.getPlugin('grid-animate-rows')) {
+                        let plugins = me.plugins || [];
 
-                me.plugins = plugins
-            })
+                        plugins.push({
+                            module: module.default,
+                            ...me.pluginAnimateRowsConfig
+                        });
+
+                        me.plugins = plugins
+                    }
+                })
+            }
+        } else if (oldValue !== undefined) {
+            plugin?.destroy()
         }
     }
 
