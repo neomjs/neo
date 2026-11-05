@@ -1731,6 +1731,67 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary The store's current records as CSV, over the grid's columns in display order.
+     *
+     * Rows follow the store's current filter and sort, rows a buffered grid has not rendered included: the store
+     * holds the data, and the rendered rows are only a window onto it. A cell is `record.get(dataField)`, the value a
+     * grid row reads, or the return value of the column's `exportRenderer({record, value})`. The header line holds
+     * each column's header text.
+     *
+     * Quoting follows RFC 4180: a field containing the delimiter, a double quote, CR or LF is quoted with its inner
+     * quotes doubled, and lines end in CRLF. A string cell starting with `=`, `+`, `-`, `@`, a tab or CR gets a
+     * leading `'`, so a spreadsheet does not execute it; numbers are never prefixed. Dates are ISO 8601, and `null`
+     * or `undefined` is an empty field.
+     *
+     * @example
+     *     grid.toCsv();                   // 'Name,Revenue\r\nAda,10\r\n…'
+     *     grid.toCsv({delimiter: ';'});
+     *
+     * @param {Object}  [options={}]
+     * @param {String}  [options.delimiter=',']
+     * @param {Boolean} [options.escapeFormulas=true] False writes formula-like strings unchanged
+     * @param {Boolean} [options.header=true]         False omits the header line
+     * @returns {String}
+     */
+    toCsv({delimiter=',', escapeFormulas=true, header=true}={}) {
+        let me      = this,
+            columns = [...me.lockedStartColumns, ...me.centerColumns, ...me.lockedEndColumns].filter(column => column.dataField),
+            lines   = [];
+
+        const field = value => {
+            if (value === null || value === undefined) {
+                return ''
+            }
+
+            if (value instanceof Date) {
+                value = value.toISOString()
+            } else if (typeof value === 'object') {
+                value = JSON.stringify(value)
+            } else if (escapeFormulas && typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
+                value = `'${value}`
+            }
+
+            value = String(value);
+
+            return value.includes(delimiter) || /["\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value
+        };
+
+        if (header) {
+            lines.push(columns.map(column => field(me.headerWrapper?.getButton(column.dataField)?.text ?? column.dataField)).join(delimiter))
+        }
+
+        me.store.items.forEach(record => {
+            lines.push(columns.map(column => {
+                let value = typeof record.get === 'function' ? record.get(column.dataField) : Neo.ns(column.dataField, false, record);
+
+                return field(column.exportRenderer ? column.exportRenderer({record, value}) : value)
+            }).join(delimiter))
+        });
+
+        return lines.join('\r\n')
+    }
+
+    /**
      * Serializes the instance into a JSON-compatible object for the Neural Link.
      * @returns {Object}
      */
