@@ -1676,9 +1676,10 @@ class GraphScene extends Base {
     /**
      * @summary The labels this frame places ({@link Neo.canvas.GraphScene.placeLabels}): the scene's own first, in
      * their order, then, while the near look shows and the frame draws nodes, the names of the nodes nearest the
-     * camera's target, nearest first, each above its point as drawn. A node the scene labels itself, or whose name
-     * is empty, is not named again. Each label comes as `{box, centre, node, point, text}` in drawing-buffer pixels,
-     * the scene's own with its `label` index, a name with its point's drawn `radius`.
+     * camera's target, nearest first, each above its point as drawn. The scene's own clear the floor's radius as the
+     * floor enlarges their points, and sit as before without one. A node the scene labels itself, or whose name is
+     * empty, is not named again. Each label comes as `{box, centre, node, point, text}` in drawing-buffer pixels, the
+     * scene's own with its `label` index, a name with its point's drawn `radius`.
      * @returns {{names: Object[], own: Object[], share: Number}} `share` is how far the near look has arrived, the
      * names' opacity
      * @protected
@@ -1695,6 +1696,9 @@ class GraphScene extends Base {
             ratio            = me.canvasSize?.devicePixelRatio || 1,
             M                = me.matrix(),
             at               = point => me.constructor.project(M, point[0], point[1], point[2], width, height),
+            // a point's depth relative to the camera distance is its clip w over that distance
+            depthOf          = ([x, y, z]) => (M[3] * x + M[7] * y + M[11] * z + M[15]) / camera.dist,
+            floor            = level === 'far' ? 0 : me.nearFloor(),
             own              = [],
             names            = [];
 
@@ -1703,7 +1707,8 @@ class GraphScene extends Base {
                 {nodes, texts} = scene.labels,
                 points         = me.constructor.labelAnchors({lod: level === 'far' ? scene.lod : null, nodes, positions: scene.positions}),
                 anchors        = Array.from(nodes, (node, label) => atlas.origins[label] ? at(points.subarray(label * 3, label * 3 + 3)) : null),
-                centres        = me.constructor.labelCentres({anchors, boxes: atlas.boxes, lift: lift * ratio});
+                radii          = floor > 0 ? Array.from(nodes, (node, label) => floor / Math.max(depthOf(points.subarray(label * 3, label * 3 + 3)), 0.1) / 2) : null,
+                centres        = me.constructor.labelCentres({anchors, boxes: atlas.boxes, lift: lift * ratio, radii});
 
             nodes.forEach((node, label) => own.push({box: atlas.boxes[label], centre: centres[label], label, node, point: anchors[label], text: texts[label]}))
         }
@@ -1714,18 +1719,12 @@ class GraphScene extends Base {
                 {texts}            = scene.names,
                 labelled           = new Set(scene.labels?.nodes),
                 cell               = me.nameCell(),
-                floor              = me.nearFloor(),
                 scale              = me.pointScale(),
                 nodes              = me.constructor.nearestNodes({accept: node => texts[node] !== '' && !labelled.has(node), limit: me.nearStyle.candidates, positions, target: camera.target}),
                 widths             = me.measureNames(nodes.map(node => texts[node])),
                 anchors            = nodes.map(node => at(positions.subarray(node * 3, node * 3 + 3))),
                 boxes              = widths.map(textWidth => [Math.min(cell.width, Math.ceil(textWidth) + 2 * cell.pad), cell.height]),
-                // a point's depth relative to the camera distance is its clip w over that distance
-                radii              = nodes.map(node => {
-                    const [x, y, z] = positions.subarray(node * 3, node * 3 + 3), depth = (M[3] * x + M[7] * y + M[11] * z + M[15]) / camera.dist;
-
-                    return me.constructor.pointSize({depth, floor, scale, size: sizes[node]}) / 2
-                }),
+                radii              = nodes.map(node => me.constructor.pointSize({depth: depthOf(positions.subarray(node * 3, node * 3 + 3)), floor, scale, size: sizes[node]}) / 2),
                 centres            = me.constructor.labelCentres({anchors, boxes, lift: lift * ratio, radii});
 
             nodes.forEach((node, index) => names.push({box: boxes[index], centre: centres[index], node, point: anchors[index], radius: radii[index], text: texts[node]}))

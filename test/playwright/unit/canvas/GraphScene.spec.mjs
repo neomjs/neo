@@ -688,6 +688,30 @@ test.describe('Neo.canvas.GraphScene — the near look', () => {
         expect(table.evictions, 'the names drawn longest ago made room').toBeGreaterThan(0)
     });
 
+    test('a scene label clears its point as the floor enlarges it, and sits as before at the default floor', () => {
+        const {names, ...scene} = denseScene(1000);
+
+        renderer.setScene({...scene, labels: {nodes: [0], texts: ['a']}});
+        // the atlas uploadLabels measures, without a GL context
+        renderer.surfaces = {labels: {boxes: [[30, 20]], origins: [[0, 0]], ratio: 1}};
+        // the target on node 0, closer than near: the look has arrived, and node 0 sits at depth 1
+        lookAt(0.3, 0);
+
+        const
+            {lift}   = renderer.labelStyle,
+            labelled = () => renderer.frameLabels().own[0],
+            plain    = labelled();
+
+        expect(plain.centre[1] + plain.box[1] / 2, 'the default floor: the lower edge lift above the point').toBeCloseTo(plain.point[1] - lift, 6);
+
+        renderer.nearStyle = {...renderer.nearStyle, floor: 20};
+
+        const floored = labelled();
+
+        // 20 px drawn at depth 1 dwarfs the node's own 0.4 × 2 px: a radius of 10, beyond the lift of 6
+        expect(floored.centre[1] + floored.box[1] / 2, 'the lower edge clears the floored point').toBeLessThanOrEqual(floored.point[1] - 10 + 1e-6)
+    });
+
     test('a scene without names draws as before: no names and no floor at any distance, and its own labels placed as the pipeline always placed them', () => {
         const {names, ...scene} = denseScene(1000);
 
