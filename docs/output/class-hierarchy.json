@@ -469,6 +469,7 @@
  "Neo.menu.Panel": "Neo.container.Panel",
  "Neo.menu.Store": "Neo.data.Store",
  "Neo.mixin.DomEvents": "Neo.core.Base",
+ "Neo.mixin.StoreLoading": "Neo.core.Base",
  "Neo.mixin.VdomLifecycle": "Neo.core.Base",
  "Neo.plugin.Base": "Neo.core.Base",
  "Neo.plugin.HeaderFilter": "Neo.plugin.Base",
