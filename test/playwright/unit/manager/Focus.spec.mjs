@@ -1,6 +1,7 @@
 import {setup} from '../../setup.mjs';
 
-const appName = 'ManagerFocusTest';
+const appName  = 'ManagerFocusTest',
+      windowId = 'focus-main';
 
 setup({
     appConfig: {
@@ -8,11 +9,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
+import {test, expect}   from '@playwright/test';
 import Neo              from '../../../../src/Neo.mjs';
 import * as core        from '../../../../src/core/_export.mjs';
 import Component        from '../../../../src/component/Base.mjs';
 import ComponentManager from '../../../../src/manager/Component.mjs';
+import DomEvent         from '../../../../src/manager/DomEvent.mjs';
 import FocusManager     from '../../../../src/manager/Focus.mjs';
 import MenuList         from '../../../../src/menu/List.mjs';
 
@@ -23,8 +25,8 @@ test.describe('Neo.manager.Focus', () => {
         components?.forEach(component => component.destroy());
         components = null;
 
-        FocusManager.history         = [];
-        FocusManager.pendingFocusOut = null;
+        FocusManager.history         = {};
+        FocusManager.pendingFocusOut = {};
     });
 
     function createFocusComponent(id, parentId, log) {
@@ -57,12 +59,13 @@ test.describe('Neo.manager.Focus', () => {
         parent.containsFocus = true;
         oldChild.containsFocus = true;
 
-        FocusManager.history = [{
+        FocusManager.history[windowId] = [{
             componentPath: ['focus-old-child', 'focus-parent', 'focus-root'],
             data         : {path: ['old-dom-node']}
         }];
 
         FocusManager.focusMove({
+            windowId,
             componentPath: ['focus-new-child', 'focus-parent', 'focus-root'],
             data         : {
                 path         : ['new-dom-node'],
@@ -80,7 +83,7 @@ test.describe('Neo.manager.Focus', () => {
         expect(newChild.containsFocus).toBe(true);
         expect(parent.containsFocus).toBe(true);
         expect(root.containsFocus).toBe(true);
-        expect(FocusManager.history[0].componentPath).toEqual(['focus-new-child', 'focus-parent', 'focus-root']);
+        expect(FocusManager.history[windowId][0].componentPath).toEqual(['focus-new-child', 'focus-parent', 'focus-root']);
     });
 
     test('walks a floating menu through its configured logical owner', () => {
@@ -123,12 +126,13 @@ test.describe('Neo.manager.Focus', () => {
         oldRoot.containsFocus = true;
         oldChild.containsFocus = true;
 
-        FocusManager.history = [{
+        FocusManager.history[windowId] = [{
             componentPath: ['focus-old-child', 'focus-old-root'],
             data         : {path: ['old-dom-node']}
         }];
 
         FocusManager.focusMove({
+            windowId,
             componentPath: ['focus-new-child', 'focus-new-root'],
             data         : {
                 path         : ['new-dom-node'],
@@ -147,7 +151,7 @@ test.describe('Neo.manager.Focus', () => {
         expect(oldRoot.containsFocus).toBe(false);
         expect(newChild.containsFocus).toBe(true);
         expect(newRoot.containsFocus).toBe(true);
-        expect(FocusManager.history[0].componentPath).toEqual(['focus-new-child', 'focus-new-root']);
+        expect(FocusManager.history[windowId][0].componentPath).toEqual(['focus-new-child', 'focus-new-root']);
     });
 
     test('records history when the closest common component no longer exists', () => {
@@ -162,12 +166,13 @@ test.describe('Neo.manager.Focus', () => {
 
         oldChild.containsFocus = true;
 
-        FocusManager.history = [{
+        FocusManager.history[windowId] = [{
             componentPath: ['focus-old-child', 'focus-missing-common', 'focus-root'],
             data         : {path: ['old-dom-node']}
         }];
 
         FocusManager.focusMove({
+            windowId,
             componentPath: ['focus-new-child', 'focus-missing-common', 'focus-root'],
             data         : {
                 path         : ['new-dom-node'],
@@ -182,8 +187,8 @@ test.describe('Neo.manager.Focus', () => {
 
         expect(oldChild.containsFocus).toBe(false);
         expect(newChild.containsFocus).toBe(true);
-        expect(FocusManager.history[0].componentPath).toEqual(['focus-new-child', 'focus-missing-common', 'focus-root']);
-        expect(FocusManager.history[0].data.path).toEqual(['new-dom-node']);
+        expect(FocusManager.history[windowId][0].componentPath).toEqual(['focus-new-child', 'focus-missing-common', 'focus-root']);
+        expect(FocusManager.history[windowId][0].data.path).toEqual(['new-dom-node']);
     });
 
     test('notifies only the nearest common component for focusChange consumers', () => {
@@ -205,12 +210,13 @@ test.describe('Neo.manager.Focus', () => {
         parent.containsFocus = true;
         oldChild.containsFocus = true;
 
-        FocusManager.history = [{
+        FocusManager.history[windowId] = [{
             componentPath: ['focus-old-child', 'focus-parent', 'focus-root'],
             data         : {path: ['old-event-node']}
         }];
 
         FocusManager.focusMove({
+            windowId,
             componentPath: ['focus-new-child', 'focus-parent', 'focus-root'],
             data         : {
                 path         : ['new-event-node'],
@@ -226,6 +232,140 @@ test.describe('Neo.manager.Focus', () => {
         ]);
     });
 
+    test('records independent newest-first histories for events originating in different windows', () => {
+        const log = [];
+
+        components = [
+            createFocusComponent('focus-window-a-old', 'document.body', log),
+            createFocusComponent('focus-window-b',     'document.body', log),
+            createFocusComponent('focus-window-a-new', 'document.body', log)
+        ];
+
+        for (const [windowId, id] of [
+            ['focus-a', 'focus-window-a-old'], ['focus-b', 'focus-window-b'], ['focus-a', 'focus-window-a-new']
+        ]) {
+            FocusManager.onFocusin({windowId, componentPath: [id], data: {path: [{id}]}})
+        }
+
+        expect(FocusManager.history['focus-a']?.map(entry => entry.componentPath[0]))
+            .toEqual(['focus-window-a-new', 'focus-window-a-old']);
+        expect(FocusManager.history['focus-b']?.map(entry => entry.componentPath[0])).toEqual(['focus-window-b']);
+    });
+
+    test('the production dispatcher retains envelope origin rather than the component or event data window', () => {
+        components = [createFocusComponent('focus-envelope-origin', 'document.body', [])];
+
+        expect(components[0].windowId).not.toBe('focus-origin');
+
+        DomEvent.fire({
+            eventName: 'focusin',
+            windowId : 'focus-origin',
+            data     : {path: [{id: components[0].id}], windowId: 'focus-data-window'}
+        });
+
+        expect(Object.keys(FocusManager.history)).toEqual(['focus-origin']);
+        expect(FocusManager.history['focus-origin'][0].componentPath).toEqual([components[0].id]);
+        expect(FocusManager.history['focus-origin'][0].windowId).toBe('focus-origin')
+    });
+
+    test('bounds each history independently at maxHistoryLength', () => {
+        const limit = FocusManager.maxHistoryLength;
+
+        for (let i = 0; i <= limit; i++) {
+            FocusManager.addToHistory({windowId: 'focus-a', componentPath: [String(i)], data: {}})
+        }
+
+        FocusManager.addToHistory({windowId: 'focus-b', componentPath: ['only-b'], data: {}});
+
+        expect(FocusManager.history['focus-a']).toHaveLength(limit);
+        expect(FocusManager.history['focus-a'][0].componentPath).toEqual([String(limit)]);
+        expect(FocusManager.history['focus-a'].at(-1).componentPath).toEqual(['1']);
+        expect(FocusManager.history['focus-b']).toHaveLength(1)
+    });
+
+    test('a first focusout with no recorded history can still be followed by a focusin', async () => {
+        const log = [], originalTimeout = FocusManager.timeout, timers = [];
+
+        components = [createFocusComponent('focus-first-entry', 'document.body', log)];
+        FocusManager.timeout = () => new Promise(resolve => timers.push(resolve));
+
+        try {
+            const opts = {windowId: 'focus-a', componentPath: ['focus-first-entry'], data: {path: []}};
+
+            FocusManager.onFocusout(opts);
+            FocusManager.onFocusin(opts);
+            timers.forEach(resolve => resolve());
+            await Promise.resolve();
+
+            expect(components[0].containsFocus).toBe(true);
+            expect(FocusManager.history['focus-a']).toHaveLength(1);
+            expect(log.map(entry => entry[0])).toEqual(['enter'])
+        } finally {
+            FocusManager.timeout = originalTimeout
+        }
+    });
+
+    test('a sibling focusin cannot consume a window\'s pending focusout', async () => {
+        const log             = [],
+              originalTimeout = FocusManager.timeout,
+              timers          = [];
+
+        components = [
+            createFocusComponent('focus-pending-a', 'document.body', log),
+            createFocusComponent('focus-pending-b', 'document.body', log)
+        ];
+
+        FocusManager.timeout = () => new Promise(resolve => timers.push(resolve));
+
+        try {
+            FocusManager.onFocusin({windowId: 'focus-a', componentPath: ['focus-pending-a'], data: {path: []}});
+            FocusManager.onFocusout({windowId: 'focus-a', componentPath: ['focus-pending-a'], data: {path: []}});
+            FocusManager.onFocusin({windowId: 'focus-b', componentPath: ['focus-pending-b'], data: {path: []}});
+
+            expect(components[0].containsFocus, 'the first window keeps its pending leave until its own timer').toBe(true);
+            expect(components[1].containsFocus).toBe(true);
+
+            timers.forEach(resolve => resolve());
+            await Promise.resolve();
+
+            expect(components[0].containsFocus).toBe(false);
+            expect(components[1].containsFocus).toBe(true);
+            expect(log.filter(entry => entry[0] === 'leave').map(entry => entry[1])).toEqual(['focus-pending-a'])
+        } finally {
+            FocusManager.timeout = originalTimeout
+        }
+    });
+
+    test('both windows settle their pending leaves independently', async () => {
+        const log             = [],
+              originalTimeout = FocusManager.timeout,
+              timers          = [];
+
+        components = [
+            createFocusComponent('focus-leave-a', 'document.body', log),
+            createFocusComponent('focus-leave-b', 'document.body', log)
+        ];
+
+        FocusManager.timeout = () => new Promise(resolve => timers.push(resolve));
+
+        try {
+            for (const [windowId, id] of [['focus-a', 'focus-leave-a'], ['focus-b', 'focus-leave-b']]) {
+                FocusManager.onFocusin({windowId, componentPath: [id], data: {path: []}});
+                FocusManager.onFocusout({windowId, componentPath: [id], data: {path: []}})
+            }
+
+            expect(components.map(component => component.containsFocus)).toEqual([true, true]);
+
+            timers.forEach(resolve => resolve());
+            await Promise.resolve();
+
+            expect(components.map(component => component.containsFocus)).toEqual([false, false]);
+            expect(log.filter(entry => entry[0] === 'leave').map(entry => entry[1])).toEqual(['focus-leave-a', 'focus-leave-b'])
+        } finally {
+            FocusManager.timeout = originalTimeout
+        }
+    });
+
     test('a focusin the App Worker handles after the gap still makes a move with the focusout waiting for it', async () => {
         const log = [];
 
@@ -237,16 +377,16 @@ test.describe('Neo.manager.Focus', () => {
         const [oldComponent, newComponent] = components,
               {maxFocusInOutGap}           = FocusManager;
 
-        FocusManager.onFocusin({componentPath: ['focus-busy-old'], data: {path: ['old-node'], relatedTarget: null}});
+        FocusManager.onFocusin({windowId, componentPath: ['focus-busy-old'], data: {path: ['old-node'], relatedTarget: null}});
 
         // The browser raises both halves of the move in one task. The worker handles the focusout, then work
         // longer than the gap, then the focusin — before the focusout's timer gets to run.
-        FocusManager.onFocusout({componentPath: ['focus-busy-old'], data: {path: ['old-node'], relatedTarget: null}});
+        FocusManager.onFocusout({windowId, componentPath: ['focus-busy-old'], data: {path: ['old-node'], relatedTarget: null}});
 
         const busyUntil = Date.now() + maxFocusInOutGap * 2;
         while (Date.now() < busyUntil) {}
 
-        FocusManager.onFocusin({componentPath: ['focus-busy-new'], data: {path: ['new-node'], relatedTarget: null}});
+        FocusManager.onFocusin({windowId, componentPath: ['focus-busy-new'], data: {path: ['new-node'], relatedTarget: null}});
 
         await FocusManager.timeout(maxFocusInOutGap * 2);
 
@@ -282,6 +422,7 @@ test.describe('Neo.manager.Focus', () => {
         // The dismissal. `onFocusout` defers delivery by maxFocusInOutGap, so nothing has been
         // delivered yet and this leave is still only pending.
         FocusManager.onFocusout({
+            windowId,
             componentPath: ['focus-stale-child', 'focus-stale-root'],
             data         : {path: ['dismissed-node'], relatedTarget: null}
         });
@@ -292,12 +433,13 @@ test.describe('Neo.manager.Focus', () => {
         // remounts under the same id — the shape a hidden/un-hidden floating menu produces. The
         // out/in pair therefore collapses into a focusMove across identical paths, which correctly
         // delivers nothing: focus never actually left this subtree.
-        FocusManager.history = [{
+        FocusManager.history[windowId] = [{
             componentPath: ['focus-stale-child', 'focus-stale-root'],
             data         : {path: ['dismissed-node']}
         }];
 
         FocusManager.onFocusin({
+            windowId,
             componentPath: ['focus-stale-child', 'focus-stale-root'],
             data         : {path: ['reopened-node'], relatedTarget: null}
         });
@@ -307,6 +449,7 @@ test.describe('Neo.manager.Focus', () => {
         // An unrelated, later focusout. It carries its own opts and deserves its own leave, and it is
         // the pending one when the FIRST focusout's timer comes due: that timer must not deliver for it.
         FocusManager.onFocusout({
+            windowId,
             componentPath: ['focus-stale-other'],
             data         : {path: ['other-node'], relatedTarget: null}
         });
@@ -352,6 +495,7 @@ test.describe('Neo.manager.Focus', () => {
         components = [menu];
 
         FocusManager.onFocusout({
+            windowId,
             componentPath: [menu.id],
             data         : {path: [{id: menu.id}], relatedTarget: null, removedNodeId: menu.id}
         });
@@ -381,6 +525,7 @@ test.describe('Neo.manager.Focus', () => {
             components.push(menu);
 
             FocusManager.onFocusout({
+            windowId,
                 componentPath: [id],
                 data         : {path: [{id}], relatedTarget: null, ...removed && {removedNodeId: id}}
             });

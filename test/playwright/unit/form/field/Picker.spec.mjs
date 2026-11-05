@@ -132,11 +132,12 @@ test.describe('Neo.form.field.Picker outside-pointer dismissal', () => {
          * The component path is the one `manager.DomEvent` hands over — read from the component tree.
          */
         const moveFocusTo = id => {
-            const [last] = FocusManager.history;
+            const windowId = field.windowId,
+                  [last]   = FocusManager.history[windowId] || [];
 
             // The first focus enters; every later one is a move
-            last && FocusManager.onFocusout({componentPath: last.componentPath, data: {path: []}});
-            FocusManager.onFocusin({componentPath: ComponentManager.getParentPath([id]), data: {path: [{id}]}})
+            last && FocusManager.onFocusout({windowId, componentPath: last.componentPath, data: {path: []}});
+            FocusManager.onFocusin({windowId, componentPath: ComponentManager.getParentPath([id]), data: {path: [{id}]}})
         };
 
         field.hidePicker = () => dismissals++;

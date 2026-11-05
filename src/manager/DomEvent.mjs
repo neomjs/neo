@@ -139,6 +139,7 @@ class DomEvent extends Base {
      * even if they are not physical ancestors in the DOM.
      *
      * @param {Object} event
+     * @param {String} event.windowId Originating document from the Main-to-App message envelope
      * @protected
      */
     fire(event) {
@@ -240,7 +241,8 @@ class DomEvent extends Base {
             if (eventName === 'focusin' || eventName === 'focusout') {
                 FocusManager['on' + Neo.capitalize(eventName)]({
                     componentPath: path,
-                    data
+                    data,
+                    windowId     : event.windowId
                 });
 
                 break
