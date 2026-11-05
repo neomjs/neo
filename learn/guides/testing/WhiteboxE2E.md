@@ -32,8 +32,10 @@ You MUST specify the E2E specific playwright config (`playwright.config.e2e.mjs`
 npx playwright test test/playwright/e2e/<domain>/YourTestNL.spec.mjs -c test/playwright/playwright.config.e2e.mjs
 ```
 
-**3. Point the Fixture at a Brain**
-The `neuralLink` fixture drives a live Brain. Set `NEO_AGENTOS_RUNTIME_ROOT` to the absolute path of a `neo-agent-brain` checkout whose dependencies are installed (`npm ci`). Without it, `playwright.config.e2e.mjs` deselects every spec that uses the fixture.
+**3. Choose the Dispatch Path (Dedicated-Worker Adapter vs. Bridge)**
+The `neuralLink` fixture supports two dispatch paths, selected by `NEO_AGENTOS_RUNTIME_ROOT`:
+- **Dedicated-Worker Adapter (`NEO_AGENTOS_RUNTIME_ROOT` unset):** Dispatches directly to the page's own dedicated App Worker (`test/playwright/dedicatedWorkerNeuralLink.mjs`) with no Brain checkout and no WebSocket. The fixture routes `neo-config.json` with `allowAiClientInTests: true` (so the App Worker boots the AI service registry without dialing a Bridge), addresses the captured dedicated App Worker handle directly (never searching by `appName`), mints a fresh `{agentId, sessionId}` writer pair for each test through `Neo.ai.Client#handleTestRequest`, and releases/sweeps that pair via `Neo.ai.Client#handleAgentDisconnected` during fixture teardown even when a test throws.
+- **Neural Link Bridge (`NEO_AGENTOS_RUNTIME_ROOT` set to an absolute `neo-agent-brain` checkout):** Loads the Brain's Neural Link services and dispatches over WebSocket through the Bridge. Set `NEO_AGENTOS_RUNTIME_ROOT=/abs/path/to/neo-agent-brain` (with `npm ci` installed) to run the Bridge path. (Until CI selection moves single-app specs into the Engine tier, `playwright.config.e2e.mjs` still deselects `neuralLink`-tagged specs when `NEO_AGENTOS_RUNTIME_ROOT` is unset.)
 
 ## Hosted CI
 
@@ -72,7 +74,7 @@ The tier retries a failed test only while `BRAIN_RETRY_BRIDGE` in `buildScripts/
 
 Whitebox E2E tests are located in `test/playwright/e2e/`. Instead of manually establishing WebSocket connections, the Neo.mjs team provides a powerful Playwright fixture called `neuralLink`.
 
-The fixture connects to a Bridge already listening on `aiConfig.port`, and spawns one when none is. You never need a Bridge running first — the fixture supplies the working directory a spawn requires, by walking up from its own location to the package that declares the Bridge npm script.
+When `NEO_AGENTOS_RUNTIME_ROOT` is unset, `neuralLink` runs in-process against the page's captured dedicated App Worker via `Neo.ai.Client#handleTestRequest`, opening zero WebSockets. When `NEO_AGENTOS_RUNTIME_ROOT` names an absolute `neo-agent-brain` checkout, the fixture connects to a Bridge already listening on `aiConfig.port`, and spawns one when none is. You never need a Bridge running first — the fixture supplies the working directory a spawn requires, by walking up from its own location to the package that declares the Bridge npm script.
 
 It deliberately does not use `process.cwd()`. Playwright resolves `testDir` from the config file and never changes directory, so `npx playwright test -c /abs/path/config.mjs` invoked from anywhere is a valid run whose worker cwd is that anywhere. Where no ancestor declares the script, the fixture leaves the working directory unset and the spawn refuses by name, rather than starting `npm` somewhere it cannot resolve.
 
