@@ -17,6 +17,11 @@ class Renderer extends GraphScene {
          */
         className: 'Neo.examples.component.graphScene.Renderer',
         /**
+         * The near look with a floor, so the clustered scene's smallest nodes stay marks up close.
+         * @member {Object} nearStyle={candidates: 120, fade: 1.25, floor: 6, width: 240}
+         */
+        nearStyle: {candidates: 120, fade: 1.25, floor: 6, width: 240},
+        /**
          * @member {Object} remote
          * @protected
          */

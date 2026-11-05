@@ -137,7 +137,9 @@ test.describe('Neo.canvas.GraphScene — labels and flights, the math', () => {
     test('a label sits above the point it names, its lower edge `lift` away, so it never hides the point', () => {
         const centres = GraphScene.labelCentres({anchors: [[50, 50], null, [20, 80]], boxes: [[40, 20], [40, 20], [30, 10]], lift: 6});
 
-        expect(centres, 'a centre is the half height plus the lift above its point; behind the camera stays without one').toEqual([[50, 34], null, [20, 69]])
+        expect(centres, 'a centre is the half height plus the lift above its point; behind the camera stays without one').toEqual([[50, 34], null, [20, 69]]);
+        expect(GraphScene.labelCentres({anchors: [[50, 50], [20, 80]], boxes: [[40, 20], [30, 10]], lift: 6, radii: [10, 2]}), 'a point drawn wider than the lift lifts its label clear of it')
+            .toEqual([[50, 30], [20, 69]])
     });
 
     test('a flight eases from its start to its end, the distance by a constant ratio', () => {
@@ -496,6 +498,248 @@ test.describe('Neo.canvas.GraphScene — the level of detail', () => {
         renderer.getStats();
 
         expect(uploads, 'levels choose draw ranges only').toBe(0)
+    });
+});
+
+test.describe('Neo.canvas.GraphScene — the near look', () => {
+    let renderer;
+
+    /**
+     * A dense read: nodes spread through the cube around the origin by a seeded generator, in 64 clusters, each
+     * named after its index.
+     * @param {Number} [count=100000]
+     * @returns {Object}
+     */
+    const denseScene = (count = 100000) => {
+        const positions = new Float32Array(count * 3), clusters = new Uint32Array(count), texts = [];
+        let   seed      = 7;
+
+        const random = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+
+        for (let node = 0; node < count; node++) {
+            positions.set([random() * 2 - 1, random() * 2 - 1, random() * 2 - 1], node * 3);
+            clusters[node] = node % 64;
+            texts.push(`node ${node}`)
+        }
+
+        return {clusters, names: {texts}, positions, sizes: new Float32Array(count).fill(0.4), windowId: 'window-1'}
+    };
+
+    /**
+     * Puts the camera at a multiple of the fitted distance, its target on a node.
+     * @param {Number} ratio
+     * @param {Number} [node=0]
+     */
+    const lookAt = (ratio, node = 0) => {
+        const {positions} = renderer.scene;
+
+        renderer.camera = {...renderer.camera, dist: renderer.fittedDistance * ratio, target: Array.from(positions.subarray(node * 3, node * 3 + 3)), touched: true}
+    };
+
+    /**
+     * The squared distance between a node and a point.
+     * @param {Number} node
+     * @param {Number[]} point
+     * @returns {Number}
+     */
+    const distance = (node, [x, y, z]) => {
+        const {positions} = renderer.scene;
+
+        return (positions[node * 3] - x) ** 2 + (positions[node * 3 + 1] - y) ** 2 + (positions[node * 3 + 2] - z) ** 2
+    };
+
+    test.beforeEach(() => {
+        renderer = Neo.create(GraphScene);
+        // no frame is scheduled: what a frame would draw is what these arms read
+        renderer.isPaused = true;
+        renderer.context  = createContext(1200, 800);
+        renderer.updateSize({width: 1200, height: 800, devicePixelRatio: 1});
+        // this runtime has no 2D context to measure with: seven pixels a character
+        renderer.measureNames = texts => texts.map(text => 7 * text.length)
+    });
+
+    test.afterEach(() => {
+        renderer.surfaces = null;
+        renderer.destroy()
+    });
+
+    test('names pair one text with every node, a missing one empty, and settle with their colours; a count that does not fit is refused', () => {
+        const {names} = renderer.normalizeScene({positions: [0, 0, 0,  1, 1, 1], names: {texts: ['a', null], color: '#123456'}});
+
+        expect(names).toEqual({color: '#123456', outline: '#000000', texts: ['a', '']});
+        expect(renderer.normalizeScene({positions: [0, 0, 0]}).names).toBeNull();
+        expect(() => renderer.normalizeScene({positions: [0, 0, 0], names: {texts: []}})).toThrow(/1 nodes need 1 names, got 0/)
+    });
+
+    test('the nearest nodes come nearest first, as many as asked, among those admitted', () => {
+        const positions = Float32Array.from([5, 0, 0,  1, 0, 0,  3, 0, 0,  2, 0, 0,  4, 0, 0]), target = [0, 0, 0];
+
+        expect(GraphScene.nearestNodes({limit: 3, positions, target})).toEqual([1, 3, 2]);
+        expect(GraphScene.nearestNodes({accept: node => node !== 3, limit: 3, positions, target})).toEqual([1, 2, 4]);
+        expect(GraphScene.nearestNodes({limit: 0, positions, target})).toEqual([])
+    });
+
+    test('a name keeps its cell while drawn; a new one takes a free cell, then the one drawn longest ago, never one its own frame draws', () => {
+        const table = GraphScene.nameCells(2);
+
+        expect(GraphScene.claimCells(table, [7, 8])).toEqual({cells: [0, 1], fresh: [0, 1]});
+        expect(GraphScene.claimCells(table, [8])).toEqual({cells: [1], fresh: []});
+        expect(GraphScene.claimCells(table, [9]), '7 was drawn longest ago').toEqual({cells: [0], fresh: [0]});
+        expect(GraphScene.claimCells(table, [10, 9, 11]), 'three names, two cells: the third finds none this frame').toEqual({cells: [1, 0, null], fresh: [1]});
+        expect(table.evictions).toBe(2);
+        expect([...table.cellOf]).toEqual([[9, 0], [10, 1]])
+    });
+
+    test('a node draws at least the floor at the camera\'s target closer than near, as sent beyond the band, rising evenly in the wheel\'s travel across it, and still reads its depth', () => {
+        renderer.setScene(denseScene(1000));
+        renderer.nearStyle = {...renderer.nearStyle, floor: 6};
+
+        const
+            {fade} = renderer.nearStyle,
+            {near} = renderer.lod,
+            drawn  = ratio => {
+                lookAt(ratio);
+                return GraphScene.pointSize({depth: 1, floor: renderer.nearFloor(), scale: 1, size: 0.4})
+            };
+
+        expect(drawn(near * 0.5), 'closer than near: the floor').toBe(6);
+        expect(drawn(near * fade * 1.01), 'beyond the band: the size as sent').toBeCloseTo(0.4, 6);
+
+        // the band from its outer edge in to near, in equal steps of the wheel's (logarithmic) travel
+        [1, 0.8, 0.6, 0.4, 0.2, 0].map(step => drawn(near * fade ** step)).forEach((size, step) => {
+            expect(size, `step ${step} of the band`).toBeCloseTo([0.4, 1.2, 2.4, 3.6, 4.8, 6][step], 6)
+        });
+
+        expect(GraphScene.pointSize({depth: 2, floor: 6, scale: 1, size: 0.4}), 'a node behind the target draws smaller').toBe(3);
+        expect(GraphScene.pointSize({depth: 1, floor: 0, scale: 2, size: 5}), 'no floor: the size on the surface\'s scale').toBe(10);
+
+        renderer.updateSize({width: 1200, height: 800, devicePixelRatio: 2});
+        lookAt(near * 0.5);
+
+        expect(renderer.nearFloor(), 'the floor counts CSS pixels').toBe(12);
+        expect(renderer.getStats()).toMatchObject({names: null, near: {floor: 12, share: 1}})
+    });
+
+    test('the names fade in across the same band: none beyond it, half there halfway, whole from near in; a clustered scene\'s forced level shows the look whole or not at all', () => {
+        renderer.setScene(denseScene(1000));
+
+        const
+            {fade} = renderer.nearStyle,
+            {near} = renderer.lod,
+            at     = ratio => {
+                lookAt(ratio);
+                return renderer.frameLabels()
+            },
+            half   = at(near * Math.sqrt(fade));
+
+        expect(at(near * fade * 1.01)).toMatchObject({names: [], share: 0});
+        expect(half.share, 'the names\' opacity halfway along the band').toBeCloseTo(0.5, 6);
+        expect(half.names.length).toBeGreaterThan(0);
+        expect(at(near * 0.5).share).toBe(1);
+        expect(GraphScene.nearShare({fade: 1, near, ratio: near * 1.01}), 'no band: the look switches at near').toBe(0);
+
+        renderer.lodLevel = 'far';
+        lookAt(near * 0.5);
+        expect(renderer.getNearShare()).toBe(0);
+
+        renderer.lodLevel = 'near';
+        lookAt(1);
+        expect(renderer.getNearShare()).toBe(1)
+    });
+
+    test('closer than near, a dense read names at most the labels a frame draws: the nodes nearest the target that place, nearest first, each clear of its point as drawn; a new target names others, and the atlas stays within its cells', () => {
+        renderer.setScene(denseScene());
+        // wider than the lift, so the drawn radius is what lifts the names
+        renderer.nearStyle = {...renderer.nearStyle, floor: 20};
+
+        const
+            {lift, max} = renderer.labelStyle,
+            names       = node => {
+                lookAt(0.1, node);
+                return renderer.frameLabels().names
+            },
+            first       = names(0),
+            {target}    = renderer.camera,
+            nearest     = GraphScene.nearestNodes({limit: renderer.nearStyle.candidates, positions: renderer.scene.positions, target}),
+            sorted      = Array.from({length: renderer.scene.count}, (item, node) => node).sort((a, b) => distance(a, target) - distance(b, target));
+
+        expect(nearest, 'the candidates are the nearest of a full sort').toEqual(sorted.slice(0, nearest.length));
+        expect(first.length, 'names place').toBeGreaterThan(5);
+        expect(first.length).toBeLessThanOrEqual(max);
+        expect(first.every(({node}) => nearest.includes(node)), 'each named node is a candidate').toBe(true);
+        expect(first.every(({node}, index) => !index || distance(node, target) >= distance(first[index - 1].node, target)), 'nearest first').toBe(true);
+        expect(first.some(({radius}) => radius > lift), 'the floor draws points wider than the lift').toBe(true);
+        expect(first.every(({box, centre, point, radius}) => centre[1] + box[1] / 2 <= point[1] - Math.max(lift, radius) + 1e-6), 'no name hides its point').toBe(true);
+
+        renderer.labelStyle = {...renderer.labelStyle, max: 4};
+        expect(names(0).length, 'the most a frame draws binds').toBe(4);
+        renderer.labelStyle = {...renderer.labelStyle, max};
+
+        expect(names(99999).some(({node}) => first.some(name => name.node === node)), 'a new target names other nodes').toBe(false);
+
+        // the atlas's cells over frames that sweep the target through the read: twice the labels a frame draws
+        const table = GraphScene.nameCells(2 * max);
+
+        [0, 25000, 50000, 75000, 99999].forEach(node => {
+            expect(GraphScene.claimCells(table, names(node).map(name => name.node)).cells, `every name finds a cell at node ${node}`).not.toContain(null)
+        });
+
+        expect(table.cellOf.size, 'the names resident never outnumber the cells').toBe(2 * max);
+        expect(table.evictions, 'the names drawn longest ago made room').toBeGreaterThan(0)
+    });
+
+    test('a scene label clears its point as the floor enlarges it, and sits as before at the default floor', () => {
+        const {names, ...scene} = denseScene(1000);
+
+        renderer.setScene({...scene, labels: {nodes: [0], texts: ['a']}});
+        // the atlas uploadLabels measures, without a GL context
+        renderer.surfaces = {labels: {boxes: [[30, 20]], origins: [[0, 0]], ratio: 1}};
+        // the target on node 0, closer than near: the look has arrived, and node 0 sits at depth 1
+        lookAt(0.3, 0);
+
+        const
+            {lift}   = renderer.labelStyle,
+            labelled = () => renderer.frameLabels().own[0],
+            plain    = labelled();
+
+        expect(plain.centre[1] + plain.box[1] / 2, 'the default floor: the lower edge lift above the point').toBeCloseTo(plain.point[1] - lift, 6);
+
+        renderer.nearStyle = {...renderer.nearStyle, floor: 20};
+
+        const floored = labelled();
+
+        // 20 px drawn at depth 1 dwarfs the node's own 0.4 × 2 px: a radius of 10, beyond the lift of 6
+        expect(floored.centre[1] + floored.box[1] / 2, 'the lower edge clears the floored point').toBeLessThanOrEqual(floored.point[1] - 10 + 1e-6)
+    });
+
+    test('a scene without names draws as before: no names and no floor at any distance, and its own labels placed as the pipeline always placed them', () => {
+        const {names, ...scene} = denseScene(1000);
+
+        renderer.setScene({...scene, labels: {nodes: [0, 1, 2], texts: ['a', 'b', 'c']}});
+        // the atlas uploadLabels measures, without a GL context
+        renderer.surfaces = {labels: {boxes: [[30, 20], [30, 20], [30, 20]], origins: [[0, 0], [30, 0], [60, 0]], ratio: 1}};
+
+        let placedAny = false;
+
+        for (const ratio of [1, 0.6, 0.1]) {
+            lookAt(ratio);
+
+            const
+                frame    = renderer.frameLabels(),
+                M        = renderer.matrix(),
+                {labels} = renderer.scene,
+                {boxes}  = renderer.surfaces.labels,
+                points   = GraphScene.labelAnchors({lod: renderer.getLodLevel() === 'far' ? renderer.scene.lod : null, nodes: labels.nodes, positions: renderer.scene.positions}),
+                anchors  = Array.from(labels.nodes, (node, label) => GraphScene.project(M, points[label * 3], points[label * 3 + 1], points[label * 3 + 2], 1200, 800)),
+                placed   = GraphScene.placeLabels({anchors: GraphScene.labelCentres({anchors, boxes, lift: 6}), boxes, gap: 4, height: 800, max: 30, width: 1200});
+
+            expect(frame.names, `no names at ${ratio}`).toEqual([]);
+            expect(frame.own.map(({label}) => label), `the own labels at ${ratio}`).toEqual(placed);
+            expect(renderer.nearFloor(), `no floor at ${ratio}`).toBe(0);
+            placedAny ||= placed.length > 0
+        }
+
+        expect(placedAny, 'the comparison saw placed labels').toBe(true)
     });
 });
 
