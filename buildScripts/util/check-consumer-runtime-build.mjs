@@ -154,6 +154,32 @@ export function findMissingBrowserArtifacts(files, workspaceFiles=[]) {
 }
 
 /**
+ * @summary Pins the fixture's direct build tools to root lockfile resolutions, without reading local installs.
+ * Transitive dependencies still resolve through npm; this does not synthesize a complete fixture lockfile.
+ * @param {Object} declared Development dependency declarations from the installed package.
+ * @param {Object} lock Root package-lock.json, including its root declarations and top-level packages.
+ * @returns {Object} A new development dependency map with exact versions, preserving npm aliases.
+ * @throws {Error} If a declared tool has no usable root resolution or the lockfile declaration is stale.
+ */
+export function resolveFixtureDevDependencies(declared, lock) {
+    return Object.fromEntries(Object.entries(declared).map(([name, range]) => {
+        const key     = `node_modules/${name}`,
+              entry   = lock.packages?.[key],
+              version = entry?.version;
+
+        if (typeof version !== 'string' || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
+            throw new Error(`Missing or unusable root lockfile resolution: ${key}`)
+        }
+
+        if (lock.packages['']?.devDependencies?.[name] !== range) {
+            throw new Error(`Root lockfile declaration for ${name} differs from the installed package; refresh package-lock.json`)
+        }
+
+        return [name, entry.name && entry.name !== name ? `npm:${entry.name}@${version}` : version]
+    }))
+}
+
+/**
  * @summary Rule logic, split from the pack/install/build so it is unit-testable without spawning.
  *
  * @param {Object}   result
@@ -378,8 +404,9 @@ async function main() {
               manifestPath  = path.join(workspace, 'package.json'),
               manifest      = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 
-        // Keep the declared build toolchain hoisted: a nested install could hide dependency-resolution defects.
-        manifest.devDependencies = installed.devDependencies;
+        // Keep locked direct build tools hoisted: a nested install could hide resolution defects.
+        manifest.devDependencies = resolveFixtureDevDependencies(installed.devDependencies,
+            JSON.parse(fs.readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8')));
         manifest.overrides       = installed.overrides;
         fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4));
         execFileSync('npm', ['install', '--include=dev', '--no-audit', '--no-fund', '--ignore-scripts'],

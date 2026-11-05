@@ -22,7 +22,7 @@ const require           = createRequire(import.meta.url),
  * the failure DIRECTIONS, and the workflow asserts the behaviour.
  */
 test.describe('check-consumer-runtime-build — rule logic', () => {
-    let APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts;
+    let APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts, resolveFixtureDevDependencies;
 
     const runtimeFiles = [
         'dist/marked.mjs', 'dist/mermaid.mjs', 'dist/parse5.mjs',
@@ -50,7 +50,60 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
           workspaceContext = {context: path.join(workspace, 'src/main/addon'), regExpSource: '^\\.\\/.*\\.mjs$'};
 
     test.beforeAll(async () => {
-        ({APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts} = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
+        ({APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts, resolveFixtureDevDependencies} = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
+    });
+
+    test('fixture toolchain uses only root-lock direct versions without changing its inputs', () => {
+        const declared = {'@playwright/test': '^1.63.0', webpack: '^5.0.0'},
+              lock     = {packages: {
+                  ''                                                : {devDependencies: {...declared}},
+                  'node_modules/@playwright/test'                   : {version: '1.64.1'},
+                  'node_modules/webpack'                            : {version: '5.111.0'},
+                  'node_modules/other/node_modules/@playwright/test': {version: '1.65.0'},
+                  'node_modules/unrelated-runtime'                  : {version: '2.0.0'}
+              }},
+              original = JSON.stringify({declared, lock});
+
+        expect(resolveFixtureDevDependencies(declared, lock)).toEqual({'@playwright/test': '1.64.1', webpack: '5.111.0'});
+        expect(JSON.stringify({declared, lock})).toBe(original);
+    });
+
+    test('fixture toolchain refuses missing root-lock entries despite installed and nested copies', () => {
+        const declared = {'@playwright/test': '^1.63.0'};
+
+        for (const packages of [undefined, {}, {
+            ''                                                : {devDependencies: declared},
+            'node_modules/other/node_modules/@playwright/test': {version: '1.64.1'}
+        }]) {
+            expect(() => resolveFixtureDevDependencies(declared, {packages})).toThrow('node_modules/@playwright/test');
+        }
+    });
+
+    test('fixture toolchain refuses unusable locked versions', () => {
+        const declared = {'@playwright/test': '^1.63.0'};
+
+        for (const version of [undefined, null, '', 1641, '^1.64.1', 'latest']) {
+            expect(() => resolveFixtureDevDependencies(declared, {packages: {
+                ''                             : {devDependencies: declared},
+                'node_modules/@playwright/test': {version}
+            }})).toThrow('node_modules/@playwright/test');
+        }
+    });
+
+    test('fixture toolchain refuses stale root declarations', () => {
+        expect(() => resolveFixtureDevDependencies({'@playwright/test': '^1.63.0'}, {packages: {
+            ''                             : {devDependencies: {'@playwright/test': '^1.62.0'}},
+            'node_modules/@playwright/test': {version: '1.64.1'}
+        }})).toThrow('@playwright/test');
+    });
+
+    test('fixture toolchain preserves an aliased package identity at its locked version', () => {
+        const declared = {compiler: 'npm:webpack@^5.0.0'};
+
+        expect(resolveFixtureDevDependencies(declared, {packages: {
+            ''                     : {devDependencies: declared},
+            'node_modules/compiler': {name: 'webpack', version: '5.111.0'}
+        }})).toEqual({compiler: 'npm:webpack@5.111.0'});
     });
 
     test('a consumer build satisfies each package-owned and workspace-owned runtime address', () => {
