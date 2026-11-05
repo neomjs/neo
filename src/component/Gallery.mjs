@@ -3,12 +3,15 @@ import Component       from './Base.mjs';
 import GalleryModel    from '../selection/GalleryModel.mjs';
 import NeoArray        from '../util/Array.mjs';
 import Store           from '../data/Store.mjs';
+import StoreLoading    from '../mixin/StoreLoading.mjs';
 
 const itemsMounted = Symbol.for('itemsMounted');
 
 /**
+ * @summary Displays selectable image records in a projected gallery with automatic Store loading feedback.
  * @class Neo.component.Gallery
  * @extends Neo.component.Base
+ * @mixes Neo.mixin.StoreLoading
  */
 class Gallery extends Component {
     static config = {
@@ -22,6 +25,11 @@ class Gallery extends Component {
          * @protected
          */
         ntype: 'gallery',
+        /**
+         * @member {Neo.core.Base[]} mixins=[StoreLoading]
+         * @protected
+         */
+        mixins: [StoreLoading],
         /**
          * The amount of visible rows inside the gallery
          * @member {Number} amountRows_=3
@@ -418,6 +426,7 @@ class Gallery extends Component {
     }
 
     /**
+     * @summary Projects records and refreshes loading feedback after the rendered population changes.
      * @param {Number} [startIndex] the start index for creating items,
      * e.g. increasing maxItems only needs to create the new ones
      * @protected
@@ -458,12 +467,14 @@ class Gallery extends Component {
             itemsRoot.cn.push(vdomItem)
         }
 
+        me.syncStoreLoading();
         me.promiseUpdate().then(() => {
             me[itemsMounted] = true
         })
     }
 
     /**
+     * @summary Removes projected items and restores the empty-view indicator while loading remains pending.
      * @param {Number} [startIndex]
      * @param {Number} [amountItems]
      */
@@ -473,6 +484,7 @@ class Gallery extends Component {
             selectedItem = me.selectionModel.items[0];
 
         me.getItemsRoot().cn.splice(startIndex || 0, countItems);
+        me.syncStoreLoading();
         me.update();
 
         if (me.selectionModel.hasSelection() && selectedItem > startIndex && selectedItem < startIndex + countItems) {
