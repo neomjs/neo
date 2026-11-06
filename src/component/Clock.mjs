@@ -42,7 +42,7 @@ class Clock extends Component {
         size_: 500,
         /**
          * Format: hh:mm
-         * @member {String} time_='10:20'
+         * @member {String} time_='00:00'
          * @reactive
          */
         time_: '00:00',
@@ -83,9 +83,9 @@ class Clock extends Component {
     }
 
     /**
-     * Triggered after the size config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
+     * @summary Applies numeric dimensions or clears them through explicit null style overrides.
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
      * @protected
      */
     afterSetSize(value, oldValue) {
@@ -95,8 +95,8 @@ class Clock extends Component {
             style.height = `${value}px`;
             style.width  = `${value}px`;
         } else {
-            delete style.height;
-            delete style.width
+            style.height = null;
+            style.width  = null
         }
 
         this.style = style
