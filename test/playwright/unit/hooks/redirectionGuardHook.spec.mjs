@@ -39,7 +39,23 @@ test.describe('redirectionGuardHook — Claude PreToolUse Bash guard', () => {
         expect(findFileWrite("V=$(sed -i 's/x/y/' f)")).toEqual({command: 'sed', argument: '-i'})
     });
 
+    test('a command substitution is scanned as the command it runs, quoted or not', () => {
+        expect(findFileWrite('echo "$(printf x > out)"')).toEqual({operator: '>', target: 'out'});
+        expect(findFileWrite('echo `printf x > out`')).toEqual({operator: '>', target: 'out'});
+        expect(findFileWrite('V="$(sed -i \'s/x/y/\' f)"')).toEqual({command: 'sed', argument: '-i'});
+        expect(findFileWrite('echo "$(git log --format=%s -1)"')).toBeNull();
+        expect(findFileWrite('echo "$(( 3 > 2 ))"')).toBeNull()
+    });
+
+    test('an in-place edit after a control keyword, a group or a background separator is a write', () => {
+        expect(findFileWrite('if true; then sed -i s/a/b/ file; fi')).toEqual({command: 'sed', argument: '-i'});
+        expect(findFileWrite('echo x & sed -i s/a/b/ file')).toEqual({command: 'sed', argument: '-i'});
+        expect(findFileWrite('{ sed -i s/a/b/ file; }')).toEqual({command: 'sed', argument: '-i'});
+        expect(findFileWrite('for f in a b; do perl -pi -e s/a/b/ "$f"; done')).toEqual({command: 'perl', argument: '-pi'})
+    });
+
     test('descriptor duplication, device targets and input redirection are not writes', () => {
+        expect(findFileWrite('printf x >/dev/fd/2; printf y >/dev/stderr')).toBeNull();
         expect(findFileWrite('npm test 2>&1 | tail -40')).toBeNull();
         expect(findFileWrite('gh issue edit 1 --milestone v1 >/dev/null 2>&1')).toBeNull();
         expect(findFileWrite('cmd &>/dev/null; echo x >&2; exec 3>&-')).toBeNull();
@@ -59,6 +75,7 @@ test.describe('redirectionGuardHook — Claude PreToolUse Bash guard', () => {
 
     test('sed and perl without in-place flags, or named as arguments, are not edits', () => {
         expect(findFileWrite("sed -n 's/a/b/p' file | head")).toBeNull();
+        expect(findFileWrite('sed -n p -- -i')).toBeNull();
         expect(findFileWrite("perl -Mstrict -ne 'print if /i/' f")).toBeNull();
         expect(findFileWrite('grep -i sed notes.md && echo perl -i')).toBeNull();
         expect(findFileWrite('npm test 2>&1 | tee "$dir/run.log"')).toBeNull()
