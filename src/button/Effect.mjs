@@ -174,10 +174,13 @@ class EffectButton extends Component {
      * @protected
      */
     createVdomEffect() {
-        return new Effect(() => {
-            // The effect's only job is to get the config and trigger an update.
-            this._vdom = this.getVdomConfig();
-            this.update();
+        return new Effect({
+            fn        : () => {this._vdom = this.getVdomConfig()},
+            subscriber: {
+                id: this.id,
+                // Render scheduling reads lifecycle state; it must run outside dependency collection.
+                fn: running => {if (!running) this.update()}
+            }
         })
     }
 

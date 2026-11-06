@@ -170,6 +170,51 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @summary Requests closing an opted-in tab, preserving its identity across the cancellable notification.
+     * Fires `beforeTabClose` before either card or header is removed. A synchronous listener can set `abort: true`
+     * to veto, or `restoreFocus: false` to own focus itself. `tabClose` carries the captured card/header ids and
+     * text after removal; the removed instance may already be destroyed. Focus in the closed header or card is
+     * restored to a survivor. Lazy cards need not load to close.
+     * @param {Number} [index=this.activeIndex] Semantic tab index, excluding toolbar actions.
+     * @returns {Neo.component.Base|Object|Boolean} The captured card/config, or false when refused or vetoed.
+     */
+    closeTab(index=this.activeIndex) {
+        const me     = this,
+              header = Number.isInteger(index) && index >= 0 ? me.getTabButtons()[index] : null,
+              card   = header && me.getCard(index);
+
+        if (!header?.closable || header.disabled || !card) return false;
+
+        const identity = {card, header, cardId: card.id || null, headerId: header.id, text: header.text},
+              request  = {...identity, abort: false, index, restoreFocus: header.containsFocus || card.containsFocus === true};
+
+        me.fire('beforeTabClose', request);
+
+        if (request.abort || me.isDestroyed || header.isDestroyed || !header.closable || header.disabled) return false;
+
+        // A listener may move a tab: resolve the captured header again, never close its old positional neighbour.
+        index = me.getTabButtons().indexOf(header);
+        if (index < 0) return false;
+
+        me.removeAt(index);
+        me.fire('tabClose', {...identity, index});
+
+        if (request.restoreFocus && me.mounted) {
+            if (!me.getCount()) me.changeVdomRootKey('tabIndex', -1);
+
+            me.promiseUpdate().then(() => {
+                if (!me.isDestroyed) {
+                    const buttons = me.getTabButtons(),
+                          target  = buttons[Math.min(index, buttons.length - 1)];
+                    target ? target.focus() : me.focus()
+                }
+            })
+        }
+
+        return card
+    }
+
+    /**
      * Handles the logic after the `activeIndex` config has changed. It ensures that the
      * layout of the `BodyContainer` is updated to show the correct card and fires the
      * `activeIndexChange` event.
@@ -187,9 +232,13 @@ class Container extends BaseContainer {
             }, me, {once: true})
         } else {
             if (Neo.isNumber(value) && value > -1) {
+                const header = me.getTabButtons()[value];
                 // we need to ensure the afterSet method triggers when lazy loading the module
                 cardContainer.layout._activeIndex = value;
                 await cardContainer.layout.afterSetActiveIndex(value, oldValue);
+
+                if (me.isDestroyed || cardContainer.isDestroyed || me.getCardContainer() !== cardContainer
+                    || me.activeIndex !== value || me.getTabButtons()[value] !== header) return;
 
                 if (oldValue !== undefined) {
                     me.updateTabButtons();
@@ -477,7 +526,7 @@ class Container extends BaseContainer {
 
     /**
      * Creates the configuration object for a single tab button. It merges a default configuration
-     * (including the module, index, and a click listener to change `activeIndex`) with the
+     * (including the module, index, and tab activation/close listeners) with the
      * user-provided configuration from the item's `header` property.
      * @param {Object} config The user-provided configuration from `item.header`.
      * @param {Number} index The index of this tab button.
@@ -495,14 +544,39 @@ class Container extends BaseContainer {
             useActiveTabIndicator: me.useActiveTabIndicator,
 
             domListeners: [{
-                click(data) {
-                    me.activeIndex = data.component.index
-                },
-                scope: me
+                click  : me.onTabButtonClick,
+                keydown: me.onTabButtonKeyDown,
+                scope  : me
             }]
         };
 
         return {...defaultConfig, ...config}
+    }
+
+    /**
+     * @summary Routes the close mark independently of ordinary tab activation.
+     * @param {Object} data Serialized DOM event with its header component.
+     * @protected
+     */
+    onTabButtonClick(data) {
+        const button = data.component;
+
+        if (button.isCloseTarget?.(data)) {
+            this.closeTab(button.index)
+        } else {
+            this.activeIndex = button.index
+        }
+    }
+
+    /**
+     * @summary Gives a focused closable tab the optional Delete action of the tabs keyboard pattern.
+     * @param {Object} data Serialized keyboard event with its header component.
+     * @protected
+     */
+    onTabButtonKeyDown(data) {
+        if (data.key === 'Delete' && !data.altKey && !data.ctrlKey && !data.metaKey) {
+            this.closeTab(data.component.index)
+        }
     }
 
     /**
@@ -719,6 +793,7 @@ class Container extends BaseContainer {
 
     /**
      * Removes a tab from the container at a specific index.
+     * @summary Keeps the previous neighbour active, falling back to the first remaining card or null when empty.
      * @param {Number} index The index of the tab to remove.
      * @param {Boolean} [destroyItem=true] Set to false to keep the component instance in memory.
      * @param {Boolean} [silent=false] Defer child DOM updates to the caller's common-parent transaction.
@@ -744,9 +819,11 @@ class Container extends BaseContainer {
             me._activeIndex = activeIndex - 1;
             cardContainer.layout._activeIndex = activeIndex - 1
         } else if (index === activeIndex) {
+            const nextIndex = cardContainer.items.length ? Math.max(0, activeIndex - 1) : null;
+
             if (silent) {
-                me._activeIndex = activeIndex - 1;
-                cardContainer.layout._activeIndex = activeIndex - 1;
+                me._activeIndex = nextIndex;
+                cardContainer.layout._activeIndex = nextIndex;
 
                 // Atomic cross-parent moves defer their one DOM commit to the closest common parent.
                 // Keep both card visibility and tab pressed-state inside that same silent transaction.
@@ -755,7 +832,16 @@ class Container extends BaseContainer {
                 });
                 me.updateTabButtons(true)
             } else {
-                me.activeIndex = activeIndex - 1
+                me.activeIndex = nextIndex;
+
+                if (nextIndex === activeIndex) {
+                    // The index stayed zero, but it now names a different card: reapply its presentation.
+                    me.afterSetActiveIndex(nextIndex, activeIndex)
+                } else if (nextIndex === null) {
+                    cardContainer.layout._activeIndex = null;
+                    me.updateTabButtons();
+                    me.fire('activeIndexChange', {item: null, oldValue: activeIndex, value: null})
+                }
             }
         }
 
