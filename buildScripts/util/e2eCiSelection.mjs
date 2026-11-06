@@ -80,28 +80,6 @@ export const EXCLUSIONS = [{
 export const QUARANTINES = [];
 
 /**
- * Complete files the disposable Memory Core archive job owns, outside the ordinary Brain shards.
- * @member {String[]} ARCHIVE_PATHS
- */
-export const ARCHIVE_PATHS = [
-    'test/playwright/e2e/dashboard/DemoBDockTransactionsNL.spec.mjs',
-    'test/playwright/e2e/neural-link/TransactionArchiveReplay.spec.mjs'
-];
-
-/**
- * Brain-gated specs needing explicit archive provisioning. The URL selects the fixture, not proof of its
- * capability: the archive job must pass the real MCP probe and both complete files before claiming coverage.
- * @member {Object[]} BRAIN_CAPABILITIES
- */
-export const BRAIN_CAPABILITIES = [{
-    requires: 'NEO_E2E_ARCHIVE_URL',
-    paths   : ARCHIVE_PATHS,
-    reason  : 'the ordinary shards have no disposable archive; the separate e2e-brain-archive job provisions it and runs both complete files',
-    exit    : 'NEO_E2E_ARCHIVE_URL is explicitly supplied to this runner',
-    tracker : '#17844'
-}];
-
-/**
  * Brain-gated tests that run hosted but fail there for a reason not yet diagnosed. Each is deselected by
  * file and title through Playwright's `--test-list-invert`, so no spec is edited. An entry names who is
  * accountable, what removes it and since when, and every receipt flags one older than
@@ -148,7 +126,7 @@ export const BRAIN_RETRY_BRIDGE = {
  * The Brain-gated files a pull request runs when its change is outside the E2E impact boundary
  * (`classify-test-scope.yml`'s `e2e_brain_tier`). Such a change cannot reach the tier's specs, so what can
  * still break is the pairing with the Brain's `dev` tip: one fast, stable file for each surface the tier covers,
- * none of them capability-gated or quarantined.
+ * none of them quarantined.
  * @member {String[]} BRAIN_SMOKE
  */
 export const BRAIN_SMOKE = [
@@ -301,27 +279,22 @@ export function brainPaths(root = process.cwd()) {
 }
 
 /**
- * @summary What this environment runs of the Brain-gated tier: the tier's files except those whose
- * capability is unset here.
+ * @summary What a Brain-gated tier runs: every Brain-gated file, or the smoke files for the smoke tier.
+ * No Brain-gated file needs a Memory Core, so no file waits on a capability a runner may lack.
  * @param {Object} [options]
- * @param {Object} [options.env=process.env]
  * @param {String} [options.root=process.cwd()]
  * @param {String} [options.tier='full'] A {@link BRAIN_TIERS} key
- * @returns {{absent: Object[], gated: String[], paths: String[]}} The capability entries whose variable is
- *          unset, every Brain-gated file, and the files to run.
+ * @returns {{gated: String[], paths: String[]}} Every Brain-gated file, and the files to run.
  * @throws {Error} For a tier that is not a {@link BRAIN_TIERS} key.
  */
-export function brainSelection({env = process.env, root = process.cwd(), tier = 'full'} = {}) {
+export function brainSelection({root = process.cwd(), tier = 'full'} = {}) {
     if (!Object.hasOwn(BRAIN_TIERS, tier)) {
         throw new Error(`Unknown Brain-gated tier '${tier}'; expected ${Object.keys(BRAIN_TIERS).join(' or ')}.`)
     }
 
-    const gated    = brainPaths(root),
-          absent   = BRAIN_CAPABILITIES.filter(entry => !env[entry.requires]),
-          excluded = absent.flatMap(entry => entry.paths),
-          pool     = tier === 'smoke' ? gated.filter(path => BRAIN_SMOKE.includes(path)) : gated;
+    const gated = brainPaths(root);
 
-    return {absent, gated, paths: pool.filter(path => !excluded.includes(path))}
+    return {gated, paths: tier === 'smoke' ? gated.filter(path => BRAIN_SMOKE.includes(path)) : gated}
 }
 
 /**
@@ -400,20 +373,19 @@ export function brainDurations(text) {
 
 /**
  * @summary Refuses a declaration whose file is no longer a Brain-gated spec, and a smoke file that is
- * capability-gated or quarantined, naming every such entry.
+ * quarantined, naming every such entry.
  * @description A deleted or moved file would otherwise leave an entry naming nothing while every receipt
  * went on listing it. A smoke file runs whole on every pull request, so a smoke receipt has no exclusion to
  * explain. Titles are {@link assertQuarantinesResolve}'s job.
  * @param {Object}   [options]
- * @param {Object[]} [options.capabilities=BRAIN_CAPABILITIES]
  * @param {Object[]} [options.quarantines=BRAIN_QUARANTINES]
  * @param {String[]} [options.smoke=BRAIN_SMOKE]
  * @param {String}   [options.root=process.cwd()]
  * @throws {Error} Naming every stale entry, or every declared smoke file.
  */
-export function assertBrainDeclarations({capabilities = BRAIN_CAPABILITIES, quarantines = BRAIN_QUARANTINES, smoke = BRAIN_SMOKE, root = process.cwd()} = {}) {
+export function assertBrainDeclarations({quarantines = BRAIN_QUARANTINES, smoke = BRAIN_SMOKE, root = process.cwd()} = {}) {
     const gated    = brainPaths(root),
-          declared = [...capabilities.flatMap(entry => entry.paths), ...quarantines.map(entry => entry.path)],
+          declared = quarantines.map(entry => entry.path),
           stale    = [...declared, ...smoke].filter(path => !gated.includes(path)),
           unstable = smoke.filter(path => declared.includes(path));
 
@@ -423,7 +395,7 @@ export function assertBrainDeclarations({capabilities = BRAIN_CAPABILITIES, quar
     }
 
     if (unstable.length) {
-        throw new Error(`Brain-gated smoke files must run whole, but these are capability-gated or quarantined:\n- ${unstable.join('\n- ')}\n` +
+        throw new Error(`Brain-gated smoke files must run whole, but these are quarantined:\n- ${unstable.join('\n- ')}\n` +
             'Choose other smoke files in buildScripts/util/e2eCiSelection.mjs.')
     }
 }
@@ -562,17 +534,15 @@ export function flakyTests(report) {
  * @param {Number|null} [options.retries=null] The retry count the run step selected, `null` when it recorded
  *        none. Read from the run, never recomputed: a run that starts before the bridge ends and finishes
  *        after it still retried.
- * @param {Object}      [options.env=process.env]
  * @param {Date}        [options.now=new Date()] What a quarantine's age is measured against.
  * @param {String}      [options.root=process.cwd()]
  * @returns {String}
  */
-export function brainReceipt({report, run, seconds, retries = null, env = process.env, now = new Date(), root = process.cwd()}) {
+export function brainReceipt({report, run, seconds, retries = null, now = new Date(), root = process.cwd()}) {
     const {brainFree}            = populations(root),
           tier                   = run.tier ?? 'full',
-          {absent, gated, paths} = brainSelection({env, root, tier}),
+          {gated, paths}         = brainSelection({root, tier}),
           // No declaration touches a smoke file (assertBrainDeclarations), so a smoke receipt has none to explain
-          capabilities           = tier === 'full' ? BRAIN_CAPABILITIES : [],
           quarantines            = tier === 'full' ? BRAIN_QUARANTINES : [],
           ceiling                = 300,
           predicted              = brainShard({paths, shard: run.shard}).seconds,
@@ -591,9 +561,6 @@ export function brainReceipt({report, run, seconds, retries = null, env = proces
             : `${minutes(seconds)} against the ${minutes(ceiling)} ceiling${seconds > ceiling ? ' (**over**)' : ''}`}`,
         `- **Predicted:** ${minutes(predicted)} by the duration table, which \`--brain-durations\` rebuilds from these receipts.`,
         `- **Selected:** ${paths.length} of the ${gated.length} Brain-gated spec files, with ${quarantines.length} of their tests quarantined. The ${brainFree} Brain-free files are the engine tier's.`,
-        ...capabilities.map(entry => absent.includes(entry)
-            ? `- **Excluded while \`${entry.requires}\` is unset:** ${entry.paths.map(short).join(', ')}, because ${entry.reason}. They return when ${entry.exit} (${entry.tracker}).`
-            : `- **\`${entry.requires}\` is set,** so ${entry.paths.map(short).join(', ')} are selected.`),
         ...quarantines.map(entry => `- **Quarantined:** ${short(entry.path)} › ${entry.titlePath.at(-1)} — ${entry.reason}. ` +
             `Accountable: ${entry.accountable}. Exit: ${entry.exit}. Since ${entry.since}, ${days(entry.since)} days` +
             `${days(entry.since) > QUARANTINE_STALE_DAYS ? ' (**stale**)' : ''}.`),
@@ -609,72 +576,6 @@ export function brainReceipt({report, run, seconds, retries = null, env = proces
             '',
             ...report.suites.map(suite => `- \`${suite.file}\` · ${fileSeconds(suite)} s`)
         ] : ['- **This shard:** unknown, because the run wrote no Playwright report']
-    ].join('\n')
-}
-
-/**
- * @summary Registered or executed archive cases, keyed by project, file and complete title path.
- * @param {Object|null} report A Playwright JSON report, including a --list report.
- * @returns {Object[]} Each case's identity and observed outcome.
- */
-function archiveCases(report) {
-    const entries = [];
-    const walk    = (suite, titles) => {
-        for (const spec of suite.specs ?? []) for (const test of spec.tests ?? []) {
-            entries.push({
-                key   : `[${test.projectName}] ${[...titles, spec.title].join(' › ')}`,
-                status: test.status,
-                passed: test.results?.some(result => result.status === 'passed') === true
-            })
-        }
-        for (const child of suite.suites ?? []) walk(child, [...titles, child.title])
-    };
-    for (const suite of report?.suites ?? []) walk(suite, [suite.title]);
-    return entries
-}
-
-/**
- * @summary Refuses missing, filtered, duplicated, skipped, flaky or failing archive coverage.
- * @param {Object|null} report The executed report.
- * @param {Object} population A fresh Playwright --list report for both complete owning files.
- * @returns {void}
- */
-export function assertArchiveReport(report, population) {
-    const expected = archiveCases(population).map(entry => entry.key).sort(),
-          actual   = archiveCases(report), keys = actual.map(entry => entry.key).sort(),
-          files    = report?.suites.map(suite => suite.file).sort(),
-          owning   = ARCHIVE_PATHS.map(file => file.replace('test/playwright/e2e/', '')).sort();
-    if (!expected.length || JSON.stringify(files) !== JSON.stringify(owning) ||
-        JSON.stringify(keys) !== JSON.stringify(expected) ||
-        actual.some(entry => entry.status !== 'expected' || !entry.passed) ||
-        report.stats.unexpected || report.stats.flaky || report.stats.skipped || report.errors?.length) {
-        throw new Error('Archive coverage must pass both complete registered files, without exclusions, skips or retries.');
-    }
-}
-
-/**
- * @summary Reports the archive job's exact registered, executed and excluded title populations and source pair.
- * @param {Object} options
- * @param {Object|null} options.report Executed Playwright JSON.
- * @param {Object} options.population Fresh --list report for the two complete files.
- * @param {Object} options.run Engine/Brain SHAs and hosted run identity.
- * @param {String} [options.root=process.cwd()]
- * @returns {String}
- */
-export function archiveReceipt({report, population, run, root = process.cwd()}) {
-    const original = archiveCases(population), actual = archiveCases(report),
-          selected = new Set(actual.map(entry => entry.key)),
-          excluded = original.filter(entry => !selected.has(entry.key));
-    return [
-        '### Brain archive e2e · disposable Memory Core', '',
-        `- **Run:** ${run.event}, attempt ${run.attempt}`,
-        `- **Engine:** \`${run.engineSha}\` · **Brain client and server:** \`${run.brainSha}\``,
-        `- **Original:** ${original.length} registered tests in ${ARCHIVE_PATHS.length} complete files; ${brainPaths(root).length} Brain-gated files in the tree.`,
-        `- **Selected:** ${actual.length} tests; **excluded:** ${excluded.length}. Missing results are unknown, never a pass.`,
-        '- **Capability:** the preceding real MCP save/read/bookkeeping probe; browser replay and undo are proved below.',
-        ...original.map(entry => `- **Registered:** ${entry.key}`),
-        ...actual.map(entry => `- **Executed:** ${entry.key} — ${entry.status}${entry.passed ? ', passed' : ', no passing result'}`),
-        ...excluded.map(entry => `- **Excluded:** ${entry.key}`)
     ].join('\n')
 }
 
@@ -699,22 +600,6 @@ if (isEntryModule(import.meta.url)) {
               {paths}       = brainSelection({tier: TIER || 'full'});
 
         process.stdout.write((SHARD ? brainShard({paths, shard: SHARD}).paths : paths).join(' '))
-    } else if (mode === '--archive-paths') {
-        assertBrainDeclarations();
-        process.stdout.write(ARCHIVE_PATHS.join(' '))
-    } else if (mode === '--archive-receipt') {
-        const {ATTEMPT, BRAIN_SHA, ENGINE_SHA, EVENT, REPORT} = process.env,
-              require                                         = createRequire(import.meta.url),
-              cli                                             = require.resolve('@playwright/test/cli'),
-              population                                      = JSON.parse(execFileSync(process.execPath, [cli, 'test',
-                  '-c', 'test/playwright/playwright.config.e2e.mjs', '--list', '--reporter=json', ...ARCHIVE_PATHS
-              ], {stdio: ['ignore', 'pipe', 'inherit']}).toString());
-        let report = null;
-        try { report = JSON.parse(readFileSync(REPORT, 'utf8')) } catch {}
-        process.stdout.write(archiveReceipt({report, population,
-            run: {event: EVENT, attempt: ATTEMPT, engineSha: ENGINE_SHA, brainSha: BRAIN_SHA}
-        }) + '\n');
-        assertArchiveReport(report, population)
     } else if (mode === '--brain-durations') {
         process.stdout.write(JSON.stringify(brainDurations(readFileSync(0, 'utf8')), null, 4) + '\n')
     } else if (mode === '--brain-test-list') {
@@ -736,7 +621,7 @@ if (isEntryModule(import.meta.url)) {
             seconds: TEST_SECONDS ? Number(TEST_SECONDS) : null
         }) + '\n')
     } else {
-        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-durations | --brain-test-list | --brain-retries | --brain-receipt | --archive-paths | --archive-receipt');
+        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-durations | --brain-test-list | --brain-retries | --brain-receipt');
         process.exit(2)
     }
 }
