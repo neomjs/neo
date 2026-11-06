@@ -3,15 +3,16 @@ import path from 'node:path';
 
 /**
  * @summary Whitebox e2e specs (relative to `test/playwright/e2e`, POSIX-normalized) that can run
- * through the dedicated App Worker Neural Link test adapter without an external `neo-agent-brain`
- * checkout or WebSocket Bridge.
+ * through the off-socket Neural Link test adapter, on the page's own App Worker, without an external
+ * `neo-agent-brain` checkout or WebSocket Bridge.
  *
  * A spec is adapter-eligible iff all four structural properties hold:
  * 1. **Single app** — each test binds to one page's App Worker via `runDedicatedWorkerNeuralLink`.
- * 2. **Dedicated worker** — the target application's `neo-config.json` boots a dedicated App Worker
- *    (`useSharedWorkers` is not `true`). Because `useSharedWorkers` lives in the target app's
- *    `neo-config.json` rather than in the spec file text, eligibility is declared explicitly here
- *    instead of inferred from incidental text in the spec source.
+ * 2. **The page's own App Worker** — a dedicated App Worker, or, for an app whose `neo-config.json`
+ *    sets `useSharedWorkers: true`, the page's own SharedWorker reached through
+ *    `attachPageSharedAppWorker`. Pages may share that SharedWorker; each test's writer pair keeps its
+ *    writes and lifetime apart. The worker kind lives in the target app's config, not in the spec text,
+ *    so eligibility is declared explicitly here instead of inferred from incidental text in the spec.
  * 3. **No physical window journey or multi-session Bridge arbitration** — the spec does not drive
  *    multi-window browser popups, native window geometry (`open_component_window`, `close_window`,
  *    `position_window`, `focus_window`, `get_window_topology`), direct Brain service imports
@@ -21,16 +22,16 @@ import path from 'node:path';
  *    transaction archives (`save_transaction`, `replay_transaction`, `NEO_MCP_REMOTE_TOKEN`).
  *    Those specs remain Brain-gated under the Bridge/archive tier owner.
  *
- * SharedWorker specs (`examples/dashboard/choreography`, `examples/dashboard/crossWindow`,
- * `test/playwright/component/apps/dock-first-mount`, `apps/colors`, `apps/portal`,
- * `apps/workstation`, and parameterized `useSharedWorkers: true` arms) remain Brain-gated under
- * the SharedWorker residual owner.
+ * SharedWorker apps (`apps/workstation`, `apps/portal`, `apps/colors`, the dashboard examples) are
+ * eligible spec by spec under property 3: a spec that opens, pops out, tears out or drives a second
+ * window stays Brain-gated, even though the same SharedWorker would serve it.
  *
  * @type {ReadonlySet<String>}
  */
 export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'core/RefreshDomCorpseRepro.spec.mjs',
     'core/SplitterLiveResizeNL.spec.mjs',
+    'dashboard/DemoADragMenuNL.spec.mjs',
     'dashboard/DockAutoHideRevealNL.spec.mjs',
     'dashboard/DockCrossWindowWitnessNL.spec.mjs',
     'dashboard/DockCrossZoneDragNL.spec.mjs',
@@ -43,6 +44,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'dashboard/DockTabOverflowNL.spec.mjs',
     'dashboard/DockTourSmokeNL.spec.mjs',
     'dashboard/HeaderHandleAdmissionNL.spec.mjs',
+    'dashboard/PreviewLanguageDragPairNL.spec.mjs',
     'grid/BigDataMultiBodyNL.spec.mjs',
     'grid/BigDataNL.spec.mjs',
     'grid/ColumnCrossBodyDnD.spec.mjs',
@@ -65,14 +67,33 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'neural-link/CreateGrid.spec.mjs',
     'neural-link/Redo.spec.mjs',
     'neural-link/RemoveComponent.spec.mjs',
+    'neural-link/WorkerStateMutation.spec.mjs',
+    'portal/ConnectNL.spec.mjs',
     'portal/DocsMixinsNL.spec.mjs',
     'rendering/ButtonBaseNL.spec.mjs',
     'rendering/CalendarMonthRollover.spec.mjs',
     'rendering/ContextMenuNL.spec.mjs',
     'rendering/DeltaCoherenceRegistryNL.spec.mjs',
     'rendering/MarkdownStreamingCoherenceNL.spec.mjs',
+    'rendering/SparseUpdatesNL.spec.mjs',
     'rendering/StoreLoadingNL.spec.mjs',
-    'tab/TabHeaderActionsNL.spec.mjs'
+    'tab/TabHeaderActionsNL.spec.mjs',
+    'workstation/WorkstationCrossZoneCueNL.spec.mjs',
+    'workstation/WorkstationEdgeSplitterNL.spec.mjs',
+    'workstation/WorkstationFeedKeepsScrollNL.spec.mjs',
+    'workstation/WorkstationGridUnconstrainedNL.spec.mjs',
+    'workstation/WorkstationHeaderActionsHoverNL.spec.mjs',
+    'workstation/WorkstationMaximizeOverflowMenuNL.spec.mjs',
+    'workstation/WorkstationMaximizeTabReorderNL.spec.mjs',
+    'workstation/WorkstationOffSocketContractNL.spec.mjs',
+    'workstation/WorkstationOwnPaneEdgeDropNL.spec.mjs',
+    'workstation/WorkstationRailsOutermostNL.spec.mjs',
+    'workstation/WorkstationResidentCardSizingNL.spec.mjs',
+    'workstation/WorkstationSplitterGridGeometryNL.spec.mjs',
+    'workstation/WorkstationTabDragHeadersStayNL.spec.mjs',
+    'workstation/WorkstationTabDragLabelOverlapNL.spec.mjs',
+    'workstation/WorkstationTabDragSiblingHoldsNL.spec.mjs',
+    'workstation/WorkstationTabReorderNoFlashNL.spec.mjs'
 ]);
 
 /**
