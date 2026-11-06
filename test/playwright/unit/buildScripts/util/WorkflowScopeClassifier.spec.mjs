@@ -870,24 +870,40 @@ test.describe('Tests scope classifier — the Brain-gated tier runs only what a 
         expect((await classify({ files: ['src/grid/Body.mjs'], liveHead: 'moved-on-sha' })).e2e_brain_tier).toBe('none');
     });
 
-    test('a none tier starts no Brain runner, and no separate job resolves the Brain tip', () => {
+    test('a none tier starts neither Brain runner, and only the shared classifier resolves the Brain tip', () => {
         // The check is not required, so a job-level `if` costs nothing: a ruled-out tier boots no
         // shard. The Brain's `dev` tip comes from the classifier, which runs anyway, instead of a
         // job that booted a runner for a three-second `git ls-remote`.
         const workflow = readWorkflow('test-e2e-brain.yml'),
+              runners  = ['e2e-brain-archive', 'e2e-brain'],
               job      = workflow.jobs['e2e-brain'],
               uses     = job.steps.map(step => JSON.stringify(step));
 
-        expect(Object.keys(workflow.jobs)).toEqual(['changes', 'e2e-brain']);
+        expect(Object.keys(workflow.jobs)).toEqual(['changes', ...runners]);
+        expect(workflow.jobs.changes.uses).toBe('./.github/workflows/classify-test-scope.yml');
         expect(workflow.jobs.changes.with).toEqual({resolve_brain_tip: true});
-        expect(job.needs).toBe('changes');
-        expect(String(job.if)).toBe("${{ needs.changes.outputs.e2e_brain_tier != 'none' }}");
-        // Nothing inside the job re-tests the tier, and the matrix has no `none` branch left
-        expect(uses.filter(step => step.includes('e2e_brain_tier'))).toEqual([]);
+        expect(Object.entries(workflow.jobs).filter(([, entry]) => entry.with?.resolve_brain_tip)
+            .map(([name]) => name)).toEqual(['changes']);
+
+        for (const name of runners) {
+            const runner   = workflow.jobs[name],
+                  steps    = runner.steps.map(step => JSON.stringify(step)),
+                  checkout = runner.steps.filter(step => step.with?.repository === 'neomjs/neo-agent-brain');
+
+            expect(runner.needs, name).toBe('changes');
+            expect(String(runner.if), name).toBe("${{ needs.changes.outputs.e2e_brain_tier != 'none' }}");
+            expect(steps.filter(step => step.includes('e2e_brain_tier')), name).toEqual([]);
+            expect(steps.some(step => step.includes('needs.brain') || step.includes('git ls-remote')), name).toBe(false);
+            expect(checkout, name).toHaveLength(1);
+            expect(checkout[0].with.ref, name).toBe('${{ needs.changes.outputs.brain_sha }}');
+        }
+
+        // The archive runner and every ordinary shard consume the same resolved tip.
+        expect(workflow.jobs['e2e-brain-archive'].env.BRAIN_SHA).toBe('${{ needs.changes.outputs.brain_sha }}');
+        // Nothing inside either job re-tests the tier, and the matrix has no `none` branch left
         expect(String(job.strategy.matrix.shard)).not.toContain("'none'");
         // Every shard and the receipt read the one tip the classifier resolved
         expect(uses.filter(step => step.includes('needs.changes.outputs.brain_sha'))).toHaveLength(2);
-        expect(uses.some(step => step.includes('needs.brain'))).toBe(false);
     });
 
     test('the classifier resolves the Brain tip only for a caller that asks and a tier that runs', () => {

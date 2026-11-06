@@ -49,12 +49,12 @@ jobs:
     env:
       ARCHIVE_PROJECT: neo-archive-${{ github.run_id }}-${{ github.run_attempt }}
       ARCHIVE_COMPOSE: ${{ github.workspace }}/brain/deploy/cloud/docker-compose.test.yml
-      ARCHIVE_OVERRIDE: ${{ runner.temp }}/archive-loopback.compose.yml
+      ARCHIVE_OVERRIDE: ${{ github.workspace }}/archive-loopback.compose.yml
       BRAIN_SHA: ${{ needs.changes.outputs.brain_sha }}
       NEO_AGENTOS_RUNTIME_ROOT: ${{ github.workspace }}/brain
       NEO_E2E_ARCHIVE_URL: http://127.0.0.1:13002/mcp
       NEO_E2E_ARCHIVE_TOKEN: valid-test-token
-      NEO_NL_LOG_PATH: ${{ runner.temp }}/archive-neural-link-logs
+      NEO_NL_LOG_PATH: ${{ github.workspace }}/archive-neural-link-logs
       NEO_TEST_SKIP_CI: 'true'
     defaults:
       run:
