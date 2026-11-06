@@ -3,6 +3,7 @@
     "basePath": "../../",
     "environment": "development",
     "mainPath": "./Main.mjs",
+    "useSharedWorkers": true,
     "themes": [
         "neo-theme-dark"
     ]
