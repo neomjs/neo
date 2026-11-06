@@ -1531,6 +1531,171 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
         expect(result.errors).toEqual(['stop after projection readiness gate'])
     });
 
+    for (const own of [true, false]) {
+        test(`a source probe restores an ${own ? 'own' : 'inherited'} handler without changing its ownership`, () => {
+            const calls       = [],
+                  draggedItem = {},
+                  receipt     = {},
+                  original    = function(item) {
+                      calls.push({item, scope: this});
+                      return receipt
+                  },
+                  sourceZone = Object.create({onRemoteDropOut: original});
+
+            if (own) sourceZone.onRemoteDropOut = original;
+            workspace.crossWindowStats = {remoteDropOutFires: 0};
+
+            const probe = workspace.installCrossWindowSourceProbe(sourceZone);
+
+            expect(sourceZone.onRemoteDropOut(draggedItem)).toBe(receipt);
+            expect(calls).toEqual([{item: draggedItem, scope: sourceZone}]);
+            expect(workspace.crossWindowStats.remoteDropOutFires).toBe(1);
+
+            workspace.restoreCrossWindowSourceProbe(probe);
+            workspace.restoreCrossWindowSourceProbe(probe);
+
+            expect(sourceZone.onRemoteDropOut).toBe(original);
+            expect(Object.hasOwn(sourceZone, 'onRemoteDropOut')).toBe(own)
+        })
+    }
+
+    test('source-probe cleanup preserves a handler installed after the probe', () => {
+        const original    = () => 'original',
+              replacement = () => 'replacement',
+              sourceZone  = Object.create({onRemoteDropOut: original});
+
+        workspace.crossWindowStats = {remoteDropOutFires: 0};
+        const probe = workspace.installCrossWindowSourceProbe(sourceZone);
+
+        sourceZone.onRemoteDropOut = replacement;
+        workspace.restoreCrossWindowSourceProbe(probe);
+
+        expect(sourceZone.onRemoteDropOut).toBe(replacement);
+        expect(Object.hasOwn(sourceZone, 'onRemoteDropOut')).toBe(true);
+        expect(sourceZone.onRemoteDropOut()).toBe('replacement');
+        expect(workspace.crossWindowStats.remoteDropOutFires).toBe(0)
+    });
+
+    test('each source probe binds the host stats for its own gesture', () => {
+        const firstStats = {remoteDropOutFires: 0},
+              nextStats  = {remoteDropOutFires: 7},
+              sourceZone = {onRemoteDropOut: () => 'forwarded'};
+
+        workspace.crossWindowStats = firstStats;
+        const firstProbe = workspace.installCrossWindowSourceProbe(sourceZone);
+
+        expect(sourceZone.onRemoteDropOut()).toBe('forwarded');
+        workspace.restoreCrossWindowSourceProbe(firstProbe);
+
+        workspace.crossWindowStats = nextStats;
+        const nextProbe = workspace.installCrossWindowSourceProbe(sourceZone);
+
+        expect(sourceZone.onRemoteDropOut()).toBe('forwarded');
+        expect(nextStats.remoteDropOutFires).toBe(8);
+        expect(firstStats.remoteDropOutFires).toBe(1);
+
+        workspace.restoreCrossWindowSourceProbe(nextProbe)
+    });
+
+    test('cancelling a cross-window gesture waits for Escape before releasing the mouse', async () => {
+        const events     = [],
+              sourceZone = {owner: {cls: []}},
+              context    = {
+                  sourceButtonId: 'cancel-source', sourceWindowId: workspace.windowId,
+                  sourceX       : 15, sourceY: 25, sourceScreenX: 115, sourceScreenY: 125, sourceZone
+              };
+        let releaseEscape;
+
+        workspace.interactionService.dispatch = event => {
+            events.push(event);
+            return event.type === 'keydown'
+                ? new Promise(resolve => releaseEscape = resolve)
+                : Promise.resolve(true)
+        };
+
+        const running = workspace.cancelCrossWindowGesture(context);
+
+        await Promise.resolve();
+        expect(events.map(event => event.type)).toEqual(['keydown']);
+        expect(events[0]).toMatchObject({
+            id     : context.sourceButtonId, windowId: context.sourceWindowId,
+            options: {code: 'Escape', key: 'Escape'}
+        });
+
+        releaseEscape(true);
+
+        expect(await running).toEqual({escapeDispatched: true, releaseDispatched: true, settled: true});
+        expect(events.map(event => event.type)).toEqual(['keydown', 'mouseup']);
+        expect(events[1]).toMatchObject({
+            id     : context.sourceButtonId, windowId: context.sourceWindowId,
+            options: {button: 0, buttons: 0, clientX: 15, clientY: 25, screenX: 115, screenY: 125}
+        })
+    });
+
+    test('destroying the host during executor dispatch still restores its installed source probe', async () => {
+        const sourceWorkspaceId = DemoBWorkspace.MAIN_WORKSPACE_ID,
+              targetWorkspaceId = DemoBWorkspace.POPUP_WORKSPACE_ID,
+              original          = () => 'original',
+              sourceZone        = {
+                  dockItemIds    : ['workbench'], dockWorkspaceId: sourceWorkspaceId,
+                  dragCoordinator: {onDragCancel() {}}, onRemoteDropOut: original
+              },
+              sourceButton = {
+                  id        : 'probe-source', windowId: workspace.windowId,
+                  getDomRect: async () => [{x: 10, y: 10, width: 100, height: 20}]
+              },
+              sourceBar  = {sortZone: sourceZone, getTabButtons: () => [sourceButton]},
+              sourceTabs = {
+                  dockNodeId   : 'workbench-tabs',
+                  getTabAtIndex: () => sourceButton, getTabBar: () => sourceBar
+              },
+              manager     = Neo.manager.Window,
+              previousGet = manager.get,
+              targetId    = 'probe-target-window';
+        let enteredDispatch, rejectDispatch;
+        const dispatchEntered = new Promise(resolve => enteredDispatch = resolve);
+
+        workspace.resolvePane('workbench', initialDocument.items.workbench);
+        workspace.openCrossWindowStage = async () => {};
+        workspace.waitForWorkspaceGeometry = async () => {};
+        workspace.positionCrossWindowStage = async () => ({ready: true});
+        workspace.crossWindowHosts.set(sourceWorkspaceId, {down: () => sourceTabs});
+        workspace.crossWindowGeometry.set(targetWorkspaceId, {
+            zones: [{nodeId: 'popup-tabs', rect: {x: 20, y: 20, width: 200, height: 100}}]
+        });
+        workspace.crossWindowTargetWindowId = targetId;
+        workspace.interactionService.simulateEvent = () => {
+            enteredDispatch();
+            return new Promise((resolve, reject) => rejectDispatch = reject)
+        };
+        manager.get = windowId => [sourceButton.windowId, targetId].includes(windowId)
+            ? {innerRect: {x: 0, y: 0, width: 500, height: 300}}
+            : previousGet.call(manager, windowId);
+
+        try {
+            const running = workspace.executeCrossWindowStep({
+                itemId: 'workbench', sourceWorkspaceId, targetWorkspaceId, targetNodeId: 'popup-tabs'
+            });
+
+            await Promise.race([dispatchEntered, running.then(result => {
+                throw new Error(`executor settled before source-probe dispatch: ${JSON.stringify(result)}`)
+            })]);
+            expect(sourceZone.onRemoteDropOut).not.toBe(original);
+
+            workspace.destroy();
+            expect(workspace.isDestroyed).toBe(true);
+            rejectDispatch(new Error('dispatch interrupted after host destruction'));
+
+            await expect(running).resolves.toMatchObject({
+                applied: false, errors: ['dispatch interrupted after host destruction']
+            });
+            expect(sourceZone.onRemoteDropOut).toBe(original);
+            expect(Object.hasOwn(sourceZone, 'onRemoteDropOut')).toBe(true)
+        } finally {
+            manager.get = previousGet
+        }
+    });
+
     test('topology round-trip transfers ownership, reports the missing popup slot, never spawns on restore, and preserves the pane instance', async () => {
         const vessel = installWindowVessel();
 
