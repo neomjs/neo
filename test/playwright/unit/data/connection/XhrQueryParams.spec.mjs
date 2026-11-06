@@ -61,9 +61,14 @@ test.describe('Xhr params join the URL they are given', () => {
             .toBe('https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes&page=1&pageSize=0')
     });
 
-    test('a query that ends in ? or & gets no second separator', () => {
+    test('an empty query or one that ends in & gets no second separator', () => {
         expect(open('https://example.test/data?', {page: 1})).toBe('https://example.test/data?page=1');
         expect(open('https://example.test/data?fn=x&', {page: 1})).toBe('https://example.test/data?fn=x&page=1')
+    });
+
+    test('a ? inside a query value stays part of that value, and the params still join with &', () => {
+        expect(open('https://example.test/data?q=why?', {page: 1})).toBe('https://example.test/data?q=why?&page=1');
+        expect(open('https://example.test/data?q=why?#top', {page: 1})).toBe('https://example.test/data?q=why?&page=1#top')
     });
 
     test('params go before a fragment, with and without an existing query', () => {
