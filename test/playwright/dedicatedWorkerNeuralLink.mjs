@@ -1,6 +1,7 @@
-import {expect} from '@playwright/test';
-import crypto   from 'node:crypto';
-import process  from 'node:process';
+import {expect}                    from '@playwright/test';
+import crypto                      from 'node:crypto';
+import process                     from 'node:process';
+import {attachPageSharedAppWorker} from './sharedWorkerAppWorker.mjs';
 
 const WORKER_ID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
@@ -591,6 +592,11 @@ export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorke
  * mints a fresh `{agentId, sessionId}` writer pair for the test, and releases/sweeps that pair via
  * `Neo.ai.Client#handleAgentDisconnected` in `finally` even when the test throws.
  *
+ * A page whose app runs its App Worker as a SharedWorker has no dedicated worker to capture: the page's own
+ * SharedWorker, bound through `attachPageSharedAppWorker`, takes the same role under the same pair, and its
+ * CDP session closes after the pair is released. A dedicated App Worker always wins, so a dedicated app's
+ * run is unchanged.
+ *
  * @param {Object}   fixtures
  * @param {Object}   fixtures.browser
  * @param {Object}   fixtures.context
@@ -603,8 +609,13 @@ export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorke
 export async function runDedicatedWorkerNeuralLink({browser, context, page}, use, {assertUnnavigated} = {}) {
     const logs        = [],
           writerPair  = mintTestWriterPair(),
-          seenWorkers = new Set();
-    let appWorker = page.workers?.()?.find?.(isDedicatedAppWorker) || null;
+          seenWorkers = new Set(),
+          pushLog     = entry => {
+              logs.push(entry);
+              logs.length > 1000 && logs.shift()
+          };
+    let appWorker       = page.workers?.()?.find?.(isDedicatedAppWorker) || null,
+        sharedAppWorker = null;
 
     if (appWorker) {
         seenWorkers.add(appWorker)
@@ -621,15 +632,11 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
         const worker = message.worker?.();
 
         if (worker && isDedicatedAppWorker(worker)) {
-            logs.push({
+            pushLog({
                 message  : message.text?.() || '',
                 timestamp: Date.now(),
                 type     : message.type?.() || 'log'
-            });
-
-            if (logs.length > 1000) {
-                logs.shift()
-            }
+            })
         }
     });
 
@@ -673,7 +680,9 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
                 workerId       = null;
 
             await expect.poll(async () => {
-                const candidate = appWorker || page.workers().find(isDedicatedAppWorker) || null;
+                // A dedicated App Worker wins; only a page without one looks for its own SharedWorker
+                const candidate = appWorker || page.workers().find(isDedicatedAppWorker) ||
+                    (sharedAppWorker ??= await attachPageSharedAppWorker({browser, onConsole: pushLog, page}).catch(() => null));
 
                 if (!candidate) {
                     return false
@@ -723,8 +732,8 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
 
             if (!capturedWorker || !workerId) {
                 throw new Error(
-                    `neuralLink.connectToApp('${target}'): the page's dedicated App Worker did not initialize ` +
-                    `Neo.ai.Client within ${identityTimeout} ms.`
+                    `neuralLink.connectToApp('${target}'): the page's App Worker (dedicated, or its own SharedWorker) ` +
+                    `did not initialize Neo.ai.Client within ${identityTimeout} ms.`
                 )
             }
 
@@ -743,5 +752,8 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
         for (const worker of seenWorkers) {
             await disconnectTestWriter(worker, writerPair)
         }
+
+        // The pair is released through the session, so the session closes last
+        await sharedAppWorker?.close()
     }
 }
