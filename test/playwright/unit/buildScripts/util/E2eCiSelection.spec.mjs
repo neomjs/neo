@@ -658,7 +658,7 @@ test.describe('e2e CI selection — the selection on this tree', () => {
                   39582656813: 'DockTabOverflowNL, no cause on record; the change is portal data',
                   40202145032: 'HeaderMenuInteractionNL, no cause on record; the change is the calendar week view',
                   41666963270: 'IssuesShowcase, a read that raced the lazily loaded menu triggers; the change is Carousel',
-                  // Placed by the map since #20404 moved the spec to the engine tier; its reach has no src/functional module
+                  // The map places this engine-tier spec, and its reach has no src/functional module
                   42042806935: 'DockCrossWindowWitnessNL, a harness red (target worker cw-win-a missing); the change is useMemo',
                   42058376779: 'DockCrossWindowWitnessNL, the same harness red on a rerun of that change'
               },
