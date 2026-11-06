@@ -19,7 +19,8 @@ class Fetch extends Base {
     }
 
     /**
-     * @member {Object} defaultHeaders=null
+     * Default request headers; per-request values override matching names case-insensitively.
+     * @member {HeadersInit|null} defaultHeaders=null
      */
     defaultHeaders = null
 
@@ -101,13 +102,16 @@ class Fetch extends Base {
      * @summary Dispatches a request through the connection's scoped URL resolver.
      * The response hands the request config back as `response.request`. In both URL forms its `url`
      * is the caller's original string; the resolved or redirected address is `response.url`.
+     * Header inputs are normalized without modifying the supplied config or connection defaults.
+     * Across workers, supply headers as serializable records or tuple lists.
      * @param {Object|String} url
      * @param {Object} config={}
+     * @param {HeadersInit} [config.headers] Request headers, merged over connection defaults.
      * @param {String} method
      * @param {Object} [data]
      * @returns {Promise<any>}
      */
-    request(url, config={}, method, data) {
+    async request(url, config={}, method, data) {
         if (!Neo.isString(url)) {
             config = url;
             url    = config.url
@@ -115,8 +119,12 @@ class Fetch extends Base {
             config.url = url
         }
 
+        const headers = new Headers(this.defaultHeaders ?? undefined);
+        new Headers(config.headers ?? undefined).forEach((value, name) => headers.set(name, value));
+
         return fetch(this.resolveUrl(url), {
             body  : data,
+            headers,
             method: method || config.method
         }).then(resp => {
             let response = {
