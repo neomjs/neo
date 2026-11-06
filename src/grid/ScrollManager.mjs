@@ -196,7 +196,7 @@ class ScrollManager extends Base {
             isView    = target.id === container.view?.id;
 
         if (isView) {
-            me.scrollTop = target.scrollTop ?? scrollTop;
+            me.scrollTop = container.view.reconcileScrollTop(target.scrollTop ?? scrollTop, target.data?.scrollEpoch);
 
             let startedScrolling = !container.body.isScrolling;
 
