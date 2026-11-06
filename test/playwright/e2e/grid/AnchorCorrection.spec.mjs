@@ -35,13 +35,33 @@ function defineGridState(grid) {
 
     const ids = rows => rows.map(row => row.id).join(',');
 
+    // Temporary drain-timing probe, reverted before the PR: tags every main-thread drain as rAF-framed or a timer task
+    let   inFrame = false;
+    const rawRaf  = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = cb => rawRaf(t => {inFrame = true; try {cb(t)} finally {inFrame = false}});
+    const drains = [], reads = [];
+    window.probeDrains = () => ({drains, reads});
+    const wrapDrain = () => {
+        const main = globalThis.Neo?.Main;
+        if (!main || main.__probe) return;
+        main.__probe = true;
+        const render = main.renderFrame;
+        main.renderFrame = function(...args) {
+            const result = render.apply(this, args), state = window.gridState(), r = state.rows;
+            drains.push({framed: inFrame, t: Math.round(document.timeline.currentTime), now: Math.round(performance.now()), scrollTop: state.scrollTop, window: r.length ? `${r[0].id}-${r[r.length - 1].id}` : ''});
+            return result
+        }
+    };
+
     window.trackRow = (id, edge = 'top') => {
+        wrapDrain();
         const tops   = [],
               misses = [],
-              read   = () => {
+              read   = t => {
                   const state = window.gridState(),
                         row   = state.rows.find(row => row.id === id);
 
+                  reads.push({t: Math.round(t ?? document.timeline.currentTime), now: Math.round(performance.now()), hit: !!row});
                   tops.push(!row ? null : edge === 'top' ? row.screen : row.screen + row.height);
 
                   if (!row) {
@@ -237,9 +257,16 @@ test.describe('Grid content-sized height corrections', () => {
                 await settle(page);
 
                 const tops   = await page.evaluate(() => window.stopTracking()),
-                      misses = await page.evaluate(() => window.trackingMisses());
+                      misses = await page.evaluate(() => window.trackingMisses()),
+                      // Temporary probe: drains and reads around the first miss
+                      probe  = misses.length ? await page.evaluate(() => window.probeDrains()) : null,
+                      around = probe && (() => {
+                          const at = probe.reads.findIndex(read => !read.hit),
+                                lo = probe.reads[Math.max(0, at - 2)].now, hi = probe.reads[Math.min(probe.reads.length - 1, at + 2)].now;
+                          return {reads: probe.reads.slice(Math.max(0, at - 2), at + 3), drains: probe.drains.filter(d => d.now >= lo - 50 && d.now <= hi + 50)}
+                      })();
 
-                expect([...new Set(tops)], `row ${anchor.id} in every frame; frames without it: ${JSON.stringify(misses)}`)
+                expect([...new Set(tops)], `row ${anchor.id} in every frame; frames without it: ${JSON.stringify(misses)}; PROBE ${JSON.stringify(around)}`)
                     .toEqual([anchor.screen])
             })
         }
