@@ -162,7 +162,8 @@ class GridRowScrollPinning extends Base {
      * survives. {@link #onDeltaUpdated} applies it once the deltas resized the bodies: a grown extent admits it, and
      * the clamp of a shrunk extent does not count twice. Each correction raises `scrollEpoch`, and an
      * acknowledgement with an older epoch describes the geometry before it: adopting its `scrollTop` would displace
-     * the rows a second time, so it is ignored.
+     * the rows a second time, so it is ignored. The view node carries the last epoch as `data-scroll-epoch`, so a
+     * scroll event tells the worker which corrections its offset includes ({@link Neo.grid.View#reconcileScrollTop}).
      *
      * @param {Object} data The DeltaUpdates event payload
      * @param {Object[]} data.deltas
@@ -186,7 +187,12 @@ class GridRowScrollPinning extends Base {
                     return
                 }
 
-                state.scrollEpoch = viewMeta.scrollEpoch ?? state.scrollEpoch;
+                if (viewMeta.scrollEpoch > state.scrollEpoch) {
+                    state.scrollEpoch = viewMeta.scrollEpoch;
+                    // A scroll event carries its node's dataset: the worker reads off it which corrections the
+                    // reported offset includes
+                    state.wrapperNode.dataset.scrollEpoch = state.scrollEpoch
+                }
 
                 // We sync against the true scroll target the VDOM was generated for
                 state.workerScrollTop = viewMeta.scrollTop;
