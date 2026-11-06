@@ -1,4 +1,4 @@
-import Component from './Base.mjs';
+import Component from '../../../component/Base.mjs';
 
 /**
  * @summary Displays a list of GitHub Organization avatars with links.
@@ -9,16 +9,16 @@ import Component from './Base.mjs';
  *    This ensures the component's dimensions remain constant (reserving space), which is critical for preventing
  *    layout thrashing in high-frequency update scenarios like Grids.
  *
- * @class Neo.component.GitHubOrgs
+ * @class Neo.grid.column.component.GitHubOrgs
  * @extends Neo.component.Base
  */
 class GitHubOrgs extends Component {
     static config = {
         /**
-         * @member {String} className='Neo.component.GitHubOrgs'
+         * @member {String} className='Neo.grid.column.component.GitHubOrgs'
          * @protected
          */
-        className: 'Neo.component.GitHubOrgs',
+        className: 'Neo.grid.column.component.GitHubOrgs',
         /**
          * Size in px for the avatar image request.
          * Recommended to use 2x the display size for high DPI screens.

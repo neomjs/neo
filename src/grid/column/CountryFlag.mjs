@@ -1,5 +1,5 @@
 import ComponentColumn      from './Component.mjs';
-import CountryFlagComponent from '../../component/CountryFlag.mjs';
+import CountryFlagComponent from './component/CountryFlag.mjs';
 
 /**
  * @class Neo.grid.column.CountryFlag

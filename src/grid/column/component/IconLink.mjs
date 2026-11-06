@@ -1,17 +1,19 @@
-import Component from './Base.mjs';
-import NeoArray  from '../util/Array.mjs';
+import Component from '../../../component/Base.mjs';
+import NeoArray  from '../../../util/Array.mjs';
 
 /**
- * @class Neo.component.IconLink
+ * @summary A grid cell's link: an anchor with an icon and an optional label, rendered for `Neo.grid.column.IconLink`
+ * and `Neo.grid.column.LinkedIn`.
+ * @class Neo.grid.column.component.IconLink
  * @extends Neo.component.Base
  */
 class IconLink extends Component {
     static config = {
         /**
-         * @member {String} className='Neo.component.IconLink'
+         * @member {String} className='Neo.grid.column.component.IconLink'
          * @protected
          */
-        className: 'Neo.component.IconLink',
+        className: 'Neo.grid.column.component.IconLink',
         /**
          * @member {String} ntype='icon-link'
          * @protected

@@ -1,5 +1,5 @@
 import ComponentColumn     from './Component.mjs';
-import GitHubUserComponent from '../../component/GitHubUser.mjs';
+import GitHubUserComponent from './component/GitHubUser.mjs';
 
 /**
  * @class Neo.grid.column.GitHubUser
