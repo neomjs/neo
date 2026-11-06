@@ -61,6 +61,9 @@ class GroupRow extends Component {
      * A part clips a track as wide as its region's columns, which holds the cells: the centre part scrolls that track
      * with the grid. A cell's `aria-colindex` is its first column's grid-wide index, and its `aria-colspan` its column
      * count.
+     *
+     * A rebuilt part carries the `scrollLeft` that `onScrollCapture` recorded on its predecessor, so the update cannot
+     * diff the scrolled centre part back to the origin.
      */
     project() {
         let me                       = this,
@@ -71,8 +74,11 @@ class GroupRow extends Component {
             return
         }
 
+        let scrolled = new Map(me.vdom.cn.map(part => [part.id, part.scrollLeft]));
+
         me.vdom.cn = headerWrapper.getToolbars().map(toolbar => {
             let region    = toolbar.layoutLock || 'center',
+                id        = gridContainer.getGroupHeaderPartId(region),
                 columns   = region === 'start' ? lockedStartColumns : region === 'end' ? lockedEndColumns : centerColumns,
                 positions = toolbar.body?.columnPositions,
                 offset    = toolbar.ariaColumnOffset,
@@ -94,10 +100,11 @@ class GroupRow extends Component {
             });
 
             return {
-                id  : gridContainer.getGroupHeaderPartId(region),
-                cls : ['neo-grid-header-group-part', `neo-grid-header-group-part-${region}`],
-                role: 'none',
-                cn  : [{
+                id,
+                cls       : ['neo-grid-header-group-part', `neo-grid-header-group-part-${region}`],
+                role      : 'none',
+                scrollLeft: scrolled.get(id),
+                cn        : [{
                     cls  : ['neo-grid-header-group-track'],
                     role : 'none',
                     style: {width: `${toolbar.body?.availableWidth || 0}px`},
