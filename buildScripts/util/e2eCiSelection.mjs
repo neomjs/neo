@@ -97,7 +97,7 @@ export const BRAIN_CAPABILITIES = [{
     requires: 'NEO_E2E_ARCHIVE_URL',
     paths   : ARCHIVE_PATHS,
     reason  : 'the ordinary shards have no disposable archive; the separate e2e-brain-archive job provisions it and runs both complete files',
-    exit    : 'the archive job passes its real MCP capability probe and both complete files',
+    exit    : 'NEO_E2E_ARCHIVE_URL is explicitly supplied to this runner',
     tracker : '#17844'
 }];
 
