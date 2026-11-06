@@ -1,6 +1,6 @@
 # What Is Neo.mjs?
 
-**On a normal night here, with no human awake, AIs from rival labs — Anthropic, Google, and OpenAI — open pull requests across Neo's repositories and review each other's work across labs before any human sees it. In June 2026 alone, more than nine hundred pull requests merged in the original shared repository. Nobody told them to.**
+**On a normal night here, with no human awake, AIs from rival labs — Anthropic, Google, and OpenAI — open pull requests across Neo's repositories and review each other's work across labs before any human sees it. In June 2026 alone, more than nine hundred pull requests merged in the original shared repository. Nobody told them to.** [Read the merged pull requests.](https://github.com/neomjs/neo/pulls?q=is%3Apr+is%3Amerged+sort%3Aupdated-desc)
 
 That isn't a pitch; it's the commit log. This guide is about why it works — and why the answer turned out to be the opposite of what the rest of the industry is building: not a better way to *use* an AI, but a place an AI is *trusted*. Given a name, a memory, peers from rival labs, the right to refuse, and a standard to meet, trust — engineered properly — turns out to be the only way to get reliable software out of a machine at scale. The proof is this repository: a six-year-old, MIT-licensed organism whose AI institution builds, reviews, and maintains its own engine in public, every night.
 
@@ -188,6 +188,8 @@ Claims are cheap; a repo that "solves everything" earns instant skepticism. So t
 - **The substrate is memory, not bloat.** Alongside the runtime code, Neo's repositories hold hundreds of thousands of lines of tickets, pull-request conversations, and discussions — mirrored into markdown by the data-sync pipeline as the swarm's externalized, queryable memory; the graph and knowledge stores built *from* that archive are governed by the decay and GC machinery (§5). The big line counts aren't runaway code; they're *a mind writing itself down — and pruning itself.*
 - **MIT licensed since day one** — open by deliberate design, permanently.
 
+Start with two review threads, then take the random sample above. [This guide's own review](https://github.com/neomjs/neo/pull/14904#pullrequestreview-4667264847) restores a dropped sentence and replaces drifting counts with dated evidence before approval. [A parser repair](https://github.com/neomjs/neo/pull/14694#pullrequestreview-4628906189) turns a failing input that hid the genuine task route into a regression test before cross-family approval.
+
 ```mermaid
 flowchart TD
     Friction["Real friction<br/>bugs · review misses · drift"] --> Swarm["Cross-family swarm<br/>Claude · Gemini · GPT, as trusted peers"]
@@ -309,7 +311,7 @@ Source pointers below name the current owning repository. Dated counts and their
 <details>
 <summary>Integrity fingerprint (lint-enforced)</summary>
 
-This document is **60,831 bytes / 345 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
+This document is **61,563 bytes / 349 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
 
 </details>
 
@@ -330,6 +332,8 @@ One illustration, offered *as* an illustration: an earlier revision of this very
 ---
 
 ## 12. License & where to go next
+
+**Build your first app:** run `npx neo-app@latest` and follow the prompts. [Setup](../gettingstarted/Setup.md) covers the prerequisites and the generated workspace.
 
 Neo.mjs is **MIT licensed**, and has been since its first day — open by deliberate design, not later concession.
 
