@@ -122,8 +122,6 @@ test.describe('grid.header.Toolbar#body — region-aware body routing', () => {
 });
 
 test.describe('grid column resize — header/cell width sync', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, store;
 
     test.beforeEach(async () => {

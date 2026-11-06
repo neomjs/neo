@@ -56,12 +56,8 @@ const createBody = config => Neo.create(GridBody, {
 });
 
 test.describe('Neo.grid.Body — one grid cannot resize another grid\'s window (#18198)', () => {
-    // Deliberately NO `test.skip(!!process.env.NEO_TEST_SKIP_CI, …)` guard, which several specs in
-    // this directory carry. The `unit` CI job sets that variable, so a guarded regression arm is
-    // green in CI by not running — indistinguishable from green by passing, and useless as the
-    // thing that stops this defect coming back. Nothing here needs more than the engine the
-    // unguarded specs in this directory already use: two `Neo.grid.Body` instances and a store,
-    // no mount, no render, no DOM.
+    // This Node unit regression uses two `Neo.grid.Body` instances and a store;
+    // it needs no mount, render, or DOM.
 
     let feed, scale;
 
