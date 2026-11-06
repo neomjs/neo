@@ -163,9 +163,17 @@ export const BRAIN_SMOKE = [
  * @member {Object} BRAIN_TIERS
  */
 export const BRAIN_TIERS = {
-    full : 'every Brain-gated file, because the change reaches the E2E impact boundary or this is a `dev` push',
-    smoke: `the ${BRAIN_SMOKE.length} smoke files, because the change is outside the E2E impact boundary; a green smoke is not full-tier evidence`
+    full    : 'every Brain-gated file, because the change reaches the E2E impact boundary or this is a `dev` push',
+    selected: 'the Brain-gated files a pull request\'s change can reach, plus the smoke files; a green selection is evidence for those files only, and the `dev` push runs the full tier',
+    smoke   : `the ${BRAIN_SMOKE.length} smoke files, because the change is outside the E2E impact boundary; a green smoke is not full-tier evidence`
 };
+
+/**
+ * The shard count each tier's full population runs on. A selection gets proportionally fewer shards, so each shard
+ * keeps the test time a full run gives it: a smaller selection costs fewer jobs, not shorter ones.
+ * @member {{brain: Number, engine: Number}} FULL_SHARDS
+ */
+export const FULL_SHARDS = {brain: 10, engine: 4};
 
 /**
  * Measured seconds per Brain-gated spec file, which {@link brainShard} balances the tier's shards by. Every receipt
@@ -187,6 +195,24 @@ function walk(dir) {
 }
 
 /**
+ * @summary The spec files the engine tier executes, relative to the repository root.
+ * @description Resolved through the SAME ignore set Playwright applies, because a directory in RUN_PATHS names
+ * Brain-dependent specs the config will deselect. Counting what the paths name rather than what the run selects
+ * reported 52 against an expected 14 — two different notions of "selected", which is the defect this file exists to
+ * remove.
+ * @param {String} [root=process.cwd()]
+ * @returns {String[]}
+ */
+export function enginePaths(root = process.cwd()) {
+    const {ignore} = selectExternalBrainSpecs(join(root, 'test/playwright/e2e'));
+
+    return RUN_PATHS.flatMap(path => path.endsWith('.spec.mjs') ? [join(root, path)] : walk(join(root, path)))
+        .filter(file => !ignore.some(pattern => pattern.test(file)))
+        .map(file => relative(root, file))
+        .sort()
+}
+
+/**
  * @summary Counts every population the reader needs to tell a partial green from a whole one.
  * @param {String} [root=process.cwd()]
  * @returns {{brainFree: Number, executed: Number, gpu: Number, ignored: Number, total: Number}}
@@ -197,16 +223,9 @@ export function populations(root = process.cwd()) {
           isIgnored       = file => ignore.some(pattern => pattern.test(file)),
           // Only the Brain-FREE workstation specs; the rest are already deselected, and counting
           // them again reports a negative coverage.
-          gpu             = walk(join(e2e, 'workstation')).filter(file => !isIgnored(file)).length,
-          // Counted through the SAME ignore set Playwright applies, because a directory in
-          // RUN_PATHS names Brain-dependent specs the config will deselect. Counting what the paths
-          // name rather than what the run selects reported 52 against an expected 14 — two
-          // different notions of "selected", which is the defect this file exists to remove.
-          executed        = RUN_PATHS.flatMap(path => path.endsWith('.spec.mjs')
-              ? [join(root, path)]
-              : walk(join(root, path))).filter(file => !isIgnored(file)).length;
+          gpu             = walk(join(e2e, 'workstation')).filter(file => !isIgnored(file)).length;
 
-    return {brainFree: total - ignore.length, executed, gpu, ignored: ignore.length, total}
+    return {brainFree: total - ignore.length, executed: enginePaths(root).length, gpu, ignored: ignore.length, total}
 }
 
 /**
@@ -299,15 +318,16 @@ export function brainPaths(root = process.cwd()) {
 /**
  * @summary What this environment runs of the Brain-gated tier: the tier's files except those whose
  * capability is unset here.
- * @param {Object} [options]
- * @param {Object} [options.env=process.env]
- * @param {String} [options.root=process.cwd()]
- * @param {String} [options.tier='full'] A {@link BRAIN_TIERS} key
+ * @param {Object}   [options]
+ * @param {Object}   [options.env=process.env]
+ * @param {String}   [options.root=process.cwd()]
+ * @param {String[]} [options.selected=[]] The pull request's selection, which the `selected` tier runs.
+ * @param {String}   [options.tier='full'] A {@link BRAIN_TIERS} key
  * @returns {{absent: Object[], gated: String[], paths: String[]}} The capability entries whose variable is
  *          unset, every Brain-gated file, and the files to run.
  * @throws {Error} For a tier that is not a {@link BRAIN_TIERS} key.
  */
-export function brainSelection({env = process.env, root = process.cwd(), tier = 'full'} = {}) {
+export function brainSelection({env = process.env, root = process.cwd(), selected = [], tier = 'full'} = {}) {
     if (!Object.hasOwn(BRAIN_TIERS, tier)) {
         throw new Error(`Unknown Brain-gated tier '${tier}'; expected ${Object.keys(BRAIN_TIERS).join(' or ')}.`)
     }
@@ -315,7 +335,11 @@ export function brainSelection({env = process.env, root = process.cwd(), tier = 
     const gated    = brainPaths(root),
           absent   = BRAIN_CAPABILITIES.filter(entry => !env[entry.requires]),
           excluded = absent.flatMap(entry => entry.paths),
-          pool     = tier === 'smoke' ? gated.filter(path => BRAIN_SMOKE.includes(path)) : gated;
+          pool     = {
+              full    : gated,
+              selected: gated.filter(path => selected.includes(path)),
+              smoke   : gated.filter(path => BRAIN_SMOKE.includes(path))
+          }[tier];
 
     return {absent, gated, paths: pool.filter(path => !excluded.includes(path))}
 }
@@ -337,6 +361,18 @@ function parseShard(shard) {
 }
 
 /**
+ * @summary Seconds per Brain-gated file, a file the table does not list yet counting as the table's median.
+ * @param {Object<String, Number>} durations
+ * @returns {Function} `path => seconds`
+ */
+function durationOf(durations) {
+    const known  = Object.values(durations).toSorted((a, b) => a - b),
+          median = known.length ? known[Math.floor(known.length / 2)] : 0;
+
+    return path => durations[path] ?? median
+}
+
+/**
  * @summary One shard of the Brain-gated selection, balanced by measured time rather than by test count.
  * @description Playwright's own `--shard` splits by count, so two of the tier's longest files could share one shard
  * and hold its step near the ceiling while another shard idled. Here each file, longest first, joins the shard with
@@ -351,9 +387,7 @@ function parseShard(shard) {
  */
 export function brainShard({paths, shard, durations = BRAIN_DURATIONS}) {
     const [index, total] = parseShard(shard),
-          known          = Object.values(durations).toSorted((a, b) => a - b),
-          median         = known.length ? known[Math.floor(known.length / 2)] : 0,
-          seconds        = path => durations[path] ?? median,
+          seconds        = durationOf(durations),
           shards         = Array.from({length: total}, () => ({paths: [], seconds: 0}));
 
     for (const path of paths.toSorted((a, b) => seconds(b) - seconds(a) || (a < b ? -1 : 1))) {
@@ -566,10 +600,13 @@ export function flakyTests(report) {
 export function brainReceipt({report, run, seconds, retries = null, env = process.env, now = new Date(), root = process.cwd()}) {
     const {brainFree}            = populations(root),
           tier                   = run.tier ?? 'full',
-          {absent, gated, paths} = brainSelection({env, root, tier}),
-          // No declaration touches a smoke file (assertBrainDeclarations), so a smoke receipt has none to explain
-          capabilities           = tier === 'full' ? BRAIN_CAPABILITIES : [],
-          quarantines            = tier === 'full' ? BRAIN_QUARANTINES : [],
+          selected               = run.selected ?? [],
+          {absent, gated, paths} = brainSelection({env, root, selected, tier}),
+          // A selection explains the declarations touching its own files. No declaration touches a smoke file
+          // (assertBrainDeclarations), so a smoke receipt has none to explain
+          inTier                 = path => tier === 'full' || (tier === 'selected' && selected.includes(path)),
+          capabilities           = BRAIN_CAPABILITIES.filter(entry => entry.paths.some(inTier)),
+          quarantines            = BRAIN_QUARANTINES.filter(entry => inTier(entry.path)),
           ceiling                = 300,
           predicted              = brainShard({paths, shard: run.shard}).seconds,
           days                   = since => Math.floor((now - new Date(since)) / 86400000),
@@ -651,11 +688,12 @@ export function selectSpecs({changed, root = process.cwd(), map = specReach({roo
 
         if (FOUNDATION.some(rule => rule.test(file))) {
             reasons.push(`${file}: foundation`)
-        } else if (!existsSync(join(root, file))) {
+        } else if (!map.tracked.has(file)) {
             reasons.push(`${file}: not in the tree`)
         } else if (isSpec(file)) {
             select(file, 'changed spec')
-        } else if (file.endsWith('.mjs') && RUNTIME_LOADING.test(readFileSync(join(root, file), 'utf8'))) {
+        } else if (file.endsWith('.mjs') && existsSync(join(root, file)) && RUNTIME_LOADING.test(readFileSync(join(root, file), 'utf8'))) {
+            // A file a sparse checkout left out is no module the map follows either, so it falls through to `unmapped`
             reasons.push(`${file}: loads modules at runtime`)
         } else if (reached.length) {
             reached.forEach(spec => select(spec, `reaches ${file}`))
@@ -679,6 +717,85 @@ export function selectSpecs({changed, root = process.cwd(), map = specReach({roo
     return {full: false, reasons, specs}
 }
 
+/**
+ * @summary Splits a selection into each tier's files, and sizes each tier's shard matrix to them.
+ * @description Each shard of a selection keeps the test time a full run gives it: the Brain-gated tier by measured
+ * seconds, the engine tier by file count, as Playwright's own `--shard` splits it.
+ * @param {Object}                      options
+ * @param {Map<String, String>|Set<String>} options.specs The selected spec files.
+ * @param {String}                      [options.root=process.cwd()]
+ * @param {Object<String, Number>}      [options.durations=BRAIN_DURATIONS]
+ * @returns {{brain: {paths: String[], shards: Number}, engine: {paths: String[], shards: Number}}} A tier none of
+ *          whose files is selected has zero shards.
+ */
+export function tierSelection({specs, root = process.cwd(), durations = BRAIN_DURATIONS}) {
+    const duration = durationOf(durations),
+          seconds  = paths => paths.reduce((sum, path) => sum + duration(path), 0),
+          // A tier with files keeps at least one shard, even when every file it runs measures zero seconds, and never
+          // more shards than files: a shard without one fails its own `test -n` guard
+          tier     = (all, full, measure) => {
+              const paths = all.filter(path => specs.has(path)),
+                    whole = measure(all),
+                    share = whole ? Math.ceil(full * measure(paths) / whole) : full;
+
+              return {paths, shards: paths.length && Math.max(1, Math.min(full, paths.length, share))}
+          };
+
+    return {
+        brain : tier(brainPaths(root),  FULL_SHARDS.brain,  seconds),
+        engine: tier(enginePaths(root), FULL_SHARDS.engine, paths => paths.length)
+    }
+}
+
+/**
+ * @summary A pull request's selection as `GITHUB_OUTPUT` lines for `classify-test-scope.yml`.
+ * @description A full selection only reports its reasons: each tier then runs the population and matrix it runs
+ * without a selection. Otherwise each tier gets its files and a matrix sized to them, and a tier with none is ruled
+ * out (`run_e2e=false`, `e2e_brain_tier=none`).
+ * @param {Object}   options
+ * @param {String[]} options.changed The changed files the E2E impact boundary admits.
+ * @param {String}   [options.root=process.cwd()]
+ * @returns {String}
+ */
+export function selectionOutput({changed, root = process.cwd()}) {
+    const {full, reasons, specs} = selectSpecs({changed, root}),
+          short                  = path => `\`${path.replace(SPEC_DIR, '')}\``,
+          lines                  = [`e2e_selection=${full ? 'full' : 'selected'}`];
+
+    let report;
+
+    if (full) {
+        report = ['### e2e selection: every spec', '', 'The change can reach code the static map cannot follow:', '',
+            ...reasons.map(reason => `- ${reason}`)]
+    } else {
+        const {brain, engine} = tierSelection({specs, root}),
+              matrix          = shards => JSON.stringify(Array.from({length: shards}, (_, index) => index + 1));
+
+        lines.push(
+            `run_e2e=${engine.paths.length > 0}`,
+            `e2e_brain_tier=${brain.paths.length ? 'selected' : 'none'}`,
+            `e2e_engine_paths=${engine.paths.join(' ')}`,
+            `e2e_engine_matrix=${matrix(engine.shards)}`,
+            `e2e_engine_shards=[${engine.shards}]`,
+            `e2e_brain_paths=${brain.paths.join(' ')}`,
+            `e2e_brain_matrix=${matrix(brain.shards)}`,
+            `e2e_brain_shards=[${brain.shards}]`
+        );
+
+        // Only a ruled-out tier prints it
+        if (!engine.paths.length || !brain.paths.length) {
+            lines.push('skip_reason=no spec in this tier can reach the change; the `dev` push runs it in full')
+        }
+
+        report = [`### e2e selection: ${specs.size} specs`, '',
+            `The engine tier runs ${engine.paths.length} on ${engine.shards} of ${FULL_SHARDS.engine} shards; the ` +
+            `Brain-gated tier runs ${brain.paths.length} on ${brain.shards} of ${FULL_SHARDS.brain}. The \`dev\` push runs both in full.`, '',
+            ...[...specs].map(([spec, why]) => `- ${short(spec)}: ${why}`)]
+    }
+
+    return [...lines, 'e2e_selection_report<<NEO_E2E_SELECTION', ...report, 'NEO_E2E_SELECTION'].join('\n') + '\n'
+}
+
 if (isEntryModule(import.meta.url)) {
     const mode = process.argv[2];
 
@@ -695,9 +812,9 @@ if (isEntryModule(import.meta.url)) {
     } else if (mode === '--brain-paths') {
         assertBrainDeclarations();
 
-        // With `SHARD` set, only that shard's files
-        const {SHARD, TIER} = process.env,
-              {paths}       = brainSelection({tier: TIER || 'full'});
+        // With `SHARD` set, only that shard's files. The `selected` tier reads its files from `BRAIN_SELECTED`
+        const {BRAIN_SELECTED, SHARD, TIER} = process.env,
+              {paths}                       = brainSelection({selected: (BRAIN_SELECTED || '').split(' ').filter(Boolean), tier: TIER || 'full'});
 
         process.stdout.write((SHARD ? brainShard({paths, shard: SHARD}).paths : paths).join(' '))
     } else if (mode === '--brain-durations') {
@@ -707,8 +824,8 @@ if (isEntryModule(import.meta.url)) {
     } else if (mode === '--brain-retries') {
         process.stdout.write(String(brainRetries()))
     } else if (mode === '--brain-receipt') {
-        const {ATTEMPT, BRAIN_SHA, ENGINE_SHA, EVENT, REPORT, RETRIES, SHARD, TEST_SECONDS, TIER} = process.env;
-        let   report                                                                              = null;
+        const {ATTEMPT, BRAIN_SELECTED, BRAIN_SHA, ENGINE_SHA, EVENT, REPORT, RETRIES, SHARD, TEST_SECONDS, TIER} = process.env;
+        let   report                                                                                              = null;
 
         try {
             report = JSON.parse(readFileSync(REPORT, 'utf8'))
@@ -716,12 +833,18 @@ if (isEntryModule(import.meta.url)) {
 
         process.stdout.write(brainReceipt({
             report,
-            run    : {shard: SHARD, event: EVENT, attempt: ATTEMPT, engineSha: ENGINE_SHA, brainSha: BRAIN_SHA, tier: TIER || 'full'},
+            run    : {
+                shard: SHARD, event: EVENT, attempt: ATTEMPT, engineSha: ENGINE_SHA, brainSha: BRAIN_SHA, tier: TIER || 'full',
+                selected: (BRAIN_SELECTED || '').split(' ').filter(Boolean)
+            },
             retries: RETRIES ? Number(RETRIES) : null,
             seconds: TEST_SECONDS ? Number(TEST_SECONDS) : null
         }) + '\n')
+    } else if (mode === '--select') {
+        // The changed files the E2E impact boundary admits, as JSON, because a path list is not shell-safe
+        process.stdout.write(selectionOutput({changed: JSON.parse(process.env.E2E_FILES || '[]')}))
     } else {
-        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-durations | --brain-test-list | --brain-retries | --brain-receipt');
+        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-durations | --brain-test-list | --brain-retries | --brain-receipt | --select');
         process.exit(2)
     }
 }

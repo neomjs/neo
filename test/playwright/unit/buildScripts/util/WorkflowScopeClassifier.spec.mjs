@@ -239,7 +239,35 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         // nobody asserted.
         const outputs = readWorkflow(CLASSIFIER).jobs.classify.outputs;
 
-        expect(Object.keys(outputs).sort()).toEqual(['brain_sha', 'e2e_boundary_report', 'e2e_brain_tier', 'run_components', 'run_e2e', 'run_unit', 'skip_reason']);
+        expect(Object.keys(outputs).sort()).toEqual(['brain_sha', 'e2e_boundary_report', 'e2e_brain_matrix', 'e2e_brain_paths',
+            'e2e_brain_shards', 'e2e_brain_tier', 'e2e_engine_matrix', 'e2e_engine_paths', 'e2e_engine_shards', 'e2e_selection',
+            'e2e_selection_report', 'run_components', 'run_e2e', 'run_unit', 'skip_reason']);
+    });
+
+    test('a pull request\'s e2e selection runs only for a caller that asks, and its tier verdicts win', async () => {
+        // The selection narrows what the boundary admitted, so it reads exactly those files, the Brain tier's own
+        // workflow included, and it needs a checkout only where it runs
+        const classifier = readWorkflow(CLASSIFIER),
+              call       = classifier.on?.workflow_call ?? classifier[true].workflow_call,
+              {outputs}  = classifier.jobs.classify,
+              guarded    = classifier.jobs.classify.steps.filter(step => String(step.if).includes('inputs.select_e2e'));
+
+        expect(call.inputs.select_e2e).toEqual(expect.objectContaining({type: 'boolean', default: false}));
+        expect(guarded.map(step => step.uses ?? step.id)).toEqual(['actions/checkout@v7', 'actions/setup-node@v7', 'select']);
+        guarded.forEach(step => expect(String(step.if)).toContain("github.event_name == 'pull_request'"));
+        expect(guarded.at(-1).run).toBe('node buildScripts/util/e2eCiSelection.mjs --select >> "$GITHUB_OUTPUT"');
+
+        expect(outputs.run_e2e).toBe('${{ steps.select.outputs.run_e2e || steps.scope.outputs.run_e2e }}');
+        expect(outputs.e2e_brain_tier).toBe('${{ steps.select.outputs.e2e_brain_tier || steps.scope.outputs.e2e_brain_tier }}');
+
+        const runtime = createRuntime({ files: ['src/grid/Body.mjs', 'learn/blog/post.md', '.github/workflows/test-e2e-brain.yml'] });
+
+        await executeScript(scopeScript(), runtime);
+
+        const files = JSON.parse(outputsOf(runtime).e2e_files);
+
+        expect(files).toEqual(['src/grid/Body.mjs', '.github/workflows/test-e2e-brain.yml']);
+        expect(readWorkflow('test-e2e.yml').jobs.changes.with).toEqual({select_e2e: true});
     });
 
     test('every job output is re-declared to callers', () => {
@@ -879,7 +907,7 @@ test.describe('Tests scope classifier — the Brain-gated tier runs only what a 
               uses     = job.steps.map(step => JSON.stringify(step));
 
         expect(Object.keys(workflow.jobs)).toEqual(['changes', 'e2e-brain']);
-        expect(workflow.jobs.changes.with).toEqual({resolve_brain_tip: true});
+        expect(workflow.jobs.changes.with).toEqual({resolve_brain_tip: true, select_e2e: true});
         expect(job.needs).toBe('changes');
         expect(String(job.if)).toBe("${{ needs.changes.outputs.e2e_brain_tier != 'none' }}");
         // Nothing inside the job re-tests the tier, and the matrix has no `none` branch left
@@ -898,7 +926,8 @@ test.describe('Tests scope classifier — the Brain-gated tier runs only what a 
         expect(call.inputs.resolve_brain_tip).toEqual(expect.objectContaining({type: 'boolean', default: false}));
         expect(call.outputs.brain_sha.value).toBe('${{ jobs.classify.outputs.brain_sha }}');
         expect(classifier.jobs.classify.outputs.brain_sha).toBe('${{ steps.tip.outputs.sha }}');
-        expect(String(tip.if)).toBe("${{ inputs.resolve_brain_tip && steps.scope.outputs.e2e_brain_tier != 'none' }}");
+        // The selection's verdict when it ran: a selection that rules the tier out needs no tip
+        expect(String(tip.if)).toBe("${{ inputs.resolve_brain_tip && (steps.select.outputs.e2e_brain_tier || steps.scope.outputs.e2e_brain_tier) != 'none' }}");
         expect(tip.run).toContain('git ls-remote https://github.com/neomjs/neo-agent-brain refs/heads/dev');
         expect(tip.run).toContain('test -n "$sha"');
     });

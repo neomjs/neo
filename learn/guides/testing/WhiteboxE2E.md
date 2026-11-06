@@ -39,13 +39,23 @@ The `neuralLink` fixture supports two dispatch paths, selected by `NEO_AGENTOS_R
 
 ## Hosted CI
 
-The engine tier (`.github/workflows/test-e2e.yml`) runs on pull requests without a Brain, so it selects only the Brain-free specs.
+The engine tier (`.github/workflows/test-e2e.yml`) runs without a Brain, so its population is the Brain-free specs.
 
 The Brain-gated specs run in `.github/workflows/test-e2e-brain.yml`, and this tier gates Engine pull requests: merge readiness refuses any red, required or not. The workflow checks out the Brain at its `dev` tip, resolved once per run, and installs it with `npm ci`.
 
-The shared scope classifier picks the tier's population:
-- A pull request whose change reaches the E2E impact boundary runs the **full** tier, on ten shards. So does every `dev` push.
-- Any other pull request selects **none** and starts no job. The *Classify test scope* summary names the reason and each changed file's boundary rule. Its change cannot reach the tier's specs, and a Brain tip that breaks the pairing reds the next `dev` push, which always runs the full tier.
+The shared scope classifier picks each tier's population:
+- A **`dev` push** runs every tier its change admits in **full**: ten Brain-gated shards and four engine shards.
+- A **pull request** whose change reaches the E2E impact boundary runs only the specs it can reach. `buildScripts/util/e2eSpecReach.mjs` maps each spec to the app it navigates and that app's static import closure, plus the helpers the spec imports. `selectSpecs` in `e2eCiSelection.mjs` then picks:
+  - every spec that reaches a changed file, or whose app fetches it;
+  - every changed spec;
+  - the specs the map cannot place;
+  - the `BRAIN_SMOKE` files.
+
+  Each tier's matrix shrinks to its share, and a tier none of whose specs is selected starts no job.
+- Some changes run every spec instead: a foundation path (`src/core`, the worker, main-thread and vdom entry points, the canvas workers, top-level `src/*.mjs`, the theme), a file that loads modules by name or by computed path, a file the map cannot place, and a change whose files are all e2e specs.
+- Any other pull request selects **none** and starts no job. The *Classify test scope* summary names the reason and each changed file's boundary rule.
+
+Each tier's job summary names what the selection ran and why, spec by spec. A `dev` red after a selective green belongs to the merged pull request's author: their change is the one the selection judged unable to reach the spec. They triage it first, rerunning a chronic flaker on record and noting it on that flaker's ticket, and otherwise fixing forward or reverting.
 
 Each shard's test step stops at five minutes, the ceiling the engine tier enforces too.
 
