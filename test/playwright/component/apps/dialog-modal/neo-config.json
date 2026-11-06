@@ -1,0 +1,6 @@
+{
+    "appPath"    : "test/playwright/component/apps/dialog-modal/app.mjs",
+    "basePath"   : "../../../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}
