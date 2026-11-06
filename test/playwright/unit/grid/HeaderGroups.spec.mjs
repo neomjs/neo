@@ -204,6 +204,27 @@ test.describe('Neo.grid.header.GroupRow', () => {
         expect(grid.headerWrapper.style.gridTemplateColumns).toBe('auto minmax(0, 1fr)')
     });
 
+    test('a re-projection keeps the scroll position the centre part last reported', async () => {
+        store = createStore();
+        grid  = await createGrid(store, [{text: 'Q1', columns: [{dataField: 'jan', width: 80}, {dataField: 'feb', width: 90}]}]);
+
+        const {groupRow} = grid.headerWrapper,
+              partId     = grid.getGroupHeaderPartId('center'),
+              part       = () => groupRow.vdom.cn.find(item => item.id === partId);
+
+        await expect.poll(() => part()?.cn[0]?.cn.length).toBe(1);
+
+        // The main-thread scroll sync moved the centre part, and onScrollCapture recorded where it landed
+        groupRow.onScrollCapture({target: {id: partId}, scrollLeft: 300, scrollTop: 0});
+
+        groupRow.project();
+        await groupRow.promiseUpdate();
+
+        // Rebuilt, the part still states that position, so the update diffs no `scrollLeft` that resets it
+        expect(part().scrollLeft).toBe(300);
+        expect(groupRow.vnode.childNodes.find(node => node.id === partId).scrollLeft).toBe(300)
+    });
+
     test('with groups there are two header rows: group row 1, leaf row 2, and body rows after both', async () => {
         store = createStore();
         grid  = await createGrid(store, [{text: 'Q1', columns: [{dataField: 'jan', width: 80}, {dataField: 'feb', width: 90}]}]);
