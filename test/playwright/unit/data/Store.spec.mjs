@@ -549,3 +549,75 @@ test.describe('Neo.data.Store', () => {
         }
     })
 });
+
+test.describe('Neo.data.Store Model ownership', () => {
+    class OwnershipModel extends Model {
+        static config = {
+            className: 'Test.Unit.Data.StoreModelOwnership.Model',
+            fields   : [{name: 'id', type: 'Integer'}, {name: 'name', type: 'String'}]
+        }
+    }
+    OwnershipModel = Neo.setupClass(OwnershipModel);
+
+    const data          = () => [{id: 1, name: 'a'}, {id: 2, name: 'b'}],
+          recordClassOf = model => Neo.ns(`${RecordFactory.recordNamespace}.${model.className}`)?.[model.id];
+
+    // Released: nothing global keeps the Model reachable, while a retained record still reads and writes through it
+    const expectReleased = (model, record) => {
+        expect(Neo.get(model.id)).toBeNull();
+        expect(recordClassOf(model)).toBeUndefined();
+        expect(model.isDestroyed).not.toBe(true);
+        expect(record.get('name')).toBe(record.name);
+        expect(() => {record.name = 'changed'}).not.toThrow();
+        expect(record.name).toBe('changed')
+    };
+
+    for (const [label, model] of [['class', () => OwnershipModel], ['config', () => ({module: OwnershipModel})]]) {
+        test(`destroy() releases a Model the Store created from a ${label}`, () => {
+            const store            = Neo.create(Store, {model: model(), data: data()}),
+                  record           = store.get(1),
+                  {model: created} = store;
+
+            expect(Neo.get(created.id)).toBe(created);
+            expect(recordClassOf(created)).toBeTruthy();
+
+            store.destroy();
+
+            expectReleased(created, record)
+        })
+    }
+
+    test('replacing a Model the Store created releases it; its records keep working', () => {
+        const store   = Neo.create(Store, {model: OwnershipModel, data: data()}),
+              record  = store.get(1),
+              created = store.model,
+              passed  = Neo.create(OwnershipModel);
+
+        store.model = passed;
+        expectReleased(created, record);
+
+        store.destroy();
+        expect(Neo.get(passed.id)).toBe(passed);
+
+        passed.destroy()
+    });
+
+    test('a passed Model instance stays its owner\'s, on destroy and on replacement', () => {
+        const shared = Neo.create(OwnershipModel),
+              first  = Neo.create(Store, {model: shared, data: data()});
+
+        first.destroy();
+        expect(Neo.get(shared.id)).toBe(shared);
+
+        const second = Neo.create(Store, {model: shared, data: data()});
+        second.model = OwnershipModel;
+        expect(shared.isDestroyed).not.toBe(true);
+        expect(Neo.get(shared.id)).toBe(shared);
+
+        second.destroy();
+        expect(recordClassOf(shared)).toBeTruthy();
+
+        shared.destroy();
+        expect(recordClassOf(shared)).toBeUndefined()
+    })
+});

@@ -384,6 +384,17 @@ class RecordFactory extends Base {
     }
 
     /**
+     * @summary Drops the record class cached for a Model, so a retired Model leaves no class in the record namespace.
+     * Records created earlier keep their class.
+     * @param {Neo.data.Model} model
+     */
+    releaseRecordClass(model) {
+        let ns = Neo.ns(`${this.recordNamespace}.${model.className}`);
+
+        ns && delete ns[model.id]
+    }
+
+    /**
      * @summary Parses, converts, and validates a record field value, resolving initial field mappings.
      * @param {Object}  data
      * @param {Object}  data.record
