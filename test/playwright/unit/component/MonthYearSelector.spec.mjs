@@ -154,6 +154,60 @@ test.describe('Neo.component.MonthYearSelector', () => {
         selector.destroy()
     });
 
+    test('after a page turn, arrow keys move from the focused year; turning pages alone picks nothing', async () => {
+        const {focused, selector} = createSelector({year: 2026});
+
+        selector.onClick({path: buttonPath(selector, 'neo-next-years')});
+        expect(selector.year, 'a page turn picks nothing').toBe(2026);
+
+        selector.onKeyDownRight({path: optionPath(selector, 'year', 2030)});
+        expect(selector.year).toBe(2031);
+        expect(selector.getYearsEl().cn[0].text).toBe('2030');
+        await expect.poll(() => focused.at(-1)).toBe(selector.getOptionId('year', 2031));
+
+        selector.onClick({path: buttonPath(selector, 'neo-prev-years')});
+        selector.onClick({path: buttonPath(selector, 'neo-prev-years')});
+        expect(selector.getYearsEl().cn[0].text).toBe('2010');
+
+        selector.onKeyDownLeft({path: optionPath(selector, 'year', 2010)});
+        expect(selector.year).toBe(2009);
+        expect(selector.getYearsEl().cn[0].text, 'the move past the page edge turns the page').toBe('2000');
+
+        selector.destroy()
+    });
+
+    test('a bound change moves an excluded pending pair inside the range, so OK confirms only an allowed pair', async () => {
+        const {events, focused, selector} = createSelector({month: 5, year: 2026});
+
+        selector.containsFocus = true;
+        selector.minValue      = '2027-03-15';
+
+        expect([selector.month, selector.year]).toEqual([2, 2027]);
+        expect(selector.getMonthsEl().cn.find(option => option.tabIndex === 0).text).toBe('Mar');
+        await expect.poll(() => focused.at(-1), 'the focus follows the moved month').toBe(selector.getOptionId('month', 2));
+
+        selector.onClick({path: buttonPath(selector, 'neo-ok-button')});
+        expect(events).toEqual([{month: 2, year: 2027}]);
+
+        selector.minValue = null;
+        selector.maxValue = '2025-08-01';
+        expect([selector.month, selector.year]).toEqual([7, 2025]);
+
+        selector.destroy()
+    });
+
+    test('set() with a new month and year clamps the final pair, never an intermediate one', () => {
+        const {selector} = createSelector({minValue: '2025-08-01', month: 5, year: 2025});
+
+        expect([selector.month, selector.year], 'creation clamps an excluded pair').toEqual([7, 2025]);
+
+        // April alone would be excluded in 2025; the pair April 2026 is allowed
+        selector.set({month: 3, year: 2026});
+        expect([selector.month, selector.year]).toEqual([3, 2026]);
+
+        selector.destroy()
+    });
+
     test('a click picks an enabled option and skips a disabled one; OK selects the pending pair and Cancel cancels', () => {
         const {events, selector} = createSelector({minValue: '2026-03-01'});
 

@@ -115,6 +115,7 @@ class MonthYearSelector extends Component {
         // Clicks stay inside, like keys: the date selector's own click handling must not see them
         me.addDomListeners({click: {bubble: false, fn: me.onClick, scope: me}});
 
+        me.clampPair();
         me.updateLists(true)
     }
 
@@ -135,7 +136,7 @@ class MonthYearSelector extends Component {
      * @protected
      */
     afterSetMaxValue(value, oldValue) {
-        oldValue !== undefined && this.updateLists()
+        oldValue !== undefined && this.applyBounds()
     }
 
     /**
@@ -145,7 +146,7 @@ class MonthYearSelector extends Component {
      * @protected
      */
     afterSetMinValue(value, oldValue) {
-        oldValue !== undefined && this.updateLists()
+        oldValue !== undefined && this.applyBounds()
     }
 
     /**
@@ -155,12 +156,15 @@ class MonthYearSelector extends Component {
      * @protected
      */
     afterSetMonth(value, oldValue) {
-        oldValue !== undefined && this.updateLists()
+        if (oldValue !== undefined) {
+            this.clampPair();
+            this.updateLists()
+        }
     }
 
     /**
      * Triggered after the year config got changed
-     * @summary Turns the page when the year leaves it, and moves a month the new year excludes to the nearest one it allows.
+     * @summary Turns the page when the year leaves it, and moves a pair the bounds exclude to the nearest one they allow.
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
@@ -174,7 +178,7 @@ class MonthYearSelector extends Component {
                 me.yearPageStart = me.getPageStart(value)
             }
 
-            me._month = me.clampMonth(me.month, value);
+            me.clampPair();
             me.updateLists()
         }
     }
@@ -212,6 +216,20 @@ class MonthYearSelector extends Component {
     }
 
     /**
+     * @summary Re-applies changed bounds: an excluded pending pair moves inside them, and a focus inside the selector
+     * follows the moved month.
+     * @protected
+     */
+    applyBounds() {
+        let me    = this,
+            moved = me.clampPair();
+
+        me.updateLists();
+
+        moved && me.containsFocus && me.focusOption('month')
+    }
+
+    /**
      * Fires the cancel event
      */
     cancel() {
@@ -219,25 +237,35 @@ class MonthYearSelector extends Component {
     }
 
     /**
-     * @summary Moves a month outside the min/max range of the given year to the nearest month inside it.
-     * @param {Number} month
-     * @param {Number} year
-     * @returns {Number}
+     * @summary Moves a pending pair outside minValue / maxValue to the nearest month inside them, so OK only ever
+     * confirms an allowed pair. The years page follows a year that changes.
+     * @returns {Boolean} true if the pair moved
      * @protected
      */
-    clampMonth(month, year) {
-        let max = this.parseBound(this.maxValue),
-            min = this.parseBound(this.minValue);
+    clampPair() {
+        let me      = this,
+            max     = me.parseBound(me.maxValue),
+            min     = me.parseBound(me.minValue),
+            value   = me.year * 12 + me.month,
+            clamped = value,
+            year;
 
-        if (min && year === min.year && month < min.month) {
-            return min.month
+        min && (clamped = Math.max(clamped, min.year * 12 + min.month));
+        max && (clamped = Math.min(clamped, max.year * 12 + max.month));
+
+        if (clamped === value) {
+            return false
         }
 
-        if (max && year === max.year && month > max.month) {
-            return max.month
+        year      = Math.floor(clamped / 12);
+        me._month = clamped - year * 12;
+
+        if (year !== me.year) {
+            me._year         = year;
+            me.yearPageStart = me.getPageStart(year)
         }
 
-        return month
+        return true
     }
 
     /**
@@ -406,28 +434,35 @@ class MonthYearSelector extends Component {
     }
 
     /**
-     * @summary Moves the pending month or year by `step` inside the focused list; both lists lay out two options
-     * per row. A move onto a disabled option, or past either end of the months, stays put.
+     * @summary Moves by `step` from the focused option of the focused list, and makes the result the pending month or
+     * year; both lists lay out two options per row. After a page turn the focused year is not the pending one, so the
+     * move starts from the option, not the pending value. A move onto a disabled option, or past either end of the
+     * months, stays put.
      * @param {Object} data
      * @param {Number} step
      * @protected
      */
     onNavKey(data, step) {
-        let me   = this,
-            type = me.getListType(data.path),
-            value;
+        let me     = this,
+            type   = me.getListType(data.path),
+            target = data.path[0],
+            base, value;
 
         data.cancelBubble = true;
 
+        if (type) {
+            base = target?.cls?.includes(`neo-${type}`) ? me.getIndexFromId(target.id, type) : me[type]
+        }
+
         if (type === 'month') {
-            value = me.month + step;
+            value = base + step;
 
             if (value >= 0 && value < 12 && !me.isMonthDisabled(value, me.year)) {
                 me.month = value;
                 me.focusOption('month')
             }
         } else if (type === 'year') {
-            value = me.year + step;
+            value = base + step;
 
             if (!me.isYearDisabled(value)) {
                 me.year = value;
