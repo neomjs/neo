@@ -6,7 +6,8 @@ Setting up a Neo.mjs project is straightforward. The recommended method is to us
 
 Before you begin, ensure you have the following software installed:
 
--   **Node.js and npm**: Required for running JavaScript projects and managing packages.
+-   **Node.js 24 or newer, with npm**: Required for running JavaScript projects and managing packages. The Node.js
+    installer brings npm along, so there is nothing separate to install.
     (see <a href="https://docs.npmjs.com/downloading-and-installing-node-js-and-npm" target="_blank">https://docs.npmjs.com/downloading-and-installing-node-js-and-npm</a>)
 -   **npx**: Comes bundled with npm and is used to execute npm packages.
     (see <a href="https://www.npmjs.com/package/npx" target="_blank">https://www.npmjs.com/package/npx</a>)
@@ -18,6 +19,11 @@ Your Neo.mjs work is done in a **workspace**, which is an npm project that inclu
 To generate a new workspace, open a terminal window, navigate to an empty directory, and run the following command:
 
 `npx neo-app@latest`
+
+`npx` downloads and runs the published `neo-app` package, so you never clone or `npm install` the
+<a href="https://github.com/neomjs/create-app" target="_blank">create-app repository</a> yourself. Its
+<a href="https://github.com/neomjs/create-app#script-options" target="_blank">script options</a> name the workspace and
+the app, pick themes and main-thread addons, leave out the coding-agent files, and choose whether the dev server starts.
 
 This script automates the entire setup process:
 1.  It scaffolds the workspace directory structure.

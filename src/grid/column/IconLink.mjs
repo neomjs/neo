@@ -1,5 +1,5 @@
 import ComponentColumn from './Component.mjs';
-import IconLinkComponent from '../../component/IconLink.mjs';
+import IconLinkComponent from './component/IconLink.mjs';
 
 /**
  * @class Neo.grid.column.IconLink

@@ -147,6 +147,12 @@ class View extends Base {
      */
     #navigationTarget = null
     /**
+     * Content-sized rows: the anchor corrections the main thread has not applied yet, `{distance, epoch}`, oldest
+     * first. A scroll offset it reported before applying them lacks their distances, see {@link #reconcileScrollTop}.
+     * @member {Object[]} #pendingCorrections=[]
+     */
+    #pendingCorrections = []
+    /**
      * The scheduled {@link #measureRowHeights} pass, while it is pending
      * @member {Promise|null} #rowMeasure=null
      */
@@ -501,16 +507,33 @@ class View extends Base {
         correction = target?.landed ? me.#alignedScrollTop(target) - scrollTop : rowGeometry.offsetAt(anchor) - offset;
 
         if (correction !== 0) {
-            me.#scrollCorrection += correction;
-            me.#scrollEpoch++;
-
             // The target follows its own correction, so the new offset does not end it
             target?.landed && (target.scrollTop = scrollTop + correction);
-            me.scrollTop = scrollTop + correction
+            me.#correctScrollTop(correction)
         }
 
         me.mounted && me.refreshRowGeometry(force, rowGeometry.totalHeight < totalHeight);
         return true
+    }
+
+    /**
+     * Content-sized rows: moves the scroll offset by an anchor correction, which the next update hands to the main
+     * thread. The scroll manager's offset moves along: it re-syncs the bodies once a scroll ends, and the offset
+     * from before the correction would render the rows of a place the main thread has already left. Until the main
+     * thread applies the correction, an offset it reports lacks the distance, see {@link #reconcileScrollTop}.
+     * @param {Number} correction The distance in px
+     * @private
+     */
+    #correctScrollTop(correction) {
+        let me              = this,
+            {scrollManager} = me.gridContainer;
+
+        me.#scrollCorrection += correction;
+        me.#scrollEpoch++;
+        me.#pendingCorrections.push({distance: correction, epoch: me.#scrollEpoch});
+        me.scrollTop += correction;
+
+        scrollManager && (scrollManager.scrollTop = me.scrollTop)
     }
 
     /**
@@ -1074,6 +1097,29 @@ class View extends Base {
     }
 
     /**
+     * Content-sized rows: what a scroll offset the main thread reported means in this view's current geometry. A
+     * scroll event carries the epoch of the last correction the main thread had applied, which
+     * `Neo.main.addon.GridRowScrollPinning` stamps on the view node. An offset reported before later corrections
+     * landed lacks their distances, and syncing the bodies to it would render the rows of a place the main thread
+     * is about to leave.
+     * @param {Number} scrollTop The reported offset
+     * @param {Number|String} [epoch=0] The reported epoch, as the node's dataset holds it
+     * @returns {Number}
+     */
+    reconcileScrollTop(scrollTop, epoch = 0) {
+        let pending = this.#pendingCorrections;
+
+        epoch = Number(epoch) || 0;
+
+        // The main thread has applied these
+        while (pending.length > 0 && pending[0].epoch <= epoch) {
+            pending.shift()
+        }
+
+        return pending.reduce((offset, {distance}) => offset + distance, scrollTop)
+    }
+
+    /**
      * Re-derives everything that depends on row heights after the {@link #rowGeometry} changed: each body's row
      * pool, both scroll extents, and the rows' positions. A row whose record and index did not change finds
      * its moved geometry itself ({@link Neo.grid.Row#hasStaleGeometry}) and keeps its cells.
@@ -1351,11 +1397,7 @@ class View extends Base {
             let next       = me.rowGeometry,
                 correction = Math.round(offsetOf(next) + inside * heightOf(next)) - scrollTop;
 
-            if (correction !== 0) {
-                me.#scrollCorrection += correction;
-                me.#scrollEpoch++;
-                me.scrollTop = scrollTop + correction
-            }
+            correction !== 0 && me.#correctScrollTop(correction);
 
             me.refreshRowGeometry(true)
         }

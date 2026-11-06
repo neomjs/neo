@@ -24,7 +24,7 @@ The other repositories ride these lines: [neomjs/neo-agent-skills](https://githu
 
 13.3.0 shipped on 2026-10-21 and 13.3.1 on 2026-10-23. 13.4 is a householding release. It reduces the Engine backlog as far as the window allows, and it lands the infrastructure already in flight instead of opening new fronts. The release gate is behaviour we can observe:
 
-> **The Engine repository holds fewer open issues at the cut than the 103 of 2026-11-06, and every issue that left was delivered or closed with a stated reason.**
+> **The Engine repository holds fewer than 25 open issues at the cut (103 on 2026-11-06), and every issue that left was delivered or closed with a stated reason.**
 
 [Milestone #13](https://github.com/neomjs/neo/milestone/13) is the tracking milestone; its linked items are the full set.
 
@@ -40,7 +40,7 @@ The other repositories ride these lines: [neomjs/neo-agent-skills](https://githu
 
 **Beside the gate:** the v13 blog stream ([#13383](https://github.com/neomjs/neo/issues/13383)) keeps running. It does not hold the cut.
 
-**How it runs.** The window is fixed and the scope flexes. 13.4 is cut by `publish.mjs` at the end of its window, around 2026-11-19, or earlier once the householding and the in-flight epics are done. An epic that is not done by then stays open instead of holding the cut. Each epic's steward owns its outcome and closes it.
+**How it runs.** The window is fixed and the scope flexes. 13.4 is cut by `publish.mjs` on the evening of Saturday 2026-11-07 if the gate holds by then, and on Sunday 2026-11-08 if it does not. An epic that is not done by then stays open instead of holding the cut. Each epic's steward owns its outcome and closes it.
 
 **Deferred — explicitly off the 13.4 path:**
 

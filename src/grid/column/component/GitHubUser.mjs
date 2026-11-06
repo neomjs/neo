@@ -1,16 +1,17 @@
-import Component from './Base.mjs';
+import Component from '../../../component/Base.mjs';
 
 /**
- * @class Neo.component.GitHubUser
+ * @summary A grid cell's GitHub avatar, linked username and full name, rendered for `Neo.grid.column.GitHubUser`.
+ * @class Neo.grid.column.component.GitHubUser
  * @extends Neo.component.Base
  */
 class GitHubUser extends Component {
     static config = {
         /**
-         * @member {String} className='Neo.component.GitHubUser'
+         * @member {String} className='Neo.grid.column.component.GitHubUser'
          * @protected
          */
-        className: 'Neo.component.GitHubUser',
+        className: 'Neo.grid.column.component.GitHubUser',
         /**
          * Size in px for the avatar image request.
          * Recommended to use 2x the display size for high DPI screens.
