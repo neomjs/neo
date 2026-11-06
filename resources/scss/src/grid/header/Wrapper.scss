@@ -1,0 +1,15 @@
+// While a header group row exists, the header is a two-row grid: the group row spans the first row as a subgrid,
+// and the region toolbars fill the second, one grid column each (`grid-template-columns` is set per region).
+.neo-grid-header-wrapper.neo-grid-header-grouped {
+    display           : grid;
+    grid-template-rows: auto auto;
+
+    > .neo-grid-header-group-row {
+        grid-column: 1 / -1;
+        grid-row   : 1;
+    }
+
+    > .neo-grid-header-toolbar {
+        grid-row: 2;
+    }
+}

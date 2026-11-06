@@ -182,7 +182,7 @@ class App extends Base {
                 delete config.importPath
             }
 
-            let appName   = Object.values(Neo.apps)[0]?.name, // fallback in case no appName was provided
+            let appName = Object.values(Neo.apps)[0]?.name, // fallback in case no appName was provided
                 Container = Neo.container?.Base,
                 index, instance, parent;
 
@@ -735,6 +735,16 @@ class App extends Base {
      */
     onPipelinePush(msg) {
         Neo.manager.Instance.get(msg.id)?.fire('push', msg.data)
+    }
+
+    /**
+     * @summary Delivers a separate Pipeline observation without changing its data or push payloads.
+     * @param {Object} msg
+     * @param {String} msg.id The App-side Pipeline ID.
+     * @param {Object} msg.data Metric-only stage observation.
+     */
+    onPipelineTelemetry(msg) {
+        Neo.manager.Instance.get(msg.id)?.publishTelemetry(msg.data)
     }
 
     /**

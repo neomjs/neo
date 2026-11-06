@@ -42,7 +42,7 @@ class HeaderToolbar extends BaseHeaderToolbar {
         }, {
             reference: 'services-button',
             route    : '/services',
-            text     : 'Services'
+            text     : 'Connect'
         }, {
             ntype    : 'container',
             layout   : 'hbox',

@@ -14,6 +14,11 @@ const itemsMounted = Symbol.for('itemsMounted');
  * @mixes Neo.mixin.StoreLoading
  */
 class Gallery extends Component {
+    /** @summary Invalidates measurements from an older mount or render window. */
+    #mountGeneration = 0
+    /** @summary One mount's initial selection waits for a visible record, then retires. */
+    #pendingInitialSelection = false
+
     static config = {
         /**
          * @member {String} className='Neo.component.Gallery'
@@ -267,46 +272,81 @@ class Gallery extends Component {
     }
 
     /**
-     * Triggered after the mounted config got changed
+     * @summary Measures the current mount and keeps its initial selection pending until data exists.
      * @param {Boolean} value
      * @param {Boolean} oldValue
+     * @returns {Promise<void>}
      * @protected
      */
-    afterSetMounted(value, oldValue) {
-        let me               = this,
-            {selectionModel} = me;
+    async afterSetMounted(value, oldValue) {
+        const me         = this,
+              worker     = Neo.currentWorker,
+              windowId   = me.windowId,
+              generation = ++me.#mountGeneration,
+              current    = () => !me.isDestroying && !me.isDestroyed && me.mounted &&
+                  me.windowId === windowId && me.#mountGeneration === generation;
 
-        if (value) {
-            me.focusOnMount && me.focus(me.id);
-
-            me.timeout(300).then(() => {
-                Neo.currentWorker.promiseMessage(me.windowId, {
-                    action    : 'readDom',
-                    appName   : me.appName,
-                    attributes: ['offsetHeight', 'offsetWidth'],
-                    vnodeId   : me.id,
-                    windowId  : me.windowId
-                }).then(data => {
-                    me.offsetHeight = data.attributes.offsetHeight;
-                    me.offsetWidth  = data.attributes.offsetWidth;
-
-                    if (me.selectOnMount || selectionModel.hasSelection()) {
-                        let selection = selectionModel.getSelection(),
-                            key       = selection.length > 0 && selection[0];
-
-                        if (!key) {
-                            let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
-
-                            key = me.getRecordId(me.store.getAt(index))
-                        }
-
-                        selectionModel.select(key)
-                    }
-                })
-            })
-        } else {
-            selectionModel.items = []
+        me.#pendingInitialSelection = false;
+        if (!value) {
+            me.selectionModel.items = [];
+            return
         }
+
+        me.focusOnMount && me.focus(me.id);
+        try {
+            await me.timeout(300);
+            if (!current()) {
+                return
+            }
+
+            const data = await worker.promiseMessage(windowId, {
+                action    : 'readDom',
+                appName   : me.appName,
+                attributes: ['offsetHeight', 'offsetWidth'],
+                vnodeId   : me.id,
+                windowId
+            });
+            if (!current()) {
+                return
+            }
+
+            me.offsetHeight             = data.attributes.offsetHeight;
+            me.offsetWidth              = data.attributes.offsetWidth;
+            me.#pendingInitialSelection = true;
+            me.#selectInitialItem()
+        } catch (error) {
+            if (error !== Neo.isDestroyed && !worker.isDeparture(error, windowId)) {
+                console.error('Unable to initialize Gallery selection', error)
+            }
+        }
+    }
+
+    /**
+     * @summary Consumes one mount's selection intent using current visible records, preserving key zero.
+     * A requested key stays pending until its record arrives; a load finishing without it never substitutes a default.
+     */
+    #selectInitialItem() {
+        const me = this,
+              sm = me.selectionModel;
+
+        if (!me.#pendingInitialSelection || !me.mounted) {
+            return
+        }
+
+        const selection = sm.getSelection(),
+              count     = Math.min(me.maxItems, me.store.getCount());
+        if (!selection.length && !me.selectOnMount) {
+            me.#pendingInitialSelection = false;
+            return
+        }
+        if (count < 1 || (selection.length && !me.store.get(selection[0]))) {
+            return
+        }
+
+        const index = Math.max(0, Math.min(count - 1, Math.floor(count / me.amountRows))),
+              key   = selection.length ? selection[0] : me.getRecordId(me.store.getAt(index));
+        me.#pendingInitialSelection = false;
+        sm.select(key)
     }
 
     /**
@@ -356,6 +396,18 @@ class Gallery extends Component {
     afterSetTranslateX() {this.moveOrigin()}
     afterSetTranslateY() {this.moveOrigin()}
     afterSetTranslateZ() {this.moveOrigin()}
+
+    /**
+     * @summary Retires the old window's measurement and selection intent before forwarding the new realm.
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        this.#mountGeneration++;
+        this.#pendingInitialSelection = false;
+        super.afterSetWindowId(value, oldValue)
+    }
 
     /**
      * Triggered before the store config gets changed.
@@ -738,6 +790,8 @@ class Gallery extends Component {
             sm.restoreSelection(true);
             me.onSelectionChange(sm.items)
         }
+
+        me.#selectInitialItem()
     }
 
     /**

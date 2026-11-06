@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/functional/nestedComponents/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

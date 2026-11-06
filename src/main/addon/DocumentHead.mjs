@@ -139,11 +139,11 @@ class DocumentHead extends Base {
      * @param {String} data.url The canonical URL to set.
      */
     setCanonical({url}) {
-        this.setTag({
+        this.setTag({value: {
             tag : 'link',
             rel : 'canonical',
             href: url
-        })
+        }})
     }
 
     /**
@@ -152,11 +152,11 @@ class DocumentHead extends Base {
      * @param {String} data.value The new description for the document.
      */
     setDescription({value}) {
-        this.setTag({
+        this.setTag({value: {
             tag    : 'meta',
             name   : 'description',
             content: value
-        })
+        }})
     }
 
     /**
