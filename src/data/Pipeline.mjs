@@ -39,6 +39,20 @@ class Pipeline extends Base {
          */
         appPipelineId: null,
         /**
+         * Reuse completed shaped reads in this executing Pipeline. Configure at construction for Data-worker
+         * execution; the proxy forwards this option, while its counterpart owns the cached snapshots.
+         * Streaming reads and unsupported data values remain uncached. An explicit Store refresh uses
+         * `await store.pipeline.clearCache()` before `store.load()`; repeated load() otherwise reuses the read.
+         * @member {Boolean} cache=false
+         */
+        cache: false,
+        /**
+         * Absolute lifetime in milliseconds from successful read completion. Zero retains entries until
+         * invalidation or destruction. Configure at construction for Data-worker execution.
+         * @member {Number} cacheTTL=0
+         */
+        cacheTTL: 0,
+        /**
          * The connection configuration or instance (e.g., Fetch, WebSocket, Rpc).
          * @member {Object|Neo.data.connection.Base|null} connection_=null
          * @reactive
@@ -78,7 +92,7 @@ class Pipeline extends Base {
          * @protected
          */
         remote: {
-            data: ['create', 'execute', 'profile', 'read', 'update']
+            data: ['clearCache', 'create', 'execute', 'profile', 'read', 'update']
         },
         /**
          * The ID of the corresponding Pipeline instance in the remote worker.
@@ -109,9 +123,20 @@ class Pipeline extends Base {
     }
 
     /**
-     * @param {Object} config
+     * Private completed snapshots and pending-read identities.
+     * @member {Map} readCacheEntries
+     * @protected
      */
-    construct(config) {
+    readCacheEntries = new Map()
+
+    /**
+     * @summary Validates the cache lifetime before construction and retains the existing counterpart setup.
+     * @param {Object} [config={}]
+     */
+    construct(config = {}) {
+        const ttl = config.cacheTTL === undefined ? this.cacheTTL : config.cacheTTL;
+        if (!Number.isFinite(ttl) || ttl < 0) throw new RangeError('Pipeline cacheTTL must be finite and nonnegative');
+
         super.construct(config);
 
         if (this.workerExecution === 'data') {
@@ -131,6 +156,7 @@ class Pipeline extends Base {
     }
 
     /**
+     * @summary Replaces the owned connection and invalidates reads shaped by the previous stage.
      * Triggered before the connection config gets changed.
      * Instantiates the connection only if executing locally.
      * @param {Object|Neo.data.connection.Base|null} value
@@ -140,6 +166,8 @@ class Pipeline extends Base {
      */
     beforeSetConnection(value, oldValue) {
         let me = this;
+
+        me.invalidateReadCache();
 
         if (oldValue) {
             oldValue.un('push', me.onConnectionPush, me);
@@ -183,6 +211,7 @@ class Pipeline extends Base {
     }
 
     /**
+     * @summary Replaces the owned normalizer and invalidates its completed read snapshots.
      * Triggered before the normalizer config gets changed.
      * Instantiates the normalizer only if executing locally.
      * @param {Object|Neo.data.normalizer.Base|null} value
@@ -191,6 +220,7 @@ class Pipeline extends Base {
      * @returns {Object|Neo.data.normalizer.Base|null}
      */
     beforeSetNormalizer(value, oldValue) {
+        this.invalidateReadCache();
         oldValue?.destroy();
 
         if (value && this.workerExecution === 'app') {
@@ -203,6 +233,7 @@ class Pipeline extends Base {
     }
 
     /**
+     * @summary Replaces the owned parser, invalidating its snapshots and event subscriptions.
      * Triggered before the parser config gets changed.
      * Instantiates the parser only if executing locally.
      * @param {Object|Neo.data.parser.Base|null} value
@@ -212,6 +243,8 @@ class Pipeline extends Base {
      */
     beforeSetParser(value, oldValue) {
         let me = this;
+
+        me.invalidateReadCache();
 
         if (oldValue) {
             oldValue.un({
@@ -244,10 +277,12 @@ class Pipeline extends Base {
     }
 
     /**
+     * @summary Preserves progressive data delivery instead of caching its summary terminal.
      * @param {Object} data
      * @protected
      */
     onParserData(data) {
+        this.invalidateReadCache();
         this.fire('data', data);
     }
 
@@ -264,6 +299,8 @@ class Pipeline extends Base {
      */
     destroy() {
         let me = this;
+
+        me.invalidateReadCache();
 
         if (me.workerExecution === 'data' && me.remoteId) {
             Neo.currentWorker.sendMessage('data', {
@@ -300,6 +337,8 @@ class Pipeline extends Base {
         // We only send the configs, not instances
         let remoteConfig = {
             appPipelineId  : me.id,
+            cache          : me.cache,
+            cacheTTL       : me.cacheTTL,
             className      : me.className,
             connection     : me.serializeConfig(me._connection),
             normalizer     : me.serializeConfig(me._normalizer),
@@ -432,7 +471,7 @@ class Pipeline extends Base {
     }
 
     /**
-     * @summary Executes the existing stage policies locally; observation never changes the data carrier.
+     * @summary Applies local read-cache policy around the existing stage policies and data carrier.
      * @param {String} operation
      * @param {*} params
      * @param {String} [method=operation]
@@ -441,6 +480,30 @@ class Pipeline extends Base {
      * @protected
      */
     async runLocal(operation, params, method = operation, telemetry = null) {
+        const me = this, Stream = Neo.ns('Neo.data.parser.Stream', false);
+
+        if (operation === 'read' && me.cache && !(Stream && me.parser instanceof Stream)) {
+            return me.readCached(params, method, telemetry)
+        }
+
+        if (operation !== 'read') me.invalidateReadCache();
+        try {
+            return await me.runStages(operation, params, method, telemetry)
+        } finally {
+            if (operation !== 'read' && !me.isDestroyed) me.invalidateReadCache()
+        }
+    }
+
+    /**
+     * @summary Runs the existing connection, parser and normalizer policies without a cache wrapper.
+     * @param {String} operation
+     * @param {*} params
+     * @param {String} [method=operation]
+     * @param {Object|null} [telemetry=null]
+     * @returns {Promise<*>}
+     * @protected
+     */
+    async runStages(operation, params, method = operation, telemetry = null) {
         const me = this, {connection} = me;
         let invoke, rawData = operation === 'push' ? params : undefined;
         if (operation !== 'push' && connection) {
@@ -468,6 +531,141 @@ class Pipeline extends Base {
             shapedData = await me.measureStage(telemetry, 'normalizer', () => normalizer[normalizerMethod](shapedData))
         }
         return shapedData
+    }
+
+    /**
+     * @summary Invalidates local reads and the existing Data counterpart without creating a cold counterpart.
+     * Pending reads cannot publish after their entry is invalidated.
+     * @returns {Promise<Number>} The number of entries removed in the executing Pipeline.
+     */
+    async clearCache() {
+        const count = this.invalidateReadCache();
+        return this.workerExecution === 'data' && this.remoteId && !this.isDestroyed
+            ? this.remote.data.clearCache() : count
+    }
+
+    /**
+     * @summary Drops completed and pending read identities at an owning lifecycle boundary.
+     * @returns {Number}
+     * @protected
+     */
+    invalidateReadCache() {
+        const entries = this.readCacheEntries, count = entries.size;
+        entries.clear();
+        return count
+    }
+
+    /**
+     * @summary Keys plain request data without invoking accessors or user toJSON methods; unsupported values miss.
+     * @param {*} value
+     * @returns {String|null}
+     * @protected
+     */
+    getReadCacheKey(value) {
+        const path   = new Set();
+        const encode = item => {
+            if (item === null) return ['null'];
+            const type = typeof item;
+            if (type === 'undefined') return ['undefined'];
+            if (type === 'string' || type === 'boolean' || type === 'bigint') return [type, String(item)];
+            if (type === 'number' && Number.isFinite(item)) return ['number', Object.is(item, -0) ? '-0' : String(item)];
+            if (type !== 'object' || path.has(item)) throw new Error('unsupported cache key');
+            if (Object.getPrototypeOf(item) === Date.prototype) {
+                if (Reflect.ownKeys(item).length) throw new Error('decorated date');
+                const time = Date.prototype.getTime.call(item);
+                if (!Number.isFinite(time)) throw new Error('invalid date');
+                return ['date', time]
+            }
+            const array = Array.isArray(item), prototype = Object.getPrototypeOf(item);
+            if (array && prototype !== Array.prototype) throw new Error('behavioral array');
+            if (!array && prototype !== Object.prototype && prototype !== null) throw new Error('unsupported cache key');
+            path.add(item);
+            const descriptors = Object.getOwnPropertyDescriptors(item), keys = Reflect.ownKeys(descriptors);
+            if (keys.some(key => typeof key === 'symbol')) throw new Error('unsupported cache key');
+            const values = keys.filter(key => !(array && key === 'length')).sort().map(key => {
+                const descriptor = descriptors[key];
+                if (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) throw new Error('unsupported cache property');
+                return [key, encode(descriptor.value)]
+            });
+            path.delete(item);
+            return [array ? 'array' : prototype === null ? 'null-object' : 'object', array ? item.length : null, values]
+        };
+        try {return JSON.stringify(encode(value))} catch {return null}
+    }
+
+    /**
+     * @summary Copies plain shaped data, preserving supported intrinsic values and refusing behavioral instances.
+     * @param {*} value
+     * @returns {*}
+     * @protected
+     */
+    cloneReadCacheValue(value) {
+        const seen     = new Set();
+        const validate = item => {
+            if (item === null || !['object', 'function', 'symbol'].includes(typeof item)) return;
+            if (typeof item !== 'object') throw new Error('behavioral cache value');
+            if (seen.has(item)) return;
+            const prototype = Object.getPrototypeOf(item), array = Array.isArray(item);
+            if (prototype === Date.prototype || prototype === ArrayBuffer.prototype) {
+                if (Reflect.ownKeys(item).length) throw new Error('decorated intrinsic');
+                if (prototype === Date.prototype) Date.prototype.getTime.call(item);
+                else Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'byteLength').get.call(item);
+                return
+            }
+            if (array && prototype !== Array.prototype) throw new Error('behavioral array');
+            if (!array && prototype !== Object.prototype) throw new Error('unsupported cache value');
+            seen.add(item);
+            for (const key of Reflect.ownKeys(item)) {
+                if (array && key === 'length') continue;
+                const descriptor = Object.getOwnPropertyDescriptor(item, key);
+                if (typeof key === 'symbol' || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) {
+                    throw new Error('behavioral cache value')
+                }
+                validate(descriptor.value)
+            }
+        };
+        validate(value);
+        return structuredClone(value)
+    }
+
+    /**
+     * @summary Reuses completed reads; entry identity fences clears, replacement stages and out-of-order completions.
+     * @param {Object} params
+     * @param {String} method
+     * @param {Object|null} telemetry
+     * @returns {Promise<*>}
+     * @protected
+     */
+    async readCached(params, method, telemetry) {
+        const me = this, key = me.getReadCacheKey([me.connection?.url, params]), entries = me.readCacheEntries, now = Date.now();
+        if (key === null) return me.runStages('read', params, method, telemetry);
+        for (const [entryKey, value] of entries) if (value.ready && value.expiresAt <= now) entries.delete(entryKey);
+        const previous = entries.get(key);
+        if (previous?.ready) return me.cloneReadCacheValue(previous.value);
+
+        const entry = {};
+        entries.set(key, entry);
+        try {
+            const result = await me.runStages('read', params, method, telemetry);
+            if (!me.isDestroyed && me.cache && entries.get(key) === entry && result != null) {
+                try {
+                    if (Object.getOwnPropertyDescriptor(Object(result), 'success')?.value === false) {
+                        entries.delete(key)
+                    } else {
+                        const snapshot = me.cloneReadCacheValue(result);
+                        if (!me.isDestroyed && me.cache && entries.get(key) === entry) {
+                            entry.value = snapshot;
+                            entry.expiresAt = me.cacheTTL ? Date.now() + me.cacheTTL : Infinity;
+                            entry.ready = true
+                        }
+                    }
+                } catch {if (entries.get(key) === entry) entries.delete(key)}
+            } else if (entries.get(key) === entry) entries.delete(key);
+            return result
+        } catch (error) {
+            if (entries.get(key) === entry) entries.delete(key);
+            throw error
+        }
     }
 
     /**
