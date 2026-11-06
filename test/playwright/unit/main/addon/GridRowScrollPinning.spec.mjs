@@ -49,8 +49,9 @@ const createBody = () => ({style: {
  * @returns {Object} A wrapper stand-in whose scroll offset stays inside `0…maxScroll`, also when the extent shrinks
  */
 const createWrapper = scrollTop => ({
-    max: 1e6,
-    top: scrollTop,
+    dataset: {},
+    max    : 1e6,
+    top    : scrollTop,
     get maxScroll()      {return this.max},
     set maxScroll(value) {this.max = value; this.top = Math.min(this.top, value)},
     get scrollTop()      {return this.top},
@@ -159,6 +160,17 @@ test.describe('Neo.main.addon.GridRowScrollPinning — content-sized scroll corr
         deliver({scrollCorrection: -80, scrollEpoch: 1, scrollTop: 920}, () => {wrapper.maxScroll = 920});
 
         expect(wrapper.scrollTop).toBe(920)
+    });
+
+    test('the view node carries the epoch of the last correction, which a scroll event reports to the worker', () => {
+        expect(wrapper.dataset.scrollEpoch, 'no correction yet').toBeUndefined();
+
+        deliver({scrollCorrection: 80, scrollEpoch: 1, scrollTop: 1080});
+        expect(Number(wrapper.dataset.scrollEpoch)).toBe(1);
+
+        // An older acknowledgement leaves it
+        deliver({scrollEpoch: 0, scrollTop: 1000});
+        expect(Number(wrapper.dataset.scrollEpoch)).toBe(1)
     });
 
     test('a target left by a batch whose deltas failed does not move the view', () => {
