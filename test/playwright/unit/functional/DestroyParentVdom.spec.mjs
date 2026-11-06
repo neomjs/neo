@@ -109,5 +109,21 @@ test.describe('functional.component.Base#destroy(updateParentVdom) leaves its pa
 
         expect(Neo.getComponent(id)).toBeFalsy();
         expect(VNodeUtil.getById(container.vnode, id)).toBeFalsy()
+    });
+
+    test('a functional component parented by document.body leaves through removeNode', () => {
+        const root     = Neo.create(FunctionalLeaf, {appName, id: 'destroy-parent-vdom-body-root', parentId: 'document.body'}),
+              deltas   = [],
+              original = Neo.applyDeltas;
+
+        Neo.applyDeltas = (windowId, delta) => {deltas.push(delta)};
+
+        try {
+            root.destroy(true)
+        } finally {
+            Neo.applyDeltas = original
+        }
+
+        expect(deltas).toContainEqual({action: 'removeNode', id: 'destroy-parent-vdom-body-root'})
     })
 });
