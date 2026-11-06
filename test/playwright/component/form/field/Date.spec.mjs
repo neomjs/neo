@@ -84,22 +84,29 @@ test.describe('Neo.form.field.Date', () => {
 
         const selectorId   = await picker.locator('.neo-dateselector').getAttribute('id'),
               selectedCell = page.locator(`#${selectorId}__2024-12-18`),
+              monthLabel   = page.locator(`#${selectorId}__header-center`),
               prevBtn      = picker.getByRole('button', {name: 'Previous Month'}),
               nextBtn      = picker.getByRole('button', {name: 'Next Month'});
 
         await expect(selectedCell).toBeFocused();
         await expect(selectedCell).toHaveAttribute('tabindex', '0');
 
-        // Shift+Tab from the active day gridcell reaches Next Month, then Previous Month
+        // Shift+Tab from the active day gridcell reaches Next Month, the month and year label, then Previous Month
         await page.keyboard.press('Shift+Tab');
         await expect(nextBtn).toBeFocused();
         await expect(picker).toBeVisible();
 
         await page.keyboard.press('Shift+Tab');
+        await expect(monthLabel).toBeFocused();
+
+        await page.keyboard.press('Shift+Tab');
         await expect(prevBtn).toBeFocused();
         await expect(picker).toBeVisible();
 
-        // Forward Tab returns through Next Month to the active day gridcell
+        // Forward Tab returns through the label and Next Month to the active day gridcell
+        await page.keyboard.press('Tab');
+        await expect(monthLabel).toBeFocused();
+
         await page.keyboard.press('Tab');
         await expect(nextBtn).toBeFocused();
 
@@ -111,6 +118,35 @@ test.describe('Neo.form.field.Date', () => {
         await expect(picker).toHaveCount(0);
         await expect(input).toHaveAttribute('aria-expanded', 'false');
         await expect(input).toBeFocused()
+    });
+
+    test('Escape inside the month and year selector closes only the selector; the next Escape closes the picker', async ({page}) => {
+        const input  = page.locator(`#${componentId} input`),
+              picker = page.locator(PICKER);
+
+        await input.click();
+        await page.keyboard.press('Alt+ArrowDown');
+        await expect(picker).toBeVisible();
+
+        const selectorId = await picker.locator('.neo-dateselector').getAttribute('id'),
+              monthLabel = page.locator(`#${selectorId}__header-center`),
+              monthYear  = picker.locator('.neo-monthyearselector');
+
+        await monthLabel.click();
+        await expect(monthYear.getByRole('option', {name: 'December'})).toBeFocused();
+
+        // An arrow that reached the day grid would select December 17
+        await page.keyboard.press('ArrowLeft');
+        await expect(monthYear.getByRole('option', {name: 'November'})).toBeFocused();
+
+        await page.keyboard.press('Escape');
+        await expect(monthYear).toHaveCount(0);
+        await expect(picker).toBeVisible();
+        await expect(monthLabel).toBeFocused();
+        await expect(input).toHaveValue('2024-12-18');
+
+        await page.keyboard.press('Escape');
+        await expect(picker).toHaveCount(0)
     });
 
     test('supports keyboard focus and Enter/Space activation on DateTrigger and DateSelector month navigation buttons', async ({page}) => {
@@ -162,7 +198,9 @@ test.describe('Neo.form.field.Date', () => {
         await expect(headerLive).toContainText('2025');
         await expect(nextBtn).toBeFocused();
 
-        // Shift+Tab to Previous Month and press Space -> returns to December 2024 while preserving button focus
+        // Shift+Tab past the month and year label to Previous Month and press Space -> returns to December 2024 while
+        // preserving button focus
+        await page.keyboard.press('Shift+Tab');
         await page.keyboard.press('Shift+Tab');
         await expect(prevBtn).toBeFocused();
         await page.keyboard.press('Space');

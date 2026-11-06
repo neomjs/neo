@@ -103,13 +103,14 @@ class DateSelectorModel extends Model {
     }
 
     /**
-     * @summary Commits the keyboard destination without changing default select-on-navigation behavior or hijacking header nav buttons.
+     * @summary Commits the keyboard destination without changing default select-on-navigation behavior or hijacking
+     * the header's buttons and month / year label.
      * @param {Object} data
      */
     onKeyDownEnter(data) {
-        let cls = data.path?.[0]?.cls;
+        let inHeader = data.path?.some(node => node.cls?.includes('neo-dateselector-header'));
 
-        if (!cls?.includes('neo-nav-button') && !this.selectOnNavigate) {
+        if (!inHeader && !this.selectOnNavigate) {
             let id = this.navigationId || this.items[0];
 
             id && this.view.selectDate(id.split('__')[1])
