@@ -71,6 +71,8 @@ test.describe('Workstation off-socket Neural Link through its SharedWorker App W
               second = await context.newPage();
 
         await second.goto(PAGE);
+        // A page names the App Worker script it loads once its own Neo main thread has booted
+        await second.waitForFunction(() => globalThis.Neo?.worker?.Manager?.workers?.app);
 
         const pairA   = neuralLink.writerPair,
               pairB   = mintTestWriterPair(),
@@ -96,9 +98,9 @@ test.describe('Workstation off-socket Neural Link through its SharedWorker App W
             await disconnectTestWriter(handleB, pairB);
             expect(await locksOf(handleA, pairA), 'ending the second pair releases nothing of the first').toBeGreaterThan(0)
         } finally {
-            await disconnectTestWriter(handleB, pairB);
-            await handleB.close();
-            await handleA.close();
+            handleB && await disconnectTestWriter(handleB, pairB);
+            await handleB?.close();
+            await handleA?.close();
             await second.close()
         }
     })

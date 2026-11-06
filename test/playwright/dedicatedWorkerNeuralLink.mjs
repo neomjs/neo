@@ -681,13 +681,22 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
          * @returns {Promise<Object>}
          */
         async connectToApp(target, {identityTimeout = 30000} = {}) {
-            let capturedWorker = null,
+            let attachRefusal  = null,
+                capturedWorker = null,
                 workerId       = null;
 
             await expect.poll(async () => {
-                // A dedicated App Worker wins; only a page without one looks for its own SharedWorker
+                // A dedicated App Worker wins; only a page without one looks for its own SharedWorker. An ambiguous
+                // context is reported at once, while a transient attach failure retries on the next poll
                 const candidate = appWorker || page.workers().find(isDedicatedAppWorker) ||
-                    (sharedAppWorker ??= await attachPageSharedAppWorker({browser, onConsole: pushLog, page}).catch(() => null));
+                    (sharedAppWorker ??= await attachPageSharedAppWorker({browser, onConsole: pushLog, page}).catch(error => {
+                        if (error.name === 'AmbiguousSharedAppWorkerError') attachRefusal = error;
+                        return null
+                    }));
+
+                if (attachRefusal) {
+                    return true
+                }
 
                 if (!candidate) {
                     return false
@@ -736,7 +745,7 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
             });
 
             if (!capturedWorker || !workerId) {
-                throw new Error(
+                throw attachRefusal || new Error(
                     `neuralLink.connectToApp('${target}'): the page's App Worker (dedicated, or its own SharedWorker) ` +
                     `did not initialize Neo.ai.Client within ${identityTimeout} ms.`
                 )

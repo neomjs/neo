@@ -66,7 +66,7 @@ async function evaluateInFakeWorker(neo, expression) {
  * @param {Object}   [options.workerNeo] The attached worker's `Neo`
  * @returns {Object}
  */
-function createFakeChromium({targets, workerNeo}) {
+function createFakeChromium({attachError, targets, workerNeo}) {
     const sessions = [];
 
     return {
@@ -90,6 +90,10 @@ function createFakeChromium({targets, workerNeo}) {
                               return {targetInfos: targets}
                           }
                           if (method === 'Target.attachToTarget') {
+                              if (attachError) {
+                                  throw new Error(attachError)
+                              }
+
                               session.attachedTo = params.targetId;
                               return {sessionId: 'attached-session'}
                           }
@@ -127,7 +131,7 @@ function createFakeChromium({targets, workerNeo}) {
  * @param {Object[]} [workers=[]]
  * @returns {Object}
  */
-function createFakePage(browserContextId, workers = []) {
+function createFakePage(browserContextId, workers = [], appWorkerUrl = APP_URL) {
     return {
         context: () => ({
             async newCDPSession() {
@@ -139,13 +143,15 @@ function createFakePage(browserContextId, workers = []) {
                 }
             }
         }),
+        // The page's main thread answers which script its App Worker loads (null before Neo boots)
+        evaluate: async () => appWorkerUrl,
         on() {},
         url    : () => 'about:blank',
         workers: () => workers
     }
 }
 
-const sharedWorkerTarget = (browserContextId, targetId) => ({browserContextId, targetId, type: 'shared_worker', url: APP_URL});
+const sharedWorkerTarget = (browserContextId, targetId, url = APP_URL) => ({browserContextId, targetId, type: 'shared_worker', url});
 
 test.describe('test/playwright/sharedWorkerAppWorker — the page\'s own SharedWorker App Worker', () => {
     test('binds the SharedWorker of the page\'s own context, never another context\'s', async () => {
@@ -160,6 +166,45 @@ test.describe('test/playwright/sharedWorkerAppWorker — the page\'s own SharedW
         expect(handle.targetId).toBe('mine');
         expect(browser.sessions[0].attachedTo).toBe('mine');
         expect(handle.url()).toBe(APP_URL)
+    });
+
+    test('binds the App Worker the page itself loads when another root\'s App Worker shares its context', async () => {
+        const rootA   = 'http://localhost:8080/root-a/src/worker/App.mjs',
+              rootB   = 'http://localhost:8080/root-b/src/worker/App.mjs',
+              browser = createFakeChromium({
+                  targets  : [sharedWorkerTarget('ctx-mine', 'root-a', rootA), sharedWorkerTarget('ctx-mine', 'root-b', rootB)],
+                  workerNeo: createSharedWorkerNeo().neo
+              });
+
+        const handle = await attachPageSharedAppWorker({browser, page: createFakePage('ctx-mine', [], rootB)});
+
+        expect(handle.targetId, 'a page of root B binds root B').toBe('root-b');
+        expect(browser.sessions.map(session => session.attachedTo), 'root A is never attached').toEqual(['root-b'])
+    });
+
+    test('two candidates for the page\'s App Worker script are refused, and the browser session is released', async () => {
+        const browser = createFakeChromium({targets: [sharedWorkerTarget('ctx-mine', 'first'), sharedWorkerTarget('ctx-mine', 'second')]});
+
+        await expect(attachPageSharedAppWorker({browser, page: createFakePage('ctx-mine')})).rejects.toMatchObject({
+            message: expect.stringContaining('refusing to guess'),
+            name   : 'AmbiguousSharedAppWorkerError'
+        });
+        expect(browser.sessions[0].attachedTo, 'neither candidate is attached').toBeNull();
+        expect(browser.sessions[0].detached, 'the refusal releases the session').toBe(true)
+    });
+
+    test('a target that disappears before attachment releases the browser session and keeps the original error', async () => {
+        const browser = createFakeChromium({attachError: 'No target with given id found', targets: [sharedWorkerTarget('ctx-mine', 'gone')]});
+
+        await expect(attachPageSharedAppWorker({browser, page: createFakePage('ctx-mine')})).rejects.toThrow('No target with given id found');
+        expect(browser.sessions[0].detached, 'the failed attachment releases the session').toBe(true)
+    });
+
+    test('before the page names its App Worker script, no browser session opens', async () => {
+        const browser = createFakeChromium({targets: [sharedWorkerTarget('ctx-mine', 'mine')]});
+
+        expect(await attachPageSharedAppWorker({browser, page: createFakePage('ctx-mine', [], null)})).toBeNull();
+        expect(browser.sessions).toHaveLength(0)
     });
 
     test('yields no handle without a SharedWorker App Worker in the page\'s context, or without browser CDP', async () => {
