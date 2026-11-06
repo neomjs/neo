@@ -1,0 +1,1254 @@
+[
+ {
+  "run": 38329136878,
+  "event": "push",
+  "sha": "72dd30789e",
+  "failing": [
+   "test/playwright/e2e/grid/PremeasureRowsNL.spec.mjs",
+   "test/playwright/e2e/workstation/WorkstationNestedColumnResizeNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/grid/Body.mjs",
+   "src/grid/Row.mjs",
+   "src/grid/RowGeometry.mjs",
+   "src/grid/View.mjs",
+   "src/grid/header/Toolbar.mjs",
+   "src/main/DomEvents.mjs",
+   "src/worker/App.mjs",
+   "test/playwright/component/apps/grid-wrap-text/neo-config.json",
+   "test/playwright/e2e/grid/PremeasureRowsNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 38330692233,
+  "event": "pull_request",
+  "sha": "6650d2a544",
+  "failing": [
+   "test/playwright/e2e/grid/ContentSizedRowsExample.spec.mjs"
+  ],
+  "admitted": [
+   "examples/grid/contentSizedRows/MainContainer.mjs",
+   "examples/grid/contentSizedRows/MainModel.mjs",
+   "examples/grid/contentSizedRows/MainStore.mjs",
+   "examples/grid/contentSizedRows/app.mjs",
+   "examples/grid/contentSizedRows/index.html",
+   "examples/grid/contentSizedRows/neo-config.json",
+   "test/playwright/component/apps/grid-content-sized/app.mjs",
+   "test/playwright/component/apps/grid-two-views/app.mjs",
+   "test/playwright/component/apps/grid-two-views/index.html",
+   "test/playwright/component/apps/grid-two-views/neo-config.json",
+   "test/playwright/component/apps/grid-wrap-text/app.mjs",
+   "test/playwright/e2e/grid/ContentSizedRowsExample.spec.mjs"
+  ]
+ },
+ {
+  "run": 38332119775,
+  "event": "pull_request",
+  "sha": "50c4b6493e",
+  "failing": [
+   "test/playwright/e2e/neural-link/Fixture.spec.mjs"
+  ],
+  "admitted": [
+   ".github/workflows/classify-test-scope.yml",
+   ".github/workflows/test-e2e-brain.yml",
+   "buildScripts/util/e2eCiSelection.mjs",
+   "test/playwright/e2e/neural-link/Fixture.spec.mjs"
+  ]
+ },
+ {
+  "run": 38333332590,
+  "event": "pull_request",
+  "sha": "b507434cf2",
+  "failing": [
+   "test/playwright/e2e/grid/PremeasureRowsNL.spec.mjs"
+  ],
+  "admitted": [
+   ".github/workflows/classify-test-scope.yml",
+   ".github/workflows/test-e2e-brain.yml",
+   "buildScripts/util/e2eCiSelection.mjs"
+  ]
+ },
+ {
+  "run": 38333432524,
+  "event": "push",
+  "sha": "de92007b11",
+  "failing": [
+   "test/playwright/e2e/grid/PremeasureRowsNL.spec.mjs",
+   "test/playwright/e2e/workstation/WorkstationNestedColumnResizeNL.spec.mjs"
+  ],
+  "admitted": [
+   "buildScripts/util/file-size-baseline.json",
+   "src/dashboard/dock/Workspace.mjs",
+   "src/dashboard/dock/window/WorkspaceSet.mjs"
+  ]
+ },
+ {
+  "run": 38339077604,
+  "event": "push",
+  "sha": "c8c7ccc521",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockMotionNL.spec.mjs"
+  ],
+  "admitted": [
+   "examples/grid/contentSizedRows/MainContainer.mjs",
+   "examples/grid/contentSizedRows/MainModel.mjs",
+   "examples/grid/contentSizedRows/MainStore.mjs",
+   "examples/grid/contentSizedRows/app.mjs",
+   "examples/grid/contentSizedRows/index.html",
+   "examples/grid/contentSizedRows/neo-config.json",
+   "src/grid/View.mjs",
+   "test/playwright/component/apps/grid-content-sized/app.mjs",
+   "test/playwright/component/apps/grid-two-views/app.mjs",
+   "test/playwright/component/apps/grid-two-views/index.html",
+   "test/playwright/component/apps/grid-two-views/neo-config.json",
+   "test/playwright/component/apps/grid-wrap-text/app.mjs",
+   "test/playwright/e2e/grid/ContentSizedRowsExample.spec.mjs"
+  ]
+ },
+ {
+  "run": 38341109992,
+  "event": "pull_request",
+  "sha": "a0c74f5243",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationReclaimEmbodimentNL.spec.mjs"
+  ],
+  "admitted": [
+   ".github/workflows/classify-test-scope.yml",
+   ".github/workflows/test-e2e-brain.yml",
+   "buildScripts/util/e2eCiSelection.mjs"
+  ]
+ },
+ {
+  "run": 38414129664,
+  "event": "pull_request",
+  "sha": "f6c1cd24e9",
+  "failing": [
+   "test/playwright/e2e/dashboard/TearOutMatrixRows4To7NL.spec.mjs"
+  ],
+  "admitted": [
+   "package-lock.json"
+  ]
+ },
+ {
+  "run": 38414210865,
+  "event": "pull_request",
+  "sha": "58550d1320",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationPopOutSparklinesNL.spec.mjs"
+  ],
+  "admitted": [
+   "buildScripts/util/e2eCiSelection.mjs",
+   "test/playwright/e2e/neural-link/Fixture.spec.mjs",
+   "test/playwright/fixtures.mjs"
+  ]
+ },
+ {
+  "run": 38422728929,
+  "event": "pull_request",
+  "sha": "cbfd77bb8c",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockMotionNL.spec.mjs"
+  ],
+  "admitted": [
+   "buildScripts/util/e2eCiSelection.mjs"
+  ]
+ },
+ {
+  "run": 38427910487,
+  "event": "push",
+  "sha": "5f2f88cb87",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationReclaimEmbodimentNL.spec.mjs"
+  ],
+  "admitted": [
+   "buildScripts/util/e2eCiSelection.mjs"
+  ]
+ },
+ {
+  "run": 38456417004,
+  "event": "push",
+  "sha": "731b70d1d4",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 38822396661,
+  "event": "push",
+  "sha": "557202189b",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 38822468200,
+  "event": "push",
+  "sha": "065915038d",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationPopOutHoverSyncNL.spec.mjs"
+  ],
+  "admitted": [
+   "examples/grid/animatedRowSorting/Viewport.mjs",
+   "src/Neo.mjs",
+   "src/grid/Container.mjs",
+   "src/grid/header/Wrapper.mjs",
+   "test/playwright/e2e/grid/AnimatedRowSorting.spec.mjs"
+  ]
+ },
+ {
+  "run": 38883047174,
+  "event": "push",
+  "sha": "cd2d1e5486",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/grid/header/Button.mjs",
+   "test/playwright/e2e/grid/HeaderInlineProjectionNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 38887266661,
+  "event": "pull_request",
+  "sha": "dcebd54505",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "apps/workstation/view/VesselWorkspace.mjs",
+   "src/dashboard/dock/Workspace.mjs",
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 38888705395,
+  "event": "pull_request",
+  "sha": "9d3a8a3c17",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "apps/workstation/view/VesselWorkspace.mjs",
+   "src/dashboard/dock/Workspace.mjs",
+   "src/dashboard/dock/projection/Cycle.mjs",
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 38889329922,
+  "event": "push",
+  "sha": "af81fc0f86",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationPopOutHoverSyncNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/collection/Base.mjs",
+   "src/collection/Filter.mjs",
+   "src/collection/SearchFilter.mjs",
+   "src/data/Store.mjs",
+   "src/data/TreeStore.mjs"
+  ]
+ },
+ {
+  "run": 38901840705,
+  "event": "pull_request",
+  "sha": "fb82925959",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 38913331553,
+  "event": "push",
+  "sha": "c7bcbe6489",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "apps/workstation/tour/NativeGestureDriver.mjs",
+   "apps/workstation/view/CrossWindowGestureSnapshot.mjs"
+  ]
+ },
+ {
+  "run": 38924686520,
+  "event": "pull_request",
+  "sha": "01eec050bc",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "examples/grid/issues/MainContainer.mjs",
+   "resources/scss/src/grid/SearchToolbar.scss",
+   "src/grid/Container.mjs",
+   "src/grid/SearchToolbar.mjs",
+   "src/grid/_export.mjs",
+   "src/grid/column/Base.mjs",
+   "test/playwright/e2e/grid/SearchToolbarNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 38929719553,
+  "event": "push",
+  "sha": "eedc33c3dd",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "examples/grid/issues/MainContainer.mjs",
+   "resources/scss/src/grid/SearchToolbar.scss",
+   "src/grid/Container.mjs",
+   "src/grid/SearchToolbar.mjs",
+   "src/grid/_export.mjs",
+   "src/grid/column/Base.mjs",
+   "test/playwright/e2e/grid/SearchToolbarNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39053990712,
+  "event": "push",
+  "sha": "45d6c0d9c2",
+  "failing": [
+   "test/playwright/e2e/grid/PremeasureRowsNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 39061255489,
+  "event": "push",
+  "sha": "44534e3128",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "test/playwright/fixtures.mjs"
+  ]
+ },
+ {
+  "run": 39073098062,
+  "event": "push",
+  "sha": "6645079a4e",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 39079895583,
+  "event": "push",
+  "sha": "485c125712",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationPopOutHoverSyncNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 39092985615,
+  "event": "pull_request",
+  "sha": "2aff9534a3",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "package-lock.json",
+   "package.json"
+  ]
+ },
+ {
+  "run": 39175590339,
+  "event": "push",
+  "sha": "a4eafc176c",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "buildScripts/util/check-front-door-fingerprint.mjs"
+  ]
+ },
+ {
+  "run": 39181351672,
+  "event": "push",
+  "sha": "18adbb52bc",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 39216757676,
+  "event": "pull_request",
+  "sha": "c0ffa6a0ea",
+  "failing": [
+   "test/playwright/e2e/grid/PremeasureRowsNL.spec.mjs"
+  ],
+  "admitted": [
+   "package-lock.json"
+  ]
+ },
+ {
+  "run": 39216772503,
+  "event": "pull_request",
+  "sha": "e1d16b5e66",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationPopOutHoverSyncNL.spec.mjs"
+  ],
+  "admitted": [
+   "package-lock.json",
+   "package.json"
+  ]
+ },
+ {
+  "run": 39260613180,
+  "event": "pull_request",
+  "sha": "b034bf4100",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "package-lock.json"
+  ]
+ },
+ {
+  "run": 39291969616,
+  "event": "push",
+  "sha": "74ed8d1d92",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "apps/workstation/view/VesselWorkspace.mjs",
+   "src/dashboard/dock/interaction/DragAffordances.mjs",
+   "src/dashboard/dock/interaction/TabSortZone.mjs",
+   "src/dashboard/dock/window/WorkspaceSet.mjs",
+   "src/manager/transaction/Commit.mjs",
+   "test/playwright/e2e/workstation/WorkstationPopupReturnNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39387259444,
+  "event": "pull_request",
+  "sha": "650a2a32f0",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "package-lock.json"
+  ]
+ },
+ {
+  "run": 39397360599,
+  "event": "pull_request",
+  "sha": "d9f7c77fd4",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationPopOutHoverSyncNL.spec.mjs"
+  ],
+  "admitted": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39408728294,
+  "event": "push",
+  "sha": "79d43899c1",
+  "failing": [
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ],
+  "admitted": [
+   "src/list/ValuePicker.mjs",
+   "test/playwright/e2e/grid/HeaderMenuStateNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39419695153,
+  "event": "push",
+  "sha": "76055596bd",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/collection/Base.mjs",
+   "test/playwright/e2e/grid/AnimatedRowSorting.spec.mjs"
+  ]
+ },
+ {
+  "run": 39492328657,
+  "event": "push",
+  "sha": "f5decee2c0",
+  "failing": [
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ],
+  "admitted": [
+   "resources/scss/src/grid/header/plugin/Menu.scss",
+   "resources/scss/theme-neo-dark/list/Base.scss",
+   "resources/scss/theme-neo-light/list/Base.scss",
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ]
+ },
+ {
+  "run": 39582656813,
+  "event": "push",
+  "sha": "bb9c8742a3",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockTabOverflowNL.spec.mjs"
+  ],
+  "admitted": [
+   "apps/portal/resources/data/examples_devmode.json",
+   "apps/portal/resources/data/examples_dist_dev.json",
+   "apps/portal/resources/data/examples_dist_esm.json",
+   "apps/portal/resources/data/examples_dist_prod.json",
+   "apps/portal/resources/images/examples/devmode/grid-issues-13-3.jpg"
+  ]
+ },
+ {
+  "run": 39584045658,
+  "event": "push",
+  "sha": "b779831ff4",
+  "failing": [
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ],
+  "admitted": [
+   "package-lock.json",
+   "package.json"
+  ]
+ },
+ {
+  "run": 39589655244,
+  "event": "push",
+  "sha": "89b6b64cd9",
+  "failing": [
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ],
+  "admitted": [
+   "src/container/Base.mjs"
+  ]
+ },
+ {
+  "run": 39601190358,
+  "event": "push",
+  "sha": "24c53fcd87",
+  "failing": [
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ],
+  "admitted": [
+   "test/playwright/e2e/dashboard/DockTabOverflowNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39607723586,
+  "event": "push",
+  "sha": "2abc17fc75",
+  "failing": [
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ],
+  "admitted": [
+   "src/grid/header/plugin/Menu.mjs",
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ]
+ },
+ {
+  "run": 39611443852,
+  "event": "push",
+  "sha": "229edc1b0c",
+  "failing": [
+   "test/playwright/e2e/grid/PremeasureRowsNL.spec.mjs"
+  ],
+  "admitted": [
+   "resources/scss/src/grid/SearchToolbar.scss",
+   "src/grid/SearchToolbar.mjs",
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ]
+ },
+ {
+  "run": 39616015709,
+  "event": "push",
+  "sha": "ad418ae805",
+  "failing": [
+   "test/playwright/e2e/neural-link/WindowOps.spec.mjs"
+  ],
+  "admitted": [
+   "resources/scss/src/grid/header/plugin/Menu.scss",
+   "src/grid/Container.mjs",
+   "src/grid/header/Button.mjs",
+   "src/grid/header/Wrapper.mjs",
+   "src/grid/header/plugin/Menu.mjs",
+   "src/main/DomEvents.mjs",
+   "test/playwright/e2e/grid/HeaderMenuInteractionNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39670139243,
+  "event": "push",
+  "sha": "234b1c1cd5",
+  "failing": [
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ],
+  "admitted": [
+   "src/grid/Container.mjs",
+   "src/grid/header/Button.mjs",
+   "src/grid/header/Wrapper.mjs"
+  ]
+ },
+ {
+  "run": 39812886181,
+  "event": "pull_request",
+  "sha": "742fc1f29e",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationHeaderActionsHoverNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/dashboard/dock/Workspace.mjs",
+   "src/dashboard/dock/projection/LayoutAdapter.mjs",
+   "src/dashboard/dock/projection/Reconciler.mjs",
+   "src/tab/plugin/Overflow.mjs",
+   "src/toolbar/Base.mjs",
+   "test/playwright/e2e/workstation/WorkstationHeaderActionsHoverNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39852869392,
+  "event": "push",
+  "sha": "998f35a3bf",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationMaximizeTabReorderNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/dashboard/dock/window/Placement.mjs"
+  ]
+ },
+ {
+  "run": 39853023569,
+  "event": "push",
+  "sha": "058e374357",
+  "failing": [
+   "test/playwright/e2e/grid/PremeasureRowsNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 39864191049,
+  "event": "pull_request",
+  "sha": "e0f46820ed",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationTabDragHeadersStayNL.spec.mjs"
+  ],
+  "admitted": [
+   "test/playwright/e2e/workstation/WorkstationTabDragHeadersStayNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39873366475,
+  "event": "push",
+  "sha": "9cad83b350",
+  "failing": [
+   "test/playwright/e2e/core/CanvasGroupPainting.spec.mjs"
+  ],
+  "admitted": [
+   "test/playwright/e2e/workstation/WorkstationTabDragHeadersStayNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39915969245,
+  "event": "push",
+  "sha": "abcfac68b4",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationTabDragHeadersStayNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/dashboard/dock/projection/Reconciler.mjs",
+   "test/playwright/e2e/workstation/WorkstationReopenedPopupReturnNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39946560707,
+  "event": "push",
+  "sha": "8eacfb49f2",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationTabDragHeadersStayNL.spec.mjs"
+  ],
+  "admitted": [
+   "test/playwright/e2e/workstation/WorkstationMaximizeOverflowMenuNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39952862389,
+  "event": "pull_request",
+  "sha": "d597c8e98e",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/dashboard/dock/window/NativeVesselTransaction.mjs",
+   "test/playwright/e2e/workstation/WorkstationUndoEmptiedPopupNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39955680440,
+  "event": "pull_request",
+  "sha": "f46948ed28",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationMaximizeTabReorderNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/tab/plugin/Overflow.mjs",
+   "src/toolbar/Base.mjs",
+   "test/playwright/e2e/workstation/WorkstationMaximizeOverflowMenuNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 39957509654,
+  "event": "pull_request",
+  "sha": "01bad08d3c",
+  "failing": [
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ],
+  "admitted": [
+   "src/mixin/VdomLifecycle.mjs"
+  ]
+ },
+ {
+  "run": 39957509744,
+  "event": "pull_request",
+  "sha": "01bad08d3c",
+  "failing": [
+   "test/playwright/e2e/grid/HeaderMenuStateNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/mixin/VdomLifecycle.mjs"
+  ]
+ },
+ {
+  "run": 40007469729,
+  "event": "push",
+  "sha": "da49631cf6",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockMotionNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/dashboard/dock/interaction/TabSortZone.mjs",
+   "src/draggable/container/SortZone.mjs",
+   "test/playwright/e2e/workstation/WorkstationTabDragSiblingHoldsNL.spec.mjs"
+  ]
+ },
+ {
+  "run": 40202145032,
+  "event": "push",
+  "sha": "a97cb2d5f8",
+  "failing": [
+   "test/playwright/e2e/grid/HeaderMenuInteractionNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/calendar/view/week/Component.mjs"
+  ]
+ },
+ {
+  "run": 40257099143,
+  "event": "pull_request",
+  "sha": "d9252ac288",
+  "failing": [
+   "test/playwright/e2e/grid/HeaderInlineProjectionNL.spec.mjs",
+   "test/playwright/e2e/workstation/WorkstationFocusedTabOverflowNL.spec.mjs"
+  ],
+  "admitted": [
+   "examples/grid/bigData/GridContainer.mjs",
+   "examples/grid/bigData/MainStore.mjs",
+   "src/collection/Base.mjs",
+   "src/grid/Container.mjs",
+   "src/grid/Row.mjs",
+   "src/grid/header/Wrapper.mjs"
+  ]
+ },
+ {
+  "run": 40350233896,
+  "event": "push",
+  "sha": "4eb27683fb",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationTabDragSiblingHoldsNL.spec.mjs",
+   "test/playwright/e2e/workstation/WorkstationUndoEmptiedPopupNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 40364582706,
+  "event": "push",
+  "sha": "f096372d85",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationTabDragSiblingHoldsNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 40373027870,
+  "event": "push",
+  "sha": "6a2dc17e95",
+  "failing": [
+   "test/playwright/e2e/neural-link/WindowOps.spec.mjs"
+  ],
+  "admitted": [
+   "src/ai/Client.mjs",
+   "src/worker/App.mjs"
+  ]
+ },
+ {
+  "run": 40379863088,
+  "event": "push",
+  "sha": "a81048becb",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockMotionNL.spec.mjs",
+   "test/playwright/e2e/workstation/WorkstationPopOutPaneIdentityNL.spec.mjs"
+  ],
+  "admitted": [
+   "buildScripts/util/prepare.mjs"
+  ]
+ },
+ {
+  "run": 40402267545,
+  "event": "push",
+  "sha": "08288e206b",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationPopOutPaneIdentityNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/Neo.mjs",
+   "src/core/Base.mjs"
+  ]
+ },
+ {
+  "run": 40422523243,
+  "event": "push",
+  "sha": "966247e5e8",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationUndoEmptiedPopupNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/dashboard/dock/window/NativeVesselTransaction.mjs"
+  ]
+ },
+ {
+  "run": 40431080950,
+  "event": "pull_request",
+  "sha": "6cbb55d4f3",
+  "failing": [
+   "test/playwright/e2e/dashboard/DemoBPerspectivesNL.spec.mjs",
+   "test/playwright/e2e/dashboard/TearOutMatrixRows4To7NL.spec.mjs"
+  ],
+  "admitted": [
+   "src/controller/Application.mjs",
+   "src/dashboard/dock/window/NativeVesselTransaction.mjs",
+   "src/manager/transaction/NativeLifecycle.mjs",
+   "src/worker/App.mjs"
+  ]
+ },
+ {
+  "run": 40986987420,
+  "event": "push",
+  "sha": "677a1f01b8",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockMotionNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 41213852077,
+  "event": "pull_request",
+  "sha": "9f6d6b2641",
+  "failing": [
+   "test/playwright/e2e/grid/HeaderResizeRectSync.spec.mjs"
+  ],
+  "admitted": [
+   "src/draggable/grid/header/toolbar/SortZone.mjs",
+   "src/grid/Body.mjs",
+   "src/grid/Container.mjs",
+   "src/grid/Row.mjs",
+   "src/grid/header/Toolbar.mjs",
+   "src/grid/header/Wrapper.mjs",
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ]
+ },
+ {
+  "run": 41213852119,
+  "event": "pull_request",
+  "sha": "9f6d6b2641",
+  "failing": [
+   "test/playwright/e2e/grid/HeaderCellRectSync.spec.mjs"
+  ],
+  "admitted": [
+   "src/draggable/grid/header/toolbar/SortZone.mjs",
+   "src/grid/Body.mjs",
+   "src/grid/Container.mjs",
+   "src/grid/Row.mjs",
+   "src/grid/header/Toolbar.mjs",
+   "src/grid/header/Wrapper.mjs",
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ]
+ },
+ {
+  "run": 41407047016,
+  "event": "pull_request",
+  "sha": "dbaa28b08d",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationPopupTargetCloseNL.spec.mjs"
+  ],
+  "admitted": [
+   "package-lock.json"
+  ]
+ },
+ {
+  "run": 41563514323,
+  "event": "push",
+  "sha": "d46517c2c1",
+  "failing": [
+   "test/playwright/e2e/neural-link/WindowOps.spec.mjs"
+  ],
+  "admitted": [
+   "src/form/Container.mjs",
+   "src/form/field/Text.mjs"
+  ]
+ },
+ {
+  "run": 41585186674,
+  "event": "push",
+  "sha": "bb9f031168",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockCrossWindowWitnessNL.spec.mjs",
+   "test/playwright/e2e/neural-link/WindowOps.spec.mjs"
+  ],
+  "admitted": [
+   "src/component/wrapper/GoogleMaps.mjs",
+   "src/main/addon/GoogleMaps.mjs"
+  ]
+ },
+ {
+  "run": 41586476870,
+  "event": "push",
+  "sha": "7e026ef22d",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFeedKeepsScrollNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/data/TreeStore.mjs"
+  ]
+ },
+ {
+  "run": 41647213436,
+  "event": "pull_request",
+  "sha": "1063af45b6",
+  "failing": [
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ],
+  "admitted": [
+   "src/component/Splitter.mjs",
+   "src/main/addon/DragDrop.mjs",
+   "src/main/draggable/Resize.mjs"
+  ]
+ },
+ {
+  "run": 41664916202,
+  "event": "push",
+  "sha": "676f152f75",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockCrossWindowWitnessNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 41666963270,
+  "event": "push",
+  "sha": "d187157b83",
+  "failing": [
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ],
+  "admitted": [
+   "src/component/Carousel.mjs"
+  ]
+ },
+ {
+  "run": 41699026911,
+  "event": "push",
+  "sha": "bc8706f94e",
+  "failing": [
+   "test/playwright/e2e/grid/HeaderMenuInteractionNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/selection/grid/RowModel.mjs",
+   "src/selection/table/RowModel.mjs",
+   "test/playwright/e2e/grid/RowModelModifierClick.spec.mjs"
+  ]
+ },
+ {
+  "run": 41828576643,
+  "event": "push",
+  "sha": "3ed29de673",
+  "failing": [
+   "test/playwright/e2e/workstation/WorkstationFeedKeepsScrollNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/grid/header/Button.mjs"
+  ]
+ },
+ {
+  "run": 41841829227,
+  "event": "pull_request",
+  "sha": "83cc975571",
+  "failing": [
+   "test/playwright/e2e/portal/DocsNavigationSearch.spec.mjs"
+  ],
+  "admitted": [
+   "src/list/Base.mjs",
+   "src/list/Country.mjs",
+   "src/tree/List.mjs",
+   "src/util/String.mjs",
+   "test/playwright/e2e/portal/DocsNavigationSearch.spec.mjs"
+  ]
+ },
+ {
+  "run": 41845251473,
+  "event": "pull_request",
+  "sha": "dc36f38f3f",
+  "failing": [
+   "test/playwright/e2e/portal/DocsNavigationSearch.spec.mjs"
+  ],
+  "admitted": [
+   "src/list/Base.mjs",
+   "src/list/Country.mjs",
+   "src/tree/List.mjs",
+   "src/util/String.mjs",
+   "test/playwright/e2e/portal/DocsNavigationSearch.spec.mjs"
+  ]
+ },
+ {
+  "run": 41882596463,
+  "event": "push",
+  "sha": "6aa2cd3b77",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockMotionNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 41895381171,
+  "event": "push",
+  "sha": "9f63611a99",
+  "failing": [
+   "test/playwright/e2e/grid/SearchToolbarNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/list/Base.mjs",
+   "src/list/Country.mjs",
+   "src/tree/List.mjs",
+   "src/util/String.mjs",
+   "test/playwright/e2e/portal/DocsNavigationSearch.spec.mjs"
+  ]
+ },
+ {
+  "run": 41901524701,
+  "event": "pull_request",
+  "sha": "0d9b566864",
+  "failing": [
+   "test/playwright/e2e/grid/CellEditingReprojectionFocus.spec.mjs"
+  ],
+  "admitted": [
+   "examples/component/graphScene/MainContainer.mjs",
+   "examples/component/graphScene/SceneCanvas.mjs",
+   "examples/component/graphScene/demoScene.mjs",
+   "src/canvas/GraphScene.mjs",
+   "test/playwright/e2e/rendering/GraphScene.spec.mjs"
+  ]
+ },
+ {
+  "run": 42013883695,
+  "event": "push",
+  "sha": "4b09f15a16",
+  "failing": [
+   "test/playwright/e2e/rendering/ContextMenuNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/collection/Filter.mjs",
+   "src/data/Store.mjs",
+   "src/data/TreeStore.mjs"
+  ]
+ },
+ {
+  "run": 42017167674,
+  "event": "push",
+  "sha": "7e51ea6fa1",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockMotionNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 42020854784,
+  "event": "push",
+  "sha": "cb0e56f343",
+  "failing": [
+   "test/playwright/e2e/grid/BigDataNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 42030174925,
+  "event": "pull_request",
+  "sha": "a08a672c72",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockMotionNL.spec.mjs"
+  ],
+  "admitted": [
+   "resources/scss/src/component/DateSelector.scss",
+   "src/component/DateSelector.mjs",
+   "src/form/field/Date.mjs",
+   "src/selection/DateSelectorModel.mjs"
+  ]
+ },
+ {
+  "run": 42035958923,
+  "event": "pull_request",
+  "sha": "df87e5237c",
+  "failing": [
+   "test/playwright/e2e/grid/CellEditingReprojectionFocus.spec.mjs",
+   "test/playwright/e2e/portal/HighlightJsResources.spec.mjs"
+  ],
+  "admitted": [
+   "buildScripts/build/highlightJs.mjs",
+   "examples/component/toast/MainContainer.mjs",
+   "examples/component/toast/MainContainerController.mjs",
+   "examples/component/toast/resources/lib/highlight/CHANGES.md",
+   "examples/component/toast/resources/lib/highlight/LICENSE",
+   "examples/component/toast/resources/lib/highlight/README.md",
+   "examples/component/toast/resources/lib/highlight/highlight.pack.js",
+   "examples/component/toast/resources/lib/highlightjs-custom-dark-theme.css",
+   "examples/component/toast/resources/lib/highlightjs-custom-github-theme.css",
+   "resources/scss/src/examples/component/toast/MainContainer.scss",
+   "src/main/addon/HighlightJS.mjs",
+   "src/util/HighlightJs.mjs",
+   "test/playwright/e2e/portal/HighlightJsResources.spec.mjs"
+  ]
+ },
+ {
+  "run": 42037221880,
+  "event": "push",
+  "sha": "0091a91213",
+  "failing": [
+   "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
+  ],
+  "admitted": [
+   "buildScripts/webpack/development/webpack.config.appworker.mjs",
+   "buildScripts/webpack/mainAddonContextPlugin.mjs",
+   "buildScripts/webpack/production/webpack.config.appworker.mjs",
+   "buildScripts/webpack/workerContextRebasePlugin.mjs",
+   "src/worker/App.mjs",
+   "src/worker/Canvas.mjs",
+   "src/worker/Data.mjs",
+   "src/worker/Task.mjs"
+  ]
+ },
+ {
+  "run": 42041793582,
+  "event": "pull_request",
+  "sha": "65cb812b36",
+  "failing": [
+   "test/playwright/e2e/portal/HighlightJsResources.spec.mjs"
+  ],
+  "admitted": [
+   "buildScripts/build/highlightJs.mjs",
+   "examples/component/toast/MainContainer.mjs",
+   "examples/component/toast/MainContainerController.mjs",
+   "examples/component/toast/resources/lib/highlight/CHANGES.md",
+   "examples/component/toast/resources/lib/highlight/LICENSE",
+   "examples/component/toast/resources/lib/highlight/README.md",
+   "examples/component/toast/resources/lib/highlight/highlight.pack.js",
+   "examples/component/toast/resources/lib/highlightjs-custom-dark-theme.css",
+   "examples/component/toast/resources/lib/highlightjs-custom-github-theme.css",
+   "resources/scss/src/examples/component/toast/MainContainer.scss",
+   "src/main/addon/HighlightJS.mjs",
+   "src/util/HighlightJs.mjs",
+   "test/playwright/e2e/portal/HighlightJsResources.spec.mjs"
+  ]
+ },
+ {
+  "run": 42042806935,
+  "event": "pull_request",
+  "sha": "8cb3f18fc0",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockCrossWindowWitnessNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/functional/_export.mjs",
+   "src/functional/component/Base.mjs",
+   "src/functional/useMemo.mjs"
+  ]
+ },
+ {
+  "run": 42044788032,
+  "event": "push",
+  "sha": "4a2706499f",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockCrossWindowWitnessNL.spec.mjs",
+   "test/playwright/e2e/grid/BigDataNL.spec.mjs"
+  ],
+  "admitted": [
+   "resources/scss/src/component/DateSelector.scss",
+   "src/component/DateSelector.mjs",
+   "src/form/field/Date.mjs",
+   "src/selection/DateSelectorModel.mjs",
+   "test/playwright/playwright.config.unit-tz.mjs"
+  ]
+ },
+ {
+  "run": 42050437717,
+  "event": "pull_request",
+  "sha": "3ea96d137a",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockCrossWindowWitnessNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/manager/Toast.mjs"
+  ]
+ },
+ {
+  "run": 42058376779,
+  "event": "pull_request",
+  "sha": "36ade18f6b",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockCrossWindowWitnessNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/functional/_export.mjs",
+   "src/functional/component/Base.mjs",
+   "src/functional/useMemo.mjs"
+  ]
+ },
+ {
+  "run": 42060576946,
+  "event": "push",
+  "sha": "9dfb4cde6e",
+  "failing": [
+   "test/playwright/e2e/grid/BigDataNL.spec.mjs"
+  ],
+  "admitted": [
+   "src/toolbar/Base.mjs"
+  ]
+ },
+ {
+  "run": 42066449647,
+  "event": "pull_request",
+  "sha": "eb92bb08c3",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockDragDropNL.spec.mjs"
+  ],
+  "admitted": []
+ },
+ {
+  "run": 42068489448,
+  "event": "push",
+  "sha": "5eb96e6f88",
+  "failing": [
+   "test/playwright/e2e/dashboard/DockMotionNL.spec.mjs"
+  ],
+  "admitted": [
+   "buildScripts/docs/generateDocsJson.mjs",
+   "test/playwright/e2e/portal/DocsMixinsNL.spec.mjs"
+  ]
+ }
+]
