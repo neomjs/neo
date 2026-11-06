@@ -23,6 +23,14 @@
         width        : 100%;
     }
 
+    .portal-connect-intro {
+        font-size  : 1.2em;
+        line-height: 1.6;
+        margin     : 0 auto 1em;
+        max-width  : 720px;
+        text-align : center;
+    }
+
     .portal-glass-card {
         backdrop-filter        : blur(12px);
         -webkit-backdrop-filter: blur(12px);
@@ -30,11 +38,13 @@
         border                 : var(--portal-services-glass-border);
         border-radius          : 16px;
         box-shadow             : var(--portal-services-glass-shadow);
+        box-sizing             : border-box;
+        flex-shrink            : 0;
         margin-left            : auto;
         margin-right           : auto;
         max-width              : 800px;
         min-height             : fit-content;
-        opacity                : 0.8;
+        opacity                : 1;
         padding                : 2.5em;
         transition             : transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
         width                  : 100%;
@@ -68,6 +78,11 @@
                     color          : var(--portal-services-link-hover-color);
                     text-decoration: underline;
                 }
+
+                &:focus-visible {
+                    outline       : 2px solid var(--portal-services-link-color);
+                    outline-offset: 4px;
+                }
             }
 
             ul {
@@ -79,6 +94,12 @@
                     margin-bottom  : 0.5em;
                 }
             }
+        }
+
+        .portal-connect-links {
+            display  : flex;
+            flex-wrap: wrap;
+            gap      : 0.75em 1.5em;
         }
     }
 }

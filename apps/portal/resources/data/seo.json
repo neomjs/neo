@@ -32,7 +32,7 @@
         "description": "Release notes and changelogs for the Neo.mjs platform."
     },
     "/services": {
-        "title": "Neo.mjs Services",
-        "description": "Professional services for the Neo.mjs platform."
+        "title": "Connect with Neo.mjs",
+        "description": "Build an app with Neo.mjs, explore persistent project memory for coding agents, and join the public development work."
     }
 }
