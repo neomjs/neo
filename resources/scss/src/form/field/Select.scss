@@ -1,0 +1,41 @@
+.neo-selectfield {
+    display       : flex;
+    flex-direction: column;
+    gap           : .35em;
+
+    .neo-selectfield-label {
+        color: var(--selectfield-color);
+    }
+
+    .neo-selectfield-input {
+        background   : var(--selectfield-background);
+        border       : 1px solid var(--selectfield-border-color);
+        border-radius: 3px;
+        color        : var(--selectfield-color);
+        font         : inherit;
+        min-height   : 32px;
+        padding      : .4em .6em;
+        width        : 100%;
+
+        &:focus-visible {
+            outline       : 2px solid var(--selectfield-focus-color);
+            outline-offset: 2px;
+        }
+    }
+
+    &.neo-selectfield-customizable {
+        .neo-selectfield-input,
+        .neo-selectfield-input::picker(select) {
+            appearance: base-select;
+        }
+    }
+
+    .neo-selectfield-error {
+        color    : var(--selectfield-error-color);
+        font-size: .85em;
+    }
+
+    &.neo-invalid .neo-selectfield-input {
+        border-color: var(--selectfield-error-color);
+    }
+}

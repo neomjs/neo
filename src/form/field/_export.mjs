@@ -11,9 +11,10 @@ import Picker   from './Picker.mjs';
 import Radio    from './Radio.mjs';
 import Range    from './Range.mjs';
 import Search   from './Search.mjs';
+import Select   from './Select.mjs';
 import Text     from './Text.mjs';
 import TextArea from './TextArea.mjs';
 import Time     from './Time.mjs';
 import Url      from './Url.mjs';
 
-export {Base, CheckBox, Chip, ComboBox, Date, Display, Email, Number, Password, Picker, Radio, Range, Search, Text, TextArea, Time, Url};
+export {Base, CheckBox, Chip, ComboBox, Date, Display, Email, Number, Password, Picker, Radio, Range, Search, Select, Text, TextArea, Time, Url};
