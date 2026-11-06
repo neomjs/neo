@@ -353,7 +353,11 @@ test.describe('Grid header value-menu native interactions', () => {
         assertAligned(await readPairs(page, state), 'resize drop');
         const observed = await motion;
         await testInfo.attach('header-resize-motion', {body: Buffer.from(JSON.stringify(observed)), contentType: 'application/json'});
-        expect(observed.samples.some(sample => sample.rects[0]?.width > box.width + 40)).toBe(true);
+        // Only the receipt shows the width rising frame by frame while held; the polls above own the target size
+        const widths = observed.samples.map(sample => sample.rects[0]?.width).filter(Number.isFinite),
+              rises  = widths.filter((width, index) => index > 0 && width > widths[index - 1]).length;
+        expect(rises, 'live growth rises in at least two steps, never one jump at the drop').toBeGreaterThanOrEqual(2);
+        expect(Math.max(...widths)).toBeGreaterThan(box.width);
         await reorder(page, state, testInfo);
         await expect(page.locator('.neo-grid-column-menu')).toHaveCount(0)
     });
