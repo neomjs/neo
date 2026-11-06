@@ -127,10 +127,10 @@ Try typing **Arizo** into the picker. Its result narrows to Arizona, while the g
 rows. A ComboBox given a Store instance already creates its own filtering view internally. You do not
 need to build a second Store merely to stop the picker's query from filtering the grid.
 
-Shared record identity is different from forwarding every edit notification. In the exercised source
-edit, the Grid repainted and the picker's record getter read the updated name, while the already-open
-picker list still displayed its previous label. Its private query has its own refresh path; the shared
-Store binding is not a promise that every consumer repaints on every source event.
+Shared record identity also carries edits to both views. A source edit repaints the Grid, and the
+ComboBox forwards it to its private picker view, so an already-open picker list shows the new label too.
+An edit does not re-run the picker's query, though: a record whose new label no longer matches the typed
+text stays listed until the next keystroke.
 
 ```mermaid
 flowchart TD
@@ -300,18 +300,14 @@ to that policy explicitly and remove the listener when the consuming view ends. 
 setting an edit-refilter option on the derived Store forwards notifications it never receives. The
 [Tables guide](#/learn/guides/datahandling/Tables) explains that boundary in more detail.
 
-Finally, retire what you created. The root provider handles its created Store when the view ends.
-For a standalone projection created by the code above, dispose it and its private Model when its owner
-finishes, and release any source listeners you installed:
+Finally, retire what you created. The root provider destroys its created Store when the view ends.
+A standalone Store created by the code above is yours to destroy when its owner finishes. Destroying it
+also lets go of the Model it created from the class reference, so there is no separate Model to dispose.
+Release any source listeners you installed:
 
 ```javascript readonly
-const shortlistModel = shortlist.model;
 shortlist.destroy();
-shortlistModel.destroy();
-
-const remoteModel = remoteStates.model;
 remoteStates.destroy();
-remoteModel.destroy();
 ```
 
 The practical payoff is a screen that can grow without multiplying data owners. Keep one source for the

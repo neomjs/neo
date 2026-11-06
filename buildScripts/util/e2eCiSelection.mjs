@@ -45,15 +45,23 @@ export const RUN_PATHS = [
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
     'test/playwright/e2e/grid',
+    'test/playwright/e2e/neural-link',
     'test/playwright/e2e/portal',
     'test/playwright/e2e/realworld',
+    'test/playwright/e2e/rendering/ButtonBaseNL.spec.mjs',
     'test/playwright/e2e/rendering/CalendarMonthEventDrag.spec.mjs',
+    'test/playwright/e2e/rendering/CalendarMonthRollover.spec.mjs',
+    'test/playwright/e2e/rendering/ContextMenuNL.spec.mjs',
+    'test/playwright/e2e/rendering/DeltaCoherenceRegistryNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaUpdatesChangeNodeName.spec.mjs',
     'test/playwright/e2e/rendering/GraphScene.spec.mjs',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
+    'test/playwright/e2e/rendering/MarkdownStreamingCoherenceNL.spec.mjs',
     'test/playwright/e2e/rendering/MergedChildWindowId.spec.mjs',
     'test/playwright/e2e/rendering/MountHookIsolation.spec.mjs',
+    'test/playwright/e2e/rendering/StoreLoadingNL.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs',
+    'test/playwright/e2e/tab',
     'test/playwright/e2e/table'
 ];
 
@@ -130,12 +138,11 @@ export const BRAIN_RETRY_BRIDGE = {
  * @member {String[]} BRAIN_SMOKE
  */
 export const BRAIN_SMOKE = [
-    'test/playwright/e2e/dashboard/DockDragDropNL.spec.mjs',
-    'test/playwright/e2e/dashboard/DockTourSmokeNL.spec.mjs',
-    'test/playwright/e2e/grid/BigDataNL.spec.mjs',
+    'test/playwright/e2e/dashboard/DemoBPerspectiveToolsNL.spec.mjs',
+    'test/playwright/e2e/dashboard/DockPlacementNL.spec.mjs',
     'test/playwright/e2e/neural-link/CreateComponentMultiWindow.spec.mjs',
     'test/playwright/e2e/neural-link/Fixture.spec.mjs',
-    'test/playwright/e2e/rendering/ContextMenuNL.spec.mjs',
+    'test/playwright/e2e/rendering/SparseUpdatesNL.spec.mjs',
     'test/playwright/e2e/workstation/WindowGeometryRealChromeNL.spec.mjs',
     'test/playwright/e2e/write-guard/MultiWriterNL.spec.mjs'
 ];

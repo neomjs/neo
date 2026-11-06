@@ -69,4 +69,17 @@ test.describe('buildScripts/create/scss.mjs theme root selector generation (#508
         expect(fs.existsSync(darkFile)).toBe(true);
         expect(darkContent).toContain(':root .neo-theme-dark { // .neo-component-my-widget');
     });
+
+    test('removes only the leading view segment, matching the runtime theme lookup', () => {
+        execFileSync(process.execPath, [scssScriptPath, '-c', 'Demo.view.section.view.Card'], {cwd: tmpDir, stdio: 'pipe'});
+
+        for (const folder of ['src', 'theme-dark', 'theme-light']) {
+            const expected = path.join(tmpDir, 'resources/scss', folder, 'apps/demo/section/view/Card.scss'),
+                flattened  = path.join(tmpDir, 'resources/scss', folder, 'apps/demo/section/Card.scss');
+
+            expect(fs.existsSync(expected)).toBe(true);
+            expect(fs.existsSync(flattened)).toBe(false);
+            expect(fs.readFileSync(expected, 'utf8')).toContain('demo-view-section-view-card')
+        }
+    });
 });

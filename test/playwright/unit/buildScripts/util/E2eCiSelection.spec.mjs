@@ -4,8 +4,13 @@ import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 import {
+    ADAPTER_ELIGIBLE_SPECS,
+    isAdapterEligibleSpec
+} from '../../../externalBrainSelection.mjs';
+import {
     assertBrainDeclarations,
     assertQuarantinesResolve,
+    assertSelectionFloor,
     BRAIN_DURATIONS,
     BRAIN_QUARANTINES,
     BRAIN_RETRY_BRIDGE,
@@ -177,13 +182,25 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
     const root = path.resolve(import.meta.dirname, '../../../../..'),
           run  = {shard: '2/6', event: 'push', attempt: '1', engineSha: 'e'.repeat(40), brainSha: 'b'.repeat(40)};
 
-    test('selects exactly the specs the neuralLink fixture gates', () => {
+    test('selects exactly the specs the neuralLink fixture gates and excludes adapter-eligible specs', () => {
         const paths = brainPaths(root);
 
         expect(paths).toHaveLength(populations(root).ignored);
+        expect(assertSelectionFloor(root)).toBe(populations(root).executed);
 
         for (const file of paths) {
-            expect(fs.readFileSync(path.join(root, file), 'utf8'), file).toMatch(/\bneuralLink\b/)
+            const rel = path.relative('test/playwright/e2e', file).split(path.sep).join('/');
+
+            expect(fs.readFileSync(path.join(root, file), 'utf8'), file).toMatch(/\bneuralLink\b/);
+            expect(isAdapterEligibleSpec(rel), `${rel} is Brain-gated, so it must not be adapter-eligible`).toBe(false)
+        }
+
+        for (const rel of ADAPTER_ELIGIBLE_SPECS) {
+            expect(paths, `${rel} runs via the dedicated-worker adapter in the engine tier`).not.toContain(`test/playwright/e2e/${rel}`);
+            expect(
+                RUN_PATHS.some(runPath => `test/playwright/e2e/${rel}` === runPath || `test/playwright/e2e/${rel}`.startsWith(`${runPath}/`)),
+                `${rel} is covered by RUN_PATHS`
+            ).toBe(true)
         }
     });
 

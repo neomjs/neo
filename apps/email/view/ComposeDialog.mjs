@@ -4,6 +4,9 @@ import Provider    from '../../../src/state/Provider.mjs';
 
 /**
  * @summary Lazily created, retained host for one functional draft and its window-independent state.
+ * The Dashboard renders its first insertion: `autoMount: false` holds because no `animateTargetId` is set.
+ * Showing and hiding the overlay is instant by design, as a mail client's compose window appears in place;
+ * only the full-viewport maximize and its restore animate.
  * @class Email.view.ComposeDialog
  * @extends Neo.dialog.Base
  */
@@ -41,17 +44,6 @@ class ComposeDialog extends Dialog {
         title: 'New message',
         /** @member {Number} width=560 */
         width: 560
-    }
-
-    /**
-     * @summary Keeps the Dashboard as the first-render owner; Dialog's null-target hook enables auto-mount by default.
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     */
-    afterSetAnimateTargetId(value, oldValue) {
-        super.afterSetAnimateTargetId(value, oldValue);
-        this.autoMount = false;
-        this.autoInitVnode = false
     }
 }
 
