@@ -24,6 +24,7 @@ import {
     populations,
     QUARANTINE_STALE_DAYS,
     RUN_PATHS,
+    selectSpecs,
     summary
 } from '../../../../../buildScripts/util/e2eCiSelection.mjs';
 
@@ -460,5 +461,98 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
         expect(text, 'every attempt counts, retries and nested describes included').toContain('- `grid/A.spec.mjs` · 3.1 s');
         expect(text).toContain('- `core/B.spec.mjs` · 0 s');
         expect(brainDurations(log)).toEqual({'test/playwright/e2e/core/B.spec.mjs': 0, 'test/playwright/e2e/grid/A.spec.mjs': 3.1});
+    });
+});
+
+/**
+ * A selective run is only as safe as its fallbacks. Each arm below names one change the static map cannot follow and
+ * pins that it runs the whole population, beside the leaf changes that may select.
+ */
+test.describe('e2e CI selection — what a pull request\'s change selects', () => {
+    const demo  = 'test/playwright/e2e/demo/Demo.spec.mjs',
+          other = 'test/playwright/e2e/demo/Other.spec.mjs',
+          bare  = 'test/playwright/e2e/demo/Bare.spec.mjs';
+
+    let root;
+
+    test.beforeAll(() => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-e2e-select-'));
+
+        const tree = {
+            'buildScripts/tool.mjs'             : '',
+            'examples/demo/app.mjs'             : "import './View.mjs';",
+            'examples/demo/View.mjs'            : "import '../../src/button/Base.mjs';",
+            'examples/demo/resources/data.json' : '{}',
+            'examples/other/app.mjs'            : "import '../../src/form/Field.mjs';",
+            'src/button/Base.mjs'               : '',
+            'src/core/Base.mjs'                 : '',
+            'src/data/table.json'               : '{}',
+            'src/form/Field.mjs'                : '',
+            'src/loader/Lazy.mjs'               : "export default {importPath: './Late.mjs'};",
+            'src/unused/Orphan.mjs'             : '',
+            'test/playwright/fixtures.mjs'      : '',
+            'test/playwright/helpers/unused.mjs': '',
+            [bare]                              : '',
+            [demo]                              : "import {test} from '../../fixtures.mjs';\nawait page.goto('/examples/demo/index.html');",
+            [other]                             : "await page.goto('/examples/other/index.html');"
+        };
+
+        for (const [file, text] of Object.entries(tree)) {
+            fs.mkdirSync(path.join(root, path.dirname(file)), {recursive: true});
+            fs.writeFileSync(path.join(root, file), text)
+        }
+
+        execFileSync('git', ['init', '-q'], {cwd: root});
+        execFileSync('git', ['add', '.'], {cwd: root})
+    });
+
+    test.afterAll(() => {
+        fs.rmSync(root, {recursive: true, force: true})
+    });
+
+    test('a leaf change selects the specs that reach it, the specs the map cannot place, and the smoke files', () => {
+        const {full, specs} = selectSpecs({changed: ['src/button/Base.mjs'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(demo)).toBe('reaches src/button/Base.mjs');
+        expect(specs.get(bare)).toBe('the map cannot place it');
+        expect(specs.has(other)).toBe(false);
+        BRAIN_SMOKE.forEach(spec => expect(specs.get(spec), spec).toBe('BRAIN_SMOKE'))
+    });
+
+    test('a file an app fetches selects that app\'s specs', () => {
+        const {full, specs} = selectSpecs({changed: ['examples/demo/resources/data.json'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(demo)).toBe('its app fetches examples/demo/resources/data.json');
+        expect(specs.has(other)).toBe(false)
+    });
+
+    test('a module no spec reaches selects none', () => {
+        expect(selectSpecs({changed: ['src/unused/Orphan.mjs'], root})).toEqual({full: false, reasons: [], specs: new Map()})
+    });
+
+    test('a change the map cannot follow runs the whole population', () => {
+        [
+            ['src/core/Base.mjs',                  'src/core/Base.mjs: foundation'],
+            ['src/loader/Lazy.mjs',                'src/loader/Lazy.mjs: loads modules at runtime'],
+            ['src/gone/Deleted.mjs',               'src/gone/Deleted.mjs: not in the tree'],
+            ['src/data/table.json',                'src/data/table.json: unmapped'],
+            ['buildScripts/tool.mjs',              'buildScripts/tool.mjs: unmapped'],
+            ['test/playwright/helpers/unused.mjs', 'test/playwright/helpers/unused.mjs: e2e support no spec imports']
+        ].forEach(([file, reason]) => {
+            // Beside a leaf file that would select on its own, so the full trigger has to win
+            expect(selectSpecs({changed: ['src/button/Base.mjs', file], root}), file).toEqual({full: true, reasons: [reason], specs: new Map()})
+        })
+    });
+
+    test('a change whose files are all e2e specs runs the whole population; a spec beside other files selects', () => {
+        expect(selectSpecs({changed: [demo, other], root}).reasons).toEqual(['every changed file is an e2e spec']);
+
+        const {full, specs} = selectSpecs({changed: [demo, 'src/form/Field.mjs'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(demo)).toBe('changed spec');
+        expect(specs.get(other)).toBe('reaches src/form/Field.mjs')
     });
 });

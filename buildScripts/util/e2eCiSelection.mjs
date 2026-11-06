@@ -1,10 +1,11 @@
-import {execFileSync}                                                  from 'child_process';
-import {mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'fs';
-import {createRequire}                                                 from 'module';
-import {tmpdir}                                                        from 'os';
-import {join, relative}                                                from 'path';
-import {selectExternalBrainSpecs}                                      from '../../test/playwright/externalBrainSelection.mjs';
-import isEntryModule                                                   from './isEntryModule.mjs';
+import {execFileSync}                                                              from 'child_process';
+import {existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'fs';
+import {createRequire}                                                             from 'module';
+import {tmpdir}                                                                    from 'os';
+import {join, relative}                                                            from 'path';
+import {selectExternalBrainSpecs}                                                  from '../../test/playwright/externalBrainSelection.mjs';
+import {entryOf, FOUNDATION, RUNTIME_LOADING, SPEC_DIR, specReach}                 from './e2eSpecReach.mjs';
+import isEntryModule                                                               from './isEntryModule.mjs';
 
 /**
  * @summary The one place that decides which e2e specs the CI tier runs, and the one place that
@@ -605,6 +606,77 @@ export function brainReceipt({report, run, seconds, retries = null, env = proces
             ...report.suites.map(suite => `- \`${suite.file}\` · ${fileSeconds(suite)} s`)
         ] : ['- **This shard:** unknown, because the run wrote no Playwright report']
     ].join('\n')
+}
+
+/**
+ * @summary What a pull request's change selects from the e2e specs, and why each selected spec is in.
+ *
+ * @description The whole population runs when the change can reach code the static map cannot follow:
+ * - a foundation path, or a file that loads modules at runtime;
+ * - a file the map cannot place, or one the tree no longer holds;
+ * - e2e support that no spec imports.
+ *
+ * It also runs when every changed file is an e2e spec. Specs that share an app share its heap, so a spec can leak
+ * state into its neighbours, and only a full run rules that out.
+ *
+ * Otherwise the selection is:
+ * - each spec whose reach holds a changed file, or whose app fetches it (its data, its `index.html`);
+ * - each changed spec;
+ * - the specs the map cannot place;
+ * - {@link BRAIN_SMOKE}.
+ *
+ * A change that reaches no spec selects none. Only a pull request selects: a `dev` push runs every tier it admits in
+ * full.
+ * @param {Object}   options
+ * @param {String[]} options.changed The changed files the E2E impact boundary admits, relative to the repository root.
+ * @param {String}   [options.root=process.cwd()]
+ * @param {Object}   [options.map] `specReach()`'s result for `root`, computed when omitted.
+ * @returns {{full: Boolean, reasons: String[], specs: Map<String, String>}} Whether the whole population runs and why,
+ *          or else each selected spec with its reason.
+ */
+export function selectSpecs({changed, root = process.cwd(), map = specReach({root})}) {
+    const reasons = [],
+          specs   = new Map(),
+          isSpec  = file => file.startsWith(SPEC_DIR) && file.endsWith('.spec.mjs'),
+          select  = (spec, why) => specs.has(spec) || specs.set(spec, why);
+
+    if (changed.length && changed.every(isSpec)) {
+        return {full: true, reasons: ['every changed file is an e2e spec'], specs}
+    }
+
+    for (const file of changed) {
+        const reached = [...map.specs].filter(([, {reach}]) => reach.has(file)).map(([spec]) => spec),
+              // The app that fetches a non-module file of its own, such as its data or its index.html
+              app     = /^(apps|examples)\//.test(file) && !file.endsWith('.mjs') ? entryOf(file.replace(/\.[^/.]+$/, ''), map.tracked) : null;
+
+        if (FOUNDATION.some(rule => rule.test(file))) {
+            reasons.push(`${file}: foundation`)
+        } else if (!existsSync(join(root, file))) {
+            reasons.push(`${file}: not in the tree`)
+        } else if (isSpec(file)) {
+            select(file, 'changed spec')
+        } else if (file.endsWith('.mjs') && RUNTIME_LOADING.test(readFileSync(join(root, file), 'utf8'))) {
+            reasons.push(`${file}: loads modules at runtime`)
+        } else if (reached.length) {
+            reached.forEach(spec => select(spec, `reaches ${file}`))
+        } else if (app) {
+            map.specs.forEach(({entries}, spec) => entries.includes(app) && select(spec, `its app fetches ${file}`))
+        } else if (!/^(apps|examples|src)\/.*\.mjs$/.test(file)) {
+            // A module no spec reaches cannot affect one; anything else here, the map cannot place
+            reasons.push(`${file}: ${file.startsWith('test/playwright/') ? 'e2e support no spec imports' : 'unmapped'}`)
+        }
+    }
+
+    if (reasons.length) {
+        return {full: true, reasons, specs: new Map()}
+    }
+
+    if (specs.size) {
+        BRAIN_SMOKE.forEach(spec => select(spec, 'BRAIN_SMOKE'));
+        map.unnamed.forEach(spec => select(spec, 'the map cannot place it'))
+    }
+
+    return {full: false, reasons, specs}
 }
 
 if (isEntryModule(import.meta.url)) {

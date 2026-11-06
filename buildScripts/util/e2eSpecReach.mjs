@@ -104,7 +104,7 @@ export function entryOf(reference, tracked) {
  * the map cannot place it, so no change can rule it out.
  * @param {Object} [options]
  * @param {String} [options.root=process.cwd()] The repository root.
- * @returns {{specs: Map<String, {entries: String[], reach: Set<String>}>, unnamed: String[]}}
+ * @returns {{specs: Map<String, {entries: String[], reach: Set<String>}>, tracked: Set<String>, unnamed: String[]}}
  */
 export function specReach({root = process.cwd()} = {}) {
     const files   = execFileSync('git', ['-C', root, 'ls-files'], {encoding: 'utf8'}).trim().split('\n'),
@@ -163,5 +163,5 @@ export function specReach({root = process.cwd()} = {}) {
         specs.set(spec, {entries: [...entries].sort(), reach})
     }
 
-    return {specs, unnamed}
+    return {specs, tracked, unnamed}
 }
