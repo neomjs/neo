@@ -50,6 +50,32 @@ class Xhr extends Base {
     }
 
     /**
+     * @summary Adds query params to a URL that may already carry a query or a fragment.
+     *
+     * The params go before a `#fragment` and join an existing query with `&`. A URL whose query ends in `?` or `&`
+     * gets no second separator, and empty params leave the URL as it is. String composition keeps relative URLs
+     * relative, which `new URL()` cannot do without a base.
+     * @param {String} url
+     * @param {Object} params
+     * @returns {String}
+     */
+    appendParams(url, params) {
+        let query     = new URLSearchParams(params).toString(),
+            hashIndex = url.indexOf('#'),
+            base      = hashIndex > -1 ? url.substring(0, hashIndex) : url,
+            hash      = hashIndex > -1 ? url.substring(hashIndex)    : '',
+            separator;
+
+        if (!query) {
+            return url
+        }
+
+        separator = !base.includes('?') ? '?' : /[?&]$/.test(base) ? '' : '&';
+
+        return base + separator + query + hash
+    }
+
+    /**
      * We cannot clone event objects across messaging
      * @param {Object} event
      */
@@ -187,7 +213,7 @@ class Xhr extends Base {
             opts.url = me.resolveUrl(opts.url, opts.insideNeo);
 
             if (opts.params) {
-                opts.url += ('?' + new URLSearchParams(opts.params).toString())
+                opts.url = me.appendParams(opts.url, opts.params)
             }
 
             xhr.neoId = id;
