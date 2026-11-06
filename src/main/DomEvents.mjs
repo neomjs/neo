@@ -657,13 +657,14 @@ class DomEvents extends Base {
     }
 
     /**
+     * @summary Preserves native input defaults, including an open select's focused option, inside selection regions.
      * @param {KeyboardEvent} event
      */
     onKeyDown(event) {
         let me        = this,
             {target}  = event,
             {tagName} = target,
-            isInput   = tagName === 'INPUT' || tagName === 'TEXTAREA';
+            isInput   = tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || !!target.closest?.('select');
 
         if (isInput && disabledInputKeys[target.id]?.includes(event.key)) {
             event.preventDefault()
