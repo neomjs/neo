@@ -280,6 +280,11 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
 
         // Primary llms.txt includes release notes, excludes archive churn, and links to llms-full.txt + llms-all.txt
         expect(llmsTxt).toContain('## Release Notes');
+        expect(llmsTxt).toContain('- [Connect](https://neomjs.com/services)');
+        expect(llmsTxt).not.toContain('[Services](https://neomjs.com/services)');
+        expect(llmsTxt).not.toContain('https://neomjs.com/connect');
+        expect(sitemap).toContain('<loc>https://neomjs.com/services</loc>');
+        expect(sitemap).not.toContain('<loc>https://neomjs.com/connect</loc>');
         expect(llmsTxt).not.toContain('## GitHub Tickets');
         expect(llmsTxt).not.toContain('## GitHub Pull Requests');
         expect(llmsTxt).not.toContain('## GitHub Discussions');

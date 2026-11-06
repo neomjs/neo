@@ -1112,8 +1112,9 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
 
     content += `## Main Pages\n\n`;
     const topLevelUrls = topLevelRoutes.map(route => {
-        // Beautify route name: /about-us -> About Us
-        const name = route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        // The Connect page retains its established URL; other route names are humanized normally.
+        const name = route.id === '/services' ? 'Connect' :
+            route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
         let urlStr;
         if (route.filePath && route.filePath.endsWith('.md')) {
