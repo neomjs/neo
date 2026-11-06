@@ -75,6 +75,9 @@ jobs:
       contents: read
       pull-requests: read
     uses: ./.github/workflows/classify-test-scope.yml
+    # On a pull request it selects the engine-tier files the change can reach, and sizes the matrix to them
+    with:
+      select_e2e: true
 
   e2e-engine:
     name: e2e-engine (${{ matrix.shard }}/${{ matrix.shards }})
@@ -87,9 +90,11 @@ jobs:
     # step's ceiling. A dispatch is one shard, so a probe's tally keeps its whole denominator.
     strategy:
       fail-fast: false
+      # A selection brings a matrix sized to it. The full matrix is `FULL_SHARDS.engine` in
+      # `e2eCiSelection.mjs`, which a unit arm holds to these lines
       matrix:
-        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || '[1, 2, 3, 4, 5, 6, 7, 8]') }}
-        shards: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || '[8]') }}
+        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || needs.changes.outputs.e2e_engine_matrix || '[1, 2, 3, 4, 5, 6, 7, 8]') }}
+        shards: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || needs.changes.outputs.e2e_engine_shards || '[8]') }}
     # Bounds provisioning plus tests. The test-time ceiling is the step below; this
     # exists so a hung install cannot occupy a runner indefinitely.
     # The gate keeps its twelve minutes: provisioning plus a five-minute test step, so a hung
@@ -224,8 +229,11 @@ jobs:
           # summary come from `populations`, so they cannot disagree.
           node buildScripts/util/e2eCiSelection.mjs --coverage-line
 
+          # The floor holds for every run, and a pull request's selection then replaces the tier's paths
           paths=$(node buildScripts/util/e2eCiSelection.mjs --paths)
-          echo "paths=$paths" >> "$GITHUB_OUTPUT"
+          echo "paths=${SELECTED:-$paths}" >> "$GITHUB_OUTPUT"
+        env:
+          SELECTED: ${{ needs.changes.outputs.e2e_engine_paths }}
 
       # Serial by measurement, not caution: this tier drives real windows, drag
       # thresholds and geometry, which parallel workers on one runner perturb.
@@ -348,7 +356,12 @@ jobs:
       # The shards split one population, so the first one states it.
       - name: Report tier coverage
         if: ${{ always() && matrix.shard == 1 && steps.head.outputs.current == 'true' && (github.event_name != 'workflow_dispatch' || inputs.specs == '') }}
-        run: node buildScripts/util/e2eCiSelection.mjs --summary >> "$GITHUB_STEP_SUMMARY"
+        env:
+          REPORT: ${{ needs.changes.outputs.e2e_selection_report }}
+        run: |
+          node buildScripts/util/e2eCiSelection.mjs --summary >> "$GITHUB_STEP_SUMMARY"
+          # A pull request's selection runs part of that population; the report names which part and why
+          if [ -n "$REPORT" ]; then printf '\n%s\n' "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"; fi
 
       - name: Upload test artifacts on failure
         if: ${{ failure() && steps.head.outputs.current == 'true' }}

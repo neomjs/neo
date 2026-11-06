@@ -35,9 +35,11 @@ jobs:
       contents: read
       pull-requests: read
     uses: ./.github/workflows/classify-test-scope.yml
-    # The classifier also resolves the Brain's `dev` tip, once per run, for every shard below
+    # The classifier also resolves the Brain's `dev` tip, once per run, for every shard below, and on a pull
+    # request selects the Brain-gated files the change can reach
     with:
       resolve_brain_tip: true
+      select_e2e: true
 
   e2e-brain:
     name: e2e-brain (${{ matrix.shard }}/${{ matrix.shards }})
@@ -50,12 +52,15 @@ jobs:
     timeout-minutes: 12
     env:
       TIER: ${{ needs.changes.outputs.e2e_brain_tier || 'full' }}
+      # The `selected` tier's files; empty for every other tier
+      BRAIN_SELECTED: ${{ needs.changes.outputs.e2e_brain_paths }}
     strategy:
       fail-fast: false
       matrix:
-        # The smoke subset fits one shard
-        shard : ${{ fromJSON(needs.changes.outputs.e2e_brain_tier == 'smoke' && '[1]' || '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]') }}
-        shards: ${{ fromJSON(needs.changes.outputs.e2e_brain_tier == 'smoke' && '[1]' || '[10]') }}
+        # The smoke subset fits one shard, and a selection brings a matrix sized to it. The full matrix is
+        # `FULL_SHARDS.brain` in `e2eCiSelection.mjs`, which a unit arm holds to this line
+        shard : ${{ fromJSON(needs.changes.outputs.e2e_brain_tier == 'smoke' && '[1]' || needs.changes.outputs.e2e_brain_matrix || '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]') }}
+        shards: ${{ fromJSON(needs.changes.outputs.e2e_brain_tier == 'smoke' && '[1]' || needs.changes.outputs.e2e_brain_shards || '[10]') }}
     defaults:
       run:
         working-directory: engine
@@ -141,6 +146,13 @@ jobs:
         run: |
           set -o pipefail
           node buildScripts/util/e2eCiSelection.mjs --brain-receipt | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The shards split one selection, so the first one states it
+      - name: Report the selection
+        if: ${{ always() && matrix.shard == 1 && needs.changes.outputs.e2e_selection_report != '' }}
+        env:
+          REPORT: ${{ needs.changes.outputs.e2e_selection_report }}
+        run: printf '%s\n' "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test artifacts on failure
         if: ${{ failure() }}

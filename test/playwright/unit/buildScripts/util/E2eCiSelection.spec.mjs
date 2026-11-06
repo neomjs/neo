@@ -23,13 +23,19 @@ import {
     brainSelection,
     brainShard,
     brainTestList,
+    enginePaths,
     EXCLUSIONS,
     flakyTests,
+    FULL_SHARDS,
     populations,
     QUARANTINE_STALE_DAYS,
     RUN_PATHS,
-    summary
+    selectionOutput,
+    selectSpecs,
+    summary,
+    tierSelection
 } from '../../../../../buildScripts/util/e2eCiSelection.mjs';
+import {FOUNDATION, RUNTIME_LOADING, specReach} from '../../../../../buildScripts/util/e2eSpecReach.mjs';
 
 /**
  * The e2e tier's coverage summary is an honesty guard: `testIgnore` DESELECTS the Brain-dependent
@@ -265,6 +271,14 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
         expect(() => brainSelection({root, tier: 'smok'})).toThrow("Unknown Brain-gated tier 'smok'");
     });
 
+    test('the selected tier runs the Brain-gated files of a selection, and nothing else', () => {
+        const [gated] = brainSelection({root}).paths,
+              [other] = enginePaths(root);
+
+        expect(brainSelection({root, selected: [gated, other], tier: 'selected'}).paths).toEqual([gated]);
+        expect(brainSelection({root, tier: 'selected'}).paths, 'an empty selection runs nothing').toEqual([]);
+    });
+
     test('the full tier runs every Brain-gated file: none waits on a Memory Core', () => {
         const {gated, paths} = brainSelection({root});
 
@@ -462,5 +476,201 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
         expect(text, 'every attempt counts, retries and nested describes included').toContain('- `grid/A.spec.mjs` · 3.1 s');
         expect(text).toContain('- `core/B.spec.mjs` · 0 s');
         expect(brainDurations(log)).toEqual({'test/playwright/e2e/core/B.spec.mjs': 0, 'test/playwright/e2e/grid/A.spec.mjs': 3.1});
+    });
+});
+
+/**
+ * A selective run is only as safe as its fallbacks. Each arm below names one change the static map cannot follow and
+ * pins that it runs the whole population, beside the leaf changes that may select.
+ */
+test.describe('e2e CI selection — what a pull request\'s change selects', () => {
+    const demo  = 'test/playwright/e2e/demo/Demo.spec.mjs',
+          other = 'test/playwright/e2e/demo/Other.spec.mjs',
+          bare  = 'test/playwright/e2e/demo/Bare.spec.mjs';
+
+    let root;
+
+    test.beforeAll(() => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-e2e-select-'));
+
+        const tree = {
+            'buildScripts/tool.mjs'              : '',
+            'examples/demo/app.mjs'              : "import './View.mjs';",
+            'examples/demo/View.mjs'             : "import '../../src/button/Base.mjs';\nconst load = name => import(`../../src/plugin/${name}.mjs`);",
+            'examples/demo/resources/data.json'  : '{}',
+            'examples/lonely/app.mjs'            : '',
+            'examples/lonely/resources/data.json': '{}',
+            'examples/other/app.mjs'             : "import '../../src/form/Field.mjs';",
+            'src/button/Base.mjs'                : '',
+            'src/core/Base.mjs'                  : '',
+            'src/data/table.json'                : '{}',
+            'src/form/Field.mjs'                 : '',
+            'src/loader/Lazy.mjs'                : "export default {importPath: './Late.mjs'};",
+            'src/plugin/Computed.mjs'            : '',
+            'src/unused/Orphan.mjs'              : '',
+            'test/playwright/fixtures.mjs'       : '',
+            'test/playwright/helpers/unused.mjs' : '',
+            [bare]                               : '',
+            [demo]                               : "import {test} from '../../fixtures.mjs';\nawait page.goto('/examples/demo/index.html');",
+            [other]                              : "await page.goto('/examples/other/index.html');"
+        };
+
+        for (const [file, text] of Object.entries(tree)) {
+            fs.mkdirSync(path.join(root, path.dirname(file)), {recursive: true});
+            fs.writeFileSync(path.join(root, file), text)
+        }
+
+        execFileSync('git', ['init', '-q'], {cwd: root});
+        execFileSync('git', ['add', '.'], {cwd: root})
+    });
+
+    test.afterAll(() => {
+        fs.rmSync(root, {recursive: true, force: true})
+    });
+
+    test('a leaf change selects the specs that reach it, the specs the map cannot place, and the smoke files', () => {
+        const {full, specs} = selectSpecs({changed: ['src/button/Base.mjs'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(demo)).toBe('reaches src/button/Base.mjs');
+        expect(specs.get(bare)).toBe('the map cannot place it');
+        expect(specs.has(other)).toBe(false);
+        BRAIN_SMOKE.forEach(spec => expect(specs.get(spec), spec).toBe('BRAIN_SMOKE'))
+    });
+
+    test('a file an app fetches selects that app\'s specs', () => {
+        const {full, specs} = selectSpecs({changed: ['examples/demo/resources/data.json'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(demo)).toBe('its app fetches examples/demo/resources/data.json');
+        expect(specs.has(other)).toBe(false)
+    });
+
+    test('a module no static edge names runs the whole population, even one only a computed import loads', () => {
+        // `examples/demo/View.mjs` loads `src/plugin/${name}.mjs`, so the map has no edge to the module it loads
+        expect(selectSpecs({changed: ['src/plugin/Computed.mjs'], root}))
+            .toEqual({full: true, reasons: ['src/plugin/Computed.mjs: no static edge names it'], specs: new Map()});
+        expect(selectSpecs({changed: ['src/unused/Orphan.mjs'], root}).reasons).toEqual(['src/unused/Orphan.mjs: no static edge names it'])
+    });
+
+    test('a selection no placed spec reaches still runs the specs the map cannot place, and the smoke files', () => {
+        // An app no spec navigates fetches the file, so no placed spec reaches it
+        const {full, specs} = selectSpecs({changed: ['examples/lonely/resources/data.json'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(bare)).toBe('the map cannot place it');
+        expect(specs.has(demo) || specs.has(other)).toBe(false);
+        BRAIN_SMOKE.forEach(spec => expect(specs.get(spec), spec).toBe('BRAIN_SMOKE'))
+    });
+
+    test('a change the map cannot follow runs the whole population', () => {
+        [
+            ['src/core/Base.mjs',                  'src/core/Base.mjs: foundation'],
+            ['src/loader/Lazy.mjs',                'src/loader/Lazy.mjs: loads modules at runtime'],
+            ['src/gone/Deleted.mjs',               'src/gone/Deleted.mjs: not in the tree'],
+            ['src/data/table.json',                'src/data/table.json: unmapped'],
+            ['buildScripts/tool.mjs',              'buildScripts/tool.mjs: unmapped'],
+            ['test/playwright/helpers/unused.mjs', 'test/playwright/helpers/unused.mjs: e2e support no spec imports']
+        ].forEach(([file, reason]) => {
+            // Beside a leaf file that would select on its own, so the full trigger has to win
+            expect(selectSpecs({changed: ['src/button/Base.mjs', file], root}), file).toEqual({full: true, reasons: [reason], specs: new Map()})
+        })
+    });
+
+    test('a change whose files are all e2e specs runs the whole population; a spec beside other files selects', () => {
+        expect(selectSpecs({changed: [demo, other], root}).reasons).toEqual(['every changed file is an e2e spec']);
+
+        const {full, specs} = selectSpecs({changed: [demo, 'src/form/Field.mjs'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(demo)).toBe('changed spec');
+        expect(specs.get(other)).toBe('reaches src/form/Field.mjs')
+    });
+});
+
+/**
+ * The selection on this tree: how it splits into the tiers, what the classifier reads, and the historical reds it
+ * replays.
+ *
+ * The replay fixture is the dry run's corpus: every red e2e run among the pull requests merged into `dev` from
+ * 2026-10-13 to 2026-11-05, with its failing spec files and the changed files the E2E impact boundary admitted. A map
+ * that narrows turns one of its caught or full rows into a miss, and the arm names that run.
+ */
+test.describe('e2e CI selection — the selection on this tree', () => {
+    const root = path.resolve(import.meta.dirname, '../../../../..');
+
+    test('each tier runs its own selected files, on a matrix sized to them', () => {
+        const engine  = enginePaths(root),
+              [brain] = brainSelection({root}).paths,
+              all     = tierSelection({specs: new Set([...engine, ...brainPaths(root)]), root});
+
+        expect([all.engine.shards, all.brain.shards], 'a whole tier gets the full matrix').toEqual([FULL_SHARDS.engine, FULL_SHARDS.brain]);
+        expect(tierSelection({specs: new Set([engine[0], brain]), root})).toEqual({brain: {paths: [brain], shards: 1}, engine: {paths: [engine[0]], shards: 1}});
+        expect(tierSelection({specs: new Set(), root})).toEqual({brain: {paths: [], shards: 0}, engine: {paths: [], shards: 0}});
+        // Never more shards than files, even when nothing is measured
+        expect(tierSelection({specs: new Set([brain]), root, durations: {}}).brain.shards).toBe(1)
+    });
+
+    test('the classifier reads a full selection as its reasons, and a selected one as each tier\'s files and matrix', () => {
+        const full     = selectionOutput({changed: ['src/core/Base.mjs'], root}),
+              selected = selectionOutput({changed: ['src/calendar/view/month/Component.mjs'], root}),
+              read     = key => new RegExp(`^${key}=(.*)$`, 'm').exec(selected)?.[1];
+
+        expect(full).toMatch(/^e2e_selection=full\ne2e_selection_report<<NEO_E2E_SELECTION\n[\s\S]*src\/core\/Base\.mjs: foundation\nNEO_E2E_SELECTION\n$/);
+
+        expect([read('e2e_selection'), read('run_e2e'), read('e2e_brain_tier')]).toEqual(['selected', 'true', 'selected']);
+
+        for (const tier of ['engine', 'brain']) {
+            const [shards] = JSON.parse(read(`e2e_${tier}_shards`));
+
+            expect(JSON.parse(read(`e2e_${tier}_matrix`)), tier).toEqual(Array.from({length: shards}, (_, index) => index + 1));
+            expect(read(`e2e_${tier}_paths`).split(' ').length, tier).toBeGreaterThanOrEqual(shards)
+        }
+    });
+
+    test('on this tree, a module no static edge names runs every spec', () => {
+        const map     = specReach({root}),
+              reached = new Set([...map.specs.values()].flatMap(({reach}) => [...reach])),
+              orphan  = [...map.tracked].find(file => /^src\/.+\.mjs$/.test(file) && !reached.has(file) &&
+                  !FOUNDATION.some(rule => rule.test(file)) && !RUNTIME_LOADING.test(fs.readFileSync(path.join(root, file), 'utf8'))),
+              output  = selectionOutput({changed: [orphan], root});
+
+        expect(orphan, 'control: this tree holds a module no static edge names').toBeTruthy();
+        expect(output).toMatch(/^e2e_selection=full$/m);
+        expect(output).toContain(`- ${orphan}: no static edge names it`);
+        expect(output).not.toMatch(/^run_e2e=/m)
+    });
+
+    test('each workflow\'s full matrix is FULL_SHARDS', () => {
+        const fallback = (file, tier) => [`e2e_${tier}_matrix`, `e2e_${tier}_shards`].map(key =>
+                  JSON.parse(new RegExp(`${key} \\|\\| '([^']+)'`).exec(fs.readFileSync(path.join(root, '.github/workflows', file), 'utf8'))[1])),
+              matrix   = shards => [Array.from({length: shards}, (_, index) => index + 1), [shards]];
+
+        expect(fallback('test-e2e.yml', 'engine')).toEqual(matrix(FULL_SHARDS.engine));
+        expect(fallback('test-e2e-brain.yml', 'brain')).toEqual(matrix(FULL_SHARDS.brain))
+    });
+
+    test('every historical red runs in full, runs its failing spec, or is a recorded miss', () => {
+        const rows   = JSON.parse(fs.readFileSync(path.join(root, 'test/playwright/unit/buildScripts/fixtures/e2eSelectionReplay.json'), 'utf8')),
+              map    = specReach({root}),
+              // The misses the dry run's receipt records. The change reaches runtime code, but not the failing spec.
+              misses = {
+                  39582656813: 'DockTabOverflowNL, no cause on record; the change is portal data',
+                  40202145032: 'HeaderMenuInteractionNL, no cause on record; the change is the calendar week view',
+                  41666963270: 'IssuesShowcase, a read that raced the lazily loaded menu triggers; the change is Carousel',
+                  // The map places this engine-tier spec, and its reach has no src/functional module
+                  42042806935: 'DockCrossWindowWitnessNL, a harness red (target worker cw-win-a missing); the change is useMemo',
+                  42058376779: 'DockCrossWindowWitnessNL, the same harness red on a rerun of that change'
+              },
+              // A row the boundary left out could not run any spec, and a spec renamed since cannot be asked for
+              replayed = rows.filter(row => row.admitted.length && row.failing.every(spec => map.specs.has(spec))),
+              skipped  = replayed.filter(row => {
+                  const {full, specs} = selectSpecs({changed: row.admitted, map, root});
+
+                  return !full && !row.failing.every(spec => specs.has(spec))
+              });
+
+        expect(replayed.length, 'control: most rows still replay').toBeGreaterThan(rows.length / 2);
+        expect(skipped.map(row => row.run).filter(run => !misses[run]), 'reds the selection now skips').toEqual([])
     });
 });
