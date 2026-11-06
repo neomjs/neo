@@ -26,9 +26,9 @@ live in its own window; closing the final window ends that in-memory draft.
 `ComposeDialog` own their providers, so selected message/draft state travels with its host.
 Movable hosts are not conditional children of a functional render.
 
-The composer is created on first use and retained afterward. Its null animation-target hook keeps
-automatic mounting disabled: the Dashboard renders the first insertion, rather than racing an independent
-Dialog mount. Later hidden-to-visible transitions use the same instance.
+The composer is created on first use and retained afterward. It declares `autoMount: false` and no
+animation target, so the Dashboard renders the first insertion instead of the Dialog mounting itself.
+Later hidden-to-visible transitions use the same instance, and they are instant: only maximize animates.
 `WorkspaceController` guards popup admission before awaiting geometry; reopening a named live popup
 would navigate it and destroy the draft. Source-only actions are unavailable while opening or detached.
 
