@@ -10,7 +10,7 @@ let componentId = null;
  * @param {Object} options
  * @returns {Promise<Object>} The root locator.
  */
-async function createTabs(page, {closable, effectHeaders = false, labels = ['Orders', 'Invoices', 'Archive'], vetoClose = false} = {}) {
+async function createTabs(page, {closable, effectHeaders = false, labels = ['Orders', 'Invoices', 'Archive'], panelCloseButton = false, vetoClose = false} = {}) {
     const result = await page.evaluate(async config => Neo.worker.App.createNeoInstance({
         activeIndex  : 0,
         effectHeaders: config.effectHeaders,
@@ -22,11 +22,12 @@ async function createTabs(page, {closable, effectHeaders = false, labels = ['Ord
             ntype : 'component',
             text  : `${text} body`
         })),
-        ntype    : 'tab-close-test-container',
-        parentId : 'component-test-viewport',
-        vetoClose: config.vetoClose,
-        width    : 560
-    }), {closable, effectHeaders, id: ROOT_ID, labels, vetoClose});
+        ntype           : 'tab-close-test-container',
+        panelCloseButton: config.panelCloseButton,
+        parentId        : 'component-test-viewport',
+        vetoClose       : config.vetoClose,
+        width           : 560
+    }), {closable, effectHeaders, id: ROOT_ID, labels, panelCloseButton, vetoClose});
 
     if (!result.success) throw new Error(`Close fixture creation failed: ${result.error.message}`);
     componentId = result.id;
@@ -173,6 +174,26 @@ test.describe('Neo.tab.Container — closable tabs in the browser', () => {
         ]));
         await page.keyboard.press('Tab');
         await expect(page.locator('#tab-close-following')).toBeFocused()
+    });
+
+    test('a focused Done button closes its active panel through closeTab() and restores surviving-tab focus', async ({page}) => {
+        const root = await createTabs(page, {closable: true, panelCloseButton: true}),
+              done = root.getByRole('tabpanel', {name: 'Orders', exact: true}).getByRole('button', {name: 'Done', exact: true});
+
+        await done.focus();
+        await expect(done).toBeFocused();
+        await done.click();
+
+        await expect(root.getByRole('tab')).toHaveCount(2);
+        await expect(done).toHaveCount(0);
+        const survivor = root.getByRole('tab', {name: 'Invoices', exact: true});
+        await expect(survivor).toHaveAttribute('aria-selected', 'true');
+        await expect(root.getByRole('tabpanel', {name: 'Invoices', exact: true})).toHaveText('Invoices body');
+        await expect(survivor).toBeFocused();
+        await expect(root).toHaveAttribute('data-close-receipt', JSON.stringify([
+            {event: 'before', tabs: ['Orders', 'Invoices', 'Archive']},
+            {event: 'after', tabs: ['Invoices', 'Archive']}
+        ]))
     });
 
     test('a programmatic close does not steal focus from another control', async ({page}) => {

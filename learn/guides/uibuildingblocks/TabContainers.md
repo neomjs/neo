@@ -188,11 +188,12 @@ After a successful close, `tabClose` supplies the captured `cardId`, `headerId` 
 useful for a history or status message: the component references may already be destroyed. A lazy card can
 close without loading merely to participate in that notification.
 
-Closing the focused tab moves focus to the following tab, or the preceding tab when the last one closes.
+Closing a tab whose header or panel contains focus moves focus to the following tab, or the preceding tab
+when the last one closes.
 Focus and selection remain separate: the active-card removal policy above still chooses the previous
 neighbour. If no tab remains, the TabContainer itself receives programmatic focus so the reader can
-continue with Tab. A programmatic close while focus
-is elsewhere leaves that focus alone. A host that manages its own focus destination can set
+continue with Tab. A programmatic close while focus is outside the TabContainer leaves that focus alone.
+A host that manages its own focus destination can set
 `restoreFocus: false` on the `beforeTabClose` request.
 
 ## Delay construction when the panel is expensive

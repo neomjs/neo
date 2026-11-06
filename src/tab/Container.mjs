@@ -173,7 +173,8 @@ class Container extends BaseContainer {
      * @summary Requests closing an opted-in tab, preserving its identity across the cancellable notification.
      * Fires `beforeTabClose` before either card or header is removed. A synchronous listener can set `abort: true`
      * to veto, or `restoreFocus: false` to own focus itself. `tabClose` carries the captured card/header ids and
-     * text after removal; the removed instance may already be destroyed. Lazy cards need not load to close.
+     * text after removal; the removed instance may already be destroyed. Focus in the closed header or card is
+     * restored to a survivor. Lazy cards need not load to close.
      * @param {Number} [index=this.activeIndex] Semantic tab index, excluding toolbar actions.
      * @returns {Neo.component.Base|Object|Boolean} The captured card/config, or false when refused or vetoed.
      */
@@ -185,7 +186,7 @@ class Container extends BaseContainer {
         if (!header?.closable || header.disabled || !card) return false;
 
         const identity = {card, header, cardId: card.id || null, headerId: header.id, text: header.text},
-              request  = {...identity, abort: false, index, restoreFocus: header.containsFocus};
+              request  = {...identity, abort: false, index, restoreFocus: header.containsFocus || card.containsFocus === true};
 
         me.fire('beforeTabClose', request);
 

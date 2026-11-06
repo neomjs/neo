@@ -1,5 +1,7 @@
-import TabContainer from '../../../../../src/tab/Container.mjs';
-import EffectButton from '../../../../../src/tab/header/EffectButton.mjs';
+import Button        from '../../../../../src/button/Base.mjs';
+import CardContainer from '../../../../../src/container/Base.mjs';
+import EffectButton  from '../../../../../src/tab/header/EffectButton.mjs';
+import TabContainer  from '../../../../../src/tab/Container.mjs';
 
 /**
  * @class Test.Playwright.Component.TabClose.Container
@@ -17,17 +19,33 @@ class Container extends TabContainer {
          */
         closeIndex_  : null,
         effectHeaders: false,
-        vetoClose    : false
+        /** @member {Boolean} panelCloseButton=false */
+        panelCloseButton: false,
+        vetoClose       : false
     }
 
     /** @member {Object[]} closeReceipt=[] */
     closeReceipt = []
 
     /**
-     * @summary Observes the production close events without passing functions over the test RPC.
+     * @summary Optionally hosts a panel-owned Done button and observes the real close events inside the worker.
      * @param {Object} config
      */
     construct(config) {
+        if (config.panelCloseButton) {
+            const index = config.activeIndex ?? 0,
+                  card  = config.items[index];
+
+            config.items[index] = {
+                module: CardContainer,
+                header: card.header,
+                items : [{
+                    module : Button,
+                    text   : 'Done',
+                    handler: () => this.closeTab()
+                }]
+            }
+        }
         super.construct(config);
 
         this.on({
