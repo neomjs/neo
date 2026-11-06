@@ -89,6 +89,13 @@ class Store extends Collection {
      */
     #keyChanges = new Map();
     /**
+     * True while the current Model was created by this Store from a class or config; a passed instance stays its
+     * owner's to retire.
+     * @member {Boolean} #ownsModel=false
+     * @private
+     */
+    #ownsModel = false;
+    /**
      * @member {Number} #pendingLoads=0 Outstanding load invocations, including transport readiness.
      * @private
      */
@@ -584,13 +591,18 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Creates the Model from a class or config and borrows a passed instance; releases only a Model it created.
+     * Records keep reading the Model that created them, so a replaced Model is released, never destroyed.
      * @param {Neo.data.Model|Object} value
      * @param {Neo.data.Model|Object} oldValue
      * @protected
      * @returns {Neo.data.Model}
      */
     beforeSetModel(value, oldValue) {
-        oldValue?.destroy();
+        let me = this;
+
+        me.#ownsModel && oldValue?.release();
+        me.#ownsModel = Neo.typeOf(value) !== 'NeoInstance';
 
         return ClassSystemUtil.beforeSetInstance(value, Model)
     }
@@ -630,13 +642,19 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Detaches the owned unfiltered projection's edit forwarding before destroying Store resources.
+     * @summary Detaches the owned unfiltered projection's edit forwarding, retires the Store, then releases a Model it
+     * created. Records can outlive the Store and still read that Model, so it is released, never destroyed; a passed
+     * Model instance stays its owner's.
      */
     destroy() {
-        this.allItems?.un('recordChange', this.onAllItemsRecordChange, this);
-        StoreManager.unregister(this);
+        let me    = this,
+            model = me.#ownsModel ? me.model : null;
 
-        super.destroy()
+        me.allItems?.un('recordChange', me.onAllItemsRecordChange, me);
+        StoreManager.unregister(me);
+
+        super.destroy();
+        model?.release()
     }
 
     /**

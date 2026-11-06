@@ -35,6 +35,14 @@ class RecordFactory extends Base {
     }
 
     /**
+     * The record class each Model last got from createRecordClass(), so a release removes only its own:
+     * a released Model's id may already name a successor's class.
+     * @member {WeakMap} #recordClasses=new WeakMap()
+     * @private
+     */
+    #recordClasses = new WeakMap()
+
+    /**
      * @summary Resolves field mappings (dot and `[index]` segments, preserving falsy leaves and yielding `undefined` when absent so `defaultValue` applies) and assigns model default values.
      * @param {Object}         data
      * @param {Neo.data.Model} model
@@ -355,6 +363,8 @@ class RecordFactory extends Base {
                 Object.defineProperty(cls.prototype, 'isRecord', {value: true});
                 Object.defineProperty(cls, 'isClass', {value: true});
 
+                this.#recordClasses.set(model, cls);
+
                 return ns[key]
             }
 
@@ -381,6 +391,20 @@ class RecordFactory extends Base {
      */
     onRecordChange(opts) {
         Neo.get(opts.model.storeId)?.onRecordChange(opts)
+    }
+
+    /**
+     * @summary Drops the record class cached for a Model, so a retired Model leaves no class in the record namespace.
+     * Records created earlier keep their class. An entry that no longer holds this Model's class, because a successor
+     * reused its id, stays.
+     * @param {Neo.data.Model} model
+     */
+    releaseRecordClass(model) {
+        let ns = Neo.ns(`${this.recordNamespace}.${model.className}`);
+
+        if (ns && ns[model.id] === this.#recordClasses.get(model)) {
+            delete ns[model.id]
+        }
     }
 
     /**
