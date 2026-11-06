@@ -25,19 +25,37 @@ const GRID  = '#grid-anchor',
  * Defines `window.gridState()`: the view's scroll state and the rows it renders, each with its record id, its
  * height, its top inside the body (`content`) and its top relative to the view's top edge (`screen`), in px.
  * `window.trackRow(id, edge)` records a row's top (`screen`) or bottom on every animation frame, `null` while it is
- * not rendered, until `window.stopTracking()` returns the records.
+ * not rendered, until `window.stopTracking()` returns the records. For a frame without the row,
+ * `window.trackingMisses()` names the record ids rendered in that frame and after its paint, so a failure tells a
+ * frame that painted without the row from a read between two DOM updates.
  * @param {String} grid
  */
 function defineGridState(grid) {
     let tracking = null;
 
+    const ids = rows => rows.map(row => row.id).join(',');
+
     window.trackRow = (id, edge = 'top') => {
-        const tops = [],
-              read = () => {
-                  const row = window.gridState().rows.find(row => row.id === id);
+        const tops   = [],
+              misses = [],
+              read   = () => {
+                  const state = window.gridState(),
+                        row   = state.rows.find(row => row.id === id);
 
                   tops.push(!row ? null : edge === 'top' ? row.screen : row.screen + row.height);
-                  tracking = {frame: requestAnimationFrame(read), tops}
+
+                  if (!row) {
+                      const miss = {frame: tops.length - 1, ids: ids(state.rows), scrollTop: state.scrollTop};
+
+                      misses.push(miss);
+                      // A task posted from the frame callback runs after that frame's rendering update
+                      setTimeout(() => {
+                          const after = window.gridState();
+                          miss.afterPaint = {ids: ids(after.rows), scrollTop: after.scrollTop}
+                      })
+                  }
+
+                  tracking = {frame: requestAnimationFrame(read), misses, tops}
               };
 
         read()
@@ -47,6 +65,8 @@ function defineGridState(grid) {
         cancelAnimationFrame(tracking.frame);
         return tracking.tops
     };
+
+    window.trackingMisses = () => tracking?.misses || [];
 
     window.gridState = () => {
         const view    = document.querySelector(`${grid} .neo-grid-view`),
@@ -216,7 +236,10 @@ test.describe('Grid content-sized height corrections', () => {
 
                 await settle(page);
 
-                expect([...new Set(await page.evaluate(() => window.stopTracking()))], `row ${anchor.id} in every frame`)
+                const tops   = await page.evaluate(() => window.stopTracking()),
+                      misses = await page.evaluate(() => window.trackingMisses());
+
+                expect([...new Set(tops)], `row ${anchor.id} in every frame; frames without it: ${JSON.stringify(misses)}`)
                     .toEqual([anchor.screen])
             })
         }
