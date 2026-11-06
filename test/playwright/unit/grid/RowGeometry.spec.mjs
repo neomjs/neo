@@ -339,8 +339,6 @@ test.describe('Neo.grid.RowGeometry', () => {
 });
 
 test.describe('Grid content-sized rows', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, store;
 
     test.beforeEach(async () => {

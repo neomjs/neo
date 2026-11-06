@@ -30,8 +30,6 @@ import VdomHelper      from '../../../../src/vdom/Helper.mjs';
  * change asks for a forced render and then a plain one while its body is in flight, and the plain one used to win.
  */
 test.describe('grid.Body deferred view data', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let body, grid, runs, store;
 
     /**

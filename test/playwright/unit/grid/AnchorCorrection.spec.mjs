@@ -95,8 +95,6 @@ function heightsOf(grid, heights) {
 }
 
 test.describe('Grid content-sized rows: anchor correction', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, metas, store;
 
     test.beforeEach(async () => {
