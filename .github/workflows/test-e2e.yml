@@ -361,7 +361,7 @@ jobs:
         run: |
           node buildScripts/util/e2eCiSelection.mjs --summary >> "$GITHUB_STEP_SUMMARY"
           # A pull request's selection runs part of that population; the report names which part and why
-          if [ -n "$REPORT" ]; then printf '\n%s\n' "$REPORT" >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -n "$REPORT" ]; then printf '\n%s\n' "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"; fi
 
       - name: Upload test artifacts on failure
         if: ${{ failure() && steps.head.outputs.current == 'true' }}

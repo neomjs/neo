@@ -547,7 +547,10 @@ jobs:
         if: ${{ inputs.select_e2e && github.event_name == 'pull_request' && steps.scope.outputs.e2e_files != '' && steps.scope.outputs.e2e_files != '[]' }}
         env:
           E2E_FILES: ${{ steps.scope.outputs.e2e_files }}
-        run: node buildScripts/util/e2eCiSelection.mjs --select >> "$GITHUB_OUTPUT"
+        # Into the log as well: no API returns a job summary, so the log is where a reader can see why
+        run: |
+          set -o pipefail
+          node buildScripts/util/e2eCiSelection.mjs --select | tee -a "$GITHUB_OUTPUT"
 
       # The Brain-gated tier tests the Brain's `dev` tip, resolved once per run attempt: every shard,
       # and every rerun of failed jobs, reuses this output. Re-running ALL jobs re-runs this step and

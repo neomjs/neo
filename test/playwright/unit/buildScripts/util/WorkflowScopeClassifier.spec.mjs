@@ -255,7 +255,8 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         expect(call.inputs.select_e2e).toEqual(expect.objectContaining({type: 'boolean', default: false}));
         expect(guarded.map(step => step.uses ?? step.id)).toEqual(['actions/checkout@v7', 'actions/setup-node@v7', 'select']);
         guarded.forEach(step => expect(String(step.if)).toContain("github.event_name == 'pull_request'"));
-        expect(guarded.at(-1).run).toBe('node buildScripts/util/e2eCiSelection.mjs --select >> "$GITHUB_OUTPUT"');
+        expect(guarded.at(-1).run).toContain('node buildScripts/util/e2eCiSelection.mjs --select | tee -a "$GITHUB_OUTPUT"');
+        expect(guarded.at(-1).run, 'a failed selection fails the step, although tee succeeds').toContain('set -o pipefail');
 
         expect(outputs.run_e2e).toBe('${{ steps.select.outputs.run_e2e || steps.scope.outputs.run_e2e }}');
         expect(outputs.e2e_brain_tier).toBe('${{ steps.select.outputs.e2e_brain_tier || steps.scope.outputs.e2e_brain_tier }}');
