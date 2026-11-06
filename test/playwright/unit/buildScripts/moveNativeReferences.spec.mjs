@@ -14,7 +14,8 @@ const root = fileURLToPath(new URL('../../../../', import.meta.url)),
         ['docs/app/view/MainContainerController.mjs', 'onExamplesListLeafClick', 'docs/examples.json:path', ['record.path', 'path']],
         ['src/container/Base.mjs', 'loadItems', 'loadItems:modules', ['modulePath']],
         ['src/worker/App.mjs', 'createNeoInstance', 'createNeoInstance:importPath', ['config.importPath']],
-        ['src/worker/App.mjs', 'loadModule', 'App.loadModule:path', ['path']]
+        ['src/worker/App.mjs', 'loadModule', 'App.loadModule:path', ['path']],
+        ['src/worker/App.mjs', 'importApp', 'neo-config.json:appPath', ['`../../${path}.mjs`']]
     ];
 
 /** @summary Locates a current method and its actual import arguments without executing its module. */
@@ -41,14 +42,15 @@ test.describe('pinned native reference readers (#5086)', () => {
                 {method, imports} = inspectMethod(code, name), current = sites(code, file);
 
             expect(imports.map(item => item.expression)).toEqual(expressions);
-            for (const reference of imports) expect(current.get(reference.start)).toBe(carrier);
+            for (const reference of imports) expect(current.get(reference.start),
+                `${relative}#${name} (${carrier}): inspect its resolution origin and Webpack include/exclude rules before re-pinning the complete method, including comments`).toBe(carrier);
 
             // File offsets may change without changing the inspected method implementation.
             const shiftedCode = '// unrelated file comment\n' + code,
                 shifted       = sites(shiftedCode, file), shiftedMethod = inspectMethod(shiftedCode, name);
             for (const reference of shiftedMethod.imports) expect(shifted.get(reference.start)).toBe(carrier);
 
-            for (const insertion of ['\n        void 0;', '\n        import(extraPath);']) {
+            for (const insertion of ['\n        void 0;', '\n        import(extraPath);', '\n        /* webpackInclude: /changed/ */']) {
                 const offset      = method.value.body.start + 1,
                     changed       = code.slice(0, offset) + insertion + code.slice(offset),
                     changedMethod = inspectMethod(changed, name), recognized = sites(changed, file);
@@ -64,7 +66,7 @@ test.describe('pinned native reference readers (#5086)', () => {
         })
     }
 
-    test('exposes exactly five argument offsets across the four inspected carrier adapters', () => {
+    test('exposes exactly six argument offsets across the five inspected carrier adapters', () => {
         const recognized = [];
         for (const relative of [...new Set(cases.map(item => item[0]))]) {
             const file     = path.join(root, relative), code = fs.readFileSync(file, 'utf8'),
@@ -76,7 +78,7 @@ test.describe('pinned native reference readers (#5086)', () => {
         }
         expect(recognized.sort()).toEqual([
             'App.loadModule:path', 'createNeoInstance:importPath', 'docs/examples.json:path',
-            'docs/examples.json:path', 'loadItems:modules'
+            'docs/examples.json:path', 'loadItems:modules', 'neo-config.json:appPath'
         ].sort())
     });
 

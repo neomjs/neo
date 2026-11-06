@@ -125,7 +125,7 @@ function shadowsNeo(ancestors, imports, file, engineRoot) {
  */
 export function runtimeReferenceEdits({code, file, root, engineRoot, info, getModule, mapPath, classNames}) {
     const comments   = [], ast = parse(code, {ecmaVersion: 'latest', sourceType: 'module', onComment: comments}),
-        edits        = [], unresolved = [], echoes = [],
+        edits        = [], unresolved = [], echoes = [], bundledReferences = [],
         appWorker    = path.join(engineRoot, 'src/worker/App.mjs'),
         canvasWorker = path.join(engineRoot, 'src/worker/Canvas.mjs'),
         roles        = info.classes.map(item => ({...item,
@@ -150,6 +150,7 @@ export function runtimeReferenceEdits({code, file, root, engineRoot, info, getMo
             specifier = prefix + original + suffix,
             relative  = /^\.{1,2}\//.test(specifier) ? specifier : `./${specifier}`;
         const resolved = fileURLToPath(new URL(relative, pathToFileURL(origin)));
+        if (field === 'rendererImportPath') bundledReferences.push({family: 'canvas', target: resolved});
         if (mapPath(resolved) === resolved && mapPath(origin) === origin) return;
         let next = relocateSpecifier(relative, origin, mapPath(origin), mapPath);
         if (prefix) {
@@ -213,5 +214,5 @@ export function runtimeReferenceEdits({code, file, root, engineRoot, info, getMo
             });
     }
 
-    return {edits, unresolved}
+    return {edits, unresolved, bundledReferences}
 }

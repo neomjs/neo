@@ -167,7 +167,8 @@ export function inspect() { return {className: Widget.config.className, ntype: W
             write(root, 'package.json', JSON.stringify({name: workspace ? 'example-consumer' : 'neo.mjs', type: 'module'}));
             write(root, enginePrefix + 'src/MicroLoader.mjs', 'export const loader = true;');
             write(root, enginePrefix + 'src/Main.mjs', 'export const main = true;');
-            write(root, enginePrefix + 'src/worker/App.mjs', 'export const worker = true;');
+            write(root, enginePrefix + 'src/worker/App.mjs',
+                fs.readFileSync(new URL('../../../../src/worker/App.mjs', import.meta.url), 'utf8'));
             write(root, enginePrefix + 'src/component/Base.mjs', 'export default class Base { answer() { return 42 } }');
             write(root, source + '/Widget.mjs', `import Base from '../../../${enginePrefix}src/component/Base.mjs';
 export default class Widget extends Base { static config = {className: '${oldClass}'} }`);

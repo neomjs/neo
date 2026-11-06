@@ -141,7 +141,7 @@ export function rewriteDocument({code, from, to, mapPath, classNames=new Map()})
  * @returns {Object} Code and unresolved boot references.
  */
 export function rewriteData({code, file, root, mapPath, engineRoot=root, documents=[], classNames=new Map()}) {
-    const value      = JSON.parse(code), ast = parseExpressionAt(code, 0, {ecmaVersion: 'latest'}), edits = [], unresolved = [],
+    const value      = JSON.parse(code), ast = parseExpressionAt(code, 0, {ecmaVersion: 'latest'}), edits = [], unresolved = [], bundledReferences = [],
         relative     = path.relative(root, file).split(path.sep).join('/'),
         isBoot       = path.basename(file) === 'neo-config.json',
         isPackage    = path.basename(file) === 'package.json',
@@ -213,6 +213,8 @@ export function rewriteData({code, file, root, mapPath, engineRoot=root, documen
         } else if (isBoot && keys.length === 1) {
             if (key === 'appPath') {
                 next = appReference(original);
+                const target = new URL(original + (original.endsWith('.mjs') ? '' : '.mjs'), appBefore);
+                if (target.protocol === 'file:') bundledReferences.push({family: 'app', target: fileURLToPath(target)});
             }
             else if (['mainPath', 'basePath', 'workerBasePath'].includes(key)) {
                 const candidates = contexts.map(context => {
@@ -229,5 +231,5 @@ export function rewriteData({code, file, root, mapPath, engineRoot=root, documen
         if (next !== original) edits.push({start: node.start, end: node.end, value: JSON.stringify(next)});
     };
     visit(ast);
-    return {code: applySourceEdits(code, edits), unresolved}
+    return {code: applySourceEdits(code, edits), unresolved, bundledReferences}
 }

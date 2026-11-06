@@ -4,6 +4,7 @@ import fs                                            from 'node:fs';
 import os                                            from 'node:os';
 import path                                          from 'node:path';
 import {getThemeNamespace}                           from '../../src/util/Theme.mjs';
+import {checkBundledReferences}                      from './moveBundledReferences.mjs';
 import {rewriteData, rewriteDocument}                from './moveDataTransforms.mjs';
 import {nativeReferenceSites}                        from './moveNativeReferences.mjs';
 import {classifyReferences}                          from './moveReferenceScopes.mjs';
@@ -158,7 +159,7 @@ export function planMove({root, source, destination, namespaceRoots=[], referenc
         roots   = [...new Map([{path: 'src', namespace: 'Neo'}, {path: 'examples', namespace: 'Neo.examples'}, ...namespaceRoots]
             .map(entry => [path.resolve(root, entry.path), {...entry, path: path.resolve(root, entry.path)}])).values()],
         moves = [{from: source, to: destination}], classNames = new Map(), blockers = [], rewrites = [], referenceLedger = [],
-        modules = new Map(), appRoots = new Map(), themeFolders = new Map(), unknownThemes = [], readOnlyInputs = [],
+        modules = new Map(), appRoots = new Map(), themeFolders = new Map(), unknownThemes = [], readOnlyInputs = [], bundledReferences = [],
         packageFile = path.join(root, 'package.json'),
         engineRoot = files.has(packageFile) && JSON.parse(fs.readFileSync(packageFile, 'utf8')).name !== 'neo.mjs'
             ? path.join(root, 'node_modules/neo.mjs') : root,
@@ -208,15 +209,19 @@ export function planMove({root, source, destination, namespaceRoots=[], referenc
     }
     const stylePath = name => getThemeNamespace(name, themeFolders.get(name.split('.')[0]))
         .replace(/^Neo\./, '').split('.').join('/') + '.scss';
+    const readSource = file => {
+        const code = fs.existsSync(file) ? fs.readFileSync(file) : null;
+        if (!files.has(file) && !readOnlyInputs.some(input => input.file === file)) {
+            readOnlyInputs.push({file, hash: code ? createHash('sha256').update(code).digest('hex') : null});
+        }
+        return code?.toString('utf8') ?? null
+    };
     const getModule = file => {
         if (modules.has(file)) return modules.get(file);
         if (!contains(engineRoot, file) || !file.endsWith('.mjs')) return null;
-        if (!fs.existsSync(file)) {
-            if (!files.has(file)) readOnlyInputs.push({file, hash: null});
-            return null
-        }
-        const code = fs.readFileSync(file), info = moduleInfo(code.toString('utf8'), {file, engineRoot});
-        if (!files.has(file)) readOnlyInputs.push({file, hash: createHash('sha256').update(code).digest('hex')});
+        const code = readSource(file);
+        if (code === null) return null;
+        const info = moduleInfo(code, {file, engineRoot});
         modules.set(file, info);
         return info
     };
@@ -301,6 +306,7 @@ export function planMove({root, source, destination, namespaceRoots=[], referenc
                 result = rewriteModule({code, from: file, to: target, mapPath, classNames});
                 runtime = runtimeReferenceEdits({code, file, root, engineRoot, info, getModule, mapPath, classNames});
                 result.code = applySourceEdits(code, [...result.edits, ...runtime.edits]);
+                bundledReferences.push(...runtime.bundledReferences.map(reference => ({file, ...reference})));
             }
             catch (error) { blockers.push({file, reason: `Cannot parse module: ${error.message}`}); continue; }
 
@@ -318,6 +324,7 @@ export function planMove({root, source, destination, namespaceRoots=[], referenc
             try {
                 result = rewriteData({code: original.toString('utf8'), file, root, mapPath, engineRoot, documents, classNames});
                 blockers.push(...result.unresolved.map(reference => ({file, ...reference})));
+                bundledReferences.push(...result.bundledReferences.map(reference => ({file, ...reference})));
             } catch (error) {
                 blockers.push({file, reason: `Cannot transform data: ${error.message}`});
             }
@@ -327,6 +334,8 @@ export function planMove({root, source, destination, namespaceRoots=[], referenc
             rewrites.push({from: file, to: target, before: original, after: Buffer.from(result.code)})
         }
     }
+
+    blockers.push(...checkBundledReferences({references: bundledReferences, root, engineRoot, mapPath, readSource}));
 
     for (const scope of referenceScopes) {
         if (!referenceLedger.some(reference => path.relative(root, reference.file).split(path.sep).join('/') === scope.file &&

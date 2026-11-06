@@ -10,7 +10,8 @@ import {keyName, visitNodes} from './moveSourceTransforms.mjs';
  * renewed inspection; their computed imports remain unresolved when no adapter matches.
  */
 
-const readers = [{
+/** @summary Source-bound native readers and the carrier transforms that authorize their admission. */
+export const nativeReaderContracts = [{
     root  : 'workspace', file: 'docs/app/view/MainContainerController.mjs', owner: 'MainContainerController',
     method: 'onExamplesListLeafClick', carrier: 'docs/examples.json:path', expressions: ['record.path', 'path'],
     hash  : 'b49f3bf9143b7c74887eb16b980a473b8e656ca20a3ec10980f6944b0ed09ab3'
@@ -26,6 +27,10 @@ const readers = [{
     root  : 'engine', file: 'src/worker/App.mjs', owner: 'App',
     method: 'loadModule', carrier: 'App.loadModule:path', expressions: ['path'],
     hash  : '462bdd144c85d5b0c9632746b2cc5bd245ad5c77458b0b7f5185ac49f8831e4e'
+}, {
+    root  : 'engine', file: 'src/worker/App.mjs', owner: 'App',
+    method: 'importApp', carrier: 'neo-config.json:appPath', expressions: ['`../../${path}.mjs`'],
+    hash  : 'cb161a0207fbc153076b840c83d04779e520e02d4e3a17d549c2ce91c181dc50'
 }];
 
 /**
@@ -42,7 +47,7 @@ const readers = [{
  */
 export function nativeReferenceSites({code, file, engineRoot, root, mapPath}) {
     const sites    = new Map(), original = path.resolve(file),
-        candidates = readers.filter(reader => path.resolve(reader.root === 'engine' ? engineRoot : root, reader.file) === original);
+        candidates = nativeReaderContracts.filter(reader => path.resolve(reader.root === 'engine' ? engineRoot : root, reader.file) === original);
     if (!candidates.length || path.resolve(mapPath(original)) !== original) return sites;
 
     visitNodes(parse(code, {ecmaVersion: 'latest', sourceType: 'module'}), (node, parent, ancestors) => {
