@@ -1,17 +1,18 @@
-import Component    from './Base.mjs';
-import CountryFlags from '../util/CountryFlags.mjs';
+import Component    from '../../../component/Base.mjs';
+import CountryFlags from '../../../util/CountryFlags.mjs';
 
 /**
- * @class Neo.component.CountryFlag
+ * @summary A grid cell's country flag beside its location text, rendered for `Neo.grid.column.CountryFlag`.
+ * @class Neo.grid.column.component.CountryFlag
  * @extends Neo.component.Base
  */
 class CountryFlag extends Component {
     static config = {
         /**
-         * @member {String} className='Neo.component.CountryFlag'
+         * @member {String} className='Neo.grid.column.component.CountryFlag'
          * @protected
          */
-        className: 'Neo.component.CountryFlag',
+        className: 'Neo.grid.column.component.CountryFlag',
         /**
          * @member {String[]} baseCls=['neo-country-flag']
          */
