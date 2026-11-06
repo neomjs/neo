@@ -16,6 +16,7 @@
     "scripts"        : {
         "add-config"                           : "node ./buildScripts/create/addConfig.mjs",
         "agent-push"                           : "node ./buildScripts/util/agent-push.mjs",
+        "seat:start"                           : "node ./buildScripts/util/seatStart.mjs",
         "add-reactive-tags"                    : "node ./buildScripts/helpers/addReactiveTags.mjs",
         "build-all"                            : "node ./buildScripts/build/all.mjs -f -n",
         "build-all-questions"                  : "node ./buildScripts/build/all.mjs -f",
