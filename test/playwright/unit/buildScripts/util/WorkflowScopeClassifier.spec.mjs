@@ -229,6 +229,11 @@ const executeScript = async(script, runtime) => {
 
 const outputsOf = runtime => Object.fromEntries(runtime.outputs);
 
+/** @summary Keeps the exclusion tripwire while allowing only the complete move CLI reference executed by E2E. */
+const reachesExcludedBuildScript = code => /buildScripts\/(create|helpers|release)\//.test(
+    code.replace(/(['"`])buildScripts\/create\/move\.mjs\1/g, '')
+);
+
 test.describe('Tests scope classifier — the outputs the changes job actually declares', () => {
 
     test('the job declares exactly the suites this repository runs', () => {
@@ -1001,6 +1006,43 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         });
     }
 
+    test('the move CLI admits both browser tiers through the shared boundary', async () => {
+        for (const file of ['buildScripts/create/move.mjs', 'buildScripts\\create\\move.mjs']) {
+            const runtime = createRuntime({files: [file]});
+
+            await executeScript(scopeScript(), runtime);
+
+            expect(outputsOf(runtime), 'SourceMoveWorkspaceNL executes this entry and uses neuralLink').toMatchObject({
+                run_e2e            : 'true', e2e_brain_tier: 'full', run_components: 'false', run_unit: 'true',
+                e2e_boundary_report: 'buildScripts/create/move.mjs: in'
+            });
+        }
+    });
+
+    test('the move CLI exception does not admit sibling names, suffixes or directory prefixes', async () => {
+        for (const file of ['buildScripts/create/move-other.mjs', 'buildScripts/create/move.mjs.bak',
+            'buildScripts/create/move.mjs/child.mjs', 'buildScripts/helpers/move.mjs', 'buildScripts/release/move.mjs']) {
+            const runtime = createRuntime({files: [file]});
+
+            await executeScript(scopeScript(), runtime);
+
+            expect(outputsOf(runtime), file).toMatchObject({run_e2e: 'false', e2e_brain_tier: 'none'});
+        }
+    });
+
+    test('the script reachability tripwire exempts only a complete quoted move entry', () => {
+        for (const quote of ["'", '"', '`']) {
+            expect(reachesExcludedBuildScript(`path.join(engineRoot, ${quote}buildScripts/create/move.mjs${quote})`)).toBe(false);
+        }
+        for (const script of ['buildScripts/create/move-other.mjs', 'buildScripts/create/move.mjs.bak',
+            'buildScripts/create/move.mjs/child.mjs', 'buildScripts/create/move.mjs${suffix}',
+            'buildScripts/create/class.mjs', 'buildScripts/helpers/watchThemes.mjs', 'buildScripts/release/publish.mjs']) {
+            expect(reachesExcludedBuildScript(`path.join(engineRoot, '${script}')`), script).toBe(true);
+        }
+        expect(reachesExcludedBuildScript("const allowed = 'buildScripts/create/move.mjs'; const excluded = 'buildScripts/create/class.mjs';"))
+            .toBe(true);
+    });
+
     test('paths outside the launch chain do NOT run the tier; a new buildScripts directory does', async () => {
         // Deny-listed rather than allow-listed: the portal's blog registry, read only on a route no
         // e2e spec opens, and the `buildScripts/` directories no e2e code imports or executes. Every
@@ -1010,7 +1052,7 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
             const runtime = createRuntime({ files: [file] });
 
             await executeScript(scopeScript(), runtime);
-            expect(outputsOf(runtime), file).toMatchObject({ run_e2e: 'false' });
+            expect(outputsOf(runtime), file).toMatchObject({ run_e2e: 'false', e2e_brain_tier: 'none' });
         }
 
         for (const file of ['apps/portal/view/Viewport.mjs', 'buildScripts/build/themes.mjs', 'buildScripts/newtool/index.mjs']) {
@@ -1025,16 +1067,17 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         // Each exclusion rests on a reachability fact, and a fact can stop being true without anyone
         // touching the classifier. These reds name the exclusion to revisit when that happens.
         // `blog.json` is read only by the lazily loaded news/blog view; the excluded `buildScripts/`
-        // directories are neither imported nor executed by any spec, fixture, helper or config.
+        // directories are neither imported nor executed, except the exact move CLI entry exercised
+        // by SourceMoveWorkspaceNL. Removing that literal must not hide other references in its file.
         // The e2e side of `test/playwright/`, by the classifier's own support rule: not the unit or
         // component spec trees, except the component harness apps the e2e specs navigate
-        const e2eCode = execFileSync('git', ['ls-files', 'test/playwright'], {cwd: repoRoot, encoding: 'utf8'})
+        const e2eCode = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'test/playwright'], {cwd: repoRoot, encoding: 'utf8'})
                   .trim().split('\n')
                   .filter(file => file.endsWith('.mjs') && (file.startsWith('test/playwright/component/apps/') ||
                       (!file.startsWith('test/playwright/unit/') && !file.startsWith('test/playwright/component/')))),
               read    = file => fs.readFileSync(path.join(repoRoot, file), 'utf8'),
               opensNews     = e2eCode.filter(file => /#\/news/.test(read(file))),
-              reachesScript = e2eCode.filter(file => /buildScripts\/(create|helpers|release)\//.test(read(file)));
+              reachesScript = e2eCode.filter(file => reachesExcludedBuildScript(read(file)));
 
         expect(e2eCode.length, 'the scan found the e2e tree').toBeGreaterThan(100);
         expect(opensNews, 'an e2e spec opens the portal news route: blog.json is reachable, admit it').toEqual([]);

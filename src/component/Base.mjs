@@ -8,7 +8,6 @@ import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
 import VDomUpdate       from '../manager/VDomUpdate.mjs';
 import VDomUtil         from '../util/VDom.mjs';
-import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
 const
@@ -384,8 +383,9 @@ class Component extends Abstract {
 
     /**
      * The mount attempt a `document.body`-rooted {@link #show} started, from the call until its
-     * `initVnode(true)` promise settles: theme deferral and the main-thread insert included, which
-     * `isVnodeInitializing` does not span. `null` while none is in the air.
+     * `initVnode(true)` promise (or a subclass's own mount, see {@link #startMountFlight}) settles: theme
+     * deferral and the main-thread insert included, which `isVnodeInitializing` does not span.
+     * `null` while none is in the air.
      * @member {Promise|null} mountFlight=null
      * @protected
      */
@@ -1431,9 +1431,7 @@ class Component extends Abstract {
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
-        let me                            = this,
-            {id, parent, parentId, vnode} = me,
-            parentVdom;
+        let me = this;
 
         me.revertFocus();
 
@@ -1448,23 +1446,8 @@ class Component extends Abstract {
             plugin.destroy()
         });
 
-        if (updateParentVdom && parentId) {
-            if (parentId === 'document.body') {
-                Neo.applyDeltas(me.windowId, {action: 'removeNode', id: me.vdom.id})
-            } else {
-                parentVdom = parent.vdom;
-
-                VDomUtil.removeVdomChild(parentVdom, me.vdom.id);
-                parent[silent ? '_vdom' : 'vdom'] = parentVdom
-            }
-        }
-
-        // Abstract#destroy cancels this component's render flight first
-        super.destroy();
-
-        // The parent's stored vnode must stop naming a component the registry no longer knows, while the
-        // DOM node stays until the parent's next update removes it: kept as the vnode it last rendered
-        updateParentVdom && parent?.vnode && VNodeUtil.unlinkRetiredReferences(parent.vnode, {[id]: vnode});
+        // Abstract#destroy takes the component out of its parent's vdom on request, then cancels its render flight
+        super.destroy(updateParentVdom, silent);
 
         // We do want to prevent delayed calls after a component instance got destroyed.
         me.onFocusLeave = Neo.emptyFn;
@@ -1988,12 +1971,8 @@ class Component extends Abstract {
                 me.parent.updateDepth = -1;
                 me.parent.update()
             } else if (!me.mounted && !me.mountFlight) {
-                // One mount flight at a time: a second one would insert a second node with this id,
-                // and a hide() while it flies is read when it lands. The latch clears first, so a
-                // show() or hide() arriving at the landing takes the ordinary path.
-                me.mountFlight = me.initVnode(true)
-                    .finally(() => {me.mountFlight = null})
-                    .then(() => !me.isDestroyed && me.mounted && me._hidden && me.unmount())
+                // One mount flight at a time: a second one would insert a second node with this id
+                me.startMountFlight(me.initVnode(true))
             }
         } else {
             let style = me.style;
@@ -2004,6 +1983,21 @@ class Component extends Abstract {
         }
 
         me._hidden = false
+    }
+
+    /**
+     * Holds a mount attempt as this component's {@link #mountFlight} until it settles, then lands it on the
+     * latest `hidden`: a hide() while it flies is read here. The latch clears first, so a show() or hide()
+     * arriving at the landing takes the ordinary path.
+     * @param {Promise} attempt `initVnode(true)`, or a subclass's own mount, like an animated show
+     * @protected
+     */
+    startMountFlight(attempt) {
+        let me = this;
+
+        me.mountFlight = attempt
+            .finally(() => {me.mountFlight = null})
+            .then(() => !me.isDestroyed && me.mounted && me._hidden && me.unmount())
     }
 
     /**
@@ -2020,6 +2014,7 @@ class Component extends Abstract {
 
     /**
      * Removes the component DOM
+     * @returns {Promise<any>} Settles once the main thread removed the node
      */
     unmount() {
         let me = this;
@@ -2029,7 +2024,7 @@ class Component extends Abstract {
         me._hidden = true; // silent update
         me.mounted = false;
 
-        Neo.applyDeltas(me.windowId, {action: 'removeNode', id: me.vdom.id})
+        return Neo.applyDeltas(me.windowId, {action: 'removeNode', id: me.vdom.id})
     }
 
     /**

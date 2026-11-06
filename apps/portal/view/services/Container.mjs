@@ -2,7 +2,7 @@ import Canvas    from './Canvas.mjs';
 import Container from '../../../../src/container/Base.mjs';
 
 /**
- * @summary The main container for the Portal's Services section, orchestrating the Neural Lattice background and content overlays.
+ * @summary Connects visitors with Neo's public tools, setup guides and development community.
  *
  * This container uses a `fit` layout to layer the interactive `Portal.view.services.Canvas` (background)
  * beneath the scrollable content cards. It handles user interaction by capturing DOM events at the
@@ -13,7 +13,7 @@ import Container from '../../../../src/container/Base.mjs';
  * 1.  **Visual Layering:** Stacks the SharedWorker-driven canvas behind the UI content.
  * 2.  **Event Delegation:** Captures `mousemove` and `mouseleave` events and forwards them to the
  *     `Canvas` component to drive the "Neural Lattice" physics engine.
- * 3.  **Content Structure:** Defines the layout for the "Professional Trainings" and "Professional Services" cards.
+ * 3.  **Content Structure:** Offers practical next steps for building apps, adding agent memory and contributing.
  *
  * @class Portal.view.services.Container
  * @extends Neo.container.Base
@@ -60,7 +60,12 @@ class ServicesContainer extends Container {
                 ntype: 'component',
                 cls  : ['neo-h1'],
                 tag  : 'h1',
-                text : 'Services'
+                text : 'Connect'
+            }, {
+                ntype: 'component',
+                cls  : ['portal-connect-intro'],
+                tag  : 'p',
+                text : 'Build with your coding agent, give it lasting project knowledge, and take part in the work behind Neo.'
             }, {
                 ntype: 'container',
                 cls  : ['portal-glass-card'],
@@ -68,24 +73,18 @@ class ServicesContainer extends Container {
                     ntype: 'component',
                     cls  : ['portal-content-box-headline'],
                     tag  : 'h2',
-                    text : 'Professional Trainings'
+                    text : 'Build an application'
                 }, {
                     ntype: 'component',
                     cls  : ['portal-content-box-content'],
                     vdom : {cn: [
-                        {tag: 'p',  text: [
-                            'While we do have a self-study based Learning Section online, you can also hire us ',
-                            'in case you prefer an Instructor-led Training for bringing your team up to speed.'
-                        ].join('')},
-                        {tag: 'ul', cn: [
-                            {tag: 'li', text: 'One week packed with 40h of intense training.'},
-                            {tag: 'li', text: 'Including hands-on Labs'},
-                            {tag: 'li', text: '6 - 12 attendees'},
-                            {tag: 'li', text: 'While Remote Trainings are possible, we strongly recommend On-Site Trainings instead.'},
-                        ]},
-                        {tag: 'p',  html: [
-                            'Feel free to send us an <a href="mailto:trainings@neomjs.com">Email</a> to plan your training timeframe.',
-                        ].join('')}
+                        {tag: 'p', text: 'Start with the open-source Neo.mjs engine. Explore a working example, or create an app and work with its source, conventions and runtime tools alongside your coding agent.'},
+                        {tag: 'p', cls: ['portal-connect-links'], cn: [{
+                            tag : 'a', href: 'https://github.com/neomjs/create-app',
+                            text: 'Create an app', target: '_blank', rel: 'noopener noreferrer'
+                        }, {
+                            tag: 'a', href: '#/examples', text: 'Explore examples'
+                        }]}
                     ]}
                 }]
             }, {
@@ -95,26 +94,38 @@ class ServicesContainer extends Container {
                     ntype: 'component',
                     cls  : ['portal-content-box-headline'],
                     tag  : 'h2',
-                    text : 'Professional Services'
+                    text : 'Give your agent project memory'
                 }, {
                     ntype: 'component',
                     cls  : ['portal-content-box-content'],
                     vdom : {cn: [
-                        {tag: 'p',  text: [
-                            'We can help you to ensure your Neo.mjs based projects run successfully.',
-                        ].join('')},
-                        {tag: 'ul', cn: [
-                            {tag: 'li', text: 'Feasibility Analysis: Is Neo.mjs a good fit for your project needs?'},
-                            {tag: 'li', text: 'Creating a Neo.mjs PoC which matches your specific needs'},
-                            {tag: 'li', text: 'Code Reviews'},
-                            {tag: 'li', text: 'Frontend-Architecture Guidance'},
-                            {tag: 'li', text: 'Application & Framework Debugging'},
-                            {tag: 'li', text: 'Creation of Custom Components, Design Themes & new Features'},
-                            {tag: 'li', text: 'Hands-On Application Development Support'}
-                        ]},
-                        {tag: 'p',  html: [
-                            'In case you need help, send us an <a href="mailto:services@neomjs.com">Email</a>.',
-                        ].join('')}
+                        {tag: 'p', text: 'Keep repository knowledge and past decisions available across sessions. The open-source Agent OS provides Memory Core and a Knowledge Base, with local and cloud deployment paths on your own infrastructure.'},
+                        {tag: 'p', cls: ['portal-connect-links'], cn: [{
+                            tag : 'a', href: 'https://github.com/neomjs/neo-agent-brain',
+                            text: 'Explore the Agent OS', target: '_blank', rel: 'noopener noreferrer'
+                        }]}
+                    ]}
+                }]
+            }, {
+                ntype: 'container',
+                cls  : ['portal-glass-card'],
+                items: [{
+                    ntype: 'component',
+                    cls  : ['portal-content-box-headline'],
+                    tag  : 'h2',
+                    text : 'Join the public development work'
+                }, {
+                    ntype: 'component',
+                    cls  : ['portal-content-box-content'],
+                    vdom : {cn: [
+                        {tag: 'p', text: 'Bring a question, discuss a design or contribute a change. Neo’s human and AI maintainers work through public issues, discussions and pull requests, so you can follow the reasoning as well as the code.'},
+                        {tag: 'p', cls: ['portal-connect-links'], cn: [{
+                            tag : 'a', href: 'https://github.com/orgs/neomjs/discussions',
+                            text: 'Join the discussion', target: '_blank', rel: 'noopener noreferrer'
+                        }, {
+                            tag : 'a', href: 'https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md',
+                            text: 'Contribute a change', target: '_blank', rel: 'noopener noreferrer'
+                        }]}
                     ]}
                 }]
             }]

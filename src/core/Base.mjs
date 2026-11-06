@@ -508,6 +508,7 @@ class Base {
     /**
      * Unregisters this instance from Neo.manager.Instance and removes all object entries from this instance.
      * Afterwards, its configs keep their last values readable, and a config write runs no hook.
+     * Only this instance's own registration goes: a successor that reused its id stays registered.
      */
     destroy() {
         let me = this;
@@ -528,7 +529,7 @@ class Base {
 
         if (Base.instanceManagerAvailable === true) {
             Neo.manager.Instance.unregister(me)
-        } else if (Neo.idMap) {
+        } else if (Neo.idMap?.[me.id] === me) {
             delete Neo.idMap[me.id]
         }
 

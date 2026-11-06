@@ -448,13 +448,14 @@ jobs:
             //                                          a route no e2e spec opens; every blog post
             //                                          registers itself there. The rest of the portal's
             //                                          data stays in (`seo.json` loads on every route)
-            //   buildScripts/{create,helpers,release}/ neither imported nor executed by any spec,
-            //                                          fixture, helper or config
+            //   buildScripts/{create,helpers,release}/ outside the launch chain except create/move.mjs,
+            //                                          executed by SourceMoveWorkspaceNL
             //
             // A unit arm reds when either premise stops holding. A false positive is not cheap either:
             // the Brain-gated tier follows this boundary, so one costs fourteen jobs on a twenty-job cap.
             const isPortalBlogRegistry    = file => file === 'apps/portal/resources/data/blog.json';
-            const isOutsideE2eLaunchChain = file => /^buildScripts\/(create|helpers|release)\//.test(file);
+            const isOutsideE2eLaunchChain = file =>
+              /^buildScripts\/(create|helpers|release)\//.test(file) && file !== 'buildScripts/create/move.mjs';
 
             const isE2eTestSupportPath = file =>
               file.startsWith('test/playwright/component/apps/') || (

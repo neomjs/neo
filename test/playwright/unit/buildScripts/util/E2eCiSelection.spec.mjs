@@ -1,12 +1,16 @@
-import {test, expect}  from '@playwright/test';
+import {test, expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 import {
+    ADAPTER_ELIGIBLE_SPECS,
+    isAdapterEligibleSpec
+} from '../../../externalBrainSelection.mjs';
+import {
     assertBrainDeclarations,
     assertQuarantinesResolve,
-    BRAIN_CAPABILITIES,
+    assertSelectionFloor,
     BRAIN_DURATIONS,
     BRAIN_QUARANTINES,
     BRAIN_RETRY_BRIDGE,
@@ -184,13 +188,25 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
     const root = path.resolve(import.meta.dirname, '../../../../..'),
           run  = {shard: '2/6', event: 'push', attempt: '1', engineSha: 'e'.repeat(40), brainSha: 'b'.repeat(40)};
 
-    test('selects exactly the specs the neuralLink fixture gates', () => {
+    test('selects exactly the specs the neuralLink fixture gates and excludes adapter-eligible specs', () => {
         const paths = brainPaths(root);
 
         expect(paths).toHaveLength(populations(root).ignored);
+        expect(assertSelectionFloor(root)).toBe(populations(root).executed);
 
         for (const file of paths) {
-            expect(fs.readFileSync(path.join(root, file), 'utf8'), file).toMatch(/\bneuralLink\b/)
+            const rel = path.relative('test/playwright/e2e', file).split(path.sep).join('/');
+
+            expect(fs.readFileSync(path.join(root, file), 'utf8'), file).toMatch(/\bneuralLink\b/);
+            expect(isAdapterEligibleSpec(rel), `${rel} is Brain-gated, so it must not be adapter-eligible`).toBe(false)
+        }
+
+        for (const rel of ADAPTER_ELIGIBLE_SPECS) {
+            expect(paths, `${rel} runs via the dedicated-worker adapter in the engine tier`).not.toContain(`test/playwright/e2e/${rel}`);
+            expect(
+                RUN_PATHS.some(runPath => `test/playwright/e2e/${rel}` === runPath || `test/playwright/e2e/${rel}`.startsWith(`${runPath}/`)),
+                `${rel} is covered by RUN_PATHS`
+            ).toBe(true)
         }
     });
 
@@ -225,57 +241,48 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
         fs.mkdirSync(path.join(tmp, 'test/playwright/e2e/grid'), {recursive: true});
         fs.writeFileSync(path.join(tmp, file), "test('sorts', async ({neuralLink}) => {})");
 
-        expect(() => assertBrainDeclarations({capabilities: [{paths: [file]}], quarantines: [{path: file}], smoke: [], root: tmp}), 'control')
+        expect(() => assertBrainDeclarations({quarantines: [{path: file}], smoke: [], root: tmp}), 'control')
             .not.toThrow();
-        expect(() => assertBrainDeclarations({capabilities: [{paths: ['test/playwright/e2e/grid/Gone.spec.mjs']}], quarantines: [], smoke: [], root: tmp}))
-            .toThrow('test/playwright/e2e/grid/Gone.spec.mjs');
-        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [{path: 'test/playwright/e2e/grid/Moved.spec.mjs'}], smoke: [], root: tmp}))
+        expect(() => assertBrainDeclarations({quarantines: [{path: 'test/playwright/e2e/grid/Moved.spec.mjs'}], smoke: [], root: tmp}))
             .toThrow('test/playwright/e2e/grid/Moved.spec.mjs');
-        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [], smoke: ['test/playwright/e2e/grid/Renamed.spec.mjs'], root: tmp}))
+        expect(() => assertBrainDeclarations({quarantines: [], smoke: ['test/playwright/e2e/grid/Renamed.spec.mjs'], root: tmp}))
             .toThrow('test/playwright/e2e/grid/Renamed.spec.mjs');
 
         fs.rmSync(tmp, {recursive: true, force: true})
     });
 
-    test('a smoke file is refused while a capability or a quarantine touches it, and named', () => {
+    test('a smoke file is refused while a quarantine touches it, and named', () => {
         const tmp    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-brain-smoke-')),
               file   = 'test/playwright/e2e/grid/GatedNL.spec.mjs',
-              assert = declarations => assertBrainDeclarations({capabilities: [], quarantines: [], smoke: [file], root: tmp, ...declarations});
+              assert = declarations => assertBrainDeclarations({quarantines: [], smoke: [file], root: tmp, ...declarations});
 
         fs.mkdirSync(path.join(tmp, 'test/playwright/e2e/grid'), {recursive: true});
         fs.writeFileSync(path.join(tmp, file), "test('sorts', async ({neuralLink}) => {})");
 
         expect(() => assert({}), 'control').not.toThrow();
-        expect(() => assert({quarantines: [{path: file}]})).toThrow(`capability-gated or quarantined:\n- ${file}`);
-        expect(() => assert({capabilities: [{paths: [file]}]})).toThrow(`capability-gated or quarantined:\n- ${file}`);
+        expect(() => assert({quarantines: [{path: file}]})).toThrow(`quarantined:\n- ${file}`);
 
         fs.rmSync(tmp, {recursive: true, force: true})
     });
 
     test('the smoke tier selects exactly its declared files, and an unknown tier is refused', () => {
-        expect(brainSelection({env: {}, root, tier: 'smoke'}).paths.toSorted()).toEqual(BRAIN_SMOKE.toSorted());
-        expect(brainSelection({env: {}, root}).paths, 'the default tier is full').toEqual(brainSelection({env: {}, root, tier: 'full'}).paths);
-        expect(() => brainSelection({env: {}, root, tier: 'smok'})).toThrow("Unknown Brain-gated tier 'smok'");
+        expect(brainSelection({root, tier: 'smoke'}).paths.toSorted()).toEqual(BRAIN_SMOKE.toSorted());
+        expect(brainSelection({root}).paths, 'the default tier is full').toEqual(brainSelection({root, tier: 'full'}).paths);
+        expect(() => brainSelection({root, tier: 'smok'})).toThrow("Unknown Brain-gated tier 'smok'");
     });
 
     test('the selected tier runs the Brain-gated files of a selection, and nothing else', () => {
-        const [gated] = brainSelection({env: {}, root}).paths,
+        const [gated] = brainSelection({root}).paths,
               [other] = enginePaths(root);
 
-        expect(brainSelection({env: {}, root, selected: [gated, other], tier: 'selected'}).paths).toEqual([gated]);
-        expect(brainSelection({env: {}, root, tier: 'selected'}).paths, 'an empty selection runs nothing').toEqual([]);
+        expect(brainSelection({root, selected: [gated, other], tier: 'selected'}).paths).toEqual([gated]);
+        expect(brainSelection({root, tier: 'selected'}).paths, 'an empty selection runs nothing').toEqual([]);
     });
 
-    test('a capability excludes its files only while its variable is unset', () => {
-        const unset = brainSelection({env: {}, root}),
-              set   = brainSelection({env: Object.fromEntries(BRAIN_CAPABILITIES.map(entry => [entry.requires, 'provisioned'])), root});
+    test('the full tier runs every Brain-gated file: none waits on a Memory Core', () => {
+        const {gated, paths} = brainSelection({root});
 
-        for (const file of BRAIN_CAPABILITIES.flatMap(entry => entry.paths)) {
-            expect(unset.paths, `${file} is out while its capability is unset`).not.toContain(file);
-        }
-
-        expect(unset.paths).toHaveLength(unset.gated.length - BRAIN_CAPABILITIES.flatMap(entry => entry.paths).length);
-        expect(set.paths, 'and the whole tier returns once every capability is provisioned').toEqual(set.gated);
+        expect(paths).toEqual(gated);
     });
 
     test('the quarantine list names its files the way Playwright resolves them, relative to the e2e testDir', () => {
@@ -290,8 +297,8 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
 
     test('a receipt states the run, both SHAs, the time against the ceiling, the selection and the outcome', () => {
         const report         = {suites: [{file: 'core/A.spec.mjs'}, {file: 'grid/B.spec.mjs'}], stats: {expected: 5, unexpected: 1, flaky: 0, skipped: 2}},
-              text           = brainReceipt({report, run, seconds: 312, env: {}, root}),
-              {gated, paths} = brainSelection({env: {}, root});
+              text           = brainReceipt({report, run, seconds: 312, root}),
+              {gated, paths} = brainSelection({root});
 
         expect(text).toContain('shard 2/6');
         expect(text).toContain('push, attempt 1');
@@ -301,11 +308,11 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
         expect(text).toContain(`${paths.length} of the ${gated.length} Brain-gated spec files, with ${BRAIN_QUARANTINES.length} of their tests quarantined`);
         expect(text).toContain('2 files · 5 passed, 1 failed, 0 flaky, 2 skipped');
         expect(text).toContain('- `grid/B.spec.mjs`');
-        expect(brainReceipt({report, run, seconds: 300, env: {}, root})).not.toContain('**over**');
+        expect(brainReceipt({report, run, seconds: 300, root})).not.toContain('**over**');
     });
 
     test('a receipt names its tier, and a run that names none is the full tier', () => {
-        const receipt = tier => brainReceipt({report: null, run: {...run, tier}, seconds: null, env: {}, root});
+        const receipt = tier => brainReceipt({report: null, run: {...run, tier}, seconds: null, root});
 
         expect(receipt(undefined)).toContain('### Brain-gated e2e · full tier · shard 2/6');
         expect(receipt(undefined)).toContain(`- **Tier:** full — ${BRAIN_TIERS.full}.`);
@@ -314,21 +321,16 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
     });
 
     test('a smoke receipt counts only the smoke files, with no declaration to explain', () => {
-        const text    = brainReceipt({report: null, run: {...run, tier: 'smoke'}, seconds: null, env: {}, root}),
-              {gated} = brainSelection({env: {}, root});
+        const text    = brainReceipt({report: null, run: {...run, tier: 'smoke'}, seconds: null, root}),
+              {gated} = brainSelection({root});
 
         expect(text).toContain(`${BRAIN_SMOKE.length} of the ${gated.length} Brain-gated spec files, with 0 of their tests quarantined`);
         expect(text).not.toContain('**Quarantined:**');
         expect(text).not.toContain('**Excluded while');
     });
 
-    test('every full-tier receipt prints each declaration: an unset capability with its exit, a quarantine with its owner', () => {
-        const text = brainReceipt({report: null, run, seconds: null, env: {}, root});
-
-        for (const entry of BRAIN_CAPABILITIES) {
-            expect(text).toContain(`Excluded while \`${entry.requires}\` is unset`);
-            expect(text).toContain(`${entry.exit} (${entry.tracker})`);
-        }
+    test('every full-tier receipt prints each quarantine with its owner', () => {
+        const text = brainReceipt({report: null, run, seconds: null, root});
 
         for (const entry of BRAIN_QUARANTINES) {
             expect(text).toContain(`${entry.titlePath.at(-1)} — ${entry.reason}. Accountable: ${entry.accountable}. Exit: ${entry.exit}.`);
@@ -342,7 +344,7 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
         }
 
         const oldest  = Math.min(...BRAIN_QUARANTINES.map(entry => Date.parse(entry.since))),
-              receipt = days => brainReceipt({report: null, run, seconds: null, env: {}, now: new Date(oldest + days * 86400000), root});
+              receipt = days => brainReceipt({report: null, run, seconds: null, now: new Date(oldest + days * 86400000), root});
 
         expect(receipt(QUARANTINE_STALE_DAYS)).not.toContain('(**stale**)');
         expect(receipt(QUARANTINE_STALE_DAYS + 1)).toContain(`${QUARANTINE_STALE_DAYS + 1} days (**stale**)`);
@@ -368,7 +370,7 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
                       {file: 'grid/A.spec.mjs', title: 'green first time', tests: [{status: 'expected',  results: [attempt('passed')]}]}
                   ]}]}]
               },
-              text    = brainReceipt({report, run, seconds: 120, retries: 1, env: {}, root});
+              text    = brainReceipt({report, run, seconds: 120, retries: 1, root});
 
         expect(flakyTests(report)).toEqual([{error: 'Request timed out', file: 'grid/A.spec.mjs', title: 'Grid › heals on retry'}]);
         expect(text).toContain('**Needed the retry:** `grid/A.spec.mjs` › Grid › heals on retry — first attempt: Request timed out');
@@ -399,7 +401,7 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
     test('the receipt reports the retry count the run selected, not one recomputed at its end', () => {
         // A run that starts on the bridge's last day and finishes after midnight still retried
         const after = new Date(Date.parse(`${BRAIN_RETRY_BRIDGE.until}T23:59:59.999Z`) + 1),
-              text  = retries => brainReceipt({report: null, run, seconds: null, retries, env: {}, now: after, root});
+              text  = retries => brainReceipt({report: null, run, seconds: null, retries, now: after, root});
 
         expect(text(1)).toContain(`**Retries:** 1 for this run, from the bridge through ${BRAIN_RETRY_BRIDGE.until}`);
         expect(brainRetries(after), 'a run started after the bridge ends selects none').toBe(0);
@@ -408,7 +410,7 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
     });
 
     test('a step that never finished and a run without a report say so, rather than reading as zero', () => {
-        const text = brainReceipt({report: null, run, seconds: null, env: {}, root});
+        const text = brainReceipt({report: null, run, seconds: null, root});
 
         expect(text).toContain('none, because the step did not finish');
         expect(text).toContain('**This shard:** unknown, because the run wrote no Playwright report');
@@ -439,7 +441,7 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
     });
 
     test('the tier\'s ten shards run every selected file once, none heavier than another by more than its longest file', () => {
-        const {paths} = brainSelection({env: {}, root}),
+        const {paths} = brainSelection({root}),
               shards  = Array.from({length: 10}, (_, i) => brainShard({paths, shard: `${i + 1}/10`})),
               times   = shards.map(shard => shard.seconds),
               longest = Math.max(...paths.map(file => BRAIN_DURATIONS[file] ?? 0));
@@ -460,13 +462,13 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
     });
 
     test('a receipt prints the table\'s prediction and each file\'s measured seconds, which rebuild the table', () => {
-        const attempt   = duration => ({duration}),
-              report    = {stats: {expected: 1, unexpected: 0, flaky: 1, skipped: 0}, suites: [
+        const attempt = duration => ({duration}),
+              report  = {stats: {expected: 1, unexpected: 0, flaky: 1, skipped: 0}, suites: [
                   {file: 'grid/A.spec.mjs', specs: [{tests: [{results: [attempt(1250), attempt(1300)]}]}], suites: [{specs: [{tests: [{results: [attempt(500)]}]}]}]},
                   {file: 'core/B.spec.mjs', specs: []}
               ]},
-              text      = brainReceipt({report, run, seconds: 120, env: {}, root}),
-              predicted = brainShard({paths: brainSelection({env: {}, root}).paths, shard: run.shard}).seconds,
+              text      = brainReceipt({report, run, seconds: 120, root}),
+              predicted = brainShard({paths: brainSelection({root}).paths, shard: run.shard}).seconds,
               // GitHub's run log puts the job, the step and a timestamp before every line
               log       = text.split('\n').map(line => `e2e-brain (2/6)\tRun\t2026-10-23T18:43:59.7Z ${line}`).join('\n');
 
@@ -599,7 +601,7 @@ test.describe('e2e CI selection — the selection on this tree', () => {
 
     test('each tier runs its own selected files, on a matrix sized to them', () => {
         const engine  = enginePaths(root),
-              [brain] = brainSelection({env: {}, root}).paths,
+              [brain] = brainSelection({root}).paths,
               all     = tierSelection({specs: new Set([...engine, ...brainPaths(root)]), root});
 
         expect([all.engine.shards, all.brain.shards], 'a whole tier gets the full matrix').toEqual([FULL_SHARDS.engine, FULL_SHARDS.brain]);
@@ -655,7 +657,10 @@ test.describe('e2e CI selection — the selection on this tree', () => {
               misses = {
                   39582656813: 'DockTabOverflowNL, no cause on record; the change is portal data',
                   40202145032: 'HeaderMenuInteractionNL, no cause on record; the change is the calendar week view',
-                  41666963270: 'IssuesShowcase, a read that raced the lazily loaded menu triggers; the change is Carousel'
+                  41666963270: 'IssuesShowcase, a read that raced the lazily loaded menu triggers; the change is Carousel',
+                  // Placed by the map since #20404 moved the spec to the engine tier; its reach has no src/functional module
+                  42042806935: 'DockCrossWindowWitnessNL, a harness red (target worker cw-win-a missing); the change is useMemo',
+                  42058376779: 'DockCrossWindowWitnessNL, the same harness red on a rerun of that change'
               },
               // A row the boundary left out could not run any spec, and a spec renamed since cannot be asked for
               replayed = rows.filter(row => row.admitted.length && row.failing.every(spec => map.specs.has(spec))),

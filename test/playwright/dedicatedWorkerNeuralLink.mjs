@@ -432,7 +432,12 @@ export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorke
                 throw new Error('Neo.ai.Client is not initialized in the dedicated App Worker')
             }
 
-            return client.handleTestRequest(method, params, context)
+            const result = await client.handleTestRequest(method, params, context);
+
+            // Match the WebSocket wire (`Client#send` -> `JSON.stringify`), which invokes `.toJSON()` on
+            // host objects such as `DOMRect` (`get_dom_rect`). Playwright's `worker.evaluate` uses CDP
+            // `returnByValue`, which copies own enumerable properties only and turns a `DOMRect` into `{}`.
+            return result === undefined ? undefined : JSON.parse(JSON.stringify(result))
         }, {context: writerPair, method, params})
     };
 

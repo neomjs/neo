@@ -86,7 +86,7 @@ enabled = true
 
 [mcp_servers."neo-mjs-neural-link"]
 command = "/bin/zsh"
-args = ["-lc", "cd <YOUR_NEO_REPO_PATH> && exec node <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs"]
+args = ["-lc", "cd <YOUR_NEO_REPO_PATH> && exec node <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs --cwd <YOUR_BRAIN_REPO_PATH>"]
 env_vars = ["NEO_AGENT_IDENTITY"]
 startup_timeout_sec = 30
 tool_timeout_sec = 120

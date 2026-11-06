@@ -60,8 +60,8 @@ const buttonX = (page, label) => page.evaluate(text => {
 
 /**
  * Resolves the tab button showing `label` once the pointer can trust its rect: no counted dock motion,
- * nothing animating inside the dock host and, for a drag, the tab admitted by its `neo-draggable` mark.
- * A projection glides by transform, so a rect read mid-glide is not where a press lands.
+ * nothing animating inside the dock host, no drag shield left and, for a drag, the tab admitted by its `neo-draggable` mark.
+ * A rect read mid-glide is not where a press lands, and under `body:has(.neo-is-dragging) *` a press lands on `body`.
  * @param {Object} page
  * @param {String} label
  * @param {Boolean} [draggable=false]
@@ -76,8 +76,8 @@ async function restingTab(page, label, draggable=false) {
                   button = [...document.querySelectorAll('.neo-tab-header-button')].find(el => el.textContent.trim() === label),
                   tabs   = button?.closest('.neo-dashboard-dock-tabs');
 
-            if (!tabs || document.querySelector('.neo-dashboard-dock-animating') || host.getAnimations({subtree: true}).length > 0
-                || (draggable && !button.closest('.neo-draggable'))) {
+            if (!tabs || document.querySelector('.neo-dashboard-dock-animating, .neo-is-dragging')
+                || host.getAnimations({subtree: true}).length > 0 || (draggable && !button.closest('.neo-draggable'))) {
                 return null
             }
 

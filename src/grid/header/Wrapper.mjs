@@ -1,4 +1,5 @@
 import BaseContainer from '../../container/Base.mjs';
+import GroupRow      from './GroupRow.mjs';
 import VNodeUtil     from '../../util/VNode.mjs';
 
 /**
@@ -46,6 +47,13 @@ class Wrapper extends BaseContainer {
          * @member {Neo.grid.Container|null} gridContainer=null
          */
         gridContainer: null,
+        /**
+         * The row of header groups above the leaf headers. Created while a column carries a `headerGroup`, destroyed
+         * once none does. Owned by this Wrapper, which is its first item.
+         * @member {Neo.grid.header.GroupRow|null} groupRow=null
+         * @protected
+         */
+        groupRow: null,
         /**
          * The locked-end header toolbar. Created on demand when end-locked columns exist; destroyed once
          * they no longer do. Owned by this Wrapper.
@@ -165,17 +173,18 @@ class Wrapper extends BaseContainer {
     /**
      * @summary Keeps one ARIA header row across the regions: the first toolbar keeps `role="row"` and owns the
      * others, which take `role="none"`, so every region's column headers read as one row, like the body rows
-     * ({@link Neo.grid.Body#getAriaRowOwns}).
+     * ({@link Neo.grid.Body#getAriaRowOwns}). Below a {@link #groupRow}, that row is the second.
      */
     syncAriaRows() {
-        let [lead, ...rest] = this.getToolbars();
+        let me              = this,
+            [lead, ...rest] = me.getToolbars();
 
         if (!lead) {
             return
         }
 
         lead.role = 'row';
-        lead.changeVdomRootKey('aria-rowindex', 1);
+        lead.changeVdomRootKey('aria-rowindex', me.gridContainer.headerRowCount);
         lead.changeVdomRootKey('aria-owns', rest.length > 0 ? rest.map(toolbar => toolbar.id).join(' ') : null);
 
         rest.forEach(toolbar => {
@@ -310,10 +319,60 @@ class Wrapper extends BaseContainer {
             me.vnode && VNodeUtil.unlinkRetiredReferences(me.vnode, retired)
         }
 
-        me.items = me.getToolbars();
+        me.syncGroupRow();
+
+        me.items = [me.groupRow, ...me.getToolbars()].filter(Boolean);
         me.createItems();
         me.syncColumnMenuState();
-        me.syncAriaRows()
+        me.syncAriaRows();
+        me.groupRow?.project()
+    }
+
+    /**
+     * @summary Creates the {@link #groupRow} while a column carries a `headerGroup` and destroys it once none does.
+     *
+     * While it exists, this Wrapper lays itself out as a CSS grid with one column per region toolbar, in the toolbars'
+     * order: `auto` for a locked region, `minmax(0, 1fr)` for the centre. The toolbars fill the second row and the
+     * group row spans the first as a subgrid. Without groups it keeps its hbox and today's DOM.
+     * @protected
+     */
+    syncGroupRow() {
+        let me              = this,
+            {gridContainer} = me,
+            {centerColumns, lockedEndColumns, lockedStartColumns} = gridContainer,
+            grouped         = [...lockedStartColumns, ...centerColumns, ...lockedEndColumns].some(column => column.headerGroup),
+            hadGroupRow     = !!me.groupRow,
+            style           = me.style;
+
+        if (grouped && !me.groupRow) {
+            me.groupRow = Neo.create(GroupRow, {
+                appName : gridContainer.appName,
+                gridContainer,
+                parentId: me.id,
+                windowId: gridContainer.windowId
+            })
+        } else if (!grouped && me.groupRow) {
+            // Unlinked after destroy(): only a component that has left the registry is unlinked
+            const retired = {[me.groupRow.id]: me.groupRow.vnode};
+
+            me.groupRow.destroy();
+            me.groupRow = null;
+            me.vnode && VNodeUtil.unlinkRetiredReferences(me.vnode, retired)
+        }
+
+        me.toggleCls('neo-grid-header-grouped', grouped);
+
+        style.gridTemplateColumns = grouped
+            ? me.getToolbars().map(toolbar => toolbar.layoutLock ? 'auto' : 'minmax(0, 1fr)').join(' ')
+            : null;
+
+        me.style = style;
+
+        // The header row count moved: aria-rowcount follows it. Body rows take it on their next render. A grid that
+        // has no store yet counts its rows when the store arrives.
+        if (hadGroupRow !== grouped && gridContainer.store) {
+            gridContainer.updateRowCount()
+        }
     }
 
     /**

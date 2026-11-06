@@ -15,6 +15,7 @@ import Component        from '../../../../src/component/Base.mjs';
 import ComponentManager from '../../../../src/manager/Component.mjs';
 import Container        from '../../../../src/container/Base.mjs';
 import Effect           from '../../../../src/core/Effect.mjs';
+import TabContainer     from '../../../../src/tab/Container.mjs';
 
 /**
  * @summary Verifies that `Neo.container.Base#removeAt(index, false)` clears `appName`, `parentId`,
@@ -90,6 +91,28 @@ test.describe('Neo.container.Base#removeAt clear context (#4066)', () => {
 
         item.destroy()
     });
+
+    for (const destroyItem of [false, true]) {
+        test(`removing an unloaded card skips instance lifecycle (${destroyItem ? 'destroy' : 'retain'})`, () => {
+            let loads = 0;
+            container = Neo.create(TabContainer, {
+                items: [
+                    {header: {text: 'Ready'}, module: Component},
+                    {header: {text: 'Lazy'}, module: () => {loads++; return import('../../../../src/component/Base.mjs')}}
+                ]
+            });
+            const descriptor = container.getCard(1), removed = [];
+            container.getCardContainer().on('remove', ({item}) => removed.push(item));
+
+            const result = container.removeAt(1, destroyItem);
+
+            expect(result).toBe(destroyItem ? null : descriptor);
+            expect(loads).toBe(0);
+            expect(removed).toEqual([descriptor]);
+            expect(container.getCardContainer().items).toHaveLength(1);
+            expect(container.getTabButtons()).toHaveLength(1)
+        })
+    }
 
     test('removeAt(index, false) batches the four context resets into one complete detached-state Effect notification', () => {
         container = Neo.create(Container, {

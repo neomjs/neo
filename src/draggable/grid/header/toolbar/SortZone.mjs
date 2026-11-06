@@ -415,7 +415,10 @@ class SortZone extends BaseSortZone {
             // inference above remains as the fallback when no release coordinate is available.
             // The rects come from the drag-start snapshot: live drag-end rects reflect the mid-drag
             // re-flow (hidden dragged column), not the geometry the user dropped against.
-            if (Neo.isNumber(me.lastDragClientX) && me.regionRects) {
+            // A grouped leaf only ever moves inside its group, so it keeps the group's region wherever it is released.
+            if (column.headerGroup) {
+                newLocked = column.locked
+            } else if (Neo.isNumber(me.lastDragClientX) && me.regionRects) {
                 newLocked = me.getDropRegion(me.lastDragClientX, me.regionRects)
             }
         }
@@ -533,13 +536,37 @@ class SortZone extends BaseSortZone {
     }
 
     /**
-     * @param {Number} index1
-     * @param {Number} index2
+     * @summary The header group of the header at a drag position, `null` outside any group.
+     * @param {Number} index A position in the drag's current order
+     * @returns {String|null}
+     */
+    getHeaderGroupId(index) {
+        let me     = this,
+            button = me.ownerItems?.[me.indexMap?.[index]];
+
+        // The column carries the group: the header button is only its view
+        return me.owner.gridContainer?.columns?.get(button?.dataField)?.headerGroup?.id ?? null
+    }
+
+    /**
+     * @summary Swaps two neighbouring headers, unless they belong to different header groups.
+     *
+     * A drag moves its header one swap at a time, so refusing the swaps across a group boundary keeps a grouped column
+     * inside its group and keeps an ungrouped one out of every group. `onDragMove` advances `currentIndex` to
+     * `index2` before it asks for the swap, and the drop commits to `currentIndex`: a refused swap moves it back to
+     * `index1`, the dragged header's own position.
+     * @param {Number} index1 The dragged header's position
+     * @param {Number} index2 The position it would move to
      */
     switchItems(index1, index2) {
-        super.switchItems(index1, index2);
-
         let me = this;
+
+        if (me.getHeaderGroupId(index1) !== me.getHeaderGroupId(index2)) {
+            me.currentIndex = index1;
+            return
+        }
+
+        super.switchItems(index1, index2);
 
         if (me.moveColumnContent) {
             let { itemRects } = me,

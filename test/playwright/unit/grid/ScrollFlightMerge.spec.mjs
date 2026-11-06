@@ -34,8 +34,6 @@ import VdomHelper      from '../../../../src/vdom/Helper.mjs';
  * later repaint comes, so a pruned row keeps a stored vnode for the index it showed before the scroll.
  */
 test.describe('grid.View scroll repaint with a merged body update', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, store;
 
     test.beforeEach(async () => {

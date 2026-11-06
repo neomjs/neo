@@ -452,6 +452,9 @@ class Toolbar extends BaseToolbar {
                 availableWidth: currentX
             });
 
+            // The group cells are a projection of these positions
+            me.gridContainer.headerWrapper?.groupRow?.project();
+
             // refreshColumns(true), not updateMountedAndVisibleColumns(): we just replaced the
             // column geometry above, and a pure width change (a column resize) leaves the mounted
             // range [startIndex, endIndex] equal — so neither the range side effect nor

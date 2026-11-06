@@ -1,13 +1,14 @@
-import Neo             from '../Neo.mjs';
-import Base            from './Base.mjs';
-import CanvasGroups    from './CanvasGroups.mjs';
-import HiddenTick      from './HiddenTick.mjs';
-import Message         from './Message.mjs';
-import Application     from '../controller/Application.mjs';
-import InstanceManager from '../manager/Instance.mjs';
-import DomEventManager from '../manager/DomEvent.mjs';
-import FocusManager    from '../manager/Focus.mjs';
-import HashHistory     from '../util/HashHistory.mjs';
+import Neo                 from '../Neo.mjs';
+import Base                from './Base.mjs';
+import CanvasGroups        from './CanvasGroups.mjs';
+import HiddenTick          from './HiddenTick.mjs';
+import Message             from './Message.mjs';
+import Application         from '../controller/Application.mjs';
+import InstanceManager     from '../manager/Instance.mjs';
+import DomEventManager     from '../manager/DomEvent.mjs';
+import FocusManager        from '../manager/Focus.mjs';
+import HashHistory         from '../util/HashHistory.mjs';
+import {getThemeNamespace} from '../util/Theme.mjs';
 
 /**
  * The App worker contains most parts of the framework as well as all apps which get created.
@@ -182,7 +183,7 @@ class App extends Base {
                 delete config.importPath
             }
 
-            let appName   = Object.values(Neo.apps)[0]?.name, // fallback in case no appName was provided
+            let appName = Object.values(Neo.apps)[0]?.name, // fallback in case no appName was provided
                 Container = Neo.container?.Base,
                 index, instance, parent;
 
@@ -447,21 +448,16 @@ class App extends Base {
             let me     = this,
                 cssMap = Neo.cssMap,
                 parent = proto?.__proto__,
-                classPath, classRoot, fileName, lClassRoot, mapClassName, ns, themeFolders;
+                classPath, classRoot, fileName, mapClassName, ns, themeFolders;
 
             if (!cssMap) {
                 me.themeFilesCache.push([windowId, proto, className])
             } else {
                 // we need to modify app related class names
                 if (!className.startsWith('Neo.')) {
-                    className  = className.split('.');
-                    classRoot  = className.shift();
-                    lClassRoot = classRoot.toLowerCase();
-
-                    className[0] === 'view' && className.shift();
-
-                    mapClassName = `apps.${Neo.appsByName[classRoot]?.[0]?.appThemeFolder || lClassRoot}.${className.join('.')}`;
-                    className    = `apps.${lClassRoot}.${className.join('.')}`
+                    classRoot    = className.split('.')[0];
+                    mapClassName = getThemeNamespace(className, Neo.appsByName[classRoot]?.[0]?.appThemeFolder);
+                    className    = getThemeNamespace(className)
                 }
 
                 proto?.additionalThemeFiles?.forEach(ns => {
@@ -735,6 +731,16 @@ class App extends Base {
      */
     onPipelinePush(msg) {
         Neo.manager.Instance.get(msg.id)?.fire('push', msg.data)
+    }
+
+    /**
+     * @summary Delivers a separate Pipeline observation without changing its data or push payloads.
+     * @param {Object} msg
+     * @param {String} msg.id The App-side Pipeline ID.
+     * @param {Object} msg.data Metric-only stage observation.
+     */
+    onPipelineTelemetry(msg) {
+        Neo.manager.Instance.get(msg.id)?.publishTelemetry(msg.data)
     }
 
     /**
