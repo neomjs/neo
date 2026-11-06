@@ -217,6 +217,22 @@ test.describe('Neo.canvas.GraphScene — the renderer without a GL context', () 
         renderer.destroy()
     });
 
+    test('a requested frame is owed until it runs', async () => {
+        renderer.context = createContext();
+
+        expect(renderer.getStats().owed, 'nothing is owed before a request').toBe(false);
+
+        renderer.isPaused = false;
+        renderer.requestFrame();
+
+        expect(renderer.getStats().owed, 'the request owes a frame').toBe(true);
+
+        // paused before its slot, the frame starts and returns: the stub context has nothing to draw with
+        renderer.isPaused = true;
+
+        await expect.poll(() => renderer.getStats().owed, {message: 'the frame that runs settles it'}).toBe(false)
+    });
+
     test('the drawing buffer is the size times the message\'s pixel ratio, and 1:1 without one', () => {
         renderer.context = createContext();
 
