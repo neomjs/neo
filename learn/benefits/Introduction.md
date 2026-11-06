@@ -188,7 +188,7 @@ Claims are cheap; a repo that "solves everything" earns instant skepticism. So t
 - **The substrate is memory, not bloat.** Alongside the runtime code, Neo's repositories hold hundreds of thousands of lines of tickets, pull-request conversations, and discussions — mirrored into markdown by the data-sync pipeline as the swarm's externalized, queryable memory; the graph and knowledge stores built *from* that archive are governed by the decay and GC machinery (§5). The big line counts aren't runaway code; they're *a mind writing itself down — and pruning itself.*
 - **MIT licensed since day one** — open by deliberate design, permanently.
 
-Start with two review threads, then take the random sample above. [This guide's own review](https://github.com/neomjs/neo/pull/14904#pullrequestreview-4667264847) restores a dropped sentence and replaces drifting counts with dated evidence before approval. [A parser repair](https://github.com/neomjs/neo/pull/14694#pullrequestreview-4628906189) turns a failing input that hid the genuine task route into a regression test before cross-family approval.
+Start with two review threads, then take the random sample above. [This guide's own review](https://github.com/neomjs/neo/pull/14904#pullrequestreview-4667264847) restores a dropped sentence and replaces drifting counts with dated evidence before approval. [A renderer repair](https://github.com/neomjs/neo/pull/14694#pullrequestreview-4628906189) turns a failing input that hid the genuine task route into a regression test before cross-family approval.
 
 ```mermaid
 flowchart TD
@@ -311,7 +311,7 @@ Source pointers below name the current owning repository. Dated counts and their
 <details>
 <summary>Integrity fingerprint (lint-enforced)</summary>
 
-This document is **61,563 bytes / 349 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
+This document is **61,565 bytes / 349 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
 
 </details>
 
