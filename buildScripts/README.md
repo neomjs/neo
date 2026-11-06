@@ -66,6 +66,7 @@ Utilities for maintaining code quality and developer experience.
 | `addReactiveTags.mjs` | `npm run add-reactive-tags` | Automatically adds `@reactive` JSDoc tags to config properties ending in `_`. |
 | `checkReactiveTags.mjs` | `npm run check-reactive-tags` | Lints the codebase to ensure all reactive configs have the correct JSDoc tags. |
 | `convertDesignTokens.mjs` | `npm run convert-design-tokens` | Converts JSON design tokens into SCSS variables and CSS custom properties. |
+| `seatStart.mjs` | `npm run seat:start` | What a fresh seat Start needs: rebuilds the development themes only when they are missing or stale. |
 | `watchThemes.mjs` | `npm run watch-themes` | Watches SCSS files for changes and recompiles themes incrementally. |
 
 ---
