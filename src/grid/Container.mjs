@@ -7,10 +7,8 @@ import Store               from '../data/Store.mjs';
 import FooterToolbar       from './footer/Toolbar.mjs';
 import SearchToolbar       from './SearchToolbar.mjs';
 import HorizontalScrollbar from './HorizontalScrollbar.mjs';
-import NeoArray            from '../util/Array.mjs';
 import VerticalScrollbar   from './VerticalScrollbar.mjs';
 import View                from './View.mjs';
-import VNodeUtil           from '../util/VNode.mjs';
 import * as column         from './column/_export.mjs';
 import * as header         from './header/_export.mjs';
 import {isDescriptor}      from '../core/ConfigSymbols.mjs';
@@ -100,16 +98,6 @@ class GridContainer extends BaseContainer {
             merge         : 'deep',
             value         : null
         },
-        /**
-         * @member {Neo.grid.Body|null} bodyEnd=null
-         * @protected
-         */
-        bodyEnd: null,
-        /**
-         * @member {Neo.grid.Body|null} bodyStart=null
-         * @protected
-         */
-        bodyStart: null,
         /**
          * @member {Neo.grid.View|null} view=null
          * @protected
@@ -301,6 +289,32 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     responsiveLockPolicyActiveMaxWidth = null
+
+    /**
+     * Convenience accessor delegating to {@link Neo.grid.View#bodyEnd}, which owns the locked-end body lifecycle.
+     * @member {Neo.grid.Body|null} bodyEnd
+     */
+    get bodyEnd() {
+        return this.view?.bodyEnd || null
+    }
+    set bodyEnd(value) {
+        if (this.view) {
+            this.view.bodyEnd = value
+        }
+    }
+
+    /**
+     * Convenience accessor delegating to {@link Neo.grid.View#bodyStart}, which owns the locked-start body lifecycle.
+     * @member {Neo.grid.Body|null} bodyStart
+     */
+    get bodyStart() {
+        return this.view?.bodyStart || null
+    }
+    set bodyStart(value) {
+        if (this.view) {
+            this.view.bodyStart = value
+        }
+    }
 
     /**
      * @member {Boolean} hasLockedColumns=false
@@ -552,13 +566,8 @@ class GridContainer extends BaseContainer {
                 return
             }
 
-            me.bodyStart?.updateMountedAndVisibleColumns();
-            me.body?.updateMountedAndVisibleColumns();
-            me.bodyEnd?.updateMountedAndVisibleColumns();
-
-            me.bodyStart?.createViewData();
-            me.body?.createViewData();
-            me.bodyEnd?.createViewData()
+            me.view.bodies.forEach(body => body.updateMountedAndVisibleColumns());
+            me.view.bodies.forEach(body => body.createViewData())
         }
     }
 
@@ -680,16 +689,14 @@ class GridContainer extends BaseContainer {
      */
     afterSetRowHeight(value, oldValue) {
         if (value > 0) {
-            let {body, bodyEnd, bodyStart, view} = this,
-                rowGeometry                      = view?.rowGeometry;
+            let {body, view} = this,
+                rowGeometry  = view?.rowGeometry;
 
             // Content-sized rows: rowHeight is the estimate for every row whose height is not known yet. It
             // changes first, so the bodies' extent updates below read it.
             if (rowGeometry) rowGeometry.estimate = value;
 
-            if (body)      body.rowHeight = value;
-            if (bodyStart) bodyStart.rowHeight = value;
-            if (bodyEnd)   bodyEnd.rowHeight = value;
+            (view?.bodies || (body ? [body] : [])).forEach(item => {item.rowHeight = value});
 
             // rowHeight is also the floor of measured rows. Deriving them again refreshes the geometry if one changed.
             if (rowGeometry && !view.refreshMeasuredHeights()) {
@@ -758,9 +765,7 @@ class GridContainer extends BaseContainer {
 
         // in case we dynamically change the store (incl. a state.Provider store binding resolving
         // after construction), grid.Body + the scrollbar need to get the new reference
-        if (me.body)              me.body.store = value;
-        if (me.bodyStart)         me.bodyStart.store = value;
-        if (me.bodyEnd)           me.bodyEnd.store = value
+        (me.view?.bodies || (me.body ? [me.body] : [])).forEach(body => {body.store = value});
         if (me.verticalScrollbar) me.verticalScrollbar.store = value
 
         // the View follows the store for the one selection field it owns
@@ -784,9 +789,7 @@ class GridContainer extends BaseContainer {
      */
     afterSetUseInternalId(value, oldValue) {
         if (oldValue !== undefined) {
-            if (this.body)      this.body.useInternalId = value;
-            if (this.bodyStart) this.bodyStart.useInternalId = value;
-            if (this.bodyEnd)   this.bodyEnd.useInternalId = value;
+            (this.view?.bodies || (this.body ? [this.body] : [])).forEach(body => {body.useInternalId = value})
         }
     }
 
@@ -1123,75 +1126,16 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Synchronizes header and body sub-grids by delegating to their respective tier orchestrators
+     * ({@link Neo.grid.header.Wrapper#updateHeaders} and {@link Neo.grid.View#updateBodies}).
      * @param {Object[]} [lockedStartButtons]
      * @param {Object[]} [centerButtons]
      * @param {Object[]} [lockedEndButtons]
      * @protected
      */
     createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons) {
-        let me = this,
-            // A locked body is the center body's class with its configs, placed in this view
-            lockedBody = () => Neo.cloneNeoInstance(me.body, {
-                flex         : 'none',
-                gridContainer: me,
-                parentId     : me.view.id,
-                reference    : null,
-                rowHeight    : me.rowHeight,
-                store        : me.store,
-                theme        : me.theme,
-                useInternalId: me.useInternalId,
-                windowId     : me.windowId
-            });
-
-        // The header region (locked + centre toolbars) is owned by the dedicated header.Wrapper orchestrator.
-        me.headerWrapper.updateHeaders(lockedStartButtons, centerButtons, lockedEndButtons);
-
-        const retiredBodies = {};
-
-        // --- Start body (Left) ---
-        if (me.lockedStartColumns.length > 0) {
-            if (!me.bodyStart) {
-                me.bodyStart = lockedBody()
-            }
-        } else if (me.bodyStart) {
-            retiredBodies[me.bodyStart.id] = me.bodyStart.vnode;
-            me.bodyStart.destroy();
-            me.bodyStart = null;
-
-            // The margin feed lives in Body#afterSetAvailableWidth; a destroyed region must
-            // release its scrollbar-scrollport margin explicitly.
-            me.horizontalScrollbar && (me.horizontalScrollbar.startWidth = 0)
-        }
-
-        // --- End body (Right) ---
-        if (me.lockedEndColumns.length > 0) {
-            if (!me.bodyEnd) {
-                me.bodyEnd = lockedBody()
-            }
-        } else if (me.bodyEnd) {
-            retiredBodies[me.bodyEnd.id] = me.bodyEnd.vnode;
-            me.bodyEnd.destroy();
-            me.bodyEnd = null;
-
-            // See the bodyStart branch: release the scrollport margin of a removed region.
-            me.horizontalScrollbar && (me.horizontalScrollbar.endWidth = 0)
-        }
-
-        if (me.view?.vnode && Object.keys(retiredBodies).length > 0) {
-            VNodeUtil.unlinkRetiredReferences(me.view.vnode, retiredBodies)
-        }
-
-        // Synchronize the body sub-grids into the grid.View.
-        let bodyItems = [];
-
-        me.bodyStart && bodyItems.push(me.bodyStart);
-        me.body      && bodyItems.push(me.body);
-        me.bodyEnd   && bodyItems.push(me.bodyEnd);
-
-        me.view.items = bodyItems;
-
-        // Header assembly is owned by header.Wrapper.updateHeaders(); only the bodies render here.
-        me.view.createItems()
+        this.headerWrapper.updateHeaders(lockedStartButtons, centerButtons, lockedEndButtons);
+        this.view.updateBodies()
     }
 
     /**
@@ -1364,9 +1308,7 @@ class GridContainer extends BaseContainer {
             await Promise.all(me.headerWrapper.getToolbars().map(toolbar => toolbar.passSizeToBody()));
 
             // Force a full row re-render to apply the new column order and styles
-            if (me.body)      me.body.createViewData();
-            if (me.bodyStart) me.bodyStart.createViewData();
-            if (me.bodyEnd)   me.bodyEnd.createViewData()
+            me.view.bodies.forEach(body => body.createViewData())
         } finally {
             holds && cellEditing.releaseEdit()
         }
@@ -1449,9 +1391,7 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     repaintCells() {
-        let me = this;
-
-        [me.bodyStart, me.body, me.bodyEnd].forEach(body => body?.createViewData(false, true))
+        this.view.bodies.forEach(body => body.createViewData(false, true))
     }
 
     /**
@@ -1470,9 +1410,7 @@ class GridContainer extends BaseContainer {
         // measure the container, then (once the width is known) re-derive each body's mounted
         // and visible columns so createViewData can render their rows.
         me.passSizeToBody().then(() => {
-            me.bodyStart?.updateMountedAndVisibleColumns();
-            me.body.updateMountedAndVisibleColumns();
-            me.bodyEnd?.updateMountedAndVisibleColumns()
+            me.view.bodies.forEach(body => body.updateMountedAndVisibleColumns())
         });
 
         me.headerWrapper.applyColumnButtonOrder(me.lockedStartColumns, me.centerColumns, me.lockedEndColumns);
@@ -1524,9 +1462,7 @@ class GridContainer extends BaseContainer {
             return
         }
 
-        me.bodyStart?.updateMountedAndVisibleColumns();
-        me.body.updateMountedAndVisibleColumns();
-        me.bodyEnd?.updateMountedAndVisibleColumns();
+        me.view.bodies.forEach(body => body.updateMountedAndVisibleColumns());
 
         await me.headerToolbar.passSizeToBody();
 
@@ -1642,9 +1578,7 @@ class GridContainer extends BaseContainer {
                 containerWidth : containerRect.width
             };
 
-            me.body[silent ? 'setSilent' : 'set'](config);
-            me.bodyStart && me.bodyStart[silent ? 'setSilent' : 'set'](config);
-            me.bodyEnd   && me.bodyEnd[silent ? 'setSilent' : 'set'](config)
+            me.view.bodies.forEach(body => body[silent ? 'setSilent' : 'set'](config))
         }
     }
 
@@ -1908,32 +1842,9 @@ class GridContainer extends BaseContainer {
 
         me.getAriaRoot()['aria-colcount'] = me.columns.count;
 
-        let cls = 'neo-hide-scrollbar';
-
-        if (me.bodyStart) {
-            let startCls = [...me.bodyStart.wrapperCls];
-            if (!startCls.includes(cls)) {
-                startCls.push(cls);
-                me.bodyStart.wrapperCls = startCls;
-            }
-        }
-
-        if (me.body) {
-            let bodyCls = [...me.body.wrapperCls];
-            let hasCls  = bodyCls.includes(cls);
-
-            if (me.bodyEnd && !hasCls) {
-                bodyCls.push(cls);
-                me.body.wrapperCls = bodyCls;
-            } else if (!me.bodyEnd && hasCls) {
-                NeoArray.remove(bodyCls, cls);
-                me.body.wrapperCls = bodyCls;
-            }
-        }
-
         if (me.scrollManager) {
             me.scrollManager.usesRowScrollAddon && me.scrollManager.updateRowScrollPinningAddon(true);
-            me.scrollManager.rowHoverSync     && me.scrollManager.updateGridRowHoverSyncAddon(me.hasLockedColumns);
+            me.scrollManager.rowHoverSync       && me.scrollManager.updateGridRowHoverSyncAddon(me.hasLockedColumns)
         }
 
         !silent && me.ariaWrapper.update()

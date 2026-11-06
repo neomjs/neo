@@ -179,6 +179,12 @@ test.describe('Grid: locked bodies and header toolbars', () => {
             expect(locked.store).toBe(grid.store)
         });
 
+        expect(view.bodyStart).toBe(bodyStart);
+        expect(view.bodyEnd).toBe(bodyEnd);
+        expect(view.bodies).toEqual([bodyStart, body, bodyEnd]);
+        expect(bodyStart.wrapperCls).toContain('neo-hide-scrollbar');
+        expect(body.wrapperCls).toContain('neo-hide-scrollbar');
+
         [headerStart, headerEnd].forEach(locked => expect(locked.reference).toBe(null));
         expect([headerStart.layoutLock, headerEnd.layoutLock]).toEqual(['start', 'end'])
     });
