@@ -197,7 +197,6 @@ test.describe('test/playwright/externalBrainSelection — the e2e selection spli
             'neural-link/CreateComponentMultiWindow.spec.mjs',
             'neural-link/CreateInstance.spec.mjs',
             'neural-link/Fixture.spec.mjs',
-            'neural-link/TransactionArchiveReplay.spec.mjs',
             'neural-link/WindowOps.spec.mjs',
             'neural-link/WorkerStateMutation.spec.mjs',
             'rendering/FocusHistoryMultiWindowNL.spec.mjs',
