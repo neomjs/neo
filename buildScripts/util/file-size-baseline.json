@@ -1,6 +1,6 @@
 {
     "apps/workstation/tour/NativeGestureDriver.mjs": 1238,
-    "examples/dashboard/crossWindow/DemoBWorkspace.mjs": 2461,
+    "examples/dashboard/crossWindow/DemoBWorkspace.mjs": 1774,
     "src/canvas/GraphScene.mjs": 1047,
     "src/dashboard/dock/Workspace.mjs": 1078
 }
