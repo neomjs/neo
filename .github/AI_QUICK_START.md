@@ -251,7 +251,7 @@ That scoping is deliberate. `set -a; source .env` would hand every server every 
       "command": "/bin/zsh",
       "args": [
         "-lc",
-        "cd <YOUR_NEO_REPO_PATH>; . <YOUR_NEO_REPO_PATH>/.env >/dev/null 2>&1; NEO_AGENT_IDENTITY=\"$NEO_AGENT_IDENTITY\" exec <YOUR_NODE_PATH> <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs"
+        "cd <YOUR_NEO_REPO_PATH>; . <YOUR_NEO_REPO_PATH>/.env >/dev/null 2>&1; NEO_AGENT_IDENTITY=\"$NEO_AGENT_IDENTITY\" exec <YOUR_NODE_PATH> <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs --cwd <YOUR_BRAIN_REPO_PATH>"
       ]
     }
   }
