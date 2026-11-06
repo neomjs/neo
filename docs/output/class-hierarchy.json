@@ -329,6 +329,7 @@
  "Neo.form.field.Radio": "Neo.form.field.CheckBox",
  "Neo.form.field.Range": "Neo.form.field.Number",
  "Neo.form.field.Search": "Neo.form.field.Text",
+ "Neo.form.field.Select": "Neo.form.field.Base",
  "Neo.form.field.Switch": "Neo.form.field.CheckBox",
  "Neo.form.field.Text": "Neo.form.field.Base",
  "Neo.form.field.TextArea": "Neo.form.field.Text",
