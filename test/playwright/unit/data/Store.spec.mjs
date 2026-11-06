@@ -621,32 +621,47 @@ test.describe('Neo.data.Store Model ownership', () => {
         expect(recordClassOf(shared)).toBeUndefined()
     });
 
-    test('a released Model whose id a successor reused retires nothing of the successor\'s', () => {
-        const id       = 'test-unit-data-store-model-ownership-reused-id',
-              first    = Neo.create(Store, {model: {module: OwnershipModel, id}, data: data()}),
-              released = first.model;
+    // Before Neo.manager.Instance loads, instances register in Neo.idMap: both registries keep a successor's entry
+    for (const bootstrap of [false, true]) {
+        test(`a released Model whose id a successor reused retires nothing of the successor's (${bootstrap ? 'bootstrap id map' : 'instance manager'})`, () => {
+            const Base      = Neo.core.Base,
+                  available = Base.instanceManagerAvailable,
+                  id        = `test-unit-data-store-model-ownership-reused-id-${bootstrap}`,
+                  holder    = () => (bootstrap ? Neo.idMap?.[id] : Neo.get(id)) ?? null;
 
-        first.destroy();
-        expect(Neo.get(id)).toBeNull();
+            Base.instanceManagerAvailable = !bootstrap;
 
-        const successor = Neo.create(OwnershipModel, {id}),
-              second    = Neo.create(Store, {model: successor, data: data()}),
-              ownClass  = recordClassOf(successor);
+            try {
+                const first    = Neo.create(Store, {model: {module: OwnershipModel, id}, data: data()}),
+                      released = first.model;
 
-        expect(Neo.get(id)).toBe(successor);
-        expect(ownClass).toBeTruthy();
+                expect(holder(), 'positive control: the created Model is registered').toBe(released);
 
-        released.release();
-        expect(Neo.get(id), 'a late release').toBe(successor);
-        expect(recordClassOf(successor), 'a late release').toBe(ownClass);
+                first.destroy();
+                expect(holder()).toBeNull();
 
-        released.destroy();
-        expect(Neo.get(id), 'the first destroy').toBe(successor);
-        expect(recordClassOf(successor), 'the first destroy').toBe(ownClass);
+                const successor = Neo.create(OwnershipModel, {id}),
+                      second    = Neo.create(Store, {model: successor, data: data()}),
+                      ownClass  = recordClassOf(successor);
 
-        second.destroy();
-        successor.destroy();
-        expect(Neo.get(id)).toBeNull();
-        expect(recordClassOf(successor)).toBeUndefined()
-    })
+                expect(holder()).toBe(successor);
+                expect(ownClass).toBeTruthy();
+
+                released.release();
+                expect(holder(), 'a late release').toBe(successor);
+                expect(recordClassOf(successor), 'a late release').toBe(ownClass);
+
+                released.destroy();
+                expect(holder(), 'the first destroy').toBe(successor);
+                expect(recordClassOf(successor), 'the first destroy').toBe(ownClass);
+
+                second.destroy();
+                successor.destroy();
+                expect(holder()).toBeNull();
+                expect(recordClassOf(successor)).toBeUndefined()
+            } finally {
+                Base.instanceManagerAvailable = available
+            }
+        })
+    }
 });
