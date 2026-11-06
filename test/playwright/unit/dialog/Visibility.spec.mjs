@@ -26,6 +26,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
+import Container      from '../../../../src/container/Base.mjs';
 import Dialog         from '../../../../src/dialog/Base.mjs';
 import VdomHelper     from '../../../../src/vdom/Helper.mjs';
 
@@ -200,5 +201,41 @@ test.describe('dialog.Base: show() and hide() follow the component.Base visibili
 
         expect({autoInitVnode: dialog.autoInitVnode, autoMount: dialog.autoMount, inserts: inserts.length})
             .toEqual({autoInitVnode: false, autoMount: false, inserts: 0})
+    });
+
+    test('a dialog its parent renders shows and hides through the parent, never mounting itself', async () => {
+        const parent = Neo.create(Container, {
+            appName,
+            autoMount: true,
+            items    : [{module: Dialog, autoInitVnode: false, autoMount: false, closeAction: 'hide', draggable: false, reference: 'host', resizable: false}],
+            windowId : 1
+        });
+        let ownMounts = 0;
+
+        instances.push(parent);
+
+        await parent.initVnode(true);
+
+        const dialog = parent.getItem('host');
+
+        dialog.initVnode = () => {ownMounts++; return Promise.resolve()};
+
+        expect(dialog.mounted, 'its parent renders it').toBe(true);
+
+        dialog.hide();   // the header X with closeAction 'hide'
+        await tick(100);
+
+        expect({hidden: dialog.hidden, mounted: dialog.mounted}, 'the parent update removes it').toEqual({hidden: true, mounted: false});
+
+        dialog.hidden = false;   // a reopen by the owner that holds the dialog
+        await tick(100);
+
+        expect({hidden: dialog.hidden, mounted: dialog.mounted, ownMounts}, 'the parent renders it again')
+            .toEqual({hidden: false, mounted: true, ownMounts: 0});
+
+        dialog.onKeyDownEscape();
+        await tick(100);
+
+        expect({hidden: dialog.hidden, mounted: dialog.mounted}).toEqual({hidden: true, mounted: false})
     })
 });
