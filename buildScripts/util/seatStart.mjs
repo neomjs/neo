@@ -1,5 +1,5 @@
-import process                       from 'node:process';
-import isEntryModule                from './isEntryModule.mjs';
+import process                        from 'node:process';
+import isEntryModule                  from './isEntryModule.mjs';
 import {ensureDevelopmentThemeAssets} from './developmentThemeAssets.mjs';
 
 /**
