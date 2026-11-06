@@ -16,6 +16,7 @@ import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
 import Component       from '../../../../src/component/Base.mjs';
+import Effect          from '../../../../src/core/Effect.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
 import Plugin          from '../../../../src/plugin/Base.mjs';
 import StateProvider   from '../../../../src/state/Provider.mjs';
@@ -32,6 +33,22 @@ class MockComponent extends Component {
     }
 }
 MockComponent = Neo.setupClass(MockComponent);
+
+// Its bound config's afterSet builds an Effect, as creating a bound child does, then reads another of its configs
+class NestedEffectComponent extends Component {
+    static config = {
+        className: 'Test.Unit.State.Provider.NestedEffectComponent',
+        appName,
+        label_   : null,
+        other_   : 0
+    }
+
+    afterSetLabel(value, oldValue) {
+        new Effect(() => {}).destroy();
+        this.other
+    }
+}
+NestedEffectComponent = Neo.setupClass(NestedEffectComponent);
 
 // Helper function to convert a proxy to a plain object for deep comparison
 function proxyToObject(proxy) {
@@ -237,6 +254,35 @@ test.describe('Neo.state.Provider (Node.js)', () => {
 
         provider.setData('inputValue', 'updated from provider');
         expect(component.testConfig).toBe('updated from provider');
+
+        component.destroy();
+    });
+
+    test('A bound write whose afterSet runs an Effect leaves the formatter independent of its later reads', () => {
+        let formatterRuns = 0;
+
+        const component = Neo.create(NestedEffectComponent, {
+            stateProvider: {
+                data: {name: 'first'}
+            },
+            bind: {
+                label: data => {formatterRuns++; return data.name}
+            }
+        });
+        const provider = component.getStateProvider();
+
+        // A bound write after construction: its afterSet builds an Effect, then reads `other`
+        provider.setData('name', 'second');
+        expect(component.label).toBe('second');
+
+        const runs = formatterRuns;
+
+        component.other = 1;
+        expect(formatterRuns, 'an afterSet read is not a formatter dependency').toBe(runs);
+
+        provider.setData('name', 'third');
+        expect(component.label).toBe('third');
+        expect(formatterRuns).toBe(runs + 1);
 
         component.destroy();
     });

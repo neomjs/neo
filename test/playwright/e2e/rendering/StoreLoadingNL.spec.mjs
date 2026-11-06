@@ -32,11 +32,18 @@ test.describe('Gallery and Helix loading feedback', () => {
             const fullMask = await indicator.boundingBox(), viewBox = await root.boundingBox();
             expect(fullMask.width).toBeGreaterThan(viewBox.width * .9);
 
+            if (kind === 'gallery') {
+                // The native mount read must finish against the empty Store before any rows arrive.
+                await expect.poll(async () => (await app.getComponent(view.id, ['offsetWidth'])).offsetWidth).toBeGreaterThan(0);
+                expect((await app.getComponent(view.properties['selectionModel.id'], ['items'])).items).toEqual([])
+            }
+
             await app.setProperties(view.id, {maxItems: 4});
             // Two actual pipeline data notifications exercise progressive ingestion while the HTTP request remains open.
             await app.callMethod(pipeline, 'fire', ['data', rows.slice(0, 2)]);
             await app.callMethod(pipeline, 'fire', ['data', rows.slice(2)]);
             await expect(root.locator(`.neo-${kind}-item`)).toHaveCount(4);
+            if (kind === 'gallery') await expect(root.locator('.neo-gallery-item.neo-selected')).toHaveCount(1);
             await expect(root).toHaveClass(/neo-store-loading-with-items/);
             await expect(indicator).toHaveCSS('pointer-events', 'none');
             await expect(indicator).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
@@ -45,15 +52,25 @@ test.describe('Gallery and Helix loading feedback', () => {
             await app.callMethod(store, 'sort', [{property: 'id', direction: 'DESC'}]);
             await expect(indicator).toBeVisible();
             await expect(indicator.locator('.fa-spinner')).toBeVisible();
-            const firstItem = root.locator(`.neo-${kind}-item`).first();
-            await expect(firstItem).toHaveAttribute('id', /__neo-record-4$/);
-            if (kind === 'gallery') {
-                await expect.poll(async () => (await app.getComponent(view.id, ['offsetHeight'])).offsetHeight > 0).toBe(true)
-            }
             await app.callMethod(view.properties['selectionModel.id'], 'deselectAll');
-            await expect(firstItem).not.toHaveClass(/neo-selected/);
-            await firstItem.click();
-            await expect(firstItem).toHaveClass(/neo-selected/);
+            await expect(root.locator('.neo-selected')).toHaveCount(0);
+            // Transformed cards overlap: DOM order does not identify the card at a native click point.
+            let point;
+            await expect.poll(async () => point = await root.evaluate((element, kind) => {
+                if (element.getAnimations({subtree: true}).some(animation =>
+                    animation.playState === 'running' && Number.isFinite(animation.effect.getComputedTiming().endTime))) return null;
+                const selector = `.neo-${kind}-item`;
+                for (const item of element.querySelectorAll(selector)) {
+                    const rect = item.getBoundingClientRect(), x = rect.x + rect.width / 2, y = rect.y + rect.height / 2,
+                        hit    = document.elementFromPoint(x, y)?.closest(selector);
+                    if (hit && element.contains(hit)) return {id: hit.id, x, y}
+                }
+                return null
+            }, kind), {timeout: 10_000}).not.toBeNull();
+            await page.mouse.click(point.x, point.y);
+            await expect(root.locator(`[id="${point.id}"]`)).toHaveClass(/neo-selected/);
+            await expect.poll(async () => (await app.getComponent(view.properties['selectionModel.id'], ['items'])).items)
+                .toEqual([point.id.slice(view.id.length + 2)]);
 
             await page.screenshot({path: test.info().outputPath(`${kind}-pending-rows.png`)});
             await app.setProperties(parent, {hideMode: 'visibility'});

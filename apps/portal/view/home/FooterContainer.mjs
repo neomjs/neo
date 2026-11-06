@@ -81,7 +81,7 @@ class FooterContainer extends Container {
                 }, {
                     iconCls: 'fas fa-handshake-angle',
                     route  : '/services',
-                    text   : 'Services'
+                    text   : 'Connect'
                 }]
             }, {
                 items: [{

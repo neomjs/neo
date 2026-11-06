@@ -117,6 +117,7 @@ const PRIORITIES = new Map([
     ['tutorials/DockLayoutsFirstLayout'                     , 0.8],
     ['guides/datahandling/Grids'                      , 0.8],
     ['guides/datahandling/Tables'                     , 0.8],
+    ['guides/datahandling/UsingStores'                , 0.8],
     ['guides/userinteraction/Forms'                   , 0.8],
 
     // Internal evidence surfaces (hidden tree entries): registered explicitly at the floor so
@@ -1112,8 +1113,9 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
 
     content += `## Main Pages\n\n`;
     const topLevelUrls = topLevelRoutes.map(route => {
-        // Beautify route name: /about-us -> About Us
-        const name = route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        // The Connect page retains its established URL; other route names are humanized normally.
+        const name = route.id === '/services' ? 'Connect' :
+            route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
         let urlStr;
         if (route.filePath && route.filePath.endsWith('.md')) {

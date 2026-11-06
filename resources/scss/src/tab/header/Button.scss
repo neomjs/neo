@@ -37,6 +37,24 @@
         font-weight: var(--tab-button-text-font-weight, var(--button-text-font-weight));
     }
 
+    .neo-tab-close {
+        align-items        : center;
+        border-radius      : 2px;
+        color              : var(--tab-button-text-color);
+        cursor             : pointer;
+        display            : inline-flex;
+        flex               : none;
+        justify-content    : center;
+        line-height        : 1;
+        margin-inline-start: .5em;
+        min-height         : 1.5em;
+        min-width          : 1.5em;
+
+        &:hover {
+            background-color: var(--tab-button-background-color-hover);
+        }
+    }
+
     .neo-tab-button-indicator {
         background-color: transparent;
         bottom          : calc(var(--tab-strip-height) * -1);

@@ -1,0 +1,13 @@
+.email-detail-view {
+    overflow: auto;
+    padding : 24px;
+    width   : 100%;
+
+    h1 { font-size: 22px; }
+
+    .email-message-content {
+        line-height: 1.6;
+        margin-top : 24px;
+        white-space: pre-wrap;
+    }
+}

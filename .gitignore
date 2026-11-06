@@ -164,6 +164,7 @@ resources/content/
 # Keep the Engine-owned contributor guards and Kimi hook-root README visible.
 .claude/hooks/*
 !.claude/hooks/bodyFileGuardHook.mjs
+!.claude/hooks/redirectionGuardHook.mjs
 !.claude/hooks/rgReplaceGuardHook.mjs
 .codex/hooks/
 .kimi-code/hooks/*

@@ -101,6 +101,7 @@ class Component extends List {
     }
 
     /**
+     * @summary Reorders active components while retaining spare owned slots for later growth and teardown.
      * @param {Object} data
      * @param {Object[]} data.items
      * @param {Object[]} data.previousItems
@@ -123,8 +124,9 @@ class Component extends List {
                 newItems.push(me.items[fromIndex])
             });
 
+            const active = new Set(newItems);
             me.updateDepth = -1;
-            me.items = newItems
+            me.items = newItems.concat(me.items.filter(item => !active.has(item)))
         }
     }
 }

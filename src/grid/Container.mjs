@@ -142,6 +142,12 @@ class GridContainer extends BaseContainer {
         columnMenu_: false,
         /**
          * Column configs choosing their class by `module` (any `Neo.grid.column.Base` subclass) or `type` (from `columnTypes`).
+         *
+         * An entry with its own `columns` array is a header group, e.g.
+         * `{text: 'Q1', columns: [{dataField: 'jan'}, {dataField: 'feb'}, {dataField: 'mar'}]}`: its columns join the
+         * grid in place, in order, under one header cell that reads `text`. A group's `locked` applies to all of its
+         * columns, so a group never spans two regions. One group level renders: a group inside a group adds its
+         * columns to the outer one.
          * @member {Object[]} columns_=[]
          * @reactive
          */
@@ -302,6 +308,28 @@ class GridContainer extends BaseContainer {
      */
     get hasLockedColumns() {
         return this.columns?.items.some(col => col.locked === 'start' || col.locked === 'end') || false
+    }
+
+    /**
+     * @summary The number of ARIA header rows: 2 while a header group row exists above the leaf headers, else 1.
+     *
+     * The one source for every row index the grid writes: the leaf header row's `aria-rowindex`, the body rows'
+     * (which start right after the header rows) and `aria-rowcount`.
+     * @member {Number} headerRowCount
+     * @readonly
+     */
+    get headerRowCount() {
+        return this.headerWrapper?.groupRow ? 2 : 1
+    }
+
+    /**
+     * @summary The id of a region's part of the header group row. It is stable for the grid's lifetime, so the
+     * horizontal scroll sync can follow the centre part while group rows come and go.
+     * @param {String} region 'start', 'center' or 'end'
+     * @returns {String}
+     */
+    getGroupHeaderPartId(region) {
+        return `${this.id}__header-group-${region}`
     }
 
     /**
@@ -967,6 +995,8 @@ class GridContainer extends BaseContainer {
             buttonConfig, columnClass, renderer;
 
         if (columns) {
+            columns = me.flattenColumns(columns);
+
             if (columnDefaults) {
                 columns.forEach(column => Neo.assignDefaults(column, columnDefaults))
             }
@@ -1051,6 +1081,45 @@ class GridContainer extends BaseContainer {
             items      : columns,
             listeners  : {mutate: me.onColumnsMutate, scope: me}
         })
+    }
+
+    /**
+     * @summary Replaces each `{text, columns: [...]}` header group with its columns, in order, each carrying the
+     * group as `headerGroup`.
+     *
+     * The group's `locked` replaces its columns' own, so the group stays in one region. Grouped columns are copies:
+     * the group entry the app declared stays intact, so setting the same `columns` again rebuilds the same groups.
+     * An entry without `columns` passes through as it is.
+     * @param {Object[]} columns
+     * @returns {Object[]} The column configs, groups resolved
+     * @protected
+     */
+    flattenColumns(columns) {
+        let me     = this,
+            result = [];
+
+        columns.forEach((entry, index) => {
+            if (!Array.isArray(entry?.columns)) {
+                result.push(entry);
+                return
+            }
+
+            let group = {id: entry.id || `${me.id}__header-group-${index}`, text: entry.text ?? ''};
+
+            me.flattenColumns(entry.columns).forEach(child => {
+                let column = {...child, headerGroup: group};
+
+                if (entry.locked) {
+                    column.locked = entry.locked
+                } else {
+                    delete column.locked
+                }
+
+                result.push(column)
+            })
+        });
+
+        return result
     }
 
     /**
@@ -1878,7 +1947,7 @@ class GridContainer extends BaseContainer {
         let me         = this,
             finalCount = count ? count : me.store.count;
 
-        me.getAriaRoot()['aria-rowcount'] = finalCount + 1;
+        me.getAriaRoot()['aria-rowcount'] = finalCount + me.headerRowCount;
         !silent && me.ariaWrapper.update()
     }
 }

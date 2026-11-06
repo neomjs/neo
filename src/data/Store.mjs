@@ -1353,6 +1353,9 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Re-fires membership changes as synchronous coarse loads, identified for presentation consumers.
+     * The additive origin flag lets a consumer recognize a no-op mutation without suppressing
+     * ordinary load notifications which can request a repaint of the same records.
      * @param {Object} opts
      */
     onCollectionMutate(opts) {
@@ -1363,6 +1366,7 @@ class Store extends Collection {
 
             me.fire('load', {
                 isLoading    : !!me.isStreaming,
+                isMutation   : true,
                 items        : me.items,
                 postChunkLoad: me.#appendNotification || (!!me.isStreaming && !isFirstChunk),
                 total        : me.chunkingTotal

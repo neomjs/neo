@@ -2,6 +2,7 @@ import EmailModel from '../model/Email.mjs';
 import Store      from '../../../src/data/Store.mjs';
 
 /**
+ * @summary Deterministic local mail large enough to exercise the buffered inbox's recycled rows.
  * @class Email.store.Emails
  * @extends Neo.data.Store
  */
@@ -17,15 +18,19 @@ class Emails extends Store {
          */
         model: EmailModel,
         /**
+         * Demo fixtures are generated once; Store owns model creation and row lookup.
          * @member {Object[]} data
          */
-        data: [
-            {id: 1, sender: 'John Doe', title: 'Hello World!', content: 'This is the first email.', dateSent: '2025-07-15T10:00:00Z'},
-            {id: 2, sender: 'Jane Smith', title: 'Re: Project Update', content: 'Here is the project update you requested.', dateSent: '2025-07-15T11:30:00Z'},
-            {id: 3, sender: 'Peter Jones', title: 'Lunch tomorrow?', content: 'Are we still on for lunch tomorrow at 12:30?', dateSent: '2025-07-15T12:15:00Z'},
-            {id: 4, sender: 'Mary Williams', title: 'Your order has shipped', content: 'Your order #12345 has shipped and will arrive in 3-5 business days.', dateSent: '2025-07-14T15:45:00Z'},
-            {id: 5, sender: 'David Brown', title: 'Quick question', content: 'I have a quick question about the new feature.', dateSent: '2025-07-14T09:20:00Z'}
-        ]
+        data: Array.from({length: 250}, (_, index) => ({
+            id        : index + 1,
+            sender    : ['Alex Morgan', 'Sam Rivera', 'Robin Chen', 'Taylor Reed', 'Casey Brooks'][index % 5],
+            recipients: ['demo@example.com'],
+            title     : `Project conversation ${index + 1}`,
+            dateSent  : `2026-11-${String(1 + index % 5).padStart(2, '0')}`,
+            content   : `Message ${index + 1}\n\nThis local demo message belongs to conversation ${index + 1}. ` +
+                'Scroll the inbox, select another message, or move this reader into its own window. ' +
+                'The same component and its state travel between the windows.'
+        }))
     }
 }
 

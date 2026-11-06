@@ -88,23 +88,6 @@ export const EXCLUSIONS = [{
 export const QUARANTINES = [];
 
 /**
- * Brain-gated specs that need a capability a hosted runner may lack. An entry applies only while its
- * variable is unset, the same way the whole tier keys on `NEO_AGENTOS_RUNTIME_ROOT`, so provisioning the
- * capability brings the files back without anyone editing this list.
- * @member {Object[]} BRAIN_CAPABILITIES
- */
-export const BRAIN_CAPABILITIES = [{
-    requires: 'NEO_MCP_REMOTE_TOKEN',
-    paths   : [
-        'test/playwright/e2e/dashboard/DemoBDockTransactionsNL.spec.mjs',
-        'test/playwright/e2e/neural-link/TransactionArchiveReplay.spec.mjs'
-    ],
-    reason : 'their transaction archive lives in a Memory Core, whose client refuses to connect without this credential (`archive-store-unavailable`)',
-    exit   : 'CI provisions a Memory Core archive and both files pass against it',
-    tracker: '#17844'
-}];
-
-/**
  * Brain-gated tests that run hosted but fail there for a reason not yet diagnosed. Each is deselected by
  * file and title through Playwright's `--test-list-invert`, so no spec is edited. An entry names who is
  * accountable, what removes it and since when, and every receipt flags one older than
@@ -151,7 +134,7 @@ export const BRAIN_RETRY_BRIDGE = {
  * The Brain-gated files a pull request runs when its change is outside the E2E impact boundary
  * (`classify-test-scope.yml`'s `e2e_brain_tier`). Such a change cannot reach the tier's specs, so what can
  * still break is the pairing with the Brain's `dev` tip: one fast, stable file for each surface the tier covers,
- * none of them capability-gated or quarantined.
+ * none of them quarantined.
  * @member {String[]} BRAIN_SMOKE
  */
 export const BRAIN_SMOKE = [
@@ -303,27 +286,22 @@ export function brainPaths(root = process.cwd()) {
 }
 
 /**
- * @summary What this environment runs of the Brain-gated tier: the tier's files except those whose
- * capability is unset here.
+ * @summary What a Brain-gated tier runs: every Brain-gated file, or the smoke files for the smoke tier.
+ * No Brain-gated file needs a Memory Core, so no file waits on a capability a runner may lack.
  * @param {Object} [options]
- * @param {Object} [options.env=process.env]
  * @param {String} [options.root=process.cwd()]
  * @param {String} [options.tier='full'] A {@link BRAIN_TIERS} key
- * @returns {{absent: Object[], gated: String[], paths: String[]}} The capability entries whose variable is
- *          unset, every Brain-gated file, and the files to run.
+ * @returns {{gated: String[], paths: String[]}} Every Brain-gated file, and the files to run.
  * @throws {Error} For a tier that is not a {@link BRAIN_TIERS} key.
  */
-export function brainSelection({env = process.env, root = process.cwd(), tier = 'full'} = {}) {
+export function brainSelection({root = process.cwd(), tier = 'full'} = {}) {
     if (!Object.hasOwn(BRAIN_TIERS, tier)) {
         throw new Error(`Unknown Brain-gated tier '${tier}'; expected ${Object.keys(BRAIN_TIERS).join(' or ')}.`)
     }
 
-    const gated    = brainPaths(root),
-          absent   = BRAIN_CAPABILITIES.filter(entry => !env[entry.requires]),
-          excluded = absent.flatMap(entry => entry.paths),
-          pool     = tier === 'smoke' ? gated.filter(path => BRAIN_SMOKE.includes(path)) : gated;
+    const gated = brainPaths(root);
 
-    return {absent, gated, paths: pool.filter(path => !excluded.includes(path))}
+    return {gated, paths: tier === 'smoke' ? gated.filter(path => BRAIN_SMOKE.includes(path)) : gated}
 }
 
 /**
@@ -402,20 +380,19 @@ export function brainDurations(text) {
 
 /**
  * @summary Refuses a declaration whose file is no longer a Brain-gated spec, and a smoke file that is
- * capability-gated or quarantined, naming every such entry.
+ * quarantined, naming every such entry.
  * @description A deleted or moved file would otherwise leave an entry naming nothing while every receipt
  * went on listing it. A smoke file runs whole on every pull request, so a smoke receipt has no exclusion to
  * explain. Titles are {@link assertQuarantinesResolve}'s job.
  * @param {Object}   [options]
- * @param {Object[]} [options.capabilities=BRAIN_CAPABILITIES]
  * @param {Object[]} [options.quarantines=BRAIN_QUARANTINES]
  * @param {String[]} [options.smoke=BRAIN_SMOKE]
  * @param {String}   [options.root=process.cwd()]
  * @throws {Error} Naming every stale entry, or every declared smoke file.
  */
-export function assertBrainDeclarations({capabilities = BRAIN_CAPABILITIES, quarantines = BRAIN_QUARANTINES, smoke = BRAIN_SMOKE, root = process.cwd()} = {}) {
+export function assertBrainDeclarations({quarantines = BRAIN_QUARANTINES, smoke = BRAIN_SMOKE, root = process.cwd()} = {}) {
     const gated    = brainPaths(root),
-          declared = [...capabilities.flatMap(entry => entry.paths), ...quarantines.map(entry => entry.path)],
+          declared = quarantines.map(entry => entry.path),
           stale    = [...declared, ...smoke].filter(path => !gated.includes(path)),
           unstable = smoke.filter(path => declared.includes(path));
 
@@ -425,7 +402,7 @@ export function assertBrainDeclarations({capabilities = BRAIN_CAPABILITIES, quar
     }
 
     if (unstable.length) {
-        throw new Error(`Brain-gated smoke files must run whole, but these are capability-gated or quarantined:\n- ${unstable.join('\n- ')}\n` +
+        throw new Error(`Brain-gated smoke files must run whole, but these are quarantined:\n- ${unstable.join('\n- ')}\n` +
             'Choose other smoke files in buildScripts/util/e2eCiSelection.mjs.')
     }
 }
@@ -564,17 +541,15 @@ export function flakyTests(report) {
  * @param {Number|null} [options.retries=null] The retry count the run step selected, `null` when it recorded
  *        none. Read from the run, never recomputed: a run that starts before the bridge ends and finishes
  *        after it still retried.
- * @param {Object}      [options.env=process.env]
  * @param {Date}        [options.now=new Date()] What a quarantine's age is measured against.
  * @param {String}      [options.root=process.cwd()]
  * @returns {String}
  */
-export function brainReceipt({report, run, seconds, retries = null, env = process.env, now = new Date(), root = process.cwd()}) {
+export function brainReceipt({report, run, seconds, retries = null, now = new Date(), root = process.cwd()}) {
     const {brainFree}            = populations(root),
           tier                   = run.tier ?? 'full',
-          {absent, gated, paths} = brainSelection({env, root, tier}),
+          {gated, paths}         = brainSelection({root, tier}),
           // No declaration touches a smoke file (assertBrainDeclarations), so a smoke receipt has none to explain
-          capabilities           = tier === 'full' ? BRAIN_CAPABILITIES : [],
           quarantines            = tier === 'full' ? BRAIN_QUARANTINES : [],
           ceiling                = 300,
           predicted              = brainShard({paths, shard: run.shard}).seconds,
@@ -593,9 +568,6 @@ export function brainReceipt({report, run, seconds, retries = null, env = proces
             : `${minutes(seconds)} against the ${minutes(ceiling)} ceiling${seconds > ceiling ? ' (**over**)' : ''}`}`,
         `- **Predicted:** ${minutes(predicted)} by the duration table, which \`--brain-durations\` rebuilds from these receipts.`,
         `- **Selected:** ${paths.length} of the ${gated.length} Brain-gated spec files, with ${quarantines.length} of their tests quarantined. The ${brainFree} Brain-free files are the engine tier's.`,
-        ...capabilities.map(entry => absent.includes(entry)
-            ? `- **Excluded while \`${entry.requires}\` is unset:** ${entry.paths.map(short).join(', ')}, because ${entry.reason}. They return when ${entry.exit} (${entry.tracker}).`
-            : `- **\`${entry.requires}\` is set,** so ${entry.paths.map(short).join(', ')} are selected.`),
         ...quarantines.map(entry => `- **Quarantined:** ${short(entry.path)} › ${entry.titlePath.at(-1)} — ${entry.reason}. ` +
             `Accountable: ${entry.accountable}. Exit: ${entry.exit}. Since ${entry.since}, ${days(entry.since)} days` +
             `${days(entry.since) > QUARANTINE_STALE_DAYS ? ' (**stale**)' : ''}.`),

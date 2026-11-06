@@ -297,6 +297,9 @@ test.describe('Grid issues showcase', () => {
     });
 
     test('assistive technology reads one row per record across the locked regions, with the search toolbar outside the grid and menu triggers inside their column headers (#20187, #20188)', async ({page}) => {
+        // The menu plugin loads lazily (`grid.header.Button#afterSetColumnMenu`), so its triggers can land after the rows
+        await expect(page.locator(`${GRID} .neo-grid-menu-trigger`)).toHaveCount(4, {timeout: 20000});
+
         // Chromium's own accessibility tree, which applies aria-owns: the DOM holds one row per region and record
         const cdp           = await page.context().newCDPSession(page),
               {nodes}       = await cdp.send('Accessibility.getFullAXTree'),

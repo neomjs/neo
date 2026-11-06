@@ -266,13 +266,15 @@ class List extends Component {
     }
 
     /**
-     * Triggered after the disableSelection config got changed
+     * @summary Restores checked-record selection and its annotations when selection is re-enabled.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetDisableSelection(value, oldValue) {
-        value && this.vnodeInitialized && this.selectionModel?.deselectAll()
+        if (this.vnodeInitialized) {
+            value ? this.selectionModel?.deselectAll() : this.seedCheckedSelection(true)
+        }
     }
 
     /**
@@ -653,17 +655,7 @@ class List extends Component {
         if (!(me.animate && !me.getPlugin('list-animate'))) {
             vdom.cn = [];
 
-            if (me.useCheckBoxes && me.checkedField && !me.disableSelection && me.selectionModel) {
-                me.store.forEach(item => {
-                    if (me.hasCheckedField(item) && item[me.checkedField]) {
-                        let itemId = me.getItemId(me.getRecordId(item));
-
-                        if (!me.selectionModel.isSelected(itemId) && (!me.selectionModel.singleSelect || me.selectionModel.items.length === 0)) {
-                            NeoArray.add(me.selectionModel.items, itemId)
-                        }
-                    }
-                })
-            }
+            me.seedCheckedSelection();
 
             me.store.forEach((item, index) => {
                 listItem = me.createItem(item, index);
@@ -1022,6 +1014,30 @@ class List extends Component {
      */
     onStoreSort(data) {
         this.createItems()
+    }
+
+    /**
+     * @summary Seeds selection from checked records without selection events or record writes.
+     * @param {Boolean} [restore=false] Restore annotations on existing items through the normal update path.
+     * @protected
+     */
+    seedCheckedSelection(restore=false) {
+        let me                      = this,
+            {selectionModel, store} = me;
+
+        if (!me.useCheckBoxes || !me.checkedField || me.disableSelection || !selectionModel || !store) return;
+
+        store.forEach(item => {
+            if (me.hasCheckedField(item) && item[me.checkedField]) {
+                let itemId = me.getItemId(me.getRecordId(item));
+
+                if (!selectionModel.isSelected(itemId) && (!selectionModel.singleSelect || selectionModel.items.length === 0)) {
+                    NeoArray.add(selectionModel.items, itemId)
+                }
+            }
+        });
+
+        restore && selectionModel.restoreSelection()
     }
 
     /**

@@ -1493,15 +1493,20 @@ class Workspace extends Container {
      * @protected
      */
     reparentDockPane(pane, target={}, itemId) {
-        const app       = Neo.apps[target.windowId],
-              oldParent = pane?.parent;
+        const app        = Neo.apps[target.windowId],
+              oldParent  = pane?.parent,
+              sourceRoot = oldParent && oldParent.parent?.getCardContainer?.() === oldParent ? oldParent.parent : oldParent;
 
         if (!app || !pane || pane.isDestroyed) return false;
 
         try {
             if (oldParent !== app.mainView) {
-                oldParent?.remove(pane, false);
-                app.mainView.add(pane)
+                oldParent?.remove(pane, false, true);
+                app.mainView.add(pane);
+                if (sourceRoot && !sourceRoot.isDestroyed) {
+                    sourceRoot.updateDepth = -1;
+                    sourceRoot.update()
+                }
             }
         } catch (error) {
             try {
