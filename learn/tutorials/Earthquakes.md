@@ -5,10 +5,9 @@ and show the information in two views: a table, and a map.
 
 You'll do this in a series of labs.
 
-<span style='color: red;'>
-    Important: The labs inside this Tutorial cannot run currently, since the Google Maps API changed
-    and our addon needs adjustments. The chapters still contain valuable input.
-</span>
+The map labs use the built-in OpenStreetMaps addon. You do not need a map API key or a billing account.
+You do need network access: the app fetches the earthquake feed, and the addon loads OpenLayers and
+OpenStreetMap tiles. Use an engine version with OpenStreetMaps marker support.
 
 ## Goals
 
@@ -1137,60 +1136,47 @@ and each class is simpler than using complex source files that try to configure 
 
 <!-- /lab -->
 
-## Google Maps Add-on
+## Put the same earthquakes on a map
 
-Neo.mjs has a Google Map component. This component is a little different from a button or table,
-because it's implemented as a _main thread add-on_.
+The table tells us when an earthquake happened and how large the feed says it was. A map answers a different
+question: where are these events clustering? We already have the records. The next step gives them a second
+view, without fetching them again or building a separate collection of markers.
 
-When you use Google Maps you use the Google Map API to ask it to draw the map and markers.
-In a normal app, Google Maps &mdahs; and everything else &mdash; runs in the main browser thread.
-But as you know, Neo.mjs logic runs in _neomjs-app-worker_. That means Neo.mjs has to pass instructions
-run in _neomjs-app-worker_ to the main thread.
+Neo's OpenStreetMaps component wraps a main-thread addon. Your app and its Store stay in the App Worker;
+the addon uses OpenLayers to draw OpenStreetMap tiles and markers in the browser. This is how a library that
+needs the DOM can take part in a worker-based application: the wrapper carries your component configuration
+across that boundary, and brings marker clicks back to your app.
 
-To handle this situation, Neo.mjs has the concept of a main-thread add-on, which is a class that exposes main
-thread methods to the _neomjs-app-worker_ thread. In addition, if the library you're using has a UI, it's common
-to also provide a wrapper class so it can be used like any other component within Neo.mjs. That's how Google
-Maps is implemented: there's a main-thread add-on and a corresponding Neo.mjs component. The add-on is
-specified in _neo-config.json_, and the component is imported and used like any other component.
+```mermaid
+flowchart TD
+    Feed[Earthquake feed] --> Store[One Store in the StateProvider]
+    Store --> Table[Table rows]
+    Store --> Wrapper[OpenStreetMaps wrapper in the App Worker]
+    Wrapper --> Addon[OpenLayers map in the main thread]
+    Addon --> Click[Marker click returns the Store record]
+```
 
-How do you specify which main-thread add-ons you want? If you recall the script you used to create the starter
-app, it has a step that asks what add-ons you want. That results in populating the `mainThreadAddons` property
-in `neo-config.json`. We didn't choose Google Maps when we ran the script, but we need it, which means we'll
-need to edit `neo-config.json`. Google Maps also requires an API key, which is also configured there.
-
-The Google Maps component has a few key configs:
+The wrapper has three configs we need:
 
 - `center:{lat, lng}`
 - `zoom`
 - `markerStore`
 
-Marker store records are required to have these properties:
+The marker records need these properties:
 
+- `id` &mdash; the Store key used to find the record when a marker is clicked
 - `position` &mdash; the location of the marker, of the form `{lat, lng}`
 - `title` &mdash; a description of the marker
 
-## Lab. Use the Google Maps Main-thread Add-on
+## Lab. Use the OpenStreetMaps addon
 
 <!-- lab -->
 
 <details>
-<summary>Get the code for the custom add-on</summary>
-At the time this tutorial was written, the Neo.mjs Google Maps addon was about to be updated to
-accommodate Google's "AdvancedMarker" class. Until that's ready, we're going to use a modified version of the add-on.
-
-Download and unzip this file, and copy the two source files to the corresponding subdirectories in
-your workspace's `src` directory. Note that `src` already contains some files, so don't replace the whole
-directory, but instead, move the files to their individual locations.
-
-<a href="https://s3.amazonaws.com/mjs.neo.learning.images/zip/src.zip">src.zip</a>
-
-<img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/CopyGoogleMapsFiles.png" width="30%%"></img>
-</details>
-
-<details>
 <summary>Specify the main-thread add-on</summary>
 
-Edit `apps/earthquakes/neo-config.json` and add entries for the Google Maps add-on and the map key.
+Edit `apps/earthquakes/neo-config.json` and add `OpenStreetMaps` to `mainThreadAddons`, keeping the other
+generated settings. The relevant configuration now looks like this:
 
 ```json readonly
 {
@@ -1201,48 +1187,29 @@ Edit `apps/earthquakes/neo-config.json` and add entries for the Google Maps add-
     "mainThreadAddons": [
         "DragDrop",
         "Navigator",
-        "WS/GoogleMaps",
+        "OpenStreetMaps",
         "Stylesheet"
     ],
-    "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY",
     "themes"          : ["neo-theme-neo-light"],
     "workerBasePath": "../../node_modules/neo.mjs/src/worker/"
 }
 ```
 
-It's unusual to need to edit `neo-config.json`. The app theme is specified there, and so are main thread add-ons.
-In our case, we're adding `WS/GoogleMaps` which in turn requires that we specify the map key. The `WS/`
-prefix tells Neo.mjs that the add-on is in our workspace, rather than an add-on provided by Neo.mjs.
+Use the plain addon name: it loads the implementation supplied by the engine. The `WS/` prefix is for
+workspace-owned addons, and this lab needs no copied source files. If you followed an older version of the
+tutorial, replace `WS/GoogleMaps` and remove `googleMapsApiKey` from this app's configuration.
 
-**You need your own key — this tutorial no longer ships one.** Earlier versions pasted a shared key here, from a
-time when a Maps key needed no payment method. Google now requires a billing account, so a shared key is a shared
-bill and is not something a public repository can hand out.
-
-Four steps, all in the [Google Cloud console](https://console.cloud.google.com/):
-
-1. Create a project (or pick an existing one).
-2. Enable the **Maps JavaScript API** for it.
-3. Enable billing on the project. Google's free monthly credit covers a tutorial comfortably, but the account
-   must exist — without it every map renders greyed out under a "For development purposes only" watermark.
-4. Create an API key and **restrict it by HTTP referrer** to the host you develop on. An unrestricted key works
-   anywhere, which is exactly the problem with sharing one.
-
-Google's own walkthrough is
-[Use API Keys](https://developers.google.com/maps/documentation/javascript/get-api-key); it stays current in a way
-a copy here would not.
-
-Save and refresh, and you'll see a console log emanating from the plugin.
-
-<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/GoogleMapsLoaded.png"></img>
+Save and refresh. The addon loads OpenLayers from its CDN; the map itself appears after the component is added
+below. If that library request fails, check the Network panel before changing your Store or map configuration.
 
 </details>
 
 <details>
 <summary>Add the required fields to the records</summary>
 
-The Google Maps component has a `markerStore` property, which is a reference to a store whose records have
-the properties `title` and `location`, where `location` is of the form `{lat: 0, lng: 0}`. The `fields:[]`
-lets us implement those via two properties:
+The OpenStreetMaps component's `markerStore` is a regular Store. Its records need `title` and `position`,
+where `position` is an object such as `{lat: 64.012, lng: -16.659}`. The feed's `location` remains the
+human-readable place name. The model lets us adapt that feed once, for both views:
 
 - `mapping` &mdash; the path to a feed property holding the value
 - `calculate` &mdash; a function that returns a value
@@ -1251,6 +1218,8 @@ Edit `apps/earthquakes/view/MainStateProvider.mjs` and modify `fields` as follow
 
 ```javascript readonly
 fields: [{
+    name: "id"
+}, {
     name: "location",
 }, {
     name: "magnitude",
@@ -1258,37 +1227,45 @@ fields: [{
     name: "timestamp",
     type: "Date",
 }, {
-    name: 'title',
+    name: "lat",
+    type: "Float"
+}, {
+    name: "lng",
+    type: "Float"
+}, {
+    name: "title",
     mapping: "location"
 }, {
     name: "position",
-    calculate: (data, field, item)=>({lat: item.latitude, lng: item.longitude})
+    calculate: data => ({lat: data.lat, lng: data.lng})
 }],
 ```
 
-As you can see, _title_ is mapped to the existing feed value _location_, and _position_ is
-calculated by returning an object with _lat_ and _lng_ set to the corresponding values from the feed.
+The feed supplies `lat` and `lng` as strings. Declaring them as numeric fields makes the calculated position
+usable by the map. A calculator receives the model's data as its first argument, so the coordinate fields
+must be declared too. `title` maps the existing `location`; no second Store or manual array conversion is needed.
+The feed has no IDs, so the Store generates keys when it loads the records. Declaring `id` preserves those keys
+when the wrapper sends marker data to the main thread, and lets a click resolve back to the right record.
 
 Save and refresh _earthquakes_. You can use the debugger to inspect the store via _Shift-Ctrl-right-click_ and
 putting the main view into a global variable. Then run
 
     temp1.getStateProvider().stores.earthquakes.items
 
-Look at one of the items, and you should see that _title_ and _location_ are in each record.
-
-<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/StoreHasTitleAndLocation.png"></img>
+Look at a record's `title` and `position`. Both coordinates must be finite numbers. If the feed's schema ever
+changes, this is the place to check: the map cannot place a marker whose position is undefined.
 
 </details>
 
 <details>
-<summary>Use the Google Map Component</summary>
+<summary>Use the OpenStreetMaps component</summary>
 
-We're going to replace the top table with a Google Map. To do that we need to import the Google Maps component
-and show it inplace of the top table. The map should be centered on Iceland.
+Replace the top table with a map centered on Iceland. Import the wrapper from your installed engine, just as
+you imported the container and table earlier.
 
 ```javascript readonly
 {
-    module: GoogleMapsComponent,
+    module: OpenStreetMaps,
     flex: 1,
     center: {
         lat: 64.8014187,
@@ -1302,11 +1279,11 @@ If we replace the top table with the map, `view/MainView.mjs` ends up with this 
 
 ```javascript readonly
 
-import Container           from '../container/Base.mjs';
-import Controller          from './MainViewController.mjs';
-import EarthquakesTable    from './earthquakes/Table.mjs';
-import GoogleMapsComponent from '../component/wrapper/GoogleMaps.mjs';
-import MainStateProvider   from './MainStateProvider.mjs';
+import Container         from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import EarthquakesTable  from './earthquakes/Table.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
+import OpenStreetMaps    from '../../../node_modules/neo.mjs/src/component/wrapper/OpenStreetMaps.mjs';
 
 class MainView extends Container {
     static config = {
@@ -1319,7 +1296,7 @@ class MainView extends Container {
 
         layout: { ntype: 'vbox', align: 'stretch' },
         items: [{
-            module: GoogleMapsComponent,
+            module: OpenStreetMaps,
             flex: 1,
             center: {
                 lat: 64.8014187,
@@ -1342,7 +1319,8 @@ class MainView extends Container {
 export default Neo.setupClass(MainView);
 ```
 
-<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/CenteredMap.png"></img>
+Refresh and look for Iceland, zoom controls and OpenStreetMap attribution. The attribution belongs to the
+tile provider and stays visible. An empty map at this stage is expected: the next step connects its Store.
 
 
 </details>
@@ -1350,8 +1328,8 @@ export default Neo.setupClass(MainView);
 <details>
 <summary>Show the markers</summary>
 
- The markers are shown by setting up the marker store, which is a regular store whose records must contain
- _location_ and _title_. We assign the store using a `bind`, just like we did with the tables.
+Bind the map's `markerStore` to the same `stores.earthquakes` used by the table. Each record already has the
+`position` and `title` fields the wrapper needs.
 
 Add this config to the map.
 
@@ -1360,7 +1338,21 @@ bind: {
     markerStore: 'stores.earthquakes'
 }
 ```
-<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/InitialMapWithMarkers.png"></img>
+Refresh. The table and map now describe the same events from one request. Nearby earthquakes can overlap at
+this zoom, so the visible pins need not look like separate dots for every row. Zoom in to separate a cluster.
+
+In the App Worker console, check the identity of the shared Store:
+
+```javascript readonly
+const store = Neo.findFirst({ntype: 'earthquakes-main'}).stateProvider.stores.earthquakes;
+const map = Neo.findFirst({ntype: 'openstreetmaps'});
+const table = Neo.findFirst({ntype: 'earthquakes-table'});
+
+map.markerStore === store && table.store === store // true
+```
+
+Calling `await store.load()` fetches the current feed again. The wrapper replaces its markers from those
+records; a reload should not leave a second copy of the old pins. An empty feed produces an empty map and table.
 
 </details>
 
@@ -1381,17 +1373,15 @@ via the `component.on()` method.
 In this lab you'll set up an event handler for the table and map.
 
 <details>
-<summary>Add a listener to the table.View</summary>
+<summary>Add a listener to a table row click</summary>
 
-Table Views fire a select event, passing an object that contains a reference to the corresponding row.
+The table fires a `rowClick` event with the clicked row's record.
 
 Add this table config:
 
 ```javascript readonly
-viewConfig: {
-    listeners: {
-        select: (data) => console.log(data.record)
-    }
+listeners: {
+    rowClick: data => console.log(data.record)
 }
 ```
 
@@ -1411,7 +1401,7 @@ After changing the value you should immediately see it reflected in the table ro
 <summary>Add a listener to a map event
 </summary>
 
-Now add a `markerClick` listener to the Google Map.
+Now add a `markerClick` listener to the OpenStreetMaps component.
 
 ```javascript readonly
 listeners: {
