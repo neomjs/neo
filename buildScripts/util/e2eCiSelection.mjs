@@ -650,6 +650,7 @@ export function brainReceipt({report, run, seconds, retries = null, env = proces
  *
  * @description The whole population runs when the change can reach code the static map cannot follow:
  * - a foundation path, or a file that loads modules at runtime;
+ * - a module no static edge names, since a computed import can still load it;
  * - a file the map cannot place, or one the tree no longer holds;
  * - e2e support that no spec imports.
  *
@@ -659,11 +660,9 @@ export function brainReceipt({report, run, seconds, retries = null, env = proces
  * Otherwise the selection is:
  * - each spec whose reach holds a changed file, or whose app fetches it (its data, its `index.html`);
  * - each changed spec;
- * - the specs the map cannot place;
- * - {@link BRAIN_SMOKE}.
+ * - the specs the map cannot place, and {@link BRAIN_SMOKE}, which run with every selection.
  *
- * A change that reaches no spec selects none. Only a pull request selects: a `dev` push runs every tier it admits in
- * full.
+ * Only a pull request selects: a `dev` push runs every tier it admits in full.
  * @param {Object}   options
  * @param {String[]} options.changed The changed files the E2E impact boundary admits, relative to the repository root.
  * @param {String}   [options.root=process.cwd()]
@@ -699,9 +698,11 @@ export function selectSpecs({changed, root = process.cwd(), map = specReach({roo
             reached.forEach(spec => select(spec, `reaches ${file}`))
         } else if (app) {
             map.specs.forEach(({entries}, spec) => entries.includes(app) && select(spec, `its app fetches ${file}`))
-        } else if (!/^(apps|examples|src)\/.*\.mjs$/.test(file)) {
-            // A module no spec reaches cannot affect one; anything else here, the map cannot place
-            reasons.push(`${file}: ${file.startsWith('test/playwright/') ? 'e2e support no spec imports' : 'unmapped'}`)
+        } else {
+            // Absence from every static closure proves nothing: a computed import (the docs app's examples tree,
+            // `container.Base#loadItems`) can still load a module no literal path names, so the map cannot place it
+            reasons.push(`${file}: ${file.startsWith('test/playwright/') ? 'e2e support no spec imports' :
+                /^(apps|docs|examples|src)\/.*\.mjs$/.test(file) ? 'no static edge names it' : 'unmapped'}`)
         }
     }
 
@@ -709,7 +710,8 @@ export function selectSpecs({changed, root = process.cwd(), map = specReach({roo
         return {full: true, reasons, specs: new Map()}
     }
 
-    if (specs.size) {
+    // A spec the map cannot place may reach any change the boundary admitted, even one no placed spec reaches
+    if (changed.length) {
         BRAIN_SMOKE.forEach(spec => select(spec, 'BRAIN_SMOKE'));
         map.unnamed.forEach(spec => select(spec, 'the map cannot place it'))
     }

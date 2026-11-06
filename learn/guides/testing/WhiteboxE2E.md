@@ -48,11 +48,15 @@ The shared scope classifier picks each tier's population:
 - A **pull request** whose change reaches the E2E impact boundary runs only the specs it can reach. `buildScripts/util/e2eSpecReach.mjs` maps each spec to the app it navigates and that app's static import closure, plus the helpers the spec imports. `selectSpecs` in `e2eCiSelection.mjs` then picks:
   - every spec that reaches a changed file, or whose app fetches it;
   - every changed spec;
-  - the specs the map cannot place;
-  - the `BRAIN_SMOKE` files.
+  - the specs the map cannot place, and the `BRAIN_SMOKE` files, which run with every selection.
 
   Each tier's matrix shrinks to its share, and a tier none of whose specs is selected starts no job.
-- Some changes run every spec instead: a foundation path (`src/core`, the worker, main-thread and vdom entry points, the canvas workers, top-level `src/*.mjs`, the theme), a file that loads modules by name or by computed path, a file the map cannot place, and a change whose files are all e2e specs.
+- Some changes run every spec instead:
+  - a foundation path: `src/core`, the worker, main-thread and vdom entry points, the canvas workers, top-level `src/*.mjs`, and the theme;
+  - a file that loads modules by name or by computed path;
+  - a module no static import names, because a computed import can still load it;
+  - a file the map cannot place;
+  - a change whose files are all e2e specs.
 - Any other pull request selects **none** and starts no job. The *Classify test scope* summary names the reason and each changed file's boundary rule.
 
 Each tier's job summary names what the selection ran and why, spec by spec. A `dev` red after a selective green belongs to the merged pull request's author: their change is the one the selection judged unable to reach the spec. They triage it first, rerunning a chronic flaker on record and noting it on that flaker's ticket, and otherwise fixing forward or reverting.

@@ -492,22 +492,25 @@ test.describe('e2e CI selection — what a pull request\'s change selects', () =
         root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-e2e-select-'));
 
         const tree = {
-            'buildScripts/tool.mjs'             : '',
-            'examples/demo/app.mjs'             : "import './View.mjs';",
-            'examples/demo/View.mjs'            : "import '../../src/button/Base.mjs';",
-            'examples/demo/resources/data.json' : '{}',
-            'examples/other/app.mjs'            : "import '../../src/form/Field.mjs';",
-            'src/button/Base.mjs'               : '',
-            'src/core/Base.mjs'                 : '',
-            'src/data/table.json'               : '{}',
-            'src/form/Field.mjs'                : '',
-            'src/loader/Lazy.mjs'               : "export default {importPath: './Late.mjs'};",
-            'src/unused/Orphan.mjs'             : '',
-            'test/playwright/fixtures.mjs'      : '',
-            'test/playwright/helpers/unused.mjs': '',
-            [bare]                              : '',
-            [demo]                              : "import {test} from '../../fixtures.mjs';\nawait page.goto('/examples/demo/index.html');",
-            [other]                             : "await page.goto('/examples/other/index.html');"
+            'buildScripts/tool.mjs'              : '',
+            'examples/demo/app.mjs'              : "import './View.mjs';",
+            'examples/demo/View.mjs'             : "import '../../src/button/Base.mjs';\nconst load = name => import(`../../src/plugin/${name}.mjs`);",
+            'examples/demo/resources/data.json'  : '{}',
+            'examples/lonely/app.mjs'            : '',
+            'examples/lonely/resources/data.json': '{}',
+            'examples/other/app.mjs'             : "import '../../src/form/Field.mjs';",
+            'src/button/Base.mjs'                : '',
+            'src/core/Base.mjs'                  : '',
+            'src/data/table.json'                : '{}',
+            'src/form/Field.mjs'                 : '',
+            'src/loader/Lazy.mjs'                : "export default {importPath: './Late.mjs'};",
+            'src/plugin/Computed.mjs'            : '',
+            'src/unused/Orphan.mjs'              : '',
+            'test/playwright/fixtures.mjs'       : '',
+            'test/playwright/helpers/unused.mjs' : '',
+            [bare]                               : '',
+            [demo]                               : "import {test} from '../../fixtures.mjs';\nawait page.goto('/examples/demo/index.html');",
+            [other]                              : "await page.goto('/examples/other/index.html');"
         };
 
         for (const [file, text] of Object.entries(tree)) {
@@ -541,8 +544,21 @@ test.describe('e2e CI selection — what a pull request\'s change selects', () =
         expect(specs.has(other)).toBe(false)
     });
 
-    test('a module no spec reaches selects none', () => {
-        expect(selectSpecs({changed: ['src/unused/Orphan.mjs'], root})).toEqual({full: false, reasons: [], specs: new Map()})
+    test('a module no static edge names runs the whole population, even one only a computed import loads', () => {
+        // `examples/demo/View.mjs` loads `src/plugin/${name}.mjs`, so the map has no edge to the module it loads
+        expect(selectSpecs({changed: ['src/plugin/Computed.mjs'], root}))
+            .toEqual({full: true, reasons: ['src/plugin/Computed.mjs: no static edge names it'], specs: new Map()});
+        expect(selectSpecs({changed: ['src/unused/Orphan.mjs'], root}).reasons).toEqual(['src/unused/Orphan.mjs: no static edge names it'])
+    });
+
+    test('a selection no placed spec reaches still runs the specs the map cannot place, and the smoke files', () => {
+        // An app no spec navigates fetches the file, so no placed spec reaches it
+        const {full, specs} = selectSpecs({changed: ['examples/lonely/resources/data.json'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(bare)).toBe('the map cannot place it');
+        expect(specs.has(demo) || specs.has(other)).toBe(false);
+        BRAIN_SMOKE.forEach(spec => expect(specs.get(spec), spec).toBe('BRAIN_SMOKE'))
     });
 
     test('a change the map cannot follow runs the whole population', () => {
@@ -610,17 +626,17 @@ test.describe('e2e CI selection — the selection on this tree', () => {
         }
     });
 
-    test('a change that reaches no spec rules both tiers out, and says why', () => {
+    test('on this tree, a module no static edge names runs every spec', () => {
         const map     = specReach({root}),
               reached = new Set([...map.specs.values()].flatMap(({reach}) => [...reach])),
               orphan  = [...map.tracked].find(file => /^src\/.+\.mjs$/.test(file) && !reached.has(file) &&
                   !FOUNDATION.some(rule => rule.test(file)) && !RUNTIME_LOADING.test(fs.readFileSync(path.join(root, file), 'utf8'))),
               output  = selectionOutput({changed: [orphan], root});
 
-        expect(orphan, 'control: this tree holds a module no spec reaches').toBeTruthy();
-        expect(output).toMatch(/^run_e2e=false$/m);
-        expect(output).toMatch(/^e2e_brain_tier=none$/m);
-        expect(output).toMatch(/^skip_reason=no spec in this tier can reach the change/m)
+        expect(orphan, 'control: this tree holds a module no static edge names').toBeTruthy();
+        expect(output).toMatch(/^e2e_selection=full$/m);
+        expect(output).toContain(`- ${orphan}: no static edge names it`);
+        expect(output).not.toMatch(/^run_e2e=/m)
     });
 
     test('each workflow\'s full matrix is FULL_SHARDS', () => {
@@ -639,9 +655,7 @@ test.describe('e2e CI selection — the selection on this tree', () => {
               misses = {
                   39582656813: 'DockTabOverflowNL, no cause on record; the change is portal data',
                   40202145032: 'HeaderMenuInteractionNL, no cause on record; the change is the calendar week view',
-                  41666963270: 'IssuesShowcase, a read that raced the lazily loaded menu triggers; the change is Carousel',
-                  42042806935: 'DockCrossWindowWitnessNL, a chronic flaker; the change is src/functional',
-                  42058376779: 'DockCrossWindowWitnessNL, a chronic flaker; the change is src/functional'
+                  41666963270: 'IssuesShowcase, a read that raced the lazily loaded menu triggers; the change is Carousel'
               },
               // A row the boundary left out could not run any spec, and a spec renamed since cannot be asked for
               replayed = rows.filter(row => row.admitted.length && row.failing.every(spec => map.specs.has(spec))),
