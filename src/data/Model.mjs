@@ -157,7 +157,7 @@ class Model extends Base {
 
         if (Base.instanceManagerAvailable === true) {
             Neo.manager.Instance.unregister(me)
-        } else if (Neo.idMap) {
+        } else if (Neo.idMap?.[me.id] === me) {
             delete Neo.idMap[me.id]
         }
     }

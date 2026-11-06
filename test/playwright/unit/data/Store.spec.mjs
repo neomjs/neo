@@ -619,5 +619,34 @@ test.describe('Neo.data.Store Model ownership', () => {
 
         shared.destroy();
         expect(recordClassOf(shared)).toBeUndefined()
+    });
+
+    test('a released Model whose id a successor reused retires nothing of the successor\'s', () => {
+        const id       = 'test-unit-data-store-model-ownership-reused-id',
+              first    = Neo.create(Store, {model: {module: OwnershipModel, id}, data: data()}),
+              released = first.model;
+
+        first.destroy();
+        expect(Neo.get(id)).toBeNull();
+
+        const successor = Neo.create(OwnershipModel, {id}),
+              second    = Neo.create(Store, {model: successor, data: data()}),
+              ownClass  = recordClassOf(successor);
+
+        expect(Neo.get(id)).toBe(successor);
+        expect(ownClass).toBeTruthy();
+
+        released.release();
+        expect(Neo.get(id), 'a late release').toBe(successor);
+        expect(recordClassOf(successor), 'a late release').toBe(ownClass);
+
+        released.destroy();
+        expect(Neo.get(id), 'the first destroy').toBe(successor);
+        expect(recordClassOf(successor), 'the first destroy').toBe(ownClass);
+
+        second.destroy();
+        successor.destroy();
+        expect(Neo.get(id)).toBeNull();
+        expect(recordClassOf(successor)).toBeUndefined()
     })
 });
