@@ -309,13 +309,13 @@ class Pipeline extends Base {
     }
 
     /**
-     *
+     * @summary Releases the remote counterpart through the worker transport and disposes owned stages.
      */
     destroy() {
         let me = this;
 
         if (me.workerExecution === 'data' && me.remoteId) {
-            Neo.worker.Data.sendMessage({
+            Neo.currentWorker.sendMessage('data', {
                 action: 'destroyInstance',
                 id    : me.remoteId
             })
@@ -329,12 +329,16 @@ class Pipeline extends Base {
     }
 
     /**
-     * Instantiates the counterpart Pipeline in the Data Worker if workerExecution is 'data'.
+     * @summary Instantiates the counterpart Pipeline in the Data Worker if workerExecution is 'data'.
+     * Destruction during preload prevents creation; a late creation reply disposes its counterpart
+     * without publishing state back onto the destroyed App instance.
      * @protected
      * @returns {Promise<void>}
      */
     async initRemoteExecution() {
         let me = this;
+
+        if (me.isDestroyed) return;
 
         if (me.isRemoteConnecting) {
             return new Promise(resolve => me.on('remoteConnected', resolve, me, {once: true}))
@@ -370,12 +374,19 @@ class Pipeline extends Base {
                 await Promise.all(modulesToLoad)
             }
 
+            if (me.isDestroyed) return;
+
             const data = await Neo.worker.Data.createInstance({
                 config: remoteConfig,
                 path  : 'src/data/Pipeline.mjs'
             });
 
             if (data.success) {
+                if (me.isDestroyed) {
+                    Neo.currentWorker.sendMessage('data', {action: 'destroyInstance', id: data.id});
+                    return
+                }
+
                 me.remoteId = data.id;
                 me.fire('remoteConnected', data.id)
             } else {
@@ -384,7 +395,7 @@ class Pipeline extends Base {
         } catch (e) {
             console.error('Pipeline: IPC error during remote instantiation', e)
         } finally {
-            me.isRemoteConnecting = false
+            if (!me.isDestroyed) me.isRemoteConnecting = false
         }
     }
 
