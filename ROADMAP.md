@@ -40,7 +40,7 @@ The other repositories ride these lines: [neomjs/neo-agent-skills](https://githu
 
 **Beside the gate:** the v13 blog stream ([#13383](https://github.com/neomjs/neo/issues/13383)) keeps running. It does not hold the cut.
 
-**How it runs.** The window is fixed and the scope flexes. 13.4 is cut by `publish.mjs` once the gate holds, aiming for the evening of Saturday 2026-11-07, else Sunday 2026-11-08. An epic that is not done by then stays open instead of holding the cut. Each epic's steward owns its outcome and closes it.
+**How it runs.** The window is fixed and the scope flexes. 13.4 is cut by `publish.mjs` on the evening of Saturday 2026-11-07 if the gate holds by then, and on Sunday 2026-11-08 if it does not. An epic that is not done by then stays open instead of holding the cut. Each epic's steward owns its outcome and closes it.
 
 **Deferred — explicitly off the 13.4 path:**
 
