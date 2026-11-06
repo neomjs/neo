@@ -19,7 +19,8 @@ class Fetch extends Base {
     }
 
     /**
-     * Default request headers; per-request values override matching names case-insensitively.
+     * Defaults apply to every URL requested by this instance, including the Neo.Fetch singleton.
+     * Per-request values override matching names case-insensitively.
      * @member {HeadersInit|null} defaultHeaders=null
      */
     defaultHeaders = null
@@ -102,8 +103,7 @@ class Fetch extends Base {
      * @summary Dispatches a request through the connection's scoped URL resolver.
      * The response hands the request config back as `response.request`. In both URL forms its `url`
      * is the caller's original string; the resolved or redirected address is `response.url`.
-     * Header inputs are normalized without modifying the supplied config or connection defaults.
-     * Across workers, supply headers as serializable records or tuple lists.
+     * Header inputs are copied; remote callers use serializable records or tuple lists.
      * @param {Object|String} url
      * @param {Object} config={}
      * @param {HeadersInit} [config.headers] Request headers, merged over connection defaults.
