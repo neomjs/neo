@@ -21,8 +21,9 @@ import isEntryModule                                                   from './i
  * - **Brain-dependent** — removed by `testIgnore` in `playwright.config.e2e.mjs`, which deselects
  *   rather than skips: no reporter can name them, and a run missing four fifths of the tier still
  *   prints `Skipped: 0`. That invisibility is why this file reports the fraction at all.
- * - **GPU** — specs booting the workstation app, which inherits animated OffscreenCanvas work no
- *   hosted runner can composite.
+ * - **GPU** — workstation specs that {@link RUN_PATHS} does not name: the app inherits animated
+ *   OffscreenCanvas work no hosted runner can composite. The single-page Neural Link specs named
+ *   there are the exception, because they run green hosted.
  * - **Observed failures** — arms that fail for reasons NOT established here. They carry an owner
  *   rather than a diagnosis, because naming an unverified cause is worse than admitting one is
  *   missing.
@@ -59,10 +60,27 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/MarkdownStreamingCoherenceNL.spec.mjs',
     'test/playwright/e2e/rendering/MergedChildWindowId.spec.mjs',
     'test/playwright/e2e/rendering/MountHookIsolation.spec.mjs',
+    'test/playwright/e2e/rendering/SparseUpdatesNL.spec.mjs',
     'test/playwright/e2e/rendering/StoreLoadingNL.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs',
     'test/playwright/e2e/tab',
-    'test/playwright/e2e/table'
+    'test/playwright/e2e/table',
+    'test/playwright/e2e/workstation/WorkstationCrossZoneCueNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationEdgeSplitterNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationFeedKeepsScrollNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationGridUnconstrainedNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationHeaderActionsHoverNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationMaximizeOverflowMenuNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationMaximizeTabReorderNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationOffSocketContractNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationOwnPaneEdgeDropNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationRailsOutermostNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationResidentCardSizingNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationSplitterGridGeometryNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTabDragHeadersStayNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTabDragLabelOverlapNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTabDragSiblingHoldsNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTabReorderNoFlashNL.spec.mjs'
 ];
 
 /**
@@ -142,7 +160,6 @@ export const BRAIN_SMOKE = [
     'test/playwright/e2e/dashboard/DockPlacementNL.spec.mjs',
     'test/playwright/e2e/neural-link/CreateComponentMultiWindow.spec.mjs',
     'test/playwright/e2e/neural-link/Fixture.spec.mjs',
-    'test/playwright/e2e/rendering/SparseUpdatesNL.spec.mjs',
     'test/playwright/e2e/workstation/WindowGeometryRealChromeNL.spec.mjs',
     'test/playwright/e2e/write-guard/MultiWriterNL.spec.mjs'
 ];
@@ -184,9 +201,10 @@ export function populations(root = process.cwd()) {
     const e2e             = join(root, 'test/playwright/e2e'),
           {ignore, total} = selectExternalBrainSpecs(e2e),
           isIgnored       = file => ignore.some(pattern => pattern.test(file)),
-          // Only the Brain-FREE workstation specs; the rest are already deselected, and counting
-          // them again reports a negative coverage.
-          gpu             = walk(join(e2e, 'workstation')).filter(file => !isIgnored(file)).length,
+          named           = new Set(RUN_PATHS.filter(path => path.endsWith('.spec.mjs')).map(path => join(root, path))),
+          // Only the Brain-FREE workstation specs RUN_PATHS does not name; the rest are already
+          // deselected or executed, and counting them again reports a negative coverage.
+          gpu             = walk(join(e2e, 'workstation')).filter(file => !isIgnored(file) && !named.has(file)).length,
           // Counted through the SAME ignore set Playwright applies, because a directory in
           // RUN_PATHS names Brain-dependent specs the config will deselect. Counting what the paths
           // name rather than what the run selects reported 52 against an expected 14 — two

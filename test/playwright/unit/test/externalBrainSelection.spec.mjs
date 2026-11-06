@@ -143,7 +143,7 @@ test.describe('test/playwright/externalBrainSelection — the e2e selection spli
         expect(excludedSpecNotice({ignore, total})).toContain(`${ignore.length} of ${total}`)
     });
 
-    test('the adapter-eligible predicate selects single-app dedicated-worker specs and keeps Bridge, SharedWorker and native specs Brain-gated', () => {
+    test('the adapter-eligible predicate selects single-app specs on the page\'s own App Worker, dedicated or SharedWorker, and keeps Bridge, second-window and native specs Brain-gated', () => {
         const root = makeTree({
             'grid/BigDataNL.spec.mjs'                        : 'import {neuralLink} from "../fixtures.mjs";',
             'neural-link/CreateComponent.spec.mjs'           : 'import {neuralLink} from "../fixtures.mjs";',
@@ -156,8 +156,8 @@ test.describe('test/playwright/externalBrainSelection — the e2e selection spli
         expect(isAdapterEligibleSpec('grid/BigDataNL.spec.mjs')).toBe(true);
         expect(isAdapterEligibleSpec('grid\\BigDataNL.spec.mjs')).toBe(true);
         expect(isAdapterEligibleSpec('neural-link/CreateComponent.spec.mjs')).toBe(true);
-        expect(isAdapterEligibleSpec('dashboard/DemoADragMenuNL.spec.mjs')).toBe(false);
-        expect(isAdapterEligibleSpec('workstation/WorkstationNL.spec.mjs')).toBe(false);
+        expect(isAdapterEligibleSpec('dashboard/DemoADragMenuNL.spec.mjs'), 'a single-page SharedWorker spec').toBe(true);
+        expect(isAdapterEligibleSpec('workstation/WorkstationNL.spec.mjs'), 'a second-window SharedWorker spec').toBe(false);
         expect(isAdapterEligibleSpec('')).toBe(false);
 
         expect(needsExternalBrain('grid/BigDataNL.spec.mjs', 'neuralLink')).toBe(false);
@@ -168,10 +168,10 @@ test.describe('test/playwright/externalBrainSelection — the e2e selection spli
               isIgnored       = rel => ignore.some(pattern => pattern.test(`/repo/e2e/${rel}`));
 
         expect(total).toBe(6);
-        expect(ignore).toHaveLength(4);
+        expect(ignore).toHaveLength(3);
         expect(isIgnored('grid/BigDataNL.spec.mjs')).toBe(false);
         expect(isIgnored('neural-link/CreateComponent.spec.mjs')).toBe(false);
-        expect(isIgnored('dashboard/DemoADragMenuNL.spec.mjs')).toBe(true);
+        expect(isIgnored('dashboard/DemoADragMenuNL.spec.mjs')).toBe(false);
         expect(isIgnored('neural-link/CreateComponentMultiWindow.spec.mjs')).toBe(true);
         expect(isIgnored('workstation/WorkstationNL.spec.mjs')).toBe(true);
         expect(isIgnored('write-guard/MultiWriterNL.spec.mjs')).toBe(true)
@@ -189,18 +189,16 @@ test.describe('test/playwright/externalBrainSelection — the e2e selection spli
             expect(isIgnored(rel), `${rel} is not in testIgnore`).toBe(false)
         }
 
-        // Representative SharedWorker, native multi-window, recorder/archive, and Bridge-arbitration specs remain Brain-gated
+        // Representative second-window, multi-boot, recorder/archive, and Bridge-arbitration specs remain Brain-gated
         for (const gated of [
-            'dashboard/DemoADragMenuNL.spec.mjs',
             'dashboard/DemoBDockTransactionsNL.spec.mjs',
             'neural-link/ChildappConnect.spec.mjs',
             'neural-link/CreateComponentMultiWindow.spec.mjs',
             'neural-link/CreateInstance.spec.mjs',
             'neural-link/Fixture.spec.mjs',
             'neural-link/WindowOps.spec.mjs',
-            'neural-link/WorkerStateMutation.spec.mjs',
             'rendering/FocusHistoryMultiWindowNL.spec.mjs',
-            'rendering/SparseUpdatesNL.spec.mjs',
+            'workstation/DockSplitterZoneIdNL.spec.mjs',
             'workstation/WorkstationNL.spec.mjs',
             'write-guard/DisconnectReleaseNL.spec.mjs',
             'write-guard/MultiWriterNL.spec.mjs'
