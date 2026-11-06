@@ -81,6 +81,37 @@ test.describe('Neo.main.DomEvents', () => {
     // module-level stubs are per-worker state: the tests run in one worker, in order
     test.describe.configure({mode: 'serial'});
 
+    test('native selects keep arrows while non-select selection, picker and grid defaults keep their existing handling', () => {
+        const select = {tagName: 'SELECT'},
+              cases  = [
+                  {tagName: 'SELECT', key: 'ArrowDown', regions: ['neo-selection'], prevented: false},
+                  {tagName: 'OPTION', key: 'ArrowDown', regions: ['neo-selection'], closest: () => select, prevented: false},
+                  {tagName: 'DIV', key: 'ArrowDown', regions: ['neo-selection'], prevented: true},
+                  {tagName: 'DIV', key: 'ArrowDown', regions: [], prevented: false},
+                  {tagName: 'INPUT', key: 'ArrowDown', regions: ['neo-selection'], prevented: false},
+                  {tagName: 'TEXTAREA', key: 'ArrowDown', regions: ['neo-selection'], prevented: false},
+                  {tagName: 'INPUT', key: 'Tab', regions: ['neo-grid-editor'], prevented: true},
+                  {tagName: 'TEXTAREA', key: 'Tab', regions: ['neo-table-editor'], prevented: true},
+                  {tagName: 'INPUT', key: 'ArrowDown', altKey: true, regions: ['neo-pickerfield'], prevented: true},
+                  {tagName: 'INPUT', key: 'PageDown', regions: ['neo-grid-editor'], prevented: true},
+                  {tagName: 'DIV', key: ' ', regions: ['neo-menu-list'], prevented: true},
+                  {tagName: 'BUTTON', key: ' ', regions: [], prevented: false}
+              ];
+
+        for (const {tagName, key, altKey, regions, closest, prevented} of cases) {
+            let   defaultPrevented = false, forwards = 0;
+            const event            = {target: {tagName, closest}, key, altKey, preventDefault: () => { defaultPrevented = true }},
+                  owner = {
+                      getKeyboardEventData: value => value,
+                      sendMessageToApp    : () => forwards++,
+                      testPathInclusion   : (value, classes) => classes.some(cls => regions.includes(cls))
+                  };
+            DomEvents.onKeyDown.call(owner, event);
+            expect(defaultPrevented, `${tagName} ${key} in ${regions}`).toBe(prevented);
+            expect(forwards).toBe(1)
+        }
+    });
+
     let originalGetElement, originalGetEventData, originalSend;
 
     test.beforeAll(() => {
@@ -316,12 +347,12 @@ test.describe('Neo.main.DomEvents', () => {
     // press-then-move, and the canvas mouse state reads the whole jump as movement of a held button.
     test('every other mouse event sends a move still waiting for its frame first; moves alone still send once per frame', () => {
         const
-            sent     = [],
-            frames   = [],
-            rafWas   = globalThis.requestAnimationFrame,
-            cafWas   = globalThis.cancelAnimationFrame,
-            mouse    = (type, clientX, extra) => ({
-                altKey: false, button: 0, buttons: 0, clientX, clientY: 70, composedPath: () => [node, documentRef.body],
+            sent   = [],
+            frames = [],
+            rafWas = globalThis.requestAnimationFrame,
+            cafWas = globalThis.cancelAnimationFrame,
+            mouse  = (type, clientX, extra) => ({
+                altKey : false, button: 0, buttons: 0, clientX, clientY: 70, composedPath: () => [node, documentRef.body],
                 ctrlKey: false, metaKey: false, preventDefault: () => {}, shiftKey: false, stopPropagation: () => {}, type, ...extra
             }),
             // one move to 200 still waiting for its frame, then the other event
@@ -374,7 +405,7 @@ test.describe('Neo.main.DomEvents', () => {
             dateSelector  = {...node, classList: {contains: cls => cls === 'neo-dateselector'}},
             bufferedWheel = () => DomEvents.onWheel(wheelOn(dateSelector, {composedPath: () => [dateSelector, documentRef.body]})),
             move          = clientX => DomEvents.onMouseMove({
-                altKey: false, button: 0, buttons: 0, clientX, clientY: 70, composedPath: () => [node, documentRef.body],
+                altKey : false, button: 0, buttons: 0, clientX, clientY: 70, composedPath: () => [node, documentRef.body],
                 ctrlKey: false, metaKey: false, preventDefault: () => {}, shiftKey: false, stopPropagation: () => {}, type: 'mousemove'
             }),
             runFrames     = () => frames.splice(0).forEach(frame => frame?.());

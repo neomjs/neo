@@ -51,8 +51,6 @@ class PoolingCellComponent extends Component {
 PoolingCellComponent = Neo.setupClass(PoolingCellComponent);
 
 test.describe('Grid Pooling & Fixed-DOM-Order', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, store;
 
     // Helper to capture deltas during an operation

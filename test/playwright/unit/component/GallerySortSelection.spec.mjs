@@ -8,15 +8,17 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import Component      from '../../../../src/component/Base.mjs';
-import Gallery        from '../../../../src/component/Gallery.mjs';
-import GalleryModel   from '../../../../src/selection/GalleryModel.mjs';
-import Helix          from '../../../../src/component/Helix.mjs';
-import HelixModel     from '../../../../src/selection/HelixModel.mjs';
-import SelectionModel from '../../../../src/selection/Model.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import Component          from '../../../../src/component/Base.mjs';
+import Gallery            from '../../../../src/component/Gallery.mjs';
+import GalleryModel       from '../../../../src/selection/GalleryModel.mjs';
+import Helix              from '../../../../src/component/Helix.mjs';
+import HelixModel         from '../../../../src/selection/HelixModel.mjs';
+import SelectionModel     from '../../../../src/selection/Model.mjs';
+import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 /**
  * Guards the selection state surviving a store-driven item rebuild.
@@ -231,32 +233,33 @@ test.describe('Gallery / Helix selection across an item rebuild', () => {
         });
     }
 
-    test('Gallery#onStoreLoad restores through the concrete model, not the base contract', () => {
-        const model = mount(GalleryModel);
-
-        model.items.push('item-2');
-
-        let cameraRecentred = false;
-
-        const gallery = {
-            selectionModel: model,
-            createItems() {
-                view.vdom.cn = buildItems(['item-2', 'item-1', 'item-3'])
-            },
-            getItemsRoot: () => view.vdom,
-            onSelectionChange() {
-                cameraRecentred = true
+    test('Gallery#onStoreLoad restores through the concrete model, not the base contract', async () => {
+        const gallery = Neo.create(Gallery, {
+            appName,
+            useInternalId: false,
+            store        : {
+                model: {fields: [{name: 'id', type: 'String'}, {name: 'image', type: 'String'}]},
+                data : ['item-1', 'item-2', 'item-3'].map(id => ({id, image: 'item.png'}))
             }
-        };
-
-        Gallery.prototype.onStoreLoad.call(gallery, []);
-
-        expect(itemNode('item-2').cls).toContain('neo-selected');
-        expect(itemNode('item-2')['aria-selected']).toBe(true);
-
-        // The camera must follow the selected item to its new cell — this call used to sit behind the
-        // unreachable `hasChange` guard in `onSort`, so it never ran on a sort.
-        expect(cameraRecentred).toBe(true);
+        });
+        const store           = gallery.store;
+        let   cameraRecentred = false;
+        try {
+            await gallery.initVnode();
+            gallery.onSelectionChange = () => { cameraRecentred = true };
+            gallery.selectionModel.items.push('item-3');
+            const oldNode = gallery.getVdomChild(`${gallery.id}__item-3`);
+            store.sort({property: 'id', direction: 'DESC'});
+            const node = gallery.getVdomChild(`${gallery.id}__item-3`);
+            expect(node).not.toBe(oldNode);
+            expect(node.cls).toContain('neo-selected');
+            expect(node['aria-selected']).toBe(true);
+            expect(gallery.getItemsRoot().cn[0]).toBe(node);
+            expect(cameraRecentred).toBe(true)
+        } finally {
+            gallery.destroy();
+            store.destroy()
+        }
     });
 
     test('Helix#onStoreLoad restores the annotation, without the camera pass', () => {
