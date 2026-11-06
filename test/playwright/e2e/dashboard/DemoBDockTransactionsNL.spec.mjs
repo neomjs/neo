@@ -6,11 +6,12 @@ const {NeuralLink_InstanceService} = await loadNeuralLinkModules();
  * @summary Whitebox E2E witness for one dock Group's deployed Neural Link transaction tools.
  *
  * Demo B supplies the live Group identity. An agent stages two semantic mutations into one
- * Group write, then uses the public transaction tools to inspect, archive, undo, redo and
- * replay it. The legacy writer stack remains separate:
+ * Group write, then uses the public transaction tools to inspect, undo and redo it. Saving and
+ * replaying go through the Brain's Memory Core archive, so they are the Brain's to test. The
+ * legacy writer stack remains separate:
  *
  *   begin_transaction(groupId) → two moveItem mutations → commit_transaction(groupId)
- *   → list/save → undo/redo → undo/replay → undo
+ *   → list → undo/redo → undo
  *
  * Assertions read the committed documents and Group cursor through Neural Link. A missing
  * Group must refuse before mutation, while omitting groupId must stay on the legacy stack.
@@ -24,7 +25,7 @@ test.describe('Dashboard Demo B — deployed dock Group transaction tools', () =
         viewport      : {height: 720, width: 760}
     });
 
-    test('one Group batch can be listed, saved, undone, redone and replayed without touching legacy history', async ({page, neuralLink}) => {
+    test('one Group batch can be listed, undone and redone without touching legacy history', async ({page, neuralLink}) => {
         const pageErrors    = [],
               runtimeErrors = [];
 
@@ -124,15 +125,7 @@ test.describe('Dashboard Demo B — deployed dock Group transaction tools', () =
         expect(await NeuralLink_InstanceService.listTransactions({sessionId: app.sessionId}))
             .toEqual(legacyBefore);
 
-        // 4. Save the listed Group row through the Brain archive boundary.
-        const saved = await NeuralLink_InstanceService.saveTransaction({
-            ...scope, txId: listedRow.txId, name: 'Saved spec dock burst'
-        });
-
-        expect(saved.saved, `save_transaction returned: ${JSON.stringify(saved)}`).toBe(true);
-        expect(saved.archiveId).toBeTruthy();
-
-        // 5. Undo restores the exact source document and moves only the Group cursor.
+        // 4. Undo restores the exact source document and moves only the Group cursor.
         const undone = await NeuralLink_InstanceService.undo(scope);
 
         expect(undone.undone).toBe(true);
@@ -150,7 +143,7 @@ test.describe('Dashboard Demo B — deployed dock Group transaction tools', () =
         expect(groupAfterUndo.committed).toHaveLength(groupBefore.committed.length);
         expect(groupAfterUndo.redo.at(-1).txId).toBe(listedRow.txId);
 
-        // 6. Redo re-applies the one Group row without appending another.
+        // 5. Redo re-applies the one Group row without appending another.
         const redone = await NeuralLink_InstanceService.redo(scope);
 
         expect(redone.redone).toBe(true);
@@ -162,20 +155,12 @@ test.describe('Dashboard Demo B — deployed dock Group transaction tools', () =
         expect((await NeuralLink_InstanceService.listTransactions(scope)).committed.at(-1).txId)
             .toBe(listedRow.txId);
 
-        // 7. An unknown explicit Group is refused without moving either cursor or document.
+        // 6. An unknown explicit Group is refused without moving either cursor or document.
         expect(await NeuralLink_InstanceService.undo({sessionId: app.sessionId, groupId: `${groupId}-missing`}))
             .toMatchObject({undone: false, reason: 'unknown-group'});
         expect((await app.getDockTopology(wsId)).document).toEqual(movedDocument);
 
-        // 8. Undo, replay the saved data as a new row, then undo that new row.
-        expect((await NeuralLink_InstanceService.undo(scope)).undone).toBe(true);
-        expect((await app.getDockTopology(wsId)).document).toEqual(baseline);
-
-        const replayed = await NeuralLink_InstanceService.replayTransaction({...scope, archiveId: saved.archiveId});
-
-        expect(replayed.replayed, `replay_transaction returned: ${JSON.stringify(replayed)}`).toBe(true);
-        expect(replayed.txId).not.toBe(listedRow.txId);
-        expect((await app.getDockTopology(wsId)).document).toEqual(movedDocument);
+        // 7. A last undo restores the baseline, and the legacy writer stack stays untouched.
         expect((await NeuralLink_InstanceService.undo(scope)).undone).toBe(true);
         expect((await app.getDockTopology(wsId)).document).toEqual(baseline);
         expect(await NeuralLink_InstanceService.listTransactions({sessionId: app.sessionId}))
